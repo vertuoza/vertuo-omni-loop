@@ -432,6 +432,34 @@ describe('a before/after page of the two-tab shape (PRD 2239)', () => {
   });
 });
 
+describe('a before/after page of the three-tab shape (PRD 2850)', () => {
+  const folder = `${IN}/0042-inbox-and-planner`;
+  const screens = (marks: string) =>
+    `<section data-tab="pixel-perfect"><div data-section="pixel-perfect" data-state="filled"><p>screens: quote-list</p><div data-screen="quote-list" ${marks}><template>x</template></div></div></section>`;
+  const page = (pixel: string) =>
+    `<!doctype html><html><head><meta name="omni-before-after" content="3"></head><body><section data-tab="functional"><div data-section="functional" data-state="filled">x</div></section><section data-tab="technical"><div data-section="flow" data-state="na">N/A — one service</div></section>${pixel}</body></html>`;
+  const files = (html: string) => ({ [`${folder}/spec.md`]: specText(), [`${folder}/before-after.html`]: html });
+
+  it('passes a version 3 page that keeps the nine rules, in findInboxViolations and inboxViolationsFor', () => {
+    const { ctx } = makeRepo({ files: files(page(screens('data-ref="1.A" data-when="after" data-viewport="1280"'))) });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(42) })).toEqual([]);
+  });
+
+  it('refuses a version 3 page that breaks a rule of the screens, naming the file and the screen', () => {
+    const { ctx } = makeRepo({ files: files(page(screens('data-ref="1.A" data-when="after"'))) });
+    const expected = [`${folder}/before-after.html: screen "quote-list" (1.A) has no data-viewport (a width in CSS pixels, 320 to 2560)`];
+    expect(findInboxViolations({ ctx })).toEqual(expected);
+    expect(inboxViolationsFor({ ctx, prd: parsePrd(42) })).toEqual(expected);
+  });
+
+  it('grades a version 2 page exactly as before, whatever it holds of the screens', () => {
+    const v2 = page(screens('data-ref="bad"')).replace('content="3"', 'content="2"');
+    const { ctx } = makeRepo({ files: files(v2) });
+    expect(findInboxViolations({ ctx })).toEqual([]);
+  });
+});
+
 describe("the product's avoided words in a spec (PRD 2299)", () => {
   const COPY = '.omni-loop/local/product-knowledge.json';
   const folder = `${IN}/0042-a`;

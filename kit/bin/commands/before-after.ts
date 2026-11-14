@@ -1,7 +1,8 @@
 // `omni before-after new <n> --services <name>,<name>… [--force]` (PRD 2239, s2) — writes PRD n's
 // `before-after.html` into its inbox folder from the kit's skeleton (`kit/templates/before-after/page.html`):
-// the head and its meta, the styles, the two tabs, and for each named service its blocks with every
-// section a `<!-- FILL -->`. It prints `wrote <path>`, exit 0. It refuses, writing nothing, with one line
+// the head and its version 3 meta, the styles, the three tabs (Functional, Technical, Pixel perfect,
+// PRD 2850), the one Pixel perfect section of the page, and for each named service its blocks with
+// every section a `<!-- FILL -->`. It prints `wrote <path>`, exit 0. It refuses, writing nothing, with one line
 // on stderr and exit 1: a PRD with no inbox folder, a page already there (unless `--force`), and a
 // missing or empty `--services`. A usage mistake (a missing or unknown verb, a bad number) exits 2.
 //

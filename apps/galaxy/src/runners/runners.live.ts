@@ -4,6 +4,7 @@ import { serviceDb } from '../data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { serverEnv } from '../env';
 import { productsRepository, type ProductsRepository } from '../products/products.repository';
+import { wakeMission } from '../missions/missions.live';
 import { liveNotifier } from '../public-api/notify.live';
 import type { RunnersDeps } from './runners.controller';
 import { githubDeps } from './runners.github';
@@ -45,7 +46,7 @@ const productRepos = (products: ProductsRepository): ProductRepos => async (work
 function liveRunnersService(): RunnersService | null {
   if (!supabaseEnv() || serverEnv().serviceRole === null) return null;
   const db = serviceDb();
-  return runnersService(runnersRepository(db), clock, omniGithub(), liveNotifier(), productRepos(productsRepository(db)), checkpointsRepository(db));
+  return runnersService(runnersRepository(db), clock, omniGithub(), liveNotifier(), productRepos(productsRepository(db)), checkpointsRepository(db), wakeMission);
 }
 
 /** A job's save (PRD 2809, s4) over the service role's client, which signs the upload links; null when this deployment has none. */

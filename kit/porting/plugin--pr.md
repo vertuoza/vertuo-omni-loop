@@ -170,3 +170,10 @@ never runs it, and an `omni ref` that exits 1 leaves the title unchanged.
 ### Tests
 
 `kit/test/design-skills.test.ts`, `kit/test/pr-ref.test.ts`.
+
+## PRD 2850, slice s4 — the screens line in either shape
+
+Not a re-port: kit-local prose. The feature PR's **Pixel perfect** line reads the `screens:` line from
+the Pixel perfect tab of a version 3 page, or from the Pixel perfect section of a version 2 page, and
+gives `none` for `Pixel perfect: no screen changes` or when neither exists. Tested in
+`kit/test/design-skills.test.ts` and `kit/test/before-after-skills.test.ts`.

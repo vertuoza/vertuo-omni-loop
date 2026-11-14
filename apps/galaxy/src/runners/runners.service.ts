@@ -548,9 +548,11 @@ const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<strin
 /** `github` is the deployment's Omni App and its means to mint a job's token (PRD 2573); with none, every claimed job fails, the App not
  * configured. `notifier` pings the link of a job a key sent when its status, outcome or questions change (PRD 2425 s8); with none, no
  * link is taken. `products` reads the product repositories a mega bug fix no key sent reaches (PRD 2573); with none, its own alone.
- * `saves` reads the saves a resume's chain left and signs their download links (PRD 2809, s5); with none, a resume carries no save. */
+ * `saves` reads the saves a resume's chain left and signs their download links (PRD 2809, s5); with none, a resume carries no save.
+ * `woke` is told the mission of a job it sent that ended (PRD 2842 s5), so the mission is woken at once; with none, nothing is. */
 export function runnersService(
   store: RunnersRepository, clock: Clock, github: GithubDeps | null = null, notifier: Notifier = NO_NOTIFIER, products: ProductRepos = NO_PRODUCTS, saves: ResumeSaves = NO_SAVES,
+  woke: (missionId: string) => void = () => undefined,
 ) {
   const iso = () => clock.now().toISOString();
   const ago = (ms: number) => new Date(clock.now().getTime() - ms).toISOString();
@@ -559,8 +561,10 @@ export function runnersService(
 
   /** Tells the job's link that its status, outcome or questions changed (PRD 2425 s8), once the change is stored; a job with no link tells
    * none. The notifier answers after the response and never throws, so a ping never changes what a request answers. */
-  const tell = (job: Pick<JobRow, 'id' | 'notify_url'>, event: PingEvent): void => {
+  const tell = (job: Pick<JobRow, 'id' | 'notify_url' | 'status' | 'mission_id'>, event: PingEvent): void => {
     if (job.notify_url) notifier.ping({ url: job.notify_url, jobId: job.id, event, at: iso() });
+    // A job a mission sent that ended wakes that mission at once (PRD 2842 s5); a question is no end.
+    if (event !== 'questions' && job.mission_id && ENDED.includes(job.status)) woke(job.mission_id);
   };
   /** Tells the link of a job the change that took it from `before` to `after`, when it is one. */
   const tellChange = (before: JobRow, after: JobRow): void => {

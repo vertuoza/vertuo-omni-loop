@@ -272,9 +272,9 @@ describe('the before/after has a Functional part and a Pixel perfect part (PRD 1
 
   it('brainstorm, with design on, writes the Functional section, then the Pixel perfect section (PRD 2239)', () => {
     expect(
-      inOrder(page(), ['**Two tabs,**', '**Functional** (`data-section="functional"`)', '**Pixel perfect** (`data-section="pixel-perfect"`)', 'screens: quote-list · app-shell', '`Pixel perfect: no screen changes`']),
+      inOrder(page(), ['**Three tabs,**', '**Functional** (`data-section="functional"`)', '**Pixel perfect** (`pixel-perfect`, the third tab)', '(`data-section="pixel-perfect"`)', 'screens: quote-list · app-shell', '`Pixel perfect: no screen changes`']),
     ).toEqual([]);
-    expect(page()).toMatch(/the section review and the word pass read/);
+    expect(page()).toMatch(/the line review and\s+the word pass\s+read/);
     expect(page()).toMatch(/With the design flag off, the section is `na`/);
   });
 

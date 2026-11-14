@@ -1,8 +1,12 @@
-// PRD 2239, s2: the skeleton of a before/after page of the two-tab shape (spec §2). The page's head,
-// styles and tabs are the kit's template (`kit/templates/before-after/page.html`); this fills in the
-// PRD's number and, for each named service, its block in each tab with every section a
+// PRD 2239, s2: the skeleton of a before/after page (spec §2). The page's head, styles and tabs are
+// the kit's template (`kit/templates/before-after/page.html`); this fills in the PRD's number and, for
+// each named service, its block in the Functional and Technical tabs with every section a
 // `<!-- FILL -->` for the agent to replace. Pure: it reads the template's text it is handed, never
 // the disk.
+//
+// PRD 2850, s1: the template is of version 3: three tabs, Functional, Technical and Pixel perfect.
+// The Pixel perfect section is written once for the page, in its own tab, by the template itself: it
+// belongs to no service, so a service's Functional block holds its Functional section alone.
 
 import type { PrdNumber } from '../ids.ts';
 
@@ -12,11 +16,8 @@ const MARKS = { prd: '{{prd}}', functional: '{{functional}}', technical: '{{tech
 /** A service name: a word the page can carry in an attribute and a heading unescaped. */
 const SERVICE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-/** The sections of a service in the Functional & design tab: their `data-section` and heading. */
-const FUNCTIONAL_SECTIONS = [
-  ['functional', 'Functional'],
-  ['pixel-perfect', 'Pixel perfect'],
-] as const;
+/** The sections of a service in the Functional tab: their `data-section` and heading. */
+const FUNCTIONAL_SECTIONS = [['functional', 'Functional']] as const;
 
 /** The sections of a service in the Technical tab: their `data-section` and heading. */
 const TECHNICAL_SECTIONS = [

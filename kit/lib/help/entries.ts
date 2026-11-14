@@ -481,16 +481,18 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     kind: 'command',
     who: 'skills',
     usage: ['omni before-after new <n> --services <name>,<name>… [--force]', 'omni before-after render <n>'],
-    summary: "writes a PRD's before/after page in two tabs, and draws its diagrams",
+    summary: "writes a PRD's before/after page in three tabs, and draws its diagrams",
     detail:
       'The verbs /omni:brainstorm runs. new writes before-after.html into PRD n\'s inbox folder from the ' +
-      "kit's skeleton: the Functional & design tab first and open, the Technical tab second, one block " +
-      'per named service in each, every section a <!-- FILL --> to replace with filled, na or gap. It ' +
+      "kit's skeleton: three tabs, Functional first and open, Technical second, and Pixel perfect third, " +
+      'where the marked screens are drawn whole, each at its declared width, with an index of their ' +
+      'references. One block per named service in Functional and in Technical, and one Pixel perfect ' +
+      'section for the page; every section a <!-- FILL --> to replace with filled, na or gap. It ' +
       'refuses, writing nothing, a PRD with no inbox folder, a page already there unless --force, and ' +
       'a missing or empty --services, each with one line and exit 1. render replaces each ' +
       '<pre class="mermaid"> of the page with the SVG Mermaid draws for it, inline, in a headless ' +
       'Chromium from the repository\'s Playwright; it prints one line per diagram and refuses, with the ' +
-      'install line, when no browser starts. omni check inbox grades a page of this shape: both tabs, ' +
+      'install line, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
       'a valid state on every section, no FILL marker, no diagram left unrendered, no external resource.',
   },
   {
@@ -1159,6 +1161,21 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'check. --base defaults to {remote}/{defaultBranch}.',
   },
   {
+    name: 'mission',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni mission push <n>'],
+    summary: "send a mission's brief to its page",
+    detail:
+      "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
+      "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
+      'sending nothing, when mission.md does not read through the brief\'s schema (its fleet, goal, ' +
+      '0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the ' +
+      'network or is over the size cap. The page keeps every version and adds one only of a file that ' +
+      'changed; the mission waits in draft until a person starts it. Prints the page\'s link and the ' +
+      'versions added.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',
@@ -1732,6 +1749,28 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:bug-fix the Send button does nothing',
       result: 'a triage on the issue, then one PR with the fix and its test',
+    },
+  },
+  {
+    name: 'mission',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mission', "/omni:mission --prd <n> '<goal>'"],
+    label: '/omni:mission',
+    summary: 'a goal for a Virtual Fleet, as a brief on its page',
+    detail:
+      'Settles a mission with you, one question at a time: the Virtual Fleet that takes it, its goal, ' +
+      '1 to 5 measures, its scope of PRDs and roadmaps and how many may run at once. It writes the ' +
+      'brief, mission.md and mission.html, under {delivery}/missions/, opens the mission\'s issue and a ' +
+      'docs PR into {defaultBranch}, and sends the brief to its page with omni mission push. Starting ' +
+      'the mission is the button on its page and never waits for the PR. With --prd <n> and a goal it ' +
+      'asks nothing and writes the minimal mission, that PRD as its scope. It writes no code and never ' +
+      'merges.',
+    group: 'start',
+    when: 'Use it when you want a Virtual Fleet to deliver a goal, over one PRD or several, with you answering only where a person is needed.',
+    example: {
+      type: "/omni:mission --prd 2803 'dark mode for quotes on site'",
+      result: "a mission's brief on its page, ready for Start, and a docs PR",
     },
   },
   {

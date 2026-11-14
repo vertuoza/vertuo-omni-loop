@@ -69,6 +69,9 @@ export const CanonActionRequestDataSchema = SourceSchema.extend({
   facts: CanonFactsSchema,
 });
 
+/** A mission's run (PRD 2842 s4, ../missions/job.ts): the mission it supervises, by its id, and nothing else. */
+export const MissionJobDataSchema = z.object({ mission: z.uuid() });
+
 export type CheckRequestData = z.infer<typeof CheckRequestDataSchema>;
 /** A merged pull request, for the retro: a type only, as the retro parses its payload itself. */
 export type RetroRequestData = z.infer<typeof SourceSchema> & { prNumber: PrNumber; mergeSha: string; mergedAt: string };

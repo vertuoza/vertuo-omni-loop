@@ -2360,6 +2360,125 @@ export type Database = {
           },
         ]
       }
+      mission_events: {
+        Row: {
+          actor: string
+          at: string
+          id: string
+          job_id: string | null
+          kind: string
+          link: string | null
+          mission_id: string
+          prd: number | null
+          role: string
+          sentence: string
+        }
+        Insert: {
+          actor: string
+          at?: string
+          id?: string
+          job_id?: string | null
+          kind: string
+          link?: string | null
+          mission_id: string
+          prd?: number | null
+          role: string
+          sentence: string
+        }
+        Update: {
+          actor?: string
+          at?: string
+          id?: string
+          job_id?: string | null
+          kind?: string
+          link?: string | null
+          mission_id?: string
+          prd?: number | null
+          role?: string
+          sentence?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_events_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missions: {
+        Row: {
+          created_at: string
+          fleet: string
+          goal: string
+          id: string
+          mandate: Json
+          measures: Json
+          next_wake_at: string | null
+          number: number
+          repo: string
+          scope: Json
+          started_by: string | null
+          status: string
+          title: string
+          updated_at: string
+          waiting_on: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          fleet: string
+          goal: string
+          id?: string
+          mandate?: Json
+          measures?: Json
+          next_wake_at?: string | null
+          number: number
+          repo: string
+          scope: Json
+          started_by?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          waiting_on?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          fleet?: string
+          goal?: string
+          id?: string
+          mandate?: Json
+          measures?: Json
+          next_wake_at?: string | null
+          number?: number
+          repo?: string
+          scope?: Json
+          started_by?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          waiting_on?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "missions_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
       outbox_items: {
         Row: {
           bears_on: string
@@ -4512,6 +4631,8 @@ export type Database = {
           id: string
           line: string
           log_tail: string
+          mission_id: string | null
+          mission_key: string | null
           notify_url: string | null
           outcome: string | null
           parts: Json | null
@@ -4552,6 +4673,8 @@ export type Database = {
           id?: string
           line: string
           log_tail?: string
+          mission_id?: string | null
+          mission_key?: string | null
           notify_url?: string | null
           outcome?: string | null
           parts?: Json | null
@@ -4592,6 +4715,8 @@ export type Database = {
           id?: string
           line?: string
           log_tail?: string
+          mission_id?: string | null
+          mission_key?: string | null
           notify_url?: string | null
           outcome?: string | null
           parts?: Json | null
@@ -4630,6 +4755,13 @@ export type Database = {
             columns: ["continues"]
             isOneToOne: false
             referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runner_jobs_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
             referencedColumns: ["id"]
           },
           {
@@ -4985,6 +5117,7 @@ export type Database = {
         Row: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -4999,6 +5132,7 @@ export type Database = {
         Insert: {
           color: string
           home?: string | null
+          kind?: string
           label: string
           mascot?: string | null
           motto?: string
@@ -5013,6 +5147,7 @@ export type Database = {
         Update: {
           color?: string
           home?: string | null
+          kind?: string
           label?: string
           mascot?: string | null
           motto?: string
@@ -5037,6 +5172,66 @@ export type Database = {
             columns: ["workspace_id", "home"]
             isOneToOne: false
             referencedRelation: "sectors"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
+      virtual_heroes: {
+        Row: {
+          agent: string
+          created_at: string
+          fleet: string
+          id: string
+          limits: string[]
+          model: string
+          name: string
+          position: number
+          role: string
+          skills: string[]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          agent: string
+          created_at?: string
+          fleet: string
+          id?: string
+          limits?: string[]
+          model: string
+          name: string
+          position: number
+          role: string
+          skills?: string[]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          agent?: string
+          created_at?: string
+          fleet?: string
+          id?: string
+          limits?: string[]
+          model?: string
+          name?: string
+          position?: number
+          role?: string
+          skills?: string[]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_heroes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtual_heroes_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["workspace_id", "name"]
           },
         ]
@@ -5272,6 +5467,29 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "repositories"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      add_virtual_hero: {
+        Args: { p_fleet: string; p_role: string; p_workspace: string }
+        Returns: {
+          agent: string
+          created_at: string
+          fleet: string
+          id: string
+          limits: string[]
+          model: string
+          name: string
+          position: number
+          role: string
+          skills: string[]
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "virtual_heroes"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -6238,6 +6456,36 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
+          label: string
+          mascot: string | null
+          motto: string
+          name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
+          retired_at: string | null
+          sort: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "teams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_virtual_fleet: {
+        Args: {
+          p_mascot: string
+          p_name: string
+          p_roles: string[]
+          p_workspace: string
+        }
+        Returns: {
+          color: string
+          home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -6526,6 +6774,19 @@ export type Database = {
         Args: { p_user: string; p_workspace: string }
         Returns: string
       }
+      mission_mandate_ok: { Args: { p_mandate: Json }; Returns: boolean }
+      mission_measures_ok: { Args: { p_measures: Json }; Returns: boolean }
+      mission_push: {
+        Args: {
+          p_artifacts: Json
+          p_brief: Json
+          p_mission: number
+          p_repo: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      mission_scope_ok: { Args: { p_scope: Json }; Returns: boolean }
       my_github: {
         Args: never
         Returns: {
@@ -7855,6 +8116,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      remove_virtual_hero: {
+        Args: { p_hero: string; p_workspace: string }
+        Returns: undefined
+      }
       repo_workspace: {
         Args: { person: string; repo: string }
         Returns: Record<string, unknown>
@@ -7877,6 +8142,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -7900,6 +8166,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -8108,6 +8375,8 @@ export type Database = {
           id: string
           line: string
           log_tail: string
+          mission_id: string | null
+          mission_key: string | null
           notify_url: string | null
           outcome: string | null
           parts: Json | null
@@ -8163,6 +8432,8 @@ export type Database = {
           id: string
           line: string
           log_tail: string
+          mission_id: string | null
+          mission_key: string | null
           notify_url: string | null
           outcome: string | null
           parts: Json | null
@@ -8329,6 +8600,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -8580,6 +8852,7 @@ export type Database = {
         Returns: {
           color: string
           home: string | null
+          kind: string
           label: string
           mascot: string | null
           motto: string
@@ -8601,6 +8874,8 @@ export type Database = {
       valid_hero: { Args: { h: Json }; Returns: boolean }
       valid_persona_avatar: { Args: { p_avatar: Json }; Returns: boolean }
       valid_theme: { Args: { t: Json }; Returns: boolean }
+      virtual_fleet_colors: { Args: never; Returns: string[] }
+      virtual_hero_roles: { Args: never; Returns: Json }
       working_ping: {
         Args: {
           p_claude_session_id: string

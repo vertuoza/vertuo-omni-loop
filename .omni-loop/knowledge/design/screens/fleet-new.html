@@ -1,0 +1,87 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>fleet-new</title><style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"] { display: block; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+
+.mock{--g:#07061c;--sf:#120f3a;--ink:#f2f4ff;--mu:#8a90d6;--ln:#1a2170;--red:#ff6b86;--grn:#4ee08a;--pl:#ffd84a;--onpl:#07061c;--cy:#5ee7ff;
+background:var(--g);color:var(--ink);border:1px solid var(--ln);border-radius:8px;padding:14px;font:14px/1.55 "Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif}
+.mock h5{margin:0 0 6px;font-size:15px}.mock .tabs2{display:flex;gap:14px;border-bottom:1px solid var(--ln);margin:0 0 10px;font-size:13px}
+.mock .tabs2 span{padding:4px 0;color:var(--mu)}.mock .tabs2 .on{color:var(--ink);border-bottom:2px solid var(--pl)}
+.mock table{width:100%;border-collapse:collapse;margin:6px 0 0}.mock th{color:var(--mu);font-size:12px;text-transform:none;letter-spacing:0;border-bottom:1px solid var(--ln)}
+.mock td{border-bottom:1px solid var(--ln);font-size:13px}.mock .mut{color:var(--mu);font-size:12px;display:block}.mock a{color:var(--cy)}
+.mock .now{margin:0;padding:0;list-style:none;font-size:13px}.mock .now li{padding:3px 0;border-bottom:1px solid var(--ln)}
+.mock button{background:var(--pl);color:var(--onpl);border:0;border-radius:6px;padding:4px 10px;font:inherit;font-weight:700}
+.mock .ghost{background:transparent;color:var(--ink);border:1px solid var(--ln)}.mock .red{color:var(--red)}.mock .grn{color:var(--grn)}
+.cap{color:var(--muted);font-size:13px;margin:6px 0 0}
+
+.mock .chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.mock .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--ln);border-radius:999px;padding:2px 10px;font-size:13px}
+.mock .chip.on{border-color:var(--ink)}.mock .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}.mock .tile{border:1px solid var(--ln);border-radius:6px;padding:6px}
+.mock .tile b{display:block;font-size:18px}.mock .tile span{color:var(--mu);font-size:11px}.mock .bars{display:flex;align-items:flex-end;gap:3px;height:40px;border-bottom:1px solid var(--ln)}
+.mock .bars i{display:block;width:10px;background:var(--cy);opacity:.7}.mock .new{border:1px dashed var(--pl);color:var(--pl);background:transparent}
+.mock.stage{position:relative;overflow:hidden;min-height:470px;padding:0}.mock.stage .behind{padding:14px;opacity:.35}
+.mock .drawer{position:absolute;top:0;right:0;bottom:0;width:72%;background:var(--sf);border-left:1px solid var(--ln);padding:14px;display:flex;flex-direction:column;gap:10px}
+.mock .drawer h5{font-size:16px}.mock label.f{display:block;font-size:12px;color:var(--mu);margin:0 0 3px}
+.mock .input{border:1px solid var(--ln);border-radius:6px;padding:6px 8px;background:var(--g);color:var(--ink);font-size:14px}.mock .input.focus{border-color:var(--pl)}
+.mock .icons{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.mock .icons span{display:grid;place-items:center;border:1px solid var(--ln);border-radius:6px;height:34px}
+.mock .icons span.on{border:2px solid var(--pl)}.mock .role{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--ln);padding:5px 0;font-size:13px}
+.mock .tog{width:30px;height:16px;border-radius:999px;background:var(--ln);position:relative;flex:none}.mock .tog::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--mu)}
+.mock .tog.on{background:var(--pl)}.mock .tog.on::after{left:16px;background:var(--onpl)}.mock .foot{margin-top:auto;display:flex;gap:8px;justify-content:flex-end}
+.mock .err{color:var(--red);font-size:12px}
+</style></head><body><div class="mock stage" data-screen="fleet-new"><div class="behind"><div class="chips"><span class="chip on"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#5ee7ff"/><rect x="1" y="2" width="6" height="3" fill="#5ee7ff"/><rect x="0" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="6" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="2" y="5" width="4" height="2" fill="#5ee7ff"/></svg> Blue Fleet ◀</span><span class="chip"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="0" width="4" height="4" fill="#ff6b86"/><rect x="1" y="4" width="1" height="3" fill="#ff6b86"/><rect x="3" y="4" width="1" height="4" fill="#ff6b86"/><rect x="4" y="4" width="1" height="4" fill="#ff6b86"/><rect x="6" y="4" width="1" height="3" fill="#ff6b86"/></svg> Red Fleet</span></div>
+<h5><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#5ee7ff"/><rect x="1" y="2" width="6" height="3" fill="#5ee7ff"/><rect x="0" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="6" y="5" width="2" height="1" fill="#5ee7ff"/><rect x="2" y="5" width="4" height="2" fill="#5ee7ff"/></svg> Blue Fleet</h5><p class="mut">#2 of 5 fleets · Season 3</p>
+<div class="tiles"><div class="tile"><b>14</b><span>PRs merged</span></div><div class="tile"><b>5</b><span>PRDs</span></div><div class="tile"><b>3</b><span>Repositories</span></div><div class="tile"><b>9</b><span>Questions answered</span></div></div>
+<p class="mut">PRs merged per day · 7 days</p><div class="bars"><i style="height:30%"></i><i style="height:60%"></i><i style="height:20%"></i><i style="height:80%"></i><i style="height:50%"></i><i style="height:70%"></i><i style="height:40%"></i></div></div>
+<div class="drawer"><h5>New virtual fleet</h5>
+<div><label class="f">Name</label><div class="input focus"><span class=mut>Night Shift</span></div></div>
+<div><label class="f">Icon</label><div class="icons"><span class="on" title="beaver"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="4" height="3" fill="#4ee08a"/><rect x="3" y="4" width="2" height="1" fill="#4ee08a"/><rect x="1" y="5" width="6" height="3" fill="#4ee08a"/></svg></span><span class="" title="octopus"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="0" width="4" height="4" fill="#8a90d6"/><rect x="1" y="4" width="1" height="3" fill="#8a90d6"/><rect x="3" y="4" width="1" height="4" fill="#8a90d6"/><rect x="4" y="4" width="1" height="4" fill="#8a90d6"/><rect x="6" y="4" width="1" height="3" fill="#8a90d6"/></svg></span><span class="" title="duck"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="3" height="3" fill="#8a90d6"/><rect x="5" y="2" width="2" height="1" fill="#8a90d6"/><rect x="1" y="4" width="5" height="3" fill="#8a90d6"/></svg></span><span class="" title="shark"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="3" y="0" width="1" height="2" fill="#8a90d6"/><rect x="1" y="2" width="6" height="3" fill="#8a90d6"/><rect x="0" y="5" width="2" height="1" fill="#8a90d6"/><rect x="6" y="5" width="2" height="1" fill="#8a90d6"/><rect x="2" y="5" width="4" height="2" fill="#8a90d6"/></svg></span><span class="" title="turtle"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="2" width="4" height="3" fill="#8a90d6"/><rect x="1" y="5" width="6" height="1" fill="#8a90d6"/><rect x="6" y="3" width="2" height="2" fill="#8a90d6"/><rect x="1" y="6" width="1" height="1" fill="#8a90d6"/><rect x="6" y="6" width="1" height="1" fill="#8a90d6"/></svg></span><span class="" title="robot"><svg width="24" height="24" viewBox="0 0 8 8" style="image-rendering:pixelated" aria-hidden="true"><rect x="2" y="1" width="4" height="3" fill="#8a90d6"/><rect x="1" y="4" width="6" height="3" fill="#8a90d6"/><rect x="3" y="0" width="2" height="1" fill="#8a90d6"/><rect x="2" y="7" width="1" height="1" fill="#8a90d6"/><rect x="5" y="7" width="1" height="1" fill="#8a90d6"/></svg></span></div></div>
+<div><label class="f">Heroes</label><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Engineer<span class="mut">Builds PRDs alone</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Engineer"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> QA<span class="mut">Proves the work alone</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="QA"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Reviewer<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Reviewer"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> PM<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="PM"></span></div><div class="role"><span><svg width="16" height="16" viewBox="0 0 8 8" style="image-rendering:pixelated;vertical-align:-3px" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#4ee08a"/><rect x="1" y="3" width="6" height="3" fill="#4ee08a"/><rect x="2" y="6" width="1" height="2" fill="#4ee08a"/><rect x="5" y="6" width="1" height="2" fill="#4ee08a"/></svg> Architect<span class="mut">A person does this today</span></span><span class="tog on" role="switch" aria-checked="true" aria-label="Architect"></span></div></div>
+<div class="foot"><button class="ghost">Cancel</button><button data-primary>Create fleet</button></div></div></div></body></html>

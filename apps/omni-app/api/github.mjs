@@ -215,8 +215,8 @@ var SECRETS = Object.freeze([
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
-function maskSecrets(text17) {
-  let out = plainText(text17);
+function maskSecrets(text18) {
+  let out = plainText(text18);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -293,17 +293,17 @@ function runCheck(check, value) {
   }
 }
 async function ask({ fetch: fetch2, sleep: sleep2, call, deadline, key, title, body }) {
-  let outcome2 = { ok: false, status: "timeout", retry: false };
+  let outcome3 = { ok: false, status: "timeout", retry: false };
   for (let attempt3 = 1; attempt3 <= call.attempts; attempt3 += 1) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return { ok: false, status: "timeout" };
-    outcome2 = await once({ fetch: fetch2, key, title, body, signal: AbortSignal.timeout(remaining) });
-    if (outcome2.ok || !outcome2.retry || attempt3 === call.attempts) return outcome2;
+    outcome3 = await once({ fetch: fetch2, key, title, body, signal: AbortSignal.timeout(remaining) });
+    if (outcome3.ok || !outcome3.retry || attempt3 === call.attempts) return outcome3;
     const pause = call.backoffMs[attempt3 - 1] ?? call.backoffMs.at(-1) ?? 0;
-    if (Date.now() + pause >= deadline) return outcome2;
+    if (Date.now() + pause >= deadline) return outcome3;
     await sleep2(pause);
   }
-  return outcome2;
+  return outcome3;
 }
 async function once({
   fetch: fetch2,
@@ -372,9 +372,9 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text17) => {
-    if (!text17.startsWith("data:")) return false;
-    const data = text17.slice(5).trim();
+  const line = (text18) => {
+    if (!text18.startsWith("data:")) return false;
+    const data = text18.slice(5).trim();
     if (data === "[DONE]") return true;
     let raw;
     try {
@@ -393,9 +393,9 @@ async function readContent(response) {
     buffer += decoder.decode(value, { stream: true });
     let newline = buffer.indexOf("\n");
     while (newline !== -1) {
-      const text17 = buffer.slice(0, newline).replace(/\r$/, "");
+      const text18 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text17)) {
+      if (line(text18)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -406,12 +406,12 @@ async function readContent(response) {
   line(buffer + decoder.decode());
   return content;
 }
-function parseJson(text17) {
-  const start = text17.indexOf("{");
-  const end = text17.lastIndexOf("}");
+function parseJson(text18) {
+  const start = text18.indexOf("{");
+  const end = text18.lastIndexOf("}");
   if (start === -1 || end < start) return void 0;
   try {
-    return JSON.parse(text17.slice(start, end + 1));
+    return JSON.parse(text18.slice(start, end + 1));
   } catch {
     return void 0;
   }
@@ -738,10 +738,10 @@ var CREDENTIALS = [
   [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK2}`],
   [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK2}`]
 ];
-function maskCredentials(text17) {
-  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text17);
+function maskCredentials(text18) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text18);
 }
-var cut = (text17) => text17.length > MAX_TEXT ? text17.slice(0, MAX_TEXT) : text17;
+var cut = (text18) => text18.length > MAX_TEXT ? text18.slice(0, MAX_TEXT) : text18;
 function errorOf(value) {
   if (value instanceof Error) {
     return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
@@ -832,18 +832,18 @@ var PrdNumberSchema = IssueNumberSchema.brand();
 var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
 var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
 var ProductPrdIdSchema = z5.string().regex(PRODUCT_PRD).refine((id) => {
-  const cut2 = id.lastIndexOf("-");
-  return cut2 <= 40 && Number(id.slice(cut2 + 1)) <= PRODUCT_SEQ_MAX;
+  const cut3 = id.lastIndexOf("-");
+  return cut3 <= 40 && Number(id.slice(cut3 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
 var ProductRoadmapIdSchema = z5.string().regex(PRODUCT_ROADMAP).refine((id) => {
-  const cut2 = id.lastIndexOf("-R");
-  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+  const cut3 = id.lastIndexOf("-R");
+  return cut3 <= 40 && Number(id.slice(cut3 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
 var ProductBugIdSchema = z5.string().regex(PRODUCT_BUG).refine((id) => {
-  const cut2 = id.lastIndexOf("-B");
-  return cut2 <= 40 && Number(id.slice(cut2 + 2)) <= PRODUCT_SEQ_MAX;
+  const cut3 = id.lastIndexOf("-B");
+  return cut3 <= 40 && Number(id.slice(cut3 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PrNumberSchema = z5.number().int().positive().brand();
 var CommentIdSchema = z5.number().int().positive().brand();
@@ -868,8 +868,8 @@ function parseProductPrdId(value) {
 }
 var isProductPrdId = (id) => typeof id === "string";
 function productPrdParts(id) {
-  const cut2 = id.lastIndexOf("-");
-  return { key: id.slice(0, cut2), seq: Number(id.slice(cut2 + 1)) };
+  const cut3 = id.lastIndexOf("-");
+  return { key: id.slice(0, cut3), seq: Number(id.slice(cut3 + 1)) };
 }
 function parsePr(value) {
   return parseId(PrNumberSchema, numeric(value), "pull request number", value);
@@ -1333,8 +1333,8 @@ function keysOf(record) {
 var NAME = String.raw`[A-Za-z_][\w-]*`;
 var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
 var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
-function parseCompound(text17) {
-  const compound = COMPOUND.exec(text17.trim());
+function parseCompound(text18) {
+  const compound = COMPOUND.exec(text18.trim());
   if (!compound || compound[0] === "") return null;
   const [, tag, parts = ""] = compound;
   const matched = [...parts.matchAll(new RegExp(PART, "g"))];
@@ -2249,14 +2249,14 @@ function readHead(head) {
   return { title: head[at4]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
-  const text17 = raw.replace(COMMENT, "").trim();
-  const lines2 = text17.split("\n").map((line) => line.trim()).filter(Boolean);
+  const text18 = raw.replace(COMMENT, "").trim();
+  const lines2 = text18.split("\n").map((line) => line.trim()).filter(Boolean);
   const questions = lines2.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines2.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines2.length) return { kind: "holes", text: text17, see: null, questions };
+  if (questions.length === lines2.length) return { kind: "holes", text: text18, see: null, questions };
   const see = lines2.length === 1 ? lines2[0]?.match(SEE) ?? null : null;
-  if (see) return { kind: "pointer", text: text17, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text17, see: null, questions };
+  if (see) return { kind: "pointer", text: text18, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
+  return { kind: "text", text: text18, see: null, questions };
 }
 function readSection(heading, lines2) {
   const at4 = lines2.findIndex((line) => line.trim() !== "");
@@ -2298,8 +2298,8 @@ function readSlots(sections, { file, errors, oldSpellings }) {
   }
   return { slots, unmarked };
 }
-function parseForm(text17, { file = null } = {}) {
-  const block = text17.match(FRONT_MATTER_BLOCK);
+function parseForm(text18, { file = null } = {}) {
+  const block = text18.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
@@ -2378,7 +2378,9 @@ function foldersLayout(root, paths) {
     outbox: `${base}/outbox`,
     shipped: `${base}/shipped`,
     archive: `${base}/archive`,
-    concepts: `${base}/inbox/concepts`
+    concepts: `${base}/inbox/concepts`,
+    // PRD 2842: a mission's folder, `<nnnn>-<slug>/`, numbered by its issue as a concept's is.
+    missions: `${base}/missions`
   };
   const folders = (dir) => prdFoldersIn(join6(root, dir));
   function find(dir, prd) {
@@ -2448,7 +2450,7 @@ import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 
 // kit/lib/markers.ts
-var escape = (text17) => text17.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var escape = (text18) => text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape(prefix);
   return Object.freeze({
@@ -2572,8 +2574,8 @@ var FIELD_KEY = {
   "Glossary term": "glossaryTerm"
 };
 var FIELD_NAMES = keysOf(FIELD_KEY);
-function idsCitedIn(text17) {
-  return [...new Set(text17.match(ID_TOKEN) ?? [])];
+function idsCitedIn(text18) {
+  return [...new Set(text18.match(ID_TOKEN) ?? [])];
 }
 function codeOf(name) {
   return name.replace(/-/g, "").toUpperCase();
@@ -2685,10 +2687,10 @@ function readPending(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
   };
 }
-function splitEntries(text17) {
+function splitEntries(text18) {
   const entries = [];
   let current = null;
-  for (const line of text17.split("\n")) {
+  for (const line of text18.split("\n")) {
     const match2 = line.match(ENTRY_HEADING);
     if (match2) {
       if (current) entries.push(current);
@@ -2703,8 +2705,8 @@ function splitEntries(text17) {
   if (current) entries.push(current);
   return entries;
 }
-function parseEntryFile(file, text17, place2) {
-  return splitEntries(text17).map(({ id, lines: lines2 }) => {
+function parseEntryFile(file, text18, place2) {
+  return splitEntries(text18).map(({ id, lines: lines2 }) => {
     const { fields, counts, fieldAt } = readFields(lines2);
     const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place2.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
@@ -2775,8 +2777,8 @@ function memorySource(texts) {
     }
   };
 }
-function glossaryTermOf(text17) {
-  return readFields(text17.split("\n")).fields.glossaryTerm ?? null;
+function glossaryTermOf(text18) {
+  return readFields(text18.split("\n")).fields.glossaryTerm ?? null;
 }
 function productDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/product`;
@@ -2942,9 +2944,9 @@ var PUNCHLINES = Object.freeze([
   "Small print, big relief once it is settled."
 ]);
 var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
-function stableHash(text17) {
+function stableHash(text18) {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(text17)) {
+  for (const byte of new TextEncoder().encode(text18)) {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
@@ -3209,8 +3211,8 @@ function validateSections(body) {
   );
   return { errors, sections };
 }
-function parseOutboxItem(text17, { file = null } = {}) {
-  const read = readFrontMatterBlock(text17, file, OutboxItemFrontMatterSchema);
+function parseOutboxItem(text18, { file = null } = {}) {
+  const read = readFrontMatterBlock(text18, file, OutboxItemFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const errors = [...read.errors];
   const { errors: sectionErrors, sections } = validateSections(read.body);
@@ -3242,8 +3244,8 @@ function parseOutboxItem(text17, { file = null } = {}) {
   };
   return { ok: true, item };
 }
-function readFrontMatterBlock(text17, file, schema) {
-  const blockMatch = text17.match(FRONT_MATTER_BLOCK2);
+function readFrontMatterBlock(text18, file, schema) {
+  const blockMatch = text18.match(FRONT_MATTER_BLOCK2);
   if (!blockMatch) {
     return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
@@ -3299,17 +3301,17 @@ var REGISTER_OR_ADR_ID = /\bN\d+\b|\bBR-[A-Z0-9]+-\d+\b|\bADR-\d{4}\b/g;
 var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
-function countSentences(text17) {
-  const trimmed3 = (text17 ?? "").trim();
+function countSentences(text18) {
+  const trimmed3 = (text18 ?? "").trim();
   if (!trimmed3) return 0;
   const matches = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
-function uniqueMatches(text17, pattern) {
-  return [...new Set(text17.match(pattern) ?? [])];
+function uniqueMatches(text18, pattern) {
+  return [...new Set(text18.match(pattern) ?? [])];
 }
-function plainWordsProblems(text17) {
-  const value = text17 ?? "";
+function plainWordsProblems(text18) {
+  const value = text18 ?? "";
   const problems = [];
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -3346,8 +3348,8 @@ function plainWordsProblems(text17) {
   }
   return problems;
 }
-function funLineProblems(text17) {
-  const value = (text17 ?? "").trim();
+function funLineProblems(text18) {
+  const value = (text18 ?? "").trim();
   const problems = plainWordsProblems(value);
   const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
@@ -3397,8 +3399,8 @@ function outboxItemFiles({ ctx }) {
 import { existsSync as existsSync9, mkdirSync as mkdirSync3, readFileSync as readFileSync8, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { dirname as dirname2, isAbsolute as isAbsolute2, join as join14, relative } from "node:path";
 import { z as z12 } from "zod";
-function parseItem(text17, file) {
-  return parseOutboxItem(text17, { file });
+function parseItem(text18, file) {
+  return parseOutboxItem(text18, { file });
 }
 var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
@@ -3479,14 +3481,14 @@ var AFFIRMATIONS = /* @__PURE__ */ new Set([
   "thats right"
 ]);
 var STATED_VERDICT_LINE = /^[ \t]*verdict:[ \t]*(agreed|drifted)[ \t]*$/im;
-function normalizeApostrophes(text17) {
-  return text17.replace(/[‘’ʼ]/g, "'");
+function normalizeApostrophes(text18) {
+  return text18.replace(/[‘’ʼ]/g, "'");
 }
-function normalizeWhole(text17) {
-  return normalizeApostrophes(text17).toLowerCase().replace(/\s+/g, " ").trim();
+function normalizeWhole(text18) {
+  return normalizeApostrophes(text18).toLowerCase().replace(/\s+/g, " ").trim();
 }
-function openingClause(text17) {
-  const [first] = normalizeApostrophes(text17).split(/[,.;:!?\n]|—|–|--/);
+function openingClause(text18) {
+  const [first] = normalizeApostrophes(text18).split(/[,.;:!?\n]|—|–|--/);
   return (first ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function markerFound(haystack, marker2) {
@@ -3609,8 +3611,8 @@ function renderSettledEntry({
   );
   return lines2.join("\n");
 }
-function parseSettledEntries(text17, markers) {
-  return latestPerId(rawSettledEntries(text17, markers));
+function parseSettledEntries(text18, markers) {
+  return latestPerId(rawSettledEntries(text18, markers));
 }
 function latestPerId(entries) {
   const byId = /* @__PURE__ */ new Map();
@@ -3626,8 +3628,8 @@ function closedEntry({ id, fields, blocks: blocks2 }) {
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
-function rawSettledEntries(text17, markers) {
-  const lines2 = text17.split("\n");
+function rawSettledEntries(text18, markers) {
+  const lines2 = text18.split("\n");
   const entries = [];
   let current = null;
   for (let index = 0; index < lines2.length; index += 1) {
@@ -3804,9 +3806,9 @@ function patternMatcher(pattern) {
   const regex = new RegExp(`^${anchored ? "" : "(?:.*/)?"}${globSource(body)}${under}$`);
   return (path) => regex.test(path);
 }
-function parseCodeowners(text17) {
+function parseCodeowners(text18) {
   const rules = [];
-  for (const line of text17.split("\n")) {
+  for (const line of text18.split("\n")) {
     const [pattern, ...rest] = line.trim().split(/\s+/);
     if (pattern === void 0 || pattern === "" || pattern.startsWith("#")) continue;
     const comment = rest.findIndex((token) => token.startsWith("#"));
@@ -3817,8 +3819,8 @@ function parseCodeowners(text17) {
 }
 function readCodeowners(read) {
   for (const file of CODEOWNERS_FILES) {
-    const text17 = read(file);
-    if (text17 !== null) return { file, rules: parseCodeowners(text17) };
+    const text18 = read(file);
+    if (text18 !== null) return { file, rules: parseCodeowners(text18) };
   }
   return { file: null, rules: [] };
 }
@@ -3880,8 +3882,8 @@ function blockSpan(lines2) {
   }
   return { begin, end };
 }
-function ownersBlockIn(text17) {
-  const lines2 = text17.split("\n");
+function ownersBlockIn(text18) {
+  const lines2 = text18.split("\n");
   const span = blockSpan(lines2);
   return span === null ? null : lines2.slice(span.begin, span.end + 1).map((line) => line.replace(/\r$/, "")).join("\n");
 }
@@ -3921,9 +3923,9 @@ var HEADING2 = /^##\s+(.*?)\s*$/;
 var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
 var FIELD = /^(Why|Also):\s*(.*)$/;
 var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
-function blocks(text17) {
+function blocks(text18) {
   const found = [];
-  for (const line of text17.split("\n")) {
+  for (const line of text18.split("\n")) {
     const match2 = line.match(HEADING2);
     if (match2) found.push({ heading: match2[1] ?? "", lines: [] });
     else found.at(-1)?.lines.push(line);
@@ -3951,8 +3953,8 @@ function idProblem(file, id, place2) {
   if (match2[1] !== code2) return `${file}: ${id} \u2014 names ${match2[1] ?? ""}, but it sits in the ${place2.domain} folder: write BL-${code2}-<n>.`;
   return null;
 }
-function parseBusinessLaws(file, text17, place2) {
-  return blocks(text17).map(({ heading, lines: lines2 }) => {
+function parseBusinessLaws(file, text18, place2) {
+  return blocks(text18).map(({ heading, lines: lines2 }) => {
     const { statement: statement2, why, also } = readBody2(lines2);
     const problems = [
       idProblem(file, heading, place2),
@@ -4212,8 +4214,8 @@ function validateBody(body) {
   errors.push(...entryErrors);
   return { errors, entries };
 }
-function parseAccount(text17, { file = null } = {}) {
-  const read = readFrontMatterBlock(text17, file, AccountFrontMatterSchema);
+function parseAccount(text18, { file = null } = {}) {
+  const read = readFrontMatterBlock(text18, file, AccountFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const { errors: bodyErrors, entries } = validateBody(read.body);
   const errors = [...read.errors, ...bodyErrors.map((message) => withFile2(file, message))];
@@ -4248,8 +4250,8 @@ function readAccounts(prd, { ctx }) {
   const names = readdirSync6(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text17 = readRepoFile(ctx, file);
-    const parsed3 = parseAccount(text17, { file });
+    const text18 = readRepoFile(ctx, file);
+    const parsed3 = parseAccount(text18, { file });
     if (!parsed3.ok) return parsed3;
     const unresolved = parsed3.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
@@ -4318,8 +4320,8 @@ function openItemFiles(prd, { ctx }) {
   return outboxItemFiles({ ctx }).filter((file) => file.startsWith(prefix));
 }
 function describeItem(file, { ctx }) {
-  const text17 = readRepoFile(ctx, file);
-  const parsed3 = parseOutboxItem(text17, { file });
+  const text18 = readRepoFile(ctx, file);
+  const parsed3 = parseOutboxItem(text18, { file });
   return parsed3.ok ? { file, id: parsed3.item.id, rank: parsed3.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
@@ -4643,8 +4645,8 @@ function readSettledEntries(prd, { ctx }) {
 function adoptedEntriesForPrd(prd, { ctx }) {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
-function firstSentence(text17) {
-  const trimmed3 = (text17 ?? "").trim();
+function firstSentence(text18) {
+  const trimmed3 = (text18 ?? "").trim();
   const match2 = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match2 ? match2[0] : trimmed3).trim();
 }
@@ -4660,8 +4662,8 @@ function answeredOutcome(entry) {
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
-function quoteReply(text17) {
-  const oneLine4 = (text17 ?? "").replace(/\s+/g, " ").trim();
+function quoteReply(text18) {
+  const oneLine4 = (text18 ?? "").replace(/\s+/g, " ").trim();
   const truncated = oneLine4.length > 120 ? `${oneLine4.slice(0, 117)}\u2026` : oneLine4;
   return `"${truncated}"`;
 }
@@ -4685,14 +4687,14 @@ function formatApprovedAt(approvedAt) {
   const [, , month, day3] = match2;
   return `${Number(day3)} ${MONTH_NAMES[Number(month) - 1]}`;
 }
-function tableCell(text17) {
-  return (text17 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
+function tableCell(text18) {
+  return (text18 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
-function quoted2(text17) {
-  return (text17 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+function quoted2(text18) {
+  return (text18 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
-function funLine(text17) {
-  return `_${(text17 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+function funLine(text18) {
+  return `_${(text18 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
 }
 function formatOptionsTable(options, mark) {
   return [
@@ -5176,16 +5178,16 @@ function numericReference(ref) {
   const code2 = Number.parseInt(ref.slice(hex ? 2 : 1), hex ? 16 : 10);
   return code2 > 0 && code2 <= 1114111 ? String.fromCodePoint(code2) : null;
 }
-function decodeEntities(text17) {
-  return text17.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
+function decodeEntities(text18) {
+  return text18.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
 }
 function past(html, marker2, from) {
   const at4 = html.indexOf(marker2, from);
   return at4 === -1 ? html.length : at4 + marker2.length;
 }
 var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
-function addText(reader, text17) {
-  if (text17 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text17) });
+function addText(reader, text18) {
+  if (text18 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text18) });
 }
 function skipDeclaration(html, lt) {
   if (html.startsWith("<!--", lt)) return past(html, "-->", lt + 4);
@@ -5224,7 +5226,7 @@ function readStartTag(reader, lt) {
   const after = past(reader.html, ">", end);
   const element = { kind: "element", tag, attributes, children: [] };
   top(reader).children.push(element);
-  if (RAW.has(tag)) return readRawBody(reader, element, after);
+  if (RAW.has(tag) && !(reader.templates && tag === "template")) return readRawBody(reader, element, after);
   const selfClosing = reader.html[after - 2] === "/";
   if (!VOID.has(tag) && !selfClosing) reader.stack.push(element);
   return after;
@@ -5235,9 +5237,9 @@ function readMarkup(reader, lt) {
   addText(reader, "<");
   return lt + 1;
 }
-function parseHtml(html) {
+function parseHtml(html, { templates = false } = {}) {
   const root = { kind: "element", tag: "#document", attributes: /* @__PURE__ */ new Map(), children: [] };
-  const reader = { html, root, stack: [] };
+  const reader = { html, root, stack: [], templates };
   let at4 = 0;
   while (at4 < html.length) {
     const lt = html.indexOf("<", at4);
@@ -5248,14 +5250,51 @@ function parseHtml(html) {
 }
 
 // kit/lib/before-after/grade.ts
-var BEFORE_AFTER_META = { name: "omni-before-after", version: "2" };
-var BEFORE_AFTER_TABS = ["functional", "technical"];
+var META_NAME = "omni-before-after";
+var TABS_OF = {
+  "2": ["functional", "technical"],
+  "3": ["functional", "technical", "pixel-perfect"]
+};
+var isVersion = (content) => content !== void 0 && Object.hasOwn(TABS_OF, content);
+var PIXEL_PERFECT = "pixel-perfect";
+var REFERENCE = /^[1-9]\d*\.[A-Z]$/;
+var WIDTH = /^[1-9]\d*$/;
+var WIDTH_MIN = 320;
+var WIDTH_MAX = 2560;
+var SIDES = /* @__PURE__ */ new Set(["today", "after"]);
 var SECTION_STATES = ["filled", "na", "gap"];
 var STATES = new Set(SECTION_STATES);
 var FILL = /<!--\s*FILL\s*-->/g;
 var FETCHED = ["src", "srcset", "poster"];
 var REFERENCES = ["href", "xlink:href"];
 var LINKS = /* @__PURE__ */ new Set(["a", "area", "base"]);
+var BLOCKS = /* @__PURE__ */ new Set([
+  "p",
+  "div",
+  "li",
+  "ul",
+  "ol",
+  "section",
+  "nav",
+  "figure",
+  "figcaption",
+  "header",
+  "footer",
+  "main",
+  "article",
+  "aside",
+  "br",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "tr",
+  "table",
+  "pre",
+  "blockquote"
+]);
 function loadsNothing(url) {
   const value = url.trim();
   return value === "" || value.startsWith("#") || value.toLowerCase().startsWith("data:");
@@ -5272,27 +5311,55 @@ function loadsOf({ tag, attributes }) {
   if (tag === "object" && data !== void 0 && !loadsNothing(data)) found.push(named("data", data));
   return found;
 }
-var isMeta = ({ tag, attributes }) => tag === "meta" && attributes.get("name") === BEFORE_AFTER_META.name && attributes.get("content") === BEFORE_AFTER_META.version;
+function metaVersion({ tag, attributes }) {
+  const content = attributes.get("content");
+  return tag === "meta" && attributes.get("name") === META_NAME && isVersion(content) ? content : null;
+}
 var isDiagram = ({ tag, attributes }) => tag === "pre" && attributes.get("class")?.split(/\s/).includes("mermaid") === true;
 function noteMarks(element, read) {
-  if (isMeta(element)) read.marked = true;
+  read.version ??= metaVersion(element);
   if (isDiagram(element)) read.diagrams += 1;
   read.loads.push(...loadsOf(element));
 }
 var within = ({ attributes }, around) => ({
   service: attributes.get("data-service") ?? around.service,
-  tab: attributes.get("data-tab") ?? around.tab
+  tab: attributes.get("data-tab") ?? around.tab,
+  section: around.section
 });
-function noteParts({ attributes }, here, read) {
-  const tab = attributes.get("data-tab");
+function textOf(element) {
+  return element.children.map((child) => {
+    if (child.kind === "text") return child.text;
+    return BLOCKS.has(child.tag) ? `
+${textOf(child)}
+` : textOf(child);
+  }).join("");
+}
+function noteScreen({ attributes }, here, read) {
+  const name = attributes.get("data-screen");
+  if (name === void 0) return;
+  read.screens.push({
+    name,
+    ref: attributes.get("data-ref") ?? null,
+    when: attributes.get("data-when") ?? null,
+    viewport: attributes.get("data-viewport") ?? null,
+    tab: here.tab,
+    section: here.section
+  });
+}
+function noteParts(element, here, read) {
+  const tab = element.attributes.get("data-tab");
   if (tab !== void 0) read.tabs.add(tab);
-  const name = attributes.get("data-section");
-  if (name !== void 0) read.sections.push({ name, state: attributes.get("data-state") ?? null, ...here });
+  noteScreen(element, here, read);
+  const name = element.attributes.get("data-section");
+  if (name === void 0) return null;
+  read.sections.push({ name, state: element.attributes.get("data-state") ?? null, service: here.service, tab: here.tab, text: textOf(element) });
+  return read.sections.length - 1;
 }
 function walk(element, around, read) {
   noteMarks(element, read);
-  const here = within(element, around);
-  noteParts(element, here, read);
+  const outer = within(element, around);
+  const opened = noteParts(element, outer, read);
+  const here = opened === null ? outer : { ...outer, section: opened };
   for (const child of element.children) {
     if (child.kind === "element") walk(child, here, read);
   }
@@ -5304,18 +5371,88 @@ function stateViolation(section4) {
   return `${placeOf(section4)} has data-state "${section4.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
 }
 var plural = (count2, one, many) => `${count2} ${count2 === 1 ? one : many}`;
+var quote = (text18) => `"${text18}"`;
+var screenOf = ({ name, ref }) => `screen ${quote(name)}${ref !== null && REFERENCE.test(ref) ? ` (${ref})` : ""}`;
+function marksViolations(screen) {
+  const { ref, when, viewport } = screen;
+  const found = [];
+  if (ref === null) found.push(`${screenOf(screen)} has no data-ref`);
+  else if (!REFERENCE.test(ref)) found.push(`${screenOf(screen)} has data-ref ${quote(ref)}, not <number>.<letter> as 2.C`);
+  if (when === null) found.push(`${screenOf(screen)} has no data-when (today or after)`);
+  else if (!SIDES.has(when)) found.push(`${screenOf(screen)} has data-when ${quote(when)}, not today or after`);
+  if (viewport === null) found.push(`${screenOf(screen)} has no data-viewport (a width in CSS pixels, ${WIDTH_MIN} to ${WIDTH_MAX})`);
+  else if (!WIDTH.test(viewport) || Number(viewport) < WIDTH_MIN || Number(viewport) > WIDTH_MAX) {
+    found.push(`${screenOf(screen)} has data-viewport ${quote(viewport)}, not a whole number of CSS pixels from ${WIDTH_MIN} to ${WIDTH_MAX}`);
+  }
+  return found;
+}
+function referenced(screens) {
+  return screens.flatMap((screen) => screen.ref !== null && REFERENCE.test(screen.ref) && screen.when !== null && SIDES.has(screen.when) ? [{ screen, ref: screen.ref, when: screen.when }] : []);
+}
+function pairViolations(screens) {
+  const counts = /* @__PURE__ */ new Map();
+  const refs = /* @__PURE__ */ new Set();
+  for (const { ref, when } of referenced(screens)) {
+    counts.set(`${ref} ${when}`, (counts.get(`${ref} ${when}`) ?? 0) + 1);
+    refs.add(ref);
+  }
+  const twice = [...counts].filter(([, count2]) => count2 > 1).map(([pair, count2]) => `reference ${pair} is written ${count2} times, not once`);
+  const missing = [...refs].filter((ref) => !counts.has(`${ref} after`)).map((ref) => `reference ${ref} has no after`);
+  return [...twice, ...missing];
+}
+function collect(map, key, value) {
+  map.set(key, (map.get(key) ?? /* @__PURE__ */ new Set()).add(value));
+}
+function numberViolations(screens) {
+  const namesOf = /* @__PURE__ */ new Map();
+  const numbersOf = /* @__PURE__ */ new Map();
+  for (const { screen, ref } of referenced(screens)) {
+    const number = ref.slice(0, ref.indexOf("."));
+    collect(namesOf, number, screen.name);
+    collect(numbersOf, screen.name, number);
+  }
+  const mixed = [...namesOf].filter(([, names]) => names.size > 1).map(([number, names]) => `number ${number} carries ${[...names].map(quote).join(" and ")}, not one screen`);
+  const spread = [...numbersOf].filter(([, numbers]) => numbers.size > 1).map(([name, numbers]) => `screen ${quote(name)} sits under numbers ${[...numbers].join(" and ")}, not one`);
+  return [...mixed, ...spread];
+}
+function namedScreens(text18) {
+  const line = /^\s*screens:(.*)$/im.exec(text18)?.[1] ?? "";
+  return new Set(line.split("\xB7").map((name) => name.trim()).filter((name) => name !== ""));
+}
+function sectionViolations(read) {
+  const found = [];
+  const own = read.sections.flatMap((section4, index) => section4.name === PIXEL_PERFECT ? [{ section: section4, index }] : []);
+  if (own.length === 0) found.push(`no ${quote(PIXEL_PERFECT)} section`);
+  else if (own.length > 1) found.push(`${own.length} ${quote(PIXEL_PERFECT)} sections, not one for the page`);
+  for (const { section: section4, index } of own) {
+    if (section4.tab !== PIXEL_PERFECT) found.push(`${placeOf(section4)} sits outside the ${quote(PIXEL_PERFECT)} tab`);
+    const held = read.screens.filter((screen) => screen.section === index);
+    if (section4.state === "filled" && held.length === 0) found.push(`${placeOf(section4)} is filled but holds no marked screen (data-screen)`);
+    const named = namedScreens(section4.text);
+    for (const name of new Set(held.map((screen) => screen.name))) {
+      if (!named.has(name)) found.push(`${placeOf(section4)}: its screens: line does not name screen ${quote(name)}`);
+    }
+  }
+  return found;
+}
+function screenViolations(read) {
+  const outside = read.screens.filter(({ tab }) => tab !== PIXEL_PERFECT).map((screen) => `${screenOf(screen)} sits ${screen.tab === null ? "outside any tab" : `in the ${quote(screen.tab)} tab`}, not the ${quote(PIXEL_PERFECT)} tab`);
+  return [...outside, ...read.screens.flatMap(marksViolations), ...pairViolations(read.screens), ...numberViolations(read.screens)];
+}
 function gradeBeforeAfter({ file, html, prd }) {
-  const read = { marked: false, tabs: /* @__PURE__ */ new Set(), sections: [], diagrams: 0, loads: [] };
-  walk(parseHtml(html), { service: null, tab: null }, read);
-  if (!read.marked) return [];
+  const read = { version: null, tabs: /* @__PURE__ */ new Set(), sections: [], screens: [], diagrams: 0, loads: [] };
+  walk(parseHtml(html), { service: null, tab: null, section: null }, read);
+  if (read.version === null) return [];
   const violations = [];
-  for (const tab of BEFORE_AFTER_TABS) {
+  for (const tab of TABS_OF[read.version]) {
     if (!read.tabs.has(tab)) violations.push(`no "${tab}" tab`);
   }
+  if (read.version === "3") violations.push(...sectionViolations(read));
   for (const section4 of read.sections) {
     const violation2 = stateViolation(section4);
     if (violation2 !== null) violations.push(violation2);
   }
+  if (read.version === "3") violations.push(...screenViolations(read));
   const fills = html.match(FILL)?.length ?? 0;
   if (fills > 0) violations.push(`${plural(fills, "<!-- FILL --> marker", "<!-- FILL --> markers")} left`);
   if (read.diagrams > 0) {
@@ -5341,8 +5478,8 @@ function unrecognizedKeyMessage(key) {
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
   return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
-function parseSpec(text17, { file = null } = {}) {
-  const blockMatch = text17.match(FRONT_MATTER_BLOCK3);
+function parseSpec(text18, { file = null } = {}) {
+  const blockMatch = text18.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
@@ -5632,8 +5769,8 @@ function prerequisitesOf(section4) {
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
 }
-function parseRoadmap(text17) {
-  const block = FRONT_MATTER_BLOCK4.exec(text17);
+function parseRoadmap(text18) {
+  const block = FRONT_MATTER_BLOCK4.exec(text18);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
   const front = frontMatter(raw, FrontMatterSchema2);
@@ -5903,8 +6040,8 @@ var VoiceRoundSchema = z18.object({
 var VoiceSchema = z18.object({ rounds: z18.array(VoiceRoundSchema) });
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
-function countSentences2(text17) {
-  return text17.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+function countSentences2(text18) {
+  return text18.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
 function citationProblems(citations, field4) {
   if (!Array.isArray(citations) || citations.length === 0) {
@@ -5914,9 +6051,9 @@ function citationProblems(citations, field4) {
     (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field4}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text17, field4) {
-  if (!isText(text17)) return [`${field4} must be a sentence.`];
-  const count2 = countSentences2(text17);
+function lineProblems(text18, field4) {
+  if (!isText(text18)) return [`${field4} must be a sentence.`];
+  const count2 = countSentences2(text18);
   return count2 > MAX_SENTENCES ? [`${field4} holds ${count2} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
@@ -5960,10 +6097,10 @@ function roundProblems(round) {
     ...fitProblems(round.fit)
   ];
 }
-function parseVoice(text17) {
+function parseVoice(text18) {
   let voice;
   try {
-    voice = JSON.parse(text17);
+    voice = JSON.parse(text18);
   } catch {
     return { ok: false, voice: null, errors: ["not valid JSON."] };
   }
@@ -5996,8 +6133,8 @@ function knownAreas(ctx) {
     readdirSync8(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
 }
-function violationsForFile(file, folder, text17, ctx) {
-  const parsed3 = parseSpec(text17, { file });
+function violationsForFile(file, folder, text18, ctx) {
+  const parsed3 = parseSpec(text18, { file });
   if (!parsed3.ok) {
     return { record: null, violations: parsed3.errors };
   }
@@ -6055,8 +6192,8 @@ function gradeFolder(specFile, ctx) {
   if (!existsSync17(join21(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
-    const text17 = readRepoFile(ctx, specFile);
-    const graded = violationsForFile(specFile, folder, text17, ctx);
+    const text18 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text18, ctx);
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
@@ -6439,14 +6576,14 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
-  let text17;
+  let text18;
   try {
-    text17 = readFileSync16(join24(folder, CONFIG_FILE), "utf8");
+    text18 = readFileSync16(join24(folder, CONFIG_FILE), "utf8");
   } catch {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text17, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
+    return { folder, config: parseConfig(text18, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -6708,9 +6845,9 @@ import { z as z21 } from "zod";
 import { z as z19 } from "zod";
 var LessonOutcomeSchema = z19.union([z19.object({ became: z19.string() }).strict(), z19.object({ staysHere: z19.string() }).strict()]);
 var LessonOutcomesSchema = z19.record(z19.string(), LessonOutcomeSchema);
-function outcomeLine(outcome2) {
-  if ("became" in outcome2) return `- **Became:** \`${outcome2.became}\``;
-  return `- **Stays here:** ${outcome2.staysHere.trim().split(/\s+/).join(" ")}`;
+function outcomeLine(outcome3) {
+  if ("became" in outcome3) return `- **Became:** \`${outcome3.became}\``;
+  return `- **Stays here:** ${outcome3.staysHere.trim().split(/\s+/).join(" ")}`;
 }
 
 // kit/lib/knowledge/look-rule.ts
@@ -6915,8 +7052,8 @@ var REFUSED_PATTERNS = REFUSED_WORDS.map((word) => ({
   word,
   pattern: new RegExp(`\\b${word.replaceAll(" ", "[\\s-]*")}\\b`, "i")
 }));
-function refusedWordsIn(text17) {
-  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text17)).map(({ word }) => word);
+function refusedWordsIn(text18) {
+  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text18)).map(({ word }) => word);
 }
 function rankOf(kind) {
   const index = FINDING_ORDER.findIndex((rank) => rank.includes(kind));
@@ -6993,7 +7130,7 @@ function modelInput({
       }))
     })),
     knowledge: knowledgeLines(knowledge),
-    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text17) => typeof text17 === "string").map((text17) => maskSecrets(text17))
+    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text18) => typeof text18 === "string").map((text18) => maskSecrets(text18))
   };
   capInput(input, findings.map((finding) => finding.source), LIMITS.modelInputTokens * CHARS_PER_TOKEN - SYSTEM.length);
   return { system: SYSTEM, user: JSON.stringify(input) };
@@ -7009,8 +7146,8 @@ function knowledgeLines(summary2) {
   }));
   return [...entries, ...playbook, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
-function firstLineOf(text17) {
-  return text17.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+function firstLineOf(text18) {
+  return text18.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 }
 var EXCERPT_KEY = ',"excerpt":';
 var CUT_MARK = "[earlier lines cut]\n";
@@ -7019,7 +7156,7 @@ var HUNKS = "churn";
 function capInput(input, sources, budget) {
   let size = JSON.stringify(input).length;
   if (size <= budget) return;
-  const cost = (text17) => EXCERPT_KEY.length + JSON.stringify(text17).length;
+  const cost = (text18) => EXCERPT_KEY.length + JSON.stringify(text18).length;
   const excerpts = input.findings.flatMap(
     (finding, i) => finding.evidence.flatMap((item, j) => item.excerpt === void 0 ? [] : [{ i, j, item, source: sources[i] }])
   );
@@ -7038,14 +7175,14 @@ function capInput(input, sources, budget) {
   }
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
-    const text17 = entry.item.excerpt ?? "";
-    let keep2 = Math.max(0, text17.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text17, keep2);
-    while (keep2 > 0 && size - cost(text17) + cost(next) > budget) {
-      keep2 = Math.max(0, keep2 - (size - cost(text17) + cost(next) - budget));
-      next = lastLines(text17, keep2);
+    const text18 = entry.item.excerpt ?? "";
+    let keep2 = Math.max(0, text18.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text18, keep2);
+    while (keep2 > 0 && size - cost(text18) + cost(next) > budget) {
+      keep2 = Math.max(0, keep2 - (size - cost(text18) + cost(next) - budget));
+      next = lastLines(text18, keep2);
     }
-    size += cost(next) - cost(text17);
+    size += cost(next) - cost(text18);
     entry.item.excerpt = next;
   }
   while (size > budget && input.earlierLessons.length > 0) {
@@ -7062,8 +7199,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text17, keep2) {
-  let tail = keep2 > 0 ? text17.slice(-keep2) : "";
+function lastLines(text18, keep2) {
+  let tail = keep2 > 0 ? text18.slice(-keep2) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -7083,9 +7220,9 @@ function checkReply(value) {
       const kept3 = {};
       findings[id] = kept3;
       for (const name of ["title", "whyItMatters", "lesson"]) {
-        const text17 = words[name];
-        if (text17 === void 0) continue;
-        if (typeof text17 === "string") kept3[name] = text17;
+        const text18 = words[name];
+        if (text18 === void 0) continue;
+        if (typeof text18 === "string") kept3[name] = text18;
         else errors.push(`findings[${JSON.stringify(id)}].${name} must be a string`);
       }
       if (words.keep !== void 0) {
@@ -7313,10 +7450,10 @@ var PARTS = "omni:parts";
 var HeadSchema = z22.strictObject({ [PARTS]: z22.strictObject({ hash: z22.string().min(1), count: z22.number().int().positive() }) });
 async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const saved = await step.run(id, async () => {
-    const text17 = JSON.stringify(asSaved(await fn()));
-    if (Buffer.byteLength(text17) <= budget) return parsed(text17);
-    const hash = hashOf(text17);
-    const parts = partsOf(text17, budget);
+    const text18 = JSON.stringify(asSaved(await fn()));
+    if (Buffer.byteLength(text18) <= budget) return parsed(text18);
+    const hash = hashOf(text18);
+    const parts = partsOf(text18, budget);
     for (const [index, part] of parts.entries()) await step.run(partId(id, hash, index), () => part);
     return { [PARTS]: { hash, count: parts.length } };
   });
@@ -7324,22 +7461,22 @@ async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const value = head.success ? await joined(step, id, head.data[PARTS]) : saved;
   return parseOrThrow(schema, value, `The step "${id}" came back in an unexpected shape`);
 }
-function partsOf(text17, budget) {
+function partsOf(text18, budget) {
   const parts = [];
   let start = 0;
   let size = QUOTES;
-  for (let index = 0; index < text17.length; ) {
-    const code2 = text17.codePointAt(index) ?? 0;
+  for (let index = 0; index < text18.length; ) {
+    const code2 = text18.codePointAt(index) ?? 0;
     const cost = bytesOf(code2);
     if (size + cost > budget && index > start) {
-      parts.push(text17.slice(start, index));
+      parts.push(text18.slice(start, index));
       start = index;
       size = QUOTES;
     }
     size += cost;
     index += code2 > 65535 ? 2 : 1;
   }
-  parts.push(text17.slice(start));
+  parts.push(text18.slice(start));
   return parts;
 }
 var QUOTES = 2;
@@ -7359,37 +7496,37 @@ async function joined(step, id, { hash, count: count2 }) {
     if (typeof part !== "string") throw new Error(`The step "${id}" came back with its part ${String(index + 1)} of ${String(count2)} not text.`);
     parts.push(part);
   }
-  const text17 = parts.join("");
-  if (hashOf(text17) !== hash) throw new Error(`The step "${id}" came back with parts that do not make the value saved.`);
-  return parsed(text17);
+  const text18 = parts.join("");
+  if (hashOf(text18) !== hash) throw new Error(`The step "${id}" came back with parts that do not make the value saved.`);
+  return parsed(text18);
 }
-function parsed(text17) {
-  const value = JSON.parse(text17);
+function parsed(text18) {
+  const value = JSON.parse(text18);
   return value;
 }
 function partId(id, hash, index) {
   return `${id}:part-${hash}-${String(index + 1)}`;
 }
-function hashOf(text17) {
-  return createHash("sha256").update(text17).digest("hex").slice(0, 16);
+function hashOf(text18) {
+  return createHash("sha256").update(text18).digest("hex").slice(0, 16);
 }
 
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text17) {
-  const id = WorkSliceIdSchema.safeParse(text17);
-  if (!id.success) throw new Error(`This plan's slice table names "${text17}", which is no slice id like s1.`);
+function sliceIdOf(text18) {
+  const id = WorkSliceIdSchema.safeParse(text18);
+  if (!id.success) throw new Error(`This plan's slice table names "${text18}", which is no slice id like s1.`);
   return id.data;
 }
 function blockedByCell(cell3) {
-  const text17 = (cell3 ?? "").trim();
-  if (NOTHING.test(text17)) return [];
-  return text17.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+  const text18 = (cell3 ?? "").trim();
+  if (NOTHING.test(text18)) return [];
+  return text18.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell3) {
-  const text17 = (cell3 ?? "").trim();
-  if (NOTHING.test(text17)) return [];
-  return [...text17.matchAll(/`([^`]+)`/g)].map((match2) => (match2[1] ?? "").trim()).filter(Boolean);
+  const text18 = (cell3 ?? "").trim();
+  if (NOTHING.test(text18)) return [];
+  return [...text18.matchAll(/`([^`]+)`/g)].map((match2) => (match2[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -7463,12 +7600,12 @@ function sliceTable(markdown) {
   return { column: (name) => header2.indexOf(name), rows: bodyRows(lines2, headerIndex) };
 }
 var TIERS2 = ["deep", "build", "light"];
-function isTier(text17) {
-  return TIERS2.some((tier) => tier === text17);
+function isTier(text18) {
+  return TIERS2.some((tier) => tier === text18);
 }
 function tierCell(cell3) {
-  const text17 = plainCell(cell3);
-  return isTier(text17) ? text17 : null;
+  const text18 = plainCell(cell3);
+  return isTier(text18) ? text18 : null;
 }
 function unknownTiers(markdown) {
   let table;
@@ -7488,13 +7625,13 @@ function unknownTiers(markdown) {
   return unknown;
 }
 function landingCell(cell3) {
-  const text17 = plainCell(cell3);
-  return NOTHING.test(text17) ? 1 : Number(text17);
+  const text18 = plainCell(cell3);
+  return NOTHING.test(text18) ? 1 : Number(text18);
 }
 function contractCell(cell3) {
-  const text17 = plainCell(cell3);
-  if (NOTHING.test(text17)) return null;
-  const kinds = text17.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  const text18 = plainCell(cell3);
+  if (NOTHING.test(text18)) return null;
+  const kinds = text18.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
   if (kinds.length === 0) return null;
   return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
@@ -8197,16 +8334,16 @@ function namesPrd(prd, slug, { bare: bare3 }) {
   const forms = [`${s}#${String(prd)}(?!\\d)`, `github\\.com/${s}/issues/${String(prd)}(?!\\d)`];
   if (bare3) forms.push(`(?:^|[^\\w&/.-])#${String(prd)}(?!\\d)`);
   const pattern = new RegExp(forms.join("|"), "i");
-  return (text17) => pattern.test(text17);
+  return (text18) => pattern.test(text18);
 }
 function namesPull(lane2) {
   const numbers = new Set(lane2.pulls.map((pull) => pull.number));
   const s = escape2(lane2.lane);
   const pattern = new RegExp(`(?:github\\.com/${s}/pull/|${s}#|(?:^|[^\\w&/.-])#)(\\d+)(?!\\d)`, "gi");
-  return (text17) => [...text17.matchAll(pattern)].some(([, number]) => numbers.has(Number(number)));
+  return (text18) => [...text18.matchAll(pattern)].some(([, number]) => numbers.has(Number(number)));
 }
-function escape2(text17) {
-  return text17.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape2(text18) {
+  return text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/main-watch/main-watch.ts
@@ -8444,8 +8581,8 @@ function mainWatchStore(connection) {
 function watchingJobKeys(connection) {
   const db = serviceDb(connection);
   return async (sha) => {
-    const watched = rowsOf(RepositoryRowSchema, await db.from("prd_main_watch").select("repository").eq("merge_sha", sha.toLowerCase()).eq("status", "watching"));
-    const repositories = [...new Set(watched.map((row) => row.repository))];
+    const watched2 = rowsOf(RepositoryRowSchema, await db.from("prd_main_watch").select("repository").eq("merge_sha", sha.toLowerCase()).eq("status", "watching"));
+    const repositories = [...new Set(watched2.map((row) => row.repository))];
     if (repositories.length === 0) return [];
     return rowsOf(KeyRowSchema, await db.from("background_jobs").select("key").eq("kind", MAIN_WATCH_KIND).eq("state", "queued").in("subject", repositories)).map((row) => row.key);
   };
@@ -8526,11 +8663,11 @@ function jobLedger(connection) {
       const rows = z30.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
       return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
-    finish: async ({ id, claim, outcome: outcome2, reason: reason2, retryAt, progress }) => {
+    finish: async ({ id, claim, outcome: outcome3, reason: reason2, retryAt, progress }) => {
       const answer = await db.rpc("background_job_finish", {
         p_id: id,
         p_claim: claim,
-        p_outcome: outcome2,
+        p_outcome: outcome3,
         ...reason2 === null ? {} : { p_reason: reason2 },
         ...retryAt === null ? {} : { p_retry_at: retryAt },
         ...progress === void 0 ? {} : { p_progress: progress }
@@ -8730,13 +8867,13 @@ async function loggedRun(logger, event, run, outcomeOf2) {
     write(logger, { event, outcome: "failed", ms: elapsed(), ...fields, error });
     throw error;
   }
-  let outcome2;
+  let outcome3;
   try {
-    outcome2 = outcomeOf2(value);
+    outcome3 = outcomeOf2(value);
   } catch {
-    outcome2 = "ok";
+    outcome3 = "ok";
   }
-  write(logger, { event, outcome: outcome2, ms: elapsed(), ...fields });
+  write(logger, { event, outcome: outcome3, ms: elapsed(), ...fields });
   return value;
 }
 function loggedHandler(logger, event, handler) {
@@ -8887,8 +9024,8 @@ function match(template, ref) {
 function fill(template, topic) {
   return template.replace("{topic}", String(topic));
 }
-function escape3(text17) {
-  return text17.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape3(text18) {
+  return text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/approved-check/judge-client.ts
@@ -8967,6 +9104,7 @@ var CanonActionRequestDataSchema = SourceSchema.extend({
   action: z35.string(),
   facts: CanonFactsSchema
 });
+var MissionJobDataSchema = z35.object({ mission: z35.uuid() });
 
 // apps/omni-app/src/approved-check/github.ts
 import { mkdtempSync as mkdtempSync5, rmSync as rmSync6 } from "node:fs";
@@ -9481,10 +9619,10 @@ import { existsSync as existsSync23, mkdirSync as mkdirSync6, readFileSync as re
 import { dirname as dirname7, join as join33 } from "node:path";
 import { z as z39 } from "zod";
 var CeilingsSchema = z39.record(z39.string().min(1), z39.number().int().nonnegative());
-function parseCeilings(text17, file) {
+function parseCeilings(text18, file) {
   let raw;
   try {
-    raw = JSON.parse(text17);
+    raw = JSON.parse(text18);
   } catch (error) {
     throw new Error(`${file}: not valid JSON \u2014 ${messageOf3(error)}`);
   }
@@ -9708,8 +9846,8 @@ var LAW_LINE = /^(?:[-*]\s+)?`?([A-Z0-9-]+)`?\s+[—–-]\s+(.+)$/;
 function thesisPath(ctx) {
   return `${productDir(ctx)}/${THESIS_FILE}`;
 }
-function parseThesis(file, text17) {
-  const lines2 = text17.split("\n");
+function parseThesis(file, text18) {
+  const lines2 = text18.split("\n");
   const start = lines2.findIndex((line) => LAWS_HEADING.test(line.trim()));
   if (start === -1) return { file, lawsSection: null, laws: [] };
   const rest = lines2.slice(start + 1);
@@ -9802,40 +9940,40 @@ var TITLE3 = /^#\s+(.+?)\s*$/m;
 var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
 var LAYERS_HEADER = /\*\*Layers:\*\*[ \t]*([^·\n]*)/;
 var DOMAIN_HEADER = /\*\*Domain:\*\*[ \t]*([^·\s]*)/;
-var headerOf = (text17) => text17.split(/^##\s/m)[0] ?? "";
-function headerLayers(text17) {
-  const value = LAYERS_HEADER.exec(headerOf(text17))?.[1] ?? "";
+var headerOf = (text18) => text18.split(/^##\s/m)[0] ?? "";
+function headerLayers(text18) {
+  const value = LAYERS_HEADER.exec(headerOf(text18))?.[1] ?? "";
   return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
 }
-function headerDomain(text17) {
-  const value = (DOMAIN_HEADER.exec(headerOf(text17))?.[1] ?? "").replace(/`/g, "");
+function headerDomain(text18) {
+  const value = (DOMAIN_HEADER.exec(headerOf(text18))?.[1] ?? "").replace(/`/g, "");
   return value === "" ? null : value;
 }
-function headerPrd(text17) {
-  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text17))?.[1]));
+function headerPrd(text18) {
+  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text18))?.[1]));
   return prd.success ? prd.data : null;
 }
-function tagsOf(text17) {
-  const layers = headerLayers(text17);
-  const domain = headerDomain(text17);
+function tagsOf(text18) {
+  const layers = headerLayers(text18);
+  const domain = headerDomain(text18);
   return { ...layers.length > 0 ? { layers } : {}, ...domain === null ? {} : { domain } };
 }
 var levelOf = (record) => record.level ?? "repo";
 var STATUS_HEADER = /\*\*Status:\*\*[ \t]*([^·\n]*)/;
-function headerStatus(text17) {
-  const value = (STATUS_HEADER.exec(headerOf(text17))?.[1] ?? "").replace(/`/g, "").trim();
+function headerStatus(text18) {
+  const value = (STATUS_HEADER.exec(headerOf(text18))?.[1] ?? "").replace(/`/g, "").trim();
   return value === "" ? null : value;
 }
-function parseDecisionRecord(file, text17) {
+function parseDecisionRecord(file, text18) {
   const name = file.split("/").pop() ?? file;
   return {
     number: name.match(RECORD)?.[1] ?? "",
     file,
-    title: text17.match(TITLE3)?.[1] ?? null,
-    status: headerStatus(text17),
-    text: text17,
-    prd: headerPrd(text17),
-    ...tagsOf(text17)
+    title: text18.match(TITLE3)?.[1] ?? null,
+    status: headerStatus(text18),
+    text: text18,
+    prd: headerPrd(text18),
+    ...tagsOf(text18)
   };
 }
 function readFolder(root, dir, level) {
@@ -9895,9 +10033,9 @@ function configValue(config, key) {
   if (value === null) return { ok: false, reason: "is not set in the config" };
   return { ok: false, reason: "holds no single value" };
 }
-function fillConfig(text17, config) {
+function fillConfig(text18, config) {
   const unresolved = [];
-  const filled = text17.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
+  const filled = text18.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
     const value = configValue(config, key);
     if (value.ok) return value.text;
     unresolved.push({ key, reason: value.reason });
@@ -9927,8 +10065,8 @@ function headingsOf(lines2) {
   }
   return headings;
 }
-function sectionOf(text17, anchor) {
-  const lines2 = text17.split("\n");
+function sectionOf(text18, anchor) {
+  const lines2 = text18.split("\n");
   const headings = headingsOf(lines2);
   const start = headings.find((heading) => heading.anchor === anchor);
   if (!start) return null;
@@ -10039,7 +10177,7 @@ import { join as join38, posix as posix3 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z as z40 } from "zod";
 var BundledTemplatesSchema = z40.record(z40.string(), z40.string());
-var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse('{"README.md":"<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). A fourth kind, the\\n  domain contract, says in one line how an entity is shaped or moves, and points at the schema or\\n  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are\\n  decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit\'s own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n","before-after/page.html":"<!doctype html>\\n<html lang=\\"en\\">\\n<head>\\n<meta charset=\\"utf-8\\">\\n<meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1\\">\\n<meta name=\\"omni-before-after\\" content=\\"2\\">\\n<title>PRD {{prd}}: before and after</title>\\n<style>\\n:root {\\n  color-scheme: light dark;\\n  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;\\n  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;\\n  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;\\n}\\n@media (prefers-color-scheme: dark) {\\n  :root {\\n    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;\\n    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;\\n    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;\\n  }\\n}\\n* { box-sizing: border-box; }\\nbody { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, \\"Segoe UI\\", sans-serif; }\\nh1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }\\nh1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }\\nh3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }\\n.tab-input { position: absolute; opacity: 0; pointer-events: none; }\\n.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }\\n.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }\\n#tab-functional:checked ~ .tabs label[for=\\"tab-functional\\"],\\n#tab-technical:checked ~ .tabs label[for=\\"tab-technical\\"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }\\n#tab-functional:focus-visible ~ .tabs label[for=\\"tab-functional\\"],\\n#tab-technical:focus-visible ~ .tabs label[for=\\"tab-technical\\"] { outline: 2px solid var(--accent); }\\n[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }\\n#tab-functional:checked ~ [data-tab=\\"functional\\"],\\n#tab-technical:checked ~ [data-tab=\\"technical\\"] { display: block; }\\n[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }\\n[data-section] { margin: 12px 0; }\\n[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n[data-state=\\"na\\"] { color: var(--muted); }\\n[data-state=\\"gap\\"] > h4::after { content: \\" \xB7 to settle\\"; color: var(--warn-fg); }\\n.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }\\n.badge.breaking { background: var(--del-bg); color: var(--del-fg); }\\n.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }\\n.badge.added { background: var(--add-bg); color: var(--add-fg); }\\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\\n@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }\\n.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }\\npre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }\\npre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }\\npre .line { display: block; padding: 0 12px; white-space: pre; }\\n.add { background: var(--add-bg); color: var(--add-fg); }\\n.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }\\n.ctx { color: var(--muted); }\\ntable { width: 100%; border-collapse: collapse; margin: 8px 0; }\\nth, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }\\nth { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n.no-change { color: var(--muted); font-style: italic; }\\n.diagram svg { max-width: 100%; height: auto; }\\ndetails > summary { cursor: pointer; color: var(--muted); }\\n</style>\\n</head>\\n<body>\\n<h1>PRD {{prd}}: before and after</h1>\\n<!-- Every section carries data-state: filled (the design covers it), na (\\"N/A \u2014 one-line reason\\") or gap (\\"To settle \u2014 what is missing\\"). -->\\n<input type=\\"radio\\" name=\\"tab\\" id=\\"tab-functional\\" class=\\"tab-input\\" checked>\\n<input type=\\"radio\\" name=\\"tab\\" id=\\"tab-technical\\" class=\\"tab-input\\">\\n<div class=\\"tabs\\"><label for=\\"tab-functional\\">Functional &amp; design</label><label for=\\"tab-technical\\">Technical</label></div>\\n<section data-tab=\\"functional\\">\\n{{functional}}\\n</section>\\n<section data-tab=\\"technical\\">\\n<div data-section=\\"flow\\" data-state=\\"gap\\">\\n<h4>Flow</h4>\\n<!-- FILL -->\\n</div>\\n<div data-section=\\"deploy\\" data-state=\\"gap\\">\\n<h4>Deploy order</h4>\\n<!-- FILL -->\\n</div>\\n{{technical}}\\n</section>\\n<script>if (location.hash === \'#technical\') document.getElementById(\'tab-technical\').checked = true;</script>\\n</body>\\n</html>\\n","omni-settings/playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n<!-- The workspace\'s tech default for every repository that writes no bug-fixing page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository\'s config. -->\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the\\n   reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`.\\nA regression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n","omni-settings/playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n<!-- The workspace\'s tech default for every repository that writes no definition of done of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository\'s config. -->\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The change does what its spec or issue asks, and nothing it did not ask.\\n- The changed behaviour is proven by a test that failed before the change, or, where no test can\\n  reach it, by the narrowest evidence that was actually run.\\n- The repository\'s full preflight (`omni config commands.preflightFull` names it, else\\n  `commands.preflight`) is green on the last commit pushed; the pull request names any step it\\n  skipped, and why.\\n- The hand-off names every check that ran, and every check skipped with its reason. Nothing is\\n  reported as proven that was not run.\\n- Every decision taken without asking a person is written down for a person to answer.\\n- The pull request body says what changed, how it was verified, its risk, how to roll it back, and\\n  where a reviewer should look closest.\\n- The pull request is green and mergeable, or a comment on it says exactly what is stuck.\\n- No key, token, password or personal data is in a commit, a fixture, a log or the body.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- The playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape, with no unrelated formatting.\\nPrefer a few meaningful commits over one mixed commit that hides unrelated work.\\n","omni-settings/playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n<!-- The workspace\'s tech default for every repository that writes no review page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository\'s config. -->\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\\nproblem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste, or style no linter enforces;\\n- work outside the pull request\'s scope;\\n- a rewrite to another pattern, with no defect named;\\n- what the spec already settles: quote it.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision,\\ncontradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after\\na fix or a push-back has the last word: the thread goes to a person, never back into the argument.\\n","omni-settings/playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n<!-- The workspace\'s tech default for every repository that writes no verification page of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository\'s config. -->\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\nThe preflight is the command `omni config commands.preflight` prints, read from the config, never\\ntyped from memory. It is green before a pull request is opened. It runs the half of the gate a\\nlaptop can run, stops at the first failure, and says what to fix; what only CI can run, it names and\\nleaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun the full preflight (`omni config commands.preflightFull`, else `commands.preflight`) before\\nevery push to an open pull request. A pull request no CI runs on, such as a sub-pull request into a\\nfeature branch, has this as its only grade.\\n\\nA commit hook runs only the checks that need no build, so a green commit is not a green branch: run\\nthe rest yourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- A red CI job is reproduced locally, under its own name, before it is fixed.\\n- A ratchet (a check graded against a recorded baseline: coverage or mutation floors, a suppression\\n  budget, a formatting baseline) only holds or improves. Never lower a floor, skip a test or add a\\n  suppression to turn a check green; raising a budget is its own reviewed change.\\n- A check that only skipped or was cancelled is never green.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Any agent\\n<!-- slot: agents \xB7 optional -->\\n- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.\\n- **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the\\n  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4\\n  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run\\n  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask\\n  nothing: a decision is a high outbox item.\\n- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its\\n  own worktree and sub-PR.\\n- **Models.** No model per subagent? Every slice runs on your terminal\'s model.\\n- **Background.** No background? Run in the foreground within your shell\'s limit, again until done.\\n- **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the\\n  repository holds it all.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No\\n   smoke to run: stop, keep the reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`. A\\nregression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n\\n## Budgets\\n<!-- slot: budgets \xB7 optional -->\\nWhat every agent session reads (the briefing, each form as `omni kb show` prints it, the context\\nfiles) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while\\n`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which\\ntarget grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.\\nOnly when it needs the room, raise its ceiling in the same pull request and file a high outbox item\\nthat says why; a person\'s answer turns it green. A pull request with no PRD cannot raise one.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with the latest 20\\nrecords\' numbers and titles, read from the folder each time: nobody keeps that list by hand;\\n`omni kb show decisions --all` prints every record. Before writing a new record, look the decision\\nup there, or search the folder: it may be settled already. A number belongs to one record; two\\nrecords sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/design.md":"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product\'s screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\"<their words>\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder\'s number, and `title`. Only the initial release\'s notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people\'s names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer\'s language\\n---\\nInvoices and their reminders are sent in the language set on the customer\'s record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n","playbook/review.md":"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer\'s comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\"while you\u2019re here\\" changes outside the pull request\'s scope;\\n- a rewrite to the reviewer\'s preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}'));
+var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse("{\"README.md\":\"<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person's\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). A fourth kind, the\\n  domain contract, says in one line how an entity is shaped or moves, and points at the schema or\\n  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are\\n  decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form's file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository's section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit's own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n\",\"before-after/page.html\":\"<!doctype html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<meta name=\\\"omni-before-after\\\" content=\\\"3\\\">\\n<title>PRD {{prd}}: before and after</title>\\n<style>\\n:root {\\n  color-scheme: light dark;\\n  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;\\n  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;\\n  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;\\n}\\n@media (prefers-color-scheme: dark) {\\n  :root {\\n    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;\\n    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;\\n    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;\\n  }\\n}\\n* { box-sizing: border-box; }\\nbody { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, \\\"Segoe UI\\\", sans-serif; }\\nh1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }\\nh1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }\\nh3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }\\n.tab-input { position: absolute; opacity: 0; pointer-events: none; }\\n.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }\\n.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }\\n.tabs label small { font-weight: 600; color: var(--muted); }\\n#tab-functional:checked ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:checked ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:checked ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }\\n#tab-functional:focus-visible ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:focus-visible ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:focus-visible ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { outline: 2px solid var(--accent); }\\n[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }\\n#tab-functional:checked ~ [data-tab=\\\"functional\\\"],\\n#tab-technical:checked ~ [data-tab=\\\"technical\\\"],\\n#tab-pixel-perfect:checked ~ [data-tab=\\\"pixel-perfect\\\"] { display: block; }\\n[data-tab=\\\"pixel-perfect\\\"] { max-width: none; }\\n[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }\\n[data-section] { margin: 12px 0; }\\n[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n[data-state=\\\"na\\\"] { color: var(--muted); }\\n[data-state=\\\"gap\\\"] > h4::after { content: \\\" \xB7 to settle\\\"; color: var(--warn-fg); }\\n.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }\\n.badge.breaking { background: var(--del-bg); color: var(--del-fg); }\\n.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }\\n.badge.added { background: var(--add-bg); color: var(--add-fg); }\\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\\n@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }\\n.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }\\npre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }\\npre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }\\npre .line { display: block; padding: 0 12px; white-space: pre; }\\n.add { background: var(--add-bg); color: var(--add-fg); }\\n.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }\\n.ctx { color: var(--muted); }\\ntable { width: 100%; border-collapse: collapse; margin: 8px 0; }\\nth, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }\\nth { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n.no-change { color: var(--muted); font-style: italic; }\\n.diagram svg { max-width: 100%; height: auto; }\\ndetails > summary { cursor: pointer; color: var(--muted); }\\n.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }\\n.index[hidden] { display: none; }\\n.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }\\n.ref[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }\\n.shot { margin: 0; min-width: 0; }\\n.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }\\n.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }\\n.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }\\n.when.after { background: var(--add-bg); color: var(--add-fg); }\\n.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }\\n.zoom[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }\\n.fit.full { overflow: auto; }\\n.fit > [data-screen] { transform-origin: 0 0; }\\n.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }\\n</style>\\n</head>\\n<body>\\n<h1>PRD {{prd}}: before and after</h1>\\n<!-- Every section carries data-state: filled (the design covers it), na (\\\"N/A \u2014 one-line reason\\\") or gap (\\\"To settle \u2014 what is missing\\\"). -->\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-functional\\\" class=\\\"tab-input\\\" checked>\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-technical\\\" class=\\\"tab-input\\\">\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-pixel-perfect\\\" class=\\\"tab-input\\\">\\n<div class=\\\"tabs\\\"><label for=\\\"tab-functional\\\">Functional</label><label for=\\\"tab-technical\\\">Technical</label><label for=\\\"tab-pixel-perfect\\\">Pixel perfect<small data-count></small></label></div>\\n<section data-tab=\\\"functional\\\">\\n{{functional}}\\n</section>\\n<section data-tab=\\\"technical\\\">\\n<div data-section=\\\"flow\\\" data-state=\\\"gap\\\">\\n<h4>Flow</h4>\\n<!-- FILL -->\\n</div>\\n<div data-section=\\\"deploy\\\" data-state=\\\"gap\\\">\\n<h4>Deploy order</h4>\\n<!-- FILL -->\\n</div>\\n{{technical}}\\n</section>\\n<section data-tab=\\\"pixel-perfect\\\">\\n<nav class=\\\"index\\\" aria-label=\\\"References\\\" data-index hidden></nav>\\n<!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element\\n     carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),\\n     data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,\\n     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,\\n     and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->\\n<div data-section=\\\"pixel-perfect\\\" data-state=\\\"gap\\\">\\n<h4>Pixel perfect</h4>\\n<!-- FILL -->\\n</div>\\n</section>\\n<template id=\\\"screen-css\\\"><style>\\n/* The screens' one stylesheet, written once for the page: the design system's tokens and the library mockups' rules.\\n   It reaches every marked screen and nothing else; the page's own rules never reach inside one. */\\n</style></template>\\n<script>\\n(function () {\\n  var BASE = ':host { all: initial; display: block; }';\\n  var tab = document.querySelector('[data-tab=\\\"pixel-perfect\\\"]');\\n  var sheet = document.getElementById('screen-css');\\n  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];\\n  var fits = [];\\n  function make(tag, cls, text) {\\n    var node = document.createElement(tag);\\n    if (cls) node.className = cls;\\n    if (text) node.textContent = text;\\n    return node;\\n  }\\n  function widthOf(screen) {\\n    var width = Number(screen.getAttribute('data-viewport'));\\n    return width >= 320 && width <= 2560 ? Math.round(width) : 0;\\n  }\\n  function isolate(screen) {\\n    if (!screen.attachShadow || screen.shadowRoot) return;\\n    var body = null;\\n    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];\\n    var root = screen.attachShadow({ mode: 'open' });\\n    root.appendChild(make('style', '', BASE));\\n    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));\\n    if (body) root.appendChild(body.content.cloneNode(true));\\n    else while (screen.firstChild) root.appendChild(screen.firstChild);\\n    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';\\n  }\\n  function size(fit) {\\n    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;\\n    if (!width) return;\\n    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }\\n    var k = Math.min(1, fit.clientWidth / width);\\n    if (!k) return;\\n    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';\\n    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';\\n  }\\n  function zoom(figure) {\\n    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');\\n    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });\\n    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';\\n    size(fit);\\n  }\\n  function frame(screen, ref) {\\n    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');\\n    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);\\n    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');\\n    button.type = 'button'; full.type = 'button';\\n    button.title = 'Open at 100 %';\\n    [button, full].forEach(function (each) {\\n      each.setAttribute('data-zoom', '');\\n      each.setAttribute('aria-pressed', 'false');\\n      each.addEventListener('click', function () { zoom(figure); });\\n    });\\n    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];\\n    parts.forEach(function (part, i) {\\n      if (i > 0) caption.appendChild(document.createTextNode(' \xB7 '));\\n      caption.appendChild(part);\\n    });\\n    caption.appendChild(full);\\n    if (width) fit.style.maxWidth = width + 2 + 'px';\\n    fit.appendChild(screen);\\n    figure.appendChild(caption);\\n    figure.appendChild(fit);\\n    fits.push(fit);\\n    return figure;\\n  }\\n  function absent(ref) {\\n    var figure = make('figure', 'shot none'), caption = make('figcaption');\\n    caption.appendChild(make('span', 'ref', ref));\\n    caption.appendChild(document.createTextNode(' \xB7 '));\\n    caption.appendChild(make('span', 'when today', 'Today'));\\n    figure.appendChild(caption);\\n    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));\\n    return figure;\\n  }\\n  var groups = [], byRef = {};\\n  screens.forEach(function (screen) {\\n    isolate(screen);\\n    var ref = screen.getAttribute('data-ref') || '';\\n    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }\\n    byRef[ref].screens.push(screen);\\n  });\\n  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };\\n  groups.forEach(function (group) {\\n    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';\\n    if (id && !document.getElementById(id)) pair.id = id;\\n    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));\\n    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);\\n    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });\\n    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));\\n    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });\\n  });\\n  var index = tab && tab.querySelector('[data-index]'), numbers = [];\\n  groups.forEach(function (group) {\\n    if (!group.ref || !index) return;\\n    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }\\n    var link = make('a', 'ref', group.ref);\\n    link.href = '#s-' + group.ref.replace('.', '-');\\n    link.title = group.screens[0].getAttribute('data-screen') || '';\\n    index.appendChild(link);\\n    var number = group.ref.split('.')[0];\\n    if (numbers.indexOf(number) === -1) numbers.push(number);\\n  });\\n  var count = document.querySelector('[data-count]');\\n  if (count && numbers.length > 0) count.textContent = ' \xB7 ' + numbers.length;\\n  if (typeof ResizeObserver === 'function') {\\n    var watch = new ResizeObserver(function (entries) {\\n      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });\\n    });\\n    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });\\n  }\\n  function open() {\\n    var hash = location.hash;\\n    if (hash === '#technical') document.getElementById('tab-technical').checked = true;\\n    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {\\n      document.getElementById('tab-pixel-perfect').checked = true;\\n      fits.forEach(size);\\n      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));\\n      if (target) target.scrollIntoView();\\n    }\\n  }\\n  fits.forEach(size);\\n  window.addEventListener('hashchange', open);\\n  open();\\n})();\\n</script>\\n</body>\\n</html>\\n\",\"omni-settings/playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no bug-fixing page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the\\n   reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`.\\nA regression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"omni-settings/playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no definition of done of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The change does what its spec or issue asks, and nothing it did not ask.\\n- The changed behaviour is proven by a test that failed before the change, or, where no test can\\n  reach it, by the narrowest evidence that was actually run.\\n- The repository's full preflight (`omni config commands.preflightFull` names it, else\\n  `commands.preflight`) is green on the last commit pushed; the pull request names any step it\\n  skipped, and why.\\n- The hand-off names every check that ran, and every check skipped with its reason. Nothing is\\n  reported as proven that was not run.\\n- Every decision taken without asking a person is written down for a person to answer.\\n- The pull request body says what changed, how it was verified, its risk, how to roll it back, and\\n  where a reviewer should look closest.\\n- The pull request is green and mergeable, or a comment on it says exactly what is stuck.\\n- No key, token, password or personal data is in a commit, a fixture, a log or the body.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- The playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape, with no unrelated formatting.\\nPrefer a few meaningful commits over one mixed commit that hides unrelated work.\\n\",\"omni-settings/playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n<!-- The workspace's tech default for every repository that writes no review page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\\nproblem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste, or style no linter enforces;\\n- work outside the pull request's scope;\\n- a rewrite to another pattern, with no defect named;\\n- what the spec already settles: quote it.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision,\\ncontradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after\\na fix or a push-back has the last word: the thread goes to a person, never back into the argument.\\n\",\"omni-settings/playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n<!-- The workspace's tech default for every repository that writes no verification page of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\nThe preflight is the command `omni config commands.preflight` prints, read from the config, never\\ntyped from memory. It is green before a pull request is opened. It runs the half of the gate a\\nlaptop can run, stops at the first failure, and says what to fix; what only CI can run, it names and\\nleaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun the full preflight (`omni config commands.preflightFull`, else `commands.preflight`) before\\nevery push to an open pull request. A pull request no CI runs on, such as a sub-pull request into a\\nfeature branch, has this as its only grade.\\n\\nA commit hook runs only the checks that need no build, so a green commit is not a green branch: run\\nthe rest yourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- A red CI job is reproduced locally, under its own name, before it is fixed.\\n- A ratchet (a check graded against a recorded baseline: coverage or mutation floors, a suppression\\n  budget, a formatting baseline) only holds or improves. Never lower a floor, skip a test or add a\\n  suppression to turn a check green; raising a budget is its own reviewed change.\\n- A check that only skipped or was cancelled is never green.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\",\"playbook/architecture.md\":\"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package's name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other's domain code; they meet in exactly one place, the\\n  app's composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file's name says its role.\\n\",\"playbook/briefing.md\":\"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Any agent\\n<!-- slot: agents \xB7 optional -->\\n- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.\\n- **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the\\n  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4\\n  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run\\n  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask\\n  nothing: a decision is a high outbox item.\\n- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its\\n  own worktree and sub-PR.\\n- **Models.** No model per subagent? Every slice runs on your terminal's model.\\n- **Background.** No background? Run in the foreground within your shell's limit, again until done.\\n- **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the\\n  repository holds it all.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n\",\"playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No\\n   smoke to run: stop, keep the reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`. A\\nregression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"playbook/ci.md\":\"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n\\n## Budgets\\n<!-- slot: budgets \xB7 optional -->\\nWhat every agent session reads (the briefing, each form as `omni kb show` prints it, the context\\nfiles) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while\\n`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which\\ntarget grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.\\nOnly when it needs the room, raise its ceiling in the same pull request and file a high outbox item\\nthat says why; a person's answer turns it green. A pull request with no PRD cannot raise one.\\n\",\"playbook/conventions.md\":\"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product's own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n\",\"playbook/decisions.md\":\"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one's status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with the latest 20\\nrecords' numbers and titles, read from the folder each time: nobody keeps that list by hand;\\n`omni kb show decisions --all` prints every record. Before writing a new record, look the decision\\nup there, or search the folder: it may be settled already. A number belongs to one record; two\\nrecords sharing one is a mistake to fix, never a precedent.\\n\",\"playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request's outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n\",\"playbook/design.md\":\"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product's screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n\",\"playbook/glossary.md\":\"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n\",\"playbook/pull-requests.md\":\"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository's pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary's words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\\"revert this pull request\\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n\",\"playbook/releasing.md\":\"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder's number, and `title`. Only the initial release's notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people's names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer's language\\n---\\nInvoices and their reminders are sent in the language set on the customer's record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n\",\"playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\\"while you\u2019re here\\\" changes outside the pull request's scope;\\n- a rewrite to the reviewer's preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n\",\"playbook/setup.md\":\"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n\",\"playbook/testing.md\":\"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n\",\"playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\"}"));
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
 }
@@ -10286,7 +10424,7 @@ function fixLines(verdict, { prd, growth, ceilingsFile }) {
   const skill = prd === null ? "" : `\`/omni:pr-care\` (or \`/omni:yolo-fix ${prd}\`) handles it by itself. Or `;
   return [`Fix it for me: ${skill}${skill ? "paste" : "Paste"} this into Claude: ${prompt}`];
 }
-var capitalised = (text17) => `${text17.charAt(0).toUpperCase()}${text17.slice(1)}`;
+var capitalised = (text18) => `${text18.charAt(0).toUpperCase()}${text18.slice(1)}`;
 function roomLines({ target: target2, bytes, ceiling }, { prd, ceilingsFile }) {
   if (prd === null) {
     return [
@@ -10367,8 +10505,8 @@ import { join as join43 } from "node:path";
 import { existsSync as existsSync30, readdirSync as readdirSync16, readFileSync as readFileSync29 } from "node:fs";
 import { join as join42 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text17, heading) {
-  const lines2 = text17.split("\n");
+function invariantAdrs(text18, heading) {
+  const lines2 = text18.split("\n");
   const start = lines2.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
@@ -10443,8 +10581,8 @@ var FUN_SECTION_FIELDS = [
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
-function checkItemText(file, text17, { laws }) {
-  const parsed3 = parseItem(text17, file);
+function checkItemText(file, text18, { laws }) {
+  const parsed3 = parseItem(text18, file);
   if (!parsed3.ok) return parsed3.errors;
   const { item } = parsed3;
   const violations = [];
@@ -10559,9 +10697,9 @@ function markdownFiles(dir) {
 function spendFolder(ids, dir) {
   for (const name of markdownFiles(dir)) ids.add(basename8(name, ".md"));
 }
-function writeInto(out, id, text17) {
+function writeInto(out, id, text18) {
   mkdirSync7(out.abs, { recursive: true });
-  writeFileSync10(join44(out.abs, `${id}.md`), text17);
+  writeFileSync10(join44(out.abs, `${id}.md`), text18);
   return join44(out.shown, `${id}.md`);
 }
 
@@ -10585,12 +10723,12 @@ function itemRefusal({
   prd,
   file,
   name,
-  text: text17,
+  text: text18,
   taken
 }) {
-  const violations = checkItemText(file, text17, { laws });
+  const violations = checkItemText(file, text18, { laws });
   if (violations.length > 0) return violations.join("; ");
-  const parsed3 = parseOutboxItem(text17, { file });
+  const parsed3 = parseOutboxItem(text18, { file });
   if (!parsed3.ok) return parsed3.errors.join("; ");
   const { item } = parsed3;
   if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
@@ -10602,9 +10740,9 @@ function accountRefusal({
   prd,
   destination,
   name,
-  text: text17
+  text: text18
 }) {
-  const parsed3 = parseAccount(text17, { file: name });
+  const parsed3 = parseAccount(text18, { file: name });
   if (!parsed3.ok) return parsed3.errors.join("; ");
   if (parsed3.account.prd !== prd) return `it belongs to PRD ${parsed3.account.prd}, not PRD ${prd}`;
   if (existsSync33(destination)) return `an account of that name is already in the outbox of PRD ${prd}`;
@@ -10698,10 +10836,10 @@ function parseReplyLines(body) {
   return lines2;
 }
 function interpretAnswer({
-  text: text17,
+  text: text18,
   options
 }) {
-  const trimmed3 = plainText(text17).trim();
+  const trimmed3 = plainText(text18).trim();
   if (RECOMMENDATION_RE.test(trimmed3)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
@@ -11025,9 +11163,9 @@ function gitOutboxStore(ctx) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     }),
-    writeItem: ({ prd, id, text: text17 }, out) => promised(() => {
+    writeItem: ({ prd, id, text: text18 }, out) => promised(() => {
       const outboxDir = outboxDirOf(ctx, repoPrd(prd));
-      return writeInto(out ?? { abs: join47(ctx.root, outboxDir), shown: outboxDir }, id, text17);
+      return writeInto(out ?? { abs: join47(ctx.root, outboxDir), shown: outboxDir }, id, text18);
     }),
     adopt: (itemText) => promised(() => adoptItem({ ctx, itemText })),
     settle: (ref, answer) => promised(() => settleItem({ ctx, file: ref, answer })),
@@ -11072,9 +11210,9 @@ var ServerAnswerSchema = AnswerSchema.partial({ approvedBy: true, approvedAt: tr
 var refOf = (prd, id) => `${prd}/${id}`;
 var ledgerOf2 = (prd) => `PRD ${prd}'s ledger on the Omni page`;
 function refParts(ref) {
-  const cut2 = ref.lastIndexOf("/");
-  const prd = ProductPrdIdSchema.safeParse(ref.slice(0, Math.max(cut2, 0)));
-  const id = OutboxItemIdSchema.safeParse(ref.slice(cut2 + 1));
+  const cut3 = ref.lastIndexOf("/");
+  const prd = ProductPrdIdSchema.safeParse(ref.slice(0, Math.max(cut3, 0)));
+  const id = OutboxItemIdSchema.safeParse(ref.slice(cut3 + 1));
   return prd.success && id.success ? { prd: prd.data, id: id.data } : null;
 }
 function productPrd(prd) {
@@ -11134,13 +11272,13 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     },
-    async writeItem({ prd, id, text: text17 }, out) {
+    async writeItem({ prd, id, text: text18 }, out) {
       const product = productPrd(prd);
-      if (out !== null) return writeInto(out, id, text17);
+      if (out !== null) return writeInto(out, id, text18);
       const ref = refOf(product, id);
-      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text17, taken: /* @__PURE__ */ new Set() });
+      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text18, taken: /* @__PURE__ */ new Set() });
       if (refusal4 !== null) throw new Error(`${ref}: ${refusal4}`);
-      await put2(product, text17, false);
+      await put2(product, text18, false);
       return ref;
     },
     async adopt(itemText) {
@@ -11163,16 +11301,16 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       const row = named === null ? void 0 : (await openRows(named.prd)).find((open) => open.item === named.id);
       const item = named === null || row === void 0 ? null : parsedRow(named.prd, row);
       if (named === null || row === void 0 || item === null) return { ok: false, errors: [`${ref}: no such open item.`] };
-      const { text: text17, statedVerdict = null } = given.data;
-      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text17, statedVerdict });
+      const { text: text18, statedVerdict = null } = given.data;
+      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text18, statedVerdict });
       const { verdict } = judgement;
       if (verdict === null) {
         return { ok: false, errors: [`${ref}: the verdict is undetermined \u2014 ${judgement.reason}. Say it outright: add a "Verdict: agreed" or "Verdict: drifted" line to the answer, or pass --verdict.`] };
       }
       const { key, seq } = productPrdParts(named.prd);
       return answered(async () => {
-        await ask3((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text17 }));
-        const entryAnswer = { text: text17, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now2()).toISOString(), channel: null };
+        await ask3((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text18 }));
+        const entryAnswer = { text: text18, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now2()).toISOString(), channel: null };
         const entry = renderSettledEntry({ item, itemText: row.body, answer: entryAnswer, judgement, markers: ctx.markers });
         return { ok: true, verdict, basis: judgement.basis, entry, settledFile: ledgerOf2(named.prd), removedFile: ref };
       });
@@ -11185,14 +11323,14 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       const refused10 = [];
       for (const name of markdownFiles(dir)) {
         const from = join48(dir, name);
-        const text17 = readFileSync33(from, "utf8");
+        const text18 = readFileSync33(from, "utf8");
         const id = name.slice(0, -".md".length);
-        const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text17, taken });
+        const reason2 = itemRefusal({ laws, prd: product, file: refOf(product, id), name, text: text18, taken });
         if (reason2 !== null) {
           refused10.push({ file: from, reason: reason2 });
           continue;
         }
-        await put2(product, text17, false);
+        await put2(product, text18, false);
         unlinkSync2(from);
         taken.add(id);
         moved.push({ from, to: refOf(product, id) });
@@ -11532,10 +11670,10 @@ var CANON_SPEC_LIMIT = 4e4;
 var MAX_QUOTE = 300;
 var CACHE_LIMIT = 200;
 var JUDGE_NOT_CONFIGURED = "no-secret";
-var plain = (text17) => (text17 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-function quoted3(text17, quote) {
-  const q = plain(quote);
-  return q.length > 0 && plain(text17).includes(q);
+var plain = (text18) => (text18 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+function quoted3(text18, quote2) {
+  const q = plain(quote2);
+  return q.length > 0 && plain(text18).includes(q);
 }
 var SYSTEM2 = [
   "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), its Legal entries (what the law requires of it), the business claims its team confirmed, and its personas.",
@@ -11963,14 +12101,14 @@ function heldItems(config, head, pr) {
   if ("skip" in prd) return [];
   return openItems(prd.number, { ctx: createContext(head, config) }).filter((item) => item.rank !== null && WAITING_RANKS.has(item.rank)).map((item) => ({ thing: item.id ?? item.file.replace(/^.*\//, "").replace(/\.md$/, ""), kind: "item" }));
 }
-function heldLaws(gate) {
-  if (gate === null) return [];
-  return [...new Set(gate.awaiting.map((one) => one.law))].map((law) => ({ thing: law, kind: "law" }));
+function heldLaws(gate2) {
+  if (gate2 === null) return [];
+  return [...new Set(gate2.awaiting.map((one) => one.law))].map((law) => ({ thing: law, kind: "law" }));
 }
-function heldAt({ config, head, pr, gate }) {
+function heldAt({ config, head, pr, gate: gate2 }) {
   const settings = settingsOf(config);
   if (!escalates(settings)) return null;
-  return { settings, held: [...heldLaws(gate), ...heldItems(config, head, pr)] };
+  return { settings, held: [...heldLaws(gate2), ...heldItems(config, head, pr)] };
 }
 
 // apps/omni-app/src/escalation/sweep.ts
@@ -12042,8 +12180,8 @@ async function sweepRepository(octokit, { owner, repo, now: now2, log: log2 }) {
   const swept = { pulls: pulls.length, asked: 0, failed: 0 };
   for (const pull of pulls) {
     try {
-      const outcome2 = await sweepPull(octokit, { owner, repo, prNumber: parsePr(pull.number), now: now2, settings: settingsOfBase(pull.base.sha) });
-      if (outcome2 === "asked") swept.asked += 1;
+      const outcome3 = await sweepPull(octokit, { owner, repo, prNumber: parsePr(pull.number), now: now2, settings: settingsOfBase(pull.base.sha) });
+      if (outcome3 === "asked") swept.asked += 1;
     } catch (error) {
       if (refusalIn(error)) throw error;
       swept.failed += 1;
@@ -12354,7 +12492,7 @@ function fleetBoardHandler({ octokitFor, store, now: now2 = () => /* @__PURE__ *
     for (const workspace of workspaces) outcomes.push(await addCard({ octokitFor, store, now: now2, data, workspace, fleet: fleets.get(workspace) ?? null }));
     const said = `${pull}: ${outcomes.length > 0 ? outcomes.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
     log2(`fleet board: ${said}`);
-    return outcomes.some((outcome2) => "note" in outcome2) ? { outcome: "done" } : { outcome: "skipped", reason: said };
+    return outcomes.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said };
   };
 }
 async function addCard({
@@ -12373,9 +12511,9 @@ async function addCard({
   await store.note({ workspace, fleet: fleet.name, projectUrl: board, note, at: now2().toISOString() });
   return { workspace, fleet: fleet.name, note };
 }
-function outcomeLine2(outcome2) {
-  const where = "fleet" in outcome2 ? `${outcome2.workspace} ${outcome2.fleet}` : outcome2.workspace;
-  return `${where}: ${"note" in outcome2 ? outcome2.note : outcome2.skipped}`;
+function outcomeLine2(outcome3) {
+  const where = "fleet" in outcome3 ? `${outcome3.workspace} ${outcome3.fleet}` : outcome3.workspace;
+  return `${where}: ${"note" in outcome3 ? outcome3.note : outcome3.skipped}`;
 }
 async function fleetsOf({ store, workspaces, data, look: look2 }) {
   const fleets = /* @__PURE__ */ new Map();
@@ -13283,7 +13421,7 @@ async function evaluateInbox({
   return {
     name,
     prd,
-    conclusion: gates.every((gate) => gate.ok) ? "success" : "failure",
+    conclusion: gates.every((gate2) => gate2.ok) ? "success" : "failure",
     title: titleOf(gates),
     summary: summaryOf2({ prd, folder: placeOf2(ctx, prd).name, gates, marker: canonMarker({ prd, canon: facts }) }),
     gates,
@@ -13310,11 +13448,11 @@ async function evaluateRoadmap({
       const { canon: facts, ...canonGate } = await rowCanonGate({ canon, ctx, prd: row.prd, head, repo });
       const gates2 = [...rowGates({ ctx, prd: row.prd, changes, commits, issue: issueOf(row.prd) }), canonGate];
       if (laws && ctx.layout.whereIs(row.prd) !== null) gates2.push(await lawsGateOf({ laws, ctx, prd: row.prd, head, repo }));
-      return { row, gates: gates2.map((gate) => ({ ...gate, prd: row.prd })), facts };
+      return { row, gates: gates2.map((gate2) => ({ ...gate2, prd: row.prd })), facts };
     })
   );
   const gates = [roadmapGate, ...graded.flatMap((entry) => entry.gates)];
-  const ok = gates.every((gate) => gate.ok);
+  const ok = gates.every((gate2) => gate2.ok);
   return {
     name,
     prd: null,
@@ -13343,8 +13481,8 @@ function roadmapSummary({ ctx, roadmap, roadmapGate, graded }) {
   ].join("\n");
 }
 function canonTail(gates) {
-  const canon = gates.filter((gate) => gate.name === CANON_GATE);
-  const judged4 = canon.filter((gate) => !gate.neutral);
+  const canon = gates.filter((gate2) => gate2.name === CANON_GATE);
+  const judged4 = canon.filter((gate2) => !gate2.neutral);
   return judged4.length === 0 ? "canon neutral" : `canon \u2713 on ${judged4.length} of ${plural4(canon.length, "PRD")}`;
 }
 function rowGates({
@@ -13370,10 +13508,10 @@ function rowHeading(ctx, row) {
 }
 function failedByName(gates) {
   const failed3 = /* @__PURE__ */ new Map();
-  for (const gate of gates.filter((candidate) => !candidate.ok)) {
-    const prds = failed3.get(gate.name) ?? [];
-    if (gate.prd !== void 0) prds.push(gate.prd);
-    failed3.set(gate.name, prds);
+  for (const gate2 of gates.filter((candidate) => !candidate.ok)) {
+    const prds = failed3.get(gate2.name) ?? [];
+    if (gate2.prd !== void 0) prds.push(gate2.prd);
+    failed3.set(gate2.name, prds);
   }
   return [...failed3].map(([name, prds]) => prds.length === 0 ? name : `${name} (PRD ${prds.join(", ")})`).join(", ");
 }
@@ -13408,10 +13546,10 @@ function inFolder(file, prd) {
   return file;
 }
 function titleOf(gates) {
-  const failed3 = gates.filter((gate) => !gate.ok);
-  if (failed3.length > 0) return `Not ok: ${failed3.map((gate) => gate.title ?? gate.name).join(", ")}`;
-  const judged4 = gates.filter((gate) => !gate.neutral);
-  const canon = gates.find((gate) => gate.name === CANON_GATE);
+  const failed3 = gates.filter((gate2) => !gate2.ok);
+  if (failed3.length > 0) return `Not ok: ${failed3.map((gate2) => gate2.title ?? gate2.name).join(", ")}`;
+  const judged4 = gates.filter((gate2) => !gate2.neutral);
+  const canon = gates.find((gate2) => gate2.name === CANON_GATE);
   const tail = canon?.neutral ? " \xB7 canon neutral" : ` \xB7 ${canon?.reason}`;
   return `Phase-0 PR complete: ${judged4.length} of ${judged4.length} gates ok${tail}`;
 }
@@ -13465,9 +13603,9 @@ function summaryOf2({ prd, folder, gates, marker: marker2 }) {
   return [`PRD ${prd} (\`${folder}\`)`, "", ...gateLines(gates), ...marker2 ? ["", marker2] : []].join("\n");
 }
 function gateLines(gates) {
-  return gates.flatMap((gate) => [
-    `- ${gate.neutral ? "neutral" : gate.ok ? "ok" : "not ok"} \u2014 ${gate.name}: ${gate.reason}`,
-    ...(gate.details ?? []).map((detail) => `  - ${detail}`)
+  return gates.flatMap((gate2) => [
+    `- ${gate2.neutral ? "neutral" : gate2.ok ? "ok" : "not ok"} \u2014 ${gate2.name}: ${gate2.reason}`,
+    ...(gate2.details ?? []).map((detail) => `  - ${detail}`)
   ]);
 }
 
@@ -13966,20 +14104,20 @@ function heldLine2(held, codeowners) {
   }
   return `  - ${held.law}: waiting for an approving review of the head commit from ${held.owners.join(" or ")}, who own ${files}.`;
 }
-function withLawGate(verdict, gate) {
-  if (gate === null) return verdict;
-  const laws = [...new Set(gate.fired.map((one) => one.law))].join(", ");
-  if (gate.awaiting.length === 0) {
-    const approved = gate.approvedBy.map((login) => `@${login}`).join(", ");
+function withLawGate(verdict, gate2) {
+  if (gate2 === null) return verdict;
+  const laws = [...new Set(gate2.fired.map((one) => one.law))].join(", ");
+  if (gate2.awaiting.length === 0) {
+    const approved = gate2.approvedBy.map((login) => `@${login}`).join(", ");
     return { ...verdict, summary: `${verdict.summary}
 
 Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
   }
-  const heldLaws2 = gate.awaiting.map((held) => held.law).join(", ");
+  const heldLaws2 = gate2.awaiting.map((held) => held.law).join(", ");
   const title = `Locked law changed without its CODEOWNER's approval \u2014 ${heldLaws2}`;
   const summary2 = [
     `This pull request changes a locked law. Only an approving review on GitHub from a CODEOWNER of each file it changed clears it: no outbox item, label or trailer does.`,
-    ...gate.awaiting.map((held) => heldLine2(held, gate.codeowners)),
+    ...gate2.awaiting.map((held) => heldLine2(held, gate2.codeowners)),
     "",
     verdict.summary
   ].join("\n");
@@ -14034,15 +14172,15 @@ function productOutboxVerdict(prd, reading, galaxyUrl) {
     };
   }
   const details = questionsUrl(galaxyUrl, outbox.productId);
-  const gate = `${prd.id}'s outbox lives on ${outbox.productName}, on the server: one gate for every repository the PRD builds in.`;
+  const gate2 = `${prd.id}'s outbox lives on ${outbox.productName}, on the server: one gate for every repository the PRD builds in.`;
   if (outbox.open.length === 0) {
-    return { conclusion: "success", title: `0 open \xB7 one gate on ${outbox.productName}`, summary: [gate, "", "No open question."].join("\n"), detailsUrl: details };
+    return { conclusion: "success", title: `0 open \xB7 one gate on ${outbox.productName}`, summary: [gate2, "", "No open question."].join("\n"), detailsUrl: details };
   }
   return {
     conclusion: "failure",
     title: `${outbox.open.length} open \xB7 answer on ${outbox.productName} \u203A Questions`,
     summary: [
-      gate,
+      gate2,
       "",
       ...outbox.open.map(({ item, rank }) => `- \`${item}\` \xB7 ${rank}`),
       "",
@@ -14178,9 +14316,9 @@ async function evaluateAt2(octokit, { owner, repo, prNumber, headSha }) {
     });
     if (!config || changes === null) return verdict;
     if (verdict.conclusion === "skipped" && businessLawFiles(changes, { ctx: createContext(head, config) }).length === 0) return verdict;
-    const gate = await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes });
-    const held = heldAt({ config, head, pr, gate });
-    return held === null ? withLawGate(verdict, gate) : { ...withLawGate(verdict, gate), held };
+    const gate2 = await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes });
+    const held = heldAt({ config, head, pr, gate: gate2 });
+    return held === null ? withLawGate(verdict, gate2) : { ...withLawGate(verdict, gate2), held };
   } finally {
     rmSync14(base, { recursive: true, force: true });
     rmSync14(head, { recursive: true, force: true });
@@ -14236,8 +14374,8 @@ var OUTBOX_KIND = "pr-outbox";
 var requestOf3 = (raw) => checkPayloadOf(CheckRequestDataSchema, OUTBOX_KIND, raw);
 function outboxHandler(deps) {
   return async (job) => {
-    const outcome2 = await runOutboxCheck(deps, requestOf3(job.payload), { start: (work) => work(), evaluate: (work) => work(), publish: (work) => work(), escalation: (work) => work() });
-    return "posted" in outcome2 ? { outcome: "skipped", reason: NOT_ACTIVE_ON_REPO } : { outcome: "done" };
+    const outcome3 = await runOutboxCheck(deps, requestOf3(job.payload), { start: (work) => work(), evaluate: (work) => work(), publish: (work) => work(), escalation: (work) => work() });
+    return "posted" in outcome3 ? { outcome: "skipped", reason: NOT_ACTIVE_ON_REPO } : { outcome: "done" };
   };
 }
 function outboxFailureHook({ octokitFor, log: log2 = noteTo("outbox-check") }) {
@@ -14564,8 +14702,8 @@ async function collectAll({ store, octokitFor, step = atOnce, now: now2 }) {
   const summary2 = { repositories: repositories.length, collected: 0, failed: 0, unfinished: 0, paused: 0, saved: 0 };
   const budgets = /* @__PURE__ */ new Map();
   for (const repository of repositories) {
-    const { outcome: outcome2, saved } = await collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso });
-    summary2[outcome2] += 1;
+    const { outcome: outcome3, saved } = await collectRepository({ store, octokitFor, step, repository, budgets, backfillFrom, nowIso });
+    summary2[outcome3] += 1;
     summary2.saved += saved;
   }
   return summary2;
@@ -14586,8 +14724,8 @@ async function collectRepository({ store, octokitFor, step, repository, budgets,
     saved += out.saved;
     cursor = out.cursor;
     budgets.set(installationId, out.budget);
-    const outcome2 = outcomeOf(out, n);
-    if (outcome2) return { outcome: outcome2, saved };
+    const outcome3 = outcomeOf(out, n);
+    if (outcome3) return { outcome: outcome3, saved };
   }
 }
 function outcomeOf(out, n) {
@@ -14852,7 +14990,7 @@ var FORBIDDEN = [
   { pattern: /`/, what: () => "a backtick" },
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), what: () => `a path under ${KIT_FOLDER}` }
 ];
-var characters = (text17) => Array.from(text17).length;
+var characters = (text18) => Array.from(text18).length;
 function unquote(value) {
   const trimmed3 = value.trim();
   const first = trimmed3[0];
@@ -14880,8 +15018,8 @@ ${line.trim()}`;
   }
   return { fields, errors };
 }
-function splitNote(text17) {
-  const match2 = text17.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
+function splitNote(text18) {
+  const match2 = text18.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
   return match2 ? { front: match2[1] ?? "", body: match2[2] ?? "" } : null;
 }
 function bodyLines(body) {
@@ -14898,8 +15036,8 @@ function notePrd(fields, errors) {
   errors.push(`prd "${prd}" is not a PRD number`);
   return null;
 }
-function parseReleaseNote(text17) {
-  const parts = splitNote(text17);
+function parseReleaseNote(text18) {
+  const parts = splitNote(text18);
   if (!parts) return { ok: false, errors: ['no front matter \u2014 a release note opens with a "---" fenced header holding prd and title'] };
   const { fields, errors } = readFields2(parts.front);
   for (const key of Object.keys(fields)) {
@@ -14941,14 +15079,14 @@ function descriptionViolations(lines2, description) {
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
-function contentViolations(name, text17) {
+function contentViolations(name, text18) {
   return FORBIDDEN.flatMap(({ pattern, what }) => {
-    const match2 = text17.match(pattern);
+    const match2 = text18.match(pattern);
     return match2 ? [`${name} holds ${what(match2[0])}`] : [];
   });
 }
-function gradeReleaseNote(text17, { prd }) {
-  const parsed3 = parseReleaseNote(text17);
+function gradeReleaseNote(text18, { prd }) {
+  const parsed3 = parseReleaseNote(text18);
   if (!parsed3.ok) return parsed3.errors;
   const { note } = parsed3;
   const out = [];
@@ -14957,7 +15095,7 @@ function gradeReleaseNote(text17, { prd }) {
     out.push(`version ${note.version === "" ? '""' : note.version} is not ${INITIAL_VERSION} \u2014 only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text17)?.body ?? ""), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text18)?.body ?? ""), note.description));
   out.push(...contentViolations("title", note.title), ...contentViolations("description", note.description));
   return out;
 }
@@ -15161,10 +15299,10 @@ function codeownersFile(ctx) {
 }
 function ownersBlockProblems(ctx, knowledge = readKnowledge({ ctx })) {
   if ((ctx.config.laws?.owners ?? []).length === 0) return [];
-  const { file, text: text17 } = codeownersFile(ctx);
+  const { file, text: text18 } = codeownersFile(ctx);
   let current;
   try {
-    current = text17 === null ? null : ownersBlockIn(text17);
+    current = text18 === null ? null : ownersBlockIn(text18);
   } catch (error) {
     return [`${file}: ${messageOf3(error)}.`];
   }
@@ -15210,8 +15348,8 @@ var DEFAULT_LAWS_MAX = 20;
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail, text: text17 }) {
-  return text17 ?? `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text18 }) {
+  return text18 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -15363,11 +15501,11 @@ function idShapeViolations(entry) {
     )
   ];
 }
-function headingAnchors(text17) {
+function headingAnchors(text18) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line of text17.split("\n")) {
+  for (const line of text18.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match2 = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match2) continue;
@@ -15636,11 +15774,11 @@ function findDecisionTagViolations(ctx, knowledge) {
 }
 function findThesisViolations(ctx, entries) {
   if (ctx.copyOf) return [];
-  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text17) => ({ text: text17 }));
+  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text18) => ({ text: text18 }));
 }
 function findOwnersBlockViolations(ctx, knowledge) {
   if (ctx.copyOf) return [];
-  return ownersBlockProblems(ctx, knowledge).map((text17) => ({ text: text17 }));
+  return ownersBlockProblems(ctx, knowledge).map((text18) => ({ text: text18 }));
 }
 function aKind(kind) {
   if (kind === null) return "an entry of no kind";
@@ -15657,10 +15795,10 @@ function findLevelContradictions(ctx) {
 }
 function findBusinessLawViolations(ctx) {
   const owners = ctx.copyOf ? null : ctx.config.laws?.owners ?? [];
-  return businessLawProblems(readBusinessLaws({ ctx }), { owners, where: ctx.layout.knowledgeRoot }).map((text17) => ({ text: text17 }));
+  return businessLawProblems(readBusinessLaws({ ctx }), { owners, where: ctx.layout.knowledgeRoot }).map((text18) => ({ text: text18 }));
 }
-function findUnresolvedCitations(file, text17, resolve3) {
-  return idsCitedIn(text17).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text18, resolve3) {
+  return idsCitedIn(text18).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries) {
   return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
@@ -15683,9 +15821,9 @@ function gradeKnowledge({
 }) {
   const knowledge = readKnowledge({ ctx });
   const resolve3 = (id) => knowledge.entries.find((entry) => entry.id === id);
-  const text17 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
+  const text18 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
-    ...findLayoutViolations(ctx, knowledge, { glossaryText: text17 }),
+    ...findLayoutViolations(ctx, knowledge, { glossaryText: text18 }),
     ...findOwningLibraryViolations(ctx, knowledge),
     ...findCrossDomainFileViolations(knowledge),
     ...findReusedIds(knowledge.entries),
@@ -15853,9 +15991,9 @@ function classificationJsonSchema(summary2) {
   };
 }
 function section3(heading, body) {
-  const text17 = plainText(body).trim();
-  if (text17 === "") return [];
-  return [`### ${heading}`, "", text17, ""];
+  const text18 = plainText(body).trim();
+  if (text18 === "") return [];
+  return [`### ${heading}`, "", text18, ""];
 }
 function itemSections(candidate) {
   const sections = candidate.item?.sections;
@@ -15963,8 +16101,8 @@ function toCandidate(entry, ledgerFile) {
     rank: entry.fields.Rank ?? (parsed3.ok ? parsed3.item.rank : null) ?? null
   };
 }
-function candidatesFromLedger(text17, { markers, ledgerFile = null }) {
-  const entries = parseSettledEntries(text17, markers);
+function candidatesFromLedger(text18, { markers, ledgerFile = null }) {
+  const entries = parseSettledEntries(text18, markers);
   return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd }) {
@@ -16010,8 +16148,8 @@ function mergedLine(merge) {
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length <= SLUG_MAX) return slug;
-  const cut2 = slug.slice(0, SLUG_MAX + 1);
-  return cut2.slice(0, cut2.lastIndexOf("-") > 0 ? cut2.lastIndexOf("-") : SLUG_MAX);
+  const cut3 = slug.slice(0, SLUG_MAX + 1);
+  return cut3.slice(0, cut3.lastIndexOf("-") > 0 ? cut3.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
@@ -16079,8 +16217,8 @@ function makeFiles(ctx) {
       }
       return texts.get(path) ?? null;
     },
-    write(path, text17) {
-      texts.set(path, text17);
+    write(path, text18) {
+      texts.set(path, text18);
       this.changed.add(path);
     },
     changed: /* @__PURE__ */ new Set(),
@@ -16089,8 +16227,8 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text17, entry, { heading }) {
-  let base = text17 ?? `# ${heading}
+function appendEntry(text18, entry, { heading }) {
+  let base = text18 ?? `# ${heading}
 `;
   if (!/^## /m.test(base)) {
     const lines2 = base.split("\n");
@@ -16149,8 +16287,8 @@ function renderRecord2({
     ""
   ].join("\n");
 }
-function addLedgerLine(text17, { id, line, markers }) {
-  const lines2 = text17.split("\n");
+function addLedgerLine(text18, { id, line, markers }) {
+  const lines2 = text18.split("\n");
   const open = lines2.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
   const close = lines2.indexOf(markers.settledClose(id), open);
@@ -16408,15 +16546,15 @@ function applyHarvestEdits({ root, edits }) {
     mkdirSync13(dirname14(join67(root, to)), { recursive: true });
     renameSync3(join67(root, from), join67(root, to));
   }
-  for (const { path, text: text17 } of edits.writes) {
+  for (const { path, text: text18 } of edits.writes) {
     mkdirSync13(dirname14(join67(root, path)), { recursive: true });
-    writeFileSync18(join67(root, path), text17);
+    writeFileSync18(join67(root, path), text18);
   }
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
   for (const write2 of writes) byPath.set(write2.path, write2.text);
-  return [...byPath].map(([path, text17]) => ({ path, text: text17 }));
+  return [...byPath].map(([path, text18]) => ({ path, text: text18 }));
 }
 function prepareHarvest({
   ctx,
@@ -16442,7 +16580,7 @@ function prepareHarvest({
       const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync47(join67(scratch.root, file), "utf8") });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
-      rewrites = plan.rewrites.map(({ file, text: text17 }) => ({ path: movedPath(moves, file), text: text17 }));
+      rewrites = plan.rewrites.map(({ file, text: text18 }) => ({ path: movedPath(moves, file), text: text18 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
@@ -16714,9 +16852,9 @@ async function upsertPull(octokit, { owner, repo, branch, base, head, title, bod
 }
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
-async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text17 }) {
+async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text18 }) {
   const body = `${marker2}
-${String(text17).trimEnd()}
+${String(text18).trimEnd()}
 `;
   const comments = await listComments(octokit, { owner, repo, prNumber });
   const existing = comments.find((comment) => comment.body.includes(marker2));
@@ -17006,7 +17144,7 @@ ${commitMarker(merge.pr)} Merged by @${bare2(merge.by)}.`;
 }
 var bare2 = (who) => (who ?? "").replace(/^@/, "");
 var day2 = (value) => (value ?? "").slice(0, 10);
-var cell = (text17) => (text17 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+var cell = (text18) => (text18 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
@@ -17014,9 +17152,9 @@ function landedAs(entry) {
   return `${entry.landedAs.join(", ")} (new, ${standing})`;
 }
 function decidedShort(decided) {
-  const text17 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
-  if (text17.startsWith("nobody")) return "nobody \u2014 adopted";
-  return text17;
+  const text18 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
+  if (text18.startsWith("nobody")) return "nobody \u2014 adopted";
+  return text18;
 }
 function enforcedText(paths, issue) {
   if (issue !== null) return `pending #${issue}`;
@@ -17094,7 +17232,7 @@ function toCommit(edits, filesBefore) {
     }
   }
   return {
-    files: edits.writes.map(({ path, text: text17 }) => ({ path, content: text17 })),
+    files: edits.writes.map(({ path, text: text18 }) => ({ path, content: text18 })),
     moves,
     deletes
   };
@@ -17151,8 +17289,8 @@ async function writeWithLaws(step, { write: write2, open }) {
 }
 function harvestHandler(deps) {
   return async (job, run) => {
-    const outcome2 = await harvest(deps, job.payload, run?.step ?? memorySteps());
-    return "skipped" in outcome2 ? { outcome: "skipped", reason: outcome2.skipped } : { outcome: "done" };
+    const outcome3 = await harvest(deps, job.payload, run?.step ?? memorySteps());
+    return "skipped" in outcome3 ? { outcome: "skipped", reason: outcome3.skipped } : { outcome: "done" };
   };
 }
 async function harvest({ octokitFor, openrouter, lawJudge: lawJudge2 = null, fetch: fetch2 = globalThis.fetch, now: now2 = today }, payload, step) {
@@ -17435,18 +17573,18 @@ var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
 function linksPrd(body, prd) {
   return new RegExp(`\\bFor PRD #${prd}(?!\\d)`).test(body ?? "");
 }
-var REFERENCE = /([\w.-]+\/[\w.-]+)#(\d+)|github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
+var REFERENCE2 = /([\w.-]+\/[\w.-]+)#(\d+)|github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
 function rowPr(line) {
-  const match2 = line.match(REFERENCE);
+  const match2 = line.match(REFERENCE2);
   const slug = match2?.[1] ?? match2?.[3];
   const number = match2?.[2] ?? match2?.[4];
   return slug && number ? { slug, pr: parsePr(number) } : null;
 }
 function fixPlanRows(body) {
-  const text17 = body ?? "";
-  if (!text17.includes(FIX_PLAN_MARKER)) return [];
+  const text18 = body ?? "";
+  if (!text18.includes(FIX_PLAN_MARKER)) return [];
   const rows = [];
-  for (const line of text17.split("\n")) {
+  for (const line of text18.split("\n")) {
     const found = line.trim().startsWith("|") ? rowPr(line) : null;
     if (found && !rows.some((row) => row.slug === found.slug && row.pr === found.pr)) rows.push(found);
   }
@@ -17780,11 +17918,11 @@ function overlaps([oldStart, oldCount], { from, to }) {
 }
 function namesPrd2(prd, slug) {
   const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape4(slug)})#${prd}(?!\\d)`, "i");
-  return (text17) => pattern.test(text17);
+  return (text18) => pattern.test(text18);
 }
-function closedBy(text17, slug) {
+function closedBy(text18, slug) {
   const numbers = [];
-  for (const match2 of text17.matchAll(CLOSING)) {
+  for (const match2 of text18.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match2;
     const repo = urlRepo ?? refRepo;
     if (repo && repo.toLowerCase() !== slug.toLowerCase()) continue;
@@ -17831,8 +17969,8 @@ function plural5(count2, noun) {
 function and(items, last = " and ") {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}${last}${items.at(-1)}`;
 }
-function escape4(text17) {
-  return text17.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape4(text18) {
+  return text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/kinds/churn-generated.ts
@@ -18230,16 +18368,16 @@ var COUNT_KEYS = Object.freeze({
   errors: "errors",
   total: "total"
 });
-function cleanLog(text17) {
-  return plainText(text17).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
+function cleanLog(text18) {
+  return plainText(text18).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
-function tailOf(text17, count2) {
-  const lines2 = plainText(text17).split("\n");
+function tailOf(text18, count2) {
+  const lines2 = plainText(text18).split("\n");
   if (lines2.at(-1) === "") lines2.pop();
   return lines2.slice(-count2).join("\n");
 }
-function readTestLog(text17) {
-  const lines2 = cleanLog(text17).split("\n");
+function readTestLog(text18) {
+  const lines2 = cleanLog(text18).split("\n");
   for (const reader of READERS) {
     if (!reader.detects(lines2)) continue;
     const { tests, counts } = reader.read(lines2);
@@ -18341,13 +18479,13 @@ function vitestCrosses(lines2) {
   return tests;
 }
 var READERS = Object.freeze([pytest, playwright, jest, vitest]);
-function countsIn(text17) {
+function countsIn(text18) {
   const counts = {};
-  for (const [, number, word] of text17.matchAll(/(\d+) ([a-z]+)/g)) {
+  for (const [, number, word] of text18.matchAll(/(\d+) ([a-z]+)/g)) {
     const key = word === void 0 ? void 0 : COUNT_KEYS[word];
     if (key && !(key in counts)) counts[key] = Number(number);
   }
-  const total = /\((\d+)\)\s*$/.exec(text17.trim());
+  const total = /\((\d+)\)\s*$/.exec(text18.trim());
   if (total && !("total" in counts)) counts.total = Number(total[1]);
   return Object.keys(counts).length > 0 ? counts : null;
 }
@@ -18631,8 +18769,8 @@ function short(sha) {
 function count(n, noun) {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
-function cell2(text17) {
-  return text17.replaceAll("|", "\\|");
+function cell2(text18) {
+  return text18.replaceAll("|", "\\|");
 }
 function uniqueBy(items, key) {
   const seen = /* @__PURE__ */ new Set();
@@ -19363,9 +19501,9 @@ function isObject2(value) {
 var LINE_MAX = 240;
 var BOLD_HEAD = /^\*\*(.+?)\*\*\s*/;
 var NOT_PROSE = /^[|`#>]/;
-function firstSentence2(text17) {
-  const end = text17.search(/[.?!]\s/);
-  return end === -1 ? text17 : text17.slice(0, end + 1);
+function firstSentence2(text18) {
+  const end = text18.search(/[.?!]\s/);
+  return end === -1 ? text18 : text18.slice(0, end + 1);
 }
 function lineOf3(item) {
   const flat = item.replace(/\s+/g, " ").trim();
@@ -19510,15 +19648,15 @@ function refusal3(value, cap, evidence, { digits = false } = {}) {
   if (!digits && /\d/.test(setAside(value, evidence))) return DROPPED.digit;
   return null;
 }
-function setAside(text17, evidence) {
-  const spans = text17.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
+function setAside(text18, evidence) {
+  const spans = text18.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
   return spans.replace(LINK, (link) => evidence.urls.has(link.replace(TRAILING, "")) ? " " : link);
 }
-function linksIn(text17) {
-  return (text17.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
+function linksIn(text18) {
+  return (text18.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
 }
-function findingIdsIn(text17) {
-  return (text17.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
+function findingIdsIn(text18) {
+  return (text18.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
 }
 function evidenceOf(sheet) {
   const findings = isList(sheet?.findings) ? sheet.findings : [];
@@ -19528,16 +19666,16 @@ function evidenceOf(sheet) {
   for (const finding of findings) {
     for (const item of finding.evidence ?? []) {
       if (typeof item?.url === "string") urls.add(item.url);
-      for (const text17 of [item?.label, item?.url, item?.excerpt]) if (typeof text17 === "string") texts.push(text17);
+      for (const text18 of [item?.label, item?.url, item?.excerpt]) if (typeof text18 === "string") texts.push(text18);
     }
   }
-  return { ids, urls, holds: (span) => texts.some((text17) => text17.includes(span)) };
+  return { ids, urls, holds: (span) => texts.some((text18) => text18.includes(span)) };
 }
 function isObject3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function escape6(text17) {
-  return text17.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape6(text18) {
+  return text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/issues.ts
@@ -19656,8 +19794,8 @@ function field2(value) {
 var PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
 var RESERVED = /^(?:true|false|yes|no|on|off|null|[-+]?\.?\d|\.inf|\.nan)/i;
 function scalar(value) {
-  const text17 = String(value);
-  return PLAIN.test(text17) && !RESERVED.test(text17) ? text17 : JSON.stringify(text17);
+  const text18 = String(value);
+  return PLAIN.test(text18) && !RESERVED.test(text18) ? text18 : JSON.stringify(text18);
 }
 async function listLabelled(octokit, { owner, repo, label: label2 }) {
   const items = await paginate(
@@ -19792,8 +19930,8 @@ function field3(value) {
   return value;
 }
 function summary(prose, latest) {
-  const text17 = field3(prose?.summary);
-  if (text17) return text17;
+  const text18 = field3(prose?.summary);
+  if (text18) return text18;
   return `Facts only: ${latest.narration?.reason ?? "no prose"}`;
 }
 function titleOf3(finding, prose) {
@@ -19817,8 +19955,8 @@ function findingBlock(finding, { prose, issues, outcomes }, level = "###") {
   const lesson = field3(words.lesson);
   if (lesson) lines2.push(`- **Proposed lesson:** ${lesson}`);
   if (words.keep === true) lines2.push(`- **Kept:** ${typeof words.why === "string" && words.why ? words.why : "yes"}`);
-  const outcome2 = outcomes[finding.id];
-  if (outcome2) lines2.push(outcomeLine(outcome2));
+  const outcome3 = outcomes[finding.id];
+  if (outcome3) lines2.push(outcomeLine(outcome3));
   const kept3 = finding;
   const evidence = (kept3.evidence ?? []).map((item) => `[${item.label}](${item.url})`);
   lines2.push(`- **Evidence:** ${evidence.length > 0 ? evidence.join(", ") : "none recorded"}`, "");
@@ -19909,9 +20047,9 @@ function prBody(latest, { findings, prose, issues, outcomes }, apply) {
     return issue ? [issue.number] : [];
   });
   const findingLines = (finding) => {
-    const outcome2 = outcomes[finding.id];
+    const outcome3 = outcomes[finding.id];
     const line = `- ${[`${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 ")}`;
-    return outcome2 ? [line, `  ${outcomeLine(outcome2)}`] : [line];
+    return outcome3 ? [line, `  ${outcomeLine(outcome3)}`] : [line];
   };
   const lines2 = [
     `Refs #${latest.prd.number}`,
@@ -19971,8 +20109,8 @@ function minutesBetween2(from, to) {
   const ms2 = Date.parse(to) - Date.parse(from);
   return Number.isFinite(ms2) ? Math.round(ms2 / 6e4) : null;
 }
-function oneLine3(text17) {
-  return text17.replace(/\s+/g, " ").trim() || "no reason given";
+function oneLine3(text18) {
+  return text18.replace(/\s+/g, " ").trim() || "no reason given";
 }
 
 // apps/omni-app/src/retro/publish.ts
@@ -20049,11 +20187,11 @@ async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
   return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: parseGitHub(RefSchema2, data, REF).object.sha };
 }
 function withRuns(existing, records) {
-  let text17 = existing;
+  let text18 = existing;
   let doc = null;
   for (const record of records) {
-    doc = mergeRuns(text17, record);
-    text17 = JSON.stringify(doc);
+    doc = mergeRuns(text18, record);
+    text18 = JSON.stringify(doc);
   }
   return defined(doc, "the retro.json of the records published");
 }
@@ -20117,12 +20255,12 @@ function targetComment({
     ...lines2.length > 0 ? lines2 : ["No finding for this repository."]
   ].join("\n");
 }
-async function commentTargets({ step, octokitFor, id, targets, prefix, ...text17 }) {
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text18 }) {
   const out = {};
   for (const target2 of targets) {
     if (!target2.read) continue;
     const [owner = "", repo = ""] = target2.repo.split("/");
-    const body = targetComment({ ...text17, repo: target2.repo });
+    const body = targetComment({ ...text18, repo: target2.repo });
     out[target2.name] = await savedStep(
       step,
       id(`comment-target-${target2.name}`),
@@ -20386,10 +20524,10 @@ async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
 function lessonsIn(texts) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
-  for (const text17 of texts) {
+  for (const text18 of texts) {
     let doc = null;
     try {
-      doc = text17 ? JSON.parse(text17) : null;
+      doc = text18 ? JSON.parse(text18) : null;
     } catch {
       doc = null;
     }
@@ -20478,6 +20616,473 @@ function checkpointStore(connection) {
   };
 }
 
+// apps/omni-app/src/missions/job.ts
+import { z as z79 } from "zod";
+
+// apps/omni-app/src/missions/supervisor.ts
+var WAKE_MS = 6e4;
+var WORDS_MAX = 300;
+var LAST_RUN = 2;
+var KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)$/;
+var missionKey = (mission, prd, run) => `mission:${mission}:prd:${String(prd)}:run:${String(run)}`;
+function runOfKey(key) {
+  const match2 = KEY.exec(key);
+  const prd = PrdNumberSchema.safeParse(Number(match2?.[2]));
+  return match2 && prd.success ? { prd: prd.data, run: Number(match2[3]) } : null;
+}
+var approvalOf = (latest) => latest === null ? "none" : latest.voided ? "voided" : "standing";
+function stageOf(stages) {
+  if (stages.includes("shipped") || stages.includes("retro")) return "merged";
+  return stages.includes("outbox") ? "ready" : "open";
+}
+function territoryOf(plan) {
+  if (plan === null) return null;
+  try {
+    const paths = [...new Set(parsePlanSlices(plan).flatMap((slice) => slice.territory))];
+    return paths.length > 0 ? paths : null;
+  } catch {
+    return null;
+  }
+}
+function expandScope(prds, roadmaps) {
+  const scope = new Map(prds.map((prd) => [prd, /* @__PURE__ */ new Set()]));
+  for (const rows of roadmaps) {
+    const byRow = new Map(rows.map((row) => [row.rowId, row.prd]));
+    for (const row of rows) {
+      if (row.prd === null) continue;
+      const blockers = scope.get(row.prd) ?? /* @__PURE__ */ new Set();
+      for (const id of row.blockers) {
+        const blocker = byRow.get(id);
+        if (blocker !== void 0 && blocker !== null && blocker !== row.prd) blockers.add(blocker);
+      }
+      scope.set(row.prd, blockers);
+    }
+  }
+  return [...scope].map(([prd, blockers]) => ({ prd, blockers: [...blockers] }));
+}
+function endOf({ status, outcome: word }) {
+  if (status === "queued" || status === "claimed" || status === "running") return null;
+  if (status === "cancelled") return "cancelled";
+  if (status === "failed") return "failed";
+  if (word === "ready" || word === "answers" || word === "human" || word === "held") return word;
+  return "stopped";
+}
+function outcome2(end, run, reason2 = null) {
+  switch (end) {
+    case "ready":
+      return { next: "waits", on: "merge" };
+    case "answers":
+      return { next: "waits", on: "answer" };
+    case "human":
+      return { next: "waits", on: "act" };
+    case "held":
+      return run >= LAST_RUN ? { next: "stops", why: "it was held twice" } : { next: "again" };
+    case "stopped":
+      return run >= LAST_RUN ? { next: "stops", why: "it stopped mid-way twice" } : { next: "again" };
+    case "lost":
+      return { next: "records" };
+    case "cancelled":
+      return { next: "paused" };
+    case "failed":
+      return { next: "stops", why: reason2 ? `its job failed: ${reason2}` : "its job failed" };
+  }
+}
+var lastOf = (run) => run.attempts.at(-1);
+function prdStates(facts, runs) {
+  const merged = new Set(facts.filter((fact) => fact.stage === "merged").map((fact) => fact.prd));
+  return new Map(facts.map((fact) => [fact.prd, stateOf2(fact, runs.filter((one) => one.prd === fact.prd), merged)]));
+}
+function stateOf2(fact, runs, merged) {
+  if (fact.stage === "merged") return { state: "merged" };
+  const latest = runs.reduce((last2, one) => last2 === null || one.run > last2.run ? one : last2, null);
+  const last = latest ? lastOf(latest) : void 0;
+  if (latest && last && endOf(last) === null) return { state: "running", run: latest.run };
+  if (fact.stage === "ready") return { state: "waits", on: "merge" };
+  return latest && last ? afterEnd(fact, latest, last, merged) : gate(fact, 1, merged);
+}
+function afterEnd(fact, latest, last, merged) {
+  const next = outcome2(endOf(last) ?? "stopped", latest.run, last.reason);
+  if (next.next === "waits") return { state: "waits", on: next.on };
+  if (next.next === "stops") return { state: "stopped", why: next.why };
+  if (next.next === "paused") return { state: "paused" };
+  if (next.next === "again") return gate(fact, latest.run + 1, merged);
+  return { state: "running", run: latest.run };
+}
+function gate(fact, run, merged) {
+  if (fact.approval === "none") return { state: "waits", on: "approve" };
+  if (fact.approval === "voided") return { state: "waits", on: "approve-again" };
+  const by = fact.blockers.filter((blocker) => !merged.has(blocker));
+  return by.length > 0 ? { state: "blocked", by } : { state: "startable", run };
+}
+function pick2({ mission, facts, states }) {
+  if (mission.status === "draft" || mission.status === "paused" || mission.status === "delivered") return [];
+  const running = facts.filter((fact) => states.get(fact.prd)?.state === "running");
+  const busy = running.map((fact) => fact.territory);
+  if (busy.includes(null)) return [];
+  const slots = mission.parallel - running.length;
+  const sends = [];
+  for (const fact of facts) {
+    const state = states.get(fact.prd);
+    if (sends.length >= slots) break;
+    if (state?.state !== "startable") continue;
+    if (fact.territory === null) {
+      if (busy.length > 0) continue;
+      sends.push({ prd: fact.prd, run: state.run });
+      break;
+    }
+    const territory = fact.territory;
+    if (busy.some((other) => other !== null && sharedGround({ territory: other }, { territory }).length > 0)) continue;
+    sends.push({ prd: fact.prd, run: state.run });
+    busy.push(territory);
+  }
+  return sends;
+}
+var WAITS_WORDS = {
+  approve: "approve it",
+  "approve-again": "approve it again",
+  answer: "answer its questions",
+  merge: "merge it",
+  act: "act on its runner job"
+};
+var CARRY_ON = "Take it to ready by hand and the mission carries on.";
+function fitted(parts, glue, max = WORDS_MAX) {
+  let text18 = "";
+  for (const [n, part] of parts.entries()) {
+    const longer = text18 === "" ? part : `${text18}${glue}${part}`;
+    const room = n === parts.length - 1 ? max : max - 1;
+    if (longer.length > room) return `${(text18 || part.slice(0, max - 1)).slice(0, max - 1)}\u2026`;
+    text18 = longer;
+  }
+  return text18;
+}
+var cut2 = (text18, max = WORDS_MAX) => text18.length <= max ? text18 : `${text18.slice(0, max - 1)}\u2026`;
+function waitsOf(facts, states) {
+  const parts = facts.flatMap((fact) => {
+    const state = states.get(fact.prd);
+    return state?.state === "waits" ? [`PRD ${String(fact.prd)}: ${WAITS_WORDS[state.on]}`] : [];
+  });
+  return parts.length > 0 ? fitted(parts, " \xB7 ") : null;
+}
+function stoppedWhy(facts, states) {
+  const parts = facts.flatMap((fact) => {
+    const state = states.get(fact.prd);
+    if (state?.state === "stopped") return [`PRD ${String(fact.prd)} stopped: ${state.why}`];
+    if (state?.state === "paused") return [`PRD ${String(fact.prd)} was cancelled`];
+    return [];
+  });
+  const why = parts.length > 0 ? parts.join(" \xB7 ") : "no PRD of its scope can start";
+  return cut2(`${why}. ${CARRY_ON}`);
+}
+function conclude({ mission, facts, states, sent, now: now2 }) {
+  const at4 = new Date(now2 + WAKE_MS).toISOString();
+  if (mission.status === "draft" || mission.status === "delivered") return { status: mission.status, waitingOn: mission.waitingOn, nextWakeAt: null };
+  const all = [...states.values()];
+  if (facts.length > 0 && all.every((state) => state.state === "merged")) return { status: "delivered", waitingOn: null, nextWakeAt: null };
+  if (mission.status === "paused") return { status: "paused", waitingOn: mission.waitingOn, nextWakeAt: null };
+  const waitingOn = waitsOf(facts, states);
+  if (sent > 0 || all.some((state) => state.state === "running" || state.state === "startable")) return { status: "running", waitingOn, nextWakeAt: at4 };
+  if (waitingOn !== null) return { status: "waiting", waitingOn, nextWakeAt: at4 };
+  return { status: "stopped", waitingOn: stoppedWhy(facts, states), nextWakeAt: null };
+}
+var jobKey2 = (prefix, job) => job === null ? [] : [`${prefix}:${job}`];
+var KEYS = {
+  dispatched: (_prdKey, job) => jobKey2("dispatched", job),
+  "job-ended": (_prdKey, job) => jobKey2("end", job),
+  held: (_prdKey, job) => jobKey2("end", job),
+  "prd-ready": (prdKey, job) => [`ready:${prdKey ?? "mission"}`, ...jobKey2("end", job)],
+  "prd-merged": (prdKey) => [`merged:${prdKey ?? "mission"}`],
+  stopped: (prdKey) => prdKey === null ? [] : [`stopped:${prdKey}`],
+  delivered: () => ["delivered"]
+};
+var keysOf3 = ({ kind, prd, job }) => KEYS[kind]?.(prd === null ? null : String(prd), job) ?? [];
+var recordedKeys = (events) => new Set(events.flatMap(keysOf3));
+var linkOf = (url) => url !== null && /^https?:\/\//.test(url) && url.length <= 500 ? url : null;
+var againWords = (n, what, run) => run >= LAST_RUN ? `${n} ${what} a second time: it stops here.` : `${n} ${what}: the mission sends it again, once.`;
+var END_WORDS = {
+  ready: (n) => ({ kind: "prd-ready", role: "engineer", sentence: `${n} is ready for review: it waits for a person to merge it.` }),
+  answers: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n} waits on answers: the page's auto-fix carries on once a person answers.` }),
+  human: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n}'s job needs a person: act on it on the Runners page.` }),
+  held: (n, run) => ({ kind: "held", role: "supervisor", sentence: againWords(n, "was held", run) }),
+  stopped: (n, run) => ({ kind: "held", role: "supervisor", sentence: againWords(n, "stopped mid-way", run) }),
+  lost: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n}'s runner was lost: its resume carries the work on.` }),
+  cancelled: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n}'s job was cancelled: the mission never sends it again.` }),
+  failed: (n, _run, reason2) => ({ kind: "job-ended", role: "engineer", sentence: reason2 ? `${n}'s job failed: ${reason2}.` : `${n}'s job failed.` })
+};
+var endEvent = (prd, run, last, end) => ({
+  prd,
+  job: last.id,
+  link: linkOf(last.prUrl),
+  ...END_WORDS[end](`PRD ${String(prd)}`, run, last.reason)
+});
+function runEvents(runs, where) {
+  return runs.flatMap((one) => {
+    const last = lastOf(one);
+    const end = last ? endOf(last) : null;
+    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: `Sent /omni:yolo ${String(one.prd)} to ${where} (run ${String(one.run)}).` };
+    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one.run, lost, "lost")), ...last && end !== null ? [endEvent(one.prd, one.run, last, end)] : []];
+  });
+}
+function prdEvents(facts, states) {
+  return facts.flatMap((fact) => {
+    const n = `PRD ${String(fact.prd)}`;
+    const state = states.get(fact.prd);
+    const said = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
+    return [
+      ...fact.stage === "merged" ? [said("prd-merged", `${n} is merged: delivered.`)] : [],
+      ...fact.stage === "ready" ? [said("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
+      ...state?.state === "stopped" ? [said("stopped", `${n} stops: ${state.why}.`)] : []
+    ];
+  });
+}
+function missionEvents(mission, next) {
+  const said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+  if (next.status === "delivered") return [said("delivered", "Every PRD of the mission is merged: delivered.")];
+  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
+  const waits = newWait(mission, next);
+  return waits === null ? [] : [said("waits", `Waits on a person: ${waits}`)];
+}
+function newWait(mission, next) {
+  if (next.status !== "running" && next.status !== "waiting") return null;
+  return next.waitingOn !== mission.waitingOn ? next.waitingOn : null;
+}
+function eventsOf({
+  mission,
+  facts,
+  states,
+  runs,
+  next,
+  toFleet,
+  recorded
+}) {
+  const keys = new Set(recorded);
+  const where = toFleet ? `the ${mission.fleet} fleet's runners` : "any runner of the workspace";
+  const all = [...runEvents(runs, where), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  return all.flatMap((event) => {
+    const own = keysOf3(event);
+    if (own.some((key) => keys.has(key))) return [];
+    for (const key of own) keys.add(key);
+    return [{ ...event, sentence: cut2(event.sentence) }];
+  });
+}
+
+// apps/omni-app/src/missions/job.ts
+var MISSION_KIND = "mission";
+var LATERS_BEFORE_RENEW = 15;
+function missionJob(id, repo) {
+  const subject = repo.toLowerCase();
+  return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
+}
+var ProgressSchema3 = z79.looseObject({ laters: z79.number().int().min(0).optional() });
+async function supervise(store, mission, now2) {
+  const [facts, runs, recorded, toFleet] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission)]);
+  const sent = [];
+  for (const { prd, run } of pick2({ mission, facts, states: prdStates(facts, runs) })) {
+    const made = await store.send({ mission, prd, run, toFleet });
+    if (made !== null) sent.push({ prd, run, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }] });
+  }
+  const all = [...runs, ...sent];
+  const states = prdStates(facts, all);
+  const next = conclude({ mission, facts, states, sent: sent.length, now: now2 });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, recorded: recordedKeys(recorded) });
+  await store.record(mission.id, events, new Date(now2));
+  const moved = await store.update(mission.id, mission.status, next);
+  return { next, running: [...states.values()].some((state) => state.state === "running"), moved, sent: sent.length, events: events.length };
+}
+var watched = ({ next, running }) => next.status === "running" || next.status === "waiting" || next.status === "paused" && running;
+function missionHandler({ store, refresh, now: now2 = Date.now, log: log2 = noteTo("missions") }) {
+  return async (job) => {
+    const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
+    const mission = await runnable(store, id);
+    if (!("id" in mission)) return mission;
+    const at4 = now2();
+    const run = await supervise(mission.store, mission, at4);
+    log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
+    if (!watched(run) && run.moved) return { outcome: "done" };
+    return laterOf({ job, refresh, mission, at: at4 });
+  };
+}
+async function runnable(store, id) {
+  if (!store) return { outcome: "skipped", reason: "no database to read the mission from" };
+  const mission = await store.mission(id);
+  if (!mission) return { outcome: "skipped", reason: `no mission ${id}` };
+  if (mission.status === "draft") return { outcome: "skipped", reason: "the mission is a draft: nothing runs before Start" };
+  return mission.status === "delivered" ? { outcome: "done" } : { ...mission, store };
+}
+async function laterOf({ job, refresh, mission, at: at4 }) {
+  const laters = (ProgressSchema3.parse(job.progress ?? {}).laters ?? 0) + 1;
+  if (laters < LATERS_BEFORE_RENEW) return { outcome: "later", at: new Date(at4 + WAKE_MS), progress: { laters } };
+  await refresh(missionJob(mission.id, mission.repo));
+  return { outcome: "later", at: new Date(at4 + WAKE_MS), progress: { laters: 0 } };
+}
+
+// apps/omni-app/src/missions/store.ts
+import { z as z80 } from "zod";
+var APP_SENDER2 = "omni-app";
+var TAKEN = "23505";
+var MISSION = "id, workspace_id, repo, fleet, status, waiting_on, mandate, scope";
+var ROADMAP = "id, number";
+var ROADMAP_PRD = "roadmap_id, position, row_id, prd, blockers";
+var STAGE2 = "prd, stage";
+var DOSSIER = "id, prd";
+var APPROVAL2 = "id, dossier_id";
+var VOID3 = "approval_id";
+var PLAN = "content";
+var JOB2 = "id, mission_key, resumes, status, outcome, reason, pr_url";
+var EVENT = "kind, prd, job_id";
+var RUNNER = "repos";
+var text17 = z80.string().min(1);
+var MissionRowSchema = z80.object({
+  id: text17,
+  workspace_id: text17,
+  repo: text17,
+  fleet: text17,
+  status: z80.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z80.string().nullable(),
+  mandate: z80.object({ parallel: z80.number().int().min(1).max(4) }),
+  scope: z80.object({ prds: z80.array(PrdNumberSchema), roadmaps: z80.array(IssueNumberSchema) })
+});
+var RoadmapRowSchema = z80.object({ id: text17, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z80.object({ roadmap_id: text17, position: z80.number().int(), row_id: text17, prd: PrdNumberSchema.nullable(), blockers: z80.array(z80.string()) });
+var StageRowSchema = z80.object({ prd: PrdNumberSchema, stage: text17 });
+var DossierRowSchema5 = z80.object({ id: text17, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z80.object({ id: text17, dossier_id: text17 });
+var VoidRowSchema2 = z80.object({ approval_id: text17 });
+var PlanRowSchema = z80.object({ content: z80.string() });
+var JobRowSchema2 = z80.object({
+  id: text17,
+  mission_key: z80.string().nullable(),
+  resumes: z80.string().nullable(),
+  status: z80.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z80.string().nullable(),
+  reason: z80.string().nullable(),
+  pr_url: z80.string().nullable()
+});
+var EventRowSchema = z80.object({ kind: text17, prd: PrdNumberSchema.nullable(), job_id: z80.string().nullable() });
+var RunnerRowSchema = z80.object({ repos: z80.array(z80.string()) });
+var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
+function missionStore(connection) {
+  const db = serviceDb(connection);
+  async function roadmapRows(mission) {
+    if (mission.scope.roadmaps.length === 0) return [];
+    const roadmaps = rowsOf(RoadmapRowSchema, await db.from("roadmaps").select(ROADMAP).eq("workspace_id", mission.workspace).eq("repo", mission.repo).in("number", mission.scope.roadmaps));
+    if (roadmaps.length === 0) return [];
+    const rows = rowsOf(RoadmapPrdRowSchema, await db.from("roadmap_prds").select(ROADMAP_PRD).in("roadmap_id", roadmaps.map(({ id }) => id)).order("position"));
+    return mission.scope.roadmaps.flatMap((number) => {
+      const roadmap = roadmaps.find((one) => one.number === number);
+      return roadmap ? [rows.filter((row) => row.roadmap_id === roadmap.id).map((row) => ({ prd: row.prd, rowId: row.row_id, blockers: row.blockers }))] : [];
+    });
+  }
+  async function approvals(dossiers) {
+    if (dossiers.length === 0) return /* @__PURE__ */ new Map();
+    const rows = rowsOf(
+      ApprovalRowSchema2,
+      await db.from("approvals").select(APPROVAL2).in("dossier_id", dossiers).eq("approval_kind", "product").order("approved_at", { ascending: false }).order("id", { ascending: false })
+    );
+    const latest = /* @__PURE__ */ new Map();
+    for (const row of rows) if (!latest.has(row.dossier_id)) latest.set(row.dossier_id, row.id);
+    const ids = [...latest.values()];
+    const voided = new Set(ids.length === 0 ? [] : rowsOf(VoidRowSchema2, await db.from("approval_voids").select(VOID3).in("approval_id", ids)).map((row) => row.approval_id));
+    return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id) }]));
+  }
+  async function planOf(dossier) {
+    if (dossier === void 0) return null;
+    const [plan] = rowsOf(PlanRowSchema, await db.from("dossier_versions").select(PLAN).eq("dossier_id", dossier).eq("kind", "plan").order("created_at", { ascending: false }).limit(1));
+    return plan?.content ?? null;
+  }
+  return {
+    async mission(id) {
+      const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
+      if (!row) return null;
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope };
+    },
+    async facts(mission) {
+      const scope = expandScope(mission.scope.prds, await roadmapRows(mission));
+      const prds = scope.map(({ prd }) => prd);
+      if (prds.length === 0) return [];
+      const stages = rowsOf(StageRowSchema, await db.from("prd_stages").select(STAGE2).eq("workspace_id", mission.workspace).eq("repository", mission.repo).in("prd", prds));
+      const dossiers = rowsOf(DossierRowSchema5, await db.from("dossiers").select(DOSSIER).eq("workspace_id", mission.workspace).eq("home_repo", mission.repo).eq("kind", "prd").in("prd", prds));
+      const pageOf = new Map(dossiers.flatMap((row) => row.prd === null ? [] : [[row.prd, row.id]]));
+      const approved = await approvals([...pageOf.values()]);
+      const facts = [];
+      for (const { prd, blockers } of scope) {
+        const page = pageOf.get(prd);
+        facts.push({
+          prd,
+          approval: approvalOf(page === void 0 ? null : approved.get(page) ?? null),
+          stage: stageOf(stages.filter((row) => row.prd === prd).map((row) => row.stage)),
+          blockers,
+          territory: territoryOf(await planOf(page))
+        });
+      }
+      return facts;
+    },
+    async runs(id) {
+      const jobs = rowsOf(JobRowSchema2, await db.from("runner_jobs").select(JOB2).eq("mission_id", id).order("queued_at"));
+      const chains = new Map(jobs.map((job) => [job.id, [job]]));
+      let frontier = new Map(jobs.map((job) => [job.id, job.id]));
+      for (let round = 0; round < 2 && frontier.size > 0; round += 1) {
+        const resumes = rowsOf(JobRowSchema2, await db.from("runner_jobs").select(JOB2).in("resumes", [...frontier.keys()]));
+        const next = /* @__PURE__ */ new Map();
+        for (const resume of resumes) {
+          const head = resume.resumes === null ? void 0 : frontier.get(resume.resumes);
+          if (head === void 0) continue;
+          chains.get(head)?.push(resume);
+          next.set(resume.id, head);
+        }
+        frontier = next;
+      }
+      return jobs.flatMap((job) => {
+        const key = job.mission_key === null ? null : runOfKey(job.mission_key);
+        return key === null ? [] : [{ prd: key.prd, run: key.run, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+      });
+    },
+    async events(id) {
+      return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id)).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
+    },
+    async fleetRunners(mission) {
+      const runners = rowsOf(RunnerRowSchema, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
+      return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
+    },
+    async send({ mission, prd, run, toFleet }) {
+      const answer = await db.from("runner_jobs").insert({
+        workspace_id: mission.workspace,
+        repo: mission.repo,
+        line: `/omni:yolo ${String(prd)}`,
+        sent_by_app: APP_SENDER2,
+        to_fleet: toFleet ? mission.fleet : null,
+        mission_id: mission.id,
+        mission_key: missionKey(mission.id, prd, run)
+      }).select("id");
+      if (answer.error?.code === TAKEN) return null;
+      const [made] = rowsOf(z80.object({ id: text17 }), answer);
+      if (!made) throw new Error("the database queued no job and gave no reason");
+      return made.id;
+    },
+    async record(id, events, at4) {
+      if (events.length === 0) return;
+      const rows = events.map((event, n) => ({
+        mission_id: id,
+        at: new Date(at4.getTime() + n).toISOString(),
+        role: event.role,
+        actor: "agent",
+        kind: event.kind,
+        prd: event.prd,
+        job_id: event.job,
+        link: event.link,
+        sentence: event.sentence
+      }));
+      rowsOf(z80.unknown(), await db.from("mission_events").insert(rows).select("id"));
+    },
+    async update(id, from, { status, waitingOn, nextWakeAt }) {
+      const moved = rowsOf(
+        z80.object({ id: text17 }),
+        await db.from("missions").update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).eq("status", from).select("id")
+      );
+      return moved.length > 0;
+    }
+  };
+}
+
 // apps/omni-app/src/jobs/checkpoints-forget.ts
 var CHECKPOINTS_FORGET_KIND = "checkpoints-forget";
 var KEEP_MS = 7 * 24 * 60 * 60 * 1e3;
@@ -20517,7 +21122,7 @@ function checkpointsForgetHandler({
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z80 } from "zod";
+import { z as z82 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -20657,7 +21262,7 @@ function knowledgeEntries(sources) {
 }
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z79 } from "zod";
+import { z as z81 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -20710,7 +21315,7 @@ var AGAIN_MS = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema2 = z79.object({ slot: z79.string().min(1).max(80), productId: z79.string().min(1).optional() });
+var PayloadSchema2 = z81.object({ slot: z81.string().min(1).max(80), productId: z81.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -20728,9 +21333,9 @@ async function outcomesOf2(search, questions) {
         return ranked2 === null ? null : { id: q.id, category, ranked: ranked2, right: q.right };
       })
     );
-    for (const outcome2 of batch) {
-      if (outcome2 === null) return null;
-      outcomes.push(outcome2);
+    for (const outcome3 of batch) {
+      if (outcome3 === null) return null;
+      outcomes.push(outcome3);
     }
   }
   return outcomes;
@@ -20750,7 +21355,7 @@ async function runProduct({ store, search, productId, trigger, slot }) {
       misses: scores.misses,
       skipped: scores.skipped
     },
-    questions: outcomes.filter((outcome2) => outcome2.right.length > 0).map((outcome2) => ({ questionId: outcome2.id ?? null, category: outcome2.category, ranks: ranksOf(outcome2.ranked, outcome2.right), first: outcome2.ranked.slice(0, FIRST) }))
+    questions: outcomes.filter((outcome3) => outcome3.right.length > 0).map((outcome3) => ({ questionId: outcome3.id ?? null, category: outcome3.category, ranks: ranksOf(outcome3.ranked, outcome3.right), first: outcome3.ranked.slice(0, FIRST) }))
   });
   return kept3 === null ? "empty" : "kept";
 }
@@ -20794,15 +21399,15 @@ function payloadOf2(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS2 = 6e4;
-var EmbedPayloadSchema = z80.object({
-  repository: z80.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z80.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z82.object({
+  repository: z82.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z82.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
   return { kind: EMBED_KIND, key: `${subject}@${sha}`, subject, payload: { repository: subject, sha } };
 }
-var textHash = (text17) => createHash5("sha256").update(text17, "utf8").digest("hex");
+var textHash = (text18) => createHash5("sha256").update(text18, "utf8").digest("hex");
 function packEntries(repository, pack2) {
   const own = knowledgeEntries({ repositories: [{ repo: repository, files: pack2.files }], lawHome: null, legal: [], glossary: [], never: [] });
   const products = pack2.products.flatMap(
@@ -20819,8 +21424,8 @@ function packEntries(repository, pack2) {
 function textsByHash(entries) {
   const texts = /* @__PURE__ */ new Map();
   for (const entry of entries) {
-    const text17 = embedText(entry);
-    texts.set(textHash(text17), text17);
+    const text18 = embedText(entry);
+    texts.set(textHash(text18), text18);
   }
   return texts;
 }
@@ -20882,7 +21487,7 @@ function payloadOf3(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z82 } from "zod";
+import { z as z84 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash6 } from "node:crypto";
@@ -20891,22 +21496,22 @@ function sha256Of(bytes) {
   return createHash6("sha256").update(bytes).digest("hex");
 }
 var utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-function textOf(bytes) {
+function textOf2(bytes) {
   if (bytes.length > MAX_FILE_BYTES) return { why: "over 1 MiB" };
-  let text17;
+  let text18;
   try {
-    text17 = utf8.decode(bytes);
+    text18 = utf8.decode(bytes);
   } catch {
     return { why: "not UTF-8 text" };
   }
-  return text17.includes("\0") ? { why: "holds a NUL character" } : { text: text17 };
+  return text18.includes("\0") ? { why: "holds a NUL character" } : { text: text18 };
 }
 function packFiles(read) {
   const files = [];
   const left = [];
   for (const path of [...read.keys()].sort()) {
     const bytes = read.get(path) ?? new Uint8Array();
-    const kept3 = textOf(bytes);
+    const kept3 = textOf2(bytes);
     if ("why" in kept3) left.push({ path, why: kept3.why });
     else files.push({ path, content: kept3.text, sha256: sha256Of(bytes) });
   }
@@ -20917,12 +21522,12 @@ function packFiles(read) {
 import { mkdtempSync as mkdtempSync13, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync17, statSync as statSync16 } from "node:fs";
 import { tmpdir as tmpdir13 } from "node:os";
 import { join as join69 } from "node:path";
-import { z as z81 } from "zod";
-var PullFileSchema = z81.looseObject({ filename: z81.string().min(1), previous_filename: z81.string().nullish() });
+import { z as z83 } from "zod";
+var PullFileSchema = z83.looseObject({ filename: z83.string().min(1), previous_filename: z83.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z81.array(PullFileSchema).parse(data);
+    return z83.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -21002,12 +21607,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z82.object({
-  installationId: z82.number(),
-  owner: z82.string().min(1),
-  repo: z82.string().min(1),
-  sha: z82.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z82.string().min(1),
+var PackPayloadSchema = z84.object({
+  installationId: z84.number(),
+  owner: z84.string().min(1),
+  repo: z84.string().min(1),
+  sha: z84.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z84.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -21154,9 +21759,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z83 } from "zod";
+import { z as z85 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z83.looseObject({ category: z83.string().nullable() });
+var ReplySchema2 = z85.looseObject({ category: z85.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -21179,10 +21784,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z84 } from "zod";
-var UngroupedRowSchema = z84.object({ id: z84.string().min(1), product_id: z84.string().min(1), workspace_id: z84.string().min(1), query: z84.string().min(1) });
-var NearestRowSchema = z84.object({ group_id: z84.string().min(1), cosine: z84.number() });
-var GroupIdSchema = z84.object({ id: z84.string().min(1) });
+import { z as z86 } from "zod";
+var UngroupedRowSchema = z86.object({ id: z86.string().min(1), product_id: z86.string().min(1), workspace_id: z86.string().min(1), query: z86.string().min(1) });
+var NearestRowSchema = z86.object({ group_id: z86.string().min(1), cosine: z86.number() });
+var GroupIdSchema = z86.object({ id: z86.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -21200,7 +21805,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z84.array(NearestRowSchema).parse(data);
+      const [row] = z86.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -21220,22 +21825,22 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z85 } from "zod";
+import { z as z87 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z85.looseObject({
-  verdicts: z85.array(z85.looseObject({ entryId: z85.string().min(1), relevant: z85.boolean().nullable(), confidence: z85.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z87.looseObject({
+  verdicts: z87.array(z87.looseObject({ entryId: z87.string().min(1), relevant: z87.boolean().nullable(), confidence: z87.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z85.looseObject({ ids: z85.array(z85.string().min(1)) });
+var SearchSchema2 = z87.looseObject({ ids: z87.array(z87.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
 async function signedPost2({ name, url, secret, body, post: post2, timeoutMs }) {
-  const text17 = JSON.stringify(body);
-  const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, text17) };
+  const text18 = JSON.stringify(body);
+  const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, text18) };
   let response;
   try {
-    response = await post2(url, { method: "POST", body: text17, headers, signal: AbortSignal.timeout(timeoutMs) });
+    response = await post2(url, { method: "POST", body: text18, headers, signal: AbortSignal.timeout(timeoutMs) });
   } catch {
     throw new Error(`${name}: galaxy could not be reached`);
   }
@@ -21262,19 +21867,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z86 } from "zod";
+import { z as z88 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z86.object({ group_id: z86.string().min(1), product_id: z86.string().min(1), workspace_id: z86.string().min(1), category: z86.string().nullable() });
-var GroupRowSchema = z86.object({ group_id: z86.string().min(1) });
-var QuestionTextSchema = z86.object({ question: z86.string() });
-var OpenedRowSchema = z86.object({ opened_id: z86.string().min(1) });
-var ProductRowSchema3 = z86.object({ product_id: z86.string().min(1) });
-var HolderRowSchema5 = z86.object({ product_id: z86.string().min(1) });
-var LiveProductSchema = z86.object({ id: z86.string().min(1) });
-var QuestionRowSchema = z86.object({ id: z86.string().min(1), product_id: z86.string().min(1), workspace_id: z86.string().min(1), question: z86.string(), category: z86.string().nullable() });
-var AnswerRowSchema = z86.object({ question_id: z86.string().min(1), entry_id: z86.string().min(1) });
-var RunRowSchema = z86.object({ id: z86.string().min(1) });
+var LogRowSchema = z88.object({ group_id: z88.string().min(1), product_id: z88.string().min(1), workspace_id: z88.string().min(1), category: z88.string().nullable() });
+var GroupRowSchema = z88.object({ group_id: z88.string().min(1) });
+var QuestionTextSchema = z88.object({ question: z88.string() });
+var OpenedRowSchema = z88.object({ opened_id: z88.string().min(1) });
+var ProductRowSchema3 = z88.object({ product_id: z88.string().min(1) });
+var HolderRowSchema5 = z88.object({ product_id: z88.string().min(1) });
+var LiveProductSchema = z88.object({ id: z88.string().min(1) });
+var QuestionRowSchema = z88.object({ id: z88.string().min(1), product_id: z88.string().min(1), workspace_id: z88.string().min(1), question: z88.string(), category: z88.string().nullable() });
+var AnswerRowSchema = z88.object({ question_id: z88.string().min(1), entry_id: z88.string().min(1) });
+var RunRowSchema = z88.object({ id: z88.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -21309,7 +21914,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z86.string().min(1).nullable().parse(data);
+      return z88.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -21322,7 +21927,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z86.boolean().parse(data);
+      return z88.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -21355,7 +21960,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z86.string().min(1).nullable().parse(data);
+      return z88.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -21537,6 +22142,7 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), refresh: ledger.refresh }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
@@ -21614,13 +22220,13 @@ var cutShort = (clock) => ({ outcome: "waiting", reason: CUT_SHORT, retryAt: lat
 async function within4(settling, ms2) {
   if (ms2 === Number.POSITIVE_INFINITY) return settling;
   let timer;
-  const cut2 = new Promise((resolve3) => {
+  const cut3 = new Promise((resolve3) => {
     timer = setTimeout(() => {
       resolve3(null);
     }, Math.max(0, ms2));
   });
   try {
-    return await Promise.race([settling, cut2]);
+    return await Promise.race([settling, cut3]);
   } finally {
     clearTimeout(timer);
   }
@@ -21684,22 +22290,22 @@ var later = (clock, minutes) => new Date(clock() + minutes * MINUTE2).toISOStrin
 
 // apps/omni-app/src/stage-forward/touch.ts
 import { posix as posix5 } from "node:path";
-import { z as z87 } from "zod";
+import { z as z89 } from "zod";
 var TOUCH_EVENTS = Object.freeze(["issues", "issue_comment", "pull_request", "pull_request_review", "check_suite", "push"]);
 var DEFAULTS2 = (() => {
   const { paths, branches } = parseConfig("kit: 1");
   return Object.freeze({ delivery: posix5.normalize(paths.delivery).replace(/\/+$/, ""), branches });
 })();
-var Repository = z87.looseObject({ repository: z87.looseObject({ full_name: z87.string().min(1) }) });
-var IssueEvent = z87.looseObject({ issue: z87.looseObject({ number: IssueNumberSchema, pull_request: z87.unknown().optional() }) });
-var PullEvent = z87.looseObject({ pull_request: z87.looseObject({ number: PrNumberSchema, head: z87.looseObject({ ref: z87.string().min(1) }) }) });
-var CheckSuiteEvent = z87.looseObject({
-  check_suite: z87.looseObject({ head_branch: z87.string().min(1).nullish(), pull_requests: z87.array(z87.looseObject({ number: PrNumberSchema })).nullish() })
+var Repository = z89.looseObject({ repository: z89.looseObject({ full_name: z89.string().min(1) }) });
+var IssueEvent = z89.looseObject({ issue: z89.looseObject({ number: IssueNumberSchema, pull_request: z89.unknown().optional() }) });
+var PullEvent = z89.looseObject({ pull_request: z89.looseObject({ number: PrNumberSchema, head: z89.looseObject({ ref: z89.string().min(1) }) }) });
+var CheckSuiteEvent = z89.looseObject({
+  check_suite: z89.looseObject({ head_branch: z89.string().min(1).nullish(), pull_requests: z89.array(z89.looseObject({ number: PrNumberSchema })).nullish() })
 });
-var Files = z87.array(z87.string()).nullish();
-var PushEvent = z87.looseObject({
-  ref: z87.string(),
-  commits: z87.array(z87.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
+var Files = z89.array(z89.string()).nullish();
+var PushEvent = z89.looseObject({
+  ref: z89.string(),
+  commits: z89.array(z89.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
 });
 var issueTouches = (repository, payload) => {
   const read = IssueEvent.safeParse(payload);
@@ -21767,7 +22373,7 @@ function forwardTouch(touch, post2) {
 // apps/omni-app/src/webhook/webhook.ts
 import { randomUUID } from "node:crypto";
 import { Webhooks } from "@octokit/webhooks";
-import { z as z88 } from "zod";
+import { z as z90 } from "zod";
 var CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["opened", "synchronize", "reopened", "ready_for_review", "labeled", "unlabeled", "edited"]),
   pull_request_review: Object.freeze(["submitted", "dismissed"]),
@@ -21799,46 +22405,46 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z88.looseObject({
+var PullRefSchema = z90.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z88.looseObject({ sha: z88.string().nullish() }).nullish(),
-  base: z88.looseObject({ ref: z88.string().nullish() }).nullish()
+  head: z90.looseObject({ sha: z90.string().nullish() }).nullish(),
+  base: z90.looseObject({ ref: z90.string().nullish() }).nullish()
 });
-var PayloadSchema3 = z88.looseObject({
-  action: z88.unknown(),
+var PayloadSchema3 = z90.looseObject({
+  action: z90.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z88.looseObject({ id: z88.number().nullish() }).nullish(),
-  repository: z88.looseObject({
-    name: z88.string(),
-    full_name: z88.string().nullish(),
-    owner: z88.looseObject({ login: z88.string().nullish() }).nullish(),
-    default_branch: z88.string().nullish()
+  installation: z90.looseObject({ id: z90.number().nullish() }).nullish(),
+  repository: z90.looseObject({
+    name: z90.string(),
+    full_name: z90.string().nullish(),
+    owner: z90.looseObject({ login: z90.string().nullish() }).nullish(),
+    default_branch: z90.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    node_id: z88.string().nullish(),
-    html_url: z88.string().nullish(),
-    state: z88.string().nullish(),
-    user: z88.looseObject({ login: z88.string().nullish() }).nullish(),
-    body: z88.string().nullish(),
-    merged: z88.boolean().nullish(),
-    merge_commit_sha: z88.string().nullish(),
-    merged_at: z88.string().nullish(),
-    closed_at: z88.string().nullish(),
-    updated_at: z88.string().nullish()
+    node_id: z90.string().nullish(),
+    html_url: z90.string().nullish(),
+    state: z90.string().nullish(),
+    user: z90.looseObject({ login: z90.string().nullish() }).nullish(),
+    body: z90.string().nullish(),
+    merged: z90.boolean().nullish(),
+    merge_commit_sha: z90.string().nullish(),
+    merged_at: z90.string().nullish(),
+    closed_at: z90.string().nullish(),
+    updated_at: z90.string().nullish()
   }).nullish(),
-  check_run: z88.looseObject({
-    id: z88.number().nullish(),
-    external_id: z88.string().nullish(),
-    head_sha: z88.string().nullish(),
-    pull_requests: z88.array(PullRefSchema).nullish(),
-    output: z88.looseObject({ summary: z88.unknown() }).nullish()
+  check_run: z90.looseObject({
+    id: z90.number().nullish(),
+    external_id: z90.string().nullish(),
+    head_sha: z90.string().nullish(),
+    pull_requests: z90.array(PullRefSchema).nullish(),
+    output: z90.looseObject({ summary: z90.unknown() }).nullish()
   }).nullish(),
-  requested_action: z88.looseObject({ identifier: z88.unknown() }).nullish(),
-  check_suite: z88.looseObject({
-    id: z88.number().nullish(),
-    head_branch: z88.string().nullish(),
-    head_sha: z88.string().nullish(),
-    conclusion: z88.string().nullish()
+  requested_action: z90.looseObject({ identifier: z90.unknown() }).nullish(),
+  check_suite: z90.looseObject({
+    id: z90.number().nullish(),
+    head_branch: z90.string().nullish(),
+    head_sha: z90.string().nullish(),
+    conclusion: z90.string().nullish()
   }).nullish()
 });
 async function receiveWebhook({
@@ -22029,9 +22635,9 @@ function toFleetBoardRequests(event, delivery2) {
     }
   ];
 }
-var LabelEventSchema = z88.looseObject({
-  label: z88.looseObject({ name: z88.string() }),
-  issue: z88.looseObject({ number: PrdNumberSchema, pull_request: z88.unknown().optional() })
+var LabelEventSchema = z90.looseObject({
+  label: z90.looseObject({ name: z90.string() }),
+  issue: z90.looseObject({ number: PrdNumberSchema, pull_request: z90.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery2) {
   const payload = readPayload(delivery2);
@@ -22197,17 +22803,17 @@ function githubRoute(env, {
     POST: loggedHandler(logger, "webhook", async (request, note) => {
       const endsAt = clock() + GITHUB_MAX_DURATION_SECONDS * 1e3;
       note({ deliveryId: request.headers.get("x-github-delivery") ?? void 0, fn: request.headers.get("x-github-event") ?? void 0 });
-      const text17 = await request.text();
+      const text18 = await request.text();
       const delivery2 = deliveryJobs(jobs);
       const { status, body } = await receiveWebhook({
-        body: text17,
+        body: text18,
         headers: request.headers,
         secret: env.webhook?.secret,
         ...delivery2.hooks,
         forward: (stageEvent) => forwardStageEvent(stageEvent, stage),
         touch: (touch) => forwardTouch(touch, touched2)
       });
-      if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text17) });
+      if (env.webhook?.secret && status !== 401) note({ repo: repositoryOf(text18) });
       const after = delivery2.after({ pause, say, endsAt });
       if (after) keepAlive(after);
       return new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8" } });

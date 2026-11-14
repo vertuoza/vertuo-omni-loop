@@ -109,13 +109,8 @@ type FakeFleet = { workspace_id: string; name: string; label: string; color: str
 export type FakeAskSession = {
   id: string; owner: string; workspace_id: string | null; repo: string | null; branch: string | null; claude_session_id: string | null;
 };
-/** An ask round (PRD 71, PRD 144). */
-export type FakeAskRound = {
-  id: string; session_id: string; questions: unknown; answers: Record<string, string> | null;
-  status: 'open' | 'answered' | 'abandoned'; answered_via: 'page' | 'terminal' | null; answered_by: string | null;
-  category: string | null; category_by: string | null; prd: PrdNumber | null; skill: string | null;
-  created_at: string; answered_at: string | null;
-};
+/** An ask round (PRD 71, PRD 144): a dossier round's own fields, under its own id. */
+export type FakeAskRound = { id: string } & Omit<DossierRoundRow, 'rule' | 'round_id' | 'asked_by' | 'repo' | 'branch'>;
 /** A share (PRD 144): a round, the member it is shared with, who shared it and when. */
 export type FakeAskShare = { round_id: string; shared_with: string; shared_by: string; created_at: string };
 /** A ledger event (PRD 100), as much of it as the history reads. */
@@ -266,7 +261,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const prd = args.p_prd;
     const title = trimmed(args.p_title);
     const kind = args.p_kind ?? 'prd';
-    if (!isOneOf(PUSH_KINDS, kind)) return refused('22023', 'A dossier\'s kind is prd, visual, bug or concept.');
+    // A mission's page is mission_push()'s alone (PRD 2842): dossier_push() takes no mission.
+    if (!isOneOf(PUSH_KINDS, kind) || kind === 'mission') return refused('22023', 'A dossier\'s kind is prd, visual, bug or concept.');
     if (!REPO.test(repo)) return refused('22023', 'A dossier needs its repository as owner/name.');
     if (!isPrdNumber(prd)) return refused('22023', 'A PRD number is a positive whole number.');
     if (!titleFits(title)) return refused('22023', 'A dossier needs a title of 1 to 200 characters.');
