@@ -389,7 +389,7 @@ describe('eventsOf: each decision recorded once, signed by its role', () => {
     it('records the build shipped for review, then the Reviewer sent, by the supervisor', () => {
       const list = events({ all: [facts(1)], runs: [built, stepRun(1, 1, 'review:1', attempt('b', { status: 'queued' }))], recorded: [{ kind: 'dispatched', prd: 1, job: 'a' }] });
       expect(list.map((e) => [e.kind, e.role, e.job, e.link, e.sentence])).toEqual([
-        ['job-ended', 'engineer', 'a', PR, 'PRD 1 is shipped as a draft: it waits for the Reviewer\'s round 1.'],
+        ['job-ended', 'engineer', 'a', PR, 'Shipped; waits for review.'],
         ['dispatched', 'supervisor', 'b', null, 'Sent /omni:review 1 to the night-shift fleet\'s runners (run 1, round 1).'],
       ]);
     });
@@ -403,10 +403,23 @@ describe('eventsOf: each decision recorded once, signed by its role', () => {
         ['dispatched', 'supervisor', 'b', null, 'Sent /omni:review 1 to the night-shift fleet\'s runners (run 1, round 1).'],
         ['reviewed', 'reviewer', 'b', REVIEW, 'Changes asked: 2 findings, round 1/2.'],
         ['dispatched', 'supervisor', 'c', null, 'Sent /omni:yolo-fix 1 --for-review to the night-shift fleet\'s runners (run 1).'],
-        ['job-ended', 'engineer', 'c', PR, 'PRD 1 is shipped as a draft: it waits for the Reviewer\'s round 2.'],
+        ['job-ended', 'engineer', 'c', PR, 'Fixed 2 findings; shipped again.'],
         ['dispatched', 'supervisor', 'd', null, 'Sent /omni:review 1 to the night-shift fleet\'s runners (run 1, round 2).'],
         ['reviewed', 'reviewer', 'd', REVIEW, 'Passed, round 2 of 2: marked ready.'],
       ]);
+    });
+
+    it('says the fix fixed the findings when round 1\'s count is unknown, and one finding as one', () => {
+      const fixAfter = (posted: { findings: number | null; url: string | null } | undefined) => {
+        const asked = stepRun(1, 1, 'review:1', ended('b', 'changes', posted === undefined ? {} : { posted }));
+        const fix = stepRun(1, 1, 'fix:1', ended('c', 'review'));
+        return events({ all: [facts(1)], runs: [built, asked, fix], recorded: seen('a', 'b').concat([{ kind: 'dispatched', prd: 1, job: 'c' }]) }).find((e) => e.job === 'c')?.sentence;
+      };
+      expect(fixAfter(undefined)).toBe('Fixed the findings; shipped again.');
+      expect(fixAfter({ findings: 1, url: null })).toBe('Fixed 1 finding; shipped again.');
+      // A fix sent again as run 2 still counts round 1's findings.
+      const again = [built, stepRun(1, 1, 'review:1', ended('b', 'changes', { posted: { findings: 3, url: null } })), stepRun(1, 1, 'fix:1', ended('c', 'stopped')), stepRun(1, 2, 'fix:1', ended('d', 'review'))];
+      expect(events({ all: [facts(1)], runs: again, recorded: seen('a', 'b', 'c').concat([{ kind: 'dispatched', prd: 1, job: 'd' }]) }).find((e) => e.job === 'd')?.sentence).toBe('Fixed 3 findings; shipped again.');
     });
 
     it('says one finding as one, and links the PR when the log named no review', () => {

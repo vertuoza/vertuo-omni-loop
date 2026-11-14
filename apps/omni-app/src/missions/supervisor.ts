@@ -455,14 +455,20 @@ function verdictEvent(prd: PrdNumber, round: number, last: Attempt, end: 'change
   return { kind: 'reviewed', role: 'reviewer', prd, job: last.id, link: linkOf(last.posted?.url ?? last.prUrl), sentence };
 }
 
-/** A build or a fix shipped for review (PRD 2871): its PR waits for the Reviewer's next round. */
-const shippedEvent = (prd: PrdNumber, one: Run, last: Attempt): NewEvent => ({
+/** What a fix shipped for review says it settled: round 1's findings, by their count when its log gave one. */
+const fixedWords = (asked: number | null): string => (asked === null || asked === 0 ? 'the findings' : findingsWords(asked));
+
+/**
+ * A build or a fix shipped for review (PRD 2871), its PR left a draft for the Reviewer, in the before/after's words:
+ * `Shipped; waits for review.`, then `Fixed 2 findings; shipped again.`, `asked` being round 1's count.
+ */
+const shippedEvent = (prd: PrdNumber, one: Run, last: Attempt, asked: number | null): NewEvent => ({
   kind: 'job-ended',
   role: 'engineer',
   prd,
   job: last.id,
   link: linkOf(last.prUrl),
-  sentence: `PRD ${String(prd)} is shipped as a draft: it waits for the Reviewer's round ${one.step === 'build' ? '1' : '2'}.`,
+  sentence: one.step === 'build' ? 'Shipped; waits for review.' : `Fixed ${fixedWords(asked)}; shipped again.`,
 });
 
 /** Any other end, in END_WORDS's words (a hand-off its step never ends on reads as stopped mid-way's), a Reviewer job's signed by it. */
@@ -473,10 +479,18 @@ function plainEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd): Ne
 }
 
 /** The event of a job's end, at its step: a Reviewer's verdict is `reviewed`; a build or fix shipped for review waits for it. */
-function endEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd): NewEvent {
+function endEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, asked: number | null = null): NewEvent {
   const round = roundOf(one.step);
   if (round !== null && (end === 'changes' || end === 'ready')) return verdictEvent(prd, round, last, end);
-  return end === 'review' && round === null ? shippedEvent(prd, one, last) : plainEndEvent(prd, one, last, end);
+  return end === 'review' && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end);
+}
+
+/** How many findings the Reviewer's round 1 raised before fix `one`, when its log said: the latest round 1 of its PRD up to its run. */
+function askedBefore(runs: readonly Run[], one: Run): number | null {
+  if (one.step !== 'fix:1') return null;
+  const rounds = runs.filter((other) => other.prd === one.prd && other.step === 'review:1' && other.run <= one.run);
+  const latest = rounds.reduce<Run | null>((last, other) => (last === null || other.run > last.run ? other : last), null);
+  return (latest ? lastOf(latest)?.posted?.findings : null) ?? null;
 }
 
 /** What a dispatch says: the line sent, where, and its run (and round, for the Reviewer). */
@@ -491,7 +505,8 @@ function runEvents(runs: readonly Run[], where: string): NewEvent[] {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
     const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where) };
-    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, 'lost')), ...(last && end !== null ? [endEvent(one.prd, one, last, end)] : [])];
+    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, askedBefore(runs, one))] : [];
+    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, 'lost')), ...ending];
   });
 }
 
