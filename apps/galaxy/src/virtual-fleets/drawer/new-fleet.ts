@@ -28,6 +28,8 @@ export interface NewFleetState {
   roles: HeroRole[];
   busy: boolean;
   refusal: { field: RefusalField; message: string } | null;
+  /** Where the drawer lands once the fleet is made: set, the drawer closes and goes there (#2866). */
+  landing?: string;
 }
 
 export type NewFleetAction =
@@ -35,7 +37,8 @@ export type NewFleetAction =
   | { type: 'mascot'; value: string }
   | { type: 'toggle'; role: HeroRole }
   | { type: 'busy' }
-  | { type: 'refused'; field: RefusalField; message: string };
+  | { type: 'refused'; field: RefusalField; message: string }
+  | { type: 'made'; fleet: string };
 
 /** As it opens: Name empty, the first of the fleet mascots, every role on. */
 export function openedWith(mascots: readonly string[]): NewFleetState {
@@ -51,6 +54,8 @@ export function newFleetReducer(state: NewFleetState, action: NewFleetAction): N
       return { ...state, busy: true, refusal: null };
     case 'refused':
       return { ...state, busy: false, refusal: { field: action.field, message: action.message } };
+    case 'made':
+      return { ...state, busy: false, refusal: null, landing: landingOf(action.fleet) };
     case 'name':
     case 'mascot':
     case 'toggle': {

@@ -9,7 +9,7 @@ import { drawerMove } from '../../runners/page/need-human';
 import { httpVirtualFleetsPort, type VirtualFleetsPort } from '../virtual-fleets.client';
 import { FLEET_NAME_MAX } from '../virtual-fleets.contract';
 import {
-  canCreate, demoPort, landingOf, newFleetReducer, openedWith, refusalUnder, requestOf, roleSwitch, WORDS, type NewFleetAction, type NewFleetState,
+  canCreate, demoPort, newFleetReducer, openedWith, refusalUnder, requestOf, roleSwitch, WORDS, type NewFleetAction, type NewFleetState,
 } from './new-fleet';
 import '../../runners/page/need-human.css';
 import './new-fleet.css';
@@ -71,9 +71,18 @@ function NewFleetDrawer({ mascots, port, onClose }: { mascots: readonly string[]
       dispatch({ type: 'refused', field: made.field, message: made.message });
       return;
     }
-    router.push(landingOf(made.fleet.name));
-    router.refresh();
+    dispatch({ type: 'made', fleet: made.fleet.name });
   }
+
+  // Once the fleet is made, the drawer closes and the page goes to it: the Fleet page stays mounted
+  // through that navigation, so a drawer left open would read Creating… for good (#2866).
+  const landing = state.landing;
+  useEffect(() => {
+    if (landing === undefined) return;
+    onClose();
+    router.push(landing);
+    router.refresh();
+  }, [landing, onClose, router]);
 
   // Tab stays inside the drawer and Escape closes it, as in the Need human drawer: the focus is always inside it.
   const onKey = (event: KeyboardEvent<HTMLElement>) => {
