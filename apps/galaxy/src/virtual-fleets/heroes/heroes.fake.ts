@@ -1,7 +1,6 @@
 import { roleOf, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
-import type { Written } from '../virtual-fleets.repository';
 import type { AddHeroRequest, Hero, RemoveHeroRequest } from './heroes.contract';
-import type { HeroesRepository } from './heroes.repository';
+import type { HeroesRepository, Written } from './heroes.repository';
 
 // The Heroes' database in memory (PRD 2842 s6), for the service's and the controller's tests: the rules of
 // add_virtual_hero() and remove_virtual_hero() (supabase/migrations/20270122095000_virtual_hero_edit.sql),

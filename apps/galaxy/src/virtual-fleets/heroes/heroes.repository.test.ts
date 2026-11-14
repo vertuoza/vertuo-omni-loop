@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { VirtualFleetsDb } from '../virtual-fleets.repository';
-import { heroesRepository } from './heroes.repository';
+import { heroesRepository, type HeroesDb } from './heroes.repository';
 
 // The Heroes' reads and writes (PRD 2842 s6), against a client that records each call and answers as
 // PostgREST does: the heroes read by workspace and fleet in position order, add_virtual_hero() and
@@ -21,7 +20,7 @@ function client(answer: { data: unknown; error: unknown }) {
   const db = {
     rpc(fn: string, args: unknown) { calls.push(['rpc', fn, args]); return Promise.resolve(answer); },
     from(table: string) { calls.push(['from', table]); return query; },
-  } as unknown as VirtualFleetsDb;
+  } as unknown as HeroesDb;
   return { db, calls };
 }
 

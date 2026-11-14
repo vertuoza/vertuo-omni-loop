@@ -1,5 +1,5 @@
 import { orThrow, parseRow, parseRows } from '../../data/parse-rows';
-import type { VirtualFleetsDb, Written } from '../virtual-fleets.repository';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { HeroSchema, type AddHeroRequest, type Hero, type RemoveHeroRequest } from './heroes.contract';
 
 // The Heroes tab's reads and writes (PRD 2842 s6; ADR-0095), on the client they are given: the signed-in
@@ -8,6 +8,11 @@ import { HeroSchema, type AddHeroRequest, type Hero, type RemoveHeroRequest } fr
 // row-level security what they read. Each answer is parsed where it comes in; a failed read throws, a
 // refused write answers the database's code, hint and words. No rule lives here: heroes.service.ts does.
 
+export type HeroesDb = Pick<SupabaseClient, 'from' | 'rpc'>;
+
+/** A write: its value, or the database's refusal. */
+export type Written<T> = { ok: true; value: T } | { ok: false; code: string | null; hint: string | null; message: string };
+
 const WHERE = 'virtual-fleets/heroes/heroes.repository';
 const COLUMNS = 'id, fleet, name, role, skills, agent, model, limits, position';
 
@@ -15,7 +20,7 @@ type Answer = { data: unknown; error: { code?: string; hint?: string; message: s
 
 const refusedBy = (error: NonNullable<Answer['error']>) => ({ ok: false as const, code: error.code || null, hint: error.hint || null, message: error.message });
 
-export function heroesRepository(db: VirtualFleetsDb) {
+export function heroesRepository(db: HeroesDb) {
   return {
     /** A virtual fleet's heroes, in the order the fleet keeps them. */
     async heroes(workspace: string, fleet: string): Promise<Hero[]> {

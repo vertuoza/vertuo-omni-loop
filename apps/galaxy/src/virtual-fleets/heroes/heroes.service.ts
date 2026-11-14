@@ -1,6 +1,5 @@
-import type { Written } from '../virtual-fleets.repository';
 import type { AddHeroRequest, Hero, HeroRefusal, HeroRefusalField, RemoveHeroRequest } from './heroes.contract';
-import type { HeroesRepository } from './heroes.repository';
+import type { HeroesRepository, Written } from './heroes.repository';
 
 // The Heroes tab's rules (PRD 2842 s6; ADR-0095), over the repository as the signed-in person. Who may
 // add or remove a hero (an owner of the workspace), that a fleet holds one hero per role and keeps at

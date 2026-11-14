@@ -1,9 +1,8 @@
 import 'server-only';
 import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
-import type { VirtualFleetsDb } from '../virtual-fleets.repository';
 import type { HeroesDeps } from './heroes.controller';
-import { heroesRepository } from './heroes.repository';
+import { heroesRepository, type HeroesDb } from './heroes.repository';
 import { heroesService, type HeroesService } from './heroes.service';
 
 // The Heroes tab's real dependencies (PRD 2842 s6), for /api/virtual-fleets/heroes and the Fleet section:
@@ -12,7 +11,7 @@ import { heroesService, type HeroesService } from './heroes.service';
 // answers 503.
 
 /** The rules as the person `db` acts for. */
-export const heroesServiceAs = (db: VirtualFleetsDb): HeroesService => heroesService(heroesRepository(db));
+export const heroesServiceAs = (db: HeroesDb): HeroesService => heroesService(heroesRepository(db));
 
 async function signedInService(): Promise<HeroesService | null> {
   const db = await supabaseServer();
