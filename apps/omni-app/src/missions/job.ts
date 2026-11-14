@@ -11,8 +11,9 @@
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
 //                  first (its jobs and their resumes, each PRD's approval, stage, blockers and plan), pick
 //                  (./supervisor.ts), send each pick to the mission's Virtual Fleet (its runners when one holds the
-//                  repository, else any runner of the workspace) under its mission key, record each decision as an
-//                  event, and set the status, what it waits on and the next wake
+//                  repository, else any runner of the workspace) under its mission key (the build, or the Reviewer
+//                  and the fix after it, PRD 2871), record each decision as an event, and set the status, what it
+//                  waits on and the next wake
 //   how it ends    `later`, a minute on, while the mission runs or waits, or while it is paused with a job of it
 //                  still running (its end is recorded); `done` otherwise. Paused sends nothing new
 //   the cap        the ledger fails a job's 21st `later` in a row: before that, a run refreshes its own job (it is
@@ -59,9 +60,9 @@ type Supervised = { next: Concluded; running: boolean; moved: boolean; sent: num
 async function supervise(store: MissionStore, mission: MissionRecord, now: number): Promise<Supervised> {
   const [facts, runs, recorded, toFleet] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission)]);
   const sent: Run[] = [];
-  for (const { prd, run } of pick({ mission, facts, states: prdStates(facts, runs) })) {
-    const made = await store.send({ mission, prd, run, toFleet });
-    if (made !== null) sent.push({ prd, run, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+  for (const { prd, run, step } of pick({ mission, facts, states: prdStates(facts, runs) })) {
+    const made = await store.send({ mission, prd, run, step, toFleet });
+    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all);

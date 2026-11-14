@@ -5,12 +5,14 @@
 //                 stage is merged (shipped or retro), ready (outbox) or open; its plan's territory is every
 //                 slice's, read with the kit's plan parser, none when it has no plan or one that cannot be read;
 //                 a roadmap in scope is its PRDs, each blocker row read as its PRD
-//   outcome       the spec's table: a job's end to the PRD's next step
+//   outcome       the spec's table: a job's end, at its step, to the PRD's next step
 //
-//                   Ready                  waits for a person to merge it
+//                   Ready                  waits for a person to merge it (a build's, a fix's, or the Reviewer's pass)
+//                   Review                 the build sends the Reviewer's round 1, the fix its round 2 (PRD 2871)
+//                   Changes                round 1 sends the fix; round 2 waits for a person to decide the findings
 //                   Waiting on answers     waits for a person to answer; the page's auto-fix carries on
 //                   Need human             waits for a person to act on its runner job
-//                   Held, Stopped mid-way  sent again once (run 2); a second time stops that PRD, saying why
+//                   Held, Stopped mid-way  sent again once (run 2, at the same step); a second time stops that PRD
 //                   Runner lost            recorded: PRD 2809's resume carries it
 //                   Cancelled              never sent again: that PRD is paused
 //                   Failed                 stops that PRD, saying why
@@ -26,9 +28,14 @@
 //                 characters) and its next wake, a minute on while it runs or waits
 //   eventsOf      each decision as a mission event, once: the events already recorded are read back as keys, so
 //                 a replayed run records nothing twice. The supervisor's own rows are signed `supervisor`, a
-//                 job's end `engineer` (the Engineer hero's work); both by `agent`, never in a person's name.
-//                 An event links to a pull request; it never holds a person's words, a credential or a log line
-import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+//                 job's end `engineer` (the Engineer hero's work), a Reviewer job's `reviewer`, its verdict a
+//                 `reviewed` row linking its review; all by `agent`, never in a person's name. An event links to a
+//                 pull request or its review; it never holds a person's words, a credential or a log line
+//
+// The steps of a run (PRD 2871): the build `/omni:yolo <n> --for-review` under the run's key, then the Reviewer
+// `/omni:review <n>` under `…:review:1`, the fix `/omni:yolo-fix <n> --for-review` under `…:fix:1`, and the
+// Reviewer again under `…:review:2`. Each key is unique, so a replay sends each once; there is no third round.
+import { PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { parsePlanSlices, sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
@@ -43,38 +50,52 @@ export type Stage = 'merged' | 'ready' | 'open';
 /** One PRD of the scope, as a run read it. `territory` is null when it has no plan to read: it runs alone. */
 export type PrdFacts = { prd: PrdNumber; approval: Approval; stage: Stage; blockers: PrdNumber[]; territory: string[] | null };
 
-/** One runner job of a run: the job the mission sent, or a resume of it (PRD 2809). */
-export type Attempt = { id: string; status: RunnerJobStatus; outcome: string | null; reason: string | null; prUrl: string | null };
+/** What a Reviewer job's log says it posted (PRD 2871): how many findings, when it says, and its review's link. */
+export type Posted = { findings: number | null; url: string | null };
 
-/** One run of a PRD the mission sent: its key's run number, its job, and its attempts in order, the job's first. */
-export type Run = { prd: PrdNumber; run: number; job: string; attempts: Attempt[] };
+/** One runner job of a run: the job the mission sent, or a resume of it (PRD 2809). A Reviewer job's carries what it posted. */
+export type Attempt = { id: string; status: RunnerJobStatus; outcome: string | null; reason: string | null; prUrl: string | null; posted?: Posted | null };
+
+/** A step of a run, in order (PRD 2871): the build, the Reviewer's round 1, the fix after it, the Reviewer's round 2. */
+export type Step = 'build' | 'review:1' | 'fix:1' | 'review:2';
+const STEPS: readonly Step[] = ['build', 'review:1', 'fix:1', 'review:2'];
+
+/** One job the mission sent for a PRD: its key's run number and step, its job, and its attempts in order, the job's first. */
+export type Run = { prd: PrdNumber; run: number; step: Step; job: string; attempts: Attempt[] };
 
 /** How a runner job ended, as the table reads it. */
-export type JobEnd = 'ready' | 'answers' | 'human' | 'held' | 'stopped' | 'lost' | 'cancelled' | 'failed';
+export type JobEnd = 'ready' | 'answers' | 'human' | 'held' | 'stopped' | 'review' | 'changes' | 'lost' | 'cancelled' | 'failed';
 
-/** What a person must do for a PRD to carry on. */
-export type WaitsOn = 'approve' | 'approve-again' | 'answer' | 'merge' | 'act';
+/** What a person must do for a PRD to carry on: `decide` the Reviewer's findings after round 2 (PRD 2871). */
+export type WaitsOn = 'approve' | 'approve-again' | 'answer' | 'merge' | 'act' | 'decide';
 
-/** A job's end, as the PRD's next step. */
-export type Next = { next: 'waits'; on: 'merge' | 'answer' | 'act' } | { next: 'again' } | { next: 'stops'; why: string } | { next: 'paused' } | { next: 'records' };
+/** A job's end, as the PRD's next step: `send` the run's next step (PRD 2871). */
+export type Next =
+  | { next: 'waits'; on: 'merge' | 'answer' | 'act' | 'decide' }
+  | { next: 'send'; step: Step }
+  | { next: 'again' }
+  | { next: 'stops'; why: string }
+  | { next: 'paused' }
+  | { next: 'records' };
 
 export type PrdState =
   | { state: 'merged' }
   | { state: 'running'; run: number }
-  | { state: 'waits'; on: WaitsOn }
+  | { state: 'waits'; on: Exclude<WaitsOn, 'decide'> }
+  | { state: 'waits'; on: 'decide'; pr: PrNumber | null }
   | { state: 'blocked'; by: PrdNumber[] }
   | { state: 'stopped'; why: string }
   | { state: 'paused' }
-  | { state: 'startable'; run: number };
+  | { state: 'startable'; run: number; step: Step };
 
-/** A PRD to send, and the run it is. */
-export type Send = { prd: PrdNumber; run: number };
+/** A PRD to send: the run it is, and its step. */
+export type Send = { prd: PrdNumber; run: number; step: Step };
 
 /** What a run sets on the mission. */
 export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null };
 
-export type EventKind = 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered';
-export type EventRole = 'supervisor' | 'engineer';
+export type EventKind = 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed';
+export type EventRole = 'supervisor' | 'engineer' | 'reviewer';
 
 /** An event to record, signed by its role and `agent`. */
 export type NewEvent = { kind: EventKind; role: EventRole; prd: PrdNumber | null; job: string | null; link: string | null; sentence: string };
@@ -89,16 +110,64 @@ const WORDS_MAX = 300;
 /** The run a held or stopped-mid-way PRD stops at: sent again once, never a third time. */
 const LAST_RUN = 2;
 
-const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)$/;
+/** The rounds the Reviewer reviews at most (PRD 2871): a third has no key. */
+const ROUNDS = 2;
 
-/** The key a mission's job is sent under: never twice for one PRD and run. */
-export const missionKey = (mission: string, prd: PrdNumber, run: number): string => `mission:${mission}:prd:${String(prd)}:run:${String(run)}`;
+const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1))?$/;
 
-/** The PRD and run a mission key names; null for any other text. */
-export function runOfKey(key: string): { prd: PrdNumber; run: number } | null {
+/** The key a mission's job is sent under: never twice for one PRD, run and step. The build's is the run's own. */
+export const missionKey = (mission: string, prd: PrdNumber, run: number, step: Step = 'build'): string =>
+  `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === 'build' ? '' : `:${step}`}`;
+
+const isStep = (text: string): text is Step => (STEPS as readonly string[]).includes(text);
+
+/** The PRD, run and step a mission key names; null for any other text. */
+export function runOfKey(key: string): { prd: PrdNumber; run: number; step: Step } | null {
   const match = KEY.exec(key);
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
-  return match && prd.success ? { prd: prd.data, run: Number(match[3]) } : null;
+  const step = match?.[4] ?? 'build';
+  return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
+}
+
+/** The line a step is sent as (PRD 2871): the build and the fix sent for review, the Reviewer between them. */
+export function lineOf(prd: PrdNumber, step: Step): string {
+  const n = String(prd);
+  if (step === 'build') return `/omni:yolo ${n} --for-review`;
+  if (step === 'fix:1') return `/omni:yolo-fix ${n} --for-review`;
+  return `/omni:review ${n}`;
+}
+
+/** The Reviewer's round a step is; null for the build and the fix. */
+const roundOf = (step: Step): number | null => (step === 'review:1' ? 1 : step === 'review:2' ? 2 : null);
+
+/** A review's link as GitHub gives it: a pull request of a repository, or one review on it. */
+const REVIEW_URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+(?:#pullrequestreview-\d+)?$/;
+/** `omni review post`'s line (kit/bin/commands/review.ts): posted, with its verdict and count, or a round already posted. */
+const POSTED = /omni review: posted round [12] \((pass|changes, (\d+) findings?)\) on PR #\d+: (\S+)$/;
+const ALREADY = /omni review: round [12] is already posted on PR #\d+: (\S+?)\. Nothing posted\.$/;
+
+/**
+ * What a Reviewer job's log says it posted: its last `omni review post` line, read for its count of findings (none
+ * when it found the round already posted) and its review's link (none unless it is GitHub's). Only those two are
+ * kept: never a line of the log (L-GDPR-2). Null when the log has no such line.
+ */
+export function postedOf(log: string): Posted | null {
+  for (const line of log.split('\n').reverse()) {
+    const posted = POSTED.exec(line.trimEnd());
+    if (posted) return { findings: posted[1] === 'pass' ? 0 : Number(posted[2]), url: reviewUrl(posted[3]) };
+    const already = ALREADY.exec(line.trimEnd());
+    if (already) return { findings: null, url: reviewUrl(already[1]) };
+  }
+  return null;
+}
+
+const reviewUrl = (url: string | undefined): string | null => (url !== undefined && REVIEW_URL.test(url) ? url : null);
+
+/** The pull request a link names; null when it names none. */
+function prOfUrl(url: string | null): PrNumber | null {
+  const number = /\/pull\/(\d+)/.exec(url ?? '')?.[1];
+  const pr = PrNumberSchema.safeParse(Number(number));
+  return number !== undefined && pr.success ? pr.data : null;
 }
 
 // ── The reads, made plain ────────────────────────────────────────────────────────
@@ -151,12 +220,15 @@ export function endOf({ status, outcome: word }: Attempt): JobEnd | null {
   if (status === 'queued' || status === 'claimed' || status === 'running') return null;
   if (status === 'cancelled') return 'cancelled';
   if (status === 'failed') return 'failed';
-  if (word === 'ready' || word === 'answers' || word === 'human' || word === 'held') return word;
+  if (word === 'ready' || word === 'answers' || word === 'human' || word === 'held' || word === 'review' || word === 'changes') return word;
   return 'stopped';
 }
 
-/** The spec's table: a job's end, in run `run`, as the PRD's next step. */
-export function outcome(end: JobEnd, run: number, reason: string | null = null): Next {
+/** A step that stopped mid-way, in run `run`: sent again once, stopped the second time. */
+const stoppedAt = (run: number): Next => (run >= LAST_RUN ? { next: 'stops', why: 'it stopped mid-way twice' } : { next: 'again' });
+
+/** The spec's table: a job's end, at step `step` of run `run`, as the PRD's next step. A hand-off its step never ends on stopped mid-way. */
+export function outcome(end: JobEnd, run: number, reason: string | null = null, step: Step = 'build'): Next {
   switch (end) {
     case 'ready':
       return { next: 'waits', on: 'merge' };
@@ -164,10 +236,16 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null):
       return { next: 'waits', on: 'answer' };
     case 'human':
       return { next: 'waits', on: 'act' };
+    case 'review':
+      if (step === 'build') return { next: 'send', step: 'review:1' };
+      return step === 'fix:1' ? { next: 'send', step: 'review:2' } : stoppedAt(run);
+    case 'changes':
+      if (step === 'review:1') return { next: 'send', step: 'fix:1' };
+      return step === 'review:2' ? { next: 'waits', on: 'decide' } : stoppedAt(run);
     case 'held':
       return run >= LAST_RUN ? { next: 'stops', why: 'it was held twice' } : { next: 'again' };
     case 'stopped':
-      return run >= LAST_RUN ? { next: 'stops', why: 'it stopped mid-way twice' } : { next: 'again' };
+      return stoppedAt(run);
     case 'lost':
       return { next: 'records' };
     case 'cancelled':
@@ -182,6 +260,9 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null):
 /** A run's latest attempt: the resume that carries it, or the job itself. */
 const lastOf = (run: Run): Attempt | undefined => run.attempts.at(-1);
 
+/** Whether job `a` comes after job `b`: a later run, or a later step of the same run. */
+const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step));
+
 /** Where each PRD of the scope is, by PRD. */
 export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[]): Map<PrdNumber, PrdState> {
   const merged = new Set(facts.filter((fact) => fact.stage === 'merged').map((fact) => fact.prd));
@@ -190,29 +271,34 @@ export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[]): Map
 
 function stateOf(fact: PrdFacts, runs: readonly Run[], merged: ReadonlySet<PrdNumber>): PrdState {
   if (fact.stage === 'merged') return { state: 'merged' };
-  const latest = runs.reduce<Run | null>((last, one) => (last === null || one.run > last.run ? one : last), null);
+  const latest = runs.reduce<Run | null>((last, one) => (last === null || after(one, last) ? one : last), null);
   const last = latest ? lastOf(latest) : undefined;
   if (latest && last && endOf(last) === null) return { state: 'running', run: latest.run };
   if (fact.stage === 'ready') return { state: 'waits', on: 'merge' };
-  return latest && last ? afterEnd(fact, latest, last, merged) : gate(fact, 1, merged);
+  return latest && last ? afterEnd(fact, latest, last, merged) : gate(fact, 1, 'build', merged);
 }
 
-/** Where a PRD is once its latest run ended: the table's next step. */
+/** Where a PRD is once its latest job ended: the table's next step, the next step of a run under the same run. */
 function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, merged: ReadonlySet<PrdNumber>): PrdState {
-  const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason);
-  if (next.next === 'waits') return { state: 'waits', on: next.on };
+  const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason, latest.step);
+  if (next.next === 'waits') return next.on === 'decide' ? { state: 'waits', on: 'decide', pr: prOfUrl(last.prUrl) } : { state: 'waits', on: next.on };
+  if (next.next === 'send') return { state: 'startable', run: latest.run, step: next.step };
   if (next.next === 'stops') return { state: 'stopped', why: next.why };
   if (next.next === 'paused') return { state: 'paused' };
-  if (next.next === 'again') return gate(fact, latest.run + 1, merged);
+  if (next.next === 'again') return gate(fact, latest.run + 1, latest.step, merged);
   return { state: 'running', run: latest.run };
 }
 
-/** Run `run` of the PRD, once its approval stands and every blocker is merged. */
-function gate(fact: PrdFacts, run: number, merged: ReadonlySet<PrdNumber>): PrdState {
+/**
+ * Step `step` of run `run` of the PRD. A build waits for its approval to stand and every blocker to be merged; a
+ * later step (the Reviewer, the fix) carries on a build already sent, and waits on neither.
+ */
+function gate(fact: PrdFacts, run: number, step: Step, merged: ReadonlySet<PrdNumber>): PrdState {
+  if (step !== 'build') return { state: 'startable', run, step };
   if (fact.approval === 'none') return { state: 'waits', on: 'approve' };
   if (fact.approval === 'voided') return { state: 'waits', on: 'approve-again' };
   const by = fact.blockers.filter((blocker) => !merged.has(blocker));
-  return by.length > 0 ? { state: 'blocked', by } : { state: 'startable', run };
+  return by.length > 0 ? { state: 'blocked', by } : { state: 'startable', run, step };
 }
 
 // ── Pick ─────────────────────────────────────────────────────────────────────────
@@ -231,12 +317,12 @@ export function pick({ mission, facts, states }: { mission: Mission; facts: read
     if (state?.state !== 'startable') continue;
     if (fact.territory === null) {
       if (busy.length > 0) continue;
-      sends.push({ prd: fact.prd, run: state.run });
+      sends.push({ prd: fact.prd, run: state.run, step: state.step });
       break;
     }
     const territory = fact.territory;
     if (busy.some((other) => other !== null && sharedGround({ territory: other }, { territory }).length > 0)) continue;
-    sends.push({ prd: fact.prd, run: state.run });
+    sends.push({ prd: fact.prd, run: state.run, step: state.step });
     busy.push(territory);
   }
   return sends;
@@ -244,13 +330,19 @@ export function pick({ mission, facts, states }: { mission: Mission; facts: read
 
 // ── Conclude ─────────────────────────────────────────────────────────────────────
 
-const WAITS_WORDS: Readonly<Record<WaitsOn, string>> = {
+const WAITS_WORDS: Readonly<Record<Exclude<WaitsOn, 'decide'>, string>> = {
   approve: 'approve it',
   'approve-again': 'approve it again',
   answer: 'answer its questions',
   merge: 'merge it',
   act: 'act on its runner job',
 };
+
+/** What a PRD waits on a person for, in words: after round 2, the Reviewer's findings on its PR (PRD 2871). */
+function waitWords(state: Extract<PrdState, { state: 'waits' }>): string {
+  if (state.on !== 'decide') return WAITS_WORDS[state.on];
+  return `decide the Reviewer's findings on ${state.pr === null ? 'its feature PR' : `PR #${String(state.pr)}`}`;
+}
 
 /** How a stopped mission carries on. */
 const CARRY_ON = 'Take it to ready by hand and the mission carries on.';
@@ -274,7 +366,7 @@ const cut = (text: string, max = WORDS_MAX): string => (text.length <= max ? tex
 function waitsOf(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdState>): string | null {
   const parts = facts.flatMap((fact) => {
     const state = states.get(fact.prd);
-    return state?.state === 'waits' ? [`PRD ${String(fact.prd)}: ${WAITS_WORDS[state.on]}`] : [];
+    return state?.state === 'waits' ? [`PRD ${String(fact.prd)}: ${waitWords(state)}`] : [];
   });
   return parts.length > 0 ? fitted(parts, ' · ') : null;
 }
@@ -314,6 +406,7 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   dispatched: (_prdKey, job) => jobKey('dispatched', job),
   'job-ended': (_prdKey, job) => jobKey('end', job),
   held: (_prdKey, job) => jobKey('end', job),
+  reviewed: (_prdKey, job) => jobKey('end', job),
   'prd-ready': (prdKey, job) => [`ready:${prdKey ?? 'mission'}`, ...jobKey('end', job)],
   'prd-merged': (prdKey) => [`merged:${prdKey ?? 'mission'}`],
   stopped: (prdKey) => (prdKey === null ? [] : [`stopped:${prdKey}`]),
@@ -335,8 +428,8 @@ const againWords = (n: string, what: string, run: number): string =>
 
 type EndWords = Pick<NewEvent, 'kind' | 'role' | 'sentence'>;
 
-/** What a job's end says of its PRD (`n`), in run `run`: its event's kind, role and sentence. */
-const END_WORDS: Readonly<Record<JobEnd, (n: string, run: number, reason: string | null) => EndWords>> = {
+/** What a job's end says of its PRD (`n`), in run `run`: its event's kind, role and sentence. A Reviewer job's says it as the Reviewer. */
+const END_WORDS: Readonly<Record<Exclude<JobEnd, 'review' | 'changes'>, (n: string, run: number, reason: string | null) => EndWords>> = {
   ready: (n) => ({ kind: 'prd-ready', role: 'engineer', sentence: `${n} is ready for review: it waits for a person to merge it.` }),
   answers: (n) => ({ kind: 'job-ended', role: 'engineer', sentence: `${n} waits on answers: the page's auto-fix carries on once a person answers.` }),
   human: (n) => ({ kind: 'job-ended', role: 'engineer', sentence: `${n}'s job needs a person: act on it on the Runners page.` }),
@@ -347,21 +440,58 @@ const END_WORDS: Readonly<Record<JobEnd, (n: string, run: number, reason: string
   failed: (n, _run, reason) => ({ kind: 'job-ended', role: 'engineer', sentence: reason ? `${n}'s job failed: ${reason}.` : `${n}'s job failed.` }),
 };
 
-/** The event of a job's end. */
-const endEvent = (prd: PrdNumber, run: number, last: Attempt, end: JobEnd): NewEvent => ({
+/** `1 finding`, `2 findings`. */
+const findingsWords = (count: number): string => `${String(count)} finding${count === 1 ? '' : 's'}`;
+
+/**
+ * The Reviewer's verdict in round `round` (PRD 2871), signed `reviewer`, linking its review (else its PR): `Changes
+ * asked: 2 findings, round 1/2.`, without the count when its log gave none; `Passed, round 2 of 2: marked ready.`
+ */
+function verdictEvent(prd: PrdNumber, round: number, last: Attempt, end: 'changes' | 'ready'): NewEvent {
+  const of = `${String(round)}/${String(ROUNDS)}`;
+  const count = last.posted?.findings ?? null;
+  const sentence =
+    end === 'ready' ? `Passed, round ${String(round)} of ${String(ROUNDS)}: marked ready.` : count === null || count === 0 ? `Changes asked, round ${of}.` : `Changes asked: ${findingsWords(count)}, round ${of}.`;
+  return { kind: 'reviewed', role: 'reviewer', prd, job: last.id, link: linkOf(last.posted?.url ?? last.prUrl), sentence };
+}
+
+/** A build or a fix shipped for review (PRD 2871): its PR waits for the Reviewer's next round. */
+const shippedEvent = (prd: PrdNumber, one: Run, last: Attempt): NewEvent => ({
+  kind: 'job-ended',
+  role: 'engineer',
   prd,
   job: last.id,
   link: linkOf(last.prUrl),
-  ...END_WORDS[end](`PRD ${String(prd)}`, run, last.reason),
+  sentence: `PRD ${String(prd)} is shipped as a draft: it waits for the Reviewer's round ${one.step === 'build' ? '1' : '2'}.`,
 });
 
-/** What each run says: its dispatch, each runner lost along the way, and its end. */
+/** Any other end, in END_WORDS's words (a hand-off its step never ends on reads as stopped mid-way's), a Reviewer job's signed by it. */
+function plainEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd): NewEvent {
+  const words = END_WORDS[end === 'review' || end === 'changes' ? 'stopped' : end](`PRD ${String(prd)}`, one.run, last.reason);
+  const role = roundOf(one.step) !== null && words.role === 'engineer' ? 'reviewer' : words.role;
+  return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role };
+}
+
+/** The event of a job's end, at its step: a Reviewer's verdict is `reviewed`; a build or fix shipped for review waits for it. */
+function endEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd): NewEvent {
+  const round = roundOf(one.step);
+  if (round !== null && (end === 'changes' || end === 'ready')) return verdictEvent(prd, round, last, end);
+  return end === 'review' && round === null ? shippedEvent(prd, one, last) : plainEndEvent(prd, one, last, end);
+}
+
+/** What a dispatch says: the line sent, where, and its run (and round, for the Reviewer). */
+function sentWords(one: Run, where: string): string {
+  const round = roundOf(one.step);
+  return `Sent ${lineOf(one.prd, one.step)} to ${where} (run ${String(one.run)}${round === null ? '' : `, round ${String(round)}`}).`;
+}
+
+/** What each job says: its dispatch, each runner lost along the way, and its end. */
 function runEvents(runs: readonly Run[], where: string): NewEvent[] {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
-    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: `Sent /omni:yolo ${String(one.prd)} to ${where} (run ${String(one.run)}).` };
-    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one.run, lost, 'lost')), ...(last && end !== null ? [endEvent(one.prd, one.run, last, end)] : [])];
+    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where) };
+    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, 'lost')), ...(last && end !== null ? [endEvent(one.prd, one, last, end)] : [])];
   });
 }
 
