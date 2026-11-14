@@ -94,7 +94,7 @@ export async function arcadeFor(db: SupabaseClient<Database>, user: User | null,
     if (!workspace) return { view: null, fleets: [], session: sessionOf(user, false), workspace: null };
     const id = workspace.id;
     const [view, fleets, me, crew, owner] = await Promise.all([
-      loadGalaxy(db, id, now), loadFleets(db, id), loadMe(db, id, user.id), loadCrew(db, id), ownsWorkspace(db, id, user.id),
+      loadGalaxy(db, id, now), loadFleets(db, id, { players: true }), loadMe(db, id, user.id), loadCrew(db, id), ownsWorkspace(db, id, user.id),
     ]);
     const session = sessionOf(user, true);
     const login = me?.github_login ?? session.github;

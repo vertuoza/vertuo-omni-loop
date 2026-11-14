@@ -1,0 +1,37 @@
+import { z } from 'zod';
+
+// The missions' contract (PRD 2842 s5; spec "3. The supervisor"): what the Start, Pause and Resume routes
+// answer, safe for the browser. A member of the mission's workspace moves it; the answer is the mission as
+// moved. Every refusal is `{error}` in plain words.
+//
+//   POST /api/missions/<id>/start    a draft goes running
+//   POST /api/missions/<id>/pause    a running or waiting mission goes paused
+//   POST /api/missions/<id>/resume   a paused mission goes running
+
+export type MissionAction = 'start' | 'pause' | 'resume';
+
+const MISSION_STATUSES = ['draft', 'running', 'waiting', 'paused', 'delivered', 'stopped'] as const;
+export const MissionStatusSchema = z.enum(MISSION_STATUSES);
+export type MissionStatus = z.infer<typeof MissionStatusSchema>;
+
+/** What each action does: the statuses it leaves, the one it goes to, the event it records and whether it wakes the supervisor. */
+export const MOVES: Record<MissionAction, { from: readonly MissionStatus[]; to: MissionStatus; event: 'started' | 'paused' | 'resumed'; wakes: boolean }> = {
+  start: { from: ['draft'], to: 'running', event: 'started', wakes: true },
+  pause: { from: ['running', 'waiting'], to: 'paused', event: 'paused', wakes: false },
+  resume: { from: ['paused'], to: 'running', event: 'resumed', wakes: true },
+};
+
+export const MovedMissionSchema = z.object({ mission: z.object({ id: z.uuid(), status: MissionStatusSchema }) });
+export type MovedMission = z.infer<typeof MovedMissionSchema>;
+
+/** Each refusal's status. */
+export const MISSION_REFUSALS = {
+  malformed: 400,
+  'signed-out': 401,
+  forbidden: 403,
+  missing: 404,
+  conflict: 409,
+  database: 500,
+  unavailable: 503,
+} as const;
+export type MissionRefusal = keyof typeof MISSION_REFUSALS;

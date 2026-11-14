@@ -332,38 +332,13 @@ body.is-phone .shell{display:none}
 <body>
 <p class="note-top">Missions tab: start, then the running state. Fleet frame, shared: drawn once above each Fleet page screen.</p>
 <div class="wrap">
-<div class="fleet-head"><span class="mascot" aria-hidden="true"><svg class="px" aria-hidden="true" width="32" height="20" viewBox="0 0 16 10" fill="var(--fleet)"><rect x="13" y="0" width="2" height="1"/><rect x="12" y="1" width="2" height="1"/><rect x="3" y="2" width="7" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="2" y="3" width="11" height="1"/><rect x="1" y="4" width="13" height="1"/><rect x="0" y="5" width="5" height="1"/><rect x="6" y="5" width="8" height="1"/><rect x="0" y="6" width="13" height="1"/><rect x="0" y="7" width="12" height="1"/><rect x="1" y="8" width="10" height="1"/><rect x="3" y="9" width="6" height="1"/><rect x="5" y="5" width="1" height="1" fill="var(--ground)"/></svg></span><div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission running</p></div></div><div class="tabs" role="tablist" aria-label="Fleet"><button type="button" class="tab" role="tab" aria-selected="false">Operation room</button><button type="button" class="tab" role="tab" aria-selected="true">Missions</button><button type="button" class="tab" role="tab" aria-selected="false">Seats</button><button type="button" class="tab" role="tab" aria-selected="false">Board</button></div><section data-screen="mission-start" aria-label="Start a mission">
-      <div class="start">
-        <h3>Start a mission</h3>
-        <fieldset class="pick">
-          <legend>From an approved roadmap</legend>
-          <label class="opt"><input type="radio" name="rm" checked><span class="n">R12 · Billing in every region</span><span class="m">4 PRDs · approved Nov 12</span></label>
-          <label class="opt off"><input type="radio" name="rm" disabled><span class="n">R13 · Mobile quick wins</span><span class="m">Not approved yet</span></label>
-        </fieldset>
-        <p class="lab">Seats on this mission</p>
-        <ul class="seat-chips">
-          <li><span style="display:inline-flex"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="2" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="7" y="3" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="2" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/></svg></span>Engineer <span>agent</span></li>
-          <li><span style="display:inline-flex"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="2" y="1" width="4" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="3" y="3" width="2" height="1"/><rect x="7" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="2" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="1" y="5" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/><rect x="2" y="6" width="4" height="1"/></svg></span>Reviewer <span>agent</span></li>
-          <li><span style="display:inline-flex"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="1" y="0" width="3" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="1" y="4" width="3" height="1"/><rect x="4" y="5" width="2" height="1"/><rect x="5" y="6" width="2" height="1"/><rect x="6" y="7" width="2" height="1"/></svg></span>QA <span>agent</span></li>
-          <li><span style="display:inline-flex"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="0" y="0" width="6" height="1"/><rect x="0" y="1" width="7" height="1"/><rect x="0" y="2" width="6" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="0" y="6" width="1" height="1"/></svg></span>PM <span>Irisa</span></li>
-          <li><span style="display:inline-flex"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="3" y="0" width="2" height="1"/><rect x="2" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="5" y="2" width="1" height="1"/><rect x="3" y="3" width="2" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="1" y="5" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/><rect x="0" y="6" width="1" height="1"/><rect x="7" y="6" width="1" height="1"/></svg></span>Architect <span>Sam</span></li>
-        </ul>
-        <div class="eta">
-          <p><b>Likely ready for review Monday 9am.</b></p>
-          <p>May ask you once.</p>
-        </div>
-        <button type="button" class="btn" data-primary>Start mission</button>
-      </div>
-    <p class="lab" style="margin-top:22px">Once started</p><div class="running" style="margin-top:22px">
-<div class="run-head"><h3>R12 · Billing in every region</h3><span class="state go">Running</span></div>
-<ul class="prds">
-<li><span class="id">2801</span><span>Invoice PDF in the customer's language</span><span class="state go">Engineer</span></li>
-<li><span class="id">2802</span><span>Currency on every quote</span><span class="state">Next</span></li>
-<li><span class="id">2803</span><span>Dark mode on the quote screen</span><span class="state">Next</span></li>
-<li><span class="id">2804</span><span>VAT number check</span><span class="state">Next</span></li>
-</ul>
-<div class="run-actions"><button type="button" class="btn">Pause</button><a href="#">Open the room</a></div>
-</div></section>
+<div class="fleet-head"><span class="mascot" aria-hidden="true"><svg class="px" aria-hidden="true" width="32" height="20" viewBox="0 0 16 10" fill="var(--fleet)"><rect x="13" y="0" width="2" height="1"/><rect x="12" y="1" width="2" height="1"/><rect x="3" y="2" width="7" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="2" y="3" width="11" height="1"/><rect x="1" y="4" width="13" height="1"/><rect x="0" y="5" width="5" height="1"/><rect x="6" y="5" width="8" height="1"/><rect x="0" y="6" width="13" height="1"/><rect x="0" y="7" width="12" height="1"/><rect x="1" y="8" width="10" height="1"/><rect x="3" y="9" width="6" height="1"/><rect x="5" y="5" width="1" height="1" fill="var(--ground)"/></svg></span><div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission running</p></div></div><div class="tabs" role="tablist" aria-label="Fleet"><button type="button" class="tab" role="tab" aria-selected="false">Operation room</button><button type="button" class="tab" role="tab" aria-selected="true">Missions</button><button type="button" class="tab" role="tab" aria-selected="false">Heroes</button><button type="button" class="tab" role="tab" aria-selected="false">Board</button></div><section data-screen="mission-start" aria-label="Missions">
+<ul class="mission-list" style="max-width:none">
+<li><span class="name">Every quote can be paid online</span><span class="state go">Running</span><span class="num">2 of 4 merged · 1 ready</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button>
+<ul style="flex-basis:100%;margin:6px 0 0;padding-left:18px"><li style="display:list-item;border:0;padding:0"><a href="#">PRD 2803</a>: merge it</li></ul></li>
+<li><span class="name">Dark mode on site</span><span class="state">Draft</span><span class="num">Not started</span><a href="#">Brief</a><button type="button" class="btn" data-primary>Start</button></li>
+<li><span class="name">One invoice format in every region</span><span class="state">Paused</span><span class="num">1 of 3 merged · 0 ready</span><a href="#">Brief</a><button type="button" class="btn quiet">Resume</button></li>
+</ul></section>
 </div>
 </body>
 </html>

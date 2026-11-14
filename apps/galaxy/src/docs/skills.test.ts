@@ -24,7 +24,7 @@ describe('the overview', () => {
     expect(groups.map((g) => g.title)).toEqual([
       'Start a change', 'Build it', 'Set up a repository', 'Several repositories', 'Every day', 'Run by other skills',
     ]);
-    expect(groups.find((g) => g.id === 'start')?.skills.map((s) => s.name)).toEqual(['think-big', 'brainstorm', 'roadmap', 'visual-fix', 'bug-fix']);
+    expect(groups.find((g) => g.id === 'start')?.skills.map((s) => s.name)).toEqual(['think-big', 'brainstorm', 'roadmap', 'visual-fix', 'bug-fix', 'mission']);
     expect(groups.find((g) => g.id === 'build')?.skills.map((s) => s.name)).toEqual(['yolo', 'yolo-fix', 'yolo-runner', 'plan', 'wave', 'do-work', 'pr', 'pr-care', 'drive']);
     expect(groups.find((g) => g.id === 'multi-repo')?.skills.map((s) => s.name)).toContain('mega-drive'); // PRD 1162
     expect(groups.find((g) => g.id === 'multi-repo')?.skills.map((s) => s.name).join(' ')).toContain('mega-brainstorm mega-roadmap'); // PRD 1162 s9

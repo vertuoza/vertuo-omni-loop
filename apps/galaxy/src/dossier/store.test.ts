@@ -11,7 +11,7 @@ import {
   ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRepos, dossierRounds, dossierStore, DossierStoreError, KIND_ARTIFACTS,
   LIST_FIELDS, PUSH_KINDS, PUSHED_ARTIFACT_KINDS, REPOS_FIELDS, ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
 } from './store';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
 // PRD 627: the kind of a dossier, its new version kinds and dossier_push() taking the kind.
@@ -20,6 +20,8 @@ const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/m
 const VOICE_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261024090000_customer_voice.sql', import.meta.url)), 'utf8');
 // PRD 1272: the concept kind and its four version kinds.
 const CONCEPT_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261119090000_concept_dossiers.sql', import.meta.url)), 'utf8');
+// PRD 2842 s2: the mission kind, its two version kinds and mission_push().
+const MISSIONS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20270122093000_missions.sql', import.meta.url)), 'utf8');
 // PRD 1299 s2: a PRD dossier's birthplace, granted to the signed-in.
 const APPROVALS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261123090000_approvals.sql', import.meta.url)), 'utf8');
 // PRD 1364 s2: a PRD's product, dossier_push() taking it by name, and dossiers.product_id granted.
@@ -125,12 +127,57 @@ describe('the dossier store', () => {
 
   it('checks the concept kind and its versions the concept migration adds (PRD 1272)', () => {
     const quoted = (kinds: readonly string[]) => kinds.map((k) => `'${k}'`).join(', ');
-    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(PUSH_KINDS)})`);
-    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(PUSHED_ARTIFACT_KINDS)})`);
-    for (const kind of PUSH_KINDS) {
+    const before = PUSH_KINDS.filter((kind) => kind !== 'mission');
+    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(before)})`);
+    expect(CONCEPT_MIGRATION).toContain(`kind in (${quoted(PUSHED_ARTIFACT_KINDS.filter((kind) => !KIND_ARTIFACTS.mission.includes(kind)))})`);
+    for (const kind of before) {
       const takes = KIND_ARTIFACTS[kind];
       expect(CONCEPT_MIGRATION).toContain(takes.length === 1 ? `when '${kind}' then p_version_kind = '${takes[0]}'` : `when '${kind}' then p_version_kind in (${quoted(takes)})`);
     }
+  });
+});
+
+describe('a mission\'s page (PRD 2842 s2)', () => {
+  const RECORD = '---\nmission: 2850\ntitle: Paid online\nfleet: night-shift\ngoal: Every quote is paid online.\nscope:\n  prds: [2803]\n---\n';
+  const files = (record = RECORD) => [{ kind: 'mission-record' as const, content: record }, { kind: 'brief' as const, content: '<p>brief</p>' }];
+  const push = (artifacts = files()) => ({ repo: 'acme/widgets', prd: parseIssue(2850), kind: 'mission' as const, title: 'Paid online', draftId: null, artifacts });
+
+  it('pushes through mission_push(), with the migration\'s parameters and the brief read from mission.md', async () => {
+    const pushed = { id: 'd-1', added: [{ kind: 'mission-record', version: 1 }], unchanged: ['brief'], mission: { id: 'm-1', status: 'draft', created: true } };
+    const { calls, db } = recording({ data: pushed, error: null });
+    expect(await dossierStore(db).push(push())).toEqual({ id: 'd-1', added: pushed.added, unchanged: ['brief'], product: null });
+    expect(calls).toEqual([{
+      name: 'mission_push',
+      args: {
+        p_repo: 'acme/widgets', p_mission: 2850, p_title: 'Paid online',
+        p_brief: { fleet: 'night-shift', goal: 'Every quote is paid online.', measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: 2 } },
+        p_artifacts: files(),
+      },
+    }]);
+    expect(Object.keys(firstArgs(calls))).toEqual(parameters('mission_push', MISSIONS_MIGRATION));
+  });
+
+  it('refuses, before the database is asked, a push with no mission.md, one that does not read, or one naming another mission', async () => {
+    const { calls, db } = recording({ data: { id: 'd-1' }, error: null });
+    const refusal = (artifacts: Parameters<typeof push>[0]) => dossierStore(db).push(push(artifacts)).catch((e: unknown) => e);
+    expect(await refusal(files().slice(1))).toMatchObject({ code: '22023', reason: 'A mission push carries its mission.md, as mission-record.' });
+    expect(await refusal(files(RECORD.replace('fleet: night-shift\n', '')))).toMatchObject({ code: '22023', reason: 'mission.md does not read: fleet: missing.' });
+    expect(await refusal(files(RECORD.replace('mission: 2850', 'mission: 2851')))).toMatchObject({ code: '22023', reason: 'mission.md is mission #2851, not #2850.' });
+    expect(await refusal(files())).not.toBeInstanceOf(DossierStoreError);
+    expect(calls.map((call) => call.name)).toEqual(['mission_push']);
+  });
+
+  it('turns a refusal of the database into a DossierStoreError carrying its code and reason', async () => {
+    const { db } = recording({ data: null, error: { code: '22023', message: 'fleet: night-shift is no Virtual Fleet of this workspace.' } });
+    expect(await dossierStore(db).push(push()).catch((e: unknown) => e)).toMatchObject({ code: '22023', reason: 'fleet: night-shift is no Virtual Fleet of this workspace.' });
+  });
+
+  it('checks the mission kind and its two versions the missions migration adds', () => {
+    const quoted = (kinds: readonly string[]) => kinds.map((k) => `'${k}'`).join(', ');
+    expect(KIND_ARTIFACTS.mission).toEqual(['mission-record', 'brief']);
+    expect(MISSIONS_MIGRATION).toContain(`check (kind in (${quoted([...PUSH_KINDS.filter((kind) => kind !== 'mission'), 'roadmap', 'mission'])}))`);
+    for (const kind of PUSHED_ARTIFACT_KINDS) expect(MISSIONS_MIGRATION).toMatch(new RegExp(`dossier_versions_kind_check[\\s\\S]*'${kind}'[\\s\\S]*create or replace function public.dossier_takes`));
+    expect(MISSIONS_MIGRATION).toContain(`when 'mission' then p_version_kind in (${quoted(KIND_ARTIFACTS.mission)})`);
   });
 });
 
