@@ -782,3 +782,270 @@ A constant-sized change in one component: B is the previous behaviour, one line 
 ```
 
 <!-- /omni-outbox-settled: s7-01-lost-job-offers-no-button-while-resuming -->
+
+<!-- omni-outbox-settled: s1-01-resume-check-in-ci -->
+
+## s1-01-resume-check-in-ci — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-14T06:14:44Z
+- Channel: feature pull request #2810
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2810#issuecomment-6872948576
+- Basis: affirmation — the answer opens with "ok" and carries no contradiction marker
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-11-13
+- Slice: s1
+- Wave: 1
+- Stays here: a one-off CI step a person adds by hand; "ok" states no lasting rule
+
+### The answer, as it was given
+
+```text
+ok
+```
+
+### The item, as it was raised
+
+````text
+---
+id: s1-01-resume-check-in-ci
+prd: 2809
+slice: s1
+rank: human-action
+bears-on: none
+raised: 2026-11-13
+wave: 1
+---
+
+## The question, in plain words
+
+The database check that proves a lost job is resumed exactly once is written and passes, but the build robot is not allowed to change the file that tells CI what to run, so CI does not run it yet. Can a person add that one step?
+
+## The decision, in plain words
+
+The check was left out of CI and everything else was pushed. Until a person adds the step, nothing in CI proves a lost job queues one resume and waits before it starts.
+
+## The intro, for fun
+
+The proof is written and passes, but the robot has no badge for the room where CI keeps its list.
+
+## The punchline, for fun
+
+So the proof waits in the hall until a person walks it in.
+
+## What a person must do
+
+1. Check out the branch feat/unlosable-jobs--s1 (or the feature branch feat/unlosable-jobs once s1 is merged into it).
+2. In .github/workflows/supabase.yml, in the check job, right after the step named "Who may read and write the runners, and how a runner claims a job" (the one running supabase/checks/runners.sql), add this step:
+
+```yaml
+      - name: A lost runner job queues one resume, and no runner claims it before its wait
+        # A job sent anew reads attempt 1; a claimed or running job of a resumable skill that ends lost queues, in
+        # the same statement, one resume with its line, repository, sender (the key and its maker kept) and target,
+        # attempt one more, 1 minute after the first loss and 5 after the second; a second mark, the third loss, a
+        # cancel, a refusal, the skill's own failure, a timeout and another skill queue none; runner_claim() hands
+        # out no job before its resume_after. Members read the columns, nobody signed in writes them (PRD 2809).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_resume.sql
+```
+
+3. Commit it as `ci(supabase): run the runner resume check (#2809)` with your own login, and push.
+4. Or, instead: grant the Omni App `workflows: write` in its GitHub App settings, accept the new permission on the installation, and ask for the slice to be pushed again. Slice s4 of this PRD adds a check step too and will meet the same refusal.
+
+## What I had to decide
+
+Pushing a change to .github/workflows/supabase.yml from this session is refused: the GitHub App that pushes has no `workflows` permission (`refusing to allow a GitHub App to create or update workflow .github/workflows/supabase.yml without workflows permission`). The repository's rule is that a database check CI does not run proves nothing (conventions: a new database check runs in CI), and the plan's done-when for s1 asks for supabase/checks/runner_resume.sql to run as its own step of the supabase workflow. PRD 2676 s1-03 met the same refusal and was settled by a person adding the step.
+
+## What I did meanwhile
+
+The migration, supabase/checks/runner_resume.sql, the regenerated types, the kit's RESUMABLE_SKILLS and the runners' reads are pushed on feat/unlosable-jobs--s1. The check ran green here against a fresh local database with every migration applied, and red against three broken versions: no trigger (no resume queued), a trigger on any failure (a timeout resumed), and a claim that ignores resume_after (a resume handed out before its wait). The eleven other checks that touch runner jobs ran green too. The workflow step above is the only part not pushed.
+
+## What it costs to change later
+
+One step a person adds by hand; nothing to undo.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether to grant the Omni App the workflows permission for good, or add such steps by hand each time, is a person's choice; PRD 2573 and PRD 2676 named the same grant as a manual step. (author)
+
+````
+
+<!-- /omni-outbox-settled: s1-01-resume-check-in-ci -->
+
+<!-- omni-outbox-settled: s4-01-checkpoints-check-in-ci -->
+
+## s4-01-checkpoints-check-in-ci — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-14T06:14:44Z
+- Channel: feature pull request #2810
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2810#issuecomment-6872948576
+- Basis: affirmation — the answer opens with "ok" and carries no contradiction marker
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-11-13
+- Slice: s4
+- Wave: 3
+- Stays here: a one-off CI step a person adds by hand; "ok" states no lasting rule
+
+### The answer, as it was given
+
+```text
+ok
+```
+
+### The item, as it was raised
+
+````text
+---
+id: s4-01-checkpoints-check-in-ci
+prd: 2809
+slice: s4
+rank: human-action
+bears-on: none
+raised: 2026-11-13
+wave: 3
+---
+
+## The question, in plain words
+
+The database check that proves a saved job's work is kept private, and only by the runner that holds the job, is written and passes, but the build robot is not allowed to change the file that tells CI what to run. Can a person add that one step?
+
+## The decision, in plain words
+
+The check was left out of CI and everything else was pushed. Until a person adds the step, nothing in CI proves who may read and record a job's saved work.
+
+## The intro, for fun
+
+The privacy proof passes on the bench, but the robot still has no badge for the CI room.
+
+## The punchline, for fun
+
+Same hallway as last wave, same polite knock on the door.
+
+## What a person must do
+
+1. Check out the branch feat/unlosable-jobs--s4 (or the feature branch feat/unlosable-jobs once s4 is merged into it).
+2. In .github/workflows/supabase.yml, in the check job, right after the step named "A lost runner job queues one resume, and no runner claims it before its wait" (the one running supabase/checks/runner_resume.sql), add this step:
+   
+   ```yaml
+         - name: A runner job's save, its bucket, and who reads it
+           # The bucket runner-checkpoints is private, 100 MB an object, bundles only, and no rule on storage.objects names
+           # it. As the service role, runner_checkpoint_record() records a save for the runner that holds its job: local
+           # with its size and a keep_until of 7 days at most, then portable once its bundle is in the bucket at the job's
+           # own folder; it refuses another runner, a bundle not uploaded, another job's path or manifest, and 100 MB and
+           # more. A member reads the rows, a non-member nothing; nobody signed in writes one or reaches a bundle (PRD 2809).
+           run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/runner_checkpoints.sql
+   ```
+3. Commit it as `ci(supabase): run the runner checkpoints check (#2809)` with your own login, and push.
+4. Or, instead: grant the Omni App `workflows: write` in its GitHub App settings, accept the new permission on the installation, and ask for the slice to be pushed again.
+
+## What I had to decide
+
+Add the step below to .github/workflows/supabase.yml (or grant the Omni App the workflows permission and ask for the slice to be pushed again).
+
+## What I did meanwhile
+
+The migration supabase/migrations/20270120103000_runner_checkpoints.sql, supabase/checks/runner_checkpoints.sql, the regenerated types, the route, the service and the kit's client are pushed on feat/unlosable-jobs--s4. The check ran green against a fresh local stack with every migration applied, and red against a record function with its runner guard removed (box-1 recorded the save of a job box-3 holds). runner_resume.sql and rls_membership_once.sql ran green beside it. The workflow step is the only part not pushed.
+
+## What it costs to change later
+
+One step a person adds by hand; nothing to undo.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether to grant the Omni App the workflows permission for good, or add such steps by hand each time, is a person's choice; s1-01 of this PRD, PRD 2573 and PRD 2676 met the same refusal. (author)
+
+````
+
+<!-- /omni-outbox-settled: s4-01-checkpoints-check-in-ci -->
+
+<!-- omni-outbox-settled: s5-02-chain-holds-claims-on-the-runner -->
+
+## s5-02-chain-holds-claims-on-the-runner — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-14T06:14:44Z
+- Channel: feature pull request #2810
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2810#issuecomment-6872948576
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-4
+- Raised: 2026-11-13
+- Slice: s5
+- Wave: 4
+- Stays here: the answer keeps option A as built; the takeover rule lives in the resume note and its code, and the answer adds nothing beyond it
+
+### The answer, as it was given
+
+```text
+A. The lost job's runner releases nothing, the resume's note tells its session to take the claims over, and the resume releases what is left (built)
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-chain-holds-claims-on-the-runner
+prd: 2809
+slice: s5
+rank: high
+bears-on: BR-PRODUCT-4
+raised: 2026-11-13
+wave: 4
+---
+
+## The question, in plain words
+
+When a job is lost and another runner picks up its work, how do we keep a third job from grabbing the same slices in between?
+
+## The decision, in plain words
+
+The lost job's runner no longer frees the slices that job was building, and the job that picks up the work is told they are its own to take over. Nothing on the server checks it.
+
+## The intro, for fun
+
+Someone left their towel on the sun lounger and went for a very long swim.
+
+## The punchline, for fun
+
+Only their twin is allowed to move the towel, and the twin has the note to prove it.
+
+## The options, in plain words
+
+A. The lost job's runner releases nothing, the resume's note tells its session to take the claims over, and the resume releases what is left (built)
+B. The server records which chain holds a claim, and the claim check refuses any other job
+C. Release the lost job's claims as before, and let the resume take them back as any stale claim
+
+## What I had to decide
+
+Keep A, or choose B: the server also records which chain holds each claimed slice, and the claim check refuses any other job's takeover, a larger change to the claim check and the skills.
+
+## What I did meanwhile
+
+runner.ts marks a job lost when the app refuses its report with `failed, runner lost` (api.ts carries the 409's words), and then releases none of its claims when its skill resumes and it was not the third attempt (chainCarriesOn in resume.ts); the sweep does the same for a stranded job, by the chain kept in ~/logs/job-<id>.chain.json. The resume note names the chain's earlier jobs and tells the session to take over a claim naming one of them. A job of a chain that ends releases its own claims and those of the earlier jobs.
+
+## What it costs to change later
+
+B is a new stored shape (a claim's chain on the server) and a change to the claim check and the claim mode of the pull request skill: a migration and three files outside this slice.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A claim left unreleased reads as held, so another job may still take it over once it has been quiet past the stale-claim limit, before the resume starts: one to five minutes, against an hour today.
+- (author) A job whose cancel was asked while its runner was silent ends lost on the app; its claims stay held until the stale-claim limit, since no resume is queued for it.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-chain-holds-claims-on-the-runner -->
