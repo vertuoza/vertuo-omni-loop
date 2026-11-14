@@ -1,0 +1,21 @@
+/* The Search section's Eval view (PRD omni-loop-8 s5): the run chart's four lines, the set's answers and its forms. */
+.ev-series .kn-line { stroke: var(--ask-ink); }
+.ev-series .ev-point { fill: var(--ask-sunk); stroke: var(--ask-ink); stroke-width: 1.5; }
+.ev-series[data-line='top1'] .kn-line, .ev-series[data-line='top1'] .ev-point { stroke: var(--ask-plasma); }
+.ev-series[data-line='top5'] .kn-line, .ev-series[data-line='top5'] .ev-point { stroke: var(--ask-plasma); stroke-dasharray: 5 3; }
+.ev-series[data-line='recall5'] .kn-line, .ev-series[data-line='recall5'] .ev-point { stroke: var(--ask-ink); }
+.ev-series[data-line='recall10'] .kn-line, .ev-series[data-line='recall10'] .ev-point { stroke: var(--ask-ink); stroke-dasharray: 5 3; }
+.kn-legend [data-key='top1'] { border-left: 10px solid var(--ask-plasma); padding-left: 6px; }
+.kn-legend [data-key='top5'] { border-left: 10px dashed var(--ask-plasma); padding-left: 6px; }
+.kn-legend [data-key='recall5'] { border-left: 10px solid var(--ask-ink); padding-left: 6px; }
+.kn-legend [data-key='recall10'] { border-left: 10px dashed var(--ask-ink); padding-left: 6px; }
+.ev-answers { list-style: none; margin: 0 0 8px; padding: 0 4px; }
+.ev-answers li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid var(--ask-line, #e5e5e5); }
+.ev-answers li[data-relevant='false'] code { text-decoration: line-through; }
+.ev-by { color: var(--ask-muted); font-size: 13px; flex: 1 1 18ch; }
+.ev-form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; margin: 8px 4px; }
+.ev-form label { display: flex; flex-direction: column; gap: 2px; flex: 1 1 24ch; }
+.ev-form input, .ev-form select { font: inherit; padding: 6px 8px; max-width: 900px; }
+.ev-add-question { margin: 16px 0 0; }
+.ev-question > .ev-button { margin: 0 4px 10px; }
+.kn-table code + code { margin-left: 6px; }

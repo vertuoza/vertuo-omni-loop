@@ -4701,6 +4701,156 @@ export type Database = {
           },
         ]
       }
+      search_eval_answers: {
+        Row: {
+          confidence: number | null
+          decided_at: string
+          decided_by: string | null
+          entry_id: string
+          question_id: string
+          relevant: boolean
+          source: string
+          workspace_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          decided_at?: string
+          decided_by?: string | null
+          entry_id: string
+          question_id: string
+          relevant: boolean
+          source: string
+          workspace_id: string
+        }
+        Update: {
+          confidence?: number | null
+          decided_at?: string
+          decided_by?: string | null
+          entry_id?: string
+          question_id?: string
+          relevant?: boolean
+          source?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_eval_answers_question_fkey"
+            columns: ["question_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "search_eval_questions"
+            referencedColumns: ["id", "workspace_id"]
+          },
+        ]
+      }
+      search_eval_questions: {
+        Row: {
+          added_at: string
+          added_by: string
+          category: string | null
+          group_id: string | null
+          id: string
+          product_id: string
+          question: string
+          removed_at: string | null
+          removed_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          category?: string | null
+          group_id?: string | null
+          id?: string
+          product_id: string
+          question: string
+          removed_at?: string | null
+          removed_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          category?: string | null
+          group_id?: string | null
+          id?: string
+          product_id?: string
+          question?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_eval_questions_group_fkey"
+            columns: ["group_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "mcp_search_groups"
+            referencedColumns: ["id", "product_id"]
+          },
+          {
+            foreignKeyName: "search_eval_questions_product_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "search_eval_questions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      search_eval_runs: {
+        Row: {
+          id: string
+          measures: Json
+          product_id: string
+          questions: Json
+          ran_at: string
+          slot: string
+          trigger: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          measures: Json
+          product_id: string
+          questions: Json
+          ran_at?: string
+          slot: string
+          trigger: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          measures?: Json
+          product_id?: string
+          questions?: Json
+          ran_at?: string
+          slot?: string
+          trigger?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_eval_runs_product_fkey"
+            columns: ["product_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "search_eval_runs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sectors: {
         Row: {
           name: string
@@ -7978,6 +8128,79 @@ export type Database = {
         Returns: string
       }
       runners_mark_lost: { Args: { p_cutoff: string }; Returns: number }
+      search_eval_answer_jev: {
+        Args: {
+          p_confidence: number
+          p_entry: string
+          p_question: string
+          p_relevant: boolean
+        }
+        Returns: boolean
+      }
+      search_eval_answer_set: {
+        Args: { p_entry: string; p_question: string; p_relevant: boolean }
+        Returns: {
+          confidence: number | null
+          decided_at: string
+          decided_by: string | null
+          entry_id: string
+          question_id: string
+          relevant: boolean
+          source: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "search_eval_answers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      search_eval_category_ok: { Args: { p_category: string }; Returns: string }
+      search_eval_entry_ok: { Args: { p_entry: string }; Returns: string }
+      search_eval_question_add: {
+        Args: { p_category?: string; p_product: string; p_question: string }
+        Returns: string
+      }
+      search_eval_question_of_member: {
+        Args: { p_question: string }
+        Returns: {
+          added_at: string
+          added_by: string
+          category: string | null
+          group_id: string | null
+          id: string
+          product_id: string
+          question: string
+          removed_at: string | null
+          removed_by: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "search_eval_questions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      search_eval_question_promote: {
+        Args: { p_category: string; p_group: string; p_product: string }
+        Returns: string
+      }
+      search_eval_question_remove: {
+        Args: { p_question: string }
+        Returns: boolean
+      }
+      search_eval_run_record: {
+        Args: {
+          p_measures: Json
+          p_product: string
+          p_questions: Json
+          p_slot: string
+          p_trigger: string
+        }
+        Returns: string
+      }
       set_fleet_project: {
         Args: { p_name: string; p_url: string; p_workspace: string }
         Returns: {
