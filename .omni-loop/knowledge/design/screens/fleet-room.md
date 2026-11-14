@@ -3,9 +3,9 @@ screen: fleet-room
 status: draft
 kind: page
 mock: fleet-room.html
-implements: []
-reads: []
-routes: []
+implements: [apps/galaxy/src/missions/room/RoomTab.tsx, apps/galaxy/src/missions/room/room.ts, apps/galaxy/src/missions/room/room.css]
+reads: [apps/galaxy/src/missions/room/room.repository.ts, kit/lib/virtual-fleet/roles.ts, apps/galaxy/src/dashboard/fleet/FleetScreen.tsx]
+routes: [/app/fleet]
 supersedes: null
 ---
 
