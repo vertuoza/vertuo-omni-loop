@@ -98,7 +98,7 @@ describe('missionStore — the mission as the service role, never calling Supaba
   it('sends /omni:yolo as the app, to the fleet or to any runner, and answers null for a key already held', async () => {
     const db = recordingFetch([[{ id: 'j-9' }], new Response(JSON.stringify({ message: 'duplicate key', code: '23505' }), { status: 409, headers: { 'content-type': 'application/json' } })]);
     const store = storeOn(db.fetch);
-    expect(await store.send({ mission, prd: parsePrd(7), run: 1, toFleet: true })).toBe('j-9');
+    expect(await store.send({ mission, prd: parsePrd(7), run: 1, toFleet: true, skill: 'yolo' })).toBe('j-9');
     expect(nth(db.requests, 0).body).toEqual({
       workspace_id: 'ws-1',
       repo: 'acme/widgets',
@@ -108,8 +108,22 @@ describe('missionStore — the mission as the service role, never calling Supaba
       mission_id: ID,
       mission_key: `mission:${ID}:prd:7:run:1`,
     });
-    expect(await store.send({ mission, prd: parsePrd(7), run: 1, toFleet: false })).toBeNull();
+    expect(await store.send({ mission, prd: parsePrd(7), run: 1, toFleet: false, skill: 'yolo' })).toBeNull();
     expect(nth(db.requests, 1).body).toMatchObject({ to_fleet: null });
+  });
+
+  it('sends /omni:ultra-yolo for a PRD of a plan repository', async () => {
+    const db = recordingFetch([[{ id: 'j-10' }]]);
+    expect(await storeOn(db.fetch).send({ mission, prd: parsePrd(7), run: 1, toFleet: false, skill: 'ultra-yolo' })).toBe('j-10');
+    expect(nth(db.requests, 0).body).toMatchObject({ line: '/omni:ultra-yolo 7' });
+  });
+
+  it('reads whether the repository is a live product\'s plan repository, case aside', async () => {
+    const db = recordingFetch([[{ plan_repository: 'Acme/Widgets' }]]);
+    expect(await storeOn(db.fetch).planRepository(mission)).toBe(true);
+    expect(nth(db.requests, 0).query.get('workspace_id')).toBe('eq.ws-1');
+    expect(nth(db.requests, 0).query.get('archived_at')).toBe('is.null');
+    expect(await storeOn(recordingFetch([[{ plan_repository: 'acme/other' }, { plan_repository: null }]]).fetch).planRepository(mission)).toBe(false);
   });
 
   it('finds a runner of the fleet only when it holds the repository', async () => {
