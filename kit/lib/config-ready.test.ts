@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { messageOf } from './narrow.ts';
-import { parseConfig, READY_LOOSENING_GROUND } from './config.ts';
+import { DEFAULT_READY_CHECK_LABEL, parseConfig, READY_LOOSENING_GROUND, readyCheckLabel } from './config.ts';
 
 const firstLine = (source: string) => {
   try {
@@ -61,9 +61,15 @@ describe('e2e.ci and e2e.repo (PRD 2898)', () => {
 });
 
 describe('labels.readyCheck (PRD 2898)', () => {
-  it('is omni:ready-check unless the file renames it', () => {
-    expect(parseConfig('kit: 1\n').labels.readyCheck).toBe('omni:ready-check');
-    expect(parseConfig('kit: 1\nlabels:\n  readyCheck: full-ci\n').labels.readyCheck).toBe('full-ci');
+  it('is left out of a config that does not set it, which parses exactly as before: the kit reads omni:ready-check', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(Object.hasOwn(config.labels, 'readyCheck')).toBe(false);
+    expect(DEFAULT_READY_CHECK_LABEL).toBe('omni:ready-check');
+    expect(readyCheckLabel(config.labels)).toBe('omni:ready-check');
+  });
+
+  it('is the name the file gives it, and refuses one that is no label name', () => {
+    expect(readyCheckLabel(parseConfig('kit: 1\nlabels:\n  readyCheck: full-ci\n').labels)).toBe('full-ci');
     expect(firstLine("kit: 1\nlabels:\n  readyCheck: ''\n")).toMatch(/labels\.readyCheck/);
   });
 });
@@ -83,11 +89,10 @@ describe('omni config prints the ready settings (PRD 2898)', () => {
     return out.join('');
   };
 
-  it('prints each of them with its default', async () => {
+  it('prints each setting with its default', async () => {
     expect(JSON.parse(await printed('ready'))).toEqual({ checks: 'off', full: [] });
     expect(await printed('acceptance.kind')).toBe('test\n');
     expect(await printed('e2e.ci')).toBe('false\n');
     expect(await printed('e2e.repo')).toBe('null\n');
-    expect(await printed('labels.readyCheck')).toBe('omni:ready-check\n');
   });
 });

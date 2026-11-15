@@ -43,7 +43,6 @@ export const LABEL_STYLES = {
   concept: { color: 'fbbf24', description: 'Omni Loop: a vast idea explored as a concept, before it becomes PRDs' },
   approved: { color: '2da44e', description: 'Omni Loop: a PRD approved on its PRD page, the server holding who and when' },
   law: { color: '5a32a3', description: 'Omni Loop: a law waiting for its test — /omni:enforce proves it red, then green' },
-  readyCheck: { color: '0052cc', description: 'Omni Loop: run the full checks, e2e and the preview on this draft before it is marked ready' },
 } satisfies Record<string, LabelStyle>;
 
 /** `[{ name, color, description }]` for every loop label `labels` names, first name wins. */

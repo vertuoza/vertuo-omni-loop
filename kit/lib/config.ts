@@ -116,6 +116,14 @@ export const DEFAULT_CLAIM_DEAD_MINUTES = 240;
 /** PRD 2175: the label a runner puts on a claim whose job ended, when `labels.released` is not set. */
 export const DEFAULT_RELEASED_LABEL = 'omni:released';
 
+/** PRD 2898: the label that starts the full checks on a gated draft, when `labels.readyCheck` is not set. */
+export const DEFAULT_READY_CHECK_LABEL = 'omni:ready-check';
+
+/** The label a gated draft carries: `labels.readyCheck`, or `DEFAULT_READY_CHECK_LABEL` when it is not set. */
+export function readyCheckLabel(labels: { readyCheck?: string | undefined }): string {
+  return labels.readyCheck ?? DEFAULT_READY_CHECK_LABEL;
+}
+
 /** The label a released claim carries: `labels.released`, or `DEFAULT_RELEASED_LABEL` when it is not set. */
 export function releasedLabel(labels: { released?: string | undefined }): string {
   return labels.released ?? DEFAULT_RELEASED_LABEL;
@@ -386,7 +394,9 @@ export const ConfigSchema = z
       law: labelName.default('omni:law'),
       // PRD 2898: the label a gated skill adds to a draft feature PR before `omni ready`: it starts the
       // full checks, the e2e job and the preview on the draft's latest commit, and again on each push.
-      readyCheck: labelName.default('omni:ready-check'),
+      // Left out, `readyCheckLabel()` reads `DEFAULT_READY_CHECK_LABEL`, and a config that does not set
+      // it parses exactly as before (so `omni init` does not create it, as for `released`: a person does).
+      readyCheck: labelName.optional(),
       // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
       // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
       // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
