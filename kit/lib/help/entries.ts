@@ -967,7 +967,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'skills',
     usage: [
       'omni item new --prd <n> --slice <id> --file <file>',
-      '  [--adopt | --out <dir>] [--json]',
+      '  [--excuses <path>]… [--adopt | --out <dir>] [--json]',
       'omni item relay <dir> --prd <n>',
       'omni item new --prd <key>-<n> … · omni item relay <dir> --prd <key>-<n>',
     ],
@@ -975,7 +975,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'Records one decision an agent took without asking as an outbox item, from a JSON file: the ' +
       "kit picks its rank and its id. A decision that would break a named law stops the slice " +
-      "instead, and one that needs a person's action blocks it. --adopt sends a medium item " +
+      "instead, and one that needs a person's action blocks it. --excuses, once per path, names an " +
+      'exact file whose finding of the ready checks (a loosened test, a file outside the plan) the item ' +
+      'excuses once a person agreed to it; a folder or a pattern is refused. --adopt sends a medium item ' +
       'straight to the settled ledger. --out writes the item to a folder instead of the outbox, ' +
       'for a slice built in another repository, and never adopts. relay moves every item and ' +
       "account of such a folder into PRD n's outbox, checked as new items are; a refused file " +

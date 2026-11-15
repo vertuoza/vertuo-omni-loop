@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import type { z } from 'zod';
-import { AccountFrontMatterSchema, OutboxItemFrontMatterSchema, SpecFrontMatterSchema } from './front-matter.ts';
+import { AccountFrontMatterSchema, excusePathProblem, OutboxItemFrontMatterSchema, SpecFrontMatterSchema } from './front-matter.ts';
 import { KIT_MESSAGES } from './messages.ts';
 import type { OutboxItemId, PrdNumber, ProductPrdId, WorkSliceId } from '../ids.ts';
 
@@ -75,6 +75,34 @@ describe('OutboxItemFrontMatterSchema', () => {
   it('refuses an id with no slug and a slice that is no slice, naming each', () => {
     expect(firstIssue(OutboxItemFrontMatterSchema, { ...item, id: 's3-01' })?.path).toEqual(['id']);
     expect(firstIssue(OutboxItemFrontMatterSchema, { ...item, slice: 'S3' })?.path).toEqual(['slice']);
+  });
+
+  it('reads the exact paths an item excuses, and an item without the field as before (PRD 2898)', () => {
+    expect(OutboxItemFrontMatterSchema.parse({ ...item, excuses: '[kit/lib/init/labels.ts, a/b.test.ts]' }).excuses).toEqual(['kit/lib/init/labels.ts', 'a/b.test.ts']);
+    expect(Object.hasOwn(OutboxItemFrontMatterSchema.parse(item), 'excuses')).toBe(false);
+  });
+
+  it('refuses an excuses field that is no list, or that names a folder or a pattern, naming the field (PRD 2898)', () => {
+    for (const excuses of ['kit/lib/x.ts', '[]', '[kit/lib/]', '[kit/**/x.ts]', '[/abs/x.ts]', '[../x.ts]', '[a, a]']) {
+      expect(firstIssue(OutboxItemFrontMatterSchema, { ...item, excuses })?.path, excuses).toEqual(['excuses']);
+    }
+  });
+});
+
+describe('excusePathProblem (PRD 2898)', () => {
+  it('passes one exact path from the repository root', () => {
+    for (const path of ['kit/lib/init/labels.ts', 'README.md', '.github/workflows/checks.yml', 'a/b-c_d.e.test.ts']) expect(excusePathProblem(path), path).toBeNull();
+  });
+
+  it('names a folder, a pattern, a path outside the root and one with a space or a comma', () => {
+    expect(excusePathProblem('kit/lib/')).toBe('kit/lib/ is a folder: an item excuses exact paths only');
+    expect(excusePathProblem('kit/*.ts')).toBe('kit/*.ts is a pattern: an item excuses exact paths only');
+    for (const path of ['kit/?.ts', 'kit/{a,b}.ts', 'kit/[ab].ts', '!kit/a.ts']) expect(excusePathProblem(path), path).toMatch(/is a pattern/);
+    expect(excusePathProblem('/kit/a.ts')).toBe('/kit/a.ts is not a path from the repository root');
+    expect(excusePathProblem('kit/../a.ts')).toBe('kit/../a.ts is not a path from the repository root');
+    expect(excusePathProblem('./a.ts')).toBe('./a.ts is not a path from the repository root');
+    expect(excusePathProblem('a b.ts')).toBe('a b.ts holds a space or a comma: one path per --excuses');
+    expect(excusePathProblem('')).toBe('an empty path');
   });
 });
 
