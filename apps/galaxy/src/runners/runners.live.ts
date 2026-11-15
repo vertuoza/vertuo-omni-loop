@@ -18,9 +18,10 @@ import { checkpointsService, productReposOf, runnersService, type CheckpointsSer
 // 503; without the service role key, too, said in its words. A job sent by a key with a link (PRD 2425 s8) pings it from
 // here too: the runners' routes are where a job is claimed and reported, so they are where its status changes.
 //
-// Every job runs as the Omni GitHub App (PRD 2573), the App this deployment signs in with (GITHUB_APP_ID,
-// GITHUB_APP_PRIVATE_KEY): its token is minted through the global fetch (./runners.github.ts), by one wiring kept
-// for the server's process, so the App's bot is read from GitHub once. A skill that spans the product (a mega bug fix,
+// A job runs as the Omni GitHub App (PRD 2573), the App this deployment signs in with (GITHUB_APP_ID,
+// GITHUB_APP_PRIVATE_KEY), or, when its key holds an App, as that App (PRD 2915), its private key opened under
+// SECRETS_MASTER_KEY: its token is minted through the global fetch (./runners.github.ts), by one wiring kept
+// for the server's process, so the Omni App's bot is read from GitHub once. A skill that spans the product (a mega bug fix,
 // an ultra skill: PRD 2873) no key sent reads its product's repositories through the products' storage, as the service role.
 
 const clock = {
@@ -32,7 +33,7 @@ const clock = {
 let omniApp: GithubDeps | null = null;
 function omniGithub(): GithubDeps {
   const app = serverEnv().githubApp;
-  omniApp ??= githubDeps(app ? { appId: app.id, privateKey: app.privateKey } : null);
+  omniApp ??= githubDeps(app ? { appId: app.id, privateKey: app.privateKey } : null, fetch, Date.now, serverEnv().secretsMasterKey);
   return omniApp;
 }
 
