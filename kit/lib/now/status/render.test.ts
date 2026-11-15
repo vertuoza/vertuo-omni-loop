@@ -27,7 +27,7 @@ const bug = (over: Partial<FixStatusFacts> = {}): FixStatusFacts => ({
   branch: true,
   merged: false,
   pullRequest: pr('draft'),
-  links: { page: 'https://www.omni-loop.xyz/app/bug/2891', issue: 'https://github.com/acme/widgets/issues/2891', pullRequest: PR_URL },
+  links: { page: 'https://www.omni-loop.xyz/app/bug/2891', issueUrl: 'https://github.com/acme/widgets/issues/2891', pullRequest: PR_URL },
   checked: JUST_NOW,
   ...over,
 });
@@ -44,7 +44,7 @@ const prd = (over: Partial<PrdStatusFacts> = {}): PrdStatusFacts => ({
   slices: ['merged', 'merged'].map((state, i) => ({ id: `s${String(i + 1)}`, state })),
   openQuestions: 3,
   pullRequest: pr('draft', { checks: [] }),
-  links: { page: 'https://www.omni-loop.xyz/app/prd/2906', issue: 'https://github.com/acme/widgets/issues/2906', pullRequest: 'https://github.com/acme/widgets/pull/2907' },
+  links: { page: 'https://www.omni-loop.xyz/app/prd/2906', issueUrl: 'https://github.com/acme/widgets/issues/2906', pullRequest: 'https://github.com/acme/widgets/pull/2907' },
   checked: JUST_NOW,
   ...over,
 });
@@ -100,7 +100,7 @@ describe('the block', () => {
 
   it("links the work's Omni page, else its GitHub issue", () => {
     expect(statusBlock(prd(), NOW)).toContain('PRD page:     https://www.omni-loop.xyz/app/prd/2906');
-    const noPage = statusBlock(bug({ links: { page: null, issue: 'https://github.com/acme/widgets/issues/2891', pullRequest: PR_URL } }), NOW);
+    const noPage = statusBlock(bug({ links: { page: null, issueUrl: 'https://github.com/acme/widgets/issues/2891', pullRequest: PR_URL } }), NOW);
     expect(noPage).toContain('GitHub issue: https://github.com/acme/widgets/issues/2891');
     expect(noPage.some((line) => line.startsWith('Bug page'))).toBe(false);
   });
@@ -113,7 +113,7 @@ describe('the block', () => {
   });
 
   it('leaves the links out when the work has none', () => {
-    const block = statusBlock(bug({ branch: false, pullRequest: null, links: { page: null, issue: null, pullRequest: null } }), NOW);
+    const block = statusBlock(bug({ branch: false, pullRequest: null, links: { page: null, issueUrl: null, pullRequest: null } }), NOW);
     expect(block.slice(-3)).toEqual(['Next: once it is understood, I reproduce it with a test that fails.', '', 'Checked just now.']);
   });
 

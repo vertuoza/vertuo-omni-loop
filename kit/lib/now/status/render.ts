@@ -43,10 +43,10 @@ function stepLine({ steps, at }: Status, say: (text: string) => string): string 
 
 /** The links' lines: the work's page, else its issue, then its pull request, labels aligned. */
 function linkLines(facts: StatusFacts, first: (term: 'pull request') => boolean): string[] {
-  const { page, issue, pullRequest } = facts.links;
+  const { page, issueUrl, pullRequest } = facts.links;
   const rows: [string, string][] = [];
   if (page) rows.push([PAGE_LABELS[facts.kind], page]);
-  else if (issue) rows.push([LINK_LABELS.issue, issue]);
+  else if (issueUrl) rows.push([LINK_LABELS.issue, issueUrl]);
   if (pullRequest) rows.push([LINK_LABELS.pullRequest, first('pull request') ? `${pullRequest}  (${TERMS['pull request']})` : pullRequest]);
   const width = Math.max(0, ...rows.map(([label]) => label.length)) + 2;
   return rows.map(([label, value]) => `${`${label}:`.padEnd(width)}${value}`);

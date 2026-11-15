@@ -39,7 +39,7 @@ export type StatusCheck = LoopChangeDetail['review']['checks'][number];
 export type StatusPullRequest = { state: LoopChangeState; files: readonly string[] | null; checks: readonly StatusCheck[] | null };
 
 /** The work's links: its Omni page, its GitHub issue and its pull request, each `null` when it has none. */
-type StatusLinks = { page: string | null; issue: string | null; pullRequest: string | null };
+type StatusLinks = { page: string | null; issueUrl: string | null; pullRequest: string | null };
 
 /** When the pull request's facts were read (`null`: never), and whether this read asked GitHub and it answered. */
 export type StatusChecked = { at: string | null; fetch: 'answered' | 'no-answer' | 'not-asked' };

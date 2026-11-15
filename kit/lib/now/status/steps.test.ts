@@ -9,7 +9,7 @@ import type { FixStatusFacts, PrdStatusFacts, StatusFacts, StatusPullRequest } f
 
 const LINKS = {
   page: 'https://omni.example/app/prd/2906',
-  issue: 'https://github.com/acme/widgets/issues/2906',
+  issueUrl: 'https://github.com/acme/widgets/issues/2906',
   pullRequest: 'https://github.com/acme/widgets/pull/2910',
 };
 const CHECKED = { at: '2026-11-15T10:00:00.000Z', fetch: 'answered' as const };

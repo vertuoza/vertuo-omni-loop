@@ -6,8 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd } from '../../ids.ts';
 import { statusBlock } from './render.ts';
 import type { StatusFacts, StatusPullRequest } from './steps.ts';
-import { CHECKS_UNKNOWN, explainer, KIND_NAMES, plain, STEPS, TERMS, termOf, TRACKS, VERDICTS, WHERE } from './words.ts';
-import type { Term } from './words.ts';
+import { CHECKS_UNKNOWN, explainer, KIND_NAMES, plain, STEPS, TERM_LIST, TERMS, termOf, TRACKS, VERDICTS, WHERE } from './words.ts';
 
 const NOW = Date.parse('2026-11-15T10:00:00.000Z');
 const LOOP_WORDS = /\b(branch|slice|sub-PR|outbox|wave|CI)\b/i;
@@ -42,7 +41,7 @@ describe('the table', () => {
     for (const line of lines) {
       for (const [, word] of line.matchAll(/\[\[([^\]]+)\]\]/g)) expect(termOf(word ?? '')).not.toBeNull();
       const unmarked = line.replace(/\[\[[^\]]+\]\]/g, '');
-      for (const term of Object.keys(TERMS)) expect(unmarked).not.toMatch(new RegExp(`\\b${escape(term)}\\b`, 'i'));
+      for (const term of TERM_LIST) expect(unmarked).not.toMatch(new RegExp(`\\b${escape(term)}\\b`, 'i'));
       expect(plain(line)).not.toMatch(LOOP_WORDS);
     }
   });
@@ -56,7 +55,7 @@ describe('the table', () => {
 });
 
 // Every step of every kind, then each under every verdict the facts can say over it.
-const LINKS = { page: 'https://omni.example/app/x/1', issue: 'https://github.com/acme/widgets/issues/1', pullRequest: 'https://github.com/acme/widgets/pull/2' };
+const LINKS = { page: 'https://omni.example/app/x/1', issueUrl: 'https://github.com/acme/widgets/issues/1', pullRequest: 'https://github.com/acme/widgets/pull/2' };
 const CHECKED = { at: '2026-11-15T09:50:00.000Z', fetch: 'no-answer' as const };
 const pull = (state: StatusPullRequest['state'], checks: StatusPullRequest['checks'] = []): StatusPullRequest => ({ state, files: ['src/a.ts'], checks });
 const board = (states: string[]) => states.map((state, i) => ({ id: `s${String(i + 1)}`, state }));
@@ -89,8 +88,8 @@ const VARIANTS: ((facts: StatusFacts) => StatusFacts)[] = [
   (facts) => ({ ...facts, pullRequest: pull('draft', [{ name: 'CI / test', state: 'failure' }]) }),
   (facts) => ({ ...facts, pullRequest: pull('draft', null) }),
   (facts) => ({ ...facts, pullRequest: pull('closed') }),
-  (facts) => ({ ...facts, links: { page: null, issue: LINKS.issue, pullRequest: null } }),
-  (facts) => ({ ...facts, links: { page: null, issue: null, pullRequest: LINKS.pullRequest } }),
+  (facts) => ({ ...facts, links: { page: null, issueUrl: LINKS.issueUrl, pullRequest: null } }),
+  (facts) => ({ ...facts, links: { page: null, issueUrl: null, pullRequest: LINKS.pullRequest } }),
 ];
 const BLOCKS = [...PRD_STEPS, ...fixSteps('bug'), ...fixSteps('visual')].flatMap((facts) => VARIANTS.map((variant) => statusBlock(variant(facts), NOW)));
 
@@ -106,7 +105,7 @@ describe('every block', () => {
   it('explains each technical word the first time it appears, and only then', () => {
     for (const block of BLOCKS) {
       const lines = readText(block);
-      for (const term of Object.keys(TERMS) as Term[]) {
+      for (const term of TERM_LIST) {
         const said = new RegExp(`\\b${escape(term)}\\b`, 'i');
         const explanation = `(${TERMS[term]})`;
         const firstLine = lines.findIndex((line) => said.test(line));

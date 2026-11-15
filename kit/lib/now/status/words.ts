@@ -134,10 +134,15 @@ export const FRESHNESS = Object.freeze({
 const MARK = /\[\[([^\]]+)\]\]/g;
 const PLACEHOLDER = /\{(\w+)\}/g;
 
+const isTerm = (key: string): key is Term => key in TERMS;
+
+/** Every technical word of `TERMS`. */
+export const TERM_LIST: readonly Term[] = Object.freeze(Object.keys(TERMS).filter(isTerm));
+
 /** The term `word` names, whatever its case, or `null`. */
 export function termOf(word: string): Term | null {
   const wanted = word.toLowerCase();
-  return (Object.keys(TERMS) as Term[]).find((term) => term.toLowerCase() === wanted) ?? null;
+  return TERM_LIST.find((term) => term.toLowerCase() === wanted) ?? null;
 }
 
 /** `text` with each `{name}` filled from `values`; a name with no value is left as it is. */
