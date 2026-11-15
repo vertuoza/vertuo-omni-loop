@@ -372,7 +372,7 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text19) => {
+  const line2 = (text19) => {
     if (!text19.startsWith("data:")) return false;
     const data = text19.slice(5).trim();
     if (data === "[DONE]") return true;
@@ -395,7 +395,7 @@ async function readContent(response) {
     while (newline !== -1) {
       const text19 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text19)) {
+      if (line2(text19)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -403,7 +403,7 @@ async function readContent(response) {
       newline = buffer.indexOf("\n");
     }
   }
-  line(buffer + decoder.decode());
+  line2(buffer + decoder.decode());
   return content;
 }
 function parseJson(text19) {
@@ -560,8 +560,8 @@ function fromStore(res, kept3) {
   out.set("etag", kept3.etag);
   return new Response(kept3.body, { status: 200, headers: out });
 }
-function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url, init), clock = Date.now, log: log2 = (line) => {
-  console.error(line);
+function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url, init), clock = Date.now, log: log2 = (line2) => {
+  console.error(line2);
 } }) {
   let storeDown = false;
   async function stored(run) {
@@ -758,7 +758,7 @@ function scalarOf(field4, value) {
   return void 0;
 }
 function lineOf(level, entry) {
-  const line = { level };
+  const line2 = { level };
   let dropped = 0;
   for (const [field4, value] of Object.entries(entry)) {
     if (value === void 0) continue;
@@ -767,18 +767,18 @@ function lineOf(level, entry) {
       continue;
     }
     if (field4 === "error") {
-      line.error = errorOf(value);
+      line2.error = errorOf(value);
       continue;
     }
     const scalar2 = scalarOf(field4, value);
     if (scalar2 === void 0) dropped += 1;
-    else line[field4] = scalar2;
+    else line2[field4] = scalar2;
   }
-  if (dropped > 0) line.dropped = dropped;
-  return JSON.stringify(line);
+  if (dropped > 0) line2.dropped = dropped;
+  return JSON.stringify(line2);
 }
-var stdout = (line) => {
-  process.stdout.write(`${line}
+var stdout = (line2) => {
+  process.stdout.write(`${line2}
 `);
 };
 function createLogger({ sink = stdout, clock = Date.now } = {}) {
@@ -2119,7 +2119,7 @@ function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknow
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
     const more = others.length ? `
-${others.map((line) => `  - ${line}`).join("\n")}` : "";
+${others.map((line2) => `  - ${line2}`).join("\n")}` : "";
     throw new ConfigError(`${file} is not a valid Omni Loop config: ${first}${more}`, { invalid: true });
   }
   const config = result.data;
@@ -2233,28 +2233,28 @@ function splitSections(lines2) {
   const sections = [];
   let current = null;
   let fenced = false;
-  for (const line of lines2) {
-    const heading = fenced ? null : line.match(HEADING);
-    if (FENCE.test(line)) fenced = !fenced;
+  for (const line2 of lines2) {
+    const heading = fenced ? null : line2.match(HEADING);
+    if (FENCE.test(line2)) fenced = !fenced;
     if (heading) {
       current = { heading: heading[1] ?? "", lines: [] };
       sections.push(current);
     } else {
-      (current ? current.lines : head).push(line);
+      (current ? current.lines : head).push(line2);
     }
   }
   return { head, sections };
 }
 function readHead(head) {
-  const at4 = head.findIndex((line) => TITLE.test(line));
+  const at4 = head.findIndex((line2) => TITLE.test(line2));
   if (at4 === -1) return { title: null, opener: null };
-  const opener = head.slice(at4 + 1).map((line) => line.trim()).find((line) => line !== "" && !line.startsWith("<!--"));
+  const opener = head.slice(at4 + 1).map((line2) => line2.trim()).find((line2) => line2 !== "" && !line2.startsWith("<!--"));
   return { title: head[at4]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
   const text19 = raw.replace(COMMENT, "").trim();
-  const lines2 = text19.split("\n").map((line) => line.trim()).filter(Boolean);
-  const questions = lines2.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
+  const lines2 = text19.split("\n").map((line2) => line2.trim()).filter(Boolean);
+  const questions = lines2.map((line2) => line2.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines2.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
   if (questions.length === lines2.length) return { kind: "holes", text: text19, see: null, questions };
   const see = lines2.length === 1 ? lines2[0]?.match(SEE) ?? null : null;
@@ -2262,7 +2262,7 @@ function readBody(raw) {
   return { kind: "text", text: text19, see: null, questions };
 }
 function readSection(heading, lines2) {
-  const at4 = lines2.findIndex((line) => line.trim() !== "");
+  const at4 = lines2.findIndex((line2) => line2.trim() !== "");
   const first = at4 === -1 ? "" : (lines2[at4] ?? "").trim();
   if (!MARKER_START.test(first)) return { kind: "unmarked" };
   const marker2 = first.match(MARKER);
@@ -2508,7 +2508,7 @@ function isSignedBody(body) {
 function carriesTrailer(message, signature) {
   const trailer = trailerLine(signature);
   if (trailer === null || typeof message !== "string") return false;
-  return message.split("\n").some((line) => line.trimEnd() === trailer);
+  return message.split("\n").some((line2) => line2.trimEnd() === trailer);
 }
 function botLogin(email) {
   const match2 = typeof email === "string" ? NOREPLY.exec(email.trim()) : null;
@@ -2595,8 +2595,8 @@ function readFields(lines2) {
   const counts = {};
   let fieldAt = -1;
   let open = null;
-  lines2.forEach((line, index) => {
-    const match2 = line.match(FIELD_LINE);
+  lines2.forEach((line2, index) => {
+    const match2 = line2.match(FIELD_LINE);
     if (match2) {
       if (fieldAt === -1) fieldAt = index;
       const name = group(match2, 1);
@@ -2611,11 +2611,11 @@ function readFields(lines2) {
       }
       return;
     }
-    if (line.trim() === "") {
+    if (line2.trim() === "") {
       open = null;
       return;
     }
-    if (open) fields[open] = `${fields[open]} ${line.trim()}`.trim();
+    if (open) fields[open] = `${fields[open]} ${line2.trim()}`.trim();
   });
   return { fields, counts, fieldAt };
 }
@@ -2637,10 +2637,10 @@ function readLocked(file, id, value) {
   if (value === void 0) return { locked: null, problems: [] };
   const match2 = value.match(LOCKED_VALUE);
   if (match2) return { locked: { by: group(match2, 1), on: group(match2, 2) }, problems: [] };
-  const line = value === "" ? "Locked:" : `Locked: ${value}`;
+  const line2 = value === "" ? "Locked:" : `Locked: ${value}`;
   return {
     locked: { by: null, on: null },
-    problems: [`${file}: ${id} \u2014 "${line}" is not "Locked: @<login>, <YYYY-MM-DD>".`]
+    problems: [`${file}: ${id} \u2014 "${line2}" is not "Locked: @<login>, <YYYY-MM-DD>".`]
   };
 }
 function readGoverns(file, id, value) {
@@ -2693,16 +2693,16 @@ function readPending(file, id, value) {
 function splitEntries(text19) {
   const entries = [];
   let current = null;
-  for (const line of text19.split("\n")) {
-    const match2 = line.match(ENTRY_HEADING);
+  for (const line2 of text19.split("\n")) {
+    const match2 = line2.match(ENTRY_HEADING);
     if (match2) {
       if (current) entries.push(current);
       current = { id: match2[1] ?? "", lines: [] };
-    } else if (ANY_H2.test(line)) {
+    } else if (ANY_H2.test(line2)) {
       if (current) entries.push(current);
       current = null;
     } else if (current) {
-      current.lines.push(line);
+      current.lines.push(line2);
     }
   }
   if (current) entries.push(current);
@@ -2711,7 +2711,7 @@ function splitEntries(text19) {
 function parseEntryFile(file, text19, place2) {
   return splitEntries(text19).map(({ id, lines: lines2 }) => {
     const { fields, counts, fieldAt } = readFields(lines2);
-    const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
+    const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter((line2) => line2.trim().length > 0).join(" ").trim();
     const kind = place2.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
     const { proposed, problems: proposedProblems } = readProposed(file, id, fields.proposedLine);
@@ -2997,9 +2997,9 @@ function parseFrontMatterLines(rawFrontMatter) {
   const data = {};
   const errors = [];
   for (const rawLine of rawFrontMatter.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const match2 = line.match(FRONT_MATTER_LINE);
+    const line2 = rawLine.trim();
+    if (!line2) continue;
+    const match2 = line2.match(FRONT_MATTER_LINE);
     if (!match2) {
       errors.push(`front matter line is not "key: value": "${rawLine}"`);
       continue;
@@ -3123,13 +3123,13 @@ var HEADING_LINE = /^##\s+(.+?)\s*$/;
 function parseHeadingSections(body) {
   const sections = [];
   let current = null;
-  for (const line of body.split("\n")) {
-    const match2 = line.match(HEADING_LINE);
+  for (const line2 of body.split("\n")) {
+    const match2 = line2.match(HEADING_LINE);
     if (match2) {
       if (current) sections.push(current);
       current = { heading: match2[1] ?? "", lines: [] };
     } else if (current) {
-      current.lines.push(line);
+      current.lines.push(line2);
     }
   }
   if (current) sections.push(current);
@@ -3266,13 +3266,13 @@ function readFrontMatterBlock(text19, file, schema) {
 }
 var OPTION_LINE = /^([A-Za-z])\.\s+(\S.*)$/;
 function parseOutboxOptions(content) {
-  const lines2 = (content ?? "").split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  const lines2 = (content ?? "").split("\n").map((line2) => line2.trim()).filter((line2) => line2.length > 0);
   const options = [];
   const errors = [];
-  for (const line of lines2) {
-    const match2 = line.match(OPTION_LINE);
+  for (const line2 of lines2) {
+    const match2 = line2.match(OPTION_LINE);
     if (!match2) {
-      errors.push(`option line is not "<letter>. <sentence>": "${line}"`);
+      errors.push(`option line is not "<letter>. <sentence>": "${line2}"`);
       continue;
     }
     options.push({ letter: (match2[1] ?? "").toUpperCase(), text: (match2[2] ?? "").trim() });
@@ -3636,19 +3636,19 @@ function rawSettledEntries(text19, markers) {
   const entries = [];
   let current = null;
   for (let index = 0; index < lines2.length; index += 1) {
-    const line = lines2[index] ?? "";
-    const openMatch = line.match(markers.settledOpenRe);
+    const line2 = lines2[index] ?? "";
+    const openMatch = line2.match(markers.settledOpenRe);
     if (openMatch) {
       current = openedEntry(openMatch[1]);
       continue;
     }
     if (!current) continue;
-    if (line === markers.settledClose(current.id)) {
+    if (line2 === markers.settledClose(current.id)) {
       entries.push(closedEntry(current));
       current = null;
       continue;
     }
-    const fenceMatch = line.match(/^(`{3,})text$/);
+    const fenceMatch = line2.match(/^(`{3,})text$/);
     if (fenceMatch) {
       const fence = fenceMatch[1];
       const start = index + 1;
@@ -3658,7 +3658,7 @@ function rawSettledEntries(text19, markers) {
       index = end;
       continue;
     }
-    const fieldMatch = line.match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
+    const fieldMatch = line2.match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
     if (fieldMatch) current.fields[fieldMatch[1] ?? ""] = fieldMatch[2] ?? "";
   }
   return entries;
@@ -3811,8 +3811,8 @@ function patternMatcher(pattern) {
 }
 function parseCodeowners(text19) {
   const rules = [];
-  for (const line of text19.split("\n")) {
-    const [pattern, ...rest] = line.trim().split(/\s+/);
+  for (const line2 of text19.split("\n")) {
+    const [pattern, ...rest] = line2.trim().split(/\s+/);
     if (pattern === void 0 || pattern === "" || pattern.startsWith("#")) continue;
     const comment = rest.findIndex((token) => token.startsWith("#"));
     const owners = comment === -1 ? rest : rest.slice(0, comment);
@@ -3874,7 +3874,7 @@ function ownersBlock(paths, owners) {
   return lines2.join("\n");
 }
 function blockSpan(lines2) {
-  const at4 = (marker2) => lines2.flatMap((line, index) => line.trim() === marker2 ? [index] : []);
+  const at4 = (marker2) => lines2.flatMap((line2, index) => line2.trim() === marker2 ? [index] : []);
   const begins = at4(OWNERS_BEGIN);
   const ends = at4(OWNERS_END);
   if (begins.length === 0 && ends.length === 0) return null;
@@ -3888,7 +3888,7 @@ function blockSpan(lines2) {
 function ownersBlockIn(text19) {
   const lines2 = text19.split("\n");
   const span = blockSpan(lines2);
-  return span === null ? null : lines2.slice(span.begin, span.end + 1).map((line) => line.replace(/\r$/, "")).join("\n");
+  return span === null ? null : lines2.slice(span.begin, span.end + 1).map((line2) => line2.replace(/\r$/, "")).join("\n");
 }
 
 // kit/lib/playbook/briefing-files.ts
@@ -3928,24 +3928,24 @@ var FIELD = /^(Why|Also):\s*(.*)$/;
 var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
 function blocks(text19) {
   const found = [];
-  for (const line of text19.split("\n")) {
-    const match2 = line.match(HEADING2);
+  for (const line2 of text19.split("\n")) {
+    const match2 = line2.match(HEADING2);
     if (match2) found.push({ heading: match2[1] ?? "", lines: [] });
-    else found.at(-1)?.lines.push(line);
+    else found.at(-1)?.lines.push(line2);
   }
   return found;
 }
 function readBody2(raw) {
-  const lines2 = raw.map((line) => line.trim());
-  const fieldAt = lines2.findIndex((line) => FIELD.test(line));
+  const lines2 = raw.map((line2) => line2.trim());
+  const fieldAt = lines2.findIndex((line2) => FIELD.test(line2));
   const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter(Boolean).join(" ");
   return { statement: statement2, why: fieldValue(lines2, "Why") || null, also: fieldValue(lines2, "Also") };
 }
 function fieldValue(lines2, name) {
-  const at4 = lines2.findIndex((line) => line.match(FIELD)?.[1] === name);
+  const at4 = lines2.findIndex((line2) => line2.match(FIELD)?.[1] === name);
   if (at4 === -1) return null;
   const rest = lines2.slice(at4 + 1);
-  const end = rest.findIndex((line) => line === "" || FIELD.test(line));
+  const end = rest.findIndex((line2) => line2 === "" || FIELD.test(line2));
   const continued = end === -1 ? rest : rest.slice(0, end);
   return [lines2[at4]?.match(FIELD)?.[2] ?? "", ...continued].join(" ").trim();
 }
@@ -4156,7 +4156,7 @@ function groupsOfThree(lines2) {
   return groups;
 }
 function parseEntries(content) {
-  const lines2 = content.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+  const lines2 = content.split("\n").map((line2) => line2.trim()).filter((line2) => line2.length > 0);
   if (lines2.length === 0) return { errors: [], entries: [] };
   if (lines2.length % 3 !== 0) {
     return {
@@ -4434,8 +4434,8 @@ function formatItem(item) {
   return item.rank ? `  - ${item.file} (${item.rank})` : `  - ${item.file}`;
 }
 function formatUnaccounted(change2) {
-  const line = `  - ${change2.path} (${change2.rule})`;
-  return change2.refused === void 0 ? line : `${line} \u2014 ${change2.refused}`;
+  const line2 = `  - ${change2.path} (${change2.rule})`;
+  return change2.refused === void 0 ? line2 : `${line2} \u2014 ${change2.refused}`;
 }
 function formatUnreworked(entry) {
   return `  - ${entry.id}`;
@@ -4694,7 +4694,7 @@ function tableCell(text19) {
   return (text19 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
 function quoted2(text19) {
-  return (text19 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+  return (text19 ?? "").trim().split("\n").map((line2) => line2.trim() === "" ? ">" : `> ${line2}`).join("\n");
 }
 function funLine(text19) {
   return `_${(text19 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
@@ -4840,10 +4840,10 @@ function formatOutboxPrComment({
   const facts = { numberById, roundMarkers, banter };
   const lines2 = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
-    const count2 = sorted.length;
+    const count3 = sorted.length;
     const example = exampleNumber(sorted, numberById);
     lines2.push(
-      `**${count2} question${count2 === 1 ? "" : "s"} need${count2 === 1 ? "s" : ""} your decision**`,
+      `**${count3} question${count3 === 1 ? "" : "s"} need${count3 === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
       "",
@@ -5373,7 +5373,7 @@ function stateViolation(section4) {
   if (STATES.has(section4.state)) return null;
   return `${placeOf(section4)} has data-state "${section4.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
 }
-var plural = (count2, one, many) => `${count2} ${count2 === 1 ? one : many}`;
+var plural = (count3, one, many) => `${count3} ${count3 === 1 ? one : many}`;
 var quote = (text19) => `"${text19}"`;
 var screenOf = ({ name, ref }) => `screen ${quote(name)}${ref !== null && REFERENCE.test(ref) ? ` (${ref})` : ""}`;
 function marksViolations(screen) {
@@ -5399,7 +5399,7 @@ function pairViolations(screens) {
     counts.set(`${ref} ${when}`, (counts.get(`${ref} ${when}`) ?? 0) + 1);
     refs.add(ref);
   }
-  const twice = [...counts].filter(([, count2]) => count2 > 1).map(([pair, count2]) => `reference ${pair} is written ${count2} times, not once`);
+  const twice = [...counts].filter(([, count3]) => count3 > 1).map(([pair, count3]) => `reference ${pair} is written ${count3} times, not once`);
   const missing = [...refs].filter((ref) => !counts.has(`${ref} after`)).map((ref) => `reference ${ref} has no after`);
   return [...twice, ...missing];
 }
@@ -5419,8 +5419,8 @@ function numberViolations(screens) {
   return [...mixed, ...spread];
 }
 function namedScreens(text19) {
-  const line = /^\s*screens:(.*)$/im.exec(text19)?.[1] ?? "";
-  return new Set(line.split("\xB7").map((name) => name.trim()).filter((name) => name !== ""));
+  const line2 = /^\s*screens:(.*)$/im.exec(text19)?.[1] ?? "";
+  return new Set(line2.split("\xB7").map((name) => name.trim()).filter((name) => name !== ""));
 }
 function sectionViolations(read) {
   const found = [];
@@ -5529,35 +5529,35 @@ var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 function sectionsOf(body) {
   const sections = [];
   let current = null;
-  for (const line of body.split(/\r?\n/)) {
-    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line);
-    if (heading && !line.startsWith("###")) {
+  for (const line2 of body.split(/\r?\n/)) {
+    const heading = /^##\s+(.+?)\s*#*\s*$/.exec(line2);
+    if (heading && !line2.startsWith("###")) {
       current = { name: group(heading, 1), lines: [] };
       sections.push(current);
-    } else if (/^#\s/.test(line)) {
+    } else if (/^#\s/.test(line2)) {
       current = null;
     } else if (current) {
-      current.lines.push(line);
+      current.lines.push(line2);
     }
   }
   return sections;
 }
-function cells(line) {
-  let inner = line.trim();
+function cells(line2) {
+  let inner = line2.trim();
   if (inner.startsWith("|")) inner = inner.slice(1);
   if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
   return inner.split(/(?<!\\)\|/).map((cell3) => cell3.trim().replace(/\\\|/g, "|"));
 }
 function firstTable(lines2) {
-  const start = lines2.findIndex((line) => line.trim().startsWith("|"));
+  const start = lines2.findIndex((line2) => line2.trim().startsWith("|"));
   if (start === -1) return null;
   const block = [];
-  for (const line of lines2.slice(start)) {
-    if (!line.trim().startsWith("|")) break;
-    block.push(line.trim());
+  for (const line2 of lines2.slice(start)) {
+    if (!line2.trim().startsWith("|")) break;
+    block.push(line2.trim());
   }
   const [header2 = "", ...rest] = block;
-  return { header: cells(header2), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
+  return { header: cells(header2), rows: rest.filter((line2) => !SEPARATOR_ROW.test(line2)).map(cells) };
 }
 
 // kit/lib/roadmap/parse.ts
@@ -5708,25 +5708,25 @@ function cardField(label2) {
 function cardOf(lines2) {
   const card = { why: null, command: null, whatItDoes: null, whoCanDoIt: null };
   let field4 = null;
-  for (const line of lines2) {
-    const labelled2 = CARD_LINE.exec(line);
+  for (const line2 of lines2) {
+    const labelled2 = CARD_LINE.exec(line2);
     if (labelled2) {
       field4 = cardField(group(labelled2, 1));
       if (field4 !== null) card[field4] = group(labelled2, 2).trim();
-    } else if (line.trim() === "") {
+    } else if (line2.trim() === "") {
       field4 = null;
     } else if (field4 !== null) {
-      card[field4] = `${card[field4] ?? ""} ${line.trim()}`.trim();
+      card[field4] = `${card[field4] ?? ""} ${line2.trim()}`.trim();
     }
   }
   return { ...card, command: card.command === null ? null : codeCell(card.command) };
 }
 function cardsOf(lines2) {
   const blocks2 = [];
-  for (const line of lines2) {
-    const heading = CARD_HEADING.exec(line);
+  for (const line2 of lines2) {
+    const heading = CARD_HEADING.exec(line2);
     if (heading) blocks2.push({ id: group(heading, 1), lines: [] });
-    else blocks2.at(-1)?.lines.push(line);
+    else blocks2.at(-1)?.lines.push(line2);
   }
   return new Map(blocks2.map(({ id, lines: under }) => [id, cardOf(under)]));
 }
@@ -6056,8 +6056,8 @@ function citationProblems(citations, field4) {
 }
 function lineProblems(text19, field4) {
   if (!isText(text19)) return [`${field4} must be a sentence.`];
-  const count2 = countSentences2(text19);
-  return count2 > MAX_SENTENCES ? [`${field4} holds ${count2} sentences; two at most.`] : [];
+  const count3 = countSentences2(text19);
+  return count3 > MAX_SENTENCES ? [`${field4} holds ${count3} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
   const at4 = `personas[${i}]`;
@@ -6225,15 +6225,15 @@ var OPENING = /^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/;
 function proseLines(body) {
   const out = [];
   let fence = null;
-  for (const line of body.split(/\r?\n/)) {
+  for (const line2 of body.split(/\r?\n/)) {
     if (fence !== null) {
       const closing2 = new RegExp(`^ {0,3}${fence[0] === "`" ? "`" : "~"}{${fence.length},}[ \\t]*$`);
-      if (closing2.test(line)) fence = null;
+      if (closing2.test(line2)) fence = null;
       continue;
     }
-    const opening = OPENING.exec(line);
+    const opening = OPENING.exec(line2);
     if (opening) fence = opening[1] ?? null;
-    else out.push(line);
+    else out.push(line2);
   }
   return out;
 }
@@ -6293,7 +6293,7 @@ function fixVerdict2(topic, { ctx, labels, changes, base, comments, now: now2 })
   const result = fixGateResult({ ctx, fix, labels, changes, base });
   const laws = lawsTouched(changes, { ctx, base });
   const subject = fix === null ? `fix PR \`${topic}\` (no fix folder)` : `fix ${fix.folder}`;
-  const failures = fixLawFailures(result).map((line) => `  - ${line}`);
+  const failures = fixLawFailures(result).map((line2) => `  - ${line2}`);
   const summary2 = [
     formatReport(fix?.number ?? parsePrd(1), result, { subject }),
     ...failures.length > 0 ? ["A change to a law on a fix PR is answered by a person, in the fix's outbox:", ...failures] : [],
@@ -6352,7 +6352,7 @@ var CLOSES = /Closes #\d+/;
 var PART_OF = /^Part of ([\w.-]+\/[\w.-]+)#(\d+)\b/;
 function planPrdOf(body, slug) {
   if (CLOSES.test(body)) return null;
-  const match2 = proseLines(body).map((line) => PART_OF.exec(line)).find((found) => found !== null);
+  const match2 = proseLines(body).map((line2) => PART_OF.exec(line2)).find((found) => found !== null);
   if (!match2) return null;
   const [, repo = "", prd = ""] = match2;
   if (repo.toLowerCase() === slug.toLowerCase()) return null;
@@ -6412,7 +6412,7 @@ var PART_OF2 = /^ {0,3}Part of ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9
 var KEY_MAX = 40;
 var SEQ_MAX = 2 ** 31 - 1;
 function productPrdOf(body) {
-  const match2 = proseLines(body ?? "").map((line) => PART_OF2.exec(line)).find((found) => found !== null);
+  const match2 = proseLines(body ?? "").map((line2) => PART_OF2.exec(line2)).find((found) => found !== null);
   if (!match2) return null;
   const [, key = "", digits = ""] = match2;
   const seq = Number(digits);
@@ -6829,15 +6829,15 @@ async function prdFolder(octokit, { owner, repo, sha, dirs, topic }) {
 }
 function specTitle(spec) {
   const front = /^---\n([\s\S]*?)\n---/.exec(spec);
-  const line = front && /^title:\s*(.+)$/m.exec(front[1] ?? "");
-  if (!line) return null;
-  return (line[1] ?? "").trim().replace(/^(['"])(.*)\1$/, "$2") || null;
+  const line2 = front && /^title:\s*(.+)$/m.exec(front[1] ?? "");
+  if (!line2) return null;
+  return (line2[1] ?? "").trim().replace(/^(['"])(.*)\1$/, "$2") || null;
 }
 function section2(markdown, name) {
   const lines2 = markdown.split("\n");
-  const start = lines2.findIndex((line) => line.trim() === `## ${name}`);
+  const start = lines2.findIndex((line2) => line2.trim() === `## ${name}`);
   if (start === -1) return "";
-  const end = lines2.findIndex((line, index) => index > start && /^## /.test(line));
+  const end = lines2.findIndex((line2, index) => index > start && /^## /.test(line2));
   return lines2.slice(start + 1, end === -1 ? lines2.length : end).join("\n").trim();
 }
 
@@ -7150,7 +7150,7 @@ function knowledgeLines(summary2) {
   return [...entries, ...playbook, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
 function firstLineOf(text19) {
-  return text19.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+  return text19.split("\n").map((line2) => line2.trim()).find(Boolean) ?? "";
 }
 var EXCERPT_KEY = ',"excerpt":';
 var CUT_MARK = "[earlier lines cut]\n";
@@ -7490,13 +7490,13 @@ function bytesOf(code2) {
   if (code2 < 2048) return 2;
   return code2 < 65536 ? 3 : 4;
 }
-async function joined(step, id, { hash, count: count2 }) {
+async function joined(step, id, { hash, count: count3 }) {
   const parts = [];
-  for (let index = 0; index < count2; index += 1) {
+  for (let index = 0; index < count3; index += 1) {
     const part = await step.run(partId(id, hash, index), () => {
-      throw new Error(`The step "${id}" has no part ${String(index + 1)} of ${String(count2)} saved.`);
+      throw new Error(`The step "${id}" has no part ${String(index + 1)} of ${String(count3)} saved.`);
     });
-    if (typeof part !== "string") throw new Error(`The step "${id}" came back with its part ${String(index + 1)} of ${String(count2)} not text.`);
+    if (typeof part !== "string") throw new Error(`The step "${id}" came back with its part ${String(index + 1)} of ${String(count3)} not text.`);
     parts.push(part);
   }
   const text19 = parts.join("");
@@ -7534,22 +7534,22 @@ function territoryPrefixes(cell3) {
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
 }
-function cells2(line) {
-  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell3) => cell3.trim());
+function cells2(line2) {
+  return line2.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell3) => cell3.trim());
 }
-function isTableRow(line) {
-  return line !== void 0 && line.trim().startsWith("|");
+function isTableRow(line2) {
+  return line2 !== void 0 && line2.trim().startsWith("|");
 }
-function isSeparatorRow(line) {
-  return /^\|[\s:|-]+\|$/.test(line.trim());
+function isSeparatorRow(line2) {
+  return /^\|[\s:|-]+\|$/.test(line2.trim());
 }
 function bodyRows(lines2, headerIndex) {
   const rows = [];
   for (let index = headerIndex + 1; index < lines2.length; index += 1) {
-    const line = lines2[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    rows.push(cells2(line));
+    const line2 = lines2[index];
+    if (!isTableRow(line2)) break;
+    if (isSeparatorRow(line2)) continue;
+    rows.push(cells2(line2));
   }
   return rows;
 }
@@ -7581,10 +7581,10 @@ function sliceTable(markdown) {
   let headerIndex = -1;
   let foundAnyIdTable = false;
   for (let i = 0; i < lines2.length; i += 1) {
-    const line = lines2[i];
-    if (isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim())) {
+    const line2 = lines2[i];
+    if (isTableRow(line2) && /^\|\s*id\s*\|/i.test(line2.trim())) {
       foundAnyIdTable = true;
-      const header3 = cells2(line).map((name) => name.toLowerCase());
+      const header3 = cells2(line2).map((name) => name.toLowerCase());
       if (header3.indexOf("territory") !== -1) {
         headerIndex = i;
         break;
@@ -7662,13 +7662,13 @@ function parsePlanLandings(markdown) {
 }
 function sectionTable(markdown, heading) {
   const lines2 = markdown.split("\n");
-  const start = lines2.findIndex((line) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line.trim()));
+  const start = lines2.findIndex((line2) => new RegExp(`^##\\s+${heading}\\s*$`, "i").test(line2.trim()));
   if (start === -1) return [];
   let headerIndex = -1;
   for (let i = start + 1; i < lines2.length; i += 1) {
-    const line = lines2[i] ?? "";
-    if (/^#{1,2}\s/.test(line.trim())) break;
-    if (isTableRow(line)) {
+    const line2 = lines2[i] ?? "";
+    if (/^#{1,2}\s/.test(line2.trim())) break;
+    if (isTableRow(line2)) {
       headerIndex = i;
       break;
     }
@@ -7916,8 +7916,8 @@ function changeBlocks(patch) {
     if (open) blocks2.push([open.oldStart, open.oldCount, open.newStart, open.newCount]);
     open = null;
   };
-  for (const line of patch.split("\n")) {
-    const header2 = HUNK.exec(line);
+  for (const line2 of patch.split("\n")) {
+    const header2 = HUNK.exec(line2);
     if (header2) {
       close();
       const [oldStart = 1, oldCount = 1, newStart = 1, newCount = 1] = header2.slice(1).map((n) => n === void 0 ? 1 : Number(n));
@@ -7927,7 +7927,7 @@ function changeBlocks(patch) {
       continue;
     }
     if (!inHunk) continue;
-    const mark = line[0];
+    const mark = line2[0];
     if (mark === "-" || mark === "+") {
       open ??= { oldStart: oldLine, oldCount: 0, newStart: newLine, newCount: 0 };
       if (mark === "-") {
@@ -7951,43 +7951,43 @@ function followLines(lines2, blocks2, commit) {
   const replaced = blocks2.map(() => []);
   let index = 0;
   let shift = 0;
-  for (const [line, commits] of lines2) {
+  for (const [line2, commits] of lines2) {
     let block = blocks2[index];
-    while (block !== void 0 && block[0] + block[1] <= line) {
+    while (block !== void 0 && block[0] + block[1] <= line2) {
       shift += block[3] - block[1];
       index += 1;
       block = blocks2[index];
     }
-    if (block !== void 0 && block[0] <= line) replaced[index]?.push(...commits);
-    else put(next, line + shift, commits);
+    if (block !== void 0 && block[0] <= line2) replaced[index]?.push(...commits);
+    else put(next, line2 + shift, commits);
   }
   blocks2.forEach(([, , newStart, newCount], i) => {
     const commits = unique([...replaced[i] ?? [], commit]);
-    for (let line = newStart; line < newStart + newCount; line += 1) put(next, line, commits);
+    for (let line2 = newStart; line2 < newStart + newCount; line2 += 1) put(next, line2, commits);
   });
   return [...next.entries()].sort((a, b) => a[0] - b[0]);
 }
 function rewrittenRanges(lines2, minCommits) {
   const ranges = [];
   let current = null;
-  for (const [line, commits] of lines2) {
+  for (const [line2, commits] of lines2) {
     if (commits.length < minCommits) {
       current = null;
       continue;
     }
-    if (current && line === current.to + 1) {
-      current.to = line;
+    if (current && line2 === current.to + 1) {
+      current.to = line2;
       current.commits = unique([...current.commits, ...commits]);
     } else {
-      current = { from: line, to: line, commits: [...commits] };
+      current = { from: line2, to: line2, commits: [...commits] };
       ranges.push(current);
     }
   }
   return ranges;
 }
-function put(map, line, commits) {
-  const known = map.get(line);
-  map.set(line, known !== void 0 ? unique([...known, ...commits]) : commits);
+function put(map, line2, commits) {
+  const known = map.get(line2);
+  map.set(line2, known !== void 0 ? unique([...known, ...commits]) : commits);
 }
 function unique(values) {
   return [...new Set(values)];
@@ -8323,8 +8323,8 @@ async function triageOf(octokit, { owner, repo }, issue) {
   );
   if (comments.status !== null) return void 0;
   for (const comment of comments.value) {
-    const line = triageRegression(comment.body ?? "");
-    if (line !== null) return line;
+    const line2 = triageRegression(comment.body ?? "");
+    if (line2 !== null) return line2;
   }
   return null;
 }
@@ -8519,7 +8519,7 @@ var IdRowSchema = z28.object({ id: z28.string().min(1) });
 var RemovedRowSchema = z28.object({ removed_at: z28.string().nullable() });
 function runnerQueue(connection) {
   const db = serviceDb(connection);
-  return async ({ installationId, repository, line }) => {
+  return async ({ installationId, repository, line: line2 }) => {
     const repo = repository.toLowerCase();
     const [workspace] = rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1));
     if (!workspace) return { job: null, created: false, reason: `no workspace holds the installation ${String(installationId)}` };
@@ -8527,10 +8527,10 @@ function runnerQueue(connection) {
     if (listed && listed.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
     const [found] = rowsOf(
       IdRowSchema,
-      await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line).order("queued_at").limit(1)
+      await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line2).order("queued_at").limit(1)
     );
     if (found) return { job: found.id, created: false, reason: null };
-    const [made] = rowsOf(IdRowSchema, await db.from("runner_jobs").insert({ workspace_id: workspace.id, repo, line, sent_by_app: APP_SENDER }).select("id"));
+    const [made] = rowsOf(IdRowSchema, await db.from("runner_jobs").insert({ workspace_id: workspace.id, repo, line: line2, sent_by_app: APP_SENDER }).select("id"));
     if (!made) throw new Error("the database queued no job and gave no reason");
     return { job: made.id, created: true, reason: null };
   };
@@ -8831,14 +8831,14 @@ function outcomeOfStatus(status) {
   if (status < 400) return "ok";
   return status < 500 ? "refused" : "failed";
 }
-function write(logger, line) {
-  const entry = { event: line.event };
-  for (const [field4, value] of Object.entries(line)) {
+function write(logger, line2) {
+  const entry = { event: line2.event };
+  for (const [field4, value] of Object.entries(line2)) {
     if (value !== void 0) Object.assign(entry, { [field4]: value });
   }
   try {
-    if (line.outcome === "ok") logger.info(entry);
-    else if (line.outcome === "refused") logger.warn(entry);
+    if (line2.outcome === "ok") logger.info(entry);
+    else if (line2.outcome === "refused") logger.warn(entry);
     else logger.error(entry);
   } catch {
   }
@@ -8892,9 +8892,9 @@ function loggedHandler(logger, event, handler) {
   );
 }
 function noteTo(fn, logger = log) {
-  return (line) => {
+  return (line2) => {
     try {
-      logger.warn({ event: "note", fn, message: line });
+      logger.warn({ event: "note", fn, message: line2 });
     } catch {
     }
   };
@@ -9851,18 +9851,18 @@ function thesisPath(ctx) {
 }
 function parseThesis(file, text19) {
   const lines2 = text19.split("\n");
-  const start = lines2.findIndex((line) => LAWS_HEADING.test(line.trim()));
+  const start = lines2.findIndex((line2) => LAWS_HEADING.test(line2.trim()));
   if (start === -1) return { file, lawsSection: null, laws: [] };
   const rest = lines2.slice(start + 1);
-  const end = rest.findIndex((line) => ANY_H22.test(line));
+  const end = rest.findIndex((line2) => ANY_H22.test(line2));
   const body = end === -1 ? rest : rest.slice(0, end);
   const laws = body.flatMap((raw) => {
-    const line = raw.trim();
-    const match2 = LAW_LINE.exec(line);
+    const line2 = raw.trim();
+    const match2 = LAW_LINE.exec(line2);
     const id = match2?.[1];
     const sentence2 = match2?.[2];
     if (id === void 0 || sentence2 === void 0 || !ID_SHAPE.test(id)) return [];
-    return [{ id, sentence: sentence2.trim(), line }];
+    return [{ id, sentence: sentence2.trim(), line: line2 }];
   });
   return { file, lawsSection: body.join("\n").trim(), laws };
 }
@@ -10061,9 +10061,9 @@ function headingAnchor(heading) {
 function headingsOf(lines2) {
   const headings = [];
   let fenced = false;
-  for (const [index, line] of lines2.entries()) {
-    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
-    const heading = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+  for (const [index, line2] of lines2.entries()) {
+    if (/^\s*(```|~~~)/.test(line2)) fenced = !fenced;
+    const heading = fenced ? null : /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line2);
     if (heading) headings.push({ index, depth: heading[1]?.length ?? 0, anchor: headingAnchor(heading[2] ?? "") });
   }
   return headings;
@@ -10306,8 +10306,8 @@ function targetGrowth({ ctx, target: target2, base, exec = execFileSync4 }) {
     return bytesAdded === 0 ? [] : [{ path, bytesAdded }];
   });
   const log2 = paths.length === 0 ? null : git(ctx, ["log", `--max-count=${MAX_COMMITS}`, "--format=%h%x09%s", `${base}..HEAD`, "--", ...paths], exec);
-  const commits = (log2 ?? "").split("\n").filter(Boolean).map((line) => {
-    const [sha = "", ...subject] = line.split("	");
+  const commits = (log2 ?? "").split("\n").filter(Boolean).map((line2) => {
+    const [sha = "", ...subject] = line2.split("	");
     return { sha, subject: subject.join("	") };
   });
   return { files, commits };
@@ -10463,7 +10463,7 @@ function neutralLines(verdicts) {
 // apps/omni-app/src/budgets-check/output.ts
 var BUDGETS_CHECK_NAME = "omni / budgets";
 var BLOCKS_NOTHING = "A measurement that fails never blocks a merge.";
-var counted = (count2, noun, plural7 = `${noun}s`) => `${count2} ${count2 === 1 ? noun : plural7}`;
+var counted = (count3, noun, plural7 = `${noun}s`) => `${count3} ${count3 === 1 ? noun : plural7}`;
 function redTitle(verdicts) {
   const over = verdicts.filter(({ verdict }) => verdict === "over-budget").length;
   const waiting = verdicts.filter(({ verdict }) => verdict === "needs-yes").length;
@@ -10510,14 +10510,14 @@ import { join as join42 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
 function invariantAdrs(text19, heading) {
   const lines2 = text19.split("\n");
-  const start = lines2.findIndex((line) => line.trim() === heading.trim());
+  const start = lines2.findIndex((line2) => line2.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
   const ids = /* @__PURE__ */ new Set();
-  for (const line of lines2.slice(start + 1)) {
-    const next = line.match(/^(#+)\s/);
+  for (const line2 of lines2.slice(start + 1)) {
+    const next = line2.match(/^(#+)\s/);
     if (next?.[1] !== void 0 && next[1].length <= level) break;
-    for (const match2 of line.matchAll(/ADR-\d{4}/g)) ids.add(match2[0]);
+    for (const match2 of line2.matchAll(/ADR-\d{4}/g)) ids.add(match2[0]);
   }
   return ids;
 }
@@ -10525,7 +10525,7 @@ function invariantsFile(root, context, heading) {
   const wanted = heading.trim();
   for (const name of context) {
     const file = join42(root, name);
-    if (existsSync30(file) && readFileSync29(file, "utf8").split("\n").some((line) => line.trim() === wanted)) return name;
+    if (existsSync30(file) && readFileSync29(file, "utf8").split("\n").some((line2) => line2.trim() === wanted)) return name;
   }
   return null;
 }
@@ -10824,16 +10824,16 @@ var LETTER_ANSWER = /^([A-Za-z])(?:\s*[.,:;)\-—–]?\s*because\b\s*(.*?))?[\s.
 var RANK_PLAIN_LABEL = { "human-action": "needs a person", high: "high", medium: "medium" };
 function parseReplyLines(body) {
   const lines2 = [];
-  for (const line of plainText(body).split(/\r?\n/)) {
-    if (APPROVE_ALL_LINE.test(line)) {
+  for (const line2 of plainText(body).split(/\r?\n/)) {
+    if (APPROVE_ALL_LINE.test(line2)) {
       lines2.push({ kind: "approve-all", text: APPROVE_ALL_TEXT });
       continue;
     }
-    if (RECOMMENDATION_RE.test(line)) {
+    if (RECOMMENDATION_RE.test(line2)) {
       lines2.push({ kind: "approve-all", text: RECOMMENDATION_TEXT });
       continue;
     }
-    const match2 = line.match(NUMBERED_LINE);
+    const match2 = line2.match(NUMBERED_LINE);
     if (match2) lines2.push({ kind: "numbered", number: Number(match2[1]), text: (match2[2] ?? "").trim() });
   }
   return lines2;
@@ -10955,14 +10955,14 @@ function rawAnswers(all, markers, byNumber, open) {
       approvedAt: comment.created_at,
       url: comment.html_url
     };
-    for (const line of parseReplyLines(comment.body)) {
-      if (line.kind === "numbered") {
-        if (byNumber.has(line.number)) numbered.set(line.number, { ...source, text: line.text });
+    for (const line2 of parseReplyLines(comment.body)) {
+      if (line2.kind === "numbered") {
+        if (byNumber.has(line2.number)) numbered.set(line2.number, { ...source, text: line2.text });
         continue;
       }
       for (const question of open) {
         if (time(question.since) < answeredAt) {
-          approved.set(question.number, { ...source, text: line.text, approveAll: true });
+          approved.set(question.number, { ...source, text: line2.text, approveAll: true });
         }
       }
     }
@@ -11726,8 +11726,8 @@ function checkReply2(value) {
     (result) => result.success ? [{ quote: result.data.quote.trim(), claims: result.data.claims.map((id) => id.trim()), why: text10(result.data.why) }] : []
   );
   const persona = ReplyPersonaSchema.safeParse("persona" in value ? value.persona ?? {} : {});
-  const { name, line } = persona.success ? persona.data : {};
-  return { errors, reply: { findings, persona: { name: text10(name), line: text10(line) } } };
+  const { name, line: line2 } = persona.success ? persona.data : {};
+  return { errors, reply: { findings, persona: { name: text10(name), line: text10(line2) } } };
 }
 var text10 = (value) => (value === void 0 || value === null ? "" : stringOf(value)).trim();
 var stringOf = (value) => String(value);
@@ -11778,7 +11778,7 @@ function kept({ spec, reply: reply2, claims, constituents, legal, personas }) {
   return { findings, persona };
 }
 var plural3 = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-function judged2({ claims, constituents, legal, findings, persona, judge: judge4 }) {
+function judged2({ claims, constituents, legal, findings, persona, judge: judge5 }) {
   const claimsRead = claims.length;
   if (findings.length === 0) {
     const read = [
@@ -11787,7 +11787,7 @@ function judged2({ claims, constituents, legal, findings, persona, judge: judge4
       ...legal.length ? [`${legal.length} Legal`] : []
     ].join(", ");
     const reason3 = `canon \u2713 \xB7 ${read} read`;
-    return { name: CANON_GATE, ok: true, neutral: false, reason: reason3, details: [], canon: { state: "green", reason: reason3, claimsRead, findings, persona, judge: judge4 } };
+    return { name: CANON_GATE, ok: true, neutral: false, reason: reason3, details: [], canon: { state: "green", reason: reason3, claimsRead, findings, persona, judge: judge5 } };
   }
   const reason2 = `canon \u2717 ${findings.length}`;
   const values = new Map([
@@ -11799,8 +11799,8 @@ function judged2({ claims, constituents, legal, findings, persona, judge: judge4
     (finding) => `${finding.claims.map((id) => `${id} "${values.get(id)}"`).join(", ")} \u2014 the spec: "${finding.quote}"`
   );
   if (persona) details.push(`${persona.name}: "${persona.line}"`);
-  if (judge4?.decidedBy === "jev") details.push(`judged by Jev (constituent-break, confidence ${judge4.confidence})`);
-  return { name: CANON_GATE, ok: false, neutral: false, title: reason2, reason: reason2, details, canon: { state: "red", reason: reason2, claimsRead, findings, persona, judge: judge4 } };
+  if (judge5?.decidedBy === "jev") details.push(`judged by Jev (constituent-break, confidence ${judge5.confidence})`);
+  return { name: CANON_GATE, ok: false, neutral: false, title: reason2, reason: reason2, details, canon: { state: "red", reason: reason2, claimsRead, findings, persona, judge: judge5 } };
 }
 function liveConstituents(read) {
   if (read?.state !== "ok") return [];
@@ -11844,7 +11844,7 @@ function counted2(findings, broken) {
   return findings.map((f) => ({ ...f, claims: f.claims.filter((id) => !isConstituent(id)) })).filter((f) => f.claims.length > 0);
 }
 var NO_JUDGE2 = () => Promise.resolve({ ok: false, error: JUDGE_NOT_CONFIGURED, answer: null, confidence: null, decidedBy: null, reason: "no judge here" });
-function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge4 = NO_JUDGE2, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
+function createCanon({ readBusiness, readConstituents = () => Promise.resolve(null), judge: judge5 = NO_JUDGE2, ask: ask3, cache = /* @__PURE__ */ new Map(), limit = CACHE_LIMIT }) {
   async function modelVerdict({ repo, spec, read }) {
     const { business, claims, constituents, legal, personas, version } = read;
     const key = [repo, createHash3("sha256").update(spec).digest("hex"), business.updatedAt ?? "", version].join("\n");
@@ -11871,7 +11871,7 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
       if (verdict.gate) return verdict.gate;
       if (constituents.length === 0) return judged2({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said = await judge4({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      const said = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
       if (!said.ok) {
         return neutral(said.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said.reason})` : `judge error: ${said.reason}`);
       }
@@ -11953,10 +11953,10 @@ function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
   const { supabase } = env;
   const readBusiness = supabase ? businessReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
   const readConstituents = supabase ? constituentsReader({ ...supabase, fetch: fetch2 }) : () => Promise.resolve(null);
-  const judge4 = constituentJudge({ url: judgeUrl(env.galaxyUrl), secret: env.constituentJudge?.secret, fetch: fetch2 });
+  const judge5 = constituentJudge({ url: judgeUrl(env.galaxyUrl), secret: env.constituentJudge?.secret, fetch: fetch2 });
   const openrouter = env.openrouter ? { key: env.openrouter.key, model: CANON_MODEL } : null;
   const ask3 = (request) => askModel({ ...request, openrouter, fetch: fetch2, call: CANON_CALL, title: "omni loop canon" });
-  return createCanon({ readBusiness, readConstituents, judge: judge4, ask: ask3 });
+  return createCanon({ readBusiness, readConstituents, judge: judge5, ask: ask3 });
 }
 
 // apps/omni-app/src/escalation/sweep.ts
@@ -12055,8 +12055,8 @@ function renderRecord(held) {
 }
 var asStep = (digit) => digit === "2" ? 2 : digit === "1" ? 1 : 0;
 var readAsked = (asked) => asked === NOBODY ? [] : asked.split(", ");
-function readLine(line) {
-  const groups = LINE_RE.exec(line)?.groups;
+function readLine(line2) {
+  const groups = LINE_RE.exec(line2)?.groups;
   if (groups === void 0) return null;
   const field4 = (name) => groups[name] ?? "";
   return {
@@ -12070,8 +12070,8 @@ function readLine(line) {
 }
 function readRecord(body) {
   if (!body.startsWith(RECORD_MARKER)) return null;
-  return body.split("\n").flatMap((line) => {
-    const one = readLine(line.trimEnd());
+  return body.split("\n").flatMap((line2) => {
+    const one = readLine(line2.trimEnd());
     return one === null ? [] : [one];
   });
 }
@@ -12127,12 +12127,12 @@ var lower = (login) => login.toLowerCase();
 function moveDue(lines2, settings, now2, posted) {
   const decisions = decide(lines2.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now2, settings);
   const due = [];
-  const moved = lines2.map((line, index) => {
+  const moved = lines2.map((line2, index) => {
     const decision = decisions[index];
-    if (decision === void 0 || decision.step <= line.step) return line;
-    const already = new Set(line.asked.map(lower));
+    if (decision === void 0 || decision.step <= line2.step) return line2;
+    const already = new Set(line2.asked.map(lower));
     const newlyAsked = decision.asked.filter((login) => !already.has(lower(login)));
-    const announced = posted.some((one) => one.thing === line.thing && one.step >= decision.step);
+    const announced = posted.some((one) => one.thing === line2.thing && one.step >= decision.step);
     if (!announced && newlyAsked.length > 0) due.push({ ...decision, newlyAsked });
     const { thing, kind, firstHeld, step, asked, nextDue } = decision;
     return { thing, kind, firstHeld, step, asked, nextDue };
@@ -12265,8 +12265,8 @@ var FixStampDataSchema = z49.looseObject({
 });
 var FIXES = /^ {0,3}Fixes ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-B[1-9]\d{0,9})(?![\w-])/;
 function fixedRecordOf(body) {
-  for (const line of proseLines(body ?? "")) {
-    const id = FIXES.exec(line)?.[1];
+  for (const line2 of proseLines(body ?? "")) {
+    const id = FIXES.exec(line2)?.[1];
     const parsed3 = id === void 0 ? null : ProductBugIdSchema.safeParse(id);
     if (parsed3?.success) return parsed3.data;
   }
@@ -12979,7 +12979,7 @@ var NO_COMMIT = /^[—–-]$/;
 function duplicateIds2(slices) {
   const counts = /* @__PURE__ */ new Map();
   for (const slice of slices) counts.set(slice.id, (counts.get(slice.id) ?? 0) + 1);
-  return [...counts.entries()].filter(([, count2]) => count2 > 1).map(([id]) => id);
+  return [...counts.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
 }
 function blockedByViolations2(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
@@ -13062,7 +13062,7 @@ function repositoryFlowViolations(slices, { config, targets }) {
     const found = repo === null ? void 0 : targets.get(repo);
     const unreadable = found !== void 0 && !found.ok ? [`flow: ${repo}'s imported flow at ${found.file} cannot be read \u2014 ${found.reason}`] : [];
     const own = repo === planName ? config : found?.ok ? found.config : NO_FLOW;
-    const named = planRuleViolations(group2, resolveFlow(own)).map((line) => line.replace(/^(\w+): /, `$1 (${repo}): `));
+    const named = planRuleViolations(group2, resolveFlow(own)).map((line2) => line2.replace(/^(\w+): /, `$1 (${repo}): `));
     return [...unreadable, ...named];
   });
 }
@@ -13520,7 +13520,7 @@ function failedByName(gates) {
   }
   return [...failed3].map(([name, prds]) => prds.length === 0 ? name : `${name} (PRD ${prds.join(", ")})`).join(", ");
 }
-var plural4 = (count2, word) => `${count2} ${word}${count2 === 1 ? "" : "s"}`;
+var plural4 = (count3, word) => `${count3} ${word}${count3 === 1 ? "" : "s"}`;
 async function canonGateOf({
   canon,
   ctx,
@@ -13848,7 +13848,7 @@ async function post(fetch2, endpoint, key, texts, timeoutMs) {
     throw new Error(`embed: ${late ? `no answer within ${String(timeoutMs)} ms` : "the call failed"}`);
   }
 }
-async function vectorsOf(response, count2) {
+async function vectorsOf(response, count3) {
   if (!response.ok) throw new Error(`embed answered ${String(response.status)}`);
   const parsed3 = AnswerSchema2.safeParse(await response.json().catch(() => null));
   if (!parsed3.success) {
@@ -13856,7 +13856,7 @@ async function vectorsOf(response, count2) {
     throw new Error(`embed answered out of shape: ${issue?.path.join(".") || "(answer)"}: ${issue?.message ?? "malformed"}`);
   }
   const { vectors } = parsed3.data;
-  if (vectors.length !== count2) throw new Error(`embed answered ${String(vectors.length)} vectors for ${String(count2)} texts`);
+  if (vectors.length !== count3) throw new Error(`embed answered ${String(vectors.length)} vectors for ${String(count3)} texts`);
   return vectors;
 }
 var OVER_BUDGET = /* @__PURE__ */ new Set([503, 546]);
@@ -14204,7 +14204,7 @@ function freshLine(one, now2, settings) {
   return { thing, kind, firstHeld, step, asked, nextDue };
 }
 function recordLines2(previous2, { settings, held }, now2) {
-  return held.map((one) => previous2.find((line) => line.thing === one.thing && line.kind === one.kind) ?? freshLine(one, now2, settings));
+  return held.map((one) => previous2.find((line2) => line2.thing === one.thing && line2.kind === one.kind) ?? freshLine(one, now2, settings));
 }
 async function keepRecord(octokit, { owner, repo, prNumber, now: now2, ...holding }) {
   if (!escalates(holding.settings)) return "none";
@@ -14511,7 +14511,7 @@ var TRAILER = /^co-authored-by:.*<([^>]+)>$/i;
 function carriesOmniTrailer(message) {
   if (typeof message !== "string") return false;
   const email = SIGNATURE.email.toLowerCase();
-  return message.split("\n").some((line) => TRAILER.exec(line.trim())?.[1]?.trim().toLowerCase() === email);
+  return message.split("\n").some((line2) => TRAILER.exec(line2.trim())?.[1]?.trim().toLowerCase() === email);
 }
 function isOmniSigned({ author, body, commitMessages }) {
   return author === OMNI_LOGIN || isSignedBody(body) || (commitMessages ?? []).some(carriesOmniTrailer);
@@ -15006,19 +15006,19 @@ function readFields2(raw) {
   const fields = {};
   const errors = [];
   let last = null;
-  for (const line of raw.split("\n")) {
-    if (line.trim() === "") continue;
-    const match2 = /^\s/.test(line) ? null : line.match(FIELD_LINE2);
+  for (const line2 of raw.split("\n")) {
+    if (line2.trim() === "") continue;
+    const match2 = /^\s/.test(line2) ? null : line2.match(FIELD_LINE2);
     if (match2) {
       const [, key = "", value = ""] = match2;
       if (Object.hasOwn(fields, key)) errors.push(`front matter holds ${key} twice`);
       fields[key] = value;
       last = key;
-    } else if (last !== null && /^\s/.test(line)) {
+    } else if (last !== null && /^\s/.test(line2)) {
       fields[last] = `${fields[last] ?? ""}
-${line.trim()}`;
+${line2.trim()}`;
     } else {
-      errors.push(`front matter line is not "key: value": "${line}"`);
+      errors.push(`front matter line is not "key: value": "${line2}"`);
     }
   }
   return { fields, errors };
@@ -15028,7 +15028,7 @@ function splitNote(text19) {
   return match2 ? { front: match2[1] ?? "", body: match2[2] ?? "" } : null;
 }
 function bodyLines(body) {
-  const lines2 = body.split("\n").map((line) => line.trim());
+  const lines2 = body.split("\n").map((line2) => line2.trim());
   while (lines2.length && lines2[0] === "") lines2.shift();
   while (lines2.length && lines2.at(-1) === "") lines2.pop();
   return lines2;
@@ -15078,9 +15078,9 @@ function descriptionViolations(lines2, description) {
   const out = [];
   if (characters(description) > DESCRIPTION_MAX) out.push(`description is ${characters(description)} characters \u2014 ${DESCRIPTION_MAX} at most`);
   if (lines2.includes("")) out.push("description holds a blank line \u2014 one paragraph");
-  const heading = lines2.find((line) => HEADING3.test(line));
+  const heading = lines2.find((line2) => HEADING3.test(line2));
   if (heading) out.push(`description holds a heading ("${heading}") \u2014 one paragraph of prose`);
-  const item = lines2.find((line) => LIST_ITEM.test(line));
+  const item = lines2.find((line2) => LIST_ITEM.test(line2));
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
@@ -15510,14 +15510,14 @@ function headingAnchors(text19) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line of text19.split("\n")) {
-    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
-    const match2 = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
+  for (const line2 of text19.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line2)) fenced = !fenced;
+    const match2 = !fenced && line2.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match2) continue;
     const base = (match2[1] ?? "").replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
-    const count2 = seen.get(base) ?? 0;
-    seen.set(base, count2 + 1);
-    anchors.add(count2 === 0 ? base : `${base}-${count2}`);
+    const count3 = seen.get(base) ?? 0;
+    seen.set(base, count3 + 1);
+    anchors.add(count3 === 0 ? base : `${base}-${count3}`);
   }
   return anchors;
 }
@@ -15902,7 +15902,7 @@ var ClassificationSchema = z69.discriminatedUnion(
   }
 });
 function firstLine3(value) {
-  return value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? null;
+  return value.split("\n").find((line2) => line2.trim().length > 0)?.trim() ?? null;
 }
 function knowledgeSummary({ ctx }) {
   const places = {
@@ -16237,7 +16237,7 @@ function appendEntry(text19, entry, { heading }) {
 `;
   if (!/^## /m.test(base)) {
     const lines2 = base.split("\n");
-    const start = lines2.findIndex((line) => NONE_YET.test(line));
+    const start = lines2.findIndex((line2) => NONE_YET.test(line2));
     if (start !== -1) {
       let end = start;
       while (end < lines2.length && (lines2[end] ?? "").trim() !== "") end += 1;
@@ -16292,7 +16292,7 @@ function renderRecord2({
     ""
   ].join("\n");
 }
-function addLedgerLine(text19, { id, line, markers }) {
+function addLedgerLine(text19, { id, line: line2, markers }) {
   const lines2 = text19.split("\n");
   const open = lines2.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
@@ -16304,7 +16304,7 @@ function addLedgerLine(text19, { id, line, markers }) {
     else if (at4 !== -1) break;
   }
   if (at4 === -1) return null;
-  lines2.splice(at4 + 1, 0, line);
+  lines2.splice(at4 + 1, 0, line2);
   return lines2.join("\n");
 }
 function servedBy2(reply2, nextPrinciple) {
@@ -16641,7 +16641,7 @@ function runChecks(ctx) {
   const outbox = findOutboxViolations({ ctx });
   return { knowledge, outbox };
 }
-var newOnes = (after2, before2) => after2.filter((line) => !before2.includes(line));
+var newOnes = (after2, before2) => after2.filter((line2) => !before2.includes(line2));
 var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
 function servedPrinciple(reply2, summary2) {
   if (reply2.serves === NEW_PRINCIPLE) return `${NEW_PRINCIPLE}: ${reply2.principle?.statement ?? ""}`.trim();
@@ -17255,7 +17255,7 @@ var marker = (prefix, name) => `<!-- ${prefix}-${name} -->`;
 var FAILURE_MARKER = marker(MARKER_PREFIX, "knowledge-harvest-failed");
 var verdictMarker = (prefix) => marker(prefix, "knowledge-verdict");
 var VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
-var nothingNewText = (count2) => `Knowledge: nothing new \u2014 ${count2} ${count2 === 1 ? "candidate" : "candidates"} stayed local.`;
+var nothingNewText = (count3) => `Knowledge: nothing new \u2014 ${count3} ${count3 === 1 ? "candidate" : "candidates"} stayed local.`;
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function proposedProofs(classified, changed) {
   const kept3 = new Set(keptPaths(changed));
@@ -17263,24 +17263,24 @@ function proposedProofs(classified, changed) {
   return [...new Set(proposed)].filter((path) => kept3.has(path)).sort();
 }
 var asksWorth = (classified) => classified.some(({ reply: reply2 }) => reply2 !== null && "worthALaw" in reply2 && reply2.worthALaw !== void 0);
-async function judged3(judge4, question, asked) {
+async function judged3(judge5, question, asked) {
   try {
-    return await judge4(question, asked);
+    return await judge5(question, asked);
   } catch (error) {
     return { worth: null, reason: `the law judge failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-async function lawAnswers(step, judge4, { questions, repo, prd }) {
+async function lawAnswers(step, judge5, { questions, repo, prd }) {
   const worth = {};
   for (const question of await savedStep(step, "law-questions", LawQuestionsSchema, questions)) {
     const asked = { repo, ref: `PRD ${prd} ${question.id}` };
-    worth[question.id] = (await savedStep(step, `law-worth:${question.id}`, LawJudgementSchema, () => judged3(judge4, question, asked))).worth;
+    worth[question.id] = (await savedStep(step, `law-worth:${question.id}`, LawJudgementSchema, () => judged3(judge5, question, asked))).worth;
   }
   return worth;
 }
-async function worthAnswered(step, { judge: judge4, laws, classified, questions, repo, prd }) {
+async function worthAnswered(step, { judge: judge5, laws, classified, questions, repo, prd }) {
   const replies = laws ? classified : withoutWorth(classified);
-  const worth = judge4 && asksWorth(replies) ? await lawAnswers(step, judge4, { questions: () => questions(replies), repo, prd }) : {};
+  const worth = judge5 && asksWorth(replies) ? await lawAnswers(step, judge5, { questions: () => questions(replies), repo, prd }) : {};
   return replies.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
 }
 async function writeWithLaws(step, { write: write2, open }) {
@@ -17579,8 +17579,8 @@ function linksPrd(body, prd) {
   return new RegExp(`\\bFor PRD #${prd}(?!\\d)`).test(body ?? "");
 }
 var REFERENCE2 = /([\w.-]+\/[\w.-]+)#(\d+)|github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
-function rowPr(line) {
-  const match2 = line.match(REFERENCE2);
+function rowPr(line2) {
+  const match2 = line2.match(REFERENCE2);
   const slug = match2?.[1] ?? match2?.[3];
   const number = match2?.[2] ?? match2?.[4];
   return slug && number ? { slug, pr: parsePr(number) } : null;
@@ -17589,8 +17589,8 @@ function fixPlanRows(body) {
   const text19 = body ?? "";
   if (!text19.includes(FIX_PLAN_MARKER)) return [];
   const rows = [];
-  for (const line of text19.split("\n")) {
-    const found = line.trim().startsWith("|") ? rowPr(line) : null;
+  for (const line2 of text19.split("\n")) {
+    const found = line2.trim().startsWith("|") ? rowPr(line2) : null;
     if (found && !rows.some((row) => row.slug === found.slug && row.pr === found.pr)) rows.push(found);
   }
   return rows;
@@ -17863,10 +17863,10 @@ function bugLines(facts, bugsUnread) {
   return [`- ${issues} opened within ${facts.days} days of the merge: ${facts.fixed} fixed within those days, ${facts.linked} linked to churn.`];
 }
 function megaLine(facts) {
-  const count2 = facts.mega?.bugs ?? 0;
-  if (count2 === 0) return [];
-  const which = count2 === 1 ? "1 of them carries" : `${count2} of them carry`;
-  const plans = count2 === 1 ? "its fix plan" : "their fix plans";
+  const count3 = facts.mega?.bugs ?? 0;
+  if (count3 === 0) return [];
+  const which = count3 === 1 ? "1 of them carries" : `${count3} of them carry`;
+  const plans = count3 === 1 ? "its fix plan" : "their fix plans";
   return [`- ${which} \`For PRD #${facts.prd}\`: the pull requests of ${plans} were read in their own repositories.`];
 }
 function bugLine(bug, fixUrl) {
@@ -17968,8 +17968,8 @@ function daysText(days) {
   if (days < 1) return "less than a day";
   return days === 1 ? "1 day" : `${days} days`;
 }
-function plural5(count2, noun) {
-  return `${count2} ${noun}${count2 === 1 ? "" : "s"}`;
+function plural5(count3, noun) {
+  return `${count3} ${noun}${count3 === 1 ? "" : "s"}`;
 }
 function and(items, last = " and ") {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}${last}${items.at(-1)}`;
@@ -18010,9 +18010,9 @@ function isLockfile(path) {
 function linguistGenerated(gitattributes) {
   const rules = [];
   for (const raw of (gitattributes ?? "").split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-    const [pattern = "", ...attributes] = line.split(/\s+/);
+    const line2 = raw.trim();
+    if (!line2 || line2.startsWith("#")) continue;
+    const [pattern = "", ...attributes] = line2.split(/\s+/);
     let generated;
     for (const attribute of attributes) {
       if (attribute === "linguist-generated" || attribute === "linguist-generated=true") generated = true;
@@ -18374,12 +18374,12 @@ var COUNT_KEYS = Object.freeze({
   total: "total"
 });
 function cleanLog(text19) {
-  return plainText(text19).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
+  return plainText(text19).replace(/^﻿/, "").split(/\r?\n/).map((line2) => line2.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
-function tailOf(text19, count2) {
+function tailOf(text19, count3) {
   const lines2 = plainText(text19).split("\n");
   if (lines2.at(-1) === "") lines2.pop();
-  return lines2.slice(-count2).join("\n");
+  return lines2.slice(-count3).join("\n");
 }
 function readTestLog(text19) {
   const lines2 = cleanLog(text19).split("\n");
@@ -18392,10 +18392,10 @@ function readTestLog(text19) {
 }
 var pytest = {
   id: "pytest",
-  detects: (lines2) => lines2.some((line) => /^=+ (test session starts|short test summary info) =+$/.test(line) || PYTEST_SUMMARY.test(line)),
+  detects: (lines2) => lines2.some((line2) => /^=+ (test session starts|short test summary info) =+$/.test(line2) || PYTEST_SUMMARY.test(line2)),
   read(lines2) {
-    const tests = present(lines2.map((line) => /^FAILED (.+?)(?: - .*)?$/.exec(line.trim())?.[1]));
-    const summary2 = lines2.filter((line) => PYTEST_SUMMARY.test(line)).at(-1);
+    const tests = present(lines2.map((line2) => /^FAILED (.+?)(?: - .*)?$/.exec(line2.trim())?.[1]));
+    const summary2 = lines2.filter((line2) => PYTEST_SUMMARY.test(line2)).at(-1);
     return { tests, counts: summary2 ? countsIn(PYTEST_SUMMARY.exec(summary2)?.[1] ?? "") : null };
   }
 };
@@ -18404,10 +18404,10 @@ var PLAYWRIGHT_HEADER = /^\s*\d+\) (.+? › .+?)\s*[─═=-]*\s*$/;
 var PLAYWRIGHT_COUNT = /^\s*(\d+) (failed|flaky|passed|skipped|interrupted|did not run)(?: \(.*\))?\s*$/;
 var playwright = {
   id: "playwright",
-  detects: (lines2) => lines2.some((line) => /^Running \d+ tests? using \d+ workers?/.test(line.trim()) || PLAYWRIGHT_HEADER.test(line)),
+  detects: (lines2) => lines2.some((line2) => /^Running \d+ tests? using \d+ workers?/.test(line2.trim()) || PLAYWRIGHT_HEADER.test(line2)),
   read(lines2) {
     const { counts, listed } = playwrightSummary(lines2);
-    const failed3 = Object.keys(counts).length > 0 ? listed : present(lines2.map((line) => PLAYWRIGHT_HEADER.exec(line)?.[1]));
+    const failed3 = Object.keys(counts).length > 0 ? listed : present(lines2.map((line2) => PLAYWRIGHT_HEADER.exec(line2)?.[1]));
     return { tests: failed3.map(playwrightName), counts: Object.keys(counts).length > 0 ? counts : null };
   }
 };
@@ -18415,22 +18415,22 @@ function playwrightSummary(lines2) {
   const counts = {};
   const listed = [];
   let section4 = null;
-  for (const line of lines2) {
-    const count2 = PLAYWRIGHT_COUNT.exec(line);
-    if (count2) {
-      section4 = keptCount(counts, count2);
+  for (const line2 of lines2) {
+    const count3 = PLAYWRIGHT_COUNT.exec(line2);
+    if (count3) {
+      section4 = keptCount(counts, count3);
       continue;
     }
-    const entry = /^\s{2,}(\S.*? › .+?)\s*[─═=-]*\s*$/.exec(line);
+    const entry = /^\s{2,}(\S.*? › .+?)\s*[─═=-]*\s*$/.exec(line2);
     if (section4 === "failed" && entry?.[1] !== void 0) listed.push(entry[1]);
-    else if (line.trim() !== "") section4 = null;
+    else if (line2.trim() !== "") section4 = null;
   }
   return { counts, listed };
 }
-function keptCount(counts, count2) {
-  const section4 = count2[2] ?? null;
+function keptCount(counts, count3) {
+  const section4 = count3[2] ?? null;
   const key = section4 === null ? void 0 : COUNT_KEYS[section4];
-  if (key) counts[key] = Number(count2[1]);
+  if (key) counts[key] = Number(count3[1]);
   return section4;
 }
 function playwrightName(title) {
@@ -18439,21 +18439,21 @@ function playwrightName(title) {
 var JEST_SKIPPED = /^(Console|Validation Warning|Validation Error|Deprecation Warning)\b/;
 var jest = {
   id: "jest",
-  detects: (lines2) => lines2.some((line) => /^(Tests|Test Suites):\s+\d/.test(line.trim()) || /^\s*● \S/.test(line)),
+  detects: (lines2) => lines2.some((line2) => /^(Tests|Test Suites):\s+\d/.test(line2.trim()) || /^\s*● \S/.test(line2)),
   read(lines2) {
     const tests = [];
     let file = null;
-    for (const line of lines2) {
-      const fail = /^\s*FAIL\s+(\S+)/.exec(line);
+    for (const line2 of lines2) {
+      const fail = /^\s*FAIL\s+(\S+)/.exec(line2);
       if (fail?.[1] !== void 0) file = fail[1];
-      else tests.push(...jestFailed(line, file));
+      else tests.push(...jestFailed(line2, file));
     }
-    const summary2 = present(lines2.map((line) => /^\s*Tests:\s+(.+)$/.exec(line)?.[1])).at(-1);
+    const summary2 = present(lines2.map((line2) => /^\s*Tests:\s+(.+)$/.exec(line2)?.[1])).at(-1);
     return { tests, counts: summary2 ? countsIn(summary2) : null };
   }
 };
-function jestFailed(line, file) {
-  const block = /^\s*● (.+?)\s*$/.exec(line);
+function jestFailed(line2, file) {
+  const block = /^\s*● (.+?)\s*$/.exec(line2);
   if (block?.[1] === void 0 || JEST_SKIPPED.test(block[1])) return [];
   if (block[1] === "Test suite failed to run") return file ? [file] : [];
   return [normalize3(file ? `${file} \u203A ${block[1]}` : block[1])];
@@ -18461,24 +18461,24 @@ function jestFailed(line, file) {
 var VITEST_SUMMARY = /^\s*Tests\s{2,}(.+)$/;
 var vitest = {
   id: "vitest",
-  detects: (lines2) => lines2.some((line) => /^\s*Test Files\s{2,}\d/.test(line) || VITEST_SUMMARY.test(line) || /^\s*FAIL\s{2,}\S.* > /.test(line)),
+  detects: (lines2) => lines2.some((line2) => /^\s*Test Files\s{2,}\d/.test(line2) || VITEST_SUMMARY.test(line2) || /^\s*FAIL\s{2,}\S.* > /.test(line2)),
   read(lines2) {
-    const failLines = present(lines2.map((line) => /^\s*FAIL\s{2,}(\S.*?)\s*$/.exec(line)?.[1])).map((rest) => normalize3(rest.replace(/\s+\[\s*.+?\s*\]$/, "")));
+    const failLines = present(lines2.map((line2) => /^\s*FAIL\s{2,}(\S.*?)\s*$/.exec(line2)?.[1])).map((rest) => normalize3(rest.replace(/\s+\[\s*.+?\s*\]$/, "")));
     const tests = failLines.length > 0 ? failLines : vitestCrosses(lines2);
-    const summary2 = present(lines2.map((line) => VITEST_SUMMARY.exec(line)?.[1])).at(-1);
+    const summary2 = present(lines2.map((line2) => VITEST_SUMMARY.exec(line2)?.[1])).at(-1);
     return { tests, counts: summary2 ? countsIn(summary2) : null };
   }
 };
 function vitestCrosses(lines2) {
   const tests = [];
   let file = null;
-  for (const line of lines2) {
-    const header2 = /^\s*❯\s+(\S+)\s+\(\d+ tests?\b/.exec(line);
+  for (const line2 of lines2) {
+    const header2 = /^\s*❯\s+(\S+)\s+\(\d+ tests?\b/.exec(line2);
     if (header2?.[1] !== void 0) {
       file = header2[1];
       continue;
     }
-    const cross = /^\s*[×✗]\s+(.+?)(?:\s+\d+(?:\.\d+)?m?s)?\s*$/.exec(line);
+    const cross = /^\s*[×✗]\s+(.+?)(?:\s+\d+(?:\.\d+)?m?s)?\s*$/.exec(line2);
     if (cross?.[1] !== void 0) tests.push(normalize3(file ? `${file} > ${cross[1]}` : cross[1]));
   }
   return tests;
@@ -19055,8 +19055,8 @@ function byAuthorKind(items) {
   const bots = items.filter((item) => item.bot).length;
   return { people: items.length - bots, bots };
 }
-function plural6(count2, word) {
-  return `${count2} ${count2 === 1 ? word : `${word}s`}`;
+function plural6(count3, word) {
+  return `${count3} ${count3 === 1 ? word : `${word}s`}`;
 }
 function joinAnd(parts) {
   return parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
@@ -19253,7 +19253,7 @@ var delivery = Object.freeze({
 function decisionsLine(decisions) {
   if (!decisions.file) return "- Decisions: no settled file at the merge, so no decision is counted.";
   const drifted = decisions.drifted > 0 ? `${decisions.drifted} drifted, ${decisions.reworked} of them reworked` : `${decisions.drifted} drifted`;
-  const ranks = Object.entries(decisions.byRank).map(([rank, count2]) => `${count2} ${rank}`);
+  const ranks = Object.entries(decisions.byRank).map(([rank, count3]) => `${count3} ${rank}`);
   return `- Decisions: ${decisions.raised} raised and settled \u2014 ${decisions.adopted} adopted, ${decisions.agreed} agreed, ${drifted}${ranks.length > 0 ? `; by rank: ${ranks.join(", ")}` : ""}.`;
 }
 function overrideLine(override) {
@@ -19513,8 +19513,8 @@ function firstSentence2(text19) {
 function lineOf3(item) {
   const flat = item.replace(/\s+/g, " ").trim();
   const bold = BOLD_HEAD.exec(flat);
-  const line = bold ? `${bold[1] ?? ""} ${firstSentence2(flat.slice(bold[0].length))}`.trim() : firstSentence2(flat);
-  return line.length > LINE_MAX ? `${line.slice(0, LINE_MAX - 1)}\u2026` : line;
+  const line2 = bold ? `${bold[1] ?? ""} ${firstSentence2(flat.slice(bold[0].length))}`.trim() : firstSentence2(flat);
+  return line2.length > LINE_MAX ? `${line2.slice(0, LINE_MAX - 1)}\u2026` : line2;
 }
 function rulesOf(paragraph) {
   const rows = paragraph.split("\n");
@@ -19526,7 +19526,7 @@ function formLines(form2) {
   return form2.slots.flatMap((slot) => {
     if (slot.body.kind !== "text") return [];
     const id = `playbook/${form2.id}#${slot.id}`;
-    return slot.body.text.split(/\n\s*\n/).flatMap(rulesOf).map((line) => ({ id, line }));
+    return slot.body.text.split(/\n\s*\n/).flatMap(rulesOf).map((line2) => ({ id, line: line2 }));
   });
 }
 function playbookLines({ ctx }) {
@@ -19988,12 +19988,12 @@ function kindSection(kind, runs, findings, prose, issues) {
 }
 function repositoriesSection(repositories) {
   if (!repositories) return [];
-  const line = (one) => {
+  const line2 = (one) => {
     if (!one.read) return `- ${one.repo}: not read \u2014 ${one.reason ?? "no reason given"}`;
     const pulls = one.featurePrs.map((pull) => pull.url ? `[#${pull.number}](${pull.url})` : `#${pull.number}`).join(", ");
     return `- ${one.repo}${one.plan ? " (plan repository)" : ""}: feature PR ${pulls}`;
   };
-  return ["## Repositories", "", ...repositories.map(line), ""];
+  return ["## Repositories", "", ...repositories.map(line2), ""];
 }
 function repoOf(finding, repositories) {
   return finding.repo ?? repositories.find((one) => one.plan)?.repo;
@@ -20053,8 +20053,8 @@ function prBody(latest, { findings, prose, issues, outcomes }, apply) {
   });
   const findingLines = (finding) => {
     const outcome3 = outcomes[finding.id];
-    const line = `- ${[`${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 ")}`;
-    return outcome3 ? [line, `  ${outcomeLine(outcome3)}`] : [line];
+    const line2 = `- ${[`${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``, issueLink(issues[finding.id])].filter(Boolean).join(" \xB7 ")}`;
+    return outcome3 ? [line2, `  ${outcomeLine(outcome3)}`] : [line2];
   };
   const lines2 = [
     `Refs #${latest.prd.number}`,
@@ -20478,8 +20478,8 @@ async function publishRun({ step, github, queue, installationId, owner, repo, pr
     PublishedSchema,
     async () => publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] })
   );
-  const line = published.apply ?? null;
-  const queued = queue && line ? await savedStep(step, id("queue-apply"), QueuedSchema, () => queue({ installationId, repository: `${owner}/${repo}`, line })) : null;
+  const line2 = published.apply ?? null;
+  const queued = queue && line2 ? await savedStep(step, id("queue-apply"), QueuedSchema, () => queue({ installationId, repository: `${owner}/${repo}`, line: line2 })) : null;
   return { sheet, prose, known, record, published, comment: null, verdict, queued };
 }
 function verdictOf2(prose, narrationReason) {
@@ -20551,9 +20551,9 @@ function retroFolder(prd, config) {
 function inFolder2(sheet, folder) {
   return sheet.prd.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
 }
-function numberedAfter(sheet, count2) {
-  if (count2 === 0) return sheet;
-  return { ...sheet, findings: sheet.findings.map((finding, index) => ({ ...finding, ref: `F${count2 + index + 1}` })) };
+function numberedAfter(sheet, count3) {
+  if (count3 === 0) return sheet;
+  return { ...sheet, findings: sheet.findings.map((finding, index) => ({ ...finding, ref: `F${count3 + index + 1}` })) };
 }
 function outcome({ sheet, record, published, comment, verdict, queued }) {
   const counts = { findings: sheet.findings.length, issues: Object.keys(record.issues).length };
@@ -20651,11 +20651,221 @@ async function exists(octokit, { owner, repo, branch }) {
   }
 }
 
-// apps/omni-app/src/missions/job.ts
+// apps/omni-app/src/missions/join.ts
+import { mkdtempSync as mkdtempSync13, rmSync as rmSync17 } from "node:fs";
+import { tmpdir as tmpdir13 } from "node:os";
+import { join as join69 } from "node:path";
 import { z as z80 } from "zod";
+var PullSchema4 = z80.looseObject({
+  html_url: z80.string(),
+  title: z80.string(),
+  state: z80.string(),
+  draft: z80.boolean().nullish(),
+  merged: z80.boolean().nullish(),
+  merged_at: z80.string().nullish(),
+  base: z80.looseObject({ ref: z80.string(), repo: z80.looseObject({ default_branch: z80.string() }) }),
+  head: z80.looseObject({ sha: z80.string() })
+});
+var CheckRunsSchema2 = z80.looseObject({
+  check_runs: z80.array(
+    z80.looseObject({ id: z80.number(), name: z80.string(), status: z80.string(), conclusion: z80.string().nullish(), output: z80.looseObject({ title: z80.string().nullish() }).nullish() })
+  )
+});
+var StatusSchema = z80.looseObject({ statuses: z80.array(z80.looseObject({ context: z80.string(), state: z80.string(), description: z80.string().nullish() })) });
+var ReviewsSchema = z80.array(z80.looseObject({ body: z80.string().nullish(), commit_id: z80.string().nullish() }));
+var REFUSED2 = /* @__PURE__ */ new Set([405, 409, 422]);
+var DefaultBranchMergeError = class extends Error {
+  constructor(branch) {
+    super(`refusing to merge into ${branch}, the default branch: only a person merges there`);
+    this.name = "DefaultBranchMergeError";
+  }
+};
+async function openItemsAt(octokit, { owner, repo, ref, prd }) {
+  const folder = mkdtempSync13(join69(tmpdir13(), "omni-join-"));
+  try {
+    const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
+    if (!config) return { notRead: error ? `its .omni-loop/config.yml cannot be read: ${error.message.split("\n")[0] ?? ""}` : "its head has no .omni-loop/config.yml" };
+    const outbox = createContext(folder, config).layout.dirs.outbox;
+    const ofPrd = (path) => parseFolderName(path.slice(outbox.length + 1).split("/")[0] ?? "")?.prd === prd;
+    await snapshot(octokit, { owner, repo, ref, paths: [outbox], dest: folder, fetchIf: ofPrd });
+    return { ranks: openItems(prd, { ctx: createContext(folder, config) }).map(({ rank }) => rank) };
+  } finally {
+    rmSync17(folder, { recursive: true, force: true });
+  }
+}
+function missionJoins({ octokitFor }) {
+  return {
+    async read({ installation, repo: slug, prd, pr }) {
+      const [owner = "", repo = ""] = slug.split("/");
+      const octokit = await octokitFor(installation);
+      const pull = PullSchema4.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { owner, repo, pull_number: pr })).data);
+      const ref = pull.head.sha;
+      const runs = await paginate(
+        async (page) => CheckRunsSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref, per_page: PER_PAGE, page })).data).check_runs
+      );
+      const status = StatusSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/status", { owner, repo, ref, per_page: PER_PAGE })).data);
+      const reviews = await paginate(async (page) => ReviewsSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews", { owner, repo, pull_number: pr, per_page: PER_PAGE, page })).data));
+      const merged = pull.merged === true || (pull.merged_at ?? null) !== null;
+      return {
+        number: pr,
+        url: pull.html_url,
+        title: pull.title,
+        state: pull.state,
+        draft: pull.draft === true,
+        merged,
+        base: pull.base.ref,
+        defaultBranch: pull.base.repo.default_branch,
+        head: ref,
+        runs: runs.map((one) => ({ id: one.id, name: one.name, status: one.status, conclusion: one.conclusion ?? null, title: one.output?.title ?? null })),
+        statuses: status.statuses.map((one) => ({ context: one.context, state: one.state, description: one.description ?? null })),
+        reviews: reviews.map((one) => ({ body: one.body ?? null, commit: one.commit_id ?? null })),
+        // A merged or closed pull request merges nothing: its outbox is not read.
+        items: merged || pull.state !== "open" ? { ranks: [] } : await openItemsAt(octokit, { owner, repo, ref, prd })
+      };
+    },
+    async merge({ installation, repo: slug, pr, head, title, base, defaultBranch }) {
+      if (base === defaultBranch) throw new DefaultBranchMergeError(base);
+      const [owner = "", repo = ""] = slug.split("/");
+      const octokit = await octokitFor(installation);
+      try {
+        await octokit.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", { owner, repo, pull_number: pr, merge_method: "squash", sha: head, commit_title: `${title} (#${String(pr)})` });
+        return { ok: true };
+      } catch (error) {
+        const status = statusOf(error);
+        if (typeof status === "number" && REFUSED2.has(status)) return { ok: false, why: `GitHub refused the merge: ${String(messageOf2(error)).split("\n")[0] ?? ""}` };
+        throw error;
+      }
+    }
+  };
+}
+
+// apps/omni-app/src/missions/job.ts
+import { z as z82 } from "zod";
+
+// kit/lib/review/verdict.ts
+import { z as z81 } from "zod";
+var REVIEW_ROUNDS = 2;
+var MAX_FINDINGS = 5;
+var SEVERITIES = Object.freeze(["blocker", "major", "minor"]);
+var VERDICTS2 = Object.freeze(["pass", "changes"]);
+var ONE_LINE = "one line";
+var MAX_TEXT2 = 500;
+var line = (what) => z81.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text19) => !text19.includes("\n"), `${ONE_LINE}: ${what}`);
+var RepoPathSchema = z81.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
+var FindingSchema5 = z81.strictObject({
+  file: RepoPathSchema,
+  line: z81.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
+  severity: z81.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
+  rule: line("the rule it breaks: a law or rule id, a playbook form and section, or default \u203A <item>"),
+  problem: line("what is wrong"),
+  fix: line("what would fix it")
+});
+var VerdictSchema5 = z81.strictObject({
+  round: z81.union([z81.literal(1), z81.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
+  verdict: z81.enum(VERDICTS2, { error: `one of ${VERDICTS2.join(", ")}` }),
+  summary: line("the summary").optional(),
+  findings: z81.array(FindingSchema5).default([])
+}).superRefine((verdict, context) => {
+  const count3 = verdict.findings.length;
+  if (verdict.verdict === "pass" && count3 > 0) {
+    context.addIssue({ code: "custom", path: ["findings"], message: "a pass holds no finding" });
+  }
+  if (verdict.verdict === "changes" && (count3 === 0 || count3 > MAX_FINDINGS)) {
+    context.addIssue({ code: "custom", path: ["findings"], message: `a changes verdict holds 1 to ${String(MAX_FINDINGS)} findings, got ${String(count3)}` });
+  }
+});
+var MARKER_RE = /<!-- omni-review: (\d+) ([a-z]+) -->/;
+var KNOWN_VERDICTS = VERDICTS2;
+var isVerdictName = (value) => KNOWN_VERDICTS.includes(value);
+function readReviewMarker(body) {
+  const match2 = MARKER_RE.exec(body ?? "");
+  const round = Number(match2?.[1]);
+  const verdict = match2?.[2] ?? "";
+  if (!Number.isInteger(round) || round < 1 || round > REVIEW_ROUNDS || !isVerdictName(verdict)) return null;
+  return { round, verdict };
+}
+
+// apps/omni-app/src/missions/gate.ts
+var PASSED = "success";
+var UNDECIDED = /* @__PURE__ */ new Set(["neutral", "skipped", "cancelled"]);
+function runVerdict(run) {
+  if (run.status !== "completed") return { name: run.name, state: "not-finished", why: null };
+  const conclusion = run.conclusion ?? "none";
+  if (conclusion === PASSED) return { name: run.name, state: "pass", why: null };
+  if (UNDECIDED.has(conclusion)) return { name: run.name, state: "not-judged", why: run.title ?? conclusion };
+  return { name: run.name, state: "fail", why: conclusion };
+}
+function judgedRun(runs) {
+  const latestFirst = [...runs].sort((a, b) => b.id - a.id);
+  const latest = latestFirst[0];
+  if (latest === void 0 || latest.status !== "completed") return latest;
+  return latestFirst.find((run) => run.status === "completed" && run.conclusion !== "skipped") ?? latest;
+}
+function statusVerdict(status) {
+  if (status.state === PASSED) return { name: status.context, state: "pass", why: null };
+  if (status.state === "pending") return { name: status.context, state: "not-finished", why: null };
+  return { name: status.context, state: "fail", why: status.description ?? status.state };
+}
+function checksOf2(runs, statuses) {
+  const byName = /* @__PURE__ */ new Map();
+  for (const run of runs) byName.set(run.name, [...byName.get(run.name) ?? [], run]);
+  const judged4 = [...byName.values()].flatMap((named) => {
+    const run = judgedRun(named);
+    return run === void 0 ? [] : [runVerdict(run)];
+  });
+  return [...judged4, ...statuses.map(statusVerdict)].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+}
+function checkLacks(checks) {
+  if (checks.length === 0) return ["no check has run on its head"];
+  return checks.flatMap(({ name, state, why }) => {
+    if (state === "fail") return [`${name} failed`];
+    if (state === "not-judged") return [`${name} not judged: ${why ?? "it ended without deciding"}`];
+    return state === "not-finished" ? [`${name} not finished`] : [];
+  });
+}
+function latestVerdict(reviews) {
+  let latest = null;
+  for (const review of reviews) {
+    const marker2 = readReviewMarker(review.body);
+    if (marker2 && (latest === null || marker2.round >= latest.round)) latest = { ...marker2, commit: review.commit };
+  }
+  return latest;
+}
+function reviewLacks(reviews, head) {
+  const latest = latestVerdict(reviews);
+  if (latest === null) return ["the Reviewer has not reviewed it"];
+  if (latest.verdict !== "pass") return [`the Reviewer asked for changes in round ${String(latest.round)}`];
+  return latest.commit === head ? [] : ["the Reviewer passed an older commit, not its head"];
+}
+var count2 = (n, what) => `${String(n)} ${what} item${n === 1 ? "" : "s"}`;
+function itemLacks(items) {
+  if ("notRead" in items) return [`its outbox not judged: ${items.notRead}`];
+  const high = items.ranks.filter((rank) => rank === "high").length;
+  const human = items.ranks.filter((rank) => rank === "human-action").length;
+  const unread = items.ranks.filter((rank) => rank === null).length;
+  return [
+    ...human > 0 ? [`${count2(human, "human-action")} open`] : [],
+    ...high > 0 ? [`${count2(high, "high")} open`] : [],
+    ...unread > 0 ? [`${count2(unread, "unreadable")} in its outbox`] : []
+  ];
+}
+function judge3(pull, branch) {
+  const pr = `#${String(pull.number)}`;
+  if (pull.merged) return pull.base === branch ? { decision: "joined" } : { decision: "waits", lacks: [`${pr} was merged into ${pull.base}, not ${branch}`] };
+  if (pull.base !== branch || pull.base === pull.defaultBranch) return { decision: "waits", lacks: [`${pr} targets ${pull.base}, not ${branch}`] };
+  if (pull.state !== "open") return { decision: "waits", lacks: [`${pr} is closed`] };
+  const lacks = [
+    ...pull.draft ? [`${pr} is a draft`] : [],
+    ...checkLacks(checksOf2(pull.runs, pull.statuses)),
+    ...reviewLacks(pull.reviews, pull.head),
+    ...itemLacks(pull.items)
+  ];
+  return lacks.length === 0 ? { decision: "merge" } : { decision: "waits", lacks };
+}
 
 // apps/omni-app/src/missions/supervisor.ts
 var STEPS = ["build", "review:1", "fix:1", "review:2"];
+var NO_BRANCH = { branch: null, joined: /* @__PURE__ */ new Set(), lacks: /* @__PURE__ */ new Map() };
 var WAKE_MS = 6e4;
 var WORDS_MAX = 300;
 var LAST_RUN = 2;
@@ -20690,10 +20900,10 @@ var REVIEW_URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull
 var POSTED = /omni review: posted round [12] \((pass|changes, (\d+) findings?)\) on PR #\d+: (\S+)$/;
 var ALREADY = /omni review: round [12] is already posted on PR #\d+: (\S+?)\. Nothing posted\.$/;
 function postedOf(log2) {
-  for (const line of log2.split("\n").reverse()) {
-    const posted = POSTED.exec(line.trimEnd());
+  for (const line2 of log2.split("\n").reverse()) {
+    const posted = POSTED.exec(line2.trimEnd());
     if (posted) return { findings: posted[1] === "pass" ? 0 : Number(posted[2]), url: reviewUrl(posted[3]) };
-    const already = ALREADY.exec(line.trimEnd());
+    const already = ALREADY.exec(line2.trimEnd());
     if (already) return { findings: null, url: reviewUrl(already[1]) };
   }
   return null;
@@ -20770,21 +20980,30 @@ function outcome2(end, run, reason2 = null, step = "build") {
 }
 var lastOf = (run) => run.attempts.at(-1);
 var after = (a, b) => a.run > b.run || a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step);
-function prdStates(facts, runs) {
-  const merged = new Set(facts.filter((fact) => fact.stage === "merged").map((fact) => fact.prd));
-  return new Map(facts.map((fact) => [fact.prd, stateOf2(fact, runs.filter((one) => one.prd === fact.prd), merged)]));
+function prdStates(facts, runs, branch = NO_BRANCH) {
+  const merged = /* @__PURE__ */ new Set([...facts.filter((fact) => fact.stage === "merged").map((fact) => fact.prd), ...branch.joined]);
+  const of = (fact) => fact.stage !== "merged" && branch.joined.has(fact.prd) ? { state: "joined" } : stateOf2(fact, runs.filter((one) => one.prd === fact.prd), merged, branch);
+  return new Map(facts.map((fact) => [fact.prd, of(fact)]));
 }
-function stateOf2(fact, runs, merged) {
+var toMerge = (prd, branch) => {
+  const lacks = branch.lacks.get(prd);
+  return lacks === void 0 ? { state: "waits", on: "merge" } : { state: "waits", on: "join", lacks };
+};
+function stateOf2(fact, runs, merged, branch) {
   if (fact.stage === "merged") return { state: "merged" };
   const latest = runs.reduce((last2, one) => last2 === null || after(one, last2) ? one : last2, null);
   const last = latest ? lastOf(latest) : void 0;
   if (latest && last && endOf(last) === null) return { state: "running", run: latest.run };
-  if (fact.stage === "ready") return { state: "waits", on: "merge" };
-  return latest && last ? afterEnd(fact, latest, last, merged) : gate(fact, 1, "build", merged);
+  if (fact.stage === "ready") return toMerge(fact.prd, branch);
+  return latest && last ? afterEnd(fact, latest, last, merged, branch) : gate(fact, 1, "build", merged);
 }
-function afterEnd(fact, latest, last, merged) {
+function waitsAfter(on, prd, last, branch) {
+  if (on === "merge") return toMerge(prd, branch);
+  return on === "decide" ? { state: "waits", on: "decide", pr: prOfUrl(last.prUrl) } : { state: "waits", on };
+}
+function afterEnd(fact, latest, last, merged, branch) {
   const next = outcome2(endOf(last) ?? "stopped", latest.run, last.reason, latest.step);
-  if (next.next === "waits") return next.on === "decide" ? { state: "waits", on: "decide", pr: prOfUrl(last.prUrl) } : { state: "waits", on: next.on };
+  if (next.next === "waits") return waitsAfter(next.on, fact.prd, last, branch);
   if (next.next === "send") return { state: "startable", run: latest.run, step: next.step };
   if (next.next === "stops") return { state: "stopped", why: next.why };
   if (next.next === "paused") return { state: "paused" };
@@ -20797,6 +21016,26 @@ function gate(fact, run, step, merged) {
   if (fact.approval === "voided") return { state: "waits", on: "approve-again" };
   const by = fact.blockers.filter((blocker) => !merged.has(blocker));
   return by.length > 0 ? { state: "blocked", by } : { state: "startable", run, step };
+}
+var waitsForMerge = (state) => state?.state === "waits" && state.on === "merge";
+function onBranchOf(events) {
+  const on = /* @__PURE__ */ new Set();
+  for (const { kind, prd } of events) {
+    if (prd === null) continue;
+    if (kind === "prd-joined") on.add(prd);
+    else if (kind === "prd-dropped" || kind === "landed") on.delete(prd);
+  }
+  return on;
+}
+function featurePrOf(runs, prd) {
+  const ordered = runs.filter((one) => one.prd === prd).sort((a, b) => after(a, b) ? -1 : after(b, a) ? 1 : 0);
+  for (const one of ordered) {
+    for (const attempt3 of [...one.attempts].reverse()) {
+      const pr = prOfUrl(attempt3.prUrl) ?? prOfUrl(attempt3.posted?.url ?? null);
+      if (pr !== null) return pr;
+    }
+  }
+  return null;
 }
 function pick2({ mission, facts, states }) {
   if (mission.status === "draft" || mission.status === "paused" || mission.status === "delivered") return [];
@@ -20828,7 +21067,8 @@ var WAITS_WORDS = {
   merge: "merge it",
   act: "act on its runner job"
 };
-function waitWords(state) {
+function waitWords(state, branch) {
+  if (state.on === "join") return `joins ${branch ?? "the mission branch"} once: ${state.lacks.join("; ")}`;
   if (state.on !== "decide") return WAITS_WORDS[state.on];
   return `decide the Reviewer's findings on ${state.pr === null ? "its feature PR" : `PR #${String(state.pr)}`}`;
 }
@@ -20844,11 +21084,13 @@ function fitted(parts, glue, max = WORDS_MAX) {
   return text19;
 }
 var cut2 = (text19, max = WORDS_MAX) => text19.length <= max ? text19 : `${text19.slice(0, max - 1)}\u2026`;
-function waitsOf(facts, states) {
+function waitsOf(facts, states, branch) {
   const parts = facts.flatMap((fact) => {
     const state = states.get(fact.prd);
-    return state?.state === "waits" ? [`PRD ${String(fact.prd)}: ${waitWords(state)}`] : [];
+    return state?.state === "waits" ? [`PRD ${String(fact.prd)}: ${waitWords(state, branch)}`] : [];
   });
+  const joined2 = facts.filter((fact) => states.get(fact.prd)?.state === "joined").map((fact) => `PRD ${String(fact.prd)}`);
+  if (joined2.length > 0) parts.push(`on ${branch ?? "the mission branch"}, to land: ${joined2.join(", ")}`);
   return parts.length > 0 ? fitted(parts, " \xB7 ") : null;
 }
 function stoppedWhy(facts, states) {
@@ -20861,13 +21103,20 @@ function stoppedWhy(facts, states) {
   const why = parts.length > 0 ? parts.join(" \xB7 ") : "no PRD of its scope can start";
   return cut2(`${why}. ${CARRY_ON}`);
 }
-function conclude({ mission, facts, states, sent, now: now2 }) {
+function conclude({
+  mission,
+  facts,
+  states,
+  sent,
+  now: now2,
+  branch = null
+}) {
   const at4 = new Date(now2 + WAKE_MS).toISOString();
   if (mission.status === "draft" || mission.status === "delivered") return { status: mission.status, waitingOn: mission.waitingOn, nextWakeAt: null };
   const all = [...states.values()];
   if (facts.length > 0 && all.every((state) => state.state === "merged")) return { status: "delivered", waitingOn: null, nextWakeAt: null };
   if (mission.status === "paused") return { status: "paused", waitingOn: mission.waitingOn, nextWakeAt: null };
-  const waitingOn = waitsOf(facts, states);
+  const waitingOn = waitsOf(facts, states, branch);
   if (sent > 0 || all.some((state) => state.state === "running" || state.state === "startable")) return { status: "running", waitingOn, nextWakeAt: at4 };
   if (waitingOn !== null) return { status: "waiting", waitingOn, nextWakeAt: at4 };
   return { status: "stopped", waitingOn: stoppedWhy(facts, states), nextWakeAt: null };
@@ -20888,7 +21137,11 @@ var recordedKeys = (events) => new Set(events.flatMap(keysOf3));
 var linkOf = (url) => url !== null && /^https?:\/\//.test(url) && url.length <= 500 ? url : null;
 var againWords = (n, what, run) => run >= LAST_RUN ? `${n} ${what} a second time: it stops here.` : `${n} ${what}: the mission sends it again, once.`;
 var END_WORDS = {
-  ready: (n) => ({ kind: "prd-ready", role: "engineer", sentence: `${n} is ready for review: it waits for a person to merge it.` }),
+  ready: (n, _run, _reason, branch) => ({
+    kind: "prd-ready",
+    role: "engineer",
+    sentence: branch === null ? `${n} is ready for review: it waits for a person to merge it.` : `${n} is ready for review: it joins ${branch} once the merge gate passes.`
+  }),
   answers: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n} waits on answers: the page's auto-fix carries on once a person answers.` }),
   human: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n}'s job needs a person: act on it on the Runners page.` }),
   held: (n, run) => ({ kind: "held", role: "supervisor", sentence: againWords(n, "was held", run) }),
@@ -20897,11 +21150,11 @@ var END_WORDS = {
   cancelled: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n}'s job was cancelled: the mission never sends it again.` }),
   failed: (n, _run, reason2) => ({ kind: "job-ended", role: "engineer", sentence: reason2 ? `${n}'s job failed: ${reason2}.` : `${n}'s job failed.` })
 };
-var findingsWords = (count2) => `${String(count2)} finding${count2 === 1 ? "" : "s"}`;
+var findingsWords = (count3) => `${String(count3)} finding${count3 === 1 ? "" : "s"}`;
 function verdictEvent(prd, round, last, end) {
   const of = `${String(round)}/${String(ROUNDS)}`;
-  const count2 = last.posted?.findings ?? null;
-  const sentence2 = end === "ready" ? `Passed, round ${String(round)} of ${String(ROUNDS)}: marked ready.` : count2 === null || count2 === 0 ? `Changes asked, round ${of}.` : `Changes asked: ${findingsWords(count2)}, round ${of}.`;
+  const count3 = last.posted?.findings ?? null;
+  const sentence2 = end === "ready" ? `Passed, round ${String(round)} of ${String(ROUNDS)}: marked ready.` : count3 === null || count3 === 0 ? `Changes asked, round ${of}.` : `Changes asked: ${findingsWords(count3)}, round ${of}.`;
   return { kind: "reviewed", role: "reviewer", prd, job: last.id, link: linkOf(last.posted?.url ?? last.prUrl), sentence: sentence2 };
 }
 var fixedWords = (asked) => asked === null || asked === 0 ? "the findings" : findingsWords(asked);
@@ -20913,15 +21166,15 @@ var shippedEvent = (prd, one, last, asked) => ({
   link: linkOf(last.prUrl),
   sentence: one.step === "build" ? "Shipped; waits for review." : `Fixed ${fixedWords(asked)}; shipped again.`
 });
-function plainEndEvent(prd, one, last, end) {
-  const words = END_WORDS[end === "review" || end === "changes" ? "stopped" : end](`PRD ${String(prd)}`, one.run, last.reason);
+function plainEndEvent(prd, one, last, end, branch) {
+  const words = END_WORDS[end === "review" || end === "changes" ? "stopped" : end](`PRD ${String(prd)}`, one.run, last.reason, branch);
   const role = roundOf2(one.step) !== null && words.role === "engineer" ? "reviewer" : words.role;
   return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role };
 }
-function endEvent(prd, one, last, end, asked = null) {
+function endEvent(prd, one, last, end, { asked = null, branch = null } = {}) {
   const round = roundOf2(one.step);
   if (round !== null && (end === "changes" || end === "ready")) return verdictEvent(prd, round, last, end);
-  return end === "review" && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end);
+  return end === "review" && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end, branch);
 }
 function askedBefore(runs, one) {
   if (one.step !== "fix:1") return null;
@@ -20938,7 +21191,7 @@ function runEvents(runs, where, skill, base) {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
     const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill, base) };
-    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, askedBefore(runs, one))] : [];
+    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base })] : [];
     return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, "lost")), ...ending];
   });
 }
@@ -20954,6 +21207,14 @@ function prdEvents(facts, states) {
     ];
   });
 }
+var joinEvents = (joins, branch) => joins.map(({ prd, pr, url }) => ({
+  kind: "prd-joined",
+  role: "supervisor",
+  prd,
+  job: null,
+  link: linkOf(url),
+  sentence: `PRD ${String(prd)} joined ${branch ?? "the mission branch"}: #${String(pr)} squash-merged.`
+}));
 function missionEvents(mission, next) {
   const said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
   if (next.status === "delivered") return [said("delivered", "Every PRD of the mission is merged: delivered.")];
@@ -20973,11 +21234,13 @@ function eventsOf({
   next,
   toFleet,
   skill = "yolo",
-  recorded
+  recorded,
+  joins = []
 }) {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : "any runner of the workspace";
-  const all = [...runEvents(runs, where, skill, baseOf(mission, skill === "ultra-yolo")), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const base = baseOf(mission, skill === "ultra-yolo");
+  const all = [...runEvents(runs, where, skill, base), ...joinEvents(joins, base), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf3(event);
     if (own.some((key) => keys.has(key))) return [];
@@ -20993,42 +21256,79 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z80.looseObject({ laters: z80.number().int().min(0).optional() });
-async function supervise(store, mission, now2, branches) {
+var ProgressSchema3 = z82.looseObject({ laters: z82.number().int().min(0).optional() });
+async function supervise(store, mission, now2, github) {
   const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
   const skill = inPlan ? "ultra-yolo" : "yolo";
-  const unready = await branchWaits(store, mission, inPlan, branches);
+  const ready = await branchReady(store, mission, inPlan, github.branches);
+  const unready = ready.waits;
+  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: onBranchOf(recorded), installation: ready.installation, joins: github.joins });
   const sent = [];
-  for (const { prd, run, step } of unready === null ? pick2({ mission, facts, states: prdStates(facts, runs) }) : []) {
+  for (const { prd, run, step } of unready === null ? pick2({ mission, facts, states: prdStates(facts, runs, branch) }) : []) {
     const made = await store.send({ mission, prd, run, step, toFleet, skill });
     if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all);
-  const concluded = conclude({ mission, facts, states, sent: sent.length, now: now2 });
+  const states = prdStates(facts, all, branch);
+  const concluded = conclude({ mission, facts, states, sent: sent.length, now: now2, branch: branch.branch });
   const next = unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded) });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded), joins });
   await store.record(mission.id, events, new Date(now2));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === "running"), moved, sent: sent.length, events: events.length };
 }
-async function branchWaits(store, mission, inPlan, branches) {
+async function branchReady(store, mission, inPlan, branches) {
   const branch = baseOf(mission, inPlan);
-  if (branch === null || mission.status === "paused" || mission.status === "stopped") return null;
-  if (branches === null) return `the mission branch ${branch} cannot be cut: the app has no GitHub access here`;
+  const none = { waits: null, installation: null };
+  if (branch === null || mission.status === "paused" || mission.status === "stopped") return none;
+  if (branches === null) return { ...none, waits: `the mission branch ${branch} cannot be cut: the app has no GitHub access here` };
   const installation = await store.installation(mission);
-  if (installation === null) return `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App`;
+  if (installation === null) return { ...none, waits: `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App` };
   const prepared = await branches.prepare({ installation, repo: mission.repo, branch });
-  return prepared.ok ? null : prepared.why;
+  return prepared.ok ? { waits: null, installation } : { ...none, waits: prepared.why };
+}
+async function joinOne({ mission, base, prd, runs, installation, joins }) {
+  const pr = featurePrOf(runs, prd);
+  if (pr === null) return { lacks: ["its feature pull request is not known to the mission"] };
+  if (joins === null) return { lacks: ["the app has no GitHub access here"] };
+  const at4 = { installation, repo: mission.repo, prd, pr };
+  const pull = await joins.read(at4);
+  const gate2 = judge3(pull, base);
+  if (gate2.decision === "waits") return { lacks: gate2.lacks };
+  const merged = gate2.decision === "joined" ? { ok: true } : await joins.merge({ ...at4, head: pull.head, title: pull.title, base: pull.base, defaultBranch: pull.defaultBranch });
+  return merged.ok ? { joined: { prd, pr, url: pull.url } } : { lacks: [merged.why] };
+}
+async function joinAll({
+  mission,
+  inPlan,
+  facts,
+  runs,
+  joined: joined2,
+  installation,
+  joins
+}) {
+  const base = baseOf(mission, inPlan);
+  if (base === null) return { branch: NO_BRANCH, joins: [] };
+  const lacks = /* @__PURE__ */ new Map();
+  const made = [];
+  if (installation !== null && (mission.status === "running" || mission.status === "waiting")) {
+    const states = prdStates(facts, runs, { branch: base, joined: joined2, lacks });
+    for (const { prd } of facts.filter((fact) => waitsForMerge(states.get(fact.prd)))) {
+      const judged4 = await joinOne({ mission, base, prd, runs, installation, joins });
+      if ("joined" in judged4) made.push(judged4.joined);
+      else lacks.set(prd, judged4.lacks);
+    }
+  }
+  return { branch: { branch: base, joined: /* @__PURE__ */ new Set([...joined2, ...made.map(({ prd }) => prd)]), lacks }, joins: made };
 }
 var watched = ({ next, running }) => next.status === "running" || next.status === "waiting" || next.status === "paused" && running;
-function missionHandler({ store, refresh, branches = null, now: now2 = Date.now, log: log2 = noteTo("missions") }) {
+function missionHandler({ store, refresh, branches = null, joins = null, now: now2 = Date.now, log: log2 = noteTo("missions") }) {
   return async (job) => {
     const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
     const mission = await runnable(store, id);
     if (!("id" in mission)) return mission;
     const at4 = now2();
-    const run = await supervise(mission.store, mission, at4, branches);
+    const run = await supervise(mission.store, mission, at4, { branches, joins });
     log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
     if (!watched(run) && run.moved) return { outcome: "done" };
     return laterOf({ job, refresh, mission, at: at4 });
@@ -21049,43 +21349,43 @@ async function laterOf({ job, refresh, mission, at: at4 }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z82 } from "zod";
+import { z as z84 } from "zod";
 
 // kit/lib/mission/brief.ts
 import { parse as parse4 } from "yaml";
-import { z as z81 } from "zod";
+import { z as z83 } from "zod";
 var DEFAULT_PARALLEL = 2;
 var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
 var DEFAULT_LEVEL = "with-you";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-var text17 = (max) => z81.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
+var text17 = (max) => z83.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
 var distinct = (list2) => new Set(list2).size === list2.length;
-var MeasureSchema = z81.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
-var ScopeSchema = z81.object(
+var MeasureSchema = z83.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
+var ScopeSchema = z83.object(
   {
-    prds: z81.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
-    roadmaps: z81.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+    prds: z83.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z83.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
 ).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
-var MandateSchema = z81.object(
+var MandateSchema = z83.object(
   {
-    parallel: z81.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
-    level: z81.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
-    hardToRevert: z81.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z81.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
+    parallel: z83.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
+    level: z83.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
+    hardToRevert: z83.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
+    ownPrds: z83.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
   },
   { message: "must be {parallel, level, hardToRevert, ownPrds}" }
 ).strict();
 var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
-var BriefSchema = z81.object({
+var BriefSchema = z83.object({
   mission: IssueNumberSchema,
   title: text17(200),
   fleet: text17(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
   goal: text17(500),
-  measures: z81.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
+  measures: z83.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
   scope: ScopeSchema,
   mandate: MandateSchema.default(DEFAULT_MANDATE)
 }).strict();
@@ -21107,40 +21407,40 @@ var JOB_LOG = "id, log_tail";
 var EVENT = "kind, prd, job_id";
 var RUNNER = "repos";
 var PRODUCT = "plan_repository";
-var text18 = z82.string().min(1);
-var MissionRowSchema = z82.object({
+var text18 = z84.string().min(1);
+var MissionRowSchema = z84.object({
   id: text18,
   workspace_id: text18,
   repo: text18,
   fleet: text18,
   number: IssueNumberSchema,
   title: text18,
-  status: z82.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z82.string().nullable(),
-  mandate: z82.object({ parallel: z82.number().int().min(1).max(4), level: z82.enum(MISSION_LEVELS).default("with-you") }),
-  scope: z82.object({ prds: z82.array(PrdNumberSchema), roadmaps: z82.array(IssueNumberSchema) })
+  status: z84.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z84.string().nullable(),
+  mandate: z84.object({ parallel: z84.number().int().min(1).max(4), level: z84.enum(MISSION_LEVELS).default("with-you") }),
+  scope: z84.object({ prds: z84.array(PrdNumberSchema), roadmaps: z84.array(IssueNumberSchema) })
 });
-var WorkspaceRowSchema2 = z82.object({ github_installation_id: z82.number().int().positive().nullable() });
-var RoadmapRowSchema = z82.object({ id: text18, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z82.object({ roadmap_id: text18, position: z82.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z82.array(z82.string()) });
-var StageRowSchema = z82.object({ prd: PrdNumberSchema, stage: text18 });
-var DossierRowSchema5 = z82.object({ id: text18, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z82.object({ id: text18, dossier_id: text18 });
-var VoidRowSchema2 = z82.object({ approval_id: text18 });
-var PlanRowSchema = z82.object({ content: z82.string() });
-var JobRowSchema2 = z82.object({
+var WorkspaceRowSchema2 = z84.object({ github_installation_id: z84.number().int().positive().nullable() });
+var RoadmapRowSchema = z84.object({ id: text18, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z84.object({ roadmap_id: text18, position: z84.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z84.array(z84.string()) });
+var StageRowSchema = z84.object({ prd: PrdNumberSchema, stage: text18 });
+var DossierRowSchema5 = z84.object({ id: text18, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z84.object({ id: text18, dossier_id: text18 });
+var VoidRowSchema2 = z84.object({ approval_id: text18 });
+var PlanRowSchema = z84.object({ content: z84.string() });
+var JobRowSchema2 = z84.object({
   id: text18,
-  mission_key: z82.string().nullable(),
-  resumes: z82.string().nullable(),
-  status: z82.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z82.string().nullable(),
-  reason: z82.string().nullable(),
-  pr_url: z82.string().nullable()
+  mission_key: z84.string().nullable(),
+  resumes: z84.string().nullable(),
+  status: z84.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z84.string().nullable(),
+  reason: z84.string().nullable(),
+  pr_url: z84.string().nullable()
 });
-var JobLogRowSchema = z82.object({ id: text18, log_tail: z82.string() });
-var EventRowSchema = z82.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z82.string().nullable() });
-var RunnerRowSchema = z82.object({ repos: z82.array(z82.string()) });
-var ProductRowSchema3 = z82.object({ plan_repository: z82.string().nullable() });
+var JobLogRowSchema = z84.object({ id: text18, log_tail: z84.string() });
+var EventRowSchema = z84.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z84.string().nullable() });
+var RunnerRowSchema = z84.object({ repos: z84.array(z84.string()) });
+var ProductRowSchema3 = z84.object({ plan_repository: z84.string().nullable() });
 var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 function missionStore(connection) {
@@ -21233,7 +21533,7 @@ function missionStore(connection) {
       return withPosted(runs);
     },
     async events(id) {
-      return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id)).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
+      return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id).order("at")).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
     },
     async fleetRunners(mission) {
       const runners = rowsOf(RunnerRowSchema, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
@@ -21258,7 +21558,7 @@ function missionStore(connection) {
         mission_key: missionKey(mission.id, prd, run, step)
       }).select("id");
       if (answer.error?.code === TAKEN) return null;
-      const [made] = rowsOf(z82.object({ id: text18 }), answer);
+      const [made] = rowsOf(z84.object({ id: text18 }), answer);
       if (!made) throw new Error("the database queued no job and gave no reason");
       return made.id;
     },
@@ -21275,11 +21575,11 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z82.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z84.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status, waitingOn, nextWakeAt }) {
       const moved = rowsOf(
-        z82.object({ id: text18 }),
+        z84.object({ id: text18 }),
         await db.from("missions").update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -21326,7 +21626,7 @@ function checkpointsForgetHandler({
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z84 } from "zod";
+import { z as z86 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -21352,7 +21652,7 @@ function lawsOfPackFiles(files, knowledgeRoot = DEFAULT_KNOWLEDGE_ROOT) {
   return [...shared, ...domain];
 }
 function embedText(entry) {
-  const body = entry.body.split("\n").filter((line) => !/^\s*Owner:/.test(line)).join("\n");
+  const body = entry.body.split("\n").filter((line2) => !/^\s*Owner:/.test(line2)).join("\n");
   return `${entry.title}
 ${body}`;
 }
@@ -21466,7 +21766,7 @@ function knowledgeEntries(sources) {
 }
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z83 } from "zod";
+import { z as z85 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -21519,7 +21819,7 @@ var AGAIN_MS = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema2 = z83.object({ slot: z83.string().min(1).max(80), productId: z83.string().min(1).optional() });
+var PayloadSchema2 = z85.object({ slot: z85.string().min(1).max(80), productId: z85.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -21603,9 +21903,9 @@ function payloadOf2(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS2 = 6e4;
-var EmbedPayloadSchema = z84.object({
-  repository: z84.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z84.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z86.object({
+  repository: z86.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z86.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -21691,7 +21991,7 @@ function payloadOf3(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z86 } from "zod";
+import { z as z88 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash6 } from "node:crypto";
@@ -21723,31 +22023,31 @@ function packFiles(read) {
 }
 
 // apps/omni-app/src/knowledge-pack/github.ts
-import { mkdtempSync as mkdtempSync13, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync17, statSync as statSync16 } from "node:fs";
-import { tmpdir as tmpdir13 } from "node:os";
-import { join as join69 } from "node:path";
-import { z as z85 } from "zod";
-var PullFileSchema = z85.looseObject({ filename: z85.string().min(1), previous_filename: z85.string().nullish() });
+import { mkdtempSync as mkdtempSync14, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync18, statSync as statSync16 } from "node:fs";
+import { tmpdir as tmpdir14 } from "node:os";
+import { join as join70 } from "node:path";
+import { z as z87 } from "zod";
+var PullFileSchema = z87.looseObject({ filename: z87.string().min(1), previous_filename: z87.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z85.array(PullFileSchema).parse(data);
+    return z87.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
 function filesIn2(root, dir = "") {
-  return readdirSync22(join69(root, dir)).flatMap((name) => {
+  return readdirSync22(join70(root, dir)).flatMap((name) => {
     const rel = dir ? `${dir}/${name}` : name;
-    return statSync16(join69(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
+    return statSync16(join70(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
   });
 }
 async function withPathsAt(octokit, { owner, repo, sha, paths }, fn) {
-  const root = mkdtempSync13(join69(tmpdir13(), "omni-knowledge-pack-"));
+  const root = mkdtempSync14(join70(tmpdir14(), "omni-knowledge-pack-"));
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
     return fn(root);
   } finally {
-    rmSync17(root, { recursive: true, force: true });
+    rmSync18(root, { recursive: true, force: true });
   }
 }
 async function configAt3(octokit, where) {
@@ -21755,7 +22055,7 @@ async function configAt3(octokit, where) {
     const files = filesIn2(root);
     if (!files.includes(CONFIG_FILE)) return { none: `it has no ${CONFIG_FILE}` };
     try {
-      return { config: parseConfig(readFileSync48(join69(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
+      return { config: parseConfig(readFileSync48(join70(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
     } catch (error) {
       return { none: `its config does not parse: ${(error instanceof Error ? error.message : String(error)).split("\n")[0] ?? ""}` };
     }
@@ -21765,7 +22065,7 @@ async function packBytesAt(octokit, { owner, repo, sha, paths }) {
   return withPathsAt(
     octokit,
     { owner, repo, sha, paths: [...paths.folders, ...paths.files] },
-    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync48(join69(root, path))]))
+    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync48(join70(root, path))]))
   );
 }
 
@@ -21811,12 +22111,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z86.object({
-  installationId: z86.number(),
-  owner: z86.string().min(1),
-  repo: z86.string().min(1),
-  sha: z86.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z86.string().min(1),
+var PackPayloadSchema = z88.object({
+  installationId: z88.number(),
+  owner: z88.string().min(1),
+  repo: z88.string().min(1),
+  sha: z88.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z88.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -21844,7 +22144,7 @@ function packHandler({
     if (qualified.skip !== null) return skipped2(qualified.skip);
     const packed = await pack(octokit, store, { owner, repo, repository, sha: qualified.sha, committedAt: qualified.committedAt, paths: qualified.paths });
     if ("bound" in packed) return skipped2(`its knowledge is too large to pack: ${packed.bound}`);
-    for (const line of packLines(what, qualified.sha, packed)) log2(line);
+    for (const line2 of packLines(what, qualified.sha, packed)) log2(line2);
     if (addJob && packed.packs.length > 0) await addJob(embedJob({ repository, sha: qualified.sha }));
     return { outcome: "done" };
   };
@@ -21892,7 +22192,7 @@ function packLines(what, sha, packed) {
   const short2 = sha.slice(0, 7);
   const kept3 = packed.packs.filter((one) => one.created).length;
   return [
-    ...packed.left.map((line) => `knowledge pack: ${what} left out of pack ${short2}: ${line}`),
+    ...packed.left.map((line2) => `knowledge pack: ${what} left out of pack ${short2}: ${line2}`),
     `knowledge pack: ${what} pack ${short2} of ${String(packed.files)} files, new in ${String(kept3)} of ${String(packed.packs.length)} workspaces`
   ];
 }
@@ -21963,9 +22263,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z87 } from "zod";
+import { z as z89 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z87.looseObject({ category: z87.string().nullable() });
+var ReplySchema2 = z89.looseObject({ category: z89.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -21988,10 +22288,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z88 } from "zod";
-var UngroupedRowSchema = z88.object({ id: z88.string().min(1), product_id: z88.string().min(1), workspace_id: z88.string().min(1), query: z88.string().min(1) });
-var NearestRowSchema = z88.object({ group_id: z88.string().min(1), cosine: z88.number() });
-var GroupIdSchema = z88.object({ id: z88.string().min(1) });
+import { z as z90 } from "zod";
+var UngroupedRowSchema = z90.object({ id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), query: z90.string().min(1) });
+var NearestRowSchema = z90.object({ group_id: z90.string().min(1), cosine: z90.number() });
+var GroupIdSchema = z90.object({ id: z90.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -22009,7 +22309,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z88.array(NearestRowSchema).parse(data);
+      const [row] = z90.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -22029,13 +22329,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z89 } from "zod";
+import { z as z91 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z89.looseObject({
-  verdicts: z89.array(z89.looseObject({ entryId: z89.string().min(1), relevant: z89.boolean().nullable(), confidence: z89.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z91.looseObject({
+  verdicts: z91.array(z91.looseObject({ entryId: z91.string().min(1), relevant: z91.boolean().nullable(), confidence: z91.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z89.looseObject({ ids: z89.array(z89.string().min(1)) });
+var SearchSchema2 = z91.looseObject({ ids: z91.array(z91.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -22071,19 +22371,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z90 } from "zod";
+import { z as z92 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z90.object({ group_id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), category: z90.string().nullable() });
-var GroupRowSchema = z90.object({ group_id: z90.string().min(1) });
-var QuestionTextSchema = z90.object({ question: z90.string() });
-var OpenedRowSchema = z90.object({ opened_id: z90.string().min(1) });
-var ProductRowSchema4 = z90.object({ product_id: z90.string().min(1) });
-var HolderRowSchema5 = z90.object({ product_id: z90.string().min(1) });
-var LiveProductSchema = z90.object({ id: z90.string().min(1) });
-var QuestionRowSchema = z90.object({ id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), question: z90.string(), category: z90.string().nullable() });
-var AnswerRowSchema = z90.object({ question_id: z90.string().min(1), entry_id: z90.string().min(1) });
-var RunRowSchema = z90.object({ id: z90.string().min(1) });
+var LogRowSchema = z92.object({ group_id: z92.string().min(1), product_id: z92.string().min(1), workspace_id: z92.string().min(1), category: z92.string().nullable() });
+var GroupRowSchema = z92.object({ group_id: z92.string().min(1) });
+var QuestionTextSchema = z92.object({ question: z92.string() });
+var OpenedRowSchema = z92.object({ opened_id: z92.string().min(1) });
+var ProductRowSchema4 = z92.object({ product_id: z92.string().min(1) });
+var HolderRowSchema5 = z92.object({ product_id: z92.string().min(1) });
+var LiveProductSchema = z92.object({ id: z92.string().min(1) });
+var QuestionRowSchema = z92.object({ id: z92.string().min(1), product_id: z92.string().min(1), workspace_id: z92.string().min(1), question: z92.string(), category: z92.string().nullable() });
+var AnswerRowSchema = z92.object({ question_id: z92.string().min(1), entry_id: z92.string().min(1) });
+var RunRowSchema = z92.object({ id: z92.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -22118,7 +22418,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z90.string().min(1).nullable().parse(data);
+      return z92.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -22131,7 +22431,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z90.boolean().parse(data);
+      return z92.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -22164,7 +22464,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z90.string().min(1).nullable().parse(data);
+      return z92.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -22181,9 +22481,9 @@ function countGroups(searches) {
     byGroup.set(groupId, group2);
   }
   const counts = [];
-  for (const [groupId, { productId, workspaceId, count: count2, categories }] of byGroup) {
+  for (const [groupId, { productId, workspaceId, count: count3, categories }] of byGroup) {
     const best = [...categories].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-    if (best) counts.push({ groupId, productId, workspaceId, category: best[0], count: count2 });
+    if (best) counts.push({ groupId, productId, workspaceId, category: best[0], count: count3 });
   }
   return counts;
 }
@@ -22207,7 +22507,7 @@ var HITS = 10;
 var BUDGET_MS3 = 15e4;
 var AGAIN_MS4 = 6e4;
 var DAY_MS5 = 864e5;
-async function judge3({ store, search, ask: ask3, group: group2, questionId }) {
+async function judge4({ store, search, ask: ask3, group: group2, questionId }) {
   const question = await store.questionOf(questionId);
   if (question === null) return null;
   const hits = await search({ workspaceId: group2.workspaceId, productId: group2.productId, question }) ?? [];
@@ -22245,7 +22545,7 @@ function searchEvalPromoteHandler({
       const questionId = await store.promote({ productId: group2.productId, groupId: group2.groupId, category: group2.category });
       if (questionId === null) continue;
       counters.promoted += 1;
-      const kept3 = await judge3({ store, search, ask: ask3, group: group2, questionId }).catch(() => null);
+      const kept3 = await judge4({ store, search, ask: ask3, group: group2, questionId }).catch(() => null);
       if (kept3 === null) counters.unjudged += 1;
       else counters.judged += kept3;
     }
@@ -22346,7 +22646,7 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), refresh: ledger.refresh }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
@@ -22487,29 +22787,29 @@ function budgetRefusal2(error) {
   return null;
 }
 function firstLine4(message) {
-  const line = message.split("\n").map((one) => one.trim()).find((one) => one.length > 0);
-  return line ? line.slice(0, MAX_REASON) : "it threw with no message";
+  const line2 = message.split("\n").map((one) => one.trim()).find((one) => one.length > 0);
+  return line2 ? line2.slice(0, MAX_REASON) : "it threw with no message";
 }
 var later = (clock, minutes) => new Date(clock() + minutes * MINUTE2).toISOString();
 
 // apps/omni-app/src/stage-forward/touch.ts
 import { posix as posix5 } from "node:path";
-import { z as z91 } from "zod";
+import { z as z93 } from "zod";
 var TOUCH_EVENTS = Object.freeze(["issues", "issue_comment", "pull_request", "pull_request_review", "check_suite", "push"]);
 var DEFAULTS2 = (() => {
   const { paths, branches } = parseConfig("kit: 1");
   return Object.freeze({ delivery: posix5.normalize(paths.delivery).replace(/\/+$/, ""), branches });
 })();
-var Repository = z91.looseObject({ repository: z91.looseObject({ full_name: z91.string().min(1) }) });
-var IssueEvent = z91.looseObject({ issue: z91.looseObject({ number: IssueNumberSchema, pull_request: z91.unknown().optional() }) });
-var PullEvent = z91.looseObject({ pull_request: z91.looseObject({ number: PrNumberSchema, head: z91.looseObject({ ref: z91.string().min(1) }) }) });
-var CheckSuiteEvent = z91.looseObject({
-  check_suite: z91.looseObject({ head_branch: z91.string().min(1).nullish(), pull_requests: z91.array(z91.looseObject({ number: PrNumberSchema })).nullish() })
+var Repository = z93.looseObject({ repository: z93.looseObject({ full_name: z93.string().min(1) }) });
+var IssueEvent = z93.looseObject({ issue: z93.looseObject({ number: IssueNumberSchema, pull_request: z93.unknown().optional() }) });
+var PullEvent = z93.looseObject({ pull_request: z93.looseObject({ number: PrNumberSchema, head: z93.looseObject({ ref: z93.string().min(1) }) }) });
+var CheckSuiteEvent = z93.looseObject({
+  check_suite: z93.looseObject({ head_branch: z93.string().min(1).nullish(), pull_requests: z93.array(z93.looseObject({ number: PrNumberSchema })).nullish() })
 });
-var Files = z91.array(z91.string()).nullish();
-var PushEvent = z91.looseObject({
-  ref: z91.string(),
-  commits: z91.array(z91.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
+var Files = z93.array(z93.string()).nullish();
+var PushEvent = z93.looseObject({
+  ref: z93.string(),
+  commits: z93.array(z93.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
 });
 var issueTouches = (repository, payload) => {
   const read = IssueEvent.safeParse(payload);
@@ -22577,7 +22877,7 @@ function forwardTouch(touch, post2) {
 // apps/omni-app/src/webhook/webhook.ts
 import { randomUUID } from "node:crypto";
 import { Webhooks } from "@octokit/webhooks";
-import { z as z92 } from "zod";
+import { z as z94 } from "zod";
 var CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["opened", "synchronize", "reopened", "ready_for_review", "labeled", "unlabeled", "edited"]),
   pull_request_review: Object.freeze(["submitted", "dismissed"]),
@@ -22609,46 +22909,46 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z92.looseObject({
+var PullRefSchema = z94.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z92.looseObject({ sha: z92.string().nullish() }).nullish(),
-  base: z92.looseObject({ ref: z92.string().nullish() }).nullish()
+  head: z94.looseObject({ sha: z94.string().nullish() }).nullish(),
+  base: z94.looseObject({ ref: z94.string().nullish() }).nullish()
 });
-var PayloadSchema3 = z92.looseObject({
-  action: z92.unknown(),
+var PayloadSchema3 = z94.looseObject({
+  action: z94.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z92.looseObject({ id: z92.number().nullish() }).nullish(),
-  repository: z92.looseObject({
-    name: z92.string(),
-    full_name: z92.string().nullish(),
-    owner: z92.looseObject({ login: z92.string().nullish() }).nullish(),
-    default_branch: z92.string().nullish()
+  installation: z94.looseObject({ id: z94.number().nullish() }).nullish(),
+  repository: z94.looseObject({
+    name: z94.string(),
+    full_name: z94.string().nullish(),
+    owner: z94.looseObject({ login: z94.string().nullish() }).nullish(),
+    default_branch: z94.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    node_id: z92.string().nullish(),
-    html_url: z92.string().nullish(),
-    state: z92.string().nullish(),
-    user: z92.looseObject({ login: z92.string().nullish() }).nullish(),
-    body: z92.string().nullish(),
-    merged: z92.boolean().nullish(),
-    merge_commit_sha: z92.string().nullish(),
-    merged_at: z92.string().nullish(),
-    closed_at: z92.string().nullish(),
-    updated_at: z92.string().nullish()
+    node_id: z94.string().nullish(),
+    html_url: z94.string().nullish(),
+    state: z94.string().nullish(),
+    user: z94.looseObject({ login: z94.string().nullish() }).nullish(),
+    body: z94.string().nullish(),
+    merged: z94.boolean().nullish(),
+    merge_commit_sha: z94.string().nullish(),
+    merged_at: z94.string().nullish(),
+    closed_at: z94.string().nullish(),
+    updated_at: z94.string().nullish()
   }).nullish(),
-  check_run: z92.looseObject({
-    id: z92.number().nullish(),
-    external_id: z92.string().nullish(),
-    head_sha: z92.string().nullish(),
-    pull_requests: z92.array(PullRefSchema).nullish(),
-    output: z92.looseObject({ summary: z92.unknown() }).nullish()
+  check_run: z94.looseObject({
+    id: z94.number().nullish(),
+    external_id: z94.string().nullish(),
+    head_sha: z94.string().nullish(),
+    pull_requests: z94.array(PullRefSchema).nullish(),
+    output: z94.looseObject({ summary: z94.unknown() }).nullish()
   }).nullish(),
-  requested_action: z92.looseObject({ identifier: z92.unknown() }).nullish(),
-  check_suite: z92.looseObject({
-    id: z92.number().nullish(),
-    head_branch: z92.string().nullish(),
-    head_sha: z92.string().nullish(),
-    conclusion: z92.string().nullish()
+  requested_action: z94.looseObject({ identifier: z94.unknown() }).nullish(),
+  check_suite: z94.looseObject({
+    id: z94.number().nullish(),
+    head_branch: z94.string().nullish(),
+    head_sha: z94.string().nullish(),
+    conclusion: z94.string().nullish()
   }).nullish()
 });
 async function receiveWebhook({
@@ -22839,9 +23139,9 @@ function toFleetBoardRequests(event, delivery2) {
     }
   ];
 }
-var LabelEventSchema = z92.looseObject({
-  label: z92.looseObject({ name: z92.string() }),
-  issue: z92.looseObject({ number: PrdNumberSchema, pull_request: z92.unknown().optional() })
+var LabelEventSchema = z94.looseObject({
+  label: z94.looseObject({ name: z94.string() }),
+  issue: z94.looseObject({ number: PrdNumberSchema, pull_request: z94.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery2) {
   const payload = readPayload(delivery2);
