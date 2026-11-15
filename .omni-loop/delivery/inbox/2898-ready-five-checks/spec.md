@@ -48,10 +48,11 @@ on the PR's latest commit:
    path and was answered by a person or adopted.
 
 **What excuses a finding, and nothing else.** An outbox item excuses a finding of check 4 or 5
-only by its record, read as it stands: the item names that exact path in its own text, and its
-settled entry's verdict is `agreed` (a person said yes to what was built) or, for check 5 only,
-`adopted`. A `drifted` verdict, a prose answer, an item that names a folder or a pattern instead of
-the path, or one still open excuses nothing. The checks only read the ledger, as it is written:
+only through two recorded fields, never through its words: its `excuses:` field, a list of exact
+paths the agent writes when it raises the item (`omni item new` takes them, and refuses a folder or
+a pattern), and its settled entry's verdict, `agreed` (the person picked A, what was built) or, for
+check 5 only, `adopted`. A `drifted` verdict, a prose answer, an item with no `excuses:` field for
+that path, or one still open excuses nothing. The checks only read the ledger, as it is written:
 they never read meaning into an answer and never reword one, and an answer that does not plainly say
 yes leaves the finding in place, for a person to answer again.
 
@@ -60,10 +61,10 @@ yes leaves the finding in place, for a person to answer again.
 comment: BL-ASK-1 counts those as no person's answer. They are kept apart from the ledger, never
 shown as a person's words, and never read as an excuse.
 
-A check reads `pass`, `fail`, `waiting` (its evidence is not there yet: a run still going, the
-preview not up, shown as not finished) or `not judged · <why>` (its evidence could not be read).
-Only `pass` passes: `waiting` and `not judged` never do. The verdict is ready only when all five
-checks read `pass`; one check `waiting` or `not judged` makes the whole verdict not ready, shown as
+A check reads `pass`, `fail`, `not finished` (its evidence is not there yet: a run still going,
+the preview not up; never shown green) or `not judged · <why>` (its evidence could not be read).
+Only `pass` passes: `not finished` and `not judged` never do. The verdict is ready only when all five
+checks read `pass`; one check `not finished` or `not judged` makes the whole verdict not ready, shown as
 not finished, and the pull request stays a draft.
 
 **Who it gates.** A setting decides: `ready.checks` is `mission` here (only the feature PR of a PRD
@@ -79,7 +80,7 @@ preview run only once a pull request into the default branch is ready, never on 
 draft could never pass checks 2 and 3. Before it runs `omni ready`, the gated skill adds the label
 `omni:ready-check` to the draft: that label starts, on the draft's latest commit, the full checks,
 the e2e job and the preview. A later push to a labelled draft runs them again. Only gated PRs pay
-for it, and ready still comes last. While those runs are going, checks 1 to 3 read `waiting`.
+for it, and ready still comes last. While those runs are going, checks 1 to 3 read `not finished`.
 
 **Two places, one verdict.** `omni ready <prd>` runs the rule on facts it reads itself, through `gh`
 (the head commit's runs, the acceptance report, the diff, the plan and the ledger at the head). The
@@ -117,8 +118,8 @@ results from the test job's report, and the e2e results from a job that waits fo
 preview and runs the `e2e` scenarios there, its HTML report (steps, screenshots, video) kept as the
 run's artifact. When e2e does not run in CI here (`e2e.ci` false, or no key configured), a runner of
 the workspace runs the scenarios against the preview and the App writes the same `acceptance` check
-run. With no runner either, check 3 reads `waiting` and names it: `waiting for a runner to run the
-e2e scenarios`, and the verdict stays not ready, the pull request a draft.
+run. With no runner either, check 3 reads `not finished` and names why: `no runner has run the e2e
+scenarios yet`, and the verdict stays not ready, the pull request a draft.
 
 **Where the e2e tests live.** `e2e.repo` names the repository that holds them: unset for this
 repository (omni-loop keeps them in `e2e.dir`), or `<owner>/<name>` for a product whose e2e tests
@@ -167,7 +168,7 @@ never appears as a state.
   look." Settled: `none` (the person approved the section without answering it). A PRD with no
   `e2e` criterion has no e2e evidence to wait for: check 3 reads its `test` criteria only, and the
   e2e job does not run for it. A PRD with one `e2e` criterion waits for its run: check 3 reads
-  `waiting` until that scenario's result is there, and never `pass` before.
+  `not finished` until that scenario's result is there, and never `pass` before.
 - **No proof video** (asked).
 
 ## User stories
@@ -185,6 +186,7 @@ never appears as a state.
 In:
 
 - the validator (`kit/lib/ready/`), its facts readers and `omni ready <prd> [--json]`;
+- the `excuses:` field of an outbox item, written by `omni item new`;
 - the settings `ready.checks`, `ready.full`, `acceptance.kind`, `e2e.ci`, `e2e.repo`, read and
   documented;
 - the AC format in specs, its check in `omni check inbox`, and `/omni:brainstorm` writing it;
@@ -204,7 +206,7 @@ room linking to the panel, mobile e2e (PRD 1278).
 
 ## Test seams
 
-- **The rule:** a pure table test of the validator, each check passing, failing, `waiting` and
+- **The rule:** a pure table test of the validator, each check passing, failing, `not finished` and
   `not judged`, and each excuse (an answered item, an adopted medium item for check 5 only).
 - **Loosening:** diff fixtures, one per kind and per weakening the solution lists, plus clean diffs
   that must pass (a test renamed, an assertion made stronger).
@@ -260,10 +262,11 @@ The locked laws, all kept:
 The business laws, all kept:
 
 - BL-GATE-1 (a check that does not decide says "not judged", with the reason, and a running one is
-  never a pass): each check's `waiting` and `not judged · <why>` states never pass.
+  shown as not finished, never as passed): each check's `not finished` and `not judged · <why>`
+  states are never shown green and never pass, and one of them keeps the whole verdict not ready.
 - BL-ASK-1 (a person's answer is never changed or reworded): an item excuses a finding only by
-  its record as written (the exact path in its text, the verdict `agreed`, or `adopted` for check
-  5), never by reading meaning into the answer. The checks never write to the ledger, and the App's
+  two recorded fields, its `excuses:` paths and its verdict (`agreed`, or `adopted` for check 5);
+  a person's words are never read to decide it. The checks never write to the ledger, and the App's
   check is signed as its own, never in a person's name.
 - BL-APPROVALS-1 (an approval covers exactly the files read): untouched; the ready gate never
   stands in for the PRD's approval.
@@ -294,14 +297,14 @@ Scenario: A loosened test keeps the pull request a draft
 Scenario: Evidence still coming never passes
   Given a mission's feature PR whose test job is still running on its latest commit
   When omni ready reads it
-  Then check 2 reads waiting and the verdict is not ready
+  Then check 2 reads not finished and the verdict is not ready
 ```
 
 ### AC-4 · test
 
 ```gherkin
 Scenario: An answered item excuses a file outside the plan
-  Given a mission's feature PR that changes one file outside every territory, named by an outbox item a person answered
+  Given a mission's feature PR that changes one file outside every territory, listed in the excuses field of an outbox item a person answered A
   When omni ready reads it
   Then check 5 passes and names the item
 ```
