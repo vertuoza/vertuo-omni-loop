@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "I type status in each terminal and know in seconds which one waits on me; the link takes me straight to it.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The plain sentence and the link mean I can follow my quick wins without asking a developer what a check is.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every status reads the same facts and the same words, so my teams compare like with like; the per-terminal dashboard is still to come.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A red check shows its real name and green never hides it; I still read the pull request before trusting it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "It is still friendly text over facts the kit had, but omni status and my scripts did not change.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
     }
   ]
 }
