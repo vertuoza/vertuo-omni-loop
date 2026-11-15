@@ -22,7 +22,7 @@ const MAX_BODY_CHARS = 4 * 1024;
 const NO_DATABASE = 'Virtual fleets are not available here: this deployment has no database.';
 const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The hero could not be changed. Try again.';
-const BAD_ADD = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "role": "engineer" | "qa" | "reviewer" | "pm" | "architect"}.';
+const BAD_ADD = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "role": "engineer" | "qa" | "reviewer" | "pm" | "architect" | "designer"}.';
 const BAD_REMOVE = 'The body must be {"workspace": "<id>", "hero": "<a hero\'s id>"}.';
 
 const refuse = (kind: HeroRefusal, error: string, field: HeroRefusalField = 'form') => reply(HERO_REFUSALS[kind], { error, field });

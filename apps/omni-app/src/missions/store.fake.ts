@@ -13,7 +13,7 @@ type FakeJob = { id: string; line: string; key: string; toFleet: string | null; 
 type FakeEvent = NewEvent & { actor: 'agent'; at: string };
 
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
-export function fakeMissionStore({ mission, facts, fleetRunners = true }: { mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean }) {
+export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false }: { mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean }) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
   const jobs: FakeJob[] = [];
@@ -45,12 +45,13 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true }: { miss
     },
     events: () => Promise.resolve(events.map(({ kind, prd, job }) => ({ kind, prd, job }))),
     fleetRunners: () => Promise.resolve(fleetRunners),
-    send: ({ mission: sent, prd, run, step, toFleet }) => {
+    planRepository: () => Promise.resolve(planRepository),
+    send: ({ mission: sent, prd, run, step, toFleet, skill }) => {
       const key = missionKey(sent.id, prd, run, step);
       if (jobs.some((job) => job.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      jobs.push({ id, line: lineOf(prd, step), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+      jobs.push({ id, line: lineOf(prd, step, skill), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
       return Promise.resolve(id);
     },
     record: (_id, list, at) => {

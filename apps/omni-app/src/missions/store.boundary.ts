@@ -15,6 +15,8 @@ import {
   JobLogRowSchema,
   JobRowSchema,
   MISSION,
+  PRODUCT,
+  ProductRowSchema,
   MissionRowSchema,
   PLAN,
   PlanRowSchema,
@@ -42,5 +44,6 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: runner jobs', read: (db) => db.from('runner_jobs').select(JOB).limit(5), schema: JobRowSchema, shape: 'rows' },
   { name: 'missions/store: Reviewer job logs', read: (db) => db.from('runner_jobs').select(JOB_LOG).limit(1), schema: JobLogRowSchema, shape: 'rows' },
   { name: 'missions/store: mission events', read: (db) => db.from('mission_events').select(EVENT).limit(5), schema: EventRowSchema, shape: 'rows' },
+  { name: 'missions/store: products', read: (db) => db.from('products').select(PRODUCT).limit(5), schema: ProductRowSchema, shape: 'rows' },
   { name: 'missions/store: runners', read: (db) => db.from('runners').select(RUNNER).limit(5), schema: RunnerRowSchema, shape: 'rows' },
 ];

@@ -2,6 +2,7 @@ import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { roleOf } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { RoomTab } from './RoomTab';
 import { cleanUpLine, filterOf, ledgerOf, nowLines, roomHref, type EventRow, type HeroLine, type RoomView } from './room';
 import { roomRepository, type RoomDb } from './room.repository';
@@ -9,7 +10,7 @@ import { roomService } from './room.service';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 
-// The Operation room (PRD 2842 s8, the `fleet-room` screen): now lines, the clean-up line, the filtered ledger.
+// The Operation room (PRD 2842 s8, PRD 2873 s3, the `fleet-room` screen): now lines, the clean-up line, the filtered ledger.
 
 const M1 = '11111111-1111-4111-8111-111111111111';
 const M2 = '22222222-2222-4222-8222-222222222222';
@@ -18,14 +19,23 @@ const hero = (role: HeroLine['role'], skills: string[]): HeroLine => ({ id: `${r
 const event = (over: Partial<EventRow>): EventRow => ({
   id: crypto.randomUUID(), mission: M1, at: '2026-11-14T09:12:00Z', role: 'engineer', actor: 'agent', kind: 'dispatched', prd: parsePrd(2803), job: JOB, link: null, sentence: 'Sent PRD 2803.', ...over,
 });
-// A PM runs no skill alone (since PRD 2871 the Reviewer's review does): the seat a person still holds.
-const HEROES = [hero('engineer', ['yolo']), hero('pm', ['plan'])];
+// A PM whose skills need a person (since PRD 2871 the Reviewer's review runs alone): the seat a person still holds.
+const HEROES = [hero('engineer', [...roleOf('engineer').skills]), hero('pm', ['brainstorm', 'roadmap'])];
 
 describe('nowLines', () => {
   it('reads what a working hero does, Idle when it is not, and that a person does what no agent can', () => {
     const lines = nowLines(HEROES, [event({})]);
     expect(lines.map((l) => l.words)).toEqual(['Engineer · agent: building PRD 2803', 'A person does this today']);
     expect(nowLines(HEROES, [event({}), event({ kind: 'job-ended', at: '2026-11-14T10:00:00Z' })])[0]?.words).toBe('Idle');
+  });
+
+  it('reads an idle hero with a skill that runs alone as Idle, and one with none as `A person does this today`', () => {
+    const lines = nowLines([hero('designer', [...roleOf('designer').skills]), hero('pm', ['brainstorm', 'roadmap']), hero('reviewer', ['tech-review'])], []);
+    expect(lines.map((l) => [l.heading, l.words, l.state])).toEqual([
+      ['Designer · agent', 'Idle', 'idle'],
+      ['PM · agent', 'A person does this today', 'person'],
+      ['Reviewer · agent', 'A person does this today', 'person'],
+    ]);
   });
 });
 

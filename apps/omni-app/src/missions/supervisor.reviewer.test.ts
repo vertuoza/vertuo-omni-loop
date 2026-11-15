@@ -55,6 +55,13 @@ describe('the keys and the lines of the Reviewer and the fix', () => {
     expect(lineOf(prd(7), 'review:2')).toBe('/omni:review 7');
     expect(lineOf(prd(7), 'fix:1')).toBe('/omni:yolo-fix 7 --for-review');
   });
+
+  it('builds a plan repository\'s PRD with /omni:ultra-yolo unchanged, which takes no --for-review (PRD 2873)', () => {
+    expect(lineOf(prd(7), 'build', 'ultra-yolo')).toBe('/omni:ultra-yolo 7');
+    expect(lineOf(prd(7), 'fix:1', 'ultra-yolo')).toBe('/omni:ultra-yolo-fix 7 --for-review');
+    expect(lineOf(prd(7), 'review:1', 'ultra-yolo')).toBe('/omni:review 7');
+    expect(lineOf(prd(7), 'build', 'yolo')).toBe(lineOf(prd(7), 'build'));
+  });
 });
 
 describe('the table, step by step', () => {

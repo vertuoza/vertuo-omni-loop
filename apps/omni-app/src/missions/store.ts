@@ -16,10 +16,12 @@
 //                else of the log
 //   events       the events already recorded, read back as keys, so nothing is recorded twice
 //   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
+//   planRepository whether the mission's repository is a live product's plan repository (`products.plan_repository`)
 //   send         the step's line queued (`/omni:yolo <n> --for-review`, `/omni:review <n>` or `/omni:yolo-fix
-//                <n> --for-review`, PRD 2871), sent by the app (`sent_by_app`, never a person's name, Never 10),
-//                to the fleet's runners or else to any runner of the workspace, under `mission_key`: a key
-//                already held (23505) inserts nothing and answers null
+//                <n> --for-review`, PRD 2871; the build `/omni:ultra-yolo <n>` for a PRD of a plan repository, PRD
+//                2873), sent by the app (`sent_by_app`, never a person's name, Never 10), to the fleet's runners or
+//                else to any runner of the workspace, under `mission_key`: a key already held (23505) inserts
+//                nothing and answers null
 //   record       the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
 //   update       the mission's status, what it waits on and its next wake, only while its status is still the
 //                one this run read: a Pause landing meanwhile is never overwritten
@@ -39,6 +41,7 @@ import {
   stageOf,
   territoryOf,
   type Attempt,
+  type BuildSkill,
   type Concluded,
   type Mission,
   type MissionStatus,
@@ -53,8 +56,11 @@ import {
 /** A mission as the store reads it: the supervisor's view, its workspace and repository, and its scope. */
 export type MissionRecord = Mission & { workspace: string; repo: string; scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] } };
 
-/** A job to send: the mission, the PRD, its run and step, and whether the fleet's runners take it. */
-export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean };
+/** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
+export type MissionSkill = BuildSkill;
+
+/** A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill. */
+export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill };
 
 export type MissionStore = {
   mission: (id: string) => Promise<MissionRecord | null>;
@@ -62,6 +68,8 @@ export type MissionStore = {
   runs: (id: string) => Promise<Run[]>;
   events: (id: string) => Promise<RecordedEvent[]>;
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
+  /** Whether the mission's repository is the plan repository of a live product of its workspace. */
+  planRepository: (mission: MissionRecord) => Promise<boolean>;
   /** The job's id, or null when its key was already held. */
   send: (job: Dispatch) => Promise<string | null>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
@@ -88,6 +96,7 @@ export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url';
 export const JOB_LOG = 'id, log_tail';
 export const EVENT = 'kind, prd, job_id';
 export const RUNNER = 'repos';
+export const PRODUCT = 'plan_repository';
 
 const text = z.string().min(1);
 
@@ -120,6 +129,7 @@ export const JobRowSchema = z.object({
 export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
 export const EventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), job_id: z.string().nullable() });
 export const RunnerRowSchema = z.object({ repos: z.array(z.string()) });
+export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
 
 type JobRow = z.infer<typeof JobRowSchema>;
 
@@ -240,13 +250,18 @@ export function missionStore(connection: Connection): MissionStore {
       return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
     },
 
-    async send({ mission, prd, run, step, toFleet }) {
+    async planRepository(mission) {
+      const products = rowsOf(ProductRowSchema, await db.from('products').select(PRODUCT).eq('workspace_id', mission.workspace).is('archived_at', null));
+      return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
+    },
+
+    async send({ mission, prd, run, step, toFleet, skill }) {
       const answer = await db
         .from('runner_jobs')
         .insert({
           workspace_id: mission.workspace,
           repo: mission.repo,
-          line: lineOf(prd, step),
+          line: lineOf(prd, step, skill),
           sent_by_app: APP_SENDER,
           to_fleet: toFleet ? mission.fleet : null,
           mission_id: mission.id,

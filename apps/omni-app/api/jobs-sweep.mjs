@@ -21296,10 +21296,10 @@ function runOfKey(key) {
   const step = match?.[4] ?? "build";
   return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
 }
-function lineOf4(prd, step) {
+function lineOf4(prd, step, skill = "yolo") {
   const n = String(prd);
-  if (step === "build") return `/omni:yolo ${n} --for-review`;
-  if (step === "fix:1") return `/omni:yolo-fix ${n} --for-review`;
+  if (step === "build") return skill === "ultra-yolo" ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review`;
+  if (step === "fix:1") return `/omni:${skill === "ultra-yolo" ? "ultra-yolo-fix" : "yolo-fix"} ${n} --for-review`;
   return `/omni:review ${n}`;
 }
 var roundOf2 = (step) => step === "review:1" ? 1 : step === "review:2" ? 2 : null;
@@ -21546,15 +21546,15 @@ function askedBefore(runs, one) {
   const latest = rounds.reduce((last, other) => last === null || other.run > last.run ? other : last, null);
   return (latest ? lastOf(latest)?.posted?.findings : null) ?? null;
 }
-function sentWords(one, where) {
+function sentWords(one, where, skill) {
   const round = roundOf2(one.step);
-  return `Sent ${lineOf4(one.prd, one.step)} to ${where} (run ${String(one.run)}${round === null ? "" : `, round ${String(round)}`}).`;
+  return `Sent ${lineOf4(one.prd, one.step, skill)} to ${where} (run ${String(one.run)}${round === null ? "" : `, round ${String(round)}`}).`;
 }
-function runEvents(runs, where) {
+function runEvents(runs, where, skill) {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
-    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where) };
+    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill) };
     const ending = last && end !== null ? [endEvent(one.prd, one, last, end, askedBefore(runs, one))] : [];
     return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, "lost")), ...ending];
   });
@@ -21589,11 +21589,12 @@ function eventsOf({
   runs,
   next,
   toFleet,
+  skill = "yolo",
   recorded
 }) {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : "any runner of the workspace";
-  const all = [...runEvents(runs, where), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [...runEvents(runs, where, skill), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf3(event);
     if (own.some((key) => keys.has(key))) return [];
@@ -21611,16 +21612,17 @@ function missionJob(id, repo) {
 }
 var ProgressSchema3 = z85.looseObject({ laters: z85.number().int().min(0).optional() });
 async function supervise(store, mission, now) {
-  const [facts, runs, recorded, toFleet] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission)]);
+  const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
+  const skill = inPlan ? "ultra-yolo" : "yolo";
   const sent = [];
   for (const { prd, run, step } of pick2({ mission, facts, states: prdStates(facts, runs) })) {
-    const made = await store.send({ mission, prd, run, step, toFleet });
+    const made = await store.send({ mission, prd, run, step, toFleet, skill });
     if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all);
   const next = conclude({ mission, facts, states, sent: sent.length, now });
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, recorded: recordedKeys(recorded) });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded) });
   await store.record(mission.id, events, new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === "running"), moved, sent: sent.length, events: events.length };
@@ -21668,6 +21670,7 @@ var JOB2 = "id, mission_key, resumes, status, outcome, reason, pr_url";
 var JOB_LOG = "id, log_tail";
 var EVENT = "kind, prd, job_id";
 var RUNNER = "repos";
+var PRODUCT = "plan_repository";
 var text17 = z86.string().min(1);
 var MissionRowSchema = z86.object({
   id: text17,
@@ -21698,6 +21701,7 @@ var JobRowSchema2 = z86.object({
 var JobLogRowSchema = z86.object({ id: text17, log_tail: z86.string() });
 var EventRowSchema = z86.object({ kind: text17, prd: PrdNumberSchema.nullable(), job_id: z86.string().nullable() });
 var RunnerRowSchema = z86.object({ repos: z86.array(z86.string()) });
+var ProductRowSchema3 = z86.object({ plan_repository: z86.string().nullable() });
 var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 function missionStore(connection) {
@@ -21796,11 +21800,15 @@ function missionStore(connection) {
       const runners = rowsOf(RunnerRowSchema, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
       return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
     },
-    async send({ mission, prd, run, step, toFleet }) {
+    async planRepository(mission) {
+      const products = rowsOf(ProductRowSchema3, await db.from("products").select(PRODUCT).eq("workspace_id", mission.workspace).is("archived_at", null));
+      return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
+    },
+    async send({ mission, prd, run, step, toFleet, skill }) {
       const answer = await db.from("runner_jobs").insert({
         workspace_id: mission.workspace,
         repo: mission.repo,
-        line: lineOf4(prd, step),
+        line: lineOf4(prd, step, skill),
         sent_by_app: APP_SENDER2,
         to_fleet: toFleet ? mission.fleet : null,
         mission_id: mission.id,
@@ -22054,7 +22062,7 @@ var LogRowSchema = z90.object({ group_id: z90.string().min(1), product_id: z90.s
 var GroupRowSchema = z90.object({ group_id: z90.string().min(1) });
 var QuestionTextSchema = z90.object({ question: z90.string() });
 var OpenedRowSchema = z90.object({ opened_id: z90.string().min(1) });
-var ProductRowSchema3 = z90.object({ product_id: z90.string().min(1) });
+var ProductRowSchema4 = z90.object({ product_id: z90.string().min(1) });
 var HolderRowSchema5 = z90.object({ product_id: z90.string().min(1) });
 var LiveProductSchema = z90.object({ id: z90.string().min(1) });
 var QuestionRowSchema = z90.object({ id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), question: z90.string(), category: z90.string().nullable() });
@@ -22079,7 +22087,7 @@ var chunks = (items, size) => Array.from({ length: Math.ceil(items.length / size
 function searchEvalStore(connection) {
   const db = serviceDb(connection);
   async function liveQuestionProducts() {
-    const rows = await paged2(ProductRowSchema3, (from, to) => db.from("search_eval_questions").select("product_id").is("removed_at", null).order("id").range(from, to));
+    const rows = await paged2(ProductRowSchema4, (from, to) => db.from("search_eval_questions").select("product_id").is("removed_at", null).order("id").range(from, to));
     return [...new Set(rows.map((row) => row.product_id))];
   }
   return {

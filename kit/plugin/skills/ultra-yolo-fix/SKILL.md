@@ -87,10 +87,11 @@ report names each rework as `<slug>#<sub-PR>` beside its item.
 ## 1. Find the plan PR
 
 As `/omni:yolo-fix` step 1, on the plan repository's feature PR (the plan PR). Fetch each target's
-clone (`<worktrees>/targets/<name>@<prd>`, the PRD's own) too; a missing clone is made as `/omni:ultra-yolo` step 2 makes
+clone (`<worktrees>/targets/<name>@<prd>`, the PRD's own; on a runner, with `OMNI_JOB` set, `<worktrees>/targets/job-<id>/<name>`, a folder of the job's own) too; a missing clone is made as `/omni:ultra-yolo` step 2 makes
 it. After the plan PR has merged, its after-merge path applies in the plan repository; a target
 whose target PR has merged gets a fresh feature branch and draft target PR, as `/omni:ultra-yolo`
-step 2 opens them.
+step 2 opens them. A target the runner's token does not reach stops the job at the clone with
+`install the Omni GitHub App on <owner/name>`, nothing pushed for that target.
 
 ## 2. Adopt what's left, first
 

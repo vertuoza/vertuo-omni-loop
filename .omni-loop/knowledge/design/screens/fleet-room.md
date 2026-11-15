@@ -18,8 +18,10 @@ an agent is not a person.
 
 ## Regions
 
-- **Now lines:** one line per seat (PM, Engineer, Architect, QA, Reviewer): who holds it, agent or
-  person, and one sentence of what it is doing, or its state.
+- **Now lines:** one line per seat (Engineer, QA, Reviewer, PM, Architect, Designer): who holds it,
+  agent or person, and one sentence of what it is doing, or its state. A hero with a skill a runner
+  runs alone reads `Idle` when it has nothing to do (the Reviewer, since PRD 2871 runs `/omni:review`
+  alone); a hero with none reads `A person does this today` (PRD 2873).
 - **The clean-up line:** `Nothing to clean up`, or what is kept, by whom, until when, how big.
 - **The ledger:** newest first; each row has its time, the role's mark and name
   (`Reviewer · agent`), one sentence, the PRD or pull request as a link, and a state word.
@@ -45,7 +47,7 @@ an agent is not a person.
 
 ## Words
 
-- `Reviewer · agent`, `Engineer · agent`, `QA · agent`, `A person does this today`,
+- `Reviewer · agent`, `Engineer · agent`, `QA · agent`, `Designer · agent`, `A person does this today`,
   `Nothing to clean up`, `Round 1 of 2`, `Waiting for room`, `Ready for review`.
 
 ## Refusals
@@ -76,3 +78,4 @@ an agent is not a person.
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2871: .omni-loop/delivery/shipped/2871-reviewer/before-after.html
+/omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html (an idle hero with a skill that runs alone reads `Idle`; the Designer has a now line)

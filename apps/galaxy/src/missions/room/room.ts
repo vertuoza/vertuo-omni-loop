@@ -1,8 +1,9 @@
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { HERO_ROLES, roleLine, roleOf, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
+import { HERO_ROLES, roleOf, worksAlone, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 
-// The Operation room's rules (PRD 2842 s8, the `fleet-room` screen), pure so each is tested without a browser:
-// one now line per hero (what a working hero does, else Idle, else that a person does it today), the clean-up
+// The Operation room's rules (PRD 2842 s8, PRD 2873 s3, the `fleet-room` screen), pure so each is tested without a
+// browser: one now line per hero (what a working hero does, else Idle, else, when none of its skills is one a
+// runner takes, that a person does it today), the clean-up
 // line from the kept saves (PRD 2809), and the ledger of the missions' events, newest first, filtered by role
 // and by mission. Every row is a real record: no first name for an agent, no narration.
 
@@ -25,7 +26,7 @@ export const ROOM_WORDS = {
   show: 'Show',
 } as const;
 
-/** The roles an event is signed by: the five heroes' and the supervisor's own decisions. */
+/** The roles an event is signed by: the six heroes' and the supervisor's own decisions. */
 export type EventRole = HeroRole | 'supervisor';
 export const EVENT_ROLES: readonly EventRole[] = [...HERO_ROLES, 'supervisor'];
 
@@ -108,11 +109,12 @@ function workingOn(role: EventRole, events: readonly EventRow[]): PrdNumber | nu
   return sent?.prd ?? null;
 }
 
-/** One line per hero of the fleet: what a working hero does, else Idle; a hero that cannot work alone reads that a person does it. */
+/** One line per hero of the fleet: what a working hero does, else Idle; a hero none of whose skills a runner takes reads that a
+ * person does it. */
 export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[]): NowLine[] {
   return heroes.map((hero) => {
     const heading = `${roleOf(hero.role).name} · ${ROOM_WORDS.agent}`;
-    if (!roleLine(hero.role, hero.skills).alone) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.person, state: 'person' };
+    if (!worksAlone(hero.skills)) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.person, state: 'person' };
     const prd = workingOn(hero.role, events);
     if (prd === null) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.idle, state: 'idle' };
     return { id: hero.id, role: hero.role, heading, words: `${heading}: building PRD ${String(prd)}`, state: 'working' };

@@ -173,7 +173,7 @@ const outcomeCheck = (code: string) => /check \(outcome in \(([^)]*)\)\)/.exec(c
 // PRD 2871: the Reviewer's migration, the newest to set the check, lets the column hold every word the server stores.
 describe('the Reviewer migration\'s outcome check (PRD 2871)', () => {
   it('lets the outcome column hold each word the server stores, and no other', () => {
-    const reviewer = read('supabase/migrations/20270122120000_reviewer.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+    const reviewer = read('supabase/migrations/20270122122000_reviewer.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
     expect(outcomeCheck(reviewer)).toEqual([...STORED_OUTCOMES].sort());
   });
 });

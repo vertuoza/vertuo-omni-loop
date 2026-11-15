@@ -28,9 +28,9 @@ server, and connecting it to your workspace.
 
 A runner takes only these lines: `/omni:yolo`, `/omni:yolo-fix`, `/omni:pr-care`, `/omni:do-work`,
 `/omni:wave`, `/omni:bug-fix`, `/omni:mega-bug-fix`, `/omni:visual-fix`, `/omni:plan`, `/omni:pitch`,
-`/omni:prove`, `/omni:retro-apply`, `/omni:rewind`, `/omni:knowledge-add`, `/omni:rewind-apply` and
-`/omni:review`. Lines that need a person to talk to, such as `/omni:brainstorm`, stay in your own
-terminal.
+`/omni:prove`, `/omni:retro-apply`, `/omni:rewind`, `/omni:knowledge-add`, `/omni:rewind-apply`,
+`/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix` and `/omni:review`.
+Lines that need a person to talk to, such as `/omni:brainstorm`, stay in your own terminal.
 
 ### Follow it on the Runners page
 

@@ -129,11 +129,19 @@ export function runOfKey(key: string): { prd: PrdNumber; run: number; step: Step
   return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
 }
 
-/** The line a step is sent as (PRD 2871): the build and the fix sent for review, the Reviewer between them. */
-export function lineOf(prd: PrdNumber, step: Step): string {
+/** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
+export type BuildSkill = 'yolo' | 'ultra-yolo';
+
+/**
+ * The line a step is sent as (PRD 2871): the build and the fix sent for review, the Reviewer between them. A PRD of
+ * a plan repository is built with `/omni:ultra-yolo <n>` (PRD 2873), which takes no `--for-review`: it is sent
+ * unchanged, so its run ends as a build without the Reviewer does; its fix, were one sent, is
+ * `/omni:ultra-yolo-fix <n> --for-review`.
+ */
+export function lineOf(prd: PrdNumber, step: Step, skill: BuildSkill = 'yolo'): string {
   const n = String(prd);
-  if (step === 'build') return `/omni:yolo ${n} --for-review`;
-  if (step === 'fix:1') return `/omni:yolo-fix ${n} --for-review`;
+  if (step === 'build') return skill === 'ultra-yolo' ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review`;
+  if (step === 'fix:1') return `/omni:${skill === 'ultra-yolo' ? 'ultra-yolo-fix' : 'yolo-fix'} ${n} --for-review`;
   return `/omni:review ${n}`;
 }
 
@@ -494,17 +502,17 @@ function askedBefore(runs: readonly Run[], one: Run): number | null {
 }
 
 /** What a dispatch says: the line sent, where, and its run (and round, for the Reviewer). */
-function sentWords(one: Run, where: string): string {
+function sentWords(one: Run, where: string, skill: BuildSkill): string {
   const round = roundOf(one.step);
-  return `Sent ${lineOf(one.prd, one.step)} to ${where} (run ${String(one.run)}${round === null ? '' : `, round ${String(round)}`}).`;
+  return `Sent ${lineOf(one.prd, one.step, skill)} to ${where} (run ${String(one.run)}${round === null ? '' : `, round ${String(round)}`}).`;
 }
 
 /** What each job says: its dispatch, each runner lost along the way, and its end. */
-function runEvents(runs: readonly Run[], where: string): NewEvent[] {
+function runEvents(runs: readonly Run[], where: string, skill: BuildSkill): NewEvent[] {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
-    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where) };
+    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill) };
     const ending = last && end !== null ? [endEvent(one.prd, one, last, end, askedBefore(runs, one))] : [];
     return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, 'lost')), ...ending];
   });
@@ -547,6 +555,7 @@ export function eventsOf({
   runs,
   next,
   toFleet,
+  skill = 'yolo',
   recorded,
 }: {
   mission: Mission;
@@ -555,11 +564,12 @@ export function eventsOf({
   runs: readonly Run[];
   next: Concluded;
   toFleet: boolean;
+  skill?: BuildSkill;
   recorded: ReadonlySet<string>;
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
-  const all = [...runEvents(runs, where), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [...runEvents(runs, where, skill), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf(event);
     if (own.some((key) => keys.has(key))) return [];

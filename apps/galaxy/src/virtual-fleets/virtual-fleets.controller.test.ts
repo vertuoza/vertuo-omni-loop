@@ -7,7 +7,7 @@ import { FAILED, ONLY_MEMBERS, virtualFleetsService } from './virtual-fleets.ser
 // makes a Virtual Fleet with a hero per role left on and is answered the fleet; each refusal names the
 // drawer's field it goes under.
 
-const ALL = ['engineer', 'qa', 'reviewer', 'pm', 'architect'];
+const ALL = ['engineer', 'qa', 'reviewer', 'pm', 'architect', 'designer'];
 
 function deps(person: string | null, db = fakeVirtualFleetsDb()) {
   const lines: string[] = [];
@@ -31,7 +31,7 @@ describe('POST /api/virtual-fleets', () => {
     const made = db.teams.get(NORTHWIND)?.find((t) => t.name === 'night-shift');
     expect(made?.kind).toBe('virtual');
     expect(made?.heroes.map((h) => [h.role, h.name])).toEqual([['qa', 'QA'], ['engineer', 'Engineer']]);
-    expect(made?.heroes.find((h) => h.role === 'engineer')?.skills).toEqual(['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix']);
+    expect(made?.heroes.find((h) => h.role === 'engineer')?.skills).toEqual(['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive']);
   });
 
   it('refuses a name already used in the workspace under the Name field', async () => {
@@ -47,7 +47,7 @@ describe('POST /api/virtual-fleets', () => {
   });
 
   it('refuses a body with no role on, or a role it does not know, under Heroes, before the database is asked', async () => {
-    for (const roles of [[], ['designer']]) {
+    for (const roles of [[], ['writer']]) {
       const res = await postVirtualFleet(create({ roles }), deps(ADA).deps);
       expect(res.status).toBe(422);
       expect(await res.json()).toMatchObject({ field: 'heroes' });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canCreate, demoPort, landingOf, newFleetReducer, openedWith, refusalUnder, requestOf, roleSwitch, WORDS, type NewFleetState } from './new-fleet';
 
-// The New virtual fleet drawer's rules (PRD 2842 s1, the `fleet-new` screen).
+// The New virtual fleet drawer's rules (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen).
 
 const MASCOTS = ['beaver', 'octopod', 'robot'];
 const named = (name: string): NewFleetState => newFleetReducer(openedWith(MASCOTS), { type: 'name', value: name });
@@ -9,7 +9,7 @@ const named = (name: string): NewFleetState => newFleetReducer(openedWith(MASCOT
 describe('the New virtual fleet drawer', () => {
   it('opens with Name empty, the first icon selected and every role on, Create fleet disabled until it has a name', () => {
     const opened = openedWith(MASCOTS);
-    expect(opened).toEqual({ name: '', mascot: 'beaver', roles: ['engineer', 'qa', 'reviewer', 'pm', 'architect'], busy: false, refusal: null });
+    expect(opened).toEqual({ name: '', mascot: 'beaver', roles: ['engineer', 'qa', 'reviewer', 'pm', 'architect', 'designer'], busy: false, refusal: null });
     expect(canCreate(opened)).toBe(false);
     expect(canCreate(named('Night Shift'))).toBe(true);
     expect(canCreate(named('   '))).toBe(false);
@@ -17,7 +17,7 @@ describe('the New virtual fleet drawer', () => {
 
   it('disables Create fleet with every switch off, and enables it again with one on', () => {
     let state = named('Night Shift');
-    for (const role of ['engineer', 'qa', 'reviewer', 'pm', 'architect'] as const) state = newFleetReducer(state, { type: 'toggle', role });
+    for (const role of ['engineer', 'qa', 'reviewer', 'pm', 'architect', 'designer'] as const) state = newFleetReducer(state, { type: 'toggle', role });
     expect(state.roles).toEqual([]);
     expect(canCreate(state)).toBe(false);
     state = newFleetReducer(state, { type: 'toggle', role: 'pm' });
@@ -30,12 +30,12 @@ describe('the New virtual fleet drawer', () => {
     state = newFleetReducer(state, { type: 'toggle', role: 'qa' });
     state = newFleetReducer(state, { type: 'toggle', role: 'engineer' });
     state = newFleetReducer(state, { type: 'toggle', role: 'qa' });
-    expect(state.roles).toEqual(['qa', 'reviewer', 'pm', 'architect']);
+    expect(state.roles).toEqual(['qa', 'reviewer', 'pm', 'architect', 'designer']);
   });
 
   it('sends the name trimmed, the icon and the roles left on', () => {
     const state = newFleetReducer(named('  Night Shift '), { type: 'mascot', value: 'robot' });
-    expect(requestOf(state)).toEqual({ name: 'Night Shift', mascot: 'robot', roles: ['engineer', 'qa', 'reviewer', 'pm', 'architect'] });
+    expect(requestOf(state)).toEqual({ name: 'Night Shift', mascot: 'robot', roles: ['engineer', 'qa', 'reviewer', 'pm', 'architect', 'designer'] });
   });
 
   it('creates nothing with a name longer than 12 characters', () => {
@@ -63,11 +63,11 @@ describe('the New virtual fleet drawer', () => {
     expect(landingOf('a&b')).toBe('/app/fleet?fleet=a%26b');
   });
 
-  it('says for each role whether it works alone, by its role\'s name', () => {
-    expect(roleSwitch('engineer')).toEqual({ role: 'engineer', name: 'Engineer', line: 'Builds PRDs alone' });
-    expect(roleSwitch('qa').line).toBe('Proves the work alone');
-    expect(roleSwitch('reviewer').line).toBe('Works alone');
-    for (const role of ['pm', 'architect'] as const) expect(roleSwitch(role).line).toBe('A person does this today');
+  it('gives each role its count line, by its role\'s name', () => {
+    expect(roleSwitch('engineer')).toEqual({ role: 'engineer', name: 'Engineer', line: 'Runs 10 of 13 skills alone' });
+    expect(roleSwitch('qa').line).toBe('Runs 2 of 3 skills alone');
+    expect(roleSwitch('reviewer').line).toBe('Runs 1 of 2 skills alone');
+    expect(roleSwitch('designer')).toEqual({ role: 'designer', name: 'Designer', line: 'Runs 1 of 3 skills alone' });
   });
 
   it('makes no fleet in the demo, and says so in the foot', async () => {

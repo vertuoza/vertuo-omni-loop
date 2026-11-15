@@ -60,6 +60,11 @@ describe('the accounts file', () => {
     expect(read.handoff).toEqual({ usage: 50, context: 99 });
   });
 
+  it('takes the ultra skills an account may run (PRD 2873)', () => {
+    const read = parseAccounts(one('    instance: x\n    takes: [ultra-yolo, ultra-wave, ultra-yolo-fix]\n'));
+    expect(read.accounts[0]?.takes).toEqual(['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']);
+  });
+
   it('gives the default thresholds when the file sets none', () => {
     expect(parseAccounts(one('    instance: x\n')).handoff).toEqual(DEFAULT_HANDOFF);
   });

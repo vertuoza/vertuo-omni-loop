@@ -34,8 +34,13 @@ import { BUG_FIX_OUTCOMES, PRS_MAX, type BugFixOutcome } from 'omni-loop/kit/lib
 import { CheckpointManifestSchema } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
 import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
-/** The skills a runner may run: the ones the app copies that need no person typing and end on their own. */
-export const RUNNER_SKILLS = ['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add', 'rewind-apply', 'review'] as const;
+/** The skills a runner may run: the ones the app copies that need no person typing and end on their own. The ultra skills (PRD 2873)
+ * are sent from a product's plan repository only, which the service checks once it knows the repository. `review` is the Reviewer's
+ * (PRD 2871). */
+export const RUNNER_SKILLS = [
+  'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review',
+] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
 /** The longest line a runner runs, skill included: the kit's own `LINE_MAX`, which `omni runner` checks
