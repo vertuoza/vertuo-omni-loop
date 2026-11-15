@@ -234,3 +234,157 @@ Changing where the count is read costs one function in the missions repository a
 ```
 
 <!-- /omni-outbox-settled: s2-02-prds-on-branch-read-from-events -->
+
+<!-- omni-outbox-settled: s3-01-app-checks-on-mission-branch-prs -->
+
+## s3-01-app-checks-on-mission-branch-prs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-app-checks-on-mission-branch-prs
+prd: 2896
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+The spec says the app's own checks (outbox, budgets, business laws) run on a pull request into a mission branch as on one into main. Which slice changes the webhook that decides this?
+
+## The decision, in plain words
+
+Only the checks workflow runs for pull requests into a mission branch in this slice. The app's own checks still skip them, because the webhook that picks pull requests lies outside every slice's territory.
+
+## The intro, for fun
+
+The guard at the main gate does not yet know the side door has a number.
+
+## The punchline, for fun
+
+Until someone tells the webhook, the side door is checked by the workflow alone.
+
+## The options, in plain words
+
+A. A. Leave the webhook; a later slice adds mission branches to its filter (built).
+B. B. Add the filter now, in this slice, outside its territory.
+
+## What I had to decide
+
+Which later slice adds the mission branches to the webhook's list of pull requests that get the app's checks.
+
+## What I did meanwhile
+
+The checks workflow runs on pull requests into mission branches; the webhook is left as it is.
+
+## What it costs to change later
+
+Changing the webhook later costs one small filter and its tests, in a slice whose territory lists the webhook.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No slice's territory names the webhook file (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-app-checks-on-mission-branch-prs -->
+
+<!-- omni-outbox-settled: s3-02-branch-cut-by-the-first-run -->
+
+## s3-02-branch-cut-by-the-first-run — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-branch-cut-by-the-first-run
+prd: 2896
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+The spec says Start refuses when the repository does not allow rebase merges. Start is a page and a route outside this slice, so where is the setting checked?
+
+## The decision, in plain words
+
+The mission's first run after Start cuts the branch and checks the setting. With rebase merges off it cuts nothing, sends no PRD, and the mission waits naming the setting.
+
+## The intro, for fun
+
+A door with no lock still needs someone to check it before the party.
+
+## The punchline, for fun
+
+Better a polite wait than a branch nobody can land.
+
+## The options, in plain words
+
+A. A. The mission's first run cuts the branch and checks the setting; the mission waits naming it (built).
+B. B. The Start route checks the setting and refuses at once, the run only cuts.
+
+## What I had to decide
+
+Whether Start itself, in the page's route, should also refuse on the setting.
+
+## What I did meanwhile
+
+The mission's job asks GitHub through the app, cuts the branch from the default branch once, and leaves an existing branch untouched.
+
+## What it costs to change later
+
+Refusing in the route as well costs one call to GitHub in the Start route and one test; the run's check can stay as the second guard.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The territory names no file of the Start route (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-branch-cut-by-the-first-run -->
