@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { readyView, type ReadyRow } from './ready';
 import { ReadyPanel } from './ReadyPanel';
 
@@ -17,7 +18,7 @@ const CRITERIA: ReadyRow['criteria'] = [
   { number: 2, kind: 'e2e', scenario: 'The switch is kept', lines: ['Given a member', 'When they switch to Light', 'Then it stays Light'], proof: null, state: 'pending' },
 ];
 const BASE: ReadyRow = {
-  repo: 'acme/widgets', prd: 2803, pr_number: 2817, head_sha: 'a41f9c2'.padEnd(40, '0'), state: 'ready', passed: 5, headline: 'Ready for review · 5 of 5',
+  repo: 'acme/widgets', prd: parsePrd(2803), pr_number: 2817, head_sha: 'a41f9c2'.padEnd(40, '0'), state: 'ready', passed: 5, headline: 'Ready for review · 5 of 5',
   checks: [0, 1, 2, 3, 4].map((at) => check(at, 'pass')), criteria: CRITERIA, decided_at: '2026-11-15T07:00:00Z',
 };
 const render = (row: ReadyRow | null) => renderToStaticMarkup(createElement(ReadyPanel, { ready: readyView(row) }));

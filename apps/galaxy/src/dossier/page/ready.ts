@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 // The Ready panel's view (PRD 2898 s9): the latest verdict the Omni App saved for a PRD's feature pull
 // request (`public.ready_verdicts`), read as the member, turned into the words and links the panel draws.
@@ -28,7 +29,7 @@ const CriterionSchema = z.object({
 /** One saved verdict, as the table answers it. */
 export const ReadyRowSchema = z.object({
   repo: set,
-  prd: z.number().int().positive(),
+  prd: PrdNumberSchema,
   pr_number: z.number().int().positive(),
   head_sha: set,
   state: z.enum(['ready', 'not ready', 'not finished']),
