@@ -6,6 +6,13 @@
 # concurrency group), so a burst of agent pushes builds one preview. Drafts, pull requests into a
 # feature branch (slices, landings) and dependabot never preview.
 #
+# A draft labelled `omni:ready-check` (PRD 2898) previews as a ready pull request does: once the
+# label is added and after each push, so the e2e job of the `checks` workflow has the preview of the
+# draft's latest commit to run on. Marking that draft ready builds nothing more (its latest commit has
+# its preview), and adding any other label builds nothing and cancels nothing: such a run is alone
+# in a group named by its run id. The gate is one expression, written twice below, which
+# scripts/preview-debounce.test.ts evaluates event by event.
+#
 # Needs the secrets VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID_GALAXY, VERCEL_PROJECT_ID_OMNI_APP
 # and the variable VERCEL_GITHUB_REPO_ID (the spec's Dashboard steps): without them a run that has a
 # preview to build fails, red on the pull request.
@@ -13,17 +20,27 @@ name: preview-debounce
 on:
   pull_request:
     branches: [main]
-    types: [ready_for_review, synchronize]
+    types: [ready_for_review, synchronize, labeled]
 permissions:
   contents: read
   pull-requests: read
   checks: write
 concurrency:
-  group: preview-${{ github.head_ref }}
+  group: >-
+    preview-${{ github.head_ref }}-${{
+    (github.event.action == 'labeled' && github.event.label.name == 'omni:ready-check' && github.event.pull_request.draft
+    || github.event.action == 'ready_for_review' && !contains(github.event.pull_request.labels.*.name, 'omni:ready-check')
+    || github.event.action == 'synchronize' && (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'omni:ready-check')))
+    && 'ready'
+    || github.run_id }}
   cancel-in-progress: true
 jobs:
   preview:
-    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'dependabot/')
+    if: >-
+      ${{ !startsWith(github.head_ref, 'dependabot/')
+      && (github.event.action == 'labeled' && github.event.label.name == 'omni:ready-check' && github.event.pull_request.draft
+      || github.event.action == 'ready_for_review' && !contains(github.event.pull_request.labels.*.name, 'omni:ready-check')
+      || github.event.action == 'synchronize' && (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'omni:ready-check'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:

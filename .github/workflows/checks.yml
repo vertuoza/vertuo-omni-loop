@@ -268,10 +268,11 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           E2E_STATE: ${{ needs.e2e.outputs.state }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: >-
           node scripts/acceptance-report.ts post --repo "$GITHUB_REPOSITORY" --branch "$HEAD_REF" --head "$HEAD_SHA"
           --base "origin/$GITHUB_BASE_REF" --vitest .acceptance/vitest --e2e-state "$E2E_STATE"
-          --e2e-report e2e/.e2e/report.json --out .acceptance/report.json
+          --e2e-report e2e/.e2e/report.json --out .acceptance/report.json --details-url "$RUN_URL"
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
