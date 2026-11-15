@@ -108,10 +108,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 70 commands and the 41 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(70);
+  it('holds the 71 commands and the 41 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(71);
     expect(skillFolders()).toHaveLength(41);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(70);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(71);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(41);
   });
 
@@ -636,6 +636,14 @@ describe('the e2e entry', () => {
   it('names heals, hold, confirm and reject', () => {
     const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
     for (const sub of ['heals', 'hold', 'confirm', 'reject']) expect(entry?.usage.join('\n')).toContain(`omni e2e ${sub} <prd>`);
+  });
+});
+
+describe('the ready help (PRD 2898)', () => {
+  it('lists omni ready with its five checks and its exit code', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'ready');
+    expect(entry?.usage).toEqual(['omni ready <prd> [--json]']);
+    expect(entry?.detail).toContain('Exit 0 only on 5 of 5');
   });
 });
 
