@@ -68,7 +68,7 @@ describe('missionStore — the mission as the service role, never calling Supaba
       ],
       [{ prd: 7, stage: 'inbox' }, { prd: 8, stage: 'building' }, { prd: 8, stage: 'outbox' }, { prd: 9, stage: 'shipped' }],
       [{ id: 'd-7', prd: 7 }, { id: 'd-8', prd: 8 }],
-      [{ id: 'a-7b', dossier_id: 'd-7' }, { id: 'a-7a', dossier_id: 'd-7' }, { id: 'a-8', dossier_id: 'd-8' }],
+      [{ id: 'a-7b', dossier_id: 'd-7', mission_id: null }, { id: 'a-7a', dossier_id: 'd-7', mission_id: null }, { id: 'a-8', dossier_id: 'd-8', mission_id: null }],
       [{ approval_id: 'a-8' }],
       [{ content: PLAN }],
       [],
@@ -86,6 +86,47 @@ describe('missionStore — the mission as the service role, never calling Supaba
     expect(approvals?.query.get('approval_kind')).toBe('eq.product');
     expect(voids?.query.get('approval_id')).toBe('in.(a-7b,a-8)');
     expect([plan?.path, plan?.query.get('dossier_id'), plan?.query.get('kind')]).toEqual(['/rest/v1/dossier_versions', 'eq.d-7', 'eq.plan']);
+  });
+
+  it('reads a fleet\'s approval given in another mission as none, and one given in this mission as standing (PRD 2896 s9)', async () => {
+    const db = recordingFetch([
+      [{ prd: 7, stage: 'inbox' }, { prd: 8, stage: 'inbox' }],
+      [{ id: 'd-7', prd: 7 }, { id: 'd-8', prd: 8 }],
+      [{ id: 'a-7f', dossier_id: 'd-7', mission_id: 'other-mission' }, { id: 'a-7p', dossier_id: 'd-7', mission_id: null }, { id: 'a-8f', dossier_id: 'd-8', mission_id: ID }],
+      [],
+    ]);
+    const read = await storeOn(db.fetch).facts({ ...mission, scope: { prds: [parsePrd(7), parsePrd(8)], roadmaps: [] } });
+    expect(read.map(({ prd, approval }) => [prd, approval])).toEqual([[7, 'none'], [8, 'standing']]);
+    expect(nth(db.requests, 2).query.get('select')).toBe('id,dossier_id,mission_id');
+    expect(nth(db.requests, 3).query.get('approval_id')).toBe('in.(a-8f)');
+  });
+
+  it('reads the committees it sent by their keys, each with the decision recorded for it (PRD 2896 s9)', async () => {
+    const job = (id: string, key: string, over: Record<string, unknown> = {}) => ({ id, mission_key: key, resumes: null, status: 'done', outcome: null, reason: null, pr_url: null, ...over });
+    const db = recordingFetch([
+      [job('c-1', `mission:${ID}:prd:7:approve:1`), job('c-2', `mission:${ID}:prd:7:approve:2`, { status: 'running' }), job('j-1', `mission:${ID}:prd:7:run:1`)],
+      [{ job_id: 'c-1', outcome: 'escalated', why: ['the Reviewer answered no: Out of scope.'] }],
+    ]);
+    const committees = await storeOn(db.fetch).committees(ID);
+    expect(committees.map(({ prd, round, job: id, attempt, decision }) => [prd, round, id, attempt.status, decision?.outcome ?? null])).toEqual([
+      [7, 1, 'c-1', 'done', 'escalated'],
+      [7, 2, 'c-2', 'running', null],
+    ]);
+    expect(nth(db.requests, 0).query.get('mission_key')).toBe(`like.mission:${ID}:prd:%:approve:%`);
+    expect([nth(db.requests, 1).path, nth(db.requests, 1).query.get('mission_id')]).toEqual(['/rest/v1/mission_decisions', `eq.${ID}`]);
+    expect(await storeOn(recordingFetch([[]]).fetch).committees(ID)).toEqual([]);
+  });
+
+  it('records a committee\'s decision through mission_decide_approval(), as the service, and queues a committee under its key (PRD 2896 s9)', async () => {
+    const db = recordingFetch([{ decision: 'd-1', outcome: 'carried', why: [], approval: 'a-1' }, [{ id: 'c-9' }]]);
+    const store = storeOn(db.fetch);
+    const one = { prd: parsePrd(7), round: 1, job: 'c-1', attempt: { id: 'c-1', status: 'done' as const, outcome: null, reason: null, prUrl: null }, decision: null };
+    const record = { author: null, read: [{ kind: 'spec', sha256: 'a'.repeat(64) }], verdicts: [{ role: 'pm' as const, answer: 'yes' as const, sentence: 'In scope.' }] };
+    expect(await store.decide({ ...mission, level: 'alone' }, one, { record, decision: { outcome: 'carried', why: [] } })).toEqual({ outcome: 'carried', why: [] });
+    expect([nth(db.requests, 0).method, nth(db.requests, 0).path]).toEqual(['POST', '/rest/v1/rpc/mission_decide_approval']);
+    expect(nth(db.requests, 0).body).toEqual({ p_mission: ID, p_prd: 7, p_job: 'c-1', p_record: record, p_outcome: 'carried', p_why: [] });
+    expect(await store.approve({ mission, prd: parsePrd(7), round: 2, toFleet: true })).toBe('c-9');
+    expect(nth(db.requests, 1).body).toMatchObject({ line: '/omni:committee 7 --approve', sent_by_app: 'omni-app', to_fleet: 'night-shift', mission_id: ID, mission_key: `mission:${ID}:prd:7:approve:2` });
   });
 
   it('reads the jobs it sent, each with the resumes that carry it, by its key\'s PRD and run', async () => {

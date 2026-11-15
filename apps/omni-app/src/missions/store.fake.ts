@@ -3,6 +3,7 @@
 // attempts, and its events. Test helpers move what a real fleet would: a job's end, a lost runner and its resume, a
 // PRD's facts, a person's Pause. No database, no model call.
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
 
@@ -22,6 +23,10 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   /** The care jobs it queued (PRD 2896 s5), with no mission key. */
   const cares: { id: string; line: string; queuedAt: string; toFleet: string | null }[] = [];
   const events: FakeEvent[] = [];
+  /** The committees it queued (PRD 2896 s9): their key, line and log, and what the database recorded for each. */
+  const committees: (Committee & { key: string; line: string; toFleet: string | null; log: string | null; recorded: Recorded | null })[] = [];
+  /** What the database decides when the App records a decision: by default, what the App decided. */
+  let database: (recorded: Recorded) => Decision = (recorded) => recorded.decision;
   let made = 0;
   /** Reads of the runs held until this many are waiting: two runs at once read the same state. */
   let together = 0;
@@ -67,6 +72,26 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       cares.push({ id, line, queuedAt: since, toFleet: toFleet ? sent.fleet : null });
       return Promise.resolve(id);
     },
+    committees: () => Promise.resolve(committees.map(({ prd, round, job, attempt, decision }) => ({ prd, round, job, attempt: { ...attempt }, decision }))),
+    committeeLog: (job) => Promise.resolve(committees.find((one) => one.job === job)?.log ?? null),
+    decide: (_mission, one, recorded) => {
+      const held = committees.find((each) => each.job === one.job);
+      if (!held) return Promise.reject(new Error(`no committee job ${one.job}`));
+      if (held.decision !== null) return Promise.resolve(held.decision);
+      const decision = database(recorded);
+      held.decision = decision;
+      held.recorded = recorded;
+      if (decision.outcome === 'carried') current = current.map((fact) => (fact.prd === one.prd ? { ...fact, approval: 'standing' } : fact));
+      return Promise.resolve(decision);
+    },
+    approve: ({ mission: sent, prd, round, toFleet }) => {
+      const key = committeeKey(sent.id, prd, round);
+      if (committees.some((one) => one.key === key)) return Promise.resolve(null);
+      made += 1;
+      const id = `job-${String(made)}`;
+      committees.push({ prd, round, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null, key, line: approveLine(prd), toFleet: toFleet ? sent.fleet : null, log: null, recorded: null });
+      return Promise.resolve(id);
+    },
     record: (_id, list, at) => {
       for (const [n, event] of list.entries()) events.push({ ...event, actor: 'agent', at: new Date(at.getTime() + n).toISOString() });
       return Promise.resolve();
@@ -88,6 +113,19 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
 
   return {
     store,
+    /** The committees queued (PRD 2896 s9), in order, with what the database recorded for each. */
+    committees: () => committees.map((one) => ({ ...one })),
+    /** The PRD's latest committee job ends as `change` says, its log `log`. */
+    endCommittee: (prd: PrdNumber, change: Partial<Attempt>, log: string | null = null) => {
+      const one = committees.filter((each) => each.prd === prd).at(-1);
+      if (!one) throw new Error(`no committee of PRD ${String(prd)} was sent`);
+      Object.assign(one.attempt, change);
+      one.log = log;
+    },
+    /** What the database decides from now on, as mission_decide_approval() would (a phase-0 PRD, a file changed since). */
+    database: (decides: (recorded: Recorded) => Decision) => {
+      database = decides;
+    },
     /** The jobs queued, in order. */
     jobs: () => jobs.map((job) => ({ ...job })),
     /** The care jobs queued, in order (PRD 2896 s5). */
