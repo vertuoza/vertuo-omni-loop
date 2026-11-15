@@ -7,16 +7,26 @@ import { HERO_ROLES, HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/role
 // made, to land on it. Every refusal is `{error, field}`: its words, and the drawer's field they are
 // shown under (`name`, `mascot`, `heroes`), or `form` for the drawer's foot.
 //
-//   POST /api/virtual-fleets {workspace, name, mascot, roles}   201 {fleet}
+//   POST /api/virtual-fleets {workspace, name, mascot, roles, level?}   201 {fleet}
+//
+// PRD 2896 s1: a fleet has a level, `with-you` unless a workspace owner raised it. The request names it
+// (absent, `with-you`); the database refuses a raise by a member who is not an owner, and `alone` for a
+// fleet without a PM, an Architect and a Reviewer.
 
 /** A fleet's label is at most 12 characters (public.teams' teams_label_length). */
 export const FLEET_NAME_MAX = 12;
+
+/** A fleet's level, from the one that asks the most of a person to the one that asks the least. */
+const FLEET_LEVELS = ['with-you', 'own-branch', 'alone'] as const;
+const FleetLevelSchema = z.enum(FLEET_LEVELS);
+export type FleetLevel = z.infer<typeof FleetLevelSchema>;
 
 export const CreateVirtualFleetRequestSchema = z.object({
   workspace: z.uuid(),
   name: z.string().trim().min(1).max(FLEET_NAME_MAX),
   mascot: z.string().min(1).max(40),
   roles: z.array(HeroRoleSchema).min(1).max(HERO_ROLES.length),
+  level: FleetLevelSchema.default('with-you'),
 });
 export type CreateVirtualFleetRequest = z.infer<typeof CreateVirtualFleetRequestSchema>;
 
@@ -33,7 +43,7 @@ export const CreatedVirtualFleetSchema = z.object({ fleet: VirtualFleetSchema })
 export type CreatedVirtualFleet = z.infer<typeof CreatedVirtualFleetSchema>;
 
 /** Where the drawer shows a refusal: under one of its fields, or in its foot. */
-const REFUSAL_FIELDS = ['name', 'mascot', 'heroes', 'form'] as const;
+const REFUSAL_FIELDS = ['name', 'mascot', 'heroes', 'level', 'form'] as const;
 export type RefusalField = (typeof REFUSAL_FIELDS)[number];
 
 export const VirtualFleetRefusalSchema = z.object({ error: z.string(), field: z.enum(REFUSAL_FIELDS).optional() });

@@ -24,7 +24,7 @@ export function virtualFleetsRepository(db: VirtualFleetsDb) {
     /** Makes the fleet and its heroes (create_virtual_fleet()): the fleet as made. */
     async create(request: CreateVirtualFleetRequest): Promise<Written<VirtualFleet>> {
       const answer: Answer = await db.rpc('create_virtual_fleet', {
-        p_workspace: request.workspace, p_name: request.name, p_mascot: request.mascot, p_roles: request.roles,
+        p_workspace: request.workspace, p_name: request.name, p_mascot: request.mascot, p_roles: request.roles, p_level: request.level,
       });
       if (answer.error) return { ok: false, code: answer.error.code || null, hint: answer.error.hint || null, message: answer.error.message };
       return { ok: true, value: orThrow(parseRow(VirtualFleetSchema, answer.data, `${WHERE}: create_virtual_fleet`)) };

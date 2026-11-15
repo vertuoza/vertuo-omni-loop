@@ -9,16 +9,16 @@ import { drawerMove } from '../../runners/page/need-human';
 import { httpVirtualFleetsPort, type VirtualFleetsPort } from '../virtual-fleets.client';
 import { FLEET_NAME_MAX } from '../virtual-fleets.contract';
 import {
-  canCreate, demoPort, newFleetReducer, openedWith, refusalUnder, requestOf, roleSwitch, WORDS, type NewFleetAction, type NewFleetState,
+  canCreate, canWorkAlone, demoPort, levelDisabled, LEVELS, newFleetReducer, openedWith, refusalUnder, requestOf, roleSwitch, WORDS, type NewFleetAction, type NewFleetState,
 } from './new-fleet';
 import '../../runners/page/need-human.css';
 import './new-fleet.css';
 
-// The New virtual fleet drawer (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen): `+ New virtual fleet` in the Fleet
+// The New virtual fleet drawer (PRD 2842 s1, PRD 2873 s3, PRD 2896 s1, the `fleet-new` screen): `+ New virtual fleet` in the Fleet
 // section opens it over the right of the page, the page behind dimmed, the whole width under 720 px, as
 // the Runners page's Need human drawer opens. Name first and focused, then Icon (the fleet mascots, the
 // first selected), then Heroes (the six roles, each a yes/no switch, all on, each with its count line:
-// `Runs <k> of <n> skills alone`, or `A person does this today`), and the foot, Cancel and Create fleet. Create fleet makes the fleet and
+// `Runs <k> of <n> skills alone`, or `A person does this today`), then Level (one choice of three, `Reviews with you` selected), and the foot, Cancel and Create fleet. Create fleet makes the fleet and
 // lands on it; a refusal is shown under its field, or in the foot. Tab stays inside it, and Escape,
 // Cancel, the close button or the dimmed page close it and give the focus back to the button. It wears
 // the Need human drawer's own frame (src/runners/page/need-human.css); ./new-fleet.css adds its fields.
@@ -33,10 +33,12 @@ export interface NewVirtualFleetProps {
   mascots: readonly string[];
   /** The page's main button: the workspace has no fleet yet. */
   primary?: boolean;
+  /** True for an owner of the workspace: only they choose a level above `Reviews with you`. */
+  owner?: boolean;
 }
 
 /** The button, and the drawer it opens. */
-export function NewVirtualFleet({ workspace, mascots, primary = false }: NewVirtualFleetProps) {
+export function NewVirtualFleet({ workspace, mascots, primary = false, owner = false }: NewVirtualFleetProps) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement | null>(null);
   const port = useMemo(() => (workspace === null ? demoPort : httpVirtualFleetsPort(workspace)), [workspace]);
@@ -49,15 +51,15 @@ export function NewVirtualFleet({ workspace, mascots, primary = false }: NewVirt
       <button type="button" ref={button} className={primary ? 'ask-button vf-open' : 'ask-button quiet vf-open'} {...(primary ? { 'data-primary': '' } : {})} onClick={() => { setOpen(true); }}>
         {WORDS.open}
       </button>
-      {open && <NewFleetDrawer mascots={mascots} port={port} onClose={close} />}
+      {open && <NewFleetDrawer mascots={mascots} owner={owner} port={port} onClose={close} />}
     </>
   );
 }
 
 /** The drawer, live: its state, its call, its keys and its focus. */
-function NewFleetDrawer({ mascots, port, onClose }: { mascots: readonly string[]; port: VirtualFleetsPort; onClose: () => void }) {
+function NewFleetDrawer({ mascots, owner, port, onClose }: { mascots: readonly string[]; owner: boolean; port: VirtualFleetsPort; onClose: () => void }) {
   const router = useRouter();
-  const [state, dispatch] = useReducer(newFleetReducer, mascots, openedWith);
+  const [state, dispatch] = useReducer(newFleetReducer, undefined, () => openedWith(mascots, owner));
   const panel = useRef<HTMLElement | null>(null);
   const name = useRef<HTMLInputElement | null>(null);
 
@@ -122,6 +124,7 @@ export function NewFleetView({ state, mascots, panel, name, dispatch = () => und
   const nameError = refusalUnder(state, 'name');
   const iconError = refusalUnder(state, 'mascot');
   const heroesError = refusalUnder(state, 'heroes');
+  const levelError = refusalUnder(state, 'level');
   const formError = refusalUnder(state, 'form');
   return (
     <div className="need-over">
@@ -175,6 +178,28 @@ export function NewFleetView({ state, mascots, panel, name, dispatch = () => und
                 })}
               </ul>
               <Refused id={`${id}-heroes-error`} message={heroesError} />
+            </fieldset>
+            <fieldset className="vf-field">
+              <legend className="vf-label">{WORDS.level}</legend>
+              <ul className="vf-levels">
+                {LEVELS.map((choice) => (
+                  <li className="vf-level" key={choice.level}>
+                    <label>
+                      <input
+                        type="radio" name={`${id}-level`} value={choice.level} checked={state.level === choice.level}
+                        disabled={levelDisabled(state, choice.level)} onChange={() => { dispatch({ type: 'level', level: choice.level }); }}
+                      />
+                      <span className="vf-role-text">
+                        <span className="vf-role-name">{choice.name}</span>
+                        <span className="vf-role-line">{choice.line}</span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {!state.owner && <p className="vf-note">{WORDS.ownersOnly}</p>}
+              {state.owner && !canWorkAlone(state.roles) && <p className="vf-note">{WORDS.needsRoles}</p>}
+              <Refused id={`${id}-level-error`} message={levelError} />
             </fieldset>
           </div>
           <footer className="need-foot">

@@ -5119,6 +5119,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -5134,6 +5135,7 @@ export type Database = {
           home?: string | null
           kind?: string
           label: string
+          level?: string
           mascot?: string | null
           motto?: string
           name: string
@@ -5149,6 +5151,7 @@ export type Database = {
           home?: string | null
           kind?: string
           label?: string
+          level?: string
           mascot?: string | null
           motto?: string
           name?: string
@@ -6458,6 +6461,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -6475,35 +6479,68 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      create_virtual_fleet: {
-        Args: {
-          p_mascot: string
-          p_name: string
-          p_roles: string[]
-          p_workspace: string
-        }
-        Returns: {
-          color: string
-          home: string | null
-          kind: string
-          label: string
-          mascot: string | null
-          motto: string
-          name: string
-          project_note: string | null
-          project_noted_at: string | null
-          project_url: string | null
-          retired_at: string | null
-          sort: number
-          workspace_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "teams"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      create_virtual_fleet:
+        | {
+            Args: {
+              p_mascot: string
+              p_name: string
+              p_roles: string[]
+              p_workspace: string
+            }
+            Returns: {
+              color: string
+              home: string | null
+              kind: string
+              label: string
+              level: string
+              mascot: string | null
+              motto: string
+              name: string
+              project_note: string | null
+              project_noted_at: string | null
+              project_url: string | null
+              retired_at: string | null
+              sort: number
+              workspace_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "teams"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_level: string
+              p_mascot: string
+              p_name: string
+              p_roles: string[]
+              p_workspace: string
+            }
+            Returns: {
+              color: string
+              home: string | null
+              kind: string
+              label: string
+              level: string
+              mascot: string | null
+              motto: string
+              name: string
+              project_note: string | null
+              project_noted_at: string | null
+              project_url: string | null
+              retired_at: string | null
+              sort: number
+              workspace_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "teams"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       create_workspace_from_installation: {
         Args: {
           p_installation_id: number
@@ -6634,6 +6671,11 @@ export type Database = {
       }
       fix_rows_pull: { Args: { p_dossier: string }; Returns: Json }
       fix_rows_summary: { Args: { p_dossier: string }; Returns: Json }
+      fleet_has_mission_roles: {
+        Args: { p_fleet: string; p_workspace: string }
+        Returns: boolean
+      }
+      fleet_level_rank: { Args: { p_level: string }; Returns: number }
       fleet_look: {
         Args: {
           p_color: string
@@ -8144,6 +8186,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -8168,6 +8211,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -8595,6 +8639,31 @@ export type Database = {
         }
         Returns: string
       }
+      set_fleet_level: {
+        Args: { p_fleet: string; p_level: string; p_workspace: string }
+        Returns: {
+          color: string
+          home: string | null
+          kind: string
+          label: string
+          level: string
+          mascot: string | null
+          motto: string
+          name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
+          retired_at: string | null
+          sort: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "teams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_fleet_project: {
         Args: { p_name: string; p_url: string; p_workspace: string }
         Returns: {
@@ -8602,6 +8671,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -8854,6 +8924,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string

@@ -424,4 +424,99 @@ begin
   exception when check_violation then null; end;
 end $$;
 
+-- ── A fleet's level (PRD 2896 s1): with-you unless an owner raised it ──
+reset role;
+-- The cap above filled the twelve: retire the five it made, so the levels below can make fleets.
+update public.teams set retired_at = now() where name in ('v1', 'v2', 'v3', 'v4', 'v5');
+do $$
+begin
+  if exists (select 1 from public.teams where level <> 'with-you') then
+    raise exception 'FAIL: a fleet made before the level, or at its default, does not read with-you';
+  end if;
+  begin
+    update public.teams set level = 'sometimes' where name = 'beaver';
+    raise exception 'FAIL: a fleet took a level that is none of the three';
+  exception when check_violation then null; end;
+end $$;
+
+-- A member who is not an owner creates at with-you, is refused a raised level, and a refusal changes nothing.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000042b1');
+do $$
+declare
+  v uuid := pg_temp.ws('initech');
+  before text := pg_temp.state();
+begin
+  if public.is_owner(v) then raise exception 'FAIL: the member reads as the owner'; end if;
+  perform pg_temp.forbidden(format('select public.create_virtual_fleet(%L, ''Raised'', ''robot'', array[''engineer''], ''own-branch'')', v), 'a member raising a level');
+  perform pg_temp.forbidden(format('select public.create_virtual_fleet(%L, ''Raised'', ''robot'', array[''pm'', ''architect'', ''reviewer''], ''alone'')', v), 'a member raising a level');
+  perform pg_temp.forbidden(format('select public.set_fleet_level(%L, ''night-shift'', ''own-branch'')', v), 'a member raising a level');
+  perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''Raised'', ''robot'', array[''engineer''], ''sometimes'')', v), 'level', 'Level:');
+  if pg_temp.state() <> before then raise exception 'FAIL: a refused level changed Initech''s fleets'; end if;
+  if (public.create_virtual_fleet(v, 'Plain', 'robot', array['engineer'], 'with-you')).level <> 'with-you' then
+    raise exception 'FAIL: a fleet made with no level does not read with-you';
+  end if;
+  if (public.create_virtual_fleet(v, 'Plain Two', 'robot', array['engineer'], 'with-you')).level <> 'with-you' then
+    raise exception 'FAIL: a fleet made at with-you does not read with-you';
+  end if;
+end $$;
+reset role;
+
+-- An owner raises a level; Works alone needs a PM, an Architect and a Reviewer, at creation and afterwards.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000042a1');
+do $$
+declare
+  v uuid := pg_temp.ws('initech');
+  f public.teams;
+begin
+  if (public.create_virtual_fleet(v, 'Branchy', 'robot', array['engineer'], 'own-branch')).level <> 'own-branch' then
+    raise exception 'FAIL: an owner could not make a fleet at own-branch';
+  end if;
+  perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''Lone'', ''robot'', array[''engineer'', ''pm'', ''reviewer''], ''alone'')', v), 'level', 'Level: Works alone needs');
+  if exists (select 1 from public.teams t where t.workspace_id = v and t.name = 'lone') then
+    raise exception 'FAIL: a refused Works alone left a fleet behind';
+  end if;
+  f := public.create_virtual_fleet(v, 'Solo', 'robot', array['engineer', 'pm', 'architect', 'reviewer'], 'alone');
+  if f.level <> 'alone' then raise exception 'FAIL: an owner could not make a fleet at alone: %', row(f.*); end if;
+
+  perform pg_temp.refused_for(format('select public.set_fleet_level(%L, ''day-shift'', ''alone'')', v), 'level', 'Level: Works alone needs');
+  perform pg_temp.refused_for(format('select public.set_fleet_level(%L, ''day-shift'', ''sometimes'')', v), 'level', 'Level:');
+  perform pg_temp.refused_for(format('select public.set_fleet_level(%L, ''beaver'', ''own-branch'')', v), 'fleet', 'Fleet:');
+  if (public.set_fleet_level(v, 'night-shift', 'alone')).level <> 'alone' then
+    raise exception 'FAIL: an owner could not set a six-hero fleet to alone';
+  end if;
+end $$;
+reset role;
+
+-- Any member lowers it; a member who is not an owner cannot raise it again, nor a member of another workspace set it.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000042b1');
+do $$
+declare v uuid := pg_temp.ws('initech');
+begin
+  if (public.set_fleet_level(v, 'night-shift', 'own-branch')).level <> 'own-branch' then
+    raise exception 'FAIL: a member could not lower alone to own-branch';
+  end if;
+  if (public.set_fleet_level(v, 'night-shift', 'with-you')).level <> 'with-you' then
+    raise exception 'FAIL: a member could not lower own-branch to with-you';
+  end if;
+  perform pg_temp.forbidden(format('select public.set_fleet_level(%L, ''night-shift'', ''own-branch'')', v), 'a member raising a level');
+  perform pg_temp.forbidden(format('select public.set_fleet_level(%L, ''night-shift'', ''alone'')', v), 'a member raising a level');
+end $$;
+reset role;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000042c1');
+do $$
+begin
+  perform pg_temp.forbidden(format('select public.set_fleet_level(%L, ''night-shift'', ''with-you'')', pg_temp.ws('initech')), 'the owner of another workspace');
+end $$;
+reset role;
+set local role anon;
+do $$
+begin
+  perform pg_temp.forbidden(format('select public.set_fleet_level(%L, ''night-shift'', ''with-you'')', pg_temp.ws('initech')), 'anon');
+end $$;
+reset role;
+
 rollback;
