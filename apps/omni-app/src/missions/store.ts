@@ -25,7 +25,10 @@
 //                2873), sent by the app (`sent_by_app`, never a person's name, Never 10), to the fleet's runners or
 //                else to any runner of the workspace, under `mission_key`: a key already held (23505) inserts
 //                nothing and answers null
-//   record       the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
+//   care         a feature branch's care job (PRD 2896 s5: `/omni:pr-care <n> --once --base <mission branch>`, for a branch that
+//                conflicts with the mission branch only in generated paths), sent by the app with no mission key, unless a
+//                job of the same line was queued for the mission since the mission branch's head was committed: one per head
+//   record      the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
 //   update       the mission's status, what it waits on and its next wake, only while its status is still the
 //                one this run read: a Pause landing meanwhile is never overwritten
 //
@@ -67,6 +70,12 @@ export type MissionSkill = BuildSkill;
 /** A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill. */
 export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill };
 
+/**
+ * A care job to send (PRD 2896 s5): its line, and since when one of it counts as sent, the mission branch's head's commit time,
+ * so one job is sent per feature branch and head of the mission branch. It is no step of a run: it has no mission key.
+ */
+export type Care = { mission: MissionRecord; line: string; since: string; toFleet: boolean };
+
 export type MissionStore = {
   mission: (id: string) => Promise<MissionRecord | null>;
   facts: (mission: MissionRecord) => Promise<PrdFacts[]>;
@@ -79,6 +88,8 @@ export type MissionStore = {
   installation: (mission: MissionRecord) => Promise<number | null>;
   /** The job's id, or null when its key was already held. */
   send: (job: Dispatch) => Promise<string | null>;
+  /** A feature branch's care job (PRD 2896 s5): its id, or null when a job of `line` was queued for the mission since `since`. */
+  care: (job: Care) => Promise<string | null>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
   /** Whether the mission was still at `from`, and so was moved. */
   update: (id: string, from: MissionStatus, next: Concluded) => Promise<boolean>;
@@ -102,6 +113,7 @@ export const VOID = 'approval_id';
 export const PLAN = 'content';
 export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url';
 export const JOB_LOG = 'id, log_tail';
+export const CARE = 'id';
 export const EVENT = 'kind, prd, job_id';
 export const RUNNER = 'repos';
 export const PRODUCT = 'plan_repository';
@@ -138,6 +150,7 @@ export const JobRowSchema = z.object({
   pr_url: z.string().nullable(),
 });
 export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
+export const CareRowSchema = z.object({ id: text });
 export const EventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), job_id: z.string().nullable() });
 export const RunnerRowSchema = z.object({ repos: z.array(z.string()) });
 export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
@@ -286,6 +299,19 @@ export function missionStore(connection: Connection): MissionStore {
         .select('id');
       if (answer.error?.code === TAKEN) return null;
       const [made] = rowsOf(z.object({ id: text }), answer);
+      if (!made) throw new Error('the database queued no job and gave no reason');
+      return made.id;
+    },
+
+    async care({ mission, line, since, toFleet }) {
+      // The mission's runs happen one at a time (its lane): a read, then the insert, sends one.
+      const sent = rowsOf(CareRowSchema, await db.from('runner_jobs').select(CARE).eq('mission_id', mission.id).eq('line', line).gte('queued_at', since).limit(1));
+      if (sent.length > 0) return null;
+      const answer = await db
+        .from('runner_jobs')
+        .insert({ workspace_id: mission.workspace, repo: mission.repo, line, sent_by_app: APP_SENDER, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: null })
+        .select('id');
+      const [made] = rowsOf(CareRowSchema, answer);
       if (!made) throw new Error('the database queued no job and gave no reason');
       return made.id;
     },

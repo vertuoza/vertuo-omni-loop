@@ -510,6 +510,16 @@ export function conclude({
   return { status: 'stopped', waitingOn: stoppedWhy(facts, states), nextWakeAt: null };
 }
 
+/**
+ * `next` with what a person must do first for the mission branch to follow the default branch (PRD 2896 s5), before what it
+ * already waits on: a mission that runs keeps running, one that waits waits, a minute on, and one that stopped stays stopped,
+ * saying both. Delivered, paused, a draft, or nothing to add: as it is.
+ */
+export function withWaits(next: Concluded, waits: readonly string[]): Concluded {
+  if (waits.length === 0 || next.status === 'delivered' || next.status === 'paused' || next.status === 'draft') return next;
+  return { ...next, waitingOn: fitted([...waits, ...(next.waitingOn === null ? [] : [next.waitingOn])], ' · ') };
+}
+
 // ── The events ───────────────────────────────────────────────────────────────────
 
 /** A job's key, when the event names one. */

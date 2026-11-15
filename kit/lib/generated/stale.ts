@@ -24,3 +24,12 @@ export function rangePaths({ root, range, exec }: { root: string; range: string;
 export function staleness(entries: readonly GeneratedEntry[], changed: readonly string[]): GeneratedState[] {
   return entries.map((entry) => ({ ...entry, stale: changed.some((path) => covers(entry.from, path)) }));
 }
+
+/**
+ * `paths` sorted into the ones under an entry's output `path` and the rest, each in its order (PRD 2896): a conflict
+ * only in generated paths is one a rebuild settles, any other a person's. A source of an output is no generated path.
+ */
+export function splitGenerated(entries: readonly GeneratedEntry[], paths: readonly string[]): { generated: string[]; other: string[] } {
+  const outputs = entries.map(({ path }) => path);
+  return { generated: paths.filter((path) => covers(outputs, path)), other: paths.filter((path) => !covers(outputs, path)) };
+}
