@@ -1462,7 +1462,7 @@ function cells(line2) {
   let inner = line2.trim();
   if (inner.startsWith("|")) inner = inner.slice(1);
   if (inner.endsWith("|") && !inner.endsWith("\\|")) inner = inner.slice(0, -1);
-  return inner.split(/(?<!\\)\|/).map((cell3) => cell3.trim().replace(/\\\|/g, "|"));
+  return inner.split(/(?<!\\)\|/).map((cell4) => cell4.trim().replace(/\\\|/g, "|"));
 }
 function firstTable(lines2) {
   const start = lines2.findIndex((line2) => line2.trim().startsWith("|"));
@@ -5822,15 +5822,15 @@ function frontMatter(raw, schema) {
   }
   return { data: null, errors };
 }
-function listCell(cell3) {
-  if (NONE_CELL.test(cell3)) return [];
-  return cell3.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "");
+function listCell(cell4) {
+  if (NONE_CELL.test(cell4)) return [];
+  return cell4.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "");
 }
 function columns(table, wanted, where) {
-  const position = (name) => table.header.findIndex((cell4) => cell4.toLowerCase() === name.toLowerCase());
+  const position = (name) => table.header.findIndex((cell5) => cell5.toLowerCase() === name.toLowerCase());
   const faults = wanted.filter((name) => position(name) === -1).map((name) => `${where}: the table has no "${name}" column.`);
-  const cell3 = (row, name) => row[position(name)] ?? "";
-  return { faults, has: (name) => position(name) !== -1, cell: cell3 };
+  const cell4 = (row, name) => row[position(name)] ?? "";
+  return { faults, has: (name) => position(name) !== -1, cell: cell4 };
 }
 function rowLabel(id, index) {
   return id === "" ? `row ${index + 1}` : id;
@@ -5843,37 +5843,37 @@ function rowOpening(id, index, where) {
 function idListFaults(entries, where) {
   return entries.filter((entry) => !ID_CELL.test(entry)).map((entry) => `${where} "${entry}", which is no id.`);
 }
-function repositoryPrd(cell3) {
-  const match = PRD_CELL.exec(cell3);
+function repositoryPrd(cell4) {
+  const match = PRD_CELL.exec(cell4);
   return match ? parsePrd(group(match, 1)) : null;
 }
 function prdsOf(section4, readPrd, cellWords) {
   if (!section4) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
   const table = firstTable(section4.lines);
   if (!table) return { rows: [], repos: false, faults: [`PRDs: no table; it holds one with the columns ${PRD_COLUMNS.join(", ")}.`] };
-  const { faults, has: has2, cell: cell3 } = columns(table, PRD_COLUMNS, "PRDs");
+  const { faults, has: has2, cell: cell4 } = columns(table, PRD_COLUMNS, "PRDs");
   if (faults.length > 0) return { rows: [], repos: false, faults };
   const repos = has2("repos");
   const rows = [];
   table.rows.forEach((row, index) => {
-    const id = cell3(row, "id");
+    const id = cell4(row, "id");
     const { label: label2, rowFaults } = rowOpening(id, index, "PRDs");
-    const prd = readPrd(cell3(row, "PRD"));
-    if (prd === null) rowFaults.push(`PRDs: ${label2} has the PRD cell "${cell3(row, "PRD")}", not ${cellWords}.`);
-    const title = cell3(row, "title");
+    const prd = readPrd(cell4(row, "PRD"));
+    if (prd === null) rowFaults.push(`PRDs: ${label2} has the PRD cell "${cell4(row, "PRD")}", not ${cellWords}.`);
+    const title = cell4(row, "title");
     if (title === "") rowFaults.push(`PRDs: ${label2} has no title.`);
-    const waveCell = cell3(row, "wave");
+    const waveCell = cell4(row, "wave");
     if (!WAVE_CELL.test(waveCell)) rowFaults.push(`PRDs: ${label2} has the wave "${waveCell}", not a positive whole number.`);
-    const blockedBy = listCell(cell3(row, "blocked by"));
+    const blockedBy = listCell(cell4(row, "blocked by"));
     rowFaults.push(...idListFaults(blockedBy, `PRDs: ${label2} is blocked by`));
-    const why = cell3(row, "why");
+    const why = cell4(row, "why");
     faults.push(...rowFaults);
     if (rowFaults.length > 0 || prd === null) return;
     rows.push({
       id,
       prd,
       title,
-      repos: repos ? listCell(cell3(row, "repos")) : null,
+      repos: repos ? listCell(cell4(row, "repos")) : null,
       blockedBy,
       why: NONE_CELL.test(why) ? null : why,
       wave: Number(waveCell)
@@ -5884,29 +5884,29 @@ function prdsOf(section4, readPrd, cellWords) {
 function questionsOf(section4) {
   const table = section4 ? firstTable(section4.lines) : null;
   if (!table) return { questions: [], faults: [] };
-  const { faults, cell: cell3 } = columns(table, QUESTION_COLUMNS, "Open questions");
+  const { faults, cell: cell4 } = columns(table, QUESTION_COLUMNS, "Open questions");
   if (faults.length > 0) return { questions: [], faults };
   const questions = [];
   table.rows.forEach((row, index) => {
-    const id = cell3(row, "id");
+    const id = cell4(row, "id");
     const { label: label2, rowFaults } = rowOpening(id, index, "Open questions");
-    const question = cell3(row, "question");
+    const question = cell4(row, "question");
     if (question === "") rowFaults.push(`Open questions: ${label2} asks nothing: its question is empty.`);
-    const kind = cell3(row, "kind");
+    const kind = cell4(row, "kind");
     const known = QUESTION_KINDS;
     if (!known.includes(kind)) rowFaults.push(`Open questions: ${label2} has the kind "${kind}", not one of ${QUESTION_KINDS.join(", ")}.`);
-    const blocks2 = listCell(cell3(row, "blocks"));
+    const blocks2 = listCell(cell4(row, "blocks"));
     rowFaults.push(...idListFaults(blocks2, `Open questions: ${label2} blocks`));
     faults.push(...rowFaults);
     if (rowFaults.length > 0) return;
     const typed = QUESTION_KINDS.find((name) => name === kind) ?? "default";
-    questions.push({ id, question, recommendation: cell3(row, "recommendation"), blocks: blocks2, kind: typed });
+    questions.push({ id, question, recommendation: cell4(row, "recommendation"), blocks: blocks2, kind: typed });
   });
   return { questions, faults };
 }
-function codeCell(cell3) {
-  if (NONE_CELL.test(cell3)) return null;
-  return /^`([^`]*)`$/.exec(cell3)?.[1]?.trim() ?? cell3;
+function codeCell(cell4) {
+  if (NONE_CELL.test(cell4)) return null;
+  return /^`([^`]*)`$/.exec(cell4)?.[1]?.trim() ?? cell4;
 }
 var CARD_HEADING = /^###\s+(.+?)\s*#*\s*$/;
 var CARD_LINE = /^\s*[-*]\s+\*\*(.+?):\*\*\s*(.*)$/;
@@ -5946,37 +5946,37 @@ var WHERE = "Prerequisites";
 function enumFault(value, names, column, label2) {
   return names.includes(value) ? [] : [`${WHERE}: ${label2} has the ${column} "${value}", not one of ${names.join(", ")}.`];
 }
-function prerequisiteRow(row, index, cell3) {
-  const id = cell3(row, "id");
+function prerequisiteRow(row, index, cell4) {
+  const id = cell4(row, "id");
   const { label: label2, rowFaults } = rowOpening(id, index, WHERE);
-  const category = oneOf(PREREQUISITE_CATEGORIES, cell3(row, "category"));
-  const who = oneOf(PREREQUISITE_WHO, cell3(row, "who"));
-  const need = cell3(row, "need");
-  const blocksCell = cell3(row, "blocks");
+  const category = oneOf(PREREQUISITE_CATEGORIES, cell4(row, "category"));
+  const who = oneOf(PREREQUISITE_WHO, cell4(row, "who"));
+  const need = cell4(row, "need");
+  const blocksCell = cell4(row, "blocks");
   const blocks2 = blocksCell.toLowerCase() === "all" ? "all" : listCell(blocksCell);
   const faults = [
     ...rowFaults,
-    ...enumFault(cell3(row, "category"), PREREQUISITE_CATEGORIES, "category", label2),
-    ...enumFault(cell3(row, "who"), PREREQUISITE_WHO, "who", label2),
+    ...enumFault(cell4(row, "category"), PREREQUISITE_CATEGORIES, "category", label2),
+    ...enumFault(cell4(row, "who"), PREREQUISITE_WHO, "who", label2),
     ...need === "" ? [`${WHERE}: ${label2} needs nothing: its need is empty.`] : [],
     ...blocks2 === "all" ? [] : idListFaults(blocks2, `${WHERE}: ${label2} blocks`)
   ];
   if (faults.length > 0 || category === null || who === null) return { record: null, faults };
-  return { record: { id, category, need, check: codeCell(cell3(row, "check")), fix: codeCell(cell3(row, "fix")), blocks: blocks2, who }, faults };
+  return { record: { id, category, need, check: codeCell(cell4(row, "check")), fix: codeCell(cell4(row, "fix")), blocks: blocks2, who }, faults };
 }
 function prerequisitesOf(section4) {
   const table = section4 ? firstTable(section4.lines) : null;
   if (!section4 || !table) return { prerequisites: [], faults: [] };
-  const { faults, has: has2, cell: cell3 } = columns(table, PREREQUISITE_COLUMNS, WHERE);
+  const { faults, has: has2, cell: cell4 } = columns(table, PREREQUISITE_COLUMNS, WHERE);
   if (faults.length > 0) return { prerequisites: [], faults };
   const cards = cardsOf(section4.lines);
-  const ids = new Set(table.rows.map((row) => cell3(row, "id")));
+  const ids = new Set(table.rows.map((row) => cell4(row, "id")));
   const prerequisites = [];
   table.rows.forEach((row, index) => {
-    const { record, faults: rowFaults } = prerequisiteRow(row, index, cell3);
+    const { record, faults: rowFaults } = prerequisiteRow(row, index, cell4);
     faults.push(...rowFaults);
     if (record === null) return;
-    prerequisites.push({ ...record, repos: has2("repos") ? listCell(cell3(row, "repos")) : null, card: cards.get(record.id) ?? null });
+    prerequisites.push({ ...record, repos: has2("repos") ? listCell(cell4(row, "repos")) : null, card: cards.get(record.id) ?? null });
   });
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
@@ -6094,8 +6094,8 @@ function unknownQuestionRows(roadmap, rows) {
     (question) => question.blocks.filter((id) => !rows.has(id)).map((id) => `${question.id}: blocks ${id}, which is not a row of the roadmap.`)
   );
 }
-function baseName(cell3) {
-  return cell3 === null ? null : BASE.exec(cell3)?.[1] ?? null;
+function baseName(cell4) {
+  return cell4 === null ? null : BASE.exec(cell4)?.[1] ?? null;
 }
 function checkFaults({ id, check }) {
   const name = baseName(check);
@@ -10977,13 +10977,13 @@ function sliceIdOf(text19) {
   if (!id.success) throw new Error(`This plan's slice table names "${text19}", which is no slice id like s1.`);
   return id.data;
 }
-function blockedByCell(cell3) {
-  const text19 = (cell3 ?? "").trim();
+function blockedByCell(cell4) {
+  const text19 = (cell4 ?? "").trim();
   if (NOTHING.test(text19)) return [];
   return text19.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
-function territoryPrefixes(cell3) {
-  const text19 = (cell3 ?? "").trim();
+function territoryPrefixes(cell4) {
+  const text19 = (cell4 ?? "").trim();
   if (NOTHING.test(text19)) return [];
   return [...text19.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
 }
@@ -10991,7 +10991,7 @@ function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
 }
 function cells2(line2) {
-  return line2.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell3) => cell3.trim());
+  return line2.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell4) => cell4.trim());
 }
 function isTableRow(line2) {
   return line2 !== void 0 && line2.trim().startsWith("|");
@@ -11062,8 +11062,8 @@ var TIERS2 = ["deep", "build", "light"];
 function isTier(text19) {
   return TIERS2.some((tier) => tier === text19);
 }
-function tierCell(cell3) {
-  const text19 = plainCell(cell3);
+function tierCell(cell4) {
+  const text19 = plainCell(cell4);
   return isTier(text19) ? text19 : null;
 }
 function unknownTiers(markdown) {
@@ -11083,19 +11083,19 @@ function unknownTiers(markdown) {
   }
   return unknown;
 }
-function landingCell(cell3) {
-  const text19 = plainCell(cell3);
+function landingCell(cell4) {
+  const text19 = plainCell(cell4);
   return NOTHING.test(text19) ? 1 : Number(text19);
 }
-function contractCell(cell3) {
-  const text19 = plainCell(cell3);
+function contractCell(cell4) {
+  const text19 = plainCell(cell4);
   if (NOTHING.test(text19)) return null;
   const kinds = text19.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
   if (kinds.length === 0) return null;
   return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
-function plainCell(cell3) {
-  return (cell3 ?? "").replace(/`/g, "").trim();
+function plainCell(cell4) {
+  return (cell4 ?? "").replace(/`/g, "").trim();
 }
 function parsePlanRepositories(markdown) {
   const rows = [];
@@ -11523,8 +11523,8 @@ function gradeSignature(commits, signature) {
 }
 function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned, needsPlan }) {
   if (ok) {
-    const carried = needsPlan ? "the spec, the plan and the before/after" : "the spec and the before/after";
-    return `docs-only, and it carries ${carried} a reviewer is being asked to approve`;
+    const carried2 = needsPlan ? "the spec, the plan and the before/after" : "the spec and the before/after";
+    return `docs-only, and it carries ${carried2} a reviewer is being asked to approve`;
   }
   const faults = [];
   if (!docsOnly) {
@@ -15213,8 +15213,15 @@ var QualifiedSchema = z61.union([
     config: ConfigSchema,
     prd: z61.object({ number: PrdNumberSchema, topic: z61.string(), title: z61.string() }),
     merge: MergeSchema2
+  }),
+  z61.object({
+    skip: z61.null(),
+    config: ConfigSchema,
+    landing: z61.object({ branch: z61.string(), prds: z61.array(z61.object({ number: PrdNumberSchema, topic: z61.string(), title: z61.string(), pr: PrNumberSchema })).min(1) }),
+    merge: MergeSchema2
   })
 ]);
+var TipSchema = z61.string().min(1);
 var MoveSchema = z61.object({ from: z61.string(), to: z61.string() });
 var EditsSchema = z61.object({
   deletes: z61.array(z61.string()),
@@ -15355,10 +15362,12 @@ function loopPaths2(config) {
 }
 function harvestFetched(delivery2, prd) {
   const root = `${delivery2.replace(/\/+$/, "")}/`;
+  const own = new Set(typeof prd === "number" ? [prd] : prd);
   return (path) => {
     if (!path.startsWith(root)) return true;
     const [, folder, ...rest] = path.slice(root.length).split("/");
-    return folder === void 0 || rest.length === 0 || parseFolderName(folder)?.prd === prd;
+    const named = folder === void 0 ? void 0 : parseFolderName(folder)?.prd;
+    return folder === void 0 || rest.length === 0 || named !== void 0 && own.has(named);
   };
 }
 async function withTreeAt(octokit, { owner, repo, sha, config, also = [], prd }, fn) {
@@ -15421,6 +15430,214 @@ async function openLawIssue(octokit, { owner, repo, label: label2, issue }) {
   return { number: parsedOr2(ListedIssueSchema, data, "GitHub answered the new law issue unexpectedly").number, created: true };
 }
 
+// apps/omni-app/src/knowledge-harvest/landing.ts
+import { z as z64 } from "zod";
+
+// apps/omni-app/src/missions/landing.ts
+import { mkdtempSync as mkdtempSync13, rmSync as rmSync17 } from "node:fs";
+import { tmpdir as tmpdir13 } from "node:os";
+import { join as join69 } from "node:path";
+import { z as z63 } from "zod";
+
+// apps/omni-app/src/missions/branch.ts
+import { z as z62 } from "zod";
+var RepoSchema = z62.looseObject({ default_branch: z62.string(), allow_rebase_merge: z62.boolean().optional() });
+var rebaseWhy = (repo) => `${repo} does not allow rebase merges: turn on "Allow rebase merging" in its settings, so the mission branch can land on the default branch; nothing was cut`;
+function missionBranches({ octokitFor }) {
+  return {
+    async prepare({ installation, repo, branch }) {
+      const [owner = "", name = ""] = repo.split("/");
+      const octokit = await octokitFor(installation);
+      const { data } = await octokit.request("GET /repos/{owner}/{repo}", { owner, repo: name });
+      const read = RepoSchema.parse(data);
+      if (read.allow_rebase_merge !== true) return { ok: false, why: rebaseWhy(repo) };
+      const head = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo: name, ref: `heads/${read.default_branch}` });
+      const from = RefSchema.parse(head.data).object.sha;
+      const existed = await exists(octokit, { owner, repo: name, branch });
+      await branchHead(octokit, { owner, repo: name, branch, from, defaultBranch: read.default_branch });
+      return { ok: true, cut: !existed };
+    }
+  };
+}
+var DefaultBranchSchema = z62.looseObject({ default_branch: z62.string() });
+async function missionRepo(octokitFor, { installation, repo: slug, branch }) {
+  const [owner = "", repo = ""] = slug.split("/");
+  const octokit = await octokitFor(installation);
+  const defaultBranch = DefaultBranchSchema.parse((await octokit.request("GET /repos/{owner}/{repo}", { owner, repo })).data).default_branch;
+  refuseDefault(branch, defaultBranch);
+  return { octokit, owner, repo, defaultBranch };
+}
+async function exists(octokit, { owner, repo, branch }) {
+  try {
+    await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` });
+    return true;
+  } catch (error) {
+    if (statusOf(error) === 404) return false;
+    throw error;
+  }
+}
+
+// apps/omni-app/src/missions/landing.ts
+var PullsSchema3 = z63.array(
+  z63.looseObject({
+    number: PrNumberSchema,
+    html_url: z63.string(),
+    state: z63.string(),
+    title: z63.string(),
+    body: z63.string().nullish(),
+    merged_at: z63.string().nullish()
+  })
+);
+var CommitsSchema2 = z63.array(z63.looseObject({ sha: z63.string(), commit: z63.looseObject({ message: z63.string() }) }));
+var CompareSchema2 = z63.looseObject({ commits: z63.array(z63.looseObject({ sha: z63.string(), commit: z63.looseObject({ message: z63.string() }) })) });
+var PULLS_READ = 30;
+function prOfTitle(message) {
+  const number = /\(#(\d+)\)\s*$/.exec(message.split("\n")[0] ?? "")?.[1];
+  const pr = PrNumberSchema.safeParse(Number(number));
+  return number !== void 0 && pr.success ? pr.data : null;
+}
+function missionLandings({ octokitFor }) {
+  const where = (slug) => {
+    const [owner = "", repo = ""] = slug.split("/");
+    return { owner, repo };
+  };
+  return {
+    async landings(at4) {
+      const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, at4);
+      const { branch } = at4;
+      const listed = PullsSchema3.parse(
+        (await octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, head: `${owner}:${branch}`, base: defaultBranch, state: "all", per_page: PULLS_READ, page: 1 })).data
+      ).sort((a, b) => b.number - a.number);
+      const pulls = [];
+      for (const one of listed) {
+        const merged = (one.merged_at ?? null) !== null;
+        const commits = merged ? await paginate(async (page) => CommitsSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/commits", { owner, repo, pull_number: one.number, per_page: PER_PAGE, page })).data)) : [];
+        const carried2 = commits.flatMap(({ commit }) => {
+          const pr = prOfTitle(commit.message);
+          return pr === null ? [] : [pr];
+        });
+        pulls.push({ number: one.number, url: one.html_url, open: one.state === "open", merged, title: one.title, body: one.body ?? "", carried: carried2 });
+      }
+      return { defaultBranch, pulls };
+    },
+    async branch({ installation, repo: slug, branch, defaultBranch }) {
+      const { owner, repo } = where(slug);
+      const octokit = await octokitFor(installation);
+      const compared = CompareSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${defaultBranch}...${branch}` })).data);
+      const tip = RefSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${defaultBranch}` })).data).object.sha;
+      const folder = mkdtempSync13(join69(tmpdir13(), "omni-landing-"));
+      try {
+        const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: tip, dest: folder, ignoreUnknownKeys: true });
+        return { commits: compared.commits.map(({ sha, commit }) => ({ sha, pr: prOfTitle(commit.message) })), link: config?.prLinks.feature ?? null };
+      } finally {
+        rmSync17(folder, { recursive: true, force: true });
+      }
+    },
+    async write({ installation, repo: slug, branch, defaultBranch, pull, title, body }) {
+      refuseDefault(branch, defaultBranch);
+      const { owner, repo } = where(slug);
+      const octokit = await octokitFor(installation);
+      if (pull !== null) {
+        const written = PullWrittenSchema.parse((await octokit.request("PATCH /repos/{owner}/{repo}/pulls/{pull_number}", { owner, repo, pull_number: pull, title, body })).data);
+        return { ok: true, number: written.number, url: written.html_url, created: false };
+      }
+      try {
+        const opened = PullWrittenSchema.parse((await octokit.request("POST /repos/{owner}/{repo}/pulls", { owner, repo, head: branch, base: defaultBranch, title, body, draft: false })).data);
+        return { ok: true, number: opened.number, url: opened.html_url, created: true };
+      } catch (error) {
+        if (statusOf(error) !== 422) throw error;
+        return { ok: false, why: `GitHub refused to open the mission pull request: ${String(messageOf3(error)).split("\n")[0] ?? ""}` };
+      }
+    }
+  };
+}
+function landedBy(pulls, features) {
+  return [...features].flatMap(([prd, feature]) => {
+    const pull = pulls.find((one) => one.merged && one.carried.includes(feature));
+    return pull === void 0 ? [] : [{ prd, pr: pull.number, url: pull.url }];
+  });
+}
+var missionPullTitle = (mission) => `Mission #${String(mission.number)}: ${mission.title}`;
+var cell = (text19) => text19.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+function passWords(pass) {
+  if (pass === null) return "pass";
+  const words = `pass, round ${String(pass.round)} of 2`;
+  return pass.url === null ? words : `[${words}](${pass.url})`;
+}
+var rowLine = (row, n) => [
+  String(n),
+  `PRD ${String(row.prd)}`,
+  row.pr === null ? "\u2014" : `#${String(row.pr)}`,
+  row.commit === null ? "not on the branch yet" : `\`${row.commit.slice(0, 7)}\``,
+  passWords(row.pass),
+  row.page === null ? "no page yet" : `[its page](${row.page})`
+].map(cell).reduce((line2, part) => `${line2} ${part} |`, "|");
+function missionPullBody({
+  mission,
+  branch,
+  defaultBranch,
+  rows,
+  link
+}) {
+  const lines2 = [
+    `Lands mission #${String(mission.number)}, ${cell(mission.title)}, on \`${defaultBranch}\`: each PRD below joined \`${branch}\` as one commit, in this order.`,
+    "",
+    "| # | PRD | Its pull request | Commit | Reviewer | Page |",
+    "|---|---|---|---|---|---|",
+    ...rows.map((row, n) => rowLine(row, n + 1)),
+    "",
+    `**Merge it with Rebase and merge**: \`${defaultBranch}\` then gets one commit per PRD, each revertible alone, and each PRD is shipped from that moment. A squash or a merge commit would land them as one.`,
+    "",
+    "Merge it at any time: it carries what has joined so far, and one knowledge pull request then covers every PRD it landed. The Omni app rewrites this list on every join and never merges it: a person does."
+  ];
+  const closes2 = link === null ? [] : rows.map((row) => link.replaceAll("{prd}", String(row.prd)));
+  return `${[...lines2, ...closes2.length > 0 ? ["", ...closes2] : []].join("\n")}
+`;
+}
+
+// apps/omni-app/src/knowledge-harvest/landing.ts
+var CommitsSchema3 = z64.array(z64.looseObject({ commit: z64.looseObject({ message: z64.string() }) }));
+var literal = (text19) => text19.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function isMissionBranch(head, template) {
+  const pattern = template.split(/(\{number\}|\{topic\})/).map((part) => part === "{number}" ? "[1-9][0-9]*" : part === "{topic}" ? "[a-z0-9][a-z0-9-]*" : literal(part)).join("");
+  return template.includes("{number}") && new RegExp(`^${pattern}$`).test(head);
+}
+async function carried(octokit, { owner, repo, prNumber }) {
+  const commits = await paginate(
+    (page) => octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/commits", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page }).then(({ data }) => parsedOr2(ListSchema, data, `GitHub answered the commits of #${String(prNumber)} unexpectedly`))
+  );
+  const prs = parsedOr2(CommitsSchema3, commits, `GitHub answered the commits of #${String(prNumber)} unexpectedly`).flatMap(({ commit }) => {
+    const pr = prOfTitle(commit.message);
+    return pr === null ? [] : [pr];
+  });
+  return [...new Set(prs)];
+}
+async function prdOf(octokit, { owner, repo, pr, mergeSha, config }) {
+  const feature = await readPull(octokit, { owner, repo, prNumber: pr });
+  const topic = topicOf2(feature.headRef, config.branches.feature);
+  if (topic === null) return null;
+  const dirs = foldersLayout("", config.paths).dirs;
+  const found = await prdFolder(octokit, { owner, repo, sha: mergeSha, dirs, topic });
+  if (!found) return null;
+  const spec = `${dirs[found.state]}/${found.name}/spec.md`;
+  const files = await readFiles(octokit, { owner, repo, ref: mergeSha, paths: [spec] });
+  return { number: found.prd, topic, title: specTitle(files[spec] ?? "") ?? topic, pr };
+}
+async function qualifyLanding(octokit, { owner, repo, pr, mergeSha, otherwise }) {
+  const none = { skip: otherwise };
+  if (pr === null || !pr.merged) return none;
+  const { config, error } = await configAt2(octokit, { owner, repo, sha: mergeSha });
+  if (error) throw error;
+  if (!config || pr.baseRef !== config.repo.defaultBranch || !isMissionBranch(pr.headRef, config.branches.mission)) return none;
+  const prds = [];
+  for (const feature of await carried(octokit, { owner, repo, prNumber: pr.number })) {
+    const prd = await prdOf(octokit, { owner, repo, pr: feature, mergeSha, config });
+    if (prd !== null && !prds.some((one) => one.number === prd.number)) prds.push(prd);
+  }
+  if (prds.length === 0) return { skip: `The landing #${String(pr.number)} carried no PRD of this repository.` };
+  return { skip: null, config, branch: pr.headRef, prds };
+}
+
 // apps/omni-app/src/knowledge-harvest/render.ts
 function commitMarker(prNumber) {
   return `The knowledge harvest of #${prNumber}.`;
@@ -15428,14 +15645,33 @@ function commitMarker(prNumber) {
 function knowledgeTitle(prd) {
   return `docs(knowledge): PRD ${prd.number} \u2014 ${prd.title}`;
 }
-function commitMessage({ prd, merge }) {
-  return `${knowledgeTitle(prd)}
+var messageOf4 = (title, merge) => `${title}
 
 ${commitMarker(merge.pr)} Merged by @${bare2(merge.by)}.`;
+function commitMessage({ prd, merge }) {
+  return messageOf4(knowledgeTitle(prd), merge);
+}
+function landingTitle({ merge, prds }) {
+  return `docs(knowledge): landing #${String(merge.pr)} \u2014 ${prds.map(({ number }) => `PRD ${String(number)}`).join(", ")}`;
+}
+var landingCommitMessage = ({ merge, prds }) => messageOf4(landingTitle({ merge, prds }), merge);
+var PROPOSED_LINE = "Proposed entries resolve but bind nothing until a person deletes their `Proposed:` line.";
+function sectionOf3(body) {
+  const lines2 = body.split("\n").slice(2);
+  while (lines2.length > 0 && ((lines2.at(-1) ?? "") === "" || lines2.at(-1) === PROPOSED_LINE)) lines2.pop();
+  return lines2;
+}
+function landingBody({ merge, parts }) {
+  const refs = parts.map(({ prd }) => `Refs #${String(prd.number)}`).join(" \xB7 ");
+  const lines2 = [`${refs} \xB7 Knowledge from the landing #${String(merge.pr)}, merged by @${bare2(merge.by)} on ${day2(merge.at)}`, ""];
+  for (const { prd, body } of parts) lines2.push(`### PRD ${String(prd.number)} \u2014 ${cell2(prd.title)}`, "", ...sectionOf3(body), "");
+  lines2.push(PROPOSED_LINE);
+  return `${lines2.join("\n")}
+`;
 }
 var bare2 = (who) => (who ?? "").replace(/^@/, "");
 var day2 = (value) => (value ?? "").slice(0, 10);
-var cell = (text19) => (text19 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+var cell2 = (text19) => (text19 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
@@ -15479,7 +15715,7 @@ function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks
   if (placed.length > 0) {
     lines2.push("| Decision | Landed as | Decided | Why there |", "|---|---|---|---|");
     for (const entry of placed) {
-      lines2.push(`| ${cell(entry.id)} | ${cell(landedAs(entry))} | ${cell(decidedShort(entry.decided))} | ${cell(entry.reason)} |`);
+      lines2.push(`| ${cell2(entry.id)} | ${cell2(landedAs(entry))} | ${cell2(decidedShort(entry.decided))} | ${cell2(entry.reason)} |`);
     }
     lines2.push("");
   }
@@ -15504,9 +15740,15 @@ function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks
   }
   facts.push(`Checks: ${checkMark("knowledge", checks.knowledge)} \xB7 ${checkMark("outbox", checks.outbox)}`);
   lines2.push(...facts, "");
-  lines2.push("Proposed entries resolve but bind nothing until a person deletes their `Proposed:` line.");
+  lines2.push(PROPOSED_LINE);
   return `${lines2.join("\n")}
 `;
+}
+function afterEdits(before2, next) {
+  if (before2 === null) return next;
+  const writes = new Map(before2.writes.map(({ path, text: text19 }) => [path, text19]));
+  for (const { path, text: text19 } of next.writes) writes.set(path, text19);
+  return { deletes: [...before2.deletes, ...next.deletes], moves: [...before2.moves, ...next.moves], writes: [...writes].map(([path, text19]) => ({ path, text: text19 })) };
 }
 function toCommit(edits, filesBefore) {
   const deleted = new Set(edits.deletes);
@@ -15551,27 +15793,27 @@ async function judged3(judge5, question, asked) {
     return { worth: null, reason: `the law judge failed: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
-async function lawAnswers(step, judge5, { questions, repo, prd }) {
+async function lawAnswers(step, judge5, { questions, repo, prd, prefix }) {
   const worth = {};
-  for (const question of await savedStep(step, "law-questions", LawQuestionsSchema, questions)) {
+  for (const question of await savedStep(step, `${prefix}law-questions`, LawQuestionsSchema, questions)) {
     const asked = { repo, ref: `PRD ${prd} ${question.id}` };
-    worth[question.id] = (await savedStep(step, `law-worth:${question.id}`, LawJudgementSchema, () => judged3(judge5, question, asked))).worth;
+    worth[question.id] = (await savedStep(step, `${prefix}law-worth:${question.id}`, LawJudgementSchema, () => judged3(judge5, question, asked))).worth;
   }
   return worth;
 }
-async function worthAnswered(step, { judge: judge5, laws, classified, questions, repo, prd }) {
+async function worthAnswered(step, { judge: judge5, laws, classified, questions, repo, prd, prefix }) {
   const replies = laws ? classified : withoutWorth(classified);
-  const worth = judge5 && asksWorth(replies) ? await lawAnswers(step, judge5, { questions: () => questions(replies), repo, prd }) : {};
+  const worth = judge5 && asksWorth(replies) ? await lawAnswers(step, judge5, { questions: () => questions(replies), repo, prd, prefix }) : {};
   return replies.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
 }
-async function writeWithLaws(step, { write: write2, open }) {
-  const first = await write2("write");
+async function writeWithLaws(step, { write: write2, open, prefix }) {
+  const first = await write2(`${prefix}write`);
   if (first.lawIssues.length === 0) return first;
   const opened = {};
   for (const issue of first.lawIssues) {
-    opened[issue.id] = (await savedStep(step, `law-issue:${issue.id}`, LawIssueOpenedSchema, () => open(issue))).number;
+    opened[issue.id] = (await savedStep(step, `${prefix}law-issue:${issue.id}`, LawIssueOpenedSchema, () => open(issue))).number;
   }
-  return write2("write:laws", opened);
+  return write2(`${prefix}write:laws`, opened);
 }
 function harvestHandler(deps) {
   return async (job, run) => {
@@ -15592,76 +15834,21 @@ async function harvest({ octokitFor, openrouter, lawJudge: lawJudge2 = null, fet
     const merge2 = await readMerge(octokit, { owner, repo, prNumber });
     if (!merge2.merged || !merge2.sha || !merge2.at) return { skip: `#${prNumber} was closed, not merged.` };
     const found = await qualify(octokit, { owner, repo, prNumber, mergeSha: merge2.sha });
-    if (found.skip !== null) return { skip: found.skip };
-    return {
-      skip: null,
-      config: found.config,
-      prd: { number: found.prd.number, topic: found.prd.topic, title: found.prd.title },
-      merge: { by: merge2.by ?? "", at: merge2.at, pr: prNumber, ...merge2.url ? { url: merge2.url } : {} }
-    };
+    const provenance = { by: merge2.by ?? "", at: merge2.at, pr: prNumber, ...merge2.url ? { url: merge2.url } : {} };
+    if (found.skip === null) return { skip: null, config: found.config, prd: { number: found.prd.number, topic: found.prd.topic, title: found.prd.title }, merge: provenance };
+    const landing = await qualifyLanding(octokit, { owner, repo, pr: found.pr ?? null, mergeSha: merge2.sha, otherwise: found.skip });
+    return landing.skip === null ? { skip: null, config: landing.config, landing: { branch: landing.branch, prds: landing.prds }, merge: provenance } : landing;
   });
   if (qualified.skip !== null) return { skipped: qualified.skip };
+  const run = { step, github, owner, repo, prNumber, config: qualified.config, merge: qualified.merge, openrouter, lawJudge: lawJudge2, fetch: fetch2, now };
+  if ("landing" in qualified) return harvestLanding(run, qualified.landing.prds);
   const { config, prd, merge } = qualified;
   const base = config.repo.defaultBranch;
   const branch = config.branches.knowledge.replaceAll("{topic}", prd.topic);
   refuseDefault(branch, base);
-  const settled = await savedStep(step, "settle", SettledSchema, async () => {
-    const octokit = await github();
-    const changed = await pullFiles(octokit, { owner, repo, prNumber });
-    const tip2 = await tipOf(octokit, { owner, repo, branch: base });
-    const prepared2 = await withTreeAt(octokit, { owner, repo, sha: tip2, config, prd: prd.number }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
-    if (!prepared2.ok) {
-      throw new Error(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared2.errors.join("; ")}`);
-    }
-    return { tip: tip2, prepared: prepared2 };
-  });
-  const { tip, prepared } = settled;
-  const classified = [];
-  for (const candidate of prepared.candidates) {
-    classified.push(
-      await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter, fetch: fetch2 }))
-    );
-  }
-  const also = proposedProofs(classified, prepared.changed);
-  const answered = await worthAnswered(step, {
-    judge: lawJudge2,
-    laws: config.laws.source === "knowledge",
-    classified,
-    questions: async (replies) => withTreeAt(await github(), { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
-    repo: `${owner}/${repo}`,
-    prd: prd.number
-  });
-  const written = await writeWithLaws(step, {
-    write: (id, lawIssues) => savedStep(step, id, WrittenSchema, async () => {
-      const octokit = await github();
-      const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
-      return withTreeAt(octokit, { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx, root) => {
-        const result = finishHarvest({ ctx, prepared, classified: answered, merge, taken, date: now(), lawIssues });
-        return { ...result, commit: toCommit(result.edits, filesIn(root)), taken: taken.branches };
-      });
-    }),
-    open: async (issue) => openLawIssue(await github(), { owner, repo, label: config.labels.law, issue })
-  });
+  const { tip, prepared, written } = await harvestPrd(run, { prd, pr: prNumber, branch, fetched: prd.number, prefix: "", prior: null, tip: async () => tipOf(await github(), { owner, repo, branch: base }) });
   const published = await savedStep(step, "publish", PublishedSchema, async () => {
     if (noEdits(written.edits)) return null;
-    const octokit = await github();
-    const head = await branchHead(octokit, { owner, repo, branch, from: tip, defaultBranch: base });
-    const { data: headCommit } = await octokit.request("GET /repos/{owner}/{repo}/git/commits/{commit_sha}", {
-      owner,
-      repo,
-      commit_sha: head
-    });
-    const { message } = parsedOr2(CommitSchema, headCommit, `GitHub answered the commit ${head} unexpectedly`);
-    const already = head !== tip && (message ?? "").includes(commitMarker(merge.pr));
-    const commit = already ? head : await addCommit(octokit, {
-      owner,
-      repo,
-      branch,
-      parent: head,
-      defaultBranch: base,
-      message: commitMessage({ prd, merge }),
-      ...written.commit
-    });
     const body = knowledgeBody({
       prd,
       merge,
@@ -15672,29 +15859,9 @@ async function harvest({ octokitFor, openrouter, lawJudge: lawJudge2 = null, fet
       checks: written.checks,
       delivery: config.paths.delivery
     });
-    const pull = await upsertPull(octokit, { owner, repo, branch, base, head: commit, title: knowledgeTitle(prd), body });
-    if (pull.open) {
-      await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/labels", {
-        owner,
-        repo,
-        issue_number: pull.number,
-        labels: [config.labels.knowledge]
-      });
-    }
-    return { branch, commit, committed: !already, pr: { number: pull.number, url: pull.url, created: pull.created } };
+    return publishKnowledge(await github(), { run, branch, tip, commit: written.commit, message: commitMessage({ prd, merge }), title: knowledgeTitle(prd), body });
   });
-  const verdict = published ? null : await savedStep(
-    step,
-    "verdict",
-    CommentedSchema,
-    async () => upsertComment(await github(), {
-      owner,
-      repo,
-      prNumber,
-      marker: verdictMarker(config.markers.prefix),
-      text: nothingNewText(prepared.candidates.length)
-    })
-  );
+  const verdict = published ? null : await nothingNew(run, prepared.candidates.length);
   return {
     prd: prd.number,
     settled: prepared.settled.length,
@@ -15705,20 +15872,123 @@ async function harvest({ octokitFor, openrouter, lawJudge: lawJudge2 = null, fet
     verdict
   };
 }
+async function harvestPrd(run, { prd, pr, branch, fetched, prefix, prior, tip: tipAt }) {
+  const { step, github, owner, repo, config, merge, openrouter, lawJudge: lawJudge2, fetch: fetch2, now } = run;
+  const base = config.repo.defaultBranch;
+  const settled = await savedStep(step, `${prefix}settle`, SettledSchema, async () => {
+    const octokit = await github();
+    const changed = await pullFiles(octokit, { owner, repo, prNumber: pr });
+    const tip2 = await tipAt();
+    const prepared2 = await withTreeAt(octokit, { owner, repo, sha: tip2, config, prd: fetched }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
+    if (!prepared2.ok) {
+      throw new Error(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared2.errors.join("; ")}`);
+    }
+    return { tip: tip2, prepared: prepared2 };
+  });
+  const { tip, prepared } = settled;
+  const classified = [];
+  for (const candidate of prepared.candidates) {
+    classified.push(
+      await savedStep(step, `${prefix}classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter, fetch: fetch2 }))
+    );
+  }
+  const also = proposedProofs(classified, prepared.changed);
+  const answered = await worthAnswered(step, {
+    judge: lawJudge2,
+    laws: config.laws.source === "knowledge",
+    classified,
+    questions: async (replies) => withTreeAt(await github(), { owner, repo, sha: tip, config, also, prd: fetched }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
+    repo: `${owner}/${repo}`,
+    prd: prd.number,
+    prefix
+  });
+  const written = await writeWithLaws(step, {
+    prefix,
+    write: (id, lawIssues) => savedStep(step, id, WrittenSchema, async () => {
+      const octokit = await github();
+      const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
+      return withTreeAt(octokit, { owner, repo, sha: tip, config, also, prd: fetched }, (ctx, root) => {
+        const before2 = filesIn(root);
+        if (prior !== null) applyHarvestEdits({ root, edits: prior });
+        const result = finishHarvest({ ctx, prepared, classified: answered, merge, taken, date: now(), lawIssues });
+        return { ...result, commit: toCommit(result.edits, before2), taken: taken.branches };
+      });
+    }),
+    open: async (issue) => openLawIssue(await github(), { owner, repo, label: config.labels.law, issue })
+  });
+  return { tip, prepared, written };
+}
+async function publishKnowledge(octokit, { run, branch, tip, commit: files, message, title, body }) {
+  const { owner, repo, config, merge } = run;
+  const base = config.repo.defaultBranch;
+  const head = await branchHead(octokit, { owner, repo, branch, from: tip, defaultBranch: base });
+  const { data: headCommit } = await octokit.request("GET /repos/{owner}/{repo}/git/commits/{commit_sha}", { owner, repo, commit_sha: head });
+  const { message: headMessage } = parsedOr2(CommitSchema, headCommit, `GitHub answered the commit ${head} unexpectedly`);
+  const already = head !== tip && (headMessage ?? "").includes(commitMarker(merge.pr));
+  const commit = already ? head : await addCommit(octokit, { owner, repo, branch, parent: head, defaultBranch: base, message, ...files });
+  const pull = await upsertPull(octokit, { owner, repo, branch, base, head: commit, title, body });
+  if (pull.open) {
+    await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/labels", { owner, repo, issue_number: pull.number, labels: [config.labels.knowledge] });
+  }
+  return { branch, commit, committed: !already, pr: { number: pull.number, url: pull.url, created: pull.created } };
+}
+var nothingNew = async (run, count3) => savedStep(
+  run.step,
+  "verdict",
+  CommentedSchema,
+  async () => upsertComment(await run.github(), { owner: run.owner, repo: run.repo, prNumber: run.prNumber, marker: verdictMarker(run.config.markers.prefix), text: nothingNewText(count3) })
+);
+async function harvestLanding(run, prds) {
+  const { step, github, owner, repo, config, merge, prNumber } = run;
+  const base = config.repo.defaultBranch;
+  const branch = config.branches.knowledge.replaceAll("{topic}", `landing-${String(prNumber)}`);
+  refuseDefault(branch, base);
+  const numbers = prds.map(({ number }) => number);
+  const tip = await savedStep(step, "tip", TipSchema, async () => tipOf(await github(), { owner, repo, branch: base }));
+  let edits = null;
+  const parts = [];
+  for (const prd of prds) {
+    const done = await harvestPrd(run, { prd, pr: prd.pr, branch, fetched: numbers, prefix: `prd-${String(prd.number)}:`, prior: edits, tip: () => Promise.resolve(tip) });
+    parts.push({ ...done, prd });
+    edits = afterEdits(edits, done.written.edits);
+  }
+  const all = edits;
+  const published = await savedStep(step, "publish", PublishedSchema, async () => {
+    if (all === null || noEdits(all)) return null;
+    const octokit = await github();
+    const before2 = await withTreeAt(octokit, { owner, repo, sha: tip, config, prd: numbers }, (_ctx, root) => filesIn(root));
+    const sections = parts.map(({ prd, prepared, written }) => ({
+      prd,
+      body: knowledgeBody({ prd, merge, settled: prepared.settled, shipped: prepared.shipped, placed: written.placed, notPlaced: written.notPlaced, checks: written.checks, delivery: config.paths.delivery })
+    }));
+    return publishKnowledge(octokit, { run, branch, tip, commit: toCommit(all, before2), message: landingCommitMessage({ merge, prds }), title: landingTitle({ merge, prds }), body: landingBody({ merge, parts: sections }) });
+  });
+  const sum = (count3) => parts.reduce((total, part) => total + count3(part), 0);
+  const verdict = published ? null : await nothingNew(run, sum(({ prepared }) => prepared.candidates.length));
+  return {
+    prds: numbers,
+    settled: sum(({ prepared }) => prepared.settled.length),
+    shipped: parts.some(({ prepared }) => prepared.shipped.length > 0),
+    placed: sum(({ written }) => written.placed.length),
+    notPlaced: sum(({ written }) => written.notPlaced.length),
+    published,
+    verdict
+  };
+}
 function harvestFailureHook({ octokitFor }) {
   return failureCommentHook(octokitFor, { schema: HarvestEventSchema, marker: FAILURE_MARKER, what: "The knowledge harvest" });
 }
 
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z62 } from "zod";
+import { z as z65 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS3 = 55e3;
-var VerdictSchema3 = z62.looseObject({
-  answer: z62.enum(["true", "false"]),
-  confidence: z62.number().nullable().catch(null),
-  decidedBy: z62.string().nullable().catch(null)
+var VerdictSchema3 = z65.looseObject({
+  answer: z65.enum(["true", "false"]),
+  confidence: z65.number().nullable().catch(null),
+  decidedBy: z65.string().nullable().catch(null)
 });
-var RefusalSchema3 = z62.looseObject({ error: z62.string().optional().catch(void 0) });
+var RefusalSchema3 = z65.looseObject({ error: z65.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
@@ -15752,22 +16022,22 @@ function lawJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE_TIMEOUT
 }
 
 // apps/omni-app/src/main-watch/main-watch.ts
-import { z as z70 } from "zod";
+import { z as z73 } from "zod";
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z65 } from "zod";
+import { z as z68 } from "zod";
 
 // kit/lib/retro/outcome.ts
-import { z as z63 } from "zod";
-var LessonOutcomeSchema = z63.union([z63.object({ became: z63.string() }).strict(), z63.object({ staysHere: z63.string() }).strict()]);
-var LessonOutcomesSchema = z63.record(z63.string(), LessonOutcomeSchema);
+import { z as z66 } from "zod";
+var LessonOutcomeSchema = z66.union([z66.object({ became: z66.string() }).strict(), z66.object({ staysHere: z66.string() }).strict()]);
+var LessonOutcomesSchema = z66.record(z66.string(), LessonOutcomeSchema);
 function outcomeLine2(outcome3) {
   if ("became" in outcome3) return `- **Became:** \`${outcome3.became}\``;
   return `- **Stays here:** ${outcome3.staysHere.trim().split(/\s+/).join(" ")}`;
 }
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z64 } from "zod";
+import { z as z67 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -15984,18 +16254,18 @@ function rulesSheet() {
 }
 
 // apps/omni-app/src/retro/narrate.ts
-var ReplyFindingSchema = z64.object({
-  title: z64.string().exactOptional(),
-  whyItMatters: z64.string().exactOptional(),
-  lesson: z64.string().exactOptional(),
-  keep: z64.boolean().exactOptional(),
-  why: z64.string().exactOptional()
+var ReplyFindingSchema = z67.object({
+  title: z67.string().exactOptional(),
+  whyItMatters: z67.string().exactOptional(),
+  lesson: z67.string().exactOptional(),
+  keep: z67.boolean().exactOptional(),
+  why: z67.string().exactOptional()
 });
-var ModelReplySchema = z64.object({
-  summary: z64.string(),
-  findings: z64.record(z64.string(), ReplyFindingSchema),
-  lessons: z64.array(z64.object({ text: z64.string(), findings: z64.array(z64.string()) })),
-  verdict: z64.object({ worthIt: z64.boolean(), reason: z64.string() }).nullable()
+var ModelReplySchema = z67.object({
+  summary: z67.string(),
+  findings: z67.record(z67.string(), ReplyFindingSchema),
+  lessons: z67.array(z67.object({ text: z67.string(), findings: z67.array(z67.string()) })),
+  verdict: z67.object({ worthIt: z67.boolean(), reason: z67.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -16196,171 +16466,171 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text13 = z65.string();
-var maybeText = z65.string().nullable();
-var RunSchema = z65.enum(["merge", "day-14"]);
+var text13 = z68.string();
+var maybeText = z68.string().nullable();
+var RunSchema = z68.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
   title: text13,
   url: maybeText,
-  merged: z65.boolean(),
+  merged: z68.boolean(),
   baseRef: text13,
   headRef: text13,
   headSha: text13,
   openedAt: maybeText,
   mergedAt: maybeText,
   mergeSha: maybeText,
-  labels: z65.array(text13)
+  labels: z68.array(text13)
 };
-var PullSchema3 = z65.object(pullFields);
-var FeaturePullSchema = z65.object({ ...pullFields, mergeSha: text13 });
-var PullIntoSchema = z65.object({
+var PullSchema3 = z68.object(pullFields);
+var FeaturePullSchema = z68.object({ ...pullFields, mergeSha: text13 });
+var PullIntoSchema = z68.object({
   number: PrNumberSchema,
   title: text13,
   url: maybeText,
   state: text13,
-  draft: z65.boolean(),
+  draft: z68.boolean(),
   headRef: text13,
   headSha: text13,
   openedAt: text13,
   closedAt: maybeText,
   mergedAt: maybeText,
-  labels: z65.array(text13)
+  labels: z68.array(text13)
 });
-var PrdFactsSchema = z65.object({
+var PrdFactsSchema = z68.object({
   number: PrdNumberSchema,
   topic: text13,
   title: text13,
   problem: text13,
-  state: z65.enum(["shipped", "inbox"]),
+  state: z68.enum(["shipped", "inbox"]),
   folder: text13,
   plan: maybeText,
   settled: maybeText
 });
-var QualifiedSchema2 = z65.union([
-  z65.object({ skip: z65.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z65.object({ skip: text13, pr: PullSchema3.exactOptional() })
+var QualifiedSchema2 = z68.union([
+  z68.object({ skip: z68.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z68.object({ skip: text13, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z65.array(PullIntoSchema);
-var EvidenceSchema = z65.object({ label: text13, url: maybeText, excerpt: text13.exactOptional() });
-var FindingSchema4 = z65.object({ id: text13, kind: text13, title: text13, happened: text13, evidence: z65.array(EvidenceSchema) });
-var SheetFindingSchema = z65.object({ ...FindingSchema4.shape, source: text13, ref: text13, repo: text13.exactOptional() });
-var TargetReadSchema = z65.discriminatedUnion("read", [
-  z65.object({
+var PullsIntoSchema = z68.array(PullIntoSchema);
+var EvidenceSchema = z68.object({ label: text13, url: maybeText, excerpt: text13.exactOptional() });
+var FindingSchema4 = z68.object({ id: text13, kind: text13, title: text13, happened: text13, evidence: z68.array(EvidenceSchema) });
+var SheetFindingSchema = z68.object({ ...FindingSchema4.shape, source: text13, ref: text13, repo: text13.exactOptional() });
+var TargetReadSchema = z68.discriminatedUnion("read", [
+  z68.object({
     name: text13,
     repo: text13,
-    read: z65.literal(true),
-    installationId: z65.number(),
-    featurePrs: z65.array(FeaturePullSchema).min(1),
-    pulls: z65.array(PullIntoSchema)
+    read: z68.literal(true),
+    installationId: z68.number(),
+    featurePrs: z68.array(FeaturePullSchema).min(1),
+    pulls: z68.array(PullIntoSchema)
   }),
-  z65.object({ name: text13, repo: text13, read: z65.literal(false), reason: text13 })
+  z68.object({ name: text13, repo: text13, read: z68.literal(false), reason: text13 })
 ]);
-var RepositoryFactsSchema = z65.object({
+var RepositoryFactsSchema = z68.object({
   repo: text13,
   name: text13,
-  plan: z65.boolean(),
-  read: z65.boolean(),
+  plan: z68.boolean(),
+  read: z68.boolean(),
   reason: text13.exactOptional(),
-  featurePrs: z65.array(z65.object({ number: PrNumberSchema, url: maybeText })),
-  kinds: z65.record(z65.string(), z65.unknown()).exactOptional()
+  featurePrs: z68.array(z68.object({ number: PrNumberSchema, url: maybeText })),
+  kinds: z68.record(z68.string(), z68.unknown()).exactOptional()
 });
-var RulesSheetSchema = z65.object({
-  version: z65.number(),
-  findingOrder: z65.array(z65.array(text13)),
-  issuesPerRun: z65.number(),
-  thresholds: z65.object({
-    slowSliceFactor: z65.number(),
-    repeatedRedCommits: z65.number(),
-    repeatedRedSlices: z65.number(),
-    failingTestRuns: z65.number(),
-    churnRangeCommits: z65.number(),
-    churnFilePercent: z65.number(),
-    churnFileLines: z65.number(),
-    afterMergeDays: z65.number()
+var RulesSheetSchema = z68.object({
+  version: z68.number(),
+  findingOrder: z68.array(z68.array(text13)),
+  issuesPerRun: z68.number(),
+  thresholds: z68.object({
+    slowSliceFactor: z68.number(),
+    repeatedRedCommits: z68.number(),
+    repeatedRedSlices: z68.number(),
+    failingTestRuns: z68.number(),
+    churnRangeCommits: z68.number(),
+    churnFilePercent: z68.number(),
+    churnFileLines: z68.number(),
+    afterMergeDays: z68.number()
   }),
-  limits: z65.object({ logTailLines: z65.number(), modelInputTokens: z65.number() }),
-  fieldCaps: z65.object({
-    summary: z65.number(),
-    title: z65.number(),
-    whyItMatters: z65.number(),
-    lesson: z65.number(),
-    reason: z65.number(),
-    why: z65.number()
+  limits: z68.object({ logTailLines: z68.number(), modelInputTokens: z68.number() }),
+  fieldCaps: z68.object({
+    summary: z68.number(),
+    title: z68.number(),
+    whyItMatters: z68.number(),
+    lesson: z68.number(),
+    reason: z68.number(),
+    why: z68.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z65.object({ number: PrdNumberSchema, title: text13, topic: text13, state: text13, folder: text13 }),
-  featurePr: z65.object({ number: PrNumberSchema, title: text13, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text13 }),
+  prd: z68.object({ number: PrdNumberSchema, title: text13, topic: text13, state: text13, folder: text13 }),
+  featurePr: z68.object({ number: PrNumberSchema, title: text13, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text13 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z65.record(z65.string(), z65.unknown()),
-  findings: z65.array(SheetFindingSchema),
+  kinds: z68.record(z68.string(), z68.unknown()),
+  findings: z68.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z65.array(RepositoryFactsSchema).exactOptional()
+  repositories: z68.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z65.object(factSheetFields);
-var DroppedSchema = z65.object({ dropped: text13 });
-var ProseFieldSchema = z65.union([text13, DroppedSchema]);
-var ProseFindingSchema = z65.object({
+var FactSheetSchema = z68.object(factSheetFields);
+var DroppedSchema = z68.object({ dropped: text13 });
+var ProseFieldSchema = z68.union([text13, DroppedSchema]);
+var ProseFindingSchema = z68.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z65.boolean().exactOptional(),
+  keep: z68.boolean().exactOptional(),
   why: text13.exactOptional()
 });
-var LessonSchema = z65.object({ text: text13, findings: z65.array(text13) });
-var VerdictSchema4 = z65.union([z65.object({ worthIt: z65.boolean(), reason: text13 }), DroppedSchema]);
-var ProseSchema = z65.object({
+var LessonSchema = z68.object({ text: text13, findings: z68.array(text13) });
+var VerdictSchema4 = z68.union([z68.object({ worthIt: z68.boolean(), reason: text13 }), DroppedSchema]);
+var ProseSchema = z68.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z65.record(z65.string(), ProseFindingSchema),
-  lessons: z65.array(LessonSchema),
+  findings: z68.record(z68.string(), ProseFindingSchema),
+  lessons: z68.array(LessonSchema),
   verdict: VerdictSchema4.optional()
 });
-var DroppedFieldSchema = z65.object({ field: text13, reason: text13 });
-var GuardedSchema = z65.object({ prose: ProseSchema.nullable(), dropped: z65.array(DroppedFieldSchema) });
-var NarratedSchema = z65.object({ model: maybeText, reply: ModelReplySchema.nullable(), reason: maybeText });
-var NarrationSchema = z65.object({ model: maybeText, reason: maybeText, dropped: z65.array(DroppedFieldSchema) });
-var IssueLinkSchema = z65.object({ number: IssueNumberSchema, url: text13, state: z65.enum(["open", "closed"]) });
-var IssueLinksSchema = z65.record(z65.string(), IssueLinkSchema);
-var RunRecordSchema = z65.object({
+var DroppedFieldSchema = z68.object({ field: text13, reason: text13 });
+var GuardedSchema = z68.object({ prose: ProseSchema.nullable(), dropped: z68.array(DroppedFieldSchema) });
+var NarratedSchema = z68.object({ model: maybeText, reply: ModelReplySchema.nullable(), reason: maybeText });
+var NarrationSchema = z68.object({ model: maybeText, reason: maybeText, dropped: z68.array(DroppedFieldSchema) });
+var IssueLinkSchema = z68.object({ number: IssueNumberSchema, url: text13, state: z68.enum(["open", "closed"]) });
+var IssueLinksSchema = z68.record(z68.string(), IssueLinkSchema);
+var RunRecordSchema = z68.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema4.nullable().exactOptional(),
-  lessons: z65.array(LessonSchema).exactOptional(),
+  lessons: z68.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional(),
   outcomes: LessonOutcomesSchema.exactOptional()
 });
-var KnownSchema = z65.object({
-  knowledge: z65.object({
-    principles: z65.array(z65.unknown()),
-    laws: z65.array(z65.unknown()),
-    decisions: z65.array(z65.unknown()),
-    playbook: z65.array(z65.object({ id: text13, line: text13 })).exactOptional()
+var KnownSchema = z68.object({
+  knowledge: z68.object({
+    principles: z68.array(z68.unknown()),
+    laws: z68.array(z68.unknown()),
+    decisions: z68.array(z68.unknown()),
+    playbook: z68.array(z68.object({ id: text13, line: text13 })).exactOptional()
   }),
-  lessons: z65.array(text13)
+  lessons: z68.array(text13)
 });
-var PublishedSchema2 = z65.object({
+var PublishedSchema2 = z68.object({
   branch: text13,
-  committed: z65.boolean(),
+  committed: z68.boolean(),
   commit: text13,
-  pr: z65.object({ number: PrNumberSchema, url: text13, created: z65.boolean() }).nullable(),
+  pr: z68.object({ number: PrNumberSchema, url: text13, created: z68.boolean() }).nullable(),
   apply: text13.nullable().exactOptional()
 });
-var QueuedSchema = z65.object({ job: text13.nullable(), created: z65.boolean(), reason: maybeText });
-var CommentedSchema2 = z65.object({ commentId: CommentIdSchema, created: z65.boolean() });
-var PublishedBeforeSchema = z65.object({
-  pr: z65.object({ branch: text13, commit: text13, number: PrNumberSchema, url: text13 }).nullable(),
-  comment: z65.object({ commentId: CommentIdSchema }).nullable()
+var QueuedSchema = z68.object({ job: text13.nullable(), created: z68.boolean(), reason: maybeText });
+var CommentedSchema2 = z68.object({ commentId: CommentIdSchema, created: z68.boolean() });
+var PublishedBeforeSchema = z68.object({
+  pr: z68.object({ branch: text13, commit: text13, number: PrNumberSchema, url: text13 }).nullable(),
+  comment: z68.object({ commentId: CommentIdSchema }).nullable()
 });
 
 // apps/omni-app/src/saved-parts.ts
 import { createHash as createHash4 } from "node:crypto";
-import { z as z66 } from "zod";
+import { z as z69 } from "zod";
 var PART_BYTES = 524288;
 var PARTS = "omni:parts";
-var HeadSchema = z66.strictObject({ [PARTS]: z66.strictObject({ hash: z66.string().min(1), count: z66.number().int().positive() }) });
+var HeadSchema = z69.strictObject({ [PARTS]: z69.strictObject({ hash: z69.string().min(1), count: z69.number().int().positive() }) });
 async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const saved = await step.run(id, async () => {
     const text19 = JSON.stringify(asSaved(await fn()));
@@ -16579,24 +16849,24 @@ async function gatherTarget({ step, octokitFor, kinds, scope }, target2) {
 }
 
 // apps/omni-app/src/main-watch/main-watch.schema.ts
-import { z as z67 } from "zod";
-var text14 = z67.string().min(1);
-var BreakSchema = z67.object({
-  kind: z67.enum(["ci-red", "revert", "regression"]),
+import { z as z70 } from "zod";
+var text14 = z70.string().min(1);
+var BreakSchema = z70.object({
+  kind: z70.enum(["ci-red", "revert", "regression"]),
   source: text14,
   url: text14,
   title: text14,
-  parent: z67.enum(["green", "red", "unknown"]).nullable(),
+  parent: z70.enum(["green", "red", "unknown"]).nullable(),
   at: text14
 });
-var ReadSchema = z67.object({ breaks: z67.array(BreakSchema), unread: z67.array(z67.enum(["ci", "reverts", "regressions"])) });
-var OpenedSchema = z67.object({ workspace: text14.nullable(), reason: text14.nullable(), opened: z67.number().int().min(0) });
-var RecordedSchema = z67.object({ added: z67.number().int().min(0) });
-var ClosedSchema = z67.object({ closed: z67.boolean() });
-var ProgressSchema2 = z67.object({ turn: z67.number().int().min(0), done: z67.array(text14), broke: z67.array(text14) });
+var ReadSchema = z70.object({ breaks: z70.array(BreakSchema), unread: z70.array(z70.enum(["ci", "reverts", "regressions"])) });
+var OpenedSchema = z70.object({ workspace: text14.nullable(), reason: text14.nullable(), opened: z70.number().int().min(0) });
+var RecordedSchema = z70.object({ added: z70.number().int().min(0) });
+var ClosedSchema = z70.object({ closed: z70.boolean() });
+var ProgressSchema2 = z70.object({ turn: z70.number().int().min(0), done: z70.array(text14), broke: z70.array(text14) });
 
 // apps/omni-app/src/main-watch/signals.ts
-import { z as z69 } from "zod";
+import { z as z72 } from "zod";
 
 // apps/omni-app/src/retro/kinds/churn-lines.ts
 var HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
@@ -16688,100 +16958,100 @@ function unique3(values) {
 }
 
 // apps/omni-app/src/retro/kinds/schema.ts
-import { z as z68 } from "zod";
-var IssueEventSchema = z68.looseObject({
-  event: z68.string(),
-  created_at: z68.string(),
-  label: z68.looseObject({ name: z68.string().nullish() }).nullish()
+import { z as z71 } from "zod";
+var IssueEventSchema = z71.looseObject({
+  event: z71.string(),
+  created_at: z71.string(),
+  label: z71.looseObject({ name: z71.string().nullish() }).nullish()
 });
-var WorkflowRunSchema = z68.looseObject({
-  id: z68.number(),
-  name: z68.string().nullish(),
-  head_sha: z68.string().nullish()
+var WorkflowRunSchema = z71.looseObject({
+  id: z71.number(),
+  name: z71.string().nullish(),
+  head_sha: z71.string().nullish()
 });
-var WorkflowRunsPageSchema = z68.looseObject({ workflow_runs: z68.array(WorkflowRunSchema).nullish() });
-var JobSchema = z68.looseObject({
-  id: z68.number(),
-  run_id: z68.number().nullish(),
-  workflow_name: z68.string().nullish(),
-  name: z68.string(),
-  head_sha: z68.string().nullish(),
-  run_attempt: z68.number().nullish(),
-  status: z68.string().nullish(),
-  conclusion: z68.string().nullish(),
-  html_url: z68.string().nullish(),
-  completed_at: z68.string().nullish()
+var WorkflowRunsPageSchema = z71.looseObject({ workflow_runs: z71.array(WorkflowRunSchema).nullish() });
+var JobSchema = z71.looseObject({
+  id: z71.number(),
+  run_id: z71.number().nullish(),
+  workflow_name: z71.string().nullish(),
+  name: z71.string(),
+  head_sha: z71.string().nullish(),
+  run_attempt: z71.number().nullish(),
+  status: z71.string().nullish(),
+  conclusion: z71.string().nullish(),
+  html_url: z71.string().nullish(),
+  completed_at: z71.string().nullish()
 });
-var JobsPageSchema = z68.looseObject({ jobs: z68.array(JobSchema).nullish() });
-var IssueSchema2 = z68.looseObject({
+var JobsPageSchema = z71.looseObject({ jobs: z71.array(JobSchema).nullish() });
+var IssueSchema2 = z71.looseObject({
   number: IssueNumberSchema,
-  title: z68.string().nullish(),
-  body: z68.string().nullish(),
-  html_url: z68.string(),
-  created_at: z68.string(),
-  closed_at: z68.string().nullish(),
-  pull_request: z68.unknown().optional()
+  title: z71.string().nullish(),
+  body: z71.string().nullish(),
+  html_url: z71.string(),
+  created_at: z71.string(),
+  closed_at: z71.string().nullish(),
+  pull_request: z71.unknown().optional()
 });
-var ClosedPullSchema = z68.looseObject({
+var ClosedPullSchema = z71.looseObject({
   number: PrNumberSchema,
-  title: z68.string().nullish(),
-  body: z68.string().nullish(),
-  html_url: z68.string(),
-  merged_at: z68.string().nullish(),
-  updated_at: z68.string().nullish(),
-  closed_at: z68.string().nullish()
+  title: z71.string().nullish(),
+  body: z71.string().nullish(),
+  html_url: z71.string(),
+  merged_at: z71.string().nullish(),
+  updated_at: z71.string().nullish(),
+  closed_at: z71.string().nullish()
 });
-var ChangedFileSchema = z68.looseObject({
-  filename: z68.string(),
-  previous_filename: z68.string().nullish(),
-  status: z68.string().nullish(),
-  additions: z68.number().nullish(),
-  deletions: z68.number().nullish(),
-  patch: z68.string().nullish()
+var ChangedFileSchema = z71.looseObject({
+  filename: z71.string(),
+  previous_filename: z71.string().nullish(),
+  status: z71.string().nullish(),
+  additions: z71.number().nullish(),
+  deletions: z71.number().nullish(),
+  patch: z71.string().nullish()
 });
-var PullCommitSchema = z68.looseObject({
-  sha: z68.string(),
-  parents: z68.array(z68.unknown()).nullish()
+var PullCommitSchema = z71.looseObject({
+  sha: z71.string(),
+  parents: z71.array(z71.unknown()).nullish()
 });
-var CommitPageSchema = z68.looseObject({
-  html_url: z68.string().nullish(),
-  files: z68.array(ChangedFileSchema).nullish()
+var CommitPageSchema = z71.looseObject({
+  html_url: z71.string().nullish(),
+  files: z71.array(ChangedFileSchema).nullish()
 });
-var IssueCommentSchema = z68.looseObject({
-  body: z68.string().nullish(),
-  html_url: z68.string().nullish(),
-  created_at: z68.string().nullish()
+var IssueCommentSchema = z71.looseObject({
+  body: z71.string().nullish(),
+  html_url: z71.string().nullish(),
+  created_at: z71.string().nullish()
 });
-var UserSchema = z68.looseObject({ login: z68.string().nullish(), type: z68.string().nullish() });
-var ReviewSchema = z68.looseObject({
-  html_url: z68.string().nullish(),
+var UserSchema = z71.looseObject({ login: z71.string().nullish(), type: z71.string().nullish() });
+var ReviewSchema = z71.looseObject({
+  html_url: z71.string().nullish(),
   user: UserSchema.nullish(),
-  state: z68.string().nullish(),
-  body: z68.string().nullish()
+  state: z71.string().nullish(),
+  body: z71.string().nullish()
 });
-var ThreadCommentSchema = z68.looseObject({
-  url: z68.string().nullish(),
-  body: z68.string().nullish(),
-  author: z68.looseObject({ login: z68.string().nullish(), __typename: z68.string().nullish() }).nullish()
+var ThreadCommentSchema = z71.looseObject({
+  url: z71.string().nullish(),
+  body: z71.string().nullish(),
+  author: z71.looseObject({ login: z71.string().nullish(), __typename: z71.string().nullish() }).nullish()
 });
-var ReviewThreadSchema = z68.looseObject({
-  isResolved: z68.boolean().nullish(),
-  isOutdated: z68.boolean().nullish(),
-  path: z68.string().nullish(),
-  comments: z68.looseObject({ nodes: z68.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
+var ReviewThreadSchema = z71.looseObject({
+  isResolved: z71.boolean().nullish(),
+  isOutdated: z71.boolean().nullish(),
+  path: z71.string().nullish(),
+  comments: z71.looseObject({ nodes: z71.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
 });
-var ReviewThreadsAnswerSchema = z68.looseObject({
-  data: z68.looseObject({
-    repository: z68.looseObject({
-      pullRequest: z68.looseObject({
-        reviewThreads: z68.looseObject({
-          pageInfo: z68.looseObject({ hasNextPage: z68.boolean().nullish(), endCursor: z68.string().nullish() }).nullish(),
-          nodes: z68.array(ReviewThreadSchema).nullish()
+var ReviewThreadsAnswerSchema = z71.looseObject({
+  data: z71.looseObject({
+    repository: z71.looseObject({
+      pullRequest: z71.looseObject({
+        reviewThreads: z71.looseObject({
+          pageInfo: z71.looseObject({ hasNextPage: z71.boolean().nullish(), endCursor: z71.string().nullish() }).nullish(),
+          nodes: z71.array(ReviewThreadSchema).nullish()
         }).nullish()
       }).nullish()
     }).nullish()
   }).nullish(),
-  errors: z68.array(z68.looseObject({ type: z68.string().nullish(), message: z68.string().nullish() })).nullish()
+  errors: z71.array(z71.looseObject({ type: z71.string().nullish(), message: z71.string().nullish() })).nullish()
 }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.reads.ts
@@ -16832,36 +17102,36 @@ var COMMENTS = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
 var GREEN = /* @__PURE__ */ new Set(["success"]);
 var RED = /* @__PURE__ */ new Set(["failure", "timed_out", "startup_failure"]);
 var TRIAGE_MARKER = "<!-- omni-bug:triage -->";
-var RunSchema2 = z69.looseObject({
-  id: z69.number(),
-  name: z69.string().nullish(),
-  html_url: z69.string().nullish(),
-  created_at: z69.string().nullish(),
-  updated_at: z69.string().nullish()
+var RunSchema2 = z72.looseObject({
+  id: z72.number(),
+  name: z72.string().nullish(),
+  html_url: z72.string().nullish(),
+  created_at: z72.string().nullish(),
+  updated_at: z72.string().nullish()
 });
-var RunsPageSchema = z69.looseObject({ workflow_runs: z69.array(RunSchema2).nullish() });
-var ParentsSchema = z69.looseObject({ parents: z69.array(z69.looseObject({ sha: z69.string() })).nullish() });
-var CommitSchema2 = z69.looseObject({
-  sha: z69.string(),
-  html_url: z69.string(),
-  commit: z69.looseObject({
-    message: z69.string(),
-    committer: z69.looseObject({ date: z69.string().nullish() }).nullish(),
-    author: z69.looseObject({ date: z69.string().nullish() }).nullish()
+var RunsPageSchema = z72.looseObject({ workflow_runs: z72.array(RunSchema2).nullish() });
+var ParentsSchema = z72.looseObject({ parents: z72.array(z72.looseObject({ sha: z72.string() })).nullish() });
+var CommitSchema2 = z72.looseObject({
+  sha: z72.string(),
+  html_url: z72.string(),
+  commit: z72.looseObject({
+    message: z72.string(),
+    committer: z72.looseObject({ date: z72.string().nullish() }).nullish(),
+    author: z72.looseObject({ date: z72.string().nullish() }).nullish()
   })
 });
-var LabelSchema = z69.union([z69.string(), z69.looseObject({ name: z69.string() })]);
-var IssueSchema3 = z69.looseObject({
-  number: z69.number(),
-  title: z69.string().nullish(),
-  body: z69.string().nullish(),
-  html_url: z69.string(),
-  created_at: z69.string(),
-  pull_request: z69.unknown().optional(),
-  user: z69.looseObject({ type: z69.string().nullish() }).nullish(),
-  labels: z69.array(LabelSchema).nullish()
+var LabelSchema = z72.union([z72.string(), z72.looseObject({ name: z72.string() })]);
+var IssueSchema3 = z72.looseObject({
+  number: z72.number(),
+  title: z72.string().nullish(),
+  body: z72.string().nullish(),
+  html_url: z72.string(),
+  created_at: z72.string(),
+  pull_request: z72.unknown().optional(),
+  user: z72.looseObject({ type: z72.string().nullish() }).nullish(),
+  labels: z72.array(LabelSchema).nullish()
 });
-var CommentSchema = z69.looseObject({ body: z69.string().nullish() });
+var CommentSchema = z72.looseObject({ body: z72.string().nullish() });
 async function readSignals(octokit, lane2, scope) {
   const unread = [];
   const breaks = [...await ciBreaks(octokit, lane2, unread), ...await revertBreaks(octokit, lane2, unread), ...await regressionBreaks(octokit, lane2, scope, unread)];
@@ -16930,7 +17200,7 @@ async function revertBreaks(octokit, lane2, unread) {
   const { owner, repo, base, mergedAt, watchUntil } = lane2;
   const commits = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z69.array(CommitSchema2), data, COMMITS))
+      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z72.array(CommitSchema2), data, COMMITS))
     )
   );
   if (commits.status !== null) {
@@ -16970,7 +17240,7 @@ async function regressionBreaks(octokit, lane2, scope, unread) {
   const { owner, repo, mergedAt, watchUntil } = lane2;
   const issues = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(ISSUES, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z69.array(IssueSchema3), data, ISSUES))
+      (page) => octokit.request(ISSUES, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z72.array(IssueSchema3), data, ISSUES))
     )
   );
   if (issues.status !== null) {
@@ -17012,7 +17282,7 @@ function labelled(issue, label2) {
 async function triageOf(octokit, { owner, repo }, issue) {
   const comments = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMENTS, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z69.array(CommentSchema), data, COMMENTS))
+      (page) => octokit.request(COMMENTS, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z72.array(CommentSchema), data, COMMENTS))
     )
   );
   if (comments.status !== null) return void 0;
@@ -17049,13 +17319,13 @@ var DAY_MS3 = 24 * 60 * 60 * 1e3;
 var WATCH_DAYS = 7;
 var REWIND_STEP = "queue-rewind";
 var MAX_LOOKS = 18;
-var MainWatchPayloadSchema = z70.looseObject({
-  installationId: z70.number(),
-  owner: z70.string().min(1),
-  repo: z70.string().min(1),
+var MainWatchPayloadSchema = z73.looseObject({
+  installationId: z73.number(),
+  owner: z73.string().min(1),
+  repo: z73.string().min(1),
   prNumber: PrNumberSchema,
-  mergeSha: z70.string().min(1),
-  mergedAt: z70.string().nullish()
+  mergeSha: z73.string().min(1),
+  mergedAt: z73.string().nullish()
 });
 function mainWatchHandler(deps) {
   return async (job, run) => mainWatch(deps, job.payload, job.progress ?? {}, run?.step ?? memorySteps());
@@ -17177,13 +17447,13 @@ async function finish(watch, broke, one, read) {
 }
 
 // apps/omni-app/src/main-watch/store.ts
-import { z as z72 } from "zod";
+import { z as z75 } from "zod";
 
 // apps/omni-app/src/retro/runner-queue.ts
-import { z as z71 } from "zod";
+import { z as z74 } from "zod";
 var APP_SENDER = "omni-app";
-var IdRowSchema = z71.object({ id: z71.string().min(1) });
-var RemovedRowSchema = z71.object({ removed_at: z71.string().nullable() });
+var IdRowSchema = z74.object({ id: z74.string().min(1) });
+var RemovedRowSchema = z74.object({ removed_at: z74.string().nullable() });
 function runnerQueue(connection) {
   const db = serviceDb(connection);
   return async ({ installationId, repository, line: line2 }) => {
@@ -17204,10 +17474,10 @@ function runnerQueue(connection) {
 }
 
 // apps/omni-app/src/main-watch/store.ts
-var LaneRowSchema = z72.object({ lane: z72.string().min(1) });
-var RepositoryRowSchema = z72.object({ repository: z72.string().min(1) });
-var KeyRowSchema = z72.object({ key: z72.string().min(1) });
-var SourceRowSchema = z72.object({ source: z72.string().min(1) });
+var LaneRowSchema = z75.object({ lane: z75.string().min(1) });
+var RepositoryRowSchema = z75.object({ repository: z75.string().min(1) });
+var KeyRowSchema = z75.object({ key: z75.string().min(1) });
+var SourceRowSchema = z75.object({ source: z75.string().min(1) });
 function mainWatchStore(connection) {
   const db = serviceDb(connection);
   const watchOf = ({ workspace, repository, prd, lane: lane2 }) => ({ workspace_id: workspace, repository: repository.toLowerCase(), prd, lane: lane2.toLowerCase() });
@@ -17250,107 +17520,107 @@ function mainWatchStore(connection) {
 }
 
 // apps/omni-app/src/retro/retro.ts
-import { z as z77 } from "zod";
+import { z as z80 } from "zod";
 
 // apps/omni-app/src/retro/kinds/records.ts
-import { z as z73 } from "zod";
-var text15 = z73.string();
-var maybeText2 = z73.string().nullable();
-var BlockSchema = z73.tuple([z73.number(), z73.number(), z73.number(), z73.number()]);
-var TimelineRecordsSchema = z73.object({ readyAt: maybeText2 });
-var StuckCommentSchema = z73.object({ url: maybeText2, at: maybeText2, attempts: z73.number(), text: z73.string().nullish() });
-var ReviewRecordSchema = z73.object({
+import { z as z76 } from "zod";
+var text15 = z76.string();
+var maybeText2 = z76.string().nullable();
+var BlockSchema = z76.tuple([z76.number(), z76.number(), z76.number(), z76.number()]);
+var TimelineRecordsSchema = z76.object({ readyAt: maybeText2 });
+var StuckCommentSchema = z76.object({ url: maybeText2, at: maybeText2, attempts: z76.number(), text: z76.string().nullish() });
+var ReviewRecordSchema = z76.object({
   url: maybeText2,
   author: maybeText2,
-  bot: z73.boolean(),
+  bot: z76.boolean(),
   state: maybeText2,
-  red: z73.boolean(),
-  text: z73.string().nullish()
+  red: z76.boolean(),
+  text: z76.string().nullish()
 });
-var ThreadRecordSchema = z73.object({
+var ThreadRecordSchema = z76.object({
   url: maybeText2,
   author: maybeText2,
-  bot: z73.boolean(),
+  bot: z76.boolean(),
   path: maybeText2,
-  resolved: z73.boolean(),
-  outdated: z73.boolean(),
-  red: z73.boolean(),
+  resolved: z76.boolean(),
+  outdated: z76.boolean(),
+  red: z76.boolean(),
   text: maybeText2
 });
-var PullReadsSchema = z73.object({
-  files: z73.array(text15).nullable().exactOptional(),
-  stuck: z73.array(StuckCommentSchema).nullable().exactOptional(),
-  needsFix: z73.array(text15).nullable().exactOptional(),
-  reviews: z73.array(ReviewRecordSchema).nullable().exactOptional(),
-  threads: z73.array(ThreadRecordSchema).nullable().exactOptional()
+var PullReadsSchema = z76.object({
+  files: z76.array(text15).nullable().exactOptional(),
+  stuck: z76.array(StuckCommentSchema).nullable().exactOptional(),
+  needsFix: z76.array(text15).nullable().exactOptional(),
+  reviews: z76.array(ReviewRecordSchema).nullable().exactOptional(),
+  threads: z76.array(ThreadRecordSchema).nullable().exactOptional()
 });
-var DeliveryRecordsSchema = z73.object({ pulls: z73.record(z73.string(), PullReadsSchema.optional()) });
-var JobRecordSchema = z73.object({
-  id: z73.number(),
-  run: z73.number(),
+var DeliveryRecordsSchema = z76.object({ pulls: z76.record(z76.string(), PullReadsSchema.optional()) });
+var JobRecordSchema = z76.object({
+  id: z76.number(),
+  run: z76.number(),
   workflow: maybeText2,
   check: text15,
   slice: SliceIdSchema,
-  sha: z73.string().nullish(),
-  attempt: z73.number(),
-  status: z73.string().nullish(),
+  sha: z76.string().nullish(),
+  attempt: z76.number(),
+  status: z76.string().nullish(),
   conclusion: maybeText2,
   url: maybeText2,
   completedAt: maybeText2
 });
-var CiRecordsSchema = z73.object({
-  slices: z73.array(SliceIdSchema),
-  unread: z73.array(z73.object({ slice: SliceIdSchema, run: z73.number().exactOptional(), status: z73.number() })),
-  jobs: z73.array(JobRecordSchema),
-  logs: z73.record(z73.string(), z73.object({ tail: maybeText2, status: z73.number().exactOptional() }).optional())
+var CiRecordsSchema = z76.object({
+  slices: z76.array(SliceIdSchema),
+  unread: z76.array(z76.object({ slice: SliceIdSchema, run: z76.number().exactOptional(), status: z76.number() })),
+  jobs: z76.array(JobRecordSchema),
+  logs: z76.record(z76.string(), z76.object({ tail: maybeText2, status: z76.number().exactOptional() }).optional())
 });
-var CommitFileSchema = z73.object({
+var CommitFileSchema = z76.object({
   path: text15,
   previous: maybeText2,
-  status: z73.string().nullish(),
-  additions: z73.number(),
-  deletions: z73.number(),
-  blocks: z73.array(BlockSchema).nullable()
+  status: z76.string().nullish(),
+  additions: z76.number(),
+  deletions: z76.number(),
+  blocks: z76.array(BlockSchema).nullable()
 });
-var PullRecordSchema = z73.object({
+var PullRecordSchema = z76.object({
   number: PrNumberSchema,
   url: maybeText2,
   headRef: text15,
   mergedAt: maybeText2,
-  commits: z73.array(z73.object({ sha: text15, url: maybeText2, files: z73.array(CommitFileSchema).nullable() })).nullable()
+  commits: z76.array(z76.object({ sha: text15, url: maybeText2, files: z76.array(CommitFileSchema).nullable() })).nullable()
 });
-var ChurnRecordsSchema = z73.object({
+var ChurnRecordsSchema = z76.object({
   gitattributes: maybeText2,
-  final: z73.array(z73.object({ path: text15, additions: z73.number().nullish(), deletions: z73.number().nullish() })).nullable(),
-  pulls: z73.array(PullRecordSchema)
+  final: z76.array(z76.object({ path: text15, additions: z76.number().nullish(), deletions: z76.number().nullish() })).nullable(),
+  pulls: z76.array(PullRecordSchema)
 });
-var RangeSchema = z73.object({ path: text15, from: z73.number(), to: z73.number() });
-var AfterMergeRecordsSchema = z73.object({
-  window: z73.object({ from: text15, to: text15 }),
-  bugs: z73.array(z73.object({ number: IssueNumberSchema, url: text15, createdAt: text15, closedAt: maybeText2 })),
-  fixes: z73.array(
-    z73.object({
+var RangeSchema = z76.object({ path: text15, from: z76.number(), to: z76.number() });
+var AfterMergeRecordsSchema = z76.object({
+  window: z76.object({ from: text15, to: text15 }),
+  bugs: z76.array(z76.object({ number: IssueNumberSchema, url: text15, createdAt: text15, closedAt: maybeText2 })),
+  fixes: z76.array(
+    z76.object({
       number: PrNumberSchema,
       url: text15,
       mergedAt: text15,
-      closes: z73.array(IssueNumberSchema),
-      files: z73.array(z73.object({ path: text15, previous: maybeText2, blocks: z73.array(BlockSchema).nullable() })).nullable()
+      closes: z76.array(IssueNumberSchema),
+      files: z76.array(z76.object({ path: text15, previous: maybeText2, blocks: z76.array(BlockSchema).nullable() })).nullable()
     })
   ),
-  checks: z73.object({
+  checks: z76.object({
     commit: text15,
-    status: z73.number().nullable(),
-    jobs: z73.array(z73.object({ name: text15, workflow: maybeText2, conclusion: maybeText2, url: maybeText2 }))
+    status: z76.number().nullable(),
+    jobs: z76.array(z76.object({ name: text15, workflow: maybeText2, conclusion: maybeText2, url: maybeText2 }))
   }),
-  ranges: z73.array(RangeSchema),
-  unread: z73.array(
-    z73.object({ read: z73.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z73.number().exactOptional(), status: z73.number() })
+  ranges: z76.array(RangeSchema),
+  unread: z76.array(
+    z76.object({ read: z76.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z76.number().exactOptional(), status: z76.number() })
   )
 });
-var ChurnAtMergeSchema = z73.object({ ranges: z73.array(RangeSchema).exactOptional() }).nullish();
+var ChurnAtMergeSchema = z76.object({ ranges: z76.array(RangeSchema).exactOptional() }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-import { z as z74 } from "zod";
+import { z as z77 } from "zod";
 
 // kit/lib/care/list.ts
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
@@ -17376,29 +17646,29 @@ function fixPlanRows(body) {
 }
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-var text16 = z74.string();
-var BlockSchema2 = z74.tuple([z74.number(), z74.number(), z74.number(), z74.number()]);
-var RangeSchema2 = z74.object({ path: text16, from: z74.number(), to: z74.number() });
-var PlannedSchema = z74.object({
+var text16 = z77.string();
+var BlockSchema2 = z77.tuple([z77.number(), z77.number(), z77.number(), z77.number()]);
+var RangeSchema2 = z77.object({ path: text16, from: z77.number(), to: z77.number() });
+var PlannedSchema = z77.object({
   bug: IssueNumberSchema,
   repo: text16,
   number: PrNumberSchema,
   url: text16,
-  mergedAt: z74.string().nullable(),
-  files: z74.array(z74.object({ path: text16, previous: z74.string().nullable(), blocks: z74.array(BlockSchema2).nullable() })).nullable()
+  mergedAt: z77.string().nullable(),
+  files: z77.array(z77.object({ path: text16, previous: z77.string().nullable(), blocks: z77.array(BlockSchema2).nullable() })).nullable()
 });
-var MegaUnreadSchema = z74.object({
-  read: z74.enum(["bugs", "fix-plan", "fix", "files"]),
+var MegaUnreadSchema = z77.object({
+  read: z77.enum(["bugs", "fix-plan", "fix", "files"]),
   repo: text16,
-  number: z74.number().exactOptional(),
-  status: z74.number()
+  number: z77.number().exactOptional(),
+  status: z77.number()
 });
-var MegaRecordsSchema = z74.object({
+var MegaRecordsSchema = z77.object({
   plan: text16,
-  bugs: z74.array(IssueNumberSchema),
-  planned: z74.array(PlannedSchema),
-  targets: z74.array(z74.object({ repo: text16, name: text16, ranges: z74.array(RangeSchema2) })),
-  unread: z74.array(MegaUnreadSchema)
+  bugs: z77.array(IssueNumberSchema),
+  planned: z77.array(PlannedSchema),
+  targets: z77.array(z77.object({ repo: text16, name: text16, ranges: z77.array(RangeSchema2) })),
+  unread: z77.array(MegaUnreadSchema)
 });
 var ISSUES2 = "GET /repos/{owner}/{repo}/issues";
 var COMMENTS2 = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
@@ -18411,7 +18681,7 @@ var ci = Object.freeze({
       "| check | runs | red | commits red | slices red | red then green |",
       "| --- | --- | --- | --- | --- | --- |",
       ...facts.checks.map(
-        (check) => `| ${cell2(check.check)} | ${check.runs} | ${check.red} | ${check.redCommits.length} | ${check.redSlices.join(", ") || "\u2014"} | ${check.redThenGreen.length} |`
+        (check) => `| ${cell3(check.check)} | ${check.runs} | ${check.red} | ${check.redCommits.length} | ${check.redSlices.join(", ") || "\u2014"} | ${check.redThenGreen.length} |`
       )
     );
     if (facts.tests.length > 0) {
@@ -18421,7 +18691,7 @@ var ci = Object.freeze({
         "",
         "| test | red runs | checks | slices |",
         "| --- | --- | --- | --- |",
-        ...facts.tests.map((test) => `| \`${cell2(test.test)}\` | ${test.runs} | ${cell2(test.checks.join(", "))} | ${test.slices.join(", ")} |`)
+        ...facts.tests.map((test) => `| \`${cell3(test.test)}\` | ${test.runs} | ${cell3(test.checks.join(", "))} | ${test.slices.join(", ")} |`)
       );
     }
     if (facts.redRuns.length > 0) {
@@ -18432,7 +18702,7 @@ var ci = Object.freeze({
         "| red run | slice | commit | from its log |",
         "| --- | --- | --- | --- |",
         ...facts.redRuns.map(
-          (run) => `| [${cell2(runName(run))}](${run.url}) | ${run.slice} | \`${run.commit}\` | ${fromLog(run)} |`
+          (run) => `| [${cell3(runName(run))}](${run.url}) | ${run.slice} | \`${run.commit}\` | ${fromLog(run)} |`
         )
       );
     }
@@ -18553,7 +18823,7 @@ function short(sha) {
 function count(n, noun) {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
-function cell2(text19) {
+function cell3(text19) {
   return text19.replaceAll("|", "\\|");
 }
 function uniqueBy(items, key) {
@@ -19622,12 +19892,12 @@ function unsettledLessons(runs) {
 }
 
 // apps/omni-app/src/retro/render.ts
-import { z as z75 } from "zod";
+import { z as z78 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z75.object({
-  featurePr: z75.object({ minutes: z75.number().nullish() }).nullish(),
-  sliceCount: z75.number().exactOptional(),
-  waves: z75.object({ merged: z75.number(), planned: z75.number().nullable() })
+var TimelineFactsSchema = z78.object({
+  featurePr: z78.object({ minutes: z78.number().nullish() }).nullish(),
+  sliceCount: z78.number().exactOptional(),
+  waves: z78.object({ merged: z78.number(), planned: z78.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -19636,7 +19906,7 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z75.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z78.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? withOutcomes(record, run) : run);
@@ -19690,11 +19960,11 @@ function render({
     ""
   ];
   const byRun = (run) => kinds.filter((kind) => kind.runs.includes(run));
-  const sectionOf3 = (kind) => kindSection(kind, runs, findings, prose, issues);
-  const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf3(kind);
+  const sectionOf4 = (kind) => kindSection(kind, runs, findings, prose, issues);
+  const mergeSectionOf = (kind) => repositories ? groupedSection(kind, shown) : sectionOf4(kind);
   lines2.push(...byRun("merge").flatMap(mergeSectionOf));
   lines2.push(...rulesSection2(latest.rules));
-  lines2.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf3));
+  lines2.push(...kinds.filter((kind) => !kind.runs.includes("merge")).flatMap(sectionOf4));
   return {
     markdown: `${lines2.join("\n").replace(/\n+$/, "")}
 `,
@@ -20009,11 +20279,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z76 } from "zod";
+import { z as z79 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z76.union([
-  z76.object({ comments: z76.array(z76.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z76.boolean() })) }),
-  z76.object({ refused: z76.number() })
+var TargetCommentedSchema = z79.union([
+  z79.object({ comments: z79.array(z79.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z79.boolean() })) }),
+  z79.object({ refused: z79.number() })
 ]);
 function targetComment({
   prd,
@@ -20082,14 +20352,14 @@ var verdictMarker2 = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER2 = verdictMarker2(MARKER_PREFIX2);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroPayloadSchema = z77.object({
-  installationId: z77.number(),
-  owner: z77.string(),
-  repo: z77.string(),
+var RetroPayloadSchema = z80.object({
+  installationId: z80.number(),
+  owner: z80.string(),
+  repo: z80.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z77.string(),
-  mergedAt: z77.string().nullish(),
-  owed: z77.boolean().optional()
+  mergeSha: z80.string(),
+  mergedAt: z80.string().nullish(),
+  owed: z80.boolean().optional()
 });
 function retroHandler(deps) {
   return async (job, run) => jobResultOf(await retro(deps, job.payload, run?.step ?? memorySteps()));
@@ -20332,17 +20602,17 @@ function retroFailureHook({ octokitFor }) {
 }
 
 // apps/omni-app/src/checkpoints/store.ts
-import { z as z78 } from "zod";
+import { z as z81 } from "zod";
 var CHECKPOINT_BUCKET = "runner-checkpoints";
-var KeptRowSchema = z78.object({
-  id: z78.string().min(1),
-  job_id: z78.string().min(1),
-  storage_path: z78.string().min(1),
-  created_at: z78.string().min(1),
-  keep_until: z78.string().min(1)
+var KeptRowSchema = z81.object({
+  id: z81.string().min(1),
+  job_id: z81.string().min(1),
+  storage_path: z81.string().min(1),
+  created_at: z81.string().min(1),
+  keep_until: z81.string().min(1)
 });
-var ResumeRowSchema = z78.object({ id: z78.string().min(1), resumes: z78.string().min(1) });
-var StatusRowSchema = z78.object({ id: z78.string().min(1), status: z78.string().min(1) });
+var ResumeRowSchema = z81.object({ id: z81.string().min(1), resumes: z81.string().min(1) });
+var StatusRowSchema = z81.object({ id: z81.string().min(1), status: z81.string().min(1) });
 var OVER = ["done", "failed", "cancelled"];
 var MAX_RESUMES = 2;
 function refused7(error) {
@@ -20388,58 +20658,28 @@ function checkpointStore(connection) {
   };
 }
 
-// apps/omni-app/src/missions/branch.ts
-import { z as z79 } from "zod";
-var RepoSchema = z79.looseObject({ default_branch: z79.string(), allow_rebase_merge: z79.boolean().optional() });
-var rebaseWhy = (repo) => `${repo} does not allow rebase merges: turn on "Allow rebase merging" in its settings, so the mission branch can land on the default branch; nothing was cut`;
-function missionBranches({ octokitFor }) {
-  return {
-    async prepare({ installation, repo, branch }) {
-      const [owner = "", name = ""] = repo.split("/");
-      const octokit = await octokitFor(installation);
-      const { data } = await octokit.request("GET /repos/{owner}/{repo}", { owner, repo: name });
-      const read = RepoSchema.parse(data);
-      if (read.allow_rebase_merge !== true) return { ok: false, why: rebaseWhy(repo) };
-      const head = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo: name, ref: `heads/${read.default_branch}` });
-      const from = RefSchema.parse(head.data).object.sha;
-      const existed = await exists(octokit, { owner, repo: name, branch });
-      await branchHead(octokit, { owner, repo: name, branch, from, defaultBranch: read.default_branch });
-      return { ok: true, cut: !existed };
-    }
-  };
-}
-async function exists(octokit, { owner, repo, branch }) {
-  try {
-    await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` });
-    return true;
-  } catch (error) {
-    if (statusOf(error) === 404) return false;
-    throw error;
-  }
-}
-
 // apps/omni-app/src/missions/join.ts
-import { mkdtempSync as mkdtempSync13, rmSync as rmSync17 } from "node:fs";
-import { tmpdir as tmpdir13 } from "node:os";
-import { join as join69 } from "node:path";
-import { z as z80 } from "zod";
-var PullSchema4 = z80.looseObject({
-  html_url: z80.string(),
-  title: z80.string(),
-  state: z80.string(),
-  draft: z80.boolean().nullish(),
-  merged: z80.boolean().nullish(),
-  merged_at: z80.string().nullish(),
-  base: z80.looseObject({ ref: z80.string(), repo: z80.looseObject({ default_branch: z80.string() }) }),
-  head: z80.looseObject({ sha: z80.string() })
+import { mkdtempSync as mkdtempSync14, rmSync as rmSync18 } from "node:fs";
+import { tmpdir as tmpdir14 } from "node:os";
+import { join as join70 } from "node:path";
+import { z as z82 } from "zod";
+var PullSchema4 = z82.looseObject({
+  html_url: z82.string(),
+  title: z82.string(),
+  state: z82.string(),
+  draft: z82.boolean().nullish(),
+  merged: z82.boolean().nullish(),
+  merged_at: z82.string().nullish(),
+  base: z82.looseObject({ ref: z82.string(), repo: z82.looseObject({ default_branch: z82.string() }) }),
+  head: z82.looseObject({ sha: z82.string() })
 });
-var CheckRunsSchema2 = z80.looseObject({
-  check_runs: z80.array(
-    z80.looseObject({ id: z80.number(), name: z80.string(), status: z80.string(), conclusion: z80.string().nullish(), output: z80.looseObject({ title: z80.string().nullish() }).nullish() })
+var CheckRunsSchema2 = z82.looseObject({
+  check_runs: z82.array(
+    z82.looseObject({ id: z82.number(), name: z82.string(), status: z82.string(), conclusion: z82.string().nullish(), output: z82.looseObject({ title: z82.string().nullish() }).nullish() })
   )
 });
-var StatusSchema = z80.looseObject({ statuses: z80.array(z80.looseObject({ context: z80.string(), state: z80.string(), description: z80.string().nullish() })) });
-var ReviewsSchema = z80.array(z80.looseObject({ body: z80.string().nullish(), commit_id: z80.string().nullish() }));
+var StatusSchema = z82.looseObject({ statuses: z82.array(z82.looseObject({ context: z82.string(), state: z82.string(), description: z82.string().nullish() })) });
+var ReviewsSchema = z82.array(z82.looseObject({ body: z82.string().nullish(), commit_id: z82.string().nullish() }));
 var REFUSED2 = /* @__PURE__ */ new Set([405, 409, 422]);
 var DefaultBranchMergeError = class extends Error {
   constructor(branch) {
@@ -20448,7 +20688,7 @@ var DefaultBranchMergeError = class extends Error {
   }
 };
 async function openItemsAt(octokit, { owner, repo, ref, prd }) {
-  const folder = mkdtempSync13(join69(tmpdir13(), "omni-join-"));
+  const folder = mkdtempSync14(join70(tmpdir14(), "omni-join-"));
   try {
     const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
     if (!config) return { notRead: error ? `its .omni-loop/config.yml cannot be read: ${error.message.split("\n")[0] ?? ""}` : "its head has no .omni-loop/config.yml" };
@@ -20457,7 +20697,7 @@ async function openItemsAt(octokit, { owner, repo, ref, prd }) {
     await snapshot(octokit, { owner, repo, ref, paths: [outbox], dest: folder, fetchIf: ofPrd });
     return { ranks: openItems(prd, { ctx: createContext(folder, config) }).map(({ rank }) => rank) };
   } finally {
-    rmSync17(folder, { recursive: true, force: true });
+    rmSync18(folder, { recursive: true, force: true });
   }
 }
 function missionJoins({ octokitFor }) {
@@ -20507,31 +20747,31 @@ function missionJoins({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/job.ts
-import { z as z83 } from "zod";
+import { z as z85 } from "zod";
 
 // kit/lib/review/verdict.ts
-import { z as z81 } from "zod";
+import { z as z83 } from "zod";
 var REVIEW_ROUNDS = 2;
 var MAX_FINDINGS = 5;
 var SEVERITIES = Object.freeze(["blocker", "major", "minor"]);
 var VERDICTS2 = Object.freeze(["pass", "changes"]);
 var ONE_LINE = "one line";
 var MAX_TEXT2 = 500;
-var line = (what) => z81.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text19) => !text19.includes("\n"), `${ONE_LINE}: ${what}`);
-var RepoPathSchema = z81.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
-var FindingSchema5 = z81.strictObject({
+var line = (what) => z83.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text19) => !text19.includes("\n"), `${ONE_LINE}: ${what}`);
+var RepoPathSchema = z83.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
+var FindingSchema5 = z83.strictObject({
   file: RepoPathSchema,
-  line: z81.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
-  severity: z81.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
+  line: z83.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
+  severity: z83.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
   rule: line("the rule it breaks: a law or rule id, a playbook form and section, or default \u203A <item>"),
   problem: line("what is wrong"),
   fix: line("what would fix it")
 });
-var VerdictSchema5 = z81.strictObject({
-  round: z81.union([z81.literal(1), z81.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
-  verdict: z81.enum(VERDICTS2, { error: `one of ${VERDICTS2.join(", ")}` }),
+var VerdictSchema5 = z83.strictObject({
+  round: z83.union([z83.literal(1), z83.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
+  verdict: z83.enum(VERDICTS2, { error: `one of ${VERDICTS2.join(", ")}` }),
   summary: line("the summary").optional(),
-  findings: z81.array(FindingSchema5).default([])
+  findings: z83.array(FindingSchema5).default([])
 }).superRefine((verdict, context) => {
   const count3 = verdict.findings.length;
   if (verdict.verdict === "pass" && count3 > 0) {
@@ -20631,10 +20871,10 @@ function judge3(pull, branch) {
 }
 
 // apps/omni-app/src/missions/keep-up.ts
-import { mkdtempSync as mkdtempSync14, rmSync as rmSync18 } from "node:fs";
-import { tmpdir as tmpdir14 } from "node:os";
-import { join as join70 } from "node:path";
-import { z as z82 } from "zod";
+import { mkdtempSync as mkdtempSync15, rmSync as rmSync19 } from "node:fs";
+import { tmpdir as tmpdir15 } from "node:os";
+import { join as join71 } from "node:path";
+import { z as z84 } from "zod";
 
 // kit/lib/generated/stale.ts
 function splitGenerated(entries, paths) {
@@ -20644,30 +20884,29 @@ function splitGenerated(entries, paths) {
 
 // apps/omni-app/src/missions/keep-up.ts
 var MAX_COMMITS3 = 100;
-var RepoSchema2 = z82.looseObject({ default_branch: z82.string() });
-var CompareSchema2 = z82.looseObject({
-  merge_base_commit: z82.looseObject({ sha: z82.string() }),
-  ahead_by: z82.number(),
-  behind_by: z82.number(),
-  commits: z82.array(
-    z82.looseObject({
-      sha: z82.string(),
-      parents: z82.array(z82.looseObject({ sha: z82.string() })),
-      commit: z82.looseObject({ message: z82.string(), author: z82.looseObject({ name: z82.string(), email: z82.string(), date: z82.string() }).nullish() })
+var CompareSchema3 = z84.looseObject({
+  merge_base_commit: z84.looseObject({ sha: z84.string() }),
+  ahead_by: z84.number(),
+  behind_by: z84.number(),
+  commits: z84.array(
+    z84.looseObject({
+      sha: z84.string(),
+      parents: z84.array(z84.looseObject({ sha: z84.string() })),
+      commit: z84.looseObject({ message: z84.string(), author: z84.looseObject({ name: z84.string(), email: z84.string(), date: z84.string() }).nullish() })
     })
   ),
-  files: z82.array(z82.looseObject({ filename: z82.string(), status: z82.string(), sha: z82.string().nullish() })).nullish()
+  files: z84.array(z84.looseObject({ filename: z84.string(), status: z84.string(), sha: z84.string().nullish() })).nullish()
 });
-var CommitSchema3 = z82.looseObject({ tree: z82.looseObject({ sha: z82.string() }), committer: z82.looseObject({ date: z82.string() }).nullish() });
-var MergedSchema = z82.looseObject({ commit: z82.looseObject({ tree: z82.looseObject({ sha: z82.string() }) }) });
-var PullSchema5 = z82.looseObject({ state: z82.string(), base: z82.looseObject({ ref: z82.string() }), head: z82.looseObject({ sha: z82.string() }) });
+var CommitSchema3 = z84.looseObject({ tree: z84.looseObject({ sha: z84.string() }), committer: z84.looseObject({ date: z84.string() }).nullish() });
+var MergedSchema = z84.looseObject({ commit: z84.looseObject({ tree: z84.looseObject({ sha: z84.string() }) }) });
+var PullSchema5 = z84.looseObject({ state: z84.string(), base: z84.looseObject({ ref: z84.string() }), head: z84.looseObject({ sha: z84.string() }) });
 async function generatedAt(octokit, { owner, repo, ref }) {
-  const folder = mkdtempSync14(join70(tmpdir14(), "omni-keep-up-"));
+  const folder = mkdtempSync15(join71(tmpdir15(), "omni-keep-up-"));
   try {
     const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
     return config?.generated ?? [];
   } finally {
-    rmSync18(folder, { recursive: true, force: true });
+    rmSync19(folder, { recursive: true, force: true });
   }
 }
 function onRepo(octokit, where, scratch) {
@@ -20681,7 +20920,7 @@ function onRepo(octokit, where, scratch) {
       throw error;
     }
   };
-  const compare2 = async (base, tip) => CompareSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${base}...${tip}` })).data);
+  const compare2 = async (base, tip) => CompareSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${base}...${tip}` })).data);
   const commit = async (sha) => CommitSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/git/commits/{commit_sha}", { owner, repo, commit_sha: sha })).data);
   const write2 = async (branch, sha, force) => {
     await octokit.request("PATCH /repos/{owner}/{repo}/git/refs/{ref}", { owner, repo, ref: `heads/${branch}`, sha, force });
@@ -20737,13 +20976,16 @@ function unreplayable({ ahead_by: ahead, commits }) {
 }
 async function replay(on, { tip, compared, defaultBranch, entries }) {
   let last = tip;
+  let lastTree = (await on.commit(tip)).tree.sha;
   for (const one of compared.commits) {
     const tree = await on.mergedTree(tip, one.sha);
     const title = one.commit.message.split("\n")[0] ?? "";
     if (tree === null) return { branch: "conflict", defaultBranch, title, ...await conflictOf(on, { into: tip, tip: one.sha, mergeBase: compared.merge_base_commit.sha, entries }) };
+    if (tree === lastTree) continue;
     const author = one.commit.author ?? void 0;
     const made = await on.octokit.request("POST /repos/{owner}/{repo}/git/commits", { owner: on.owner, repo: on.repo, message: one.commit.message, tree, parents: [last], ...author === void 0 ? {} : { author } });
     last = ShaSchema.parse(made.data).sha;
+    lastTree = tree;
   }
   return last;
 }
@@ -20785,10 +21027,7 @@ function missionKeepUps({
 }) {
   return {
     async keepUp({ installation, repo: slug, branch, features }) {
-      const [owner = "", repo = ""] = slug.split("/");
-      const octokit = await octokitFor(installation);
-      const defaultBranch = RepoSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}", { owner, repo })).data).default_branch;
-      refuseDefault(branch, defaultBranch);
+      const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, { installation, repo: slug, branch });
       const on = onRepo(octokit, { owner, repo }, `${branch}--keep-up`);
       try {
         const tip = await on.head(defaultBranch);
@@ -20982,9 +21221,21 @@ function onBranchOf(events) {
   for (const { kind, prd } of events) {
     if (prd === null) continue;
     if (kind === "prd-joined") on.add(prd);
-    else if (kind === "prd-dropped" || kind === "landed") on.delete(prd);
+    else if (kind === "prd-dropped" || kind === "landed" || kind === "prd-merged") on.delete(prd);
   }
   return on;
+}
+var landedOf = (events) => new Set(events.flatMap(({ kind, prd }) => kind === "prd-merged" && prd !== null ? [prd] : []));
+var withLanded = (facts, landed) => facts.map((fact) => landed.has(fact.prd) && fact.stage !== "merged" ? { ...fact, stage: "merged" } : fact);
+function passOf(runs, prd) {
+  let best = null;
+  for (const one of runs) {
+    const round = roundOf2(one.step);
+    const last = lastOf(one);
+    if (one.prd !== prd || round === null || last === void 0 || endOf(last) !== "ready") continue;
+    if (best === null || one.run > best.run || one.run === best.run && round > best.round) best = { round, run: one.run, url: reviewUrl(last.posted?.url ?? void 0) };
+  }
+  return best === null ? null : { round: best.round, url: best.url };
 }
 function featurePrOf(runs, prd) {
   const ordered = runs.filter((one) => one.prd === prd).sort((a, b) => after(a, b) ? -1 : after(b, a) ? 1 : 0);
@@ -21178,6 +21429,14 @@ var joinEvents = (joins, branch) => joins.map(({ prd, pr, url }) => ({
   link: linkOf(url),
   sentence: `PRD ${String(prd)} joined ${branch ?? "the mission branch"}: #${String(pr)} squash-merged.`
 }));
+var landEvents = (landings) => landings.map(({ prd, pr, url }) => ({
+  kind: "prd-merged",
+  role: "supervisor",
+  prd,
+  job: null,
+  link: linkOf(url),
+  sentence: `PRD ${String(prd)} landed on the default branch with #${String(pr)}: shipped.`
+}));
 function missionEvents(mission, next) {
   const said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
   if (next.status === "delivered") return [said("delivered", "Every PRD of the mission is merged: delivered.")];
@@ -21198,12 +21457,13 @@ function eventsOf({
   toFleet,
   skill = "yolo",
   recorded,
-  joins = []
+  joins = [],
+  landings = []
 }) {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : "any runner of the workspace";
   const base = baseOf(mission, skill === "ultra-yolo");
-  const all = [...runEvents(runs, where, skill, base), ...joinEvents(joins, base), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [...runEvents(runs, where, skill, base), ...joinEvents(joins, base), ...landEvents(landings), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf3(event);
     if (own.some((key) => keys.has(key))) return [];
@@ -21219,15 +21479,18 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z83.looseObject({ laters: z83.number().int().min(0).optional() });
+var ProgressSchema3 = z85.looseObject({ laters: z85.number().int().min(0).optional() });
 async function supervise(store, mission, now, github) {
-  const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
+  const [read, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
   const skill = inPlan ? "ultra-yolo" : "yolo";
   const ready = await branchReady(store, mission, inPlan, github.branches);
   const unready = ready.waits;
-  const joined2 = onBranchOf(recorded);
+  const at4 = landingAt(mission, inPlan, ready.installation);
+  const landing = await landAll({ at: at4, runs, joined: onBranchOf(recorded), landings: github.landings });
+  const { facts, joined: joined2 } = afterLanding(read, recorded, landing.landed);
   const kept3 = await keepUp({ store, mission, inPlan, facts, runs, joined: joined2, toFleet, installation: ready.installation, keepUps: github.keepUps });
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, installation: ready.installation, joins: github.joins, hold: kept3.hold });
+  if (kept3.hold === null) await missionPull({ at: at4, mission, landing, on: [...branch.joined], facts, runs, github });
   const sent = [];
   for (const { prd, run, step } of unready === null ? pick2({ mission, facts, states: prdStates(facts, runs, branch) }) : []) {
     const made = await store.send({ mission, prd, run, step, toFleet, skill });
@@ -21237,7 +21500,7 @@ async function supervise(store, mission, now, github) {
   const states = prdStates(facts, all, branch);
   const concluded = withWaits(conclude({ mission, facts, states, sent: sent.length, now, branch: branch.branch }), kept3.waits);
   const next = unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded), joins });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded), joins, landings: landing.landed });
   await store.record(mission.id, events, new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === "running"), moved, sent: sent.length, events: events.length };
@@ -21285,6 +21548,67 @@ function keptBase(mission, inPlan, installation) {
   if (installation === null || mission.status !== "running" && mission.status !== "waiting") return null;
   return baseOf(mission, inPlan);
 }
+function landingAt(mission, inPlan, installation) {
+  const branch = keptBase(mission, inPlan, installation);
+  return branch === null || installation === null ? null : { installation, repo: mission.repo, branch };
+}
+var NO_LANDING = { landed: [], open: null, defaultBranch: null };
+async function landAll({
+  at: at4,
+  runs,
+  joined: joined2,
+  landings,
+  always = false
+}) {
+  if (at4 === null || landings === null || joined2.size === 0 && !always) return NO_LANDING;
+  const read = await landings.landings(at4);
+  const features = new Map([...joined2].flatMap((prd) => {
+    const pr = featurePrOf(runs, prd);
+    return pr === null ? [] : [[prd, pr]];
+  }));
+  return { landed: landedBy(read.pulls, features), open: read.pulls.find((one) => one.open) ?? null, defaultBranch: read.defaultBranch };
+}
+function afterLanding(read, recorded, landings) {
+  const landed = new Set(landings.map(({ prd }) => prd));
+  return { facts: withLanded(read, /* @__PURE__ */ new Set([...landedOf(recorded), ...landed])), joined: new Set([...onBranchOf(recorded)].filter((prd) => !landed.has(prd))) };
+}
+async function missionPull({
+  at: at4,
+  mission,
+  landing,
+  on,
+  facts,
+  runs,
+  github
+}) {
+  if (at4 === null || on.length === 0) return;
+  const known = landing.defaultBranch === null ? await landAll({ at: at4, runs, joined: /* @__PURE__ */ new Set(), landings: github.landings, always: true }) : landing;
+  if (known.defaultBranch === null) return;
+  await writeMissionPull({ at: at4, mission, defaultBranch: known.defaultBranch, open: known.open, on, facts, runs, landings: github.landings, galaxyUrl: github.galaxyUrl });
+}
+async function writeMissionPull({
+  at: at4,
+  mission,
+  defaultBranch,
+  open,
+  on,
+  facts,
+  runs,
+  landings,
+  galaxyUrl
+}) {
+  if (landings === null || on.length === 0) return;
+  const { commits, link } = await landings.branch({ ...at4, defaultBranch });
+  const rows = on.map((prd) => {
+    const pr = featurePrOf(runs, prd);
+    const page = facts.find((fact) => fact.prd === prd)?.page ?? null;
+    return { prd, pr, commit: commits.find((one) => pr !== null && one.pr === pr)?.sha ?? null, pass: passOf(runs, prd), page: page === null ? null : `${galaxyUrl}/prd/${encodeURIComponent(page)}` };
+  });
+  const title = missionPullTitle(mission);
+  const body = missionPullBody({ mission, branch: at4.branch, defaultBranch, rows, link });
+  if (open !== null && open.title === title && open.body === body) return;
+  await landings.write({ ...at4, defaultBranch, pull: open?.number ?? null, title, body });
+}
 async function joinOne({ mission, base, prd, runs, installation, joins }) {
   const pr = featurePrOf(runs, prd);
   if (pr === null) return { lacks: ["its feature pull request is not known to the mission"] };
@@ -21325,13 +21649,23 @@ async function joinAll({
   return { branch: { branch: base, joined: /* @__PURE__ */ new Set([...joined2, ...made.map(({ prd }) => prd)]), lacks }, joins: made };
 }
 var watched = ({ next, running }) => next.status === "running" || next.status === "waiting" || next.status === "paused" && running;
-function missionHandler({ store, refresh, branches = null, joins = null, keepUps = null, now = Date.now, log: log2 = noteTo("missions") }) {
+function missionHandler({
+  store,
+  refresh,
+  branches = null,
+  joins = null,
+  keepUps = null,
+  landings = null,
+  galaxyUrl = DEFAULT_GALAXY_URL,
+  now = Date.now,
+  log: log2 = noteTo("missions")
+}) {
   return async (job) => {
     const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
     const mission = await runnable(store, id);
     if (!("id" in mission)) return mission;
     const at4 = now();
-    const run = await supervise(mission.store, mission, at4, { branches, joins, keepUps });
+    const run = await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
     log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
     if (!watched(run) && run.moved) return { outcome: "done" };
     return laterOf({ job, refresh, mission, at: at4 });
@@ -21352,43 +21686,43 @@ async function laterOf({ job, refresh, mission, at: at4 }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z85 } from "zod";
+import { z as z87 } from "zod";
 
 // kit/lib/mission/brief.ts
 import { parse as parse4 } from "yaml";
-import { z as z84 } from "zod";
+import { z as z86 } from "zod";
 var DEFAULT_PARALLEL = 2;
 var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
 var DEFAULT_LEVEL = "with-you";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-var text17 = (max) => z84.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
+var text17 = (max) => z86.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
 var distinct = (list2) => new Set(list2).size === list2.length;
-var MeasureSchema = z84.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
-var ScopeSchema = z84.object(
+var MeasureSchema = z86.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
+var ScopeSchema = z86.object(
   {
-    prds: z84.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
-    roadmaps: z84.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+    prds: z86.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z86.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
 ).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
-var MandateSchema = z84.object(
+var MandateSchema = z86.object(
   {
-    parallel: z84.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
-    level: z84.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
-    hardToRevert: z84.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z84.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
+    parallel: z86.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
+    level: z86.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
+    hardToRevert: z86.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
+    ownPrds: z86.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
   },
   { message: "must be {parallel, level, hardToRevert, ownPrds}" }
 ).strict();
 var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
-var BriefSchema = z84.object({
+var BriefSchema = z86.object({
   mission: IssueNumberSchema,
   title: text17(200),
   fleet: text17(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
   goal: text17(500),
-  measures: z84.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
+  measures: z86.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
   scope: ScopeSchema,
   mandate: MandateSchema.default(DEFAULT_MANDATE)
 }).strict();
@@ -21411,41 +21745,41 @@ var CARE = "id";
 var EVENT = "kind, prd, job_id";
 var RUNNER = "repos";
 var PRODUCT = "plan_repository";
-var text18 = z85.string().min(1);
-var MissionRowSchema = z85.object({
+var text18 = z87.string().min(1);
+var MissionRowSchema = z87.object({
   id: text18,
   workspace_id: text18,
   repo: text18,
   fleet: text18,
   number: IssueNumberSchema,
   title: text18,
-  status: z85.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z85.string().nullable(),
-  mandate: z85.object({ parallel: z85.number().int().min(1).max(4), level: z85.enum(MISSION_LEVELS).default("with-you") }),
-  scope: z85.object({ prds: z85.array(PrdNumberSchema), roadmaps: z85.array(IssueNumberSchema) })
+  status: z87.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z87.string().nullable(),
+  mandate: z87.object({ parallel: z87.number().int().min(1).max(4), level: z87.enum(MISSION_LEVELS).default("with-you") }),
+  scope: z87.object({ prds: z87.array(PrdNumberSchema), roadmaps: z87.array(IssueNumberSchema) })
 });
-var WorkspaceRowSchema2 = z85.object({ github_installation_id: z85.number().int().positive().nullable() });
-var RoadmapRowSchema = z85.object({ id: text18, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z85.object({ roadmap_id: text18, position: z85.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z85.array(z85.string()) });
-var StageRowSchema = z85.object({ prd: PrdNumberSchema, stage: text18 });
-var DossierRowSchema5 = z85.object({ id: text18, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z85.object({ id: text18, dossier_id: text18 });
-var VoidRowSchema2 = z85.object({ approval_id: text18 });
-var PlanRowSchema = z85.object({ content: z85.string() });
-var JobRowSchema2 = z85.object({
+var WorkspaceRowSchema2 = z87.object({ github_installation_id: z87.number().int().positive().nullable() });
+var RoadmapRowSchema = z87.object({ id: text18, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z87.object({ roadmap_id: text18, position: z87.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z87.array(z87.string()) });
+var StageRowSchema = z87.object({ prd: PrdNumberSchema, stage: text18 });
+var DossierRowSchema5 = z87.object({ id: text18, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z87.object({ id: text18, dossier_id: text18 });
+var VoidRowSchema2 = z87.object({ approval_id: text18 });
+var PlanRowSchema = z87.object({ content: z87.string() });
+var JobRowSchema2 = z87.object({
   id: text18,
-  mission_key: z85.string().nullable(),
-  resumes: z85.string().nullable(),
-  status: z85.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z85.string().nullable(),
-  reason: z85.string().nullable(),
-  pr_url: z85.string().nullable()
+  mission_key: z87.string().nullable(),
+  resumes: z87.string().nullable(),
+  status: z87.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z87.string().nullable(),
+  reason: z87.string().nullable(),
+  pr_url: z87.string().nullable()
 });
-var JobLogRowSchema = z85.object({ id: text18, log_tail: z85.string() });
-var CareRowSchema = z85.object({ id: text18 });
-var EventRowSchema = z85.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z85.string().nullable() });
-var RunnerRowSchema = z85.object({ repos: z85.array(z85.string()) });
-var ProductRowSchema3 = z85.object({ plan_repository: z85.string().nullable() });
+var JobLogRowSchema = z87.object({ id: text18, log_tail: z87.string() });
+var CareRowSchema = z87.object({ id: text18 });
+var EventRowSchema = z87.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z87.string().nullable() });
+var RunnerRowSchema = z87.object({ repos: z87.array(z87.string()) });
+var ProductRowSchema3 = z87.object({ plan_repository: z87.string().nullable() });
 var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 function missionStore(connection) {
@@ -21511,7 +21845,8 @@ function missionStore(connection) {
           approval: approvalOf(page === void 0 ? null : approved.get(page) ?? null),
           stage: stageOf(stages.filter((row) => row.prd === prd).map((row) => row.stage)),
           blockers,
-          territory: territoryOf(await planOf(page))
+          territory: territoryOf(await planOf(page)),
+          page: page ?? null
         });
       }
       return facts;
@@ -21563,7 +21898,7 @@ function missionStore(connection) {
         mission_key: missionKey(mission.id, prd, run, step)
       }).select("id");
       if (answer.error?.code === TAKEN) return null;
-      const [made] = rowsOf(z85.object({ id: text18 }), answer);
+      const [made] = rowsOf(z87.object({ id: text18 }), answer);
       if (!made) throw new Error("the database queued no job and gave no reason");
       return made.id;
     },
@@ -21588,11 +21923,11 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z85.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z87.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status, waitingOn, nextWakeAt }) {
       const moved = rowsOf(
-        z85.object({ id: text18 }),
+        z87.object({ id: text18 }),
         await db.from("missions").update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -21639,7 +21974,7 @@ function checkpointsForgetHandler({
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z87 } from "zod";
+import { z as z89 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -21779,7 +22114,7 @@ function knowledgeEntries(sources) {
 }
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z86 } from "zod";
+import { z as z88 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -21832,7 +22167,7 @@ var AGAIN_MS = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema2 = z86.object({ slot: z86.string().min(1).max(80), productId: z86.string().min(1).optional() });
+var PayloadSchema2 = z88.object({ slot: z88.string().min(1).max(80), productId: z88.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -21916,9 +22251,9 @@ function payloadOf2(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS2 = 6e4;
-var EmbedPayloadSchema = z87.object({
-  repository: z87.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z87.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z89.object({
+  repository: z89.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z89.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -22004,7 +22339,7 @@ function payloadOf3(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z89 } from "zod";
+import { z as z91 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash6 } from "node:crypto";
@@ -22036,31 +22371,31 @@ function packFiles(read) {
 }
 
 // apps/omni-app/src/knowledge-pack/github.ts
-import { mkdtempSync as mkdtempSync15, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync19, statSync as statSync16 } from "node:fs";
-import { tmpdir as tmpdir15 } from "node:os";
-import { join as join71 } from "node:path";
-import { z as z88 } from "zod";
-var PullFileSchema = z88.looseObject({ filename: z88.string().min(1), previous_filename: z88.string().nullish() });
+import { mkdtempSync as mkdtempSync16, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync20, statSync as statSync16 } from "node:fs";
+import { tmpdir as tmpdir16 } from "node:os";
+import { join as join72 } from "node:path";
+import { z as z90 } from "zod";
+var PullFileSchema = z90.looseObject({ filename: z90.string().min(1), previous_filename: z90.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z88.array(PullFileSchema).parse(data);
+    return z90.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
 function filesIn2(root, dir = "") {
-  return readdirSync22(join71(root, dir)).flatMap((name) => {
+  return readdirSync22(join72(root, dir)).flatMap((name) => {
     const rel = dir ? `${dir}/${name}` : name;
-    return statSync16(join71(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
+    return statSync16(join72(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
   });
 }
 async function withPathsAt(octokit, { owner, repo, sha, paths }, fn) {
-  const root = mkdtempSync15(join71(tmpdir15(), "omni-knowledge-pack-"));
+  const root = mkdtempSync16(join72(tmpdir16(), "omni-knowledge-pack-"));
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
     return fn(root);
   } finally {
-    rmSync19(root, { recursive: true, force: true });
+    rmSync20(root, { recursive: true, force: true });
   }
 }
 async function configAt3(octokit, where) {
@@ -22068,7 +22403,7 @@ async function configAt3(octokit, where) {
     const files = filesIn2(root);
     if (!files.includes(CONFIG_FILE)) return { none: `it has no ${CONFIG_FILE}` };
     try {
-      return { config: parseConfig(readFileSync48(join71(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
+      return { config: parseConfig(readFileSync48(join72(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
     } catch (error) {
       return { none: `its config does not parse: ${(error instanceof Error ? error.message : String(error)).split("\n")[0] ?? ""}` };
     }
@@ -22078,7 +22413,7 @@ async function packBytesAt(octokit, { owner, repo, sha, paths }) {
   return withPathsAt(
     octokit,
     { owner, repo, sha, paths: [...paths.folders, ...paths.files] },
-    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync48(join71(root, path))]))
+    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync48(join72(root, path))]))
   );
 }
 
@@ -22124,12 +22459,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z89.object({
-  installationId: z89.number(),
-  owner: z89.string().min(1),
-  repo: z89.string().min(1),
-  sha: z89.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z89.string().min(1),
+var PackPayloadSchema = z91.object({
+  installationId: z91.number(),
+  owner: z91.string().min(1),
+  repo: z91.string().min(1),
+  sha: z91.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z91.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packHandler({
@@ -22271,9 +22606,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z90 } from "zod";
+import { z as z92 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z90.looseObject({ category: z90.string().nullable() });
+var ReplySchema2 = z92.looseObject({ category: z92.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -22296,10 +22631,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z91 } from "zod";
-var UngroupedRowSchema = z91.object({ id: z91.string().min(1), product_id: z91.string().min(1), workspace_id: z91.string().min(1), query: z91.string().min(1) });
-var NearestRowSchema = z91.object({ group_id: z91.string().min(1), cosine: z91.number() });
-var GroupIdSchema = z91.object({ id: z91.string().min(1) });
+import { z as z93 } from "zod";
+var UngroupedRowSchema = z93.object({ id: z93.string().min(1), product_id: z93.string().min(1), workspace_id: z93.string().min(1), query: z93.string().min(1) });
+var NearestRowSchema = z93.object({ group_id: z93.string().min(1), cosine: z93.number() });
+var GroupIdSchema = z93.object({ id: z93.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -22317,7 +22652,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z91.array(NearestRowSchema).parse(data);
+      const [row] = z93.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -22337,13 +22672,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z92 } from "zod";
+import { z as z94 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z92.looseObject({
-  verdicts: z92.array(z92.looseObject({ entryId: z92.string().min(1), relevant: z92.boolean().nullable(), confidence: z92.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z94.looseObject({
+  verdicts: z94.array(z94.looseObject({ entryId: z94.string().min(1), relevant: z94.boolean().nullable(), confidence: z94.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z92.looseObject({ ids: z92.array(z92.string().min(1)) });
+var SearchSchema2 = z94.looseObject({ ids: z94.array(z94.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -22379,19 +22714,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z93 } from "zod";
+import { z as z95 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z93.object({ group_id: z93.string().min(1), product_id: z93.string().min(1), workspace_id: z93.string().min(1), category: z93.string().nullable() });
-var GroupRowSchema = z93.object({ group_id: z93.string().min(1) });
-var QuestionTextSchema = z93.object({ question: z93.string() });
-var OpenedRowSchema = z93.object({ opened_id: z93.string().min(1) });
-var ProductRowSchema4 = z93.object({ product_id: z93.string().min(1) });
-var HolderRowSchema5 = z93.object({ product_id: z93.string().min(1) });
-var LiveProductSchema = z93.object({ id: z93.string().min(1) });
-var QuestionRowSchema = z93.object({ id: z93.string().min(1), product_id: z93.string().min(1), workspace_id: z93.string().min(1), question: z93.string(), category: z93.string().nullable() });
-var AnswerRowSchema = z93.object({ question_id: z93.string().min(1), entry_id: z93.string().min(1) });
-var RunRowSchema = z93.object({ id: z93.string().min(1) });
+var LogRowSchema = z95.object({ group_id: z95.string().min(1), product_id: z95.string().min(1), workspace_id: z95.string().min(1), category: z95.string().nullable() });
+var GroupRowSchema = z95.object({ group_id: z95.string().min(1) });
+var QuestionTextSchema = z95.object({ question: z95.string() });
+var OpenedRowSchema = z95.object({ opened_id: z95.string().min(1) });
+var ProductRowSchema4 = z95.object({ product_id: z95.string().min(1) });
+var HolderRowSchema5 = z95.object({ product_id: z95.string().min(1) });
+var LiveProductSchema = z95.object({ id: z95.string().min(1) });
+var QuestionRowSchema = z95.object({ id: z95.string().min(1), product_id: z95.string().min(1), workspace_id: z95.string().min(1), question: z95.string(), category: z95.string().nullable() });
+var AnswerRowSchema = z95.object({ question_id: z95.string().min(1), entry_id: z95.string().min(1) });
+var RunRowSchema = z95.object({ id: z95.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -22426,7 +22761,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z93.string().min(1).nullable().parse(data);
+      return z95.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -22439,7 +22774,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z93.boolean().parse(data);
+      return z95.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -22472,7 +22807,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z93.string().min(1).nullable().parse(data);
+      return z95.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -22634,7 +22969,7 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
