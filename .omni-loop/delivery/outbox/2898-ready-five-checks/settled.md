@@ -1257,3 +1257,466 @@ Four config lines in s10 and two repository secrets; nothing in this slice chang
 ```
 
 <!-- /omni-outbox-settled: s5-07-e2e-job-waits-for-settings -->
+
+<!-- omni-outbox-settled: s4-01-review-gate-finding-as-comment -->
+
+## s4-01-review-gate-finding-as-comment — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-review-gate-finding-as-comment
+prd: 2898
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+When the Reviewer's pass is blocked by a red ready check, where should the failing check be written down?
+
+## The decision, in plain words
+
+The Reviewer leaves the pull request a draft and posts the failing check as one signed comment, because its review is already posted for that round and cannot hold a second one. A check still running or unreadable ends the run on a stop line instead of asking for changes.
+
+## The intro, for fun
+
+The five checks are lined up, and one of them just dropped the ball.
+
+## The punchline, for fun
+
+The Reviewer writes it down, signs it, and keeps the draft a draft.
+
+## The options, in plain words
+
+A. A. One signed pull request comment naming the failing check; not finished or not judged ends on a stop line.
+B. B. Post it as a second review round carrying the check as a finding on a changed line.
+
+## What I had to decide
+
+A person decides whether a red ready check should instead open a new round of the review.
+
+## What I did meanwhile
+
+The draft stays a draft and the check is named on the pull request.
+
+## What it costs to change later
+
+A reword of two skill paragraphs and one test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says a red verdict ends changes with the failing check as its finding but not where that finding is posted when the round's review already exists (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-01-review-gate-finding-as-comment -->
+
+<!-- omni-outbox-settled: s9-01-ready-panel-route-wiring -->
+
+## s9-01-ready-panel-route-wiring — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s9
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-01-ready-panel-route-wiring
+prd: 2898
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+The Ready panel is built and drawn by the PRD page, but nothing yet reads the saved verdict and hands it to the page, so no panel shows. Should a later change connect it?
+
+## The decision, in plain words
+
+I built the panel, its words and its read of the saved verdict, and gave the page a place for it. I did not connect the page's loader, because that file is outside this slice's area.
+
+## The intro, for fun
+
+A lamp is installed and the bulb is in the box.
+
+## The punchline, for fun
+
+Someone has to screw it in.
+
+## The options, in plain words
+
+A. A. Leave the route as it is; connect it in a follow-up slice or PR (what was built).
+B. B. Widen this slice's area to the route file and connect it now.
+
+## What I had to decide
+
+Connect the page's route to the verdict read in a follow-up slice: call readLatestVerdict with the PRD's repository and number, pass readyView(row) as the ready prop of DossierPage.
+
+## What I did meanwhile
+
+The panel never shows: with no verdict handed to it, it draws nothing, as the spec says.
+
+## What it costs to change later
+
+One small edit in the page's route file and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Which repository of a PRD with several repositories holds the feature PR (author)
+
+```
+
+<!-- /omni-outbox-settled: s9-01-ready-panel-route-wiring -->
+
+<!-- omni-outbox-settled: s8-01-acceptance-line-runs-no-agent -->
+
+## s8-01-acceptance-line-runs-no-agent — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s8
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-acceptance-line-runs-no-agent
+prd: 2898
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+When the screen tests cannot run in the continuous checks, a runner of the team runs them instead. Should that be a skill a person can also send from the Omni page, or a line only the Omni App sends?
+
+## The decision, in plain words
+
+A line only the Omni App sends. The runner runs the screen tests itself, with no assistant session, and the Send box refuses it, so the list of skills a person sends stays as it is.
+
+## The intro, for fun
+
+Some jobs need a thinker; this one only needs someone to press play.
+
+## The punchline, for fun
+
+So the runner presses play itself and lets the assistant sleep.
+
+## The options, in plain words
+
+A. A. A line only the App sends, run by the runner with no assistant: what was built.
+B. B. A skill a person can send too, listed with the others, with its own folder and a database change.
+
+## What I had to decide
+
+Pick A to keep the line the App's own, or B to make it a skill a person sends too.
+
+## What I did meanwhile
+
+Built A. The kit's `APP_SKILLS` and the page's `APP_RUNNER_SKILLS` (`['acceptance']`) hold `/omni:acceptance <prd> --pr <n> --sha <sha>`; `checkRunnerLine` takes it, the claim's `RunnerJobSchema` takes it (`isAppLine`), and Send's `checkLine` refuses it. `kit/lib/runner/job.ts` runs it through `runAcceptance` (`kit/lib/runner/acceptance.ts`): fetch and detach on the commit, install, find the target, `e2e run --tag prd-<n>` with `E2E_TELEMETRY_DISABLED=1` and every key, token, secret and the preview's bypass masked, then one `omni-acceptance:` result line. `RUNNABLE_SKILLS`, the database's fixed skill list and the Runners guide are unchanged, so the plan's runner-skill migration was not needed and none was written.
+
+## What it costs to change later
+
+Making it a skill later is a plugin skill folder, its help entry, the name in `RUNNABLE_SKILLS` and `RUNNER_SKILLS`, the Runners guide's list and a migration of the fixed list; the runner's code stays.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) an account whose `takes` lists skills never takes the line, since `takes` names only the skills a person sends: a runner whose every account is limited that way fails the job
+- (author) `e2eResultsOf` in `kit/lib/runner/acceptance.ts` reads the e2e run's report as `scripts/acceptance-report.ts` does; the two readers live apart because the kit cannot import the repository's scripts
+
+```
+
+<!-- /omni-outbox-settled: s8-01-acceptance-line-runs-no-agent -->
+
+<!-- omni-outbox-settled: s8-02-app-writes-acceptance-while-it-waits -->
+
+## s8-02-app-writes-acceptance-while-it-waits — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s8
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-app-writes-acceptance-while-it-waits
+prd: 2898
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+While the screen tests wait for a runner, should the proof of the success criteria already show on the pull request as still running, or show nothing until the runner is done?
+
+## The decision, in plain words
+
+It shows as still running, written by the Omni App, and names what it waits for: no runner has run the screen tests yet. It is never green while it waits, and it turns green or red once the runner is done.
+
+## The intro, for fun
+
+A blank scoreboard tells nobody the match is still on.
+
+## The punchline, for fun
+
+Ours says the match is on, and who has not turned up yet.
+
+## The options, in plain words
+
+A. A. Show the proof as running while it waits, naming what it waits for: what was built.
+B. B. Show nothing until the runner is done, check 3 saying only that no proof is there yet.
+
+## What I had to decide
+
+Pick A to keep the proof shown as running while it waits, or B to show nothing until the runner is done.
+
+## What I did meanwhile
+
+Built A in `apps/omni-app/src/ready-check/runner-fallback.ts`: once CI kept the `acceptance-report` artifact with an `e2e` criterion `pending`, the App posts the `acceptance` check run `in_progress` (external id `omni-acceptance`), its text the report, and updates the same run to `success` or `failure` from the runner's result. Check 1 then reads `not finished` (`still running: acceptance`) and check 3 `not finished` with `AC-<n>: no runner has run the e2e scenarios yet`, in the App's `omni / ready` and in `omni ready` alike. `reportOf` in `apps/omni-app/src/ready-check/facts.ts` now reads the report of a run still going, as `kit/lib/ready/gh-facts.ts` already did. s5-01 kept CI from writing a run that would stay going: this run is the App's, so the App completes it.
+
+## What it costs to change later
+
+Showing nothing until done is one branch in `runnerFallback` and the old `reportOf`; check 3 would then read `no acceptance report on the latest commit yet` while it waits.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) a run that waits forever, with no runner in the workspace, stays in progress on that commit until a new one: truthful, but a reviewer may read it as stuck
+
+```
+
+<!-- /omni-outbox-settled: s8-02-app-writes-acceptance-while-it-waits -->
+
+<!-- omni-outbox-settled: s8-03-one-runner-job-per-commit -->
+
+## s8-03-one-runner-job-per-commit — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s8
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-one-runner-job-per-commit
+prd: 2898
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+When a runner's run of the screen tests ends without a result, say the preview never came up, should the App send it to a runner again on the same change, or wait for the next change?
+
+## The decision, in plain words
+
+It waits for the next change. One run is sent per change; when it gives no result, the proof stays not finished and says how the run ended and that a new change runs it again.
+
+## The intro, for fun
+
+Ringing the same doorbell all night rarely opens the door.
+
+## The punchline, for fun
+
+We ring once, leave a note, and come back with the next delivery.
+
+## The options, in plain words
+
+A. A. One run per change; a run without a result waits for the next change: what was built.
+B. B. Try again on the same change, up to a set number of times.
+
+## What I had to decide
+
+Pick A to send one run per change, or B to try again on the same change a set number of times.
+
+## What I did meanwhile
+
+`runnerFallback` reads the App's latest job of the line `/omni:acceptance <prd> --pr <n> --sha <head>` (`ReadyStore.appJob`, sent by the app only) and queues one through `../retro/runner-queue.ts` only when there is none, so a replay finds it again. A job that ended with no result line, or a failed one, leaves each `e2e` criterion `pending`, its why the run's own (`standingReport`). A person's job of the same line is never read as the App's.
+
+## What it costs to change later
+
+Retrying is a count of the App's ended jobs of the line and a second insert under a limit, in one function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) how often a runner's run fails for a reason a second try on the same change would fix
+
+```
+
+<!-- /omni-outbox-settled: s8-03-one-runner-job-per-commit -->
+
+<!-- omni-outbox-settled: s8-04-preview-address-needs-a-grant -->
+
+## s8-04-preview-address-needs-a-grant — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s8
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-04-preview-address-needs-a-grant
+prd: 2898
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 3
+---
+
+## The question, in plain words
+
+To run the screen tests on a pull request's preview, the runner must ask GitHub for the preview's address, and the Omni App's jobs are not allowed to read it today. Should the App's jobs be allowed to read deployments?
+
+## The decision, in plain words
+
+Not in this change: with a fixed test address the fallback works now, and with the preview the runner tries, fails naming why, and the proof stays not finished saying so. Allowing it is a person's call on what the App may read.
+
+## The intro, for fun
+
+The runner has the map, but nobody gave it the address.
+
+## The punchline, for fun
+
+It knocks, says it cannot get in, and waits politely.
+
+## The options, in plain words
+
+A. A. Keep the jobs' rights; the fallback runs on a fixed address, and says why on a preview: what was built.
+B. B. Let the App's jobs read deployments, once every installation accepted it.
+
+## What I had to decide
+
+Pick A to keep the jobs' rights as they are, or B to let the App's jobs read the previews' addresses.
+
+## What I did meanwhile
+
+With `e2e.url: github-deployment`, `runAcceptance` asks `gh api repos/<slug>/deployments?sha=<sha>` with the job's token, which holds only `contents`, `pull_requests`, `issues` and `metadata` (`APP_PERMISSIONS`, apps/galaxy/src/public-api/keys/github-app.ts), and the App's manifest (`apps/omni-app/app.yml`) asks no `deployments` either. GitHub refuses, the job's log ends `omni-acceptance: failed — the preview's address could not be read: …`, and check 3 reads `not finished` with `the runner's e2e run gave no result (…); a new commit runs it again`. A fixed `e2e.url` runs as built. This repository runs its scenarios in CI (s5-07), so it never needs the fallback.
+
+## What it costs to change later
+
+B is `deployments: read` in the manifest and in `APP_PERMISSIONS`, its line in `test/app-yml.test.ts`, and each installation's owner accepting the new permission; asking it before every installation accepts would fail every job's token.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether a product that runs its scenarios on a runner keeps a fixed test address, or needs its previews
+
+```
+
+<!-- /omni-outbox-settled: s8-04-preview-address-needs-a-grant -->
