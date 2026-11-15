@@ -9,10 +9,11 @@
 // so `/yolo` never means `/omni:yolo`. The same length and the same argument characters.
 
 /** The skills a runner runs: they run without a person typing, and end on their own. The ultra skills (PRD 2873) build a PRD
- * across a product's repositories, sent from its plan repository. */
+ * across a product's repositories, sent from its plan repository. `acceptance` (PRD 2898) is no plugin skill: the job's process
+ * runs the e2e scenarios of a feature PR's commit itself, with no agent (./acceptance.ts). */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'acceptance',
 ]);
 
 /** The skills a lost job of is resumed (PRD 2809): the runnable skills that pick up from what GitHub holds (claims, sub-PRs,
