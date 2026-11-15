@@ -47,6 +47,14 @@ on the PR's latest commit:
    plan, the PRD's folder, its outbox or a generated entry's path, unless an outbox item names the
    path and was answered by a person or adopted.
 
+**What excuses a finding, and nothing else.** An outbox item excuses a finding of check 4 or 5
+only by its record, read as it stands: the item names that exact path in its own text, and its
+settled entry's verdict is `agreed` (a person said yes to what was built) or, for check 5 only,
+`adopted`. A `drifted` verdict, a prose answer, an item that names a folder or a pattern instead of
+the path, or one still open excuses nothing. The checks never read meaning into an answer, never
+reword it and never write to the ledger: an answer that does not plainly say yes leaves the finding
+in place, for a person to answer again.
+
 A check reads `pass`, `fail`, `waiting` (its evidence is not there yet: a run still going, the
 preview not up, shown as not finished) or `not judged · <why>` (its evidence could not be read).
 Only `pass` passes: `waiting` and `not judged` never do.
@@ -245,8 +253,10 @@ The business laws, all kept:
 
 - BL-GATE-1 (a check that does not decide says "not judged", with the reason, and a running one is
   never a pass): each check's `waiting` and `not judged · <why>` states never pass.
-- BL-ASK-1 (a person's answer is never changed): the checks read the ledger and never rewrite an
-  answer; the App's check is signed as its own.
+- BL-ASK-1 (a person's answer is never changed or reworded): an item excuses a finding only by
+  its record as written (the exact path in its text, the verdict `agreed`, or `adopted` for check
+  5), never by reading meaning into the answer. The checks never write to the ledger, and the App's
+  check is signed as its own, never in a person's name.
 - BL-APPROVALS-1 (an approval covers exactly the files read): untouched; the ready gate never
   stands in for the PRD's approval.
 
