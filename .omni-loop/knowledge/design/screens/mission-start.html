@@ -327,17 +327,23 @@ body.is-phone .shell{display:none}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
 .note-top{padding:12px 24px;border-bottom:1px solid var(--line);background:var(--sunk);font-size:14px;color:var(--muted);margin:0}
 
+.level{margin:10px 0 0}
 </style>
 </head>
 <body>
 <p class="note-top">Missions tab: start, then the running state. Fleet frame, shared: drawn once above each Fleet page screen.</p>
 <div class="wrap">
 <div class="fleet-head"><span class="mascot" aria-hidden="true"><svg class="px" aria-hidden="true" width="32" height="20" viewBox="0 0 16 10" fill="var(--fleet)"><rect x="13" y="0" width="2" height="1"/><rect x="12" y="1" width="2" height="1"/><rect x="3" y="2" width="7" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="2" y="3" width="11" height="1"/><rect x="1" y="4" width="13" height="1"/><rect x="0" y="5" width="5" height="1"/><rect x="6" y="5" width="8" height="1"/><rect x="0" y="6" width="13" height="1"/><rect x="0" y="7" width="12" height="1"/><rect x="1" y="8" width="10" height="1"/><rect x="3" y="9" width="6" height="1"/><rect x="5" y="5" width="1" height="1" fill="var(--ground)"/></svg></span><div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission running</p></div></div><div class="tabs" role="tablist" aria-label="Fleet"><button type="button" class="tab" role="tab" aria-selected="false">Operation room</button><button type="button" class="tab" role="tab" aria-selected="true">Missions</button><button type="button" class="tab" role="tab" aria-selected="false">Heroes</button><button type="button" class="tab" role="tab" aria-selected="false">Board</button></div><section data-screen="mission-start" aria-label="Missions">
+<p class="fleet-meta level">Level: Works alone · <a href="#">Change</a></p>
 <ul class="mission-list" style="max-width:none">
-<li><span class="name">Every quote can be paid online</span><span class="state go">Running</span><span class="num">2 of 4 merged · 1 ready</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button>
-<ul style="flex-basis:100%;margin:6px 0 0;padding-left:18px"><li style="display:list-item;border:0;padding:0"><a href="#">PRD 2803</a>: merge it</li></ul></li>
-<li><span class="name">Dark mode on site</span><span class="state">Draft</span><span class="num">Not started</span><a href="#">Brief</a><button type="button" class="btn" data-primary>Start</button></li>
-<li><span class="name">One invoice format in every region</span><span class="state">Paused</span><span class="num">1 of 3 merged · 0 ready</span><a href="#">Brief</a><button type="button" class="btn quiet">Resume</button></li>
+<li><span class="name">Every quote can be paid online</span><span class="state go">Waiting on you</span><span class="num">2 of 4 on main · 1 joined</span><span class="num">Works alone</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button>
+<ul style="flex-basis:100%;margin:6px 0 0;padding-left:18px">
+<li style="display:list-item;border:0;padding:0">Branch: 1 PRD · up to date · <a href="#">Mission PR #2901</a></li>
+<li style="display:list-item;border:0;padding:0">Waiting on you: <a href="#">PRD 2803</a>: answer s2-01, a locked law</li>
+<li style="display:list-item;border:0;padding:0">14 decisions by the fleet · 1 overturned</li>
+</ul></li>
+<li><span class="name">Dark mode on site</span><span class="state">Draft</span><span class="num">Not started</span><span class="num">Works alone · <a href="#">Change for this mission</a></span><a href="#">Brief</a><button type="button" class="btn" data-primary>Start</button></li>
+<li><span class="name">One invoice format in every region</span><span class="state">Paused</span><span class="num">1 of 3 merged · 0 ready</span><span class="num">Reviews with you</span><a href="#">Brief</a><button type="button" class="btn quiet">Resume</button></li>
 </ul></section>
 </div>
 </body>
