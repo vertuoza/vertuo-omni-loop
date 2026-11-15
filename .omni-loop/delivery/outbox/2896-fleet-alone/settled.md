@@ -1011,3 +1011,466 @@ Letting joins through costs one condition in the mission's run and its test.
 ```
 
 <!-- /omni-outbox-settled: s5-05-joins-held-while-behind -->
+
+<!-- omni-outbox-settled: s6-01-landing-recorded-as-merged -->
+
+## s6-01-landing-recorded-as-merged — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s6
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-landing-recorded-as-merged
+prd: 2896
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 6
+---
+
+## The question, in plain words
+
+The spec has the mission record each landing. The database accepts no landing event yet, and this slice may not change it, so how is a landing recorded?
+
+## The decision, in plain words
+
+Each PRD the mission pull request carried to the main branch is recorded as merged, linking that pull request, which the database already accepts. The mission reads it as shipped from then, and the slice that shows landings in the operation room adds the landing event.
+
+## The intro, for fun
+
+The PRDs reached home, and the diary wrote merged because it has no word for landed yet.
+
+## The punchline, for fun
+
+Same trip, one word short in the dictionary.
+
+## The options, in plain words
+
+A. Record each landed PRD as merged, linking the mission pull request (built).
+B. Add a landing event kind now, in a migration outside this slice's ground.
+
+## What I had to decide
+
+Keep a landing recorded as one merged event per PRD until a slice adds the landing event kind, or ask for the event kind now.
+
+## What I did meanwhile
+
+A landing writes one merged event per PRD, signed by the supervisor and linking the mission pull request; the event takes the PRD off the mission branch and the mission reads it as shipped from that moment.
+
+## What it costs to change later
+
+Recording landings with their own event later costs one event kind in a migration, its database check, and one event in the mission's run.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives slice s8 the operation room's landing events, but neither s6 nor s8 holds the database's migrations in its ground, as slice s5 found for rebases.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-landing-recorded-as-merged -->
+
+<!-- omni-outbox-settled: s6-02-mission-pull-request-wired-outside-territory -->
+
+## s6-02-mission-pull-request-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s6
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-mission-pull-request-wired-outside-territory
+prd: 2896
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 6
+---
+
+## The question, in plain words
+
+The mission pull request is only opened if the app's job runner is told about it, and that file lies outside this slice's ground. Should the slice change it?
+
+## The decision, in plain words
+
+Yes, by one line: the app's list of job handlers now hands the mission its pull request and the Omni page's address, as the slices before it did for the branch, the merge and the rebase.
+
+## The intro, for fun
+
+The new door is built; someone still has to tell the house it is there.
+
+## The punchline, for fun
+
+One line outside the fence, named so nobody trips on it.
+
+## The options, in plain words
+
+A. Change the one line in the app's job list (built).
+B. Leave it to a later slice, so the mission pull request never opens until then.
+
+## What I had to decide
+
+Keep the one-line change to the app's job list, or move the wiring into a slice whose ground holds that file.
+
+## What I did meanwhile
+
+The mission's job receives the mission pull request's reads and writes from the app's job list, beside the branch, the merge and the rebase it already received.
+
+## What it costs to change later
+
+Undoing it is one line; the mission pull request then never opens and no landing is read.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives no slice the file that lists the app's job handlers, and slices s3, s4 and s5 changed it the same way.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-mission-pull-request-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s6-03-landing-knowledge-branch-name -->
+
+## s6-03-landing-knowledge-branch-name — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s6
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-landing-knowledge-branch-name
+prd: 2896
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 6
+---
+
+## The question, in plain words
+
+The knowledge pull request of a landing needs a branch name, and the spec names none. Which name does it take?
+
+## The decision, in plain words
+
+The repository's knowledge branch shape, filled with the word landing and the mission pull request's number, so two landings of one mission never share a branch and each gets its own pull request.
+
+## The intro, for fun
+
+Every delivery needs a label on the box.
+
+## The punchline, for fun
+
+This one says which truck brought it.
+
+## The options, in plain words
+
+A. Name it after the landing's pull request (built).
+B. Name it after the mission, so a mission landed in parts shares one knowledge branch.
+
+## What I had to decide
+
+Keep the branch named after the landing's pull request, or name it after the mission so its landings share one branch.
+
+## What I did meanwhile
+
+A landing's harvest commits on a branch named by the knowledge branch shape with landing and the mission pull request's number.
+
+## What it costs to change later
+
+A different name later is one constant; branches already opened keep theirs.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's naming table has no row for a landing's knowledge branch.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-landing-knowledge-branch-name -->
+
+<!-- omni-outbox-settled: s6-04-retros-of-a-landing-not-yet -->
+
+## s6-04-retros-of-a-landing-not-yet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s6
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-04-retros-of-a-landing-not-yet
+prd: 2896
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 6
+---
+
+## The question, in plain words
+
+A retro today starts only from a feature pull request merged into the main branch, which a PRD of a mission never has. Does this slice start each PRD's retro when a landing brings it to the main branch?
+
+## The decision, in plain words
+
+Not yet: a landing starts no retro, and a PRD built on a mission branch gets none until a later slice starts one per PRD from the landing. The knowledge harvest, which the plan asks of this slice, does run once per landing.
+
+## The intro, for fun
+
+The team crossed the finish line together, and nobody has asked them yet how the race went.
+
+## The punchline, for fun
+
+The interview is booked, just not for today.
+
+## The options, in plain words
+
+A. Start no retro from a landing in this slice (built).
+B. Start one retro per PRD the landing carried, in this slice.
+
+## What I had to decide
+
+Leave the retros of a landing to a later slice, or have this slice start one retro per PRD a landing carried.
+
+## What I did meanwhile
+
+A landing's retro job ends skipped, as it does for any pull request that is not a feature pull request; nothing is posted on the mission pull request.
+
+## What it costs to change later
+
+Starting them later costs a retro read that takes a feature pull request merged into a mission branch, with the landing's merge as its clock, and one retro job per PRD of the landing.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's done-when for s6 names the knowledge pull request but not the retros, and no later slice names them either.
+- (author) A PRD's release note, which the spec also starts at the landing, reads the same merge and was not checked here.
+
+```
+
+<!-- /omni-outbox-settled: s6-04-retros-of-a-landing-not-yet -->
+
+<!-- omni-outbox-settled: s6-05-shipped-date-on-the-page -->
+
+## s6-05-shipped-date-on-the-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s6
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-05-shipped-date-on-the-page
+prd: 2896
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 6
+---
+
+## The question, in plain words
+
+The Omni page dates a PRD's shipped stage by its feature pull request's merge, which for a mission's PRD is its join to the mission branch, before it landed. Should this slice change how the page dates it?
+
+## The decision, in plain words
+
+No: the code that dates the stages lies outside this slice's ground. The mission itself reads each PRD as shipped only from its landing, and the page shows shipped only once the PRD is on the main branch, but dated at its join.
+
+## The intro, for fun
+
+The parcel arrived on Tuesday, and the receipt says Monday, the day it left the warehouse.
+
+## The punchline, for fun
+
+Right parcel, right door, the wrong day on the stamp.
+
+## The options, in plain words
+
+A. Leave the page's date as it is, outside this slice (built).
+B. Change the stage sync now, outside this slice's ground, to date shipped by the landing.
+
+## What I had to decide
+
+Leave the page's shipped date at the join until a slice whose ground holds the stage sync dates it by the landing, or change it now outside this slice's ground.
+
+## What I did meanwhile
+
+The mission records each landed PRD as merged at the moment it read the landing; the page's stage sync still dates shipped by the feature pull request's merge.
+
+## What it costs to change later
+
+Dating it by the landing later costs reading the mission pull request's merge time in the stage sync, and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) No slice of the plan holds the stage sync of the Omni page in its ground.
+
+```
+
+<!-- /omni-outbox-settled: s6-05-shipped-date-on-the-page -->
+
+<!-- omni-outbox-settled: s6-06-landing-closes-prd-issues -->
+
+## s6-06-landing-closes-prd-issues — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s6
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-06-landing-closes-prd-issues
+prd: 2896
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 6
+---
+
+## The question, in plain words
+
+A mission's feature pull request merges into the mission branch, which closes no issue, where one merged into the main branch closes its PRD's. Should the mission pull request close each PRD's issue when it lands?
+
+## The decision, in plain words
+
+Yes: its body ends with the repository's own closing line for each PRD on it, read from the main branch's settings, so each issue closes at the landing, as it does today when a feature pull request lands. A repository without that line gets none.
+
+## The intro, for fun
+
+Every ticket gets its stamp, just at the gate where the train really arrives.
+
+## The punchline, for fun
+
+Closed on arrival, not on boarding.
+
+## The options, in plain words
+
+A. Close each PRD's issue when the mission pull request lands (built).
+B. Close nothing: a person closes each PRD's issue.
+
+## What I had to decide
+
+Keep the closing lines in the mission pull request's body, or close nothing and leave each PRD's issue for a person to close.
+
+## What I did meanwhile
+
+The mission pull request's body lists one closing line per PRD on the branch, filled from the main branch's feature link setting.
+
+## What it costs to change later
+
+Dropping the lines later is one change to the body and its tests; issues already closed stay closed.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a PRD is shipped at its landing but does not say whether its issue closes then.
+
+```
+
+<!-- /omni-outbox-settled: s6-06-landing-closes-prd-issues -->
