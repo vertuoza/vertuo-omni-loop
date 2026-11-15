@@ -1270,3 +1270,83 @@ Undoing means reverting the review step in missions, the runner and the Reviewer
 ```
 
 <!-- /omni-outbox-settled: s3-04-rule-proof-tests-changed -->
+
+<!-- omni-outbox-settled: s1-04-review-form-budget-5k -->
+
+## s1-04-review-form-budget-5k — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-15T08:00:14Z
+- Channel: feature pull request #2872
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2872#issuecomment-6891395201
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s1
+- Wave: 2
+- Stays here: a ceiling for this repository, set in the ceilings file; nothing lasting about the product
+
+### The answer, as it was given
+
+```text
+A. A. Raise the limit of the review section to 5 KB (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-04-review-form-budget-5k
+prd: 2871
+slice: s1
+rank: high
+bears-on: none
+raised: 2026-11-15
+wave: 2
+---
+
+## The question, in plain words
+
+The review section of the playbook now holds the Reviewer's six default checks and is nearly at its 2 KB limit, leaving no room for this repository's own review rules. Raise its limit to 5 KB?
+
+## The decision, in plain words
+
+The limit was raised to 5 KB, so this repository can add its own review rules without asking for another raise. The section is read only when an agent reviews, not at every start.
+
+## The intro, for fun
+
+The Reviewer's checklist fits, but only if nobody adds a single line.
+
+## The punchline, for fun
+
+Now there is room on the clipboard for the house rules too.
+
+## The options, in plain words
+
+A. A. Raise the limit of the review section to 5 KB (built).
+B. B. Keep it at 2 KB and trim the six default checks to leave room.
+
+## What I had to decide
+
+Budget raise: `form:review` to 5120 bytes
+
+## What I did meanwhile
+
+The review section measures 1,936 bytes; the limit is now 5,120 bytes.
+
+## What it costs to change later
+
+Lowering it later is one line in the ceilings file, as long as the section still fits under the new number.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How long the repository's own review rules will grow is not known yet (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-04-review-form-budget-5k -->
