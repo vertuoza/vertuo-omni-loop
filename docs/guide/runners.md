@@ -28,8 +28,9 @@ server, and connecting it to your workspace.
 
 A runner takes only these lines: `/omni:yolo`, `/omni:yolo-fix`, `/omni:pr-care`, `/omni:do-work`,
 `/omni:wave`, `/omni:bug-fix`, `/omni:mega-bug-fix`, `/omni:visual-fix`, `/omni:plan`, `/omni:pitch`,
-`/omni:prove`, `/omni:retro-apply`, `/omni:rewind`, `/omni:knowledge-add` and `/omni:rewind-apply`.
-Lines that need a person to talk to, such as `/omni:brainstorm`, stay in your own terminal.
+`/omni:prove`, `/omni:retro-apply`, `/omni:rewind`, `/omni:knowledge-add`, `/omni:rewind-apply` and
+`/omni:review`. Lines that need a person to talk to, such as `/omni:brainstorm`, stay in your own
+terminal.
 
 ### Follow it on the Runners page
 
@@ -42,6 +43,11 @@ The Runners page, under Dashboard in the sidebar (`/app/runners`), lists:
   where it went and its status: Queued, Running, Done with its pull request, Failed with its reason
   (`runner lost`, `timeout` or an exit code), Cancelled, or **Need human** when it stopped to ask
   you something.
+
+A mission hands a PRD's feature pull request to the Reviewer before it goes ready: it sends
+`/omni:review <n>` to a runner as a job of its own. Two endings belong to the Reviewer, and both read
+**Done** on the page: `review`, a build or a fix left the pull request a draft for the Reviewer, and
+`changes`, the Reviewer asked for changes, which the next fix settles.
 
 Press **Terminal** on a job, or on a busy runner, to read what the job is doing, line by line, as it
 happens: each step Claude takes, each command and its result. It is read-only: you watch, you do
