@@ -80,3 +80,157 @@ A reword costs one constant in the drawer and one line in the screen file.
 ```
 
 <!-- /omni-outbox-settled: s1-01-level-notes-wording -->
+
+<!-- omni-outbox-settled: s2-01-level-inherited-by-the-database -->
+
+## s2-01-level-inherited-by-the-database — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-level-inherited-by-the-database
+prd: 2896
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 2
+---
+
+## The question, in plain words
+
+A mission's brief may leave its level out. Who fills it in with the fleet's level: the skill that writes the brief, or the database when the brief is stored?
+
+## The decision, in plain words
+
+The database fills it in from the fleet when the brief names none, so a mission is never left without a level. The skill writes the level when it is told one, and otherwise the brief reads Reviews with you until the database stores it.
+
+## The intro, for fun
+
+A form left blank still gets a name on the door.
+
+## The punchline, for fun
+
+Better a default written down than a guess made later.
+
+## The options, in plain words
+
+A. A. The database fills the level in from the fleet (built).
+B. B. The skill reads the fleet's level and writes it, with a new command and route.
+
+## What I had to decide
+
+Whether the skill must read the fleet's level itself, which needs a new way for the kit to read a fleet from the Omni page.
+
+## What I did meanwhile
+
+The database trigger takes the fleet's level when the brief has none, and the Missions tab shows the level the database stored.
+
+## What it costs to change later
+
+Reading the level in the skill later costs one command and one route; the trigger can stay as the fallback.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The kit has no command that reads a fleet from the Omni page, and the territory names none (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-01-level-inherited-by-the-database -->
+
+<!-- omni-outbox-settled: s2-02-prds-on-branch-read-from-events -->
+
+## s2-02-prds-on-branch-read-from-events — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-prds-on-branch-read-from-events
+prd: 2896
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 2
+---
+
+## The question, in plain words
+
+Lowering a mission to Reviews with you is refused while PRDs sit on its branch. Where does the count of those PRDs come from before the branch exists?
+
+## The decision, in plain words
+
+The count reads the mission's join, drop and landing events, so it is zero today and the refusal starts to apply once the next slices record those events. The branch name in the message is the mission's number and its title in words.
+
+## The intro, for fun
+
+A guard posted before the door is built still stands in the right place.
+
+## The punchline, for fun
+
+The count is zero until someone actually joins the branch.
+
+## The options, in plain words
+
+A. A. Count from the join, drop and landing events (built).
+B. B. Count the PRDs whose pull request targets the mission branch.
+
+## What I had to decide
+
+Whether to count PRDs another way, such as a stored branch name, once the branch is cut.
+
+## What I did meanwhile
+
+The refusal is written and tested on events a test records; no real mission can trip it yet.
+
+## What it costs to change later
+
+Changing where the count is read costs one function in the missions repository and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The event names prd-joined, prd-dropped and landed are the spec's; the database accepts them only once the branch slices add them (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-02-prds-on-branch-read-from-events -->
