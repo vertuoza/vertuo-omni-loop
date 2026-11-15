@@ -24,7 +24,7 @@ your PRD's number.
 | [build one slice by hand](#build-one-slice-by-hand) | `/omni:do-work 7 s3` |
 | [pick up a build that stopped](#pick-up-a-build-that-stopped) | `/omni:yolo 7` again |
 | [fix a pull request that stays red](#fix-a-pull-request-that-stays-red) | `/omni:pr 42` |
-| [see where things are](#see-where-things-are) | `/omni:status`, `omni board 7` |
+| [see where things are](#see-where-things-are) | `/omni:dashboard`, `/omni:status`, `omni board 7` |
 | [look up a rule of the product](#look-up-a-rule-of-the-product) | `omni knowledge <id>` |
 | [answer your agent's questions on a web page](#answer-your-agents-questions-on-a-web-page) | `/omni:ask on` |
 | [refresh what the loop knows](#refresh-what-the-loop-knows) | `/omni:invade --refresh` |
@@ -344,11 +344,12 @@ in [When something goes wrong](/docs/troubleshooting).
 ### See where things are
 
 ```text agent
-/omni:status
+/omni:dashboard
 ```
 
 One screen: how many PRDs have shipped, wait in the inbox, are being built or wait for review, and
-the ones that are yours. It reads git only; `/omni:status --fetch` fetches first. For one PRD:
+the ones that are yours. It reads git only; `/omni:dashboard --fetch` fetches first. `/omni:status` is this session's work alone, in plain words: the
+verdict, its step, what you must do and the links. For one PRD:
 
 ```bash terminal agent
 omni prd 7
