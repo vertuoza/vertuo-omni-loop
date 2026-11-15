@@ -28,9 +28,42 @@ export function knowledgeTitle(prd: HarvestPrd): string {
   return `docs(knowledge): PRD ${prd.number} — ${prd.title}`;
 }
 
+/** A commit message: its title, then the marker a replay looks for. */
+const messageOf = (title: string, merge: HarvestMerge): string => `${title}\n\n${commitMarker(merge.pr)} Merged by @${bare(merge.by)}.`;
+
 /** The commit message: the title, then the marker a replay looks for. */
 export function commitMessage({ prd, merge }: { prd: HarvestPrd; merge: HarvestMerge }): string {
-  return `${knowledgeTitle(prd)}\n\n${commitMarker(merge.pr)} Merged by @${bare(merge.by)}.`;
+  return messageOf(knowledgeTitle(prd), merge);
+}
+
+/** A landing's knowledge PR title (PRD 2896 s6): `docs(knowledge): landing #<n> — PRD <a>, PRD <b>`. */
+export function landingTitle({ merge, prds }: { merge: HarvestMerge; prds: readonly Pick<HarvestPrd, 'number'>[] }): string {
+  return `docs(knowledge): landing #${String(merge.pr)} — ${prds.map(({ number }) => `PRD ${String(number)}`).join(', ')}`;
+}
+
+/** A landing's commit message: its title, then the marker a replay looks for, the mission pull request's. */
+export const landingCommitMessage = ({ merge, prds }: { merge: HarvestMerge; prds: readonly Pick<HarvestPrd, 'number'>[] }): string => messageOf(landingTitle({ merge, prds }), merge);
+
+/** The line every knowledge PR body ends with. */
+const PROPOSED_LINE = 'Proposed entries resolve but bind nothing until a person deletes their `Proposed:` line.';
+
+/** A PRD's knowledge PR body, as a section of a landing's: its opening line and its closing line left out. */
+function sectionOf(body: string): string[] {
+  const lines = body.split('\n').slice(2);
+  while (lines.length > 0 && ((lines.at(-1) ?? '') === '' || lines.at(-1) === PROPOSED_LINE)) lines.pop();
+  return lines;
+}
+
+/**
+ * A landing's knowledge PR body (PRD 2896 s6): one opening line naming every PRD it landed and the mission pull request, then one
+ * section per PRD, in the order they landed, each what that PRD's own knowledge PR would say.
+ */
+export function landingBody({ merge, parts }: { merge: HarvestMerge; parts: readonly { prd: HarvestPrd; body: string }[] }): string {
+  const refs = parts.map(({ prd }) => `Refs #${String(prd.number)}`).join(' · ');
+  const lines = [`${refs} · Knowledge from the landing #${String(merge.pr)}, merged by @${bare(merge.by)} on ${day(merge.at)}`, ''];
+  for (const { prd, body } of parts) lines.push(`### PRD ${String(prd.number)} — ${cell(prd.title)}`, '', ...sectionOf(body), '');
+  lines.push(PROPOSED_LINE);
+  return `${lines.join('\n')}\n`;
 }
 
 const bare = (who: string | null | undefined) => (who ?? '').replace(/^@/, '');
@@ -135,8 +168,19 @@ export function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced,
   facts.push(`Checks: ${checkMark('knowledge', checks.knowledge)} · ${checkMark('outbox', checks.outbox)}`);
   lines.push(...facts, '');
 
-  lines.push('Proposed entries resolve but bind nothing until a person deletes their `Proposed:` line.');
+  lines.push(PROPOSED_LINE);
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * Edit set `next` applied after `before` (PRD 2896 s6), as one: `next` was made on a tree with `before` applied, so a path both
+ * write holds `next`'s text, which already carries `before`'s.
+ */
+export function afterEdits(before: HarvestEdits | null, next: HarvestEdits): HarvestEdits {
+  if (before === null) return next;
+  const writes = new Map(before.writes.map(({ path, text }) => [path, text]));
+  for (const { path, text } of next.writes) writes.set(path, text);
+  return { deletes: [...before.deletes, ...next.deletes], moves: [...before.moves, ...next.moves], writes: [...writes].map(([path, text]) => ({ path, text })) };
 }
 
 /**
