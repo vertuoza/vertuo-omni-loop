@@ -5,7 +5,7 @@ import { COULD_NOT, httpVirtualFleetsPort } from './virtual-fleets.client';
 // name, the icon and the roles; the fleet as made, or the refusal's words and the field they go under.
 
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
-const NEW = { name: 'Night Shift', mascot: 'robot', roles: ['engineer' as const] };
+const NEW = { name: 'Night Shift', mascot: 'robot', roles: ['engineer' as const], level: 'with-you' as const };
 
 function fetchAnswering(status: number, body: unknown) {
   const sent: { url: string; init: RequestInit | undefined }[] = [];

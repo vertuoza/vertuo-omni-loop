@@ -31,7 +31,7 @@ describe('the New virtual fleet drawer', () => {
 
   it('offers every fleet mascot as an icon, the first selected', () => {
     const html = view(opened());
-    const icons = [...html.matchAll(/<input type="radio"[^>]*value="([^"]+)"[^>]*>/g)];
+    const icons = [...html.matchAll(/<input type="radio"[^>]*name="[^"]*-icon"[^>]*value="([^"]+)"[^>]*>/g)];
     expect(icons.map((m) => m[1])).toEqual([...MASCOTS]);
     expect(icons.filter((m) => m[0].includes('checked')).map((m) => m[1])).toEqual([MASCOTS[0]]);
   });
@@ -74,5 +74,37 @@ describe('the New virtual fleet drawer', () => {
     expect(quiet).toBe('<button type="button" class="ask-button quiet vf-open">+ New virtual fleet</button>');
     const primary = renderToStaticMarkup(createElement(NewVirtualFleet, { workspace: null, mascots: MASCOTS, primary: true }));
     expect(primary).toBe('<button type="button" class="ask-button vf-open" data-primary="">+ New virtual fleet</button>');
+  });
+});
+
+describe('the New virtual fleet drawer\'s Level (PRD 2896 s1)', () => {
+  const radios = (html: string) => [...html.matchAll(/<input type="radio"[^>]*name="[^"]*-level"[^>]*>/g)].map((m) => ({ level: /value="([^"]+)"/.exec(m[0])?.[1], checked: m[0].includes('checked'), disabled: m[0].includes('disabled') }));
+
+  it('draws Level after Heroes, as one choice of three with its lines, Reviews with you selected', () => {
+    const html = view(opened());
+    const t = text(html);
+    expect(t.indexOf('Heroes')).toBeLessThan(t.indexOf('Level'));
+    expect(t).toContain('Level Reviews with you You merge each PRD Own branch You land the mission Works alone Asks you when needed');
+    expect(radios(html).map((r) => [r.level, r.checked])).toEqual([['with-you', true], ['own-branch', false], ['alone', false]]);
+  });
+
+  it('disables the two others for a member who is not an owner, and says why', () => {
+    const html = view(opened());
+    expect(radios(html).map((r) => r.disabled)).toEqual([false, true, true]);
+    expect(text(html)).toContain('Only an owner of the workspace chooses the two others.');
+  });
+
+  it('lets an owner choose each level, and disables Works alone once the PM, the Architect or the Reviewer is off', () => {
+    const owner = openedWith(MASCOTS, true);
+    expect(radios(view(owner)).map((r) => r.disabled)).toEqual([false, false, false]);
+    expect(text(view(owner))).not.toContain('Only an owner');
+    const without = newFleetReducer(owner, { type: 'toggle', role: 'architect' });
+    expect(radios(view(without)).map((r) => r.disabled)).toEqual([false, false, true]);
+    expect(text(view(without))).toContain('Works alone needs a PM, an Architect and a Reviewer.');
+  });
+
+  it('shows a refusal of the level under it', () => {
+    const state = newFleetReducer(openedWith(MASCOTS, true), { type: 'refused', field: 'level', message: 'Level: Works alone needs a PM, an Architect and a Reviewer.' });
+    expect(view(state)).toMatch(/role="alert">Level: Works alone needs/);
   });
 });

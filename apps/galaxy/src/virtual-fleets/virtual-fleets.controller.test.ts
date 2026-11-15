@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { postVirtualFleet, type VirtualFleetsDeps } from './virtual-fleets.controller';
 import { ADA, BEN, DAN, fakeVirtualFleetsDb, NORTHWIND } from './virtual-fleets.fake';
-import { FAILED, ONLY_MEMBERS, virtualFleetsService } from './virtual-fleets.service';
+import { FAILED, ONLY_MEMBERS, ONLY_OWNERS, virtualFleetsService } from './virtual-fleets.service';
 
 // POST /api/virtual-fleets (PRD 2842 s1), with the real service on the database in memory: any member
 // makes a Virtual Fleet with a hero per role left on and is answered the fleet; each refusal names the
@@ -112,9 +112,41 @@ describe('POST /api/virtual-fleets', () => {
 describe('the virtual fleets a member reads', () => {
   it('lists the keys of the workspace\'s virtual fleets, none for an outsider', async () => {
     const db = fakeVirtualFleetsDb();
-    await virtualFleetsService(db.as(ADA)).create({ workspace: NORTHWIND, name: 'Night Shift', mascot: 'robot', roles: ['engineer'] });
+    await virtualFleetsService(db.as(ADA)).create({ workspace: NORTHWIND, name: 'Night Shift', mascot: 'robot', roles: ['engineer'], level: 'with-you' });
     expect(await virtualFleetsService(db.as(ADA)).names(NORTHWIND)).toEqual(['night-shift']);
     expect(await virtualFleetsService(db.as(BEN)).names(NORTHWIND)).toEqual(['night-shift']);
     expect(await virtualFleetsService(db.as(DAN)).names(NORTHWIND)).toEqual([]);
+  });
+});
+
+describe('POST /api/virtual-fleets, a fleet\'s level (PRD 2896 s1)', () => {
+  it('makes a fleet at with-you when the body names no level, and at the level an owner names', async () => {
+    const plain = deps(ADA);
+    expect((await postVirtualFleet(create(), plain.deps)).status).toBe(201);
+    expect(plain.db.teams.get(NORTHWIND)?.find((t) => t.name === 'night-shift')?.level).toBe('with-you');
+    const raised = deps(ADA);
+    expect((await postVirtualFleet(create({ level: 'alone' }), raised.deps)).status).toBe(201);
+    expect(raised.db.teams.get(NORTHWIND)?.find((t) => t.name === 'night-shift')?.level).toBe('alone');
+  });
+
+  it('refuses a member who is not an owner a raised level, in its words under Level, and makes nothing', async () => {
+    const { deps: given, db } = deps(BEN);
+    const res = await postVirtualFleet(create({ level: 'own-branch' }), given);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: ONLY_OWNERS, field: 'level' });
+    expect(db.teams.get(NORTHWIND)?.some((t) => t.name === 'night-shift')).toBe(false);
+    expect((await postVirtualFleet(create({ level: 'with-you' }), given)).status).toBe(201);
+  });
+
+  it('refuses Works alone without a PM, an Architect and a Reviewer under Level', async () => {
+    const res = await postVirtualFleet(create({ level: 'alone', roles: ['engineer', 'pm', 'reviewer'] }), deps(ADA).deps);
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({ error: 'Level: Works alone needs a PM, an Architect and a Reviewer.', field: 'level' });
+  });
+
+  it('refuses a level that is none of the three under Level, before the database is asked', async () => {
+    const res = await postVirtualFleet(create({ level: 'sometimes' }), deps(ADA).deps);
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ field: 'level' });
   });
 });

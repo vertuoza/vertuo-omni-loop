@@ -10,18 +10,19 @@ import type { VirtualFleetsRepository, Written } from './virtual-fleets.reposito
 type Served<T> = { ok: true; value: T } | { ok: false; kind: VirtualFleetRefusal; error: string; field: RefusalField; cause?: string };
 
 export const ONLY_MEMBERS = 'Only a member of the workspace creates its virtual fleets.';
+export const ONLY_OWNERS = 'Only an owner of the workspace raises a fleet’s level.';
 export const FAILED = 'The fleet could not be created. Try again.';
 
 type Refused = Extract<Written<unknown>, { ok: false }>;
 
 /** The drawer's field a hint names; the cap of 12 fleets (`fleets`) and anything else go in its foot. */
 function fieldOf(hint: string | null): RefusalField {
-  return hint === 'name' || hint === 'mascot' || hint === 'heroes' ? hint : 'form';
+  return hint === 'name' || hint === 'mascot' || hint === 'heroes' || hint === 'level' ? hint : 'form';
 }
 
 /** A refused write in its words; anything unforeseen is a failure, its words kept for the log only. */
 function refusal(written: Refused): Served<never> {
-  if (written.code === '42501') return { ok: false, kind: 'forbidden', error: ONLY_MEMBERS, field: 'form' };
+  if (written.code === '42501') return { ok: false, kind: 'forbidden', error: written.message.includes('level') ? ONLY_OWNERS : ONLY_MEMBERS, field: written.message.includes('level') ? 'level' : 'form' };
   if (written.code === '22023' && written.message) return { ok: false, kind: 'invalid', error: written.message, field: fieldOf(written.hint) };
   return { ok: false, kind: 'database', error: FAILED, field: 'form', cause: `${written.code ?? 'no code'}: ${written.message}` };
 }

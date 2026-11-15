@@ -32,9 +32,9 @@ fleet`.
 ## States
 
 - **Opened:** Name empty and focused; every switch on.
-- **Not a workspace owner:** only `Reviews with you` can be chosen; the two others are disabled.
+- **Not a workspace owner:** only `Reviews with you` can be chosen; the two others are disabled, and one line under the choice reads `Only an owner of the workspace chooses the two others.`
 - **Works alone without a PM, an Architect or a Reviewer:** `Works alone` is disabled until all three
-  switches are on.
+  switches are on, and one line under the choice reads `Works alone needs a PM, an Architect and a Reviewer.`; switching one off while it is chosen moves the choice to `Own branch`.
 - **Name taken:** `Name taken: choose another` under the field; nothing else moves.
 - **Every switch off, or no name:** Create fleet disabled.
 - **Creating:** the primary reads `Creating…`, disabled.
@@ -47,7 +47,9 @@ fleet`.
 - `+ New virtual fleet`, `New virtual fleet`, `Name`, `Icon`, `Heroes`, `Cancel`, `Create fleet`,
   `Creating…`, `Name taken: choose another`, `Runs <k> of <n> skills alone`,
   `A person does this today`, `Virtual`, `Level`, `Reviews with you`, `You merge each PRD`, `Own branch`,
-  `You land the mission`, `Works alone`, `Asks you when needed`.
+  `You land the mission`, `Works alone`, `Asks you when needed`,
+  `Only an owner of the workspace chooses the two others.`,
+  `Works alone needs a PM, an Architect and a Reviewer.`.
 
 ## Refusals
 

@@ -67,7 +67,7 @@ function Closed() {
 
 /** The New virtual fleet button, when the read says where it makes the fleet. */
 function NewFleet({ virtual, primary = false }: { virtual: VirtualOf | undefined; primary?: boolean }) {
-  return virtual ? <NewVirtualFleet workspace={virtual.workspace} mascots={virtual.mascots} primary={primary} /> : null;
+  return virtual ? <NewVirtualFleet workspace={virtual.workspace} mascots={virtual.mascots} primary={primary} owner={virtual.owner === true} /> : null;
 }
 
 /** No fleet yet: a virtual fleet is made right here, a players' fleet in Settings › Fleets. */

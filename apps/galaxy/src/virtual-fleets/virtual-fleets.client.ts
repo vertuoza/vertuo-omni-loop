@@ -1,5 +1,5 @@
 import type { HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
-import { CreatedVirtualFleetSchema, VirtualFleetRefusalSchema, type RefusalField, type VirtualFleet } from './virtual-fleets.contract';
+import { CreatedVirtualFleetSchema, VirtualFleetRefusalSchema, type FleetLevel, type RefusalField, type VirtualFleet } from './virtual-fleets.contract';
 
 // The New virtual fleet drawer's call from the browser (PRD 2842 s1; ADR-0095): POST /api/virtual-fleets,
 // as the signed-in person, its answer checked against the contract. A refusal comes back with its words
@@ -7,11 +7,12 @@ import { CreatedVirtualFleetSchema, VirtualFleetRefusalSchema, type RefusalField
 
 export type Created = { ok: true; fleet: VirtualFleet } | { ok: false; field: RefusalField; message: string };
 
-/** What the drawer sends: the fleet's name, its icon and the roles left on. */
+/** What the drawer sends: the fleet's name, its icon, the roles left on and its level. */
 export interface NewFleet {
   name: string;
   mascot: string;
   roles: HeroRole[];
+  level: FleetLevel;
 }
 
 export interface VirtualFleetsPort {

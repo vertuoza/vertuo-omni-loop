@@ -5,7 +5,7 @@ import type { VirtualFleetsService } from './virtual-fleets.service';
 // The Virtual Fleets' route (PRD 2842 s1; ADR-0095), as a plain function of a Request, so it is tested
 // with the real service on a fake repository and the route stays one line:
 //
-//   POST /api/virtual-fleets {workspace, name, mascot, roles}   201 {fleet}: the fleet as made
+//   POST /api/virtual-fleets {workspace, name, mascot, roles, level?}   201 {fleet}: the fleet as made
 //
 // The caller is checked first: signed out, 401, and nothing else runs. The service then acts as the
 // signed-in person, so the database decides who may (any member). The answer is checked against the
@@ -22,7 +22,7 @@ const MAX_BODY_CHARS = 8 * 1024;
 const NO_DATABASE = 'Virtual fleets are not available here: this deployment has no database.';
 const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The fleet could not be created. Try again.';
-const BAD_CREATE = 'The body must be {"workspace": "<id>", "name": "<1 to 12 characters>", "mascot": "<a fleet mascot>", "roles": ["engineer" | "qa" | "reviewer" | "pm" | "architect" | "designer", …]} with at least one role.';
+const BAD_CREATE = 'The body must be {"workspace": "<id>", "name": "<1 to 12 characters>", "mascot": "<a fleet mascot>", "roles": ["engineer" | "qa" | "reviewer" | "pm" | "architect" | "designer", …], "level": "with-you" | "own-branch" | "alone"} with at least one role (the level is optional).';
 
 /** A refusal: its status, its words and the drawer's field they go under. */
 const refuse = (kind: VirtualFleetRefusal, error: string, field: RefusalField = 'form') => reply(VIRTUAL_FLEET_REFUSALS[kind], { error, field });
@@ -40,6 +40,7 @@ function jsonOf(text: string): unknown {
 function fieldOf(path: PropertyKey | undefined): RefusalField {
   if (path === 'name') return 'name';
   if (path === 'mascot') return 'mascot';
+  if (path === 'level') return 'level';
   return path === 'roles' ? 'heroes' : 'form';
 }
 

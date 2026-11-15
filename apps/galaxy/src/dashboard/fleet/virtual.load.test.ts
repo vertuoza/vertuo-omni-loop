@@ -26,6 +26,6 @@ describe('the Fleet section\'s read', () => {
     seed.teams = [...(seed.teams ?? []), { ...beaver, name: 'night-shift', label: 'Night Shift', sort: 70, kind: 'virtual' }];
     const db = fakeGalaxyDb(seed, Object.values(PEOPLE)).client(PEOPLE.ada) as unknown as SupabaseClient<Database>;
     const read = await loadFleetBoard(db, { id: PEOPLE.ada.id }, null, '7d', NOW);
-    expect(read.kind === 'no-workspace' ? null : read.virtual).toEqual({ workspace: VERTUOZA, mascots: MASCOTS, names: ['night-shift'] });
+    expect(read.kind === 'no-workspace' ? null : read.virtual).toEqual({ workspace: VERTUOZA, mascots: MASCOTS, names: ['night-shift'], owner: false });
   });
 });
