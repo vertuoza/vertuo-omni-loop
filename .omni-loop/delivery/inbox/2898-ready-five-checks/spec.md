@@ -51,12 +51,14 @@ on the PR's latest commit:
 only by its record, read as it stands: the item names that exact path in its own text, and its
 settled entry's verdict is `agreed` (a person said yes to what was built) or, for check 5 only,
 `adopted`. A `drifted` verdict, a prose answer, an item that names a folder or a pattern instead of
-the path, or one still open excuses nothing. The checks never read meaning into an answer, never
-reword it and never write to the ledger: an answer that does not plainly say yes leaves the finding
-in place, for a person to answer again. What the App saves (the `acceptance` check run, the
-`omni / ready` check, a row of `public.ready_verdicts`) is its own record of what it read, written
-in its own name and kept apart from the ledger: it holds no person's answer and stands for none. It is never read back as an answer: an excuse
-comes from the ledger alone, as written.
+the path, or one still open excuses nothing. The checks only read the ledger, as it is written:
+they never read meaning into an answer and never reword one, and an answer that does not plainly say
+yes leaves the finding in place, for a person to answer again.
+
+**The App's status records.** The `acceptance` check run, the `omni / ready` check and the rows of
+`public.ready_verdicts` are the App's status records, in its own name, like an agent's status
+comment: BL-ASK-1 counts those as no person's answer. They are kept apart from the ledger, never
+shown as a person's words, and never read as an excuse.
 
 A check reads `pass`, `fail`, `waiting` (its evidence is not there yet: a run still going, the
 preview not up, shown as not finished) or `not judged · <why>` (its evidence could not be read).
@@ -116,7 +118,7 @@ preview and runs the `e2e` scenarios there, its HTML report (steps, screenshots,
 run's artifact. When e2e does not run in CI here (`e2e.ci` false, or no key configured), a runner of
 the workspace runs the scenarios against the preview and the App writes the same `acceptance` check
 run. With no runner either, check 3 reads `waiting` and names it: `waiting for a runner to run the
-e2e scenarios`.
+e2e scenarios`, and the verdict stays not ready, the pull request a draft.
 
 **Where the e2e tests live.** `e2e.repo` names the repository that holds them: unset for this
 repository (omni-loop keeps them in `e2e.dir`), or `<owner>/<name>` for a product whose e2e tests
