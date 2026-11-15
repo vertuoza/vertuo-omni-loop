@@ -407,7 +407,7 @@ A constant: putting the ceiling back is one number, and then the look-for defaul
 - Channel: feature pull request #2872
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2872#issuecomment-6883775277
 - Basis: stated — the answer is settled as "drifted" because a human said so, not because a comparison read it
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2890, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: BR-PRODUCT-139
 - Raised: 2026-11-14
