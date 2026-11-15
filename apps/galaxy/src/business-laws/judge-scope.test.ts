@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseBusinessLaws } from 'omni-loop/kit/lib/knowledge/business-laws.ts';
 import { judgeSpec, type AskLaws } from './judge.service';
+import { confirming } from './judge.fake';
 
 // A law binds only what a spec designs (bug #2815): a spec that changes only code went red, push after push, on a
 // law about changes to the knowledge, each time for what the spec does not describe. A finding that only names
@@ -33,7 +34,7 @@ const QUOTE = 'A job counts the loans each night and stores the counts in a new 
 
 function model(reply: unknown): { ask: AskLaws; system: string[] } {
   const system: string[] = [];
-  return { system, ask: (request) => { system.push(request.system); return Promise.resolve({ ok: true as const, reply }); } };
+  return { system, ask: confirming((request) => { system.push(request.system); return Promise.resolve({ ok: true as const, reply }); }) };
 }
 
 const judge = (ask: AskLaws) => judgeSpec({ spec: SPEC, laws: SYNC, glossary: [], owners: ['ana'], ask });

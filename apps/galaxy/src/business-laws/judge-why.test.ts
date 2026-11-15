@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseBusinessLaws } from 'omni-loop/kit/lib/knowledge/business-laws.ts';
 import { judgeSpec, type AskLaws } from './judge.service';
+import { confirming } from './judge.fake';
 
 // A red a person can read and trust (bug #2696), with an injected model: each finding keeps the judge's own
 // words for what the design does that the law forbids, beside the law's Why; a finding that says none is no
@@ -18,7 +19,7 @@ const QUOTE = 'A check that times out shows a green tick';
 
 function model(reply: unknown): { ask: AskLaws; system: string[] } {
   const system: string[] = [];
-  return { system, ask: (request) => { system.push(request.system); return Promise.resolve({ ok: true as const, reply }); } };
+  return { system, ask: confirming((request) => { system.push(request.system); return Promise.resolve({ ok: true as const, reply }); }) };
 }
 
 const judge = (ask: AskLaws) => judgeSpec({ spec: SPEC, laws: GATE, glossary: [], owners: ['ana'], ask });
