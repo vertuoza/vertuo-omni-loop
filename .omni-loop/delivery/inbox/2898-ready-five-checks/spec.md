@@ -55,11 +55,14 @@ the path, or one still open excuses nothing. The checks never read meaning into 
 reword it and never write to the ledger: an answer that does not plainly say yes leaves the finding
 in place, for a person to answer again. What the App saves (the `acceptance` check run, the
 `omni / ready` check, a row of `public.ready_verdicts`) is its own record of what it read, written
-in its own name and kept apart from the ledger: it holds no person's answer and stands for none.
+in its own name and kept apart from the ledger: it holds no person's answer and stands for none. It is never read back as an answer: an excuse
+comes from the ledger alone, as written.
 
 A check reads `pass`, `fail`, `waiting` (its evidence is not there yet: a run still going, the
 preview not up, shown as not finished) or `not judged · <why>` (its evidence could not be read).
-Only `pass` passes: `waiting` and `not judged` never do.
+Only `pass` passes: `waiting` and `not judged` never do. The verdict is ready only when all five
+checks read `pass`; one check `waiting` or `not judged` makes the whole verdict not ready, shown as
+not finished, and the pull request stays a draft.
 
 **Who it gates.** A setting decides: `ready.checks` is `mission` here (only the feature PR of a PRD
 that belongs to a running or paused mission, as the Omni page records it), and may later read `all`
