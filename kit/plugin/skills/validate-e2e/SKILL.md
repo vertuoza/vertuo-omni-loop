@@ -87,12 +87,15 @@ As `/omni:prove` reaches it, with the `e2e` block in place of `proof`:
 ## 3. The criteria, from the spec alone
 
 Read the spec's **Acceptance criteria** (`omni prd <n>` names the spec), and nothing of the code:
-never the diff of the feature branch, and no source file to learn what the change does. Class each
-criterion:
+never the diff of the feature branch, and no source file to learn what the change does. Never read a
+`.feature` file: the spec is the one source. Take each `### AC-<n> · <kind>` heading and its
+gherkin block (`omni check inbox` has already refused a malformed one). Class each criterion:
 
-- **filmable**: a screen can show it. It gets one test.
-- **not filmable**: a config value, a log line, a command's exit code. Say why in one line; it stays
-  an ordinary unit or integration test and has no e2e test.
+- **`e2e` kind**: a screen proves it. It gets exactly one test.
+- **`test` kind**: a vitest test titled `AC-n: …` proves it, not this skill. It gets no e2e test.
+- **A plain bullet** (a spec with no `AC-` headings) is **filmable** when a screen can show it, and
+  gets one test; **not filmable** (a config value, a log line, a command's exit code), say why in one
+  line: it stays an ordinary unit or integration test and has no e2e test.
 
 ## 4. The e2e project, once
 
@@ -134,12 +137,17 @@ sign-in, a code by message) is not generated: stop and say so.
 
 ## 5. One test per filmable criterion
 
-Under `e2e.dir`, one test per filmable criterion, tagged `prd-<n>`, each declaring
-`{ session: '<name>' }` so it depends on the setup's session.
+Under `e2e.dir`, one test per `e2e` scenario (or filmable plain bullet), tagged `prd-<n>`, each
+declaring `{ session: '<name>' }` so it depends on the setup's session.
 
-- Navigate with `agent.act`; pin every outcome with an exact `expect()`.
-- Use `agent.assert` only where nothing exact exists, with a comment line saying
-  why nothing exact exists: it calls the model on every run, replayed or not.
+- **Title.** A scenario's test is titled `AC-n: <the scenario's name>`, `n` being the criterion's number.
+- **One call per step, in order.** Each Given and each When of the scenario is one `agent.act`; each
+  Then is one `agent.assert`. An `And` or a `But` takes the kind of the step before it. The scenario's
+  lines are kept verbatim: each call's text is the line's words after its keyword, never reworded,
+  merged or dropped.
+- A Then that an exact `expect()` can pin is pinned by one too, beside its `agent.assert`. Where nothing
+  exact exists, a comment line above the `agent.assert` says why nothing exact exists: it calls the
+  model on every run, replayed or not.
 - Every read of the screen begins with an `expect` that waits for it to be drawn.
 - Every record a test creates carries a name unique to the run, built from a value that is new on every run (a
   timestamp or a random suffix), in a plan repository and outside one, unless the spec's answer says otherwise.
@@ -246,7 +254,8 @@ Print the sub-PR's link and the ✓/✗/not filmable counts.
 
 - Never merge, and never mark any pull request ready.
 - Never read the code's diff, and never edit the code under test.
-- Never weaken an assertion to turn a test green, and never use `agent.assert` without its line.
+- Never weaken an assertion to turn a test green, never reword a scenario's line, and never read a
+  `.feature` file.
 - Never print, log or save the bypass secret or the model key.
 - Never print, log, save or show a credential to the model.
 - Never run without `E2E_TELEMETRY_DISABLED=1`.
