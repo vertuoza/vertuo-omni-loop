@@ -128,7 +128,7 @@ status line shows `token ··<last four>` where your laptop shows your sign-in, 
 
 Start a session on the repository in that environment, and work as on your laptop: type the loop's
 commands, in your agent's form ([Any coding agent](/docs/any-agent#set-up-your-agent)), such as
-`/omni:status`, `/omni:brainstorm '<your idea>'` or `/omni:yolo <n>`, and answer the agent's
+`/omni:dashboard`, `/omni:brainstorm '<your idea>'` or `/omni:yolo <n>`, and answer the agent's
 questions there. Ask mode, PRD pages and approvals go through the token.
 
 **When a `/omni:` command is not found.** A cloud session may start without the `omni` plugin's
