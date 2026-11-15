@@ -183,3 +183,15 @@ Source: .omni-loop/delivery/shipped/2873-heroes-every-skill/outbox/settled.md, e
 Enforced by: apps/galaxy/src/runners/runners.github-repositories.test.ts, apps/galaxy/src/runners/runners.ultra.test.ts
 Stated: 2026-11-15
 Decided: @pierrederval — answered A on PR #2876, 2026-11-15
+
+## BR-ACCESS-9
+
+A build of a product-spanning skill sent from a repository that is no product's plan repository is refused and nothing is queued, from the page or an API key. The refusal names the plan repository of every product holding the repository, or says it is none.
+
+Serves: P-ACCESS-6
+Source: .omni-loop/delivery/shipped/2873-heroes-every-skill/outbox/settled.md, entry s1-02-ultra-refusal-words, PRD #2873
+Enforced by: apps/galaxy/src/runners/runners.ultra.test.ts
+Stated: 2026-11-15
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-15, PR #2876
+Proposed: harvest 2026-11-15

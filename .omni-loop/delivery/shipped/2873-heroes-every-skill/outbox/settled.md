@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Became: BR-ACCESS-9, P-ACCESS-6
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant: the words are one function in the service, and its tests.
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off migration choice about leftover rows; a later migration can delete them in one statement, so nothing lasting needs keeping.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ A constant: a later migration could delete those rows in one statement.
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-21
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ A constant: one list in a test.
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off coordination choice between two slices of one wave over a guide sentence; nothing lasting to keep beyond the existing docs test.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ A constant: one sentence of the guide.
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 2
+- Stays here: This is the wording of one hero limit, a copy choice cheap to change, and it adds no lasting product guarantee beyond what the spec already asks.
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ A constant: one sentence in roles.ts and in the migration's list, which a test h
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 2
+- Stays here: A one-off choice about which test file to touch during this slice; it sets no lasting product rule or build decision worth recording.
 
 ### The answer, as it was given
 
@@ -484,6 +490,7 @@ A constant: two test lines, no product code outside the slice's ground.
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 2
+- Stays here: This is a wording choice about exact copy, a matter of look and taste; no role lists a single skill today, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -561,6 +568,7 @@ A constant: one condition in roleLine() and its test.
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 2
+- Became: BR-GAME-3
 
 ### The answer, as it was given
 

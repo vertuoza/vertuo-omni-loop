@@ -44,3 +44,12 @@ Why: Runners end a job on a lasting refusal and retry on an outage; mixing the t
 Source: .omni-loop/delivery/shipped/2433-api-key-github-app/outbox/settled.md, entry s7-02-refresh-refusals-say-stop-or-try-again, PRD #2433
 Merged: @nicojustdev, 2026-10-23, PR #2434
 Proposed: harvest 2026-10-23
+
+## P-ACCESS-6
+
+A refused build tells the person where it can run instead, naming every place it could go, never only one of them.
+
+Why: A refusal that hides the right repository, or names only one of several, leaves the person guessing where to send the build.
+Source: .omni-loop/delivery/shipped/2873-heroes-every-skill/outbox/settled.md, entry s1-02-ultra-refusal-words, PRD #2873
+Merged: @pierrederval, 2026-11-15, PR #2876
+Proposed: harvest 2026-11-15
