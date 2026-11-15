@@ -109,7 +109,10 @@ export function newFleetReducer(state: NewFleetState, action: NewFleetAction): N
       return { ...state, busy: false, refusal: { field: action.field, message: action.message } };
     case 'made':
       return { ...state, busy: false, refusal: null, landing: landingOf(action.fleet) };
-    default:
+    case 'name':
+    case 'mascot':
+    case 'level':
+    case 'toggle':
       return changed(state, action);
   }
 }
