@@ -1,7 +1,9 @@
 // A stuck check shows as delayed (PRD 2688 s6, spec "Failure, never stuck"): the sweep, every 15 minutes, posts a check
 // whose job is due but has not started for over 10 minutes as `queued`, its summary `Delayed: Omni is retrying this
 // check`, on the job's head commit and under that kind's check name. A job due less long is left alone, and a job of
-// any other kind (the knowledge pack's) is never posted for: only the four pull-request checks are on a pull request.
+// any other kind (the knowledge pack's) is never posted for: only the four pull-request checks are on a pull request. The
+// ready check (`pr-ready`, PRD 2898 s7) is not one of them: it posts nothing where its gate is off, so it never shows
+// a delayed run there; a gated pull request shows it from its first run on.
 //
 // It only reads the ledger (the service role's select) and writes one check run per delayed job, which the check's own
 // next run supersedes with a newer one on the same commit. It never touches a comment, an answer or the job. The payload

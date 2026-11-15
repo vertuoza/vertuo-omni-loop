@@ -40,7 +40,7 @@ describe('/api/github', () => {
   it('adds a signed pull request event’s checks as jobs of the ledger (PRD 2688)', async () => {
     const response = await POST(request({ 'x-hub-signature-256': sign(body) }));
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe('sent 0 · 4 jobs');
+    expect(await response.text()).toBe('sent 0 · 5 jobs');
   });
 
   it('adds a loop pull request’s `fleet-board` job to the ledger (PRD 2530, PRD omni-loop-3 s3)', async () => {
@@ -73,7 +73,7 @@ describe('/api/github', () => {
     const { POST: post } = githubRoute(readEnv({ GITHUB_WEBHOOK_SECRET: SECRET }), { jobs, keepAlive: (work) => kept.push(work), pause: () => Promise.resolve() });
     const response = await post(new Request('https://omni-loop.example/api/github', { method: 'POST', body: opened, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(opened) } }));
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe('sent 0 · 5 jobs');
+    expect(await response.text()).toBe('sent 0 · 6 jobs');
     expect(queued).toMatchObject([{ kind: 'fleet-board', key: 'o/r#3', payload: { repository: 'o/r', prNumber: 3, author: 'ada' }, maxTries: 4 }]);
 
     const refusing = { ...jobs, queue: () => Promise.reject(new Error('the database refused: down')) };
