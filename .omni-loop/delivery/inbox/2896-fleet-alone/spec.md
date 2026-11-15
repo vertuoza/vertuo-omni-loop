@@ -83,7 +83,8 @@ mission branch, the commit's title the pull request's.
 - A gate that does not pass keeps the PRD waiting, on what it lacks: a red check goes back to
   `/omni:pr-care`, a Reviewer `changes` after its two rounds or an open item waits on a person (or on
   the committee, section 6). The rest of the mission goes on.
-- A check that did not decide is not a pass (BL-GATE-1): the PRD waits.
+- A check that ends without deciding shows `not judged`, with its reason, never a pass; a check still
+  running or waiting to run shows as not finished. Either way the PRD waits (BL-GATE-1).
 - A PRD is **shipped** only when its commit is on the default branch: its release note, the knowledge
   harvest and the retro clock start there, as today.
 
@@ -143,8 +144,9 @@ mission branch, the commit's title the pull request's.
   the three verdicts, the outcome (`carried` or `escalated`) and, for an answer, the option chosen.
   It is signed by role and `agent`, never in a person's name, and written by the App, never through a
   terminal token (BR-PRODUCT-94).
-  - A carried approval is an approval in force **for that mission only**, covering exactly the files
-    the committee read; a later change to one voids it (BL-APPROVALS-1). The PRD's page reads
+  - A carried approval covers exactly the files the committee read. Any later change to one of them
+    voids it, and the PRD waits for a new approval, from the committee or a person (BL-APPROVALS-1).
+    It lets the PRD join its own mission's branch, and counts for no other mission. The PRD's page reads
     `Approved by fleet <key>`.
   - A carried answer settles the item as `answered by fleet <key>`; the feature pull request leaves
     its draft for the mission branch on it, never for the default branch.
@@ -341,15 +343,16 @@ Following the testing form: the narrowest test that proves the risk, beside the 
   - BR-PRODUCT-28, 29, 39, 59, 63, 64 and N-PRODUCT-16 govern files this PRD edits and are not
     touched by the design.
 - **A rule it changes.** BR-APPROVALS-1 (proposed): "A mission sends a PRD only when its Omni page
-  holds a product approval in force". At `alone`, a committee's carried approval is in force for
-  that mission.
+  holds a product approval in force". At `alone`, a committee's carried approval lets that
+  mission send the PRD; it covers exactly the files the committee read, and a change to one voids it.
 - **The business laws:**
   - BL-APPROVALS-1 — an approval covers exactly the files the approver read: kept, for a fleet's
     approval as for a person's.
   - BL-ASK-1 — a person's answer is never changed or reworded: kept; the fleet answers in its own
     name and a person's overturn is added beside it.
-  - BL-GATE-1 — a check that did not decide never shows a pass: kept; an undecided check or verdict
-    holds the merge gate.
+  - BL-GATE-1 — a check that ends without deciding shows `not judged` with its reason, never a pass,
+    and one still running shows as not finished: kept; the mission branch's merge gate and the
+    committee's record show an undecided check or verdict that way, and it holds the merge.
 
 ## Acceptance criteria
 
