@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../kit/test/fixture.ts';
+import { PrdNumberSchema } from '../kit/lib/ids.ts';
 import { parseCriteria } from '../kit/lib/ready/criteria.ts';
 import { parseAcceptanceReport } from '../kit/lib/ready/report.ts';
 import { buildReport, main, planE2e, prdOfBranch, verdictOf, type Exec, type Io, type ReportInput } from './acceptance-report.ts';
@@ -130,7 +131,7 @@ describe('the report of the head commit', () => {
   const input = (over: Partial<ReportInput>): ReportInput => ({
     root: '/repo',
     dir: 'e2e',
-    prd: 2898,
+    prd: PrdNumberSchema.parse(2898),
     head: HEAD,
     criteria: parsed.criteria,
     vitest: [],

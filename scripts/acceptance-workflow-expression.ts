@@ -51,17 +51,22 @@ function equal(left: unknown, right: unknown): boolean {
   return asNumber(left) === asNumber(right);
 }
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => value !== null && typeof value === 'object';
+
+/** What `*` reaches in a value: an array's elements, an object's values, or nothing. */
+const elements = (value: unknown): unknown[] => (Array.isArray(value) ? value.map((element: unknown) => element) : isRecord(value) ? Object.values(value) : []);
+
 /** The value of a context path; `*` filters an array (or an object's values) down to one property. */
 function lookup(path: string, context: ExpressionContext): unknown {
   let values: unknown[] = [context];
   let filtered = false;
   for (const part of path.split('.')) {
     if (part === '*') {
-      values = values.flatMap((value): unknown[] => (Array.isArray(value) ? (value as unknown[]) : value !== null && typeof value === 'object' ? Object.values(value) : []));
+      values = values.flatMap(elements);
       filtered = true;
       continue;
     }
-    values = values.map((value) => (value !== null && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined));
+    values = values.map((value) => (isRecord(value) ? value[part] : undefined));
   }
   return filtered ? values.filter((value) => value !== undefined) : (values[0] ?? null);
 }

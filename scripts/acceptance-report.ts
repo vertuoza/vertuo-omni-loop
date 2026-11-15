@@ -33,6 +33,7 @@ import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { loadConfig } from '../kit/lib/config.ts';
 import { processEnv, readEnv } from '../kit/lib/env/read.ts';
+import type { PrdNumber } from '../kit/lib/ids.ts';
 import { foldersLayout, parseFolderName, prdFoldersIn } from '../kit/lib/layout.ts';
 import { acNumberOfTitle, parseCriteria, type Criterion, type ParsedCriteria } from '../kit/lib/ready/criteria.ts';
 import { ACCEPTANCE_CHECK_NAME, ACCEPTANCE_REPORT_FORMAT, renderAcceptanceReport, type AcceptanceReport } from '../kit/lib/ready/report.ts';
@@ -55,7 +56,7 @@ const WAITING: Partial<Record<E2eState, string>> = {
 export type Exec = (file: string, args: readonly string[]) => string;
 
 /** The PRD a feature branch is for, and its spec's path, or null when the branch is no PRD's. */
-export function prdOfBranch(root: string, config: Config, branch: string): { prd: number; spec: string } | null {
+export function prdOfBranch(root: string, config: Config, branch: string): { prd: PrdNumber; spec: string } | null {
   const [before = '', after] = config.branches.feature.split('{topic}');
   if (after === undefined || branch.length <= before.length + after.length || !branch.startsWith(before) || !branch.endsWith(after)) return null;
   const topic = branch.slice(before.length, branch.length - after.length);
@@ -122,7 +123,7 @@ function testResults(root: string, numbers: ReadonlySet<number>, vitest: readonl
 }
 
 /** The e2e run's `AC-<n>` tests tagged `prd-<n>`, for the criteria the spec holds. */
-function ranResults(dir: string, prd: number, numbers: ReadonlySet<number>, report: E2eReport | null): Result[] {
+function ranResults(dir: string, prd: PrdNumber, numbers: ReadonlySet<number>, report: E2eReport | null): Result[] {
   return (report?.run.results ?? []).flatMap((result): Result[] => {
     const title = result.titlePath.at(-1) ?? '';
     const ac = acNumberOfTitle(title);
@@ -132,7 +133,7 @@ function ranResults(dir: string, prd: number, numbers: ReadonlySet<number>, repo
 }
 
 /** The `e2e` criteria as they stand: run, waiting on a runner, or not reported at all. */
-function e2eResults(dir: string, prd: number, criteria: readonly Criterion[], state: E2eState | null, report: E2eReport | null): Result[] {
+function e2eResults(dir: string, prd: PrdNumber, criteria: readonly Criterion[], state: E2eState | null, report: E2eReport | null): Result[] {
   const numbers = new Set(criteria.map((criterion) => criterion.number));
   if (state === 'ran') return ranResults(dir, prd, numbers, report);
   const why = state === null ? undefined : WAITING[state];
@@ -146,7 +147,7 @@ function e2eResults(dir: string, prd: number, criteria: readonly Criterion[], st
 export type ReportInput = {
   root: string;
   dir: string;
-  prd: number;
+  prd: PrdNumber;
   head: string;
   criteria: readonly Criterion[];
   vitest: readonly VitestReport[];
