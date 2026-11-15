@@ -76,7 +76,7 @@ export function RoomTab({ view, keep, refresh }: RoomTabProps) {
               <time className="room-time">{row.time}</time>
               <span className="room-by"><Mark role={row.role} color={view.color} />{row.by}</span>
               <span className="room-sentence">{row.sentence}</span>
-              {row.link !== null && <a className="room-link" href={row.link}>{row.prd === null ? 'Open' : `PRD ${String(row.prd)}`}</a>}
+              {row.link !== null && <a className="room-link" href={row.link}>{row.linkLabel}</a>}
               <span className="room-state">{row.state}</span>
             </li>
           ))}

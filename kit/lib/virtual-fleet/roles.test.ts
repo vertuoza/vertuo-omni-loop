@@ -17,10 +17,22 @@ describe('the roles of a Virtual Hero', () => {
       'yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive',
     ]);
     expect(roleOf('qa').skills).toEqual(['prove', 'bug-fix', 'validate-e2e']);
-    expect(roleOf('reviewer').skills).toEqual(['tech-review']);
+    expect(roleOf('reviewer').skills).toEqual(['review', 'tech-review']);
     expect(roleOf('pm').skills).toEqual(['pitch', 'plan', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'mission']);
     expect(roleOf('architect').skills).toEqual(['plan', 'tech-review']);
     expect(roleOf('designer').skills).toEqual(['visual-fix', 'pixel-perfect', 'think-big']);
+  });
+
+  it('gives the Reviewer its six limits, in the spec\'s words and order (PRD 2871)', () => {
+    expect(roleOf('reviewer').limits).toEqual([
+      'It never merges into the default branch.',
+      'It never answers for a person.',
+      'It never approves on GitHub.',
+      'It marks ready on its pass only.',
+      'It raises five findings at most.',
+      'It reviews two rounds at most.',
+    ]);
+    expect(roleOf('reviewer').model).toBe('opus');
   });
 
   it('puts no skill of no role on a hero', () => {
@@ -82,10 +94,12 @@ describe('the count line', () => {
     expect(roleLine('pm').line).toBe('Runs 2 of 7 skills alone');
     expect(roleLine('architect').line).toBe('Runs 1 of 2 skills alone');
     expect(roleLine('designer').line).toBe('Runs 1 of 3 skills alone');
+    // PRD 2871: the Reviewer runs its review alone; its tech-review still needs a person.
+    expect(roleLine('reviewer')).toEqual({ alone: true, line: 'Runs 1 of 2 skills alone' });
   });
 
   it('reads `A person does this today` for a hero none of whose skills runs alone, with no why', () => {
-    expect(roleLine('reviewer')).toEqual({ alone: false, line: PERSON_TODAY });
+    expect(roleLine('reviewer', ['tech-review'])).toEqual({ alone: false, line: PERSON_TODAY });
     expect(PERSON_TODAY).toBe('A person does this today');
     expect(roleLine('engineer', [])).toEqual({ alone: false, line: PERSON_TODAY });
   });
@@ -99,6 +113,7 @@ describe('the count line', () => {
     expect(worksAlone(['tech-review'])).toBe(false);
     expect(worksAlone([])).toBe(false);
     expect(worksAlone(['pitch', 'think-big'])).toBe(true);
-    expect(ROLES.filter((r) => !worksAlone(r.skills)).map((r) => r.role)).toEqual(['reviewer']);
+    expect(worksAlone(['review'])).toBe(true);
+    expect(ROLES.filter((r) => !worksAlone(r.skills)).map((r) => r.role)).toEqual([]);
   });
 });

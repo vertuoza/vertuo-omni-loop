@@ -10,7 +10,9 @@
 -- an account of another workspace and anyone signed out nothing, and nobody signed in writes them. No
 -- player joins a virtual fleet. A fleet made before reads as `crew`. Six roles, the Designer last, each with
 -- every skill of its role; 20270122121000_heroes_every_skill.sql, run again, gives every hero already made its
--- role's skills and leaves the rest of it, and a hero and a mission event accept `designer`. One transaction,
+-- role's skills and leaves the rest of it, and a hero and a mission event accept `designer`. The Reviewer (PRD
+-- 2871) runs `review` alone: 20270122122000_reviewer.sql, run again after heroes_every_skill, gives every Reviewer
+-- `review` then `tech-review`, and its six limits only where its limits are still a default. One transaction,
 -- rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -287,7 +289,7 @@ begin
   -- The owner adds a role the fleet lacks, with its defaults, after the others.
   perform set_config('request.jwt.claims', json_build_object('sub', olga, 'role', 'authenticated')::text, true);
   added := public.add_virtual_hero(v, 'day-shift', 'reviewer');
-  if (added.role, added.name, added.skills, added.agent, added.model, added.position) is distinct from ('reviewer', 'Reviewer', array['tech-review'], 'claude', 'opus', 2::smallint) then
+  if (added.role, added.name, added.skills, added.agent, added.model, added.position) is distinct from ('reviewer', 'Reviewer', array['review', 'tech-review'], 'claude', 'opus', 2::smallint) then
     raise exception 'FAIL: the added hero is %', added;
   end if;
   perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''day-shift'', ''reviewer'')', v), 'role', 'Role:');
@@ -364,6 +366,40 @@ begin
      where (h.name, h.agent, h.model, h.limits, h.position) is distinct from (k.name, k.agent, k.model, k.limits, k.position)
   ) or (select count(*) from public.virtual_heroes h join kept k on k.id = h.id) <> 6 then
     raise exception 'FAIL: the migration changed a hero''s name, agent, model, limits or position';
+  end if;
+end $$;
+
+-- ── The Reviewer runs its review alone (PRD 2871), after heroes_every_skill ──
+-- A Reviewer still on PRD 2873's default limits, beside Night Shift's whose owner changed them.
+insert into public.virtual_heroes (workspace_id, fleet, name, role, skills, agent, model, limits, position)
+select pg_temp.ws('initech'), 'v2', 'Reviewer', 'reviewer', array['tech-review'], 'claude', 'opus',
+       array['It never merges into the default branch.', 'It never answers for a person.', 'It never approves a pull request.'], 1;
+
+\ir ../migrations/20270122122000_reviewer.sql
+
+do $$
+declare
+  six text[] := array['It never merges into the default branch.', 'It never answers for a person.', 'It never approves on GitHub.',
+                      'It marks ready on its pass only.', 'It raises five findings at most.', 'It reviews two rounds at most.'];
+begin
+  if exists (select 1 from public.virtual_heroes h where h.role = 'reviewer' and h.skills <> array['review', 'tech-review']) then
+    raise exception 'FAIL: a Reviewer already made does not list review then tech-review';
+  end if;
+  if (select h.limits from public.virtual_heroes h where h.fleet = 'v2' and h.role = 'reviewer') is distinct from six then
+    raise exception 'FAIL: a Reviewer on a default limit did not take its six limits';
+  end if;
+  if exists (
+    select 1 from public.virtual_heroes h join kept k on k.id = h.id
+     where (h.name, h.agent, h.model, h.limits, h.position) is distinct from (k.name, k.agent, k.model, k.limits, k.position)
+  ) then
+    raise exception 'FAIL: the Reviewer''s migration changed a hero its owner had changed';
+  end if;
+  if exists (
+    select 1 from public.virtual_heroes h
+      join jsonb_array_elements(public.virtual_hero_roles()) as d (value) on d.value ->> 'role' = h.role
+     where h.skills <> array(select jsonb_array_elements_text(d.value -> 'skills'))
+  ) then
+    raise exception 'FAIL: a hero does not list its role''s skills after the Reviewer''s migration';
   end if;
 end $$;
 

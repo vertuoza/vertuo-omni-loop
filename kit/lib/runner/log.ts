@@ -5,7 +5,7 @@
 // lines and 256 KB per report. And how a bug fix ended (PRD 2425): its `Outcome:` word, the pull request
 // it proved had fixed the bug and every pull request it opened.
 
-import { parseIssue } from '../ids.ts';
+import { parseIssue, parsePrd } from '../ids.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
 
 /** The most lines a log tail carries. */
@@ -161,29 +161,43 @@ export function bugFixReading(log: string): BugFixReading {
  * What a yolo job's hand-off ended on (PRD 2223): `answers` for `/omni:yolo-fix <prd>`, `held` for
  * `/omni:yolo <prd>`, `ready` for `/omni:pr-care <prd>`. `stopped` (PRD 2375) is a yolo job that exited
  * 0 with no hand-off line for its PRD: it stopped mid-way. A `/omni:mega-bug-fix` job is `stopped` too
- * when its hand-off ends on the line that resumes its fix ({@link fixOutcome}).
+ * when its hand-off ends on the line that resumes its fix ({@link fixOutcome}). The Reviewer's two (PRD
+ * 2871): `review` for `/omni:review <prd>`, a build or a fix sent `--for-review` that left its PR a draft
+ * for the Reviewer; `changes` for `/omni:yolo-fix <prd> --for-review` (or `/omni:ultra-yolo-fix`), a
+ * Reviewer that raised findings for the Engineer to settle. A Reviewer's pass that marked the PR ready
+ * ends on `/omni:pr-care <prd>`: `ready`.
  */
-export type RunOutcome = 'answers' | 'held' | 'ready' | 'stopped';
+export type RunOutcome = 'answers' | 'held' | 'ready' | 'stopped' | 'review' | 'changes';
 
-/** The skills whose job has a hand-off line to miss (PRD 2375). */
-export type HandOffSkill = 'yolo' | 'yolo-fix';
+/** The skills whose job has a hand-off line to miss (PRD 2375), the Reviewer's included (PRD 2871). */
+export type HandOffSkill = 'yolo' | 'yolo-fix' | 'review';
 
-const OUTCOMES: Readonly<Record<string, RunOutcome>> = { 'yolo-fix': 'answers', yolo: 'held', 'pr-care': 'ready' };
+/** The hand-off's next command, by its skill; and the same command sent `--for-review` (PRD 2871). */
+const OUTCOMES: Readonly<Record<string, RunOutcome>> = { 'yolo-fix': 'answers', yolo: 'held', 'pr-care': 'ready', review: 'review' };
+const FOR_REVIEW_OUTCOMES: Readonly<Record<string, RunOutcome>> = { 'yolo-fix': 'changes', 'ultra-yolo-fix': 'changes' };
+const HAND_OFF = /^\/omni:([a-z-]+) (\d+)( --for-review)?$/;
 const STAMP = /^\d{2}:\d{2}:\d{2} /;
 /** The line claude prints when one of the session's hooks fails, which may come after the hand-off (#2388). */
 const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
+
+/** The PRD a hand-off job's arguments name, `<n>` or `<n> --for-review` (PRD 2871); `null` for any other arguments. */
+export function handOffPrd(args: string): PrdNumber | null {
+  const match = /^([1-9]\d*)(?: --for-review)?$/.exec(args.trim());
+  return match?.[1] === undefined ? null : parsePrd(match[1]);
+}
 
 /**
  * The outcome the run's last non-empty line names for PRD `prd` (the yolo skill's hand-off always ends
  * on its next command), or `null` for any other line, a line naming another PRD, or an empty log. The
  * runner's `hh:mm:ss ` stamp, when the line has one, is ignored, and so is a failed hook's line after it.
- * For a job of `skill` (`yolo` or `yolo-fix`, PRD 2375) a last line that is no hand-off for `prd` is
- * `stopped` instead of `null`, or `held` when the session's last answer says so on a line of its own
- * (#2581): a PRD still waiting for approval, or a read the loop cannot make.
+ * For a job of `skill` (`yolo`, `yolo-fix` or `review`, PRDs 2375 and 2871) a last line that is no
+ * hand-off for `prd` is `stopped` instead of `null`, or `held` when the session's last answer says so on
+ * a line of its own (#2581): a PRD still waiting for approval, or a read the loop cannot make.
  */
 export function runOutcome(log: string, prd: PrdNumber, skill?: HandOffSkill): RunOutcome | null {
-  const match = /^\/omni:([a-z-]+) (\d+)$/.exec(lastLine(log));
-  const outcome = match?.[1] !== undefined && Object.hasOwn(OUTCOMES, match[1]) ? OUTCOMES[match[1]] : undefined;
+  const match = HAND_OFF.exec(lastLine(log));
+  const table = match?.[3] === undefined ? OUTCOMES : FOR_REVIEW_OUTCOMES;
+  const outcome = match?.[1] !== undefined && Object.hasOwn(table, match[1]) ? table[match[1]] : undefined;
   if (outcome !== undefined && match?.[2] === String(prd)) return outcome;
   if (skill === undefined) return null;
   return lastAnswer(log).some((line) => HELD_LINE.test(line)) ? 'held' : 'stopped';

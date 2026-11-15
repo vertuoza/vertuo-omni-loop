@@ -53,6 +53,12 @@ describe('rowOf', () => {
     expect(rowOf(hero('pm', ['brainstorm', 'pitch', 'roadmap', 'plan'])).skills.map((s) => s.mark)).toEqual(['alone', 'alone', 'person', 'person']);
   });
 
+  it('writes a Reviewer with its review as an agent that runs it alone, its tech-review a person\'s (PRD 2871)', () => {
+    const row = rowOf(hero('reviewer', [...roleOf('reviewer').skills]));
+    expect(row).toMatchObject({ heading: 'Reviewer · agent', alone: true, line: 'Runs 1 of 2 skills alone' });
+    expect(row.skills.map((s) => `${s.name} ${s.words}`)).toEqual(['/omni:review runs alone', '/omni:tech-review needs a person']);
+  });
+
   it('writes a hero none of whose skills runs alone as `A person does this today`, with no why', () => {
     const row = rowOf(hero('reviewer', ['tech-review']));
     expect(row).toMatchObject({ heading: 'Reviewer · agent', alone: false, line: WORDS.person, skills: [{ name: '/omni:tech-review', mark: 'person', words: 'needs a person' }] });

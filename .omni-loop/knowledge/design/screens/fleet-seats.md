@@ -23,7 +23,8 @@ Heroes.)
   or `needs a person`, the ones that run alone first, its preferred agent and model (recorded: the
   runner's accounts still decide), and its limits in sentences.
 - **The count line:** `Runs <k> of <n> skills alone`, or `A person does this today` when none of its
-  skills runs alone (the Reviewer, PRD 2873).
+  skills runs alone. The Reviewer runs `/omni:review` alone since PRD 2871 (`Runs 1 of 2 skills
+  alone`); its `/omni:tech-review` needs a person.
 - **Six roles:** Engineer, QA, Reviewer, PM, Architect and Designer.
 - **Remove,** on each row, for an owner of the workspace; a fleet's last hero cannot be removed.
 - **The primary action:** `Add a hero`, for an owner, listing the roles the fleet lacks.
@@ -57,4 +58,5 @@ Heroes.)
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
+/omni:brainstorm, PRD 2871: .omni-loop/delivery/shipped/2871-reviewer/before-after.html
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html

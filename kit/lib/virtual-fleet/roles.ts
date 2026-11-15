@@ -1,5 +1,5 @@
 /**
- * **The six roles of a Virtual Hero** (PRD 2842, slice s1; PRD 2873, slice s3).
+ * **The six roles of a Virtual Hero** (PRD 2842, slice s1; PRD 2873, slice s3; PRD 2871, the Reviewer's review).
  *
  * A Virtual Fleet is a fleet whose members are Virtual Heroes: agents, one per role, never players. A
  * hero is a role with its skills. This module is the one list of the roles, in the order the New
@@ -9,7 +9,8 @@
  *
  * `supabase/migrations/20270122121000_heroes_every_skill.sql` keeps the same defaults in
  * `virtual_hero_roles()`, which `create_virtual_fleet()` and `add_virtual_hero()` copy onto each hero
- * they make; the arcade's `virtual-fleets/roles-sql.test.ts` fails when the two differ.
+ * they make, and `20270122122000_reviewer.sql` gives the Reviewer its `review` skill and limits (PRD 2871);
+ * the arcade's `virtual-fleets/roles-sql.test.ts` fails when the two differ.
  *
  * **Runs alone** is read from the runner's own list ({@link RUNNABLE_SKILLS}), never a list of its own:
  * a skill runners take reads `alone`, any other `person`, so a skill a later PRD lets runners take
@@ -53,8 +54,10 @@ export const ROLES: readonly RoleDefaults[] = [
     agent: 'claude', model: 'sonnet', limits: [...EVERY_HERO, 'It reports what it saw; a person decides.'],
   },
   {
-    role: 'reviewer', name: 'Reviewer', skills: ['tech-review'],
-    agent: 'claude', model: 'opus', limits: [...EVERY_HERO, 'It never approves a pull request.'],
+    role: 'reviewer', name: 'Reviewer', skills: ['review', 'tech-review'],
+    agent: 'claude', model: 'opus', limits: [
+      ...EVERY_HERO, 'It never approves on GitHub.', 'It marks ready on its pass only.', 'It raises five findings at most.', 'It reviews two rounds at most.',
+    ],
   },
   {
     role: 'pm', name: 'PM', skills: ['pitch', 'plan', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'mission'],

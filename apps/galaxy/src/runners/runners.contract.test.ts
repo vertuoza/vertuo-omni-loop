@@ -535,7 +535,7 @@ describe('the kit\'s answers', () => {
 // report never says it, so a job cannot read Need human with nothing to answer.
 describe('the outcome human (PRD 2255)', () => {
   it('is one of the outcomes a job reads', () => {
-    expect([...JOB_OUTCOMES]).toEqual(['answers', 'held', 'ready', 'human', 'stopped']);
+    expect([...JOB_OUTCOMES]).toEqual(['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes']);
     const job = { id: '00000000-0000-4000-8000-000001830201', line: '/omni:bug-fix 314', repo: 'acme/widgets', toRunner: null, toFleet: null, sentBy: '00000000-0000-4000-8000-0000018300b1', sentByLogin: 'mo', sentByKey: null, status: 'done', runner: null, cancelRequested: false, logTail: '', prUrl: null, exitCode: 0, reason: null, outcome: 'human', queuedAt: 't', claimedAt: null, runningAt: null, endedAt: 't' };
     expect(JobReplySchema.parse({ job }).job.outcome).toBe('human');
   });
@@ -707,5 +707,22 @@ describe('the parts a report carries', () => {
 
   it('refuses a job report whose parts are null', () => {
     expect(JobUpdateSchema.safeParse({ status: 'running', parts: null }).success).toBe(false);
+  });
+});
+
+// The Reviewer (PRD 2871): a mission sends `/omni:review <n>` as its own job, and a build, a fix or the review reports
+// its two hand-offs, `review` (the PR waits for the Reviewer) and `changes` (the Reviewer raised findings).
+describe('the Reviewer\'s job and its two endings (PRD 2871)', () => {
+  const ended = { id: '00000000-0000-4000-8000-000001830201', line: '/omni:review 2871', repo: 'acme/widgets', status: 'done', runner: null, prUrl: null, exitCode: 0, reason: null, queuedAt: 't', claimedAt: null, runningAt: null, endedAt: 't' };
+
+  it('lets /omni:review <n> through, and reads its PRD', () => {
+    expect(checkLine('/omni:review 2871')).toEqual({ ok: true, kind: 'omni', skill: 'review', args: '2871' });
+    expect(linePrd('/omni:review 2871')).toBe(2871);
+    expect(checkLine('/review 2871', ['review'])).toEqual({ ok: false, reason: '/review is the loop\'s own skill: send /omni:review.' });
+  });
+
+  it.each(['review', 'changes'])('takes a report ending %s, and reads it on a PRD\'s job', (outcome) => {
+    expect(JobUpdateSchema.parse({ status: 'done', exitCode: 0, outcome })).toEqual({ status: 'done', exitCode: 0, outcome });
+    expect(PrdJobsSchema.parse({ jobs: [{ ...ended, outcome }] }).jobs[0]?.outcome).toBe(outcome);
   });
 });

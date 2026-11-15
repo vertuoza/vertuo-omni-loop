@@ -35,10 +35,11 @@ import { CheckpointManifestSchema } from 'omni-loop/kit/lib/runner/checkpoint.ma
 import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. The ultra skills (PRD 2873)
- * are sent from a product's plan repository only, which the service checks once it knows the repository. */
+ * are sent from a product's plan repository only, which the service checks once it knows the repository. `review` is the Reviewer's
+ * (PRD 2871). */
 export const RUNNER_SKILLS = [
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review',
 ] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
@@ -280,9 +281,10 @@ export const JobPartSchema = z.object({
 export type JobPart = z.infer<typeof JobPartSchema>;
 
 /** What a done job ended on: a yolo hand-off (PRD 2223), the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held)
- * or `/omni:pr-care` (ready); `human` (PRD 2255), the run ended with the questions it asked a person still open; or `stopped` (PRD 2375), a
- * `/omni:yolo` or `/omni:yolo-fix` run that exited with no hand-off line, so it is not done. */
-export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped'] as const;
+ * or `/omni:pr-care` (ready); `human` (PRD 2255), the run ended with the questions it asked a person still open; `stopped` (PRD 2375), a
+ * `/omni:yolo` or `/omni:yolo-fix` run that exited with no hand-off line, so it is not done; or the Reviewer's two (PRD 2871), `review`, the
+ * run left its PR a draft for the Reviewer (`/omni:review`), and `changes`, the Reviewer raised findings (`/omni:yolo-fix --for-review`). */
+export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes'] as const;
 
 /** What `runner_jobs.outcome` holds (PRD 2425): the words above and a bug fix's own, `need-human` excepted, which is
  * stored as the `human` the server already sets for questions left open. The page and the terminal read only the
@@ -290,9 +292,10 @@ export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped'] as 
 export const STORED_OUTCOMES = [...JOB_OUTCOMES, 'pr-opened', 'already-fixed', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked'] as const satisfies readonly (Exclude<BugFixOutcome, 'need-human'> | (typeof JOB_OUTCOMES)[number])[];
 export type StoredOutcome = (typeof STORED_OUTCOMES)[number];
 
-/** What a runner's report may say: the yolo words, and the seven a bug fix's hand-off ends on (PRD 2425, `BUG_FIX_OUTCOMES`).
- * The server alone sets `human`, from the questions a job stored: a bug fix's `need-human` is stored as `human`. */
-const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped', ...BUG_FIX_OUTCOMES] as const;
+/** What a runner's report may say: the yolo words, the Reviewer's two (PRD 2871), and the seven a bug fix's hand-off ends on
+ * (PRD 2425, `BUG_FIX_OUTCOMES`). The server alone sets `human`, from the questions a job stored: a bug fix's `need-human` is
+ * stored as `human`. */
+const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped', 'review', 'changes', ...BUG_FIX_OUTCOMES] as const;
 
 /** The most claims a job's report says its runner released, and the longest reason a release failed (PRD 2175). */
 const RELEASED_MAX = 50;

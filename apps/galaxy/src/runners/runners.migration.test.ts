@@ -158,7 +158,7 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 
   it('allows the words the contract lets a report carry', () => {
-    expect(read('apps/galaxy/src/runners/runners.contract.ts')).toContain("const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped', ...BUG_FIX_OUTCOMES] as const;");
+    expect(read('apps/galaxy/src/runners/runners.contract.ts')).toContain("const REPORTED_OUTCOMES = ['answers', 'held', 'ready', 'stopped', 'review', 'changes', ...BUG_FIX_OUTCOMES] as const;");
   });
 
   it('is named in the database\'s types', () => {
@@ -167,13 +167,23 @@ describe('the runner outcome migration (PRD 2223)', () => {
   });
 });
 
+/** The words a migration's runner_jobs_outcome_check allows, sorted. */
+const outcomeCheck = (code: string) => /check \(outcome in \(([^)]*)\)\)/.exec(code)?.[1]?.split(',').map((word) => word.trim().replaceAll("'", '')).sort();
+
+// PRD 2871: the Reviewer's migration, the newest to set the check, lets the column hold every word the server stores.
+describe('the Reviewer migration\'s outcome check (PRD 2871)', () => {
+  it('lets the outcome column hold each word the server stores, and no other', () => {
+    const reviewer = read('supabase/migrations/20270122122000_reviewer.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+    expect(outcomeCheck(reviewer)).toEqual([...STORED_OUTCOMES].sort());
+  });
+});
+
 const KEY_CONTROL = read('supabase/migrations/20261229090000_api_key_job_control.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 
 // PRD 2425: what the server stores of a bug fix's report is what the migration's columns and check hold.
 describe('the API key job control migration (PRD 2425)', () => {
-  it('lets the outcome column hold each word the server stores, and no other', () => {
-    const allowed = /check \(outcome in \(([^)]*)\)\)/.exec(KEY_CONTROL)?.[1]?.split(',').map((word) => word.trim().replaceAll("'", '')).sort();
-    expect(allowed).toEqual([...STORED_OUTCOMES].sort());
+  it('lets the outcome column hold each word the server stored then, the Reviewer\'s two (PRD 2871) excepted, and no other', () => {
+    expect(outcomeCheck(KEY_CONTROL)).toEqual(STORED_OUTCOMES.filter((word) => word !== 'review' && word !== 'changes').sort());
   });
 
   it('adds the columns the server stores and a key reads, and keeps what the contract lets a report carry in them: 50 pull requests, a link', () => {

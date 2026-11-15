@@ -28,14 +28,16 @@ const fixedOf = (fn: string): string[] =>
   (/fixed text\[\] := array\[([^\]]*)\]/.exec(fn)?.[1] ?? '').split(',').map((name) => name.trim().replace(/^'|'$/g, '')).filter((name) => name !== '');
 
 describe('the runners\' fixed skills, as the database holds them', () => {
-  it('are defined last by the runner ultra skills migration', () => {
-    expect(NEWEST).toBe('20270122120000_runner_ultra_skills.sql');
+  it('are defined by the runner ultra skills migration, then last by the Reviewer\'s (PRD 2871), which adds review', () => {
+    expect(defining).toContain('20270122120000_runner_ultra_skills.sql');
+    expect(NEWEST).toBe('20270122122000_reviewer.sql');
+    expect(fixedOf(body(NEWEST))).toEqual([...fixedOf(body('20270122120000_runner_ultra_skills.sql')), 'review']);
   });
 
   it('equal the app\'s list, the four the database lacked and the three ultra skills among them', () => {
     const fixed = fixedOf(body(NEWEST));
     expect(fixed).toEqual([...RUNNER_SKILLS]);
-    for (const skill of ['retro-apply', 'rewind', 'knowledge-add', 'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']) expect(fixed, skill).toContain(skill);
+    for (const skill of ['retro-apply', 'rewind', 'knowledge-add', 'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review']) expect(fixed, skill).toContain(skill);
   });
 
   it('change nothing else of the function: the same signature, rules and words as the migration that made it', () => {

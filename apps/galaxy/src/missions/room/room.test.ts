@@ -19,7 +19,8 @@ const hero = (role: HeroLine['role'], skills: string[]): HeroLine => ({ id: `${r
 const event = (over: Partial<EventRow>): EventRow => ({
   id: crypto.randomUUID(), mission: M1, at: '2026-11-14T09:12:00Z', role: 'engineer', actor: 'agent', kind: 'dispatched', prd: parsePrd(2803), job: JOB, link: null, sentence: 'Sent PRD 2803.', ...over,
 });
-const HEROES = [hero('engineer', [...roleOf('engineer').skills]), hero('reviewer', [...roleOf('reviewer').skills])];
+// A PM whose skills need a person (since PRD 2871 the Reviewer's review runs alone): the seat a person still holds.
+const HEROES = [hero('engineer', [...roleOf('engineer').skills]), hero('pm', ['brainstorm', 'roadmap'])];
 
 describe('nowLines', () => {
   it('reads what a working hero does, Idle when it is not, and that a person does what no agent can', () => {
@@ -62,6 +63,27 @@ describe('the ledger', () => {
 
   it('keeps the rest of the address when a filter changes', () => {
     expect(roomHref('/app/fleet', { fleet: 'a', role: 'qa' }, { role: null })).toBe('/app/fleet?fleet=a');
+  });
+});
+
+describe('the Reviewer rows (PRD 2871)', () => {
+  const asked = event({ role: 'reviewer', kind: 'reviewed', at: '2026-11-14T06:40:00Z', link: 'https://github.com/o/r/pull/2817#pullrequestreview-1', sentence: 'Changes asked: 2 findings, round 1/2.' });
+  const passed = event({ role: 'reviewer', kind: 'reviewed', at: '2026-11-14T07:40:00Z', link: 'https://github.com/o/r/pull/2817#pullrequestreview-2', sentence: 'Passed, round 2 of 2: marked ready.' });
+
+  it('signs each verdict Reviewer · agent with its state word and a link to the review', () => {
+    const rows = ledgerOf([asked, passed, event({})], { role: null, mission: null });
+    expect(rows.map((r) => [r.by, r.state, r.linkLabel])).toEqual([['Engineer · agent', 'Sent', 'PRD 2803'], ['Reviewer · agent', 'Passed', 'Review'], ['Reviewer · agent', 'Changes', 'Review']]);
+  });
+
+  it('shows only those rows to the Reviewer filter, and draws the link and the word', () => {
+    const ledger = ledgerOf([asked, event({})], filterOf({ role: 'reviewer' }, [M1]));
+    expect(ledger).toHaveLength(1);
+    const view: RoomView = { fleet: 'night', color: null, now: [], cleanUp: 'Nothing to clean up', missions: [], ledger, filter: { role: 'reviewer', mission: null }, empty: false };
+    const out = renderToStaticMarkup(createElement(RoomTab, { view, keep: {} }));
+    expect(out).toContain('Reviewer · agent');
+    expect(out).toContain('Changes asked: 2 findings, round 1/2.');
+    expect(out).toContain('href="https://github.com/o/r/pull/2817#pullrequestreview-1">Review</a>');
+    expect(out).toContain('>Changes</span>');
   });
 });
 
