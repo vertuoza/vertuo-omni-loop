@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { splitGenerated, type GeneratedEntry } from 'omni-loop/kit/lib/generated/stale.ts';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { refuseDefault } from '../git-write/git-write.ts';
+import { missionRepo } from './branch.ts';
 import { messageOf, RefSchema, ShaSchema, statusOf, type GitHubClient } from '../outbox-check/github-schema.ts';
 import { readBaseConfig } from '../outbox-check/github.ts';
 
@@ -57,7 +57,6 @@ type Where = { owner: string; repo: string };
 /** The most commits a mission branch replays: one per PRD, so a scope of PRDs, far below GitHub's 250 a compare lists. */
 const MAX_COMMITS = 100;
 
-const RepoSchema = z.looseObject({ default_branch: z.string() });
 const CompareSchema = z.looseObject({
   merge_base_commit: z.looseObject({ sha: z.string() }),
   ahead_by: z.number(),
@@ -238,10 +237,7 @@ export function missionKeepUps({
 }): MissionKeepUps {
   return {
     async keepUp({ installation, repo: slug, branch, features }) {
-      const [owner = '', repo = ''] = slug.split('/');
-      const octokit = await octokitFor(installation);
-      const defaultBranch = RepoSchema.parse((await octokit.request('GET /repos/{owner}/{repo}', { owner, repo })).data).default_branch;
-      refuseDefault(branch, defaultBranch);
+      const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, { installation, repo: slug, branch });
       const on = onRepo(octokit, { owner, repo }, `${branch}--keep-up`);
       try {
         const tip = await on.head(defaultBranch);

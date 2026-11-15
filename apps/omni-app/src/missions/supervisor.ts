@@ -53,8 +53,11 @@ export type Mission = { id: string; fleet: string; status: MissionStatus; parall
 export type Approval = 'standing' | 'none' | 'voided';
 export type Stage = 'merged' | 'ready' | 'open';
 
-/** One PRD of the scope, as a run read it. `territory` is null when it has no plan to read: it runs alone. */
-export type PrdFacts = { prd: PrdNumber; approval: Approval; stage: Stage; blockers: PrdNumber[]; territory: string[] | null };
+/**
+ * One PRD of the scope, as a run read it. `territory` is null when it has no plan to read: it runs alone. `page` is its page's
+ * id on the Omni page (its `dossiers` row), which the mission pull request links (PRD 2896 s6); null or absent when it has none.
+ */
+export type PrdFacts = { prd: PrdNumber; approval: Approval; stage: Stage; blockers: PrdNumber[]; territory: string[] | null; page?: string | null };
 
 /** What a Reviewer job's log says it posted (PRD 2871): how many findings, when it says, and its review's link. */
 export type Posted = { findings: number | null; url: string | null };
@@ -372,15 +375,44 @@ function gate(fact: PrdFacts, run: number, step: Step, merged: ReadonlySet<PrdNu
 /** Whether a PRD waits for its merge, to be judged by the merge gate of a mission branch. */
 export const waitsForMerge = (state: PrdState | undefined): boolean => state?.state === 'waits' && state.on === 'merge';
 
-/** The PRDs on the mission branch, from the mission's events in the order they happened: joined, until dropped or landed. */
+/**
+ * The PRDs on the mission branch, from the mission's events in the order they happened: joined, until dropped or landed. A
+ * landing is recorded as the PRD's `prd-merged` (PRD 2896 s6): its commit is on the default branch.
+ */
 export function onBranchOf(events: readonly RecordedEvent[]): Set<PrdNumber> {
   const on = new Set<PrdNumber>();
   for (const { kind, prd } of events) {
     if (prd === null) continue;
     if (kind === 'prd-joined') on.add(prd);
-    else if (kind === 'prd-dropped' || kind === 'landed') on.delete(prd);
+    else if (kind === 'prd-dropped' || kind === 'landed' || kind === 'prd-merged') on.delete(prd);
   }
   return on;
+}
+
+/** The PRDs the mission recorded merged into the default branch: by its stage, or by a landing of the mission pull request (PRD 2896 s6). */
+export const landedOf = (events: readonly RecordedEvent[]): Set<PrdNumber> =>
+  new Set(events.flatMap(({ kind, prd }) => (kind === 'prd-merged' && prd !== null ? [prd] : [])));
+
+/**
+ * `facts`, each PRD in `landed` read as merged (PRD 2896 s6): its commit is on the default branch, so it is shipped from the
+ * moment the mission pull request landed it, before its stage is synced, and never before.
+ */
+export const withLanded = (facts: readonly PrdFacts[], landed: ReadonlySet<PrdNumber>): PrdFacts[] =>
+  facts.map((fact) => (landed.has(fact.prd) && fact.stage !== 'merged' ? { ...fact, stage: 'merged' } : fact));
+
+/** A PRD a landing put on the default branch (PRD 2896 s6): the mission pull request that carried it, and its link. */
+export type Landed = { prd: PrdNumber; pr: PrNumber; url: string };
+
+/** The Reviewer's pass that let a PRD join (PRD 2871): its round and its review's link, from the latest Reviewer job that passed it; null when none did. */
+export function passOf(runs: readonly Run[], prd: PrdNumber): { round: number; url: string | null } | null {
+  let best: { round: number; run: number; url: string | null } | null = null;
+  for (const one of runs) {
+    const round = roundOf(one.step);
+    const last = lastOf(one);
+    if (one.prd !== prd || round === null || last === undefined || endOf(last) !== 'ready') continue;
+    if (best === null || one.run > best.run || (one.run === best.run && round > best.round)) best = { round, run: one.run, url: reviewUrl(last.posted?.url ?? undefined) };
+  }
+  return best === null ? null : { round: best.round, url: best.url };
 }
 
 /** The feature pull request of a PRD: the one its latest job to name one links (a Reviewer's review links it too); null when none does. */
@@ -666,6 +698,20 @@ const joinEvents = (joins: readonly Joined[], branch: string | null): NewEvent[]
     sentence: `PRD ${String(prd)} joined ${branch ?? 'the mission branch'}: #${String(pr)} squash-merged.`,
   }));
 
+/**
+ * What each PRD a landing put on the default branch says (PRD 2896 s6), once: its `prd-merged`, linking the mission pull request
+ * that carried it, recorded by the run that read the landing. Its key is the merge's, so the stage synced later records nothing again.
+ */
+const landEvents = (landings: readonly Landed[]): NewEvent[] =>
+  landings.map(({ prd, pr, url }) => ({
+    kind: 'prd-merged',
+    role: 'supervisor',
+    prd,
+    job: null,
+    link: linkOf(url),
+    sentence: `PRD ${String(prd)} landed on the default branch with #${String(pr)}: shipped.`,
+  }));
+
 /** What the mission's own change says: delivered, stopped, or a new wait on a person. */
 function missionEvents(mission: Mission, next: Concluded): NewEvent[] {
   const said = (kind: EventKind, sentence: string): NewEvent => ({ kind, role: 'supervisor', prd: null, job: null, link: null, sentence });
@@ -692,6 +738,7 @@ export function eventsOf({
   skill = 'yolo',
   recorded,
   joins = [],
+  landings = [],
 }: {
   mission: Mission;
   facts: readonly PrdFacts[];
@@ -703,11 +750,13 @@ export function eventsOf({
   recorded: ReadonlySet<string>;
   /** The PRDs this run joined to the mission branch (PRD 2896). */
   joins?: readonly Joined[];
+  /** The PRDs this run read landed on the default branch by the mission pull request (PRD 2896 s6). */
+  landings?: readonly Landed[];
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
   const base = baseOf(mission, skill === 'ultra-yolo');
-  const all = [...runEvents(runs, where, skill, base), ...joinEvents(joins, base), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [...runEvents(runs, where, skill, base), ...joinEvents(joins, base), ...landEvents(landings), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf(event);
     if (own.some((key) => keys.has(key))) return [];

@@ -74,9 +74,10 @@ describe('missionStore — the mission as the service role, never calling Supaba
       [],
     ]);
     expect(await storeOn(db.fetch).facts(mission)).toEqual([
-      { prd: 7, approval: 'standing', stage: 'open', blockers: [], territory: ['apps/a/'] },
-      { prd: 8, approval: 'voided', stage: 'ready', blockers: [], territory: null },
-      { prd: 9, approval: 'none', stage: 'merged', blockers: [8], territory: null },
+      // Each PRD's page, which the mission pull request links (PRD 2896 s6): none for a PRD with no dossier.
+      { prd: 7, approval: 'standing', stage: 'open', blockers: [], territory: ['apps/a/'], page: 'd-7' },
+      { prd: 8, approval: 'voided', stage: 'ready', blockers: [], territory: null, page: 'd-8' },
+      { prd: 9, approval: 'none', stage: 'merged', blockers: [8], territory: null, page: null },
     ]);
     const [roadmaps, , stages, pages, approvals, voids, plan] = db.requests;
     expect([roadmaps?.path, roadmaps?.query.get('workspace_id'), roadmaps?.query.get('repo'), roadmaps?.query.get('number')]).toEqual(['/rest/v1/roadmaps', 'eq.ws-1', 'eq.acme/widgets', 'in.(40)']);

@@ -8,7 +8,7 @@
 //
 // Throws when GitHub refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
-import { branchHead } from '../git-write/git-write.ts';
+import { branchHead, refuseDefault } from '../git-write/git-write.ts';
 import { RefSchema, statusOf, type GitHubClient } from '../outbox-check/github-schema.ts';
 
 /** What the supervisor asks of GitHub: the branch ready, or why it cannot be. */
@@ -42,6 +42,24 @@ export function missionBranches({ octokitFor }: { octokitFor: (installation: num
       return { ok: true, cut: !existed };
     },
   };
+}
+
+/** `GET /repos/{owner}/{repo}`: its default branch. */
+const DefaultBranchSchema = z.looseObject({ default_branch: z.string() });
+
+/**
+ * The repository of a mission branch, as the App's installation: its client, owner, name and default branch, once `branch` is
+ * shown not to be the default branch, which the App never writes (N-PRODUCT-15). Throws before anything else is asked otherwise.
+ */
+export async function missionRepo(
+  octokitFor: (installation: number) => Promise<GitHubClient> | GitHubClient,
+  { installation, repo: slug, branch }: { installation: number; repo: string; branch: string },
+): Promise<{ octokit: GitHubClient; owner: string; repo: string; defaultBranch: string }> {
+  const [owner = '', repo = ''] = slug.split('/');
+  const octokit = await octokitFor(installation);
+  const defaultBranch = DefaultBranchSchema.parse((await octokit.request('GET /repos/{owner}/{repo}', { owner, repo })).data).default_branch;
+  refuseDefault(branch, defaultBranch);
+  return { octokit, owner, repo, defaultBranch };
 }
 
 /** Whether `branch` exists already (a 404 says it does not). */
