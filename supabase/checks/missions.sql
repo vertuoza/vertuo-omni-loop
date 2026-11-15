@@ -13,7 +13,8 @@
 -- general dossier push takes no mission. The Reviewer (PRD 2871): an event may be `reviewed`, a job may end
 -- `review` or `changes`, under a key of a review round (1 or 2, never 3) or of the fix after round 1; a
 -- member reads them and writes none. A PRD joining its mission's branch (PRD 2896 s4): an event may be `prd-joined`, written by
--- the service role, signed `supervisor` and `agent`, linking the pull request; a member reads it and writes none. One
+-- the service role, signed `supervisor` and `agent`, linking the pull request; a member reads it and writes none. A drop (PRD 2896 s7): an event may be `drop-asked`,
+-- `drop-asked-keep` or `prd-dropped`, read by a member who writes none. One
 -- transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -271,6 +272,12 @@ begin
   -- A PRD joined the mission branch (PRD 2896 s4), linking its feature pull request.
   insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
     (mission, 'supervisor', 'agent', 'prd-joined', 2803, 'https://github.com/initech/nimbus-plan/pull/2817', 'PRD 2803 joined mission/2850-paid-online: #2817 squash-merged.');
+  -- A member asked for it to be dropped, then the App dropped it (PRD 2896 s7).
+  insert into public.mission_events (mission_id, role, actor, kind, prd, sentence) values
+    (mission, 'supervisor', '00000000ada', 'drop-asked', 2803, 'ada asked to drop PRD 2803 from mission/2850-paid-online.'),
+    (mission, 'supervisor', '00000000ada', 'drop-asked-keep', 2803, 'ada asked to drop only PRD 2803 from mission/2850-paid-online.');
+  insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
+    (mission, 'supervisor', 'agent', 'prd-dropped', 2803, 'https://github.com/initech/nimbus-plan/pull/2818', 'PRD 2803 was dropped from mission/2850-paid-online: its commit is off the branch, #2818 reopened.');
   begin
     update public.mission_events set sentence = 'Rewritten.' where mission_id = mission;
     raise exception 'FAIL: the service role updated a mission event';
@@ -281,7 +288,7 @@ begin
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'agent', 'merged', 'x');
-    raise exception 'FAIL: an event took a kind that is none of the thirteen';
+    raise exception 'FAIL: an event took a kind that is none of the sixteen';
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'Ada Lovelace', 'started', 'x');
@@ -363,12 +370,16 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000028b1');
 do $$
 begin
-  if (select count(*) from public.mission_events) <> 4 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
+  if (select count(*) from public.mission_events) <> 7 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
   if not exists (select 1 from public.mission_events where kind = 'prd-joined' and role = 'supervisor' and actor = 'agent' and prd = 2803) then
     raise exception 'FAIL: a member does not read a PRD''s join of the mission branch';
   end if;
   if not exists (select 1 from public.mission_events where kind = 'reviewed' and role = 'reviewer' and actor = 'agent') then
     raise exception 'FAIL: a member does not read the Reviewer''s verdict';
+  end if;
+  if not exists (select 1 from public.mission_events where kind = 'prd-dropped' and role = 'supervisor' and actor = 'agent' and prd = 2803)
+     or (select count(*) from public.mission_events where kind in ('drop-asked', 'drop-asked-keep')) <> 2 then
+    raise exception 'FAIL: a member does not read a PRD''s drop from the mission branch';
   end if;
   if (select count(*) from public.runner_jobs where mission_id is not null) <> 5 then raise exception 'FAIL: a member does not read the mission''s jobs'; end if;
   if (select count(*) from public.runner_jobs where outcome in ('review', 'changes')) <> 2 then

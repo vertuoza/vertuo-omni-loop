@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
-import { LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
+import { DropBodySchema, DroppedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
 import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
@@ -16,6 +16,8 @@ import type { Caller, MissionsReader, MissionsService } from './missions.service
 export type MissionsDeps = {
   /** The signed-in person and what they may read, or null when nobody is signed in; null itself with no database. */
   session: (() => Promise<{ caller: Caller; reader: MissionsReader } | null>) | null;
+  /** The person behind an `Authorization: Bearer` header (the terminal's sign-in) and what they may read, or null when the token is none; null itself with no database. */
+  bearer?: ((authorization: string | null) => Promise<{ caller: Caller; reader: MissionsReader } | null>) | null;
   /** The rules over the service role, or null when this deployment has none. */
   service: MissionsService | null;
   log: (line: string) => void;
@@ -61,7 +63,23 @@ export async function moveMission(action: MissionAction, id: string, deps: Missi
   }
 }
 
-const BAD_LEVEL = 'A mission\'s level is with-you, own-branch or alone.';
+const BAD_DROP = 'A drop names the repository as owner/name, the mission\'s number and the PRD\'s.';
+
+/** POST /api/missions/drop: a member, signed in at the terminal, asks for a PRD to leave its mission's branch (PRD 2896 s7). */
+export async function dropMission(request: Request, deps: MissionsDeps): Promise<Response> {
+  try {
+    if (!deps.bearer || !deps.service) return refuse('unavailable', NO_DATABASE);
+    const person = await deps.bearer(request.headers.get('authorization'));
+    if (!person) return refuse('signed-out', SIGNED_OUT);
+    const body = DropBodySchema.safeParse(await request.json().catch(() => null));
+    if (!body.success) return refuse('malformed', BAD_DROP);
+    return answer(await deps.service.drop(body.data, person.caller, person.reader), (value) => DroppedMissionSchema.parse(value), deps);
+  } catch (error) {
+    return failed(error, deps);
+  }
+}
+
+const BAD_LEVEL ='A mission\'s level is with-you, own-branch or alone.';
 
 /** POST /api/missions/<id>/level: a member changes the level their workspace's mission runs at; the database decides who raises it. */
 export async function levelMission(id: string, request: Request, deps: MissionsDeps): Promise<Response> {

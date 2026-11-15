@@ -128,9 +128,44 @@ describe('omni mission push', () => {
     const none = await mission(['push', '2851'], { root, fetch });
     expect(none).toMatchObject({ code: 2, out: '' });
     expect(none.err).toContain('mission 2851 has no folder under .omni-loop/delivery/missions');
-    for (const args of [['push'], ['pull', '2850'], ['push', 'x'], ['push', '2850', 'more']]) {
+    for (const args of [['push'], ['pull', '2850'], ['push', 'x'], ['push', '2850', 'more'], ['push', '2850', '--keep'], ['drop', '12'], ['drop', '12', 'x'], ['drop', '12', '7', 'more']]) {
       expect((await mission(args, { root, fetch })).code).toBe(2);
     }
     expect(calls).toEqual([]);
+  });
+});
+
+describe('omni mission drop (PRD 2896 s7)', () => {
+  const dropped = (over: Record<string, unknown> = {}) => ({
+    drop: { mission: 'm-1', branch: 'mission/12-faster-quotes', prd: 7, sharing: [9], dropped: [7, 9], keep: false, ...over },
+  });
+
+  it('asks the app to take the PRD off the branch, and prints what leaves with it and what shares its territory', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = recordingFetch(() => json(200, dropped()));
+    const done = await mission(['drop', '12', '7'], { root, fetch });
+    expect(done.code).toBe(0);
+    expect(done.out).toContain('PRD 7 will be dropped from mission/12-faster-quotes');
+    expect(done.out).toContain('the default branch is never changed');
+    expect(done.out).toContain('dropped with it: PRD 9');
+    expect(calls).toEqual([{ url: `${BASE}/api/missions/drop`, method: 'POST', body: { repo: 'acme/widgets', mission: 12, prd: 7, keep: false } }]);
+  });
+
+  it('with --keep sends it and says the PRDs sharing the territory stay', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = recordingFetch(() => json(200, dropped({ dropped: [7], keep: true })));
+    const done = await mission(['drop', '12', '7', '--keep'], { root, fetch });
+    expect(done.out).toContain('kept on the branch (--keep): PRD 9');
+    expect(calls[0]?.body).toEqual({ repo: 'acme/widgets', mission: 12, prd: 7, keep: true });
+  });
+
+  it('prints the app\'s refusal, and says off, unreachable or unsigned in one line', async () => {
+    const { root } = checkout();
+    const refused = recordingFetch(() => json(409, { error: 'PRD 7 is not on mission/12-faster-quotes: there is nothing to drop.' }));
+    expect(await mission(['drop', '12', '7'], { root, fetch: refused.fetch })).toEqual({ code: 1, out: '', err: 'refused (409): PRD 7 is not on mission/12-faster-quotes: there is nothing to drop.\n' });
+    const down = () => { throw new TypeError('fetch failed'); };
+    expect(await mission(['drop', '12', '7'], { root, fetch: recordingFetch(down).fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
+    const off = checkout({ enabled: false });
+    expect(await mission(['drop', '12', '7'], { root: off.root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'off\n' });
   });
 });

@@ -5,6 +5,8 @@
 //           reviews (the Reviewer's marker and the commit each is on), and the PRD's open outbox items at its head: the
 //           head's `.omni-loop/config.yml` and that PRD's outbox folder only, through ../snapshot/snapshot.ts, parsed by the
 //           kit's own outbox reader, never by running anything it fetched. Its other PRDs' items are never fetched
+//   branch  the mission branch's own checks (PRD 2896 s7): every check run and commit status on its head, judged by ./gate.ts's
+//           `checksOf`; a run that finds one failed holds the branch's joins and waits on a person
 //   merge   `PUT …/pulls/{n}/merge`, squash, its commit titled as the pull request (`<title> (#<n>)`, the repository's
 //           squash title), pinned to the head the gate judged: a push since then makes GitHub refuse it. A refusal (not
 //           mergeable, the head moved, a conflict) is an answer, never a throw: the PRD waits, and the next run reads again.
@@ -19,11 +21,11 @@ import { createContext } from 'omni-loop/kit/lib/context.ts';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import { openItems } from 'omni-loop/kit/lib/outbox/status.ts';
-import { messageOf, statusOf, type GitHubClient } from '../outbox-check/github-schema.ts';
+import { messageOf, RefSchema, statusOf, type GitHubClient } from '../outbox-check/github-schema.ts';
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
-import type { OpenItems, PullRead } from './gate.ts';
+import type { CheckRun, CommitStatus, OpenItems, PullRead } from './gate.ts';
 
 /** Where a pull request is: the installation, the repository (`owner/name`), the PRD and its pull request. */
 export type PullAt = { installation: number; repo: string; prd: PrdNumber; pr: PrNumber };
@@ -31,9 +33,14 @@ export type PullAt = { installation: number; repo: string; prd: PrdNumber; pr: P
 /** What a merge did: merged, or why GitHub refused it. */
 export type Merged = { ok: true } | { ok: false; why: string };
 
+/** The checks on a mission branch's head: its sha, every check run and commit status. */
+export type BranchChecks = { head: string; runs: readonly CheckRun[]; statuses: readonly CommitStatus[] };
+
 /** What the supervisor asks of GitHub to join a PRD to its mission's branch. */
 export type MissionJoins = {
   read: (at: PullAt) => Promise<PullRead>;
+  /** The checks on the mission branch's head (PRD 2896 s7); a GitHub that cannot say leaves it out, and no branch reads red. */
+  checks?: (at: { installation: number; repo: string; branch: string }) => Promise<BranchChecks>;
   merge: (at: PullAt & { head: string; title: string; base: string; defaultBranch: string }) => Promise<Merged>;
 };
 
@@ -89,6 +96,18 @@ async function openItemsAt(octokit: GitHubClient, { owner, repo, ref, prd }: { o
   }
 }
 
+/** Every check run and commit status on `ref`, as the gate reads them. */
+async function checksAt(octokit: GitHubClient, { owner, repo, ref }: { owner: string; repo: string; ref: string }): Promise<{ runs: CheckRun[]; statuses: CommitStatus[] }> {
+  const runs = await paginate(async (page) =>
+    CheckRunsSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', { owner, repo, ref, per_page: PER_PAGE, page })).data).check_runs,
+  );
+  const status = StatusSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/status', { owner, repo, ref, per_page: PER_PAGE })).data);
+  return {
+    runs: runs.map((one) => ({ id: one.id, name: one.name, status: one.status, conclusion: one.conclusion ?? null, title: one.output?.title ?? null })),
+    statuses: status.statuses.map((one) => ({ context: one.context, state: one.state, description: one.description ?? null })),
+  };
+}
+
 /** The joins of a mission, through `octokitFor(installation)`. */
 export function missionJoins({ octokitFor }: { octokitFor: (installation: number) => Promise<GitHubClient> | GitHubClient }): MissionJoins {
   return {
@@ -97,10 +116,7 @@ export function missionJoins({ octokitFor }: { octokitFor: (installation: number
       const octokit = await octokitFor(installation);
       const pull = PullSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', { owner, repo, pull_number: pr })).data);
       const ref = pull.head.sha;
-      const runs = await paginate(async (page) =>
-        CheckRunsSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', { owner, repo, ref, per_page: PER_PAGE, page })).data).check_runs,
-      );
-      const status = StatusSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/commits/{ref}/status', { owner, repo, ref, per_page: PER_PAGE })).data);
+      const { runs, statuses } = await checksAt(octokit, { owner, repo, ref });
       const reviews = await paginate(async (page) => ReviewsSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', { owner, repo, pull_number: pr, per_page: PER_PAGE, page })).data));
       const merged = pull.merged === true || (pull.merged_at ?? null) !== null;
       return {
@@ -113,11 +129,23 @@ export function missionJoins({ octokitFor }: { octokitFor: (installation: number
         base: pull.base.ref,
         defaultBranch: pull.base.repo.default_branch,
         head: ref,
-        runs: runs.map((one) => ({ id: one.id, name: one.name, status: one.status, conclusion: one.conclusion ?? null, title: one.output?.title ?? null })),
-        statuses: status.statuses.map((one) => ({ context: one.context, state: one.state, description: one.description ?? null })),
+        runs,
+        statuses,
         reviews: reviews.map((one) => ({ body: one.body ?? null, commit: one.commit_id ?? null })),
         // A merged or closed pull request merges nothing: its outbox is not read.
         items: merged || pull.state !== 'open' ? { ranks: [] } : await openItemsAt(octokit, { owner, repo, ref, prd }),
+      };
+    },
+
+    async checks({ installation, repo: slug, branch }) {
+      const [owner = '', repo = ''] = slug.split('/');
+      const octokit = await octokitFor(installation);
+      const ref = RefSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', { owner, repo, ref: `heads/${branch}` })).data).object.sha;
+      const { runs, statuses } = await checksAt(octokit, { owner, repo, ref });
+      return {
+        head: ref,
+        runs,
+        statuses,
       };
     },
 

@@ -52,7 +52,7 @@ export type KeptUp =
 /** What the supervisor asks of GitHub for the mission branch to follow the default branch. */
 export type MissionKeepUps = { keepUp: (at: KeepUpAt) => Promise<KeptUp> };
 
-type Where = { owner: string; repo: string };
+export type Where = { owner: string; repo: string };
 
 /** The most commits a mission branch replays: one per PRD, so a scope of PRDs, far below GitHub's 250 a compare lists. */
 const MAX_COMMITS = 100;
@@ -88,7 +88,7 @@ async function generatedAt(octokit: GitHubClient, { owner, repo, ref }: Where & 
 }
 
 /** The calls a keeping up makes, on one repository, with its scratch branch. */
-function onRepo(octokit: GitHubClient, where: Where, scratch: string) {
+export function onRepo(octokit: GitHubClient, where: Where, scratch: string) {
   const { owner, repo } = where;
   let scratched = false;
   const head = async (branch: string): Promise<string | null> => {
@@ -134,7 +134,7 @@ function onRepo(octokit: GitHubClient, where: Where, scratch: string) {
   return { octokit, owner, repo, head, compare, commit, write, mergedTree, dropScratch };
 }
 
-type On = ReturnType<typeof onRepo>;
+export type On = ReturnType<typeof onRepo>;
 
 /**
  * What a conflict of `tip` (merged into `into`, from `mergeBase`) is in: the files both sides changed, then, when sources sit

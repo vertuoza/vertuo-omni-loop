@@ -21,7 +21,7 @@ export const DAN = { id: '00000000-0000-4000-8000-0000000000da', login: 'dan' };
 
 type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber };
 
-export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel } = {}) {
+export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel; territories?: Record<number, string[]> } = {}) {
   const missions = new Map<string, MissionRecord & { startedBy: string | null; nextWakeAt: string | null }>();
   let numbered = 40;
   const add = (id: string, status: MissionStatus, workspace = NORTHWIND, repo = 'acme/shop') => missions.set(id, { id, workspace, repo, status, number: (numbered += 1), title: 'Pay online', level: 'with-you', startedBy: null, nextWakeAt: null });
@@ -32,6 +32,15 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   add(ELSEWHERE, 'running', OTHER, 'other/repo');
   const events: Event[] = [];
   const jobs: MissionJob[] = [];
+  const onBranchOf = (id: string): Promise<PrdNumber[]> => {
+    const on = new Set<PrdNumber>();
+    for (const event of events) {
+      if (event.mission !== id || event.prd === undefined) continue;
+      if (event.kind === 'prd-joined') on.add(event.prd);
+      else if (event.kind === 'prd-dropped' || event.kind === 'landed' || event.kind === 'prd-merged') on.delete(event.prd);
+    }
+    return Promise.resolve([...on]);
+  };
   const members = new Map([[ADA.id, [NORTHWIND]], [BEN.id, [NORTHWIND]], [DAN.id, [OTHER]]]);
 
   const record = (row: (typeof missions extends Map<string, infer R> ? R : never) | undefined): MissionRecord | null =>
@@ -66,15 +75,13 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
       const rank = (level: MissionLevel) => ['with-you', 'own-branch', 'alone'].indexOf(level);
       return {
         mission: (id) => Promise.resolve(sees(id) ? record(missions.get(id)) : null),
-        joined: (id) => {
-          const on = new Set<PrdNumber>();
-          for (const event of events) {
-            if (event.mission !== id || event.prd === undefined) continue;
-            if (event.kind === 'prd-joined') on.add(event.prd);
-            else if (event.kind === 'prd-dropped' || event.kind === 'landed') on.delete(event.prd);
-          }
-          return Promise.resolve(on.size);
+        onBranch: onBranchOf,
+        joined: async (id) => (await onBranchOf(id)).length,
+        byNumber: (repo, number) => {
+          const row = [...missions.values()].find((one) => one.repo === repo.toLowerCase() && one.number === number);
+          return Promise.resolve(row && sees(row.id) ? record(row) : null);
         },
+        territories: (_mission, prds) => Promise.resolve(new Map(prds.map((prd) => [prd, options.territories?.[prd] ?? null]))),
         // The database's rule, as supabase/checks/missions.sql proves it: only an owner takes a mission above its fleet's level.
         setLevel: (id, level) => {
           const row = missions.get(id);

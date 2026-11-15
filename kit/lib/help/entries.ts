@@ -1182,8 +1182,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mission',
     kind: 'command',
     who: 'skills',
-    usage: ['omni mission push <n>'],
-    summary: "send a mission's brief to its page",
+    usage: ['omni mission push <n>', 'omni mission drop <mission> <prd> [--keep]'],
+    summary: "send a mission's brief to its page, or drop a PRD from its branch",
     detail:
       "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
       "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
@@ -1191,7 +1191,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the ' +
       'network or is over the size cap. The page keeps every version and adds one only of a file that ' +
       'changed; the mission waits in draft until a person starts it. Prints the page\'s link and the ' +
-      'versions added.',
+      'versions added. drop <mission> <prd>, run by a person, asks the Omni app to take that PRD off ' +
+      "the mission's branch: its commit leaves by rebase on the mission's next run, its feature pull " +
+      'request is reopened, and the default branch is never changed. The later PRDs on the branch that ' +
+      'share its territory are named and dropped with it unless --keep. A branch whose checks go red ' +
+      'names the PRD to drop.',
   },
   {
     name: 'sign',
