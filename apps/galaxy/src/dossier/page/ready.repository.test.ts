@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { readLatestVerdict, type ReadyDb } from './ready.repository';
 
 // The Ready panel's read (PRD 2898 s9) against a fake table: the latest row of the PRD in its repository
@@ -25,17 +26,17 @@ function fake(answer: { data: unknown; error: { message: string } | null }) {
 describe('the latest ready verdict', () => {
   it('reads the PRD\'s row in its repository, lower-cased', async () => {
     const { db, seen } = fake({ data: [ROW], error: null });
-    expect((await readLatestVerdict(db, 'Acme/Widgets', 2803))?.pr_number).toBe(2817);
+    expect((await readLatestVerdict(db, 'Acme/Widgets', parsePrd(2803)))?.pr_number).toBe(2817);
     expect(seen).toEqual({ repo: 'acme/widgets', prd: 2803 });
   });
 
   it('is null when the App saved none', async () => {
-    expect(await readLatestVerdict(fake({ data: [], error: null }).db, 'acme/widgets', 1)).toBeNull();
-    expect(await readLatestVerdict(fake({ data: null, error: null }).db, 'acme/widgets', 1)).toBeNull();
+    expect(await readLatestVerdict(fake({ data: [], error: null }).db, 'acme/widgets', parsePrd(1))).toBeNull();
+    expect(await readLatestVerdict(fake({ data: null, error: null }).db, 'acme/widgets', parsePrd(1))).toBeNull();
   });
 
   it('throws when the database fails or answers out of shape', async () => {
-    await expect(readLatestVerdict(fake({ data: null, error: { message: 'down' } }).db, 'acme/widgets', 1)).rejects.toThrow('down');
-    await expect(readLatestVerdict(fake({ data: [{ ...ROW, checks: [] }], error: null }).db, 'acme/widgets', 1)).rejects.toThrow('out of shape');
+    await expect(readLatestVerdict(fake({ data: null, error: { message: 'down' } }).db, 'acme/widgets', parsePrd(1))).rejects.toThrow('down');
+    await expect(readLatestVerdict(fake({ data: [{ ...ROW, checks: [] }], error: null }).db, 'acme/widgets', parsePrd(1))).rejects.toThrow('out of shape');
   });
 });
