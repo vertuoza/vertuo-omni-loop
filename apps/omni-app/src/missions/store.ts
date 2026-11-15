@@ -16,6 +16,8 @@
 //                else of the log
 //   events       the events already recorded, read back as keys, so nothing is recorded twice
 //   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
+//   installation the GitHub installation of the mission's workspace (`workspaces.github_installation_id`), for the mission
+//                branch the App cuts (PRD 2896); null when the workspace has none
 //   planRepository whether the mission's repository is a live product's plan repository (`products.plan_repository`)
 //   send         the step's line queued (`/omni:yolo <n> --for-review`, `/omni:review <n>` or `/omni:yolo-fix
 //                <n> --for-review`, PRD 2871; the build `/omni:ultra-yolo <n>` for a PRD of a plan repository, PRD
@@ -29,10 +31,12 @@
 // Throws when the database refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import {
   approvalOf,
+  baseOf,
   expandScope,
   lineOf,
   missionKey,
@@ -70,6 +74,8 @@ export type MissionStore = {
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
   /** Whether the mission's repository is the plan repository of a live product of its workspace. */
   planRepository: (mission: MissionRecord) => Promise<boolean>;
+  /** The GitHub installation of the mission's workspace; null when it has none. */
+  installation: (mission: MissionRecord) => Promise<number | null>;
   /** The job's id, or null when its key was already held. */
   send: (job: Dispatch) => Promise<string | null>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
@@ -84,7 +90,8 @@ const APP_SENDER = 'omni-app';
 const TAKEN = '23505';
 
 /** The columns each read selects, shared with ./store.boundary.ts. */
-export const MISSION = 'id, workspace_id, repo, fleet, status, waiting_on, mandate, scope';
+export const MISSION = 'id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope';
+export const WORKSPACE = 'github_installation_id';
 export const ROADMAP = 'id, number';
 export const ROADMAP_PRD = 'roadmap_id, position, row_id, prd, blockers';
 export const STAGE = 'prd, stage';
@@ -105,11 +112,14 @@ export const MissionRowSchema = z.object({
   workspace_id: text,
   repo: text,
   fleet: text,
+  number: IssueNumberSchema,
+  title: text,
   status: z.enum(['draft', 'running', 'waiting', 'paused', 'delivered', 'stopped']),
   waiting_on: z.string().nullable(),
-  mandate: z.object({ parallel: z.number().int().min(1).max(4) }),
+  mandate: z.object({ parallel: z.number().int().min(1).max(4), level: z.enum(MISSION_LEVELS).default('with-you') }),
   scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
 });
+export const WorkspaceRowSchema = z.object({ github_installation_id: z.number().int().positive().nullable() });
 export const RoadmapRowSchema = z.object({ id: text, number: IssueNumberSchema.nullable() });
 export const RoadmapPrdRowSchema = z.object({ roadmap_id: text, position: z.number().int(), row_id: text, prd: PrdNumberSchema.nullable(), blockers: z.array(z.string()) });
 export const StageRowSchema = z.object({ prd: PrdNumberSchema, stage: text });
@@ -193,7 +203,7 @@ export function missionStore(connection: Connection): MissionStore {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope };
     },
 
     async facts(mission) {
@@ -255,13 +265,18 @@ export function missionStore(connection: Connection): MissionStore {
       return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
     },
 
+    async installation(mission) {
+      const [workspace] = rowsOf(WorkspaceRowSchema, await db.from('workspaces').select(WORKSPACE).eq('id', mission.workspace).limit(1));
+      return workspace?.github_installation_id ?? null;
+    },
+
     async send({ mission, prd, run, step, toFleet, skill }) {
       const answer = await db
         .from('runner_jobs')
         .insert({
           workspace_id: mission.workspace,
           repo: mission.repo,
-          line: lineOf(prd, step, skill),
+          line: lineOf(prd, step, skill, baseOf(mission, skill === 'ultra-yolo')),
           sent_by_app: APP_SENDER,
           to_fleet: toFleet ? mission.fleet : null,
           mission_id: mission.id,

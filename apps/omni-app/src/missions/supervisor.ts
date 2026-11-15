@@ -36,13 +36,14 @@
 // `/omni:review <n>` under `…:review:1`, the fix `/omni:yolo-fix <n> --for-review` under `…:fix:1`, and the
 // Reviewer again under `…:review:2`. Each key is unique, so a replay sends each once; there is no third round.
 import { PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { parsePlanSlices, sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
 export type RunnerJobStatus = 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
 
 /** The mission as a run reads it. */
-export type Mission = { id: string; fleet: string; status: MissionStatus; parallel: number; waitingOn: string | null };
+export type Mission = { id: string; fleet: string; status: MissionStatus; parallel: number; waitingOn: string | null; level: Level; number: number; title: string };
 
 export type Approval = 'standing' | 'none' | 'voided';
 export type Stage = 'merged' | 'ready' | 'open';
@@ -138,11 +139,34 @@ export type BuildSkill = 'yolo' | 'ultra-yolo';
  * unchanged, so its run ends as a build without the Reviewer does; its fix, were one sent, is
  * `/omni:ultra-yolo-fix <n> --for-review`.
  */
-export function lineOf(prd: PrdNumber, step: Step, skill: BuildSkill = 'yolo'): string {
+export function lineOf(prd: PrdNumber, step: Step, skill: BuildSkill = 'yolo', base: string | null = null): string {
   const n = String(prd);
-  if (step === 'build') return skill === 'ultra-yolo' ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review`;
-  if (step === 'fix:1') return `/omni:${skill === 'ultra-yolo' ? 'ultra-yolo-fix' : 'yolo-fix'} ${n} --for-review`;
+  const onBase = base === null ? '' : ` --base ${base}`;
+  if (step === 'build') return skill === 'ultra-yolo' ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review${onBase}`;
+  if (step === 'fix:1') return skill === 'ultra-yolo' ? `/omni:ultra-yolo-fix ${n} --for-review` : `/omni:yolo-fix ${n} --for-review${onBase}`;
   return `/omni:review ${n}`;
+}
+
+/** What a mission may run at (PRD 2896): `with-you` changes nothing, the two others build on a branch of the mission's own. */
+export type Level = MissionLevel;
+
+/** `branches.mission`'s default (kit/lib/config.ts): the template the repository's config may change, which the App does not read. */
+const MISSION_BRANCH = 'mission/{number}-{topic}';
+const TOPIC_MAX = 40;
+
+/**
+ * The branch of mission `number`, titled `title` (PRD 2896): `branches.mission` filled, its topic the title as a slug (lowercase
+ * letters and digits, dashes between, 40 characters at most, `mission` for a title with none). Cut from the default branch when the
+ * mission starts above `with-you`; a PRD of the mission is built on it and its pull request targets it.
+ */
+export function missionBranch(number: number, title: string): string {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, TOPIC_MAX).replace(/-+$/, '');
+  return MISSION_BRANCH.replace('{number}', String(number)).replace('{topic}', slug === '' ? 'mission' : slug);
+}
+
+/** The branch a mission builds its PRDs on: its own above `with-you` in a repository that is not a plan repository (PRD 2896), none otherwise. */
+export function baseOf(mission: { level: Level; number: number; title: string }, inPlan: boolean): string | null {
+  return mission.level === 'with-you' || inPlan ? null : missionBranch(mission.number, mission.title);
 }
 
 /** The Reviewer's round a step is; null for the build and the fix. */
@@ -502,17 +526,17 @@ function askedBefore(runs: readonly Run[], one: Run): number | null {
 }
 
 /** What a dispatch says: the line sent, where, and its run (and round, for the Reviewer). */
-function sentWords(one: Run, where: string, skill: BuildSkill): string {
+function sentWords(one: Run, where: string, skill: BuildSkill, base: string | null): string {
   const round = roundOf(one.step);
-  return `Sent ${lineOf(one.prd, one.step, skill)} to ${where} (run ${String(one.run)}${round === null ? '' : `, round ${String(round)}`}).`;
+  return `Sent ${lineOf(one.prd, one.step, skill, base)} to ${where} (run ${String(one.run)}${round === null ? '' : `, round ${String(round)}`}).`;
 }
 
 /** What each job says: its dispatch, each runner lost along the way, and its end. */
-function runEvents(runs: readonly Run[], where: string, skill: BuildSkill): NewEvent[] {
+function runEvents(runs: readonly Run[], where: string, skill: BuildSkill, base: string | null): NewEvent[] {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
-    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill) };
+    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill, base) };
     const ending = last && end !== null ? [endEvent(one.prd, one, last, end, askedBefore(runs, one))] : [];
     return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, 'lost')), ...ending];
   });
@@ -569,7 +593,7 @@ export function eventsOf({
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
-  const all = [...runEvents(runs, where, skill), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [...runEvents(runs, where, skill, baseOf(mission, skill === 'ultra-yolo')), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf(event);
     if (own.some((key) => keys.has(key))) return [];

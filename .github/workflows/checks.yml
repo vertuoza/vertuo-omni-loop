@@ -2,7 +2,8 @@
 # `pnpm typecheck` (PRD 725), `lint` runs `pnpm lint` (PRD 976) and `fallow` runs `pnpm fallow:audit`, each against
 # its own gate, side by side. `test` and `lint` each run as shards (PRD 1042), gathered into one check
 # of that name; scripts/checks-workflow.test.ts holds that shape. A draft runs nothing, and neither does
-# a sub-PR into a feature branch (its base is not main). A pull request that changes only docs runs
+# a sub-PR into a feature branch (its base is neither main nor a mission branch). A feature PR into a mission
+# branch (`mission/**`, `branches.mission` in .omni-loop/config.yml, PRD 2896) is checked as one into main. A pull request that changes only docs runs
 # `settle` alone, which answers stale at once: its checks report as skipped, never missing, so a
 # required check on main lets it merge.
 # Marking a feature PR ready is what grades it, then every push after.
@@ -17,7 +18,7 @@
 name: checks
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'mission/**']
     types: [opened, synchronize, reopened, ready_for_review]
 permissions:
   contents: read

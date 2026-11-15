@@ -66,6 +66,7 @@ import { mainWatchStore } from '../main-watch/store.ts';
 import { RETRO_KIND, retroFailureHook, retroHandler } from '../retro/retro.ts';
 import { runnerQueue } from '../retro/runner-queue.ts';
 import { checkpointStore } from '../checkpoints/store.ts';
+import { missionBranches } from '../missions/branch.ts';
 import { MISSION_KIND, missionHandler } from '../missions/job.ts';
 import { missionStore } from '../missions/store.ts';
 import { CHECKPOINTS_FORGET_KIND, checkpointsForgetHandler } from './checkpoints-forget.ts';
@@ -225,7 +226,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), refresh: ledger.refresh }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
