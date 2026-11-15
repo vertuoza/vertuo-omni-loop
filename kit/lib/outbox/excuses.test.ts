@@ -36,6 +36,7 @@ describe('withExcuses (PRD 2898)', () => {
 
   it('refuses a text with no front matter', () => {
     expect(() => withExcuses('## no front matter\n', ['a.ts'])).toThrow(/front matter/);
+    expect(() => withExcuses('## no front matter\n---\nx: 1\n---\n', ['a.ts'])).toThrow(/front matter/);
   });
 });
 

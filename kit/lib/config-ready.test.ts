@@ -27,7 +27,7 @@ describe('the ready section (PRD 2898)', () => {
   });
 
   it('refuses another scope, an empty or repeated job and an unknown key, naming the key', () => {
-    expect(firstLine('kit: 1\nready:\n  checks: some\n')).toMatch(/^c\.yml.*ready\.checks/);
+    expect(firstLine('kit: 1\nready:\n  checks: some\n')).toMatch(/^c\.yml.*ready\.checks: some is no scope — one of off, mission, all$/);
     expect(firstLine("kit: 1\nready:\n  full: ['']\n")).toMatch(/ready\.full/);
     expect(firstLine('kit: 1\nready:\n  full: [test, test]\n')).toMatch(/ready\.full.*test is listed twice/);
     expect(firstLine('kit: 1\nready:\n  quick: true\n')).toMatch(/ready.*quick/);
@@ -38,7 +38,7 @@ describe('acceptance.kind (PRD 2898)', () => {
   it('is test unless the file names e2e, and refuses any other kind', () => {
     expect(parseConfig('kit: 1\n').acceptance.kind).toBe('test');
     expect(parseConfig('kit: 1\nacceptance:\n  kind: e2e\n').acceptance.kind).toBe('e2e');
-    expect(firstLine('kit: 1\nacceptance:\n  kind: unit\n')).toMatch(/^c\.yml.*acceptance\.kind/);
+    expect(firstLine('kit: 1\nacceptance:\n  kind: unit\n')).toMatch(/^c\.yml.*acceptance\.kind: unit is no kind — one of test, e2e$/);
   });
 
   it('keeps the acceptance rule it had: enabled still needs a folder', () => {
@@ -55,7 +55,7 @@ describe('e2e.ci and e2e.repo (PRD 2898)', () => {
 
   it('reads a repository as owner/name, and refuses anything else', () => {
     expect(parseConfig('kit: 1\ne2e:\n  ci: true\n  repo: acme/e2e-tests\n').e2e).toMatchObject({ ci: true, repo: 'acme/e2e-tests' });
-    expect(firstLine('kit: 1\ne2e:\n  repo: e2e-tests\n')).toMatch(/^c\.yml.*e2e\.repo/);
+    for (const repo of ['e2e-tests', 'acme/e2e/extra', 'x acme/e2e']) expect(firstLine(`kit: 1\ne2e:\n  repo: ${repo}\n`), repo).toMatch(/^c\.yml.*e2e\.repo: owner\/name$/);
     expect(firstLine('kit: 1\ne2e:\n  ci: sometimes\n')).toMatch(/e2e\.ci/);
   });
 });
