@@ -1564,6 +1564,11 @@ function layerOf(word) {
 }
 var layerList = () => Object.keys(CANONICAL_LAYERS).join(", ");
 
+// kit/lib/ready/criteria.ts
+var AC_KINDS = ["test", "e2e"];
+var STEP_KEYWORDS = ["Given", "When", "Then", "And", "But"];
+var STEP = new RegExp(`^(${STEP_KEYWORDS.join("|")})\\b\\s*(.*)$`);
+
 // kit/lib/config.ts
 var CONFIG_FILE = ".omni-loop/config.yml";
 var CONFIG_VERSION = 1;
@@ -1728,6 +1733,11 @@ var syncOrder = z9.array(syncCheck).superRefine((order, issues) => {
 });
 var HOURS_MESSAGE = `a whole number of hours, written <n>h from 1h to ${SYNC_MAX_HOURS}h, such as 24h`;
 var syncHours = z9.string({ error: HOURS_MESSAGE }).refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
+var READY_SCOPES = Object.freeze(["off", "mission", "all"]);
+var READY_LOOSENING_GROUND = Object.freeze({
+  floors: Object.freeze(["mutation/floor.json"]),
+  baselines: Object.freeze(["fallow/", "layering/"])
+});
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z9.object({
   kit: z9.literal(CONFIG_VERSION),
@@ -1799,6 +1809,11 @@ var ConfigSchema = z9.object({
     approved: labelName2.default("omni:approved"),
     // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
     law: labelName2.default("omni:law"),
+    // PRD 2898: the label a gated skill adds to a draft feature PR before `omni ready`: it starts the
+    // full checks, the e2e job and the preview on the draft's latest commit, and again on each push.
+    // Left out, `readyCheckLabel()` reads `DEFAULT_READY_CHECK_LABEL`, and a config that does not set
+    // it parses exactly as before (so `omni init` does not create it, as for `released`: a person does).
+    readyCheck: labelName2.optional(),
     // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
     // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
     // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
@@ -1858,7 +1873,9 @@ var ConfigSchema = z9.object({
     enabled: z9.boolean().default(false),
     dir: nullableText.default(null),
     pendingSuffix: nullableText.default(null),
-    run: nullableText.default(null)
+    run: nullableText.default(null),
+    // PRD 2898: the kind a new spec's `### AC-<n> · <kind>` criteria take when its author names none.
+    kind: z9.enum(AC_KINDS, { error: (issue) => `${String(issue.input)} is no kind \u2014 one of ${AC_KINDS.join(", ")}` }).default("test")
   }).strict().refine((a) => !a.enabled || a.dir !== null, {
     message: "acceptance.dir is required when acceptance.enabled is true",
     path: ["dir"]
@@ -1971,7 +1988,23 @@ var ConfigSchema = z9.object({
     setup: nullableText.default(null),
     bypassEnv: envName.nullable().default(null),
     dir: text2.default("e2e"),
-    model: text2.default("anthropic/claude-sonnet-5.5")
+    model: text2.default("anthropic/claude-sonnet-5.5"),
+    // PRD 2898: whether CI runs a PRD's `e2e` criteria against its preview (with the model key in a CI
+    // secret); false, a runner of the workspace runs them and the App writes the `acceptance` check.
+    ci: z9.boolean().default(false),
+    // PRD 2898: the repository that holds the e2e tests, `owner/name`; null, this one, in `dir`.
+    repo: z9.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null)
+  }),
+  // PRD 2898: the ready checks — the five a feature PR must pass before a gated skill marks it ready
+  // (`kit/lib/ready/`). `checks` says which PRs are gated: `off` none (the default), `mission` the
+  // feature PR of a PRD in a running or paused mission, `all` every feature PR. `full` names the CI
+  // jobs that run the whole suite, never only the changed files: check 2 passes when each succeeded.
+  ready: section({
+    checks: z9.enum(READY_SCOPES, { error: (issue) => `${String(issue.input)} is no scope \u2014 one of ${READY_SCOPES.join(", ")}` }).default("off"),
+    full: z9.array(text2).superRefine((jobs, issues) => {
+      const twice = jobs.find((job, index) => jobs.indexOf(job) !== index);
+      if (twice !== void 0) issues.addIssue({ code: "custom", message: `${twice} is listed twice` });
+    }).default([])
   }),
   // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
   // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over
@@ -3059,6 +3092,34 @@ var AreasSchema = z11.string().trim().transform((raw, ctx) => {
   const inner = (match2[1] ?? "").trim();
   return inner.length === 0 ? [] : inner.split(",").map((token) => token.trim());
 }).optional();
+function excusePathProblem(path) {
+  if (path === "") return "an empty path";
+  if (/[*?[\]{}!]/.test(path)) return `${path} is a pattern: an item excuses exact paths only`;
+  if (/[\s,]/.test(path)) return `${path} holds a space or a comma: one path per --excuses`;
+  if (path.endsWith("/")) return `${path} is a folder: an item excuses exact paths only`;
+  if (path.startsWith("/") || path.includes("\\") || path.split("/").some((part) => part === ".." || part === "." || part === "")) {
+    return `${path} is not a path from the repository root`;
+  }
+  return null;
+}
+var ExcusesSchema = z11.string().trim().transform((raw, ctx) => {
+  const match2 = raw.match(BRACKET_LIST);
+  const paths = match2 ? (match2[1] ?? "").split(",").map((token) => token.trim()).filter(Boolean) : [];
+  if (!match2 || paths.length === 0) {
+    ctx.addIssue({ code: "custom", message: "excuses must be a bracketed list of exact paths, e.g. [kit/lib/init/labels.ts]" });
+    return z11.NEVER;
+  }
+  const problems = paths.flatMap((path, index) => {
+    const problem = excusePathProblem(path);
+    if (problem !== null) return [problem];
+    return paths.indexOf(path) === index ? [] : [`${path} is listed twice`];
+  });
+  if (problems.length > 0) {
+    ctx.addIssue({ code: "custom", message: `excuses: ${problems.join("; ")}` });
+    return z11.NEVER;
+  }
+  return paths;
+}).optional();
 var SpecFrontMatterSchema = z11.object({
   prd: PrdField,
   title: z11.string().trim().min(1, "title is required"),
@@ -3081,7 +3142,10 @@ var OutboxItemFrontMatterSchema = z11.object({
   }),
   "bears-on": z11.string().trim().min(1, "bears-on is required"),
   raised: z11.string().regex(DATE2, "raised must be a YYYY-MM-DD date"),
-  wave: z11.coerce.number({ message: "wave must be a number" }).int().positive()
+  wave: z11.coerce.number({ message: "wave must be a number" }).int().positive(),
+  // PRD 2898: the exact paths whose finding of the ready checks 4 and 5 this item excuses, once a
+  // person agreed (or, for check 5, once it was adopted). Left out, the item excuses nothing.
+  excuses: ExcusesSchema
 }).strict();
 var AccountFrontMatterSchema = z11.object({
   prd: PrdField,
