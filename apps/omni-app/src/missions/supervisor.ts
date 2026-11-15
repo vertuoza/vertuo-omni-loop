@@ -42,7 +42,8 @@
 // Reviewer again under `…:review:2`. Each key is unique, so a replay sends each once; there is no third round.
 import { PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
-import { parsePlanSlices, sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
+import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
+import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
 export type RunnerJobStatus = 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
@@ -90,6 +91,7 @@ export type Next =
 export type PrdState =
   | { state: 'merged' }
   | { state: 'joined' }
+  | { state: 'dropped' }
   | { state: 'waits'; on: 'join'; lacks: readonly string[] }
   | { state: 'running'; run: number }
   | { state: 'waits'; on: Exclude<WaitsOn, 'decide'> }
@@ -103,7 +105,13 @@ export type PrdState =
  * The mission branch as a run read it (PRD 2896): the PRDs on it, and what the merge gate lacks for each PRD that ended
  * Ready and has not joined. At `with-you` both are empty, and a Ready PRD waits for a person to merge it.
  */
-export type OnBranch = { branch: string | null; joined: ReadonlySet<PrdNumber>; lacks: ReadonlyMap<PrdNumber, readonly string[]> };
+export type OnBranch = {
+  branch: string | null;
+  joined: ReadonlySet<PrdNumber>;
+  lacks: ReadonlyMap<PrdNumber, readonly string[]>;
+  /** The PRDs a person dropped from the branch (PRD 2896 s7): off it, never joined again until a person sends them again. */
+  dropped?: ReadonlySet<PrdNumber>;
+};
 
 /** No mission branch: a mission at `with-you`, or one whose branch was not read. */
 export const NO_BRANCH: OnBranch = { branch: null, joined: new Set(), lacks: new Map() };
@@ -117,7 +125,7 @@ export type Send = { prd: PrdNumber; run: number; step: Step };
 /** What a run sets on the mission. */
 export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null };
 
-export type EventKind = 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined';
+export type EventKind = 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer';
 
 /** An event to record, signed by its role and `agent`. */
@@ -235,16 +243,7 @@ export function stageOf(stages: readonly string[]): Stage {
   return stages.includes('outbox') ? 'ready' : 'open';
 }
 
-/** Every path its plan's slices declare, once each; null when there is no plan, or none the parser reads. */
-export function territoryOf(plan: string | null): string[] | null {
-  if (plan === null) return null;
-  try {
-    const paths = [...new Set(parsePlanSlices(plan).flatMap((slice) => slice.territory))];
-    return paths.length > 0 ? paths : null;
-  } catch {
-    return null;
-  }
-}
+export { territoryOf };
 
 /** A roadmap row: its PRD (null for a product's), its row id, and the row ids it waits on. */
 export type RoadmapRow = { prd: PrdNumber | null; rowId: string; blockers: string[] };
@@ -323,8 +322,11 @@ const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && 
  */
 export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[], branch: OnBranch = NO_BRANCH): Map<PrdNumber, PrdState> {
   const merged = new Set([...facts.filter((fact) => fact.stage === 'merged').map((fact) => fact.prd), ...branch.joined]);
-  const of = (fact: PrdFacts): PrdState =>
-    fact.stage !== 'merged' && branch.joined.has(fact.prd) ? { state: 'joined' } : stateOf(fact, runs.filter((one) => one.prd === fact.prd), merged, branch);
+  const of = (fact: PrdFacts): PrdState => {
+    if (fact.stage !== 'merged' && branch.joined.has(fact.prd)) return { state: 'joined' };
+    if (fact.stage !== 'merged' && branch.dropped?.has(fact.prd) === true) return { state: 'dropped' };
+    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), merged, branch);
+  };
   return new Map(facts.map((fact) => [fact.prd, of(fact)]));
 }
 
@@ -498,6 +500,7 @@ function waitsOf(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdS
     const state = states.get(fact.prd);
     return state?.state === 'waits' ? [`PRD ${String(fact.prd)}: ${waitWords(state, branch)}`] : [];
   });
+  for (const fact of facts) if (states.get(fact.prd)?.state === 'dropped') parts.push(`PRD ${String(fact.prd)}: dropped from ${branch ?? 'the mission branch'}, until a person sends it again`);
   const joined = facts.filter((fact) => states.get(fact.prd)?.state === 'joined').map((fact) => `PRD ${String(fact.prd)}`);
   if (joined.length > 0) parts.push(`on ${branch ?? 'the mission branch'}, to land: ${joined.join(', ')}`);
   return parts.length > 0 ? fitted(parts, ' · ') : null;

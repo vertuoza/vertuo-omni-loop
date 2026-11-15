@@ -62,6 +62,7 @@ function github({ files = {}, pull = {}, runs = [], statuses = [], reviews = [],
     'GET /repos/{owner}/{repo}/commits/{ref}/check-runs': (params) => ({ total_count: runs.length, check_runs: page(params, runs) }),
     'GET /repos/{owner}/{repo}/commits/{ref}/status': () => ({ state: 'success', statuses }),
     'GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews': (params) => page(params, reviews),
+    'GET /repos/{owner}/{repo}/git/ref/{ref}': () => ({ object: { sha: HEAD } }),
     'GET /repos/{owner}/{repo}/git/trees/{tree_sha}': (params) => {
       const sha = String(params.tree_sha);
       const dir = sha === HEAD ? '' : sha.replace(/^tree:/, '');
@@ -159,5 +160,20 @@ describe('missionJoins.merge: a squash-merge into the mission branch, pinned to 
     const gh = github();
     await expect(gh.joins.merge({ ...merging, base: 'main' })).rejects.toThrow(DefaultBranchMergeError);
     expect(gh.calls).toEqual([]);
+  });
+});
+
+describe('missionJoins.checks: the checks on the mission branch\'s own head (PRD 2896 s7)', () => {
+  it('reads the head of the branch, then its check runs and commit statuses', async () => {
+    const gh = github({
+      runs: [{ id: 3, name: 'test', status: 'completed', conclusion: 'failure', output: { title: 'red' } }],
+      statuses: [{ context: 'Vercel', state: 'success', description: null }],
+    });
+    expect(await gh.joins.checks?.({ installation: 7, repo: 'acme/widgets', branch: BRANCH })).toEqual({
+      head: HEAD,
+      runs: [{ id: 3, name: 'test', status: 'completed', conclusion: 'failure', title: 'red' }],
+      statuses: [{ context: 'Vercel', state: 'success', description: null }],
+    });
+    expect(gh.calls[0]).toEqual({ route: 'GET /repos/{owner}/{repo}/git/ref/{ref}', params: { owner: 'acme', repo: 'widgets', ref: `heads/${BRANCH}` } });
   });
 });

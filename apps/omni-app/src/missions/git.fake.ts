@@ -13,7 +13,7 @@ import type { GitHubClient } from '../outbox-check/github-schema.ts';
 export type Files = Record<string, string | null>;
 
 /** A pull request of the fake: its base and head branches, open unless closed. */
-type Pull = { base: string; head: string; state: 'open' | 'closed' };
+type Pull = { base: string; head: string; state: 'open' | 'closed'; title: string; body: string; sha: string | null };
 
 const fail = (status: number, message: string): Error => Object.assign(new Error(message), { status });
 
@@ -27,6 +27,7 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
   const dir = mkdtempSync(join(tmpdir(), 'omni-git-fake-'));
   const calls: { route: string; params: Record<string, unknown> }[] = [];
   const pulls = new Map<number, Pull>();
+  let opened = 0;
 
   // git runs with the test's own environment, never one written here: identities go in `-c`, trees are built with mktree.
   const git = (args: readonly string[], input?: string): string => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', input, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
@@ -200,7 +201,17 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
     'GET /repos/{owner}/{repo}/pulls/{pull_number}': ({ pull_number }) => {
       const pull = pulls.get(Number(pull_number));
       if (pull === undefined) throw fail(404, 'Not Found');
-      return { html_url: `https://github.com/acme/widgets/pull/${String(pull_number)}`, state: pull.state, base: { ref: pull.base }, head: { ref: pull.head, sha: refOf(pull.head) } };
+      return { number: Number(pull_number), title: pull.title, body: pull.body, html_url: `https://github.com/acme/widgets/pull/${String(pull_number)}`, state: pull.state, base: { ref: pull.base }, head: { ref: pull.head, sha: refOf(pull.head) ?? pull.sha } };
+    },
+    'POST /repos/{owner}/{repo}/pulls': ({ head, base, title, body }) => {
+      const sha = refOf(String(head));
+      if (sha === null) throw fail(422, `Validation Failed: head ${String(head)} does not exist`);
+      if (refOf(String(base)) === null) throw fail(422, `Validation Failed: base ${String(base)} does not exist`);
+      if (isAncestor(sha, refOf(String(base)) ?? '')) throw fail(422, 'Validation Failed: No commits between base and head');
+      opened += 1;
+      const number = 100 + opened;
+      pulls.set(number, { base: String(base), head: String(head), state: 'open', title: String(title), body: typeof body === 'string' ? body : '', sha });
+      return { number, html_url: `https://github.com/acme/widgets/pull/${String(number)}` };
     },
     'PUT /repos/{owner}/{repo}/pulls/{pull_number}/update-branch': ({ pull_number, expected_head_sha }) => {
       const pull = pulls.get(Number(pull_number));
@@ -264,8 +275,14 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
     isAncestor: (a: string, b: string) => isAncestor(refOf(a) ?? a, refOf(b) ?? b),
     branches: (): string[] => git(['for-each-ref', '--format=%(refname:short)', 'refs/heads']).split('\n').filter((one) => one !== ''),
     /** Pull request `n`, from branch `head` into `base`. */
-    pull(n: number, base: string, head: string, state: 'open' | 'closed' = 'open'): void {
-      pulls.set(n, { base, head, state });
+    pull(n: number, base: string, head: string, state: 'open' | 'closed' = 'open', title = `Pull ${String(n)}`, body = ''): void {
+      pulls.set(n, { base, head, state, title, body, sha: refOf(head) });
+    },
+    /** Pull request `n`, as the fake holds it; undefined when there is none. */
+    pullOf: (n: number) => pulls.get(n),
+    /** Deletes branch `name`, as a merge's branch deletion does. */
+    remove(name: string): void {
+      git(['update-ref', '-d', `refs/heads/${name}`]);
     },
     /** The squash of branch `head` onto `base`, as GitHub's squash merge writes one: `title`, the merged tree, one parent. */
     squash(base: string, head: string, title: string): string {

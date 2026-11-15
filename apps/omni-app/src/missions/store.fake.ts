@@ -10,7 +10,9 @@ import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type NewE
 type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[] };
 
 /** A recorded event, as its mission_events row. */
-type FakeEvent = NewEvent & { actor: 'agent'; at: string };
+type FakeEvent = Omit<NewEvent, 'kind'> & { kind: string; actor: string; at: string };
+
+const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
 export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1 }: { mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null }) {
@@ -92,6 +94,10 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     cares: () => cares.map((one) => ({ ...one })),
     /** The events recorded, in order. */
     events: () => [...events],
+    /** A member asked to drop the PRD from the mission branch (PRD 2896 s7), as the route records it. */
+    asked: (prd: PrdNumber, { keep = false, actor = 'ada' }: { keep?: boolean; actor?: string } = {}) => {
+      events.push({ kind: keep ? 'drop-asked-keep' : 'drop-asked', role: 'supervisor', prd, job: null, link: null, sentence: `${actor} asked to drop PRD ${String(prd)}.`, actor, at: new Date(NOW_OF_ASKS + events.length).toISOString() });
+    },
     /** The mission as it stands. */
     mission: () => ({ ...record }),
     /** The PRD's latest job ends (or runs) as `change` says: a Reviewer's verdict with what it `posted` (PRD 2871). */

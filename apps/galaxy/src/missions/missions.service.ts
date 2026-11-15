@@ -1,4 +1,6 @@
-import { MOVES, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
+import { MOVES, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
@@ -57,6 +59,21 @@ const levelRefusal = (set: { forbidden: boolean; error: string }): { ok: false; 
 
 const NO_LEVEL_AFTER = 'A delivered or stopped mission keeps the level it had.';
 
+/** Why `caller` cannot drop a PRD from `mission`'s branch at all (nothing seen, no login, no branch, not started), or null. */
+function dropBlock(mission: { number: number; level: MissionLevel; status: string } | null, caller: Caller): { ok: false; kind: MissionRefusal; error: string } | null {
+  if (mission === null) return { ok: false, kind: 'forbidden', error: NOT_YOURS };
+  if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
+  if (mission.level === 'with-you') return { ok: false, kind: 'conflict', error: `Mission ${String(mission.number)} runs at with-you: it has no branch to drop a PRD from.` };
+  if (!['running', 'waiting', 'paused'].includes(mission.status)) return { ok: false, kind: 'conflict', error: `Only a started mission has a branch to drop from. This one is ${mission.status}.` };
+  return null;
+}
+
+/** What a drop's ask says in the mission's events: who asked, what leaves the branch and the PRDs that go with it. */
+function askWords(login: string, branch: string, set: { prd: number; sharing: readonly number[] }, keep: boolean): string {
+  const taking = keep || set.sharing.length === 0 ? '' : `, with ${set.sharing.map((one) => `PRD ${String(one)}`).join(', ')}`;
+  return `${login} asked to drop PRD ${String(set.prd)} from ${branch}${taking}.`;
+}
+
 /** The person who acts: their id and their GitHub login (null when they have none). */
 export type Caller = { id: string; login: string | null };
 
@@ -100,6 +117,32 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       if (refused !== null) return { ok: false, kind: 'conflict', error: refused };
       const set = await reader.setLevel(id, level);
       return set.ok ? { ok: true, value: { mission: { id, level: set.level } } } : levelRefusal(set);
+    },
+
+    /**
+     * A member asks for a PRD to leave its mission's branch (PRD 2896 s7, `omni mission drop`): the ask is recorded as an event signed
+     * with their login and the mission's job woken, which removes the commit by rebase on its next run. Refused for a mission with no
+     * branch (at `with-you`, a draft, delivered or stopped) and for a PRD that is not on it. The answer names the later PRDs that
+     * share the PRD's territory, dropped with it unless `keep`.
+     */
+    async drop(body: DropBody, caller: Caller, reader: MissionsReader): Promise<Served<DroppedMission>> {
+      const mission = await reader.byNumber(body.repo, body.mission);
+      const blocked = dropBlock(mission, caller);
+      if (blocked !== null || mission === null || caller.login === null) return blocked ?? { ok: false, kind: 'forbidden', error: NOT_YOURS };
+      const branch = branchOf(mission);
+      const prd = parsePrd(body.prd);
+      const nothing = { ok: false as const, kind: 'conflict' as const, error: `PRD ${String(prd)} is not on ${branch}: there is nothing to drop.` };
+      const order = await reader.onBranch(mission.id);
+      const territories = await reader.territories(mission, order);
+      const set = dropSet({ order, prd, keep: body.keep, territory: (one) => territories.get(one) ?? null });
+      if (set === null) return nothing;
+      await write.event(mission.id, { kind: body.keep ? DROP_ASKED_KEEP : DROP_ASKED, actor: caller.login, prd, at: iso(), sentence: askWords(caller.login, branch, set, body.keep) });
+      try {
+        await write.refresh(missionJob(mission.id, mission.repo));
+      } catch (error) {
+        return { ok: false, kind: 'database', error: 'The ask is recorded, but the mission could not be woken: it is taken on its next run.', cause: error instanceof Error ? error.message : String(error) };
+      }
+      return { ok: true, value: { drop: { mission: mission.id, branch, prd, sharing: set.sharing, dropped: set.dropped, keep: body.keep } } };
     },
 
     /** Wakes mission `id` at once (a job of it ended): its job is added or refreshed, due now. Nothing for a draft, delivered or stopped mission. */

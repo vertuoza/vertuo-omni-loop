@@ -2,7 +2,8 @@ import 'server-only';
 import { after } from 'next/server';
 import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { serviceDb } from '../data/sign-in-live';
-import { supabaseEnv, supabaseServer } from '../data/supabase-server';
+import { bearerToken } from '../ask/auth';
+import { supabaseAs, supabaseEnv, supabaseServer } from '../data/supabase-server';
 import { serverEnv } from '../env';
 import type { MissionsDeps } from './missions.controller';
 import { missionsReader, missionsWriter } from './missions.repository';
@@ -36,10 +37,21 @@ async function signedIn(): Promise<{ caller: Caller; reader: ReturnType<typeof m
   return user ? { caller: { id: user.id, login: loginOf(user.user_metadata) }, reader: missionsReader(db) } : null;
 }
 
+/** The person behind a terminal's bearer token, and their reads as that token (row-level security shows them their workspace's missions). */
+async function viaToken(authorization: string | null): Promise<{ caller: Caller; reader: ReturnType<typeof missionsReader> } | null> {
+  const token = bearerToken(authorization);
+  if (token === null) return null;
+  const db = supabaseAs(token);
+  const { data } = await db.auth.getUser(token);
+  const user = data.user;
+  return user ? { caller: { id: user.id, login: loginOf(user.user_metadata) }, reader: missionsReader(db) } : null;
+}
+
 export function missionsDeps(): MissionsDeps {
   const hasDb = supabaseEnv() !== null;
   return {
     session: hasDb ? signedIn : null,
+    bearer: hasDb ? viaToken : null,
     service: liveMissionsService(),
     log: (message) => { log.error({ event: 'missions', outcome: 'failed', message }); },
   };

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { MissionLevelSchema, MissionStatusSchema, type MissionStatus } from './missions.contract';
@@ -35,7 +36,9 @@ export type MissionJob = { kind: 'mission'; key: string; subject: string; payloa
 export const missionJob = (id: string, repo: string): MissionJob =>
   ({ kind: 'mission', key: `mission:${id}`, subject: repo.toLowerCase(), payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 });
 
-const JoinRow = z.object({ kind: z.enum(['prd-joined', 'prd-dropped', 'landed']), prd: PrdNumberSchema });
+const JoinRow = z.object({ kind: z.enum(['prd-joined', 'prd-dropped', 'landed', 'prd-merged']), prd: PrdNumberSchema });
+const PageRow = z.object({ id: z.uuid(), prd: PrdNumberSchema.nullable() });
+const PlanRow = z.object({ content: z.string() });
 const Refreshed = z.enum(['added', 'updated', 'again', 'requeued']);
 
 async function readOne(db: MissionsDb, id: string): Promise<MissionRecord | null> {
@@ -46,20 +49,48 @@ async function readOne(db: MissionsDb, id: string): Promise<MissionRecord | null
 
 /** What a signed-in person reads: the missions their workspace membership shows. */
 export function missionsReader(db: MissionsDb) {
+  async function onBranch(id: string): Promise<PrdNumber[]> {
+    const { data, error } = await db.from('mission_events').select('kind, prd').eq('mission_id', id).in('kind', ['prd-joined', 'prd-dropped', 'landed', 'prd-merged']).not('prd', 'is', null).order('at', { ascending: true });
+    if (error) throw new Error(`Supabase: could not read the mission's events (${error.message})`);
+    const on = new Set<PrdNumber>();
+    for (const row of orThrow(parseRows(JoinRow, data, `${WHERE}: mission_events`))) {
+      if (row.kind === 'prd-joined') on.add(row.prd);
+      else on.delete(row.prd);
+    }
+    return [...on];
+  }
   return {
     /** The mission, or null when it is none or the person may not see it. */
     mission: (id: string): Promise<MissionRecord | null> => readOne(db, id),
 
-    /** How many PRDs sit on the mission's branch: those whose latest join event is not followed by a drop or a landing. */
+    /** The PRDs on the mission's branch, in the order they joined: those whose latest join event is not followed by a drop or a landing. */
+    onBranch,
+
+    /** How many PRDs sit on the mission's branch. */
     async joined(id: string): Promise<number> {
-      const { data, error } = await db.from('mission_events').select('kind, prd').eq('mission_id', id).in('kind', ['prd-joined', 'prd-dropped', 'landed']).not('prd', 'is', null).order('at', { ascending: true });
-      if (error) throw new Error(`Supabase: could not read the mission's events (${error.message})`);
-      const on = new Set<PrdNumber>();
-      for (const row of orThrow(parseRows(JoinRow, data, `${WHERE}: mission_events`))) {
-        if (row.kind === 'prd-joined') on.add(row.prd);
-        else on.delete(row.prd);
+      return (await onBranch(id)).length;
+    },
+
+    /** Mission `number` of repository `repo`, or null when it is none or the person may not see it. */
+    async byNumber(repo: string, number: number): Promise<MissionRecord | null> {
+      const { data, error } = await db.from('missions').select(MISSION).eq('repo', repo.toLowerCase()).eq('number', number).maybeSingle();
+      if (error) throw new Error(`Supabase: could not read the mission (${error.message})`);
+      return data === null ? null : toRecord(orThrow(parseRow(MissionRow, data, `${WHERE}: missions`)));
+    },
+
+    /** Each PRD's territory, every path its latest plan's slices declare; null for one with no plan, or one that cannot be read. */
+    async territories(mission: MissionRecord, prds: readonly PrdNumber[]): Promise<Map<PrdNumber, string[] | null>> {
+      const found = new Map<PrdNumber, string[] | null>(prds.map((prd) => [prd, null]));
+      if (prds.length === 0) return found;
+      const pages = await db.from('dossiers').select('id, prd').eq('workspace_id', mission.workspace).eq('home_repo', mission.repo).eq('kind', 'prd').in('prd', [...prds]);
+      if (pages.error) throw new Error(`Supabase: could not read the PRDs' pages (${pages.error.message})`);
+      for (const page of orThrow(parseRows(PageRow, pages.data, `${WHERE}: dossiers`))) {
+        const plans = await db.from('dossier_versions').select('content').eq('dossier_id', page.id).eq('kind', 'plan').order('created_at', { ascending: false }).limit(1);
+        if (plans.error) throw new Error(`Supabase: could not read a PRD's plan (${plans.error.message})`);
+        const [plan] = orThrow(parseRows(PlanRow, plans.data, `${WHERE}: dossier_versions`));
+        if (plan !== undefined && page.prd !== null) found.set(page.prd, territoryOf(plan.content));
       }
-      return on.size;
+      return found;
     },
 
     /** Sets the mission's level as the signed-in person, so the database decides who may raise it: the level, or the database's refusal in its words. */
@@ -95,8 +126,8 @@ export function missionsWriter(db: MissionsDb) {
     },
 
     /** Records one event of the mission, signed with the member's login. */
-    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed'; actor: string; sentence: string; at: string }): Promise<void> {
-      const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence });
+    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'drop-asked' | 'drop-asked-keep'; actor: string; sentence: string; at: string; prd?: PrdNumber }): Promise<void> {
+      const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }) });
       if (error) throw new Error(`Supabase: could not record the mission's event (${error.message})`);
     },
 

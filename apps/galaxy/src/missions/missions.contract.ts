@@ -32,6 +32,28 @@ export const LevelBodySchema = z.object({ level: MissionLevelSchema });
 export const LeveledMissionSchema = z.object({ mission: z.object({ id: z.uuid(), level: MissionLevelSchema }) });
 export type LeveledMission = z.infer<typeof LeveledMissionSchema>;
 
+/** What `omni mission drop` sends (PRD 2896 s7): the repository, the mission's number, the PRD to take off its branch and whether the later PRDs sharing its territory stay. */
+export const DropBodySchema = z.object({
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
+  mission: z.number().int().positive(),
+  prd: z.number().int().positive(),
+  keep: z.boolean().default(false),
+});
+export type DropBody = z.infer<typeof DropBodySchema>;
+
+/** The ask as recorded: the branch the PRD leaves, the later PRDs sharing its territory and every PRD that leaves, in join order. */
+export const DroppedMissionSchema = z.object({
+  drop: z.object({
+    mission: z.uuid(),
+    branch: z.string(),
+    prd: z.number().int().positive(),
+    sharing: z.array(z.number().int().positive()),
+    dropped: z.array(z.number().int().positive()),
+    keep: z.boolean(),
+  }),
+});
+export type DroppedMission = z.infer<typeof DroppedMissionSchema>;
+
 /** Each refusal's status. */
 export const MISSION_REFUSALS = {
   malformed: 400,
