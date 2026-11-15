@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { JobRow, RunnerRow } from './runners.repository';
-import { runnersService, spansProduct } from './runners.service';
-import { OTHER_INSTALLATION, stubGithub, type Installed } from './fixtures/github.fake';
+import { reachedRepos, runnersService, spansProduct } from './runners.service';
+import { KEY_APP_CREDENTIALS, OMNI_APP, OTHER_INSTALLATION, stubGithub, type Installed } from './fixtures/github.fake';
 import { API_KEY, fakeStore, jobRow, KEY_APP, OLGA, runnerRow, SHARED, T0, WORKSPACE, type KeyState, type ProductState } from './fixtures/store.fake';
 
 // The ultra skills on a runner (PRD 2873 s1, BR-PRODUCT-63): `/omni:ultra-yolo`, `/omni:ultra-wave` and `/omni:ultra-yolo-fix`
@@ -139,5 +139,39 @@ describe('an ultra job\'s token (BR-PRODUCT-63)', () => {
     value(await w.service.next(OLGA, SHARED));
     expect(mintedFor(w.asked)).toEqual([[PLAN]]);
     expect(w.asked.installations).toEqual([PLAN]);
+  });
+});
+
+describe('a spanning job of a key\'s App (PRD 2915, BR-ACCESS-1)', () => {
+  const keyJob = (more: Partial<JobRow> = {}) => jobRow({ sent_by: OLGA, sent_by_key: API_KEY, line: '/omni:ultra-yolo 12', repo: PLAN, ...more });
+
+  it('mints as the key\'s App, for the plan repository and the product\'s repositories in the allow-list that the installation holds, and no other', async () => {
+    const w = world({ jobs: [keyJob()], repos: [PLAN, 'demo-org/api', 'other-org/ios'] });
+    value(await w.service.next(OLGA, SHARED));
+    expect(w.asked.minted.map((minted) => [minted.appId, minted.repositories])).toEqual([[KEY_APP_CREDENTIALS.appId, [PLAN, 'demo-org/api']]]);
+    expect(w.asked.installations).not.toContain('demo-org/web');
+  });
+
+  it('mints as the Omni App, as wide, for a job no key sent', async () => {
+    const w = world({ jobs: [keyJob({ sent_by_key: null })] });
+    value(await w.service.next(OLGA, SHARED));
+    expect(w.asked.minted.map((minted) => [minted.appId, minted.repositories])).toEqual([[OMNI_APP.appId, [PLAN, 'demo-org/api', 'demo-org/web']]]);
+  });
+});
+
+describe('reachedRepos()', () => {
+  const reach = { repo: PLAN, allowed: [] as string[], named: ['demo-org/web', PLAN, 'demo-org/api'], planned: ['demo-org/api', 'demo-org/docs'] };
+
+  it('is the other repositories of the products that name the repository, then those of the products it plans, once each', () => {
+    expect(reachedRepos(reach)).toEqual(['demo-org/web', 'demo-org/api', 'demo-org/docs']);
+  });
+
+  it('leaves out the repository itself, and any outside a non-empty allow-list; an empty one allows every repository', () => {
+    expect(reachedRepos({ ...reach, allowed: [PLAN, 'demo-org/api'] })).toEqual(['demo-org/api']);
+    expect(reachedRepos({ ...reach, allowed: [PLAN] })).toEqual([]);
+  });
+
+  it('is empty for a repository in no product', () => {
+    expect(reachedRepos({ repo: PLAN, allowed: [], named: [], planned: [] })).toEqual([]);
   });
 });

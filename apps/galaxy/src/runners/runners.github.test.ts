@@ -1,7 +1,8 @@
-import { createVerify, generateKeyPairSync } from 'node:crypto';
+import { createVerify, generateKeyPairSync, randomBytes, type KeyObject } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { present } from '../ask/test/test-item';
 import { APP_PERMISSIONS, type AppCredentials } from '../public-api/keys/github-app';
+import { sealSecret } from '../jev/secret-box';
 import { appJwt } from '../signup/github-app';
 import { githubDeps } from './runners.github';
 import type { JobRow } from './runners.repository';
@@ -10,17 +11,24 @@ import { API_KEY, fakeStore, jobRow, KEY_APP, MO, OLGA, runnerRow, SHARED, T0, t
 
 vi.mock('server-only', () => ({}));
 
-// The runners' GitHub wiring (PRD 2573 s1, over PRD 2433 s7): the real service over the App's own calls to GitHub
-// (../public-api/keys/github-app.ts), on the store's fake and a stubbed GitHub behind an injected fetch. It proves the
-// parts fit: the Omni App signs as itself, its bot is named by its slug once, and the token GitHub mints is asked for
-// the job's repository alone, with the App's permissions and nothing more, whoever sent the job. The key and the token
-// are made here, when the test runs: the repository holds none, not even a fake one (secret-shapes-guard).
+// The runners' GitHub wiring (PRD 2915 s1, over PRD 2573 s1 and PRD 2433 s7): the real service over the App's own calls to GitHub
+// (../public-api/keys/github-app.ts) and the secret box, on the store's fake and a stubbed GitHub behind an injected fetch. It
+// proves the parts fit: the Omni App signs as itself, its bot is named by its slug once, and a key's App, its private key opened
+// from the sealed one under the master key, signs as itself and is named by its stored row; the token GitHub mints is asked for
+// the job's repository alone, with the App's permissions and nothing more. The keys, the master key and the token are made here,
+// when the test runs: the repository holds none, not even a fake one (secret-shapes-guard).
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 const OMNI: AppCredentials = { appId: '424242', privateKey: PEM };
-/** A key that holds its own App: its job runs as the Omni App all the same. */
-const KEY: KeyState = { id: API_KEY, app: KEY_APP, working: true };
+/** The private key of the App a key holds, sealed under a master key made here, as the database stores it. */
+const OWN = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const OWN_PEM = OWN.privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+const MASTER = randomBytes(32).toString('base64');
+const SEALED = sealSecret(OWN_PEM, Buffer.from(MASTER, 'base64'));
+const OWN_APP: AppCredentials = { appId: String(KEY_APP.app_id), privateKey: OWN_PEM };
+/** A key that holds its own App: its job runs as that App. */
+const KEY: KeyState = { id: API_KEY, app: { ...KEY_APP, ciphertext: SEALED.ciphertext, iv: SEALED.iv }, working: true };
 const NOW = T0.getTime();
 const TOKEN = 'gh' + 's_' + 'wired_token_for_the_tests';
 const EXPIRES = '2026-10-13T13:00:00Z';
@@ -55,15 +63,15 @@ const HAPPY = {
 const BOT = { login: 'omni-demo[bot]', email: '4242+omni-demo[bot]@users.noreply.github.com' };
 
 /** The real service, wired over `githubDeps(credentials)` on a stubbed GitHub, with `jobs` waiting for Olga's runner. */
-function world({ credentials = OMNI, answers = HAPPY, jobs = [], slots = 1 }: {
-  credentials?: AppCredentials | null; answers?: Answers; jobs?: JobRow[]; slots?: number;
+function world({ credentials = OMNI, answers = HAPPY, jobs = [], slots = 1, master = MASTER, keys = [KEY] }: {
+  credentials?: AppCredentials | null; answers?: Answers; jobs?: JobRow[]; slots?: number; master?: string | null; keys?: KeyState[];
 } = {}) {
   let now = T0;
-  const { store, state } = fakeStore({ jobs, runners: [runnerRow({ id: SHARED, name: 'shared', slots, github_app: true })], keys: [KEY], now: () => now });
+  const { store, state } = fakeStore({ jobs, runners: [runnerRow({ id: SHARED, name: 'shared', slots, github_app: true })], keys, now: () => now });
   const stub = github(answers);
   // A held `next` moves the clock as it sleeps, so it ends after its 40 s with no job.
   const clock = { now: () => now, sleep: (ms: number) => { now = new Date(now.getTime() + ms); return Promise.resolve(); } };
-  const deps = githubDeps(credentials, stub.fetchImpl, () => NOW);
+  const deps = githubDeps(credentials, stub.fetchImpl, () => NOW, master);
   return { service: runnersService(store, clock, deps), deps, state, calls: stub.calls, store, clock };
 }
 
@@ -76,24 +84,70 @@ const value = <T>(served: { ok: true; value: T } | { ok: false; kind: string; er
   return served.value;
 };
 
-const signedByTheApp = (call: Call): boolean => {
+const signedBy = (call: Call, app: AppCredentials, key: KeyObject): boolean => {
   const jwt = present(call.headers.authorization, 'authorization').slice('Bearer '.length);
   const [head, body, sig] = jwt.split('.');
-  return jwt === appJwt(OMNI, NOW)
-    && createVerify('RSA-SHA256').update(`${head}.${body}`).verify(publicKey, Buffer.from(present(sig, 'signature'), 'base64url'));
+  return jwt === appJwt(app, NOW)
+    && createVerify('RSA-SHA256').update(`${head}.${body}`).verify(key, Buffer.from(present(sig, 'signature'), 'base64url'));
 };
+const signedByTheApp = (call: Call): boolean => signedBy(call, OMNI, publicKey);
+
+describe('a job of a key that holds an App, claimed over the key\'s App\'s own calls (PRD 2915)', () => {
+  it('opens the sealed key, finds the installation and mints as the key\'s App, naming its bot from the stored row, with GitHub asked for nothing else', async () => {
+    const job = keyJob();
+    const w = world({ jobs: [job] });
+    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({
+      id: job.id, github: { token: TOKEN, expiresAt: EXPIRES, login: 'acme-bugs[bot]', email: '777+acme-bugs[bot]@users.noreply.github.com' },
+    });
+    expect(routes(w.calls)).toEqual(['GET /repos/demo-org/app/installation', 'POST /app/installations/9001/access_tokens']);
+    expect(w.calls.every((call) => signedBy(call, OWN_APP, OWN.publicKey))).toBe(true);
+    expect(w.calls.some((call) => signedBy(call, OMNI, publicKey))).toBe(false);
+    expect(present(w.calls[1], 'the mint call').body).toEqual({ repositories: ['app'], permissions: APP_PERMISSIONS });
+    expect(w.state.minted).toEqual([API_KEY]);
+  });
+
+  it('asks GitHub again, as the key\'s App, for each refresh, and records each mint', async () => {
+    const job = keyJob({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    expect(value(await w.service.githubToken(OLGA, job.id))).toEqual({ token: TOKEN, expiresAt: EXPIRES });
+    expect(value(await w.service.githubToken(OLGA, job.id))).toEqual({ token: TOKEN, expiresAt: EXPIRES });
+    expect(w.calls.filter((call) => call.method === 'POST').map((call) => call.body)).toEqual([
+      { repositories: ['app'], permissions: APP_PERMISSIONS },
+      { repositories: ['app'], permissions: APP_PERMISSIONS },
+    ]);
+    expect(w.state.minted).toEqual([API_KEY, API_KEY]);
+  });
+
+  it.each([
+    ['a deployment with no master key', null, 'this Omni server has no key to open the App\'s private key'],
+    ['a malformed master key', 'not-a-master-key', 'this Omni server has no key to open the App\'s private key'],
+    ['a key sealed under another master key', randomBytes(32).toString('base64'), 'the App\'s private key could not be opened'],
+  ])('ends the job failed, `github app: <why>`, for %s, asking GitHub for nothing and never falling back to the Omni App', async (_, master, why) => {
+    const w = world({ jobs: [keyJob()], master });
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: `github app: ${why}` });
+    expect(w.calls).toEqual([]);
+    expect(w.state.minted).toEqual([]);
+    expect(JSON.stringify(w.state.jobs)).not.toContain(OWN_PEM.split('\n')[1] ?? OWN_PEM);
+  });
+});
 
 describe('a job claimed over the Omni App\'s own calls', () => {
-  it.each([['sent from the page', pageJob()], ['sent by a key that holds its own App', keyJob()]])(
-    'names the bot, finds the installation and mints for a job %s, as the Omni App, with its permissions',
-    async (_, job) => {
-      const w = world({ jobs: [job] });
-      expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ id: job.id, github: { token: TOKEN, expiresAt: EXPIRES, ...BOT } });
-      expect(routes(w.calls)).toEqual(['GET /repos/demo-org/app/installation', 'POST /app/installations/9001/access_tokens', 'GET /app', 'GET /users/omni-demo[bot]']);
-      expect(w.calls.filter((call) => call.path.startsWith('/app') || call.path.startsWith('/repos/')).every(signedByTheApp)).toBe(true);
-      expect(present(w.calls[1], 'the mint call').body).toEqual({ repositories: ['app'], permissions: APP_PERMISSIONS });
-    },
-  );
+  it('names the bot, finds the installation and mints for a job sent from the page, as the Omni App, with its permissions', async () => {
+    const job = pageJob();
+    const w = world({ jobs: [job] });
+    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ id: job.id, github: { token: TOKEN, expiresAt: EXPIRES, ...BOT } });
+    expect(routes(w.calls)).toEqual(['GET /repos/demo-org/app/installation', 'POST /app/installations/9001/access_tokens', 'GET /app', 'GET /users/omni-demo[bot]']);
+    expect(w.calls.filter((call) => call.path.startsWith('/app') || call.path.startsWith('/repos/')).every(signedByTheApp)).toBe(true);
+    expect(present(w.calls[1], 'the mint call').body).toEqual({ repositories: ['app'], permissions: APP_PERMISSIONS });
+  });
+
+  it('mints as the Omni App for a job of a key that holds no App', async () => {
+    const w = world({ jobs: [keyJob()], keys: [{ id: API_KEY, app: null, working: true }] });
+    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ sentByKey: 'QA dashboard', github: { token: TOKEN, ...BOT } });
+    expect(w.calls.filter((call) => call.path.startsWith('/app') || call.path.startsWith('/repos/')).every(signedByTheApp)).toBe(true);
+    expect(w.state.minted).toEqual([]);
+  });
 
   it('asks for the bot with the job\'s token, never the App\'s JWT, which GitHub refuses there (#2528, #2656)', async () => {
     const w = world({ jobs: [pageJob()] });
@@ -144,7 +198,7 @@ describe('a job claimed over the Omni App\'s own calls', () => {
   });
 
   it('asks GitHub again for each refresh, for the same repository, and answers the token and its expiry', async () => {
-    const job = keyJob({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const job = pageJob({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
     const w = world({ jobs: [job] });
     expect(value(await w.service.githubToken(OLGA, job.id))).toEqual({ token: TOKEN, expiresAt: EXPIRES });
     expect(value(await w.service.githubToken(OLGA, job.id))).toEqual({ token: TOKEN, expiresAt: EXPIRES });

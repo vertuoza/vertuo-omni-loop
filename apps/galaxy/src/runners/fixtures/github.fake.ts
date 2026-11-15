@@ -2,8 +2,9 @@ import type { AppCredentials, AppInstallation } from '../../public-api/keys/gith
 import type { AppBot, GithubDeps } from '../runners.service';
 
 // A stubbed GitHub for the runners' tests (PRD 2433 s7, PRD 2573 s1): the service's `GithubDeps` over canned
-// answers, recording what it was asked. Every job runs as the Omni App, the one this deployment signs in with:
-// its credentials, its bot, its installations and the tokens it mints. The App's own calls to GitHub are proven
+// answers, recording what it was asked. A job runs as the Omni App, the one this deployment signs in with (its credentials,
+// its bot, its installations and the tokens it mints), or, when its key holds an App (PRD 2915), as that App: the master key
+// and the opening of its sealed private key are stubbed too, the opened key a sentence naming the App. The App's own calls to GitHub are proven
 // in ../../public-api/keys/github-app.test.ts, and the wiring over them in ../runners.github.test.ts. No key or
 // token here is real: the private key is a sentence and the token is built from parts (secret-shapes-guard).
 
@@ -14,6 +15,14 @@ export const EXPIRES = '2026-10-13T13:00:00Z';
 export const PRIVATE_KEY = 'the Omni App\'s private key';
 /** The Omni App's id and private key (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY). */
 export const OMNI_APP: AppCredentials = { appId: '424242', privateKey: PRIVATE_KEY };
+/** The private key of the App `KEY_APP` (store.fake.ts) holds, as opening its sealed one gives it back. */
+export const KEY_PRIVATE_KEY = 'the key\'s App\'s private key';
+/** The credentials the service opens for `KEY_APP`: its id, and its private key opened. */
+export const KEY_APP_CREDENTIALS: AppCredentials = { appId: '123456', privateKey: KEY_PRIVATE_KEY };
+/** The bot a job of `KEY_APP` runs as, read from the App's stored row. */
+export const KEY_BOT = { login: 'acme-bugs[bot]', email: '777+acme-bugs[bot]@users.noreply.github.com' };
+/** The master key the stub holds, 32 bytes: it opens `KEY_APP`'s sealed private key. */
+export const MASTER = Buffer.alloc(32, 7);
 /** The Omni App's slug and its bot's id, as GitHub names them. */
 export const OMNI_BOT: AppBot = { slug: 'omni-demo', botId: 4242 };
 /** The bot every job runs as: the Omni App's. */
@@ -39,6 +48,11 @@ export function stubGithub(more: Partial<GithubDeps> = {}, installed: Readonly<R
   const asked: GithubAsked = { bots: 0, installations: [], minted: [] };
   const deps: GithubDeps = {
     credentials: OMNI_APP,
+    master: () => MASTER,
+    open: (_sealed, master) => {
+      if (!master.equals(MASTER)) throw new Error('wrong master key');
+      return KEY_PRIVATE_KEY;
+    },
     bot: () => {
       asked.bots += 1;
       return Promise.resolve(OMNI_BOT);
