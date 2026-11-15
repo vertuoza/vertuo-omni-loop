@@ -2,8 +2,8 @@
 
 PRD #2879, its spec beside this plan (`spec.md`). The feature branch `feat/fleet-works-alone` goes
 into `main` with `Closes #2879`; each slice is a sub-PR from `feat/fleet-works-alone--<slice>` into
-the feature branch with `Part of #2879`. Not built before PRD 2871 (the Reviewer) has shipped: s4
-reads its verdict.
+the feature branch with `Part of #2879`. Blocked by PRD 2871 (the Reviewer), shipped on 2026-11-15:
+s4 reads its verdict.
 
 ## Slices
 
@@ -17,19 +17,21 @@ reads its verdict.
 | s6 | One mission pull request carries the branch to the default branch by rebase, a PRD is shipped only once there, and one knowledge pull request covers a landing | `apps/omni-app/src/missions/` `apps/omni-app/src/knowledge-harvest/` `apps/omni-app/src/retro/` `packages/github/` | s5 | 6 | deep |
 | s7 | A person drops a PRD from the mission branch with `omni mission drop`, and a red branch names the PRD to drop | `kit/bin/commands/mission` `kit/bin/mission` `kit/lib/mission/` `kit/lib/help/` `apps/omni-app/src/missions/` `apps/galaxy/app/api/missions/` `apps/galaxy/src/missions/` | s6 | 7 | build |
 | s8 | The Missions tab shows the Branch line and the operation room records each join, rebase, drop and landing | `apps/galaxy/src/missions/` `.omni-loop/knowledge/design/screens/mission-start` `.omni-loop/knowledge/design/screens/fleet-room` `kit/plugin/skills/pr/` | s7 | 8 | build |
-| s9 | At `alone`, the committee approves a mission's PRD by three `yes`, never what the escalation list names, and the approval is in force for that mission | `kit/plugin/skills/committee/` `kit/lib/committee/` `kit/bin/commands/committee` `kit/bin/committee` `kit/lib/help/` `kit/lib/virtual-fleet/` `kit/lib/runner/` `apps/galaxy/src/runners/` `apps/galaxy/src/repositories/skills` `apps/galaxy/src/approvals/` `apps/galaxy/src/virtual-fleets/` `apps/omni-app/src/missions/` `supabase/migrations/` `supabase/checks/` `supabase/database.types.ts` | s8 | 9 | deep |
+| s9 | At `alone`, the committee approves a mission's PRD born on the server by three `yes` (two when its author sits out), never what the escalation list names, and the approval is in force for that mission | `kit/plugin/skills/committee/` `kit/lib/committee/` `kit/bin/commands/committee` `kit/bin/committee` `kit/lib/help/` `kit/lib/virtual-fleet/` `kit/lib/runner/` `apps/galaxy/src/runners/` `apps/galaxy/src/repositories/skills` `apps/galaxy/src/approvals/` `apps/galaxy/src/virtual-fleets/` `apps/omni-app/src/missions/` `supabase/migrations/` `supabase/checks/` `supabase/database.types.ts` | s8 | 9 | deep |
 | s10 | At `alone`, the committee settles a high outbox item by three `yes`, as answered by the fleet, and escalates the rest with its verdicts | `kit/plugin/skills/committee/` `kit/lib/committee/` `kit/lib/outbox/` `apps/omni-app/src/missions/` `apps/omni-app/src/outbox-check/` `apps/galaxy/src/missions/` | s9 | 10 | deep |
 | s11 | A person overturns a fleet's decision; the mission pull request lists every decision, and the Missions tab shows only what was escalated and the trust line | `kit/bin/commands/mission` `kit/bin/mission` `kit/lib/mission/` `kit/lib/help/` `apps/omni-app/src/missions/` `apps/galaxy/src/missions/` `apps/galaxy/app/api/missions/` `.omni-loop/knowledge/design/screens/mission-start` | s10 | 11 | build |
-| s12 | At `alone` with `mandate.ownPrds` above 0, the PM adds PRDs to the mission, each waiting for a person's approval | `kit/plugin/skills/brainstorm/` `kit/lib/runner/` `apps/galaxy/src/runners/` `apps/galaxy/src/repositories/skills` `apps/omni-app/src/missions/` `supabase/migrations/` `supabase/checks/` `supabase/database.types.ts` | s11 | 12 | build |
-| s13 | The guide's Missions page says what each level does, what a person still does, and how to go back | `docs/guide/` `apps/galaxy/src/docs/` | s12 | 13 | light |
+| s12 | At `alone` with `mandate.ownPrds` above 0, runners take the PM's `brainstorm`, `roadmap`, `mega-brainstorm` and `mega-roadmap` for the mission, each PRD counting, and the Architect and the Reviewer approve what the PM wrote | `kit/plugin/skills/brainstorm/` `kit/plugin/skills/roadmap/` `kit/plugin/skills/mega-brainstorm/` `kit/plugin/skills/mega-roadmap/` `kit/lib/runner/` `kit/lib/virtual-fleet/` `kit/lib/committee/` `apps/galaxy/src/runners/` `apps/galaxy/src/repositories/skills` `apps/galaxy/src/virtual-fleets/` `apps/galaxy/src/missions/` `apps/omni-app/src/missions/` `supabase/migrations/` `supabase/checks/` `supabase/database.types.ts` `.omni-loop/knowledge/design/screens/fleet-new` | s11 | 12 | deep |
+| s14 | A mission in a plan repository works alone for the committee only: no mission branch, each PRD built with `/omni:ultra-yolo` into target pull requests a person merges, and `own-branch` refused | `kit/lib/mission/` `kit/plugin/skills/mission/` `apps/omni-app/src/missions/` `apps/galaxy/src/missions/` `apps/galaxy/app/api/missions/` | s12 | 13 | build |
+| s13 | The guide's Missions page says what each level does, what a person still does, and how to go back | `docs/guide/` `apps/galaxy/src/docs/` | s14 | 14 | light |
 
 **Shared ground.** `apps/omni-app/src/missions/` (the supervisor and its job) is declared by s3 to
 s7 and s9 to s12, and `supabase/migrations/`, `supabase/checks/` and `supabase/database.types.ts`
-by s1, s2, s4, s9 and s12: each of those slices sits in a wave of its own, so two never merge side
+by s1, s2, s4, s9 and s12, and `apps/omni-app/src/missions/` by s14 too: each of those slices sits in a wave of its own, so two never merge side
 by side, and each migration is dated after the newest on `main` when its slice is marked ready.
 `kit/lib/help/` (one entry per new command or skill) is shared by s7, s9 and s11;
 `apps/galaxy/src/missions/` and the `mission-start` screen by s2, s7, s8, s10 and s11;
-`kit/lib/runner/` and the runner skill lists by s3, s5, s9 and s12. The waves are one chain because
+`kit/lib/runner/` and the runner skill lists by s3, s5, s9 and s12; `kit/lib/committee/` by s9, s10 and
+s12; the `fleet-new` screen by s1 and s12 (the PM's count line). The waves are one chain because
 nearly every slice edits the supervisor. `kit/dist/` and `apps/omni-app/api/` are generated and
 listed nowhere.
 
@@ -103,6 +105,8 @@ listed nowhere.
   answer `yes`, `no` or `unsure` with one sentence, without reading another's verdict.
 - Three `yes` record a carried approval: the PRD's page reads `Approved by fleet <key>`, the
   mission sends the PRD, and a later change to a file the committee read voids it (criterion 13).
+- The hero whose job wrote the PRD sits out, and the two others must both answer `yes`; a PRD whose
+  spec does not say `phase0: server` is never approved by the committee and waits for a person.
 - Each line of the escalation list reaches a person although three members would answer `yes`
   (criterion 15); a `no`, an `unsure`, a member that fails or times out does too, verdicts
   attached (criterion 16).
@@ -128,13 +132,29 @@ only, so the feature pull request waits for @pierrederval's or @dervalp's approv
   **Waiting on you**, each with why, and `<n> decisions by the fleet · <k> overturned`
   (criterion 17).
 
-### s12 (`ui: yes`)
-- With `mandate.ownPrds` at 0 no brainstorm job is sent. Above 0, the PM adds at most that many
-  PRDs, each `added by the fleet`, each waiting for a person's approval and never the committee's;
-  every question the brainstorm would have asked is a high item on the new PRD (criterion 19).
-- Runners take `brainstorm` for a mission's job and for nothing else.
+### s12 (`ui: yes`; deep: the fleet widens its own scope)
+- With `mandate.ownPrds` at 0 no PM job is sent. Above 0, the supervisor sends one of
+  `/omni:brainstorm`, `/omni:roadmap`, `/omni:mega-brainstorm` (plan repository) or
+  `/omni:mega-roadmap` (plan repository); the PM adds at most that many PRDs, each counting, each
+  `added by the fleet` and born on the server (criterion 19).
+- A PRD the PM wrote is approved when the Architect and the Reviewer both answer `yes`, the PM not
+  voting, after the escalation list (criterion 19).
+- Every question an unattended PM skill would have asked is a high item on the PRD it wrote; a
+  roadmap past the cap writes the PRDs that fit, in its order, and the Missions tab names the rest
+  as `not written: the cap is <k>` (criterion 22).
+- The four skills join the kit's, the App's and the database's runner lists; a runner refuses each
+  on a job that belongs to no mission at `alone`, naming why; the PM's count line reads
+  `Runs 6 of 7 skills alone`, on the `fleet-new` screen too (criterion 21).
+
+### s14 (`ui: yes`)
+- A mission whose PRDs live in a plan repository may be at `alone`: it cuts no mission branch, the
+  committee approves its PRDs and answers their high items, each PRD is built with
+  `/omni:ultra-yolo`, and its Missions tab says `committee only: a person merges each target's pull
+  request` (criterion 23).
+- `own-branch` is refused for it with `a mission branch holds one repository: use with-you or
+  alone` (criterion 12).
 
 ### s13 (light: the guide's words)
 - `docs/guide/missions.md` names the three levels, what a person still does at each, the merge
-  gate, the escalation list, drop and overturn, and how to return to `with-you`; the guide's own
-  tests pass.
+  gate, the escalation list, drop and overturn, the PM's four skills and its cap, a plan-repository
+  mission at `alone`, and how to return to `with-you`; the guide's own tests pass.
