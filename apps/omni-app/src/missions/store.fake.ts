@@ -17,6 +17,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
   const jobs: FakeJob[] = [];
+  /** The care jobs it queued (PRD 2896 s5), with no mission key. */
+  const cares: { id: string; line: string; queuedAt: string; toFleet: string | null }[] = [];
   const events: FakeEvent[] = [];
   let made = 0;
   /** Reads of the runs held until this many are waiting: two runs at once read the same state. */
@@ -55,6 +57,14 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       jobs.push({ id, line: lineOf(prd, step, skill, baseOf(sent, skill === 'ultra-yolo')), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
       return Promise.resolve(id);
     },
+    care: ({ mission: sent, line, since, toFleet }) => {
+      // A job queued since `since` counts as sent: the fake queues each at the time it was asked for.
+      if (cares.some((one) => one.line === line && one.queuedAt >= since)) return Promise.resolve(null);
+      made += 1;
+      const id = `job-${String(made)}`;
+      cares.push({ id, line, queuedAt: since, toFleet: toFleet ? sent.fleet : null });
+      return Promise.resolve(id);
+    },
     record: (_id, list, at) => {
       for (const [n, event] of list.entries()) events.push({ ...event, actor: 'agent', at: new Date(at.getTime() + n).toISOString() });
       return Promise.resolve();
@@ -78,6 +88,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     store,
     /** The jobs queued, in order. */
     jobs: () => jobs.map((job) => ({ ...job })),
+    /** The care jobs queued, in order (PRD 2896 s5). */
+    cares: () => cares.map((one) => ({ ...one })),
     /** The events recorded, in order. */
     events: () => [...events],
     /** The mission as it stands. */

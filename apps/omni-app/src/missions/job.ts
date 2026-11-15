@@ -10,6 +10,11 @@
 //                  one forward
 //   the branch     above `with-you` (PRD 2896) a run first cuts the mission's branch from the default branch (./branch.ts), once; with
 //                  it not cut (rebase merges not allowed, no installation) it sends nothing and the mission waits, saying why
+//   keeping up     then, while the mission runs or waits (s5, ./keep-up.ts), its branch is rebased onto the default branch when
+//                  that moved, and each feature branch of a PRD with no job running brought onto the branch's tip. A feature
+//                  branch that conflicts only in generated paths gets one `/omni:pr-care <n> --once --base <branch>` job per
+//                  head of the branch, which merges the tip in and rebuilds them. Any other conflict changes no branch and
+//                  waits on a person, naming the files, and while the branch itself cannot follow, no PRD joins it
 //   the joins      then, while the mission runs or waits, each PRD that ended Ready and is not on the branch yet meets the merge
 //                  gate (./gate.ts, read through ./join.ts): passed, the App squash-merges its feature pull request into the
 //                  branch and records `prd-joined`, once (a replay reads it on the branch from that event, and a pull request
@@ -38,6 +43,7 @@ import { noteTo } from '../run-log/run-log.ts';
 import type { MissionBranches } from './branch.ts';
 import { judge } from './gate.ts';
 import type { MissionJoins } from './join.ts';
+import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
 import {
   baseOf,
@@ -51,10 +57,12 @@ import {
   recordedKeys,
   WAKE_MS,
   waitsForMerge,
+  withWaits,
   type Concluded,
   type Joined,
   type OnBranch,
   type PrdFacts,
+  type PrdState,
   type Run,
 } from './supervisor.ts';
 
@@ -79,6 +87,8 @@ export type MissionDeps = {
   branches?: MissionBranches | null;
   /** The merge gate's reads and the squash-merge into the mission branch (PRD 2896); null (no GitHub): a Ready PRD waits, unjudged. */
   joins?: MissionJoins | null;
+  /** The mission branch kept up with the default branch, and its feature branches with it (PRD 2896 s5); null (no GitHub): it is not. */
+  keepUps?: MissionKeepUps | null;
   /** Refreshes a job on the ledger: how a run resets its count of `later`s. */
   refresh: (job: RefreshJob) => Promise<unknown>;
   now?: () => number;
@@ -88,17 +98,19 @@ export type MissionDeps = {
 /** What one supervising run did: the mission's new state, whether anything of it still runs, and if it moved. */
 type Supervised = { next: Concluded; running: boolean; moved: boolean; sent: number; events: number };
 
-/** What GitHub the run may ask: the branch to cut and the joins, as the mission's installation. */
-type GitHubDeps = { branches: MissionBranches | null; joins: MissionJoins | null };
+/** What GitHub the run may ask: the branch to cut, keep up and join to, as the mission's installation. */
+type GitHubDeps = { branches: MissionBranches | null; joins: MissionJoins | null; keepUps: MissionKeepUps | null };
 
-/** One run of a running, waiting, paused or stopped mission: check, join, pick, send, record, set. */
+/** One run of a running, waiting, paused or stopped mission: check, keep up, join, pick, send, record, set. */
 async function supervise(store: MissionStore, mission: MissionRecord, now: number, github: GitHubDeps): Promise<Supervised> {
   const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
   const skill = inPlan ? 'ultra-yolo' : 'yolo';
   // Above `with-you` the PRDs are built on the mission's branch: with it not cut, nothing is sent and the mission says why.
   const ready = await branchReady(store, mission, inPlan, github.branches);
   const unready = ready.waits;
-  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: onBranchOf(recorded), installation: ready.installation, joins: github.joins });
+  const joined = onBranchOf(recorded);
+  const kept = await keepUp({ store, mission, inPlan, facts, runs, joined, toFleet, installation: ready.installation, keepUps: github.keepUps });
+  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, installation: ready.installation, joins: github.joins, hold: kept.hold });
   const sent: Run[] = [];
   for (const { prd, run, step } of unready === null ? pick({ mission, facts, states: prdStates(facts, runs, branch) }) : []) {
     const made = await store.send({ mission, prd, run, step, toFleet, skill });
@@ -106,7 +118,7 @@ async function supervise(store: MissionStore, mission: MissionRecord, now: numbe
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all, branch);
-  const concluded = conclude({ mission, facts, states, sent: sent.length, now, branch: branch.branch });
+  const concluded = withWaits(conclude({ mission, facts, states, sent: sent.length, now, branch: branch.branch }), kept.waits);
   const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
   const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded), joins });
   await store.record(mission.id, events, new Date(now));
@@ -134,6 +146,64 @@ async function branchReady(
   if (installation === null) return { ...none, waits: `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App` };
   const prepared = await branches.prepare({ installation, repo: mission.repo, branch });
   return prepared.ok ? { waits: null, installation } : { ...none, waits: prepared.why };
+}
+
+/** What keeping up left for the run: what a person must do, one line each, and, while the branch cannot follow, why nothing joins. */
+type Kept = { waits: readonly string[]; hold: string | null };
+
+const NOT_KEPT: Kept = { waits: [], hold: null };
+
+/** The feature pull requests to keep up: those of PRDs not merged, not on the branch and with no job running, by the PR their jobs named. */
+function featuresOf(facts: readonly PrdFacts[], runs: readonly Run[], states: ReadonlyMap<PrdNumber, PrdState>): FeatureAt[] {
+  return facts.flatMap((fact) => {
+    const state = states.get(fact.prd)?.state;
+    const pr = featurePrOf(runs, fact.prd);
+    return pr === null || state === 'merged' || state === 'joined' || state === 'running' ? [] : [{ prd: fact.prd, pr }];
+  });
+}
+
+/**
+ * The mission branch kept up with the default branch (PRD 2896 s5), while the mission runs or waits with its branch ready: rebased
+ * when the default branch moved, then each feature branch of a PRD with no job running brought onto its tip. A feature branch
+ * that conflicts only in generated paths gets one care job per head of the branch, which merges the tip in and rebuilds them;
+ * any other conflict, and a branch that cannot follow, waits on a person, and nothing joins the branch until it follows.
+ */
+async function keepUp({
+  store,
+  mission,
+  inPlan,
+  facts,
+  runs,
+  joined,
+  toFleet,
+  installation,
+  keepUps,
+}: {
+  store: MissionStore;
+  mission: MissionRecord;
+  inPlan: boolean;
+  facts: readonly PrdFacts[];
+  runs: readonly Run[];
+  joined: ReadonlySet<PrdNumber>;
+  toFleet: boolean;
+  installation: number | null;
+  keepUps: MissionKeepUps | null;
+}): Promise<Kept> {
+  const base = keptBase(mission, inPlan, installation);
+  if (base === null || installation === null || keepUps === null) return NOT_KEPT;
+  const states = prdStates(facts, runs, { branch: base, joined, lacks: new Map() });
+  const kept = await keepUps.keepUp({ installation, repo: mission.repo, branch: base, features: featuresOf(facts, runs, states) });
+  const waits = keptWaits(kept, base);
+  if (kept.branch === 'conflict' || kept.branch === 'held') return { waits, hold: `${base} must follow ${kept.defaultBranch} first` };
+  const rebuilds = kept.features.filter((one) => one.kept === 'conflict' && one.generated);
+  for (const one of rebuilds) await store.care({ mission, line: careLine(one.prd, base), since: kept.since, toFleet });
+  return { waits, hold: null };
+}
+
+/** The branch a run keeps up: the mission's, while it runs or waits with its branch prepared; null otherwise. */
+function keptBase(mission: MissionRecord, inPlan: boolean, installation: number | null): string | null {
+  if (installation === null || (mission.status !== 'running' && mission.status !== 'waiting')) return null;
+  return baseOf(mission, inPlan);
 }
 
 /** A PRD the merge gate judged: joined (merged now, or already), or what it lacks. */
@@ -167,6 +237,7 @@ async function joinAll({
   joined,
   installation,
   joins,
+  hold = null,
 }: {
   mission: MissionRecord;
   inPlan: boolean;
@@ -175,6 +246,8 @@ async function joinAll({
   joined: ReadonlySet<PrdNumber>;
   installation: number | null;
   joins: MissionJoins | null;
+  /** Why nothing joins this run (PRD 2896 s5: the branch cannot follow the default branch); null when PRDs may join. */
+  hold?: string | null;
 }): Promise<{ branch: OnBranch; joins: Joined[] }> {
   const base = baseOf(mission, inPlan);
   if (base === null) return { branch: NO_BRANCH, joins: [] };
@@ -183,6 +256,10 @@ async function joinAll({
   if (installation !== null && (mission.status === 'running' || mission.status === 'waiting')) {
     const states = prdStates(facts, runs, { branch: base, joined, lacks });
     for (const { prd } of facts.filter((fact) => waitsForMerge(states.get(fact.prd)))) {
+      if (hold !== null) {
+        lacks.set(prd, [hold]);
+        continue;
+      }
       const judged = await joinOne({ mission, base, prd, runs, installation, joins });
       if ('joined' in judged) made.push(judged.joined);
       else lacks.set(prd, judged.lacks);
@@ -195,13 +272,13 @@ async function joinAll({
 const watched = ({ next, running }: Supervised): boolean => next.status === 'running' || next.status === 'waiting' || (next.status === 'paused' && running);
 
 /** The handler of the `mission` kind. */
-export function missionHandler({ store, refresh, branches = null, joins = null, now = Date.now, log = noteTo('missions') }: MissionDeps): JobHandler {
+export function missionHandler({ store, refresh, branches = null, joins = null, keepUps = null, now = Date.now, log = noteTo('missions') }: MissionDeps): JobHandler {
   return async (job): Promise<JobResult> => {
     const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
     const mission = await runnable(store, id);
     if (!('id' in mission)) return mission;
     const at = now();
-    const run = await supervise(mission.store, mission, at, { branches, joins });
+    const run = await supervise(mission.store, mission, at, { branches, joins, keepUps });
     log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
     // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
     if (!watched(run) && run.moved) return { outcome: 'done' };

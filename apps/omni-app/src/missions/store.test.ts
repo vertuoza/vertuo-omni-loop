@@ -144,6 +144,23 @@ describe('missionStore — the mission as the service role, never calling Supaba
     expect(nth(db.requests, 1).body).toMatchObject({ to_fleet: null });
   });
 
+  it('sends a feature branch\'s care job as the app with no mission key, once per head of the mission branch (PRD 2896 s5)', async () => {
+    const line = '/omni:pr-care 7 --once --base mission/12-faster-quotes';
+    const since = '2027-01-22T09:00:00Z';
+    const db = recordingFetch([[], [{ id: 'j-4' }], [{ id: 'j-4' }]]);
+    const store = storeOn(db.fetch);
+    expect(await store.care({ mission, line, since, toFleet: true })).toBe('j-4');
+    const read = nth(db.requests, 0);
+    expect(read.path).toBe('/rest/v1/runner_jobs');
+    expect(read.query.get('mission_id')).toBe(`eq.${ID}`);
+    expect(read.query.get('line')).toBe(`eq.${line}`);
+    expect(read.query.get('queued_at')).toBe(`gte.${since}`);
+    expect(nth(db.requests, 1).body).toEqual({ workspace_id: 'ws-1', repo: 'acme/widgets', line, sent_by_app: 'omni-app', to_fleet: 'night-shift', mission_id: ID, mission_key: null });
+    // One already queued since then: nothing is inserted.
+    expect(await store.care({ mission, line, since, toFleet: false })).toBeNull();
+    expect(db.requests).toHaveLength(3);
+  });
+
   it('sends the build and the fix on the mission branch above with-you, never the Reviewer (PRD 2896)', async () => {
     const db = recordingFetch([[{ id: 'j-1' }], [{ id: 'j-2' }], [{ id: 'j-3' }]]);
     const store = storeOn(db.fetch);

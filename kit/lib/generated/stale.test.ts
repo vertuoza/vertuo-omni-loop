@@ -1,6 +1,6 @@
 // PRD 1138: which generated outputs a range's diff made stale.
 import { describe, expect, it } from 'vitest';
-import { staleness } from './stale.ts';
+import { splitGenerated, staleness } from './stale.ts';
 
 const BUNDLE = { path: 'out/', from: ['src/', 'lib/'], build: 'pnpm build' };
 const API = { path: 'api/', from: ['app/', 'lib/'], build: 'node build.ts' };
@@ -23,5 +23,22 @@ describe('staleness', () => {
 
   it('has nothing to grade without entries', () => {
     expect(staleness([], ['lib/x.ts'])).toEqual([]);
+  });
+});
+
+describe('splitGenerated', () => {
+  it('sorts paths into the ones under a generated output and the rest, in their order', () => {
+    expect(splitGenerated([BUNDLE, API], ['out/bundle.mjs', 'lib/a.ts', 'api/index.js', 'outx/a.ts'])).toEqual({
+      generated: ['out/bundle.mjs', 'api/index.js'],
+      other: ['lib/a.ts', 'outx/a.ts'],
+    });
+  });
+
+  it('counts a source of an output as no generated path', () => {
+    expect(splitGenerated([BUNDLE], ['src/a.ts'])).toEqual({ generated: [], other: ['src/a.ts'] });
+  });
+
+  it('has no generated path without entries', () => {
+    expect(splitGenerated([], ['out/bundle.mjs'])).toEqual({ generated: [], other: ['out/bundle.mjs'] });
   });
 });
