@@ -7,8 +7,9 @@
 //              the budgets check finds it; its folder and its outbox snapshotted into the head folder
 //   runs       every check run of the head commit, as GitHub lists them (the latest of each name)
 //   report     the `acceptance` run's report, read from its output's text (or its summary): the JSON the
-//              kit's report format names, alone or in a ```json block. No run, or one still going, and
-//              the rule says check 3 is not finished
+//              kit's report format names, alone or in a ```json block, whether the run is still going or not
+//              (the App's run in progress holds the e2e criteria waiting on a runner, PRD 2898 s8). No run,
+//              or one going with no report yet, and the rule says check 3 is not finished
 //   diff       GitHub's compare of the default branch and the head, each changed file read at the merge
 //              base and at the head when the loosening detector may read it (code, a snapshot, JSON)
 //   area       the plan's territories, the PRD's folders and the generated paths
@@ -147,10 +148,11 @@ function reportText(run: Run): string | null {
   return null;
 }
 
-/** The acceptance report of the head commit, from its `acceptance` run; null while there is none. */
+/** The acceptance report of the head commit, from its `acceptance` run, still going or not, as `omni ready` reads it: the App's
+ * run in progress (./runner-fallback.ts) carries the report whose `e2e` criteria wait on a runner. Null while there is none. */
 function reportOf(runs: readonly Run[]): Readable<AcceptanceReport | null> {
   const run = runs.find((candidate) => candidate.name === ACCEPTANCE_CHECK_NAME);
-  if (run?.status !== 'completed') return read(null);
+  if (run === undefined) return read(null);
   const text = reportText(run);
   if (text === null) return read(null);
   const parsed = parseAcceptanceReport(text);
@@ -161,6 +163,11 @@ function reportOf(runs: readonly Run[]): Readable<AcceptanceReport | null> {
 function criteriaAt(root: string, specPath: string | null): ParsedCriteria | null {
   const text = specPath === null ? null : textAt(root, specPath);
   return text === null ? null : parseCriteria(text);
+}
+
+/** The spec's criteria at the head, its folder already in `ctx.root`; none when the spec is not there. */
+export function criteriaAtHead({ prd, ctx }: PrdAtHead): readonly Criterion[] {
+  return criteriaAt(ctx.root, ctx.layout.specPath(prd))?.criteria ?? [];
 }
 
 /** The PRD's outbox at the head, as the ready rule reads it: settled entries, then open items. */

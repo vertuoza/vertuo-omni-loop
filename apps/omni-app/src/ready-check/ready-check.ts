@@ -6,6 +6,9 @@
 //              base without the loop's config, one that does not parse, one whose `ready.checks` is `off`, a
 //              pull request that is no feature PR into the default branch, one whose PRD has no folder at the
 //              head, or, under `ready.checks: mission`, a PRD in no running, waiting or paused mission
+//   "fallback" when the PRD's `e2e` scenarios wait on a runner (CI kept the report, ran none of them), queue the
+//              runner's job of the head commit and write the `acceptance` check run from what stands
+//              (./runner-fallback.ts, PRD 2898 s8), so the facts read next see it
 //   "judge"    read the facts at the head and run the rule (`readyVerdict`)
 //   "publish"  post the check (./output.ts), unless the latest `omni / ready` run of that commit already says
 //              the same; a run still going is updated rather than left behind. Then save the verdict for the
@@ -27,7 +30,8 @@ import { z } from 'zod';
 import type { Json } from '../../../../supabase/database.types.ts';
 import { pullKind } from '../evaluate/evaluate.ts';
 import { readBaseConfig, readPull, type GitHubClient, type PullFacts, type Repo } from '../outbox-check/github.ts';
-import { prdAtHead, readyFacts } from './facts.ts';
+import { criteriaAtHead, prdAtHead, readyFacts } from './facts.ts';
+import { runnerFallback } from './runner-fallback.ts';
 import { notJudgedOutput, readyOutput, READY_EXTERNAL_ID, type ReadyOutput, type Verdict } from './output.ts';
 import type { ReadyStore } from './store.ts';
 
@@ -118,6 +122,7 @@ export async function runReadyCheck(octokit: GitHubClient, { store, request }: {
     if ('skip' in target) return { posted: false, reason: target.skip };
     const { pr, config, prd, ctx } = target;
     const { owner, repo, prNumber, installationId } = request;
+    await runnerFallback(octokit, store, { owner, repo, installationId, prNumber, prd, headSha: pr.headSha, criteria: criteriaAtHead({ prd, ctx }), config });
     const read = await readyFacts(octokit, { prd, ctx }, { owner, repo, prNumber, pr, baseFolder: base });
     const verdict = readyVerdict(read.facts);
     const posted = await postReady(octokit, { owner, repo, headSha: pr.headSha, output: readyOutput(verdict, { prd, signature: config.signature }) });

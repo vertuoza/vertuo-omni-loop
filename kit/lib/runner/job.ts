@@ -33,6 +33,8 @@ import { chooseAccount, DEFAULT_HANDOFF } from './accounts.ts';
 import type { Account } from './accounts.ts';
 import type { Agent, AgentAccount, Interrupt, Limit, RunCommand, Usage } from './agents/agent.ts';
 import { fallbackAccount, fallbackAgent } from './agents/index.ts';
+import { runAcceptance } from './acceptance.ts';
+import { ACCEPTANCE_SKILL } from './acceptance-line.ts';
 import { checkRunnerLine } from './line.ts';
 import type { Out } from './runner.ts';
 import {
@@ -525,7 +527,8 @@ async function carryOn(place: JobPlace, job: Omit<TurnArgs, 'runs' | 'ran'>, fir
 }
 
 /**
- * The job's run in `cwd`: the install when there is a lockfile, then the run of `account` through
+ * The job's run in `cwd`: an acceptance line (PRD 2898 s8) runs as plain code, its own checkout and install
+ * first (./acceptance.ts); any other, the install when there is a lockfile, then the run of `account` through
  * `agent` (the fallback agent's one account, unless given), turning over to the next of `turnover`'s
  * accounts at the wall, or before it, when given. Writes the exit code last. `env`, when given, is the
  * variables every run starts with in place of the runner's own.
@@ -539,6 +542,13 @@ export async function runJobProcess({ cwd, files, out, env, agent = fallbackAgen
   account?: AgentAccount;
   turnover?: Turnover | undefined;
 }): Promise<number> {
+  const line = readFileSync(files.line, 'utf8').trim();
+  if (checkRunnerLine(line).ok && skillOf(line) === ACCEPTANCE_SKILL) {
+    // The e2e fallback (PRD 2898 s8) runs no agent: it checks its commit out, installs and runs the scenarios itself.
+    const ran = await runAcceptance(line, { cwd, log: files.log, out, env: env ?? processEnv() });
+    writeFileSync(files.exit, `${String(ran)}\n`);
+    return ran;
+  }
   let code = 0;
   if (existsSync(join(cwd, LOCKFILE))) {
     appendFileSync(files.log, '$ pnpm install --frozen-lockfile\n');
