@@ -13,7 +13,7 @@ export type MissionsTabDb = Pick<SupabaseClient, 'from'>;
 
 const WHERE = 'missions/page/missions-tab.repository';
 const MISSION = 'id, repo, number, title, goal, status, waiting_on, scope, mandate';
-const EVENT = 'mission_id, kind, prd, link';
+const EVENT = 'mission_id, kind, prd, link, sentence';
 /** The newest events read: enough to count a mission's PRDs and find what each waits on. */
 const EVENTS_MAX = 1000;
 
@@ -29,7 +29,7 @@ const MissionRowSchema = z.object({
   // A mission made before PRD 2896 holds no level: it reads `with-you`.
   mandate: z.object({ level: MissionLevelSchema.optional() }).loose(),
 });
-const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: PrdNumberSchema.nullable(), link: z.string().nullable() });
+const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: PrdNumberSchema.nullable(), link: z.string().nullable(), sentence: z.string() });
 
 export function missionsTabRepository(db: MissionsTabDb) {
   return {
@@ -45,9 +45,10 @@ export function missionsTabRepository(db: MissionsTabDb) {
     /** The PRD events of these missions (ready, merged, waiting, sent), newest first. */
     async events(missions: readonly string[]): Promise<EventRow[]> {
       if (missions.length === 0) return [];
-      const { data, error } = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).not('prd', 'is', null).order('at', { ascending: false }).limit(EVENTS_MAX);
-      if (error) throw new Error(`Supabase: could not read the missions' events (${error.message})`);
-      return orThrow(parseRows(EventRowSchema, data, `${WHERE}: mission_events`)).map((row) => ({ mission: row.mission_id, kind: row.kind, prd: row.prd, link: row.link }));
+      const read = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).not('prd', 'is', null).order('at', { ascending: false }).limit(EVENTS_MAX);
+      if (read.error) throw new Error(`Supabase: could not read the missions' events (${read.error.message})`);
+      const rows = orThrow(parseRows(EventRowSchema, read.data, `${WHERE}: mission_events`));
+      return rows.map(({ mission_id: mission, ...rest }) => ({ mission, ...rest }));
     },
   };
 }

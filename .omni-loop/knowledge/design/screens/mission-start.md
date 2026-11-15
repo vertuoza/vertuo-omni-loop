@@ -24,8 +24,9 @@ runners while the laptop is closed.
   At Works alone, only what the fleet sent back, with why (`answer s2-01, a locked law`).
 - **A mission's level,** on its row; on a draft, with `Change for this mission`.
 - **The branch line,** at Own branch and Works alone: the PRDs on the mission's branch, whether it is up to
-  date with the default branch, and the mission pull request's link. The progress then reads
-  `2 of 4 on main · 1 joined`.
+  date with the default branch (`up to date`, or `behind the default branch` with what the supervisor
+  said, or the PRD to drop when the branch is red), and the mission pull request's link. The progress then
+  reads `2 of 4 on main · 1 joined`. A mission at Reviews with you, and a draft, show no branch line.
 - **The trust line,** at Works alone: `14 decisions by the fleet · 1 overturned`.
 - **The primary action:** `Start`, on a draft. `Pause` on a running or waiting mission, `Resume` on a
   paused one.
@@ -46,7 +47,8 @@ runners while the laptop is closed.
 ## Words
 
 - `Start`, `Pause`, `Resume`, `Waiting on you`, `Not started`, `Level`, `Change`, `Change for this mission`,
-  `Reviews with you`, `Own branch`, `Works alone`, `Branch`, `up to date`, `joined`, `decisions by the fleet`,
+  `Reviews with you`, `Own branch`, `Works alone`, `Branch`, `up to date`, `behind the default branch`,
+  `Mission pull request`, `on main`, `joined`, `decisions by the fleet`,
   `overturned`.
 
 ## Refusals

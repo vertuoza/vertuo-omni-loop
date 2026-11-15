@@ -87,6 +87,26 @@ describe('the Reviewer rows (PRD 2871)', () => {
   });
 });
 
+describe('the mission branch rows (PRD 2896 s8)', () => {
+  const at = (hour: string) => `2026-11-14T${hour}:00Z`;
+  const row = (kind: string, sentence: string, hour: string) => event({ role: 'supervisor', kind, sentence, at: at(hour), job: null, link: 'https://github.com/o/r/pull/9' });
+
+  it('shows a join, a drop, a drop asked and a landing as one row each, with their own state words', () => {
+    const rows = ledgerOf(
+      [
+        row('prd-joined', 'PRD 2803 joined mission/40-pay: #9 squash-merged.', '08'),
+        row('drop-asked', 'pierrederval asked to drop PRD 2803.', '09'),
+        row('prd-dropped', 'PRD 2803 was dropped from mission/40-pay.', '10'),
+        row('prd-merged', 'PRD 2804 landed on the default branch with #12: shipped.', '11'),
+        row('prd-merged', 'PRD 2805 is merged: delivered.', '12'),
+      ],
+      { role: null, mission: null },
+    );
+    expect(rows.map((r) => r.state)).toEqual(['Merged', 'Landed', 'Dropped', 'Drop asked', 'Joined']);
+    expect(rows.every((r) => r.by === 'Supervisor · agent')).toBe(true);
+  });
+});
+
 describe('roomService', () => {
   it('reads the heroes, missions, events and saves as one view', async () => {
     const repository = {
