@@ -12,7 +12,9 @@
 -- deleted, but goes with its mission. A runner job's mission_key is unique and keeps its shape; the
 -- general dossier push takes no mission. The Reviewer (PRD 2871): an event may be `reviewed`, a job may end
 -- `review` or `changes`, under a key of a review round (1 or 2, never 3) or of the fix after round 1; a
--- member reads them and writes none. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- member reads them and writes none. A PRD joining its mission's branch (PRD 2896 s4): an event may be `prd-joined`, written by
+-- the service role, signed `supervisor` and `agent`, linking the pull request; a member reads it and writes none. One
+-- transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -266,6 +268,9 @@ begin
   -- The Reviewer's verdict (PRD 2871), linking its review.
   insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
     (mission, 'reviewer', 'agent', 'reviewed', 2803, 'https://github.com/initech/nimbus-plan/pull/2817#pullrequestreview-1', 'Changes asked: 2 findings, round 1/2.');
+  -- A PRD joined the mission branch (PRD 2896 s4), linking its feature pull request.
+  insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
+    (mission, 'supervisor', 'agent', 'prd-joined', 2803, 'https://github.com/initech/nimbus-plan/pull/2817', 'PRD 2803 joined mission/2850-paid-online: #2817 squash-merged.');
   begin
     update public.mission_events set sentence = 'Rewritten.' where mission_id = mission;
     raise exception 'FAIL: the service role updated a mission event';
@@ -276,7 +281,7 @@ begin
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'agent', 'merged', 'x');
-    raise exception 'FAIL: an event took a kind that is none of the twelve';
+    raise exception 'FAIL: an event took a kind that is none of the thirteen';
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'Ada Lovelace', 'started', 'x');
@@ -358,7 +363,10 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000028b1');
 do $$
 begin
-  if (select count(*) from public.mission_events) <> 3 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
+  if (select count(*) from public.mission_events) <> 4 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
+  if not exists (select 1 from public.mission_events where kind = 'prd-joined' and role = 'supervisor' and actor = 'agent' and prd = 2803) then
+    raise exception 'FAIL: a member does not read a PRD''s join of the mission branch';
+  end if;
   if not exists (select 1 from public.mission_events where kind = 'reviewed' and role = 'reviewer' and actor = 'agent') then
     raise exception 'FAIL: a member does not read the Reviewer''s verdict';
   end if;

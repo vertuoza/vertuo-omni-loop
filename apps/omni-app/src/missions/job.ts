@@ -10,6 +10,10 @@
 //                  one forward
 //   the branch     above `with-you` (PRD 2896) a run first cuts the mission's branch from the default branch (./branch.ts), once; with
 //                  it not cut (rebase merges not allowed, no installation) it sends nothing and the mission waits, saying why
+//   the joins      then, while the mission runs or waits, each PRD that ended Ready and is not on the branch yet meets the merge
+//                  gate (./gate.ts, read through ./join.ts): passed, the App squash-merges its feature pull request into the
+//                  branch and records `prd-joined`, once (a replay reads it on the branch from that event, and a pull request
+//                  already merged into the branch joins without a second merge); not passed, the PRD waits on what it lacks
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
 //                  first (its jobs and their resumes, each PRD's approval, stage, blockers and plan), pick
 //                  (./supervisor.ts), send each pick to the mission's Virtual Fleet (its runners when one holds the
@@ -26,13 +30,33 @@
 // A replay, or two runs at once, insert one job: the key is unique (`runner_jobs.mission_key`), so a second insert is
 // refused and records nothing. The events read back give a dispatch whose event was lost its event on the next run.
 import { z } from 'zod';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { ClaimedJob, RefreshJob } from '../jobs/ledger.ts';
 import { checkPayloadOf, MissionJobDataSchema } from '../jobs/payloads.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { MissionBranches } from './branch.ts';
+import { judge } from './gate.ts';
+import type { MissionJoins } from './join.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
-import { baseOf, conclude, eventsOf, pick, prdStates, recordedKeys, WAKE_MS, type Concluded, type Run } from './supervisor.ts';
+import {
+  baseOf,
+  conclude,
+  eventsOf,
+  featurePrOf,
+  NO_BRANCH,
+  onBranchOf,
+  pick,
+  prdStates,
+  recordedKeys,
+  WAKE_MS,
+  waitsForMerge,
+  type Concluded,
+  type Joined,
+  type OnBranch,
+  type PrdFacts,
+  type Run,
+} from './supervisor.ts';
 
 export const MISSION_KIND = 'mission';
 
@@ -53,6 +77,8 @@ export type MissionDeps = {
   store: MissionStore | null;
   /** The mission branch, cut at the first run above `with-you` (PRD 2896); null (no GitHub): such a mission waits, and sends nothing. */
   branches?: MissionBranches | null;
+  /** The merge gate's reads and the squash-merge into the mission branch (PRD 2896); null (no GitHub): a Ready PRD waits, unjudged. */
+  joins?: MissionJoins | null;
   /** Refreshes a job on the ledger: how a run resets its count of `later`s. */
   refresh: (job: RefreshJob) => Promise<unknown>;
   now?: () => number;
@@ -62,53 +88,120 @@ export type MissionDeps = {
 /** What one supervising run did: the mission's new state, whether anything of it still runs, and if it moved. */
 type Supervised = { next: Concluded; running: boolean; moved: boolean; sent: number; events: number };
 
-/** One run of a running, waiting, paused or stopped mission: check, pick, send, record, set. */
-async function supervise(store: MissionStore, mission: MissionRecord, now: number, branches: MissionBranches | null): Promise<Supervised> {
+/** What GitHub the run may ask: the branch to cut and the joins, as the mission's installation. */
+type GitHubDeps = { branches: MissionBranches | null; joins: MissionJoins | null };
+
+/** One run of a running, waiting, paused or stopped mission: check, join, pick, send, record, set. */
+async function supervise(store: MissionStore, mission: MissionRecord, now: number, github: GitHubDeps): Promise<Supervised> {
   const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
   const skill = inPlan ? 'ultra-yolo' : 'yolo';
   // Above `with-you` the PRDs are built on the mission's branch: with it not cut, nothing is sent and the mission says why.
-  const unready = await branchWaits(store, mission, inPlan, branches);
+  const ready = await branchReady(store, mission, inPlan, github.branches);
+  const unready = ready.waits;
+  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: onBranchOf(recorded), installation: ready.installation, joins: github.joins });
   const sent: Run[] = [];
-  for (const { prd, run, step } of unready === null ? pick({ mission, facts, states: prdStates(facts, runs) }) : []) {
+  for (const { prd, run, step } of unready === null ? pick({ mission, facts, states: prdStates(facts, runs, branch) }) : []) {
     const made = await store.send({ mission, prd, run, step, toFleet, skill });
     if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all);
-  const concluded = conclude({ mission, facts, states, sent: sent.length, now });
+  const states = prdStates(facts, all, branch);
+  const concluded = conclude({ mission, facts, states, sent: sent.length, now, branch: branch.branch });
   const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded) });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded), joins });
   await store.record(mission.id, events, new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === 'running'), moved, sent: sent.length, events: events.length };
 }
 
 /**
- * Why the mission's PRDs cannot be built yet, or null: a mission above `with-you` in a repository that is not a plan repository
- * needs its branch (PRD 2896), cut from the default branch once, and refused where rebase merges are not allowed. Nothing is
- * asked of GitHub for a draft, a paused or a delivered mission, nor at `with-you`.
+ * Why the mission's PRDs cannot be built yet (`waits`, null when they can), and the installation its branch was prepared as
+ * (null when it was not): a mission above `with-you` in a repository that is not a plan repository needs its branch (PRD 2896),
+ * cut from the default branch once, and refused where rebase merges are not allowed. Nothing is asked of GitHub for a draft, a
+ * paused or a delivered mission, nor at `with-you`.
  */
-async function branchWaits(store: MissionStore, mission: MissionRecord, inPlan: boolean, branches: MissionBranches | null): Promise<string | null> {
+async function branchReady(
+  store: MissionStore,
+  mission: MissionRecord,
+  inPlan: boolean,
+  branches: MissionBranches | null,
+): Promise<{ waits: string | null; installation: number | null }> {
   const branch = baseOf(mission, inPlan);
-  if (branch === null || mission.status === 'paused' || mission.status === 'stopped') return null;
-  if (branches === null) return `the mission branch ${branch} cannot be cut: the app has no GitHub access here`;
+  const none = { waits: null, installation: null };
+  if (branch === null || mission.status === 'paused' || mission.status === 'stopped') return none;
+  if (branches === null) return { ...none, waits: `the mission branch ${branch} cannot be cut: the app has no GitHub access here` };
   const installation = await store.installation(mission);
-  if (installation === null) return `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App`;
+  if (installation === null) return { ...none, waits: `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App` };
   const prepared = await branches.prepare({ installation, repo: mission.repo, branch });
-  return prepared.ok ? null : prepared.why;
+  return prepared.ok ? { waits: null, installation } : { ...none, waits: prepared.why };
+}
+
+/** A PRD the merge gate judged: joined (merged now, or already), or what it lacks. */
+type Judged = { joined: Joined } | { lacks: readonly string[] };
+
+/** One PRD waiting for its merge, at the merge gate of mission branch `base`: read, judged, and squash-merged when it passes. */
+async function joinOne({ mission, base, prd, runs, installation, joins }: { mission: MissionRecord; base: string; prd: PrdNumber; runs: readonly Run[]; installation: number; joins: MissionJoins | null }): Promise<Judged> {
+  const pr = featurePrOf(runs, prd);
+  if (pr === null) return { lacks: ['its feature pull request is not known to the mission'] };
+  if (joins === null) return { lacks: ['the app has no GitHub access here'] };
+  const at = { installation, repo: mission.repo, prd, pr };
+  const pull = await joins.read(at);
+  const gate = judge(pull, base);
+  if (gate.decision === 'waits') return { lacks: gate.lacks };
+  const merged = gate.decision === 'joined' ? { ok: true as const } : await joins.merge({ ...at, head: pull.head, title: pull.title, base: pull.base, defaultBranch: pull.defaultBranch });
+  return merged.ok ? { joined: { prd, pr, url: pull.url } } : { lacks: [merged.why] };
+}
+
+/**
+ * The mission branch after this run's joins (PRD 2896): the PRDs on it, read from its events, and, while the mission runs or
+ * waits with its branch ready (`installation` its GitHub installation, null when the branch was not prepared), each PRD of the
+ * scope that waits for its merge meets the merge gate, in scope order. Passed, its feature pull request is squash-merged into the
+ * branch; already merged into it, it joins without a second merge; otherwise the PRD waits on what the gate lacks, or on GitHub's
+ * refusal of the merge. No branch at `with-you` or in a plan repository.
+ */
+async function joinAll({
+  mission,
+  inPlan,
+  facts,
+  runs,
+  joined,
+  installation,
+  joins,
+}: {
+  mission: MissionRecord;
+  inPlan: boolean;
+  facts: readonly PrdFacts[];
+  runs: readonly Run[];
+  joined: ReadonlySet<PrdNumber>;
+  installation: number | null;
+  joins: MissionJoins | null;
+}): Promise<{ branch: OnBranch; joins: Joined[] }> {
+  const base = baseOf(mission, inPlan);
+  if (base === null) return { branch: NO_BRANCH, joins: [] };
+  const lacks = new Map<PrdNumber, readonly string[]>();
+  const made: Joined[] = [];
+  if (installation !== null && (mission.status === 'running' || mission.status === 'waiting')) {
+    const states = prdStates(facts, runs, { branch: base, joined, lacks });
+    for (const { prd } of facts.filter((fact) => waitsForMerge(states.get(fact.prd)))) {
+      const judged = await joinOne({ mission, base, prd, runs, installation, joins });
+      if ('joined' in judged) made.push(judged.joined);
+      else lacks.set(prd, judged.lacks);
+    }
+  }
+  return { branch: { branch: base, joined: new Set([...joined, ...made.map(({ prd }) => prd)]), lacks }, joins: made };
 }
 
 /** Whether the mission is still watched: it runs or waits, or it is paused with a job of it still running. */
 const watched = ({ next, running }: Supervised): boolean => next.status === 'running' || next.status === 'waiting' || (next.status === 'paused' && running);
 
 /** The handler of the `mission` kind. */
-export function missionHandler({ store, refresh, branches = null, now = Date.now, log = noteTo('missions') }: MissionDeps): JobHandler {
+export function missionHandler({ store, refresh, branches = null, joins = null, now = Date.now, log = noteTo('missions') }: MissionDeps): JobHandler {
   return async (job): Promise<JobResult> => {
     const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
     const mission = await runnable(store, id);
     if (!('id' in mission)) return mission;
     const at = now();
-    const run = await supervise(mission.store, mission, at, branches);
+    const run = await supervise(mission.store, mission, at, { branches, joins });
     log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
     // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
     if (!watched(run) && run.moved) return { outcome: 'done' };
