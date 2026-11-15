@@ -33,7 +33,8 @@ import { chooseAccount, DEFAULT_HANDOFF } from './accounts.ts';
 import type { Account } from './accounts.ts';
 import type { Agent, AgentAccount, Interrupt, Limit, RunCommand, Usage } from './agents/agent.ts';
 import { fallbackAccount, fallbackAgent } from './agents/index.ts';
-import { ACCEPTANCE_SKILL, runAcceptance } from './acceptance.ts';
+import { runAcceptance } from './acceptance.ts';
+import { ACCEPTANCE_SKILL } from './acceptance-line.ts';
 import { checkRunnerLine } from './line.ts';
 import type { Out } from './runner.ts';
 import {

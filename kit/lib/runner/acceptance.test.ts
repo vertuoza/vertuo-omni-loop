@@ -6,8 +6,9 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ACCEPTANCE_REPORT_FORMAT } from '../ready/report.ts';
 import { makeRepo } from '../../test/fixture.ts';
-import { acceptanceLine, acceptanceOfLog, e2eResultsOf, parseAcceptanceLine, runAcceptance, secretsOf } from './acceptance.ts';
-import { checkRunnerLine } from './line.ts';
+import { e2eResultsOf, runAcceptance, secretsOf } from './acceptance.ts';
+import { acceptanceLine, acceptanceOfLog, parseAcceptanceLine } from './acceptance-line.ts';
+import { APP_SKILLS, checkRunnerLine, RUNNABLE_SKILLS } from './line.ts';
 
 const SHA = 'c3'.repeat(20);
 const KEY = `sk-or-${'k'.repeat(24)}`;
@@ -43,6 +44,11 @@ describe('the acceptance line', () => {
     expect(line).toBe(`/omni:acceptance 2898 --pr 2927 --sha ${SHA}`);
     expect(parseAcceptanceLine(line)).toEqual({ prd: 2898, pr: 2927, sha: SHA });
     expect(checkRunnerLine(line)).toMatchObject({ ok: true, kind: 'omni', skill: 'acceptance' });
+  });
+
+  it('is an app\'s line, no skill a person sends', () => {
+    expect([...APP_SKILLS]).toEqual(['acceptance']);
+    expect(RUNNABLE_SKILLS).not.toContain('acceptance');
   });
 
   it('reads nothing from any other line, nor from one out of shape', () => {

@@ -16,7 +16,7 @@
 //              one test titled `AC-<n>: …` and tagged `prd-<n>` each, printed as the log's last line
 //              `omni-acceptance: <report>`; a step that fails prints `omni-acceptance: failed — <why>` instead
 //
-// The App reads that line from the job's log tail once the job ended (`acceptanceOfLog`), and writes the
+// The App reads that line from the job's log tail once the job ended (`acceptanceOfLog`, ./acceptance-line.ts), and writes the
 // `acceptance` check run of the commit from it, in its own name: the runner never writes to GitHub.
 import { execFile, spawn } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
@@ -25,49 +25,8 @@ import { z } from 'zod';
 import { loadConfig } from '../config.ts';
 import { messageOf } from '../narrow.ts';
 import { acNumberOfTitle } from '../ready/criteria.ts';
-import { ACCEPTANCE_REPORT_FORMAT, parseAcceptanceReport, type AcceptanceReport } from '../ready/report.ts';
-
-/** The runner line's skill: no plugin skill, the job's process runs it itself. */
-export const ACCEPTANCE_SKILL = 'acceptance';
-
-/** What an acceptance line names: the PRD, its feature PR and the commit the scenarios prove. */
-export type AcceptanceTarget = { prd: number; pr: number; sha: string };
-
-const LINE = /^\/omni:acceptance ([1-9]\d*) --pr ([1-9]\d*) --sha ([0-9a-f]{40})$/;
-
-/** The line the App queues for `target`. */
-export function acceptanceLine({ prd, pr, sha }: AcceptanceTarget): string {
-  return `/omni:${ACCEPTANCE_SKILL} ${String(prd)} --pr ${String(pr)} --sha ${sha}`;
-}
-
-/** What an acceptance line names; null for any other line, or one out of shape. */
-export function parseAcceptanceLine(line: string): AcceptanceTarget | null {
-  const match = LINE.exec(line.trim());
-  if (!match) return null;
-  return { prd: Number(match[1]), pr: Number(match[2]), sha: match[3] ?? '' };
-}
-
-/** The mark of the result line the job ends its log on. */
-const ACCEPTANCE_MARK = 'omni-acceptance:';
-
-/** What a finished job's log says: the e2e results it proved, or why it proved none. */
-export type AcceptanceOutcome = { ok: true; report: AcceptanceReport } | { ok: false; why: string };
-
-/** The result line of a report, on one line. */
-const resultLine = (report: AcceptanceReport) => `${ACCEPTANCE_MARK} ${JSON.stringify(report)}`;
-
-/** The result line of a run that proved nothing. */
-const failedLine = (why: string) => `${ACCEPTANCE_MARK} failed — ${why.replace(/\s+/g, ' ').trim()}`;
-
-/** What the last result line of `log` says; null when it holds none, the job not ended or not an acceptance run. */
-export function acceptanceOfLog(log: string): AcceptanceOutcome | null {
-  const line = log.split('\n').reverse().find((each) => each.includes(ACCEPTANCE_MARK));
-  if (line === undefined) return null;
-  const said = line.slice(line.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
-  if (!said.startsWith('{')) return { ok: false, why: said.replace(/^failed — /, '') || 'the run said nothing' };
-  const read = parseAcceptanceReport(said);
-  return read.ok ? { ok: true, report: read.report } : { ok: false, why: read.why };
-}
+import { ACCEPTANCE_REPORT_FORMAT, type AcceptanceReport } from '../ready/report.ts';
+import { acceptanceFailedLine, acceptanceResultLine, parseAcceptanceLine } from './acceptance-line.ts';
 
 /** One result of the e2e run's `report.json` (its `report-1` schema), as far as the fallback reads it. */
 const E2eTestSchema = z.object({
@@ -240,10 +199,10 @@ export async function runAcceptance(line: string, io: AcceptanceIo): Promise<num
     const report = join(dir, '.e2e', 'report.json');
     if (!existsSync(report)) throw new StepFailed(`the e2e run wrote no report (it exited ${String(ran.code)})`);
     const results = e2eResultsOf(readFileSync(report, 'utf8'), { prd, dir: config.e2e.dir });
-    write(`${resultLine({ format: ACCEPTANCE_REPORT_FORMAT, commit: sha, results })}\n`);
+    write(`${acceptanceResultLine({ format: ACCEPTANCE_REPORT_FORMAT, commit: sha, results })}\n`);
     return 0;
   } catch (error) {
-    write(`${failedLine(error instanceof StepFailed ? error.message : `the run broke: ${messageOf(error).split('\n')[0] ?? ''}`)}\n`);
+    write(`${acceptanceFailedLine(error instanceof StepFailed ? error.message : `the run broke: ${messageOf(error).split('\n')[0] ?? ''}`)}\n`);
     return 1;
   }
 }

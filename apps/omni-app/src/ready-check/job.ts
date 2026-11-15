@@ -7,6 +7,7 @@
 //                  posts nothing; else the check is posted (or left as it is when it says the same) and the
 //                  verdict saved. GitHub's budget low is thrown as the budget's own refusal, read as `waiting`
 //   failure hook   once the 5th try threw, the check `neutral`, not judged, saying why, on a gated pull request
+import { READY_JOB_KIND } from 'omni-loop/kit/lib/runner/acceptance-line.ts';
 import { checkPayloadOf, PullAtSchema } from '../jobs/payloads.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
@@ -16,7 +17,8 @@ import { noteTo } from '../run-log/run-log.ts';
 import { postNotJudged, runReadyCheck, type ReadyRequest } from './ready-check.ts';
 import type { ReadyStore } from './store.ts';
 
-export const READY_KIND = 'pr-ready';
+/** The kind, the kit's own name for it: the Omni page refreshes it when an e2e fallback job ended (PRD 2898 s8). */
+export const READY_KIND = READY_JOB_KIND;
 
 /** The job's payload, or the error naming its first malformed field. */
 const requestOf = (raw: unknown): ReadyRequest => checkPayloadOf(PullAtSchema, READY_KIND, raw);

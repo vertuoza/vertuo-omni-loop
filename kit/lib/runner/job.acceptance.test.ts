@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.ts';
-import { acceptanceLine, acceptanceOfLog } from './acceptance.ts';
+import { acceptanceLine, acceptanceOfLog } from './acceptance-line.ts';
 import { runJobProcess } from './job.ts';
 
 const SHA = 'd4'.repeat(20);

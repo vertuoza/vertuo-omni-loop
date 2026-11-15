@@ -9,12 +9,17 @@
 // so `/yolo` never means `/omni:yolo`. The same length and the same argument characters.
 
 /** The skills a runner runs: they run without a person typing, and end on their own. The ultra skills (PRD 2873) build a PRD
- * across a product's repositories, sent from its plan repository. `acceptance` (PRD 2898) is no plugin skill: the job's process
- * runs the e2e scenarios of a feature PR's commit itself, with no agent (./acceptance.ts). */
+ * across a product's repositories, sent from its plan repository. */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'acceptance',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review',
 ]);
+
+/** The lines only the Omni App sends, each run by the job's process with no agent and no plugin skill: `acceptance`, a gated
+ * feature PR's e2e scenarios on its preview (PRD 2898 s8, ./acceptance.ts). A runner takes them as it takes a skill's line; a
+ * person's Send never queues one, and no account's `takes` names one. The Omni app holds the same list (`APP_SKILLS` of its
+ * runners' contract), which a test of the app holds to this one. */
+export const APP_SKILLS: readonly string[] = Object.freeze(['acceptance']);
 
 /** The skills a lost job of is resumed (PRD 2809): the runnable skills that pick up from what GitHub holds (claims, sub-PRs,
  * merged slices), so a second attempt carries the first on. The Omni app's database holds the same list, which a test of the
@@ -52,7 +57,7 @@ export function checkRunnerLine(line: string, allowed: readonly string[] = []): 
 }
 
 function checkFixed(skill: string, args: string): RunnerLineCheck {
-  if (!RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
+  if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
   if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
   return { ok: true, kind: 'omni', skill, args };
 }
