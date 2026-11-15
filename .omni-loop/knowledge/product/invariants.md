@@ -65,3 +65,14 @@ Stated: 2026-11-14
 Decided: nobody — adopted when raised (medium), 2026-11-13
 Merged: @pierrederval, 2026-11-14, PR #2810
 Proposed: harvest 2026-11-14
+
+## N-PRODUCT-22
+
+A build job ends on the next command to run: a PR left for the Reviewer ends on the review command, changes asked end on the fix command sent for review, and a pass marked ready ends on the care command, and the runner reads that line.
+
+Source: .omni-loop/delivery/shipped/2871-reviewer/outbox/settled.md, entry s3-03-reviewer-hand-off-lines, PRD #2871
+Enforced by: kit/lib/runner/line.test.ts, kit/test/for-review-skills.test.ts, kit/test/review-skill.test.ts
+Stated: 2026-11-15
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-15, PR #2872
+Proposed: harvest 2026-11-15

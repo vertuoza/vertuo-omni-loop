@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off territory choice inside one feature's slicing; it leaves no lasting product behaviour or build decision to record.
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Nothing to undo but these lines: reverting them means moving the slot or the com
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Became: ADR-0147
 
 ### The answer, as it was given
 
@@ -176,6 +178,7 @@ A constant: making kb show merge the two instead is a change to the resolver for
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 1
+- Stays here: A one-off choice about where five test updates landed in this slice; nothing lasting about the product or its build to keep.
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ Undoing it is a revert of five test expectations, a line or two each; no stored 
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 1
+- Became: N-PRODUCT-22
 
 ### The answer, as it was given
 
@@ -332,6 +336,7 @@ Changing them later is a change to one table of the runner and the lines two ski
 - Raised: 2026-11-14
 - Slice: s1
 - Wave: 1
+- Stays here: A budget number tuned to one form's current size is a local, easily changed constant, not a lasting product guarantee or design decision.
 
 ### The answer, as it was given
 
@@ -413,6 +418,7 @@ A constant: putting the ceiling back is one number, and then the look-for defaul
 - Raised: 2026-11-14
 - Slice: s3
 - Wave: 1
+- Stays here: This decides which slice carries a one-time list update before the feature goes ready. It is delivery sequencing for this PRD, with no lasting product guarantee to record.
 
 ### The answer, as it was given
 
@@ -492,6 +498,7 @@ Without the lists, the first mission that hands a PR to the Reviewer sees that j
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off territory call about updating one expected list in a test; nothing lasting about how the product behaves or is built.
 
 ### The answer, as it was given
 
@@ -571,6 +578,7 @@ Nothing to undo but one word in one test: putting the skill in another group mov
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Became: ADR-0148
 
 ### The answer, as it was given
 
@@ -650,6 +658,7 @@ A constant: option B adds a section to the skill (each target's PR through `omni
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Became: ADR-0149
 
 ### The answer, as it was given
 
@@ -729,6 +738,7 @@ A constant: option B is a few lines of the skill and changes no stored data.
 - Raised: 2026-11-14
 - Slice: s2
 - Wave: 2
+- Became: ADR-0150
 
 ### The answer, as it was given
 
@@ -808,6 +818,7 @@ A constant: replying on threads instead is a change to step 4 of the skill and t
 - Raised: 2026-11-14
 - Slice: s5
 - Wave: 2
+- Became: ADR-0151
 
 ### The answer, as it was given
 
@@ -889,6 +900,7 @@ A change to one function of the supervisor and its tests: the keys already allow
 - Raised: 2026-11-14
 - Slice: s5
 - Wave: 2
+- Became: ADR-0152
 
 ### The answer, as it was given
 
@@ -968,6 +980,7 @@ Moving to a stored count is a column on runner jobs, a runner change and a two-l
 - Raised: 2026-11-14
 - Slice: s5
 - Wave: 2
+- Stays here: An interim local choice awaiting a missing fact and runner support; cheap to change in one branch of lineOf, nothing lasting to keep.
 
 ### The answer, as it was given
 
@@ -1048,6 +1061,7 @@ One branch in `lineOf` and one fact more for the store to read, once a PRD's rep
 - Raised: 2026-11-14
 - Slice: s5
 - Wave: 2
+- Stays here: This is a choice about a row's wording and length against a drawing, cheap to change and with no lasting guarantee. It is copy, not a product rule.
 
 ### The answer, as it was given
 
@@ -1126,6 +1140,7 @@ A change of one sentence and the tests that read it; the rows already written ke
 - Raised: 2026-11-14
 - Slice: s5
 - Wave: 2
+- Became: BR-PRODUCT-139
 
 ### The answer, as it was given
 
