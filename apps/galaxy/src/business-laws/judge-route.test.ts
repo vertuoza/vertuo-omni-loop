@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type { AskLaws } from './judge.service';
+import { confirming } from './judge.fake';
 import { BUSINESS_LAWS_SIGNATURE_HEADER, businessLawsJudgeRoute, MAX_BODY_BYTES, type BusinessLawsRouteDeps, type RepoLaws } from './judge-route';
 
 vi.mock('server-only', () => ({}));
@@ -30,10 +31,10 @@ const sign = (body: string, secret = SECRET) => `sha256=${createHmac('sha256', s
 function world({ laws = LAWS, ask, unset = false, fail = false }: { laws?: RepoLaws; ask?: AskLaws | null; unset?: boolean; fail?: boolean } = {}) {
   const lines: string[] = [];
   const asked: string[] = [];
-  const model: AskLaws = ({ user }) => {
+  const model: AskLaws = confirming(({ user }) => {
     asked.push(user);
     return Promise.resolve({ ok: true, reply: { findings: [{ law: 'BL-QUOTES-1', quote: 'sent with a zero total', why: 'The design sends a quote whose total is zero.' }] } });
-  };
+  });
   const deps: BusinessLawsRouteDeps = {
     secret: unset ? undefined : SECRET,
     read: () => (fail ? Promise.reject(new Error('boom\nsecond line')) : Promise.resolve(laws)),

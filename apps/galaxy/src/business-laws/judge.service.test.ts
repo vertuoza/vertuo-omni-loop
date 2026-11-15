@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseBusinessLaws, type BusinessLaw } from 'omni-loop/kit/lib/knowledge/business-laws.ts';
 import { batchesOf, judgeSpec, type AskLaws } from './judge.service';
+import { confirming } from './judge.fake';
 
 // The business laws' judge (PRD 2632 s4) with an injected model: the laws a spec's words point to, in batches
 // of 40; a finding counts only when it quotes the spec and cites a law of its own batch; every failure is
@@ -24,11 +25,11 @@ function fakeModel(replies: unknown[]): { ask: AskLaws; asked: string[] } {
   const asked: string[] = [];
   return {
     asked,
-    ask: ({ user }) => {
+    ask: confirming(({ user }) => {
       asked.push(user);
       const reply = replies.shift();
       return Promise.resolve(reply instanceof Error ? { ok: false as const, why: reply.message } : { ok: true as const, reply });
-    },
+    }),
   };
 }
 
