@@ -14,7 +14,8 @@
 //                from its key; for a Reviewer job's verdict, what its log's `omni review post` line says it
 //                posted (`runner_jobs.log_tail`, PRD 2871): its count of findings and its review's link, nothing
 //                else of the log
-//   events       the events already recorded, read back as keys, so nothing is recorded twice
+//   events       the events already recorded, in the order they happened, read back as keys, so nothing is
+//                recorded twice, and as the PRDs on the mission branch (PRD 2896)
 //   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
 //   installation the GitHub installation of the mission's workspace (`workspaces.github_installation_id`), for the mission
 //                branch the App cuts (PRD 2896); null when the workspace has none
@@ -252,7 +253,7 @@ export function missionStore(connection: Connection): MissionStore {
     },
 
     async events(id) {
-      return rowsOf(EventRowSchema, await db.from('mission_events').select(EVENT).eq('mission_id', id)).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
+      return rowsOf(EventRowSchema, await db.from('mission_events').select(EVENT).eq('mission_id', id).order('at')).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
     },
 
     async fleetRunners(mission) {
