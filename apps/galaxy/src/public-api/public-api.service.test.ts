@@ -1438,6 +1438,62 @@ describe('a key with a GitHub App starts a job only where its App can run it (PR
     expect(lacking.api.runnersState.jobs).toEqual([]);
   });
 
+  describe('a mega bug fix is checked on every repository its token would reach (PRD 2915 s2)', () => {
+    const PLAN = 'demo-org/plan';
+    /** A product whose plan repository holds `web`, `api` and `docs`, and a key allowed on the plan repository and the first two. */
+    function product(answers: Record<string, InstallationCheck>) {
+      const made = setup(answers);
+      made.api.productRepos(WORKSPACE, PLAN, ['demo-org/web', 'demo-org/api', 'demo-org/docs']);
+      return made;
+    }
+
+    it('asks about the plan repository, then each repository of its product, and queues when the App holds them all', async () => {
+      const { api, asked, service } = product({ [PLAN]: ALL, 'demo-org/web': ALL, 'demo-org/api': ALL, 'demo-org/docs': ALL });
+      const started = await service.startMegaBugFix(await caller(api, SECRETS.runners), MEGA);
+      expect(started).toMatchObject({ ok: true, value: { status: 'queued', repo: PLAN } });
+      expect(asked.map((a) => a.repo)).toEqual([PLAN, 'demo-org/api', 'demo-org/docs', 'demo-org/web']);
+    });
+
+    it('refuses with github_app_not_installed naming the first repository the App is not installed on, and queues nothing', async () => {
+      const { api, service } = product({ [PLAN]: ALL, 'demo-org/api': ALL, 'demo-org/web': ALL });
+      const refused = await service.startMegaBugFix(await caller(api, SECRETS.runners), MEGA);
+      expect(refused).toEqual({ ok: false, code: 'github_app_not_installed', message: NOT_INSTALLED('demo-org/docs') });
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+
+    it('refuses with github_app_permissions naming the permission and the repository, and queues nothing', async () => {
+      const { api, service } = product({ [PLAN]: ALL, 'demo-org/api': { installed: true, missing: 'pull_requests' }, 'demo-org/web': ALL, 'demo-org/docs': ALL });
+      const refused = await service.startMegaBugFix(await caller(api, SECRETS.runners), MEGA);
+      expect(refused).toEqual({ ok: false, code: 'github_app_permissions', message: WITHOUT('demo-org/api', 'pull_requests') });
+      expect(api.runnersState.jobs).toEqual([]);
+    });
+
+    it('never asks about a product repository outside the key’s allow-list', async () => {
+      const { api, asked, service } = product({ [PLAN]: ALL, 'demo-org/api': ALL });
+      const limited = { ...(await caller(api, SECRETS.runners)), repos: [PLAN, 'demo-org/api'] };
+      expect(await service.startMegaBugFix(limited, MEGA)).toMatchObject({ ok: true });
+      expect(asked.map((a) => a.repo)).toEqual([PLAN, 'demo-org/api']);
+    });
+
+    it('does not read the product, nor ask GitHub, for a key that holds no App', async () => {
+      const api = fakePublicApi();
+      api.productRepos(WORKSPACE, PLAN, ['demo-org/web']);
+      const asked: string[] = [];
+      const check: CheckInstallation = (_app, repo) => { asked.push(repo); return Promise.resolve({ installed: false }); };
+      const started = await publicApiService(api.repository, api.runners, check).startMegaBugFix(await caller(api, SECRETS.runners), MEGA);
+      expect(started).toMatchObject({ ok: true });
+      expect(asked).toEqual([]);
+      expect(api.calls).not.toContain('productReach');
+    });
+
+    it('still checks a bug fix on its own repository only', async () => {
+      const { api, asked, service } = product({ 'demo-org/web': ALL });
+      expect(await service.startBugFix(await caller(api, SECRETS.runners), { ...FIX, repo: 'demo-org/web' })).toMatchObject({ ok: true });
+      expect(asked.map((a) => a.repo)).toEqual(['demo-org/web']);
+      expect(api.calls).not.toContain('productReach');
+    });
+  });
+
   it('keeps the plan check in front of the App: a repository no product names as its plan repository is refused with no App read', async () => {
     const { api, asked, service } = setup({ 'demo-org/app': ALL });
     api.calls.length = 0;
