@@ -29,6 +29,8 @@ describe('checkRunnerLine', () => {
     expect(checkRunnerLine('/omni:retro-apply --retro 2360')).toEqual({ ok: true, kind: 'omni', skill: 'retro-apply', args: '--retro 2360' });
     expect(checkRunnerLine('/omni:rewind 2410')).toEqual({ ok: true, kind: 'omni', skill: 'rewind', args: '2410' });
     expect(checkRunnerLine('/omni:review 2871')).toEqual({ ok: true, kind: 'omni', skill: 'review', args: '2871' });
+    expect(checkRunnerLine('/omni:committee 2896 --approve')).toEqual({ ok: true, kind: 'omni', skill: 'committee', args: '2896 --approve' });
+    expect(checkRunnerLine('/omni:committee 2896 --approve --author pm')).toMatchObject({ ok: true, skill: 'committee' });
     expect(checkRunnerLine('/omni:knowledge-add add the glossary term main watch')).toMatchObject({ ok: true, kind: 'omni', skill: 'knowledge-add' });
     expect(checkRunnerLine('/omni:rewind-apply 2498 3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718'))
       .toEqual({ ok: true, kind: 'omni', skill: 'rewind-apply', args: '2498 3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f60718' });

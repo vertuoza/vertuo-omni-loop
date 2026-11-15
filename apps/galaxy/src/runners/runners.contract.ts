@@ -36,10 +36,10 @@ import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. The ultra skills (PRD 2873)
  * are sent from a product's plan repository only, which the service checks once it knows the repository. `review` is the Reviewer's
- * (PRD 2871). */
+ * (PRD 2871), `committee` a mission's fleet's (PRD 2896). */
 export const RUNNER_SKILLS = [
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee',
 ] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
