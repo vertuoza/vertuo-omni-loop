@@ -28646,7 +28646,7 @@ function makeMarkers(prefix) {
     numbersPrefix: `<!-- ${prefix}-numbers: `,
     numbersSuffix: " -->",
     numbersRe: new RegExp(`<!-- ${p}-numbers: (.*?) -->`),
-    round: (n, numbers2) => `<!-- ${prefix}-round: ${n} ${numbers2.join(",")} -->`,
+    round: (n, numbers3) => `<!-- ${prefix}-round: ${n} ${numbers3.join(",")} -->`,
     roundRe: new RegExp(`<!-- ${p}-round: (\\d+) ([\\d,]*) -->`)
   });
 }
@@ -29697,6 +29697,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * own answer (`old`); the ref is sent only when there is one.
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
     decide: ({ decision, repo, state, old, ref: ref2 = null }) => call("POST", `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...ref2 ? { ref: ref2 } : {} } }),
+    /** PRD 2896 s7: asks for PRD `prd` to leave mission `mission`'s branch in `repo` (`omni mission drop`); with `keep`, the later PRDs
+     * sharing its territory stay. @returns {Promise<{ drop: { mission: string, branch: string, prd: number, sharing: number[], dropped: number[], keep: boolean } }>} */
+    dropMission: ({ repo, mission: mission2, prd: prd2, keep: keep3 }) => call("POST", "/api/missions/drop", { body: { repo, mission: mission2, prd: prd2, keep: keep3 } }),
     /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
      * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
     pushLoop: (body) => call("POST", "/api/loops", { body }),
@@ -31630,9 +31633,9 @@ var BlockedBySchema = external_exports.string().trim().min(1, "blocked-by is req
     return external_exports.NEVER;
   }
   const inner = (match[1] ?? "").trim();
-  const prds = inner.length === 0 ? [] : inner.split(",").map((token) => PrdNumberSchema.safeParse(Number(token.trim())));
-  const read3 = prds.flatMap((prd2) => prd2.success ? [prd2.data] : []);
-  if (read3.length !== prds.length) {
+  const prds2 = inner.length === 0 ? [] : inner.split(",").map((token) => PrdNumberSchema.safeParse(Number(token.trim())));
+  const read3 = prds2.flatMap((prd2) => prd2.success ? [prd2.data] : []);
+  if (read3.length !== prds2.length) {
     ctx.addIssue({ code: "custom", message: BLOCKED_BY_MESSAGE });
     return external_exports.NEVER;
   }
@@ -38896,8 +38899,8 @@ function wavesOf(slices) {
   return [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => Number(a) - Number(b));
 }
 function gradedLandings(slices, rows2) {
-  const numbers2 = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
-  return numbers2.map((landing) => {
+  const numbers3 = [...new Set(slices.map((slice) => slice.landing))].sort((a, b) => a - b);
+  return numbers3.map((landing) => {
     const row = rows2.find((candidate) => candidate.landing === landing);
     const members3 = slices.filter((slice) => slice.landing === landing);
     return {
@@ -42106,10 +42109,10 @@ function parseRoadmap(text19) {
   const [, raw = "", body = ""] = block;
   const front = frontMatter2(raw, FrontMatterSchema3);
   const sections = sectionsOf(body);
-  const prds = prdsOf(sections.find((section7) => section7.name === "PRDs"), repositoryPrd, "#<number>");
+  const prds2 = prdsOf(sections.find((section7) => section7.name === "PRDs"), repositoryPrd, "#<number>");
   const questions2 = questionsOf(sections.find((section7) => section7.name === "Open questions"));
   const prerequisites = prerequisitesOf(sections.find((section7) => section7.name === "Prerequisites"));
-  const errors = [...front.errors, ...prds.faults, ...questions2.faults, ...prerequisites.faults];
+  const errors = [...front.errors, ...prds2.faults, ...questions2.faults, ...prerequisites.faults];
   if (errors.length > 0 || front.data === null) return { ok: false, errors };
   const { roadmap: roadmap2, title, milestone, product: product2, target: target3, source: source2 } = front.data;
   return {
@@ -42121,8 +42124,8 @@ function parseRoadmap(text19) {
       product: product2 ?? null,
       target: target3 ?? null,
       source: source2 ?? null,
-      repos: prds.repos,
-      prds: prds.rows,
+      repos: prds2.repos,
+      prds: prds2.rows,
       questions: questions2.questions,
       prerequisites: prerequisites.prerequisites
     }
@@ -42138,10 +42141,10 @@ function parseProductRoadmap(text19) {
   const [, raw = "", body = ""] = block;
   const front = frontMatter2(raw, ProductFrontMatterSchema);
   const sections = sectionsOf(body);
-  const prds = prdsOf(sections.find((section7) => section7.name === "PRDs"), anyPrd, "#<number> or a product PRD id such as mobile-12");
+  const prds2 = prdsOf(sections.find((section7) => section7.name === "PRDs"), anyPrd, "#<number> or a product PRD id such as mobile-12");
   const questions2 = questionsOf(sections.find((section7) => section7.name === "Open questions"));
   const prerequisites = prerequisitesOf(sections.find((section7) => section7.name === "Prerequisites"));
-  const errors = [...front.errors, ...prds.faults, ...questions2.faults, ...prerequisites.faults];
+  const errors = [...front.errors, ...prds2.faults, ...questions2.faults, ...prerequisites.faults];
   const id = front.data?.roadmap === void 0 ? null : ProductRoadmapIdSchema.safeParse(front.data.roadmap);
   if (id !== null && !id.success) errors.push(`front matter: roadmap is "${front.data?.roadmap}": it is left out, or is the roadmap's id such as mobile-R3.`);
   if (errors.length > 0 || front.data === null) return { ok: false, errors };
@@ -42155,8 +42158,8 @@ function parseProductRoadmap(text19) {
       product: product2 ?? null,
       target: target3 ?? null,
       source: source2 ?? null,
-      repos: prds.repos,
-      prds: prds.rows,
+      repos: prds2.repos,
+      prds: prds2.rows,
       questions: questions2.questions,
       prerequisites: prerequisites.prerequisites
     }
@@ -42218,7 +42221,7 @@ function waveOrder(roadmap2, rows2) {
 function missingWhy(roadmap2) {
   return roadmap2.prds.filter((row) => row.blockedBy.length > 0 && row.why === null).map((row) => `${row.id}: blocked by ${row.blockedBy.join(", ")} with no why \u2014 every blocker says why it blocks.`);
 }
-var prdList = (prds) => prds.length === 0 ? "none" : prds.map((prd2) => `#${prd2}`).join(", ");
+var prdList = (prds2) => prds2.length === 0 ? "none" : prds2.map((prd2) => `#${prd2}`).join(", ");
 function specAgreement(roadmap2, rows2, prdFacts2) {
   const violations = [];
   for (const row of roadmap2.prds) {
@@ -42525,7 +42528,7 @@ function pushedQuestions(roadmap2, answers2) {
 }
 function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers: answers2, prdWork: prdWork2, result: result2 = null }) {
   const rows2 = rowStates(roadmap2, standings);
-  const prds = [...rows2.values()].map(({ row, standing: standing4, state }) => ({
+  const prds2 = [...rows2.values()].map(({ row, standing: standing4, state }) => ({
     id: row.id,
     prd: row.prd,
     title: row.title,
@@ -42538,13 +42541,13 @@ function roadmapPushBody({ repo, roadmap: roadmap2, document, standings, answers
   }));
   const questions2 = pushedQuestions(roadmap2, answers2);
   const { title, milestone, product: product2, target: target3, source: source2 } = roadmap2;
-  const body = { repo, roadmap: roadmap2.roadmap, title, milestone, product: product2, target: target3, source: source2, questions: questions2, document, prds, ...prerequisitesOf2(roadmap2, result2) };
+  const body = { repo, roadmap: roadmap2.roadmap, title, milestone, product: product2, target: target3, source: source2, questions: questions2, document, prds: prds2, ...prerequisitesOf2(roadmap2, result2) };
   if (prdWork2 === null) return body;
   const issueUrl2 = `https://github.com/${repo}/issues/${roadmap2.roadmap}`;
   return { ...body, humanWork: [...questionWork(roadmap2, answers2, { repo: shortName7(repo), issueUrl: issueUrl2 }), ...prdWork2] };
 }
 function productRoadmapPushBody({ key: key2, seq, repo, roadmap: roadmap2, document, check: check5 = false, result: result2 = null }) {
-  const prds = roadmap2.prds.map((row) => ({
+  const prds2 = roadmap2.prds.map((row) => ({
     id: row.id,
     prd: row.prd,
     title: row.title,
@@ -42569,7 +42572,7 @@ function productRoadmapPushBody({ key: key2, seq, repo, roadmap: roadmap2, docum
     source: roadmap2.source,
     questions: questions2,
     document,
-    prds,
+    prds: prds2,
     ...prerequisitesOf2(roadmap2, result2)
   };
 }
@@ -44684,7 +44687,7 @@ function numberViolations(screens2) {
     collect(numbersOf, screen.name, number5);
   }
   const mixed = [...namesOf2].filter(([, names]) => names.size > 1).map(([number5, names]) => `number ${number5} carries ${[...names].map(quote).join(" and ")}, not one screen`);
-  const spread = [...numbersOf].filter(([, numbers2]) => numbers2.size > 1).map(([name3, numbers2]) => `screen ${quote(name3)} sits under numbers ${[...numbers2].join(" and ")}, not one`);
+  const spread = [...numbersOf].filter(([, numbers3]) => numbers3.size > 1).map(([name3, numbers3]) => `screen ${quote(name3)} sits under numbers ${[...numbers3].join(" and ")}, not one`);
   return [...mixed, ...spread];
 }
 function namedScreens(text19) {
@@ -51518,7 +51521,7 @@ function proofLines(entry3) {
   if (!entry3.enforcedBy) return [];
   const pending = entry3.law?.issue ? `pending #${entry3.law.issue}` : null;
   const enforced = pending ?? (entry3.enforcedBy.length > 0 ? entry3.enforcedBy.join(", ") : "unenforced");
-  return [`      Enforced by: ${enforced}`, ...(entry3.dropped ?? []).map((drop) => `      dropped ${drop.path} \u2014 ${drop.reason}`)];
+  return [`      Enforced by: ${enforced}`, ...(entry3.dropped ?? []).map((drop2) => `      dropped ${drop2.path} \u2014 ${drop2.reason}`)];
 }
 function prdTitle(ctx, prd2) {
   const spec = ctx.layout.specPath(prd2);
@@ -52435,9 +52438,9 @@ var ENTRIES = deepFreeze([
     name: "mission",
     kind: "command",
     who: "skills",
-    usage: ["omni mission push <n>"],
-    summary: "send a mission's brief to its page",
-    detail: "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, sending nothing, when mission.md does not read through the brief's schema (its fleet, goal, 0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the network or is over the size cap. The page keeps every version and adds one only of a file that changed; the mission waits in draft until a person starts it. Prints the page's link and the versions added."
+    usage: ["omni mission push <n>", "omni mission drop <mission> <prd> [--keep]"],
+    summary: "send a mission's brief to its page, or drop a PRD from its branch",
+    detail: "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, sending nothing, when mission.md does not read through the brief's schema (its fleet, goal, 0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the network or is over the size cap. The page keeps every version and adds one only of a file that changed; the mission waits in draft until a person starts it. Prints the page's link and the versions added. drop <mission> <prd>, run by a person, asks the Omni app to take that PRD off the mission's branch: its commit leaves by rebase on the mission's next run, its feature pull request is reopened, and the default branch is never changed. The later PRDs on the branch that share its territory are named and dropped with it unless --keep. A branch whose checks go red names the PRD to drop."
   },
   {
     name: "sign",
@@ -54506,13 +54509,13 @@ function readItemInput(ctx, path) {
 function spentNumbers(spent, slice) {
   const prefix = `${slice}-`;
   const shape = /^-(\d{2})-/;
-  const numbers2 = /* @__PURE__ */ new Set();
+  const numbers3 = /* @__PURE__ */ new Set();
   for (const id of spent) {
     if (!id.startsWith(prefix)) continue;
     const match = id.slice(prefix.length - 1).match(shape);
-    if (match) numbers2.add(match[1]);
+    if (match) numbers3.add(match[1]);
   }
-  return numbers2;
+  return numbers3;
 }
 async function nextItemId(prd2, slice, slug, { store, out }) {
   const spent = spentNumbers(await store.spentIds(prd2, out), slice);
@@ -56844,9 +56847,9 @@ function loopState(loop2, now2) {
 
 // kit/lib/loop/roadmap.ts
 init_define_OMNI_BUNDLE();
-var keyOf2 = (prds) => [...new Set(prds)].sort((a, b) => a - b).join(",");
-function roadmapDriving(ctx, prds) {
-  const wanted = keyOf2(prds);
+var keyOf2 = (prds2) => [...new Set(prds2)].sort((a, b) => a - b).join(",");
+function roadmapDriving(ctx, prds2) {
+  const wanted = keyOf2(prds2);
   const matching = roadmapFiles(ctx).filter((entry3) => {
     try {
       const parsed2 = parseRoadmap(readRepoFile(ctx, entry3.file));
@@ -57153,6 +57156,15 @@ var loop = {
 // kit/bin/commands/mission.ts
 init_define_OMNI_BUNDLE();
 
+// kit/lib/mission/drop.ts
+init_define_OMNI_BUNDLE();
+var prds = (list6) => list6.map((one) => `PRD ${String(one)}`).join(", ");
+function dropWords({ branch, set: set3, keep: keep3 }) {
+  const drops = `PRD ${String(set3.prd)} will be dropped from ${branch}: its commit leaves the branch on the mission's next run, its feature pull request is reopened, and the default branch is never changed.`;
+  if (set3.sharing.length === 0) return [drops, "No later PRD on the branch shares its territory."];
+  return keep3 ? [drops, `Later PRDs sharing its territory, kept on the branch (--keep): ${prds(set3.sharing)}.`] : [drops, `Later PRDs sharing its territory, dropped with it: ${prds(set3.sharing)}. Pass --keep to leave them on the branch.`];
+}
+
 // kit/lib/mission/folder.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync75, readdirSync as readdirSync33, readFileSync as readFileSync89 } from "node:fs";
@@ -57179,7 +57191,7 @@ var ScopeSchema = external_exports.object(
     roadmaps: external_exports.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
-).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
+).strict().refine(({ prds: prds2, roadmaps }) => prds2.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
 var MandateSchema = external_exports.object(
   {
     parallel: external_exports.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
@@ -57279,7 +57291,7 @@ function readMissionFolder(ctx, mission2) {
 }
 
 // kit/bin/commands/mission.ts
-var USAGE34 = "usage: omni mission push <n>";
+var USAGE34 = "usage: omni mission push <n> | omni mission drop <mission> <prd> [--keep]";
 function skipLine4(error62) {
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === null) return "unreachable";
@@ -57317,13 +57329,29 @@ async function push4(issue2, io) {
   println(io.stdout, addedLine({ added: field(sent2.reply, "added"), unchanged: field(sent2.reply, "unchanged") }));
   return 0;
 }
+var numbers = (value) => Array.isArray(value) ? value.filter((one) => typeof one === "number") : [];
+async function drop(mission2, prd2, keep3, io) {
+  const ctx = loadContext(io.cwd, { exec: io.exec });
+  const target3 = connect2(ctx, io);
+  if (typeof target3 === "string") return stopped5(io, [target3]);
+  const sent2 = await target3.client.dropMission({ repo: target3.repo, mission: mission2, prd: prd2, keep: keep3 }).then((reply) => ({ reply }), skipLine4);
+  if (typeof sent2 === "string") return stopped5(io, [sent2]);
+  const dropped = field(sent2.reply, "drop");
+  const branch = field(dropped, "branch");
+  if (!isText6(branch)) return stopped5(io, ["refused (no drop in the reply)"]);
+  const sharing = numbers(field(dropped, "sharing")).map((one) => parsePrd(one));
+  const leaves = numbers(field(dropped, "dropped")).map((one) => parsePrd(one));
+  for (const line3 of dropWords({ branch, set: { prd: prd2, sharing, dropped: leaves }, keep: keep3 })) println(io.stdout, line3);
+  return 0;
+}
 var mission = {
   withoutContext: true,
   run(args, io) {
-    const { positional } = parseArgs("mission", args);
-    const [verb2, number5, ...rest] = positional;
-    if (verb2 !== "push" || rest.length > 0) throw usageError(USAGE34);
-    return push4(issueArg("mission push", "<n>", number5), io);
+    const { positional, flags } = parseArgs("mission", args, { booleans: ["keep"] });
+    const [verb2, number5, second, ...rest] = positional;
+    if (verb2 === "push" && second === void 0 && rest.length === 0 && flags.keep === void 0) return push4(issueArg("mission push", "<n>", number5), io);
+    if (verb2 === "drop" && second !== void 0 && rest.length === 0) return drop(issueArg("mission drop", "<mission>", number5), prdArg("mission drop", "<prd>", second), flags.keep === true, io);
+    throw usageError(USAGE34);
   }
 };
 
@@ -57969,9 +57997,9 @@ init_define_OMNI_BUNDLE();
 var reposOf = (slices) => [...new Set(slices.flatMap((slice) => slice.repo ? [slice.repo] : []))].sort();
 var byNumber = (a, b) => a - b;
 var hasStuck = (input2) => (input2.slices ?? []).some((slice) => slice.state === "stuck");
-function prdOrder(prds) {
+function prdOrder(prds2) {
   const key2 = (input2) => [hasStuck(input2) ? 1 : 0, input2.prd];
-  const sorted = [...prds].sort((a, b) => key2(a)[0] - key2(b)[0] || key2(a)[1] - key2(b)[1]);
+  const sorted = [...prds2].sort((a, b) => key2(a)[0] - key2(b)[0] || key2(a)[1] - key2(b)[1]);
   const driven = new Set(sorted.map((input2) => input2.prd));
   const placed = [];
   const left = [...sorted];
@@ -57984,8 +58012,8 @@ function prdOrder(prds) {
   return placed;
 }
 function wavesOf2(slices) {
-  const numbers2 = [...new Set(slices.map((slice) => slice.wave).filter((wave) => wave !== null))].sort(byNumber);
-  const waves = numbers2.map((wave) => ({ wave, slices: slices.filter((slice) => slice.wave === wave) }));
+  const numbers3 = [...new Set(slices.map((slice) => slice.wave).filter((wave) => wave !== null))].sort(byNumber);
+  const waves = numbers3.map((wave) => ({ wave, slices: slices.filter((slice) => slice.wave === wave) }));
   const loose = slices.filter((slice) => slice.wave === null);
   return loose.length > 0 ? [...waves, { wave: null, slices: loose }] : waves;
 }
@@ -58862,10 +58890,10 @@ async function yourPrds(reader) {
   }
   return yours2.rows.filter((row) => row.stage !== "prd").map((row) => row.prd).sort((a, b) => a - b);
 }
-async function readAll2(prds, reader, roadmap2 = null) {
+async function readAll2(prds2, reader, roadmap2 = null) {
   const read3 = [];
-  for (const prd2 of prds) read3.push(await readPrd(prd2, reader));
-  const driven = new Set(prds);
+  for (const prd2 of prds2) read3.push(await readPrd(prd2, reader));
+  const driven = new Set(prds2);
   const rowBlockers = roadmapBlockers(roadmap2);
   const inputs = read3.map(({ input: input2 }) => {
     const extra = rowBlockers.get(input2.prd) ?? [];
@@ -58927,8 +58955,8 @@ function heldOf(gates, verdicts) {
     return [{ prd: verdict2.prd, gate: gate.kind, why: gate.why, ...gate.link ? { link: gate.link } : {} }];
   });
 }
-async function startPlan(prds, { reader, out, json: json3, roadmap: roadmap2 }) {
-  const plan2 = planLoop((await readAll2(prds, reader, roadmap2 ?? null)).inputs);
+async function startPlan(prds2, { reader, out, json: json3, roadmap: roadmap2 }) {
+  const plan2 = planLoop((await readAll2(prds2, reader, roadmap2 ?? null)).inputs);
   writeLoopPlans(reader.ctx.root, [plan2]);
   if (json3) out(JSON.stringify({ plan: plan2 }, null, 2));
   else for (const line3 of formatPlan(plan2)) out(line3);
@@ -58958,8 +58986,8 @@ function liveOf({ verdicts, inputs, reads: reads2 }, gates) {
     slices: new Map(inputs.prds.map((input2) => [input2.prd, input2.slices ?? []]))
   };
 }
-async function followKept(prds, kept2, { reader, out, json: json3, roadmap: roadmap2 }) {
-  const read3 = await readAll2(prds, reader, roadmap2 ?? null);
+async function followKept(prds2, kept2, { reader, out, json: json3, roadmap: roadmap2 }) {
+  const read3 = await readAll2(prds2, reader, roadmap2 ?? null);
   const { plan: plan2, replanned } = currentPlan(kept2, read3.inputs, reader.ctx.root);
   const gates = roadmap2 ? await gatesOf(roadmap2, read3.reads, reader) : null;
   const live = liveOf(read3, gates);
@@ -58999,14 +59027,14 @@ function tickJson({ plan: plan2, replanned, followed, pool, verdicts, held: held
     held: [...held3, ...poolHeld(pool, held3).map(({ step: one, why: why3 }) => ({ step: one.step, prd: one.prd, why: why3 }))]
   };
 }
-function samePrds(prds, plan2) {
-  const named5 = [...new Set(prds)].sort((a, b) => a - b);
+function samePrds(prds2, plan2) {
+  const named5 = [...new Set(prds2)].sort((a, b) => a - b);
   return named5.length === plan2.prds.length && named5.every((prd2, index2) => prd2 === plan2.prds[index2]);
 }
 async function yoursOrRefuse(reader, flag) {
-  const prds = await yourPrds(reader);
-  if (prds.length === 0) throw usageError(`omni next: no PRD of yours is in inbox, building or outbox; name one: omni next <prd>\u2026${flag}`);
-  return prds;
+  const prds2 = await yourPrds(reader);
+  if (prds2.length === 0) throw usageError(`omni next: no PRD of yours is in inbox, building or outbox; name one: omni next <prd>\u2026${flag}`);
+  return prds2;
 }
 async function printVerdicts(named5, { reader, out, json: json3 }) {
   const verdicts = [];
@@ -59030,11 +59058,11 @@ function roadmapOf(n, ctx) {
   return parsed2.roadmap;
 }
 function driveRoadmap(roadmap2, plan2, io) {
-  const prds = [...new Set(roadmap2.prds.map((row) => row.prd))].sort((a, b) => a - b);
-  if (plan2) return startPlan(prds, io);
+  const prds2 = [...new Set(roadmap2.prds.map((row) => row.prd))].sort((a, b) => a - b);
+  if (plan2) return startPlan(prds2, io);
   const kept2 = readLoopPlans(io.reader.ctx.root);
   const last = kept2.at(-1);
-  return followKept(prds, last !== void 0 && samePrds(prds, last) ? kept2 : [], io);
+  return followKept(prds2, last !== void 0 && samePrds(prds2, last) ? kept2 : [], io);
 }
 async function drive(named5, { plan: plan2, roadmap: roadmap2 }, io) {
   if (roadmap2 !== null) return driveRoadmap(roadmap2, plan2, io);
@@ -64020,12 +64048,12 @@ function wantedNode(env) {
   }
   return null;
 }
-var numbers = (version3) => {
+var numbers2 = (version3) => {
   const found2 = VERSION3.exec(version3);
   return [found2?.[1], found2?.[2], found2?.[3]].map((part) => Number(part ?? 0));
 };
 function atLeast(have, want) {
-  const [a, b] = [numbers(have), numbers(want)];
+  const [a, b] = [numbers2(have), numbers2(want)];
   for (let index2 = 0; index2 < 3; index2 += 1) {
     const diff = (a[index2] ?? 0) - (b[index2] ?? 0);
     if (diff !== 0) return diff > 0;
@@ -67256,15 +67284,15 @@ function swap(repo, number5, gh3) {
   }
 }
 function release(job2, repo, reason2, gh3) {
-  let numbers2;
+  let numbers3;
   try {
-    numbers2 = candidates(repo, gh3);
+    numbers3 = candidates(repo, gh3);
   } catch (error62) {
     return { released: [], releaseError: cut5(why2(error62), MAX_RELEASE_ERROR) };
   }
   const released = [];
   const problems = [];
-  for (const number5 of numbers2) {
+  for (const number5 of numbers3) {
     try {
       if (!heldBy(repo, number5, job2.id, gh3)) continue;
     } catch (error62) {
@@ -72369,8 +72397,8 @@ function prdNamedBy(argv) {
   rest.forEach((arg, index2) => {
     if (arg === PRD_FLAG) named5.push(rest[index2 + 1]);
   });
-  const numbers2 = new Set(named5.map(prdNumber2).filter((number5) => number5 !== null));
-  return numbers2.size === 1 ? [...numbers2][0] ?? null : null;
+  const numbers3 = new Set(named5.map(prdNumber2).filter((number5) => number5 !== null));
+  return numbers3.size === 1 ? [...numbers3][0] ?? null : null;
 }
 function recordWork(argv, { cwd, vars, exec }) {
   try {
