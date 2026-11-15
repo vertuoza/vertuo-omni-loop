@@ -54,6 +54,20 @@ describe('the judge\'s model', () => {
     expect(await ask('Here is my answer: no findings.')).toEqual({ ok: false, why: 'the reply was not JSON' });
   });
 
+  it('reads the JSON object that ends a reply after its prose, unfenced (#2900)', async () => {
+    const ask = (content: string) => lawsModel({ key: 'k', fetch: stubFetch(answer(content)).fetch })({ system: '', user: '' });
+    const reply = '{"findings": [{"law": "BL-X-1", "quote": "a {braced} word", "why": "It rewords the answer."}]}';
+    const prose = 'One sentence breaks BL-X-1: "a {braced} word".\n\nThe rest keeps the laws:\n- {nothing else}.\n\n';
+    expect(await ask(`${prose}${reply}`)).toEqual({ ok: true, reply: JSON.parse(reply) as unknown });
+    expect(await ask(`${prose}{"findings": [`)).toEqual({ ok: false, why: 'the reply was not JSON' });
+  });
+
+  it('asks Sonnet 5.5, for both readings (#2900)', async () => {
+    const { fetch, bodies } = stubFetch(answer('{"findings": []}'));
+    await lawsModel({ key: 'k', fetch })({ system: '', user: '' });
+    expect(JSON.parse(bodies[0] ?? '{}')).toMatchObject({ model: 'anthropic/claude-sonnet-5.5' });
+  });
+
   it('is none without OPENROUTER_API_KEY', () => {
     expect(lawsModelFromEnv(null)).toBeNull();
     expect(lawsModelFromEnv({ key: 'k' })).toBeTypeOf('function');
