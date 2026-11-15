@@ -48,6 +48,13 @@ stacked: `node .omni-loop/bin/omni.mjs plan landings <prd> --json` gives each la
 `base`, `titleSuffix` and `mergeAfterLine`. Wherever this skill says "the feature branch" for such a
 PRD, it means the slice's landing's branch, and "the feature PR" means that landing's PR.
 
+**A mission's feature PR** (`--base <branch>`, PRD 2896, from `/omni:yolo` for a mission above
+`with-you`): its base is the mission's branch (`branches.mission`), cut from the default branch. It is
+never stacked: nothing is waited on, no PR heads its base to retarget it, and `BEHIND` is left alone.
+Its base stands in for the default branch as for a stacked one, a conflict merging `<remote>/<branch>`.
+A person or the App merges it, never this skill: a merge whose `baseRefName` is the mission's branch is
+refused like one into the default branch. Without `--base`, the table's base, as before.
+
 **A stacked feature PR** is a feature PR (or landing 1) whose base is not `repo.defaultBranch`:
 the PRD was cut from another open PR's branch, and its PR targets that branch until that PR merges.
 

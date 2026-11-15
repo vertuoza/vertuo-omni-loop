@@ -4,7 +4,7 @@
 // PRD's facts, a person's Pause. No database, no model call.
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
-import { lineOf, missionKey, type Attempt, type MissionStatus, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
+import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
 type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[] };
@@ -13,7 +13,7 @@ type FakeJob = { id: string; line: string; key: string; toFleet: string | null; 
 type FakeEvent = NewEvent & { actor: 'agent'; at: string };
 
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
-export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false }: { mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean }) {
+export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1 }: { mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null }) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
   const jobs: FakeJob[] = [];
@@ -46,12 +46,13 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     events: () => Promise.resolve(events.map(({ kind, prd, job }) => ({ kind, prd, job }))),
     fleetRunners: () => Promise.resolve(fleetRunners),
     planRepository: () => Promise.resolve(planRepository),
+    installation: () => Promise.resolve(installation),
     send: ({ mission: sent, prd, run, step, toFleet, skill }) => {
       const key = missionKey(sent.id, prd, run, step);
       if (jobs.some((job) => job.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      jobs.push({ id, line: lineOf(prd, step, skill), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+      jobs.push({ id, line: lineOf(prd, step, skill, baseOf(sent, skill === 'ultra-yolo')), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
       return Promise.resolve(id);
     },
     record: (_id, list, at) => {

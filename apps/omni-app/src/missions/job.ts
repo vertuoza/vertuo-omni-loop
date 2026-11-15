@@ -8,6 +8,8 @@
 //                  change of one of its PRDs, an answer on one of them. A refresh adds the job, brings a queued one
 //                  forward, or queues a finished one again, where a bare `background_job_wake` only brings a queued
 //                  one forward
+//   the branch     above `with-you` (PRD 2896) a run first cuts the mission's branch from the default branch (./branch.ts), once; with
+//                  it not cut (rebase merges not allowed, no installation) it sends nothing and the mission waits, saying why
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
 //                  first (its jobs and their resumes, each PRD's approval, stage, blockers and plan), pick
 //                  (./supervisor.ts), send each pick to the mission's Virtual Fleet (its runners when one holds the
@@ -28,8 +30,9 @@ import type { ClaimedJob, RefreshJob } from '../jobs/ledger.ts';
 import { checkPayloadOf, MissionJobDataSchema } from '../jobs/payloads.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
+import type { MissionBranches } from './branch.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
-import { conclude, eventsOf, pick, prdStates, recordedKeys, WAKE_MS, type Concluded, type Run } from './supervisor.ts';
+import { baseOf, conclude, eventsOf, pick, prdStates, recordedKeys, WAKE_MS, type Concluded, type Run } from './supervisor.ts';
 
 export const MISSION_KIND = 'mission';
 
@@ -48,6 +51,8 @@ const ProgressSchema = z.looseObject({ laters: z.number().int().min(0).optional(
 export type MissionDeps = {
   /** The missions, as the service role; null (no database): nothing is read or sent. */
   store: MissionStore | null;
+  /** The mission branch, cut at the first run above `with-you` (PRD 2896); null (no GitHub): such a mission waits, and sends nothing. */
+  branches?: MissionBranches | null;
   /** Refreshes a job on the ledger: how a run resets its count of `later`s. */
   refresh: (job: RefreshJob) => Promise<unknown>;
   now?: () => number;
@@ -58,34 +63,52 @@ export type MissionDeps = {
 type Supervised = { next: Concluded; running: boolean; moved: boolean; sent: number; events: number };
 
 /** One run of a running, waiting, paused or stopped mission: check, pick, send, record, set. */
-async function supervise(store: MissionStore, mission: MissionRecord, now: number): Promise<Supervised> {
+async function supervise(store: MissionStore, mission: MissionRecord, now: number, branches: MissionBranches | null): Promise<Supervised> {
   const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
   const skill = inPlan ? 'ultra-yolo' : 'yolo';
+  // Above `with-you` the PRDs are built on the mission's branch: with it not cut, nothing is sent and the mission says why.
+  const unready = await branchWaits(store, mission, inPlan, branches);
   const sent: Run[] = [];
-  for (const { prd, run, step } of pick({ mission, facts, states: prdStates(facts, runs) })) {
+  for (const { prd, run, step } of unready === null ? pick({ mission, facts, states: prdStates(facts, runs) }) : []) {
     const made = await store.send({ mission, prd, run, step, toFleet, skill });
     if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all);
-  const next = conclude({ mission, facts, states, sent: sent.length, now });
+  const concluded = conclude({ mission, facts, states, sent: sent.length, now });
+  const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
   const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded) });
   await store.record(mission.id, events, new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === 'running'), moved, sent: sent.length, events: events.length };
 }
 
+/**
+ * Why the mission's PRDs cannot be built yet, or null: a mission above `with-you` in a repository that is not a plan repository
+ * needs its branch (PRD 2896), cut from the default branch once, and refused where rebase merges are not allowed. Nothing is
+ * asked of GitHub for a draft, a paused or a delivered mission, nor at `with-you`.
+ */
+async function branchWaits(store: MissionStore, mission: MissionRecord, inPlan: boolean, branches: MissionBranches | null): Promise<string | null> {
+  const branch = baseOf(mission, inPlan);
+  if (branch === null || mission.status === 'paused' || mission.status === 'stopped') return null;
+  if (branches === null) return `the mission branch ${branch} cannot be cut: the app has no GitHub access here`;
+  const installation = await store.installation(mission);
+  if (installation === null) return `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App`;
+  const prepared = await branches.prepare({ installation, repo: mission.repo, branch });
+  return prepared.ok ? null : prepared.why;
+}
+
 /** Whether the mission is still watched: it runs or waits, or it is paused with a job of it still running. */
 const watched = ({ next, running }: Supervised): boolean => next.status === 'running' || next.status === 'waiting' || (next.status === 'paused' && running);
 
 /** The handler of the `mission` kind. */
-export function missionHandler({ store, refresh, now = Date.now, log = noteTo('missions') }: MissionDeps): JobHandler {
+export function missionHandler({ store, refresh, branches = null, now = Date.now, log = noteTo('missions') }: MissionDeps): JobHandler {
   return async (job): Promise<JobResult> => {
     const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
     const mission = await runnable(store, id);
     if (!('id' in mission)) return mission;
     const at = now();
-    const run = await supervise(mission.store, mission, at);
+    const run = await supervise(mission.store, mission, at, branches);
     log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
     // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
     if (!watched(run) && run.moved) return { outcome: 'done' };

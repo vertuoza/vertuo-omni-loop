@@ -27,6 +27,7 @@ nothing.
 |---|---|---|
 | a PRD number | `/omni:pr-care 790` | the PRD whose feature PR to look after |
 | `--once` | `/omni:pr-care 790 --once` | run one round, then return: no wait, no next round |
+| `--base <branch>` | `/omni:pr-care 790 --base mission/12-quotes` | a mission above `with-you` (PRD 2896): its branch is the feature PR's base, which stands in for the default branch (a conflict merges it, `BEHIND` is left alone) and is never retargeted; the PR's own `baseRefName` says the same when the flag is lost |
 
 Without a number, say that this skill takes the PRD number and stop.
 

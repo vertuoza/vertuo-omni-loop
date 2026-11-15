@@ -201,10 +201,12 @@ describe('handOffPrd (PRD 2871)', () => {
   it('reads the PRD of a job\'s arguments, bare or sent for review', () => {
     expect(handOffPrd('2871')).toBe(2871);
     expect(handOffPrd(' 2871 --for-review ')).toBe(2871);
+    expect(handOffPrd('2871 --for-review --base mission/12-faster-quotes')).toBe(2871);
+    expect(handOffPrd('2871 --base mission/12-q')).toBe(2871);
   });
 
   it('is null for any other arguments', () => {
-    for (const args of ['', '0', '2871 --once', '2871 s3', '--for-review 2871', '2871 --for-review --once', 'abc']) expect(handOffPrd(args), args).toBeNull();
+    for (const args of ['', '0', '2871 --once', '2871 s3', '--for-review 2871', '2871 --for-review --once', 'abc', '2871 --base', '2871 --base /x', '2871 --base a b', '2871 --base -x']) expect(handOffPrd(args), args).toBeNull();
   });
 });
 

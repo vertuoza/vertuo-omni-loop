@@ -4,7 +4,7 @@
 // pass; a third, PRD 32, runs out of rounds and waits on a person. Beside `mission.e2e.test.ts`, which proves
 // BR-PRODUCT-139.
 import { describe, expect, it } from 'vitest';
-import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import { MISSION_KIND, missionHandler } from './job.ts';
 import { fakeMissionStore } from './store.fake.ts';
@@ -19,7 +19,7 @@ const review = (n: number, id: number) => `${pr(n)}#pullrequestreview-${String(i
 
 /** A mission of the PRDs `prds`, each on ground of its own, three at once. */
 function reviewed(prds: number[]) {
-  const record: MissionRecord = { id: ID, workspace: 'ws-2', repo: 'acme/gadgets', fleet: 'day-shift', status: 'running', waitingOn: null, parallel: 3, scope: { prds: prds.map(prd), roadmaps: [] } };
+  const record: MissionRecord = { id: ID, workspace: 'ws-2', repo: 'acme/gadgets', fleet: 'day-shift', number: parseIssue(12), title: 'Faster quotes', level: 'with-you', status: 'running', waitingOn: null, parallel: 3, scope: { prds: prds.map(prd), roadmaps: [] } };
   const facts: PrdFacts[] = prds.map((n) => ({ prd: prd(n), approval: 'standing', stage: 'open', blockers: [], territory: [`packages/part-${String(n)}/`] }));
   const fake = fakeMissionStore({ mission: record, facts });
   let now = T0;

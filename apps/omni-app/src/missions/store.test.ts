@@ -34,6 +34,9 @@ const mission: MissionRecord = {
   workspace: 'ws-1',
   repo: 'acme/widgets',
   fleet: 'night-shift',
+  number: parseIssue(12),
+  title: 'Faster quotes',
+  level: 'with-you',
   status: 'running',
   waitingOn: null,
   parallel: 2,
@@ -43,8 +46,14 @@ const mission: MissionRecord = {
 const PLAN = ['| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', '| s1 | a | `apps/a/` | — | 1 |'].join('\n');
 
 describe('missionStore — the mission as the service role, never calling Supabase (PRD 2842 s4)', () => {
+  it('reads the level of the mandate, with-you when it names none (PRD 2896)', async () => {
+    const row = { id: ID, workspace_id: 'ws-1', repo: 'acme/widgets', fleet: 'night-shift', number: 12, title: 'Faster quotes', status: 'running', waiting_on: null, scope: { prds: [7], roadmaps: [] } };
+    expect((await storeOn(recordingFetch([[{ ...row, mandate: { parallel: 2, level: 'own-branch' } }]]).fetch).mission(ID))?.level).toBe('own-branch');
+    expect((await storeOn(recordingFetch([[{ ...row, mandate: { parallel: 2 } }]]).fetch).mission(ID))?.level).toBe('with-you');
+  });
+
   it('reads the mission row as the supervisor sees it', async () => {
-    const db = recordingFetch([[{ id: ID, workspace_id: 'ws-1', repo: 'acme/widgets', fleet: 'night-shift', status: 'running', waiting_on: null, mandate: { parallel: 3 }, scope: { prds: [7], roadmaps: [] } }]]);
+    const db = recordingFetch([[{ id: ID, workspace_id: 'ws-1', repo: 'acme/widgets', fleet: 'night-shift', number: 12, title: 'Faster quotes', status: 'running', waiting_on: null, mandate: { parallel: 3 }, scope: { prds: [7], roadmaps: [] } }]]);
     expect(await storeOn(db.fetch).mission(ID)).toEqual({ ...mission, parallel: 3, scope: { prds: [7], roadmaps: [] } });
     expect(nth(db.requests, 0).query.get('id')).toBe(`eq.${ID}`);
     expect(await storeOn(recordingFetch([[]]).fetch).mission(ID)).toBeNull();
@@ -133,6 +142,32 @@ describe('missionStore — the mission as the service role, never calling Supaba
     });
     expect(await store.send({ mission, prd: parsePrd(7), run: 1, step: 'build', toFleet: false, skill: 'yolo' })).toBeNull();
     expect(nth(db.requests, 1).body).toMatchObject({ to_fleet: null });
+  });
+
+  it('sends the build and the fix on the mission branch above with-you, never the Reviewer (PRD 2896)', async () => {
+    const db = recordingFetch([[{ id: 'j-1' }], [{ id: 'j-2' }], [{ id: 'j-3' }]]);
+    const store = storeOn(db.fetch);
+    const own: MissionRecord = { ...mission, level: 'own-branch', title: 'Faster quotes, now!' };
+    for (const step of ['build', 'fix:1', 'review:1'] as const) await store.send({ mission: own, prd: parsePrd(7), run: 1, step, toFleet: true, skill: 'yolo' });
+    expect(db.requests.map(({ body }) => (body as { line: string }).line)).toEqual([
+      '/omni:yolo 7 --for-review --base mission/12-faster-quotes-now',
+      '/omni:yolo-fix 7 --for-review --base mission/12-faster-quotes-now',
+      '/omni:review 7',
+    ]);
+  });
+
+  it('adds no base to a PRD of a plan repository, whatever the level (PRD 2896)', async () => {
+    const db = recordingFetch([[{ id: 'j-1' }]]);
+    await storeOn(db.fetch).send({ mission: { ...mission, level: 'alone' }, prd: parsePrd(7), run: 1, step: 'build', toFleet: false, skill: 'ultra-yolo' });
+    expect(nth(db.requests, 0).body).toMatchObject({ line: '/omni:ultra-yolo 7' });
+  });
+
+  it('reads the installation of the mission\'s workspace, null when it has none (PRD 2896)', async () => {
+    const db = recordingFetch([[{ github_installation_id: 4242 }]]);
+    expect(await storeOn(db.fetch).installation(mission)).toBe(4242);
+    expect(nth(db.requests, 0).query.get('id')).toBe('eq.ws-1');
+    expect(await storeOn(recordingFetch([[{ github_installation_id: null }]]).fetch).installation(mission)).toBeNull();
+    expect(await storeOn(recordingFetch([[]]).fetch).installation(mission)).toBeNull();
   });
 
   it('sends the Reviewer and the fix under their own keys (PRD 2871)', async () => {

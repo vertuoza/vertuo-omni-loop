@@ -29,6 +29,8 @@ import {
   STAGE,
   StageRowSchema,
   VOID,
+  WORKSPACE,
+  WorkspaceRowSchema,
   VoidRowSchema,
 } from './store.ts';
 
@@ -45,5 +47,6 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: Reviewer job logs', read: (db) => db.from('runner_jobs').select(JOB_LOG).limit(1), schema: JobLogRowSchema, shape: 'rows' },
   { name: 'missions/store: mission events', read: (db) => db.from('mission_events').select(EVENT).limit(5), schema: EventRowSchema, shape: 'rows' },
   { name: 'missions/store: products', read: (db) => db.from('products').select(PRODUCT).limit(5), schema: ProductRowSchema, shape: 'rows' },
+  { name: 'missions/store: workspaces', read: (db) => db.from('workspaces').select(WORKSPACE).limit(5), schema: WorkspaceRowSchema, shape: 'rows' },
   { name: 'missions/store: runners', read: (db) => db.from('runners').select(RUNNER).limit(5), schema: RunnerRowSchema, shape: 'rows' },
 ];

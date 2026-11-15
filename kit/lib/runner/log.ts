@@ -180,9 +180,12 @@ const STAMP = /^\d{2}:\d{2}:\d{2} /;
 /** The line claude prints when one of the session's hooks fails, which may come after the hand-off (#2388). */
 const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
 
-/** The PRD a hand-off job's arguments name, `<n>` or `<n> --for-review` (PRD 2871); `null` for any other arguments. */
+/**
+ * The PRD a hand-off job's arguments name, `<n>` or `<n> --for-review` (PRD 2871), then the branch the PRD is built on
+ * when its mission has one, ` --base <branch>` (PRD 2896); `null` for any other arguments.
+ */
 export function handOffPrd(args: string): PrdNumber | null {
-  const match = /^([1-9]\d*)(?: --for-review)?$/.exec(args.trim());
+  const match = /^([1-9]\d*)(?: --for-review)?(?: --base [A-Za-z0-9][A-Za-z0-9._/-]*)?$/.exec(args.trim());
   return match?.[1] === undefined ? null : parsePrd(match[1]);
 }
 
