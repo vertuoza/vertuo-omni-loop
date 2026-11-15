@@ -12434,12 +12434,12 @@ import { existsSync as existsSync40, readFileSync as readFileSync39 } from "node
 import { join as join56 } from "node:path";
 var STANDING = /* @__PURE__ */ new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
 function approversOf(reviews, headSha) {
-  const standing = /* @__PURE__ */ new Map();
+  const standing2 = /* @__PURE__ */ new Map();
   for (const review of reviews) {
     const login = review.user?.login;
-    if (login !== void 0 && STANDING.has(review.state)) standing.set(login, review);
+    if (login !== void 0 && STANDING.has(review.state)) standing2.set(login, review);
   }
-  return [...standing].filter(([, review]) => review.state === "APPROVED" && review.commit_id === headSha).map(([login]) => login);
+  return [...standing2].filter(([, review]) => review.state === "APPROVED" && review.commit_id === headSha).map(([login]) => login);
 }
 async function approversAt(octokit, { owner, repo, prNumber, headSha }) {
   const reviews = await paginate(
@@ -15621,8 +15621,8 @@ var cell = (text18) => (text18 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ")
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
-  const standing = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
-  return `${entry.landedAs.join(", ")} (new, ${standing})`;
+  const standing2 = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
+  return `${entry.landedAs.join(", ")} (new, ${standing2})`;
 }
 function decidedShort(decided) {
   const text18 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
@@ -21155,8 +21155,8 @@ function checkpointsForgetHandler({
     let offset = 0;
     for (let page = 0; page < MAX_PAGES3; page += 1) {
       const kept3 = await store.kept(offset, PAGE2);
-      const ended = await store.ended([...new Set(kept3.map((save) => save.jobId))]);
-      const doomed = kept3.filter((save) => ended.has(save.jobId) || tooOld(save, now));
+      const ended2 = await store.ended([...new Set(kept3.map((save) => save.jobId))]);
+      const doomed = kept3.filter((save) => ended2.has(save.jobId) || tooOld(save, now));
       if (doomed.length > 0) {
         await store.remove(doomed.map((save) => save.path));
         await store.stamp(
@@ -21432,9 +21432,9 @@ function searchEvalRunHandler({
         return { outcome: "later", at: new Date(clock() + AGAIN_MS), progress: { recorded } };
       }
       if (await store.recorded(id, trigger, slot)) continue;
-      const ended = await runProduct({ store, search, productId: id, trigger, slot });
-      if (ended === "failed") failed3 += 1;
-      else if (ended === "kept") recorded += 1;
+      const ended2 = await runProduct({ store, search, productId: id, trigger, slot });
+      if (ended2 === "failed") failed3 += 1;
+      else if (ended2 === "kept") recorded += 1;
     }
     log2(`search eval run: ${trigger} ${slot.slice(0, 10)}: ${String(recorded)} runs kept in ${String(products.length)} products, ${String(failed3)} not run`);
     if (failed3 > 0) throw new Error(`search eval run: a search failed in ${String(failed3)} of ${String(products.length)} products`);
@@ -22098,6 +22098,67 @@ function searchEvalPromoteHandler({
   };
 }
 
+// kit/lib/ready/report.ts
+import { z as z89 } from "zod";
+var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
+var ACCEPTANCE_CHECK_NAME = "acceptance";
+var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
+var ResultSchema = z89.object({
+  ac: z89.number().int().positive(),
+  kind: z89.enum(AC_KINDS),
+  state: z89.enum(RESULT_STATES),
+  /** The test's title, `AC-<n>: …`. */
+  title: z89.string().min(1),
+  /** Where the proof lives: the test file, or the e2e run's report. */
+  proof: z89.string().min(1).nullable().default(null),
+  why: z89.string().min(1).optional()
+}).strict().superRefine((result, issues) => {
+  const proves = acNumberOfTitle(result.title);
+  if (proves !== result.ac) {
+    const says3 = proves === null ? "names no criterion as AC-<n>: \u2026" : `proves AC-${proves}, not AC-${result.ac}`;
+    issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
+  }
+});
+var ReportSchema = z89.object({
+  format: z89.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z89.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z89.array(ResultSchema)
+}).strict();
+function parseAcceptanceReport(text18) {
+  let raw;
+  try {
+    raw = JSON.parse(text18);
+  } catch (error) {
+    return { ok: false, why: `the acceptance report is not JSON (${messageOf2(error).split("\n")[0]})` };
+  }
+  const read2 = ReportSchema.safeParse(raw, { error: KIT_MESSAGES });
+  if (read2.success) return { ok: true, report: read2.data };
+  const [issue] = read2.error.issues;
+  const path = issue?.path.join(".") || "(report)";
+  const keys = issue?.code === "unrecognized_keys" ? ` (${issue.keys.join(", ")})` : "";
+  return { ok: false, why: `the acceptance report is malformed: ${path}: ${issue?.message ?? "invalid"}${keys}` };
+}
+function renderAcceptanceReport(report) {
+  return `${JSON.stringify(report, null, 2)}
+`;
+}
+
+// kit/lib/runner/acceptance-line.ts
+var ACCEPTANCE_SKILL = "acceptance";
+function acceptanceLine({ prd, pr, sha }) {
+  return `/omni:${ACCEPTANCE_SKILL} ${String(prd)} --pr ${String(pr)} --sha ${sha}`;
+}
+var ACCEPTANCE_MARK = "omni-acceptance:";
+function acceptanceOfLog(log2) {
+  const line = log2.split("\n").reverse().find((each) => each.includes(ACCEPTANCE_MARK));
+  if (line === void 0) return null;
+  const said = line.slice(line.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
+  if (!said.startsWith("{")) return { ok: false, why: said.replace(/^failed — /, "") || "the run said nothing" };
+  const read2 = parseAcceptanceReport(said);
+  return read2.ok ? { ok: true, report: read2.report } : { ok: false, why: read2.why };
+}
+var READY_JOB_KIND = "pr-ready";
+
 // apps/omni-app/src/ready-check/ready-check.ts
 import { mkdtempSync as mkdtempSync14, rmSync as rmSync18 } from "node:fs";
 import { tmpdir as tmpdir14 } from "node:os";
@@ -22334,47 +22395,6 @@ function loosenings(files, { ground, criteria, generated = [] }) {
   return out;
 }
 
-// kit/lib/ready/report.ts
-import { z as z89 } from "zod";
-var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
-var ACCEPTANCE_CHECK_NAME = "acceptance";
-var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z89.object({
-  ac: z89.number().int().positive(),
-  kind: z89.enum(AC_KINDS),
-  state: z89.enum(RESULT_STATES),
-  /** The test's title, `AC-<n>: …`. */
-  title: z89.string().min(1),
-  /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z89.string().min(1).nullable().default(null),
-  why: z89.string().min(1).optional()
-}).strict().superRefine((result, issues) => {
-  const proves = acNumberOfTitle(result.title);
-  if (proves !== result.ac) {
-    const says2 = proves === null ? "names no criterion as AC-<n>: \u2026" : `proves AC-${proves}, not AC-${result.ac}`;
-    issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says2}` });
-  }
-});
-var ReportSchema = z89.object({
-  format: z89.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z89.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z89.array(ResultSchema)
-}).strict();
-function parseAcceptanceReport(text18) {
-  let raw;
-  try {
-    raw = JSON.parse(text18);
-  } catch (error) {
-    return { ok: false, why: `the acceptance report is not JSON (${messageOf2(error).split("\n")[0]})` };
-  }
-  const read2 = ReportSchema.safeParse(raw, { error: KIT_MESSAGES });
-  if (read2.success) return { ok: true, report: read2.data };
-  const [issue] = read2.error.issues;
-  const path = issue?.path.join(".") || "(report)";
-  const keys = issue?.code === "unrecognized_keys" ? ` (${issue.keys.join(", ")})` : "";
-  return { ok: false, why: `the acceptance report is malformed: ${path}: ${issue?.message ?? "invalid"}${keys}` };
-}
-
 // kit/lib/ready/checks.ts
 var READY_CHECK_NAME = "omni / ready";
 var CHECKS = [
@@ -22523,7 +22543,7 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z91 } from "zod";
+import { z as z92 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
 import { existsSync as existsSync50, readFileSync as readFileSync49 } from "node:fs";
@@ -22609,7 +22629,7 @@ function reportText(run) {
 }
 function reportOf(runs) {
   const run = runs.find((candidate) => candidate.name === ACCEPTANCE_CHECK_NAME);
-  if (run?.status !== "completed") return read(null);
+  if (run === void 0) return read(null);
   const text18 = reportText(run);
   if (text18 === null) return read(null);
   const parsed3 = parseAcceptanceReport(text18);
@@ -22618,6 +22638,9 @@ function reportOf(runs) {
 function criteriaAt(root, specPath) {
   const text18 = specPath === null ? null : textAt(root, specPath);
   return text18 === null ? null : parseCriteria(text18);
+}
+function criteriaAtHead({ prd, ctx }) {
+  return criteriaAt(ctx.root, ctx.layout.specPath(prd))?.criteria ?? [];
 }
 function ledgerOf3({ prd, ctx }) {
   const dir = ctx.layout.outboxDir(prd);
@@ -22705,6 +22728,159 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
   return { facts, criteria: head?.criteria ?? [], report: report.ok ? report.value : null };
 }
 
+// apps/omni-app/src/ready-check/runner-fallback.ts
+import { z as z91 } from "zod";
+
+// apps/omni-app/src/ready-check/zip.ts
+import { inflateRawSync } from "node:zlib";
+var END = 101010256;
+var CENTRAL = 33639248;
+var LOCAL = 67324752;
+var STORED = 0;
+var DEFLATED = 8;
+var UNZIPPED_MAX = 1024 * 1024;
+function endOf2(zip) {
+  for (let at4 = zip.length - 22; at4 >= Math.max(0, zip.length - 22 - 65535); at4 -= 1) if (zip.readUInt32LE(at4) === END) return at4;
+  return -1;
+}
+function entriesOf(zip) {
+  const end = endOf2(zip);
+  if (end === -1) return "the artifact is not a zip archive";
+  const entries = [];
+  let at4 = zip.readUInt32LE(end + 16);
+  for (let i = 0; i < zip.readUInt16LE(end + 10); i += 1) {
+    if (at4 + 46 > zip.length || zip.readUInt32LE(at4) !== CENTRAL) return "the archive's directory is broken";
+    const nameLength = zip.readUInt16LE(at4 + 28);
+    entries.push({
+      path: zip.toString("utf8", at4 + 46, at4 + 46 + nameLength),
+      method: zip.readUInt16LE(at4 + 10),
+      size: zip.readUInt32LE(at4 + 20),
+      unzipped: zip.readUInt32LE(at4 + 24),
+      local: zip.readUInt32LE(at4 + 42)
+    });
+    at4 += 46 + nameLength + zip.readUInt16LE(at4 + 30) + zip.readUInt16LE(at4 + 32);
+  }
+  return entries;
+}
+function textOf3(zip, entry, name) {
+  if (entry.unzipped > UNZIPPED_MAX) return { ok: false, why: `${name} is over ${String(UNZIPPED_MAX)} bytes` };
+  const { local } = entry;
+  if (local + 30 > zip.length || zip.readUInt32LE(local) !== LOCAL) return { ok: false, why: "the archive's file header is broken" };
+  const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+  const data = zip.subarray(start, start + entry.size);
+  if (entry.method === STORED) return { ok: true, text: data.toString("utf8") };
+  if (entry.method !== DEFLATED) return { ok: false, why: `${name} is compressed in a way this reader does not read (method ${String(entry.method)})` };
+  try {
+    return { ok: true, text: inflateRawSync(data, { maxOutputLength: UNZIPPED_MAX }).toString("utf8") };
+  } catch {
+    return { ok: false, why: `${name} could not be inflated` };
+  }
+}
+function unzipText(zip, name) {
+  const entries = entriesOf(zip);
+  if (typeof entries === "string") return { ok: false, why: entries };
+  const entry = entries.find(({ path }) => path === name || path.split("/").at(-1) === name);
+  return entry === void 0 ? { ok: false, why: `the artifact holds no ${name}` } : textOf3(zip, entry, name);
+}
+
+// apps/omni-app/src/ready-check/runner-fallback.ts
+var KEPT_ARTIFACT = "acceptance-report";
+var KEPT_FILE = "report.json";
+var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
+var ArtifactsSchema = z91.looseObject({
+  artifacts: z91.array(z91.looseObject({ id: z91.number(), expired: z91.boolean().nullish(), workflow_run: z91.looseObject({ head_sha: z91.string().nullish() }).nullish() }))
+});
+var RunSchema4 = z91.looseObject({ id: z91.number(), status: z91.string().nullish(), conclusion: z91.string().nullish(), output: z91.looseObject({ title: z91.string().nullish(), summary: z91.string().nullish(), text: z91.string().nullish() }).nullish() });
+var RunsSchema = z91.looseObject({ check_runs: z91.array(RunSchema4).nullish() });
+async function keptReport(octokit, { owner, repo, headSha }) {
+  const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
+  const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
+  const newest = own.reduce((last, artifact) => last === null || artifact.id > last.id ? artifact : last, null);
+  if (newest === null) return null;
+  const zip = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}", { owner, repo, artifact_id: newest.id, archive_format: "zip" });
+  const bytes = zip.data instanceof ArrayBuffer ? Buffer.from(zip.data) : Buffer.isBuffer(zip.data) ? zip.data : null;
+  if (bytes === null) return { why: `the ${KEPT_ARTIFACT} artifact came back as no archive` };
+  const file = unzipText(bytes, KEPT_FILE);
+  if (!file.ok) return { why: `the ${KEPT_ARTIFACT} artifact cannot be read: ${file.why}` };
+  const read2 = parseAcceptanceReport(file.text);
+  if (!read2.ok) return { why: read2.why };
+  return read2.report.commit === headSha ? { report: read2.report } : { why: `the ${KEPT_ARTIFACT} artifact is of ${read2.report.commit.slice(0, 8)}, not ${headSha.slice(0, 8)}` };
+}
+var ended = (job) => job !== null && ["done", "failed", "cancelled"].includes(job.status);
+function noResult(job) {
+  const said = acceptanceOfLog(job.logTail);
+  const how = said !== null && !said.ok ? said.why : job.reason ?? `it ended ${job.status} with no result`;
+  return `the runner's e2e run gave no result (${how}); a new commit runs it again`;
+}
+function standingReport(kept3, criteria, job) {
+  if (!ended(job)) return kept3;
+  const e2e = new Set(criteria.filter((criterion) => criterion.kind === "e2e").map((criterion) => criterion.number));
+  const others = kept3.results.filter((result) => result.kind !== "e2e" || !e2e.has(result.ac));
+  const said = acceptanceOfLog(job.logTail);
+  const ran = said?.ok === true && said.report.commit === kept3.commit ? said.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
+  return { ...kept3, results: [...others, ...ran].sort((a, b) => a.ac - b.ac) };
+}
+function standing(criterion, report) {
+  const own = report.results.filter((result) => result.ac === criterion.number && result.kind === criterion.kind);
+  const proof = [...new Set(own.flatMap((result) => result.proof === null ? [] : [result.proof]))].join(", ") || "\u2014";
+  if (own.some((result) => result.state === "failed")) return { mark: "\u2717", words: "failed", proof };
+  if (own.some((result) => result.state === "passed")) return { mark: "\u2713", words: "proven", proof };
+  const pending = own.find((result) => result.state === "pending");
+  if (pending) return { mark: "\u2026", words: pending.why ?? "waiting", proof };
+  return { mark: "\u2717", words: own.length > 0 ? "skipped" : "no proof on this commit", proof };
+}
+function acceptanceOutput(criteria, report) {
+  const rows = criteria.map((criterion) => ({ criterion, ...standing(criterion, report) }));
+  const proven = rows.filter((row) => row.mark === "\u2713").length;
+  const count3 = `${String(proven)} of ${String(rows.length)} criteria proven`;
+  const summary2 = [
+    "| criterion | kind | state | proof |",
+    "| --- | --- | --- | --- |",
+    ...rows.map(({ criterion, mark, words, proof }) => `| AC-${String(criterion.number)} | ${criterion.kind} | ${mark} ${words} | ${proof} |`),
+    "",
+    "Written by the Omni App from the report CI kept and the e2e run of a runner of the workspace (PRD 2898)."
+  ].join("\n");
+  const text18 = renderAcceptanceReport(report);
+  if (rows.some((row) => row.mark === "\u2026")) return { status: "in_progress", conclusion: null, title: `${count3}; the e2e scenarios wait on a runner`, summary: summary2, text: text18 };
+  return { status: "completed", conclusion: proven === rows.length ? "success" : "failure", title: count3, summary: summary2, text: text18 };
+}
+var says = (run, output) => run.status === output.status && (run.conclusion ?? null) === output.conclusion && run.output?.title === output.title && run.output.summary === output.summary && run.output.text === output.text;
+async function postAcceptance(octokit, { owner, repo, headSha, going, output }) {
+  if (going !== null && says(going, output)) return false;
+  const { status, conclusion, title, summary: summary2, text: text18 } = output;
+  const body = { owner, repo, status, ...conclusion === null ? {} : { conclusion, completed_at: (/* @__PURE__ */ new Date()).toISOString() }, output: { title, summary: summary2, text: text18 } };
+  if (going !== null) await octokit.request("PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}", { ...body, check_run_id: going.id });
+  else await octokit.request("POST /repos/{owner}/{repo}/check-runs", { ...body, name: ACCEPTANCE_CHECK_NAME, head_sha: headSha, external_id: ACCEPTANCE_EXTERNAL_ID });
+  return true;
+}
+async function runnerFallback(octokit, store, request) {
+  const { owner, repo, headSha, criteria, config } = request;
+  if (!criteria.some((criterion) => criterion.kind === "e2e")) return { acted: false, why: "the spec has no e2e criterion" };
+  const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: ACCEPTANCE_CHECK_NAME, per_page: 100 });
+  const runs = RunsSchema.parse(data).check_runs ?? [];
+  if (runs.some((run) => run.status === "completed")) return { acted: false, why: "the acceptance run of the commit is written" };
+  const kept3 = await keptReport(octokit, { owner, repo, headSha });
+  if (kept3 === null) return { acted: false, why: "CI kept no acceptance report for the commit yet" };
+  if ("why" in kept3) return { acted: false, why: kept3.why };
+  if (!kept3.report.results.some((result) => result.kind === "e2e" && result.state === "pending")) return { acted: false, why: "no e2e scenario waits on a runner" };
+  const line = acceptanceLine({ prd: request.prd, pr: request.prNumber, sha: headSha });
+  const asked = { installationId: request.installationId, repository: `${owner}/${repo}`, line };
+  let job = store === null ? null : await store.appJob(asked);
+  let step = job === null ? "none" : ended(job) ? "ended" : "waiting";
+  if (store !== null && job === null && config.e2e.url !== null) {
+    const queued = await store.queueApp(asked);
+    if (queued.job !== null) {
+      step = "queued";
+      job = { status: "queued", logTail: "", reason: null };
+    }
+  }
+  const report = standingReport(kept3.report, criteria, job);
+  const output = acceptanceOutput(criteria, report);
+  const going = runs.reduce((last, run) => last === null || run.id > last.id ? run : last, null);
+  const posted = await postAcceptance(octokit, { owner, repo, headSha, going, output });
+  return { acted: true, job: step, waiting: report.results.filter((result) => result.state === "pending").length, posted };
+}
+
 // apps/omni-app/src/ready-check/output.ts
 var READY_EXTERNAL_ID = "omni-loop/ready";
 var MARK = Object.freeze({
@@ -22767,14 +22943,14 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema4 = z91.looseObject({ id: z91.number(), status: z91.string().nullish(), conclusion: z91.string().nullish(), html_url: z91.string().nullish(), output: z91.looseObject({ title: z91.string().nullish(), summary: z91.string().nullish() }).nullish() });
-var RunsSchema = z91.looseObject({ check_runs: z91.array(RunSchema4).nullish() });
-var WrittenSchema2 = z91.looseObject({ id: z91.number(), html_url: z91.string().nullish() });
-var says = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
+var RunSchema5 = z92.looseObject({ id: z92.number(), status: z92.string().nullish(), conclusion: z92.string().nullish(), html_url: z92.string().nullish(), output: z92.looseObject({ title: z92.string().nullish(), summary: z92.string().nullish() }).nullish() });
+var RunsSchema2 = z92.looseObject({ check_runs: z92.array(RunSchema5).nullish() });
+var WrittenSchema2 = z92.looseObject({ id: z92.number(), html_url: z92.string().nullish() });
+var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
-  const latest = (RunsSchema.parse(data).check_runs ?? []).reduce((last, run) => last === null || run.id > last.id ? run : last, null);
-  if (latest !== null && says(latest, output)) return { posted: false, url: latest.html_url ?? null };
+  const latest = (RunsSchema2.parse(data).check_runs ?? []).reduce((last, run) => last === null || run.id > last.id ? run : last, null);
+  if (latest !== null && says2(latest, output)) return { posted: false, url: latest.html_url ?? null };
   const { status, title, summary: summary2 } = output;
   const body = {
     owner,
@@ -22800,6 +22976,7 @@ async function runReadyCheck(octokit, { store, request }) {
     if ("skip" in target2) return { posted: false, reason: target2.skip };
     const { pr, config, prd, ctx } = target2;
     const { owner, repo, prNumber, installationId } = request;
+    await runnerFallback(octokit, store, { owner, repo, installationId, prNumber, prd, headSha: pr.headSha, criteria: criteriaAtHead({ prd, ctx }), config });
     const read2 = await readyFacts(octokit, { prd, ctx }, { owner, repo, prNumber, pr, baseFolder: base });
     const verdict = readyVerdict(read2.facts);
     const posted = await postReady(octokit, { owner, repo, headSha: pr.headSha, output: readyOutput(verdict, { prd, signature: config.signature }) });
@@ -22839,7 +23016,7 @@ async function postNotJudged(octokit, { store, request, reason: reason2 }) {
 }
 
 // apps/omni-app/src/ready-check/job.ts
-var READY_KIND = "pr-ready";
+var READY_KIND = READY_JOB_KIND;
 var requestOf4 = (raw) => checkPayloadOf(PullAtSchema, READY_KIND, raw);
 function readyHandler({
   octokitFor,
@@ -22862,12 +23039,18 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z92 } from "zod";
+import { z as z93 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var MissionScopeRowSchema = z92.object({ scope: z92.object({ prds: z92.array(PrdNumberSchema), roadmaps: z92.array(z92.number().int().positive()) }) });
-var RoadmapRowOfSchema = z92.object({ roadmap_id: z92.string().min(1) });
+var AppJobRowSchema = z93.object({
+  status: z93.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z93.string(),
+  reason: z93.string().nullable()
+});
+var MissionScopeRowSchema = z93.object({ scope: z93.object({ prds: z93.array(PrdNumberSchema), roadmaps: z93.array(z93.number().int().positive()) }) });
+var RoadmapRowOfSchema = z93.object({ roadmap_id: z93.string().min(1) });
 function readyStore(connection) {
   const db = serviceDb(connection);
+  const queue = runnerQueue(connection);
   const workspaceOf = async (installationId) => rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1))[0]?.id ?? null;
   return {
     async inMission({ installationId, repository, prd }) {
@@ -22905,7 +23088,17 @@ function readyStore(connection) {
       };
       rowsOf(IdRowSchema, await db.from("ready_verdicts").upsert(row, { onConflict: "workspace_id,repo,pr_number,head_sha" }).select("id"));
       return { saved: true, reason: null };
-    }
+    },
+    async appJob({ installationId, repository, line }) {
+      const workspace = await workspaceOf(installationId);
+      if (workspace === null) return null;
+      const [job] = rowsOf(
+        AppJobRowSchema,
+        await db.from("runner_jobs").select("status, log_tail, reason").eq("workspace_id", workspace).eq("repo", repository.toLowerCase()).eq("line", line).not("sent_by_app", "is", null).order("queued_at", { ascending: false }).limit(1)
+      );
+      return job === void 0 ? null : { status: job.status, logTail: job.log_tail, reason: job.reason };
+    },
+    queueApp: (job) => queue(job)
   };
 }
 
@@ -23051,11 +23244,11 @@ async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, en
   const settled = await within4(settling, endsAt - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
   const kept3 = await keep(ledger, job, settled, log2);
-  const ended = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
+  const ended2 = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
   if (kept3 === "stale") summary2.stale += 1;
-  else if (kept3 !== null) summary2[ended.outcome] += 1;
-  if (ended !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
-  if (kept3 === "failed") await failed2(job, ended.reason, failures[job.kind], log2);
+  else if (kept3 !== null) summary2[ended2.outcome] += 1;
+  if (ended2 !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+  if (kept3 === "failed") await failed2(job, ended2.reason, failures[job.kind], log2);
   return settled.reason === CUT_SHORT ? "cut short" : "ran";
 }
 var cutShort = (clock) => ({ outcome: "waiting", reason: CUT_SHORT, retryAt: later(clock, CUT_SHORT_WAIT_MINUTES) });
