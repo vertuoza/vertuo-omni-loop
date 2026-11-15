@@ -80,3 +80,29 @@ describe('readyStore — the ready check as the service role, never calling Supa
     expect(nobody.requests).toHaveLength(1);
   });
 });
+
+describe('readyStore — the e2e fallback\'s runner job, sent by the App (PRD 2898 s8)', () => {
+  const LINE = `/omni:acceptance 7 --pr 31 --sha ${'a1'.repeat(20)}`;
+  const ASKED = { installationId: 7, repository: 'Acme/Widgets', line: LINE };
+
+  it('reads the latest job of the line the App itself sent, in the installation\'s workspace and the repository, in lower case', async () => {
+    const db = recordingFetch([[{ id: 'ws-1' }], [{ status: 'done', log_tail: 'omni-acceptance: …', reason: null }]]);
+    expect(await storeOn(db.fetch).appJob(ASKED)).toEqual({ status: 'done', logTail: 'omni-acceptance: …', reason: null });
+    const read = nth(db.requests, 1);
+    expect(read.path).toBe('/rest/v1/runner_jobs');
+    expect([read.query.get('workspace_id'), read.query.get('repo'), read.query.get('line'), read.query.get('sent_by_app'), read.query.get('order')]).toEqual(['eq.ws-1', 'eq.acme/widgets', `eq.${LINE}`, 'not.is.null', 'queued_at.desc']);
+  });
+
+  it('reads none for an installation no workspace holds, or a line the App never queued', async () => {
+    expect(await storeOn(recordingFetch([[]]).fetch).appJob(ASKED)).toBeNull();
+    expect(await storeOn(recordingFetch([[{ id: 'ws-1' }], []]).fetch).appJob(ASKED)).toBeNull();
+  });
+
+  it('queues the line sent by the app, never in a person\'s name', async () => {
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [], [{ id: 'job-1' }]]);
+    expect(await storeOn(db.fetch).queueApp(ASKED)).toEqual({ job: 'job-1', created: true, reason: null });
+    const insert = nth(db.requests, 3);
+    expect([insert.method, insert.path]).toEqual(['POST', '/rest/v1/runner_jobs']);
+    expect(insert.body).toEqual({ workspace_id: 'ws-1', repo: 'acme/widgets', line: LINE, sent_by_app: 'omni-app' });
+  });
+});

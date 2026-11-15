@@ -108,6 +108,8 @@ function fakeStore(inMission = true) {
   const store: ReadyStore = {
     inMission: (input) => Promise.resolve(asked.push(input) > 0 && inMission),
     save: (verdict) => Promise.resolve({ saved: saved.push(verdict) > 0, reason: null }),
+    appJob: () => Promise.resolve(null),
+    queueApp: () => Promise.resolve({ job: null, created: false, reason: 'no runner here' }),
   };
   return { store, saved, asked };
 }
