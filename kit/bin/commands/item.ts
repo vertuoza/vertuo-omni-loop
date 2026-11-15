@@ -61,14 +61,12 @@
 // the server cannot be reached, `item new` and `item relay` hold, exit 1, with the held line. Both run
 // before a context exists, like `omni status`, so that a test can hand them `tokens`, `home`, `fetch`,
 // `callMs` and `now`; they load the context themselves.
-import { statSync } from 'node:fs';
 import { defined } from '../../lib/narrow.ts';
 import { z } from 'zod';
 import { lawsFor } from '../../lib/laws.ts';
 import { funLineProblems } from '../../lib/outbox/outbox.ts';
 import { checkItemText } from '../../lib/outbox/check-outbox.ts';
-import { withExcuses } from '../../lib/outbox/excuses.ts';
-import { excusePathProblem } from '../../lib/schema/front-matter.ts';
+import { excuseProblem, withExcuses } from '../../lib/outbox/excuses.ts';
 import type { OutboxStore, OutFolder } from '../../lib/outbox/store.ts';
 import { OutboxServerError, serverFailure } from '../../lib/outbox/server-store.ts';
 import { outboxStore } from '../../lib/outbox/stores.ts';
@@ -247,19 +245,10 @@ function takeExcuses(args: readonly string[]): { rest: string[]; excuses: string
   return { rest, excuses };
 }
 
-/** Why one `--excuses` path is refused, or null: a folder on disk, or any path `excusePathProblem` names. */
-function excuseProblem(ctx: Context, path: string, index: number, all: readonly string[]): string | null {
-  const problem = excusePathProblem(path);
-  if (problem !== null) return problem;
-  if (all.indexOf(path) !== index) return `${path} is given twice`;
-  const isFolder = statSync(inRoot(ctx, path), { throwIfNoEntry: false })?.isDirectory() ?? false;
-  return isFolder ? `${path} is a folder: an item excuses exact paths only` : null;
-}
-
 /** The `--excuses` paths, each checked: a usage error naming the first one refused. */
 function checkedExcuses(ctx: Context, excuses: readonly string[]): string[] {
   for (const [index, path] of excuses.entries()) {
-    const problem = excuseProblem(ctx, path, index, excuses);
+    const problem = excuseProblem(ctx.root, path, index, excuses);
     if (problem !== null) throw usageError(`omni item new: ${EXCUSES_FLAG} ${problem}.`);
   }
   return [...excuses];

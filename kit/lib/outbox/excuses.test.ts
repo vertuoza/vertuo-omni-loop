@@ -1,6 +1,9 @@
 // PRD 2898, s1: an outbox item's `excuses:` field, written into its front matter and read back.
 import { describe, expect, it } from 'vitest';
-import { itemExcuses, withExcuses } from './excuses.ts';
+import { mkdirSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { excuseProblem, itemExcuses, withExcuses } from './excuses.ts';
 import { parseOutboxItem } from './outbox.ts';
 
 const ITEM = [
@@ -56,5 +59,21 @@ describe('itemExcuses (PRD 2898)', () => {
     const text = withExcuses(ITEM.replace(/## What I had to decide[\s\S]*$/, full), ['a/b.ts']);
     const read = parseOutboxItem(text);
     expect(read.ok ? 'read' : read.errors).toBe('read');
+  });
+});
+
+describe('excuseProblem (PRD 2898)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'omni-excuses-'));
+  mkdirSync(join(root, 'kit/lib'), { recursive: true });
+
+  it('passes an exact path once, there or not', () => {
+    expect(excuseProblem(root, 'kit/lib/x.ts', 0, ['kit/lib/x.ts'])).toBeNull();
+  });
+
+  it('names a folder on disk, a path given twice and any problem of the path itself', () => {
+    expect(excuseProblem(root, 'kit/lib', 0, ['kit/lib'])).toBe('kit/lib is a folder: an item excuses exact paths only');
+    expect(excuseProblem(root, 'a.ts', 1, ['a.ts', 'a.ts'])).toBe('a.ts is given twice');
+    expect(excuseProblem(root, 'a.ts', 0, ['a.ts', 'a.ts'])).toBeNull();
+    expect(excuseProblem(root, 'kit/*.ts', 0, ['kit/*.ts'])).toBe('kit/*.ts is a pattern: an item excuses exact paths only');
   });
 });

@@ -4,7 +4,9 @@
 // it into the item's front matter, before the item is graded, so the gate reads what is written; a
 // settled entry keeps it, since the ledger embeds the item's text verbatim. The field is read only as
 // written: no answer's words ever widen or narrow what an item excuses (BL-ASK-1).
-import { OutboxItemFrontMatterSchema } from '../schema/front-matter.ts';
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
+import { excusePathProblem, OutboxItemFrontMatterSchema } from '../schema/front-matter.ts';
 import { readFrontMatterBlock } from './outbox.ts';
 
 /** `text` with `excuses: [<paths>]` as its front matter's last field; unchanged when `paths` is empty.
@@ -20,4 +22,14 @@ export function withExcuses(text: string, paths: readonly string[]): string {
 /** The paths an item's text excuses: none when it has no `excuses:` field, or one the schema refuses. */
 export function itemExcuses(text: string): string[] {
   return readFrontMatterBlock(text, null, OutboxItemFrontMatterSchema).data?.excuses ?? [];
+}
+
+/** Why the `index`-th of the paths `all` an item is asked to excuse is refused, or null: any problem
+ * `excusePathProblem` names, a path given twice, or a folder in the repository at `root`. */
+export function excuseProblem(root: string, path: string, index: number, all: readonly string[]): string | null {
+  const problem = excusePathProblem(path);
+  if (problem !== null) return problem;
+  if (all.indexOf(path) !== index) return `${path} is given twice`;
+  const isFolder = statSync(join(root, path), { throwIfNoEntry: false })?.isDirectory() ?? false;
+  return isFolder ? `${path} is a folder: an item excuses exact paths only` : null;
 }
