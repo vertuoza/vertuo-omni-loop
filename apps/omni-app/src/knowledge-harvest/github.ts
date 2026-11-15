@@ -88,14 +88,17 @@ export function loopPaths(config: LoopPathsConfig): string[] {
  * (`<delivery>/<area>/<folder>/…`) only when that folder is the PRD's own (`<nnnn>-<topic>`), in
  * whichever area it sits. Every other folder is listed, written empty and never counted against the
  * snapshot's bound, as the outbox check reads a PR's own folder alone (issue 1968): a repository's
- * delivery history grows with every PRD, and past the bound no harvest ran at all.
+ * delivery history grows with every PRD, and past the bound no harvest ran at all. A landing's
+ * harvest (PRD 2896 s6) gives every PRD it landed, and each one's folders are fetched.
  */
-export function harvestFetched(delivery: string, prd: PrdNumber): (path: string) => boolean {
+export function harvestFetched(delivery: string, prd: PrdNumber | readonly PrdNumber[]): (path: string) => boolean {
   const root = `${delivery.replace(/\/+$/, '')}/`;
+  const own = new Set<number>(typeof prd === 'number' ? [prd] : prd);
   return (path) => {
     if (!path.startsWith(root)) return true;
     const [, folder, ...rest] = path.slice(root.length).split('/');
-    return folder === undefined || rest.length === 0 || parseFolderName(folder)?.prd === prd;
+    const named = folder === undefined ? undefined : parseFolderName(folder)?.prd;
+    return folder === undefined || rest.length === 0 || (named !== undefined && own.has(named));
   };
 }
 
@@ -107,7 +110,7 @@ export function harvestFetched(delivery: string, prd: PrdNumber): (path: string)
  */
 export async function withTreeAt<T>(
   octokit: RequestOctokit,
-  { owner, repo, sha, config, also = [], prd }: { owner: string; repo: string; sha: string; config: LoopPathsConfig; also?: readonly string[]; prd?: PrdNumber },
+  { owner, repo, sha, config, also = [], prd }: { owner: string; repo: string; sha: string; config: LoopPathsConfig; also?: readonly string[]; prd?: PrdNumber | readonly PrdNumber[] },
   fn: (ctx: Context, root: string) => T | Promise<T>,
 ): Promise<T> {
   const root = mkdtempSync(join(tmpdir(), 'omni-harvest-tree-'));

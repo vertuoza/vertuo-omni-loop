@@ -82,7 +82,7 @@ export function topicOf(headRef: string, featureTemplate: string): string | null
   return topic && !topic.includes('/') ? topic : null;
 }
 
-async function configAt(octokit: Octokit, { owner, repo, sha }: Repo & { sha: string }): Promise<{ config: Config | null; error: Error | null }> {
+export async function configAt(octokit: Octokit, { owner, repo, sha }: Repo & { sha: string }): Promise<{ config: Config | null; error: Error | null }> {
   const dest = mkdtempSync(join(tmpdir(), 'omni-retro-config-'));
   try {
     // Keys this App does not know yet are left out: the merge may carry a newer kit than this deploy (#1151).
@@ -93,7 +93,7 @@ async function configAt(octokit: Octokit, { owner, repo, sha }: Repo & { sha: st
 }
 
 /** The PRD folder carrying `topic` at the merge: shipped first, then the inbox. */
-async function prdFolder(
+export async function prdFolder(
   octokit: Octokit,
   { owner, repo, sha, dirs, topic }: Repo & { sha: string; dirs: Record<PrdFacts['state'], string>; topic: string },
 ): Promise<{ state: PrdFacts['state']; name: string; prd: PrdNumber } | null> {
@@ -108,7 +108,7 @@ async function prdFolder(
 }
 
 /** The `title:` of a spec's front matter, unquoted, or `null`. */
-function specTitle(spec: string): string | null {
+export function specTitle(spec: string): string | null {
   const front = /^---\n([\s\S]*?)\n---/.exec(spec);
   const line = front && /^title:\s*(.+)$/m.exec(front[1] ?? '');
   if (!line) return null;

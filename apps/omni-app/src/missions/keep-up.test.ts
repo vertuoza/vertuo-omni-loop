@@ -167,6 +167,36 @@ describe('missionKeepUps.keepUp: the mission branch, in step with the default br
     expect(gh.head(BRANCH)).toBe(before);
   });
 
+  /**
+   * A person merged the mission pull request with Rebase and merge: main gets a copy of each PRD's commit, each a new commit (here on
+   * top of another merge, as GitHub's own copies differ by their committer), never the branch's own.
+   */
+  const landBoth = (gh: ReturnType<typeof withTwoPrds>): void => {
+    gh.push('main', { 'kit/lib/b.ts': lines('y') }, 'fix(b): y (#51)');
+    gh.push('main', { 'kit/lib/a.ts': lines('a1 by PRD 7', 'a2', 'a3', 'a4', 'a5', 'a6') }, 'feat(quotes): faster (#45)');
+    gh.push('main', { 'docs/quotes.md': lines('quotes') }, 'docs(quotes): the guide (#46)');
+  };
+
+  it('after a landing by Rebase and merge, drops the commits the default branch holds already: the branch moves to its tip (PRD 2896 s6)', async () => {
+    const gh = withTwoPrds();
+    landBoth(gh);
+    expect(gh.isAncestor(BRANCH, 'main')).toBe(false);
+    const kept = await keeper(gh.octokit).keepUp(at());
+    expect(kept.branch).toBe('rebased');
+    expect(gh.head(BRANCH)).toBe(gh.head('main'));
+    expect(gh.subjects(BRANCH)).toEqual([]);
+  });
+
+  it('after a landing, replays only the PRD that joined after it, onto the tip that landed the others (PRD 2896 s6)', async () => {
+    const gh = withTwoPrds();
+    landBoth(gh);
+    gh.push(BRANCH, { 'docs/later.md': lines('later') }, 'feat(later): joined after the landing (#47)');
+    const kept = await keeper(gh.octokit).keepUp(at());
+    expect(kept.branch).toBe('rebased');
+    expect(gh.subjects(BRANCH)).toEqual(['feat(later): joined after the landing (#47)']);
+    expect(gh.read(BRANCH, 'docs/quotes.md')).toBe(lines('quotes'));
+  });
+
   it('never writes the default branch', async () => {
     const gh = withTwoPrds();
     await expect(keeper(gh.octokit).keepUp({ ...at(), branch: 'main' })).rejects.toThrow('default branch');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { conclude, eventsOf, featurePrOf, onBranchOf, pick, prdStates, recordedKeys, type Attempt, type Mission, type OnBranch, type PrdFacts, type Run } from './supervisor.ts';
+import { conclude, eventsOf, featurePrOf, landedOf, onBranchOf, passOf, pick, prdStates, recordedKeys, withLanded, type Attempt, type Mission, type OnBranch, type PrdFacts, type Run } from './supervisor.ts';
 
 // A PRD joins its mission's branch (PRD 2896 s4, criteria 6 and 7): the states, the pick, the words and the events of it.
 
@@ -110,5 +110,65 @@ describe('the events of a join', () => {
     expect(end).toMatchObject({ kind: 'prd-ready', sentence: `PRD 1 is ready for review: it joins ${BRANCH} once the merge gate passes.` });
     const [, plain] = events({ m: mission({ level: 'with-you' }), on: { branch: null, joined: new Set(), lacks: new Map() } });
     expect(plain).toMatchObject({ kind: 'prd-ready', sentence: 'PRD 1 is ready for review: it waits for a person to merge it.' });
+  });
+});
+
+// A landing (PRD 2896 s6, criterion 9): the mission pull request merged into the default branch carries its PRDs there, and each
+// is shipped from then, not before.
+describe('a landing: the PRDs the mission pull request put on the default branch', () => {
+  const event = (kind: string, n: number | null) => ({ kind, prd: n === null ? null : p(n), job: null });
+
+  it('a PRD recorded merged leaves the branch, and is read as merged', () => {
+    const recorded = [event('prd-joined', 1), event('prd-joined', 2), event('prd-merged', 1)];
+    expect([...onBranchOf(recorded)]).toEqual([p(2)]);
+    expect([...landedOf(recorded)]).toEqual([p(1)]);
+    const all = withLanded([facts(1), facts(2)], landedOf(recorded));
+    expect(all.map((fact) => fact.stage)).toEqual(['merged', 'open']);
+    expect(prdStates(all, [ready(1), ready(2)], branch({ joined: onBranchOf(recorded) })).get(p(1))).toEqual({ state: 'merged' });
+  });
+
+  it('a PRD only on the branch is never read as merged: it is shipped from its landing, not before', () => {
+    const recorded = [event('prd-joined', 1)];
+    expect(withLanded([facts(1)], landedOf(recorded))).toEqual([facts(1)]);
+    expect(prdStates([facts(1)], [ready(1)], branch({ joined: onBranchOf(recorded) })).get(p(1))).toEqual({ state: 'joined' });
+  });
+
+  it('the mission is delivered once every PRD landed', () => {
+    const all = withLanded([facts(1), facts(2)], new Set([p(1), p(2)]));
+    expect(conclude({ mission: mission(), facts: all, states: prdStates(all, [], branch()), sent: 0, now: NOW, branch: BRANCH }).status).toBe('delivered');
+  });
+
+  it('records one prd-merged per PRD landed, linking the mission pull request, and the synced stage records nothing again', () => {
+    const landed = withLanded([facts(1)], new Set([p(1)]));
+    const states = prdStates(landed, [ready(1)], branch());
+    const next = conclude({ mission: mission(), facts: landed, states, sent: 0, now: NOW, branch: BRANCH });
+    const landings = [{ prd: p(1), pr: parsePr(60), url: 'https://github.com/acme/widgets/pull/60' }];
+    const made = eventsOf({ mission: mission(), facts: landed, states, runs: [ready(1)], next, toFleet: true, recorded: recordedKeys([]), landings });
+    expect(made.filter((one) => one.kind === 'prd-merged')).toEqual([
+      { kind: 'prd-merged', role: 'supervisor', prd: p(1), job: null, link: 'https://github.com/acme/widgets/pull/60', sentence: 'PRD 1 landed on the default branch with #60: shipped.' },
+    ]);
+    const again = eventsOf({ mission: mission(), facts: landed, states, runs: [ready(1)], next, toFleet: true, recorded: recordedKeys([event('prd-merged', 1)]), landings: [] });
+    expect(again.some((one) => one.kind === 'prd-merged')).toBe(false);
+  });
+});
+
+describe('passOf: the Reviewer\'s pass a PRD joined on', () => {
+  const review = (round: 1 | 2, run: number, outcome: string, url: string | null): Run => ({
+    prd: p(1),
+    run,
+    step: round === 1 ? 'review:1' : 'review:2',
+    job: `r-${String(run)}-${String(round)}`,
+    attempts: [{ id: `r-${String(run)}-${String(round)}`, status: 'done', outcome, reason: null, prUrl: null, posted: { findings: outcome === 'ready' ? 0 : 2, url } }],
+  });
+
+  it('is the latest round that passed, with its review\'s link', () => {
+    const url = 'https://github.com/acme/widgets/pull/41#pullrequestreview-7';
+    expect(passOf([review(1, 1, 'changes', null), review(2, 1, 'ready', url)], p(1))).toEqual({ round: 2, url });
+    expect(passOf([review(1, 1, 'ready', 'https://example.com/not-github')], p(1))).toEqual({ round: 1, url: null });
+  });
+
+  it('is none when no Reviewer job passed the PRD', () => {
+    expect(passOf([review(1, 1, 'changes', null), ready(1)], p(1))).toBeNull();
+    expect(passOf([review(1, 1, 'ready', null)], p(2))).toBeNull();
   });
 });

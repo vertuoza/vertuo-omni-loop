@@ -237,6 +237,7 @@ export function missionStore(connection: Connection): MissionStore {
           stage: stageOf(stages.filter((row) => row.prd === prd).map((row) => row.stage)),
           blockers,
           territory: territoryOf(await planOf(page)),
+          page: page ?? null,
         });
       }
       return facts;
