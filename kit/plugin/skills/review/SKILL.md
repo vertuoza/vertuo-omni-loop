@@ -1,6 +1,6 @@
 ---
 name: review
-description: The Reviewer's skill — reviews PRD n's feature branch on its feature PR like a person does, in one GitHub review, and writes no code. Reads the spec, the plan, the laws of the changed files, the testing, conventions, architecture and review forms and the look-for list (the kit's six, then what the repository adds); reads the whole diff against the default branch and the code around it; has a fresh verification pass try to disprove each candidate finding; keeps at most five, the most severe first; posts pass or changes through omni review post, in COMMENT mode with one inline thread per finding, never approving or requesting changes. Round 2 reads round 1's threads and the Engineer's replies, resolves or keeps each with its reason once, and raises new findings only on lines changed since round 1; there is no round 3. On its own pass, with the PRD shipped, the feature PR a draft and the outbox gate green, it runs the yolo.ready hooks and marks the PR ready; otherwise it changes nothing else. Ends on the hand-off line the runner reads — /omni:pr-care on a pass, /omni:yolo-fix --for-review on findings. Asks nothing, never merges. Triggers on "review PRD 2871", "review the feature PR before it goes ready", "/omni:review 2871".
+description: The Reviewer's skill — reviews PRD n's feature branch on its feature PR like a person does, in one GitHub review, and writes no code. Reads the spec, the plan, the laws of the changed files, the testing, conventions, architecture and review forms and the look-for list (the kit's six, then what the repository adds); reads the whole diff against the default branch and the code around it; has a fresh verification pass try to disprove each candidate finding; keeps at most five, the most severe first; posts pass or changes through omni review post, in COMMENT mode with one inline thread per finding, never approving or requesting changes. Round 2 reads round 1's threads and the Engineer's replies, resolves or keeps each with its reason once, and raises new findings only on lines changed since round 1; there is no round 3. On its own pass, with the PRD shipped, the feature PR a draft and the outbox gate green, it runs the ready gate (adds the ready-check label to the draft, then omni ready; a red verdict leaves the draft and ends on changes) and the yolo.ready hooks, and marks the PR ready; otherwise it changes nothing else. Ends on the hand-off line the runner reads — /omni:pr-care on a pass, /omni:yolo-fix --for-review on findings. Asks nothing, never merges. Triggers on "review PRD 2871", "review the feature PR before it goes ready", "/omni:review 2871".
 ---
 
 # Review: one GitHub review of a PRD's branch, before it goes ready
@@ -197,7 +197,29 @@ when all three hold:
 - **a draft:** `gh pr view <pr> --json isDraft` prints `isDraft` true;
 - **the gate green:** `omni status <n>` exits 0.
 
-All three hold: at **point `yolo.ready`**, run `omni flow show yolo.ready` and follow every
+**The ready gate.** Run `node .omni-loop/bin/omni.mjs config ready.checks`. It prints `off` (or fails):
+there is no gate, go on to the point `yolo.ready`. It prints `mission` or `all`: the PR is gated, since
+only a mission, or a person, sends this run. Then, in this order:
+
+1. **The label.** Add it to the draft: `gh pr edit <pr> --add-label <label>`, the label being
+   `labels.readyCheck` when `omni config labels.readyCheck` prints one, else `omni:ready-check`. The
+   label starts, on the draft's latest commit, the full checks, the e2e job and the preview; a later
+   push runs them again. The PR stays a draft.
+2. **The verdict.** Run `node .omni-loop/bin/omni.mjs ready <n> --json` (its lines, without
+   `--json`, name each check). Exit 0 is five checks `pass`: go on to the point `yolo.ready`. Anything
+   else leaves the PR a draft, and the first check that is not `pass` is the finding:
+   - A check `not finished` (its runs are still going): watch the head commit's checks as
+     `/omni:pr`'s **Watch in the background** does, then run `omni ready <n> --json` again, at most
+     `limits.attempts` times. Still `not finished`: stop with
+     `review: PR #<pr> not ready, check <number> not finished: <why>`.
+   - A check `not judged`: stop with `review: PR #<pr> not ready, check <number> not judged: <why>`.
+   - A check `fail`: the run ends `changes`. Post the finding as one comment on the PR,
+     `gh pr comment <pr> --body-file <file>`, naming the check's number, title and why exactly as
+     `omni ready` printed them (the skipped test, the criterion with no proof, the file outside every
+     territory), and signed `Reviewer · agent · ready gate`. Skip step 6's remaining text and end at
+     step 7 on `/omni:yolo-fix <n> --for-review`, the finding on its line there.
+
+All three hold: first **the ready gate** (PRD 2898), then at **point `yolo.ready`**, run `omni flow show yolo.ready` and follow every
 `before` hook (`{prd}` the PRD, `{pr}` the feature PR), handing each to
 `omni flow verdict yolo.ready --from <file>`. A `not ok` leaves the PR a draft: stop with
 `review: yolo.ready held PR #<pr>: <hook and why>`. When the PR's body carries a `Merge after` line,
