@@ -388,3 +388,237 @@ Refusing in the route as well costs one call to GitHub in the Start route and on
 ```
 
 <!-- /omni-outbox-settled: s3-02-branch-cut-by-the-first-run -->
+
+<!-- omni-outbox-settled: s4-01-gate-reads-every-check -->
+
+## s4-01-gate-reads-every-check — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-gate-reads-every-check
+prd: 2896
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 4
+---
+
+## The question, in plain words
+
+The merge gate needs every required check green, but a mission branch has no list of required checks. Which checks count, and what about one that was skipped?
+
+## The decision, in plain words
+
+Every check on the pull request's latest commit counts. A check that was skipped, cancelled or ended without a verdict holds the merge as not judged, so a pull request whose checks were all skipped waits for a person instead of joining.
+
+## The intro, for fun
+
+A guard with no list of names checks everybody at the door.
+
+## The punchline, for fun
+
+Better a guest kept waiting than a stranger let in.
+
+## The options, in plain words
+
+A. A. Every check on the head counts, and a skipped one holds the merge (built).
+B. B. Every check counts, but a skipped one passes, as main's required checks treat it.
+C. C. Only a list of required checks named in the repository's config counts.
+
+## What I had to decide
+
+Keep every check on the head as the gate's list, skipped ones held as not judged, or name a list of required checks for mission branches.
+
+## What I did meanwhile
+
+The gate reads every check run and commit status on the head, judges each name by its latest run that decided, and holds the merge on any red, unfinished or undecided one.
+
+## What it costs to change later
+
+Reading a named list instead costs one setting and one filter in the gate; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says every required check, and the repository protects no mission branch, so there is no required list to read.
+- (author) A pull request that changes only docs has its checks skipped on purpose; at with-you main lets it merge, while here it waits for a person.
+- (author) The gate trusts any review that carries the Reviewer's marker; it cannot tell the Reviewer's account from a person's, since runners post with the account they run as.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-gate-reads-every-check -->
+
+<!-- omni-outbox-settled: s4-02-red-check-waits-named -->
+
+## s4-02-red-check-waits-named — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-red-check-waits-named
+prd: 2896
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 4
+---
+
+## The question, in plain words
+
+The spec says a red check on a ready PRD goes back to the agent that looks after its pull request. Does the mission send that agent itself in this slice?
+
+## The decision, in plain words
+
+Not yet: a PRD with a red check stays off the mission branch, and the mission names the failing check as what it waits on. Nothing new is sent for it, and it joins once its checks are green.
+
+## The intro, for fun
+
+The bouncer says why you are not in, but does not fix your shoes.
+
+## The punchline, for fun
+
+Knowing what is red is half the repair.
+
+## The options, in plain words
+
+A. A. The PRD waits, naming the red check; nothing is sent (built).
+B. B. The mission sends the pull request's care agent once per red head.
+
+## What I had to decide
+
+Keep naming the red check as what the PRD waits on, or have the mission send the pull request's care agent as a new step of its run.
+
+## What I did meanwhile
+
+The gate reads the pull request again on every run, a minute apart, and joins it once every check is green.
+
+## What it costs to change later
+
+Sending the care agent later costs one more step key and its tests in the supervisor; the database already accepts the job.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The done-when of this slice asks only that the mission says what the PRD waits on; sending the care agent needs a step the run keys and the database's key shape do not have yet.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-red-check-waits-named -->
+
+<!-- omni-outbox-settled: s4-03-join-wired-outside-territory -->
+
+## s4-03-join-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-join-wired-outside-territory
+prd: 2896
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 4
+---
+
+## The question, in plain words
+
+The merge into the mission branch only happens if the app's job runner is told about it, and that file lies outside this slice's ground. Should the slice change it?
+
+## The decision, in plain words
+
+Yes, by one line: the app's list of job handlers now hands the mission its merge, as the slice before it did for cutting the branch. Without that line the merge gate would be built and tested but never run.
+
+## The intro, for fun
+
+A new door is no use until someone tells the house it is there.
+
+## The punchline, for fun
+
+One line outside the fence, named so nobody trips on it.
+
+## The options, in plain words
+
+A. A. Change the one line in the app's job list (built).
+B. B. Leave it to a later slice, so the merge never runs until then.
+
+## What I had to decide
+
+Keep the one-line change to the app's job list, or move the wiring into a slice whose ground holds that file.
+
+## What I did meanwhile
+
+The mission's job receives the merge gate's reads and the merge from the app's job list, beside the branch it already received.
+
+## What it costs to change later
+
+Undoing it is one line; the gate then never runs and a ready PRD waits for a person, as at with-you.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives no slice the file that lists the app's job handlers, and the slice before this one changed it the same way.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-join-wired-outside-territory -->
