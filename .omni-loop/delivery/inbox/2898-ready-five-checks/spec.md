@@ -53,7 +53,9 @@ settled entry's verdict is `agreed` (a person said yes to what was built) or, fo
 `adopted`. A `drifted` verdict, a prose answer, an item that names a folder or a pattern instead of
 the path, or one still open excuses nothing. The checks never read meaning into an answer, never
 reword it and never write to the ledger: an answer that does not plainly say yes leaves the finding
-in place, for a person to answer again.
+in place, for a person to answer again. What the App saves (the `acceptance` check run, the
+`omni / ready` check, a row of `public.ready_verdicts`) is its own record of what it read, written
+in its own name and kept apart from the ledger: it holds no person's answer and stands for none.
 
 A check reads `pass`, `fail`, `waiting` (its evidence is not there yet: a run still going, the
 preview not up, shown as not finished) or `not judged · <why>` (its evidence could not be read).
@@ -157,9 +159,10 @@ never appears as a state.
   `/omni:validate-e2e` reads the spec, as it already does.
 - **The objection** (persona:Paul - Product Manager): "Five checks plus an e2e run on every mission
   PR: my small fixes now wait for a preview and an agent clicking through it before anyone can even
-  look." Settled: `none` (the person approved the section without answering it). A PRD whose
-  criteria are all `test` never waits on a preview all the same, since only `e2e` criteria start
-  the e2e run.
+  look." Settled: `none` (the person approved the section without answering it). A PRD with no
+  `e2e` criterion has no e2e evidence to wait for: check 3 reads its `test` criteria only, and the
+  e2e job does not run for it. A PRD with one `e2e` criterion waits for its run: check 3 reads
+  `waiting` until that scenario's result is there, and never `pass` before.
 - **No proof video** (asked).
 
 ## User stories
