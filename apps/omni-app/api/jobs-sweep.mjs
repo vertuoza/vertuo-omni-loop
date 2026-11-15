@@ -215,8 +215,8 @@ var SECRETS = Object.freeze([
 ]);
 var BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
 var MASK = "[masked]";
-function maskSecrets(text18) {
-  let out = plainText(text18);
+function maskSecrets(text19) {
+  let out = plainText(text19);
   for (const pattern of SECRETS) out = out.replace(pattern, MASK);
   return out.replace(BEARER, `$1 ${MASK}`);
 }
@@ -372,9 +372,9 @@ async function readContent(response) {
   const decoder = new TextDecoder();
   let buffer = "";
   let content = "";
-  const line = (text18) => {
-    if (!text18.startsWith("data:")) return false;
-    const data = text18.slice(5).trim();
+  const line = (text19) => {
+    if (!text19.startsWith("data:")) return false;
+    const data = text19.slice(5).trim();
     if (data === "[DONE]") return true;
     let raw;
     try {
@@ -393,9 +393,9 @@ async function readContent(response) {
     buffer += decoder.decode(value, { stream: true });
     let newline = buffer.indexOf("\n");
     while (newline !== -1) {
-      const text18 = buffer.slice(0, newline).replace(/\r$/, "");
+      const text19 = buffer.slice(0, newline).replace(/\r$/, "");
       buffer = buffer.slice(newline + 1);
-      if (line(text18)) {
+      if (line(text19)) {
         reader.cancel().catch(() => {
         });
         return content;
@@ -406,12 +406,12 @@ async function readContent(response) {
   line(buffer + decoder.decode());
   return content;
 }
-function parseJson(text18) {
-  const start = text18.indexOf("{");
-  const end = text18.lastIndexOf("}");
+function parseJson(text19) {
+  const start = text19.indexOf("{");
+  const end = text19.lastIndexOf("}");
   if (start === -1 || end < start) return void 0;
   try {
-    return JSON.parse(text18.slice(start, end + 1));
+    return JSON.parse(text19.slice(start, end + 1));
   } catch {
     return void 0;
   }
@@ -710,7 +710,7 @@ function supabaseGithubStore(db) {
 }
 
 // apps/omni-app/src/jobs/sweep.ts
-import { z as z91 } from "zod";
+import { z as z93 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -741,10 +741,10 @@ var CREDENTIALS = [
   [/\b(bearer)\s+[^\s"',;]+/gi, `$1 ${MASK2}`],
   [/([?&][^=&#\s"']*(?:key|token|secret|code|signature)[^=&#\s"']*=)[^&#\s"']*/gi, `$1${MASK2}`]
 ];
-function maskCredentials(text18) {
-  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text18);
+function maskCredentials(text19) {
+  return CREDENTIALS.reduce((masked, [shape, replacement]) => masked.replace(shape, replacement), text19);
 }
-var cut = (text18) => text18.length > MAX_TEXT ? text18.slice(0, MAX_TEXT) : text18;
+var cut = (text19) => text19.length > MAX_TEXT ? text19.slice(0, MAX_TEXT) : text19;
 function errorOf(value) {
   if (value instanceof Error) {
     return { name: maskCredentials(value.name), message: cut(maskCredentials(value.message)) };
@@ -966,8 +966,8 @@ function keysOf(record) {
 var NAME = String.raw`[A-Za-z_][\w-]*`;
 var PART = String.raw`(?:#(${NAME})|\.(${NAME})|\[\s*(${NAME})\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\]\s"']+))\s*)?\])`;
 var COMPOUND = new RegExp(String.raw`^(\*|${NAME})?((?:${PART})*)$`);
-function parseCompound(text18) {
-  const compound = COMPOUND.exec(text18.trim());
+function parseCompound(text19) {
+  const compound = COMPOUND.exec(text19.trim());
   if (!compound || compound[0] === "") return null;
   const [, tag, parts = ""] = compound;
   const matched = [...parts.matchAll(new RegExp(PART, "g"))];
@@ -1380,6 +1380,9 @@ var ConfigSchema = z6.object({
     // A PRD of one landing keeps `feature`.
     landing: branchTemplate.default("feat/{topic}-{landing}of{landings}-{name}"),
     rework: branchTemplate.default("fix-{item}"),
+    // PRD 2896: the branch of a mission at `own-branch` or `alone`, cut from the default branch; `{number}` is the
+    // mission's issue number, `{topic}` its title as a slug. Its PRDs are built on it, one commit each.
+    mission: branchTemplate.default("mission/{number}-{topic}"),
     retro: branchTemplate.default("docs/retro-{topic}"),
     knowledge: branchTemplate.default("docs/knowledge-{topic}"),
     invade: branchTemplate.default("docs/omni-invade"),
@@ -2542,8 +2545,8 @@ var REFUSED_PATTERNS = REFUSED_WORDS.map((word) => ({
   word,
   pattern: new RegExp(`\\b${word.replaceAll(" ", "[\\s-]*")}\\b`, "i")
 }));
-function refusedWordsIn(text18) {
-  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text18)).map(({ word }) => word);
+function refusedWordsIn(text19) {
+  return REFUSED_PATTERNS.filter(({ pattern }) => pattern.test(text19)).map(({ word }) => word);
 }
 function rankOf(kind) {
   const index = FINDING_ORDER.findIndex((rank) => rank.includes(kind));
@@ -2684,14 +2687,14 @@ function readHead(head) {
   return { title: head[at4]?.match(TITLE)?.[1] ?? null, opener: opener ?? null };
 }
 function readBody(raw) {
-  const text18 = raw.replace(COMMENT, "").trim();
-  const lines2 = text18.split("\n").map((line) => line.trim()).filter(Boolean);
+  const text19 = raw.replace(COMMENT, "").trim();
+  const lines2 = text19.split("\n").map((line) => line.trim()).filter(Boolean);
   const questions = lines2.map((line) => line.match(HOLE)?.[1]).filter((question) => Boolean(question));
   if (lines2.length === 0) return { kind: "empty", text: "", see: null, questions: [] };
-  if (questions.length === lines2.length) return { kind: "holes", text: text18, see: null, questions };
+  if (questions.length === lines2.length) return { kind: "holes", text: text19, see: null, questions };
   const see = lines2.length === 1 ? lines2[0]?.match(SEE) ?? null : null;
-  if (see) return { kind: "pointer", text: text18, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
-  return { kind: "text", text: text18, see: null, questions };
+  if (see) return { kind: "pointer", text: text19, see: { path: see[1] ?? "", anchor: see[2] ?? null }, questions: [] };
+  return { kind: "text", text: text19, see: null, questions };
 }
 function readSection(heading, lines2) {
   const at4 = lines2.findIndex((line) => line.trim() !== "");
@@ -2733,8 +2736,8 @@ function readSlots(sections, { file, errors, oldSpellings }) {
   }
   return { slots, unmarked };
 }
-function parseForm(text18, { file = null } = {}) {
-  const block = text18.match(FRONT_MATTER_BLOCK);
+function parseForm(text19, { file = null } = {}) {
+  const block = text19.match(FRONT_MATTER_BLOCK);
   if (!block) return { ok: false, errors: [withFile(file, 'missing its front matter (a "---" fenced header)')] };
   const [, rawFrontMatter, body] = block;
   const errors = [];
@@ -2885,7 +2888,7 @@ import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 
 // kit/lib/markers.ts
-var escape = (text18) => text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var escape = (text19) => text19.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function makeMarkers(prefix) {
   const p = escape(prefix);
   return Object.freeze({
@@ -3009,8 +3012,8 @@ var FIELD_KEY = {
   "Glossary term": "glossaryTerm"
 };
 var FIELD_NAMES = keysOf(FIELD_KEY);
-function idsCitedIn(text18) {
-  return [...new Set(text18.match(ID_TOKEN) ?? [])];
+function idsCitedIn(text19) {
+  return [...new Set(text19.match(ID_TOKEN) ?? [])];
 }
 function codeOf(name) {
   return name.replace(/-/g, "").toUpperCase();
@@ -3122,10 +3125,10 @@ function readPending(file, id, value) {
     problems: [`${file}: ${id} \u2014 "Enforced by: ${value}" is not "Enforced by: pending #<n>", its law issue's number.`]
   };
 }
-function splitEntries(text18) {
+function splitEntries(text19) {
   const entries = [];
   let current = null;
-  for (const line of text18.split("\n")) {
+  for (const line of text19.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
       if (current) entries.push(current);
@@ -3140,8 +3143,8 @@ function splitEntries(text18) {
   if (current) entries.push(current);
   return entries;
 }
-function parseEntryFile(file, text18, place2) {
-  return splitEntries(text18).map(({ id, lines: lines2 }) => {
+function parseEntryFile(file, text19, place2) {
+  return splitEntries(text19).map(({ id, lines: lines2 }) => {
     const { fields, counts, fieldAt } = readFields(lines2);
     const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place2.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
@@ -3212,8 +3215,8 @@ function memorySource(texts) {
     }
   };
 }
-function glossaryTermOf(text18) {
-  return readFields(text18.split("\n")).fields.glossaryTerm ?? null;
+function glossaryTermOf(text19) {
+  return readFields(text19.split("\n")).fields.glossaryTerm ?? null;
 }
 function productDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/product`;
@@ -3379,9 +3382,9 @@ var PUNCHLINES = Object.freeze([
   "Small print, big relief once it is settled."
 ]);
 var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
-function stableHash(text18) {
+function stableHash(text19) {
   let hash = 2166136261;
-  for (const byte of new TextEncoder().encode(text18)) {
+  for (const byte of new TextEncoder().encode(text19)) {
     hash ^= byte;
     hash = Math.imul(hash, 16777619);
   }
@@ -3646,8 +3649,8 @@ function validateSections(body) {
   );
   return { errors, sections };
 }
-function parseOutboxItem(text18, { file = null } = {}) {
-  const read = readFrontMatterBlock(text18, file, OutboxItemFrontMatterSchema);
+function parseOutboxItem(text19, { file = null } = {}) {
+  const read = readFrontMatterBlock(text19, file, OutboxItemFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const errors = [...read.errors];
   const { errors: sectionErrors, sections } = validateSections(read.body);
@@ -3679,8 +3682,8 @@ function parseOutboxItem(text18, { file = null } = {}) {
   };
   return { ok: true, item };
 }
-function readFrontMatterBlock(text18, file, schema) {
-  const blockMatch = text18.match(FRONT_MATTER_BLOCK2);
+function readFrontMatterBlock(text19, file, schema) {
+  const blockMatch = text19.match(FRONT_MATTER_BLOCK2);
   if (!blockMatch) {
     return { body: null, errors: [withFile2(file, 'missing a front-matter block (a "---" fenced header)')], data: null };
   }
@@ -3736,17 +3739,17 @@ var REGISTER_OR_ADR_ID = /\bN\d+\b|\bBR-[A-Z0-9]+-\d+\b|\bADR-\d{4}\b/g;
 var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
-function countSentences(text18) {
-  const trimmed3 = (text18 ?? "").trim();
+function countSentences(text19) {
+  const trimmed3 = (text19 ?? "").trim();
   if (!trimmed3) return 0;
   const matches = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
-function uniqueMatches(text18, pattern) {
-  return [...new Set(text18.match(pattern) ?? [])];
+function uniqueMatches(text19, pattern) {
+  return [...new Set(text19.match(pattern) ?? [])];
 }
-function plainWordsProblems(text18) {
-  const value = text18 ?? "";
+function plainWordsProblems(text19) {
+  const value = text19 ?? "";
   const problems = [];
   const backticks = uniqueMatches(value, BACKTICK_SPAN);
   if (backticks.length > 0) {
@@ -3783,8 +3786,8 @@ function plainWordsProblems(text18) {
   }
   return problems;
 }
-function funLineProblems(text18) {
-  const value = (text18 ?? "").trim();
+function funLineProblems(text19) {
+  const value = (text19 ?? "").trim();
   const problems = plainWordsProblems(value);
   const length = Array.from(value).length;
   if (length > FUN_LINE_MAX_LENGTH) {
@@ -3834,8 +3837,8 @@ function outboxItemFiles({ ctx }) {
 import { existsSync as existsSync9, mkdirSync as mkdirSync3, readFileSync as readFileSync9, rmSync as rmSync3, writeFileSync as writeFileSync3 } from "node:fs";
 import { dirname as dirname2, isAbsolute as isAbsolute2, join as join15, relative } from "node:path";
 import { z as z15 } from "zod";
-function parseItem(text18, file) {
-  return parseOutboxItem(text18, { file });
+function parseItem(text19, file) {
+  return parseOutboxItem(text19, { file });
 }
 var VERDICTS = ["agreed", "drifted"];
 var ADOPTED_VERDICT = "adopted";
@@ -3916,14 +3919,14 @@ var AFFIRMATIONS = /* @__PURE__ */ new Set([
   "thats right"
 ]);
 var STATED_VERDICT_LINE = /^[ \t]*verdict:[ \t]*(agreed|drifted)[ \t]*$/im;
-function normalizeApostrophes(text18) {
-  return text18.replace(/[‘’ʼ]/g, "'");
+function normalizeApostrophes(text19) {
+  return text19.replace(/[‘’ʼ]/g, "'");
 }
-function normalizeWhole(text18) {
-  return normalizeApostrophes(text18).toLowerCase().replace(/\s+/g, " ").trim();
+function normalizeWhole(text19) {
+  return normalizeApostrophes(text19).toLowerCase().replace(/\s+/g, " ").trim();
 }
-function openingClause(text18) {
-  const [first] = normalizeApostrophes(text18).split(/[,.;:!?\n]|—|–|--/);
+function openingClause(text19) {
+  const [first] = normalizeApostrophes(text19).split(/[,.;:!?\n]|—|–|--/);
   return (first ?? "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function markerFound(haystack, marker2) {
@@ -4046,8 +4049,8 @@ function renderSettledEntry({
   );
   return lines2.join("\n");
 }
-function parseSettledEntries(text18, markers) {
-  return latestPerId(rawSettledEntries(text18, markers));
+function parseSettledEntries(text19, markers) {
+  return latestPerId(rawSettledEntries(text19, markers));
 }
 function latestPerId(entries) {
   const byId = /* @__PURE__ */ new Map();
@@ -4063,8 +4066,8 @@ function closedEntry({ id, fields, blocks: blocks2 }) {
   const became = (fields.Became ?? "").split(",").map((part) => part.trim()).filter(Boolean);
   return { id, verdict: fields.Verdict, closed: /^yes\b/.test(fields.Closed ?? ""), fields, answerText, itemText, became };
 }
-function rawSettledEntries(text18, markers) {
-  const lines2 = text18.split("\n");
+function rawSettledEntries(text19, markers) {
+  const lines2 = text19.split("\n");
   const entries = [];
   let current = null;
   for (let index = 0; index < lines2.length; index += 1) {
@@ -4241,9 +4244,9 @@ function patternMatcher(pattern) {
   const regex = new RegExp(`^${anchored ? "" : "(?:.*/)?"}${globSource(body)}${under}$`);
   return (path) => regex.test(path);
 }
-function parseCodeowners(text18) {
+function parseCodeowners(text19) {
   const rules = [];
-  for (const line of text18.split("\n")) {
+  for (const line of text19.split("\n")) {
     const [pattern, ...rest] = line.trim().split(/\s+/);
     if (pattern === void 0 || pattern === "" || pattern.startsWith("#")) continue;
     const comment = rest.findIndex((token) => token.startsWith("#"));
@@ -4254,8 +4257,8 @@ function parseCodeowners(text18) {
 }
 function readCodeowners(read) {
   for (const file of CODEOWNERS_FILES) {
-    const text18 = read(file);
-    if (text18 !== null) return { file, rules: parseCodeowners(text18) };
+    const text19 = read(file);
+    if (text19 !== null) return { file, rules: parseCodeowners(text19) };
   }
   return { file: null, rules: [] };
 }
@@ -4317,8 +4320,8 @@ function blockSpan(lines2) {
   }
   return { begin, end };
 }
-function ownersBlockIn(text18) {
-  const lines2 = text18.split("\n");
+function ownersBlockIn(text19) {
+  const lines2 = text19.split("\n");
   const span = blockSpan(lines2);
   return span === null ? null : lines2.slice(span.begin, span.end + 1).map((line) => line.replace(/\r$/, "")).join("\n");
 }
@@ -4358,9 +4361,9 @@ var HEADING2 = /^##\s+(.*?)\s*$/;
 var ID = /^BL-([A-Z0-9]+)-[1-9]\d*$/;
 var FIELD = /^(Why|Also):\s*(.*)$/;
 var keysOf2 = (value) => value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
-function blocks(text18) {
+function blocks(text19) {
   const found = [];
-  for (const line of text18.split("\n")) {
+  for (const line of text19.split("\n")) {
     const match = line.match(HEADING2);
     if (match) found.push({ heading: match[1] ?? "", lines: [] });
     else found.at(-1)?.lines.push(line);
@@ -4388,8 +4391,8 @@ function idProblem(file, id, place2) {
   if (match[1] !== code2) return `${file}: ${id} \u2014 names ${match[1] ?? ""}, but it sits in the ${place2.domain} folder: write BL-${code2}-<n>.`;
   return null;
 }
-function parseBusinessLaws(file, text18, place2) {
-  return blocks(text18).map(({ heading, lines: lines2 }) => {
+function parseBusinessLaws(file, text19, place2) {
+  return blocks(text19).map(({ heading, lines: lines2 }) => {
     const { statement: statement2, why, also } = readBody2(lines2);
     const problems = [
       idProblem(file, heading, place2),
@@ -4649,8 +4652,8 @@ function validateBody(body) {
   errors.push(...entryErrors);
   return { errors, entries };
 }
-function parseAccount(text18, { file = null } = {}) {
-  const read = readFrontMatterBlock(text18, file, AccountFrontMatterSchema);
+function parseAccount(text19, { file = null } = {}) {
+  const read = readFrontMatterBlock(text19, file, AccountFrontMatterSchema);
   if (read.body === null) return { ok: false, errors: read.errors };
   const { errors: bodyErrors, entries } = validateBody(read.body);
   const errors = [...read.errors, ...bodyErrors.map((message) => withFile2(file, message))];
@@ -4685,8 +4688,8 @@ function readAccounts(prd, { ctx }) {
   const names = readdirSync7(`${ctx.root}/${dir}`).filter((name) => name.endsWith(".md")).sort();
   return names.map((name) => {
     const file = `${dir}/${name}`;
-    const text18 = readRepoFile(ctx, file);
-    const parsed3 = parseAccount(text18, { file });
+    const text19 = readRepoFile(ctx, file);
+    const parsed3 = parseAccount(text19, { file });
     if (!parsed3.ok) return parsed3;
     const unresolved = parsed3.account.entries.flatMap(
       (entry) => entry.account.kind === "item" && !ranks.has(entry.account.id) ? [entry.account.id] : []
@@ -4755,8 +4758,8 @@ function openItemFiles(prd, { ctx }) {
   return outboxItemFiles({ ctx }).filter((file) => file.startsWith(prefix));
 }
 function describeItem(file, { ctx }) {
-  const text18 = readRepoFile(ctx, file);
-  const parsed3 = parseOutboxItem(text18, { file });
+  const text19 = readRepoFile(ctx, file);
+  const parsed3 = parseOutboxItem(text19, { file });
   return parsed3.ok ? { file, id: parsed3.item.id, rank: parsed3.item.rank } : { file, id: null, rank: null };
 }
 function openItems(prd, { ctx }) {
@@ -5080,8 +5083,8 @@ function readSettledEntries(prd, { ctx }) {
 function adoptedEntriesForPrd(prd, { ctx }) {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
-function firstSentence(text18) {
-  const trimmed3 = (text18 ?? "").trim();
+function firstSentence(text19) {
+  const trimmed3 = (text19 ?? "").trim();
   const match = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/);
   return (match ? match[0] : trimmed3).trim();
 }
@@ -5097,8 +5100,8 @@ function answeredOutcome(entry) {
   const reworkedBy = entry.closed ? (entry.fields?.Closed ?? "").match(REWORKED_BY)?.[1] : null;
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
-function quoteReply(text18) {
-  const oneLine4 = (text18 ?? "").replace(/\s+/g, " ").trim();
+function quoteReply(text19) {
+  const oneLine4 = (text19 ?? "").replace(/\s+/g, " ").trim();
   const truncated = oneLine4.length > 120 ? `${oneLine4.slice(0, 117)}\u2026` : oneLine4;
   return `"${truncated}"`;
 }
@@ -5122,14 +5125,14 @@ function formatApprovedAt(approvedAt) {
   const [, , month, day3] = match;
   return `${Number(day3)} ${MONTH_NAMES[Number(month) - 1]}`;
 }
-function tableCell(text18) {
-  return (text18 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
+function tableCell(text19) {
+  return (text19 ?? "").replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 }
-function quoted2(text18) {
-  return (text18 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
+function quoted2(text19) {
+  return (text19 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
-function funLine(text18) {
-  return `_${(text18 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+function funLine(text19) {
+  return `_${(text19 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
 }
 function formatOptionsTable(options, mark) {
   return [
@@ -5613,16 +5616,16 @@ function numericReference(ref) {
   const code2 = Number.parseInt(ref.slice(hex ? 2 : 1), hex ? 16 : 10);
   return code2 > 0 && code2 <= 1114111 ? String.fromCodePoint(code2) : null;
 }
-function decodeEntities(text18) {
-  return text18.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
+function decodeEntities(text19) {
+  return text19.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref) => (ref.startsWith("#") ? numericReference(ref) : NAMED[ref.toLowerCase()]) ?? whole);
 }
 function past(html, marker2, from) {
   const at4 = html.indexOf(marker2, from);
   return at4 === -1 ? html.length : at4 + marker2.length;
 }
 var top = ({ root, stack }) => stack[stack.length - 1] ?? root;
-function addText(reader, text18) {
-  if (text18 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text18) });
+function addText(reader, text19) {
+  if (text19 !== "") top(reader).children.push({ kind: "text", text: decodeEntities(text19) });
 }
 function skipDeclaration(html, lt) {
   if (html.startsWith("<!--", lt)) return past(html, "-->", lt + 4);
@@ -5806,7 +5809,7 @@ function stateViolation(section4) {
   return `${placeOf(section4)} has data-state "${section4.state}", not ${SECTION_STATES[0]}, ${SECTION_STATES[1]} or ${SECTION_STATES[2]}`;
 }
 var plural = (count2, one, many) => `${count2} ${count2 === 1 ? one : many}`;
-var quote = (text18) => `"${text18}"`;
+var quote = (text19) => `"${text19}"`;
 var screenOf = ({ name, ref }) => `screen ${quote(name)}${ref !== null && REFERENCE.test(ref) ? ` (${ref})` : ""}`;
 function marksViolations(screen) {
   const { ref, when, viewport } = screen;
@@ -5850,8 +5853,8 @@ function numberViolations(screens) {
   const spread = [...numbersOf].filter(([, numbers]) => numbers.size > 1).map(([name, numbers]) => `screen ${quote(name)} sits under numbers ${[...numbers].join(" and ")}, not one`);
   return [...mixed, ...spread];
 }
-function namedScreens(text18) {
-  const line = /^\s*screens:(.*)$/im.exec(text18)?.[1] ?? "";
+function namedScreens(text19) {
+  const line = /^\s*screens:(.*)$/im.exec(text19)?.[1] ?? "";
   return new Set(line.split("\xB7").map((name) => name.trim()).filter((name) => name !== ""));
 }
 function sectionViolations(read) {
@@ -5913,8 +5916,8 @@ function unrecognizedKeyMessage(key) {
   const named = FORBIDDEN_STATUS_LIKE_FIELDS.includes(key) ? ` \u2014 an inbox spec names no ${key}` : "";
   return `unexpected field "${key}"${named}; an inbox spec's front matter holds only prd, title, blocked-by, spec, and an optional areas, proof and e2e`;
 }
-function parseSpec(text18, { file = null } = {}) {
-  const blockMatch = text18.match(FRONT_MATTER_BLOCK3);
+function parseSpec(text19, { file = null } = {}) {
+  const blockMatch = text19.match(FRONT_MATTER_BLOCK3);
   if (!blockMatch) {
     return {
       ok: false,
@@ -6204,8 +6207,8 @@ function prerequisitesOf(section4) {
   for (const id of cards.keys()) if (!ids.has(id)) faults.push(`${WHERE}: the card "### ${id}" is for no row of the table.`);
   return { prerequisites, faults };
 }
-function parseRoadmap(text18) {
-  const block = FRONT_MATTER_BLOCK4.exec(text18);
+function parseRoadmap(text19) {
+  const block = FRONT_MATTER_BLOCK4.exec(text19);
   if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
   const [, raw = "", body = ""] = block;
   const front = frontMatter(raw, FrontMatterSchema2);
@@ -6475,8 +6478,8 @@ var VoiceRoundSchema = z21.object({
 var VoiceSchema = z21.object({ rounds: z21.array(VoiceRoundSchema) });
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
-function countSentences2(text18) {
-  return text18.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
+function countSentences2(text19) {
+  return text19.split(/[.!?]+(?=\s|$)/).filter((part) => part.trim().length > 0).length;
 }
 function citationProblems(citations, field4) {
   if (!Array.isArray(citations) || citations.length === 0) {
@@ -6486,9 +6489,9 @@ function citationProblems(citations, field4) {
     (citation, i) => typeof citation === "string" && CITATION.test(citation) ? [] : [`${field4}[${i}] ${JSON.stringify(citation)} is neither persona:<name> nor a claim id like size#2.`]
   );
 }
-function lineProblems(text18, field4) {
-  if (!isText(text18)) return [`${field4} must be a sentence.`];
-  const count2 = countSentences2(text18);
+function lineProblems(text19, field4) {
+  if (!isText(text19)) return [`${field4} must be a sentence.`];
+  const count2 = countSentences2(text19);
   return count2 > MAX_SENTENCES ? [`${field4} holds ${count2} sentences; two at most.`] : [];
 }
 function personaProblems(persona, i) {
@@ -6532,10 +6535,10 @@ function roundProblems(round) {
     ...fitProblems(round.fit)
   ];
 }
-function parseVoice(text18) {
+function parseVoice(text19) {
   let voice;
   try {
-    voice = JSON.parse(text18);
+    voice = JSON.parse(text19);
   } catch {
     return { ok: false, voice: null, errors: ["not valid JSON."] };
   }
@@ -6568,8 +6571,8 @@ function knownAreas(ctx) {
     readdirSync9(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
 }
-function violationsForFile(file, folder, text18, ctx) {
-  const parsed3 = parseSpec(text18, { file });
+function violationsForFile(file, folder, text19, ctx) {
+  const parsed3 = parseSpec(text19, { file });
   if (!parsed3.ok) {
     return { record: null, violations: parsed3.errors };
   }
@@ -6627,8 +6630,8 @@ function gradeFolder(specFile, ctx) {
   if (!existsSync17(join22(ctx.root, specFile))) {
     violations.push(`${specFile}: spec.md is missing.`);
   } else {
-    const text18 = readRepoFile(ctx, specFile);
-    const graded = violationsForFile(specFile, folder, text18, ctx);
+    const text19 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text19, ctx);
     violations.push(...graded.violations);
     if (graded.record) record = { ...graded.record, file: specFile, folder };
   }
@@ -7011,14 +7014,14 @@ async function readPull2(octokit, { owner, repo, prNumber }) {
 }
 async function readBaseConfig(octokit, { owner, repo, baseSha, dest, ignoreUnknownKeys = false }) {
   const folder = await snapshot(octokit, { owner, repo, ref: baseSha, paths: [CONFIG_FILE], dest });
-  let text18;
+  let text19;
   try {
-    text18 = readFileSync17(join25(folder, CONFIG_FILE), "utf8");
+    text19 = readFileSync17(join25(folder, CONFIG_FILE), "utf8");
   } catch {
     return { folder, config: null, error: null };
   }
   try {
-    return { folder, config: parseConfig(text18, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
+    return { folder, config: parseConfig(text19, CONFIG_FILE, { ignoreUnknownKeys }), error: null };
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error;
     return { folder, config: null, error };
@@ -7422,7 +7425,7 @@ function modelInput({
       }))
     })),
     knowledge: knowledgeLines(knowledge),
-    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text18) => typeof text18 === "string").map((text18) => maskSecrets(text18))
+    earlierLessons: (Array.isArray(lessons2) ? lessons2 : []).filter((text19) => typeof text19 === "string").map((text19) => maskSecrets(text19))
   };
   capInput(input, findings.map((finding) => finding.source), LIMITS.modelInputTokens * CHARS_PER_TOKEN - SYSTEM.length);
   return { system: SYSTEM, user: JSON.stringify(input) };
@@ -7438,8 +7441,8 @@ function knowledgeLines(summary2) {
   }));
   return [...entries, ...playbook, ...records].filter((entry) => typeof entry.id === "string" && typeof entry.line === "string").map((entry) => ({ id: maskSecrets(entry.id), line: maskSecrets(firstLineOf(entry.line)) }));
 }
-function firstLineOf(text18) {
-  return text18.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+function firstLineOf(text19) {
+  return text19.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 }
 var EXCERPT_KEY = ',"excerpt":';
 var CUT_MARK = "[earlier lines cut]\n";
@@ -7448,7 +7451,7 @@ var HUNKS = "churn";
 function capInput(input, sources, budget) {
   let size = JSON.stringify(input).length;
   if (size <= budget) return;
-  const cost = (text18) => EXCERPT_KEY.length + JSON.stringify(text18).length;
+  const cost = (text19) => EXCERPT_KEY.length + JSON.stringify(text19).length;
   const excerpts = input.findings.flatMap(
     (finding, i) => finding.evidence.flatMap((item, j) => item.excerpt === void 0 ? [] : [{ i, j, item, source: sources[i] }])
   );
@@ -7467,14 +7470,14 @@ function capInput(input, sources, budget) {
   }
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
-    const text18 = entry.item.excerpt ?? "";
-    let keep2 = Math.max(0, text18.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text18, keep2);
-    while (keep2 > 0 && size - cost(text18) + cost(next) > budget) {
-      keep2 = Math.max(0, keep2 - (size - cost(text18) + cost(next) - budget));
-      next = lastLines(text18, keep2);
+    const text19 = entry.item.excerpt ?? "";
+    let keep2 = Math.max(0, text19.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text19, keep2);
+    while (keep2 > 0 && size - cost(text19) + cost(next) > budget) {
+      keep2 = Math.max(0, keep2 - (size - cost(text19) + cost(next) - budget));
+      next = lastLines(text19, keep2);
     }
-    size += cost(next) - cost(text18);
+    size += cost(next) - cost(text19);
     entry.item.excerpt = next;
   }
   while (size > budget && input.earlierLessons.length > 0) {
@@ -7491,8 +7494,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text18, keep2) {
-  let tail = keep2 > 0 ? text18.slice(-keep2) : "";
+function lastLines(text19, keep2) {
+  let tail = keep2 > 0 ? text19.slice(-keep2) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -7512,9 +7515,9 @@ function checkReply(value) {
       const kept3 = {};
       findings[id] = kept3;
       for (const name of ["title", "whyItMatters", "lesson"]) {
-        const text18 = words[name];
-        if (text18 === void 0) continue;
-        if (typeof text18 === "string") kept3[name] = text18;
+        const text19 = words[name];
+        if (text19 === void 0) continue;
+        if (typeof text19 === "string") kept3[name] = text19;
         else errors.push(`findings[${JSON.stringify(id)}].${name} must be a string`);
       }
       if (words.keep !== void 0) {
@@ -7742,10 +7745,10 @@ var PARTS = "omni:parts";
 var HeadSchema = z25.strictObject({ [PARTS]: z25.strictObject({ hash: z25.string().min(1), count: z25.number().int().positive() }) });
 async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const saved = await step.run(id, async () => {
-    const text18 = JSON.stringify(asSaved(await fn()));
-    if (Buffer.byteLength(text18) <= budget) return parsed(text18);
-    const hash = hashOf(text18);
-    const parts = partsOf(text18, budget);
+    const text19 = JSON.stringify(asSaved(await fn()));
+    if (Buffer.byteLength(text19) <= budget) return parsed(text19);
+    const hash = hashOf(text19);
+    const parts = partsOf(text19, budget);
     for (const [index, part] of parts.entries()) await step.run(partId(id, hash, index), () => part);
     return { [PARTS]: { hash, count: parts.length } };
   });
@@ -7753,22 +7756,22 @@ async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const value = head.success ? await joined(step, id, head.data[PARTS]) : saved;
   return parseOrThrow(schema, value, `The step "${id}" came back in an unexpected shape`);
 }
-function partsOf(text18, budget) {
+function partsOf(text19, budget) {
   const parts = [];
   let start = 0;
   let size = QUOTES;
-  for (let index = 0; index < text18.length; ) {
-    const code2 = text18.codePointAt(index) ?? 0;
+  for (let index = 0; index < text19.length; ) {
+    const code2 = text19.codePointAt(index) ?? 0;
     const cost = bytesOf(code2);
     if (size + cost > budget && index > start) {
-      parts.push(text18.slice(start, index));
+      parts.push(text19.slice(start, index));
       start = index;
       size = QUOTES;
     }
     size += cost;
     index += code2 > 65535 ? 2 : 1;
   }
-  parts.push(text18.slice(start));
+  parts.push(text19.slice(start));
   return parts;
 }
 var QUOTES = 2;
@@ -7788,37 +7791,37 @@ async function joined(step, id, { hash, count: count2 }) {
     if (typeof part !== "string") throw new Error(`The step "${id}" came back with its part ${String(index + 1)} of ${String(count2)} not text.`);
     parts.push(part);
   }
-  const text18 = parts.join("");
-  if (hashOf(text18) !== hash) throw new Error(`The step "${id}" came back with parts that do not make the value saved.`);
-  return parsed(text18);
+  const text19 = parts.join("");
+  if (hashOf(text19) !== hash) throw new Error(`The step "${id}" came back with parts that do not make the value saved.`);
+  return parsed(text19);
 }
-function parsed(text18) {
-  const value = JSON.parse(text18);
+function parsed(text19) {
+  const value = JSON.parse(text19);
   return value;
 }
 function partId(id, hash, index) {
   return `${id}:part-${hash}-${String(index + 1)}`;
 }
-function hashOf(text18) {
-  return createHash("sha256").update(text18).digest("hex").slice(0, 16);
+function hashOf(text19) {
+  return createHash("sha256").update(text19).digest("hex").slice(0, 16);
 }
 
 // kit/lib/inbox/territory.ts
 var NOTHING = /^[—–-]?$/;
-function sliceIdOf(text18) {
-  const id = WorkSliceIdSchema.safeParse(text18);
-  if (!id.success) throw new Error(`This plan's slice table names "${text18}", which is no slice id like s1.`);
+function sliceIdOf(text19) {
+  const id = WorkSliceIdSchema.safeParse(text19);
+  if (!id.success) throw new Error(`This plan's slice table names "${text19}", which is no slice id like s1.`);
   return id.data;
 }
 function blockedByCell(cell3) {
-  const text18 = (cell3 ?? "").trim();
-  if (NOTHING.test(text18)) return [];
-  return text18.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
+  const text19 = (cell3 ?? "").trim();
+  if (NOTHING.test(text19)) return [];
+  return text19.split(/[\s,]+/).map((token) => token.replace(/`/g, "").trim()).filter(Boolean).map(sliceIdOf);
 }
 function territoryPrefixes(cell3) {
-  const text18 = (cell3 ?? "").trim();
-  if (NOTHING.test(text18)) return [];
-  return [...text18.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
+  const text19 = (cell3 ?? "").trim();
+  if (NOTHING.test(text19)) return [];
+  return [...text19.matchAll(/`([^`]+)`/g)].map((match) => (match[1] ?? "").trim()).filter(Boolean);
 }
 function prefixOf(declaration) {
   return declaration.replace(/\*+$/, "");
@@ -7892,12 +7895,12 @@ function sliceTable(markdown) {
   return { column: (name) => header.indexOf(name), rows: bodyRows(lines2, headerIndex) };
 }
 var TIERS2 = ["deep", "build", "light"];
-function isTier(text18) {
-  return TIERS2.some((tier) => tier === text18);
+function isTier(text19) {
+  return TIERS2.some((tier) => tier === text19);
 }
 function tierCell(cell3) {
-  const text18 = plainCell(cell3);
-  return isTier(text18) ? text18 : null;
+  const text19 = plainCell(cell3);
+  return isTier(text19) ? text19 : null;
 }
 function unknownTiers(markdown) {
   let table;
@@ -7917,13 +7920,13 @@ function unknownTiers(markdown) {
   return unknown;
 }
 function landingCell(cell3) {
-  const text18 = plainCell(cell3);
-  return NOTHING.test(text18) ? 1 : Number(text18);
+  const text19 = plainCell(cell3);
+  return NOTHING.test(text19) ? 1 : Number(text19);
 }
 function contractCell(cell3) {
-  const text18 = plainCell(cell3);
-  if (NOTHING.test(text18)) return null;
-  const kinds = text18.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  const text19 = plainCell(cell3);
+  if (NOTHING.test(text19)) return null;
+  const kinds = text19.split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
   if (kinds.length === 0) return null;
   return kinds.length === 1 && kinds[0] === "none" ? "none" : { kinds };
 }
@@ -8626,16 +8629,16 @@ function namesPrd(prd, slug, { bare: bare3 }) {
   const forms = [`${s}#${String(prd)}(?!\\d)`, `github\\.com/${s}/issues/${String(prd)}(?!\\d)`];
   if (bare3) forms.push(`(?:^|[^\\w&/.-])#${String(prd)}(?!\\d)`);
   const pattern = new RegExp(forms.join("|"), "i");
-  return (text18) => pattern.test(text18);
+  return (text19) => pattern.test(text19);
 }
 function namesPull(lane2) {
   const numbers = new Set(lane2.pulls.map((pull) => pull.number));
   const s = escape2(lane2.lane);
   const pattern = new RegExp(`(?:github\\.com/${s}/pull/|${s}#|(?:^|[^\\w&/.-])#)(\\d+)(?!\\d)`, "gi");
-  return (text18) => [...text18.matchAll(pattern)].some(([, number]) => numbers.has(Number(number)));
+  return (text19) => [...text19.matchAll(pattern)].some(([, number]) => numbers.has(Number(number)));
 }
-function escape2(text18) {
-  return text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape2(text19) {
+  return text19.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/main-watch/main-watch.ts
@@ -9021,10 +9024,10 @@ function rowPr(line) {
   return slug && number ? { slug, pr: parsePr(number) } : null;
 }
 function fixPlanRows(body) {
-  const text18 = body ?? "";
-  if (!text18.includes(FIX_PLAN_MARKER)) return [];
+  const text19 = body ?? "";
+  if (!text19.includes(FIX_PLAN_MARKER)) return [];
   const rows = [];
-  for (const line of text18.split("\n")) {
+  for (const line of text19.split("\n")) {
     const found = line.trim().startsWith("|") ? rowPr(line) : null;
     if (found && !rows.some((row) => row.slug === found.slug && row.pr === found.pr)) rows.push(found);
   }
@@ -9358,11 +9361,11 @@ function overlaps([oldStart, oldCount], { from, to }) {
 }
 function namesPrd2(prd, slug) {
   const pattern = new RegExp(`(?:^|[^\\w&/.-]|${escape3(slug)})#${prd}(?!\\d)`, "i");
-  return (text18) => pattern.test(text18);
+  return (text19) => pattern.test(text19);
 }
-function closedBy(text18, slug) {
+function closedBy(text19, slug) {
   const numbers = [];
-  for (const match of text18.matchAll(CLOSING)) {
+  for (const match of text19.matchAll(CLOSING)) {
     const [, urlRepo, urlNumber, refRepo, refNumber, number] = match;
     const repo = urlRepo ?? refRepo;
     if (repo && repo.toLowerCase() !== slug.toLowerCase()) continue;
@@ -9409,8 +9412,8 @@ function plural3(count2, noun) {
 function and(items, last = " and ") {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")}${last}${items.at(-1)}`;
 }
-function escape3(text18) {
-  return text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape3(text19) {
+  return text19.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/kinds/churn-generated.ts
@@ -9808,16 +9811,16 @@ var COUNT_KEYS = Object.freeze({
   errors: "errors",
   total: "total"
 });
-function cleanLog(text18) {
-  return plainText(text18).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
+function cleanLog(text19) {
+  return plainText(text19).replace(/^﻿/, "").split(/\r?\n/).map((line) => line.replace(TIMESTAMP, "").replace(ANSI, "")).join("\n");
 }
-function tailOf(text18, count2) {
-  const lines2 = plainText(text18).split("\n");
+function tailOf(text19, count2) {
+  const lines2 = plainText(text19).split("\n");
   if (lines2.at(-1) === "") lines2.pop();
   return lines2.slice(-count2).join("\n");
 }
-function readTestLog(text18) {
-  const lines2 = cleanLog(text18).split("\n");
+function readTestLog(text19) {
+  const lines2 = cleanLog(text19).split("\n");
   for (const reader of READERS) {
     if (!reader.detects(lines2)) continue;
     const { tests, counts } = reader.read(lines2);
@@ -9919,13 +9922,13 @@ function vitestCrosses(lines2) {
   return tests;
 }
 var READERS = Object.freeze([pytest, playwright, jest, vitest]);
-function countsIn(text18) {
+function countsIn(text19) {
   const counts = {};
-  for (const [, number, word] of text18.matchAll(/(\d+) ([a-z]+)/g)) {
+  for (const [, number, word] of text19.matchAll(/(\d+) ([a-z]+)/g)) {
     const key = word === void 0 ? void 0 : COUNT_KEYS[word];
     if (key && !(key in counts)) counts[key] = Number(number);
   }
-  const total = /\((\d+)\)\s*$/.exec(text18.trim());
+  const total = /\((\d+)\)\s*$/.exec(text19.trim());
   if (total && !("total" in counts)) counts.total = Number(total[1]);
   return Object.keys(counts).length > 0 ? counts : null;
 }
@@ -10209,8 +10212,8 @@ function short(sha) {
 function count(n, noun) {
   return `${n} ${n === 1 ? noun : `${noun}s`}`;
 }
-function cell(text18) {
-  return text18.replaceAll("|", "\\|");
+function cell(text19) {
+  return text19.replaceAll("|", "\\|");
 }
 function uniqueBy(items, key) {
   const seen = /* @__PURE__ */ new Set();
@@ -10978,40 +10981,40 @@ var TITLE3 = /^#\s+(.+?)\s*$/m;
 var PRD_HEADER = /\*\*PRD:\*\*\s*#(\d+)\b/;
 var LAYERS_HEADER = /\*\*Layers:\*\*[ \t]*([^·\n]*)/;
 var DOMAIN_HEADER = /\*\*Domain:\*\*[ \t]*([^·\s]*)/;
-var headerOf = (text18) => text18.split(/^##\s/m)[0] ?? "";
-function headerLayers(text18) {
-  const value = LAYERS_HEADER.exec(headerOf(text18))?.[1] ?? "";
+var headerOf = (text19) => text19.split(/^##\s/m)[0] ?? "";
+function headerLayers(text19) {
+  const value = LAYERS_HEADER.exec(headerOf(text19))?.[1] ?? "";
   return value.split(",").map((part) => part.replace(/`/g, "").trim()).filter(Boolean);
 }
-function headerDomain(text18) {
-  const value = (DOMAIN_HEADER.exec(headerOf(text18))?.[1] ?? "").replace(/`/g, "");
+function headerDomain(text19) {
+  const value = (DOMAIN_HEADER.exec(headerOf(text19))?.[1] ?? "").replace(/`/g, "");
   return value === "" ? null : value;
 }
-function headerPrd(text18) {
-  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text18))?.[1]));
+function headerPrd(text19) {
+  const prd = PrdNumberSchema.safeParse(Number(PRD_HEADER.exec(headerOf(text19))?.[1]));
   return prd.success ? prd.data : null;
 }
-function tagsOf(text18) {
-  const layers = headerLayers(text18);
-  const domain = headerDomain(text18);
+function tagsOf(text19) {
+  const layers = headerLayers(text19);
+  const domain = headerDomain(text19);
   return { ...layers.length > 0 ? { layers } : {}, ...domain === null ? {} : { domain } };
 }
 var levelOf = (record) => record.level ?? "repo";
 var STATUS_HEADER = /\*\*Status:\*\*[ \t]*([^·\n]*)/;
-function headerStatus(text18) {
-  const value = (STATUS_HEADER.exec(headerOf(text18))?.[1] ?? "").replace(/`/g, "").trim();
+function headerStatus(text19) {
+  const value = (STATUS_HEADER.exec(headerOf(text19))?.[1] ?? "").replace(/`/g, "").trim();
   return value === "" ? null : value;
 }
-function parseDecisionRecord(file, text18) {
+function parseDecisionRecord(file, text19) {
   const name = file.split("/").pop() ?? file;
   return {
     number: name.match(RECORD)?.[1] ?? "",
     file,
-    title: text18.match(TITLE3)?.[1] ?? null,
-    status: headerStatus(text18),
-    text: text18,
-    prd: headerPrd(text18),
-    ...tagsOf(text18)
+    title: text19.match(TITLE3)?.[1] ?? null,
+    status: headerStatus(text19),
+    text: text19,
+    prd: headerPrd(text19),
+    ...tagsOf(text19)
   };
 }
 function readFolder(root, dir, level) {
@@ -11196,9 +11199,9 @@ function classificationJsonSchema(summary2) {
   };
 }
 function section3(heading, body) {
-  const text18 = plainText(body).trim();
-  if (text18 === "") return [];
-  return [`### ${heading}`, "", text18, ""];
+  const text19 = plainText(body).trim();
+  if (text19 === "") return [];
+  return [`### ${heading}`, "", text19, ""];
 }
 function itemSections(candidate) {
   const sections = candidate.item?.sections;
@@ -11285,9 +11288,9 @@ function classificationPrompt({
 var LINE_MAX = 240;
 var BOLD_HEAD = /^\*\*(.+?)\*\*\s*/;
 var NOT_PROSE = /^[|`#>]/;
-function firstSentence2(text18) {
-  const end = text18.search(/[.?!]\s/);
-  return end === -1 ? text18 : text18.slice(0, end + 1);
+function firstSentence2(text19) {
+  const end = text19.search(/[.?!]\s/);
+  return end === -1 ? text19 : text19.slice(0, end + 1);
 }
 function lineOf2(item) {
   const flat = item.replace(/\s+/g, " ").trim();
@@ -11368,7 +11371,7 @@ var FORBIDDEN = [
   { pattern: /`/, what: () => "a backtick" },
   { pattern: new RegExp(KIT_FOLDER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), what: () => `a path under ${KIT_FOLDER}` }
 ];
-var characters = (text18) => Array.from(text18).length;
+var characters = (text19) => Array.from(text19).length;
 function unquote(value) {
   const trimmed3 = value.trim();
   const first = trimmed3[0];
@@ -11396,8 +11399,8 @@ ${line.trim()}`;
   }
   return { fields, errors };
 }
-function splitNote(text18) {
-  const match = text18.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
+function splitNote(text19) {
+  const match = text19.replace(/\r\n?/g, "\n").match(FRONT_MATTER_BLOCK5);
   return match ? { front: match[1] ?? "", body: match[2] ?? "" } : null;
 }
 function bodyLines(body) {
@@ -11414,8 +11417,8 @@ function notePrd(fields, errors) {
   errors.push(`prd "${prd}" is not a PRD number`);
   return null;
 }
-function parseReleaseNote(text18) {
-  const parts = splitNote(text18);
+function parseReleaseNote(text19) {
+  const parts = splitNote(text19);
   if (!parts) return { ok: false, errors: ['no front matter \u2014 a release note opens with a "---" fenced header holding prd and title'] };
   const { fields, errors } = readFields2(parts.front);
   for (const key of Object.keys(fields)) {
@@ -11457,14 +11460,14 @@ function descriptionViolations(lines2, description) {
   if (item) out.push(`description holds a list item ("${item}") \u2014 one paragraph of prose`);
   return out;
 }
-function contentViolations(name, text18) {
+function contentViolations(name, text19) {
   return FORBIDDEN.flatMap(({ pattern, what }) => {
-    const match = text18.match(pattern);
+    const match = text19.match(pattern);
     return match ? [`${name} holds ${what(match[0])}`] : [];
   });
 }
-function gradeReleaseNote(text18, { prd }) {
-  const parsed3 = parseReleaseNote(text18);
+function gradeReleaseNote(text19, { prd }) {
+  const parsed3 = parseReleaseNote(text19);
   if (!parsed3.ok) return parsed3.errors;
   const { note } = parsed3;
   const out = [];
@@ -11473,7 +11476,7 @@ function gradeReleaseNote(text18, { prd }) {
     out.push(`version ${note.version === "" ? '""' : note.version} is not ${INITIAL_VERSION} \u2014 only the initial release's notes carry a version`);
   }
   out.push(...titleViolations(note.title));
-  out.push(...descriptionViolations(bodyLines(splitNote(text18)?.body ?? ""), note.description));
+  out.push(...descriptionViolations(bodyLines(splitNote(text19)?.body ?? ""), note.description));
   out.push(...contentViolations("title", note.title), ...contentViolations("description", note.description));
   return out;
 }
@@ -11532,8 +11535,8 @@ import { join as join33 } from "node:path";
 import { existsSync as existsSync25, readdirSync as readdirSync13, readFileSync as readFileSync22 } from "node:fs";
 import { join as join32 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
-function invariantAdrs(text18, heading) {
-  const lines2 = text18.split("\n");
+function invariantAdrs(text19, heading) {
+  const lines2 = text19.split("\n");
   const start = lines2.findIndex((line) => line.trim() === heading.trim());
   if (start === -1) return /* @__PURE__ */ new Set();
   const level = group(/^#+/.exec(heading.trim()), 0).length;
@@ -11608,8 +11611,8 @@ var FUN_SECTION_FIELDS = [
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
-function checkItemText(file, text18, { laws }) {
-  const parsed3 = parseItem(text18, file);
+function checkItemText(file, text19, { laws }) {
+  const parsed3 = parseItem(text19, file);
   if (!parsed3.ok) return parsed3.errors;
   const { item } = parsed3;
   const violations = [];
@@ -12025,8 +12028,8 @@ var LAW_LINE = /^(?:[-*]\s+)?`?([A-Z0-9-]+)`?\s+[—–-]\s+(.+)$/;
 function thesisPath(ctx) {
   return `${productDir(ctx)}/${THESIS_FILE}`;
 }
-function parseThesis(file, text18) {
-  const lines2 = text18.split("\n");
+function parseThesis(file, text19) {
+  const lines2 = text19.split("\n");
   const start = lines2.findIndex((line) => LAWS_HEADING.test(line.trim()));
   if (start === -1) return { file, lawsSection: null, laws: [] };
   const rest = lines2.slice(start + 1);
@@ -12110,10 +12113,10 @@ function codeownersFile(ctx) {
 }
 function ownersBlockProblems(ctx, knowledge = readKnowledge({ ctx })) {
   if ((ctx.config.laws?.owners ?? []).length === 0) return [];
-  const { file, text: text18 } = codeownersFile(ctx);
+  const { file, text: text19 } = codeownersFile(ctx);
   let current;
   try {
-    current = text18 === null ? null : ownersBlockIn(text18);
+    current = text19 === null ? null : ownersBlockIn(text19);
   } catch (error) {
     return [`${file}: ${messageOf2(error)}.`];
   }
@@ -12159,8 +12162,8 @@ var DEFAULT_LAWS_MAX = 20;
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail, text: text18 }) {
-  return text18 ?? `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text19 }) {
+  return text19 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -12312,11 +12315,11 @@ function idShapeViolations(entry) {
     )
   ];
 }
-function headingAnchors(text18) {
+function headingAnchors(text19) {
   const anchors = /* @__PURE__ */ new Set();
   const seen = /* @__PURE__ */ new Map();
   let fenced = false;
-  for (const line of text18.split("\n")) {
+  for (const line of text19.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
@@ -12585,11 +12588,11 @@ function findDecisionTagViolations(ctx, knowledge) {
 }
 function findThesisViolations(ctx, entries) {
   if (ctx.copyOf) return [];
-  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text18) => ({ text: text18 }));
+  return thesisProblems(readThesis(ctx), entries, thesisPath(ctx)).map((text19) => ({ text: text19 }));
 }
 function findOwnersBlockViolations(ctx, knowledge) {
   if (ctx.copyOf) return [];
-  return ownersBlockProblems(ctx, knowledge).map((text18) => ({ text: text18 }));
+  return ownersBlockProblems(ctx, knowledge).map((text19) => ({ text: text19 }));
 }
 function aKind(kind) {
   if (kind === null) return "an entry of no kind";
@@ -12606,10 +12609,10 @@ function findLevelContradictions(ctx) {
 }
 function findBusinessLawViolations(ctx) {
   const owners = ctx.copyOf ? null : ctx.config.laws?.owners ?? [];
-  return businessLawProblems(readBusinessLaws({ ctx }), { owners, where: ctx.layout.knowledgeRoot }).map((text18) => ({ text: text18 }));
+  return businessLawProblems(readBusinessLaws({ ctx }), { owners, where: ctx.layout.knowledgeRoot }).map((text19) => ({ text: text19 }));
 }
-function findUnresolvedCitations(file, text18, resolve3) {
-  return idsCitedIn(text18).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text19, resolve3) {
+  return idsCitedIn(text19).filter((id) => !LEGAL_ID_SHAPE.test(id) && !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries) {
   return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
@@ -12632,9 +12635,9 @@ function gradeKnowledge({
 }) {
   const knowledge = readKnowledge({ ctx });
   const resolve3 = (id) => knowledge.entries.find((entry) => entry.id === id);
-  const text18 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
+  const text19 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
-    ...findLayoutViolations(ctx, knowledge, { glossaryText: text18 }),
+    ...findLayoutViolations(ctx, knowledge, { glossaryText: text19 }),
     ...findOwningLibraryViolations(ctx, knowledge),
     ...findCrossDomainFileViolations(knowledge),
     ...findReusedIds(knowledge.entries),
@@ -12681,8 +12684,8 @@ function toCandidate(entry, ledgerFile) {
     rank: entry.fields.Rank ?? (parsed3.ok ? parsed3.item.rank : null) ?? null
   };
 }
-function candidatesFromLedger(text18, { markers, ledgerFile = null }) {
-  const entries = parseSettledEntries(text18, markers);
+function candidatesFromLedger(text19, { markers, ledgerFile = null }) {
+  const entries = parseSettledEntries(text19, markers);
   return entries.filter((entry) => !writtenBack(entry)).map((entry) => toCandidate(entry, ledgerFile));
 }
 function harvestCandidates({ ctx, prd }) {
@@ -12746,7 +12749,7 @@ function proofOf({
   proposed = [],
   changed,
   pr,
-  exists
+  exists: exists2
 }) {
   const status = new Map(changed.map((file) => [file.path, file.status]));
   const kept3 = [];
@@ -12755,7 +12758,7 @@ function proofOf({
     const given = status.get(path);
     if (given === "removed") dropped.push({ path, reason: `removed by #${pr}` });
     else if (!KEPT_STATUSES.includes(given ?? "")) dropped.push({ path, reason: `not changed by #${pr}` });
-    else if (!exists(path)) dropped.push({ path, reason: "no longer in the tree" });
+    else if (!exists2(path)) dropped.push({ path, reason: "no longer in the tree" });
     else kept3.push(path);
   }
   return { kept: kept3, dropped };
@@ -12797,8 +12800,8 @@ function makeFiles(ctx) {
       }
       return texts.get(path) ?? null;
     },
-    write(path, text18) {
-      texts.set(path, text18);
+    write(path, text19) {
+      texts.set(path, text19);
       this.changed.add(path);
     },
     changed: /* @__PURE__ */ new Set(),
@@ -12807,8 +12810,8 @@ function makeFiles(ctx) {
     }
   };
 }
-function appendEntry(text18, entry, { heading }) {
-  let base = text18 ?? `# ${heading}
+function appendEntry(text19, entry, { heading }) {
+  let base = text19 ?? `# ${heading}
 `;
   if (!/^## /m.test(base)) {
     const lines2 = base.split("\n");
@@ -12867,8 +12870,8 @@ function renderRecord({
     ""
   ].join("\n");
 }
-function addLedgerLine(text18, { id, line, markers }) {
-  const lines2 = text18.split("\n");
+function addLedgerLine(text19, { id, line, markers }) {
+  const lines2 = text19.split("\n");
   const open = lines2.lastIndexOf(markers.settledOpen(id));
   if (open === -1) return null;
   const close = lines2.indexOf(markers.settledClose(id), open);
@@ -13126,15 +13129,15 @@ function applyHarvestEdits({ root, edits }) {
     mkdirSync8(dirname10(join40(root, to)), { recursive: true });
     renameSync(join40(root, from), join40(root, to));
   }
-  for (const { path, text: text18 } of edits.writes) {
+  for (const { path, text: text19 } of edits.writes) {
     mkdirSync8(dirname10(join40(root, path)), { recursive: true });
-    writeFileSync10(join40(root, path), text18);
+    writeFileSync10(join40(root, path), text19);
   }
 }
 function mergeWrites(writes) {
   const byPath = /* @__PURE__ */ new Map();
   for (const write2 of writes) byPath.set(write2.path, write2.text);
-  return [...byPath].map(([path, text18]) => ({ path, text: text18 }));
+  return [...byPath].map(([path, text19]) => ({ path, text: text19 }));
 }
 function prepareHarvest({
   ctx,
@@ -13160,7 +13163,7 @@ function prepareHarvest({
       const plan = planShip(scratch, n, { files: [...new Set(files)].sort(), read: (file) => readFileSync28(join40(scratch.root, file), "utf8") });
       if (!plan.ok) return { ok: false, errors: plan.reasons };
       moves = plan.moves;
-      rewrites = plan.rewrites.map(({ file, text: text18 }) => ({ path: movedPath(moves, file), text: text18 }));
+      rewrites = plan.rewrites.map(({ file, text: text19 }) => ({ path: movedPath(moves, file), text: text19 }));
       applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves, writes: rewrites } });
     }
     const edits = {
@@ -13550,9 +13553,9 @@ async function openLawIssue(octokit, { owner, repo, label: label2, issue }) {
 }
 
 // apps/omni-app/src/verdict-comment/verdict-comment.ts
-async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text18 }) {
+async function upsertComment(octokit, { owner, repo, prNumber, marker: marker2, text: text19 }) {
   const body = `${marker2}
-${String(text18).trimEnd()}
+${String(text19).trimEnd()}
 `;
   const comments = await listComments(octokit, { owner, repo, prNumber });
   const existing = comments.find((comment) => comment.body.includes(marker2));
@@ -13699,15 +13702,15 @@ function refusal3(value, cap, evidence, { digits = false } = {}) {
   if (!digits && /\d/.test(setAside(value, evidence))) return DROPPED.digit;
   return null;
 }
-function setAside(text18, evidence) {
-  const spans = text18.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
+function setAside(text19, evidence) {
+  const spans = text19.replace(BACKTICK_SPAN2, (span, inner) => new RegExp("\\p{L}", "u").test(inner) && evidence.holds(inner) ? " " : span);
   return spans.replace(LINK, (link) => evidence.urls.has(link.replace(TRAILING, "")) ? " " : link);
 }
-function linksIn(text18) {
-  return (text18.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
+function linksIn(text19) {
+  return (text19.match(LINK) ?? []).map((link) => link.replace(TRAILING, ""));
 }
-function findingIdsIn(text18) {
-  return (text18.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
+function findingIdsIn(text19) {
+  return (text19.match(FINDING_ID) ?? []).map((id) => id.replace(TRAILING, ""));
 }
 function evidenceOf(sheet) {
   const findings = isList(sheet?.findings) ? sheet.findings : [];
@@ -13717,16 +13720,16 @@ function evidenceOf(sheet) {
   for (const finding of findings) {
     for (const item of finding.evidence ?? []) {
       if (typeof item?.url === "string") urls.add(item.url);
-      for (const text18 of [item?.label, item?.url, item?.excerpt]) if (typeof text18 === "string") texts.push(text18);
+      for (const text19 of [item?.label, item?.url, item?.excerpt]) if (typeof text19 === "string") texts.push(text19);
     }
   }
-  return { ids, urls, holds: (span) => texts.some((text18) => text18.includes(span)) };
+  return { ids, urls, holds: (span) => texts.some((text19) => text19.includes(span)) };
 }
 function isObject3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function escape5(text18) {
-  return text18.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escape5(text19) {
+  return text19.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // apps/omni-app/src/retro/issues.ts
@@ -13845,8 +13848,8 @@ function field(value) {
 var PLAIN = /^[A-Za-z0-9_./][A-Za-z0-9_./~+=%@-]*(?::[A-Za-z0-9_./~+=%@-]+)*$/;
 var RESERVED = /^(?:true|false|yes|no|on|off|null|[-+]?\.?\d|\.inf|\.nan)/i;
 function scalar(value) {
-  const text18 = String(value);
-  return PLAIN.test(text18) && !RESERVED.test(text18) ? text18 : JSON.stringify(text18);
+  const text19 = String(value);
+  return PLAIN.test(text19) && !RESERVED.test(text19) ? text19 : JSON.stringify(text19);
 }
 async function listLabelled(octokit, { owner, repo, label: label2 }) {
   const items = await paginate(
@@ -13981,8 +13984,8 @@ function field2(value) {
   return value;
 }
 function summary(prose, latest) {
-  const text18 = field2(prose?.summary);
-  if (text18) return text18;
+  const text19 = field2(prose?.summary);
+  if (text19) return text19;
   return `Facts only: ${latest.narration?.reason ?? "no prose"}`;
 }
 function titleOf2(finding, prose) {
@@ -14160,8 +14163,8 @@ function minutesBetween2(from, to) {
   const ms2 = Date.parse(to) - Date.parse(from);
   return Number.isFinite(ms2) ? Math.round(ms2 / 6e4) : null;
 }
-function oneLine3(text18) {
-  return text18.replace(/\s+/g, " ").trim() || "no reason given";
+function oneLine3(text19) {
+  return text19.replace(/\s+/g, " ").trim() || "no reason given";
 }
 
 // apps/omni-app/src/retro/publish.ts
@@ -14238,11 +14241,11 @@ async function branchFor(octokit, { owner, repo, base, first, run, mergeSha }) {
   return { branch: `${first}${FOLLOW_UP_SUFFIX}`, from: parseGitHub(RefSchema2, data, REF).object.sha };
 }
 function withRuns(existing, records) {
-  let text18 = existing;
+  let text19 = existing;
   let doc = null;
   for (const record of records) {
-    doc = mergeRuns(text18, record);
-    text18 = JSON.stringify(doc);
+    doc = mergeRuns(text19, record);
+    text19 = JSON.stringify(doc);
   }
   return defined(doc, "the retro.json of the records published");
 }
@@ -14306,12 +14309,12 @@ function targetComment({
     ...lines2.length > 0 ? lines2 : ["No finding for this repository."]
   ].join("\n");
 }
-async function commentTargets({ step, octokitFor, id, targets, prefix, ...text18 }) {
+async function commentTargets({ step, octokitFor, id, targets, prefix, ...text19 }) {
   const out = {};
   for (const target2 of targets) {
     if (!target2.read) continue;
     const [owner = "", repo = ""] = target2.repo.split("/");
-    const body = targetComment({ ...text18, repo: target2.repo });
+    const body = targetComment({ ...text19, repo: target2.repo });
     out[target2.name] = await savedStep(
       step,
       id(`comment-target-${target2.name}`),
@@ -14575,10 +14578,10 @@ async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
 function lessonsIn(texts) {
   const seen = /* @__PURE__ */ new Set();
   const out = [];
-  for (const text18 of texts) {
+  for (const text19 of texts) {
     let doc = null;
     try {
-      doc = text18 ? JSON.parse(text18) : null;
+      doc = text19 ? JSON.parse(text19) : null;
     } catch {
       doc = null;
     }
@@ -14622,13 +14625,13 @@ function sha256Of(bytes) {
 var utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 function textOf2(bytes) {
   if (bytes.length > MAX_FILE_BYTES) return { why: "over 1 MiB" };
-  let text18;
+  let text19;
   try {
-    text18 = utf8.decode(bytes);
+    text19 = utf8.decode(bytes);
   } catch {
     return { why: "not UTF-8 text" };
   }
-  return text18.includes("\0") ? { why: "holds a NUL character" } : { text: text18 };
+  return text19.includes("\0") ? { why: "holds a NUL character" } : { text: text19 };
 }
 function packFiles(read) {
   const files = [];
@@ -14934,7 +14937,7 @@ function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
   return { kind: EMBED_KIND, key: `${subject}@${sha}`, subject, payload: { repository: subject, sha } };
 }
-var textHash = (text18) => createHash3("sha256").update(text18, "utf8").digest("hex");
+var textHash = (text19) => createHash3("sha256").update(text19, "utf8").digest("hex");
 function packEntries(repository, pack2) {
   const own = knowledgeEntries({ repositories: [{ repo: repository, files: pack2.files }], lawHome: null, legal: [], glossary: [], never: [] });
   const products = pack2.products.flatMap(
@@ -14951,8 +14954,8 @@ function packEntries(repository, pack2) {
 function textsByHash(entries) {
   const texts = /* @__PURE__ */ new Map();
   for (const entry of entries) {
-    const text18 = embedText(entry);
-    texts.set(textHash(text18), text18);
+    const text19 = embedText(entry);
+    texts.set(textHash(text19), text19);
   }
   return texts;
 }
@@ -16163,10 +16166,10 @@ import { existsSync as existsSync37, mkdirSync as mkdirSync10, readFileSync as r
 import { dirname as dirname12, join as join49 } from "node:path";
 import { z as z52 } from "zod";
 var CeilingsSchema = z52.record(z52.string().min(1), z52.number().int().nonnegative());
-function parseCeilings(text18, file) {
+function parseCeilings(text19, file) {
   let raw;
   try {
-    raw = JSON.parse(text18);
+    raw = JSON.parse(text19);
   } catch (error) {
     throw new Error(`${file}: not valid JSON \u2014 ${messageOf2(error)}`);
   }
@@ -16220,9 +16223,9 @@ function configValue(config, key) {
   if (value === null) return { ok: false, reason: "is not set in the config" };
   return { ok: false, reason: "holds no single value" };
 }
-function fillConfig(text18, config) {
+function fillConfig(text19, config) {
   const unresolved = [];
-  const filled = text18.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
+  const filled = text19.replace(CONFIG_PLACEHOLDER, (placeholder, key) => {
     const value = configValue(config, key);
     if (value.ok) return value.text;
     unresolved.push({ key, reason: value.reason });
@@ -16252,8 +16255,8 @@ function headingsOf(lines2) {
   }
   return headings;
 }
-function sectionOf2(text18, anchor) {
-  const lines2 = text18.split("\n");
+function sectionOf2(text19, anchor) {
+  const lines2 = text19.split("\n");
   const headings = headingsOf(lines2);
   const start = headings.find((heading) => heading.anchor === anchor);
   if (!start) return null;
@@ -16611,7 +16614,7 @@ function fixLines(verdict, { prd, growth, ceilingsFile }) {
   const skill = prd === null ? "" : `\`/omni:pr-care\` (or \`/omni:yolo-fix ${prd}\`) handles it by itself. Or `;
   return [`Fix it for me: ${skill}${skill ? "paste" : "Paste"} this into Claude: ${prompt}`];
 }
-var capitalised = (text18) => `${text18.charAt(0).toUpperCase()}${text18.slice(1)}`;
+var capitalised = (text19) => `${text19.charAt(0).toUpperCase()}${text19.slice(1)}`;
 function roomLines({ target: target2, bytes, ceiling }, { prd, ceilingsFile }) {
   if (prd === null) {
     return [
@@ -16697,9 +16700,9 @@ function markdownFiles(dir) {
 function spendFolder(ids, dir) {
   for (const name of markdownFiles(dir)) ids.add(basename9(name, ".md"));
 }
-function writeInto(out, id, text18) {
+function writeInto(out, id, text19) {
   mkdirSync11(out.abs, { recursive: true });
-  writeFileSync14(join55(out.abs, `${id}.md`), text18);
+  writeFileSync14(join55(out.abs, `${id}.md`), text19);
   return join55(out.shown, `${id}.md`);
 }
 
@@ -16723,12 +16726,12 @@ function itemRefusal({
   prd,
   file,
   name,
-  text: text18,
+  text: text19,
   taken
 }) {
-  const violations = checkItemText(file, text18, { laws });
+  const violations = checkItemText(file, text19, { laws });
   if (violations.length > 0) return violations.join("; ");
-  const parsed3 = parseOutboxItem(text18, { file });
+  const parsed3 = parseOutboxItem(text19, { file });
   if (!parsed3.ok) return parsed3.errors.join("; ");
   const { item } = parsed3;
   if (item.prd !== prd) return `it belongs to PRD ${item.prd}, not PRD ${prd}`;
@@ -16740,9 +16743,9 @@ function accountRefusal({
   prd,
   destination,
   name,
-  text: text18
+  text: text19
 }) {
-  const parsed3 = parseAccount(text18, { file: name });
+  const parsed3 = parseAccount(text19, { file: name });
   if (!parsed3.ok) return parsed3.errors.join("; ");
   if (parsed3.account.prd !== prd) return `it belongs to PRD ${parsed3.account.prd}, not PRD ${prd}`;
   if (existsSync42(destination)) return `an account of that name is already in the outbox of PRD ${prd}`;
@@ -16836,10 +16839,10 @@ function parseReplyLines(body) {
   return lines2;
 }
 function interpretAnswer({
-  text: text18,
+  text: text19,
   options
 }) {
-  const trimmed3 = plainText(text18).trim();
+  const trimmed3 = plainText(text19).trim();
   if (RECOMMENDATION_RE.test(trimmed3)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
@@ -17163,9 +17166,9 @@ function gitOutboxStore(ctx) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     }),
-    writeItem: ({ prd, id, text: text18 }, out) => promised(() => {
+    writeItem: ({ prd, id, text: text19 }, out) => promised(() => {
       const outboxDir = outboxDirOf(ctx, repoPrd(prd));
-      return writeInto(out ?? { abs: join58(ctx.root, outboxDir), shown: outboxDir }, id, text18);
+      return writeInto(out ?? { abs: join58(ctx.root, outboxDir), shown: outboxDir }, id, text19);
     }),
     adopt: (itemText) => promised(() => adoptItem({ ctx, itemText })),
     settle: (ref, answer) => promised(() => settleItem({ ctx, file: ref, answer })),
@@ -17272,13 +17275,13 @@ function serverOutboxStore({ ctx, connect, now }) {
       if (out !== null) spendFolder(ids, out.abs);
       return ids;
     },
-    async writeItem({ prd, id, text: text18 }, out) {
+    async writeItem({ prd, id, text: text19 }, out) {
       const product = productPrd(prd);
-      if (out !== null) return writeInto(out, id, text18);
+      if (out !== null) return writeInto(out, id, text19);
       const ref = refOf2(product, id);
-      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text18, taken: /* @__PURE__ */ new Set() });
+      const refusal4 = itemRefusal({ laws: lawsFor(ctx), prd: product, file: ref, name: `${id}.md`, text: text19, taken: /* @__PURE__ */ new Set() });
       if (refusal4 !== null) throw new Error(`${ref}: ${refusal4}`);
-      await put2(product, text18, false);
+      await put2(product, text19, false);
       return ref;
     },
     async adopt(itemText) {
@@ -17301,16 +17304,16 @@ function serverOutboxStore({ ctx, connect, now }) {
       const row = named === null ? void 0 : (await openRows(named.prd)).find((open) => open.item === named.id);
       const item = named === null || row === void 0 ? null : parsedRow(named.prd, row);
       if (named === null || row === void 0 || item === null) return { ok: false, errors: [`${ref}: no such open item.`] };
-      const { text: text18, statedVerdict = null } = given.data;
-      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text18, statedVerdict });
+      const { text: text19, statedVerdict = null } = given.data;
+      const judgement = judgeAnswer({ choice: item.sections.whatIDidMeanwhile, answer: text19, statedVerdict });
       const { verdict } = judgement;
       if (verdict === null) {
         return { ok: false, errors: [`${ref}: the verdict is undetermined \u2014 ${judgement.reason}. Say it outright: add a "Verdict: agreed" or "Verdict: drifted" line to the answer, or pass --verdict.`] };
       }
       const { key, seq } = productPrdParts(named.prd);
       return answered(async () => {
-        await ask3((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text18 }));
-        const entryAnswer = { text: text18, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now()).toISOString(), channel: null };
+        await ask3((client) => client.settleOutboxItem({ key, seq, repo, item: named.id, verdict, basis: judgement.basis, answer: text19 }));
+        const entryAnswer = { text: text19, approvedBy: given.data.approvedBy ?? "the signed-in person", approvedAt: given.data.approvedAt ?? new Date(now()).toISOString(), channel: null };
         const entry = renderSettledEntry({ item, itemText: row.body, answer: entryAnswer, judgement, markers: ctx.markers });
         return { ok: true, verdict, basis: judgement.basis, entry, settledFile: ledgerOf2(named.prd), removedFile: ref };
       });
@@ -17323,14 +17326,14 @@ function serverOutboxStore({ ctx, connect, now }) {
       const refused10 = [];
       for (const name of markdownFiles(dir)) {
         const from = join59(dir, name);
-        const text18 = readFileSync42(from, "utf8");
+        const text19 = readFileSync42(from, "utf8");
         const id = name.slice(0, -".md".length);
-        const reason2 = itemRefusal({ laws, prd: product, file: refOf2(product, id), name, text: text18, taken });
+        const reason2 = itemRefusal({ laws, prd: product, file: refOf2(product, id), name, text: text19, taken });
         if (reason2 !== null) {
           refused10.push({ file: from, reason: reason2 });
           continue;
         }
-        await put2(product, text18, false);
+        await put2(product, text19, false);
         unlinkSync2(from);
         taken.add(id);
         moved.push({ from, to: refOf2(product, id) });
@@ -17672,10 +17675,10 @@ var CANON_SPEC_LIMIT = 4e4;
 var MAX_QUOTE = 300;
 var CACHE_LIMIT = 200;
 var JUDGE_NOT_CONFIGURED = "no-secret";
-var plain = (text18) => (text18 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-function quoted3(text18, quote2) {
+var plain = (text19) => (text19 ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+function quoted3(text19, quote2) {
   const q = plain(quote2);
-  return q.length > 0 && plain(text18).includes(q);
+  return q.length > 0 && plain(text19).includes(q);
 }
 var SYSTEM2 = [
   "You check a product spec against the product's canon: its Statement (what the product is), its Never lines (what it must never become or do), its Legal entries (what the law requires of it), the business claims its team confirmed, and its personas.",
@@ -20832,7 +20835,7 @@ ${commitMarker(merge.pr)} Merged by @${bare2(merge.by)}.`;
 }
 var bare2 = (who) => (who ?? "").replace(/^@/, "");
 var day2 = (value) => (value ?? "").slice(0, 10);
-var cell2 = (text18) => (text18 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+var cell2 = (text19) => (text19 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
@@ -20840,9 +20843,9 @@ function landedAs(entry) {
   return `${entry.landedAs.join(", ")} (new, ${standing})`;
 }
 function decidedShort(decided) {
-  const text18 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
-  if (text18.startsWith("nobody")) return "nobody \u2014 adopted";
-  return text18;
+  const text19 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
+  if (text19.startsWith("nobody")) return "nobody \u2014 adopted";
+  return text19;
 }
 function enforcedText(paths, issue) {
   if (issue !== null) return `pending #${issue}`;
@@ -20920,7 +20923,7 @@ function toCommit(edits, filesBefore) {
     }
   }
   return {
-    files: edits.writes.map(({ path, text: text18 }) => ({ path, content: text18 })),
+    files: edits.writes.map(({ path, text: text19 }) => ({ path, content: text19 })),
     moves,
     deletes
   };
@@ -21278,8 +21281,38 @@ function checkpointStore(connection) {
   };
 }
 
-// apps/omni-app/src/missions/job.ts
+// apps/omni-app/src/missions/branch.ts
 import { z as z85 } from "zod";
+var RepoSchema = z85.looseObject({ default_branch: z85.string(), allow_rebase_merge: z85.boolean().optional() });
+var rebaseWhy = (repo) => `${repo} does not allow rebase merges: turn on "Allow rebase merging" in its settings, so the mission branch can land on the default branch; nothing was cut`;
+function missionBranches({ octokitFor }) {
+  return {
+    async prepare({ installation, repo, branch }) {
+      const [owner = "", name = ""] = repo.split("/");
+      const octokit = await octokitFor(installation);
+      const { data } = await octokit.request("GET /repos/{owner}/{repo}", { owner, repo: name });
+      const read = RepoSchema.parse(data);
+      if (read.allow_rebase_merge !== true) return { ok: false, why: rebaseWhy(repo) };
+      const head = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo: name, ref: `heads/${read.default_branch}` });
+      const from = RefSchema.parse(head.data).object.sha;
+      const existed = await exists(octokit, { owner, repo: name, branch });
+      await branchHead(octokit, { owner, repo: name, branch, from, defaultBranch: read.default_branch });
+      return { ok: true, cut: !existed };
+    }
+  };
+}
+async function exists(octokit, { owner, repo, branch }) {
+  try {
+    await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` });
+    return true;
+  } catch (error) {
+    if (statusOf(error) === 404) return false;
+    throw error;
+  }
+}
+
+// apps/omni-app/src/missions/job.ts
+import { z as z86 } from "zod";
 
 // apps/omni-app/src/missions/supervisor.ts
 var STEPS = ["build", "review:1", "fix:1", "review:2"];
@@ -21289,18 +21322,28 @@ var LAST_RUN = 2;
 var ROUNDS = 2;
 var KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1))?$/;
 var missionKey = (mission, prd, run, step = "build") => `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === "build" ? "" : `:${step}`}`;
-var isStep = (text18) => STEPS.some((step) => step === text18);
+var isStep = (text19) => STEPS.some((step) => step === text19);
 function runOfKey(key) {
   const match = KEY.exec(key);
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
   const step = match?.[4] ?? "build";
   return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
 }
-function lineOf4(prd, step, skill = "yolo") {
+function lineOf4(prd, step, skill = "yolo", base = null) {
   const n = String(prd);
-  if (step === "build") return skill === "ultra-yolo" ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review`;
-  if (step === "fix:1") return `/omni:${skill === "ultra-yolo" ? "ultra-yolo-fix" : "yolo-fix"} ${n} --for-review`;
+  const onBase = base === null ? "" : ` --base ${base}`;
+  if (step === "build") return skill === "ultra-yolo" ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review${onBase}`;
+  if (step === "fix:1") return skill === "ultra-yolo" ? `/omni:ultra-yolo-fix ${n} --for-review` : `/omni:yolo-fix ${n} --for-review${onBase}`;
   return `/omni:review ${n}`;
+}
+var MISSION_BRANCH = "mission/{number}-{topic}";
+var TOPIC_MAX = 40;
+function missionBranch(number, title) {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, TOPIC_MAX).replace(/-+$/, "");
+  return MISSION_BRANCH.replace("{number}", String(number)).replace("{topic}", slug === "" ? "mission" : slug);
+}
+function baseOf(mission, inPlan) {
+  return mission.level === "with-you" || inPlan ? null : missionBranch(mission.number, mission.title);
 }
 var roundOf2 = (step) => step === "review:1" ? 1 : step === "review:2" ? 2 : null;
 var REVIEW_URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+(?:#pullrequestreview-\d+)?$/;
@@ -21451,16 +21494,16 @@ function waitWords(state) {
 }
 var CARRY_ON = "Take it to ready by hand and the mission carries on.";
 function fitted(parts, glue, max = WORDS_MAX) {
-  let text18 = "";
+  let text19 = "";
   for (const [n, part] of parts.entries()) {
-    const longer = text18 === "" ? part : `${text18}${glue}${part}`;
+    const longer = text19 === "" ? part : `${text19}${glue}${part}`;
     const room = n === parts.length - 1 ? max : max - 1;
-    if (longer.length > room) return `${(text18 || part.slice(0, max - 1)).slice(0, max - 1)}\u2026`;
-    text18 = longer;
+    if (longer.length > room) return `${(text19 || part.slice(0, max - 1)).slice(0, max - 1)}\u2026`;
+    text19 = longer;
   }
-  return text18;
+  return text19;
 }
-var cut2 = (text18, max = WORDS_MAX) => text18.length <= max ? text18 : `${text18.slice(0, max - 1)}\u2026`;
+var cut2 = (text19, max = WORDS_MAX) => text19.length <= max ? text19 : `${text19.slice(0, max - 1)}\u2026`;
 function waitsOf(facts, states) {
   const parts = facts.flatMap((fact) => {
     const state = states.get(fact.prd);
@@ -21546,15 +21589,15 @@ function askedBefore(runs, one) {
   const latest = rounds.reduce((last, other) => last === null || other.run > last.run ? other : last, null);
   return (latest ? lastOf(latest)?.posted?.findings : null) ?? null;
 }
-function sentWords(one, where, skill) {
+function sentWords(one, where, skill, base) {
   const round = roundOf2(one.step);
-  return `Sent ${lineOf4(one.prd, one.step, skill)} to ${where} (run ${String(one.run)}${round === null ? "" : `, round ${String(round)}`}).`;
+  return `Sent ${lineOf4(one.prd, one.step, skill, base)} to ${where} (run ${String(one.run)}${round === null ? "" : `, round ${String(round)}`}).`;
 }
-function runEvents(runs, where, skill) {
+function runEvents(runs, where, skill, base) {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
-    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill) };
+    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill, base) };
     const ending = last && end !== null ? [endEvent(one.prd, one, last, end, askedBefore(runs, one))] : [];
     return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, "lost")), ...ending];
   });
@@ -21594,7 +21637,7 @@ function eventsOf({
 }) {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : "any runner of the workspace";
-  const all = [...runEvents(runs, where, skill), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [...runEvents(runs, where, skill, baseOf(mission, skill === "ultra-yolo")), ...prdEvents(facts, states), ...missionEvents(mission, next)];
   return all.flatMap((event) => {
     const own = keysOf3(event);
     if (own.some((key) => keys.has(key))) return [];
@@ -21610,31 +21653,42 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z85.looseObject({ laters: z85.number().int().min(0).optional() });
-async function supervise(store, mission, now) {
+var ProgressSchema3 = z86.looseObject({ laters: z86.number().int().min(0).optional() });
+async function supervise(store, mission, now, branches) {
   const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
   const skill = inPlan ? "ultra-yolo" : "yolo";
+  const unready = await branchWaits(store, mission, inPlan, branches);
   const sent = [];
-  for (const { prd, run, step } of pick2({ mission, facts, states: prdStates(facts, runs) })) {
+  for (const { prd, run, step } of unready === null ? pick2({ mission, facts, states: prdStates(facts, runs) }) : []) {
     const made = await store.send({ mission, prd, run, step, toFleet, skill });
     if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all);
-  const next = conclude({ mission, facts, states, sent: sent.length, now });
+  const concluded = conclude({ mission, facts, states, sent: sent.length, now });
+  const next = unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready };
   const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded) });
   await store.record(mission.id, events, new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === "running"), moved, sent: sent.length, events: events.length };
 }
+async function branchWaits(store, mission, inPlan, branches) {
+  const branch = baseOf(mission, inPlan);
+  if (branch === null || mission.status === "paused" || mission.status === "stopped") return null;
+  if (branches === null) return `the mission branch ${branch} cannot be cut: the app has no GitHub access here`;
+  const installation = await store.installation(mission);
+  if (installation === null) return `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App`;
+  const prepared = await branches.prepare({ installation, repo: mission.repo, branch });
+  return prepared.ok ? null : prepared.why;
+}
 var watched = ({ next, running }) => next.status === "running" || next.status === "waiting" || next.status === "paused" && running;
-function missionHandler({ store, refresh, now = Date.now, log: log2 = noteTo("missions") }) {
+function missionHandler({ store, refresh, branches = null, now = Date.now, log: log2 = noteTo("missions") }) {
   return async (job) => {
     const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
     const mission = await runnable(store, id);
     if (!("id" in mission)) return mission;
     const at4 = now();
-    const run = await supervise(mission.store, mission, at4);
+    const run = await supervise(mission.store, mission, at4, branches);
     log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
     if (!watched(run) && run.moved) return { outcome: "done" };
     return laterOf({ job, refresh, mission, at: at4 });
@@ -21655,10 +21709,52 @@ async function laterOf({ job, refresh, mission, at: at4 }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z86 } from "zod";
+import { z as z88 } from "zod";
+
+// kit/lib/mission/brief.ts
+import { parse as parse4 } from "yaml";
+import { z as z87 } from "zod";
+var DEFAULT_PARALLEL = 2;
+var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
+var DEFAULT_LEVEL = "with-you";
+var DEFAULT_HARD_TO_REVERT = 0.6;
+var DEFAULT_OWN_PRDS = 0;
+var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var text17 = (max) => z87.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
+var distinct = (list2) => new Set(list2).size === list2.length;
+var MeasureSchema = z87.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
+var ScopeSchema = z87.object(
+  {
+    prds: z87.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z87.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+  },
+  { message: "must be {prds, roadmaps}" }
+).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
+var MandateSchema = z87.object(
+  {
+    parallel: z87.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
+    level: z87.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
+    hardToRevert: z87.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
+    ownPrds: z87.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
+  },
+  { message: "must be {parallel, level, hardToRevert, ownPrds}" }
+).strict();
+var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
+var BriefSchema = z87.object({
+  mission: IssueNumberSchema,
+  title: text17(200),
+  fleet: text17(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
+  goal: text17(500),
+  measures: z87.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
+  scope: ScopeSchema,
+  mandate: MandateSchema.default(DEFAULT_MANDATE)
+}).strict();
+
+// apps/omni-app/src/missions/store.ts
 var APP_SENDER2 = "omni-app";
 var TAKEN = "23505";
-var MISSION = "id, workspace_id, repo, fleet, status, waiting_on, mandate, scope";
+var MISSION = "id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope";
+var WORKSPACE2 = "github_installation_id";
 var ROADMAP = "id, number";
 var ROADMAP_PRD = "roadmap_id, position, row_id, prd, blockers";
 var STAGE2 = "prd, stage";
@@ -21671,37 +21767,40 @@ var JOB_LOG = "id, log_tail";
 var EVENT = "kind, prd, job_id";
 var RUNNER = "repos";
 var PRODUCT = "plan_repository";
-var text17 = z86.string().min(1);
-var MissionRowSchema = z86.object({
-  id: text17,
-  workspace_id: text17,
-  repo: text17,
-  fleet: text17,
-  status: z86.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z86.string().nullable(),
-  mandate: z86.object({ parallel: z86.number().int().min(1).max(4) }),
-  scope: z86.object({ prds: z86.array(PrdNumberSchema), roadmaps: z86.array(IssueNumberSchema) })
+var text18 = z88.string().min(1);
+var MissionRowSchema = z88.object({
+  id: text18,
+  workspace_id: text18,
+  repo: text18,
+  fleet: text18,
+  number: IssueNumberSchema,
+  title: text18,
+  status: z88.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z88.string().nullable(),
+  mandate: z88.object({ parallel: z88.number().int().min(1).max(4), level: z88.enum(MISSION_LEVELS).default("with-you") }),
+  scope: z88.object({ prds: z88.array(PrdNumberSchema), roadmaps: z88.array(IssueNumberSchema) })
 });
-var RoadmapRowSchema = z86.object({ id: text17, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z86.object({ roadmap_id: text17, position: z86.number().int(), row_id: text17, prd: PrdNumberSchema.nullable(), blockers: z86.array(z86.string()) });
-var StageRowSchema = z86.object({ prd: PrdNumberSchema, stage: text17 });
-var DossierRowSchema5 = z86.object({ id: text17, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z86.object({ id: text17, dossier_id: text17 });
-var VoidRowSchema2 = z86.object({ approval_id: text17 });
-var PlanRowSchema = z86.object({ content: z86.string() });
-var JobRowSchema2 = z86.object({
-  id: text17,
-  mission_key: z86.string().nullable(),
-  resumes: z86.string().nullable(),
-  status: z86.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z86.string().nullable(),
-  reason: z86.string().nullable(),
-  pr_url: z86.string().nullable()
+var WorkspaceRowSchema2 = z88.object({ github_installation_id: z88.number().int().positive().nullable() });
+var RoadmapRowSchema = z88.object({ id: text18, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z88.object({ roadmap_id: text18, position: z88.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z88.array(z88.string()) });
+var StageRowSchema = z88.object({ prd: PrdNumberSchema, stage: text18 });
+var DossierRowSchema5 = z88.object({ id: text18, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z88.object({ id: text18, dossier_id: text18 });
+var VoidRowSchema2 = z88.object({ approval_id: text18 });
+var PlanRowSchema = z88.object({ content: z88.string() });
+var JobRowSchema2 = z88.object({
+  id: text18,
+  mission_key: z88.string().nullable(),
+  resumes: z88.string().nullable(),
+  status: z88.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z88.string().nullable(),
+  reason: z88.string().nullable(),
+  pr_url: z88.string().nullable()
 });
-var JobLogRowSchema = z86.object({ id: text17, log_tail: z86.string() });
-var EventRowSchema = z86.object({ kind: text17, prd: PrdNumberSchema.nullable(), job_id: z86.string().nullable() });
-var RunnerRowSchema = z86.object({ repos: z86.array(z86.string()) });
-var ProductRowSchema3 = z86.object({ plan_repository: z86.string().nullable() });
+var JobLogRowSchema = z88.object({ id: text18, log_tail: z88.string() });
+var EventRowSchema = z88.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z88.string().nullable() });
+var RunnerRowSchema = z88.object({ repos: z88.array(z88.string()) });
+var ProductRowSchema3 = z88.object({ plan_repository: z88.string().nullable() });
 var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 function missionStore(connection) {
@@ -21749,7 +21848,7 @@ function missionStore(connection) {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope };
     },
     async facts(mission) {
       const scope = expandScope(mission.scope.prds, await roadmapRows(mission));
@@ -21804,18 +21903,22 @@ function missionStore(connection) {
       const products = rowsOf(ProductRowSchema3, await db.from("products").select(PRODUCT).eq("workspace_id", mission.workspace).is("archived_at", null));
       return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
     },
+    async installation(mission) {
+      const [workspace] = rowsOf(WorkspaceRowSchema2, await db.from("workspaces").select(WORKSPACE2).eq("id", mission.workspace).limit(1));
+      return workspace?.github_installation_id ?? null;
+    },
     async send({ mission, prd, run, step, toFleet, skill }) {
       const answer = await db.from("runner_jobs").insert({
         workspace_id: mission.workspace,
         repo: mission.repo,
-        line: lineOf4(prd, step, skill),
+        line: lineOf4(prd, step, skill, baseOf(mission, skill === "ultra-yolo")),
         sent_by_app: APP_SENDER2,
         to_fleet: toFleet ? mission.fleet : null,
         mission_id: mission.id,
         mission_key: missionKey(mission.id, prd, run, step)
       }).select("id");
       if (answer.error?.code === TAKEN) return null;
-      const [made] = rowsOf(z86.object({ id: text17 }), answer);
+      const [made] = rowsOf(z88.object({ id: text18 }), answer);
       if (!made) throw new Error("the database queued no job and gave no reason");
       return made.id;
     },
@@ -21832,11 +21935,11 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z86.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z88.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status, waitingOn, nextWakeAt }) {
       const moved = rowsOf(
-        z86.object({ id: text17 }),
+        z88.object({ id: text18 }),
         await db.from("missions").update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -21947,9 +22050,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z87 } from "zod";
+import { z as z89 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z87.looseObject({ category: z87.string().nullable() });
+var ReplySchema2 = z89.looseObject({ category: z89.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -21972,10 +22075,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z88 } from "zod";
-var UngroupedRowSchema = z88.object({ id: z88.string().min(1), product_id: z88.string().min(1), workspace_id: z88.string().min(1), query: z88.string().min(1) });
-var NearestRowSchema = z88.object({ group_id: z88.string().min(1), cosine: z88.number() });
-var GroupIdSchema = z88.object({ id: z88.string().min(1) });
+import { z as z90 } from "zod";
+var UngroupedRowSchema = z90.object({ id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), query: z90.string().min(1) });
+var NearestRowSchema = z90.object({ group_id: z90.string().min(1), cosine: z90.number() });
+var GroupIdSchema = z90.object({ id: z90.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -21993,7 +22096,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z88.array(NearestRowSchema).parse(data);
+      const [row] = z90.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -22013,22 +22116,22 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z89 } from "zod";
+import { z as z91 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z89.looseObject({
-  verdicts: z89.array(z89.looseObject({ entryId: z89.string().min(1), relevant: z89.boolean().nullable(), confidence: z89.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z91.looseObject({
+  verdicts: z91.array(z91.looseObject({ entryId: z91.string().min(1), relevant: z91.boolean().nullable(), confidence: z91.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z89.looseObject({ ids: z89.array(z89.string().min(1)) });
+var SearchSchema2 = z91.looseObject({ ids: z91.array(z91.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
 async function signedPost2({ name, url, secret, body, post: post2, timeoutMs }) {
-  const text18 = JSON.stringify(body);
-  const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, text18) };
+  const text19 = JSON.stringify(body);
+  const headers = { "content-type": "application/json", [STAGE_SIGNATURE_HEADER]: signStageEvent(secret, text19) };
   let response;
   try {
-    response = await post2(url, { method: "POST", body: text18, headers, signal: AbortSignal.timeout(timeoutMs) });
+    response = await post2(url, { method: "POST", body: text19, headers, signal: AbortSignal.timeout(timeoutMs) });
   } catch {
     throw new Error(`${name}: galaxy could not be reached`);
   }
@@ -22055,19 +22158,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z90 } from "zod";
+import { z as z92 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z90.object({ group_id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), category: z90.string().nullable() });
-var GroupRowSchema = z90.object({ group_id: z90.string().min(1) });
-var QuestionTextSchema = z90.object({ question: z90.string() });
-var OpenedRowSchema = z90.object({ opened_id: z90.string().min(1) });
-var ProductRowSchema4 = z90.object({ product_id: z90.string().min(1) });
-var HolderRowSchema5 = z90.object({ product_id: z90.string().min(1) });
-var LiveProductSchema = z90.object({ id: z90.string().min(1) });
-var QuestionRowSchema = z90.object({ id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), question: z90.string(), category: z90.string().nullable() });
-var AnswerRowSchema = z90.object({ question_id: z90.string().min(1), entry_id: z90.string().min(1) });
-var RunRowSchema = z90.object({ id: z90.string().min(1) });
+var LogRowSchema = z92.object({ group_id: z92.string().min(1), product_id: z92.string().min(1), workspace_id: z92.string().min(1), category: z92.string().nullable() });
+var GroupRowSchema = z92.object({ group_id: z92.string().min(1) });
+var QuestionTextSchema = z92.object({ question: z92.string() });
+var OpenedRowSchema = z92.object({ opened_id: z92.string().min(1) });
+var ProductRowSchema4 = z92.object({ product_id: z92.string().min(1) });
+var HolderRowSchema5 = z92.object({ product_id: z92.string().min(1) });
+var LiveProductSchema = z92.object({ id: z92.string().min(1) });
+var QuestionRowSchema = z92.object({ id: z92.string().min(1), product_id: z92.string().min(1), workspace_id: z92.string().min(1), question: z92.string(), category: z92.string().nullable() });
+var AnswerRowSchema = z92.object({ question_id: z92.string().min(1), entry_id: z92.string().min(1) });
+var RunRowSchema = z92.object({ id: z92.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -22102,7 +22205,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z90.string().min(1).nullable().parse(data);
+      return z92.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -22115,7 +22218,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z90.boolean().parse(data);
+      return z92.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -22148,7 +22251,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z90.string().min(1).nullable().parse(data);
+      return z92.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -22310,7 +22413,7 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), refresh: ledger.refresh }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
@@ -22473,7 +22576,7 @@ function liveJobs(env, logger) {
     forget: () => ledger.forget()
   };
 }
-var ReplayBodySchema = z91.object({ replay: z91.string().min(1) });
+var ReplayBodySchema = z93.object({ replay: z93.string().min(1) });
 var json = (status, body) => Response.json(body, { status, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;
