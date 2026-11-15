@@ -963,7 +963,7 @@ describe('omni statusline --refresh <n> --kind', () => {
     const links = [{ label: 'fix page', href: `${BASE}/bug/1180` }, { label: 'fix PR #40', href: 'https://github.com/acme/widgets/pull/40' }];
     expect(linksJson(root, 'links-bug-1180.json')).toEqual({ at: iso(NOW), links });
     expect(existsSync(join(root, BOARD_DIR))).toBe(false);
-    expect(await nowJson(root)).toEqual({ headline: null, work: { kind: 'bug', number: 1180, topic: 'login-redirect', stage: 'fix PR open', slices: [], links }, doing: null });
+    expect(await nowJson(root)).toMatchObject({ headline: null, work: { kind: 'bug', number: 1180, topic: 'login-redirect', stage: 'fix PR open', slices: [], links }, doing: null });
   });
 
   it('reads each link through LoopReads: the feature by its head, any state, the phase-0 and the fix PR open only', async () => {

@@ -1,10 +1,15 @@
 // PRD #2251, slice s5: `omni now --json` carries the runner rows — the slots free while a runner is
 // online for the repository (cached in the local folder, null when the read fails, no key when nobody
 // is signed in) and the followed job's last milestone.
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TokenStore } from '../../lib/ask/client.ts';
+import { parsePr } from '../../lib/ids.ts';
+import { aChange, fakeLoopReads } from '../../lib/loop-reads/fake.ts';
+import { LoopReadError } from '../../lib/loop-reads/port.ts';
+import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { makeRepo, realExec } from '../../test/fixture.ts';
 import { now } from './now.ts';
 
@@ -63,5 +68,60 @@ describe('omni now --json, the runner rows', () => {
     const { run, fetch } = ask();
     expect(await run([])).not.toContain('runners');
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+// PRD 2906, slice s2: `omni now --status --fetch` reads the work's pull request through `LoopReads`, with a
+// limit, keeps it beside the links, and shows the last copy with its age when GitHub does not answer.
+describe('omni now --status --fetch', () => {
+  const FIX_FILES = { '.omni-loop/config.yml': CONFIG, '.omni-loop/delivery/bugs/1180-login/bug.md': '# login\n' };
+
+  function onFix() {
+    const repo = makeRepo({ files: FIX_FILES, git: true });
+    roots.push(repo.root);
+    execFileSync('git', ['checkout', '-q', '-b', 'fix/login'], { cwd: repo.root });
+    return repo;
+  }
+
+  async function status(root: string, reads: LoopReads, fetchMs = 5000) {
+    let out = '';
+    const io = { cwd: root, stdout: { write: (chunk: string) => (out += chunk) }, stderr: { write: () => undefined }, exec: realExec, env: {}, vars: {}, stdin: '', now: () => NOW, tokens: tokens(false), reads, fetchMs };
+    const code = await now.run(['--status', '--fetch'], io as never);
+    return { code, out };
+  }
+
+  const answering = (checks: { name: string; state: 'pending' | 'success' | 'failure' }[]) =>
+    fakeLoopReads({
+      changes: { 'acme/widgets': [aChange({ number: parsePr(2892), head: 'fix/login', state: 'draft' })] },
+      details: { 'acme/widgets#2892': { files: ['kit/lib/login.ts'], review: { checks, mergeable: true, threads: [] } } },
+    });
+
+  it('reads the pull request, shows the block as just checked, and keeps the pull request beside the links', async () => {
+    const { root } = onFix();
+    const { code, out } = await status(root, answering([{ name: 'lint-and-test', state: 'failure' }]));
+    expect(code).toBe(0);
+    expect(out).toContain('🔴 Stuck');
+    expect(out).toContain('lint-and-test · failed');
+    expect(out).toContain('https://example.test/changes/2892');
+    expect(out).toContain('Checked just now.');
+    const kept = JSON.parse(readFileSync(join(root, '.omni-loop/local/now/pr-bug-1180.json'), 'utf8')) as { number: number; state: string };
+    expect(kept).toMatchObject({ number: 2892, state: 'draft' });
+  });
+
+  it('shows the last copy and how old it is when the reads do not answer', async () => {
+    const { root } = onFix();
+    await status(root, answering([{ name: 'test', state: 'success' }]));
+    const failing = fakeLoopReads({ everything: new LoopReadError('no answer', 'everything') });
+    const { out } = await status(root, failing);
+    expect(out).toContain('Checked 1 min ago (GitHub did not answer).');
+    expect(out).toContain('https://example.test/changes/2892');
+  });
+
+  it('stops waiting after the limit, with no copy kept yet', async () => {
+    const { root } = onFix();
+    const hanging = { ...fakeLoopReads(), changes: () => new Promise<never>(() => undefined) } as LoopReads;
+    const { code, out } = await status(root, hanging, 20);
+    expect(code).toBe(0);
+    expect(out).toContain('Not checked yet (GitHub did not answer).');
   });
 });
