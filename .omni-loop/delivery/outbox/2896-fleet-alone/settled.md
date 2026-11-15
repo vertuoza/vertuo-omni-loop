@@ -1474,3 +1474,234 @@ Dropping the lines later is one change to the body and its tests; issues already
 ```
 
 <!-- /omni-outbox-settled: s6-06-landing-closes-prd-issues -->
+
+<!-- omni-outbox-settled: s7-01-dropped-prd-waits-for-a-person -->
+
+## s7-01-dropped-prd-waits-for-a-person — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s7
+- Wave: 7
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-dropped-prd-waits-for-a-person
+prd: 2896
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 7
+---
+
+## The question, in plain words
+
+A dropped PRD must stay dropped until a person sends it again, but the spec does not say how a person sends it again. What happens to a dropped PRD in the meantime?
+
+## The decision, in plain words
+
+A dropped PRD never joins the branch again by itself and the mission says it waits on a person for it. How a person sends it again is left for a later slice.
+
+## The intro, for fun
+
+Dropped is easy; picking it back up is a different conversation.
+
+## The punchline, for fun
+
+It sits on the bench with its feature pull request reopened.
+
+## The options, in plain words
+
+A. A dropped PRD waits on a person, and sending it again comes later.
+B. A dropped PRD rejoins at once when its reopened pull request passes the gate.
+
+## What I had to decide
+
+A PRD whose latest event is prd-dropped reads as dropped: it is never merged into the branch, and the mission waits naming it, until a later event joins it again.
+
+## What I did meanwhile
+
+Its feature pull request is reopened against the branch so a person can see and rework it.
+
+## What it costs to change later
+
+Adding a way to send it again later is a new command and one event, with no change to what is built here.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a dropped PRD is dropped until a person sends it again, with no command or button for it.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-dropped-prd-waits-for-a-person -->
+
+<!-- omni-outbox-settled: s7-02-red-branch-names-the-last-joined-prd -->
+
+## s7-02-red-branch-names-the-last-joined-prd — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s7
+- Wave: 7
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-red-branch-names-the-last-joined-prd
+prd: 2896
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 7
+---
+
+## The question, in plain words
+
+When the mission branch's checks go red, which PRD does the mission name as the one to drop?
+
+## The decision, in plain words
+
+The mission names the PRD that joined the branch last, since the red head is its commit, and gives the drop line for it. A person may still drop another one.
+
+## The intro, for fun
+
+The last one through the door gets the blame.
+
+## The punchline, for fun
+
+Detectives call it the usual suspect.
+
+## The options, in plain words
+
+A. Name the PRD that joined last.
+B. Name every PRD on the branch and let a person pick.
+
+## What I had to decide
+
+A red head of the mission branch names the PRD that joined last and holds every further join until the checks are green again or a PRD is dropped.
+
+## What I did meanwhile
+
+The check runs of the head are read once per run, and a head with no finished failure reads as not red.
+
+## What it costs to change later
+
+Finding the first PRD whose commit turned the checks red means reading the checks of each commit, which is one function to change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the PRD after a join but not how to find it when the red comes from a rebase or a late check.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-red-branch-names-the-last-joined-prd -->
+
+<!-- omni-outbox-settled: s7-03-drop-needs-events-and-wiring-outside-territory -->
+
+## s7-03-drop-needs-events-and-wiring-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s7
+- Wave: 7
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-drop-needs-events-and-wiring-outside-territory
+prd: 2896
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 7
+---
+
+## The question, in plain words
+
+Dropping a PRD needs new kinds of mission event, a call from the terminal and one line wiring the drop into the job list, none of them in the slice's territory. Were they right to change?
+
+## The decision, in plain words
+
+A new database migration lets a mission record that a drop was asked for and done, the terminal's client gets one call for it, and the job list gets the new drop step. Each is small and only adds.
+
+## The intro, for fun
+
+To take a PRD off the branch you first have to be allowed to say so.
+
+## The punchline, for fun
+
+Four paths outside the fence, each one just a door.
+
+## The options, in plain words
+
+A. Keep the additive migration, client call and job wiring as built.
+B. Record a drop another way, with no new event kind, and rework the slice.
+
+## What I had to decide
+
+Add supabase/migrations/20270123120000_mission_drops.sql and its proof in supabase/checks/missions.sql, add dropMission to kit/lib/ask/client.ts, and wire missionDrops in apps/omni-app/src/jobs/pr-checks.ts, all outside the slice's territory.
+
+## What I did meanwhile
+
+The three event kinds are additive, the client call is one method, and the wiring is one line, the same as s4 to s6 did.
+
+## What it costs to change later
+
+Reverting means a follow-up migration that only works while no drop is recorded, and removing one method and one line.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gave the slice no migration, client or job-list path, yet a drop must be recorded and reachable from the terminal.
+
+```
+
+<!-- /omni-outbox-settled: s7-03-drop-needs-events-and-wiring-outside-territory -->
