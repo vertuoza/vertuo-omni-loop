@@ -1,9 +1,10 @@
 'use client';
 import { useMemo, useState } from 'react';
+import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
-import type { MissionAction } from '../missions.contract';
+import { MissionLevelSchema, type MissionAction } from '../missions.contract';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
-import { ACTION_WORDS, WORDS, type MissionsView } from './missions-tab';
+import { ACTION_WORDS, LEVEL_WORDS, LEVELS, WORDS, type MissionsView } from './missions-tab';
 import './missions-tab.css';
 
 // The Missions tab of a Virtual Fleet (PRD 2842 s7, the `mission-start` screen): each mission's goal, its
@@ -15,6 +16,80 @@ export interface MissionsTabProps {
   view: MissionsView;
   /** Replaces the calls, for the tests. */
   port?: MissionsPort;
+}
+
+/** `Level: Own branch`, and on a draft the choice that changes it for this mission alone (`level` null: no choice). */
+function LevelLine({ words, level, disabled, onChange }: { words: string; level: MissionLevel | null; disabled: boolean; onChange: (level: MissionLevel) => void }) {
+  return (
+    <p className="mission-level">
+      <span>{WORDS.level}: {words}</span>
+      {level !== null && (
+        <label className="mission-level-change">
+          {WORDS.changeLevel}{' '}
+          <select
+            value={level}
+            disabled={disabled}
+            onChange={(event) => {
+              const picked = MissionLevelSchema.safeParse(event.target.value);
+              if (picked.success) onChange(picked.data);
+            }}
+          >
+            {LEVELS.map((each) => <option key={each} value={each}>{LEVEL_WORDS[each]}</option>)}
+          </select>
+        </label>
+      )}
+    </p>
+  );
+}
+
+/** One mission's row: its words at the left, its one button at the right. */
+function MissionItem({ mission, busy, problem, onMove, onLevel }: {
+  mission: MissionsView['missions'][number];
+  busy: string | null;
+  problem: string | null;
+  onMove: (action: MissionAction) => void;
+  onLevel: (level: MissionLevel) => void;
+}) {
+  const action = mission.action;
+  return (
+      <li className="mission" data-status={mission.status}>
+        <div className="mission-body">
+          <h3 className="mission-goal">{mission.goal}</h3>
+          <p className="mission-line">
+            <span className="mission-state" data-status={mission.status}>{mission.statusWords}</span>
+            <span className="mission-progress">{mission.progress}</span>
+            <a href={mission.briefHref}>{WORDS.brief}<span className="ask-sr">: {mission.title}</span></a>
+          </p>
+          <LevelLine
+            words={mission.levelWords}
+            level={mission.canChangeLevel ? mission.level : null}
+            disabled={busy !== null}
+            onChange={onLevel}
+          />
+          {mission.waits.length > 0 && (
+            <ul className="mission-waits">
+              {mission.waits.map((wait) => (
+                <li key={wait.prd}><a href={wait.href}>PRD {wait.prd}</a>: {wait.on}</li>
+              ))}
+            </ul>
+          )}
+          {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
+          {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
+        </div>
+        {action !== null && (
+          <button
+            type="button"
+            className={action === 'start' ? 'ask-button mission-action' : 'ask-button quiet mission-action'}
+            {...(action === 'start' ? { 'data-primary': '' } : {})}
+            disabled={busy !== null}
+            onClick={() => { onMove(action); }}
+          >
+            {busy === mission.id ? ACTION_WORDS[action].busy : ACTION_WORDS[action].idle}
+            <span className="ask-sr"> {mission.title}</span>
+          </button>
+        )}
+      </li>
+  );
 }
 
 export function MissionsTab({ view, port }: MissionsTabProps) {
@@ -35,42 +110,31 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
     router.refresh();
   }
 
+  async function changeLevel(mission: string, level: MissionLevel) {
+    setBusy(mission);
+    setProblem(null);
+    const done = await calls.setLevel(mission, level);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
   return (
     <section className="missions" data-screen="mission-start" aria-label={WORDS.tab}>
       {view.missions.length === 0 && <p className="ask-muted missions-empty">{WORDS.empty}</p>}
       <ul className="missions-list">
         {view.missions.map((mission) => (
-          <li className="mission" key={mission.id} data-status={mission.status}>
-            <div className="mission-body">
-              <h3 className="mission-goal">{mission.goal}</h3>
-              <p className="mission-line">
-                <span className="mission-state" data-status={mission.status}>{mission.statusWords}</span>
-                <span className="mission-progress">{mission.progress}</span>
-                <a href={mission.briefHref}>{WORDS.brief}<span className="ask-sr">: {mission.title}</span></a>
-              </p>
-              {mission.waits.length > 0 && (
-                <ul className="mission-waits">
-                  {mission.waits.map((wait) => (
-                    <li key={wait.prd}><a href={wait.href}>PRD {wait.prd}</a>: {wait.on}</li>
-                  ))}
-                </ul>
-              )}
-              {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
-              {problem?.mission === mission.id && <p className="mission-problem" role="alert">{problem.message}</p>}
-            </div>
-            {mission.action !== null && (
-              <button
-                type="button"
-                className={mission.action === 'start' ? 'ask-button mission-action' : 'ask-button quiet mission-action'}
-                {...(mission.action === 'start' ? { 'data-primary': '' } : {})}
-                disabled={busy !== null}
-                onClick={() => { void move(mission.id, mission.action ?? 'start'); }}
-              >
-                {busy === mission.id ? ACTION_WORDS[mission.action].busy : ACTION_WORDS[mission.action].idle}
-                <span className="ask-sr"> {mission.title}</span>
-              </button>
-            )}
-          </li>
+          <MissionItem
+            key={mission.id}
+            mission={mission}
+            busy={busy}
+            problem={problem?.mission === mission.id ? problem.message : null}
+            onMove={(action) => { void move(mission.id, action); }}
+            onLevel={(level) => { void changeLevel(mission.id, level); }}
+          />
         ))}
       </ul>
     </section>

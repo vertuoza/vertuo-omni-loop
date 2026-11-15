@@ -1,3 +1,4 @@
+import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
 import { z } from 'zod';
 
 // The missions' contract (PRD 2842 s5; spec "3. The supervisor"): what the Start, Pause and Resume routes
@@ -7,6 +8,7 @@ import { z } from 'zod';
 //   POST /api/missions/<id>/start    a draft goes running
 //   POST /api/missions/<id>/pause    a running or waiting mission goes paused
 //   POST /api/missions/<id>/resume   a paused mission goes running
+//   POST /api/missions/<id>/level    {level}: Change for this mission (PRD 2896), the level it runs at
 
 export type MissionAction = 'start' | 'pause' | 'resume';
 
@@ -23,6 +25,12 @@ export const MOVES: Record<MissionAction, { from: readonly MissionStatus[]; to: 
 
 export const MovedMissionSchema = z.object({ mission: z.object({ id: z.uuid(), status: MissionStatusSchema }) });
 export type MovedMission = z.infer<typeof MovedMissionSchema>;
+
+/** What a mission runs at (PRD 2896): the brief's three keys. */
+export const MissionLevelSchema = z.enum(MISSION_LEVELS);
+export const LevelBodySchema = z.object({ level: MissionLevelSchema });
+export const LeveledMissionSchema = z.object({ mission: z.object({ id: z.uuid(), level: MissionLevelSchema }) });
+export type LeveledMission = z.infer<typeof LeveledMissionSchema>;
 
 /** Each refusal's status. */
 export const MISSION_REFUSALS = {

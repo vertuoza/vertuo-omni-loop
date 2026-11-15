@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
+import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
-import { MissionStatusSchema, type MissionStatus } from './missions.contract';
+import { MissionLevelSchema, MissionStatusSchema, type MissionStatus } from './missions.contract';
 
 // The missions' reads and writes (PRD 2842 s5), on the clients they are given. A signed-in person reads
 // through their own session, so row-level security shows a mission to the members of its workspace and to
@@ -12,13 +14,19 @@ import { MissionStatusSchema, type MissionStatus } from './missions.contract';
 export type MissionsDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 const WHERE = 'missions/missions.repository';
-const MISSION = 'id, workspace_id, repo, status';
+const MISSION = 'id, workspace_id, repo, status, number, title, mandate';
 
-const MissionRow = z.object({ id: z.uuid(), workspace_id: z.uuid(), repo: z.string().min(1), status: MissionStatusSchema });
-/** A mission as the repository reads it: its workspace, its repository and where it stands. */
-export type MissionRecord = { id: string; workspace: string; repo: string; status: MissionStatus };
+const MissionRow = z.object({
+  id: z.uuid(), workspace_id: z.uuid(), repo: z.string().min(1), status: MissionStatusSchema,
+  number: z.number().int().positive(), title: z.string(),
+  // A mission made before PRD 2896 holds no level: it reads `with-you`.
+  mandate: z.object({ level: MissionLevelSchema.optional() }).loose(),
+});
+/** A mission as the repository reads it: its workspace, its repository, where it stands and the level it runs at. */
+export type MissionRecord = { id: string; workspace: string; repo: string; status: MissionStatus; number: number; title: string; level: MissionLevel };
 
-const toRecord = (row: z.infer<typeof MissionRow>): MissionRecord => ({ id: row.id, workspace: row.workspace_id, repo: row.repo, status: row.status });
+const toRecord = (row: z.infer<typeof MissionRow>): MissionRecord =>
+  ({ id: row.id, workspace: row.workspace_id, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.mandate.level ?? 'with-you' });
 
 /** The job a mission keeps on the App's ledger: its kind, key, subject and lane, due at once (mirrors apps/omni-app/src/missions/job.ts). */
 export type MissionJob = { kind: 'mission'; key: string; subject: string; payload: { mission: string }; lane: string; delaySeconds: 0 };
@@ -27,6 +35,7 @@ export type MissionJob = { kind: 'mission'; key: string; subject: string; payloa
 export const missionJob = (id: string, repo: string): MissionJob =>
   ({ kind: 'mission', key: `mission:${id}`, subject: repo.toLowerCase(), payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 });
 
+const JoinRow = z.object({ kind: z.enum(['prd-joined', 'prd-dropped', 'landed']), prd: PrdNumberSchema });
 const Refreshed = z.enum(['added', 'updated', 'again', 'requeued']);
 
 async function readOne(db: MissionsDb, id: string): Promise<MissionRecord | null> {
@@ -40,6 +49,26 @@ export function missionsReader(db: MissionsDb) {
   return {
     /** The mission, or null when it is none or the person may not see it. */
     mission: (id: string): Promise<MissionRecord | null> => readOne(db, id),
+
+    /** How many PRDs sit on the mission's branch: those whose latest join event is not followed by a drop or a landing. */
+    async joined(id: string): Promise<number> {
+      const { data, error } = await db.from('mission_events').select('kind, prd').eq('mission_id', id).in('kind', ['prd-joined', 'prd-dropped', 'landed']).not('prd', 'is', null).order('at', { ascending: true });
+      if (error) throw new Error(`Supabase: could not read the mission's events (${error.message})`);
+      const on = new Set<PrdNumber>();
+      for (const row of orThrow(parseRows(JoinRow, data, `${WHERE}: mission_events`))) {
+        if (row.kind === 'prd-joined') on.add(row.prd);
+        else on.delete(row.prd);
+      }
+      return on.size;
+    },
+
+    /** Sets the mission's level as the signed-in person, so the database decides who may raise it: the level, or the database's refusal in its words. */
+    async setLevel(id: string, level: MissionLevel): Promise<{ ok: true; level: MissionLevel } | { ok: false; forbidden: boolean; error: string }> {
+      const answer: { data: unknown; error: { message: string; code?: string } | null } = await db.rpc('set_mission_level', { p_mission: id, p_level: level });
+      if (answer.error) return { ok: false, forbidden: answer.error.code === '42501', error: answer.error.message };
+      const done = orThrow(parseRow(MissionRow, answer.data, `${WHERE}: set_mission_level`));
+      return { ok: true, level: done.mandate.level ?? 'with-you' };
+    },
   };
 }
 export type MissionsReader = ReturnType<typeof missionsReader>;

@@ -8725,6 +8725,33 @@ export type Database = {
           set_at: string
         }[]
       }
+      set_mission_level: {
+        Args: { p_level: string; p_mission: string }
+        Returns: {
+          created_at: string
+          fleet: string
+          goal: string
+          id: string
+          mandate: Json
+          measures: Json
+          next_wake_at: string | null
+          number: number
+          repo: string
+          scope: Json
+          started_by: string | null
+          status: string
+          title: string
+          updated_at: string
+          waiting_on: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "missions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_pitch_look: {
         Args: { p_look: string; p_product: string; p_workspace: string }
         Returns: {

@@ -34,7 +34,20 @@ describe('the missions client', () => {
     expect(await httpMissionsPort(failing).move(ID, 'resume')).toEqual({ ok: false, message: COULD_NOT });
   });
 
+  it('posts the level to the mission\'s level route, and carries the refusal\'s words (PRD 2896)', async () => {
+    const sent: { url: string; body: unknown }[] = [];
+    const fetch: typeof globalThis.fetch = (url, init) => {
+      sent.push({ url: typeof url === 'string' ? url : '', body: JSON.parse(typeof init?.body === 'string' ? init.body : '{}') });
+      return Promise.resolve(new Response(JSON.stringify({ mission: { id: ID, level: 'own-branch' } }), { status: 200 }));
+    };
+    expect(await httpMissionsPort(fetch).setLevel(ID, 'own-branch')).toEqual({ ok: true });
+    expect(sent).toEqual([{ url: `/api/missions/${ID}/level`, body: { level: 'own-branch' } }]);
+    const { fetch: refusing } = fetchAnswering(403, { error: 'Only an owner of the workspace takes a mission above its fleet\'s level.' });
+    expect(await httpMissionsPort(refusing).setLevel(ID, 'alone')).toEqual({ ok: false, message: 'Only an owner of the workspace takes a mission above its fleet\'s level.' });
+  });
+
   it('moves nothing in the demo', async () => {
     expect((await demoMissionsPort.move(ID, 'start')).ok).toBe(false);
+    expect((await demoMissionsPort.setLevel(ID, 'alone')).ok).toBe(false);
   });
 });

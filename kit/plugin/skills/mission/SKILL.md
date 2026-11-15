@@ -29,6 +29,7 @@ signed. A command that prints nothing means signing is off here: add nothing.
 | nothing, or the goal | `/omni:mission 'dark mode for quotes'` | the conversation of step 1; a goal given is the first answer, still shown for a yes |
 | `--prd <n> '<goal>'` | `/omni:mission --prd 2803 'dark mode for quotes on site'` | the one-line mission: no conversation. That PRD is its scope, the goal is as given, no measure yet, the default mandate |
 | `--fleet <key>` | `--fleet crew-bots` | the Virtual Fleet's key, when it is already known; saves the question |
+| `--level <key>` | `--level own-branch` | the level the mission runs at, `with-you`, `own-branch` or `alone`; overrides the fleet's. A member who is not an owner can take it only up to the fleet's own level |
 
 `<n>` below is the mission's number, its issue's number. With `--prd` and no goal, say that the
 one-line form takes the goal, and stop.
@@ -51,7 +52,7 @@ Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`.
 ## 1. Settle the brief
 
 With `--prd`, ask nothing: take the goal as given, the scope as that PRD (`prds: [<n>]`, no
-roadmap), `measures: []` and `mandate.parallel: 2`. Check the PRD exists: `omni prd <n>` must print
+roadmap), `measures: []`, `mandate.parallel: 2` and the level as question 5 says. Check the PRD exists: `omni prd <n>` must print
 its folder, else stop and say which PRD it could not find. The Virtual Fleet is `--fleet` when
 given; else ask the one question of this form, the fleet's key, as the Fleet section of the Omni
 page shows it. Under `OMNI_UNATTENDED` with no `--fleet`, ask nothing: stop and say that the fleet's
@@ -74,7 +75,12 @@ briefing's Any agent section for the rest), each with its recommended answer fir
    `omni roadmap check <n>` for a roadmap; a number that does not exist is asked again.
 5. **The mandate**: how many PRDs may run at once, 1 to 4, 2 when the person has no preference.
    The fixed rules are said, not asked: the mission never merges, never answers for a person, and
-   waits for a person wherever one is needed.
+   waits for a person wherever one is needed. Its level is never asked: it is `--level` when given,
+   else the fleet's level as the fleet's Missions tab shows it, written as it stands (`with-you` for
+   a fleet that was never raised). Say it in one line with the brief; the person changes it for this
+   mission on the Missions tab (**Change for this mission**) while the mission is a draft. Its two
+   bounds, `hardToRevert` (0 to 1, 0.6) and `ownPrds` (0 to 10, 0), keep their defaults and are
+   written only when the person asks for another value; both are read only at `alone`.
 
 Then show the brief whole (fleet, goal, measures, scope, mandate) and ask Yes / Change. Write
 nothing before the yes.
@@ -110,10 +116,12 @@ scope:
   roadmaps: [<roadmap numbers>]
 mandate:
   parallel: <1 to 4>
+  level: <with-you | own-branch | alone>
 ---
 ```
 
-`measures: []` when there are none. Quote a value that holds a colon. Nothing else goes in the
+`measures: []` when there are none. Quote a value that holds a colon. `hardToRevert` and `ownPrds` join
+`mandate` only when the person asked for a value other than their default. Nothing else goes in the
 front matter: the kit's schema refuses an unknown field and names the one that is wrong.
 
 **`<folder>/mission.html`**, the brief as a page a person reads in a minute: the goal first, then
@@ -158,5 +166,6 @@ merge), since it never does those itself.
 
 - Never write code, merge a pull request, or press Start.
 - Never write a field the schema does not take, or a measure the person did not give.
+- Never write a level above the fleet's for a person who is not an owner of the workspace: the app refuses it.
 - Never invent a Virtual Fleet's key, a PRD or a roadmap: each is read from the person or checked.
 - Never ask more than one question at a time, or any under `--prd` beyond the fleet's key.

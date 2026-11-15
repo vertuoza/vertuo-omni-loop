@@ -1,4 +1,5 @@
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import type { MissionAction, MissionStatus } from '../missions.contract';
 
 // The Missions tab's rules (PRD 2842 s7, the `mission-start` screen), pure so each is tested without a
@@ -17,7 +18,17 @@ export const WORDS = {
   brief: 'Brief',
   notStarted: 'Not started',
   noPrd: 'No PRD sent yet',
+  level: 'Level',
+  changeLevel: 'Change for this mission',
 } as const;
+
+/** A level in the words the fleet's drawer and this tab use (PRD 2896). */
+export const LEVEL_WORDS: Readonly<Record<MissionLevel, string>> = {
+  'with-you': 'Reviews with you',
+  'own-branch': 'Own branch',
+  alone: 'Works alone',
+};
+export const LEVELS: readonly MissionLevel[] = ['with-you', 'own-branch', 'alone'];
 
 const STATUS_WORDS: Readonly<Record<MissionStatus, string>> = {
   draft: 'Draft',
@@ -48,6 +59,8 @@ export interface MissionRow {
   status: MissionStatus;
   waitingOn: string | null;
   prds: readonly PrdNumber[];
+  /** What it runs at: `with-you` for a mission whose brief names none. */
+  level: MissionLevel;
 }
 
 /** One of its events, as far as the tab reads: which PRD reached which point. */
@@ -78,6 +91,10 @@ export interface MissionView {
   stopped: string | null;
   briefHref: string;
   action: MissionAction | null;
+  level: MissionLevel;
+  levelWords: string;
+  /** A draft's level is changed for this mission alone. */
+  canChangeLevel: boolean;
 }
 
 /** The tab's view: the workspace the moves are made in (null in the demo) and the fleet's missions, newest first. */
@@ -128,6 +145,9 @@ export function missionOf(row: MissionRow, events: readonly EventRow[]): Mission
     stopped: row.status === 'stopped' ? row.waitingOn : null,
     briefHref: issueHref(row.repo, row.number),
     action: ACTION[row.status],
+    level: row.level,
+    levelWords: LEVEL_WORDS[row.level],
+    canChangeLevel: row.status === 'draft',
   };
 }
 
