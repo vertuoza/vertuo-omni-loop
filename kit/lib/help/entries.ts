@@ -1340,6 +1340,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'in. It runs nothing of a provider, merges nothing and writes nothing.',
   },
   {
+    name: 'ready',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni ready <prd> [--json]'],
+    summary: "whether a PRD's feature pull request may be marked ready: five checks",
+    detail:
+      "Reads, through gh, the feature pull request's latest commit: its check runs, the acceptance " +
+      'report its acceptance check run carries, the diff against the default branch, and the PRD\'s ' +
+      'plan, spec and outbox ledger at that commit. It prints one line per check (CI green, the full ' +
+      'tests and lint ran, every acceptance criterion has its proof, no test was loosened, the change ' +
+      'stayed in its area), each pass, fail, not finished or not judged with why, then the verdict as ' +
+      'the last line. Exit 0 only on 5 of 5; anything else, a pull request it cannot find included, is ' +
+      'exit 1, and a check that is still running or unreadable never reads as passed. The first line ' +
+      'says whether the PRD is named by a mission here, beside ready.checks; it never changes the ' +
+      'verdict. --json prints the verdict, the pull request and that line as one object. It writes ' +
+      'nothing and merges nothing.',
+  },
+  {
     name: 'design',
     kind: 'command',
     who: 'skills',
