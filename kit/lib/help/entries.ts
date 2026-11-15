@@ -1462,7 +1462,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'now',
     kind: 'command',
     who: 'skills',
-    usage: ['omni now [--json] [--stdin] [--session <id>]'],
+    usage: ['omni now [--json] [--stdin] [--session <id>]', 'omni now --status [--fetch]'],
     summary: 'what this session is on now, and the slices being built',
     detail:
       'The PRD this session works on, from its branch or else from the last command that named ' +
@@ -1471,7 +1471,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
       'JSON, --session names the session; else it is OMNI_SESSION_ID, then CLAUDE_CODE_SESSION_ID, ' +
       'then the id omni dossier open stored for the checkout. It reads only this computer: it never fetches, never calls ' +
-      'GitHub, writes nothing and always exits 0.',
+      'GitHub, writes nothing and always exits 0. --status prints the work\'s status in plain words (the verdict, ' +
+      'the step, what you must do, what comes next, the links), the same block /omni:status shows; --json then ' +
+      'carries it as its status key. --status --fetch first reads the work\'s pull request (its state, changed files ' +
+      'and checks) from the Omni page, within 5 seconds, and keeps it beside the links; when it does not answer, ' +
+      'the last copy is shown with its age.',
   },
 
   // Skills you type in Claude. Their order is the overview's.
