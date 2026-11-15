@@ -1,17 +1,18 @@
 import { heroLook, spritePixels } from '@omni/design';
-import { HERO_ROLES, roleLine, roleOf, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
+import { HERO_ROLES, roleLine, roleOf, skillMarks, type HeroRole, type SkillMark } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { pixelSvg } from '../../design/pixel-svg';
 import type { Hero } from './heroes.contract';
 
-// The Heroes tab's rules (PRD 2842 s6, the `fleet-seats` screen), pure so each is tested without a browser:
-// the sprite each role is drawn with, in the fleet's colour at a whole-number scale; one row per hero, its
-// words (`Works alone` or `A person does this today`, and why); the roles a fleet may still add. A hero is
-// always shown as an agent (`Engineer · agent`), never as a person: no face, no first name.
+// The Heroes tab's rules (PRD 2842 s6, PRD 2873 s3, the `fleet-seats` screen), pure so each is tested without a
+// browser: the sprite each role is drawn with, in the fleet's colour at a whole-number scale; one row per hero,
+// its count line (`Runs <k> of <n> skills alone`, or `A person does this today`) and every skill it lists, each
+// marked `runs alone` or `needs a person` from the runner's own list, those that run alone first; the roles a
+// fleet may still add. A hero is always shown as an agent (`Engineer · agent`), never as a person: no face, no
+// first name.
 
 export const WORDS = {
   tab: 'Heroes',
   agent: 'agent',
-  alone: 'Works alone',
   person: 'A person does this today',
   noSkill: 'No skill yet',
   add: 'Add a hero',
@@ -30,7 +31,11 @@ const LOOKS: Readonly<Record<HeroRole, { body: 'girl' | 'boy'; skin: number; hai
   reviewer: { body: 'boy', skin: 3, hair: 5, cape: 7 },
   pm: { body: 'girl', skin: 0, hair: 4, cape: 3 },
   architect: { body: 'boy', skin: 4, hair: 1, cape: 8 },
+  designer: { body: 'girl', skin: 3, hair: 7, cape: 2 },
 };
+
+/** A skill's mark, as the tab writes it. */
+const MARK_WORDS: Readonly<Record<SkillMark, string>> = { alone: 'runs alone', person: 'needs a person' };
 
 /** A role's sprite in the fleet's colour, as a crisp SVG string at a whole-number `scale`. */
 export function heroSvg(role: HeroRole, color: string | null, title: string, scale = 3): string {
@@ -45,15 +50,15 @@ export interface HeroRow {
   name: string;
   /** `Engineer · agent`: always an agent. */
   heading: string;
-  /** The skills it runs, as the kit writes them (`/omni:yolo`); none yet reads `No skill yet`. */
-  skills: string[];
+  /** Every skill it lists, as the kit writes them (`/omni:yolo`), each with its mark, those that run alone first;
+   * none yet reads `No skill yet`. */
+  skills: { name: string; mark: SkillMark; words: string }[];
   /** `claude · sonnet`: recorded, the runner's accounts still decide. */
   preferred: string;
   limits: string[];
   alone: boolean;
-  /** `Works alone` or `A person does this today`. */
+  /** `Runs <k> of <n> skills alone`, or `A person does this today`. */
   line: string;
-  why: string | null;
   role: HeroRole;
 }
 
@@ -63,12 +68,11 @@ export function rowOf(hero: Hero): HeroRow {
     id: hero.id,
     name: hero.name,
     heading: `${roleOf(hero.role).name} · ${WORDS.agent}`,
-    skills: hero.skills.map((skill) => `/omni:${skill}`),
+    skills: skillMarks(hero.skills).map(({ skill, mark }) => ({ name: `/omni:${skill}`, mark, words: MARK_WORDS[mark] })),
     preferred: `${hero.agent} · ${hero.model}`,
     limits: hero.limits,
     alone: said.alone,
-    line: said.alone ? WORDS.alone : WORDS.person,
-    why: said.why,
+    line: said.line,
     role: hero.role,
   };
 }

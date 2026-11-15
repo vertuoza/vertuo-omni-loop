@@ -54,9 +54,9 @@ describe('the curated first default', () => {
     });
   }
 
-  it('review answers a comment three ways: fix, push back, ask', () => {
+  it('review answers a comment three ways: fix, push back, ask; then says what a reviewer looks for (PRD 2871)', () => {
     const review = parseForm(pages().find((entry) => entry.form === 'review')?.text ?? '').form;
-    expect(review?.slots.map(({ heading }) => heading)).toEqual(['Fix', 'Push back', 'Ask']);
+    expect(review?.slots.map(({ heading }) => heading)).toEqual(['Fix', 'Push back', 'Ask', 'Look for']);
   });
 
   it('reads the same pages through any reader of the templates folder, as the Omni page does', () => {

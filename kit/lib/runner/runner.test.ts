@@ -426,6 +426,30 @@ describe('the outcome (PRD 2223)', () => {
     expect(failed).not.toHaveProperty('outcome');
   });
 
+  // A build or a fix a mission sent for the Reviewer (PRD 2871): the same jobs, their PRD read past the flag.
+  it.each([
+    ['/omni:yolo 7 --for-review', 'Shipped: PR #31 stays a draft.\n/omni:review 7\n', 'review'],
+    ['/omni:yolo-fix 7 --for-review', '/omni:review 7\n', 'review'],
+    ['/omni:yolo 7 --for-review', '/omni:yolo-fix 7\n', 'answers'],
+    ['/omni:yolo 7 --for-review', '/omni:yolo 7\n', 'held'],
+  ])('sends the outcome of %s when its log ends on %j (PRD 2871)', async (line, log, outcome) => {
+    expect((await ending(line, log, '0\n')).at(-1)).toMatchObject({ status: 'done', outcome });
+  });
+
+  it('ends a job sent for review stopped, with its PRD\'s slice count, when its log has no hand-off (PRD 2871)', async () => {
+    const asked: number[] = [];
+    const last = (await ending('/omni:yolo 7 --for-review', 'built two sub-PRs\n/omni:review 8\n', '0\n', (prd) => {
+      asked.push(Number(prd));
+      return Promise.resolve({ merged: 2, total: 5 });
+    })).at(-1);
+    expect(last).toMatchObject({ status: 'done', outcome: 'stopped', slicesMerged: 2, slicesTotal: 5 });
+    expect(asked).toEqual([7]);
+  });
+
+  it('reads no outcome for a yolo job of another flag', async () => {
+    expect((await ending('/omni:yolo 7 --once', '/omni:review 7\n', '0\n')).at(-1)).not.toHaveProperty('outcome');
+  });
+
   it('keeps the hand-off outcome, reads no count for it, and reads none for another skill', async () => {
     const asked: number[] = [];
     const slices = (): Promise<MergedCount> => {

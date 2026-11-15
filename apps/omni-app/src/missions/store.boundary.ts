@@ -1,5 +1,5 @@
 // The mission store's reads (./store.ts), for `pnpm schemas:verify` (PRD 1030): the mission, its roadmaps and their
-// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs, its events and its fleet's runners, each parsed
+// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs and their logs (PRD 2871), its events and its fleet's runners, each parsed
 // with the schema the store parses it with. Its send, record and update are not here: they write, and the check only
 // reads.
 import type { Boundary } from '../boundary.ts';
@@ -11,8 +11,12 @@ import {
   EVENT,
   EventRowSchema,
   JOB,
+  JOB_LOG,
+  JobLogRowSchema,
   JobRowSchema,
   MISSION,
+  PRODUCT,
+  ProductRowSchema,
   MissionRowSchema,
   PLAN,
   PlanRowSchema,
@@ -38,6 +42,8 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: approval voids', read: (db) => db.from('approval_voids').select(VOID).limit(5), schema: VoidRowSchema, shape: 'rows' },
   { name: 'missions/store: plans', read: (db) => db.from('dossier_versions').select(PLAN).eq('kind', 'plan').limit(1), schema: PlanRowSchema, shape: 'rows' },
   { name: 'missions/store: runner jobs', read: (db) => db.from('runner_jobs').select(JOB).limit(5), schema: JobRowSchema, shape: 'rows' },
+  { name: 'missions/store: Reviewer job logs', read: (db) => db.from('runner_jobs').select(JOB_LOG).limit(1), schema: JobLogRowSchema, shape: 'rows' },
   { name: 'missions/store: mission events', read: (db) => db.from('mission_events').select(EVENT).limit(5), schema: EventRowSchema, shape: 'rows' },
+  { name: 'missions/store: products', read: (db) => db.from('products').select(PRODUCT).limit(5), schema: ProductRowSchema, shape: 'rows' },
   { name: 'missions/store: runners', read: (db) => db.from('runners').select(RUNNER).limit(5), schema: RunnerRowSchema, shape: 'rows' },
 ];

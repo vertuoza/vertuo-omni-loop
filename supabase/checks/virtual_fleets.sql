@@ -1,4 +1,4 @@
--- Who may make a Virtual Fleet, and who reads its heroes (PRD 2842 s1). The supabase workflow runs it on
+-- Who may make a Virtual Fleet, and who reads its heroes (PRD 2842 s1, PRD 2873 s3). The supabase workflow runs it on
 -- every pull request, after `supabase db start` has applied the migrations and the demo seed:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/virtual_fleets.sql
 -- Any member of a workspace creates a virtual fleet with its heroes through create_virtual_fleet(): the
@@ -8,8 +8,12 @@
 -- `Name taken: choose another`; no role left on, an unknown role, an empty or long name and an unknown
 -- mascot are refused naming their field. A player's fleet stays its owner's. A member reads the heroes,
 -- an account of another workspace and anyone signed out nothing, and nobody signed in writes them. No
--- player joins a virtual fleet. A fleet made before reads as `crew`. One transaction, rolled back at the
--- end. Any `FAIL:` stops the run.
+-- player joins a virtual fleet. A fleet made before reads as `crew`. Six roles, the Designer last, each with
+-- every skill of its role; 20270122121000_heroes_every_skill.sql, run again, gives every hero already made its
+-- role's skills and leaves the rest of it, and a hero and a mission event accept `designer`. The Reviewer (PRD
+-- 2871) runs `review` alone: 20270122122000_reviewer.sql, run again after heroes_every_skill, gives every Reviewer
+-- `review` then `tech-review`, and its six limits only where its limits are still a default. One transaction,
+-- rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -129,7 +133,7 @@ begin
   -- A players' fleet stays an owner's.
   perform pg_temp.forbidden(format('select public.create_fleet(%L, ''RAIDERS'', ''#123456'')', v), 'a member making a players'' fleet');
 
-  f := public.create_virtual_fleet(v, '  Night Shift ', 'robot', array['engineer', 'qa', 'reviewer', 'pm', 'architect']);
+  f := public.create_virtual_fleet(v, '  Night Shift ', 'robot', array['engineer', 'qa', 'reviewer', 'pm', 'architect', 'designer']);
   if (f.workspace_id, f.name, f.label, f.kind, f.mascot, f.motto, f.retired_at)
        is distinct from (v, 'night-shift'::text, 'Night Shift'::text, 'virtual'::text, 'robot'::text, ''::text, null::timestamptz) then
     raise exception 'FAIL: a new virtual fleet is not as the member made it: %', row(f.*);
@@ -141,16 +145,21 @@ begin
   end if;
 
   -- One hero per role, in the drawer's order, each with its role's defaults.
-  if (select count(*) from public.virtual_heroes h where h.fleet = 'night-shift') <> 5 then
-    raise exception 'FAIL: a virtual fleet with five roles on has % heroes', (select count(*) from public.virtual_heroes h where h.fleet = 'night-shift');
+  if (select count(*) from public.virtual_heroes h where h.fleet = 'night-shift') <> 6 then
+    raise exception 'FAIL: a virtual fleet with six roles on has % heroes', (select count(*) from public.virtual_heroes h where h.fleet = 'night-shift');
   end if;
   if (select string_agg(h.role || ':' || h.name || ':' || h.position, ',' order by h.position) from public.virtual_heroes h where h.fleet = 'night-shift')
-     <> 'engineer:Engineer:0,qa:QA:1,reviewer:Reviewer:2,pm:PM:3,architect:Architect:4' then
+     <> 'engineer:Engineer:0,qa:QA:1,reviewer:Reviewer:2,pm:PM:3,architect:Architect:4,designer:Designer:5' then
     raise exception 'FAIL: the heroes are not one per role in the drawer''s order';
   end if;
   if (select h.skills from public.virtual_heroes h where h.fleet = 'night-shift' and h.role = 'engineer')
-     <> array['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix'] then
-    raise exception 'FAIL: the Engineer does not run its role''s skills';
+     <> array['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive'] then
+    raise exception 'FAIL: the Engineer does not list every skill of its role';
+  end if;
+  if (select (h.skills, h.agent, h.model, h.limits) from public.virtual_heroes h where h.fleet = 'night-shift' and h.role = 'designer')
+     is distinct from (array['visual-fix', 'pixel-perfect', 'think-big'], 'claude'::text, 'opus'::text,
+                       array['It never merges into the default branch.', 'It never answers for a person.', 'It never locks a screen: a person does.']) then
+    raise exception 'FAIL: the Designer does not start with its skills, agent, model and limits';
   end if;
   if exists (
     select 1 from public.virtual_heroes h
@@ -188,7 +197,7 @@ begin
   perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''Owls'', null, array[''engineer''])', v), 'mascot', 'Icon:');
   perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''Owls'', ''robot'', array[]::text[])', v), 'heroes', 'Heroes:');
   perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''Owls'', ''robot'', null)', v), 'heroes', 'Heroes:');
-  perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''Owls'', ''robot'', array[''engineer'', ''designer''])', v), 'heroes', 'Heroes:');
+  perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''Owls'', ''robot'', array[''engineer'', ''writer''])', v), 'heroes', 'Heroes: each one of engineer, qa, reviewer, pm, architect or designer.');
   if pg_temp.state() <> before then raise exception 'FAIL: a refused create changed the fleets or heroes'; end if;
 end $$;
 
@@ -196,7 +205,7 @@ end $$;
 do $$
 declare v uuid := pg_temp.ws('initech');
 begin
-  if (select count(*) from public.virtual_heroes) <> 7 then raise exception 'FAIL: a member does not read their workspace''s heroes'; end if;
+  if (select count(*) from public.virtual_heroes) <> 8 then raise exception 'FAIL: a member does not read their workspace''s heroes'; end if;
   begin
     insert into public.virtual_heroes (workspace_id, fleet, name, role, agent, model, position)
     values (v, 'night-shift', 'Planted', 'engineer', 'claude', 'sonnet', 9);
@@ -280,11 +289,11 @@ begin
   -- The owner adds a role the fleet lacks, with its defaults, after the others.
   perform set_config('request.jwt.claims', json_build_object('sub', olga, 'role', 'authenticated')::text, true);
   added := public.add_virtual_hero(v, 'day-shift', 'reviewer');
-  if (added.role, added.name, added.skills, added.agent, added.model, added.position) is distinct from ('reviewer', 'Reviewer', '{}'::text[], 'claude', 'opus', 2::smallint) then
+  if (added.role, added.name, added.skills, added.agent, added.model, added.position) is distinct from ('reviewer', 'Reviewer', array['review', 'tech-review'], 'claude', 'opus', 2::smallint) then
     raise exception 'FAIL: the added hero is %', added;
   end if;
   perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''day-shift'', ''reviewer'')', v), 'role', 'Role:');
-  perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''day-shift'', ''designer'')', v), 'role', 'Role:');
+  perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''day-shift'', ''writer'')', v), 'role', 'Role: one of engineer, qa, reviewer, pm, architect or designer.');
   perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''beaver'', ''qa'')', v), 'fleet', 'Fleet:');
   perform pg_temp.refused_for(format('select public.add_virtual_hero(%L, ''nowhere'', ''qa'')', v), 'fleet', 'Fleet:');
 
@@ -314,6 +323,105 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-4000-8000-0000000042b1', 'role', 'authenticated')::text, true);
   perform public.create_virtual_fleet(v, n, 'robot', array['engineer']) from unnest(array['V1', 'V2', 'V3', 'V4', 'V5']) n;
   perform pg_temp.refused_for(format('select public.create_virtual_fleet(%L, ''V6'', ''robot'', array[''engineer''])', v), 'fleets', 'Fleets:');
+end $$;
+reset role;
+
+-- ── Six roles, and every hero already made lists its role's skills (PRD 2873 s3) ──
+do $$
+begin
+  if (select string_agg(d.value ->> 'role', ',' order by d.n) from jsonb_array_elements(public.virtual_hero_roles()) with ordinality as d (value, n))
+     <> 'engineer,qa,reviewer,pm,architect,designer' then
+    raise exception 'FAIL: virtual_hero_roles() does not give the six roles in the drawer''s order';
+  end if;
+end $$;
+
+-- Night Shift's heroes as PRD 2842 left them, each named, routed and limited by its owner.
+create temporary table kept as
+select h.id, h.role, h.name || ' (kept)' as name, 'codex' as agent, 'o9' as model, array['It keeps its owner''s limit.'] as limits, h.position
+  from public.virtual_heroes h where h.fleet = 'night-shift';
+update public.virtual_heroes h
+   set skills = case h.role when 'engineer' then array['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix']
+                            when 'qa' then array['prove', 'bug-fix'] when 'pm' then array['pitch', 'plan']
+                            when 'architect' then array['plan'] else '{}'::text[] end,
+       name = k.name, agent = k.agent, model = k.model, limits = k.limits
+  from kept k where k.id = h.id;
+
+\ir ../migrations/20270122121000_heroes_every_skill.sql
+
+do $$
+begin
+  if exists (
+    select 1 from public.virtual_heroes h
+      join jsonb_array_elements(public.virtual_hero_roles()) as d (value) on d.value ->> 'role' = h.role
+     where h.skills <> array(select jsonb_array_elements_text(d.value -> 'skills'))
+  ) then
+    raise exception 'FAIL: a hero already made does not list its role''s skills after the migration';
+  end if;
+  if (select h.skills from public.virtual_heroes h where h.fleet = 'night-shift' and h.role = 'pm')
+     <> array['pitch', 'plan', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'mission'] then
+    raise exception 'FAIL: the PM made before does not list every skill of its role';
+  end if;
+  if exists (
+    select 1 from public.virtual_heroes h join kept k on k.id = h.id
+     where (h.name, h.agent, h.model, h.limits, h.position) is distinct from (k.name, k.agent, k.model, k.limits, k.position)
+  ) or (select count(*) from public.virtual_heroes h join kept k on k.id = h.id) <> 6 then
+    raise exception 'FAIL: the migration changed a hero''s name, agent, model, limits or position';
+  end if;
+end $$;
+
+-- ── The Reviewer runs its review alone (PRD 2871), after heroes_every_skill ──
+-- A Reviewer still on PRD 2873's default limits, beside Night Shift's whose owner changed them.
+insert into public.virtual_heroes (workspace_id, fleet, name, role, skills, agent, model, limits, position)
+select pg_temp.ws('initech'), 'v2', 'Reviewer', 'reviewer', array['tech-review'], 'claude', 'opus',
+       array['It never merges into the default branch.', 'It never answers for a person.', 'It never approves a pull request.'], 1;
+
+\ir ../migrations/20270122122000_reviewer.sql
+
+do $$
+declare
+  six text[] := array['It never merges into the default branch.', 'It never answers for a person.', 'It never approves on GitHub.',
+                      'It marks ready on its pass only.', 'It raises five findings at most.', 'It reviews two rounds at most.'];
+begin
+  if exists (select 1 from public.virtual_heroes h where h.role = 'reviewer' and h.skills <> array['review', 'tech-review']) then
+    raise exception 'FAIL: a Reviewer already made does not list review then tech-review';
+  end if;
+  if (select h.limits from public.virtual_heroes h where h.fleet = 'v2' and h.role = 'reviewer') is distinct from six then
+    raise exception 'FAIL: a Reviewer on a default limit did not take its six limits';
+  end if;
+  if exists (
+    select 1 from public.virtual_heroes h join kept k on k.id = h.id
+     where (h.name, h.agent, h.model, h.limits, h.position) is distinct from (k.name, k.agent, k.model, k.limits, k.position)
+  ) then
+    raise exception 'FAIL: the Reviewer''s migration changed a hero its owner had changed';
+  end if;
+  if exists (
+    select 1 from public.virtual_heroes h
+      join jsonb_array_elements(public.virtual_hero_roles()) as d (value) on d.value ->> 'role' = h.role
+     where h.skills <> array(select jsonb_array_elements_text(d.value -> 'skills'))
+  ) then
+    raise exception 'FAIL: a hero does not list its role''s skills after the Reviewer''s migration';
+  end if;
+end $$;
+
+-- A hero and a mission event accept the Designer, and still refuse a role that is none.
+do $$
+declare v uuid := pg_temp.ws('initech');
+begin
+  begin
+    insert into public.virtual_heroes (workspace_id, fleet, name, role, agent, model, position) values (v, 'day-shift', 'Writer', 'writer', 'claude', 'opus', 9);
+    raise exception 'FAIL: a hero took the role writer';
+  exception when check_violation then null; end;
+  insert into public.virtual_heroes (workspace_id, fleet, name, role, agent, model, position)
+  select v, 'v1', 'Designer', 'designer', 'claude', 'opus', 9;
+  -- A role check runs before the mission's foreign key: `designer` passes it and meets the key, `writer` does not.
+  begin
+    insert into public.mission_events (mission_id, role, actor, kind, sentence) values (gen_random_uuid(), 'designer', 'agent', 'started', 'x');
+    raise exception 'FAIL: a mission event of no mission was kept';
+  exception when foreign_key_violation then null; end;
+  begin
+    insert into public.mission_events (mission_id, role, actor, kind, sentence) values (gen_random_uuid(), 'writer', 'agent', 'started', 'x');
+    raise exception 'FAIL: a mission event of no mission was kept';
+  exception when check_violation then null; end;
 end $$;
 
 rollback;

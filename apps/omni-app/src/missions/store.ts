@@ -10,12 +10,18 @@
 //                approval there and whether a push voided it (`approvals`, `approval_voids`: BL-APPROVALS-1),
 //                and the territory of the latest plan on its page (`dossier_versions` of kind plan)
 //   runs         the runner jobs the mission sent (`runner_jobs.mission_id`), each with the resumes that carry
-//                it on after a lost runner (`runner_jobs.resumes`, PRD 2809), one chain per job
+//                it on after a lost runner (`runner_jobs.resumes`, PRD 2809), one chain per job, its step read
+//                from its key; for a Reviewer job's verdict, what its log's `omni review post` line says it
+//                posted (`runner_jobs.log_tail`, PRD 2871): its count of findings and its review's link, nothing
+//                else of the log
 //   events       the events already recorded, read back as keys, so nothing is recorded twice
 //   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
-//   send         `/omni:yolo <n>` queued, sent by the app (`sent_by_app`, never a person's name, Never 10), to the
-//                fleet's runners or else to any runner of the workspace, under `mission_key`: a key already
-//                held (23505) inserts nothing and answers null
+//   planRepository whether the mission's repository is a live product's plan repository (`products.plan_repository`)
+//   send         the step's line queued (`/omni:yolo <n> --for-review`, `/omni:review <n>` or `/omni:yolo-fix
+//                <n> --for-review`, PRD 2871; the build `/omni:ultra-yolo <n>` for a PRD of a plan repository, PRD
+//                2873), sent by the app (`sent_by_app`, never a person's name, Never 10), to the fleet's runners or
+//                else to any runner of the workspace, under `mission_key`: a key already held (23505) inserts
+//                nothing and answers null
 //   record       the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
 //   update       the mission's status, what it waits on and its next wake, only while its status is still the
 //                one this run read: a Pause landing meanwhile is never overwritten
@@ -28,11 +34,14 @@ import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import {
   approvalOf,
   expandScope,
+  lineOf,
   missionKey,
+  postedOf,
   runOfKey,
   stageOf,
   territoryOf,
   type Attempt,
+  type BuildSkill,
   type Concluded,
   type Mission,
   type MissionStatus,
@@ -41,13 +50,17 @@ import {
   type RecordedEvent,
   type RoadmapRow,
   type Run,
+  type Step,
 } from './supervisor.ts';
 
 /** A mission as the store reads it: the supervisor's view, its workspace and repository, and its scope. */
 export type MissionRecord = Mission & { workspace: string; repo: string; scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] } };
 
-/** A job to send: the mission, the PRD and its run, and whether the fleet's runners take it. */
-export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; toFleet: boolean };
+/** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
+export type MissionSkill = BuildSkill;
+
+/** A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill. */
+export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill };
 
 export type MissionStore = {
   mission: (id: string) => Promise<MissionRecord | null>;
@@ -55,6 +68,8 @@ export type MissionStore = {
   runs: (id: string) => Promise<Run[]>;
   events: (id: string) => Promise<RecordedEvent[]>;
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
+  /** Whether the mission's repository is the plan repository of a live product of its workspace. */
+  planRepository: (mission: MissionRecord) => Promise<boolean>;
   /** The job's id, or null when its key was already held. */
   send: (job: Dispatch) => Promise<string | null>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
@@ -78,8 +93,10 @@ export const APPROVAL = 'id, dossier_id';
 export const VOID = 'approval_id';
 export const PLAN = 'content';
 export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url';
+export const JOB_LOG = 'id, log_tail';
 export const EVENT = 'kind, prd, job_id';
 export const RUNNER = 'repos';
+export const PRODUCT = 'plan_repository';
 
 const text = z.string().min(1);
 
@@ -109,12 +126,17 @@ export const JobRowSchema = z.object({
   reason: z.string().nullable(),
   pr_url: z.string().nullable(),
 });
+export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
 export const EventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), job_id: z.string().nullable() });
 export const RunnerRowSchema = z.object({ repos: z.array(z.string()) });
+export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
 
 type JobRow = z.infer<typeof JobRowSchema>;
 
 const attemptOf = (row: JobRow): Attempt => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
+
+/** A Reviewer job that ended on its verdict (PRD 2871): its log says what it posted. */
+const isVerdict = (step: Step, attempt: Attempt): boolean => step.startsWith('review:') && attempt.status === 'done' && (attempt.outcome === 'changes' || attempt.outcome === 'ready');
 
 /** The store, as the service role on `connection`. */
 export function missionStore(connection: Connection): MissionStore {
@@ -144,6 +166,20 @@ export function missionStore(connection: Connection): MissionStore {
     const ids = [...latest.values()];
     const voided = new Set(ids.length === 0 ? [] : rowsOf(VoidRowSchema, await db.from('approval_voids').select(VOID).in('approval_id', ids)).map((row) => row.approval_id));
     return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id) }]));
+  }
+
+  /** `runs`, each Reviewer verdict carrying what its log says it posted: one read of those jobs' log tails, none without one. */
+  async function withPosted(runs: Run[]): Promise<Run[]> {
+    const ids = runs.flatMap((one) => one.attempts.filter((attempt) => isVerdict(one.step, attempt)).map((attempt) => attempt.id));
+    if (ids.length === 0) return runs;
+    const logs = new Map(rowsOf(JobLogRowSchema, await db.from('runner_jobs').select(JOB_LOG).in('id', ids)).map((row) => [row.id, row.log_tail]));
+    return runs.map((one) => ({
+      ...one,
+      attempts: one.attempts.map((attempt) => {
+        const log = isVerdict(one.step, attempt) ? logs.get(attempt.id) : undefined;
+        return log === undefined ? attempt : { ...attempt, posted: postedOf(log) };
+      }),
+    }));
   }
 
   /** The latest plan on a PRD's page; null when it has none. */
@@ -198,10 +234,11 @@ export function missionStore(connection: Connection): MissionStore {
         }
         frontier = next;
       }
-      return jobs.flatMap((job) => {
+      const runs = jobs.flatMap((job): Run[] => {
         const key = job.mission_key === null ? null : runOfKey(job.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+        return key === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
       });
+      return withPosted(runs);
     },
 
     async events(id) {
@@ -213,17 +250,22 @@ export function missionStore(connection: Connection): MissionStore {
       return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
     },
 
-    async send({ mission, prd, run, toFleet }) {
+    async planRepository(mission) {
+      const products = rowsOf(ProductRowSchema, await db.from('products').select(PRODUCT).eq('workspace_id', mission.workspace).is('archived_at', null));
+      return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
+    },
+
+    async send({ mission, prd, run, step, toFleet, skill }) {
       const answer = await db
         .from('runner_jobs')
         .insert({
           workspace_id: mission.workspace,
           repo: mission.repo,
-          line: `/omni:yolo ${String(prd)}`,
+          line: lineOf(prd, step, skill),
           sent_by_app: APP_SENDER,
           to_fleet: toFleet ? mission.fleet : null,
           mission_id: mission.id,
-          mission_key: missionKey(mission.id, prd, run),
+          mission_key: missionKey(mission.id, prd, run, step),
         })
         .select('id');
       if (answer.error?.code === TAKEN) return null;

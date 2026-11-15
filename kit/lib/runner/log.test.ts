@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd } from '../ids.ts';
-import { BUG_FIX_OUTCOMES, fixIssueOf, fixOutcome, LINE_CHARS, PRS_MAX, bugFixReading, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, runOutcome, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
+import { BUG_FIX_OUTCOMES, fixIssueOf, fixOutcome, handOffPrd, LINE_CHARS, PRS_MAX, bugFixReading, lastPullRequest, linesAfter, logTail, parseDuration, reportBatch, runOutcome, REPORT_BYTES, REPORT_LINES, TAIL_BYTES, TAIL_LINES } from './log.ts';
 
 describe('logTail', () => {
   it('keeps the last 200 lines', () => {
@@ -154,6 +154,57 @@ describe('runOutcome of a yolo job (PRD 2375)', () => {
     expect(runOutcome('/omni:yolo 2375\n', prd, 'yolo-fix')).toBe('held');
     expect(runOutcome('/omni:pr-care 2375\n', prd, 'yolo')).toBe('ready');
     expect(runOutcome('Done\n', prd)).toBeNull();
+  });
+});
+
+// The Reviewer's hand-offs (PRD 2871 s3): a build or a fix sent `--for-review` ends on the Reviewer's line,
+// `review`; the Reviewer ends on the fix's line, `changes`, or on `/omni:pr-care <n>`, `ready`, once it
+// marked the PR ready on its pass.
+describe('runOutcome of the Reviewer\'s hand-offs (PRD 2871)', () => {
+  const prd = parsePrd(2871);
+
+  it('reads /omni:review <n> as review: the PR waits for the Reviewer', () => {
+    expect(runOutcome('Done: ok\n/omni:review 2871\n', prd)).toBe('review');
+    expect(runOutcome('14:03:09 /omni:review 2871\n', prd, 'yolo')).toBe('review');
+    expect(runOutcome('/omni:review 2871\n', prd, 'yolo-fix')).toBe('review');
+  });
+
+  it('reads the fix sent for review, one or several repositories, as changes', () => {
+    expect(runOutcome('Done: ok\n/omni:yolo-fix 2871 --for-review\n', prd, 'review')).toBe('changes');
+    expect(runOutcome('/omni:ultra-yolo-fix 2871 --for-review\n', prd, 'review')).toBe('changes');
+    expect(runOutcome('/omni:yolo-fix 2871 --for-review\n', prd)).toBe('changes');
+  });
+
+  it('keeps a pass the Reviewer marked ready as ready, and the fix without the flag as answers', () => {
+    expect(runOutcome('/omni:pr-care 2871\n', prd, 'review')).toBe('ready');
+    expect(runOutcome('/omni:yolo-fix 2871\n', prd, 'review')).toBe('answers');
+  });
+
+  it('is stopped for a Reviewer job that ended on no hand-off for its PRD, held when its last answer says so', () => {
+    expect(runOutcome('GitHub refused the review\nDone\n', prd, 'review')).toBe('stopped');
+    expect(runOutcome('/omni:review 2870\n', prd, 'review')).toBe('stopped');
+    expect(runOutcome('/omni:yolo-fix 2870 --for-review\n', prd, 'review')).toBe('stopped');
+    expect(runOutcome('Done: ok\nserver unreachable · held, not failed\n', prd, 'review')).toBe('held');
+  });
+
+  it('reads no other flag, and no flag on a line that takes none', () => {
+    expect(runOutcome('/omni:yolo-fix 2871 --for-reviews\n', prd)).toBeNull();
+    expect(runOutcome('/omni:yolo-fix 2871 --once\n', prd)).toBeNull();
+    expect(runOutcome('/omni:review 2871 --for-review\n', prd)).toBeNull();
+    expect(runOutcome('/omni:yolo 2871 --for-review\n', prd)).toBeNull();
+    expect(runOutcome('/omni:pr-care 2871 --for-review\n', prd)).toBeNull();
+    expect(runOutcome('/omni:ultra-yolo-fix 2871\n', prd)).toBeNull();
+  });
+});
+
+describe('handOffPrd (PRD 2871)', () => {
+  it('reads the PRD of a job\'s arguments, bare or sent for review', () => {
+    expect(handOffPrd('2871')).toBe(2871);
+    expect(handOffPrd(' 2871 --for-review ')).toBe(2871);
+  });
+
+  it('is null for any other arguments', () => {
+    for (const args of ['', '0', '2871 --once', '2871 s3', '--for-review 2871', '2871 --for-review --once', 'abc']) expect(handOffPrd(args), args).toBeNull();
   });
 });
 

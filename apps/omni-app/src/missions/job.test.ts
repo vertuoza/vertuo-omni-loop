@@ -41,8 +41,8 @@ const claimed = (over: Partial<ClaimedJob> = {}): ClaimedJob => ({
   ...over,
 });
 
-function setup({ mission = record(), all = [facts(1), facts(2), facts(3)], fleetRunners = true }: { mission?: MissionRecord; all?: PrdFacts[]; fleetRunners?: boolean } = {}) {
-  const fake = fakeMissionStore({ mission, facts: all, fleetRunners });
+function setup({ mission = record(), all = [facts(1), facts(2), facts(3)], fleetRunners = true, planRepository = false }: { mission?: MissionRecord; all?: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean } = {}) {
+  const fake = fakeMissionStore({ mission, facts: all, fleetRunners, planRepository });
   const refreshed: RefreshJob[] = [];
   const clock = { now: NOW };
   const handler = missionHandler({
@@ -71,22 +71,35 @@ describe('a run of the mission (PRD 2842 s4)', () => {
     const { fake, run } = setup();
     expect(await run()).toEqual(later(NOW + MINUTE, 1));
     expect(fake.jobs().map(({ line, key, toFleet, sentByApp }) => ({ line, key, toFleet, sentByApp }))).toEqual([
-      { line: '/omni:yolo 1', key: `mission:${ID}:prd:1:run:1`, toFleet: 'night-shift', sentByApp: 'omni-app' },
-      { line: '/omni:yolo 2', key: `mission:${ID}:prd:2:run:1`, toFleet: 'night-shift', sentByApp: 'omni-app' },
+      { line: '/omni:yolo 1 --for-review', key: `mission:${ID}:prd:1:run:1`, toFleet: 'night-shift', sentByApp: 'omni-app' },
+      { line: '/omni:yolo 2 --for-review', key: `mission:${ID}:prd:2:run:1`, toFleet: 'night-shift', sentByApp: 'omni-app' },
     ]);
     for (const job of fake.jobs()) expect(checkRunnerLine(job.line)).toMatchObject({ ok: true, skill: 'yolo' });
     expect(fake.events().map(({ kind, role, actor, sentence }) => [kind, role, actor, sentence])).toEqual([
-      ['dispatched', 'supervisor', 'agent', 'Sent /omni:yolo 1 to the night-shift fleet\'s runners (run 1).'],
-      ['dispatched', 'supervisor', 'agent', 'Sent /omni:yolo 2 to the night-shift fleet\'s runners (run 1).'],
+      ['dispatched', 'supervisor', 'agent', 'Sent /omni:yolo 1 --for-review to the night-shift fleet\'s runners (run 1).'],
+      ['dispatched', 'supervisor', 'agent', 'Sent /omni:yolo 2 --for-review to the night-shift fleet\'s runners (run 1).'],
     ]);
     expect(fake.mission()).toMatchObject({ status: 'running', waitingOn: null, nextWakeAt: new Date(NOW + MINUTE).toISOString() });
+  });
+
+  it('sends /omni:ultra-yolo when the mission\'s repository is a product\'s plan repository, and says so', async () => {
+    const { fake, run } = setup({ planRepository: true });
+    await run();
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:ultra-yolo 1', '/omni:ultra-yolo 2']);
+    expect(fake.events()[0]?.sentence).toBe('Sent /omni:ultra-yolo 1 to the night-shift fleet\'s runners (run 1).');
+  });
+
+  it('sends /omni:yolo for any other repository, for the Reviewer (PRD 2871)', async () => {
+    const { fake, run } = setup({ planRepository: false });
+    await run();
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1 --for-review', '/omni:yolo 2 --for-review']);
   });
 
   it('sends to any runner of the workspace when no runner of the fleet holds the repository', async () => {
     const { fake, run } = setup({ fleetRunners: false });
     await run();
     expect(fake.jobs().map((job) => job.toFleet)).toEqual([null, null]);
-    expect(fake.events()[0]?.sentence).toBe('Sent /omni:yolo 1 to any runner of the workspace (run 1).');
+    expect(fake.events()[0]?.sentence).toBe('Sent /omni:yolo 1 --for-review to any runner of the workspace (run 1).');
   });
 
   it('a replay inserts no second job and records nothing twice', async () => {
@@ -111,7 +124,7 @@ describe('a run of the mission (PRD 2842 s4)', () => {
     fake.end(p(1), { status: 'done', outcome: 'ready', prUrl: 'https://github.com/acme/widgets/pull/91' });
     clock.now = NOW + MINUTE;
     await run();
-    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1', '/omni:yolo 2', '/omni:yolo 3']);
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1 --for-review', '/omni:yolo 2 --for-review', '/omni:yolo 3 --for-review']);
     expect(fake.mission()).toMatchObject({ status: 'running', waitingOn: 'PRD 1: merge it' });
     expect(fake.events().slice(2).map(({ kind, role, link }) => [kind, role, link])).toEqual([
       ['prd-ready', 'engineer', 'https://github.com/acme/widgets/pull/91'],
@@ -123,13 +136,13 @@ describe('a run of the mission (PRD 2842 s4)', () => {
   it('a merge sends the PRDs it unblocks, and the mission reads Delivered only once every PRD is merged', async () => {
     const { fake, run } = setup({ mission: record({ scope: { prds: [p(1), p(2)], roadmaps: [] } }), all: [facts(1), facts(2, { blockers: [p(1)] })] });
     await run();
-    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1']);
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1 --for-review']);
     fake.end(p(1), { status: 'done', outcome: 'ready' });
     await run();
     expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'PRD 1: merge it' });
     fake.set(p(1), { stage: 'merged' });
     await run();
-    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1', '/omni:yolo 2']);
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1 --for-review', '/omni:yolo 2 --for-review']);
     fake.end(p(2), { status: 'done', outcome: 'ready' });
     fake.set(p(2), { stage: 'merged' });
     expect(await run()).toEqual({ outcome: 'done' });
@@ -199,7 +212,7 @@ describe('a run of the mission (PRD 2842 s4)', () => {
     expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'PRD 1: approve it · PRD 2: approve it again' });
     fake.set(p(2), { approval: 'standing' });
     await run();
-    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 2']);
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 2 --for-review']);
   });
 
   it('refreshes its own job before the ledger\'s cap on laters, its count back to zero', async () => {

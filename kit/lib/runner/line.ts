@@ -8,8 +8,12 @@
 // repository allowed (its `allowedSkills`, read when the job was claimed), never a fixed skill's name,
 // so `/yolo` never means `/omni:yolo`. The same length and the same argument characters.
 
-/** The skills a runner runs: they run without a person typing, and end on their own. */
-export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add', 'rewind-apply']);
+/** The skills a runner runs: they run without a person typing, and end on their own. The ultra skills (PRD 2873) build a PRD
+ * across a product's repositories, sent from its plan repository. */
+export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
+  'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review',
+]);
 
 /** The skills a lost job of is resumed (PRD 2809): the runnable skills that pick up from what GitHub holds (claims, sub-PRs,
  * merged slices), so a second attempt carries the first on. The Omni app's database holds the same list, which a test of the
@@ -17,7 +21,7 @@ export const RUNNABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-f
 export const RESUMABLE_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix']);
 
 /** The skills whose line names a PRD by its number first: the Omni app's own list, which a test of the app holds to this one. */
-const PRD_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'plan', 'pitch', 'prove']);
+const PRD_SKILLS: readonly string[] = Object.freeze(['yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'plan', 'pitch', 'prove', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']);
 
 /** The longest line a runner takes, in characters. */
 export const LINE_MAX = 200;

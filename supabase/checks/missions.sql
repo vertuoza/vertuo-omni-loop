@@ -10,7 +10,9 @@
 -- or signed out, nothing. A member reads the missions and their events; anyone else nothing; nobody
 -- signed in writes the tables directly. The service role writes them; an event is never updated or
 -- deleted, but goes with its mission. A runner job's mission_key is unique and keeps its shape; the
--- general dossier push takes no mission. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- general dossier push takes no mission. The Reviewer (PRD 2871): an event may be `reviewed`, a job may end
+-- `review` or `changes`, under a key of a review round (1 or 2, never 3) or of the fix after round 1; a
+-- member reads them and writes none. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -236,6 +238,11 @@ begin
     values ((select id from pg_temp.ids where name = 'mission'), 'supervisor', 'agent', 'started', 'Started.');
     raise exception 'FAIL: a member inserted a mission event';
   exception when insufficient_privilege then null; end;
+  begin
+    insert into public.mission_events (mission_id, role, actor, kind, prd, sentence)
+    values ((select id from pg_temp.ids where name = 'mission'), 'reviewer', 'agent', 'reviewed', 2803, 'Passed, round 1 of 2: marked ready.');
+    raise exception 'FAIL: a member inserted a Reviewer''s verdict';
+  exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 
@@ -248,6 +255,9 @@ begin
   insert into public.mission_events (mission_id, role, actor, kind, prd, sentence) values
     (mission, 'pm', '00000000ada', 'started', null, 'Started by a member.'),
     (mission, 'supervisor', 'agent', 'dispatched', 2803, 'Sent /omni:yolo 2803 to NIGHT SHIFT.');
+  -- The Reviewer's verdict (PRD 2871), linking its review.
+  insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
+    (mission, 'reviewer', 'agent', 'reviewed', 2803, 'https://github.com/initech/nimbus-plan/pull/2817#pullrequestreview-1', 'Changes asked: 2 findings, round 1/2.');
   begin
     update public.mission_events set sentence = 'Rewritten.' where mission_id = mission;
     raise exception 'FAIL: the service role updated a mission event';
@@ -258,7 +268,7 @@ begin
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'agent', 'merged', 'x');
-    raise exception 'FAIL: an event took a kind that is none of the eleven';
+    raise exception 'FAIL: an event took a kind that is none of the twelve';
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'Ada Lovelace', 'started', 'x');
@@ -296,6 +306,42 @@ begin
     values (ws, '/omni:yolo 2804', 'initech/nimbus-plan', 'omni-app', mission, 'run-2804');
     raise exception 'FAIL: a job took a mission_key out of its shape';
   exception when check_violation then null; end;
+
+  -- The Reviewer (PRD 2871): round 1 asks for changes, the fix leaves the PR for round 2, round 2 passes.
+  -- The outcome is the column a done job's report writes; nothing ties it to the status.
+  insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key, outcome)
+  values (ws, '/omni:review 2803', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, key || ':review:1', 'changes'),
+         (ws, '/omni:yolo-fix 2803 --for-review', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, key || ':fix:1', 'review'),
+         (ws, '/omni:review 2803', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, key || ':review:2', 'ready');
+  if (select array_agg(j.outcome order by j.mission_key) from public.runner_jobs j where j.mission_key like key || ':%')
+     is distinct from array['review', 'changes', 'ready'] then
+    raise exception 'FAIL: the Reviewer''s jobs did not keep their outcomes';
+  end if;
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key)
+    values (ws, '/omni:review 2803', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, key || ':review:1');
+    raise exception 'FAIL: a second Reviewer job took the same round''s key';
+  exception when unique_violation then null; end;
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:review 2803', 'initech/nimbus-plan', 'omni-app', mission, key || ':review:3');
+    raise exception 'FAIL: a job took the key of a third review round';
+  exception when check_violation then null; end;
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:yolo-fix 2803 --for-review', 'initech/nimbus-plan', 'omni-app', mission, key || ':fix:2');
+    raise exception 'FAIL: a job took the key of a second fix';
+  exception when check_violation then null; end;
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:review 2803', 'initech/nimbus-plan', 'omni-app', mission, key || ':review:1:fix:1');
+    raise exception 'FAIL: a job took a key with two steps';
+  exception when check_violation then null; end;
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, outcome)
+    values (ws, '/omni:review 2803', 'initech/nimbus-plan', 'omni-app', mission, 'reviewed');
+    raise exception 'FAIL: a job took an outcome that is none of the words';
+  exception when check_violation then null; end;
 end $$;
 reset role;
 
@@ -304,8 +350,18 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000028b1');
 do $$
 begin
-  if (select count(*) from public.mission_events) <> 2 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
-  if (select count(*) from public.runner_jobs where mission_id is not null) <> 2 then raise exception 'FAIL: a member does not read the mission''s jobs'; end if;
+  if (select count(*) from public.mission_events) <> 3 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
+  if not exists (select 1 from public.mission_events where kind = 'reviewed' and role = 'reviewer' and actor = 'agent') then
+    raise exception 'FAIL: a member does not read the Reviewer''s verdict';
+  end if;
+  if (select count(*) from public.runner_jobs where mission_id is not null) <> 5 then raise exception 'FAIL: a member does not read the mission''s jobs'; end if;
+  if (select count(*) from public.runner_jobs where outcome in ('review', 'changes')) <> 2 then
+    raise exception 'FAIL: a member does not read the Reviewer''s job ends';
+  end if;
+  begin
+    update public.runner_jobs set outcome = 'review' where mission_id is not null;
+    raise exception 'FAIL: a member set a job''s outcome';
+  exception when insufficient_privilege then null; end;
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000028c1');
 do $$
@@ -348,7 +404,7 @@ begin
   if exists (select 1 from public.mission_events where mission_id = mission) then
     raise exception 'FAIL: a deleted mission left its events';
   end if;
-  if exists (select 1 from public.runner_jobs where mission_id = mission) or (select count(*) from public.runner_jobs where mission_key like 'mission:%') <> 2 then
+  if exists (select 1 from public.runner_jobs where mission_id = mission) or (select count(*) from public.runner_jobs where mission_key like 'mission:%') <> 5 then
     raise exception 'FAIL: a deleted mission did not let go of its jobs, or took them';
   end if;
 end $$;

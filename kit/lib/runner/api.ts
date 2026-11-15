@@ -196,8 +196,9 @@ const PrdJobSchema = z.object({
   exitCode: z.number().nullable(),
   reason: z.string().nullable(),
   // A bug fix (PRD 2425) has outcomes of its own, which a PRD's follower has no word for: they, and any word
-  // that comes later, read as none, so one such job never makes a whole list unreadable.
-  outcome: z.enum(['answers', 'held', 'ready', 'human', 'stopped']).nullable().optional().catch(null).transform((value) => value ?? null),
+  // that comes later, read as none, so one such job never makes a whole list unreadable. `review` and
+  // `changes` are the Reviewer's hand-offs (PRD 2871).
+  outcome: z.enum(['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes']).nullable().optional().catch(null).transform((value) => value ?? null),
   queuedAt: z.string(),
 });
 export type PrdJob = z.output<typeof PrdJobSchema>;

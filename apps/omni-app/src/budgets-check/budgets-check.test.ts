@@ -221,6 +221,19 @@ describe('budgets-check — the omni / budgets check run (PRD 1679 s3)', () => {
     expect(latest(answered).conclusion).toBe('success');
   });
 
+  it('is green on a shipped PRD whose ledger, moved into its shipped folder, holds the settled raise (#2891)', async () => {
+    const { '.omni-loop/delivery/inbox/0007-budgets/spec.md': spec = '', ...rest } = raised();
+    const shipped = {
+      ...rest,
+      '.omni-loop/delivery/shipped/0007-budgets/spec.md': spec,
+      '.omni-loop/delivery/shipped/0007-budgets/outbox/settled.md': settledLedger(raisedCeiling()),
+    };
+    const setup = setUp({ head: shipped });
+    await run(setup, await pullRequestEvents(pullOf()));
+    expect(outputOf(latest(setup)).summary).not.toContain('belongs to no PRD');
+    expect(latest(setup).conclusion).toBe('success');
+  });
+
   it('a raise settled for another ceiling does not match', async () => {
     const setup = setUp({ head: { ...raised(), '.omni-loop/delivery/outbox/0007-budgets/settled.md': settledLedger(raisedCeiling() + 1024) } });
     await run(setup, await pullRequestEvents(pullOf()));

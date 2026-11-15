@@ -163,6 +163,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'unless the verdict is asked. Needs gh logged in.',
   },
   {
+    name: 'review',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni review post <prd> --file <verdict.json> [--pr <n>] [--json]',
+      'omni review read <prd> [--pr <n>] [--json]',
+      'omni review look-for [--json]',
+    ],
+    summary: "The Reviewer's verdict on PRD n's feature PR: posted once a round, read back by its marker",
+    detail:
+      'post checks a verdict (pass, or 1 to 5 findings, each with its file, line, severity, rule, problem ' +
+      'and fix) and posts it as one COMMENT review on the feature PR, one inline thread per finding; a ' +
+      'verdict it refuses is never posted, and a round the PR already carries is not posted again. read ' +
+      'prints the latest round and verdict, or none. look-for prints what the Reviewer looks for: the kit ' +
+      "default's six items, then each one the repository's review form adds. --repo <owner/name> " +
+      'names another repository. Needs gh logged in.',
+  },
+  {
     name: 'follow-up',
     kind: 'command',
     who: 'skills',
@@ -394,7 +412,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the ' +
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
-      'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
+      'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, ultra-yolo, ultra-wave, ultra-yolo-fix, bug-fix, ' +
       'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind, knowledge-add and rewind-apply run. A job past --timeout (8h by default) ' +
       'is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
@@ -1889,6 +1907,31 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:pr-care 790',
       result: 'each review comment fixed, pushed back with a reason, or left for you, and the PR kept green',
+    },
+  },
+  {
+    name: 'review',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:review <n>'],
+    label: '/omni:review <n>',
+    summary: "review a PRD's feature PR before it goes ready",
+    detail:
+      "The Reviewer: reviews PRD n's feature branch on its feature PR as a person does, in one GitHub " +
+      'review in COMMENT mode, with one inline thread per finding. It reads the spec, the plan, the laws ' +
+      'of the changed files, the testing, conventions, architecture and review forms and what to look ' +
+      "for (the kit's six, then what the repository adds), then the whole diff against {defaultBranch} " +
+      'and the code around it. A verification pass tries to disprove each finding, and it keeps five ' +
+      'findings at most, the most severe first. In round 2 it resolves or keeps each round-1 thread, ' +
+      'once, and raises new findings only on lines changed since; there is no round 3. It marks the PR ' +
+      'ready only on its own pass, with the PRD shipped, the PR a draft and the outbox gate green. It ' +
+      'asks nothing, never approves or requests changes, never merges and writes no code. A mission ' +
+      'sends it; you may run it on any feature PR.',
+    group: 'build',
+    when: 'Use it when a feature PR is built and you want an agent to review it before a person does.',
+    example: {
+      type: '/omni:review 2871',
+      result: 'one review on the feature PR, pass or up to five findings on their lines, and the PR marked ready on a pass',
     },
   },
   {

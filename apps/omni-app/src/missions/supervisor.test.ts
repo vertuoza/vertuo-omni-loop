@@ -27,7 +27,7 @@ const p = (n: number): PrdNumber => parsePrd(n);
 const mission = (over: Partial<Mission> = {}): Mission => ({ id: ID, fleet: 'night-shift', status: 'running', parallel: 2, waitingOn: null, ...over });
 const facts = (n: number, over: Partial<PrdFacts> = {}): PrdFacts => ({ prd: p(n), approval: 'standing', stage: 'open', blockers: [], territory: [`apps/area-${String(n)}/`], ...over });
 const attempt = (id: string, over: Partial<Attempt> = {}): Attempt => ({ id, status: 'running', outcome: null, reason: null, prUrl: null, ...over });
-const run = (n: number, k: number, ...attempts: Attempt[]): Run => ({ prd: p(n), run: k, job: attempts[0]?.id ?? `job-${String(n)}-${String(k)}`, attempts });
+const run = (n: number, k: number, ...attempts: Attempt[]): Run => ({ prd: p(n), run: k, step: 'build', job: attempts[0]?.id ?? `job-${String(n)}-${String(k)}`, attempts });
 const ended = (id: string, outcomeWord: string | null, over: Partial<Attempt> = {}) => attempt(id, { status: 'done', outcome: outcomeWord, ...over });
 
 /** The PRDs a run sends, as numbers. */
@@ -36,7 +36,7 @@ const sends = (m: Mission, all: PrdFacts[], runs: Run[] = []) => pick({ mission:
 describe('the mission key: one per PRD and run, never twice', () => {
   it('reads mission:<id>:prd:<n>:run:<k>, and back', () => {
     expect(missionKey(ID, p(2803), 1)).toBe(`mission:${ID}:prd:2803:run:1`);
-    expect(runOfKey(`mission:${ID}:prd:2803:run:2`)).toEqual({ prd: 2803, run: 2 });
+    expect(runOfKey(`mission:${ID}:prd:2803:run:2`)).toEqual({ prd: 2803, run: 2, step: 'build' });
     expect(runOfKey('mission:nope')).toBeNull();
   });
 });
@@ -229,9 +229,9 @@ describe('eventsOf: each decision recorded once, signed by its role', () => {
 
   it('records a dispatch per job sent, by the supervisor, as an agent', () => {
     expect(events({ all: [facts(1)], runs: [run(1, 1, attempt('a', { status: 'queued' }))] })).toEqual([
-      { kind: 'dispatched', role: 'supervisor', prd: 1, job: 'a', link: null, sentence: 'Sent /omni:yolo 1 to the night-shift fleet\'s runners (run 1).' },
+      { kind: 'dispatched', role: 'supervisor', prd: 1, job: 'a', link: null, sentence: 'Sent /omni:yolo 1 --for-review to the night-shift fleet\'s runners (run 1).' },
     ]);
-    expect(events({ all: [facts(1)], runs: [run(1, 1, attempt('a', { status: 'queued' }))], toFleet: false })[0]?.sentence).toBe('Sent /omni:yolo 1 to any runner of the workspace (run 1).');
+    expect(events({ all: [facts(1)], runs: [run(1, 1, attempt('a', { status: 'queued' }))], toFleet: false })[0]?.sentence).toBe('Sent /omni:yolo 1 --for-review to any runner of the workspace (run 1).');
   });
 
   it('records nothing twice: a replayed run finds its events', () => {

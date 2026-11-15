@@ -22,9 +22,9 @@ fleet`.
   pattern): its title, `New virtual fleet`.
 - **Name,** first and focused, its placeholder an example name.
 - **Icon,** the fleet mascots as tiles, in the library's order, the first (the beaver) selected.
-- **Heroes,** the five roles (Engineer, QA, Reviewer, PM, Architect), each a yes/no switch, all on,
-  each with one line on whether it works alone today: `Builds PRDs alone`, `Proves the work alone`,
-  or `A person does this today`.
+- **Heroes,** the six roles (Engineer, QA, Reviewer, PM, Architect, Designer), each a yes/no switch,
+  all on, each with its count line: `Runs <k> of <n> skills alone`, or `A person does this today`
+  (PRD 2873).
 - **Level,** one choice of three, `Reviews with you` selected: `Reviews with you` (`You merge each PRD`),
   `Own branch` (`You land the mission`), `Works alone` (`Asks you when needed`).
 - **The foot,** `Cancel` and `Create fleet`, the primary; a refusal of the whole form above them.
@@ -45,7 +45,7 @@ fleet`.
 ## Words
 
 - `+ New virtual fleet`, `New virtual fleet`, `Name`, `Icon`, `Heroes`, `Cancel`, `Create fleet`,
-  `Creating…`, `Name taken: choose another`, `Builds PRDs alone`, `Proves the work alone`,
+  `Creating…`, `Name taken: choose another`, `Runs <k> of <n> skills alone`,
   `A person does this today`, `Virtual`, `Level`, `Reviews with you`, `You merge each PRD`, `Own branch`,
   `You land the mission`, `Works alone`, `Asks you when needed`.
 
@@ -62,4 +62,5 @@ fleet`.
 ## Source
 
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
+/omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html
 /omni:brainstorm, PRD 2879: .omni-loop/delivery/inbox/2879-fleet-works-alone/before-after.html

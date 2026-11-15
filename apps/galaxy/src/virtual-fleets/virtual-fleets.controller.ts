@@ -22,7 +22,7 @@ const MAX_BODY_CHARS = 8 * 1024;
 const NO_DATABASE = 'Virtual fleets are not available here: this deployment has no database.';
 const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The fleet could not be created. Try again.';
-const BAD_CREATE = 'The body must be {"workspace": "<id>", "name": "<1 to 12 characters>", "mascot": "<a fleet mascot>", "roles": ["engineer" | "qa" | "reviewer" | "pm" | "architect", …]} with at least one role.';
+const BAD_CREATE = 'The body must be {"workspace": "<id>", "name": "<1 to 12 characters>", "mascot": "<a fleet mascot>", "roles": ["engineer" | "qa" | "reviewer" | "pm" | "architect" | "designer", …]} with at least one role.';
 
 /** A refusal: its status, its words and the drawer's field they go under. */
 const refuse = (kind: VirtualFleetRefusal, error: string, field: RefusalField = 'form') => reply(VIRTUAL_FLEET_REFUSALS[kind], { error, field });

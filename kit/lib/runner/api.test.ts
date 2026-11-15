@@ -186,6 +186,12 @@ describe('runnerApi() terminal reads (PRD 2251)', () => {
     expect(await api(body({ jobs: [job] })).client.prdJobs('acme/widgets', parsePrd(7))).toEqual([job]);
   });
 
+  it("reads the Reviewer's two outcomes: a PR left for the Reviewer, and the changes it asked (PRD 2871)", async () => {
+    const built = { id: 'j1', line: '/omni:yolo 7 --for-review', status: 'done', runner: 'box-1', prUrl: null, exitCode: 0, reason: null, outcome: 'review', queuedAt: 't' };
+    const reviewed = { ...built, id: 'j2', line: '/omni:review 7', outcome: 'changes' };
+    expect(await api(body({ jobs: [built, reviewed] })).client.prdJobs('acme/widgets', parsePrd(7))).toEqual([built, reviewed]);
+  });
+
   it("reads a job whose outcome is a bug fix's word, or one it does not know, as none, so a PRD's list stays readable (PRD 2425)", async () => {
     const job = { id: 'j1', line: '/omni:bug-fix 7', status: 'done', runner: 'box-1', prUrl: null, exitCode: 0, reason: null, queuedAt: 't' };
     for (const outcome of ['pr-opened', 'already-fixed', 'need-human', 'needs-brainstorm', 'not-a-bug', 'stuck', 'blocked', 'whatever-comes-next']) {

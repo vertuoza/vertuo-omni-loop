@@ -77,7 +77,7 @@ export const FORMS: readonly FormSpec[] = Object.freeze([
   form('conventions', 'extended', [opt('naming'), opt('formatting'), opt('commits')]),
   form('releasing', 'extended', [req('publishes'), opt('how'), opt('rollback'), opt('notes')]),
   form('bug-fixing', 'extended', [req('steps'), opt('guard')]),
-  form('review', 'extended', [req('fix'), req('push-back'), req('ask')]),
+  form('review', 'extended', [req('fix'), req('push-back'), req('ask'), opt('look-for')]),
   form('design', 'extended', [req('product'), req('system'), opt('deliberate'), opt('review'), opt('language')]),
   form('glossary', 'extended', [req('where')], { pointerOnly: true }),
 ]);

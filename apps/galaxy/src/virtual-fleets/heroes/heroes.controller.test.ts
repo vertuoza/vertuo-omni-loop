@@ -27,7 +27,7 @@ describe('POST /api/virtual-fleets/heroes', () => {
     expect(res.status).toBe(201);
     expect(res.headers.get('cache-control')).toBe('no-store');
     const body = (await res.json()) as { hero: { role: string; name: string; skills: string[]; position: number } };
-    expect(body.hero).toMatchObject({ role: 'architect', name: 'Architect', skills: ['plan'], position: 2 });
+    expect(body.hero).toMatchObject({ role: 'architect', name: 'Architect', skills: ['plan', 'tech-review'], position: 2 });
     expect(db.heroes.map((h) => h.role)).toEqual(['engineer', 'qa', 'architect']);
   });
 
@@ -52,7 +52,7 @@ describe('POST /api/virtual-fleets/heroes', () => {
   });
 
   it('refuses a body with an unknown role under Role, and one that is not an object as malformed', async () => {
-    const wrong = await postHero(add({ role: 'designer' }), deps(ADA).deps);
+    const wrong = await postHero(add({ role: 'writer' }), deps(ADA).deps);
     expect(wrong.status).toBe(422);
     expect(((await wrong.json()) as { field: string }).field).toBe('role');
     const nothing = await postHero(add({ workspace: 'x' }), deps(ADA).deps);

@@ -20,8 +20,8 @@ import { checkpointsService, productReposOf, runnersService, type CheckpointsSer
 //
 // Every job runs as the Omni GitHub App (PRD 2573), the App this deployment signs in with (GITHUB_APP_ID,
 // GITHUB_APP_PRIVATE_KEY): its token is minted through the global fetch (./runners.github.ts), by one wiring kept
-// for the server's process, so the App's bot is read from GitHub once. A mega bug fix no key sent reads its
-// product's repositories through the products' storage, as the service role.
+// for the server's process, so the App's bot is read from GitHub once. A skill that spans the product (a mega bug fix,
+// an ultra skill: PRD 2873) no key sent reads its product's repositories through the products' storage, as the service role.
 
 const clock = {
   now: () => new Date(),
