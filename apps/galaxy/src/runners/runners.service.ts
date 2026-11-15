@@ -80,8 +80,8 @@
 //   whose own App is no longer read. `next` finds the Omni App's installation on the job's repository, mints a
 //   token and answers the job with it and the App's bot (`github`), whose id is read from GitHub by the App's
 //   slug once per service; every claimed job carries `sentByKey`, the key's name or null. The token is for the
-//   job's repository and, for a mega bug fix, the other repositories of its product that the installation holds,
-//   never one outside a key's allow-list (BR-PRODUCT-63). A mint that fails (the App not configured here, not
+//   job's repository and, for a skill that spans the product (a mega bug fix, and the ultra skills, PRD 2873), the
+//   other repositories of its product that the installation holds, never one outside a key's allow-list (BR-PRODUCT-63). A mint that fails (the App not configured here, not
 //   installed, lacking a permission, its bot unreadable), or a key that no longer works (BR-PRODUCT-64), ends the
 //   job `failed`, `github app: <why>`: the job is never answered without `github`, and never runs as a person.
 //   `githubToken` mints a fresh token, for the same repositories, for the job's own runner while the job is
@@ -95,7 +95,7 @@ import {
 import type { OutboxStand } from '../dossier/page/stage';
 import type { AppCredentials, AppInstallation, MintedToken } from '../public-api/keys/github-app';
 import { shouldContinue, unansweredWhy } from './continue';
-import type { AppOfJob, CheckpointRow, CheckpointsRepository, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
+import type { AppOfJob, ProductPlanReads, CheckpointRow, CheckpointsRepository, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
 /** The time, and a pause: real in production, fixed in tests. */
 export type Clock = { now: () => Date; sleep: (ms: number) => Promise<void> };
@@ -165,7 +165,6 @@ const MAX_WHY = 150;
 const KEY_STOPPED = 'the API key no longer works: it was revoked, or its maker left the workspace';
 const outsideKey = (repo: string) => `the API key may not reach ${repo}`;
 const NOT_CONFIGURED = 'the Omni App is not configured on this server';
-const MEGA_BUG_FIX = 'mega-bug-fix';
 const ENDED_NO_TOKEN = 'This job has ended: it takes no new GitHub token.';
 
 const failedMint = (why: string, unreachable = false): FailedMint => ({ kind: 'failed', why: why.length <= MAX_WHY ? why : `${why.slice(0, MAX_WHY - 1)}…`, unreachable });
@@ -194,18 +193,53 @@ async function mintOn(github: GithubDeps, credentials: AppCredentials, repo: str
   }
 }
 
-/** Whether a runner's line is a mega bug fix's, which also works on the other repositories of its plan repository's product. */
-function isMegaBugFix(line: string): boolean {
+/** The skills sent from a product's plan repository only (PRD 2873): they build a PRD across the product's repositories. */
+const FROM_PLAN: ReadonlySet<string> = new Set(['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']);
+
+/** The skills whose work spans a product (PRD 2573, PRD 2873): their token also reaches the product's other repositories. */
+const SPANS_PRODUCT: ReadonlySet<string> = new Set(['mega-bug-fix', ...FROM_PLAN]);
+
+/** Whether a runner's line is of a skill that spans the product: a mega bug fix or an ultra skill, never a repository's own skill. */
+export function spansProduct(line: string): boolean {
   const check = checkLineShape(line);
-  return check.ok && check.kind === 'omni' && check.skill === MEGA_BUG_FIX;
+  return check.ok && check.kind === 'omni' && SPANS_PRODUCT.has(check.skill);
+}
+
+/** The live products as the ultra skills read them, each with its plan repository and its repositories, lower case, a repository the
+ * workspace no longer lists left out (as productReposOf() leaves it out). */
+function plansOf(read: ProductPlanReads): { plan: string | null; repos: string[] }[] {
+  const listed = new Set(read.repositories.map((name) => name.toLowerCase()));
+  const kept = (name: string) => listed.has(name.toLowerCase());
+  return read.products.map((product) => ({
+    plan: product.plan_repository !== null && kept(product.plan_repository) ? product.plan_repository.toLowerCase() : null,
+    repos: read.links.filter((link) => link.product_id === product.id && kept(link.repository)).map((link) => link.repository.toLowerCase()),
+  }));
+}
+
+/** Why an ultra line may not be sent from `repo` (PRD 2873), or null when `repo` is a live product's plan repository: the refusal
+ * names the plan repositories of the products that hold `repo`, once each and in order, or says `repo` is none. */
+function planRefusal(read: ProductPlanReads, repo: string, skill: string): string | null {
+  const plans = plansOf(read);
+  const named = repo.toLowerCase();
+  if (plans.some((product) => product.plan === named)) return null;
+  const elsewhere = [...new Set(plans.filter((product) => product.repos.includes(named)).flatMap((product) => (product.plan === null ? [] : [product.plan])))].sort();
+  const head = `/omni:${skill} runs from a product's plan repository`;
+  return elsewhere.length > 0 ? `${head}: send it from ${elsewhere.join(' or ')}.` : `${head}: ${named} is no product's plan repository.`;
+}
+
+/** The repositories, lower case, sorted and once each, of the live products whose plan repository is `repo` (PRD 2873): a plan
+ * repository its product does not name among its repositories still reaches them. */
+function planReposOf(read: ProductPlanReads, repo: string): string[] {
+  const named = repo.toLowerCase();
+  return [...new Set(plansOf(read).filter((product) => product.plan === named).flatMap((product) => product.repos))].sort();
 }
 
 /** Whether the key's allow-list lets it reach `repo`: an empty list is every repository of its workspace. */
 const allows = (allowed: readonly string[], repo: string): boolean => allowed.length === 0 || allowed.includes(repo);
 
-/** The repositories besides the job's own that its token should reach: for a mega bug fix, the other repositories of its product
- * that the allow-list names (or all of them, with no list: a job no key sent has none). Which of them the installation holds is for
- * GitHub to say. */
+/** The repositories besides the job's own that its token should reach: for a skill that spans the product, the other repositories of
+ * its product that the allow-list names (or all of them, with no list: a job no key sent has none). Which of them the installation
+ * holds is for GitHub to say. */
 function alsoFor(job: Pick<JobRow, 'repo'>, read: Pick<AppOfJob, 'repos' | 'product_repos'>): string[] {
   return [...new Set(read.product_repos)].filter((repo) => repo !== job.repo && allows(read.repos, repo));
 }
@@ -617,6 +651,19 @@ export function runnersService(
     return no('malformed', `/${line.skill} is not allowed on a runner for ${repo}: an owner allows it in Settings › Repositories.`);
   }
 
+  /** Whether an ultra line may be sent from the repository (PRD 2873): only from a live product's plan repository; any other line may. */
+  async function fromPlan(workspaceId: string, repo: string, line: LineCheck & { ok: true }): Promise<Served<null>> {
+    if (line.kind !== 'omni' || !FROM_PLAN.has(line.skill)) return ok(null);
+    const refusal = planRefusal(await store.productPlans(workspaceId), repo, line.skill);
+    return refusal === null ? ok(null) : no('malformed', refusal);
+  }
+
+  /** Whether the line may run from the repository: a repository's own skill as its owner allowed, an ultra skill from a plan repository. */
+  async function mayRun(workspaceId: string, repo: string, line: LineCheck & { ok: true }): Promise<Served<null>> {
+    const allowed = await allowance(workspaceId, repo, line);
+    return allowed.ok ? fromPlan(workspaceId, repo, line) : allowed;
+  }
+
   /** Queues the job as `caller`, a member of the workspace the repository belongs to; for a key, that must be the key's.
    * The line's shape is checked first; a repository's own skill, once the repository is placed, against what its owner allowed.
    * A relaunch (PRD 2425 s7) names the `thread` it carries on: the job it continues, which no other job may continue. A key's start
@@ -630,7 +677,7 @@ export function runnersService(
     const placed = await senderIn(caller, repo, key?.workspace ?? null);
     if (!placed.ok) return placed;
     const { workspaceId, sender } = placed.value;
-    const allowed = await allowance(workspaceId, repo, line);
+    const allowed = await mayRun(workspaceId, repo, line);
     if (!allowed.ok) return allowed;
     const target = await mayTarget(store, workspaceId, sender, request.target);
     if (!target.ok) return target;
@@ -690,19 +737,26 @@ export function runnersService(
 
   /**
    * What the job's token may reach beyond its own repository (PRD 2573): for a job an API key sent, a key that no longer works
-   * (revoked, or its maker left) fails it (BR-PRODUCT-64), and so does a job whose own repository the key may not reach; a mega
-   * bug fix also reaches the other repositories of its product within the key's allow-list, the others never even asked of
-   * GitHub (BR-PRODUCT-63). A job no key sent was checked against its workspace when it was sent: a mega bug fix of it reaches
-   * its product's other repositories. The key's own App is never read.
+   * (revoked, or its maker left) fails it (BR-PRODUCT-64), and so does a job whose own repository the key may not reach; a skill
+   * that spans the product (a mega bug fix, an ultra skill: PRD 2873) also reaches the other repositories of its product within the
+   * key's allow-list, the others never even asked of GitHub (BR-PRODUCT-63). A job no key sent was checked against its workspace
+   * when it was sent: such a skill of it reaches its product's other repositories. The key's own App is never read.
    */
   async function reachOf(job: Pick<JobRow, 'id' | 'repo' | 'line' | 'sent_by_key' | 'workspace_id'>): Promise<Reach> {
-    const mega = isMegaBugFix(job.line);
-    if (job.sent_by_key === null) return { kind: 'reach', also: mega ? alsoFor(job, { repos: [], product_repos: await products(job.workspace_id, job.repo) }) : [] };
+    const spans = spansProduct(job.line);
+    if (job.sent_by_key === null) return { kind: 'reach', also: spans ? await productReach(job, { repos: [], product_repos: await products(job.workspace_id, job.repo) }) : [] };
     const read = await store.appOfJob(job.id);
     // No answer for a key's job is no allow-list: it never reads as an empty one, which allows everything.
     if (read?.working !== true) return failedMint(KEY_STOPPED);
     if (!allows(read.repos, job.repo)) return failedMint(outsideKey(job.repo));
-    return { kind: 'reach', also: mega ? alsoFor(job, read) : [] };
+    return { kind: 'reach', also: spans ? await productReach(job, read) : [] };
+  }
+
+  /** The product's other repositories a job that spans it reaches, within the allow-list: those of the products that name its repository,
+   * then those of the products whose plan repository it is (PRD 2873), once each. */
+  async function productReach(job: Pick<JobRow, 'repo' | 'workspace_id'>, read: Pick<AppOfJob, 'repos' | 'product_repos'>): Promise<string[]> {
+    const planned = planReposOf(await store.productPlans(job.workspace_id), job.repo);
+    return [...new Set([...alsoFor(job, read), ...alsoFor(job, { repos: read.repos, product_repos: planned })])];
   }
 
   /**

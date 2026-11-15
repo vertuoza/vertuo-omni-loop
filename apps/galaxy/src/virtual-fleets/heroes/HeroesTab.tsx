@@ -7,9 +7,10 @@ import { demoHeroesPort, httpHeroesPort, type Changed, type HeroesPort } from '.
 import { heroSvg, missingRoles, rowOf, WORDS, type HeroesView } from './heroes';
 import './heroes.css';
 
-// The Heroes tab of a Virtual Fleet (PRD 2842 s6, the `fleet-seats` screen): one row per hero, its sprite in
-// the fleet's colour, its name and `Role · agent`, its skills, its agent and model (recorded: the runner's
-// accounts still decide), its limits in sentences, and `Works alone` or `A person does this today` with why.
+// The Heroes tab of a Virtual Fleet (PRD 2842 s6, PRD 2873 s3, the `fleet-seats` screen): one row per hero, its
+// sprite in the fleet's colour, its name and `Role · agent`, its count line, every skill of its role marked
+// `runs alone` or `needs a person` (those that run alone first), its agent and model (recorded: the runner's
+// accounts still decide) and its limits in sentences.
 // An owner of the workspace sees `Add a hero` (a role the fleet lacks) and `Remove` on each row; a fleet
 // keeps at least one hero. The rules live in ./heroes.ts; this file draws them and makes the calls.
 
@@ -49,8 +50,14 @@ export function HeroesTab({ view, port }: HeroesTabProps) {
             <span className="hero-sprite" aria-hidden="true" dangerouslySetInnerHTML={{ __html: decorative(heroSvg(row.role, view.color, '', 3)) }} />
             <div className="hero-body">
               <h3 className="hero-name">{row.name}<span className="hero-role"> · {row.heading}</span></h3>
-              <p className="hero-line" data-alone={row.alone}>{row.line}{row.why && <span className="ask-muted"> · {row.why}</span>}</p>
-              <p className="hero-skills">{row.skills.length > 0 ? row.skills.map((skill) => <span className="hero-skill" key={skill}>{skill}</span>) : WORDS.noSkill}</p>
+              <p className="hero-line" data-alone={row.alone}>{row.line}</p>
+              <p className="hero-skills">
+                {row.skills.length > 0
+                  ? row.skills.map((skill) => (
+                    <span className="hero-skill" data-mark={skill.mark} key={skill.name}>{skill.name} <span className="hero-mark">{skill.words}</span></span>
+                  ))
+                  : WORDS.noSkill}
+              </p>
               <p className="hero-agent ask-muted">{row.preferred}</p>
               <ul className="hero-limits">{row.limits.map((limit) => <li key={limit}>{limit}</li>)}</ul>
             </div>

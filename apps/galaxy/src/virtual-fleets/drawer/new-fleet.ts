@@ -2,7 +2,7 @@ import { HERO_ROLES, roleLine, roleOf, type HeroRole } from 'omni-loop/kit/lib/v
 import type { Created, NewFleet, VirtualFleetsPort } from '../virtual-fleets.client';
 import { FLEET_NAME_MAX, type RefusalField } from '../virtual-fleets.contract';
 
-// The New virtual fleet drawer's rules (PRD 2842 s1, the `fleet-new` screen), pure so each is tested
+// The New virtual fleet drawer's rules (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen), pure so each is tested
 // without a browser: what it holds as it opens (Name empty, the first icon, every role on), what each
 // change does, when Create fleet is enabled, where a refusal is shown and when it goes, where the drawer
 // lands once the fleet is made, and the demo's port. NewVirtualFleet.tsx draws it.
@@ -83,7 +83,7 @@ export const refusalUnder = (state: NewFleetState, field: RefusalField): string 
 /** Where Create fleet lands: the new fleet in the Fleet section. */
 export const landingOf = (fleet: string): string => `/app/fleet?fleet=${encodeURIComponent(fleet)}`;
 
-/** A role's switch as the drawer draws it: its name and its one line on whether it works alone. */
+/** A role's switch as the drawer draws it: its name and its count line (`Runs <k> of <n> skills alone`). */
 export function roleSwitch(role: HeroRole): { role: HeroRole; name: string; line: string } {
   return { role, name: roleOf(role).name, line: roleLine(role).line };
 }

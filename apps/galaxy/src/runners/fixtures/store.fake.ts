@@ -60,8 +60,9 @@ export const KEY_APP: KeyApp = { app_id: 123456, slug: 'acme-bugs', bot_id: 777,
  * allow-list as agent_tokens.repos holds it (`owner/name`, lower case; none means every repository of the workspace). */
 export type KeyState = { id: string; app: KeyApp | null; working: boolean; repos?: string[] };
 
-/** A product of the workspace and the repositories it names (product_repositories); an archived one is ignored, as the database ignores it. */
-export type ProductState = { id: string; repositories: string[]; archived?: boolean };
+/** A product of the workspace and the repositories it names (product_repositories), with its plan repository when it names one
+ * (products.plan_repository, PRD 2873); an archived one is ignored, as the database ignores it. */
+export type ProductState = { id: string; repositories: string[]; plan?: string; archived?: boolean };
 
 const FLEETS = [{ workspaceId: WORKSPACE, name: 'cia' }, { workspaceId: WORKSPACE, name: 'pirates' }];
 
@@ -282,6 +283,15 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
       state.calls.push(`minted ${keyId}`);
       state.minted.push(keyId);
       return Promise.resolve();
+    },
+    // As the ultra skills read the workspace's live products (PRD 2873): WORKSPACE's, every repository they name listed.
+    productPlans: (workspaceId) => {
+      const live = workspaceId === WORKSPACE ? products.filter((product) => product.archived !== true) : [];
+      return Promise.resolve({
+        products: live.map((product) => ({ id: product.id, plan_repository: product.plan ?? null })),
+        links: live.flatMap((product) => product.repositories.map((repository) => ({ product_id: product.id, repository }))),
+        repositories: [...new Set(live.flatMap((product) => [...product.repositories, ...(product.plan === undefined ? [] : [product.plan])]))],
+      });
     },
     // As repository_runner_skills_of() reads them: the repository's names, in order.
     allowedSkills: (workspaceId, repo) => Promise.resolve(state.skills

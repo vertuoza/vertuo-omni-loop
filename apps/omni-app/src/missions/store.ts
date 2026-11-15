@@ -13,7 +13,8 @@
 //                it on after a lost runner (`runner_jobs.resumes`, PRD 2809), one chain per job
 //   events       the events already recorded, read back as keys, so nothing is recorded twice
 //   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
-//   send         `/omni:yolo <n>` queued, sent by the app (`sent_by_app`, never a person's name, Never 10), to the
+//   planRepository whether the mission's repository is a live product's plan repository (`products.plan_repository`)
+//   send         `/omni:ultra-yolo <n>` for a PRD of a plan repository, else `/omni:yolo <n>`, queued, sent by the app (`sent_by_app`, never a person's name, Never 10), to the
 //                fleet's runners or else to any runner of the workspace, under `mission_key`: a key already
 //                held (23505) inserts nothing and answers null
 //   record       the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
@@ -46,8 +47,11 @@ import {
 /** A mission as the store reads it: the supervisor's view, its workspace and repository, and its scope. */
 export type MissionRecord = Mission & { workspace: string; repo: string; scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] } };
 
-/** A job to send: the mission, the PRD and its run, and whether the fleet's runners take it. */
-export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; toFleet: boolean };
+/** The skill a mission sends its PRD to: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
+export type MissionSkill = 'yolo' | 'ultra-yolo';
+
+/** A job to send: the mission, the PRD and its run, whether the fleet's runners take it, and the skill. */
+export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; toFleet: boolean; skill: MissionSkill };
 
 export type MissionStore = {
   mission: (id: string) => Promise<MissionRecord | null>;
@@ -55,6 +59,8 @@ export type MissionStore = {
   runs: (id: string) => Promise<Run[]>;
   events: (id: string) => Promise<RecordedEvent[]>;
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
+  /** Whether the mission's repository is the plan repository of a live product of its workspace. */
+  planRepository: (mission: MissionRecord) => Promise<boolean>;
   /** The job's id, or null when its key was already held. */
   send: (job: Dispatch) => Promise<string | null>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
@@ -80,6 +86,7 @@ export const PLAN = 'content';
 export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url';
 export const EVENT = 'kind, prd, job_id';
 export const RUNNER = 'repos';
+export const PRODUCT = 'plan_repository';
 
 const text = z.string().min(1);
 
@@ -111,6 +118,7 @@ export const JobRowSchema = z.object({
 });
 export const EventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), job_id: z.string().nullable() });
 export const RunnerRowSchema = z.object({ repos: z.array(z.string()) });
+export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
 
 type JobRow = z.infer<typeof JobRowSchema>;
 
@@ -213,13 +221,18 @@ export function missionStore(connection: Connection): MissionStore {
       return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
     },
 
-    async send({ mission, prd, run, toFleet }) {
+    async planRepository(mission) {
+      const products = rowsOf(ProductRowSchema, await db.from('products').select(PRODUCT).eq('workspace_id', mission.workspace).is('archived_at', null));
+      return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
+    },
+
+    async send({ mission, prd, run, toFleet, skill }) {
       const answer = await db
         .from('runner_jobs')
         .insert({
           workspace_id: mission.workspace,
           repo: mission.repo,
-          line: `/omni:yolo ${String(prd)}`,
+          line: `/omni:${skill} ${String(prd)}`,
           sent_by_app: APP_SENDER,
           to_fleet: toFleet ? mission.fleet : null,
           mission_id: mission.id,

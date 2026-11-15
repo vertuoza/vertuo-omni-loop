@@ -394,7 +394,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'the raw stream stays on the machine in ~/logs/job-<id>.jsonl. Every 5 s the runner sends the ' +
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
-      'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, bug-fix, ' +
+      'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, ultra-yolo, ultra-wave, ultra-yolo-fix, bug-fix, ' +
       'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind, knowledge-add and rewind-apply run. A job past --timeout (8h by default) ' +
       'is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +

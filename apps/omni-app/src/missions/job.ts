@@ -10,7 +10,7 @@
 //                  one forward
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
 //                  first (its jobs and their resumes, each PRD's approval, stage, blockers and plan), pick
-//                  (./supervisor.ts), send each pick to the mission's Virtual Fleet (its runners when one holds the
+//                  (./supervisor.ts), send each pick (`/omni:ultra-yolo` when the repository is a product's plan repository, else `/omni:yolo`) to the mission's Virtual Fleet (its runners when one holds the
 //                  repository, else any runner of the workspace) under its mission key, record each decision as an
 //                  event, and set the status, what it waits on and the next wake
 //   how it ends    `later`, a minute on, while the mission runs or waits, or while it is paused with a job of it
@@ -57,16 +57,17 @@ type Supervised = { next: Concluded; running: boolean; moved: boolean; sent: num
 
 /** One run of a running, waiting, paused or stopped mission: check, pick, send, record, set. */
 async function supervise(store: MissionStore, mission: MissionRecord, now: number): Promise<Supervised> {
-  const [facts, runs, recorded, toFleet] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission)]);
+  const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
+  const skill = inPlan ? 'ultra-yolo' : 'yolo';
   const sent: Run[] = [];
   for (const { prd, run } of pick({ mission, facts, states: prdStates(facts, runs) })) {
-    const made = await store.send({ mission, prd, run, toFleet });
+    const made = await store.send({ mission, prd, run, toFleet, skill });
     if (made !== null) sent.push({ prd, run, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all);
   const next = conclude({ mission, facts, states, sent: sent.length, now });
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, recorded: recordedKeys(recorded) });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded) });
   await store.record(mission.id, events, new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === 'running'), moved, sent: sent.length, events: events.length };

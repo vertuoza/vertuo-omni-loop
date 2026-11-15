@@ -1,6 +1,6 @@
-/* The Heroes tab of a Virtual Fleet (PRD 2842 s6), as the `fleet-seats` screen draws it: one row per hero,
-   its sprite at the left, its words beside it, Remove at the right; Add a hero under the rows. At 393 px
-   the row stacks. Every colour is a token of src/ask/theme-tokens.ts. */
+/* The Heroes tab of a Virtual Fleet (PRD 2842 s6, PRD 2873 s3), as the `fleet-seats` screen draws it: one row per
+   hero, its sprite at the left, its words beside it, each skill with its mark, Remove at the right; Add a hero
+   under the rows. At 393 px the row stacks. Every colour is a token of src/ask/theme-tokens.ts. */
 
 .heroes { display: grid; gap: 14px; margin-top: 14px; min-width: 0; }
 .heroes-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -19,6 +19,8 @@
   display: inline-block; margin: 0 6px 4px 0; padding: 1px 8px; border: 1px solid var(--ask-line-strong);
   border-radius: 999px; font-family: var(--ask-mono, ui-monospace, monospace); font-size: 13px;
 }
+.hero-mark { font-size: 12px; color: var(--ask-muted); }
+.hero-skill[data-mark='alone'] .hero-mark { color: var(--ask-green); }
 .hero-limits { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 15px; }
 .heroes-add { display: flex; }
 .heroes-roles { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
