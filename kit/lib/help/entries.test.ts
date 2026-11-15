@@ -475,6 +475,15 @@ describe('the help table in this repository', () => {
     expect(item.detail).toMatch(/\brelay moves\b/);
   });
 
+  it('shows omni item new --excuses, an exact path and never a folder or a pattern (PRD 2898)', () => {
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    assertDefined(item, 'item');
+    expect(item.usage.join(' ')).toMatch(/--excuses <path>/);
+    const words = item.detail.replace(/\s+/g, ' ');
+    expect(words).toMatch(/--excuses, once per path, names an exact file/);
+    expect(words).toMatch(/a folder or a pattern is refused/);
+  });
+
   it('describes the ask verbs any agent runs, and the heartbeat\'s switch (PRD 1831)', () => {
     const find = (name: string) => {
       const entry = ENTRIES.find((e) => e.name === name && e.kind === 'command');
