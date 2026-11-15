@@ -1,4 +1,4 @@
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
 import { MOVES, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
@@ -69,7 +69,7 @@ function dropBlock(mission: { number: number; level: MissionLevel; status: strin
 }
 
 /** What a drop's ask says in the mission's events: who asked, what leaves the branch and the PRDs that go with it. */
-function askWords(login: string, branch: string, set: { prd: number; sharing: readonly number[] }, keep: boolean): string {
+function askWords(login: string, branch: string, set: { prd: PrdNumber; sharing: readonly PrdNumber[] }, keep: boolean): string {
   const taking = keep || set.sharing.length === 0 ? '' : `, with ${set.sharing.map((one) => `PRD ${String(one)}`).join(', ')}`;
   return `${login} asked to drop PRD ${String(set.prd)} from ${branch}${taking}.`;
 }

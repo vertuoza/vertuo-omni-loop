@@ -1,3 +1,4 @@
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
 import { z } from 'zod';
 
@@ -36,7 +37,7 @@ export type LeveledMission = z.infer<typeof LeveledMissionSchema>;
 export const DropBodySchema = z.object({
   repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
   mission: z.number().int().positive(),
-  prd: z.number().int().positive(),
+  prd: PrdNumberSchema,
   keep: z.boolean().default(false),
 });
 export type DropBody = z.infer<typeof DropBodySchema>;
@@ -46,9 +47,9 @@ export const DroppedMissionSchema = z.object({
   drop: z.object({
     mission: z.uuid(),
     branch: z.string(),
-    prd: z.number().int().positive(),
-    sharing: z.array(z.number().int().positive()),
-    dropped: z.array(z.number().int().positive()),
+    prd: PrdNumberSchema,
+    sharing: z.array(PrdNumberSchema),
+    dropped: z.array(PrdNumberSchema),
     keep: z.boolean(),
   }),
 });

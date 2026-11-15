@@ -569,7 +569,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
     /** PRD 2896 s7: asks for PRD `prd` to leave mission `mission`'s branch in `repo` (`omni mission drop`); with `keep`, the later PRDs
      * sharing its territory stay. @returns {Promise<{ drop: { mission: string, branch: string, prd: number, sharing: number[], dropped: number[], keep: boolean } }>} */
-    dropMission: ({ repo, mission, prd, keep }: { repo: string; mission: number; prd: number; keep: boolean }) =>
+    dropMission: ({ repo, mission, prd, keep }: { repo: string; mission: number; prd: PrdNumber; keep: boolean }) =>
       call('POST', '/api/missions/drop', { body: { repo, mission, prd, keep } }),
     /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
      * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
