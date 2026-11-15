@@ -622,3 +622,392 @@ Undoing it is one line; the gate then never runs and a ready PRD waits for a per
 ```
 
 <!-- /omni-outbox-settled: s4-03-join-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s5-01-mission-branch-rebuild-by-hand -->
+
+## s5-01-mission-branch-rebuild-by-hand — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-mission-branch-rebuild-by-hand
+prd: 2896
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 5
+---
+
+## The question, in plain words
+
+When the mission branch can only follow the default branch once its built files are rebuilt, the spec says a runner job does it. No skill a runner may take can rebase a mission branch, so who does it for now?
+
+## The decision, in plain words
+
+For now the mission waits on a person, naming the built files and saying to rebase the branch and rebuild them by hand, and nothing on the branch changes. A feature branch in the same case does get its runner job, through the skill that already looks after a pull request.
+
+## The intro, for fun
+
+The robot knows the shelf is crooked, but nobody gave it a screwdriver yet.
+
+## The punchline, for fun
+
+So it leaves a note on the shelf instead of guessing.
+
+## The options, in plain words
+
+A. A. The mission waits on a person for a conflict only in built files on its own branch; feature branches get their care job (built).
+B. B. Add a runner skill now that rebases the mission branch and rebuilds its built files, with the lists of the Omni page and the database.
+C. C. Rebase the mission branch keeping the default branch's built files, and let the next PRD's rebuild bring them up to date.
+
+## What I had to decide
+
+Keep the wait on a person until a later change gives runners a job that rebases a mission branch and rebuilds its built files, or ask for that job now.
+
+## What I did meanwhile
+
+The app tells a conflict only in built files apart from any other, on the mission branch and on each feature branch. A feature branch gets one care job per head of the mission branch; the mission branch itself waits on a person, saying which files and that no branch changed.
+
+## What it costs to change later
+
+Adding the job later costs one new runner skill, its place in the runner lists of the kit, the Omni page and the database, and swapping the wait for a send in the mission's run.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A new runner skill must be added to three lists the tests hold equal (the kit's, the Omni page's and the database's); only the kit's is in this slice's ground.
+- (author) Until then, criterion 8 holds for feature branches but not for the mission branch itself: in this repository almost every rebase conflicts in the built bundle, so a mission at Own branch waits on a person often.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-mission-branch-rebuild-by-hand -->
+
+<!-- omni-outbox-settled: s5-02-feature-branches-merged-not-rebased -->
+
+## s5-02-feature-branches-merged-not-rebased — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-feature-branches-merged-not-rebased
+prd: 2896
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 5
+---
+
+## The question, in plain words
+
+The spec says each open feature branch of the mission is rebased onto the mission branch's new tip. Should the app rewrite those branches, or bring the new tip in by merging it?
+
+## The decision, in plain words
+
+The app brings the new tip into each feature branch by merging it, as GitHub's Update branch does, only while that branch's head is still the one it read. Only the mission branch itself is rebased, so it stays one commit per PRD.
+
+## The intro, for fun
+
+Two ways to catch a moving train: jump on it, or rebuild the station beside it.
+
+## The punchline, for fun
+
+The app jumps on, and leaves the station standing.
+
+## The options, in plain words
+
+A. A. Merge the new tip into each feature branch, under the lease of its head (built).
+B. B. Rebase each feature branch onto the new tip and write it with force.
+
+## What I had to decide
+
+Keep merging the new tip into feature branches, or ask for a true rebase of each one, with a forced write under any work still on it.
+
+## What I did meanwhile
+
+A feature branch whose PRD has no job running is updated by merge when it is behind; its own commits and its slices' pull requests stay as they are, and it is squashed onto the mission branch when it joins, so the merge never reaches it.
+
+## What it costs to change later
+
+Switching to a rebase later costs one function in the mission's keeping up and its tests; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A feature branch here holds merge commits of its slices, which a rebase through GitHub's API cannot replay one by one; the skill that looks after a pull request already merges the mission branch in on a conflict.
+- (author) A feature branch whose PRD has a job running is left to that job, so no write lands under an agent at work.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-feature-branches-merged-not-rebased -->
+
+<!-- omni-outbox-settled: s5-03-keep-up-wired-outside-territory -->
+
+## s5-03-keep-up-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-keep-up-wired-outside-territory
+prd: 2896
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 5
+---
+
+## The question, in plain words
+
+Keeping the mission branch in step only happens if the app's job runner is told about it, and that file lies outside this slice's ground. Should the slice change it?
+
+## The decision, in plain words
+
+Yes, by one line: the app's list of job handlers now hands the mission its keeping up, beside the branch and the merge the two slices before it wired the same way.
+
+## The intro, for fun
+
+A new chore is no use until it is written on the fridge.
+
+## The punchline, for fun
+
+One line on the fridge, signed so nobody wonders who wrote it.
+
+## The options, in plain words
+
+A. A. Change the one line in the app's job list (built).
+B. B. Leave it to a later slice, so the branch never follows until then.
+
+## What I had to decide
+
+Keep the one-line change to the app's job list, or move the wiring into a slice whose ground holds that file.
+
+## What I did meanwhile
+
+The mission's job receives its keeping up from the app's job list; without the line the mission branch would never follow the default branch.
+
+## What it costs to change later
+
+Undoing it is one line; the mission branch then stays where it was cut, as before this slice.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives no slice the file that lists the app's job handlers, and slices s3 and s4 changed it the same way.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-keep-up-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s5-04-rebase-not-recorded-yet -->
+
+## s5-04-rebase-not-recorded-yet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-rebase-not-recorded-yet
+prd: 2896
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 5
+---
+
+## The question, in plain words
+
+The spec has the operation room record each rebase of the mission branch. The database accepts no rebase event yet, and this slice may not change it, so is a rebase recorded?
+
+## The decision, in plain words
+
+Not yet: a rebase writes no event, and only a conflict shows, as what the mission waits on, which the room already records. The slice that shows the rebases in the room adds the event.
+
+## The intro, for fun
+
+The branch moved house quietly, and forgot to send the postcard.
+
+## The punchline, for fun
+
+The neighbours only hear about it when the door sticks.
+
+## The options, in plain words
+
+A. A. Record no rebase until a slice adds the event kind (built).
+B. B. Add the event kind now, in a migration outside this slice's ground.
+
+## What I had to decide
+
+Keep a rebase unrecorded until the slice that shows rebases in the operation room, or ask for the event kind now.
+
+## What I did meanwhile
+
+A rebase moves the mission branch and its feature branches silently; a conflict, a branch that cannot follow and a feature branch a person must fix are each said in what the mission waits on, which is recorded once per change.
+
+## What it costs to change later
+
+Recording rebases later costs one event kind in a migration, its database check, and one event in the mission's run.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives slice s8 the operation room's rebase events, but neither s5 nor s8 holds the database's migrations in its ground: s8 will meet the same wall.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-rebase-not-recorded-yet -->
+
+<!-- omni-outbox-settled: s5-05-joins-held-while-behind -->
+
+## s5-05-joins-held-while-behind — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-05-joins-held-while-behind
+prd: 2896
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 5
+---
+
+## The question, in plain words
+
+While the mission branch cannot follow the default branch, should a ready PRD still join it, and how close is the app's lease to git's own?
+
+## The decision, in plain words
+
+No PRD joins while the branch cannot follow; each waits, saying the branch must follow first, and joins once it does. The app writes the rebased branch only if its head, read again just before the write, is still the one it rebased.
+
+## The intro, for fun
+
+Nobody boards a train that is still looking for its track.
+
+## The punchline, for fun
+
+Once the track is found, everyone gets on.
+
+## The options, in plain words
+
+A. A. Hold every join while the branch cannot follow (built).
+B. B. Let ready PRDs join a branch that lags behind.
+
+## What I had to decide
+
+Keep joins held while the branch cannot follow, or let PRDs join a branch that lags behind the default branch.
+
+## What I did meanwhile
+
+A conflict, a merge commit on the branch or a branch that moved meanwhile holds every join of that run; the rest of the mission carries on, and the next run, a minute on, reads the branch again.
+
+## What it costs to change later
+
+Letting joins through costs one condition in the mission's run and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) GitHub's REST API has no write that checks a branch's old head, so the lease is a read just before the forced write; only the mission's own run writes that branch, one run at a time.
+- (author) The merges are made on a scratch branch named after the mission branch with --keep-up, removed at the end of each run; a deploy service watching every branch may build it.
+
+```
+
+<!-- /omni-outbox-settled: s5-05-joins-held-while-behind -->
