@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { z } from 'zod';
 import type { GitHubClient } from '../outbox-check/github-schema.ts';
 
 /** A file's text, or null to remove it. */
@@ -16,15 +17,19 @@ type Pull = { base: string; head: string; state: 'open' | 'closed' };
 
 const fail = (status: number, message: string): Error => Object.assign(new Error(message), { status });
 
+/** The entries `POST …/git/trees` writes: a blob's sha, or null to remove its path. */
+const TreeWriteSchema = z.array(z.looseObject({ path: z.string(), mode: z.string(), sha: z.string().nullable() }));
+/** What `POST …/git/commits` takes: the author's name, when it gives one. */
+const CommitWriteSchema = z.looseObject({ message: z.string(), tree: z.string(), parents: z.array(z.string()), author: z.looseObject({ name: z.string() }).optional() });
+
 /** A bare repository with a `main` branch holding `files`, and a GitHub over it. */
 export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
   const dir = mkdtempSync(join(tmpdir(), 'omni-git-fake-'));
   const calls: { route: string; params: Record<string, unknown> }[] = [];
   const pulls = new Map<number, Pull>();
-  let at = 1_800_000_000;
 
-  const git = (args: readonly string[], { env = {}, input }: { env?: Record<string, string>; input?: string } = {}): string =>
-    execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', env: { ...process.env, ...env }, input, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  // git runs with the test's own environment, never one written here: identities go in `-c`, trees are built with mktree.
+  const git = (args: readonly string[], input?: string): string => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', input, stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   /** Whether a git command exits 0. */
   const ok = (args: readonly string[]): boolean => {
     try {
@@ -34,39 +39,52 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
       return false;
     }
   };
-  const when = (): Record<string, string> => {
-    at += 60;
-    const date = `${String(at)} +0000`;
-    return { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date };
-  };
-  const who = (name: string, email: string): Record<string, string> => ({ GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_COMMITTER_NAME: 'omni-app', GIT_COMMITTER_EMAIL: 'app@example.com' });
+  /** A commit of `tree` on `parents`, authored and committed by `name`. */
+  const commitTree = (tree: string, parents: readonly string[], message: string, name = 'omni-app'): string =>
+    git(['-c', `user.name=${name}`, '-c', `user.email=${name.toLowerCase()}@example.com`, '-c', 'commit.gpgsign=false', 'commit-tree', tree, '-m', message, ...parents.flatMap((one) => ['-p', one])]);
 
   git(['init', '--bare', '--quiet', '--initial-branch=main']);
 
-  /** A tree: `base`'s with `entries` written (a blob's sha, or null to remove the path). */
-  function treeOf(base: string | null, entries: readonly { path: string; mode: string; sha: string | null }[]): string {
-    const index = join(dir, `index-${String(Math.random()).slice(2)}`);
-    const env = { GIT_INDEX_FILE: index };
-    try {
-      if (base === null) git(['read-tree', '--empty'], { env });
-      else git(['read-tree', base], { env });
-      for (const { path, mode, sha } of entries) {
-        if (sha === null) git(['update-index', '--force-remove', '--', path], { env });
-        else git(['update-index', '--add', '--cacheinfo', `${mode},${sha},${path}`], { env });
-      }
-      return git(['write-tree'], { env });
-    } finally {
-      rmSync(index, { force: true });
+  type Entry = { mode: string; sha: string };
+
+  /** The tree of the files under `prefix`, each folder its own tree. */
+  function written(prefix: string, files: ReadonlyMap<string, Entry>): string {
+    const lines = new Map<string, string>();
+    const folders = new Set<string>();
+    for (const [path, { mode, sha }] of files) {
+      if (!path.startsWith(prefix)) continue;
+      const rest = path.slice(prefix.length);
+      const slash = rest.indexOf('/');
+      if (slash < 0) lines.set(rest, `${mode} blob ${sha}\t${rest}`);
+      else folders.add(rest.slice(0, slash));
     }
+    for (const folder of folders) lines.set(folder, `040000 tree ${written(`${prefix}${folder}/`, files)}\t${folder}`);
+    return git(['mktree'], [...lines.values()].map((line) => `${line}\n`).join(''));
   }
 
-  const blob = (text: string): string => git(['hash-object', '-w', '--stdin'], { input: text });
+  /** A tree: `base`'s with `entries` written (a blob's sha, or null to remove the path). */
+  function treeOf(base: string | null, entries: readonly { path: string; mode: string; sha: string | null }[]): string {
+    const files = new Map<string, Entry>();
+    const listed = base === null ? '' : git(['ls-tree', '-r', '--full-tree', base]);
+    for (const line of listed.split('\n').filter((one) => one !== '')) {
+      const [meta = '', path = ''] = line.split('\t');
+      const [mode = '', , sha = ''] = meta.split(' ');
+      files.set(path, { mode, sha });
+    }
+    for (const { path, mode, sha } of entries) {
+      if (sha === null) files.delete(path);
+      else files.set(path, { mode, sha });
+    }
+    return written('', files);
+  }
+
+  const blob = (text: string): string => git(['hash-object', '-w', '--stdin'], text);
 
   /** A commit on `parent` (none for a root) writing `files`, by Ada. */
   function commit(parent: string | null, changes: Files, message: string): string {
     const base = parent === null ? null : git(['rev-parse', `${parent}^{tree}`]);
     const tree = treeOf(base, Object.entries(changes).map(([path, text]) => ({ path, mode: '100644', sha: text === null ? null : blob(text) })));
-    return git(['commit-tree', tree, '-m', message, ...(parent === null ? [] : ['-p', parent])], { env: { ...who('Ada', 'ada@example.com'), ...when() } });
+    return commitTree(tree, parent === null ? [] : [parent], message, 'Ada');
   }
 
   const refOf = (name: string): string | null => {
@@ -162,12 +180,11 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
     'GET /repos/{owner}/{repo}/compare/{basehead}': ({ basehead }) => compare(String(basehead)),
     'GET /repos/{owner}/{repo}/git/commits/{commit_sha}': ({ commit_sha }) => commitOf(String(commit_sha)),
     'POST /repos/{owner}/{repo}/git/trees': ({ base_tree, tree }) => ({
-      sha: treeOf(typeof base_tree === 'string' ? base_tree : null, (tree as { path: string; mode: string; sha: string | null }[]).map(({ path, mode, sha }) => ({ path, mode, sha }))),
+      sha: treeOf(typeof base_tree === 'string' ? base_tree : null, TreeWriteSchema.parse(tree)),
     }),
-    'POST /repos/{owner}/{repo}/git/commits': ({ message, tree, parents, author }) => {
-      const by = (author ?? { name: 'omni-app', email: 'app@example.com' }) as { name: string; email: string };
-      const sha = git(['commit-tree', String(tree), '-m', String(message), ...(parents as string[]).flatMap((one) => ['-p', one])], { env: { ...who(by.name, by.email), ...when() } });
-      return { sha };
+    'POST /repos/{owner}/{repo}/git/commits': (params) => {
+      const { message, tree, parents, author } = CommitWriteSchema.parse(params);
+      return { sha: commitTree(tree, parents, message, author?.name) };
     },
     'POST /repos/{owner}/{repo}/merges': ({ base, head, commit_message }) => {
       const into = refOf(String(base));
@@ -176,7 +193,7 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
       if (isAncestor(from, into)) return null;
       const tree = mergedTree(into, from);
       if (tree === null) throw fail(409, 'Merge conflict');
-      const sha = git(['commit-tree', tree, '-m', typeof commit_message === 'string' ? commit_message : 'Merge', '-p', into, '-p', from], { env: { ...who('omni-app', 'app@example.com'), ...when() } });
+      const sha = commitTree(tree, [into, from], typeof commit_message === 'string' ? commit_message : 'Merge');
       setRef(String(base), sha);
       return { sha, commit: { tree: { sha: tree } } };
     },
@@ -193,7 +210,7 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
       if (expected_head_sha !== undefined && expected_head_sha !== head) throw fail(422, 'expected head sha didn’t match current head ref.');
       const tree = mergedTree(head, base);
       if (tree === null) throw fail(422, 'merge conflict between base and head');
-      setRef(pull.head, git(['commit-tree', tree, '-m', `Merge branch '${pull.base}' into ${pull.head}`, '-p', head, '-p', base], { env: { ...who('omni-app', 'app@example.com'), ...when() } }));
+      setRef(pull.head, commitTree(tree, [head, base], `Merge branch '${pull.base}' into ${pull.head}`));
       return { message: 'Updating pull request branch.' };
     },
   };
@@ -255,7 +272,7 @@ export function gitGithub(files: Files = { 'README.md': 'hello\n' }) {
       const into = refOf(base) ?? '';
       const tree = mergedTree(into, refOf(head) ?? '');
       if (tree === null) throw new Error(`${head} conflicts with ${base}`);
-      const sha = git(['commit-tree', tree, '-m', title, '-p', into], { env: { ...who('Ada', 'ada@example.com'), ...when() } });
+      const sha = commitTree(tree, [into], title, 'Ada');
       setRef(base, sha);
       return sha;
     },
