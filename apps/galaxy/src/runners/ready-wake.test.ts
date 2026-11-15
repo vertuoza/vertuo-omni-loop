@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { acceptanceLine } from 'omni-loop/kit/lib/runner/acceptance-line.ts';
 import { fakeStore, jobRow, MO, OLGA, RUNNERS, SHARED, T0, WORKSPACE } from './fixtures/store.fake';
 import { stubGithub } from './fixtures/github.fake';
-import { readyWake, readyWakeStore, type ReadyWakeStore } from './ready-wake';
+import { readyWake } from './ready-wake';
+import { readyWakeStore, type ReadyWakeStore } from './ready-wake.repository';
 import type { RunnersDb } from './runners.repository';
 import { runnersService, type AppJobEnded } from './runners.service';
 
@@ -11,7 +13,7 @@ import { runnersService, type AppJobEnded } from './runners.service';
 // ended tell nothing. No test reaches Supabase: the store's client is a fake that records its calls.
 
 const SHA = 'f6'.repeat(20);
-const LINE = acceptanceLine({ prd: 2898, pr: 2927, sha: SHA });
+const LINE = acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA });
 
 function world(jobs: ReturnType<typeof jobRow>[]) {
   const ended: AppJobEnded[] = [];

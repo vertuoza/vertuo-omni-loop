@@ -9,7 +9,8 @@ import { wakeMission } from '../missions/missions.live';
 import { liveNotifier } from '../public-api/notify.live';
 import type { RunnersDeps } from './runners.controller';
 import { githubDeps } from './runners.github';
-import { readyWake, readyWakeStore } from './ready-wake';
+import { readyWake } from './ready-wake';
+import { readyWakeStore } from './ready-wake.repository';
 import { checkpointsRepository, runnersRepository } from './runners.repository';
 import { checkpointsService, productReposOf, runnersService, type AppJobEnded, type CheckpointsService, type GithubDeps, type ProductRepos, type RunnersService } from './runners.service';
 

@@ -1,6 +1,7 @@
 // The runner's e2e fallback (PRD 2898 s8): the line the App queues, the result line the job ends its log on, and
 // the run itself in a fixture worktree, every program it calls (git, pnpm, gh) a fake script on its PATH that
 // records what it was given. Nothing reaches GitHub, a preview or a model.
+import { parsePr, parsePrd } from '../ids.ts';
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -40,9 +41,9 @@ function whyOf(log: string): string {
 
 describe('the acceptance line', () => {
   it('names the PRD, its feature PR and the commit, and is a line a runner takes', () => {
-    const line = acceptanceLine({ prd: 2898, pr: 2927, sha: SHA });
+    const line = acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA });
     expect(line).toBe(`/omni:acceptance 2898 --pr 2927 --sha ${SHA}`);
-    expect(parseAcceptanceLine(line)).toEqual({ prd: 2898, pr: 2927, sha: SHA });
+    expect(parseAcceptanceLine(line)).toEqual({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA });
     expect(checkRunnerLine(line)).toMatchObject({ ok: true, kind: 'omni', skill: 'acceptance' });
   });
 
@@ -68,7 +69,7 @@ describe('the result line', () => {
   });
 
   it('turns the e2e run\'s tests titled AC-<n> and tagged with the PRD into e2e proofs, a timed-out one failed', () => {
-    expect(e2eResultsOf(E2E_REPORT, { prd: 2898, dir: 'e2e' })).toEqual([
+    expect(e2eResultsOf(E2E_REPORT, { prd: parsePrd(2898), dir: 'e2e' })).toEqual([
       { ac: 9, kind: 'e2e', state: 'passed', title: 'AC-9: The PRD page shows what ready proves', proof: 'e2e/tests/ready.e2e.ts' },
       { ac: 2, kind: 'e2e', state: 'failed', title: 'AC-2: A loosened test keeps the pull request a draft', proof: 'e2e/tests/loose.e2e.ts' },
     ]);
@@ -120,7 +121,7 @@ function worktree({ url, deployment = null }: { url: string; deployment?: string
 describe('runAcceptance — a runner runs the e2e scenarios against the preview (PRD 2898 s8)', () => {
   it('checks the commit out, installs, runs the PRD\'s scenarios with telemetry off on the target, and ends on the report', async () => {
     const tree = worktree({ url: 'https://preview.example.test' });
-    expect(await runAcceptance(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }), tree.io)).toBe(0);
+    expect(await runAcceptance(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }), tree.io)).toBe(0);
     expect(tree.calls()).toEqual([
       `git fetch origin ${SHA}`,
       `git checkout --detach ${SHA}`,
@@ -136,7 +137,7 @@ describe('runAcceptance — a runner runs the e2e scenarios against the preview 
     expect(tree.pane()).toBe(log);
     expect(acceptanceOfLog(log)).toEqual({
       ok: true,
-      report: { format: ACCEPTANCE_REPORT_FORMAT, commit: SHA, results: e2eResultsOf(E2E_REPORT, { prd: 2898, dir: 'e2e' }) },
+      report: { format: ACCEPTANCE_REPORT_FORMAT, commit: SHA, results: e2eResultsOf(E2E_REPORT, { prd: parsePrd(2898), dir: 'e2e' }) },
     });
   });
 
@@ -150,7 +151,7 @@ describe('runAcceptance — a runner runs the e2e scenarios against the preview 
       '  *) exit 9 ;;',
       'esac',
     ]);
-    expect(await runAcceptance(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }), tree.io)).toBe(0);
+    expect(await runAcceptance(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }), tree.io)).toBe(0);
     expect(tree.calls().filter((call) => call.startsWith('gh '))).toHaveLength(4);
     expect(tree.log()).toContain('APP_URL=https://galaxy-git-ready.example.test');
   });
@@ -158,7 +159,7 @@ describe('runAcceptance — a runner runs the e2e scenarios against the preview 
   it('ends failed, naming why, when the preview\'s address cannot be read, and runs no scenario', async () => {
     const tree = worktree({ url: 'github-deployment' });
     tree.fake('gh', ['echo "HTTP 403: Resource not accessible by integration" >&2', 'exit 1']);
-    expect(await runAcceptance(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }), tree.io)).toBe(1);
+    expect(await runAcceptance(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }), tree.io)).toBe(1);
     expect(acceptanceOfLog(tree.log())).toEqual({ ok: false, why: "the preview's address could not be read: gh api repos/acme/widgets/deployments exited 1" });
     expect(tree.calls().some((call) => call.includes('e2e run'))).toBe(false);
   });
@@ -170,17 +171,17 @@ describe('runAcceptance — a runner runs the e2e scenarios against the preview 
 
     const noCheckout = worktree({ url: 'https://preview.example.test' });
     noCheckout.fake('git', ['exit 128']);
-    expect(await runAcceptance(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }), noCheckout.io)).toBe(1);
+    expect(await runAcceptance(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }), noCheckout.io)).toBe(1);
     expect(acceptanceOfLog(noCheckout.log())).toEqual({ ok: false, why: 'git fetch exited 128' });
 
     const noUrl = worktree({ url: 'null' });
-    expect(await runAcceptance(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }), noUrl.io)).toBe(1);
+    expect(await runAcceptance(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }), noUrl.io)).toBe(1);
     expect(acceptanceOfLog(noUrl.log())).toEqual({ ok: false, why: 'e2e.url is not set: there is no address to run the scenarios on' });
 
     const noReport = worktree({ url: 'https://preview.example.test' });
     noReport.fake('pnpm', ['exit 2']);
     rmSync(join(noReport.root, 'pnpm-lock.yaml'));
-    expect(await runAcceptance(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }), noReport.io)).toBe(1);
+    expect(await runAcceptance(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }), noReport.io)).toBe(1);
     expect(acceptanceOfLog(noReport.log())).toEqual({ ok: false, why: 'the e2e run wrote no report (it exited 2)' });
     expect(noReport.calls()).not.toContain('pnpm install --frozen-lockfile');
   });

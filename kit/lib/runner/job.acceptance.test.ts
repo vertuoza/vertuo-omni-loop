@@ -1,5 +1,6 @@
 // A job's process on an acceptance line (PRD 2898 s8): it runs the e2e fallback as plain code, never an agent,
 // and writes its exit as any job does. Every program is a fake script on the PATH; nothing reaches a model.
+import { parsePr, parsePrd } from '../ids.ts';
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -31,7 +32,7 @@ function job(line: string) {
 
 describe('runJobProcess on an acceptance line', () => {
   it('runs the e2e fallback itself, installing once after its checkout, and starts no agent', async () => {
-    const one = job(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }));
+    const one = job(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }));
     expect(await runJobProcess({ cwd: one.root, files: one.files, out: { write: () => true }, env: one.env })).toBe(0);
     expect(one.calls().filter((call) => call.startsWith('claude'))).toEqual([]);
     expect(one.calls().filter((call) => call === 'pnpm install --frozen-lockfile')).toHaveLength(1);
@@ -41,7 +42,7 @@ describe('runJobProcess on an acceptance line', () => {
   });
 
   it('writes the exit 1 of a fallback that failed', async () => {
-    const one = job(acceptanceLine({ prd: 2898, pr: 2927, sha: SHA }));
+    const one = job(acceptanceLine({ prd: parsePrd(2898), pr: parsePr(2927), sha: SHA }));
     writeFileSync(join(one.root, '.bin', 'git'), '#!/bin/sh\nexit 1\n');
     expect(await runJobProcess({ cwd: one.root, files: one.files, out: { write: () => true }, env: one.env })).toBe(1);
     expect(readFileSync(one.files.exit, 'utf8')).toBe('1\n');

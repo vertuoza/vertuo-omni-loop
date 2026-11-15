@@ -3,13 +3,14 @@
 // the App when such a job ended; and the runner, which runs it (./acceptance.ts) and ends its log on the result line,
 // `omni-acceptance: <report>` (the acceptance report of kit/lib/ready/report.ts, its `e2e` results only) or
 // `omni-acceptance: failed — <why>`. Pure: no process, no file, no network.
+import { parsePr, parsePrd, type PrdNumber, type PrNumber } from '../ids.ts';
 import { parseAcceptanceReport, type AcceptanceReport } from '../ready/report.ts';
 
 /** The runner line's skill: no plugin skill, the job's process runs it itself. */
 export const ACCEPTANCE_SKILL = 'acceptance';
 
 /** What an acceptance line names: the PRD, its feature PR and the commit the scenarios prove. */
-export type AcceptanceTarget = { prd: number; pr: number; sha: string };
+export type AcceptanceTarget = { prd: PrdNumber; pr: PrNumber; sha: string };
 
 const LINE = /^\/omni:acceptance ([1-9]\d*) --pr ([1-9]\d*) --sha ([0-9a-f]{40})$/;
 
@@ -22,7 +23,7 @@ export function acceptanceLine({ prd, pr, sha }: AcceptanceTarget): string {
 export function parseAcceptanceLine(line: string): AcceptanceTarget | null {
   const match = LINE.exec(line.trim());
   if (!match) return null;
-  return { prd: Number(match[1]), pr: Number(match[2]), sha: match[3] ?? '' };
+  return { prd: parsePrd(match[1] ?? ''), pr: parsePr(match[2] ?? ''), sha: match[3] ?? '' };
 }
 
 /** The mark of the result line the job ends its log on. */

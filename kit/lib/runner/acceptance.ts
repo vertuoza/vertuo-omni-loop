@@ -23,6 +23,7 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { loadConfig } from '../config.ts';
+import type { PrdNumber } from '../ids.ts';
 import { messageOf } from '../narrow.ts';
 import { acNumberOfTitle } from '../ready/criteria.ts';
 import { ACCEPTANCE_REPORT_FORMAT, type AcceptanceReport } from '../ready/report.ts';
@@ -44,7 +45,7 @@ type Result = AcceptanceReport['results'][number];
 const PROVED: Readonly<Record<string, Result['state']>> = { passed: 'passed', flaky: 'passed', failed: 'failed', 'timed-out': 'failed', interrupted: 'failed' };
 
 /** The `e2e` results of a run's `report.json` text: each test titled `AC-<n>: …` and tagged `prd-<prd>`. */
-export function e2eResultsOf(text: string, { prd, dir }: { prd: number; dir: string }): Result[] {
+export function e2eResultsOf(text: string, { prd, dir }: { prd: PrdNumber; dir: string }): Result[] {
   const { run } = E2eRunSchema.parse(JSON.parse(text));
   return run.results.flatMap((result): Result[] => {
     const title = result.titlePath.at(-1) ?? '';
@@ -135,7 +136,8 @@ async function deployed(step: (file: string, args: readonly string[]) => Promise
   const asked = async (path: string) => {
     const ran = await step('gh', ['api', path]);
     if (ran.code !== 0) throw new StepFailed(`the preview's address could not be read: gh api ${path.replace(/\?.*$/, '')} exited ${String(ran.code)}`);
-    return JSON.parse(ran.stdout) as unknown;
+    const answer: unknown = JSON.parse(ran.stdout);
+    return answer;
   };
   const deployments = DEPLOYMENTS.parse(await asked(`repos/${slug}/deployments?sha=${sha}&per_page=100`));
   const newest = deployments.find((deployment) => environment === null || deployment.environment === environment);

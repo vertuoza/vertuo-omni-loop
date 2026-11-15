@@ -6,7 +6,7 @@
 import { rmSync } from 'node:fs';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CONFIG_FILE } from 'omni-loop/kit/lib/config.ts';
-import { parsePr } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { READY_CHECK_NAME } from 'omni-loop/kit/lib/ready/checks.ts';
 import { ACCEPTANCE_REPORT_FORMAT, parseAcceptanceReport, renderAcceptanceReport, type AcceptanceReport } from 'omni-loop/kit/lib/ready/report.ts';
 import { acceptanceLine, readyRefreshOf } from 'omni-loop/kit/lib/runner/acceptance-line.ts';
@@ -137,7 +137,7 @@ function fakeStore({ runners = true } = {}) {
 }
 
 const PAYLOAD = { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 31, headSha: HEAD };
-const LINE = acceptanceLine({ prd: 7, pr: 31, sha: HEAD });
+const LINE = acceptanceLine({ prd: parsePrd(7), pr: parsePr(31), sha: HEAD });
 
 const runJob = ({ octokit }: Setup, store: ReadyStore | null) => readyHandler({ octokitFor: () => octokit, store, log: () => undefined })(claimedJob(READY_KIND, PAYLOAD));
 
