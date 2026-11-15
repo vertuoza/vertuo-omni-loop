@@ -93,6 +93,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for.',
   },
   {
+    name: 'dashboard',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni dashboard [--fetch]'],
+    label: 'omni dashboard',
+    summary: 'the overview of every PRD, where each stands',
+    detail:
+      'The repository\'s overview, exactly what `omni status` prints with no PRD number: how many ' +
+      'PRDs sit at each stage, a bar of delivered against in progress, and the PRDs that are yours. ' +
+      'Read from git only; --fetch fetches {remote}/{defaultBranch} first. This session\'s own work ' +
+      'is `omni now --status`.',
+  },
+  {
     name: 'sync',
     kind: 'command',
     who: 'you',
@@ -2066,6 +2079,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     when: 'Use it when you want to know where your PRDs stand without leaving Claude.',
     example: {
       type: '/omni:status',
+      result: 'how many PRDs shipped, wait in the inbox or the outbox, and yours',
+    },
+  },
+  {
+    name: 'dashboard',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:dashboard [--fetch]'],
+    label: '/omni:dashboard',
+    summary: 'where all your PRDs are',
+    detail:
+      'Runs omni dashboard inside Claude and prints the repository\'s overview as is: how many PRDs ' +
+      'sit at each stage of the loop, and the PRDs that are yours, each with where it stands. It ' +
+      'fetches first only when you ask for fresh data, and never runs the outbox gate of one PRD.',
+    group: 'everyday',
+    when: 'Use it when you want every PRD of the repository on one screen.',
+    example: {
+      type: '/omni:dashboard',
       result: 'how many PRDs shipped, wait in the inbox or the outbox, and yours',
     },
   },
