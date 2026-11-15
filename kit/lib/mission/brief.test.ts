@@ -42,7 +42,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
         goal: 'Every quote can be paid online, for every customer.',
         measures: [{ sign: 'Quotes paid online', read: 'the payments report, weekly', target: 'three in ten within a month' }],
         scope: { prds: [2803, 2804], roadmaps: [12] },
-        mandate: { parallel: 3 },
+        mandate: { parallel: 3, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 },
       },
     });
   });
@@ -50,11 +50,11 @@ describe('a mission.md, read through the brief\'s schema', () => {
   it('reads a one-line mission: one PRD, no measure, no roadmap, and the default mandate', () => {
     const lines = ['mission: 2851', 'title: Dark mode for quotes', 'fleet: night-shift', 'goal: Dark mode for quotes on site.', 'scope:', '  prds: [2803]'];
     const parsed = parseBrief(record(lines));
-    expect(parsed.ok && parsed.brief).toMatchObject({ measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: DEFAULT_PARALLEL } });
+    expect(parsed.ok && parsed.brief).toMatchObject({ measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: DEFAULT_PARALLEL, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 } });
     expect(DEFAULT_PARALLEL).toBe(2);
     // A mandate that names nothing keeps the default too.
     const empty = parseBrief(record([...lines, 'mandate: {}']));
-    expect(empty.ok && empty.brief.mandate).toEqual({ parallel: 2 });
+    expect(empty.ok && empty.brief.mandate).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 });
   });
 
   it('reads roadmaps alone as a scope', () => {
@@ -101,6 +101,18 @@ describe('a mission.md, read through the brief\'s schema', () => {
     expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2803]', '  bugs: [7]'])))).toEqual(['scope: unexpected field bugs.']);
     expect(errorsOf(record(swap('scope', [`scope:`, `  prds: [${Array.from({ length: 51 }, (_, k) => k + 1).join(', ')}]`]))))
       .toEqual(['scope.prds: holds 50 PRDs at most.']);
+  });
+
+  it('reads the level and the two bounds under it, and refuses any other value by name (PRD 2896)', () => {
+    const mandate = (...lines: string[]) => record(swap('mandate', ['mandate:', '  parallel: 3', ...lines.map((line) => `  ${line}`)]));
+    const read = parseBrief(mandate('level: alone', 'hardToRevert: 0.8', 'ownPrds: 4'));
+    expect(read.ok && read.brief.mandate).toEqual({ parallel: 3, level: 'alone', hardToRevert: 0.8, ownPrds: 4 });
+    expect(errorsOf(mandate('level: on-its-own'))).toEqual(['mandate.level: is one of with-you, own-branch, alone.']);
+    expect(errorsOf(mandate('hardToRevert: 1.2'))).toEqual(['mandate.hardToRevert: is 0 to 1.']);
+    expect(errorsOf(mandate('hardToRevert: -0.1'))).toEqual(['mandate.hardToRevert: is 0 to 1.']);
+    expect(errorsOf(mandate('ownPrds: 11'))).toEqual(['mandate.ownPrds: is 0 to 10.']);
+    expect(errorsOf(mandate('ownPrds: 2.5'))).toEqual(['mandate.ownPrds: must be a whole number.']);
+    expect(errorsOf(mandate('ownPrds: many'))).toEqual(['mandate.ownPrds: must be a number.']);
   });
 
   it('refuses a mandate outside 1 to 4, or one naming another rule', () => {

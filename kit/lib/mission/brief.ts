@@ -17,7 +17,11 @@
  *   the target), each 1 to 200 characters. None yet is a one-line mission's (`/omni:mission --prd`);
  * - `scope`: `{prds, roadmaps}`, lists of numbers of this repository, 50 PRDs and 10 roadmaps at
  *   most, one of either at least;
- * - `mandate`: `{parallel}`, how many PRDs may run at once, 1 to 4, 2 when not given.
+ * - `mandate`: `{parallel, level, hardToRevert, ownPrds}`: how many PRDs may run at once (1 to 4, 2 when not
+ *   given); the level the mission runs at, `with-you`, `own-branch` or `alone` (`with-you` when not given, the
+ *   fleet's level written by `/omni:mission`: PRD 2896); the hard-to-revert score at or above which an item
+ *   goes to a person (0 to 1, 0.6) and how many PRDs the fleet may add itself (0 to 10, 0); the last two are
+ *   read only at `alone`.
  *
  * The page's rules, `mission.html`'s, are `./page.ts`'s: this module stays free of Node's built-ins, so
  * the app reads a brief with it.
@@ -35,6 +39,14 @@ export const MISSION_PAGE = 'mission.html';
 /** How many PRDs run at once when the mandate says nothing. */
 export const DEFAULT_PARALLEL = 2;
 
+/** What a mission may run at, from the one that changes nothing to the one that works alone (PRD 2896). */
+export const MISSION_LEVELS = ['with-you', 'own-branch', 'alone'] as const;
+export type MissionLevel = (typeof MISSION_LEVELS)[number];
+const DEFAULT_LEVEL: MissionLevel = 'with-you';
+/** The mandate's two bounds under the level, when the brief says nothing. */
+const DEFAULT_HARD_TO_REVERT = 0.6;
+const DEFAULT_OWN_PRDS = 0;
+
 /** One sign the mission worked, how it is read, and its target. */
 export type Measure = { sign: string; read: string; target: string };
 
@@ -46,7 +58,7 @@ export type Brief = {
   goal: string;
   measures: Measure[];
   scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] };
-  mandate: { parallel: number };
+  mandate: { parallel: number; level: MissionLevel; hardToRevert: number; ownPrds: number };
 };
 
 export type BriefParse = { ok: true; brief: Brief } | { ok: false; errors: string[] };
@@ -74,8 +86,18 @@ const ScopeSchema = z
   .refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, 'names no PRD and no roadmap: one at least');
 
 const MandateSchema = z
-  .object({ parallel: z.number({ message: 'must be a number' }).int('must be a whole number').min(1, 'is 1 to 4').max(4, 'is 1 to 4').default(DEFAULT_PARALLEL) }, { message: 'must be {parallel}' })
+  .object(
+    {
+      parallel: z.number({ message: 'must be a number' }).int('must be a whole number').min(1, 'is 1 to 4').max(4, 'is 1 to 4').default(DEFAULT_PARALLEL),
+      level: z.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(', ')}` }).default(DEFAULT_LEVEL),
+      hardToRevert: z.number({ message: 'must be a number' }).min(0, 'is 0 to 1').max(1, 'is 0 to 1').default(DEFAULT_HARD_TO_REVERT),
+      ownPrds: z.number({ message: 'must be a number' }).int('must be a whole number').min(0, 'is 0 to 10').max(10, 'is 0 to 10').default(DEFAULT_OWN_PRDS),
+    },
+    { message: 'must be {parallel, level, hardToRevert, ownPrds}' },
+  )
   .strict();
+
+const DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
 
 const BriefSchema = z
   .object({
@@ -85,7 +107,7 @@ const BriefSchema = z
     goal: text(500),
     measures: z.array(MeasureSchema, { message: 'must be a list' }).max(5, 'holds 5 at most').default([]),
     scope: ScopeSchema,
-    mandate: MandateSchema.default({ parallel: DEFAULT_PARALLEL }),
+    mandate: MandateSchema.default(DEFAULT_MANDATE),
   })
   .strict();
 

@@ -12,7 +12,7 @@ const OTHER = '22222222-2222-4222-8222-222222222222';
 const WORKSPACE = '33333333-3333-4333-8333-333333333333';
 
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
-  id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], ...over,
+  id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], level: 'with-you', ...over,
 });
 const event = (kind: string, prd: number | null, link: string | null = null, mission = ID): EventRow => ({ mission, kind, prd: prd === null ? null : parsePrd(prd), link });
 
@@ -78,7 +78,17 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
   return { from: (table: string) => chain(table === 'missions' ? missions : events, failing === table) } as unknown as MissionsTabDb;
 }
 
-const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waiting_on: 'PRD 2: merge it', scope: { prds: [1, 2], roadmaps: [] } };
+const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waiting_on: 'PRD 2: merge it', scope: { prds: [1, 2], roadmaps: [] }, mandate: { parallel: 2 } };
+
+describe('a mission\'s level (PRD 2896)', () => {
+  it('reads with-you for a mandate without one, the level it names otherwise, and allows the change on a draft alone', async () => {
+    const level = async (mandate: unknown) => (await missionsTabService(missionsTabRepository(fakeDb([{ ...MISSION_ROW, mandate }], []))).view(WORKSPACE, 'night-shift')).missions[0]?.level;
+    expect(await level({ parallel: 2 })).toBe('with-you');
+    expect(await level({ parallel: 2, level: 'alone', hardToRevert: 0.6, ownPrds: 0 })).toBe('alone');
+    expect(missionOf(row({ status: 'draft', level: 'own-branch' }), [])).toMatchObject({ level: 'own-branch', levelWords: 'Own branch', canChangeLevel: true });
+    expect(missionOf(row({ status: 'running', level: 'alone' }), [])).toMatchObject({ levelWords: 'Works alone', canChangeLevel: false });
+  });
+});
 
 describe('the service over the repository', () => {
   it('gives each mission its own events only', async () => {

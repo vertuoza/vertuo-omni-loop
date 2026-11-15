@@ -117,7 +117,7 @@ begin
                          'Every quote can be paid online, for every customer.'::text, 'draft'::text, null::text, null::uuid, null::timestamptz) then
     raise exception 'FAIL: the mission is not as pushed: %', row(m.*);
   end if;
-  if m.measures <> pg_temp.brief() -> 'measures' or m.scope <> pg_temp.brief() -> 'scope' or m.mandate <> '{"parallel": 2}'::jsonb then
+  if m.measures <> pg_temp.brief() -> 'measures' or m.scope <> pg_temp.brief() -> 'scope' or m.mandate <> '{"parallel": 2, "level": "with-you"}'::jsonb then
     raise exception 'FAIL: the mission''s measures, scope or mandate are not as pushed: %', row(m.*);
   end if;
   if not exists (select 1 from public.dossiers d
@@ -177,7 +177,7 @@ begin
   -- No measure yet, and the default mandate: a one-line mission's brief.
   perform public.mission_push('initech/nimbus-plan', 2851, 'Dark mode', jsonb_build_object('fleet', 'night-shift', 'goal', 'Dark mode for quotes on site.',
                               'scope', jsonb_build_object('prds', jsonb_build_array(2803), 'roadmaps', jsonb_build_array())), pg_temp.files());
-  if (select (measures, mandate) from public.missions where number = 2851) is distinct from ('[]'::jsonb, '{"parallel": 2}'::jsonb) then
+  if (select (measures, mandate) from public.missions where number = 2851) is distinct from ('[]'::jsonb, '{"parallel": 2, "level": "with-you"}'::jsonb) then
     raise exception 'FAIL: a brief with no measure and no mandate did not read as none and the default';
   end if;
 end $$;
@@ -204,6 +204,14 @@ begin
   perform pg_temp.refused_for(pg_temp.brief('{"scope": {"prds": [2803]}}'), pg_temp.files(), 'scope');
   perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 5}}'), pg_temp.files(), 'mandate');
   perform pg_temp.refused_for(pg_temp.brief('{"mandate": {}}'), pg_temp.files(), 'mandate');
+  -- The level and its two bounds (PRD 2896): each value outside its range, and any other key, is refused.
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "level": "sometimes"}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "hardToRevert": 1.5}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "hardToRevert": "high"}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "ownPrds": 11}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "ownPrds": 1.5}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "merge": true}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"level": "alone"}}'), pg_temp.files(), 'mandate');
   perform pg_temp.refused_for(pg_temp.brief(), '[{"kind": "brief", "content": "<p>"}]'::jsonb, 'artifacts');
   perform pg_temp.refused_for(pg_temp.brief(), pg_temp.files() || '[{"kind": "spec", "content": "# Spec"}]'::jsonb, 'artifacts');
   perform pg_temp.refused_for(pg_temp.brief(), pg_temp.files() || pg_temp.files(), 'artifacts');
@@ -383,6 +391,99 @@ begin
   begin
     perform public.mission_push('initech/nimbus-plan', 2850, 'Paid online', pg_temp.brief(), pg_temp.files());
     raise exception 'FAIL: an account of no workspace pushed a mission';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ── A mission's level (PRD 2896): inherited from its fleet, raised only by an owner ──
+-- Bob is made an owner; Ada stays a member. NIGHT SHIFT reads with-you; a second fleet, set to own-branch by
+-- the service role, is the one a mission inherits a level from.
+select set_config('request.jwt.claims', '', true);
+update public.workspace_members set role = 'owner' where user_id = '00000000-0000-4000-8000-0000000028b1';
+insert into public.teams (workspace_id, name, label, color, sort, kind, level)
+select w.id, 'branchy', 'BRANCHY', '#8bd450', 120, 'virtual', 'own-branch' from public.workspaces w where w.slug = 'initech';
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+declare
+  m public.missions;
+begin
+  -- A brief naming no level takes its fleet's; one that names a level the fleet already has is a member's to write.
+  perform public.mission_push('initech/nimbus-plan', 2860, 'Inherits', pg_temp.brief('{"fleet": "branchy"}'), pg_temp.files());
+  if (select mandate from public.missions where number = 2860) <> '{"parallel": 2, "level": "own-branch"}'::jsonb then
+    raise exception 'FAIL: a mission did not inherit its fleet''s level: %', (select mandate from public.missions where number = 2860);
+  end if;
+  perform public.mission_push('initech/nimbus-plan', 2861, 'Explicit', pg_temp.brief('{"fleet": "branchy", "mandate": {"parallel": 3, "level": "own-branch", "hardToRevert": 0.7, "ownPrds": 3}}'), pg_temp.files());
+  if (select mandate from public.missions where number = 2861) <> '{"parallel": 3, "level": "own-branch", "hardToRevert": 0.7, "ownPrds": 3}'::jsonb then
+    raise exception 'FAIL: a mission did not keep the level and the bounds its brief named';
+  end if;
+  -- A member who is not an owner cannot write a level above the fleet's, in a brief or through the change.
+  begin
+    perform public.mission_push('initech/nimbus-plan', 2862, 'Above', pg_temp.brief('{"mandate": {"parallel": 2, "level": "own-branch"}}'), pg_temp.files());
+    raise exception 'FAIL: a member pushed a mission above its fleet''s level';
+  exception when insufficient_privilege then null; end;
+  if exists (select 1 from public.missions where number = 2862) then raise exception 'FAIL: a refused level left a mission behind'; end if;
+  -- A re-push of the same brief keeps the level the mission has.
+  perform public.mission_push('initech/nimbus-plan', 2860, 'Inherits', pg_temp.brief('{"fleet": "branchy"}'), pg_temp.files());
+  if (select mandate ->> 'level' from public.missions where number = 2860) <> 'own-branch' then
+    raise exception 'FAIL: a second push changed the mission''s level';
+  end if;
+  -- Change for this mission: a member lowers it, and raises it only up to the fleet's own.
+  m := public.set_mission_level((select id from public.missions where number = 2860), 'with-you');
+  if m.mandate ->> 'level' <> 'with-you' or m.mandate ->> 'parallel' <> '2' then raise exception 'FAIL: a member could not lower a mission''s level: %', row(m.*); end if;
+  m := public.set_mission_level(m.id, 'own-branch');
+  if m.mandate ->> 'level' <> 'own-branch' then raise exception 'FAIL: a member could not raise a mission to its fleet''s level'; end if;
+  begin
+    perform public.set_mission_level(m.id, 'alone');
+    raise exception 'FAIL: a member raised a mission above its fleet''s level';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.set_mission_level(m.id, 'sometimes');
+    raise exception 'FAIL: a level that is none was taken';
+  exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028b1');
+do $$
+begin
+  -- An owner raises a mission above its fleet's level.
+  if (public.set_mission_level((select id from public.missions where number = 2860), 'alone')).mandate ->> 'level' <> 'alone' then
+    raise exception 'FAIL: an owner could not raise a mission above its fleet''s level';
+  end if;
+end $$;
+reset role;
+
+-- A delivered or stopped mission keeps its level; another workspace's member and anon change nothing.
+update public.missions set status = 'delivered' where number = 2861;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+begin
+  begin
+    perform public.set_mission_level((select id from public.missions where number = 2861), 'with-you');
+    raise exception 'FAIL: a delivered mission''s level was changed';
+  exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028c1');
+do $$
+begin
+  begin
+    perform public.set_mission_level((select id from public.missions where number = 2860), 'with-you');
+    raise exception 'FAIL: a member of another workspace changed a mission''s level';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+set local role anon;
+do $$
+begin
+  begin
+    perform public.set_mission_level((select id from public.missions where number = 2860), 'with-you');
+    raise exception 'FAIL: anon changed a mission''s level';
   exception when insufficient_privilege then null; end;
 end $$;
 reset role;

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
-import { MissionStatusSchema } from '../missions.contract';
+import { MissionLevelSchema, MissionStatusSchema } from '../missions.contract';
 import type { EventRow, MissionRow } from './missions-tab';
 
 // The Missions tab's reads (PRD 2842 s7; ADR-0095), on the signed-in person's own client: row-level security
@@ -12,7 +12,7 @@ import type { EventRow, MissionRow } from './missions-tab';
 export type MissionsTabDb = Pick<SupabaseClient, 'from'>;
 
 const WHERE = 'missions/page/missions-tab.repository';
-const MISSION = 'id, repo, number, title, goal, status, waiting_on, scope';
+const MISSION = 'id, repo, number, title, goal, status, waiting_on, scope, mandate';
 const EVENT = 'mission_id, kind, prd, link';
 /** The newest events read: enough to count a mission's PRDs and find what each waits on. */
 const EVENTS_MAX = 1000;
@@ -26,6 +26,8 @@ const MissionRowSchema = z.object({
   status: MissionStatusSchema,
   waiting_on: z.string().nullable(),
   scope: z.object({ prds: z.array(PrdNumberSchema) }).loose(),
+  // A mission made before PRD 2896 holds no level: it reads `with-you`.
+  mandate: z.object({ level: MissionLevelSchema.optional() }).loose(),
 });
 const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: PrdNumberSchema.nullable(), link: z.string().nullable() });
 
@@ -36,7 +38,7 @@ export function missionsTabRepository(db: MissionsTabDb) {
       const { data, error } = await db.from('missions').select(MISSION).eq('workspace_id', workspace).eq('fleet', fleet).order('updated_at', { ascending: false });
       if (error) throw new Error(`Supabase: could not read the missions (${error.message})`);
       return orThrow(parseRows(MissionRowSchema, data, `${WHERE}: missions`)).map((row) => ({
-        id: row.id, repo: row.repo, number: row.number, title: row.title, goal: row.goal, status: row.status, waitingOn: row.waiting_on, prds: row.scope.prds,
+        id: row.id, repo: row.repo, number: row.number, title: row.title, goal: row.goal, status: row.status, waitingOn: row.waiting_on, prds: row.scope.prds, level: row.mandate.level ?? 'with-you',
       }));
     },
 

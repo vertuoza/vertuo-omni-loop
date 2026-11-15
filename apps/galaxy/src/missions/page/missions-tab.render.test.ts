@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, r
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 const row = (over: Partial<MissionRow>): MissionRow => ({
-  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [parsePrd(1), parsePrd(2)], ...over,
+  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [parsePrd(1), parsePrd(2)], level: 'with-you', ...over,
 });
 const view = (...missions: MissionRow[]): MissionsView => ({ workspace: WORKSPACE, fleet: 'night-shift', missions: missions.map((m) => missionOf(m, [])) });
 const html = (v: MissionsView) => renderToStaticMarkup(createElement(MissionsTab, { view: v }));
@@ -32,6 +32,18 @@ describe('MissionsTab', () => {
     expect(text(out)).toContain('Every quote can be paid online. Draft Not started Brief');
     expect(out).toMatch(/<button[^>]*data-primary[^>]*>Start/);
     expect(out).toContain('href="https://github.com/acme/shop/issues/40"');
+  });
+
+  it('shows each mission\'s level, and Change for this mission on a draft alone (PRD 2896)', () => {
+    const draft = html(view(row({ level: 'own-branch' })));
+    expect(text(draft)).toContain('Level: Own branch');
+    expect(text(draft)).toContain('Change for this mission');
+    expect(draft).toMatch(/<option value="own-branch" selected/);
+    const running = html(view(row({ status: 'running', level: 'alone' })));
+    expect(text(running)).toContain('Level: Works alone');
+    expect(running).not.toContain('<select');
+    // A mission at with-you reads as it did, with the level's name added to its row.
+    expect(text(html(view(row({}))))).toContain('Level: Reviews with you');
   });
 
   it('shows a waiting mission with the PRD it waits on, linked, and Pause', () => {

@@ -1,3 +1,5 @@
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import type { MissionStatus } from './missions.contract';
 import type { MissionJob, MissionRecord, MissionsReader, MissionsWriter } from './missions.repository';
 
@@ -17,11 +19,12 @@ export const ADA = { id: '00000000-0000-4000-8000-00000000ada0', login: 'ada' };
 export const BEN = { id: '00000000-0000-4000-8000-0000000000be', login: 'ben' };
 export const DAN = { id: '00000000-0000-4000-8000-0000000000da', login: 'dan' };
 
-type Event = { mission: string; kind: string; actor: string; sentence: string; at: string };
+type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber };
 
-export function fakeMissionsDb(options: { refusesRefresh?: boolean } = {}) {
+export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel } = {}) {
   const missions = new Map<string, MissionRecord & { startedBy: string | null; nextWakeAt: string | null }>();
-  const add = (id: string, status: MissionStatus, workspace = NORTHWIND, repo = 'acme/shop') => missions.set(id, { id, workspace, repo, status, startedBy: null, nextWakeAt: null });
+  let numbered = 40;
+  const add = (id: string, status: MissionStatus, workspace = NORTHWIND, repo = 'acme/shop') => missions.set(id, { id, workspace, repo, status, number: (numbered += 1), title: 'Pay online', level: 'with-you', startedBy: null, nextWakeAt: null });
   add(DRAFT, 'draft');
   add(RUNNING, 'running');
   add(PAUSED, 'paused');
@@ -31,7 +34,8 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean } = {}) {
   const jobs: MissionJob[] = [];
   const members = new Map([[ADA.id, [NORTHWIND]], [BEN.id, [NORTHWIND]], [DAN.id, [OTHER]]]);
 
-  const record = (row: (typeof missions extends Map<string, infer R> ? R : never) | undefined): MissionRecord | null => (row ? { id: row.id, workspace: row.workspace, repo: row.repo, status: row.status } : null);
+  const record = (row: (typeof missions extends Map<string, infer R> ? R : never) | undefined): MissionRecord | null =>
+    (row ? { id: row.id, workspace: row.workspace, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.level } : null);
   const writer: MissionsWriter = {
     mission: (id) => Promise.resolve(record(missions.get(id))),
     watching: (repo) => Promise.resolve([...missions.values()].filter((m) => m.repo === repo && ['running', 'waiting', 'paused'].includes(m.status)).map((m) => record(m)).filter((m): m is MissionRecord => m !== null)),
@@ -58,7 +62,30 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean } = {}) {
     writer,
     /** The missions as `person` reads them: their workspaces' alone (row-level security). */
     reader(person: { id: string }): MissionsReader {
-      return { mission: (id) => Promise.resolve(members.get(person.id)?.includes(missions.get(id)?.workspace ?? '') ? record(missions.get(id)) : null) };
+      const sees = (id: string) => members.get(person.id)?.includes(missions.get(id)?.workspace ?? '') === true;
+      const rank = (level: MissionLevel) => ['with-you', 'own-branch', 'alone'].indexOf(level);
+      return {
+        mission: (id) => Promise.resolve(sees(id) ? record(missions.get(id)) : null),
+        joined: (id) => {
+          const on = new Set<PrdNumber>();
+          for (const event of events) {
+            if (event.mission !== id || event.prd === undefined) continue;
+            if (event.kind === 'prd-joined') on.add(event.prd);
+            else if (event.kind === 'prd-dropped' || event.kind === 'landed') on.delete(event.prd);
+          }
+          return Promise.resolve(on.size);
+        },
+        // The database's rule, as supabase/checks/missions.sql proves it: only an owner takes a mission above its fleet's level.
+        setLevel: (id, level) => {
+          const row = missions.get(id);
+          if (!row || !sees(id)) return Promise.resolve({ ok: false, forbidden: true, error: 'Only a member of the mission\'s workspace changes its level.' });
+          if (rank(level) > rank(options.fleetLevel ?? 'with-you') && !(options.owners ?? []).includes(person.id)) {
+            return Promise.resolve({ ok: false, forbidden: true, error: 'Only an owner of the workspace starts a mission above its fleet\'s level.' });
+          }
+          missions.set(id, { ...row, level });
+          return Promise.resolve({ ok: true, level });
+        },
+      };
     },
   };
 }
