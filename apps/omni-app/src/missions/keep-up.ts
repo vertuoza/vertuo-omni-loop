@@ -4,7 +4,8 @@
 //   the branch    when the default branch moved, the mission branch is rebased onto its new tip. It is a straight line, one
 //                 squash commit per PRD (./join.ts), so each commit is replayed in order: merged into a scratch branch at the
 //                 new tip (`POST …/merges`, git's three-way merge from the old fork point), its tree then committed on the one
-//                 before it, its message and author kept. A branch with no commit of its own is moved without force. The
+//                 before it, its message and author kept; one that changes nothing there is dropped (a PRD the default
+//                 branch holds already, after a landing, PRD 2896 s6). A branch with no commit of its own is moved without force. The
 //                 rebased line is written with force only once every commit replayed, and only while the branch's head is
 //                 still the one read (the lease: read again just before the write; another head and nothing is written,
 //                 the next run reads it again). A merge commit on the branch holds it: the branch is never merged into
@@ -168,16 +169,23 @@ function unreplayable({ ahead_by: ahead, commits }: Compare): string | null {
   return merge === undefined ? null : `it holds a merge commit, ${merge.sha.slice(0, 7)}: a mission branch is never merged into`;
 }
 
-/** Each commit of the branch replayed onto `tip`, in order: the new head, or the conflict of the first that does not merge. */
+/**
+ * Each commit of the branch replayed onto `tip`, in order: the new head, or the conflict of the first that does not merge. A
+ * commit that changes nothing on what it is replayed onto is dropped, as git's rebase drops it: after a landing by Rebase and
+ * merge (PRD 2896 s6) the default branch holds a copy of each PRD's commit, and the branch keeps only the PRDs that joined after.
+ */
 async function replay(on: On, { tip, compared, defaultBranch, entries }: { tip: string; compared: Compare; defaultBranch: string; entries: readonly GeneratedEntry[] }): Promise<KeptUp | string> {
   let last = tip;
+  let lastTree = (await on.commit(tip)).tree.sha;
   for (const one of compared.commits) {
     const tree = await on.mergedTree(tip, one.sha);
     const title = one.commit.message.split('\n')[0] ?? '';
     if (tree === null) return { branch: 'conflict', defaultBranch, title, ...(await conflictOf(on, { into: tip, tip: one.sha, mergeBase: compared.merge_base_commit.sha, entries })) };
+    if (tree === lastTree) continue;
     const author = one.commit.author ?? undefined;
     const made = await on.octokit.request('POST /repos/{owner}/{repo}/git/commits', { owner: on.owner, repo: on.repo, message: one.commit.message, tree, parents: [last], ...(author === undefined ? {} : { author }) });
     last = ShaSchema.parse(made.data).sha;
+    lastTree = tree;
   }
   return last;
 }
