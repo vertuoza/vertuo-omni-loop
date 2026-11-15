@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AskLaws } from './judge.service';
+import { confirming } from './judge.fake';
 import type { JudgeInput, KeptVerdict, Standing, VerdictsRepository } from './verdicts.repository';
 import { verdictService } from './verdicts.service';
 
@@ -51,7 +52,7 @@ function fakeRepository(input: JudgeInput | null | Error): { repo: VerdictsRepos
 
 function fakeModel(reply: unknown): { ask: AskLaws; calls: string[] } {
   const calls: string[] = [];
-  return { calls, ask: ({ user }) => { calls.push(user); return Promise.resolve({ ok: true, reply }); } };
+  return { calls, ask: confirming(({ user }) => { calls.push(user); return Promise.resolve({ ok: true, reply }); }) };
 }
 
 describe('ensuring a verdict', () => {

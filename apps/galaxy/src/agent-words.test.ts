@@ -51,6 +51,7 @@ const ALLOWED: readonly Allowed[] = [
   { file: 'apps/galaxy/src/ask/prices.ts', literal: MODEL_ID, sample: 'claude-sonnet-4-6', reason: 'the price table is keyed by model id' },
   { file: 'apps/galaxy/src/ask/classify.ts', literal: MODEL_ID, sample: 'anthropic/claude-haiku-4.5', reason: 'the model the classifier calls, by its id' },
   { file: 'apps/galaxy/src/business/suggest.ts', literal: MODEL_ID, sample: 'anthropic/claude-haiku-4.5', reason: 'the model the suggestion calls, by its id' },
+  { file: 'apps/galaxy/src/business-laws/model.ts', literal: MODEL_ID, sample: 'anthropic/claude-sonnet-5.5', reason: 'the model the business-law judge calls, by its id' },
   { file: 'apps/galaxy/src/ask/page/demo.ts', literal: MODEL_ID, sample: 'claude-opus-4-8', reason: 'demo model ids: a round\'s cost line shows the model as sent' },
   { file: 'apps/galaxy/src/home/poster/Poster.tsx', literal: /^CLAUDE CODE$/, sample: 'CLAUDE CODE', reason: 'HOME\'s works-with line names each agent the loop runs on' },
   {
