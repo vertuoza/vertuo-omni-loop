@@ -1073,12 +1073,12 @@ function hooksByMode(value) {
   return { before: asList(value.before), after: asList(value.after), replace: value.replace ?? null };
 }
 function eachHook(point, value) {
-  const { before: before2, after, replace } = hooksByMode(value);
+  const { before: before2, after: after2, replace } = hooksByMode(value);
   const one = (mode, ref) => ({ key: isBare(value) ? [point] : [point, mode], mode, ref });
   return [
     ...before2.map((ref) => one("before", ref)),
     ...replace === null ? [] : [one("replace", replace)],
-    ...after.map((ref) => one("after", ref))
+    ...after2.map((ref) => one("after", ref))
   ];
 }
 var KNOWN_POINTS = FLOW_POINTS.map(({ point }) => point).join(", ");
@@ -2322,8 +2322,8 @@ function knowledgeFolders(config) {
 }
 function hookFiles(hooks) {
   return Object.values(hooks ?? {}).flatMap((value) => {
-    const { before: before2, after, replace } = hooksByMode(value);
-    return [...before2, ...replace === null ? [] : [replace], ...after].flatMap((ref) => {
+    const { before: before2, after: after2, replace } = hooksByMode(value);
+    return [...before2, ...replace === null ? [] : [replace], ...after2].flatMap((ref) => {
       const path = typeof ref === "string" ? ref : ref.path;
       if (typeof ref !== "string" && path.startsWith("/")) return [];
       const file = repositoryPath2(path);
@@ -4541,15 +4541,15 @@ function businessLawsChanged({ ctx, base }) {
   const changed = [];
   for (const id of /* @__PURE__ */ new Set([...was.keys(), ...now.keys()])) {
     const before2 = was.get(id) ?? [];
-    const after = now.get(id) ?? [];
-    if (JSON.stringify(before2) === JSON.stringify(after)) continue;
-    for (const law of [...before2, ...after]) changed.push([id, law.file]);
+    const after2 = now.get(id) ?? [];
+    if (JSON.stringify(before2) === JSON.stringify(after2)) continue;
+    for (const law of [...before2, ...after2]) changed.push([id, law.file]);
   }
   return changed;
 }
-function lawPaths(before2, after, { compared }) {
-  const laws = [before2, after].filter((entry) => entry !== void 0).filter(isLaw);
-  const changed = compared && (before2 === void 0 || after === void 0 || entryText(before2) !== entryText(after));
+function lawPaths(before2, after2, { compared }) {
+  const laws = [before2, after2].filter((entry) => entry !== void 0).filter(isLaw);
+  const changed = compared && (before2 === void 0 || after2 === void 0 || entryText(before2) !== entryText(after2));
   return [...laws.filter(() => changed).map((entry) => entry.file), ...laws.flatMap(proofPathsOf)];
 }
 function lawsAwaitingOwners(fired, { ownersOf: ownersOf2, approvers, lawOwners = [] }) {
@@ -5658,13 +5658,13 @@ function readStartTag(reader, lt) {
   if (open?.[1] === void 0) return null;
   const tag = open[1].toLowerCase();
   const { attributes, end } = readAttributes(reader.html, lt + open[0].length);
-  const after = past(reader.html, ">", end);
+  const after2 = past(reader.html, ">", end);
   const element = { kind: "element", tag, attributes, children: [] };
   top(reader).children.push(element);
-  if (RAW.has(tag) && !(reader.templates && tag === "template")) return readRawBody(reader, element, after);
-  const selfClosing = reader.html[after - 2] === "/";
+  if (RAW.has(tag) && !(reader.templates && tag === "template")) return readRawBody(reader, element, after2);
+  const selfClosing = reader.html[after2 - 2] === "/";
   if (!VOID.has(tag) && !selfClosing) reader.stack.push(element);
-  return after;
+  return after2;
 }
 function readMarkup(reader, lt) {
   const next = skipDeclaration(reader.html, lt) ?? readEndTag(reader, lt) ?? readStartTag(reader, lt);
@@ -10583,11 +10583,11 @@ var THREADS_QUERY = `query($owner: String!, $repo: String!, $number: Int!, $afte
 }`;
 async function listReviewThreads(octokit, { owner, repo, number }) {
   const threads = [];
-  let after = null;
+  let after2 = null;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const { data: answer } = await octokit.request("POST /graphql", {
       query: THREADS_QUERY,
-      variables: { owner, repo, number, after }
+      variables: { owner, repo, number, after: after2 }
     });
     const body = ReviewThreadsAnswerSchema.parse(answer);
     if (body?.errors?.length) {
@@ -10611,7 +10611,7 @@ async function listReviewThreads(octokit, { owner, repo, number }) {
       });
     }
     if (!connection.pageInfo?.hasNextPage) break;
-    after = connection.pageInfo.endCursor;
+    after2 = connection.pageInfo.endCursor;
   }
   return threads;
 }
@@ -11514,9 +11514,9 @@ function planShip(ctx, prd, { files, read, held = [] }) {
     if (!REWRITTEN.test(file) || basename6(file) === SETTLED_FILE) continue;
     if (!existsSync24(join31(ctx.root, file))) continue;
     const before2 = read(file);
-    let after = before2.split(where.dir).join(shipped);
-    if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
-    if (after !== before2) rewrites.push({ file, text: after });
+    let after2 = before2.split(where.dir).join(shipped);
+    if (hasOutbox) after2 = after2.split(outbox).join(`${shipped}/outbox`);
+    if (after2 !== before2) rewrites.push({ file, text: after2 });
   }
   return { ok: true, moves, rewrites };
 }
@@ -11866,11 +11866,11 @@ var toResolved = (area2, ref) => typeof ref === "string" ? { area: area2, path: 
 function ownHooks(area2, hooks) {
   const resolved = {};
   for (const [point, value] of Object.entries(hooks ?? {})) {
-    const { before: before2, after, replace } = hooksByMode(value);
+    const { before: before2, after: after2, replace } = hooksByMode(value);
     resolved[point] = {
       before: before2.map((ref) => toResolved(area2, ref)),
       replace: replace === null ? null : toResolved(area2, replace),
-      after: after.map((ref) => toResolved(area2, ref))
+      after: after2.map((ref) => toResolved(area2, ref))
     };
   }
   return resolved;
@@ -11964,7 +11964,7 @@ function hooksAt(touched2, point) {
     hooks: {
       before: uniqueHooks(at4.flatMap(({ before: before2 }) => before2)),
       replace: own[0] ?? replaces[0] ?? null,
-      after: uniqueHooks(at4.flatMap(({ after }) => after))
+      after: uniqueHooks(at4.flatMap(({ after: after2 }) => after2))
     },
     conflict: new Set(own.map(({ path }) => path)).size > 1 ? own : []
   };
@@ -13216,7 +13216,7 @@ function runChecks(ctx) {
   const outbox = findOutboxViolations({ ctx });
   return { knowledge, outbox };
 }
-var newOnes = (after, before2) => after.filter((line) => !before2.includes(line));
+var newOnes = (after2, before2) => after2.filter((line) => !before2.includes(line));
 var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
 function servedPrinciple(reply, summary2) {
   if (reply.serves === NEW_PRINCIPLE) return `${NEW_PRINCIPLE}: ${reply.principle?.statement ?? ""}`.trim();
@@ -13279,8 +13279,8 @@ function finishHarvest({
     };
     const failures = (result2) => inScratch(scratch, (trial) => {
       applyHarvestEdits({ root: trial.root, edits: { deletes: [], moves: [], writes: result2.writes } });
-      const after = runChecks(trial);
-      return [...newOnes(after.knowledge, before2.knowledge), ...newOnes(after.outbox, before2.outbox)];
+      const after2 = runChecks(trial);
+      return [...newOnes(after2.knowledge, before2.knowledge), ...newOnes(after2.outbox, before2.outbox)];
     });
     let result = attempt3(null);
     if (failures(result).length > 0) {
@@ -20438,7 +20438,7 @@ var LIST = `query PullsUpdated($owner: String!, $repo: String!, $first: Int!, $a
   }
 }`;
 async function pullsUpdatedAfter(octokit, budget, { owner, repo, since }) {
-  const after = Date.parse(since);
+  const after2 = Date.parse(since);
   const out = [];
   let cursor = null;
   for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
@@ -20446,7 +20446,7 @@ async function pullsUpdatedAfter(octokit, budget, { owner, repo, since }) {
     const data = parseAnswer(PullsUpdatedSchema, answer, "PullsUpdated");
     const { nodes, pageInfo } = data.repository.pullRequests;
     for (const pull of nodes) {
-      if (Date.parse(pull.updatedAt) <= after) return out.reverse();
+      if (Date.parse(pull.updatedAt) <= after2) return out.reverse();
       out.push({ number: pull.number, updatedAt: pull.updatedAt });
     }
     if (!pageInfo.hasNextPage) break;
@@ -21280,15 +21280,44 @@ function checkpointStore(connection) {
 import { z as z85 } from "zod";
 
 // apps/omni-app/src/missions/supervisor.ts
+var STEPS = ["build", "review:1", "fix:1", "review:2"];
 var WAKE_MS = 6e4;
 var WORDS_MAX = 300;
 var LAST_RUN = 2;
-var KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)$/;
-var missionKey = (mission, prd, run) => `mission:${mission}:prd:${String(prd)}:run:${String(run)}`;
+var ROUNDS = 2;
+var KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1))?$/;
+var missionKey = (mission, prd, run, step = "build") => `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === "build" ? "" : `:${step}`}`;
+var isStep = (text18) => STEPS.some((step) => step === text18);
 function runOfKey(key) {
   const match = KEY.exec(key);
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
-  return match && prd.success ? { prd: prd.data, run: Number(match[3]) } : null;
+  const step = match?.[4] ?? "build";
+  return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
+}
+function lineOf4(prd, step) {
+  const n = String(prd);
+  if (step === "build") return `/omni:yolo ${n} --for-review`;
+  if (step === "fix:1") return `/omni:yolo-fix ${n} --for-review`;
+  return `/omni:review ${n}`;
+}
+var roundOf2 = (step) => step === "review:1" ? 1 : step === "review:2" ? 2 : null;
+var REVIEW_URL = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+(?:#pullrequestreview-\d+)?$/;
+var POSTED = /omni review: posted round [12] \((pass|changes, (\d+) findings?)\) on PR #\d+: (\S+)$/;
+var ALREADY = /omni review: round [12] is already posted on PR #\d+: (\S+?)\. Nothing posted\.$/;
+function postedOf(log2) {
+  for (const line of log2.split("\n").reverse()) {
+    const posted = POSTED.exec(line.trimEnd());
+    if (posted) return { findings: posted[1] === "pass" ? 0 : Number(posted[2]), url: reviewUrl(posted[3]) };
+    const already = ALREADY.exec(line.trimEnd());
+    if (already) return { findings: null, url: reviewUrl(already[1]) };
+  }
+  return null;
+}
+var reviewUrl = (url) => url !== void 0 && REVIEW_URL.test(url) ? url : null;
+function prOfUrl(url) {
+  const number = /\/pull\/(\d+)/.exec(url ?? "")?.[1];
+  const pr = PrNumberSchema.safeParse(Number(number));
+  return number !== void 0 && pr.success ? pr.data : null;
 }
 var approvalOf = (latest) => latest === null ? "none" : latest.voided ? "voided" : "standing";
 function stageOf(stages) {
@@ -21324,10 +21353,11 @@ function endOf({ status, outcome: word }) {
   if (status === "queued" || status === "claimed" || status === "running") return null;
   if (status === "cancelled") return "cancelled";
   if (status === "failed") return "failed";
-  if (word === "ready" || word === "answers" || word === "human" || word === "held") return word;
+  if (word === "ready" || word === "answers" || word === "human" || word === "held" || word === "review" || word === "changes") return word;
   return "stopped";
 }
-function outcome2(end, run, reason2 = null) {
+var stoppedAt = (run) => run >= LAST_RUN ? { next: "stops", why: "it stopped mid-way twice" } : { next: "again" };
+function outcome2(end, run, reason2 = null, step = "build") {
   switch (end) {
     case "ready":
       return { next: "waits", on: "merge" };
@@ -21335,10 +21365,16 @@ function outcome2(end, run, reason2 = null) {
       return { next: "waits", on: "answer" };
     case "human":
       return { next: "waits", on: "act" };
+    case "review":
+      if (step === "build") return { next: "send", step: "review:1" };
+      return step === "fix:1" ? { next: "send", step: "review:2" } : stoppedAt(run);
+    case "changes":
+      if (step === "review:1") return { next: "send", step: "fix:1" };
+      return step === "review:2" ? { next: "waits", on: "decide" } : stoppedAt(run);
     case "held":
       return run >= LAST_RUN ? { next: "stops", why: "it was held twice" } : { next: "again" };
     case "stopped":
-      return run >= LAST_RUN ? { next: "stops", why: "it stopped mid-way twice" } : { next: "again" };
+      return stoppedAt(run);
     case "lost":
       return { next: "records" };
     case "cancelled":
@@ -21348,31 +21384,34 @@ function outcome2(end, run, reason2 = null) {
   }
 }
 var lastOf = (run) => run.attempts.at(-1);
+var after = (a, b) => a.run > b.run || a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step);
 function prdStates(facts, runs) {
   const merged = new Set(facts.filter((fact) => fact.stage === "merged").map((fact) => fact.prd));
   return new Map(facts.map((fact) => [fact.prd, stateOf2(fact, runs.filter((one) => one.prd === fact.prd), merged)]));
 }
 function stateOf2(fact, runs, merged) {
   if (fact.stage === "merged") return { state: "merged" };
-  const latest = runs.reduce((last2, one) => last2 === null || one.run > last2.run ? one : last2, null);
+  const latest = runs.reduce((last2, one) => last2 === null || after(one, last2) ? one : last2, null);
   const last = latest ? lastOf(latest) : void 0;
   if (latest && last && endOf(last) === null) return { state: "running", run: latest.run };
   if (fact.stage === "ready") return { state: "waits", on: "merge" };
-  return latest && last ? afterEnd(fact, latest, last, merged) : gate(fact, 1, merged);
+  return latest && last ? afterEnd(fact, latest, last, merged) : gate(fact, 1, "build", merged);
 }
 function afterEnd(fact, latest, last, merged) {
-  const next = outcome2(endOf(last) ?? "stopped", latest.run, last.reason);
-  if (next.next === "waits") return { state: "waits", on: next.on };
+  const next = outcome2(endOf(last) ?? "stopped", latest.run, last.reason, latest.step);
+  if (next.next === "waits") return next.on === "decide" ? { state: "waits", on: "decide", pr: prOfUrl(last.prUrl) } : { state: "waits", on: next.on };
+  if (next.next === "send") return { state: "startable", run: latest.run, step: next.step };
   if (next.next === "stops") return { state: "stopped", why: next.why };
   if (next.next === "paused") return { state: "paused" };
-  if (next.next === "again") return gate(fact, latest.run + 1, merged);
+  if (next.next === "again") return gate(fact, latest.run + 1, latest.step, merged);
   return { state: "running", run: latest.run };
 }
-function gate(fact, run, merged) {
+function gate(fact, run, step, merged) {
+  if (step !== "build") return { state: "startable", run, step };
   if (fact.approval === "none") return { state: "waits", on: "approve" };
   if (fact.approval === "voided") return { state: "waits", on: "approve-again" };
   const by = fact.blockers.filter((blocker) => !merged.has(blocker));
-  return by.length > 0 ? { state: "blocked", by } : { state: "startable", run };
+  return by.length > 0 ? { state: "blocked", by } : { state: "startable", run, step };
 }
 function pick2({ mission, facts, states }) {
   if (mission.status === "draft" || mission.status === "paused" || mission.status === "delivered") return [];
@@ -21387,12 +21426,12 @@ function pick2({ mission, facts, states }) {
     if (state?.state !== "startable") continue;
     if (fact.territory === null) {
       if (busy.length > 0) continue;
-      sends.push({ prd: fact.prd, run: state.run });
+      sends.push({ prd: fact.prd, run: state.run, step: state.step });
       break;
     }
     const territory = fact.territory;
     if (busy.some((other) => other !== null && sharedGround({ territory: other }, { territory }).length > 0)) continue;
-    sends.push({ prd: fact.prd, run: state.run });
+    sends.push({ prd: fact.prd, run: state.run, step: state.step });
     busy.push(territory);
   }
   return sends;
@@ -21404,6 +21443,10 @@ var WAITS_WORDS = {
   merge: "merge it",
   act: "act on its runner job"
 };
+function waitWords(state) {
+  if (state.on !== "decide") return WAITS_WORDS[state.on];
+  return `decide the Reviewer's findings on ${state.pr === null ? "its feature PR" : `PR #${String(state.pr)}`}`;
+}
 var CARRY_ON = "Take it to ready by hand and the mission carries on.";
 function fitted(parts, glue, max = WORDS_MAX) {
   let text18 = "";
@@ -21419,7 +21462,7 @@ var cut2 = (text18, max = WORDS_MAX) => text18.length <= max ? text18 : `${text1
 function waitsOf(facts, states) {
   const parts = facts.flatMap((fact) => {
     const state = states.get(fact.prd);
-    return state?.state === "waits" ? [`PRD ${String(fact.prd)}: ${WAITS_WORDS[state.on]}`] : [];
+    return state?.state === "waits" ? [`PRD ${String(fact.prd)}: ${waitWords(state)}`] : [];
   });
   return parts.length > 0 ? fitted(parts, " \xB7 ") : null;
 }
@@ -21449,6 +21492,7 @@ var KEYS = {
   dispatched: (_prdKey, job) => jobKey2("dispatched", job),
   "job-ended": (_prdKey, job) => jobKey2("end", job),
   held: (_prdKey, job) => jobKey2("end", job),
+  reviewed: (_prdKey, job) => jobKey2("end", job),
   "prd-ready": (prdKey, job) => [`ready:${prdKey ?? "mission"}`, ...jobKey2("end", job)],
   "prd-merged": (prdKey) => [`merged:${prdKey ?? "mission"}`],
   stopped: (prdKey) => prdKey === null ? [] : [`stopped:${prdKey}`],
@@ -21468,18 +21512,49 @@ var END_WORDS = {
   cancelled: (n) => ({ kind: "job-ended", role: "engineer", sentence: `${n}'s job was cancelled: the mission never sends it again.` }),
   failed: (n, _run, reason2) => ({ kind: "job-ended", role: "engineer", sentence: reason2 ? `${n}'s job failed: ${reason2}.` : `${n}'s job failed.` })
 };
-var endEvent = (prd, run, last, end) => ({
+var findingsWords = (count2) => `${String(count2)} finding${count2 === 1 ? "" : "s"}`;
+function verdictEvent(prd, round, last, end) {
+  const of = `${String(round)}/${String(ROUNDS)}`;
+  const count2 = last.posted?.findings ?? null;
+  const sentence2 = end === "ready" ? `Passed, round ${String(round)} of ${String(ROUNDS)}: marked ready.` : count2 === null || count2 === 0 ? `Changes asked, round ${of}.` : `Changes asked: ${findingsWords(count2)}, round ${of}.`;
+  return { kind: "reviewed", role: "reviewer", prd, job: last.id, link: linkOf(last.posted?.url ?? last.prUrl), sentence: sentence2 };
+}
+var fixedWords = (asked) => asked === null || asked === 0 ? "the findings" : findingsWords(asked);
+var shippedEvent = (prd, one, last, asked) => ({
+  kind: "job-ended",
+  role: "engineer",
   prd,
   job: last.id,
   link: linkOf(last.prUrl),
-  ...END_WORDS[end](`PRD ${String(prd)}`, run, last.reason)
+  sentence: one.step === "build" ? "Shipped; waits for review." : `Fixed ${fixedWords(asked)}; shipped again.`
 });
+function plainEndEvent(prd, one, last, end) {
+  const words = END_WORDS[end === "review" || end === "changes" ? "stopped" : end](`PRD ${String(prd)}`, one.run, last.reason);
+  const role = roundOf2(one.step) !== null && words.role === "engineer" ? "reviewer" : words.role;
+  return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role };
+}
+function endEvent(prd, one, last, end, asked = null) {
+  const round = roundOf2(one.step);
+  if (round !== null && (end === "changes" || end === "ready")) return verdictEvent(prd, round, last, end);
+  return end === "review" && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end);
+}
+function askedBefore(runs, one) {
+  if (one.step !== "fix:1") return null;
+  const rounds = runs.filter((other) => other.prd === one.prd && other.step === "review:1" && other.run <= one.run);
+  const latest = rounds.reduce((last, other) => last === null || other.run > last.run ? other : last, null);
+  return (latest ? lastOf(latest)?.posted?.findings : null) ?? null;
+}
+function sentWords(one, where) {
+  const round = roundOf2(one.step);
+  return `Sent ${lineOf4(one.prd, one.step)} to ${where} (run ${String(one.run)}${round === null ? "" : `, round ${String(round)}`}).`;
+}
 function runEvents(runs, where) {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
-    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: `Sent /omni:yolo ${String(one.prd)} to ${where} (run ${String(one.run)}).` };
-    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one.run, lost, "lost")), ...last && end !== null ? [endEvent(one.prd, one.run, last, end)] : []];
+    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where) };
+    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, askedBefore(runs, one))] : [];
+    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, "lost")), ...ending];
   });
 }
 function prdEvents(facts, states) {
@@ -21536,9 +21611,9 @@ var ProgressSchema3 = z85.looseObject({ laters: z85.number().int().min(0).option
 async function supervise(store, mission, now) {
   const [facts, runs, recorded, toFleet] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission)]);
   const sent = [];
-  for (const { prd, run } of pick2({ mission, facts, states: prdStates(facts, runs) })) {
-    const made = await store.send({ mission, prd, run, toFleet });
-    if (made !== null) sent.push({ prd, run, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }] });
+  for (const { prd, run, step } of pick2({ mission, facts, states: prdStates(facts, runs) })) {
+    const made = await store.send({ mission, prd, run, step, toFleet });
+    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }] });
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all);
@@ -21588,6 +21663,7 @@ var APPROVAL2 = "id, dossier_id";
 var VOID3 = "approval_id";
 var PLAN = "content";
 var JOB2 = "id, mission_key, resumes, status, outcome, reason, pr_url";
+var JOB_LOG = "id, log_tail";
 var EVENT = "kind, prd, job_id";
 var RUNNER = "repos";
 var text17 = z86.string().min(1);
@@ -21617,9 +21693,11 @@ var JobRowSchema2 = z86.object({
   reason: z86.string().nullable(),
   pr_url: z86.string().nullable()
 });
+var JobLogRowSchema = z86.object({ id: text17, log_tail: z86.string() });
 var EventRowSchema = z86.object({ kind: text17, prd: PrdNumberSchema.nullable(), job_id: z86.string().nullable() });
 var RunnerRowSchema = z86.object({ repos: z86.array(z86.string()) });
 var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
+var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 function missionStore(connection) {
   const db = serviceDb(connection);
   async function roadmapRows(mission) {
@@ -21643,6 +21721,18 @@ function missionStore(connection) {
     const ids = [...latest.values()];
     const voided = new Set(ids.length === 0 ? [] : rowsOf(VoidRowSchema2, await db.from("approval_voids").select(VOID3).in("approval_id", ids)).map((row) => row.approval_id));
     return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id) }]));
+  }
+  async function withPosted(runs) {
+    const ids = runs.flatMap((one) => one.attempts.filter((attempt3) => isVerdict(one.step, attempt3)).map((attempt3) => attempt3.id));
+    if (ids.length === 0) return runs;
+    const logs = new Map(rowsOf(JobLogRowSchema, await db.from("runner_jobs").select(JOB_LOG).in("id", ids)).map((row) => [row.id, row.log_tail]));
+    return runs.map((one) => ({
+      ...one,
+      attempts: one.attempts.map((attempt3) => {
+        const log2 = isVerdict(one.step, attempt3) ? logs.get(attempt3.id) : void 0;
+        return log2 === void 0 ? attempt3 : { ...attempt3, posted: postedOf(log2) };
+      })
+    }));
   }
   async function planOf(dossier) {
     if (dossier === void 0) return null;
@@ -21691,10 +21781,11 @@ function missionStore(connection) {
         }
         frontier = next;
       }
-      return jobs.flatMap((job) => {
+      const runs = jobs.flatMap((job) => {
         const key = job.mission_key === null ? null : runOfKey(job.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+        return key === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
       });
+      return withPosted(runs);
     },
     async events(id) {
       return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id)).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
@@ -21703,15 +21794,15 @@ function missionStore(connection) {
       const runners = rowsOf(RunnerRowSchema, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
       return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
     },
-    async send({ mission, prd, run, toFleet }) {
+    async send({ mission, prd, run, step, toFleet }) {
       const answer = await db.from("runner_jobs").insert({
         workspace_id: mission.workspace,
         repo: mission.repo,
-        line: `/omni:yolo ${String(prd)}`,
+        line: lineOf4(prd, step),
         sent_by_app: APP_SENDER2,
         to_fleet: toFleet ? mission.fleet : null,
         mission_id: mission.id,
-        mission_key: missionKey(mission.id, prd, run)
+        mission_key: missionKey(mission.id, prd, run, step)
       }).select("id");
       if (answer.error?.code === TAKEN) return null;
       const [made] = rowsOf(z86.object({ id: text17 }), answer);
