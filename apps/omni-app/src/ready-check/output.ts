@@ -10,6 +10,7 @@
 // | not finished, evidence still going | `in_progress`: shown as not finished, never green     |
 // | not finished, only not judged      | completed, `neutral`: nothing more will come to judge |
 import { footerLine, type FooterSignature } from 'omni-loop/kit/lib/signature.ts';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { readyVerdict } from 'omni-loop/kit/lib/ready/checks.ts';
 import { MAX_SUMMARY } from '../publish/publish.ts';
 
@@ -57,7 +58,7 @@ function runState(verdict: Verdict): ReadyRunState {
 }
 
 /** The check run the verdict on PRD `prd` asks for, signed with `signature` when signing is on. */
-export function readyOutput(verdict: Verdict, { prd, signature }: { prd: number; signature: FooterSignature | null }): ReadyOutput {
+export function readyOutput(verdict: Verdict, { prd, signature }: { prd: PrdNumber; signature: FooterSignature | null }): ReadyOutput {
   const footer = footerLine(signature);
   const lines = [
     `PRD ${String(prd)} · **${verdict.headline}**`,
