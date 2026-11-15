@@ -36,6 +36,9 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   drifted: each changed file's diff, the spec's Problem and Solution, then Approve. Above Approve, the
   business laws' verdict (PRD 2632): on a red, each finding's law, its Why, the spec's words, what the judge found broken (bug #2696), its owner and
   Ask to amend this law, with Approve off; on a green, what was judged; when it could not judge, why.
+- **The Ready panel** (PRD 2898), under the head and above the pane, while a mission's feature PR has a
+  verdict: the library screen `ready-checks`, a panel of this page (its file and mockup say what it
+  holds: the verdict, the five checks with their evidence, the criteria, Review PR <n>).
 - **The pane** of the tab shown (`?tab=`, its version by `?v=`): the before/after page framed on its
   sandboxed route; the spec and the plan rendered from Markdown with raw HTML off; Questions with the
   rounds that shaped it and an `N to answer` badge; Timeline (PRD 2370), the PRD's milestones, then one
@@ -60,6 +63,8 @@ its spec, its plan) is content, marked `data-content` in the mockup.
   with the `/omni:rewind <n>` line; a failed one says why.
 - **Demo:** the demo dossier in development, without a database.
 - **A fix's id** at `/prd/<id>` is sent to `/visual/<id>` or `/bugs/<id>`, the query kept.
+- **The Ready panel** (PRD 2898): 5 of 5, 4 of 5 with the failing check named, or Waiting; no
+  verdict yet, no panel (`ready-checks`).
 - **After a draft is deleted:** `?deleted=1` says it is gone.
 
 ## Words
@@ -68,7 +73,7 @@ Tabs, in order: Questions, Before/after, Spec, Plan, Timeline, User voice, Outbo
 Main, Retro (`dossier/page/view.ts`; Main from PRD 2410). Actions: Copy link, Delete draft, Approve, Request a Tech Approval, Give Tech Approval (PRD 2608), Send to terminal (its picker: Any runner, each fleet,
 each runner, Send; then `Queued for <target>` and View job). Facts: Stage, Approval, Main,
 Repo, Repos, On GitHub, Opened. Main's words (PRD 2410): Watching · n days left, Clean, Broke main,
-Could not check; on a finding: Approve, Reject. Business laws (PRD 2632): Business laws ✗ n, Business laws ✓ n judged, Business laws not judged, Why, The spec says, The judge says, Ask to amend this law. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
+Could not check; on a finding: Approve, Reject. Business laws (PRD 2632): Business laws ✗ n, Business laws ✓ n judged, Business laws not judged, Why, The spec says, The judge says, Ask to amend this law. The Ready panel (PRD 2898): its words are `ready-checks`'s. An approved missing-rule finding (PRD 2498): Rule proposed in PR #<n>, Already said by <rule>, or its question.
 
 ## Refusals
 
@@ -112,3 +117,4 @@ Could not check; on a finding: Approve, Reject. Business laws (PRD 2632): Busine
 - /omni:brainstorm, PRD 2410: .omni-loop/delivery/shipped/2410-broke-main/before-after.html
 - /omni:brainstorm, PRD 2498: .omni-loop/delivery/shipped/2498-rewind-apply/before-after.html
 - /omni:brainstorm, PRD 2632: .omni-loop/delivery/shipped/2632-business-laws/before-after.html
+- /omni:brainstorm, PRD 2898: .omni-loop/delivery/inbox/2898-ready-five-checks/before-after.html (the Ready panel)

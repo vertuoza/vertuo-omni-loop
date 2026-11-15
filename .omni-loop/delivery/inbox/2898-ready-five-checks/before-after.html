@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="omni-before-after" content="3">
+<title>PRD 2898: before and after</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;
+  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;
+  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;
+    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;
+    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }
+h1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }
+h3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs label small { font-weight: 600; color: var(--muted); }
+#tab-functional:checked ~ .tabs label[for="tab-functional"],
+#tab-technical:checked ~ .tabs label[for="tab-technical"],
+#tab-pixel-perfect:checked ~ .tabs label[for="tab-pixel-perfect"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+#tab-functional:focus-visible ~ .tabs label[for="tab-functional"],
+#tab-technical:focus-visible ~ .tabs label[for="tab-technical"],
+#tab-pixel-perfect:focus-visible ~ .tabs label[for="tab-pixel-perfect"] { outline: 2px solid var(--accent); }
+[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }
+#tab-functional:checked ~ [data-tab="functional"],
+#tab-technical:checked ~ [data-tab="technical"],
+#tab-pixel-perfect:checked ~ [data-tab="pixel-perfect"] { display: block; }
+[data-tab="pixel-perfect"] { max-width: none; }
+[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }
+[data-section] { margin: 12px 0; }
+[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+[data-state="na"] { color: var(--muted); }
+[data-state="gap"] > h4::after { content: " · to settle"; color: var(--warn-fg); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }
+.badge.breaking { background: var(--del-bg); color: var(--del-fg); }
+.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }
+.badge.added { background: var(--add-bg); color: var(--add-fg); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+pre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }
+pre .line { display: block; padding: 0 12px; white-space: pre; }
+.add { background: var(--add-bg); color: var(--add-fg); }
+.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }
+.ctx { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.no-change { color: var(--muted); font-style: italic; }
+.diagram svg { max-width: 100%; height: auto; }
+details > summary { cursor: pointer; color: var(--muted); }
+.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.index[hidden] { display: none; }
+.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }
+.ref[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }
+.shot { margin: 0; min-width: 0; }
+.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }
+.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }
+.when.after { background: var(--add-bg); color: var(--add-fg); }
+.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+.zoom[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.fit.full { overflow: auto; }
+.fit > [data-screen] { transform-origin: 0 0; }
+.note { font-size: 13px; color: var(--muted); margin: 4px 0 0; max-width: 100ch; }
+.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>PRD 2898: before and after</h1>
+<!-- Every section carries data-state: filled (the design covers it), na ("N/A — one-line reason") or gap ("To settle — what is missing"). -->
+<input type="radio" name="tab" id="tab-functional" class="tab-input" checked>
+<input type="radio" name="tab" id="tab-technical" class="tab-input">
+<input type="radio" name="tab" id="tab-pixel-perfect" class="tab-input">
+<div class="tabs"><label for="tab-functional">Functional</label><label for="tab-technical">Technical</label><label for="tab-pixel-perfect">Pixel perfect<small data-count></small></label></div>
+<section data-tab="functional">
+<div data-service="kit">
+<h3>kit</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div>
+<p>In a mission, the Reviewer reads the feature pull request and, when it finds nothing, marks it ready (PRD 2871). Nothing proves what that ready stands on: CI may still run, or may have run only the tests of the changed files; a test may have been skipped to go green; a file outside every slice may have changed.</p>
+<p>A spec's acceptance criteria are plain bullets: nothing ties one to the test that proves it.</p></div>
+<div><div class="label">After</div>
+<p>Before the Reviewer marks a mission's pull request ready, it asks <code>omni ready</code>. Ready only when five checks pass on the latest commit: CI green, the full tests and lint ran, every acceptance criterion has its proof, no test was loosened, the change stayed in its area. One check short, the pull request stays a draft and the Reviewer asks for changes, naming the failing check.</p>
+<p>A check still waiting on its evidence never passes. A loosened test or a file outside the plan is excused only by an outbox item a person answered (a file outside the plan also by an adopted medium item).</p>
+<p>A spec writes each criterion as a numbered scenario, Given, When, Then, with its kind: <code>test</code> (a test of the same name) or <code>e2e</code> (run against the pull request's preview). <code>omni check inbox</code> refuses a criterion with a number missing or twice, no kind, or no Given, When or Then.</p>
+<p>Who is gated is one setting: missions only here, off by default, every feature PR later with no new code. Outside a mission nothing changes.</p></div>
+</div>
+</div>
+</div>
+<div data-service="omni-app">
+<h3>omni-app</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div>
+<p>The App posts its own checks on a pull request (the outbox, the budgets). None says whether a ready pull request is proven.</p></div>
+<div><div class="label">After</div>
+<p>On every new commit of a gated pull request, the App runs the same five checks and posts the check <code>omni / ready</code>: each check's state with a link to its evidence, signed as the App's. It keeps the verdict for the PRD page.</p>
+<p>When e2e does not run in CI, a runner of the workspace runs the scenarios against the preview, and the App writes their results on the commit. When the App cannot be reached, <code>omni ready</code> still decides alone.</p></div>
+</div>
+</div>
+</div>
+<div data-service="galaxy">
+<h3>galaxy</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div>
+<p>A PRD's page shows its feature pull request as <em>ready</em> and its CI chip. To trust it, a reviewer asks an engineer or reads the whole diff.</p></div>
+<div><div class="label">After</div>
+<p>A Ready panel on the PRD's page shows the latest verdict: <em>Ready for review · 5 of 5</em>, or <em>4 of 5</em> with the failing check named at the top. Each check is one tap from its evidence; each acceptance criterion shows its three lines, its kind, its proof and its state. Then: <em>Ready for review, not merged. Only a person merges.</em> and <strong>Review PR &lt;n&gt;</strong>.</p>
+<p>A check still running reads <em>Waiting</em> and never counts as passed.</p></div>
+</div>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase</h3>
+<div data-section="functional" data-state="filled">
+<h4>Functional</h4>
+<div class="compare">
+<div><div class="label">Today</div>
+<p>Nothing keeps what a ready pull request was checked against.</p></div>
+<div><div class="label">After</div>
+<p>Each verdict the App reaches is kept, one per commit of a pull request: the five checks and whether it passed. Members of the workspace read them; only the App writes them.</p></div>
+</div>
+</div>
+</div>
+</section>
+<section data-tab="technical">
+<div data-section="flow" data-state="filled">
+<h4>Flow</h4>
+<p>CI is not a service of the architecture form: its jobs show here and in Deploy order. The model provider is the one <code>e2e.model</code> names.</p>
+<figure class="mermaid-diagram" data-source="sequenceDiagram
+  participant A as Agent (slice or rework)
+  participant GH as GitHub
+  participant CI as CI (test, lint, e2e)
+  participant V as Vercel preview
+  participant M as Model provider
+  participant R as Runner
+  participant RV as Reviewer (/omni:review)
+  participant K as omni ready (kit)
+  participant APP as Omni App
+  participant DB as Supabase ready_verdicts
+  participant P as PRD page
+  A-&gt;&gt;GH: push to the feature PR
+  GH-&gt;&gt;CI: pull_request synchronize
+  CI-&gt;&gt;CI: test job writes the AC report
+  CI-&gt;&gt;V: wait for the preview
+  CI-&gt;&gt;M: e2e scenarios on the preview (e2e kind only)
+  CI-&gt;&gt;GH: check run acceptance (AC results, HTML report as artifact)
+  alt e2e.ci false or no key
+    APP-&gt;&gt;R: runner job runs the e2e scenarios
+    R-&gt;&gt;V: e2e on the preview
+    R--&gt;&gt;APP: results
+    APP-&gt;&gt;GH: check run acceptance
+  end
+  GH-&gt;&gt;APP: check_suite / new commit
+  APP-&gt;&gt;GH: read runs, report, diff, plan, ledger at head
+  APP-&gt;&gt;GH: check omni / ready (5 states, each with a link)
+  APP-&gt;&gt;DB: insert verdict (repo, pr, head_sha)
+  RV-&gt;&gt;K: omni ready prd --json
+  K-&gt;&gt;GH: gh: runs, acceptance, diff, plan, ledger at head
+  alt 5 of 5
+    RV-&gt;&gt;GH: gh pr ready
+  else a check fail, waiting or not judged
+    RV--&gt;&gt;RV: stays draft, ends changes, names the check
+  end
+  P-&gt;&gt;DB: read the latest verdict (member)
+  P--&gt;&gt;P: Ready panel"><svg aria-roledescription="sequence" role="graphics-document document" viewBox="-50 -10 2714 1366" style="max-width: 2714px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-0"><g><rect class="actor actor-bottom" ry="3" rx="3" name="P" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="2463"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="2538"><tspan dy="0" x="2538">PRD page</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="DB" height="65" width="179" stroke="#666" fill="#eaeaea" y="1280" x="2174.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="2264"><tspan dy="0" x="2264">Supabase ready_verdicts</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="APP" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="1904"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="1979"><tspan dy="0" x="1979">Omni App</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="K" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="1704"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="1779"><tspan dy="0" x="1779">omni ready (kit)</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="RV" height="65" width="181" stroke="#666" fill="#eaeaea" y="1280" x="1473"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="1563.5"><tspan dy="0" x="1563.5">Reviewer (/omni:review)</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="R" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="1273"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="1348"><tspan dy="0" x="1348">Runner</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="M" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="1073"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="1148"><tspan dy="0" x="1148">Model provider</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="V" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="873"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="948"><tspan dy="0" x="948">Vercel preview</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="CI" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="673"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="748"><tspan dy="0" x="748">CI (test, lint, e2e)</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="GH" height="65" width="150" stroke="#666" fill="#eaeaea" y="1280" x="222"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="297"><tspan dy="0" x="297">GitHub</tspan></text></g><g><rect class="actor actor-bottom" ry="3" rx="3" name="A" height="65" width="170" stroke="#666" fill="#eaeaea" y="1280" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="1312.5" x="85"><tspan dy="0" x="85">Agent (slice or rework)</tspan></text></g><g><line name="P" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="2538" y1="65" x1="2538" id="actor10"></line><g id="root-10"><rect class="actor actor-top" ry="3" rx="3" name="P" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="2463"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="2538"><tspan dy="0" x="2538">PRD page</tspan></text></g></g><g><line name="DB" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="2264" y1="65" x1="2264" id="actor9"></line><g id="root-9"><rect class="actor actor-top" ry="3" rx="3" name="DB" height="65" width="179" stroke="#666" fill="#eaeaea" y="0" x="2174.5"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="2264"><tspan dy="0" x="2264">Supabase ready_verdicts</tspan></text></g></g><g><line name="APP" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="1979" y1="65" x1="1979" id="actor8"></line><g id="root-8"><rect class="actor actor-top" ry="3" rx="3" name="APP" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="1904"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1979"><tspan dy="0" x="1979">Omni App</tspan></text></g></g><g><line name="K" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="1779" y1="65" x1="1779" id="actor7"></line><g id="root-7"><rect class="actor actor-top" ry="3" rx="3" name="K" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="1704"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1779"><tspan dy="0" x="1779">omni ready (kit)</tspan></text></g></g><g><line name="RV" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="1563.5" y1="65" x1="1563.5" id="actor6"></line><g id="root-6"><rect class="actor actor-top" ry="3" rx="3" name="RV" height="65" width="181" stroke="#666" fill="#eaeaea" y="0" x="1473"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1563.5"><tspan dy="0" x="1563.5">Reviewer (/omni:review)</tspan></text></g></g><g><line name="R" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="1348" y1="65" x1="1348" id="actor5"></line><g id="root-5"><rect class="actor actor-top" ry="3" rx="3" name="R" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="1273"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1348"><tspan dy="0" x="1348">Runner</tspan></text></g></g><g><line name="M" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="1148" y1="65" x1="1148" id="actor4"></line><g id="root-4"><rect class="actor actor-top" ry="3" rx="3" name="M" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="1073"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="1148"><tspan dy="0" x="1148">Model provider</tspan></text></g></g><g><line name="V" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="948" y1="65" x1="948" id="actor3"></line><g id="root-3"><rect class="actor actor-top" ry="3" rx="3" name="V" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="873"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="948"><tspan dy="0" x="948">Vercel preview</tspan></text></g></g><g><line name="CI" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="748" y1="65" x1="748" id="actor2"></line><g id="root-2"><rect class="actor actor-top" ry="3" rx="3" name="CI" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="673"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="748"><tspan dy="0" x="748">CI (test, lint, e2e)</tspan></text></g></g><g><line name="GH" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="297" y1="65" x1="297" id="actor1"></line><g id="root-1"><rect class="actor actor-top" ry="3" rx="3" name="GH" height="65" width="150" stroke="#666" fill="#eaeaea" y="0" x="222"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="297"><tspan dy="0" x="297">GitHub</tspan></text></g></g><g><line name="A" stroke="#999" stroke-width="0.5px" class="actor-line 200" y2="1280" x2="85" y1="65" x1="85" id="actor0"></line><g id="root-0"><rect class="actor actor-top" ry="3" rx="3" name="A" height="65" width="170" stroke="#666" fill="#eaeaea" y="0" x="0"></rect><text style="text-anchor: middle; font-size: 16px; font-weight: 400;" class="actor actor-box" alignment-baseline="central" dominant-baseline="central" y="32.5" x="85"><tspan dy="0" x="85">Agent (slice or rework)</tspan></text></g></g><style>#mermaid-0{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-0 .error-icon{fill:#552222;}#mermaid-0 .error-text{fill:#552222;stroke:#552222;}#mermaid-0 .edge-thickness-normal{stroke-width:1px;}#mermaid-0 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-0 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-0 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-0 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-0 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-0 .marker{fill:#333333;stroke:#333333;}#mermaid-0 .marker.cross{stroke:#333333;}#mermaid-0 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-0 p{margin:0;}#mermaid-0 .actor{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 text.actor&gt;tspan{fill:black;stroke:none;}#mermaid-0 .actor-line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);}#mermaid-0 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#mermaid-0 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#mermaid-0 #arrowhead path{fill:#333;stroke:#333;}#mermaid-0 .sequenceNumber{fill:white;}#mermaid-0 #sequencenumber{fill:#333;}#mermaid-0 #crosshead path{fill:#333;stroke:#333;}#mermaid-0 .messageText{fill:#333;stroke:none;}#mermaid-0 .labelBox{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 .labelText,#mermaid-0 .labelText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .loopText,#mermaid-0 .loopText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);}#mermaid-0 .note{stroke:#aaaa33;fill:#fff5ad;}#mermaid-0 .noteText,#mermaid-0 .noteText&gt;tspan{fill:black;stroke:none;}#mermaid-0 .activation0{fill:#f4f4f4;stroke:#666;}#mermaid-0 .activation1{fill:#f4f4f4;stroke:#666;}#mermaid-0 .activation2{fill:#f4f4f4;stroke:#666;}#mermaid-0 .actorPopupMenu{position:absolute;}#mermaid-0 .actorPopupMenuPanel{position:absolute;fill:#ECECFF;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#mermaid-0 .actor-man line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;}#mermaid-0 .actor-man circle,#mermaid-0 line{stroke:hsl(259.6261682243, 59.7765363128%, 87.9019607843%);fill:#ECECFF;stroke-width:2px;}#mermaid-0 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><symbol height="24" width="24" id="computer"><path d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z" transform="scale(.5)"></path></symbol></defs><defs><symbol clip-rule="evenodd" fill-rule="evenodd" id="database"><path d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z" transform="scale(.5)"></path></symbol></defs><defs><symbol height="24" width="24" id="clock"><path d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z" transform="scale(.5)"></path></symbol></defs><defs><marker orient="auto-start-reverse" markerHeight="12" markerWidth="12" markerUnits="userSpaceOnUse" refY="5" refX="7.9" id="arrowhead"><path d="M -1 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker refY="4.5" refX="4" orient="auto" markerHeight="8" markerWidth="15" id="crosshead"><path style="stroke-dasharray: 0, 0;" d="M 1,2 L 6,7 M 6,2 L 1,7" stroke-width="1pt" stroke="#000000" fill="none"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="15.5" id="filled-head"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="40" markerWidth="60" refY="15" refX="15" id="sequencenumber"><circle r="6" cy="15" cx="15"></circle></marker></defs><g><line class="loopLine" y2="381" x2="1990" y1="381" x1="286"></line><line class="loopLine" y2="610" x2="1990" y1="381" x1="1990"></line><line class="loopLine" y2="610" x2="1990" y1="610" x1="286"></line><line class="loopLine" y2="610" x2="286" y1="381" x1="286"></line><polygon class="labelBox" points="286,381 336,381 336,394 327.6,401 286,401"></polygon><text style="font-size: 16px; font-weight: 400;" class="labelText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="394" x="311">alt</text><text style="font-size: 16px; font-weight: 400;" class="loopText" text-anchor="middle" y="399" x="1163"><tspan x="1163">[e2e.ci false or no key]</tspan></text></g><g><line class="loopLine" y2="896" x2="1711" y1="896" x1="286"></line><line class="loopLine" y2="1138" x2="1711" y1="896" x1="1711"></line><line class="loopLine" y2="1138" x2="1711" y1="1138" x1="286"></line><line class="loopLine" y2="1138" x2="286" y1="896" x1="286"></line><line style="stroke-dasharray: 3, 3;" class="loopLine" y2="992" x2="1711" y1="992" x1="286"></line><polygon class="labelBox" points="286,896 336,896 336,909 327.6,916 286,916"></polygon><text style="font-size: 16px; font-weight: 400;" class="labelText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="909" x="311">alt</text><text style="font-size: 16px; font-weight: 400;" class="loopText" text-anchor="middle" y="914" x="1023.5"><tspan x="1023.5">[5 of 5]</tspan></text><text style="font-size: 16px; font-weight: 400;" class="loopText" text-anchor="middle" y="1010" x="998.5">[a check fail, waiting or not judged]</text></g><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="80" x="190">push to the feature PR</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="111" x2="293" y1="111" x1="86"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="126" x="521">pull_request synchronize</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="157" x2="744" y1="157" x1="298"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="172" x="749">test job writes the AC report</text><path style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" d="M 749,203 C 809,193 809,233 749,223"></path><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="248" x="847">wait for the preview</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="279" x2="944" y1="279" x1="749"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="294" x="947">e2e scenarios on the preview (e2e kind only)</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="325" x2="1144" y1="325" x1="749"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="340" x="524">check run acceptance (AC results, HTML report as artifact)</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="371" x2="301" y1="371" x1="747"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="431" x="1665">runner job runs the e2e scenarios</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="462" x2="1352" y1="462" x1="1978"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="477" x="1150">e2e on the preview</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="508" x2="952" y1="508" x1="1347"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="523" x="1662">results</text><line style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" y2="554" x2="1975" y1="554" x1="1349"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="569" x="1140">check run acceptance</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="600" x2="301" y1="600" x1="1978"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="625" x="1137">check_suite / new commit</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="656" x2="1975" y1="656" x1="298"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="671" x="1140">read runs, report, diff, plan, ledger at head</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="702" x2="301" y1="702" x1="1978"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="717" x="1140">check omni / ready (5 states, each with a link)</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="748" x2="301" y1="748" x1="1978"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="763" x="2120">insert verdict (repo, pr, head_sha)</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="794" x2="2260" y1="794" x1="1980"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="809" x="1670">omni ready prd --json</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="840" x2="1775" y1="840" x1="1564.5"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="855" x="1040">gh: runs, acceptance, diff, plan, ledger at head</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="886" x2="301" y1="886" x1="1778"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="946" x="932">gh pr ready</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="977" x2="301" y1="977" x1="1562.5"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="1037" x="1565">stays draft, ends changes, names the check</text><path style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" d="M 1564.5,1068 C 1624.5,1058 1624.5,1098 1564.5,1088"></path><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="1153" x="2403">read the latest verdict (member)</text><line style="fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine0" y2="1184" x2="2268" y1="1184" x1="2537"></line><text style="font-size: 16px; font-weight: 400;" dy="1em" class="messageText" alignment-baseline="middle" dominant-baseline="middle" text-anchor="middle" y="1199" x="2539">Ready panel</text><path style="stroke-dasharray: 3, 3; fill: none;" marker-end="url(#arrowhead)" stroke="none" stroke-width="2" class="messageLine1" d="M 2539,1230 C 2599,1220 2599,1260 2539,1250"></path></svg></figure>
+</div>
+<div data-section="deploy" data-state="filled">
+<h4>Deploy order</h4>
+<p>On a gated draft, the skill adds the label <code>omni:ready-check</code> before <code>omni ready</code>: the label starts the full <code>checks</code>, the e2e job and the preview on the draft's latest commit (<code>.github/workflows/checks.yml</code>, <code>preview-debounce.yml</code>).</p>
+<ol>
+<li><strong>supabase:</strong> the migration creating <code>public.ready_verdicts</code> and its policies, with its <code>supabase/checks/</code>.</li>
+<li><strong>omni-app:</strong> the <code>omni / ready</code> check and the runner fallback writing <code>acceptance</code>; it posts nothing while <code>ready.checks</code> is <code>off</code>.</li>
+<li><strong>CI:</strong> the full checks, the e2e job and the preview on a draft labelled <code>omni:ready-check</code>, the test job's AC report, the e2e job on the preview, the <code>acceptance</code> check run (<code>E2E_TELEMETRY_DISABLED=1</code>, the model key a secret).</li>
+<li><strong>kit:</strong> the validator, <code>omni ready</code>, the settings, the AC format in <code>omni check inbox</code>, then the skills (<code>/omni:review</code>'s gate line, <code>/omni:validate-e2e</code>, <code>/omni:brainstorm</code>).</li>
+<li><strong>galaxy:</strong> the Ready panel on the PRD page.</li>
+<li><strong>Switch on:</strong> <code>ready.checks</code> stays <code>off</code> until all of the above are out, then <code>mission</code>. Roll back with <code>off</code>.</li>
+</ol>
+</div>
+<div data-service="kit">
+<h3>kit <span class="badge" data-role>CLI</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the kit reads GitHub through <code>gh</code> and writes no table.</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<thead><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr></thead>
+<tbody>
+<tr><td><code>omni ready &lt;prd&gt; [--json]</code></td><td>added</td><td>—</td><td>prints the five checks and the verdict; exit 0 only on 5 of 5</td><td>kit</td></tr>
+<tr><td><code>ready.checks</code></td><td>added</td><td>—</td><td><code>off</code> (kit default) · <code>mission</code> (here) · <code>all</code></td><td>kit</td></tr>
+<tr><td><code>ready.full</code></td><td>added</td><td>—</td><td>the CI jobs check 2 needs: <code>[test, lint]</code> here</td><td>kit</td></tr>
+<tr><td><code>acceptance.kind</code></td><td>added</td><td>—</td><td>the kind a new criterion takes: <code>test</code> or <code>e2e</code></td><td>kit</td></tr>
+<tr><td><code>e2e.ci</code></td><td>added</td><td>—</td><td>e2e runs in CI on the preview; false sends it to a runner</td><td>kit</td></tr>
+<tr><td><code>e2e.repo</code></td><td>added</td><td>—</td><td>unset (this repository, <code>e2e.dir</code>) or <code>&lt;owner&gt;/&lt;name&gt;</code> in the same workspace</td><td>kit</td></tr>
+<tr><td><code>### AC-&lt;n&gt; · &lt;kind&gt;</code> in a spec</td><td>added</td><td>plain bullets</td><td>a numbered Gherkin scenario with its kind; plain bullets still read</td><td>kit</td></tr>
+<tr><td><code>omni check inbox</code></td><td>changed</td><td>grades the spec's sections</td><td>also refuses an <code>AC-</code> number missing or twice, a missing or unknown kind, a scenario without Given, When and Then</td><td>kit</td></tr>
+</tbody>
+</table>
+<p>No row is breaking: every change adds an element or a refusal of a new format. Followed the rule of this step; the conventions form sets no stricter one.</p>
+<div class="compare">
+<div><div class="label">Before · .omni-loop/config.yml</div>
+<pre><span class="line ctx">e2e:</span><span class="line ctx">  enabled: …</span><span class="line ctx">  dir: e2e</span><span class="line ctx"># …</span></pre></div>
+<div><div class="label">After · .omni-loop/config.yml</div>
+<pre><span class="line add">ready:</span><span class="line add">  checks: mission</span><span class="line add">  full: [test, lint]</span><span class="line add">acceptance:</span><span class="line add">  kind: test</span><span class="line ctx">e2e:</span><span class="line ctx">  enabled: …</span><span class="line ctx">  dir: e2e</span><span class="line add">  ci: true</span><span class="line add">  repo: null</span><span class="line ctx"># …</span></pre></div>
+</div>
+<div class="compare">
+<div><div class="label">Before · omni ready 2803 --json</div>
+<pre><span class="line ctx"># no command</span></pre></div>
+<div><div class="label">After · omni ready 2803 --json</div>
+<pre><span class="line add">{ "prd": 2803, "pr": 2817, "head": "a41f9c2",</span><span class="line add">  "ready": false, "passed": 4, "of": 5,</span><span class="line add">  "checks": [</span><span class="line add">    { "id": "ci", "state": "pass", "link": "…/runs/8841" },</span><span class="line add">    { "id": "loosened", "state": "fail",</span><span class="line add">      "why": "it.skip added", "path": "…/quote-theme.test.ts",</span><span class="line add">      "link": "…/files#L42" },</span><span class="line add">    { "id": "acceptance", "state": "waiting",</span><span class="line add">      "why": "waiting for a runner to run the e2e scenarios" }</span><span class="line add">    # …</span><span class="line add">  ] }</span></pre></div>
+</div>
+<div class="compare">
+<div><div class="label">Before · spec.md</div>
+<pre><span class="line del">## Acceptance criteria</span><span class="line del">- A loosened test keeps the PR a draft.</span></pre></div>
+<div><div class="label">After · spec.md</div>
+<pre><span class="line add">### AC-2 · e2e</span><span class="line add">```gherkin</span><span class="line add">Scenario: A loosened test keeps the pull request a draft</span><span class="line add">  Given a mission's pull request whose diff skips a test</span><span class="line add">  When the Reviewer passes it</span><span class="line add">  Then it stays a draft and its check names the skipped test</span><span class="line add">```</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<table>
+<thead><tr><th>reader or writer</th><th>today</th><th>after</th></tr></thead>
+<tbody>
+<tr><td><code>/omni:review</code>'s pass</td><td>no finding: <code>gh pr ready</code></td><td>no finding: <code>omni ready &lt;prd&gt;</code> first; 5 of 5 then <code>gh pr ready</code>; otherwise the PR stays a draft and the pass ends <code>changes</code>, the failing check as its finding</td></tr>
+<tr><td><code>/omni:validate-e2e</code></td><td>keeps criteria as e2e tests</td><td>writes one test per <code>e2e</code> scenario, titled <code>AC-n: …</code>, tagged <code>prd-&lt;n&gt;</code>, each Given and When an <code>agent.act</code>, each Then an <code>agent.assert</code>, the lines kept verbatim</td></tr>
+<tr><td><code>/omni:yolo</code>, <code>/omni:yolo-fix</code></td><td><code>gh pr ready</code></td><td>unchanged under <code>mission</code>; under <code>all</code>, <code>omni ready</code> before <code>gh pr ready</code></td></tr>
+<tr><td><code>/omni:brainstorm</code> step 4</td><td>criteria as bullets or scenarios</td><td>criteria as <code>### AC-n · kind</code> scenarios</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div data-service="omni-app">
+<h3>omni-app <span class="badge" data-role>BACK-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the App writes <code>public.ready_verdicts</code>, a table of supabase (its block below).</p>
+</div>
+<div data-section="api" data-state="filled">
+<h4>API / schema</h4>
+<table>
+<thead><tr><th>element</th><th>kind</th><th>before</th><th>after</th><th>service</th></tr></thead>
+<tbody>
+<tr><td>check <code>omni / ready</code></td><td>added</td><td>—</td><td>on each new commit of a gated PR: the verdict as its title, the five states in its summary, each linking its evidence; signed as the App's</td><td>omni-app</td></tr>
+<tr><td>check run <code>acceptance</code></td><td>added</td><td>—</td><td>written by CI; by the App when a runner ran the e2e scenarios</td><td>omni-app, CI</td></tr>
+<tr><td>runner job for e2e</td><td>added</td><td>—</td><td>queued when <code>e2e.ci</code> is false and the PRD has an <code>e2e</code> criterion</td><td>omni-app</td></tr>
+</tbody>
+</table>
+<p>No row is breaking.</p>
+<div class="compare">
+<div><div class="label">Before · checks on a mission PR</div>
+<pre><span class="line ctx">omni / outbox    success</span><span class="line ctx">omni / budgets   success</span></pre></div>
+<div><div class="label">After · checks on a mission PR</div>
+<pre><span class="line ctx">omni / outbox    success</span><span class="line ctx">omni / budgets   success</span><span class="line add">acceptance       success   AC-1 pass · AC-2 pass · AC-3 pass</span><span class="line add">omni / ready     failure   4 of 5 · No test was loosened: fail</span></pre></div>
+</div>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">Today</div><p>A new commit of a mission PR runs the outbox and budgets checks.</p></div>
+<div><div class="label">After</div><p>The same commit also runs the kit's validator on facts the App reads at the head, and saves the verdict. Under <code>ready.checks: off</code> it posts nothing; it never gates <code>omni ready</code>, which decides alone when the App is down.</p></div>
+</div>
+</div>
+</div>
+<div data-service="galaxy">
+<h3>galaxy <span class="badge" data-role>FRONT-END</span></h3>
+<div data-section="db" data-state="na">
+<h4>Database</h4>
+<p>N/A — the page only reads <code>public.ready_verdicts</code>, as the member.</p>
+</div>
+<div data-section="api" data-state="na">
+<h4>API / schema</h4>
+<p>N/A — the PRD page reads the verdict through its own repository on the server; no route or contract changes.</p>
+</div>
+<div data-section="behaviour" data-state="filled">
+<h4>Behaviour</h4>
+<div class="compare">
+<div><div class="label">Today</div><p>The PRD page reads the feature PR's state and CI from GitHub.</p></div>
+<div><div class="label">After</div><p>It also reads the latest verdict of the PRD's feature PR and shows the Ready panel; with no verdict yet, no panel.</p></div>
+</div>
+</div>
+</div>
+<div data-service="supabase">
+<h3>supabase <span class="badge" data-role>DATABASE</span></h3>
+<div data-section="db" data-state="filled">
+<h4>Database</h4>
+<figure class="mermaid-diagram" data-source="erDiagram
+  workspaces ||--o{ ready_verdicts : &quot;workspace_id&quot;
+  ready_verdicts {
+    uuid id PK &quot;+ added&quot;
+    uuid workspace_id FK &quot;+ added&quot;
+    text repo &quot;+ added&quot;
+    int pr &quot;+ added&quot;
+    int prd &quot;+ added&quot;
+    text head_sha &quot;+ added&quot;
+    jsonb checks &quot;+ added&quot;
+    boolean passed &quot;+ added&quot;
+    timestamptz created_at &quot;+ added&quot;
+  }"><svg aria-roledescription="er" role="graphics-document document" viewBox="0 0 247.4375 437.642578125" style="max-width: 247.4375px;" xmlns="http://www.w3.org/2000/svg" width="100%" id="mermaid-1"><style>#mermaid-1{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}#mermaid-1 .error-icon{fill:#552222;}#mermaid-1 .error-text{fill:#552222;stroke:#552222;}#mermaid-1 .edge-thickness-normal{stroke-width:1px;}#mermaid-1 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1 .marker{fill:#333333;stroke:#333333;}#mermaid-1 .marker.cross{stroke:#333333;}#mermaid-1 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1 p{margin:0;}#mermaid-1 .entityBox{fill:#ECECFF;stroke:#9370DB;}#mermaid-1 .attributeBoxOdd{fill:#ffffff;stroke:#9370DB;}#mermaid-1 .attributeBoxEven{fill:#f2f2f2;stroke:#9370DB;}#mermaid-1 .relationshipLabelBox{fill:hsl(80, 100%, 96.2745098039%);opacity:0.7;background-color:hsl(80, 100%, 96.2745098039%);}#mermaid-1 .relationshipLabelBox rect{opacity:0.5;}#mermaid-1 .relationshipLine{stroke:#333333;}#mermaid-1 .entityTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-1 #MD_PARENT_START{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 #MD_PARENT_END{fill:#f5f5f5!important;stroke:#333333!important;stroke-width:1;}#mermaid-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><marker orient="auto" markerHeight="240" markerWidth="190" refY="7" refX="0" id="MD_PARENT_START"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="28" markerWidth="20" refY="7" refX="19" id="MD_PARENT_END"><path d="M 18,7 L9,13 L1,7 L9,1 Z"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="0" id="ONLY_ONE_START"><path d="M9,0 L9,18 M15,0 L15,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="18" refY="9" refX="18" id="ONLY_ONE_END"><path d="M3,0 L3,18 M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="0" id="ZERO_OR_ONE_START"><circle r="6" cy="9" cx="21" fill="white" stroke="gray"></circle><path d="M9,0 L9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="18" markerWidth="30" refY="9" refX="30" id="ZERO_OR_ONE_END"><circle r="6" cy="9" cx="9" fill="white" stroke="gray"></circle><path d="M21,0 L21,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="18" id="ONE_OR_MORE_START"><path d="M0,18 Q 18,0 36,18 Q 18,36 0,18 M42,9 L42,27" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="45" refY="18" refX="27" id="ONE_OR_MORE_END"><path d="M3,9 L3,27 M9,18 Q27,0 45,18 Q27,36 9,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="18" id="ZERO_OR_MORE_START"><circle r="6" cy="18" cx="48" fill="white" stroke="gray"></circle><path d="M0,18 Q18,0 36,18 Q18,36 0,18" fill="none" stroke="gray"></path></marker></defs><defs><marker orient="auto" markerHeight="36" markerWidth="57" refY="18" refX="39" id="ZERO_OR_MORE_END"><circle r="6" cy="18" cx="9" fill="white" stroke="gray"></circle><path d="M21,18 Q39,0 57,18 Q39,36 21,18" fill="none" stroke="gray"></path></marker></defs><path style="stroke: gray; fill: none;" marker-start="url(#ONLY_ONE_START)" marker-end="url(#ZERO_OR_MORE_END)" d="M123.719,95L123.719,103.333C123.719,111.667,123.719,128.333,123.719,145C123.719,161.667,123.719,178.333,123.719,186.667L123.719,195" class="er relationshipLine"></path><g transform="translate(73.71875,20 )" id="entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1"><rect height="75" width="100" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(50,37.5)" y="0" x="0" id="text-entity-workspaces-a67687c6-bf47-5ee2-97ed-ae8e46cdadb1" class="er entityLabel">workspaces</text></g><g transform="translate(20,195 )" id="entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9"><rect height="222.642578125" width="207.4375" y="0" x="0" class="er entityBox"></rect><text style="dominant-baseline: middle; text-anchor: middle; font-size: 12px;" transform="translate(103.71875,12)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9" class="er entityLabel">ready_verdicts</text><rect height="22" width="67.5625" y="24" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,35)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-1-type" class="er entityLabel">uuid</text><rect height="22" width="71.90625" y="24" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,35)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-1-name" class="er entityLabel">id</text><rect height="22" width="21.5625" y="24" x="139.46875" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,35)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-1-key" class="er entityLabel">PK</text><rect height="22" width="46.40625" y="24" x="161.03125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,35)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-1-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="46" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,57.0458984375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-2-type" class="er entityLabel">uuid</text><rect height="22.091796875" width="71.90625" y="46" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,57.0458984375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-2-name" class="er entityLabel">workspace_id</text><rect height="22.091796875" width="21.5625" y="46" x="139.46875" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,57.0458984375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-2-key" class="er entityLabel">FK</text><rect height="22.091796875" width="46.40625" y="46" x="161.03125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,57.0458984375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-2-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="68.091796875" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,79.1376953125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-3-type" class="er entityLabel">text</text><rect height="22.091796875" width="71.90625" y="68.091796875" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,79.1376953125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-3-name" class="er entityLabel">repo</text><rect height="22.091796875" width="21.5625" y="68.091796875" x="139.46875" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,79.1376953125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-3-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="68.091796875" x="161.03125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,79.1376953125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-3-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="90.18359375" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,101.2294921875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-4-type" class="er entityLabel">int</text><rect height="22.091796875" width="71.90625" y="90.18359375" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,101.2294921875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-4-name" class="er entityLabel">pr</text><rect height="22.091796875" width="21.5625" y="90.18359375" x="139.46875" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,101.2294921875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-4-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="90.18359375" x="161.03125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,101.2294921875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-4-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="112.275390625" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,123.3212890625)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-5-type" class="er entityLabel">int</text><rect height="22.091796875" width="71.90625" y="112.275390625" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,123.3212890625)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-5-name" class="er entityLabel">prd</text><rect height="22.091796875" width="21.5625" y="112.275390625" x="139.46875" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,123.3212890625)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-5-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="112.275390625" x="161.03125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,123.3212890625)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-5-comment" class="er entityLabel">+ added</text><rect height="22" width="67.5625" y="134.3671875" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,145.3671875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-6-type" class="er entityLabel">text</text><rect height="22" width="71.90625" y="134.3671875" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,145.3671875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-6-name" class="er entityLabel">head_sha</text><rect height="22" width="21.5625" y="134.3671875" x="139.46875" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,145.3671875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-6-key" class="er entityLabel"></text><rect height="22" width="46.40625" y="134.3671875" x="161.03125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,145.3671875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-6-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="156.3671875" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,167.4130859375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-7-type" class="er entityLabel">jsonb</text><rect height="22.091796875" width="71.90625" y="156.3671875" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,167.4130859375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-7-name" class="er entityLabel">checks</text><rect height="22.091796875" width="21.5625" y="156.3671875" x="139.46875" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,167.4130859375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-7-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="156.3671875" x="161.03125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,167.4130859375)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-7-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="178.458984375" x="0" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,189.5048828125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-8-type" class="er entityLabel">boolean</text><rect height="22.091796875" width="71.90625" y="178.458984375" x="67.5625" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,189.5048828125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-8-name" class="er entityLabel">passed</text><rect height="22.091796875" width="21.5625" y="178.458984375" x="139.46875" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,189.5048828125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-8-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="178.458984375" x="161.03125" class="er attributeBoxEven"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,189.5048828125)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-8-comment" class="er entityLabel">+ added</text><rect height="22.091796875" width="67.5625" y="200.55078125" x="0" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(5,211.5966796875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-9-type" class="er entityLabel">timestamptz</text><rect height="22.091796875" width="71.90625" y="200.55078125" x="67.5625" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(72.5625,211.5966796875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-9-name" class="er entityLabel">created_at</text><rect height="22.091796875" width="21.5625" y="200.55078125" x="139.46875" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(144.46875,211.5966796875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-9-key" class="er entityLabel"></text><rect height="22.091796875" width="46.40625" y="200.55078125" x="161.03125" class="er attributeBoxOdd"></rect><text style="dominant-baseline: middle; font-size: 10.2px;" transform="translate(166.03125,211.5966796875)" y="0" x="0" id="text-entity-readyverdicts-67f60982-7e9e-5cb1-b8a2-766b0bf9f6a9-attr-9-comment" class="er entityLabel">+ added</text></g><rect height="14" width="72.828125" y="138" x="87.30493927001953" class="er relationshipLabelBox"></rect><text style="text-anchor: middle; dominant-baseline: middle; font-size: 12px;" y="145" x="123.71900177001953" id="rel1" class="er relationshipLabel">workspace_id</text></svg></figure>
+<div class="compare">
+<div><div class="label">Today · public.ready_verdicts</div>
+<pre><span class="line ctx">-- no table</span></pre></div>
+<div><div class="label">After · public.ready_verdicts</div>
+<pre><span class="line add">create table public.ready_verdicts (</span><span class="line add">  id uuid primary key default gen_random_uuid(),</span><span class="line add">  workspace_id uuid not null references public.workspaces,</span><span class="line add">  repo text not null, pr int not null, prd int not null,</span><span class="line add">  head_sha text not null,</span><span class="line add">  checks jsonb not null,</span><span class="line add">  passed boolean not null,</span><span class="line add">  created_at timestamptz not null default now(),</span><span class="line add">  unique (repo, pr, head_sha)</span><span class="line add">);</span><span class="line add">-- members of workspace_id read; only the service role writes</span></pre></div>
+</div>
+<table>
+<thead><tr><th>table</th><th>change</th><th>detail</th></tr></thead>
+<tbody>
+<tr><td><code>public.ready_verdicts</code></td><td>created</td><td>one verdict per commit of a PR; unique <code>(repo, pr, head_sha)</code>; row-level security: members read, the service role writes. <span class="badge deploy">coordinated deploy</span> ships before the App writes it.</td></tr>
+</tbody>
+</table>
+</div>
+<div data-section="api" data-state="na">
+<h4>API / schema</h4>
+<p>N/A — no function or view; the table is read and written through its policies.</p>
+</div>
+<div data-section="behaviour" data-state="na">
+<h4>Behaviour</h4>
+<p>N/A — a new table: no existing reader or writer changes.</p>
+</div>
+</div>
+</section>
+<section data-tab="pixel-perfect">
+<nav class="index" aria-label="References" data-index hidden></nav>
+<div data-section="pixel-perfect" data-state="filled">
+<h4>Pixel perfect</h4>
+<p>screens: prd-dossier · ready-checks · app-shell</p>
+<p class="note">The Ready panel is the library screen <code>ready-checks</code>, drawn as a panel of the PRD page (<code>prd-dossier</code>) inside the app shell, at 1280 px, theme Omni. PRD 2803 and PR 2817 stand in for any mission PRD; the PRD's own text is marked <code>data-content</code>.</p>
+
+<h3>1.A · A mission PRD whose PR the Reviewer marked ready</h3>
+<div data-screen="prd-dossier" data-ref="1.A" data-when="today" data-viewport="1280"><template><div class="app-shell">
+<aside class="app-sidebar" aria-label="Sidebar">
+<div><a class="brand-logo" href="/app"><svg width="32" height="32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#2a2350" stroke="#ffd84a"/></svg><span class="ask-mark">OMNI LOOP</span></a><p class="app-sidebar-workspace" data-content>Vertuoza</p></div>
+<div><p class="app-sidebar-label">Dashboard</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app"><span class="app-sidebar-sprite"></span>Home</a></li><li><a class="app-sidebar-item" href="/app/fleet"><span class="app-sidebar-sprite"></span>Fleet</a></li><li><a class="app-sidebar-item" href="/app/runners"><span class="app-sidebar-sprite"></span>Runners</a></li></ul></div>
+<div><p class="app-sidebar-label">Work</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app/products"><span class="app-sidebar-sprite"></span>Products</a></li><li><a class="app-sidebar-item" href="/prd" aria-current="page"><span class="app-sidebar-sprite"></span>PRDs</a></li><li><a class="app-sidebar-item" href="/app/waiting"><span class="app-sidebar-sprite"></span>Waiting</a></li><li><a class="app-sidebar-item" href="/ask"><span class="app-sidebar-sprite"></span>Questions</a></li></ul></div>
+</aside>
+<header class="app-bar"><span class="app-bar-tile" aria-hidden="true"><svg width="32" height="32"><rect width="32" height="32" fill="#5a60c4"/></svg></span>
+<ol class="app-bar-trail"><li>Work</li><li>›</li><li>PRDs</li><li>›</li><li class="app-bar-here">PRD 2803</li></ol>
+<span class="app-bar-end"><span class="ask-switch"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="user-menu" aria-hidden="true">D</span></span></header>
+<main class="ask-main"><div class="ask">
+<header class="dossier-head">
+<div class="dossier-head-top"><h1 class="dossier-title"><a class="dossier-number" href="#">PRD #2803 ↗</a> <span data-content>Dark mode on the quote screen</span></h1>
+<div class="dossier-actions"><span class="ask-button">Copy link</span></div></div>
+<dl class="dossier-facts">
+<div class="dossier-fact dossier-fact-stage"><dt>Stage</dt><dd><ol class="stage-track" aria-label="Stages"><li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-passed">PRD</li><li class="stage-stop stage-passed">inbox</li><li class="stage-stop stage-passed">building</li><li class="stage-stop stage-current" aria-current="step">outbox</li><li class="stage-stop ">shipped</li><li class="stage-stop ">retro</li></ol><p class="stage-words"><strong>Stage: outbox</strong> · 4/4 slices</p></dd></div>
+<div class="dossier-fact"><dt>Approval</dt><dd><strong>approved</strong><br><span class="ask-hint">by pierrederval · Nov 12</span></dd></div>
+<div class="dossier-fact"><dt>Repo</dt><dd>vertuo-omni-loop</dd></div>
+<div class="dossier-fact"><dt>On GitHub</dt><dd><ul class="stage-links"><li><a href="#">Issue</a> <span class="ask-hint">open</span></li><li><a href="#">Feature PR · ready</a> <span class="care-chip">CI green</span></li></ul><span class="ask-hint">GitHub as of 07:02 UTC</span></dd></div>
+</dl>
+<nav class="dossier-tabs" aria-label="Tabs"><a class="dossier-tab" href="#">Questions</a><a class="dossier-tab" href="#">Before/after</a><a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Plan</a><a class="dossier-tab" href="#">Timeline</a><a class="dossier-tab" href="#">Outbox</a><a class="dossier-tab" href="#" aria-current="page">PR care</a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a></nav>
+</header>
+<section class="dossier-pane" aria-label="PR care"><dl class="care-rows"><div class="care-row care-ci-green"><dt>CI</dt><dd>green</dd></div><div class="care-row"><dt>Conflict</dt><dd>none</dd></div><div class="care-row"><dt>Threads</dt><dd>0 open</dd></div></dl><p class="care-watcher">Watched by pr-care · last round 06:55</p></section>
+</div></main>
+</div></template></div>
+<div data-screen="prd-dossier" data-ref="1.A" data-when="after" data-viewport="1280"><template><div class="app-shell">
+<aside class="app-sidebar" aria-label="Sidebar">
+<div><a class="brand-logo" href="/app"><svg width="32" height="32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#2a2350" stroke="#ffd84a"/></svg><span class="ask-mark">OMNI LOOP</span></a><p class="app-sidebar-workspace" data-content>Vertuoza</p></div>
+<div><p class="app-sidebar-label">Dashboard</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app"><span class="app-sidebar-sprite"></span>Home</a></li><li><a class="app-sidebar-item" href="/app/fleet"><span class="app-sidebar-sprite"></span>Fleet</a></li><li><a class="app-sidebar-item" href="/app/runners"><span class="app-sidebar-sprite"></span>Runners</a></li></ul></div>
+<div><p class="app-sidebar-label">Work</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app/products"><span class="app-sidebar-sprite"></span>Products</a></li><li><a class="app-sidebar-item" href="/prd" aria-current="page"><span class="app-sidebar-sprite"></span>PRDs</a></li><li><a class="app-sidebar-item" href="/app/waiting"><span class="app-sidebar-sprite"></span>Waiting</a></li><li><a class="app-sidebar-item" href="/ask"><span class="app-sidebar-sprite"></span>Questions</a></li></ul></div>
+</aside>
+<header class="app-bar"><span class="app-bar-tile" aria-hidden="true"><svg width="32" height="32"><rect width="32" height="32" fill="#5a60c4"/></svg></span>
+<ol class="app-bar-trail"><li>Work</li><li>›</li><li>PRDs</li><li>›</li><li class="app-bar-here">PRD 2803</li></ol>
+<span class="app-bar-end"><span class="ask-switch"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="user-menu" aria-hidden="true">D</span></span></header>
+<main class="ask-main"><div class="ask">
+<header class="dossier-head">
+<div class="dossier-head-top"><h1 class="dossier-title"><a class="dossier-number" href="#">PRD #2803 ↗</a> <span data-content>Dark mode on the quote screen</span></h1>
+<div class="dossier-actions"><span class="ask-button">Copy link</span></div></div>
+<dl class="dossier-facts">
+<div class="dossier-fact dossier-fact-stage"><dt>Stage</dt><dd><ol class="stage-track" aria-label="Stages"><li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-passed">PRD</li><li class="stage-stop stage-passed">inbox</li><li class="stage-stop stage-passed">building</li><li class="stage-stop stage-current" aria-current="step">outbox</li><li class="stage-stop ">shipped</li><li class="stage-stop ">retro</li></ol><p class="stage-words"><strong>Stage: outbox</strong> · 4/4 slices</p></dd></div>
+<div class="dossier-fact"><dt>Approval</dt><dd><strong>approved</strong><br><span class="ask-hint">by pierrederval · Nov 12</span></dd></div>
+<div class="dossier-fact"><dt>Repo</dt><dd>vertuo-omni-loop</dd></div>
+<div class="dossier-fact"><dt>On GitHub</dt><dd><ul class="stage-links"><li><a href="#">Issue</a> <span class="ask-hint">open</span></li><li><a href="#">Feature PR · ready</a> <span class="care-chip">CI green</span></li></ul><span class="ask-hint">GitHub as of 07:02 UTC</span></dd></div>
+</dl>
+<nav class="dossier-tabs" aria-label="Tabs"><a class="dossier-tab" href="#">Questions</a><a class="dossier-tab" href="#">Before/after</a><a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Plan</a><a class="dossier-tab" href="#">Timeline</a><a class="dossier-tab" href="#">Outbox</a><a class="dossier-tab" href="#" aria-current="page">PR care</a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a></nav>
+</header>
+<section class="ready ready-pass" aria-label="Ready">
+<div class="ready-top"><p class="ready-lab">Ready</p><h2 class="ready-title">Ready for review · 5 of 5</h2><span class="ready-sign">Omni App · a41f9c2 · 07:00</span></div>
+<ol class="ready-checks">
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">CI green on the latest commit</span><span class="ready-state">Pass</span><a href="#">Run 8841</a></div><p class="ready-note">14 checks succeeded on a41f9c2</p></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Full tests and lint ran</span><span class="ready-state">Pass</span><a href="#">test · lint</a></div><p class="ready-note">1,284 tests · lint clean</p></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Every acceptance criterion has its proof</span><span class="ready-state">Pass</span><a href="#">3 of 3</a></div><ol class="ready-acs"><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-1</span><span class="ready-kind">test</span><span data-content>The quote screen follows the theme</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-1</a></div><p data-content><b>Given</b> a member who picked Dark</p><p data-content><b>When</b> they open a quote</p><p data-content><b>Then</b> the quote screen is drawn in the Dark tokens</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-2</span><span class="ready-kind">test</span><span data-content>The totals keep their contrast</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-2</a></div><p data-content><b>Given</b> a quote with three totals in Dark</p><p data-content><b>When</b> the page renders</p><p data-content><b>Then</b> every total passes WCAG AA</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-3</span><span class="ready-kind">e2e</span><span data-content>The switch is kept</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">e2e report</a></div><p data-content><b>Given</b> a member on the quote screen</p><p data-content><b>When</b> they switch to Light and reload</p><p data-content><b>Then</b> the quote screen is still Light</p></li></ol></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">No test was loosened</span><span class="ready-state">Pass</span><a href="#">Test diff</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">The change stayed in its area</span><span class="ready-state">Pass</span><a href="#">7 files</a></div></li>
+</ol>
+<div class="ready-foot"><div><p><strong>Ready for review, not merged.</strong></p><p>Only a person merges.</p></div><a class="ask-button stage-action" href="#" data-primary>Review PR 2817</a></div>
+</section>
+<section class="dossier-pane" aria-label="PR care"><dl class="care-rows"><div class="care-row care-ci-green"><dt>CI</dt><dd>green</dd></div><div class="care-row"><dt>Conflict</dt><dd>none</dd></div><div class="care-row"><dt>Threads</dt><dd>0 open</dd></div></dl><p class="care-watcher">Watched by pr-care · last round 06:55</p></section>
+</div></main>
+</div></template></div>
+<p class="note">Today: the page says <em>Feature PR · ready</em> and <em>CI green</em>, nothing more. After: the Ready panel sits under the head, above the tab shown, while the feature PR has a verdict; check 3 lists each criterion with its three lines, its kind, its proof and its state. The panel's own style is a hole in <code>dossier.css</code>: it is filled from the business laws' verdict (<code>.dossier-laws</code>), the Proof tab's rows (<code>.proof-row</code>) and the PR care chip, in the Ask tokens; a failing mark takes red as the Proof tab does. Signed as the App's (L-AIACT-1); the one primary action is Review PR 2817.</p>
+<h3>1.B · 4 of 5: a test was loosened</h3>
+<div data-screen="prd-dossier" data-ref="1.B" data-when="after" data-viewport="1280"><template><div class="app-shell">
+<aside class="app-sidebar" aria-label="Sidebar">
+<div><a class="brand-logo" href="/app"><svg width="32" height="32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#2a2350" stroke="#ffd84a"/></svg><span class="ask-mark">OMNI LOOP</span></a><p class="app-sidebar-workspace" data-content>Vertuoza</p></div>
+<div><p class="app-sidebar-label">Dashboard</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app"><span class="app-sidebar-sprite"></span>Home</a></li><li><a class="app-sidebar-item" href="/app/fleet"><span class="app-sidebar-sprite"></span>Fleet</a></li><li><a class="app-sidebar-item" href="/app/runners"><span class="app-sidebar-sprite"></span>Runners</a></li></ul></div>
+<div><p class="app-sidebar-label">Work</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app/products"><span class="app-sidebar-sprite"></span>Products</a></li><li><a class="app-sidebar-item" href="/prd" aria-current="page"><span class="app-sidebar-sprite"></span>PRDs</a></li><li><a class="app-sidebar-item" href="/app/waiting"><span class="app-sidebar-sprite"></span>Waiting</a></li><li><a class="app-sidebar-item" href="/ask"><span class="app-sidebar-sprite"></span>Questions</a></li></ul></div>
+</aside>
+<header class="app-bar"><span class="app-bar-tile" aria-hidden="true"><svg width="32" height="32"><rect width="32" height="32" fill="#5a60c4"/></svg></span>
+<ol class="app-bar-trail"><li>Work</li><li>›</li><li>PRDs</li><li>›</li><li class="app-bar-here">PRD 2803</li></ol>
+<span class="app-bar-end"><span class="ask-switch"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="user-menu" aria-hidden="true">D</span></span></header>
+<main class="ask-main"><div class="ask">
+<header class="dossier-head">
+<div class="dossier-head-top"><h1 class="dossier-title"><a class="dossier-number" href="#">PRD #2803 ↗</a> <span data-content>Dark mode on the quote screen</span></h1>
+<div class="dossier-actions"><span class="ask-button">Copy link</span></div></div>
+<dl class="dossier-facts">
+<div class="dossier-fact dossier-fact-stage"><dt>Stage</dt><dd><ol class="stage-track" aria-label="Stages"><li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-passed">PRD</li><li class="stage-stop stage-passed">inbox</li><li class="stage-stop stage-current" aria-current="step">building</li><li class="stage-stop ">outbox</li><li class="stage-stop ">shipped</li><li class="stage-stop ">retro</li></ol><p class="stage-words"><strong>Stage: building</strong> · 4/4 slices</p></dd></div>
+<div class="dossier-fact"><dt>Approval</dt><dd><strong>approved</strong><br><span class="ask-hint">by pierrederval · Nov 12</span></dd></div>
+<div class="dossier-fact"><dt>Repo</dt><dd>vertuo-omni-loop</dd></div>
+<div class="dossier-fact"><dt>On GitHub</dt><dd><ul class="stage-links"><li><a href="#">Issue</a> <span class="ask-hint">open</span></li><li><a href="#">Feature PR · draft</a> <span class="care-chip">CI green</span></li></ul><span class="ask-hint">GitHub as of 07:02 UTC</span></dd></div>
+</dl>
+<nav class="dossier-tabs" aria-label="Tabs"><a class="dossier-tab" href="#">Questions</a><a class="dossier-tab" href="#">Before/after</a><a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Plan</a><a class="dossier-tab" href="#">Timeline</a><a class="dossier-tab" href="#">Outbox</a><a class="dossier-tab" href="#" aria-current="page">PR care</a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a></nav>
+</header>
+<section class="ready ready-fail" aria-label="Ready">
+<div class="ready-top"><p class="ready-lab">Ready</p><h2 class="ready-title">Not ready · 4 of 5</h2><span class="ready-sign">Omni App · a41f9c2 · 07:00</span></div>
+<div class="ready-named"><p><strong>Failed: No test was loosened</strong></p><p>quote-theme.test.ts adds .skip</p><p>No answered question excuses it.</p></div>
+<ol class="ready-checks">
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">CI green on the latest commit</span><span class="ready-state">Pass</span><a href="#">Run 8852</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Full tests and lint ran</span><span class="ready-state">Pass</span><a href="#">test · lint</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Every acceptance criterion has its proof</span><span class="ready-state">Pass</span><a href="#">3 of 3</a></div></li>
+<li class="ready-check is-fail"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✗</span><span class="ready-name">No test was loosened</span><span class="ready-state">Fail</span></div><p class="ready-note">quote-theme.test.ts:42 · it.skip added</p></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">The change stayed in its area</span><span class="ready-state">Pass</span><a href="#">7 files</a></div></li>
+</ol>
+<div class="ready-foot"><div><p>Stays a draft.</p><p>The Reviewer asked for changes.</p></div><a class="ask-button stage-action" href="#" data-primary>See the skipped test</a></div>
+</section>
+<section class="dossier-pane" aria-label="PR care"><dl class="care-rows"><div class="care-row care-ci-green"><dt>CI</dt><dd>green</dd></div><div class="care-row"><dt>Conflict</dt><dd>none</dd></div><div class="care-row"><dt>Threads</dt><dd>0 open</dd></div></dl><p class="care-watcher">Watched by pr-care · last round 06:55</p></section>
+</div></main>
+</div></template></div>
+<p class="note">The failing check is named at the top, with the file and why. The pull request stays a draft: the stage stays at building, the Reviewer ended <em>changes</em>. Its primary action opens the evidence.</p>
+<h3>1.C · Waiting: the evidence is not there yet</h3>
+<div data-screen="prd-dossier" data-ref="1.C" data-when="after" data-viewport="1280"><template><div class="app-shell">
+<aside class="app-sidebar" aria-label="Sidebar">
+<div><a class="brand-logo" href="/app"><svg width="32" height="32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#2a2350" stroke="#ffd84a"/></svg><span class="ask-mark">OMNI LOOP</span></a><p class="app-sidebar-workspace" data-content>Vertuoza</p></div>
+<div><p class="app-sidebar-label">Dashboard</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app"><span class="app-sidebar-sprite"></span>Home</a></li><li><a class="app-sidebar-item" href="/app/fleet"><span class="app-sidebar-sprite"></span>Fleet</a></li><li><a class="app-sidebar-item" href="/app/runners"><span class="app-sidebar-sprite"></span>Runners</a></li></ul></div>
+<div><p class="app-sidebar-label">Work</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app/products"><span class="app-sidebar-sprite"></span>Products</a></li><li><a class="app-sidebar-item" href="/prd" aria-current="page"><span class="app-sidebar-sprite"></span>PRDs</a></li><li><a class="app-sidebar-item" href="/app/waiting"><span class="app-sidebar-sprite"></span>Waiting</a></li><li><a class="app-sidebar-item" href="/ask"><span class="app-sidebar-sprite"></span>Questions</a></li></ul></div>
+</aside>
+<header class="app-bar"><span class="app-bar-tile" aria-hidden="true"><svg width="32" height="32"><rect width="32" height="32" fill="#5a60c4"/></svg></span>
+<ol class="app-bar-trail"><li>Work</li><li>›</li><li>PRDs</li><li>›</li><li class="app-bar-here">PRD 2803</li></ol>
+<span class="app-bar-end"><span class="ask-switch"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="user-menu" aria-hidden="true">D</span></span></header>
+<main class="ask-main"><div class="ask">
+<header class="dossier-head">
+<div class="dossier-head-top"><h1 class="dossier-title"><a class="dossier-number" href="#">PRD #2803 ↗</a> <span data-content>Dark mode on the quote screen</span></h1>
+<div class="dossier-actions"><span class="ask-button">Copy link</span></div></div>
+<dl class="dossier-facts">
+<div class="dossier-fact dossier-fact-stage"><dt>Stage</dt><dd><ol class="stage-track" aria-label="Stages"><li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-passed">PRD</li><li class="stage-stop stage-passed">inbox</li><li class="stage-stop stage-current" aria-current="step">building</li><li class="stage-stop ">outbox</li><li class="stage-stop ">shipped</li><li class="stage-stop ">retro</li></ol><p class="stage-words"><strong>Stage: building</strong> · 4/4 slices</p></dd></div>
+<div class="dossier-fact"><dt>Approval</dt><dd><strong>approved</strong><br><span class="ask-hint">by pierrederval · Nov 12</span></dd></div>
+<div class="dossier-fact"><dt>Repo</dt><dd>vertuo-omni-loop</dd></div>
+<div class="dossier-fact"><dt>On GitHub</dt><dd><ul class="stage-links"><li><a href="#">Issue</a> <span class="ask-hint">open</span></li><li><a href="#">Feature PR · draft</a> <span class="care-chip care-grey">CI running</span></li></ul><span class="ask-hint">GitHub as of 07:02 UTC</span></dd></div>
+</dl>
+<nav class="dossier-tabs" aria-label="Tabs"><a class="dossier-tab" href="#">Questions</a><a class="dossier-tab" href="#">Before/after</a><a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Plan</a><a class="dossier-tab" href="#">Timeline</a><a class="dossier-tab" href="#">Outbox</a><a class="dossier-tab" href="#" aria-current="page">PR care</a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a></nav>
+</header>
+<section class="ready ready-wait" aria-label="Ready">
+<div class="ready-top"><p class="ready-lab">Ready</p><h2 class="ready-title">Not finished · 3 of 5 so far</h2><span class="ready-sign">Omni App · b07e1d4 · 06:41</span></div>
+<ol class="ready-checks">
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">CI green on the latest commit</span><span class="ready-state">Pass</span><a href="#">Run 8847</a></div></li>
+<li class="ready-check is-wait"><div class="ready-row"><span class="ready-mark" aria-hidden="true">…</span><span class="ready-name">Full tests and lint ran</span><span class="ready-state">Waiting</span><a href="#">Test run</a></div><p class="ready-note">test still running</p></li>
+<li class="ready-check is-wait"><div class="ready-row"><span class="ready-mark" aria-hidden="true">…</span><span class="ready-name">Every acceptance criterion has its proof</span><span class="ready-state">Waiting</span></div><p class="ready-note">waiting for a runner</p><ol class="ready-acs"><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-1</span><span class="ready-kind">test</span><span data-content>The quote screen follows the theme</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-1</a></div><p data-content><b>Given</b> a member who picked Dark</p><p data-content><b>When</b> they open a quote</p><p data-content><b>Then</b> the quote screen is drawn in the Dark tokens</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-2</span><span class="ready-kind">test</span><span data-content>The totals keep their contrast</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-2</a></div><p data-content><b>Given</b> a quote with three totals in Dark</p><p data-content><b>When</b> the page renders</p><p data-content><b>Then</b> every total passes WCAG AA</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-3</span><span class="ready-kind">e2e</span><span data-content>The switch is kept</span><span class="ready-state" style="border-color:var(--ask-line-strong);color:var(--ask-muted)">Waiting</span><span class="ask-hint">no proof yet</span></div><p data-content><b>Given</b> a member on the quote screen</p><p data-content><b>When</b> they switch to Light and reload</p><p data-content><b>Then</b> the quote screen is still Light</p></li></ol></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">No test was loosened</span><span class="ready-state">Pass</span><a href="#">Test diff</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">The change stayed in its area</span><span class="ready-state">Pass</span><a href="#">7 files</a></div></li>
+</ol>
+<div class="ready-foot"><p>Stays a draft until all five pass.</p><a class="ask-button stage-action" href="#" data-primary>Watch the test run</a></div>
+</section>
+<section class="dossier-pane" aria-label="PR care"><dl class="care-rows"><div class="care-row "><dt>CI</dt><dd>running</dd></div><div class="care-row"><dt>Conflict</dt><dd>none</dd></div><div class="care-row"><dt>Threads</dt><dd>0 open</dd></div></dl><p class="care-watcher">Watched by pr-care · last round 06:55</p></section>
+</div></main>
+</div></template></div>
+<p class="note">A check still running, or an e2e scenario no runner has run, reads <em>Waiting</em> and never counts as passed (BL-GATE-1). The words omni ready prints for check 3 (<em>waiting for a runner to run the e2e scenarios</em>) are cut to <em>waiting for a runner</em> by the word pass; AC-3 shows which scenario waits. A check that could not read its evidence reads <em>Not judged · &lt;why&gt;</em> in the same place, not drawn here.</p>
+
+
+</div>
+</section>
+<template id="screen-css"><style>
+/* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+:host { --ask-ground:#07061c; --ask-surface:#120f3a; --ask-sunk:#0e0d33; --ask-line:#1a2170; --ask-line-strong:#5a60c4;
+  --ask-ink:#f2f4ff; --ask-muted:#8a90d6; --ask-plasma:#ffd84a; --ask-plasma-soft:#2a2350; --ask-on-plasma:#07061c;
+  --ask-yellow:#ff3ea5; --ask-on-yellow:#07061c; --ask-cyan:#6ff0ff; --ask-green:#4ee08a; --ask-red:#ff6b86;
+  --ask-body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;
+  --ask-mono:"JetBrains Mono",ui-monospace,Menlo,monospace; --ask-px:"Press Start 2P","Courier New",monospace; --ask-gutter:32px; }
+* { box-sizing:border-box; }
+.app-shell { display:grid; grid-template-columns:240px minmax(0,1fr); grid-template-rows:auto 1fr; min-height:760px;
+  background:var(--ask-ground); color:var(--ask-ink); font:17px/1.6 var(--ask-body); }
+a { color:var(--ask-cyan); }
+/* nav/ (app-shell): the sidebar and the top bar, abridged. */
+.app-sidebar { grid-row:1 / span 2; display:grid; align-content:start; gap:18px; padding:16px; background:var(--ask-surface); border-right:1px solid var(--ask-line); }
+.brand-logo { display:inline-flex; align-items:center; gap:10px; text-decoration:none; }
+.ask-mark { font:10px/1 var(--ask-px); letter-spacing:.04em; color:var(--ask-plasma); }
+.app-sidebar-workspace { margin:4px 0 0; font-size:14px; color:var(--ask-muted); }
+.app-sidebar-label { margin:0 0 4px; padding:0 10px; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ask-muted); }
+.app-sidebar-items { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.app-sidebar-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; border:1px solid transparent; font:700 15px/1.3 var(--ask-body); color:var(--ask-ink); text-decoration:none; }
+.app-sidebar-item[aria-current='page'] { color:var(--ask-plasma); border-color:var(--ask-plasma); background:var(--ask-ground); }
+.app-sidebar-sprite { flex:none; width:16px; height:16px; background:var(--ask-line-strong); }
+.app-bar { grid-column:2; display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--ask-surface); border-bottom:2px solid var(--ask-line-strong); }
+.app-bar-tile { display:inline-grid; place-items:center; width:40px; height:40px; border:1.5px solid var(--ask-line-strong); border-radius:8px; background:var(--ask-sunk); }
+.app-bar-trail { display:flex; gap:8px; margin:0; padding:0; list-style:none; font:600 15px/1.3 var(--ask-body); color:var(--ask-muted); }
+.app-bar-here { font-size:16px; font-weight:700; color:var(--ask-ink); }
+.app-bar-end { margin-left:auto; display:inline-flex; align-items:center; gap:12px; }
+.ask-switch { display:inline-flex; border:1.5px solid var(--ask-line-strong); border-radius:6px; overflow:hidden; }
+.ask-switch span { padding:6px 10px; color:var(--ask-muted); font:700 13px/1 var(--ask-body); }
+.ask-switch span.on { background:var(--ask-plasma); color:var(--ask-on-plasma); }
+.user-menu { display:inline-grid; place-items:center; width:36px; height:36px; border:1.5px solid var(--ask-line-strong); border-radius:50%; background:var(--ask-sunk); font:700 14px/1 var(--ask-body); }
+.ask-main { grid-column:2; min-width:0; }
+/* dossier/page/dossier.css, as written (prd-dossier). */
+.ask { max-width:960px; margin:0 auto; padding:28px var(--ask-gutter) 48px; display:grid; gap:20px; }
+.dossier-head { display:grid; gap:14px; margin:-28px calc(-1 * var(--ask-gutter)) 0; padding:16px var(--ask-gutter) 0; background:var(--ask-surface); border-bottom:1.5px solid var(--ask-line-strong); }
+.dossier-head-top { display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap; }
+.dossier-title { flex:1 1 320px; margin:0; font-size:28px; line-height:1.25; }
+.dossier-number { color:var(--ask-plasma); white-space:nowrap; text-decoration:none; }
+.dossier-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.ask-button { display:inline-block; padding:8px 14px; border-radius:8px; border:1.5px solid var(--ask-line-strong); background:var(--ask-sunk); color:var(--ask-ink); font:700 15px/1.2 var(--ask-body); text-decoration:none; }
+.ask-button.stage-action { background:var(--ask-plasma); border-color:var(--ask-plasma); color:var(--ask-on-plasma); }
+.dossier-facts { display:flex; flex-wrap:wrap; gap:10px 0; margin:0 0 0 -19px; clip-path:inset(-4px -4px -4px 19px); }
+.dossier-fact { display:grid; align-content:start; gap:6px; padding:0 18px; border-left:1px solid var(--ask-line-strong); }
+.dossier-fact dt { font:700 11px/1 var(--ask-body); letter-spacing:.08em; text-transform:uppercase; color:var(--ask-muted); }
+.dossier-fact dd { margin:0; font-size:15px; }
+.dossier-fact-stage dd { display:flex; align-items:center; gap:6px 12px; flex-wrap:wrap; }
+.stage-track { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:4px; font:600 12px/1 var(--ask-mono); }
+.stage-stop { padding:6px 9px; border-radius:999px; border:1px solid var(--ask-line-strong); color:var(--ask-muted); white-space:nowrap; }
+.stage-passed { color:var(--ask-ink); background:var(--ask-sunk); }
+.stage-current { color:var(--ask-on-plasma); background:var(--ask-plasma); border-color:var(--ask-plasma); font-weight:800; }
+.stage-words { margin:0; }
+.ask-hint { color:var(--ask-muted); }
+.stage-links { list-style:none; margin:0; padding:0; display:flex; gap:12px; flex-wrap:wrap; }
+.care-chip { display:inline-block; font:600 12px/1 var(--ask-mono); border:1px solid var(--ask-green); color:var(--ask-ink); border-radius:999px; padding:3px 8px; white-space:nowrap; }
+.care-chip.care-grey { border-color:var(--ask-line-strong); color:var(--ask-muted); }
+.dossier-tabs { display:flex; gap:4px; margin:0 calc(-1 * var(--ask-gutter)); padding:0 calc(var(--ask-gutter) - 14px); border-top:1px solid var(--ask-line-strong); overflow-x:auto; }
+.dossier-tab { display:inline-flex; padding:10px 14px; color:var(--ask-ink); font-weight:700; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent; }
+.dossier-tab[aria-current='page'] { border-bottom-color:var(--ask-plasma); }
+.dossier-tab-empty { color:var(--ask-muted); }
+.dossier-pane { display:grid; gap:16px; }
+.care-rows { display:grid; gap:6px; margin:0; }
+.care-row { display:flex; gap:12px; align-items:baseline; }
+.care-row dt { width:88px; flex:none; font-weight:600; color:var(--ask-muted); }
+.care-row dd { margin:0; }
+.care-ci-green dd { color:var(--ask-green); font-weight:600; }
+.care-watcher { margin:0; color:var(--ask-muted); }
+/* The Ready panel (ready-checks): a hole in dossier.css, filled from .dossier-laws, .proof-row and .care-chip. */
+.ready { display:grid; gap:12px; padding:14px 16px; background:var(--ask-surface); border:1px solid var(--ask-line-strong); border-left-width:4px; border-radius:12px; }
+.ready-pass { border-left-color:var(--ask-green); }
+.ready-fail { border-left-color:var(--ask-red); }
+.ready-wait { border-left-color:var(--ask-line-strong); border-style:solid dashed dashed solid; }
+.ready-top { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 14px; }
+.ready-lab { margin:0; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ask-muted); }
+.ready-title { margin:0; font-size:20px; line-height:1.3; }
+.ready-sign { margin-left:auto; font:13px/1.5 var(--ask-mono); color:var(--ask-muted); }
+.ready-named { margin:0; padding:8px 12px; border-radius:8px; background:var(--ask-sunk); overflow-wrap:anywhere; }
+.ready-named p { margin:0; }
+.ready-named strong { color:var(--ask-red); }
+.ready-checks { list-style:none; margin:0; padding:0; border-top:1px solid var(--ask-line); }
+.ready-check { display:grid; gap:6px; padding:9px 0; border-bottom:1px solid var(--ask-line); }
+.ready-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; }
+.ready-mark { flex:none; width:20px; font-weight:700; }
+.ready-check.is-pass .ready-mark { color:var(--ask-green); }
+.ready-check.is-fail .ready-mark { color:var(--ask-red); }
+.ready-check.is-wait .ready-mark { color:var(--ask-muted); }
+.ready-name { flex:1 1 300px; font-weight:600; }
+.ready-state { font:600 12px/1 var(--ask-mono); border:1px solid var(--ask-green); border-radius:999px; padding:3px 8px; white-space:nowrap; }
+.is-fail .ready-state { border-color:var(--ask-red); color:var(--ask-red); }
+.is-wait .ready-state { border-color:var(--ask-line-strong); color:var(--ask-muted); }
+.ready-note { margin:0 0 0 32px; color:var(--ask-muted); font:13px/1.5 var(--ask-mono); overflow-wrap:anywhere; }
+.ready-acs { list-style:none; margin:0 0 0 32px; padding:0; display:grid; gap:8px; }
+.ready-ac { display:grid; gap:2px; padding:8px 12px; border-radius:8px; background:var(--ask-sunk); }
+.ready-ac-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; font-size:15px; }
+.ready-ac-id { font:600 12px/1.4 var(--ask-mono); color:var(--ask-plasma); }
+.ready-kind { font:600 12px/1 var(--ask-mono); color:var(--ask-muted); }
+.ready-ac-head a { margin-left:auto; }
+.ready-ac p { margin:0; font-size:15px; }
+.ready-ac p b { color:var(--ask-muted); font-weight:700; }
+.ready-foot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 16px; }
+.ready-foot p { margin:0; }
+</style></template>
+<script>
+(function () {
+  var BASE = ':host { all: initial; display: block; }';
+  var tab = document.querySelector('[data-tab="pixel-perfect"]');
+  var sheet = document.getElementById('screen-css');
+  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];
+  var fits = [];
+  function make(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text) node.textContent = text;
+    return node;
+  }
+  function widthOf(screen) {
+    var width = Number(screen.getAttribute('data-viewport'));
+    return width >= 320 && width <= 2560 ? Math.round(width) : 0;
+  }
+  function isolate(screen) {
+    if (!screen.attachShadow || screen.shadowRoot) return;
+    var body = null;
+    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];
+    var root = screen.attachShadow({ mode: 'open' });
+    root.appendChild(make('style', '', BASE));
+    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));
+    if (body) root.appendChild(body.content.cloneNode(true));
+    else while (screen.firstChild) root.appendChild(screen.firstChild);
+    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';
+  }
+  function size(fit) {
+    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;
+    if (!width) return;
+    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }
+    var k = Math.min(1, fit.clientWidth / width);
+    if (!k) return;
+    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';
+    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';
+  }
+  function zoom(figure) {
+    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');
+    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });
+    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';
+    size(fit);
+  }
+  function frame(screen, ref) {
+    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');
+    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);
+    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');
+    button.type = 'button'; full.type = 'button';
+    button.title = 'Open at 100 %';
+    [button, full].forEach(function (each) {
+      each.setAttribute('data-zoom', '');
+      each.setAttribute('aria-pressed', 'false');
+      each.addEventListener('click', function () { zoom(figure); });
+    });
+    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];
+    parts.forEach(function (part, i) {
+      if (i > 0) caption.appendChild(document.createTextNode(' · '));
+      caption.appendChild(part);
+    });
+    caption.appendChild(full);
+    if (width) fit.style.maxWidth = width + 2 + 'px';
+    fit.appendChild(screen);
+    figure.appendChild(caption);
+    figure.appendChild(fit);
+    fits.push(fit);
+    return figure;
+  }
+  function absent(ref) {
+    var figure = make('figure', 'shot none'), caption = make('figcaption');
+    caption.appendChild(make('span', 'ref', ref));
+    caption.appendChild(document.createTextNode(' · '));
+    caption.appendChild(make('span', 'when today', 'Today'));
+    figure.appendChild(caption);
+    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));
+    return figure;
+  }
+  var groups = [], byRef = {};
+  screens.forEach(function (screen) {
+    isolate(screen);
+    var ref = screen.getAttribute('data-ref') || '';
+    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }
+    byRef[ref].screens.push(screen);
+  });
+  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };
+  groups.forEach(function (group) {
+    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';
+    if (id && !document.getElementById(id)) pair.id = id;
+    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));
+    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);
+    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });
+    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));
+    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });
+  });
+  var index = tab && tab.querySelector('[data-index]'), numbers = [];
+  groups.forEach(function (group) {
+    if (!group.ref || !index) return;
+    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }
+    var link = make('a', 'ref', group.ref);
+    link.href = '#s-' + group.ref.replace('.', '-');
+    link.title = group.screens[0].getAttribute('data-screen') || '';
+    index.appendChild(link);
+    var number = group.ref.split('.')[0];
+    if (numbers.indexOf(number) === -1) numbers.push(number);
+  });
+  var count = document.querySelector('[data-count]');
+  if (count && numbers.length > 0) count.textContent = ' · ' + numbers.length;
+  if (typeof ResizeObserver === 'function') {
+    var watch = new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });
+    });
+    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });
+  }
+  function open() {
+    var hash = location.hash;
+    if (hash === '#technical') document.getElementById('tab-technical').checked = true;
+    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {
+      document.getElementById('tab-pixel-perfect').checked = true;
+      fits.forEach(size);
+      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));
+      if (target) target.scrollIntoView();
+    }
+  }
+  fits.forEach(size);
+  window.addEventListener('hashchange', open);
+  open();
+})();
+</script>
+</body>
+</html>
