@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 2915
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s3-01-guide-paraphrases-key-whys -->
+
+## s3-01-guide-paraphrases-key-whys — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s3
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s3-01-guide-paraphrases-key-whys
 prd: 2915
@@ -47,3 +77,7 @@ Small: two table rows and one line of a test, no data to undo.
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) Whether the guide check's ban on "private" is meant for every use of the word, or only for asking for access to a private repository, is not written anywhere: PRD 459's test is the only record.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-guide-paraphrases-key-whys -->
