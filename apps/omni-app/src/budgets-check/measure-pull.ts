@@ -85,13 +85,16 @@ async function foldersAt(octokit: GitHubClient, { owner, repo, ref, dir }: Repo 
 async function prdOfPull(octokit: GitHubClient, ctx: Context, { owner, repo, pr }: Repo & { pr: PullFacts }): Promise<PrdNumber | ProductPrdId | null> {
   const product = productPrdOf(pr.body);
   if (product) return parseProductPrdId(product.id);
-  const { inbox, outbox } = ctx.layout.dirs;
-  const folders = await foldersAt(octokit, { owner, repo, ref: pr.headSha, dir: inbox });
-  const prd = prdOfBranch(pr.headRef, { branches: ctx.config.branches, folders });
+  const { inbox, outbox, shipped } = ctx.layout.dirs;
+  const open = await foldersAt(octokit, { owner, repo, ref: pr.headSha, dir: inbox });
+  // A PRD `omni ship` moved keeps its folder under shipped/, its ledger inside it (#2891).
+  const done = await foldersAt(octokit, { owner, repo, ref: pr.headSha, dir: shipped });
+  const prd = prdOfBranch(pr.headRef, { branches: ctx.config.branches, folders: [...open, ...done] });
   if (prd === null) return null;
   // The `git` store reads the PRD's folder and its ledger at the head.
-  const names = folders.filter((name) => parseFolderName(name)?.prd === prd);
-  await snapshot(octokit, { owner, repo, ref: pr.headSha, paths: names.flatMap((name) => [`${inbox}/${name}`, `${outbox}/${name}`]), dest: ctx.root });
+  const ours = (name: string) => parseFolderName(name)?.prd === prd;
+  const paths = [...open.filter(ours).flatMap((name) => [`${inbox}/${name}`, `${outbox}/${name}`]), ...done.filter(ours).map((name) => `${shipped}/${name}`)];
+  await snapshot(octokit, { owner, repo, ref: pr.headSha, paths, dest: ctx.root });
   return prd;
 }
 
