@@ -120,14 +120,14 @@ async function runsOf(octokit: GitHubClient, { owner, repo, headSha }: Repo & { 
 
 /** The changed files of `base...head` and the merge base they are compared from. */
 async function compareOf(octokit: GitHubClient, { owner, repo, pr }: Repo & { pr: PullFacts }) {
-  let mergeBase: string | null = null;
+  const bases: string[] = [];
   const files = await paginate(async (page) => {
     const { data } = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', { owner, repo, basehead: `${pr.baseSha}...${pr.headSha}`, per_page: PER_PAGE, page });
     const compare = ComparePageSchema.parse(data);
-    mergeBase ??= compare.merge_base_commit?.sha ?? null;
+    if (compare.merge_base_commit) bases.push(compare.merge_base_commit.sha);
     return compare.files ?? [];
   });
-  return { mergeBase: mergeBase ?? pr.baseSha, files };
+  return { mergeBase: bases[0] ?? pr.baseSha, files };
 }
 
 /** A file's text under `root`, or null when it is not there. */
