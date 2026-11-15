@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "My missions now build multi-repository PRDs on a runner, and every hero shows what it does alone.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The count line and the two marks tell me at a glance what still waits on me.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The runner lists match across the app, the kit and the database, with a test holding them so.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "More repositories per job, but every pull request stays a draft until a person reads and merges it.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The token rule is written down as a rule with its tests, so I can check where a job reaches.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ~"
     }
   ]
 }
