@@ -250,7 +250,7 @@ repositories before you send.
 
 ### What the job gets
 
-When a runner takes the job, Omni opens the key's sealed private key in its own memory, makes a token
+When a runner takes the job, Omni opens the App's sealed `.pem` key in its own memory, makes a token
 for the job from the key's App, and the job writes with that token and nothing else:
 
 - it lasts an hour, and the runner refreshes it before it ends, so a job that runs longer keeps
@@ -276,8 +276,8 @@ what an owner does:
 | reason | what it means | what to do |
 |---|---|---|
 | `github app: the key's App was removed` | the job was queued while its key held an App, which an owner has removed since | attach an App to the key again, or send the job again from a key with none |
-| `github app: this Omni server has no key to open the App's private key` | this deployment has no master key, or a malformed one | tell whoever runs the Omni server to set `SECRETS_MASTER_KEY` |
-| `github app: the App's private key could not be opened` | the key was sealed under another master key, or is garbled | **Replace** the App on the key with its App ID and a `.pem` file |
+| `github app:` and that this Omni server has no key to open the App's key | this deployment has no master key, or a malformed one | tell whoever runs the Omni server to set `SECRETS_MASTER_KEY` |
+| `github app:` and that the App's key could not be opened | the App's `.pem` key was sealed under another master key, or is garbled | **Replace** the App on the key with its App ID and a `.pem` file |
 | `github app: the App is not installed on <repo>` | the app is not installed on the job's repository | install it on `<repo>`, then send the job again |
 | `github app: the App's installation lacks write access to <permission>` | the installation does not hold that permission | grant `<permission>` to the app on GitHub and accept it for the installation, then send again |
 | `github app:` and GitHub's own words | GitHub refused to make the token | read the line, fix what it names (a suspended installation, a pair GitHub now refuses) and send again |
