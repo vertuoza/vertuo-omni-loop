@@ -20740,7 +20740,7 @@ function missionJoins({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/job.ts
-import { z as z82 } from "zod";
+import { z as z83 } from "zod";
 
 // kit/lib/review/verdict.ts
 import { z as z81 } from "zod";
@@ -20862,6 +20862,198 @@ function judge3(pull, branch) {
   ];
   return lacks.length === 0 ? { decision: "merge" } : { decision: "waits", lacks };
 }
+
+// apps/omni-app/src/missions/keep-up.ts
+import { mkdtempSync as mkdtempSync14, rmSync as rmSync18 } from "node:fs";
+import { tmpdir as tmpdir14 } from "node:os";
+import { join as join70 } from "node:path";
+import { z as z82 } from "zod";
+
+// kit/lib/generated/stale.ts
+function splitGenerated(entries, paths) {
+  const outputs = entries.map(({ path }) => path);
+  return { generated: paths.filter((path) => covers(outputs, path)), other: paths.filter((path) => !covers(outputs, path)) };
+}
+
+// apps/omni-app/src/missions/keep-up.ts
+var MAX_COMMITS3 = 100;
+var RepoSchema2 = z82.looseObject({ default_branch: z82.string() });
+var CompareSchema2 = z82.looseObject({
+  merge_base_commit: z82.looseObject({ sha: z82.string() }),
+  ahead_by: z82.number(),
+  behind_by: z82.number(),
+  commits: z82.array(
+    z82.looseObject({
+      sha: z82.string(),
+      parents: z82.array(z82.looseObject({ sha: z82.string() })),
+      commit: z82.looseObject({ message: z82.string(), author: z82.looseObject({ name: z82.string(), email: z82.string(), date: z82.string() }).nullish() })
+    })
+  ),
+  files: z82.array(z82.looseObject({ filename: z82.string(), status: z82.string(), sha: z82.string().nullish() })).nullish()
+});
+var CommitSchema3 = z82.looseObject({ tree: z82.looseObject({ sha: z82.string() }), committer: z82.looseObject({ date: z82.string() }).nullish() });
+var MergedSchema = z82.looseObject({ commit: z82.looseObject({ tree: z82.looseObject({ sha: z82.string() }) }) });
+var PullSchema5 = z82.looseObject({ state: z82.string(), base: z82.looseObject({ ref: z82.string() }), head: z82.looseObject({ sha: z82.string() }) });
+async function generatedAt(octokit, { owner, repo, ref }) {
+  const folder = mkdtempSync14(join70(tmpdir14(), "omni-keep-up-"));
+  try {
+    const { config } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
+    return config?.generated ?? [];
+  } finally {
+    rmSync18(folder, { recursive: true, force: true });
+  }
+}
+function onRepo(octokit, where, scratch) {
+  const { owner, repo } = where;
+  let scratched = false;
+  const head = async (branch) => {
+    try {
+      return RefSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` })).data).object.sha;
+    } catch (error) {
+      if (statusOf(error) === 404) return null;
+      throw error;
+    }
+  };
+  const compare2 = async (base, tip) => CompareSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${base}...${tip}` })).data);
+  const commit = async (sha) => CommitSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/git/commits/{commit_sha}", { owner, repo, commit_sha: sha })).data);
+  const write2 = async (branch, sha, force) => {
+    await octokit.request("PATCH /repos/{owner}/{repo}/git/refs/{ref}", { owner, repo, ref: `heads/${branch}`, sha, force });
+  };
+  const scratchAt = async (sha) => {
+    if (!scratched && await head(scratch) === null) await octokit.request("POST /repos/{owner}/{repo}/git/refs", { owner, repo, ref: `refs/heads/${scratch}`, sha });
+    else await write2(scratch, sha, true);
+    scratched = true;
+  };
+  const mergedTree = async (into, sha) => {
+    await scratchAt(into);
+    try {
+      const { data } = await octokit.request("POST /repos/{owner}/{repo}/merges", { owner, repo, base: scratch, head: sha, commit_message: "omni: keeping the mission branch up" });
+      return data === null || data === void 0 || data === "" ? (await commit(into)).tree.sha : MergedSchema.parse(data).commit.tree.sha;
+    } catch (error) {
+      if (statusOf(error) === 409) return null;
+      throw error;
+    }
+  };
+  const dropScratch = async () => {
+    if (!scratched) return;
+    try {
+      await octokit.request("DELETE /repos/{owner}/{repo}/git/refs/{ref}", { owner, repo, ref: `heads/${scratch}` });
+    } catch (error) {
+      if (statusOf(error) !== 422 && statusOf(error) !== 404) throw error;
+    }
+  };
+  return { octokit, owner, repo, head, compare: compare2, commit, write: write2, mergedTree, dropScratch };
+}
+async function conflictOf(on, { into, tip, mergeBase, entries }) {
+  const ours = new Map(((await on.compare(mergeBase, into)).files ?? []).map((file) => [file.filename, file]));
+  const differ = (file) => {
+    const mine = ours.get(file.filename);
+    return mine !== void 0 && (mine.sha ?? null) !== (file.sha ?? null);
+  };
+  const both = ((await on.compare(mergeBase, tip)).files ?? []).filter(differ).map(({ filename }) => filename);
+  const { generated, other } = splitGenerated(entries, both);
+  if (generated.length === 0) return { generated: false, files: other };
+  if (other.length === 0) return { generated: true, files: generated };
+  const entry = (path) => {
+    const file = ours.get(path);
+    return { path, mode: "100644", type: "blob", sha: file === void 0 || file.status === "removed" ? null : file.sha ?? null };
+  };
+  const { owner, repo } = on;
+  const tree = ShaSchema.parse((await on.octokit.request("POST /repos/{owner}/{repo}/git/trees", { owner, repo, base_tree: (await on.commit(tip)).tree.sha, tree: generated.map(entry) })).data).sha;
+  const probe = ShaSchema.parse((await on.octokit.request("POST /repos/{owner}/{repo}/git/commits", { owner, repo, message: "omni: probe", tree, parents: [tip] })).data).sha;
+  return await on.mergedTree(into, probe) === null ? { generated: false, files: other } : { generated: true, files: generated };
+}
+function unreplayable({ ahead_by: ahead, commits }) {
+  if (ahead > MAX_COMMITS3 || commits.length < ahead) return `it holds ${String(ahead)} commits, more than the ${String(MAX_COMMITS3)} the app rebases`;
+  const merge = commits.find(({ parents }) => parents.length !== 1);
+  return merge === void 0 ? null : `it holds a merge commit, ${merge.sha.slice(0, 7)}: a mission branch is never merged into`;
+}
+async function replay(on, { tip, compared, defaultBranch, entries }) {
+  let last = tip;
+  for (const one of compared.commits) {
+    const tree = await on.mergedTree(tip, one.sha);
+    const title = one.commit.message.split("\n")[0] ?? "";
+    if (tree === null) return { branch: "conflict", defaultBranch, title, ...await conflictOf(on, { into: tip, tip: one.sha, mergeBase: compared.merge_base_commit.sha, entries }) };
+    const author = one.commit.author ?? void 0;
+    const made = await on.octokit.request("POST /repos/{owner}/{repo}/git/commits", { owner: on.owner, repo: on.repo, message: one.commit.message, tree, parents: [last], ...author === void 0 ? {} : { author } });
+    last = ShaSchema.parse(made.data).sha;
+  }
+  return last;
+}
+async function rebaseBranch(on, { branch, tip, defaultBranch, entries }) {
+  const read = await on.head(branch);
+  if (read === null) return { branch: "held", defaultBranch, why: "it is not cut yet" };
+  const compared = await on.compare(tip, read);
+  if (compared.behind_by === 0) return { head: read, rebased: false };
+  if (compared.ahead_by === 0) {
+    await on.write(branch, tip, false);
+    return { head: tip, rebased: true };
+  }
+  const why = unreplayable(compared);
+  if (why !== null) return { branch: "held", defaultBranch, why };
+  const last = await replay(on, { tip, compared, defaultBranch, entries });
+  if (typeof last !== "string") return last;
+  if (await on.head(branch) !== read) return { branch: "held", defaultBranch, why: "it moved while it was being rebased: the next run reads it again" };
+  await on.write(branch, last, true);
+  return { head: last, rebased: true };
+}
+async function keepFeature(on, { feature, branch, tip, entries }) {
+  const { owner, repo } = on;
+  const pull = PullSchema5.parse((await on.octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { owner, repo, pull_number: feature.pr })).data);
+  if (pull.state !== "open" || pull.base.ref !== branch) return { ...feature, kept: "skipped" };
+  const compared = await on.compare(tip, pull.head.sha);
+  if (compared.behind_by === 0) return { ...feature, kept: "in-step" };
+  try {
+    await on.octokit.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/update-branch", { owner, repo, pull_number: feature.pr, expected_head_sha: pull.head.sha });
+    return { ...feature, kept: "updated" };
+  } catch (error) {
+    if (statusOf(error) !== 422) throw error;
+    if (/expected head sha/i.test(String(messageOf2(error)))) return { ...feature, kept: "skipped" };
+    return { ...feature, kept: "conflict", ...await conflictOf(on, { into: tip, tip: pull.head.sha, mergeBase: compared.merge_base_commit.sha, entries }) };
+  }
+}
+function missionKeepUps({
+  octokitFor,
+  generatedOf = generatedAt
+}) {
+  return {
+    async keepUp({ installation, repo: slug, branch, features }) {
+      const [owner = "", repo = ""] = slug.split("/");
+      const octokit = await octokitFor(installation);
+      const defaultBranch = RepoSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}", { owner, repo })).data).default_branch;
+      refuseDefault(branch, defaultBranch);
+      const on = onRepo(octokit, { owner, repo }, `${branch}--keep-up`);
+      try {
+        const tip = await on.head(defaultBranch);
+        if (tip === null) throw new Error(`${slug} has no ${defaultBranch} branch`);
+        const entries = await generatedOf(octokit, { owner, repo, ref: tip });
+        const rebased = await rebaseBranch(on, { branch, tip, defaultBranch, entries });
+        if ("branch" in rebased) return rebased;
+        const kept3 = [];
+        for (const feature of features) kept3.push(await keepFeature(on, { feature, branch, tip: rebased.head, entries }));
+        const since = (await on.commit(rebased.head)).committer?.date ?? (/* @__PURE__ */ new Date(0)).toISOString();
+        return { branch: rebased.rebased ? "rebased" : "in-step", defaultBranch, since, features: kept3 };
+      } finally {
+        await on.dropScratch();
+      }
+    }
+  };
+}
+var FILES_NAMED = 5;
+function filesWords(files) {
+  const named = files.slice(0, FILES_NAMED).join(", ");
+  return files.length > FILES_NAMED ? `${named} and ${String(files.length - FILES_NAMED)} more` : named;
+}
+function keptWaits(kept3, branch) {
+  const cannot = `${branch} cannot follow ${kept3.defaultBranch}`;
+  if (kept3.branch === "held") return [`${cannot}: ${kept3.why}`];
+  if (kept3.branch === "conflict") {
+    const where = kept3.generated ? `only in generated files: ${filesWords(kept3.files)}, which no runner job rebuilds on a mission branch yet; rebase it and rebuild them by hand` : `in ${filesWords(kept3.files)}`;
+    return [`${cannot}: "${kept3.title}" conflicts with it ${where}; no branch changed`];
+  }
+  return kept3.features.flatMap((one) => one.kept === "conflict" && !one.generated ? [`PRD ${String(one.prd)}: #${String(one.pr)} conflicts with ${branch} in ${filesWords(one.files)}`] : []);
+}
+var careLine = (prd, branch) => `/omni:pr-care ${String(prd)} --once --base ${branch}`;
 
 // apps/omni-app/src/missions/supervisor.ts
 var STEPS = ["build", "review:1", "fix:1", "review:2"];
@@ -21121,6 +21313,10 @@ function conclude({
   if (waitingOn !== null) return { status: "waiting", waitingOn, nextWakeAt: at4 };
   return { status: "stopped", waitingOn: stoppedWhy(facts, states), nextWakeAt: null };
 }
+function withWaits(next, waits) {
+  if (waits.length === 0 || next.status === "delivered" || next.status === "paused" || next.status === "draft") return next;
+  return { ...next, waitingOn: fitted([...waits, ...next.waitingOn === null ? [] : [next.waitingOn]], " \xB7 ") };
+}
 var jobKey2 = (prefix, job) => job === null ? [] : [`${prefix}:${job}`];
 var KEYS = {
   dispatched: (_prdKey, job) => jobKey2("dispatched", job),
@@ -21256,13 +21452,15 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z82.looseObject({ laters: z82.number().int().min(0).optional() });
+var ProgressSchema3 = z83.looseObject({ laters: z83.number().int().min(0).optional() });
 async function supervise(store, mission, now2, github) {
   const [facts, runs, recorded, toFleet, inPlan] = await Promise.all([store.facts(mission), store.runs(mission.id), store.events(mission.id), store.fleetRunners(mission), store.planRepository(mission)]);
   const skill = inPlan ? "ultra-yolo" : "yolo";
   const ready = await branchReady(store, mission, inPlan, github.branches);
   const unready = ready.waits;
-  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: onBranchOf(recorded), installation: ready.installation, joins: github.joins });
+  const joined2 = onBranchOf(recorded);
+  const kept3 = await keepUp({ store, mission, inPlan, facts, runs, joined: joined2, toFleet, installation: ready.installation, keepUps: github.keepUps });
+  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, installation: ready.installation, joins: github.joins, hold: kept3.hold });
   const sent = [];
   for (const { prd, run, step } of unready === null ? pick2({ mission, facts, states: prdStates(facts, runs, branch) }) : []) {
     const made = await store.send({ mission, prd, run, step, toFleet, skill });
@@ -21270,7 +21468,7 @@ async function supervise(store, mission, now2, github) {
   }
   const all = [...runs, ...sent];
   const states = prdStates(facts, all, branch);
-  const concluded = conclude({ mission, facts, states, sent: sent.length, now: now2, branch: branch.branch });
+  const concluded = withWaits(conclude({ mission, facts, states, sent: sent.length, now: now2, branch: branch.branch }), kept3.waits);
   const next = unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready };
   const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(recorded), joins });
   await store.record(mission.id, events, new Date(now2));
@@ -21286,6 +21484,39 @@ async function branchReady(store, mission, inPlan, branches) {
   if (installation === null) return { ...none, waits: `the mission branch ${branch} cannot be cut: the workspace has not installed the Omni GitHub App` };
   const prepared = await branches.prepare({ installation, repo: mission.repo, branch });
   return prepared.ok ? { waits: null, installation } : { ...none, waits: prepared.why };
+}
+var NOT_KEPT = { waits: [], hold: null };
+function featuresOf(facts, runs, states) {
+  return facts.flatMap((fact) => {
+    const state = states.get(fact.prd)?.state;
+    const pr = featurePrOf(runs, fact.prd);
+    return pr === null || state === "merged" || state === "joined" || state === "running" ? [] : [{ prd: fact.prd, pr }];
+  });
+}
+async function keepUp({
+  store,
+  mission,
+  inPlan,
+  facts,
+  runs,
+  joined: joined2,
+  toFleet,
+  installation,
+  keepUps
+}) {
+  const base = keptBase(mission, inPlan, installation);
+  if (base === null || installation === null || keepUps === null) return NOT_KEPT;
+  const states = prdStates(facts, runs, { branch: base, joined: joined2, lacks: /* @__PURE__ */ new Map() });
+  const kept3 = await keepUps.keepUp({ installation, repo: mission.repo, branch: base, features: featuresOf(facts, runs, states) });
+  const waits = keptWaits(kept3, base);
+  if (kept3.branch === "conflict" || kept3.branch === "held") return { waits, hold: `${base} must follow ${kept3.defaultBranch} first` };
+  const rebuilds = kept3.features.filter((one) => one.kept === "conflict" && one.generated);
+  for (const one of rebuilds) await store.care({ mission, line: careLine(one.prd, base), since: kept3.since, toFleet });
+  return { waits, hold: null };
+}
+function keptBase(mission, inPlan, installation) {
+  if (installation === null || mission.status !== "running" && mission.status !== "waiting") return null;
+  return baseOf(mission, inPlan);
 }
 async function joinOne({ mission, base, prd, runs, installation, joins }) {
   const pr = featurePrOf(runs, prd);
@@ -21305,7 +21536,8 @@ async function joinAll({
   runs,
   joined: joined2,
   installation,
-  joins
+  joins,
+  hold = null
 }) {
   const base = baseOf(mission, inPlan);
   if (base === null) return { branch: NO_BRANCH, joins: [] };
@@ -21314,6 +21546,10 @@ async function joinAll({
   if (installation !== null && (mission.status === "running" || mission.status === "waiting")) {
     const states = prdStates(facts, runs, { branch: base, joined: joined2, lacks });
     for (const { prd } of facts.filter((fact) => waitsForMerge(states.get(fact.prd)))) {
+      if (hold !== null) {
+        lacks.set(prd, [hold]);
+        continue;
+      }
       const judged4 = await joinOne({ mission, base, prd, runs, installation, joins });
       if ("joined" in judged4) made.push(judged4.joined);
       else lacks.set(prd, judged4.lacks);
@@ -21322,13 +21558,13 @@ async function joinAll({
   return { branch: { branch: base, joined: /* @__PURE__ */ new Set([...joined2, ...made.map(({ prd }) => prd)]), lacks }, joins: made };
 }
 var watched = ({ next, running }) => next.status === "running" || next.status === "waiting" || next.status === "paused" && running;
-function missionHandler({ store, refresh, branches = null, joins = null, now: now2 = Date.now, log: log2 = noteTo("missions") }) {
+function missionHandler({ store, refresh, branches = null, joins = null, keepUps = null, now: now2 = Date.now, log: log2 = noteTo("missions") }) {
   return async (job) => {
     const { mission: id } = checkPayloadOf(MissionJobDataSchema, MISSION_KIND, job.payload);
     const mission = await runnable(store, id);
     if (!("id" in mission)) return mission;
     const at4 = now2();
-    const run = await supervise(mission.store, mission, at4, { branches, joins });
+    const run = await supervise(mission.store, mission, at4, { branches, joins, keepUps });
     log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
     if (!watched(run) && run.moved) return { outcome: "done" };
     return laterOf({ job, refresh, mission, at: at4 });
@@ -21349,43 +21585,43 @@ async function laterOf({ job, refresh, mission, at: at4 }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z84 } from "zod";
+import { z as z85 } from "zod";
 
 // kit/lib/mission/brief.ts
 import { parse as parse4 } from "yaml";
-import { z as z83 } from "zod";
+import { z as z84 } from "zod";
 var DEFAULT_PARALLEL = 2;
 var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
 var DEFAULT_LEVEL = "with-you";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-var text17 = (max) => z83.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
+var text17 = (max) => z84.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
 var distinct = (list2) => new Set(list2).size === list2.length;
-var MeasureSchema = z83.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
-var ScopeSchema = z83.object(
+var MeasureSchema = z84.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
+var ScopeSchema = z84.object(
   {
-    prds: z83.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
-    roadmaps: z83.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+    prds: z84.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z84.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
 ).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
-var MandateSchema = z83.object(
+var MandateSchema = z84.object(
   {
-    parallel: z83.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
-    level: z83.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
-    hardToRevert: z83.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z83.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
+    parallel: z84.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
+    level: z84.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
+    hardToRevert: z84.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
+    ownPrds: z84.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
   },
   { message: "must be {parallel, level, hardToRevert, ownPrds}" }
 ).strict();
 var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
-var BriefSchema = z83.object({
+var BriefSchema = z84.object({
   mission: IssueNumberSchema,
   title: text17(200),
   fleet: text17(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
   goal: text17(500),
-  measures: z83.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
+  measures: z84.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
   scope: ScopeSchema,
   mandate: MandateSchema.default(DEFAULT_MANDATE)
 }).strict();
@@ -21404,43 +21640,45 @@ var VOID3 = "approval_id";
 var PLAN = "content";
 var JOB2 = "id, mission_key, resumes, status, outcome, reason, pr_url";
 var JOB_LOG = "id, log_tail";
+var CARE = "id";
 var EVENT = "kind, prd, job_id";
 var RUNNER = "repos";
 var PRODUCT = "plan_repository";
-var text18 = z84.string().min(1);
-var MissionRowSchema = z84.object({
+var text18 = z85.string().min(1);
+var MissionRowSchema = z85.object({
   id: text18,
   workspace_id: text18,
   repo: text18,
   fleet: text18,
   number: IssueNumberSchema,
   title: text18,
-  status: z84.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z84.string().nullable(),
-  mandate: z84.object({ parallel: z84.number().int().min(1).max(4), level: z84.enum(MISSION_LEVELS).default("with-you") }),
-  scope: z84.object({ prds: z84.array(PrdNumberSchema), roadmaps: z84.array(IssueNumberSchema) })
+  status: z85.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z85.string().nullable(),
+  mandate: z85.object({ parallel: z85.number().int().min(1).max(4), level: z85.enum(MISSION_LEVELS).default("with-you") }),
+  scope: z85.object({ prds: z85.array(PrdNumberSchema), roadmaps: z85.array(IssueNumberSchema) })
 });
-var WorkspaceRowSchema2 = z84.object({ github_installation_id: z84.number().int().positive().nullable() });
-var RoadmapRowSchema = z84.object({ id: text18, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z84.object({ roadmap_id: text18, position: z84.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z84.array(z84.string()) });
-var StageRowSchema = z84.object({ prd: PrdNumberSchema, stage: text18 });
-var DossierRowSchema5 = z84.object({ id: text18, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z84.object({ id: text18, dossier_id: text18 });
-var VoidRowSchema2 = z84.object({ approval_id: text18 });
-var PlanRowSchema = z84.object({ content: z84.string() });
-var JobRowSchema2 = z84.object({
+var WorkspaceRowSchema2 = z85.object({ github_installation_id: z85.number().int().positive().nullable() });
+var RoadmapRowSchema = z85.object({ id: text18, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z85.object({ roadmap_id: text18, position: z85.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z85.array(z85.string()) });
+var StageRowSchema = z85.object({ prd: PrdNumberSchema, stage: text18 });
+var DossierRowSchema5 = z85.object({ id: text18, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z85.object({ id: text18, dossier_id: text18 });
+var VoidRowSchema2 = z85.object({ approval_id: text18 });
+var PlanRowSchema = z85.object({ content: z85.string() });
+var JobRowSchema2 = z85.object({
   id: text18,
-  mission_key: z84.string().nullable(),
-  resumes: z84.string().nullable(),
-  status: z84.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z84.string().nullable(),
-  reason: z84.string().nullable(),
-  pr_url: z84.string().nullable()
+  mission_key: z85.string().nullable(),
+  resumes: z85.string().nullable(),
+  status: z85.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z85.string().nullable(),
+  reason: z85.string().nullable(),
+  pr_url: z85.string().nullable()
 });
-var JobLogRowSchema = z84.object({ id: text18, log_tail: z84.string() });
-var EventRowSchema = z84.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z84.string().nullable() });
-var RunnerRowSchema = z84.object({ repos: z84.array(z84.string()) });
-var ProductRowSchema3 = z84.object({ plan_repository: z84.string().nullable() });
+var JobLogRowSchema = z85.object({ id: text18, log_tail: z85.string() });
+var CareRowSchema = z85.object({ id: text18 });
+var EventRowSchema = z85.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z85.string().nullable() });
+var RunnerRowSchema = z85.object({ repos: z85.array(z85.string()) });
+var ProductRowSchema3 = z85.object({ plan_repository: z85.string().nullable() });
 var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 function missionStore(connection) {
@@ -21558,7 +21796,15 @@ function missionStore(connection) {
         mission_key: missionKey(mission.id, prd, run, step)
       }).select("id");
       if (answer.error?.code === TAKEN) return null;
-      const [made] = rowsOf(z84.object({ id: text18 }), answer);
+      const [made] = rowsOf(z85.object({ id: text18 }), answer);
+      if (!made) throw new Error("the database queued no job and gave no reason");
+      return made.id;
+    },
+    async care({ mission, line: line2, since, toFleet }) {
+      const sent = rowsOf(CareRowSchema, await db.from("runner_jobs").select(CARE).eq("mission_id", mission.id).eq("line", line2).gte("queued_at", since).limit(1));
+      if (sent.length > 0) return null;
+      const answer = await db.from("runner_jobs").insert({ workspace_id: mission.workspace, repo: mission.repo, line: line2, sent_by_app: APP_SENDER2, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: null }).select("id");
+      const [made] = rowsOf(CareRowSchema, answer);
       if (!made) throw new Error("the database queued no job and gave no reason");
       return made.id;
     },
@@ -21575,11 +21821,11 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z84.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z85.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status, waitingOn, nextWakeAt }) {
       const moved = rowsOf(
-        z84.object({ id: text18 }),
+        z85.object({ id: text18 }),
         await db.from("missions").update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -21626,7 +21872,7 @@ function checkpointsForgetHandler({
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z86 } from "zod";
+import { z as z87 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -21766,7 +22012,7 @@ function knowledgeEntries(sources) {
 }
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z85 } from "zod";
+import { z as z86 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -21819,7 +22065,7 @@ var AGAIN_MS = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema2 = z85.object({ slot: z85.string().min(1).max(80), productId: z85.string().min(1).optional() });
+var PayloadSchema2 = z86.object({ slot: z86.string().min(1).max(80), productId: z86.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -21903,9 +22149,9 @@ function payloadOf2(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS2 = 6e4;
-var EmbedPayloadSchema = z86.object({
-  repository: z86.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z86.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z87.object({
+  repository: z87.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z87.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -21991,7 +22237,7 @@ function payloadOf3(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z88 } from "zod";
+import { z as z89 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash6 } from "node:crypto";
@@ -22023,31 +22269,31 @@ function packFiles(read) {
 }
 
 // apps/omni-app/src/knowledge-pack/github.ts
-import { mkdtempSync as mkdtempSync14, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync18, statSync as statSync16 } from "node:fs";
-import { tmpdir as tmpdir14 } from "node:os";
-import { join as join70 } from "node:path";
-import { z as z87 } from "zod";
-var PullFileSchema = z87.looseObject({ filename: z87.string().min(1), previous_filename: z87.string().nullish() });
+import { mkdtempSync as mkdtempSync15, readdirSync as readdirSync22, readFileSync as readFileSync48, rmSync as rmSync19, statSync as statSync16 } from "node:fs";
+import { tmpdir as tmpdir15 } from "node:os";
+import { join as join71 } from "node:path";
+import { z as z88 } from "zod";
+var PullFileSchema = z88.looseObject({ filename: z88.string().min(1), previous_filename: z88.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z87.array(PullFileSchema).parse(data);
+    return z88.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
 function filesIn2(root, dir = "") {
-  return readdirSync22(join70(root, dir)).flatMap((name) => {
+  return readdirSync22(join71(root, dir)).flatMap((name) => {
     const rel = dir ? `${dir}/${name}` : name;
-    return statSync16(join70(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
+    return statSync16(join71(root, rel)).isDirectory() ? filesIn2(root, rel) : [rel];
   });
 }
 async function withPathsAt(octokit, { owner, repo, sha, paths }, fn) {
-  const root = mkdtempSync14(join70(tmpdir14(), "omni-knowledge-pack-"));
+  const root = mkdtempSync15(join71(tmpdir15(), "omni-knowledge-pack-"));
   try {
     await snapshot(octokit, { owner, repo, ref: sha, paths, dest: root });
     return fn(root);
   } finally {
-    rmSync18(root, { recursive: true, force: true });
+    rmSync19(root, { recursive: true, force: true });
   }
 }
 async function configAt3(octokit, where) {
@@ -22055,7 +22301,7 @@ async function configAt3(octokit, where) {
     const files = filesIn2(root);
     if (!files.includes(CONFIG_FILE)) return { none: `it has no ${CONFIG_FILE}` };
     try {
-      return { config: parseConfig(readFileSync48(join70(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
+      return { config: parseConfig(readFileSync48(join71(root, CONFIG_FILE), "utf8"), CONFIG_FILE, { ignoreUnknownKeys: true }) };
     } catch (error) {
       return { none: `its config does not parse: ${(error instanceof Error ? error.message : String(error)).split("\n")[0] ?? ""}` };
     }
@@ -22065,7 +22311,7 @@ async function packBytesAt(octokit, { owner, repo, sha, paths }) {
   return withPathsAt(
     octokit,
     { owner, repo, sha, paths: [...paths.folders, ...paths.files] },
-    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync48(join70(root, path))]))
+    (root) => new Map(filesIn2(root).map((path) => [path, readFileSync48(join71(root, path))]))
   );
 }
 
@@ -22111,12 +22357,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z88.object({
-  installationId: z88.number(),
-  owner: z88.string().min(1),
-  repo: z88.string().min(1),
-  sha: z88.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z88.string().min(1),
+var PackPayloadSchema = z89.object({
+  installationId: z89.number(),
+  owner: z89.string().min(1),
+  repo: z89.string().min(1),
+  sha: z89.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z89.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -22263,9 +22509,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z89 } from "zod";
+import { z as z90 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z89.looseObject({ category: z89.string().nullable() });
+var ReplySchema2 = z90.looseObject({ category: z90.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -22288,10 +22534,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z90 } from "zod";
-var UngroupedRowSchema = z90.object({ id: z90.string().min(1), product_id: z90.string().min(1), workspace_id: z90.string().min(1), query: z90.string().min(1) });
-var NearestRowSchema = z90.object({ group_id: z90.string().min(1), cosine: z90.number() });
-var GroupIdSchema = z90.object({ id: z90.string().min(1) });
+import { z as z91 } from "zod";
+var UngroupedRowSchema = z91.object({ id: z91.string().min(1), product_id: z91.string().min(1), workspace_id: z91.string().min(1), query: z91.string().min(1) });
+var NearestRowSchema = z91.object({ group_id: z91.string().min(1), cosine: z91.number() });
+var GroupIdSchema = z91.object({ id: z91.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -22309,7 +22555,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z90.array(NearestRowSchema).parse(data);
+      const [row] = z91.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -22329,13 +22575,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z91 } from "zod";
+import { z as z92 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z91.looseObject({
-  verdicts: z91.array(z91.looseObject({ entryId: z91.string().min(1), relevant: z91.boolean().nullable(), confidence: z91.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z92.looseObject({
+  verdicts: z92.array(z92.looseObject({ entryId: z92.string().min(1), relevant: z92.boolean().nullable(), confidence: z92.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z91.looseObject({ ids: z91.array(z91.string().min(1)) });
+var SearchSchema2 = z92.looseObject({ ids: z92.array(z92.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -22371,19 +22617,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z92 } from "zod";
+import { z as z93 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z92.object({ group_id: z92.string().min(1), product_id: z92.string().min(1), workspace_id: z92.string().min(1), category: z92.string().nullable() });
-var GroupRowSchema = z92.object({ group_id: z92.string().min(1) });
-var QuestionTextSchema = z92.object({ question: z92.string() });
-var OpenedRowSchema = z92.object({ opened_id: z92.string().min(1) });
-var ProductRowSchema4 = z92.object({ product_id: z92.string().min(1) });
-var HolderRowSchema5 = z92.object({ product_id: z92.string().min(1) });
-var LiveProductSchema = z92.object({ id: z92.string().min(1) });
-var QuestionRowSchema = z92.object({ id: z92.string().min(1), product_id: z92.string().min(1), workspace_id: z92.string().min(1), question: z92.string(), category: z92.string().nullable() });
-var AnswerRowSchema = z92.object({ question_id: z92.string().min(1), entry_id: z92.string().min(1) });
-var RunRowSchema = z92.object({ id: z92.string().min(1) });
+var LogRowSchema = z93.object({ group_id: z93.string().min(1), product_id: z93.string().min(1), workspace_id: z93.string().min(1), category: z93.string().nullable() });
+var GroupRowSchema = z93.object({ group_id: z93.string().min(1) });
+var QuestionTextSchema = z93.object({ question: z93.string() });
+var OpenedRowSchema = z93.object({ opened_id: z93.string().min(1) });
+var ProductRowSchema4 = z93.object({ product_id: z93.string().min(1) });
+var HolderRowSchema5 = z93.object({ product_id: z93.string().min(1) });
+var LiveProductSchema = z93.object({ id: z93.string().min(1) });
+var QuestionRowSchema = z93.object({ id: z93.string().min(1), product_id: z93.string().min(1), workspace_id: z93.string().min(1), question: z93.string(), category: z93.string().nullable() });
+var AnswerRowSchema = z93.object({ question_id: z93.string().min(1), entry_id: z93.string().min(1) });
+var RunRowSchema = z93.object({ id: z93.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -22418,7 +22664,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z92.string().min(1).nullable().parse(data);
+      return z93.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -22431,7 +22677,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z92.boolean().parse(data);
+      return z93.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -22464,7 +22710,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z92.string().min(1).nullable().parse(data);
+      return z93.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -22646,7 +22892,7 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), refresh: ledger.refresh }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
@@ -22794,22 +23040,22 @@ var later = (clock, minutes) => new Date(clock() + minutes * MINUTE2).toISOStrin
 
 // apps/omni-app/src/stage-forward/touch.ts
 import { posix as posix5 } from "node:path";
-import { z as z93 } from "zod";
+import { z as z94 } from "zod";
 var TOUCH_EVENTS = Object.freeze(["issues", "issue_comment", "pull_request", "pull_request_review", "check_suite", "push"]);
 var DEFAULTS2 = (() => {
   const { paths, branches } = parseConfig("kit: 1");
   return Object.freeze({ delivery: posix5.normalize(paths.delivery).replace(/\/+$/, ""), branches });
 })();
-var Repository = z93.looseObject({ repository: z93.looseObject({ full_name: z93.string().min(1) }) });
-var IssueEvent = z93.looseObject({ issue: z93.looseObject({ number: IssueNumberSchema, pull_request: z93.unknown().optional() }) });
-var PullEvent = z93.looseObject({ pull_request: z93.looseObject({ number: PrNumberSchema, head: z93.looseObject({ ref: z93.string().min(1) }) }) });
-var CheckSuiteEvent = z93.looseObject({
-  check_suite: z93.looseObject({ head_branch: z93.string().min(1).nullish(), pull_requests: z93.array(z93.looseObject({ number: PrNumberSchema })).nullish() })
+var Repository = z94.looseObject({ repository: z94.looseObject({ full_name: z94.string().min(1) }) });
+var IssueEvent = z94.looseObject({ issue: z94.looseObject({ number: IssueNumberSchema, pull_request: z94.unknown().optional() }) });
+var PullEvent = z94.looseObject({ pull_request: z94.looseObject({ number: PrNumberSchema, head: z94.looseObject({ ref: z94.string().min(1) }) }) });
+var CheckSuiteEvent = z94.looseObject({
+  check_suite: z94.looseObject({ head_branch: z94.string().min(1).nullish(), pull_requests: z94.array(z94.looseObject({ number: PrNumberSchema })).nullish() })
 });
-var Files = z93.array(z93.string()).nullish();
-var PushEvent = z93.looseObject({
-  ref: z93.string(),
-  commits: z93.array(z93.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
+var Files = z94.array(z94.string()).nullish();
+var PushEvent = z94.looseObject({
+  ref: z94.string(),
+  commits: z94.array(z94.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
 });
 var issueTouches = (repository, payload) => {
   const read = IssueEvent.safeParse(payload);
@@ -22877,7 +23123,7 @@ function forwardTouch(touch, post2) {
 // apps/omni-app/src/webhook/webhook.ts
 import { randomUUID } from "node:crypto";
 import { Webhooks } from "@octokit/webhooks";
-import { z as z94 } from "zod";
+import { z as z95 } from "zod";
 var CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["opened", "synchronize", "reopened", "ready_for_review", "labeled", "unlabeled", "edited"]),
   pull_request_review: Object.freeze(["submitted", "dismissed"]),
@@ -22909,46 +23155,46 @@ var HANDLED = Object.freeze({
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z94.looseObject({
+var PullRefSchema = z95.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z94.looseObject({ sha: z94.string().nullish() }).nullish(),
-  base: z94.looseObject({ ref: z94.string().nullish() }).nullish()
+  head: z95.looseObject({ sha: z95.string().nullish() }).nullish(),
+  base: z95.looseObject({ ref: z95.string().nullish() }).nullish()
 });
-var PayloadSchema3 = z94.looseObject({
-  action: z94.unknown(),
+var PayloadSchema3 = z95.looseObject({
+  action: z95.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z94.looseObject({ id: z94.number().nullish() }).nullish(),
-  repository: z94.looseObject({
-    name: z94.string(),
-    full_name: z94.string().nullish(),
-    owner: z94.looseObject({ login: z94.string().nullish() }).nullish(),
-    default_branch: z94.string().nullish()
+  installation: z95.looseObject({ id: z95.number().nullish() }).nullish(),
+  repository: z95.looseObject({
+    name: z95.string(),
+    full_name: z95.string().nullish(),
+    owner: z95.looseObject({ login: z95.string().nullish() }).nullish(),
+    default_branch: z95.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    node_id: z94.string().nullish(),
-    html_url: z94.string().nullish(),
-    state: z94.string().nullish(),
-    user: z94.looseObject({ login: z94.string().nullish() }).nullish(),
-    body: z94.string().nullish(),
-    merged: z94.boolean().nullish(),
-    merge_commit_sha: z94.string().nullish(),
-    merged_at: z94.string().nullish(),
-    closed_at: z94.string().nullish(),
-    updated_at: z94.string().nullish()
+    node_id: z95.string().nullish(),
+    html_url: z95.string().nullish(),
+    state: z95.string().nullish(),
+    user: z95.looseObject({ login: z95.string().nullish() }).nullish(),
+    body: z95.string().nullish(),
+    merged: z95.boolean().nullish(),
+    merge_commit_sha: z95.string().nullish(),
+    merged_at: z95.string().nullish(),
+    closed_at: z95.string().nullish(),
+    updated_at: z95.string().nullish()
   }).nullish(),
-  check_run: z94.looseObject({
-    id: z94.number().nullish(),
-    external_id: z94.string().nullish(),
-    head_sha: z94.string().nullish(),
-    pull_requests: z94.array(PullRefSchema).nullish(),
-    output: z94.looseObject({ summary: z94.unknown() }).nullish()
+  check_run: z95.looseObject({
+    id: z95.number().nullish(),
+    external_id: z95.string().nullish(),
+    head_sha: z95.string().nullish(),
+    pull_requests: z95.array(PullRefSchema).nullish(),
+    output: z95.looseObject({ summary: z95.unknown() }).nullish()
   }).nullish(),
-  requested_action: z94.looseObject({ identifier: z94.unknown() }).nullish(),
-  check_suite: z94.looseObject({
-    id: z94.number().nullish(),
-    head_branch: z94.string().nullish(),
-    head_sha: z94.string().nullish(),
-    conclusion: z94.string().nullish()
+  requested_action: z95.looseObject({ identifier: z95.unknown() }).nullish(),
+  check_suite: z95.looseObject({
+    id: z95.number().nullish(),
+    head_branch: z95.string().nullish(),
+    head_sha: z95.string().nullish(),
+    conclusion: z95.string().nullish()
   }).nullish()
 });
 async function receiveWebhook({
@@ -23139,9 +23385,9 @@ function toFleetBoardRequests(event, delivery2) {
     }
   ];
 }
-var LabelEventSchema = z94.looseObject({
-  label: z94.looseObject({ name: z94.string() }),
-  issue: z94.looseObject({ number: PrdNumberSchema, pull_request: z94.unknown().optional() })
+var LabelEventSchema = z95.looseObject({
+  label: z95.looseObject({ name: z95.string() }),
+  issue: z95.looseObject({ number: PrdNumberSchema, pull_request: z95.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery2) {
   const payload = readPayload(delivery2);
