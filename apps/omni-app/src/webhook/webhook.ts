@@ -4,12 +4,15 @@
 // the jobs to `refreshJobs`, `addJobs` and `queueJobs` and the wakes to `wakeWatch`. Nothing is written or woken
 // unless the signature is valid. No event goes to another service (PRD omni-loop-4 s4).
 //
-// The checks (PRD 2688): every handled pull request action into the default branch refreshes the four
-// jobs of that pull request, `pr-outbox`, `pr-inbox`, `pr-approved` and `pr-budgets` (../jobs/pr-checks.ts),
-// handed to `refreshJobs` before anything else is called, so the latest state wins. A re-run of a check
-// run refreshes only the job of its kind, told by its `external_id`: the inbox's, the approved check's
-// (PRD 1548), the budgets check's (PRD 1679); any other is the outbox check's. A refresh that fails is
-// logged and the delivery goes on: the next event, or GitHub's Re-run button, refreshes the jobs again.
+// The checks (PRD 2688): every handled pull request action into the default branch refreshes the five
+// jobs of that pull request, `pr-outbox`, `pr-inbox`, `pr-approved`, `pr-budgets` and `pr-ready`
+// (../jobs/pr-checks.ts), handed to `refreshJobs` before anything else is called, so the latest state wins. A
+// re-run of a check run refreshes only the job of its kind, told by its `external_id`: the inbox's, the
+// approved check's (PRD 1548), the budgets check's (PRD 1679), the ready check's (PRD 2898); any other is the
+// outbox check's. A refresh that fails is logged and the delivery goes on: the next event, or GitHub's Re-run
+// button, refreshes the jobs again. The ready check reads its evidence from the CI of the pull request's head,
+// so a check suite completed on that head refreshes its `pr-ready` job too (`toReadyRefreshes`): the check
+// never stays not finished once the runs it waits on have ended.
 //
 // Beside the checks, a merged `pull_request.closed` becomes the `retro` job (PRD 72, PRD omni-loop-4 s3:
 // `toRetroJobs`) and the `knowledge-harvest` job (PRD 82, PRD omni-loop-4 s2: `toHarvestJobs`) of the ledger, both
@@ -84,6 +87,7 @@ import { CANON_ACTION, readCanonMarker } from '../inbox-check/canon-actions.ts';
 import { messageOf } from '../outbox-check/github-schema.ts';
 import { packJob } from '../jobs/pack.ts';
 import { prCheckJob, prCheckJobs, rerunKindOf, type ApprovedRerun } from '../jobs/pr-checks.ts';
+import { READY_KIND } from '../ready-check/job.ts';
 import type { NewJob, RefreshJob } from '../jobs/ledger.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { toStageEvent, type StageEvent } from '../stage-forward/stage-forward.ts';
@@ -139,6 +143,14 @@ const FLEET_BOARD_ACTIONS =Object.freeze({
  * the checks' own actions.
  */
 const MAIN_WATCH_CI_ACTIONS = Object.freeze({
+  check_suite: Object.freeze(['completed']),
+});
+
+/**
+ * The actions that refresh the ready check (PRD 2898 s7): a check suite completed on a pull request's head. The
+ * manifest already subscribes to `check_suite` for the touches, so `HANDLED` keeps the checks' own actions.
+ */
+const READY_CI_ACTIONS = Object.freeze({
   check_suite: Object.freeze(['completed']),
 });
 
@@ -205,6 +217,7 @@ const PayloadSchema = z.looseObject({
       head_branch: z.string().nullish(),
       head_sha: z.string().nullish(),
       conclusion: z.string().nullish(),
+      pull_requests: z.array(PullRefSchema).nullish(),
     })
     .nullish(),
 });
@@ -266,7 +279,7 @@ export async function receiveWebhook({
   }
 
   const event = header(headers, 'x-github-event') ?? '';
-  const checks = toCheckJobs(event, payload);
+  const checks = [...toCheckJobs(event, payload), ...toReadyRefreshes(event, payload)];
   await refreshCheckJobs(refreshJobs, checks, log);
   await forwardToGalaxy(event, payload, { forward, touch, log });
 
@@ -335,7 +348,7 @@ async function addPackJobs(addJobs: (jobs: NewJob[]) => Promise<unknown>, jobs: 
 }
 
 /**
- * The checks' filter, pure (PRD 2688): a check action refreshes the four jobs of each pull request it
+ * The checks' filter, pure (PRD 2688): a check action refreshes the five jobs of each pull request it
  * names; a re-run of a check run refreshes only the job of its kind, by its `external_id`. Anything
  * else — a `closed`, merged or not, included — refreshes none. A pull request into another branch than
  * the repository's default, a sub-PR into its feature branch, refreshes none either (#1413): no check
@@ -365,6 +378,27 @@ export function toCheckJobs(event: string, delivery: unknown): RefreshJob[] {
     const request = { ...source, prNumber: pull.number, headSha: pull.sha, trigger };
     return kind === null ? prCheckJobs(request) : [prCheckJob(kind, request)];
   });
+}
+
+/**
+ * The ready check's CI filter, pure (PRD 2898 s7): a check suite completed on the head of a pull request into the
+ * default branch refreshes that pull request's `pr-ready` job, the evidence it reads having moved. Any other
+ * delivery, or a pull request into another branch, refreshes none; a delivery naming no default branch refreshes
+ * them as `toCheckJobs` does. Its own check's suite completing refreshes it too: the check posts nothing new when
+ * it would say the same (../ready-check/ready-check.ts).
+ */
+export function toReadyRefreshes(event: string, delivery: unknown): RefreshJob[] {
+  const payload = readPayload(delivery);
+  if (!payload || !handles(READY_CI_ACTIONS, event, payload.action)) return [];
+  const source = sourceOf(payload);
+  const suite = payload.check_suite;
+  if (!source || !suite) return [];
+  const defaultBranch = payload.repository?.default_branch;
+  return (suite.pull_requests ?? [])
+    .filter((pull) => !defaultBranch || pull.base?.ref === defaultBranch)
+    .map((pull) => ({ number: pull.number, sha: pull.head?.sha ?? suite.head_sha }))
+    .filter(isNamed)
+    .map((pull) => prCheckJob(READY_KIND, { ...source, prNumber: pull.number, headSha: pull.sha, trigger: `${event}.${String(payload.action)}` }));
 }
 
 /**
