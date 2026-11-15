@@ -87,6 +87,7 @@ export function fakePublicApi() {
   const products: FakeProduct[] = [];
   const stages: FakeStage[] = [];
   const plans: { workspace: string; repository: string }[] = [];
+  const reaches: { workspace: string; plan: string | null; repos: string[] }[] = [];
   const apps = new Map<string, KeyGithubApp>();
   const calls: string[] = [];
   let made = 0;
@@ -180,6 +181,15 @@ export function fakePublicApi() {
       calls.push('isPlanRepository');
       return Promise.resolve(plans.some((plan) => plan.workspace === workspace && plan.repository === repository));
     },
+    productReach(workspace, repository) {
+      calls.push('productReach');
+      const mine = reaches.filter((product) => product.workspace === workspace);
+      const names = (found: typeof mine) => [...new Set(found.flatMap((product) => product.repos))].sort();
+      return Promise.resolve({
+        named: names(mine.filter((product) => product.repos.includes(repository))),
+        planned: names(mine.filter((product) => product.plan === repository)),
+      });
+    },
     githubAppOf(key) {
       calls.push('githubAppOf');
       return Promise.resolve(apps.get(key) ?? null);
@@ -212,6 +222,11 @@ export function fakePublicApi() {
     stage: (workspace: string, repository: string, prd: PrdNumber, stage: (typeof PRD_STAGES)[number]) => { stages.push({ workspace, repository, prd, stage }); },
     /** A repository a product of the workspace names as its plan repository. */
     planRepository: (workspace: string, repository: string) => { plans.push({ workspace, repository }); },
+    /** A live product of the workspace, its plan repository (or none) and the repositories it names, `owner/name` in lower case. */
+    productRepos: (workspace: string, plan: string | null, repos: string[]) => {
+      reaches.push({ workspace, plan, repos });
+      if (plan !== null && !plans.some((p) => p.workspace === workspace && p.repository === plan)) plans.push({ workspace, repository: plan });
+    },
     /** A GitHub App the key `keyId` holds, its private key sealed (the fake seals nothing: no test opens it). */
     githubApp: (keyId: string, more: Partial<KeyGithubApp> = {}) => { apps.set(keyId, { appId: 123456, slug: 'acme-bot', ciphertext: 'c2VhbGVk', iv: 'aXY=', ...more }); },
   };

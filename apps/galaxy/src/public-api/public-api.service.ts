@@ -6,6 +6,7 @@ import { hashApiKey, isApiKeyShaped } from './keys/secret';
 import type { RunnerRefusal, JobQuestions, KeyCloser, KeyJob, KeySend } from '../runners/runners.contract';
 import { BUG_FIX, MEGA_BUG_FIX, type AnswerJob, type ApiJob, type ApiQuestions, type BugFix, type BugFixList, type CancelJob, type DismissJob, type JobLineList, type ListQuery, type Prd, type PrdList, type PublicApiErrorCode, type RelaunchJob, type StartBugFix, type StartMegaBugFix } from './public-api.contract';
 import type { WritePermission } from './keys/github-app';
+import { reachedRepos } from '../runners/runners.service';
 import type { DossierRow, KeyGithubApp, ListedKind, PublicApiRepository, StageRow } from './public-api.repository';
 
 // The public API's rules (PRD 2022 s2, spec "The routes"; ADR-0095), over the repository as the service
@@ -19,7 +20,8 @@ import type { DossierRow, KeyGithubApp, ListedKind, PublicApiRepository, StageRo
 // A key that holds a GitHub App (PRD 2433) starts a job only where its App can run it: before anything is
 // queued, the App's installation on the job's repository (a mega bug fix's plan repository) is asked of
 // GitHub, and no installation, or one without write access to contents, pull_requests and issues, is a 422
-// naming the repository or the permission. A key with no App queues as it always did.
+// naming the repository or the permission. A mega bug fix is checked on every repository its token would reach: its plan
+// repository and each repository of its product within the key's allow-list (PRD 2915). A key with no App queues as it always did.
 
 /** The key a call came with, once api_key_of() answered it. */
 export type ApiKeyCaller = {
@@ -142,7 +144,7 @@ const offList = (key: ApiKeyCaller, repo: string): Answered<never> | null =>
 const notPlan = (repo: string) =>
   `repo: ${repo} is not a plan repository of this workspace: no product names it as its plan repository. A bug of one repository starts with POST /api/v1/bug-fixes.`;
 
-type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages' | 'isPlanRepository' | 'jobLines' | 'githubAppOf'>;
+type Port = Pick<PublicApiRepository, 'keyOf' | 'dossiers' | 'products' | 'stages' | 'isPlanRepository' | 'jobLines' | 'githubAppOf' | 'productReach'>;
 
 /** What GitHub says of a key's App on a repository: not installed there, or installed, and the first of
  * contents, pull_requests and issues it holds no write access to (null when it holds all three). */
@@ -198,14 +200,20 @@ async function stagesOf(repository: Port, workspace: string, rows: readonly Doss
 
 /** `installation` is the deployment's means to ask GitHub; with none, a key's App is not checked at send. */
 export function publicApiService(repository: Port, runners: RunnersPort, installation: CheckInstallation | null = null) {
-  /** The refusal of a send in `repo` by a key whose App cannot run it there, or null: the key holds no App, or its App is installed with the three permissions. */
-  async function appRefusal(key: ApiKeyCaller, repo: string): Promise<Answered<never> | null> {
+  /** The refusal of a send in `repo` by a key whose App cannot run it there, or null: the key holds no App, or its App is installed with the three permissions.
+   * With `spans`, the check also covers every repository the job's token would reach (PRD 2915), the first one refused being named. */
+  async function appRefusal(key: ApiKeyCaller, repo: string, spans = false): Promise<Answered<never> | null> {
     if (installation === null) return null;
     const app = await repository.githubAppOf(key.id);
     if (app === null) return null;
-    const found = await installation(app, repo);
-    if (!found.installed) return notInstalled(app, repo);
-    return found.missing === null ? null : lacking(app, repo, found.missing);
+    const reach = spans ? await repository.productReach(key.workspace, repo) : null;
+    const checked = reach === null ? [] : reachedRepos({ repo, allowed: key.repos, named: reach.named, planned: reach.planned });
+    for (const where of [repo, ...checked]) {
+      const found = await installation(app, where);
+      if (!found.installed) return notInstalled(app, where);
+      if (found.missing !== null) return lacking(app, where, found.missing);
+    }
+    return null;
   }
 
   /** Queues `line` in `repo` for the key, through the runners' own rules (their line check included): the
@@ -302,7 +310,7 @@ export function publicApiService(repository: Port, runners: RunnersPort, install
       const refused = offList(key, repo);
       if (refused) return refused;
       if (!(await repository.isPlanRepository(key.workspace, repo))) return { ok: false, code: 'invalid_request', message: notPlan(repo) };
-      const appRefused = await appRefusal(key, repo);
+      const appRefused = await appRefusal(key, repo, true);
       return appRefused ?? queueAs(key, repo, megaBugFixLine(body.description), body);
     },
 
