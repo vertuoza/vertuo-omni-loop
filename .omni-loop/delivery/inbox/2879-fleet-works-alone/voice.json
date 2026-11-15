@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "My PM can now write the mission's next PRDs and roadmap while I sleep, and the team approves them without waiting for me.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The cap on PRDs the fleet adds is 0 until I raise it, so nothing changes until I choose.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The escalation list is code, checked before any hero votes, so a locked law still reaches me whatever the vote.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A plan-repository mission still sends me each target pull request to merge, which I can review as today.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Two agents of similar models approving the PM's own scope is a rubber stamp: I want a person to see each PRD the fleet wrote before it lands on main.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Two agents of similar models approving the PM's own scope is a rubber stamp: I want a person to see each PRD the fleet wrote before it lands on main.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "Runs 6 of 7 skills alone on the PM, and a roadmap past the cap tells me which PRDs it left unwritten.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Each PRD the fleet wrote is marked added by the fleet on the mission pull request I merge.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "A PRD approved by a phase-0 pull request still waits for a person, so the default branch stays a person's.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Refusing own-branch on a plan repository keeps one branch to one repository, which I can follow.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The PM sits out and two others must both say yes, and the mission pull request marks what the fleet wrote; still two agents.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ~"
+    }
+  ]
+}

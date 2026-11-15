@@ -77,6 +77,8 @@ describe('milestones', () => {
     [{ status: 'done', outcome: 'ready' }, 'Ready'],
     [{ status: 'done', outcome: null }, 'Done'],
     [{ status: 'done', outcome: 'stopped' }, 'Stopped mid-way'],
+    [{ status: 'done', outcome: 'review' }, 'Waiting on the Reviewer'],
+    [{ status: 'done', outcome: 'changes' }, 'Changes asked'],
     [{ status: 'failed', reason: 'timeout' }, 'Failed: timeout'],
     [{ status: 'failed', reason: null, exitCode: 2 }, 'Failed: exit code 2'],
     [{ status: 'failed', reason: null }, 'Failed: no reason given'],

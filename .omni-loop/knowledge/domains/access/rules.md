@@ -173,3 +173,13 @@ Stated: 2026-10-23
 Decided: nobody — adopted when raised (medium), 2026-10-22
 Merged: @nicojustdev, 2026-10-23, PR #2434
 Proposed: harvest 2026-10-23
+
+## BR-ACCESS-8
+
+A build sent from a product's plan repository by a skill that spans the product (/omni:mega-bug-fix, /omni:ultra-yolo, /omni:ultra-wave, /omni:ultra-yolo-fix) gets a token for the repositories of every product that names it as its plan repository, as well as of every product that lists it among its repositories; it still reaches only repositories of the same workspace that the key allows and the Omni App's installation holds.
+
+Serves: P-PRODUCT-58
+Source: .omni-loop/delivery/shipped/2873-heroes-every-skill/outbox/settled.md, entry s1-01-plan-product-reach, PRD #2873
+Enforced by: apps/galaxy/src/runners/runners.github-repositories.test.ts, apps/galaxy/src/runners/runners.ultra.test.ts
+Stated: 2026-11-15
+Decided: @pierrederval — answered A on PR #2876, 2026-11-15

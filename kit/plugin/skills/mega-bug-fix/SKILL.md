@@ -235,7 +235,9 @@ the report comes from, not the plan repository's.
 ## 4. Locate
 
 New. Read the targets from their clones at `<worktrees>/targets/<name>` (`<worktrees>` is
-`omni config worktrees`), cloned or fetched as `/omni:ultra-yolo` step 2 item 1 does, each with its
+`omni config worktrees`; on a runner, `OMNI_JOB` set, `<worktrees>/targets/job-<id>/<name>`, a folder
+of the job's own, and a target the token does not reach stops the job with
+`install the Omni GitHub App on <owner/name>`, nothing pushed for it), cloned or fetched as `/omni:ultra-yolo` step 2 item 1 does, each with its
 own default branch (`gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`).
 When the triage names a deployed version (its **Production** line), read each target at that deployed
 tag too, besides its default branch (`git -C <clone> show <tag>:<path>`, `git -C <clone> log

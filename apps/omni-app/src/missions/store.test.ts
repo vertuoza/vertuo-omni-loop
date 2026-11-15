@@ -86,30 +86,80 @@ describe('missionStore — the mission as the service role, never calling Supaba
       [job('j-1c', { resumes: 'j-1b', status: 'running' })],
     ]);
     const runs = await storeOn(db.fetch).runs(ID);
-    expect(runs.map(({ prd, run, job: id, attempts }) => [prd, run, id, attempts.map((one) => `${one.id}:${one.status}`)])).toEqual([
-      [7, 1, 'j-1', ['j-1:failed', 'j-1b:failed', 'j-1c:running']],
-      [8, 2, 'j-2', ['j-2:done']],
+    expect(runs.map(({ prd, run, step, job: id, attempts }) => [prd, run, step, id, attempts.map((one) => `${one.id}:${one.status}`)])).toEqual([
+      [7, 1, 'build', 'j-1', ['j-1:failed', 'j-1b:failed', 'j-1c:running']],
+      [8, 2, 'build', 'j-2', ['j-2:done']],
     ]);
     expect(nth(db.requests, 0).query.get('mission_id')).toBe(`eq.${ID}`);
     expect(nth(db.requests, 1).query.get('resumes')).toBe('in.(j-1,j-2)');
     expect(nth(db.requests, 2).query.get('resumes')).toBe('in.(j-1b)');
+    expect(db.requests).toHaveLength(3);
   });
 
-  it('sends /omni:yolo as the app, to the fleet or to any runner, and answers null for a key already held', async () => {
+  it('reads a Reviewer job\'s step from its key, and what it posted from its log\'s posted line alone (PRD 2871)', async () => {
+    const job = (id: string, over: Record<string, unknown> = {}) => ({ id, mission_key: null, resumes: null, status: 'done', outcome: null, reason: null, pr_url: null, ...over });
+    const REVIEW = 'https://github.com/acme/widgets/pull/12#pullrequestreview-99';
+    const db = recordingFetch([
+      [
+        job('j-1', { mission_key: `mission:${ID}:prd:7:run:1`, outcome: 'review' }),
+        job('j-2', { mission_key: `mission:${ID}:prd:7:run:1:review:1`, outcome: 'changes' }),
+        job('j-3', { mission_key: `mission:${ID}:prd:7:run:1:fix:1`, status: 'running' }),
+      ],
+      [],
+      [{ id: 'j-2', log_tail: `thinking\nomni review: posted round 1 (changes, 2 findings) on PR #12: ${REVIEW}\n/omni:yolo-fix 7 --for-review` }],
+    ]);
+    const runs = await storeOn(db.fetch).runs(ID);
+    expect(runs.map(({ run, step, job: id, attempts }) => [run, step, id, attempts.map((one) => one.posted ?? null)])).toEqual([
+      [1, 'build', 'j-1', [null]],
+      [1, 'review:1', 'j-2', [{ findings: 2, url: REVIEW }]],
+      [1, 'fix:1', 'j-3', [null]],
+    ]);
+    const logs = nth(db.requests, 2);
+    expect([logs.path, logs.query.get('select'), logs.query.get('id')]).toEqual(['/rest/v1/runner_jobs', 'id,log_tail', 'in.(j-2)']);
+  });
+
+  it('sends the build for review as the app, to the fleet or to any runner, and answers null for a key already held', async () => {
     const db = recordingFetch([[{ id: 'j-9' }], new Response(JSON.stringify({ message: 'duplicate key', code: '23505' }), { status: 409, headers: { 'content-type': 'application/json' } })]);
     const store = storeOn(db.fetch);
-    expect(await store.send({ mission, prd: parsePrd(7), run: 1, toFleet: true })).toBe('j-9');
+    expect(await store.send({ mission, prd: parsePrd(7), run: 1, step: 'build', toFleet: true, skill: 'yolo' })).toBe('j-9');
     expect(nth(db.requests, 0).body).toEqual({
       workspace_id: 'ws-1',
       repo: 'acme/widgets',
-      line: '/omni:yolo 7',
+      line: '/omni:yolo 7 --for-review',
       sent_by_app: 'omni-app',
       to_fleet: 'night-shift',
       mission_id: ID,
       mission_key: `mission:${ID}:prd:7:run:1`,
     });
-    expect(await store.send({ mission, prd: parsePrd(7), run: 1, toFleet: false })).toBeNull();
+    expect(await store.send({ mission, prd: parsePrd(7), run: 1, step: 'build', toFleet: false, skill: 'yolo' })).toBeNull();
     expect(nth(db.requests, 1).body).toMatchObject({ to_fleet: null });
+  });
+
+  it('sends the Reviewer and the fix under their own keys (PRD 2871)', async () => {
+    const db = recordingFetch([[{ id: 'j-10' }], [{ id: 'j-11' }], [{ id: 'j-12' }]]);
+    const store = storeOn(db.fetch);
+    await store.send({ mission, prd: parsePrd(7), run: 1, step: 'review:1', toFleet: true, skill: 'yolo' });
+    await store.send({ mission, prd: parsePrd(7), run: 1, step: 'fix:1', toFleet: true, skill: 'yolo' });
+    await store.send({ mission, prd: parsePrd(7), run: 2, step: 'review:2', toFleet: true, skill: 'yolo' });
+    expect(db.requests.map(({ body }) => body)).toMatchObject([
+      { line: '/omni:review 7', mission_key: `mission:${ID}:prd:7:run:1:review:1` },
+      { line: '/omni:yolo-fix 7 --for-review', mission_key: `mission:${ID}:prd:7:run:1:fix:1` },
+      { line: '/omni:review 7', mission_key: `mission:${ID}:prd:7:run:2:review:2` },
+    ]);
+  });
+
+  it('sends /omni:ultra-yolo for a PRD of a plan repository, which takes no --for-review (PRD 2873)', async () => {
+    const db = recordingFetch([[{ id: 'j-10' }]]);
+    expect(await storeOn(db.fetch).send({ mission, prd: parsePrd(7), run: 1, step: 'build', toFleet: false, skill: 'ultra-yolo' })).toBe('j-10');
+    expect(nth(db.requests, 0).body).toMatchObject({ line: '/omni:ultra-yolo 7', mission_key: `mission:${ID}:prd:7:run:1` });
+  });
+
+  it('reads whether the repository is a live product\'s plan repository, case aside', async () => {
+    const db = recordingFetch([[{ plan_repository: 'Acme/Widgets' }]]);
+    expect(await storeOn(db.fetch).planRepository(mission)).toBe(true);
+    expect(nth(db.requests, 0).query.get('workspace_id')).toBe('eq.ws-1');
+    expect(nth(db.requests, 0).query.get('archived_at')).toBe('is.null');
+    expect(await storeOn(recordingFetch([[{ plan_repository: 'acme/other' }, { plan_repository: null }]]).fetch).planRepository(mission)).toBe(false);
   });
 
   it('finds a runner of the fleet only when it holds the repository', async () => {

@@ -1,7 +1,7 @@
 ---
 prd: 2879
 title: A fleet works alone on its mission's branch, and asks a person only when one is needed
-blocked-by: none
+blocked-by: [2871]
 spec: file
 ---
 
@@ -34,7 +34,7 @@ A Virtual Fleet gets a **level**. A mission inherits its fleet's level and recor
 |---|---|---|
 | Reviews with you | `with-you` | nothing: a mission runs as it does today. The default |
 | Own branch | `own-branch` | sections 2 to 5 |
-| Works alone | `alone` | sections 2 to 7 |
+| Works alone | `alone` | sections 2 to 8 |
 
 A mission at `with-you` sends the same jobs, records the same events and opens the same pull requests
 as before this PRD.
@@ -120,20 +120,24 @@ mission branch, the commit's title the pull request's.
 ### 6. The committee, at `alone`
 
 - **Members.** The PM chairs; the Architect and the Reviewer sit on it. The hero whose job wrote the
-  PRD or raised the item never votes on it. A fleet missing one of the three roles cannot be set to
-  `alone`.
+  PRD or raised the item sits out and never votes on it: on a PRD the PM wrote, or an item one of its
+  PM skills raised, the Architect and the Reviewer vote alone. A fleet missing one of the three roles
+  cannot be set to `alone`.
 - **How it runs.** A new kit skill, `/omni:committee`, taken by runners: `/omni:committee <n>
   --approve` for a PRD waiting for approval, `/omni:committee <n> --item <id>` for a high outbox item.
   Each member runs as its hero's agent and model, reads the files with no other member's verdict in
   front of it, and returns `yes`, `no` or `unsure` with one sentence.
-- **The vote.** Three `yes` carry. Anything else escalates to a person, the three verdicts attached.
-  A member that fails or times out counts as `unsure`.
+- **The vote.** Every member who sits must answer `yes`: three `yes`, or two when one sits out.
+  Anything else escalates to a person, the verdicts attached. A member that fails or times out counts
+  as `unsure`.
+- **Only a PRD approved on its page.** The committee approves a PRD whose phase 0 is on the server
+  (its spec says `phase0: server`). A PRD approved by a phase-0 pull request waits for a person, who
+  merges that pull request as today: only a person merges into the default branch.
 - **What it may never settle**, checked by code before any member runs:
   - an item ranked `human-action`;
   - a PRD or an item bearing on a locked law, a Legal entry, or a business law judged red;
   - an item whose hard-to-revert score is at or above `mandate.hardToRevert`;
-  - a migration that drops or rewrites data;
-  - a PRD the PM wrote (section 7).
+  - a migration that drops or rewrites data.
 - **The record.** A row of `mission_decisions`: the mission, the PRD, `approve` or `answer`, the item,
   the three verdicts, the outcome (`carried` or `escalated`) and, for an answer, the option chosen.
   It is signed by role and `agent`, never in a person's name, and written by the App, never through a
@@ -155,13 +159,36 @@ mission branch, the commit's title the pull request's.
 
 ### 7. The PM's own PRDs, at `alone`
 
-- While fewer than `mandate.ownPrds` PRDs were added, the supervisor may send the PM a
-  `/omni:brainstorm` job for the mission's goal. Runners take `brainstorm` for a mission's job only.
-- An unattended brainstorm asks nobody: each question it would have asked is a high item on the new
-  PRD, which the committee settles or escalates.
-- The new PRD joins the mission's scope as `added by the fleet` and waits for **a person's**
-  approval: the committee never approves a PRD its own PM wrote. Every other PRD of the mission
-  goes on meanwhile.
+- **Four PM skills on runners.** Runners take `brainstorm`, `roadmap`, `mega-brainstorm` and
+  `mega-roadmap`, for a mission's job only: a line naming one of them is refused on a job that belongs
+  to no mission at `alone`, with `/omni:<skill> runs on a runner for a mission's PM only`. The four
+  join the runner lists (`RUNNABLE_SKILLS`, the Omni app's list and the database's), so the PM's
+  count line reads `Runs 6 of 7 skills alone` (`mission` stays a person's).
+- **Which one.** While the mission's PRDs added by the fleet are fewer than `mandate.ownPrds`, the
+  supervisor may send the PM one job for the mission's goal: `/omni:brainstorm` for one PRD,
+  `/omni:roadmap` for several, and `/omni:mega-brainstorm` or `/omni:mega-roadmap` when the
+  mission's PRDs live in a plan repository (section 8).
+- **Each PRD counts.** A roadmap writes only the PRDs that fit under `mandate.ownPrds`, in its order;
+  the ones it left unwritten are named on the mission page, under the roadmap, as `not written: the
+  cap is <k>`. A brainstorm that would pass the cap is not sent.
+- **Asks nobody.** An unattended PM skill asks nobody: each question it would have asked is a high
+  item on the PRD it writes, which the committee settles or escalates. A roadmap's PRDs are each born
+  on the server (`phase0: server`), and the roadmap opens no phase-0 pull request.
+- **Approved by the two others.** A PRD the PM wrote joins the mission's scope as `added by the
+  fleet` and is approved by the Architect and the Reviewer (section 6): both `yes`, the PM sitting
+  out, the escalation list checked first. Every other PRD of the mission goes on meanwhile.
+
+### 8. A mission in a plan repository, at `alone`
+
+- A fleet whose mission's PRDs live in a plan repository may be set to `alone` for **the committee
+  only**: it approves the mission's PRDs and answers their high items as section 6 says, and its PM
+  writes PRDs with the mega skills as section 7 says.
+- No mission branch is cut there (sections 2 to 5 stay one repository's). Each PRD is built with
+  `/omni:ultra-yolo` (PRD 2873) into each target repository's feature pull request, which a person
+  merges as today. The mission page says `committee only: a person merges each target's pull
+  request`.
+- `own-branch` is refused for a mission in a plan repository: `a mission branch holds one
+  repository: use with-you or alone`.
 
 ## Conventions
 
@@ -195,16 +222,26 @@ mission branch, the commit's title the pull request's.
   committee's judgement only applies to what the list lets through.
 - **A fleet's approval is in force for its mission only.** Outside a mission, a PRD is approved by a
   person as today. This changes the proposed rule BR-APPROVALS-1 (see Risks).
-- **The committee never approves its own PM's PRD.** Otherwise the fleet could widen its own scope
-  with nobody having read it.
+- **The committee approves its own PM's PRDs, the PM sitting out** (rework, 2026-11-15, asked for by
+  the person: the team decides whether a person is really needed). The Architect and the Reviewer
+  both vote `yes`, after the escalation list; `mandate.ownPrds` (0 by default) caps how many PRDs the
+  fleet may add, each counting, and every PRD still reaches the default branch only through the
+  mission pull request a person merges. This replaces "the committee never approves its own PM's PRD".
+- **Runners take the PM's four writing skills for a mission only** (rework): `brainstorm`,
+  `roadmap`, `mega-brainstorm`, `mega-roadmap`. Outside a mission they need a person at the
+  terminal, as today.
+- **A plan-repository mission works alone for the committee only** (rework), over keeping it at
+  `with-you`: a mission branch across repositories is a later PRD.
+- **Only a PRD approved on its page is approved by the fleet.** A phase-0 pull request is merged into
+  the default branch, which only a person does.
+- **The voice** (rework): B-E DEv objected that two agents approving the PM's own scope is a rubber
+  stamp (persona:B-E DEv). The person approved the design without answering it: settled `none`.
 - **The knowledge harvest runs once per landing**, not on mission branches: it numbers new ids, and
   two missions harvesting at once would hand out the same ones.
-- **Built after PRD 2871.** The merge gate reads the Reviewer's verdict, which PRD 2871 builds. The
-  person declared this PRD blocked by it; `blocked-by` reads `none` only because PRD 2871's folder is
-  not on the default branch yet (it was born on the server, its feature pull request is #2872), and
-  `omni check inbox` refuses a blocker no inbox or shipped folder carries. It is set to `[2871]` once
-  that folder is on the default branch, and `/omni:yolo 2879` is not run before PRD 2871 has shipped.
-- **No voice round.** The business read had no sign-in, so no persona objected to this design.
+- **Built after PRD 2871**, declared by the person: the merge gate reads the Reviewer's verdict, the
+  `<!-- omni-review: <round> <verdict> -->` marker `/omni:review` posts. PRD 2871 shipped on
+  2026-11-15 (#2872).
+- **The first voice round** is the rework's: the first design's business read had no sign-in.
 
 ## User stories
 
@@ -221,12 +258,14 @@ mission branch, the commit's title the pull request's.
 In: the fleet's level and its screens; the mandate's three fields; the mission branch, its merge
 gate, its rebase, its mission pull request, drop; the `checks` workflow on `mission/**`; one
 knowledge pull request per landing; `/omni:committee`, `mission_decisions`, overturn; the PM's own
-PRDs; the guide's Missions page.
+PRDs, with runners taking `brainstorm`, `roadmap`, `mega-brainstorm` and `mega-roadmap` for a
+mission; a plan-repository mission at `alone` for the committee only; the guide's Missions page.
 
 Out: dropping automatically on a red branch; a database or a preview per mission branch (a
 mission's migrations reach the database when its PRD lands on the default branch, as today); bug
-fixes and PRDs outside a mission; retros per landing; product PRDs and plan repositories (a mission
-of several repositories keeps `with-you`); any change to who merges into the default branch.
+fixes and PRDs outside a mission; retros per landing; product PRDs; a mission branch across repositories (a plan-repository mission
+keeps its target pull requests for a person); the PM's skills on runners outside a mission; any
+change to who merges into the default branch.
 
 ## Test seams
 
@@ -235,8 +274,14 @@ Following the testing form: the narrowest test that proves the risk, beside the 
 - **The supervisor** (`apps/omni-app/src/missions/supervisor.ts`), pure functions: table tests for
   the merge gate, the new PRD states, what unblocks what, the branch's states and what each waits on.
 - **The escalation list**, pure: one test per line of section 6 proving three `yes` do not settle it.
-- **The committee's vote**, pure: three `yes` carry; a `no`, an `unsure`, a failed or late member
-  escalate; the author never votes.
+- **The committee's vote**, pure: three `yes` carry, or two when the author sits out; a `no`, an
+  `unsure`, a failed or late member escalate; the author never votes; a PRD born with a phase-0 pull
+  request is never approved by it.
+- **The runner lists** (`kit/lib/runner/line.ts`, the App's list, the database's): the four PM skills
+  accepted on a mission's job at `alone` and refused on any other, with the line above; the lists
+  held equal by the tests PRD 2873 added.
+- **The unattended PM skills:** each question the skill would ask becomes a high item; a roadmap past
+  the cap writes the PRDs that fit, in order, and names the rest.
 - **The App's merge, rebase, drop and mission pull request**, against the in-memory GitHub the App's
   tests use (`apps/omni-app/test/fixtures/`), with real git repositories for the rebase and the drop.
 - **The brief** (`kit/lib/mission/brief.test.ts`): valid and invalid `level`, bounds, defaults.
@@ -257,6 +302,9 @@ Following the testing form: the narrowest test that proves the risk, beside the 
   the PRD's commit. The migration is additive; its tables and column are left behind by a revert.
 - **Agents merging.** The App merges into `mission/**` only. The ruleset on `main` lets only the
   release key push there, so a mistake in the App cannot reach the default branch.
+- **A fleet that widens its own scope.** The PM writes PRDs that two other heroes approve. Bounded by
+  `mandate.ownPrds` (0 unless a person raises it), the escalation list, and the mission pull request
+  a person reads and merges, where each PRD the fleet wrote is marked `added by the fleet`.
 - **A committee that agrees and is wrong.** Three members of similar models can share a blind spot.
   The escalation list does not depend on their judgement, a person reads every decision on the
   mission pull request before it lands, and the trust line shows how often they were overturned.
@@ -264,8 +312,13 @@ Following the testing form: the narrowest test that proves the risk, beside the 
   App rebases them itself and refuses on a conflict; a job that pushes onto a stale base is refused
   by `--force-with-lease` and meets the base again.
 - **A setting only a person can change.** Rebase merges must be allowed on `main`. Start says so.
-- **The Legal entries.** `omni kb legal` could not be read (no sign-in): none known to be touched; to
-  be read again before the build.
+- **The Legal entries** (read again in the rework):
+  - L-AIACT-1, content an agent makes says so: kept. A fleet's approval and answer are signed by role
+    and `agent`, and the PRD's page reads `Approved by fleet <key>`, never a person's name.
+  - L-GDPR-4, logs that record decisions are kept for good: kept. `mission_decisions` is such a log
+    and has no retention period.
+  - L-GDPR-3, a deleted account keeps the record of its decisions: kept. A person's overturn stays in
+    `mission_decisions` as the product's history.
 - **The locked laws it touches:**
   - N-PRODUCT-15: kept. If broken, unreviewed work reaches every user and nobody chose to ship it.
     Only a person merges into `main`. Changing it needs @pierrederval or @dervalp to approve the pull
@@ -324,9 +377,11 @@ Following the testing form: the narrowest test that proves the risk, beside the 
 11. `omni mission drop <mission> <prd>` removes that PRD's commit from the mission branch, reopens its
     feature pull request, and names the later PRDs that share its territory; the default branch is
     never changed by it.
-12. A fleet missing a PM, an Architect or a Reviewer cannot be set to `alone`.
-13. At `alone`, a PRD of the mission waiting for approval is approved when the three members answer
-    `yes`: its page reads `Approved by fleet <key>`, and a later change to a file they read voids it.
+12. A fleet missing a PM, an Architect or a Reviewer cannot be set to `alone`; a mission in a plan
+    repository cannot be set to `own-branch`.
+13. At `alone`, a PRD of the mission waiting for approval on its page is approved when the three
+    members answer `yes`: its page reads `Approved by fleet <key>`, and a later change to a file they
+    read voids it. A PRD waiting on a phase-0 pull request is never approved by the fleet.
 14. At `alone`, a high item is settled when the three members answer `yes`, as `answered by fleet
     <key>` with the option chosen; the hero whose job raised it did not vote.
 15. Each line of the escalation list reaches a person although three members would answer `yes`.
@@ -336,7 +391,17 @@ Following the testing form: the narrowest test that proves the risk, beside the 
     mission page shows only what was escalated under **Waiting on you**, and the trust line.
 18. Overturning a decision leaves it as recorded, adds the person's beside it, and drops the PRD from
     the mission branch when it had joined.
-19. With `mandate.ownPrds` at 0 no brainstorm job is sent; above 0 the PM adds at most that many PRDs,
-    each marked `added by the fleet` and each waiting for a person's approval.
+19. With `mandate.ownPrds` at 0 no PM job is sent; above 0 the PM adds at most that many PRDs, each
+    counting, each marked `added by the fleet`, and each approved when the Architect and the
+    Reviewer both answer `yes`, the PM not voting.
 20. Lowering a mission from `own-branch` to `with-you` while a PRD is on its branch is refused, saying
     how many PRDs to land or drop first.
+21. A runner takes `/omni:brainstorm`, `/omni:roadmap`, `/omni:mega-brainstorm` and
+    `/omni:mega-roadmap` on a mission's job at `alone`, and refuses each on any other job, naming why;
+    the PM's count line reads `Runs 6 of 7 skills alone`.
+22. An unattended PM skill asks nobody: each question it would have asked is a high item on the PRD it
+    wrote; a roadmap that would pass `mandate.ownPrds` writes the PRDs that fit, in order, and the
+    mission page names the ones left unwritten.
+23. A mission in a plan repository at `alone` cuts no mission branch: the committee approves its PRDs
+    and answers their high items, each PRD is built with `/omni:ultra-yolo`, and a person merges each
+    target repository's pull request.

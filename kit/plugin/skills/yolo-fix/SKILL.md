@@ -30,6 +30,11 @@ A PRD number, whose feature PR carries replies to its outbox comment, or whose l
 in the outbox dir `omni prd` prints) holds drifted entries. Re-running is safe: a reply already
 settled is not read again, and an item a rework already closed is not drifted work a second time.
 
+**`--for-review`** (PRD 2871), sent by a mission's supervisor after the Reviewer asked for changes:
+the run reads the Reviewer's open threads as well as the outbox replies (step 3, **The Reviewer's
+threads**), and step 7 ships as written, then leaves the feature PR a **draft** and ends with the
+hand-off `review` in place of `gh pr ready`. Without it, nothing below changes.
+
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON;
@@ -108,6 +113,19 @@ takes the lesson in that page instead. Then add one line to that settled entry:
 page, and has no section to name, so its reason says where it went. A drifted answer files what the
 person decided, not what the build did; the rework is what brings the code in line. When unsure,
 write the rule anyway: a reviewer deletes a wrong one in a minute.
+
+**The Reviewer's threads (`--for-review` only).** Run `node .omni-loop/bin/omni.mjs review read <prd>`
+(it prints the latest round and verdict) and read the open review threads of the feature PR whose
+review carries the `<!-- omni-review: ` marker. Read `node .omni-loop/bin/omni.mjs kb show review`,
+then judge each open thread as `/omni:pr-care`'s **Review threads** does, one verdict each, by the
+form's lines and never by taste: **fixed** (make the change test-first, commit it alone, push),
+**pushed-back** (change nothing, reply with a short reason naming the form's line), or **asked**
+(a product decision, or the fix would contradict the spec: change nothing, reply that a person will
+decide, the thread stays open). Reply through
+`node .omni-loop/bin/omni.mjs care reply --verdict <fixed|pushed-back|asked> --file <file> --thread <thread id>`,
+never a raw `gh` call, and never edit, resolve on behalf of or reword a person's comment or reply.
+Settle every Reviewer thread before step 7 ships, so `omni ship` finds each judged. These fixes are
+commits on the feature branch, not a rework slice, and they raise no item.
 
 **Anything settled or adopted is one sub-PR** into the feature branch. In the worktree, run
 `git switch -c <settle branch>`, where `<settle branch>` is `branches.slice` with `{topic}` and
@@ -209,6 +227,9 @@ the whole feature, acceptance, push, the body, the gate), then `/omni:yolo` §5 
     `omni prd` already says `shipped` (the after-merge path), there is nothing to ship: the note is
     written or rewritten all the same, in the folder `omni prd` prints; push its commit, if there is
     one (`git push <remote> HEAD:<feature branch>`), and go straight to ready;
+- **`--for-review`, gate green:** after the ship step, commit and push, do not run `gh pr ready`:
+  the feature PR stays a **draft** for the Reviewer's round 2, its status comment saying
+  `waits for the Reviewer`;
 - **gate red:** the feature PR stays draft, and the report says who answers what.
 
 Then release as `/omni:yolo` §6 does: remove `labels.inProgress` (unless the Stuck path swapped it
@@ -235,7 +256,8 @@ no rework sub-PR, no round comment. Step 7 still refreshes the outbox comment.
 
 Then end the reply with `/omni:yolo` §7's hand-off, as written: the PRD's folder, where it is, and
 the **What is next?** of the ending this run reached, its last line alone as the reply's last line.
-One difference: the held ending's command is `/omni:yolo-fix <n>`, since a held rework resumes with
+Under `--for-review` with a green gate, the ending is `/omni:yolo` §7's **For review**, its last
+line `/omni:review <n>`. One difference: the held ending's command is `/omni:yolo-fix <n>`, since a held rework resumes with
 this skill, and its **What is next?** adds one line above that command: "To build it on a runner
 instead: `/omni:yolo-runner <n>`." The last line stays `/omni:yolo-fix <n>`. The red ending already
 runs `/omni:yolo-fix <n>`, and the green one runs nothing. As
@@ -254,5 +276,5 @@ hand-off.
 - **The ledger grows only.** Settling appends entries (and their `Became:` or `Stays here:` line);
   after that, only `omni rework close` touches it, and only an entry's `Closed:` line.
 - **Never mark the feature PR ready while the gate is red,** never before the ship step is committed
-  and pushed, and never add `labels.outboxGo`.
+  and pushed, never under `--for-review`, and never add `labels.outboxGo`.
 - **Nothing to do is a normal ending.** Say it plainly, open no sub-PR, commit nothing.

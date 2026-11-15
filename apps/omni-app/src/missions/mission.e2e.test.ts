@@ -95,7 +95,7 @@ describe('a fake fleet delivers a two-roadmap mission (PRD 2842 s9)', () => {
     // Start: the startable PRDs go at once. PRD 20 shares ground with PRD 10, PRD 11 waits on PRD 10.
     fake.status('running');
     expect(await run()).toMatchObject({ outcome: 'later' });
-    expect(lines()).toEqual(['/omni:yolo 10', '/omni:yolo 21']);
+    expect(lines()).toEqual(['/omni:yolo 10 --for-review', '/omni:yolo 21 --for-review']);
     for (const job of fake.jobs()) {
       expect(checkRunnerLine(job.line)).toMatchObject({ ok: true, skill: 'yolo' });
       expect(job).toMatchObject({ toFleet: 'night-shift', sentByApp: 'omni-app' });
@@ -107,7 +107,7 @@ describe('a fake fleet delivers a two-roadmap mission (PRD 2842 s9)', () => {
 
     // Nothing moved: a run a minute on sends nothing twice.
     await run();
-    expect(lines()).toEqual(['/omni:yolo 10', '/omni:yolo 21']);
+    expect(lines()).toEqual(['/omni:yolo 10 --for-review', '/omni:yolo 21 --for-review']);
 
     // PRD 21 is held: it goes again once.
     fake.end(p(21), { status: 'done', outcome: 'held' });
@@ -118,14 +118,14 @@ describe('a fake fleet delivers a two-roadmap mission (PRD 2842 s9)', () => {
     fake.end(p(10), { status: 'done', outcome: 'ready', prUrl: 'https://github.com/acme/widgets/pull/91' });
     fake.set(p(10), { stage: 'ready' });
     await run();
-    expect(lines().slice(3)).toEqual(['/omni:yolo 20']);
+    expect(lines().slice(3)).toEqual(['/omni:yolo 20 --for-review']);
     expect(fake.mission().waitingOn).toBe('PRD 10: merge it');
     expect(fake.mission().status).toBe('running');
 
     // The merge sends what it unblocks, within one run.
     fake.set(p(10), { stage: 'merged' });
     await run();
-    expect(lines().slice(4)).toEqual(['/omni:yolo 11']);
+    expect(lines().slice(4)).toEqual(['/omni:yolo 11 --for-review']);
 
     // The rest end ready and are merged: the mission reads Delivered only now.
     fake.end(p(21), { status: 'done', outcome: 'ready' });
@@ -152,7 +152,7 @@ describe('a fake fleet delivers a two-roadmap mission (PRD 2842 s9)', () => {
     await run();
     await run();
     await run();
-    expect(lines()).not.toContain('/omni:yolo 20');
-    expect(lines()).not.toContain('/omni:yolo 11');
+    expect(lines()).not.toContain('/omni:yolo 20 --for-review');
+    expect(lines()).not.toContain('/omni:yolo 11 --for-review');
   });
 });

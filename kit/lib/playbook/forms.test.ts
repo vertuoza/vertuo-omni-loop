@@ -60,7 +60,7 @@ describe('FORMS — the spec’s forms table, the contract with the templates an
       conventions: 'naming formatting commits',
       releasing: '*publishes how rollback notes',
       'bug-fixing': '*steps guard',
-      review: '*fix *push-back *ask',
+      review: '*fix *push-back *ask look-for',
       design: '*product *system deliberate review language',
       glossary: '*where',
     });

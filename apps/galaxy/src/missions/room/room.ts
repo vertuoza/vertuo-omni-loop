@@ -1,8 +1,9 @@
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { HERO_ROLES, roleLine, roleOf, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
+import { HERO_ROLES, roleOf, worksAlone, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 
-// The Operation room's rules (PRD 2842 s8, the `fleet-room` screen), pure so each is tested without a browser:
-// one now line per hero (what a working hero does, else Idle, else that a person does it today), the clean-up
+// The Operation room's rules (PRD 2842 s8, PRD 2873 s3, the `fleet-room` screen), pure so each is tested without a
+// browser: one now line per hero (what a working hero does, else Idle, else, when none of its skills is one a
+// runner takes, that a person does it today), the clean-up
 // line from the kept saves (PRD 2809), and the ledger of the missions' events, newest first, filtered by role
 // and by mission. Every row is a real record: no first name for an agent, no narration.
 
@@ -25,7 +26,7 @@ export const ROOM_WORDS = {
   show: 'Show',
 } as const;
 
-/** The roles an event is signed by: the five heroes' and the supervisor's own decisions. */
+/** The roles an event is signed by: the six heroes' and the supervisor's own decisions. */
 export type EventRole = HeroRole | 'supervisor';
 export const EVENT_ROLES: readonly EventRole[] = [...HERO_ROLES, 'supervisor'];
 
@@ -72,7 +73,12 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   delivered: 'Delivered',
 };
 
-const stateWord = (kind: string): string => STATE_WORDS[kind] ?? kind;
+/** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); any other kind has its fixed word. */
+const stateWord = (kind: string, sentence: string): string =>
+  kind === 'reviewed' ? (sentence.startsWith('Passed') ? 'Passed' : 'Changes') : (STATE_WORDS[kind] ?? kind);
+
+/** What a ledger link is called: a Reviewer's verdict links its GitHub review, any other row its PRD or `Open`. */
+const linkLabel = (kind: string, prd: PrdNumber | null): string => (kind === 'reviewed' ? 'Review' : prd === null ? 'Open' : `PRD ${String(prd)}`);
 
 /** The role's name, as it is signed. */
 export const roleName = (role: EventRole): string => (role === 'supervisor' ? ROOM_WORDS.supervisor : roleOf(role).name);
@@ -103,11 +109,12 @@ function workingOn(role: EventRole, events: readonly EventRow[]): PrdNumber | nu
   return sent?.prd ?? null;
 }
 
-/** One line per hero of the fleet: what a working hero does, else Idle; a hero that cannot work alone reads that a person does it. */
+/** One line per hero of the fleet: what a working hero does, else Idle; a hero none of whose skills a runner takes reads that a
+ * person does it. */
 export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[]): NowLine[] {
   return heroes.map((hero) => {
     const heading = `${roleOf(hero.role).name} · ${ROOM_WORDS.agent}`;
-    if (!roleLine(hero.role, hero.skills).alone) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.person, state: 'person' };
+    if (!worksAlone(hero.skills)) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.person, state: 'person' };
     const prd = workingOn(hero.role, events);
     if (prd === null) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.idle, state: 'idle' };
     return { id: hero.id, role: hero.role, heading, words: `${heading}: building PRD ${String(prd)}`, state: 'working' };
@@ -155,6 +162,7 @@ export interface LedgerRow {
   sentence: string;
   prd: PrdNumber | null;
   link: string | null;
+  linkLabel: string;
   state: string;
 }
 
@@ -163,7 +171,7 @@ export function ledgerOf(events: readonly EventRow[], filter: Filter): LedgerRow
   return events
     .filter((e) => (filter.role === null || e.role === filter.role) && (filter.mission === null || e.mission === filter.mission))
     .toSorted((a, b) => b.at.localeCompare(a.at))
-    .map((e) => ({ id: e.id, time: timeOf(e.at), role: e.role, by: signedBy(e), sentence: e.sentence, prd: e.prd, link: e.link, state: stateWord(e.kind) }));
+    .map((e) => ({ id: e.id, time: timeOf(e.at), role: e.role, by: signedBy(e), sentence: e.sentence, prd: e.prd, link: e.link, linkLabel: linkLabel(e.kind, e.prd), state: stateWord(e.kind, e.sentence) }));
 }
 
 /** The room as the tab shows it. */
