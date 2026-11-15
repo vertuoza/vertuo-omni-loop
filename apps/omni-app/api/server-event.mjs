@@ -9450,12 +9450,14 @@ async function foldersAt(octokit, { owner, repo, ref, dir }) {
 async function prdOfPull(octokit, ctx, { owner, repo, pr }) {
   const product = productPrdOf(pr.body);
   if (product) return parseProductPrdId(product.id);
-  const { inbox, outbox } = ctx.layout.dirs;
-  const folders = await foldersAt(octokit, { owner, repo, ref: pr.headSha, dir: inbox });
-  const prd = prdOfBranch(pr.headRef, { branches: ctx.config.branches, folders });
+  const { inbox, outbox, shipped } = ctx.layout.dirs;
+  const open = await foldersAt(octokit, { owner, repo, ref: pr.headSha, dir: inbox });
+  const done = await foldersAt(octokit, { owner, repo, ref: pr.headSha, dir: shipped });
+  const prd = prdOfBranch(pr.headRef, { branches: ctx.config.branches, folders: [...open, ...done] });
   if (prd === null) return null;
-  const names = folders.filter((name) => parseFolderName(name)?.prd === prd);
-  await snapshot(octokit, { owner, repo, ref: pr.headSha, paths: names.flatMap((name) => [`${inbox}/${name}`, `${outbox}/${name}`]), dest: ctx.root });
+  const ours = (name) => parseFolderName(name)?.prd === prd;
+  const paths = [...open.filter(ours).flatMap((name) => [`${inbox}/${name}`, `${outbox}/${name}`]), ...done.filter(ours).map((name) => `${shipped}/${name}`)];
+  await snapshot(octokit, { owner, repo, ref: pr.headSha, paths, dest: ctx.root });
   return prd;
 }
 async function rangeOf(octokit, { owner, repo, pr }) {
