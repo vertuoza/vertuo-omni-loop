@@ -362,3 +362,5 @@ Scenario: e2e falls back to a runner
   When its pull request gets a new commit
   Then a runner job runs the scenario against the preview and the App writes the acceptance check run
 ```
+
+<!-- Judged again after the business-law judge fix (#2900). -->
