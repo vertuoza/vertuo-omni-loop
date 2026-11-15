@@ -46,6 +46,17 @@ describe('MissionsTab', () => {
     expect(text(html(view(row({}))))).toContain('Level: Reviews with you');
   });
 
+  it('draws the Branch line above with-you, and none at with-you (PRD 2896 s8)', () => {
+    const joined = { mission: row({}).id, kind: 'prd-joined', prd: parsePrd(1), link: null, sentence: 'PRD 1 joined mission/40-pay: #9 squash-merged.' };
+    const above = renderToStaticMarkup(createElement(MissionsTab, { view: { workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(row({ status: 'running', level: 'own-branch' }), [joined])] } }));
+    expect(text(above)).toContain('Branch: PRD 1 · up to date Mission pull request');
+    expect(text(above)).toContain('0 of 2 on main · 1 joined');
+    expect(above).toContain('href="https://github.com/acme/shop/pulls?q=is%3Apr%20head%3Amission%2F40-pay"');
+    const held = row({ status: 'waiting', level: 'alone', waitingOn: 'mission/40-pay is red (checks) since PRD 1 joined: no further PRD joins' });
+    expect(text(renderToStaticMarkup(createElement(MissionsTab, { view: { workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(held, [joined])] } })))).toContain('is red (checks)');
+    expect(text(html(view(row({ status: 'running' }))))).not.toContain('Branch:');
+  });
+
   it('shows a waiting mission with the PRD it waits on, linked, and Pause', () => {
     const out = html(view(row({ status: 'waiting', waitingOn: 'PRD 2803: approve it' })));
     expect(text(out)).toContain('Waiting on you');

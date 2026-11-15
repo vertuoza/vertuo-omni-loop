@@ -414,9 +414,14 @@ gh pr comment <n> --body-file <file>                                 # it printe
 - attempt: <k> / <limits.attempts>
 - slices: <merged> / <total> merged            <!-- feature PR only -->
 - human steps: <missing labels, or "none">
+- mission branch: <branch>                     <!-- a mission's feature PR only: the base it targets -->
 - job: <id> · runner <name>                    <!-- a runner job's session only -->
 - Parts: <agent> (<model>) until <time> · <agent> (<model>), <why>   <!-- a job that turned over only -->
 ```
+
+The `mission branch:` line (PRD 2896) is written when the PR was opened with `--base <branch>` for a
+mission above `with-you`: it names that base, the branch the App squash-merges the PR into, and every
+rewrite keeps it. A PR without `--base` has no such line.
 
 The `job:` line names the runner job that holds the claim, so the runner releases a dead job's
 claims. Every rewrite writes it from the session's own `OMNI_JOB` (`OMNI_RUNNER` for the name), and

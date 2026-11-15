@@ -1,6 +1,6 @@
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
-import { missionOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
+import { branchOf, missionOf, onBranchOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
 import { missionsTabService } from './missions-tab.service';
 import { missionsTabRepository, type MissionsTabDb } from './missions-tab.repository';
 
@@ -14,7 +14,7 @@ const WORKSPACE = '33333333-3333-4333-8333-333333333333';
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
   id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], level: 'with-you', ...over,
 });
-const event = (kind: string, prd: number | null, link: string | null = null, mission = ID): EventRow => ({ mission, kind, prd: prd === null ? null : parsePrd(prd), link });
+const event = (kind: string, prd: number | null, link: string | null = null, mission = ID, sentence = ''): EventRow => ({ mission, kind, prd: prd === null ? null : parsePrd(prd), link, sentence });
 
 describe('progressOf', () => {
   it('reads a draft as not started', () => {
@@ -90,11 +90,51 @@ describe('a mission\'s level (PRD 2896)', () => {
   });
 });
 
+describe('the mission branch (PRD 2896 s8)', () => {
+  const joined = (prd: number) => event('prd-joined', prd, `https://github.com/acme/shop/pull/${String(prd)}`, ID, `PRD ${String(prd)} joined mission/40-pay: #${String(prd)} squash-merged.`);
+  // Newest first, as the repository reads them: 1 joined, 2 joined, 1 dropped, 3 joined, 2 landed.
+  const events = [event('prd-merged', 2), joined(3), event('prd-dropped', 1), joined(2), joined(1)];
+
+  it('reads the PRDs on the branch in the order they joined, until dropped or on main', () => {
+    expect(onBranchOf(events)).toEqual([3]);
+    expect(onBranchOf([joined(2), joined(1)])).toEqual([1, 2]);
+    expect(onBranchOf([event('prd-ready', 4)])).toEqual([]);
+  });
+
+  it('counts a mission above with-you as `on main` and `joined`, and one at with-you as before', () => {
+    const prds = [parsePrd(1), parsePrd(2), parsePrd(3)];
+    expect(progressOf('running', prds, events, 'own-branch')).toBe('1 of 3 on main · 1 joined');
+    expect(progressOf('running', prds, events)).toBe('1 of 3 merged · 0 ready');
+    expect(missionOf(row({ level: 'alone', prds }), events).progress).toBe('1 of 3 on main · 1 joined');
+  });
+
+  it('says what is on the branch, whether it follows, and links the pull requests from it', () => {
+    expect(branchOf(row({ level: 'own-branch' }), events)).toEqual({
+      prds: [3], upToDate: true, hold: null, pullHref: 'https://github.com/acme/shop/pulls?q=is%3Apr%20head%3Amission%2F40-pay', words: 'PRD 3 · up to date',
+    });
+    expect(branchOf(row({}), [])).toMatchObject({ prds: [], pullHref: null, words: 'no PRD on it yet · up to date' });
+  });
+
+  it('says the branch is behind, or red, with the supervisor\'s own words, only while the mission runs or waits', () => {
+    const cannot = 'mission/40-pay cannot follow main: "x" conflicts with it in a.ts; no branch changed';
+    expect(branchOf(row({ status: 'waiting', waitingOn: cannot }), events)).toMatchObject({ upToDate: false, hold: cannot, words: 'PRD 3 · behind the default branch' });
+    const red = 'mission/40-pay is red (checks) since PRD 3 joined: no further PRD joins';
+    expect(branchOf(row({ status: 'waiting', waitingOn: red }), events)).toMatchObject({ upToDate: true, hold: red });
+    expect(branchOf(row({ status: 'stopped', waitingOn: cannot }), events).hold).toBeNull();
+  });
+
+  it('shows no Branch line at with-you or on a draft', () => {
+    expect(missionOf(row({}), events).branch).toBeNull();
+    expect(missionOf(row({ level: 'alone', status: 'draft' }), []).branch).toBeNull();
+    expect(missionOf(row({ level: 'alone' }), events).branch).not.toBeNull();
+  });
+});
+
 describe('the service over the repository', () => {
   it('gives each mission its own events only', async () => {
     const db = fakeDb([MISSION_ROW, { ...MISSION_ROW, id: OTHER, number: 41 }], [
-      { mission_id: ID, kind: 'prd-merged', prd: 1, link: null },
-      { mission_id: OTHER, kind: 'prd-merged', prd: 7, link: null },
+      { mission_id: ID, kind: 'prd-merged', prd: 1, link: null, sentence: 'merged' },
+      { mission_id: OTHER, kind: 'prd-merged', prd: 7, link: null, sentence: 'merged' },
     ]);
     const view = await missionsTabService(missionsTabRepository(db)).view(WORKSPACE, 'night-shift');
     expect(view.fleet).toBe('night-shift');

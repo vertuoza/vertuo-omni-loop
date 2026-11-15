@@ -20,6 +20,11 @@ export const WORDS = {
   noPrd: 'No PRD sent yet',
   level: 'Level',
   changeLevel: 'Change for this mission',
+  branch: 'Branch',
+  upToDate: 'up to date',
+  behind: 'behind the default branch',
+  noneOnBranch: 'no PRD on it yet',
+  pull: 'Mission pull request',
 } as const;
 
 /** A level in the words the fleet's drawer and this tab use (PRD 2896). */
@@ -69,6 +74,8 @@ export interface EventRow {
   kind: string;
   prd: PrdNumber | null;
   link: string | null;
+  /** What it says: a join names the mission branch it went onto. */
+  sentence: string;
 }
 
 /** A PRD that waits for a person: what to do, and where. */
@@ -95,6 +102,20 @@ export interface MissionView {
   levelWords: string;
   /** A draft's level is changed for this mission alone. */
   canChangeLevel: boolean;
+  /** The Branch line (PRD 2896 s8); null for a mission at `with-you`, which has no branch. */
+  branch: BranchLine | null;
+}
+
+/** The mission branch as the Missions tab says it: the PRDs on it, whether it follows the default branch, the mission pull request. */
+export interface BranchLine {
+  /** The PRDs on the branch, in the order they joined. */
+  prds: PrdNumber[];
+  upToDate: boolean;
+  /** Why the branch waits on a person (it cannot follow the default branch, or it is red), as the supervisor wrote it. */
+  hold: string | null;
+  /** The mission pull request: the open pull requests from the branch, null while no join named the branch. */
+  pullHref: string | null;
+  words: string;
 }
 
 /** The tab's view: the workspace the moves are made in (null in the demo) and the fleet's missions, newest first. */
@@ -107,14 +128,45 @@ export interface MissionsView {
 const issueHref = (repo: string, number: number) => `https://github.com/${repo}/issues/${String(number)}`;
 
 /** `2 of 4 merged · 1 ready`: the PRDs of the scope and those the mission has met, merged and ready counted once each. */
-export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly EventRow[]): string {
+export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly EventRow[], level: MissionLevel = 'with-you'): string {
   if (status === 'draft') return WORDS.notStarted;
   const merged = new Set(events.filter((e) => e.kind === 'prd-merged' && e.prd !== null).map((e) => e.prd));
   const ready = new Set(events.filter((e) => e.kind === 'prd-ready' && e.prd !== null && !merged.has(e.prd)).map((e) => e.prd));
   const known = new Set<PrdNumber>(prds);
   for (const event of events) if (event.prd !== null) known.add(event.prd);
   if (known.size === 0) return WORDS.noPrd;
+  // Above `with-you` a PRD is `joined` on the branch before it is `on main` (PRD 2896 s8).
+  if (level !== 'with-you') return `${String(merged.size)} of ${String(known.size)} on main · ${String(onBranchOf(events).length)} joined`;
   return `${String(merged.size)} of ${String(known.size)} merged · ${String(ready.size)} ready`;
+}
+
+/** The PRDs on the mission branch, in join order: joined, until dropped or on main. `events` are newest first. */
+export function onBranchOf(events: readonly EventRow[]): PrdNumber[] {
+  const on: PrdNumber[] = [];
+  for (const event of events.toReversed()) {
+    if (event.prd === null) continue;
+    if (event.kind === 'prd-joined' && !on.includes(event.prd)) on.push(event.prd);
+    else if (event.kind === 'prd-dropped' || event.kind === 'prd-merged') {
+      const at = on.indexOf(event.prd);
+      if (at >= 0) on.splice(at, 1);
+    }
+  }
+  return on;
+}
+
+const JOINED = /^PRD \d+ joined (\S+):/;
+const HOLD = /cannot follow|must follow|is red \(/;
+
+/** The Branch line: the PRDs on the branch, up to date or not, and the pull requests from it; the branch's name is read from the join that named it. */
+export function branchOf(row: Pick<MissionRow, 'repo' | 'waitingOn' | 'status'>, events: readonly EventRow[]): BranchLine {
+  const prds = onBranchOf(events);
+  const named = events.map((event) => (event.kind === 'prd-joined' ? JOINED.exec(event.sentence)?.[1] : undefined)).find((name) => name !== undefined);
+  const waiting = row.status === 'running' || row.status === 'waiting';
+  const hold = waiting && row.waitingOn !== null && HOLD.test(row.waitingOn) ? row.waitingOn : null;
+  const upToDate = hold === null || !/follow/.test(hold);
+  const pullHref = named === undefined ? null : `https://github.com/${row.repo}/pulls?q=${encodeURIComponent(`is:pr head:${named}`)}`;
+  const on = prds.length === 0 ? WORDS.noneOnBranch : prds.map((prd) => `PRD ${String(prd)}`).join(', ');
+  return { prds, upToDate, hold, pullHref, words: `${on} · ${upToDate ? WORDS.upToDate : WORDS.behind}` };
 }
 
 const WAIT = /PRD (\d+): ([^·]+)/g;
@@ -140,7 +192,7 @@ export function missionOf(row: MissionRow, events: readonly EventRow[]): Mission
     goal: row.goal,
     status: row.status,
     statusWords: STATUS_WORDS[row.status],
-    progress: progressOf(row.status, row.prds, events),
+    progress: progressOf(row.status, row.prds, events, row.level),
     waits: waiting ? waitsOf(row.waitingOn, row.repo, events) : [],
     stopped: row.status === 'stopped' ? row.waitingOn : null,
     briefHref: issueHref(row.repo, row.number),
@@ -148,6 +200,7 @@ export function missionOf(row: MissionRow, events: readonly EventRow[]): Mission
     level: row.level,
     levelWords: LEVEL_WORDS[row.level],
     canChangeLevel: row.status === 'draft',
+    branch: row.level === 'with-you' || row.status === 'draft' ? null : branchOf(row, events),
   };
 }
 

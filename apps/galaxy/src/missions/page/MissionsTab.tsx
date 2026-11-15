@@ -42,6 +42,45 @@ function LevelLine({ words, level, disabled, onChange }: { words: string; level:
   );
 }
 
+/** `Branch: PRD 3 · up to date`, the mission pull request's link and, when the branch waits on a person, why. */
+function BranchLine({ branch }: { branch: NonNullable<MissionsView['missions'][number]['branch']> }) {
+  return (
+    <p className="mission-branch">
+      <span>{WORDS.branch}: {branch.words}</span>
+      {branch.pullHref !== null && <a href={branch.pullHref}>{WORDS.pull}</a>}
+      {branch.hold !== null && <span className="mission-branch-hold">{branch.hold}</span>}
+    </p>
+  );
+}
+
+/** Each PRD the mission waits on, linked, with what it waits on. */
+function WaitList({ waits }: { waits: MissionsView['missions'][number]['waits'] }) {
+  if (waits.length === 0) return null;
+  return (
+    <ul className="mission-waits">
+      {waits.map((wait) => (
+        <li key={wait.prd}><a href={wait.href}>PRD {wait.prd}</a>: {wait.on}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** The one move a status allows: `Start` is the primary action of a draft. */
+function ActionButton({ action, title, busy, disabled, onMove }: { action: MissionAction; title: string; busy: boolean; disabled: boolean; onMove: (action: MissionAction) => void }) {
+  return (
+    <button
+      type="button"
+      className={action === 'start' ? 'ask-button mission-action' : 'ask-button quiet mission-action'}
+      {...(action === 'start' ? { 'data-primary': '' } : {})}
+      disabled={disabled}
+      onClick={() => { onMove(action); }}
+    >
+      {busy ? ACTION_WORDS[action].busy : ACTION_WORDS[action].idle}
+      <span className="ask-sr"> {title}</span>
+    </button>
+  );
+}
+
 /** One mission's row: its words at the left, its one button at the right. */
 function MissionItem({ mission, busy, problem, onMove, onLevel }: {
   mission: MissionsView['missions'][number];
@@ -66,28 +105,12 @@ function MissionItem({ mission, busy, problem, onMove, onLevel }: {
             disabled={busy !== null}
             onChange={onLevel}
           />
-          {mission.waits.length > 0 && (
-            <ul className="mission-waits">
-              {mission.waits.map((wait) => (
-                <li key={wait.prd}><a href={wait.href}>PRD {wait.prd}</a>: {wait.on}</li>
-              ))}
-            </ul>
-          )}
+          {mission.branch !== null && <BranchLine branch={mission.branch} />}
+          <WaitList waits={mission.waits} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
           {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
         </div>
-        {action !== null && (
-          <button
-            type="button"
-            className={action === 'start' ? 'ask-button mission-action' : 'ask-button quiet mission-action'}
-            {...(action === 'start' ? { 'data-primary': '' } : {})}
-            disabled={busy !== null}
-            onClick={() => { onMove(action); }}
-          >
-            {busy === mission.id ? ACTION_WORDS[action].busy : ACTION_WORDS[action].idle}
-            <span className="ask-sr"> {mission.title}</span>
-          </button>
-        )}
+        {action !== null && <ActionButton action={action} title={mission.title} busy={busy === mission.id} disabled={busy !== null} onMove={onMove} />}
       </li>
   );
 }
