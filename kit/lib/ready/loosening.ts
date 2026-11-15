@@ -292,10 +292,17 @@ function fileLoosenings(file: DiffFile, ground: LooseningGround, criteria: Crite
   return { findings: [...tests.findings, ...rest.findings], unjudged: [...tests.unjudged, ...rest.unjudged] };
 }
 
-/** Every loosening of a diff, file by file in its order, and every file it could not judge. */
-export function loosenings(files: readonly DiffFile[], { ground, criteria }: { ground: LooseningGround; criteria: CriteriaEnds }): Loosenings {
+/**
+ * Every loosening of a diff, file by file in its order, and every file it could not judge. A path under
+ * one of `generated`'s prefixes is never read: it is rebuilt from sources the diff holds and are read.
+ */
+export function loosenings(
+  files: readonly DiffFile[],
+  { ground, criteria, generated = [] }: { ground: LooseningGround; criteria: CriteriaEnds; generated?: readonly string[] },
+): Loosenings {
   const out: Loosenings = { findings: [], unjudged: [] };
-  for (const file of files.filter(({ path }) => relevant(path, ground))) {
+  const read = files.filter(({ path }) => relevant(path, ground) && !generated.some((prefix) => path.startsWith(prefix)));
+  for (const file of read) {
     const found = fileLoosenings(file, ground, criteria);
     out.findings.push(...found.findings);
     out.unjudged.push(...found.unjudged);

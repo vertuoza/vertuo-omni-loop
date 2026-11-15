@@ -214,11 +214,17 @@ function excuseAll(found: readonly Found[], ledger: Readable<readonly ExcuseItem
 /** The `excused by` part of a pass. */
 const excusedText = (excused: readonly { path: string; item: OutboxItemId }[]) => listed(excused.map(({ path, item }) => `${path} excused by ${item}`), '; ');
 
+/** What check 4 reads a diff with: the spec at both ends (null when either is unread), the ground and
+ * the generated paths, which it never reads. */
+function looseningOptions(facts: ReadyFacts): Parameters<typeof loosenings>[1] {
+  const ends = facts.criteria.ok && facts.baseCriteria.ok ? { base: facts.baseCriteria.value, head: facts.criteria.value.criteria } : null;
+  return { ground: facts.ground ?? READY_LOOSENING_GROUND, criteria: ends, generated: facts.area.ok ? facts.area.value.generated : [] };
+}
+
 /** Check 4: no test was loosened, unless an agreed item names the path. */
 function looseningCheck(facts: ReadyFacts): Outcome {
   if (!facts.diff.ok) return unjudged(facts.diff.why);
-  const ends = facts.criteria.ok && facts.baseCriteria.ok ? { base: facts.baseCriteria.value, head: facts.criteria.value.criteria } : null;
-  const read = loosenings(facts.diff.value, { ground: facts.ground ?? READY_LOOSENING_GROUND, criteria: ends });
+  const read = loosenings(facts.diff.value, looseningOptions(facts));
   const judged = excuseAll(read.findings.map(({ path, what }) => ({ path, text: `${path}: ${what}` })), facts.ledger, 'loosening');
   if ('state' in judged) return judged;
   if (judged.open.length > 0) return fail(listed(judged.open, '; '));

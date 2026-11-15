@@ -174,6 +174,12 @@ describe('loosenings: clean diffs (PRD 2898)', () => {
     expect(findings([{ path: 'kit/lib/y.test.ts', previousPath: TEST, status: 'renamed', before: TWO, after: TWO }])).toEqual([]);
   });
 
+  it('never reads a generated output: it is rebuilt from its sources, which are read', () => {
+    const bundle: DiffFile = { path: 'kit/dist/omni.mjs', status: 'modified', before: 'a', after: `// ${DISABLE}\na` };
+    const unread: DiffFile = { path: 'kit/dist/big.mjs', status: 'modified', before: null, after: null };
+    expect(loosenings([bundle, unread], { ground: GROUND, criteria: { base: [], head: [] }, generated: ['kit/dist/'] })).toEqual({ findings: [], unjudged: [] });
+  });
+
   it('names a test file whose content could not be read as unjudged, never as clean', () => {
     const read = loosenings([{ path: TEST, status: 'modified', before: TWO, after: null }], { ground: GROUND, criteria: { base: [], head: [] } });
     expect(read).toEqual({ findings: [], unjudged: [`${TEST}: its content could not be read`] });

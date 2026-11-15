@@ -185,6 +185,11 @@ describe('check 4: no test was loosened (PRD 2898)', () => {
     }
   });
 
+  it('never reads a generated path of the area', () => {
+    const bundle: DiffFile = { path: 'kit/dist/omni.mjs', status: 'modified', before: null, after: null };
+    expect(check({ diff: { ok: true, value: [bundle] } }, 'loosening')).toBe('pass · no test was loosened');
+  });
+
   it('names the first three findings and counts the rest', () => {
     const files: DiffFile[] = ['a', 'b', 'c', 'd'].map((name) => ({ path: `kit/${name}.test.ts`, status: 'deleted', before: TEST_FILE, after: null }));
     expect(check({ diff: { ok: true, value: files } }, 'loosening')).toBe('fail · kit/a.test.ts: the test file was deleted; kit/b.test.ts: the test file was deleted; kit/c.test.ts: the test file was deleted; and 1 more');
