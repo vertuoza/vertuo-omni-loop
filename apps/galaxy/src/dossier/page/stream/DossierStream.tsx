@@ -12,6 +12,7 @@ import { DossierPage } from '../DossierPage';
 import { dossierView, type DossierPick, type DossierRead } from '../view';
 import type { VoiceView } from '../voice';
 import { pendingView } from './pending';
+import type { ReadyView } from '../ready';
 
 // A PRD's page, streamed (PRD 657 s4): its GitHub summary is read beside the page, never before it.
 // The server sends the page as soon as the database has answered (the header, the stored stage, the
@@ -41,6 +42,8 @@ export interface DossierReads {
   mainWatch?: Promise<MainWatchRead | null>;
   /** What the rewind found (PRD 2410, s5): null when it could not be read; left out, not asked for. */
   rewind?: Promise<readonly FindingView[] | null>;
+  /** The latest ready verdict, as the Ready panel shows it (PRD 2898 s9): null when none or unread; left out, not asked for. */
+  ready?: Promise<ReadyView | null>;
 }
 
 export interface DossierStreamProps {
@@ -65,16 +68,16 @@ type Props = Omit<DossierStreamProps, 'live' | 'timing'>;
 
 /** The page as the database has it, before GitHub answers. */
 async function Pending({ read, me, pick, reads, markdown, voice, supabase, send = null }: Props) {
-  const [slices, stages, milestones, mainWatch, rewindFindings, shown, heard] = await Promise.all([reads.slices, reads.stages, reads.milestones, reads.mainWatch, reads.rewind, markdown, voice ?? null]);
+  const [slices, stages, milestones, mainWatch, rewindFindings, shown, heard, ready] = await Promise.all([reads.slices, reads.stages, reads.milestones, reads.mainWatch, reads.rewind, markdown, voice ?? null, reads.ready ?? null]);
   const view = pendingView(dossierView({ ...read, slices, stages, milestones, mainWatch, rewindFindings }, me, pick));
-  return <SendToTerminalScope setup={send}><DossierPage view={view} markdown={shown} voice={heard} supabase={supabase} /></SendToTerminalScope>;
+  return <SendToTerminalScope setup={send}><DossierPage view={view} markdown={shown} voice={heard} supabase={supabase} ready={ready} /></SendToTerminalScope>;
 }
 
 /** The whole page, with its GitHub summary: what the page ends as. */
 export async function completePage({ read, me, pick, reads, markdown, voice, supabase, send = null }: Props) {
-  const [github, githubAt, slices, stages, milestones, mainWatch, rewindFindings, shown, heard] = await Promise.all([reads.github, reads.githubAt ?? null, reads.slices, reads.stages, reads.milestones, reads.mainWatch, reads.rewind, markdown, voice ?? null]);
+  const [github, githubAt, slices, stages, milestones, mainWatch, rewindFindings, shown, heard, ready] = await Promise.all([reads.github, reads.githubAt ?? null, reads.slices, reads.stages, reads.milestones, reads.mainWatch, reads.rewind, markdown, voice ?? null, reads.ready ?? null]);
   const withGithub: DossierRead = { ...read, github, githubAt, slices, stages, milestones, mainWatch, rewindFindings };
-  return <SendToTerminalScope setup={send}><DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} voice={heard} supabase={supabase} /></SendToTerminalScope>;
+  return <SendToTerminalScope setup={send}><DossierPage view={dossierView(withGithub, me, pick)} markdown={shown} voice={heard} supabase={supabase} ready={ready} /></SendToTerminalScope>;
 }
 
 async function Complete(props: Props) {

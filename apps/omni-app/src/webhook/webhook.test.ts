@@ -105,9 +105,9 @@ function deliver({ event = 'pull_request', payload = pullRequestPayload('opened'
 }
 
 describe('webhook — the signature', () => {
-  it('refreshes the four checks\' jobs of a validly signed, handled pull request, (PRD 2688)', async () => {
+  it('refreshes the five checks\' jobs of a validly signed, handled pull request, (PRD 2688)', async () => {
     const { response, refreshed } = await deliver();
-    expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
+    expect(response).toEqual({ status: 200, body: 'sent 0 · 5 jobs' });
     expect(refreshed).toEqual(PR_CHECK_KINDS.map((kind) => checkJob(kind, 'pull_request.opened')));
   });
 
@@ -247,7 +247,7 @@ describe('webhook — the checks\' jobs come first (PRD 2688 s7)', () => {
       forward: () => Promise.resolve(order.push('forward')),
       touch: () => Promise.resolve(order.push('touch')),
     });
-    expect(order.slice(0, 4)).toEqual(PR_CHECK_KINDS.map((kind) => `refresh ${kind}`));
+    expect(order.slice(0, PR_CHECK_KINDS.length)).toEqual(PR_CHECK_KINDS.map((kind) => `refresh ${kind}`));
     expect(order.slice(4).length).toBeGreaterThan(0);
   });
 
@@ -270,7 +270,7 @@ describe('webhook — the checks\' jobs come first (PRD 2688 s7)', () => {
 
 describe('toCheckJobs', () => {
   it('is the filter alone, pure: no signature, no ledger', () => {
-    expect(toCheckJobs('pull_request', pullRequestPayload('synchronize'))).toHaveLength(4);
+    expect(toCheckJobs('pull_request', pullRequestPayload('synchronize'))).toHaveLength(PR_CHECK_KINDS.length);
     expect(toCheckJobs('pull_request', pullRequestPayload('closed'))).toEqual([]);
   });
 
@@ -290,7 +290,7 @@ describe('toCheckJobs', () => {
   });
 
   it('still refreshes the jobs of a pull request into the default branch, and of its check re-run (#1413)', () => {
-    expect(toCheckJobs('pull_request', pullRequestPayload('synchronize'))).toHaveLength(4);
+    expect(toCheckJobs('pull_request', pullRequestPayload('synchronize'))).toHaveLength(PR_CHECK_KINDS.length);
     expect(toCheckJobs('check_run', rerequestedPayload())).toHaveLength(1);
   });
 
@@ -400,7 +400,7 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(toRetroRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
     expect(toHarvestJobs('pull_request', { ...mergedPayload(), action })).toEqual([]);
     expect(toRetroJobs('pull_request', { ...mergedPayload(), action })).toEqual([]);
-    expect(toCheckJobs('pull_request', { ...mergedPayload(), action })).toHaveLength(4);
+    expect(toCheckJobs('pull_request', { ...mergedPayload(), action })).toHaveLength(PR_CHECK_KINDS.length);
   });
 
   it('handles exactly the check actions, the retro actions and the canon buttons', () => {
@@ -888,7 +888,7 @@ describe('webhook — the fleet board (PRD 2530)', () => {
       const byHand = loopPull(action, { body: 'by hand' });
       expect(toRetroJobs('pull_request', signed)).toEqual(toRetroJobs('pull_request', byHand));
       expect(toCheckJobs('pull_request', signed)).toEqual(toCheckJobs('pull_request', byHand));
-      expect(toCheckJobs('pull_request', signed)).toHaveLength(4);
+      expect(toCheckJobs('pull_request', signed)).toHaveLength(PR_CHECK_KINDS.length);
       expect(toFixStampRequests('pull_request', signed)).toEqual(toFixStampRequests('pull_request', byHand));
       expect(toMainWatchJobs('pull_request', signed)).toEqual([]);
       expect(toApprovedLabelRequests('pull_request', signed)).toEqual([]);
@@ -900,7 +900,7 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     const body = JSON.stringify(loopPull('opened'));
     const headers = { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) };
     const queueJobs = vi.fn((jobs: NewJob[]) => Promise.resolve(jobs.length));
-    expect(await receiveWebhook({ body, headers, secret: SECRET, queueJobs, forward: forwarding() })).toEqual({ status: 200, body: 'sent 0 · 5 jobs' });
+    expect(await receiveWebhook({ body, headers, secret: SECRET, queueJobs, forward: forwarding() })).toEqual({ status: 200, body: 'sent 0 · 6 jobs' });
     expect(queueJobs).toHaveBeenCalledWith([fleetBoardJob(boardEvent('opened').data as never)]);
     expect(queueJobs.mock.calls[0]?.[0][0]).toMatchObject({ kind: 'fleet-board', key: 'vertuoza/vertuo-omni-loop#28', maxTries: 4 });
     expect(queueJobs.mock.calls[0]?.[0][0]).not.toHaveProperty('lane');
@@ -916,7 +916,7 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     const body = JSON.stringify(loopPull('opened', { body: 'by hand' }));
     const queueJobs = vi.fn(() => Promise.resolve());
     const response = await receiveWebhook({ body, headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(body) }, secret: SECRET, queueJobs, forward: forwarding() });
-    expect(response).toEqual({ status: 200, body: 'sent 0 · 4 jobs' });
+    expect(response).toEqual({ status: 200, body: 'sent 0 · 5 jobs' });
     expect(queueJobs).not.toHaveBeenCalled();
     expect(toQueuedJobs('pull_request', loopPull('opened', { body: 'by hand' }), 'd-1')).toEqual([]);
   });

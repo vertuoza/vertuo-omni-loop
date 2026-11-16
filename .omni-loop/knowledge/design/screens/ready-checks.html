@@ -5,353 +5,172 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ready Checks</title>
 <style>
-/* Ask's reading tokens, copied by value from packages/design/src/tokens.ts (ASK.omni / light / dark). */
-:root{
-  --ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;
-  --ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;
-  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;
-  --body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --px:"Press Start 2P","Courier New",ui-monospace,monospace;
-  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
-  --ease:cubic-bezier(.16,1,.3,1);
-  color-scheme:dark;
-}
-:root[data-theme="light"]{
-  --ground:#f5f4fc;--surface:#ffffff;--sunk:#eceaf8;--line:#d9d6ee;--line-strong:#85819f;
-  --ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--plasma-soft:#efe7ff;--on-plasma:#ffffff;
-  --cyan:#0b6f86;--green:#15703f;--red:#b3122f;--fleet:#1f6fc4;color-scheme:light;
-}
-:root[data-theme="dark"]{
-  --ground:#0e0d33;--surface:#16144a;--sunk:#1d1a58;--line:#2f2c78;--line-strong:#6d6acc;
-  --ink:#f2f4ff;--muted:#a9aee6;--plasma:#b37cff;--plasma-soft:#2a1d66;--on-plasma:#0e0d33;
-  --cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;--fleet:#4aa8ff;color-scheme:dark;
-}
-*{box-sizing:border-box}
-html{background:var(--ground)}
-body{margin:0;background:var(--ground);color:var(--ink);font:17px/1.6 var(--body);-webkit-font-smoothing:antialiased}
-::selection{background:var(--plasma);color:var(--on-plasma)}
-:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:4px}
-a{color:var(--cyan);text-underline-offset:3px}
-button{font:inherit;color:inherit}
-*{scrollbar-color:var(--line-strong) var(--sunk)}
-.num,time,.t{font-variant-numeric:tabular-nums}
-.mono{font-family:var(--mono);font-size:.86em}
-svg.px{image-rendering:pixelated;shape-rendering:crispEdges;flex:none;display:inline-block;vertical-align:middle}
+body { margin:0; background:#07061c; }
+.mock-note { max-width:960px; margin:0 auto; padding:16px; font:13px/1.5 system-ui, sans-serif; color:#8a90d6; }
 
-/* ---------- the page's own explanation (outside every screen) ---------- */
-.strip{border-bottom:1px solid var(--line);background:var(--sunk);padding:14px 24px 16px}
-.strip-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;justify-content:space-between}
-.strip h1{margin:0;font:700 19px/1.3 var(--body)}
-.strip h1 span{color:var(--muted);font-weight:600}
-.strip-nav{display:flex;flex-wrap:wrap;gap:6px}
-.strip-nav button{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 13px/1.4 var(--body);color:var(--muted);cursor:pointer}
-.strip-nav button[aria-current="true"]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
-.narr{margin:8px 0 0;max-width:78ch;font-size:15px;line-height:1.55;color:var(--muted)}
-.narr b{color:var(--ink)}
-.narr[hidden]{display:none}
+/* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+:root { --ask-ground:#07061c; --ask-surface:#120f3a; --ask-sunk:#0e0d33; --ask-line:#1a2170; --ask-line-strong:#5a60c4;
+  --ask-ink:#f2f4ff; --ask-muted:#8a90d6; --ask-plasma:#ffd84a; --ask-plasma-soft:#2a2350; --ask-on-plasma:#07061c;
+  --ask-yellow:#ff3ea5; --ask-on-yellow:#07061c; --ask-cyan:#6ff0ff; --ask-green:#4ee08a; --ask-red:#ff6b86;
+  --ask-body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,sans-serif;
+  --ask-mono:"JetBrains Mono",ui-monospace,Menlo,monospace; --ask-px:"Press Start 2P","Courier New",monospace; --ask-gutter:32px; }
+* { box-sizing:border-box; }
+.app-shell { display:grid; grid-template-columns:240px minmax(0,1fr); grid-template-rows:auto 1fr; min-height:760px;
+  background:var(--ask-ground); color:var(--ask-ink); font:17px/1.6 var(--ask-body); }
+a { color:var(--ask-cyan); }
+/* nav/ (app-shell): the sidebar and the top bar, abridged. */
+.app-sidebar { grid-row:1 / span 2; display:grid; align-content:start; gap:18px; padding:16px; background:var(--ask-surface); border-right:1px solid var(--ask-line); }
+.brand-logo { display:inline-flex; align-items:center; gap:10px; text-decoration:none; }
+.ask-mark { font:10px/1 var(--ask-px); letter-spacing:.04em; color:var(--ask-plasma); }
+.app-sidebar-workspace { margin:4px 0 0; font-size:14px; color:var(--ask-muted); }
+.app-sidebar-label { margin:0 0 4px; padding:0 10px; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ask-muted); }
+.app-sidebar-items { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.app-sidebar-item { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; border:1px solid transparent; font:700 15px/1.3 var(--ask-body); color:var(--ask-ink); text-decoration:none; }
+.app-sidebar-item[aria-current='page'] { color:var(--ask-plasma); border-color:var(--ask-plasma); background:var(--ask-ground); }
+.app-sidebar-sprite { flex:none; width:16px; height:16px; background:var(--ask-line-strong); }
+.app-bar { grid-column:2; display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--ask-surface); border-bottom:2px solid var(--ask-line-strong); }
+.app-bar-tile { display:inline-grid; place-items:center; width:40px; height:40px; border:1.5px solid var(--ask-line-strong); border-radius:8px; background:var(--ask-sunk); }
+.app-bar-trail { display:flex; gap:8px; margin:0; padding:0; list-style:none; font:600 15px/1.3 var(--ask-body); color:var(--ask-muted); }
+.app-bar-here { font-size:16px; font-weight:700; color:var(--ask-ink); }
+.app-bar-end { margin-left:auto; display:inline-flex; align-items:center; gap:12px; }
+.ask-switch { display:inline-flex; border:1.5px solid var(--ask-line-strong); border-radius:6px; overflow:hidden; }
+.ask-switch span { padding:6px 10px; color:var(--ask-muted); font:700 13px/1 var(--ask-body); }
+.ask-switch span.on { background:var(--ask-plasma); color:var(--ask-on-plasma); }
+.user-menu { display:inline-grid; place-items:center; width:36px; height:36px; border:1.5px solid var(--ask-line-strong); border-radius:50%; background:var(--ask-sunk); font:700 14px/1 var(--ask-body); }
+.ask-main { grid-column:2; min-width:0; }
+/* dossier/page/dossier.css, as written (prd-dossier). */
+.ask { max-width:960px; margin:0 auto; padding:28px var(--ask-gutter) 48px; display:grid; gap:20px; }
+.dossier-head { display:grid; gap:14px; margin:-28px calc(-1 * var(--ask-gutter)) 0; padding:16px var(--ask-gutter) 0; background:var(--ask-surface); border-bottom:1.5px solid var(--ask-line-strong); }
+.dossier-head-top { display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap; }
+.dossier-title { flex:1 1 320px; margin:0; font-size:28px; line-height:1.25; }
+.dossier-number { color:var(--ask-plasma); white-space:nowrap; text-decoration:none; }
+.dossier-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.ask-button { display:inline-block; padding:8px 14px; border-radius:8px; border:1.5px solid var(--ask-line-strong); background:var(--ask-sunk); color:var(--ask-ink); font:700 15px/1.2 var(--ask-body); text-decoration:none; }
+.ask-button.stage-action { background:var(--ask-plasma); border-color:var(--ask-plasma); color:var(--ask-on-plasma); }
+.dossier-facts { display:flex; flex-wrap:wrap; gap:10px 0; margin:0 0 0 -19px; clip-path:inset(-4px -4px -4px 19px); }
+.dossier-fact { display:grid; align-content:start; gap:6px; padding:0 18px; border-left:1px solid var(--ask-line-strong); }
+.dossier-fact dt { font:700 11px/1 var(--ask-body); letter-spacing:.08em; text-transform:uppercase; color:var(--ask-muted); }
+.dossier-fact dd { margin:0; font-size:15px; }
+.dossier-fact-stage dd { display:flex; align-items:center; gap:6px 12px; flex-wrap:wrap; }
+.stage-track { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:4px; font:600 12px/1 var(--ask-mono); }
+.stage-stop { padding:6px 9px; border-radius:999px; border:1px solid var(--ask-line-strong); color:var(--ask-muted); white-space:nowrap; }
+.stage-passed { color:var(--ask-ink); background:var(--ask-sunk); }
+.stage-current { color:var(--ask-on-plasma); background:var(--ask-plasma); border-color:var(--ask-plasma); font-weight:800; }
+.stage-words { margin:0; }
+.ask-hint { color:var(--ask-muted); }
+.stage-links { list-style:none; margin:0; padding:0; display:flex; gap:12px; flex-wrap:wrap; }
+.care-chip { display:inline-block; font:600 12px/1 var(--ask-mono); border:1px solid var(--ask-green); color:var(--ask-ink); border-radius:999px; padding:3px 8px; white-space:nowrap; }
+.care-chip.care-grey { border-color:var(--ask-line-strong); color:var(--ask-muted); }
+.dossier-tabs { display:flex; gap:4px; margin:0 calc(-1 * var(--ask-gutter)); padding:0 calc(var(--ask-gutter) - 14px); border-top:1px solid var(--ask-line-strong); overflow-x:auto; }
+.dossier-tab { display:inline-flex; padding:10px 14px; color:var(--ask-ink); font-weight:700; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent; }
+.dossier-tab[aria-current='page'] { border-bottom-color:var(--ask-plasma); }
+.dossier-tab-empty { color:var(--ask-muted); }
+.dossier-pane { display:grid; gap:16px; }
+.care-rows { display:grid; gap:6px; margin:0; }
+.care-row { display:flex; gap:12px; align-items:baseline; }
+.care-row dt { width:88px; flex:none; font-weight:600; color:var(--ask-muted); }
+.care-row dd { margin:0; }
+.care-ci-green dd { color:var(--ask-green); font-weight:600; }
+.care-watcher { margin:0; color:var(--ask-muted); }
+/* The Ready panel (ready-checks): a hole in dossier.css, filled from .dossier-laws, .proof-row and .care-chip. */
+.ready { display:grid; gap:12px; padding:14px 16px; background:var(--ask-surface); border:1px solid var(--ask-line-strong); border-left-width:4px; border-radius:12px; }
+.ready-pass { border-left-color:var(--ask-green); }
+.ready-fail { border-left-color:var(--ask-red); }
+.ready-wait { border-left-color:var(--ask-line-strong); border-style:solid dashed dashed solid; }
+.ready-top { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 14px; }
+.ready-lab { margin:0; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ask-muted); }
+.ready-title { margin:0; font-size:20px; line-height:1.3; }
+.ready-sign { margin-left:auto; font:13px/1.5 var(--ask-mono); color:var(--ask-muted); }
+.ready-named { margin:0; padding:8px 12px; border-radius:8px; background:var(--ask-sunk); overflow-wrap:anywhere; }
+.ready-named p { margin:0; }
+.ready-named strong { color:var(--ask-red); }
+.ready-checks { list-style:none; margin:0; padding:0; border-top:1px solid var(--ask-line); }
+.ready-check { display:grid; gap:6px; padding:9px 0; border-bottom:1px solid var(--ask-line); }
+.ready-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; }
+.ready-mark { flex:none; width:20px; font-weight:700; }
+.ready-check.is-pass .ready-mark { color:var(--ask-green); }
+.ready-check.is-fail .ready-mark { color:var(--ask-red); }
+.ready-check.is-wait .ready-mark { color:var(--ask-muted); }
+.ready-name { flex:1 1 300px; font-weight:600; }
+.ready-state { font:600 12px/1 var(--ask-mono); border:1px solid var(--ask-green); border-radius:999px; padding:3px 8px; white-space:nowrap; }
+.is-fail .ready-state { border-color:var(--ask-red); color:var(--ask-red); }
+.is-wait .ready-state { border-color:var(--ask-line-strong); color:var(--ask-muted); }
+.ready-note { margin:0 0 0 32px; color:var(--ask-muted); font:13px/1.5 var(--ask-mono); overflow-wrap:anywhere; }
+.ready-acs { list-style:none; margin:0 0 0 32px; padding:0; display:grid; gap:8px; }
+.ready-ac { display:grid; gap:2px; padding:8px 12px; border-radius:8px; background:var(--ask-sunk); }
+.ready-ac-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; font-size:15px; }
+.ready-ac-id { font:600 12px/1.4 var(--ask-mono); color:var(--ask-plasma); }
+.ready-kind { font:600 12px/1 var(--ask-mono); color:var(--ask-muted); }
+.ready-ac-head a { margin-left:auto; }
+.ready-ac p { margin:0; font-size:15px; }
+.ready-ac p b { color:var(--ask-muted); font-weight:700; }
+.ready-foot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 16px; }
+.ready-foot p { margin:0; }
 
-/* ---------- app shell (nav/sidebar.css, nav/app-bar.css) ---------- */
-.shell{display:grid;grid-template-columns:240px minmax(0,1fr);grid-template-rows:auto 1fr;min-height:calc(100vh - 90px)}
-.side{grid-row:1/span 2;display:grid;align-content:start;gap:18px;padding:16px;background:var(--surface);border-right:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none}
-.wordmark{font:10px/1 var(--px);letter-spacing:.04em;color:var(--plasma)}
-.ws{margin:2px 0 0;font-size:14px;color:var(--muted)}
-.grp-label{margin:0 0 4px;padding:0 10px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.side ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
-.side-item{display:flex;width:100%;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:1px solid transparent;background:none;font:700 15px/1.3 var(--body);color:var(--ink);text-decoration:none;cursor:pointer;text-align:left}
-.side-item:hover{background:var(--sunk)}
-.side-item[aria-current="page"]{color:var(--plasma);border-color:var(--plasma);background:var(--ground)}
-.side-item svg{color:var(--muted)}
-.side-item[aria-current="page"] svg{color:var(--plasma)}
-.badge{margin-left:auto;min-width:20px;padding:3px 6px;border-radius:999px;font:700 12px/1 var(--body);text-align:center;color:var(--on-plasma);background:var(--plasma)}
-.side-foot{border-top:1px solid var(--line);padding-top:12px;font:500 12px/1.2 var(--mono);color:var(--muted)}
-.bar{grid-column:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong)}
-.tile{display:inline-grid;place-items:center;width:40px;height:40px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--sunk)}
-.trail{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;margin:0;padding:0;list-style:none;font:600 15px/1.3 var(--body);color:var(--muted)}
-.trail .here{font-size:16px;font-weight:700;color:var(--ink)}
-.bar-end{margin-left:auto;display:flex;align-items:center;gap:12px}
-.switch{display:inline-flex;border:1.5px solid var(--line-strong);border-radius:6px;overflow:hidden}
-.switch button{padding:6px 10px;border:0;background:transparent;color:var(--muted);font:700 13px/1 var(--body);cursor:pointer}
-.switch button[aria-pressed="true"]{background:var(--plasma);color:var(--on-plasma)}
-.avatar{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:50%;background:var(--sunk);font:700 14px/1 var(--body)}
-.main{grid-column:2;padding:24px;min-width:0}
-
-/* ---------- fleet header + tabs ---------- */
-.fleet-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
-.mascot{display:inline-grid;place-items:center;width:52px;height:44px;border-radius:8px;background:var(--sunk);border:1.5px solid var(--fleet)}
-.fleet-head h2{margin:0;font:700 26px/1.2 var(--body);letter-spacing:-.01em}
-.fleet-meta{margin:0;color:var(--muted);font-size:15px}
-.tabs{display:flex;gap:4px;margin:18px 0 22px;border-bottom:2px solid var(--line-strong);overflow-x:auto}
-.tab{border:0;background:none;padding:10px 14px;font:700 15px/1.2 var(--body);color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
-.tab:hover{color:var(--ink)}
-.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
-
-[data-screen][hidden]{display:none!important}
-h3{margin:0 0 10px;font:700 18px/1.3 var(--body)}
-.section{margin:0 0 28px}
-
-/* buttons */
-.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--body);cursor:pointer;text-decoration:none;transition:background-color .15s,border-color .15s}
-.btn:hover{border-color:var(--ink)}
-.btn[data-primary]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
-.btn[data-primary]:hover{filter:brightness(1.08)}
-.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
-.btn.quiet{background:transparent}
-.link{background:none;border:0;padding:0;color:var(--cyan);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit}
-
-/* waiting strip */
-.yours{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:12px 16px;margin:0 0 22px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
-.yours p{margin:0;font-weight:700}
-.yours .sub{font-weight:400;color:var(--muted);font-size:15px}
-.yours .btn{margin-left:auto}
-
-/* now lines */
-.now{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.now li{display:grid;grid-template-columns:minmax(150px,200px) minmax(130px,170px) minmax(0,1fr) auto;align-items:center;gap:6px 16px;padding:10px 16px;border-top:1px solid var(--line)}
-.now li:first-child{border-top:0}
-.role{display:inline-flex;align-items:center;gap:8px;font-weight:700}
-.role svg{color:var(--ink)}
-.holder{color:var(--muted);font-size:15px}
-.holder b{color:var(--ink);font-weight:600}
-.doing{min-width:0}
-.state{display:inline-block;padding:2px 9px;border-radius:999px;border:1.5px solid var(--line-strong);font:700 12.5px/1.5 var(--body);color:var(--muted);white-space:nowrap}
-.state.go{border-color:var(--green);color:var(--green)}
-.state.you{border-color:var(--plasma);background:var(--plasma);color:var(--on-plasma)}
-.state.warn{border-color:var(--red);color:var(--red)}
-.state.ok{border-color:var(--green);color:var(--green)}
-.state.person{border-style:dashed}
-.filter-me{background:none;border:0;padding:0;cursor:pointer;color:var(--cyan);font:600 14px/1 var(--body);text-decoration:underline;text-underline-offset:3px}
-.clean{margin:10px 2px 0;font-size:15px;color:var(--muted)}
-.clean b{color:var(--ink);font-weight:600}
-
-/* ledger */
-.ledger-head{display:flex;flex-wrap:wrap;align-items:end;gap:10px 24px;margin:0 0 12px}
-.ledger-head h3{margin:0}
-.filters{display:flex;flex-wrap:wrap;gap:10px 22px}
-.chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0;border:0}
-.chips legend{float:left;margin-right:6px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.chip{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:3px 11px;font:600 14px/1.4 var(--body);color:var(--ink);cursor:pointer}
-.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--ground)}
-table.ledger{width:100%;border-collapse:collapse;font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.ledger th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line-strong);background:var(--sunk)}
-.ledger td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
-.ledger tr.row:hover td{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
-.ledger td.t{white-space:nowrap;color:var(--muted);font-family:var(--mono);font-size:13.5px;padding-top:12px}
-.ledger td.who{white-space:nowrap}
-.ledger .sig{display:block;font-size:12.5px;color:var(--muted);font-weight:400}
-.ledger tr.ready td{background:color-mix(in srgb,var(--plasma-soft) 80%,transparent)}
-.ready-txt{font-weight:700}
-.open-ready{background:none;border:0;padding:0;text-align:left;font:700 15px/1.45 var(--body);color:var(--ink);cursor:pointer;text-decoration:underline;text-decoration-color:var(--plasma);text-underline-offset:4px}
-.expand{background:none;border:1.5px solid var(--line-strong);border-radius:6px;padding:1px 8px;margin-left:8px;font:600 12.5px/1.4 var(--body);color:var(--ink);cursor:pointer;white-space:nowrap}
-.expand[aria-expanded="true"]{border-color:var(--plasma);color:var(--plasma)}
-tr.detail td{border-top:0;padding-top:0;background:var(--sunk)}
-tr.detail[hidden]{display:none}
-.verdict{display:grid;gap:6px;padding:12px 14px;margin:0 0 4px;border-radius:8px}
-.verdict p{margin:0}
-.verdict ol{margin:0;padding-left:20px;display:grid;gap:4px}
-.verdict .rnd{color:var(--muted);font-size:14px}
-.empty{padding:20px 16px;text-align:left;color:var(--muted)}
-.empty[hidden]{display:none}
-tr.arrive td{animation:arrive 250ms var(--ease) both}
-tr.arrive td{background:var(--plasma-soft)}
-tr.arrive.settled td{background:transparent;transition:background-color 1.6s ease-out}
-@keyframes arrive{from{transform:translateY(-14px);opacity:.25}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){tr.arrive td{animation:none}tr.arrive.settled td{transition:none}}
-
-/* ready checks */
-.back{display:inline-flex;align-items:center;gap:6px;margin:0 0 14px}
-.checks-head h2{margin:0;font:700 24px/1.25 var(--body)}
-.checks-head .prd{margin:2px 0 0;color:var(--muted)}
-.ready-line{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:14px 0 18px}
-.checks{list-style:none;margin:0 0 18px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.checks li{padding:12px 16px;border-top:1px solid var(--line)}
-.checks li:first-child{border-top:0}
-.check-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
-.check-row .lbl{font-weight:700;flex:1 1 220px}
-.tick{color:var(--green)}
-.proof{margin:8px 0 2px 32px;padding:8px 12px;border-radius:8px;background:var(--sunk);font-size:15px;color:var(--muted)}
-.proof[hidden]{display:none}
-.proof b{color:var(--ink);font-weight:600}
-.merge-note{max-width:900px;display:grid;gap:2px;padding:12px 16px;margin:0 0 20px;border:1.5px dashed var(--line-strong);border-radius:10px}
-.merge-note p{margin:0}
-.merge-note p+p{color:var(--muted)}
-.signed{margin:0 0 18px;color:var(--muted);font-size:15px}
-
-/* team */
-.seats{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:15px}
-.seats th{text-align:left;font:700 12.5px/1.2 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--line-strong)}
-.seats td{padding:12px 14px;border-top:1px solid var(--line);vertical-align:top}
-.seats ul{margin:0;padding-left:18px;display:grid;gap:2px}
-.seats select{font:600 14.5px/1.3 var(--body);color:var(--ink);background:var(--sunk);border:1.5px solid var(--line-strong);border-radius:6px;padding:5px 8px;max-width:100%}
-.skill{display:inline-block;margin:0 4px 4px 0;padding:1px 7px;border-radius:5px;background:var(--sunk);border:1px solid var(--line);font:500 13px/1.5 var(--mono);color:var(--ink)}
-.persons{display:grid;gap:8px;max-width:900px;margin:0;padding:0;list-style:none}
-.persons li{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:4px 16px;padding:12px 16px;border:1px solid var(--line);border-radius:10px}
-.persons .why{color:var(--muted)}
-.save-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:16px 0 0}
-.save-row .note{color:var(--muted);font-size:15px}
-
-/* missions */
-.mission-list{list-style:none;margin:0 0 26px;padding:0;max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.mission-list li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px;border-top:1px solid var(--line)}
-.mission-list li:first-child{border-top:0}
-.mission-list .name{font-weight:700;flex:1 1 240px}
-.start{max-width:900px;padding:18px 20px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface)}
-.start[hidden],.running[hidden]{display:none}
-.pick{display:grid;gap:8px;margin:0 0 18px;padding:0;border:0}
-.pick legend,.lab{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px;padding:0}
-.opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:10px 14px;border:1.5px solid var(--line-strong);border-radius:8px;cursor:pointer}
-.opt:has(input:checked){border-color:var(--plasma);background:var(--plasma-soft)}
-.opt.off{opacity:.6;cursor:not-allowed;border-style:dashed}
-.opt input{accent-color:var(--plasma);margin:0}
-.opt .n{font-weight:700}
-.opt .m{color:var(--muted);font-size:14.5px;margin-left:auto}
-.seat-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;padding:0;list-style:none}
-.seat-chips li{display:inline-flex;align-items:center;gap:7px;padding:4px 11px 4px 8px;border:1.5px solid var(--line-strong);border-radius:999px;font-size:14px;font-weight:600}
-.seat-chips li span{color:var(--muted);font-weight:400}
-.eta{display:grid;gap:0;margin:0 0 18px;padding:10px 14px;border-radius:8px;background:var(--sunk)}
-.eta p{margin:0}
-.eta p+p{color:var(--muted);font-size:15px}
-.running{max-width:900px;padding:18px 20px;border:1.5px solid var(--green);border-radius:12px;background:var(--surface)}
-.running.paused{border-color:var(--line-strong);border-style:dashed}
-.run-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 12px}
-.run-head h3{margin:0}
-.prds{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:0}
-.prds li{display:grid;grid-template-columns:70px 1fr auto;gap:4px 12px;padding:9px 0;border-top:1px solid var(--line);align-items:center}
-.prds li:first-child{border-top:0}
-.prds .id{font-family:var(--mono);font-size:14px;color:var(--muted)}
-.run-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.paused-line{margin:0 0 12px;color:var(--muted)}
-.paused-line[hidden]{display:none}
-
-/* toast (outside every screen) */
-.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,0);max-width:min(560px,calc(100vw - 32px));padding:10px 16px;border-radius:8px;background:var(--ink);color:var(--ground);font-size:15px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s}
-.toast.on{opacity:1}
-
-/* ---------- phone ---------- */
-.phone-stage{display:none;padding:24px 16px 40px;justify-content:center}
-body.is-phone .phone-stage{display:flex}
-body.is-phone .shell{display:none}
-.phone{width:393px;max-width:100%;border:10px solid #000;border-radius:38px;overflow:hidden;background:var(--ground);box-shadow:0 18px 50px rgba(0,0,0,.45)}
-.phone-scroll{height:760px;max-height:78vh;overflow-y:auto}
-.p-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border-bottom:2px solid var(--line-strong);position:sticky;top:0;z-index:2}
-.p-menu{display:inline-grid;place-items:center;width:36px;height:36px;border:1.5px solid var(--line-strong);border-radius:6px;background:var(--surface);cursor:pointer}
-.p-trail{font:600 14px/1.3 var(--body);color:var(--muted)}
-.p-trail b{color:var(--ink)}
-.p-main{padding:16px}
-.p-main .fleet-head h2{font-size:21px}
-.p-main .tabs{margin:12px 0 16px}
-.p-main .tab{padding:9px 10px;font-size:14px}
-.p-now{list-style:none;margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.p-now li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
-.p-now li:first-child{border-top:0}
-.p-now .doing{grid-column:1/-1;color:var(--muted);font-size:14.5px}
-.p-yours{display:grid;gap:8px;padding:12px;margin:0 0 16px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
-.p-yours p{margin:0;font-weight:700}
-.p-yours .btn{justify-content:center}
-.p-rows{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.p-rows li{display:grid;gap:3px;padding:10px 12px;border-top:1px solid var(--line);font-size:15px}
-.p-rows li:first-child{border-top:0}
-.p-rows .meta{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
-.p-rows .meta .t{font-family:var(--mono)}
-.p-rows .meta .state{margin-left:auto}
-
-/* ---------- desk breakpoints ---------- */
-@media (max-width:1100px){
-  .now li{grid-template-columns:minmax(140px,180px) minmax(0,1fr) auto}
-  .now .holder{grid-column:1}
-  .now .doing{grid-column:2;grid-row:1/span 2}
-  .now .state-cell{grid-column:3;grid-row:1/span 2}
-}
-@media (max-width:899.98px){
-  .shell{grid-template-columns:minmax(0,1fr)}
-  .side{display:none}
-  .bar,.main{grid-column:1}
-  .main{padding:16px}
-  .strip{padding:12px 16px}
-  .now li{grid-template-columns:1fr auto}
-  .now .holder,.now .doing{grid-column:1/-1;grid-row:auto}
-  .now .state-cell{grid-column:2;grid-row:1}
-  table.ledger thead{display:none}
-  table.ledger,table.ledger tbody,table.ledger tr,table.ledger td{display:block;width:100%}
-  table.ledger tr.row{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;padding:10px 12px;border-top:1px solid var(--line)}
-  table.ledger td{border:0;padding:0}
-  table.ledger td.t{grid-column:1;padding-top:0}
-  table.ledger td.who{grid-column:2}
-  table.ledger td.st{grid-column:3;grid-row:1}
-  table.ledger td.what,table.ledger td.lnk{grid-column:1/-1}
-  .seats thead{display:none}
-  .seats,.seats tbody,.seats tr,.seats td{display:block;width:100%}
-  .seats tr{padding:12px 14px;border-top:1px solid var(--line)}
-  .seats td{border:0;padding:3px 0}
-  .persons li{grid-template-columns:1fr}
-  .yours .btn{margin-left:0}
-}
-/* tour */
-.tourbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:10px}
-.dots{display:flex;gap:6px;margin:0;padding:0;list-style:none}
-.dots button{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line-strong);background:transparent;color:var(--muted);font:700 13px/1 var(--body);cursor:pointer}
-.dots button[aria-current="step"]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
-.dots button.seen{color:var(--ink)}
-.step-count{font:600 14px/1 var(--body);color:var(--muted)}
-.keys{font-size:13px;color:var(--muted)}
-.purpose{margin:6px 0 0;font-size:13.5px;color:var(--muted)}
-.purpose code{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
-[data-screen]{animation:none}
-.branch{max-width:900px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:14px 16px;margin:0 0 18px}
-.branch h3{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
-.writers{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:0}
-.writers li{display:grid;grid-template-columns:64px 1fr auto;gap:4px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
-.writers li:first-child{border-top:0}
-.writers .t{font-family:var(--mono);font-size:13.5px;color:var(--muted)}
-.writers li.holding{background:var(--plasma-soft);margin:0 -16px;padding:9px 16px}
-.rule-line{margin:0 0 18px;color:var(--muted)}
-.facts{list-style:none;margin:0 0 18px;padding:0;max-width:900px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-.facts li{padding:12px 16px;border-left:1px solid var(--line)}
-.facts li:first-child{border-left:0}
-.facts .k{display:block;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-.facts .v{font:700 20px/1.3 var(--body);font-variant-numeric:tabular-nums}
-.verdict-card{max-width:900px;border:1.5px solid var(--red);border-radius:10px;background:var(--surface);padding:14px 16px;margin:0 0 18px}
-.verdict-card ol{margin:6px 0 8px;padding-left:22px;display:grid;gap:4px}
-.verdict-card p{margin:0}
-.rounds{display:flex;gap:8px;align-items:center;margin-top:8px;color:var(--muted);font-size:15px}
-.pip{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--line-strong)}
-.pip.used{background:var(--red);border-color:var(--red)}
-.mission-line{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 0 18px;color:var(--muted)}
-.mission-line b{color:var(--ink)}
-@media (max-width:899.98px){.facts li{border-left:0;border-top:1px solid var(--line)}.facts li:first-child{border-top:0}}
-
-.frame-page{border:2px dashed var(--line-strong);border-radius:12px;padding:40px 24px;color:var(--muted);min-height:260px}
-.frame-page p{margin:0}
-.wrap{padding:24px;max-width:1280px}
-@media (max-width:899.98px){.wrap{padding:16px}}
-.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
-.note-top{padding:12px 24px;border-bottom:1px solid var(--line);background:var(--sunk);font-size:14px;color:var(--muted);margin:0}
-
+.ready-alt { max-width:960px; margin:0 auto; padding:0 32px 32px; display:grid; gap:20px; }
 </style>
 </head>
 <body>
-<p class="note-top">PR 2817, its five checks open. Fleet frame, shared: drawn once above each Fleet page screen.</p>
-<div class="wrap">
-<div class="fleet-head"><span class="mascot" aria-hidden="true"><svg class="px" aria-hidden="true" width="32" height="20" viewBox="0 0 16 10" fill="var(--fleet)"><rect x="13" y="0" width="2" height="1"/><rect x="12" y="1" width="2" height="1"/><rect x="3" y="2" width="7" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="2" y="3" width="11" height="1"/><rect x="1" y="4" width="13" height="1"/><rect x="0" y="5" width="5" height="1"/><rect x="6" y="5" width="8" height="1"/><rect x="0" y="6" width="13" height="1"/><rect x="0" y="7" width="12" height="1"/><rect x="1" y="8" width="10" height="1"/><rect x="3" y="9" width="6" height="1"/><rect x="5" y="5" width="1" height="1" fill="var(--ground)"/></svg></span><div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission running</p></div></div><div class="tabs" role="tablist" aria-label="Fleet"><button type="button" class="tab" role="tab" aria-selected="true">Operation room</button><button type="button" class="tab" role="tab" aria-selected="false">Missions</button><button type="button" class="tab" role="tab" aria-selected="false">Seats</button><button type="button" class="tab" role="tab" aria-selected="false">Board</button></div><section data-screen="ready-checks" aria-label="Ready checks for PR 2817">
-      <div class="checks-head">
-        <h2>PR 2817</h2>
-        <p class="prd">PRD 2803</p>
-        <p class="prd">Dark mode on the quote screen</p>
-      </div>
-      <div class="ready-line">
-        <span class="state ok">Ready for review · 5 of 5</span>
-        <span class="signed">Engineer · agent · 07:00</span>
-      </div>
-      <ul class="checks">
-        <li><div class="check-row"><span class="tick"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="7" y="1" width="1" height="1"/><rect x="6" y="2" width="2" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="5" y="3" width="2" height="1"/><rect x="0" y="4" width="2" height="1"/><rect x="4" y="4" width="2" height="1"/><rect x="1" y="5" width="4" height="1"/><rect x="2" y="6" width="2" height="1"/></svg></span><span class="lbl">CI green on the latest commit</span><button type="button" class="link" aria-expanded="true" aria-controls="p1">Run 8841</button></div><p class="proof" id="p1"><b>Commit a41f9c2</b> · 14 jobs green</p></li>
-        <li><div class="check-row"><span class="tick"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="7" y="1" width="1" height="1"/><rect x="6" y="2" width="2" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="5" y="3" width="2" height="1"/><rect x="0" y="4" width="2" height="1"/><rect x="4" y="4" width="2" height="1"/><rect x="1" y="5" width="4" height="1"/><rect x="2" y="6" width="2" height="1"/></svg></span><span class="lbl">Full tests and lint ran</span><button type="button" class="link" aria-expanded="true" aria-controls="p2">Test log</button></div><p class="proof" id="p2"><b>1,284 tests</b> · lint clean</p></li>
-        <li><div class="check-row"><span class="tick"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="7" y="1" width="1" height="1"/><rect x="6" y="2" width="2" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="5" y="3" width="2" height="1"/><rect x="0" y="4" width="2" height="1"/><rect x="4" y="4" width="2" height="1"/><rect x="1" y="5" width="4" height="1"/><rect x="2" y="6" width="2" height="1"/></svg></span><span class="lbl">Each success criterion has its proof</span><button type="button" class="link" aria-expanded="true" aria-controls="p3">3 proofs</button></div><p class="proof" id="p3"><b>3 of 3 criteria</b> · Omni, Light, Dark</p></li>
-        <li><div class="check-row"><span class="tick"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="7" y="1" width="1" height="1"/><rect x="6" y="2" width="2" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="5" y="3" width="2" height="1"/><rect x="0" y="4" width="2" height="1"/><rect x="4" y="4" width="2" height="1"/><rect x="1" y="5" width="4" height="1"/><rect x="2" y="6" width="2" height="1"/></svg></span><span class="lbl">No test was loosened</span><button type="button" class="link" aria-expanded="true" aria-controls="p4">Test diff</button></div><p class="proof" id="p4"><b>0 loosened</b> · 1 caught at 03:10</p></li>
-        <li><div class="check-row"><span class="tick"><svg class="px" aria-hidden="true" width="16" height="16" viewBox="0 0 8 8" fill="currentColor"><rect x="7" y="1" width="1" height="1"/><rect x="6" y="2" width="2" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="5" y="3" width="2" height="1"/><rect x="0" y="4" width="2" height="1"/><rect x="4" y="4" width="2" height="1"/><rect x="1" y="5" width="4" height="1"/><rect x="2" y="6" width="2" height="1"/></svg></span><span class="lbl">The change stayed in its area</span><button type="button" class="link" aria-expanded="true" aria-controls="p5">7 files</button></div><p class="proof" id="p5"><b>7 files</b> · all under the quote screen</p></li>
-      </ul>
-      <div class="merge-note"><p><b>Ready for review, not merged.</b></p><p>Only a person merges.</p></div>
-      <button type="button" class="btn" data-primary>Review PR 2817</button>
-    </section>
+<p class="mock-note"><b>The Ready panel on a mission PRD's page at /prd/&lt;id&gt;, at 5 of 5, then 4 of 5 and waiting.</b> A panel of <code>prd-dossier</code>, under its head; the app shell around it is <code>app-shell</code>. Drawn from PRD 2898's before/after page (1.A, 1.B, 1.C), theme Omni. PRD 2803 and PR 2817 stand in for any mission PRD.</p>
+<div data-screen="ready-checks"><div class="app-shell">
+<aside class="app-sidebar" aria-label="Sidebar">
+<div><a class="brand-logo" href="/app"><svg width="32" height="32" aria-hidden="true"><rect width="32" height="32" rx="4" fill="#2a2350" stroke="#ffd84a"/></svg><span class="ask-mark">OMNI LOOP</span></a><p class="app-sidebar-workspace" data-content>Vertuoza</p></div>
+<div><p class="app-sidebar-label">Dashboard</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app"><span class="app-sidebar-sprite"></span>Home</a></li><li><a class="app-sidebar-item" href="/app/fleet"><span class="app-sidebar-sprite"></span>Fleet</a></li><li><a class="app-sidebar-item" href="/app/runners"><span class="app-sidebar-sprite"></span>Runners</a></li></ul></div>
+<div><p class="app-sidebar-label">Work</p><ul class="app-sidebar-items"><li><a class="app-sidebar-item" href="/app/products"><span class="app-sidebar-sprite"></span>Products</a></li><li><a class="app-sidebar-item" href="/prd" aria-current="page"><span class="app-sidebar-sprite"></span>PRDs</a></li><li><a class="app-sidebar-item" href="/app/waiting"><span class="app-sidebar-sprite"></span>Waiting</a></li><li><a class="app-sidebar-item" href="/ask"><span class="app-sidebar-sprite"></span>Questions</a></li></ul></div>
+</aside>
+<header class="app-bar"><span class="app-bar-tile" aria-hidden="true"><svg width="32" height="32"><rect width="32" height="32" fill="#5a60c4"/></svg></span>
+<ol class="app-bar-trail"><li>Work</li><li>›</li><li>PRDs</li><li>›</li><li class="app-bar-here">PRD 2803</li></ol>
+<span class="app-bar-end"><span class="ask-switch"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="user-menu" aria-hidden="true">D</span></span></header>
+<main class="ask-main"><div class="ask">
+<header class="dossier-head">
+<div class="dossier-head-top"><h1 class="dossier-title"><a class="dossier-number" href="#">PRD #2803 ↗</a> <span data-content>Dark mode on the quote screen</span></h1>
+<div class="dossier-actions"><span class="ask-button">Copy link</span></div></div>
+<dl class="dossier-facts">
+<div class="dossier-fact dossier-fact-stage"><dt>Stage</dt><dd><ol class="stage-track" aria-label="Stages"><li class="stage-stop stage-passed">idea</li><li class="stage-stop stage-passed">PRD</li><li class="stage-stop stage-passed">inbox</li><li class="stage-stop stage-passed">building</li><li class="stage-stop stage-current" aria-current="step">outbox</li><li class="stage-stop ">shipped</li><li class="stage-stop ">retro</li></ol><p class="stage-words"><strong>Stage: outbox</strong> · 4/4 slices</p></dd></div>
+<div class="dossier-fact"><dt>Approval</dt><dd><strong>approved</strong><br><span class="ask-hint">by pierrederval · Nov 12</span></dd></div>
+<div class="dossier-fact"><dt>Repo</dt><dd>vertuo-omni-loop</dd></div>
+<div class="dossier-fact"><dt>On GitHub</dt><dd><ul class="stage-links"><li><a href="#">Issue</a> <span class="ask-hint">open</span></li><li><a href="#">Feature PR · ready</a> <span class="care-chip">CI green</span></li></ul><span class="ask-hint">GitHub as of 07:02 UTC</span></dd></div>
+</dl>
+<nav class="dossier-tabs" aria-label="Tabs"><a class="dossier-tab" href="#">Questions</a><a class="dossier-tab" href="#">Before/after</a><a class="dossier-tab" href="#">Spec</a><a class="dossier-tab" href="#">Plan</a><a class="dossier-tab" href="#">Timeline</a><a class="dossier-tab" href="#">Outbox</a><a class="dossier-tab" href="#" aria-current="page">PR care</a><a class="dossier-tab dossier-tab-empty" href="#">Retro</a></nav>
+</header>
+<section class="ready ready-pass" aria-label="Ready">
+<div class="ready-top"><p class="ready-lab">Ready</p><h2 class="ready-title">Ready for review · 5 of 5</h2><span class="ready-sign">Omni App · a41f9c2 · 07:00</span></div>
+<ol class="ready-checks">
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">CI green on the latest commit</span><span class="ready-state">Pass</span><a href="#">Run 8841</a></div><p class="ready-note">14 checks succeeded on a41f9c2</p></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Full tests and lint ran</span><span class="ready-state">Pass</span><a href="#">test · lint</a></div><p class="ready-note">1,284 tests · lint clean</p></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Every acceptance criterion has its proof</span><span class="ready-state">Pass</span><a href="#">3 of 3</a></div><ol class="ready-acs"><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-1</span><span class="ready-kind">test</span><span data-content>The quote screen follows the theme</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-1</a></div><p data-content><b>Given</b> a member who picked Dark</p><p data-content><b>When</b> they open a quote</p><p data-content><b>Then</b> the quote screen is drawn in the Dark tokens</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-2</span><span class="ready-kind">test</span><span data-content>The totals keep their contrast</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-2</a></div><p data-content><b>Given</b> a quote with three totals in Dark</p><p data-content><b>When</b> the page renders</p><p data-content><b>Then</b> every total passes WCAG AA</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-3</span><span class="ready-kind">e2e</span><span data-content>The switch is kept</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">e2e report</a></div><p data-content><b>Given</b> a member on the quote screen</p><p data-content><b>When</b> they switch to Light and reload</p><p data-content><b>Then</b> the quote screen is still Light</p></li></ol></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">No test was loosened</span><span class="ready-state">Pass</span><a href="#">Test diff</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">The change stayed in its area</span><span class="ready-state">Pass</span><a href="#">7 files</a></div></li>
+</ol>
+<div class="ready-foot"><div><p><strong>Ready for review, not merged.</strong></p><p>Only a person merges.</p></div><a class="ask-button stage-action" href="#" data-primary>Review PR 2817</a></div>
+</section>
+<section class="dossier-pane" aria-label="PR care"><dl class="care-rows"><div class="care-row care-ci-green"><dt>CI</dt><dd>green</dd></div><div class="care-row"><dt>Conflict</dt><dd>none</dd></div><div class="care-row"><dt>Threads</dt><dd>0 open</dd></div></dl><p class="care-watcher">Watched by pr-care · last round 06:55</p></section>
+</div></main>
+</div></div>
+<div class="ready-alt">
+<section class="ready ready-fail" aria-label="Ready">
+<div class="ready-top"><p class="ready-lab">Ready</p><h2 class="ready-title">Not ready · 4 of 5</h2><span class="ready-sign">Omni App · a41f9c2 · 07:00</span></div>
+<div class="ready-named"><p><strong>Failed: No test was loosened</strong></p><p>quote-theme.test.ts adds .skip</p><p>No answered question excuses it.</p></div>
+<ol class="ready-checks">
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">CI green on the latest commit</span><span class="ready-state">Pass</span><a href="#">Run 8852</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Full tests and lint ran</span><span class="ready-state">Pass</span><a href="#">test · lint</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">Every acceptance criterion has its proof</span><span class="ready-state">Pass</span><a href="#">3 of 3</a></div></li>
+<li class="ready-check is-fail"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✗</span><span class="ready-name">No test was loosened</span><span class="ready-state">Fail</span></div><p class="ready-note">quote-theme.test.ts:42 · it.skip added</p></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">The change stayed in its area</span><span class="ready-state">Pass</span><a href="#">7 files</a></div></li>
+</ol>
+<div class="ready-foot"><div><p>Stays a draft.</p><p>The Reviewer asked for changes.</p></div><a class="ask-button stage-action" href="#">See the skipped test</a></div>
+</section>
+<section class="ready ready-wait" aria-label="Ready">
+<div class="ready-top"><p class="ready-lab">Ready</p><h2 class="ready-title">Not finished · 3 of 5 so far</h2><span class="ready-sign">Omni App · b07e1d4 · 06:41</span></div>
+<ol class="ready-checks">
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">CI green on the latest commit</span><span class="ready-state">Pass</span><a href="#">Run 8847</a></div></li>
+<li class="ready-check is-wait"><div class="ready-row"><span class="ready-mark" aria-hidden="true">…</span><span class="ready-name">Full tests and lint ran</span><span class="ready-state">Waiting</span><a href="#">Test run</a></div><p class="ready-note">test still running</p></li>
+<li class="ready-check is-wait"><div class="ready-row"><span class="ready-mark" aria-hidden="true">…</span><span class="ready-name">Every acceptance criterion has its proof</span><span class="ready-state">Waiting</span></div><p class="ready-note">waiting for a runner</p><ol class="ready-acs"><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-1</span><span class="ready-kind">test</span><span data-content>The quote screen follows the theme</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-1</a></div><p data-content><b>Given</b> a member who picked Dark</p><p data-content><b>When</b> they open a quote</p><p data-content><b>Then</b> the quote screen is drawn in the Dark tokens</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-2</span><span class="ready-kind">test</span><span data-content>The totals keep their contrast</span><span class="ready-state" style="border-color:var(--ask-green);color:var(--ask-ink)">Pass</span><a href="#">Test AC-2</a></div><p data-content><b>Given</b> a quote with three totals in Dark</p><p data-content><b>When</b> the page renders</p><p data-content><b>Then</b> every total passes WCAG AA</p></li><li class="ready-ac"><div class="ready-ac-head"><span class="ready-ac-id">AC-3</span><span class="ready-kind">e2e</span><span data-content>The switch is kept</span><span class="ready-state" style="border-color:var(--ask-line-strong);color:var(--ask-muted)">Waiting</span><span class="ask-hint">no proof yet</span></div><p data-content><b>Given</b> a member on the quote screen</p><p data-content><b>When</b> they switch to Light and reload</p><p data-content><b>Then</b> the quote screen is still Light</p></li></ol></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">No test was loosened</span><span class="ready-state">Pass</span><a href="#">Test diff</a></div></li>
+<li class="ready-check is-pass"><div class="ready-row"><span class="ready-mark" aria-hidden="true">✓</span><span class="ready-name">The change stayed in its area</span><span class="ready-state">Pass</span><a href="#">7 files</a></div></li>
+</ol>
+<div class="ready-foot"><p>Stays a draft until all five pass.</p><a class="ask-button stage-action" href="#">Watch the test run</a></div>
+</section>
 </div>
 </body>
 </html>

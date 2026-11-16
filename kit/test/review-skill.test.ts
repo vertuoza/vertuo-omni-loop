@@ -98,7 +98,7 @@ describe('the review skill', () => {
     expect(FLAT).toContain('never approves or requests changes');
     expect(FLAT).toContain('It never merges');
     expect(FLAT).toContain('It writes no code');
-    for (const verb of [/\bgh\s+pr\s+(?:review|merge)\b/, /\bgit\s+(?:commit|push)\b/, /"event":\s*"(?:APPROVE|REQUEST_CHANGES)"/, /--add-label/]) expect(TEXT).not.toMatch(verb);
+    for (const verb of [/\bgh\s+pr\s+(?:review|merge)\b/, /\bgit\s+(?:commit|push)\b/, /"event":\s*"(?:APPROVE|REQUEST_CHANGES)"/, /gh\s+pr\s+edit\b(?!\s+<pr>\s+--add-label)/]) expect(TEXT).not.toMatch(verb);
   });
 
   it('asks nothing, on a runner or in a terminal', () => {

@@ -87,7 +87,7 @@ function render(slug: string[]) {
 }
 
 describe('the sidebar', () => {
-  it('lists the twenty-three pages, in order, at /docs and under it', () => {
+  it('lists the twenty-four pages, in order, at /docs and under it', () => {
     expect(items).toEqual([
       { name: 'Getting started', url: '/docs' },
       { name: 'Install', url: '/docs/install' },
@@ -109,6 +109,7 @@ describe('the sidebar', () => {
       { name: 'Knowledge', url: '/docs/knowledge' },
       { name: 'Design craft (opt-in)', url: '/docs/design' },
       { name: 'Validate with e2e (beta)', url: '/docs/validate-e2e' },
+      { name: 'What ready proves', url: '/docs/ready' },
       { name: 'Use cases', url: '/docs/use-cases' },
       { name: 'When something goes wrong', url: '/docs/troubleshooting' },
       { name: 'API', url: '/docs/api' },
@@ -139,6 +140,7 @@ describe('the sidebar', () => {
       '<a href="/docs/knowledge">Knowledge</a>',
       '<a href="/docs/design">Design craft (opt-in)</a>',
       '<a href="/docs/validate-e2e">Validate with e2e (beta)</a>',
+      '<a href="/docs/ready">What ready proves</a>',
       '<a href="/docs/use-cases">Use cases</a>',
       '<a href="/docs/troubleshooting">When something goes wrong</a>',
       '<a href="/docs/api">API</a>',
@@ -149,7 +151,7 @@ describe('the sidebar', () => {
 describe('the pages', () => {
   it('serves Getting started at /docs, and each other page at /docs/<page>', () => {
     expect(guide.generateParams().map((p) => p.slug.join('/')).sort())
-      .toEqual(['', 'any-agent', 'api', 'approvals', 'cloud', 'design', 'drive', 'first-prd', 'flow', 'ideas', 'install', 'invade', 'join', 'knowledge', 'loop', 'missions', 'products', 'roadmaps', 'runners', 'several-repositories', 'troubleshooting', 'use-cases', 'validate-e2e']);
+      .toEqual(['', 'any-agent', 'api', 'approvals', 'cloud', 'design', 'drive', 'first-prd', 'flow', 'ideas', 'install', 'invade', 'join', 'knowledge', 'loop', 'missions', 'products', 'ready', 'roadmaps', 'runners', 'several-repositories', 'troubleshooting', 'use-cases', 'validate-e2e']);
     expect(guide.getPage([])?.data.title).toBe('Getting started');
     expect(guide.getPage(['nope'])).toBeUndefined();
   });
@@ -173,7 +175,8 @@ describe('the pages', () => {
     [['flow'], 'Repository flow', '/docs/design'],
     [['knowledge'], 'Knowledge', '/docs/design'],
     [['design'], 'Design craft (opt-in)', '/docs/validate-e2e'],
-    [['validate-e2e'], 'Validate with e2e (beta)', '/docs/use-cases'],
+    [['validate-e2e'], 'Validate with e2e (beta)', '/docs/ready'],
+    [['ready'], 'What ready proves', '/docs/use-cases'],
     [['use-cases'], 'Use cases', '/docs/troubleshooting'],
     [['troubleshooting'], 'When something goes wrong', '/docs'],
     [['api'], 'API', '/docs'],
@@ -232,9 +235,9 @@ describe('the skills pages (PRD 580)', () => {
   };
   const navLinks = (html: string, label: string) => (new RegExp(`<nav class="docs-nav" aria-label="${label}">[\\s\\S]*?</nav>`).exec(html)?.[0] ?? '').match(/<a [^>]*>[^<]*<\/a>/g);
 
-  it('shows the guide\'s twenty-three pages, then Skills › All skills, on a guide page', () => {
+  it('shows the guide\'s twenty-four pages, then Skills › All skills, on a guide page', () => {
     const html = render(['install']);
-    expect(navLinks(html, 'Guide')).toHaveLength(23);
+    expect(navLinks(html, 'Guide')).toHaveLength(24);
     expect(html).toMatch(/<\/nav><nav class="docs-nav" aria-label="Skills"><p class="docs-nav-head">Skills<\/p><ol><li><a href="\/docs\/skills">All skills<\/a><\/li><\/ol><\/nav>/);
   });
 
@@ -245,7 +248,7 @@ describe('the skills pages (PRD 580)', () => {
     const wave = navLinks(skills('wave'), 'Skills');
     expect(wave?.[0]).toBe('<a href="/docs/skills">All skills</a>');
     expect(wave?.filter((link) => link.includes('aria-current'))).toEqual(['<a href="/docs/skills/wave" aria-current="page">/omni:wave</a>']);
-    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(23);
+    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(24);
   });
 
   it('draws the overview: one section per group, a card per skill linking its page', () => {

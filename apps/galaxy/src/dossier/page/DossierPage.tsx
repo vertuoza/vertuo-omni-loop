@@ -22,6 +22,8 @@ import { OutboxPane } from './OutboxPane';
 import { OutboxPaneProduct } from './OutboxPaneProduct';
 import type { ProductOutboxView } from './outbox-product';
 import { QuestionsPane } from './QuestionsPane';
+import { ReadyPanel } from './ReadyPanel';
+import type { ReadyView } from './ready';
 import { RetroPane } from './RetroPane';
 import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
@@ -91,6 +93,8 @@ type Props = {
   attestation?: AttestationView | null | undefined;
   /** A product PRD's outbox from the server's rows (PRD 2011 s15); null or left out for any other dossier, whose Outbox tab reads GitHub. */
   productOutbox?: ProductOutboxView | null | undefined;
+  /** The latest verdict the Omni App saved for the PRD's feature PR (PRD 2898 s9); null or left out with none, and then no panel. */
+  ready?: ReadyView | null | undefined;
 };
 
 const EMPTY: Record<ArtifactKind, string> = {
@@ -302,7 +306,7 @@ function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
   return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
 }
 
-export function DossierPage({ view, markdown, supabase, live, voice, attestation, productOutbox }: Props) {
+export function DossierPage({ view, markdown, supabase, live, voice, attestation, productOutbox, ready }: Props) {
   const { stage, fix, approval } = view;
   return (
     <div className="dossier">
@@ -371,6 +375,7 @@ export function DossierPage({ view, markdown, supabase, live, voice, attestation
         </nav>
       </PinnedHead>
       <UnderHead approval={approval} attestation={attestation} />
+      <ReadyPanel ready={ready} />
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>

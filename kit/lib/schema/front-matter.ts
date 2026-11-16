@@ -95,6 +95,50 @@ const AreasSchema = z
   })
   .optional();
 
+/**
+ * Why `path` is no path an outbox item may excuse (PRD 2898), or null when it is one: an item excuses
+ * exact paths from the repository root, never a folder (a trailing `/`) and never a pattern, so a
+ * finding is excused only for a file a person was asked about by name. Whether a path names a folder
+ * on disk is `omni item new`'s own check: this one reads the text alone.
+ */
+export function excusePathProblem(path: string): string | null {
+  if (path === '') return 'an empty path';
+  if (/[*?[\]{}!]/.test(path)) return `${path} is a pattern: an item excuses exact paths only`;
+  if (/[\s,]/.test(path)) return `${path} holds a space or a comma: one path per --excuses`;
+  if (path.endsWith('/')) return `${path} is a folder: an item excuses exact paths only`;
+  if (path.startsWith('/') || path.includes('\\') || path.split('/').some((part) => part === '..' || part === '.' || part === '')) {
+    return `${path} is not a path from the repository root`;
+  }
+  return null;
+}
+
+/**
+ * `excuses`'s raw string (PRD 2898) into the exact paths an item excuses: a bracketed list of at
+ * least one, each a path {@link excusePathProblem} passes, none twice.
+ */
+const ExcusesSchema = z
+  .string()
+  .trim()
+  .transform((raw, ctx): string[] => {
+    const match = raw.match(BRACKET_LIST);
+    const paths = match ? (match[1] ?? '').split(',').map((token) => token.trim()).filter(Boolean) : [];
+    if (!match || paths.length === 0) {
+      ctx.addIssue({ code: 'custom', message: 'excuses must be a bracketed list of exact paths, e.g. [kit/lib/init/labels.ts]' });
+      return z.NEVER;
+    }
+    const problems = paths.flatMap((path, index) => {
+      const problem = excusePathProblem(path);
+      if (problem !== null) return [problem];
+      return paths.indexOf(path) === index ? [] : [`${path} is listed twice`];
+    });
+    if (problems.length > 0) {
+      ctx.addIssue({ code: 'custom', message: `excuses: ${problems.join('; ')}` });
+      return z.NEVER;
+    }
+    return paths;
+  })
+  .optional();
+
 /** An inbox spec's front matter: written once, never a status. */
 export const SpecFrontMatterSchema = z
   .object({
@@ -124,6 +168,9 @@ export const OutboxItemFrontMatterSchema = z
     'bears-on': z.string().trim().min(1, 'bears-on is required'),
     raised: z.string().regex(DATE, 'raised must be a YYYY-MM-DD date'),
     wave: z.coerce.number({ message: 'wave must be a number' }).int().positive(),
+    // PRD 2898: the exact paths whose finding of the ready checks 4 and 5 this item excuses, once a
+    // person agreed (or, for check 5, once it was adopted). Left out, the item excuses nothing.
+    excuses: ExcusesSchema,
   })
   .strict();
 

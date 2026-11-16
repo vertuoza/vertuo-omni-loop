@@ -68,8 +68,8 @@ describe('the delayed check (PRD 2688 s6)', () => {
     expect(summary).toEqual({ due: 4, posted: 4, skipped: 0, failed: 0, stopped: false });
   });
 
-  it('never posts on a job of another kind', async () => {
-    const { posts, run } = world([job('knowledge-pack'), job('something-else')]);
+  it('never posts on a job of another kind, the ready check\'s included: it posts nothing where its gate is off (PRD 2898 s7)', async () => {
+    const { posts, run } = world([job('knowledge-pack'), job('something-else'), job('pr-ready')]);
     expect(await run()).toEqual({ due: 0, posted: 0, skipped: 0, failed: 0, stopped: false });
     expect(posts).toEqual([]);
   });
