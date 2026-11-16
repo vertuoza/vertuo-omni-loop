@@ -47,6 +47,12 @@ describe('snapshotsOf', () => {
     expect(await snapshotsOf(db, 'w1', 'Acme/Widgets_2%')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
     expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['ilike', 'summary->>repo', 'Acme/Widgets\\_2\\%']]]);
   });
+
+  it('filters on the indexed lower-case repo column, never on the jsonb summary, so no summary is read to filter (#2952)', async () => {
+    const { calls, db } = recording({ data: [{ dossier_id: 'd1', summary: SUMMARY }], error: null });
+    expect(await snapshotsOf(db, 'w1', 'Acme/Widgets_2%')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
+    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['eq', 'repo', 'acme/widgets_2%']]]);
+  });
 });
 
 describe('conceptOf', () => {
