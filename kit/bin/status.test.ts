@@ -472,7 +472,6 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
     '  inbox      #8  eighth     ready to build: /omni:yolo 8',
     '  inbox      #6  sixth      ready to build: /omni:yolo 6',
     '  PRD        #9  ninth      its phase-0 PR waits for a merge',
-    '  shipped    2: #3 third · #1 first',
   ];
 
   /** `omni status` in `root`, its lines. */
@@ -510,7 +509,6 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
       '  building   #4   fourth     being built',
       '  inbox      #8   eighth     ready to build: /omni:yolo 8',
       '  PRD        #10  tenth      its phase-0 PR waits for a merge',
-      '  shipped    2: #3 third · #2 second',
     ]);
   });
 

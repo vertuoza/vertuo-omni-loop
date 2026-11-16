@@ -172,7 +172,7 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     return all.slice(start + 1, end);
   }
 
-  it('prints each PRD of yours with where it stands, and the shipped list wrapped under the first line', () => {
+  it('prints each PRD of yours with where it stands, and never lists the shipped ones', () => {
     const yours = known({
       rows: [
         row('outbox', 240, 'ask-tabs'),
@@ -197,8 +197,6 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
       '  building   #251  outbox-answers     3 open items wait for an answer',
       '  inbox      #285  home-value         ready to build: /omni:yolo 285',
       '  PRD        #310  cli-help-status    its phase-0 PR waits for a merge',
-      '  shipped    6: #301 yolo-what-is-next · #292 what-is-next · #284 omni-theme',
-      '             #262 release-notes · #261 home · #238 game-app-switch',
       '',
       'omni help: the loop and every command',
     ]);
@@ -228,31 +226,19 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     ]);
   });
 
-  it('prints only the shipped row when every PRD of yours shipped, and no shipped row when none did', () => {
+  it('says nothing in progress when every PRD of yours shipped, and none yet when you have none', () => {
     expect(yoursLines(formatOverview(overview({ yours: known({ shipped: [entry(3, 'third')] }) }), { now: NOW }))).toEqual([
       '  Yours · me@example.com',
-      '  shipped    1: #3 third',
+      '  nothing in progress',
+    ]);
+    expect(yoursLines(formatOverview(overview({ yours: known() }), { now: NOW }))).toEqual([
+      '  Yours · me@example.com',
+      '  none yet',
     ]);
     expect(yoursLines(formatOverview(overview({ yours: known({ rows: [row('inbox', 5, 'fifth')] }) }), { now: NOW }))).toEqual([
       '  Yours · me@example.com',
       '  inbox      #5  fifth    ready to build: /omni:yolo 5',
     ]);
-  });
-
-  it('lists every shipped PRD of yours, each line within 80 columns and none ending on a separator', () => {
-    const shipped = Array.from({ length: 40 }, (_, index) => entry(400 - index, `topic-number-${index}`));
-    const list = yoursLines(formatOverview(overview({ yours: known({ shipped }) }), { now: NOW })).slice(1);
-    expect(list.length).toBeGreaterThan(2);
-    assertDefined(list[0], 'list[0]');
-    expect(list[0].startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
-    for (const line of list.slice(1)) expect(line).toMatch(/^ {13}#\d/);
-    for (const line of list) {
-      expect(line.length).toBeLessThanOrEqual(80);
-      expect(line.endsWith('·')).toBe(false);
-      expect(line.endsWith(' ')).toBe(false);
-    }
-    const listed = list.join(' · ').replace(/^ {2}shipped {4}40: /, '').split(/\s+·\s+/);
-    expect(listed).toEqual(shipped.map(({ prd, topic }) => `#${prd} ${topic}`));
   });
 
   it('cuts with … a topic that would push a row past 80 columns, and keeps the rows aligned', () => {
@@ -265,15 +251,6 @@ describe('formatOverview — yours (PRD 315, slice s3)', () => {
     ]);
     assertDefined(out[2], 'out[2]');
     expect(out[2].length).toBe(80);
-  });
-
-  it('cuts with … a shipped topic too long for a line of its own', () => {
-    const long = 'x'.repeat(100);
-    const out = yoursLines(formatOverview(overview({ yours: known({ shipped: [entry(2, 'two'), entry(1, long)] }) }), { now: NOW }));
-    expect(out.slice(1)).toEqual([
-      '  shipped    2: #2 two',
-      `             #1 ${'x'.repeat(80 - 13 - 3 - 1)}…`,
-    ]);
   });
 
   it('cuts with … an email too long for the heading', () => {
