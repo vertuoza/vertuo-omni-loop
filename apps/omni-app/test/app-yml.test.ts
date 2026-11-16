@@ -14,6 +14,7 @@ import { HANDLED, SUBSCRIBED } from '../src/webhook/webhook.ts';
 // within those permissions, so a webhook says what changed: `issues`, `issue_comment`, `push`,
 // `check_suite` and `pull_request_review`; the permissions stay the same. PRD 2530 adds one permission,
 // `organization_projects: write`, so the App adds a loop pull request to its fleet's GitHub project board;
+// the events stay the same. PRD 2898 adds `deployments: read`, so the ready check finds a commit's preview;
 // the events stay the same.
 // Read as far as these tests need it: every other key kept, for the last test to see.
 const Manifest = z.looseObject({
@@ -40,7 +41,7 @@ describe('app.yml — the GitHub App manifest', () => {
     expect(setup.search).toBe('');
   });
 
-  it('asks for exactly the spec’s permissions: the outbox check’s, widened once for the retro, and the fleet board’s organization projects (PRD 2530)', () => {
+  it('asks for exactly the spec’s permissions: the outbox check’s, widened once for the retro, the fleet board’s organization projects (PRD 2530) and the ready check’s deployments (PRD 2898)', () => {
     expect(manifest.default_permissions).toEqual({
       checks: 'write',
       contents: 'write',
@@ -49,6 +50,7 @@ describe('app.yml — the GitHub App manifest', () => {
       issues: 'write',
       actions: 'read',
       organization_projects: 'write',
+      deployments: 'read',
     });
   });
 

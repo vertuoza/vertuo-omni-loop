@@ -53,6 +53,15 @@ const OpenedApp = z.object({
 /** The App a key holds: its id and slug, and its private key sealed by the secret box (never in the clear here). */
 export type KeyGithubApp = { appId: number; slug: string; ciphertext: string; iv: string };
 
+const PlanProducts = z.array(z.object({ id: z.string(), plan_repository: z.string().nullable() }));
+const ProductLinks = z.array(z.object({ product_id: z.string(), repository: z.string() }));
+const ListedNames = z.array(z.object({ full_name: z.string() }));
+
+/** The repositories a plan repository's job reaches through the workspace's products, lower case, each once and sorted: the other
+ * repositories of the products that name it (`named`) and the repositories of the products whose plan repository it is (`planned`),
+ * as the runners read them at a mint (PRD 2873): a repository the workspace no longer lists is left out. */
+type ProductReach = { named: string[]; planned: string[] };
+
 const ProductRow = z.object({ id: z.string(), key: z.string().nullable(), name: z.string() });
 export type ProductRow = z.infer<typeof ProductRow>;
 
@@ -169,6 +178,22 @@ export function publicApiRepository(db: PublicApiDb) {
         z.array(z.object({ id: z.string() })), 'products.plan_repository',
       );
       return named.length > 0;
+    },
+
+    /** What a job in `repository` (`owner/name`, lower case) reaches through the workspace's live products (PRD 2915): three reads, whatever
+     * the number of products, shaped as the runners' own (`productPlans`) so a send checks what a mint will reach. */
+    async productReach(workspace: string, repository: string): Promise<ProductReach> {
+      const [products, links, listed] = await Promise.all([
+        settled(db.from('products').select('id, plan_repository').eq('workspace_id', workspace).is('archived_at', null), PlanProducts, 'products'),
+        settled(db.from('product_repositories').select('product_id, repository').eq('workspace_id', workspace), ProductLinks, 'product_repositories'),
+        settled(db.from('repositories').select('full_name').eq('workspace_id', workspace).is('removed_at', null), ListedNames, 'repositories'),
+      ]);
+      const kept = new Set(listed.map((row) => row.full_name.toLowerCase()));
+      const reposOf = (id: string) => links.filter((link) => link.product_id === id).map((link) => link.repository.toLowerCase()).filter((name) => kept.has(name));
+      const sorted = (names: string[]) => [...new Set(names)].sort();
+      const named = products.filter((product) => reposOf(product.id).includes(repository));
+      const planned = products.filter((product) => product.plan_repository !== null && kept.has(product.plan_repository.toLowerCase()) && product.plan_repository.toLowerCase() === repository);
+      return { named: sorted(named.flatMap((product) => reposOf(product.id))), planned: sorted(planned.flatMap((product) => reposOf(product.id))) };
     },
 
     /** The GitHub App the key holds, or null when it holds none (PRD 2433). A key with none is told by `key_id`

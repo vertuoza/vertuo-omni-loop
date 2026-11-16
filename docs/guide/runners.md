@@ -112,18 +112,19 @@ A sub-PR claimed by another job, or by no job, is never touched. The next run of
 a released claim over at once: send the line again and it carries on from those branches.
 
 The pull requests a job opens say who sent it: `Sent from the Omni app by @<login> on runner <name>`.
-Every job a runner runs signs as the Omni GitHub App's bot, `<slug>[bot]`, however it was sent: from
-the Omni page, or by an API key. A job never writes as the machine's GitHub login, so that person is
+Every job a runner runs signs as the Omni GitHub App's bot, `<slug>[bot]`, or, for a job of an API key
+that holds a GitHub App, as that App's bot. A job never writes as the machine's GitHub login, so that person is
 not shown as the author of work someone else sent. The Claude account stays the runner's user's.
 
 ### What a job writes as
 
 A job sent by an [API key](/docs/api) opens pull requests that read
 `Sent through the Omni API by API key <name> on runner <name>`, with no login in them. Its identity is
-the Omni App's bot, whatever GitHub App the key may hold ([Run as your own GitHub App](/docs/api#run-as-your-own-github-app)),
-and the job never uses the runner's GitHub account:
+the bot of the key's own GitHub App when the key holds one ([Run as your own GitHub App](/docs/api#run-as-your-own-github-app)),
+and the Omni App's bot when it holds none. A job sent from the Omni page is always the Omni App's. The
+job never uses the runner's GitHub account:
 
-- **Who writes:** the job's git author and committer are the app's bot, `<slug>[bot]`, and so is
+- **Who writes:** the job's git author and committer are that app's bot, `<slug>[bot]`, and so is
   everything it writes on GitHub: the issue, its comments and labels, the branch, the pull request.
 - **Git:** every remote operation goes over HTTPS with the app's token, even in a checkout cloned over
   SSH, so the machine's SSH key is never used.
@@ -143,7 +144,7 @@ and the job never uses the runner's GitHub account:
 
 The Claude account stays the runner's user's, and the machine needs no GitHub sign-in for any job.
 
-**Which runner takes it.** A runner says when it registers whether it can run a job as the Omni App,
+**Which runner takes it.** A runner says when it registers whether it can run a job as a GitHub App,
 and Omni hands a job only to one that can. A runner on an older kit never says so, so it never takes
 a job and never runs one as its own account: the job waits in the queue, as a job with no free runner
 does, and the Runners page says `Update the runner's kit` when only such runners could take it. Update
@@ -180,10 +181,10 @@ same account:
 gh auth login
 ```
 
-Jobs never push branches or open pull requests as this account: every job signs as the Omni App's
-bot ([above](#what-a-job-writes-as)). Sign in anyway if you use `gh` yourself on this machine. Keep
-`GH_TOKEN` and `GITHUB_TOKEN` out of the runner user's shell profile (`~/.zprofile`, `~/.bash_profile`):
-`gh` reads them before any sign-in, and a job's login shell would hand them to it.
+Jobs never push branches or open pull requests as this account: every job signs as a GitHub App's
+bot ([above](#what-a-job-writes-as)). Sign in anyway if you use `gh` yourself on this machine.
+Keep `GH_TOKEN` and `GITHUB_TOKEN` out of the runner user's shell profile (`~/.zprofile`,
+`~/.bash_profile`): `gh` reads them before any sign-in, and a job's login shell would hand them to it.
 
 ### 3. Sign in to Claude
 
@@ -335,8 +336,8 @@ it.
 | a job Failed with an exit code | Claude Code ended in error | press **Terminal** on the job, or read `~/logs/job-<id>.log` on the runner |
 | a job Failed with a reason that says the Omni plugin is older than the omni its repository pins | the plugin on the runner is older than the omni the repository pins, and the update could not bring it up; the end of the reason says why | as the runner's user, run `claude plugin update omni@omni-loop` and read what it says, then **Send again**. Claude was never started, so the job did nothing |
 | a job Failed with a reason that says the Omni plugin is not installed | Claude Code has no Omni plugin for the runner's user | install it as the runner's user, the way the [Install](/docs/install) page shows, then **Send again** |
-| a job Failed with a reason that starts `github app:` | Omni could not give the job its Omni App token, or the runner refused a job that came without one; the rest of the reason says which | read the reason, then follow [Failed with `github app:`](/docs/troubleshooting#a-job-failed-with-github-app) and send the job again. It never runs as the runner's account |
-| a job stays Queued, and the Runners page says `Update the runner's kit` | no runner of the workspace is free that registered as able to run a job as the Omni App: a runner on an older kit never is | update the runners ([Look after it](#4-look-after-it)) and restart them while no job runs |
+| a job Failed with a reason that starts `github app:` | Omni could not give the job its GitHub App token (the Omni App's, or its key's own App's: [the reasons](/docs/api#when-the-app-cannot-make-the-token)), or the runner refused a job that came without one; the rest of the reason says which | read the reason, then follow [Failed with `github app:`](/docs/troubleshooting#a-job-failed-with-github-app) and send the job again. It never runs as the runner's account |
+| a job stays Queued, and the Runners page says `Update the runner's kit` | no runner of the workspace is free that registered as able to run a job as a GitHub App: a runner on an older kit never is | update the runners ([Look after it](#4-look-after-it)) and restart them while no job runs |
 | a job's pull request was opened by the runner's user, though its commits are the app's bot | the runner's kit predates the job's own `gh` sign-in, so a login shell that put the machine's `gh` first ran it as the runner's user; or the runner user's shell profile sets `GH_TOKEN` or `GITHUB_TOKEN` | update the runner ([Look after it](#4-look-after-it)) and restart it while no job runs; remove `GH_TOKEN` and `GITHUB_TOKEN` from the runner user's shell profile |
 | a job's row says **Could not release this job's claims:** and why | the runner could not reach GitHub with `gh`, or `gh` is signed out, or the `omni:released` label is missing | sign `gh` in as the runner's user (`gh auth status`), or create the label. The claims become takeable after 240 quiet minutes anyway |
 | an account's chip reads `T3 not running` | T3 Code is not running on the runner's machine, or the account's instance is unknown to it | start T3 Code (its service), check the instance's name in `accounts.yml`; the job starts on the next account meanwhile |
