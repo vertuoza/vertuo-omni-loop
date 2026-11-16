@@ -62,6 +62,10 @@ New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0
 - **A new returned column lands with its readers.** A migration that adds a column to returned
   rows extends every parse schema reading them in the same change: they refuse unknown keys
   and `pnpm schemas:verify` stays red (retro of PRD 2270, #2295).
+- **A new flow catalog entry lands with its skill call and its count test.** A change that adds an
+  entry to the flow catalog also, in the same commit, makes each listed skill call `omni flow show`
+  at that entry and updates the tests that count or enumerate the catalog, so the catalog, the
+  skills and their guards never disagree (retro of PRD 2578, #2977).
 
 ## Formatting
 <!-- slot: formatting · optional · by: invade -->

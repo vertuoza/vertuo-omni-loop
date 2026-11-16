@@ -912,6 +912,11 @@
           "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/2977",
           "state": "open"
         }
+      },
+      "outcomes": {
+        "failing-test:kit/lib/flow/resolve.test.ts > resolveTerritory > names every point of the catalog, with no hook where none applies": {
+          "became": "playbook/conventions#naming"
+        }
       }
     }
   ]

@@ -27,6 +27,7 @@ The delivery added a proof step to the bug fix flow and reached its goal, but th
 - **Proposed lesson:** A change that adds an entry to the flow catalog also, in the same commit, makes each listed skill call `omni flow show` at that entry and updates the tests that count or enumerate the catalog, so the catalog, the skills and their guards never disagree.
 - **Kept:** Neither the knowledge nor the earlier lessons say that a new flow catalog entry must land together with its skill call and its count test.
 - **Evidence:** [quick on fe6de34 in s4](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/41486803138/job/125419712900), [quick on 0fa1f82 in s4](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/41488511694/job/125425455178)
+- **Became:** `playbook/conventions#naming`
 
 ### F3 · Slice s3 changed files outside its territory — `territory:s3`
 
