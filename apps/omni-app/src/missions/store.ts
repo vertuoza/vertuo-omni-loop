@@ -73,6 +73,7 @@ import {
   type PrdFacts,
   type RecordedEvent,
   type RoadmapRow,
+  type RoomRunner,
   type Run,
   type Step,
 } from './supervisor.ts';
@@ -119,6 +120,8 @@ export type MissionStore = {
   events: (id: string) => Promise<RecordedEvent[]>;
   fleetEvents: (id: string) => Promise<DecisionEvent[]>;
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
+  /** The runners a job of the mission goes to, with their slots in use (PRD 2949): what its room is read from. */
+  room: (mission: MissionRecord, toFleet: boolean) => Promise<RoomRunner[]>;
   /** Whether the mission's repository is the plan repository of a live product of its workspace. */
   planRepository: (mission: MissionRecord) => Promise<boolean>;
   /** The GitHub installation of the mission's workspace; null when it has none. */
@@ -166,12 +169,14 @@ export const OVERTURN = 'prd, at';
 export const FLEET_EVENT = 'kind, prd, sentence, link, actor';
 export const VOID = 'approval_id';
 export const PLAN = 'content';
-export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url';
+export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url, limited_until, parts';
 export const JOB_LOG = 'id, log_tail';
 export const CARE = 'id';
 export const EVENT = 'kind, prd, job_id';
 export const DECISION = 'job_id, outcome, why';
 export const RUNNER = 'repos';
+export const ROOM_RUNNER = 'id, repos, slots, last_seen_at, health';
+export const ROOM_JOB = 'runner_id';
 export const PRODUCT = 'plan_repository';
 
 const text = z.string().min(1);
@@ -211,6 +216,9 @@ export const JobRowSchema = z.object({
   outcome: z.string().nullable(),
   reason: z.string().nullable(),
   pr_url: z.string().nullable(),
+  limited_until: z.string().nullable().default(null),
+  /** The job's parts, read only for whether the runner guessed the reset (PRD 2949). */
+  parts: z.array(z.looseObject({ guessed: z.boolean().optional() })).nullable().default(null),
 });
 export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
 /** An item committee's job (PRD 2896 s10): a job row with its line, which names the PRD and the item. */
@@ -221,11 +229,28 @@ export const EventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullab
 export const DecisionRowSchema = z.object({ job_id: text, outcome: z.enum(['carried', 'escalated']), why: z.array(z.string()) });
 const DecidedSchema = z.object({ outcome: z.enum(['carried', 'escalated']), why: z.array(z.string()) });
 export const RunnerRowSchema = z.object({ repos: z.array(z.string()) });
+export const RoomRunnerRowSchema = z.object({
+  id: text,
+  repos: z.array(z.string()),
+  slots: z.number().int(),
+  last_seen_at: text,
+  health: z.looseObject({ at: text, paused: z.string().nullable().optional(), accounts: z.array(z.looseObject({ state: z.string(), resetsAt: z.string().optional() })).optional() }).nullable(),
+});
+export const RoomJobRowSchema = z.object({ runner_id: z.string().nullable() });
+/** The most resumes one job's chain holds: three tries and six waits, the first job apart (PRD 2949). */
+const CHAIN_MAX = 9;
 export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
 
 type JobRow = z.infer<typeof JobRowSchema>;
 
-const attemptOf = (row: JobRow): Attempt => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
+const attemptOf = (row: JobRow): Attempt => ({
+  id: row.id,
+  status: row.status,
+  outcome: row.outcome,
+  reason: row.reason,
+  prUrl: row.pr_url,
+  ...(row.limited_until === null ? {} : { limitedUntil: row.limited_until, guessed: row.parts?.at(-1)?.guessed === true }),
+});
 
 /** A Reviewer job that ended on its verdict (PRD 2871): its log says what it posted. */
 const isVerdict = (step: Step, attempt: Attempt): boolean => step.startsWith('review:') && attempt.status === 'done' && (attempt.outcome === 'changes' || attempt.outcome === 'ready');
@@ -349,8 +374,8 @@ export function missionStore(connection: Connection): MissionStore {
       const jobs = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).eq('mission_id', id).order('queued_at'));
       const chains = new Map(jobs.map((job) => [job.id, [job]]));
       let frontier = new Map(jobs.map((job) => [job.id, job.id]));
-      // A job is attempted three times at most (runner_jobs.attempt): two rounds of resumes.
-      for (let round = 0; round < 2 && frontier.size > 0; round += 1) {
+      // A chain is three tries and six waits at most (runner_jobs.attempt, runner_jobs.waits, PRD 2949): the whole chain is followed.
+      for (let round = 0; round < CHAIN_MAX && frontier.size > 0; round += 1) {
         const resumes = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).in('resumes', [...frontier.keys()]));
         const next = new Map<string, string>();
         for (const resume of resumes) {
@@ -379,6 +404,20 @@ export function missionStore(connection: Connection): MissionStore {
     async fleetRunners(mission) {
       const runners = rowsOf(RunnerRowSchema, await db.from('runners').select(RUNNER).eq('workspace_id', mission.workspace).eq('fleet', mission.fleet));
       return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
+    },
+
+    async room(mission, toFleet) {
+      const query = db.from('runners').select(ROOM_RUNNER).eq('workspace_id', mission.workspace);
+      const runners = rowsOf(RoomRunnerRowSchema, await (toFleet ? query.eq('fleet', mission.fleet) : query.is('fleet', null)));
+      if (runners.length === 0) return [];
+      const held = rowsOf(RoomJobRowSchema, await db.from('runner_jobs').select(ROOM_JOB).in('runner_id', runners.map((runner) => runner.id)).in('status', ['claimed', 'running']));
+      return runners.map((runner) => ({
+        repos: runner.repos,
+        slots: runner.slots,
+        used: held.filter((job) => job.runner_id === runner.id).length,
+        lastSeenAt: runner.last_seen_at,
+        health: runner.health,
+      }));
     },
 
     async planRepository(mission) {
