@@ -168,8 +168,22 @@ describe('turnover at the wall', () => {
     expect(await f.run()).toBe(1);
     const record = readParts(partsPath(f.files.log));
     expect(record?.reason).toBe(`no tokens left: every account is out until ${RESET}`);
+    expect(record?.limit).toEqual({ resetsAt: RESET, guessed: false });
     expect(record?.parts).toHaveLength(1);
     expect(readFileSync(f.files.log, 'utf8')).toContain(`↻ account claude-1 reached its usage limit: no tokens left: every account is out until ${RESET}`);
+  });
+
+  it('reports the guess as the limit when the agent gave no reset and no account is left (PRD 2949)', async () => {
+    const f = job({ first: 'limit-no-reset', accounts: [direct('claude-1')] });
+    expect(await f.run()).toBe(1);
+    const guessed = new Date(NOW + GUESSED_RESET_MS).toISOString();
+    expect(readParts(partsPath(f.files.log))?.limit).toEqual({ resetsAt: guessed, guessed: true });
+  });
+
+  it('records no limit on a crash', async () => {
+    const f = job({ first: 'crash', accounts: [direct('claude-1')] });
+    expect(await f.run()).toBe(1);
+    expect(readParts(partsPath(f.files.log))?.limit).toBeUndefined();
   });
 
   it(`fails the job on its ${String(MAX_ACCOUNT_CHANGES + 1)}th limit, naming the cap`, async () => {
@@ -179,6 +193,7 @@ describe('turnover at the wall', () => {
     const record = readParts(partsPath(f.files.log));
     expect(record?.parts.map((part) => [part.account, part.ended])).toEqual([['a', 'limit'], ['b', 'limit'], ['c', 'limit'], ['d', 'limit']]);
     expect(record?.reason).toBe(CAP_REASON);
+    expect(record?.limit).toEqual({ resetsAt: RESET, guessed: false });
     expect(CAP_REASON.startsWith('no tokens left: ')).toBe(true);
     expect(f.book.stateOf('e').state).toBe('ready');
   });
@@ -501,6 +516,7 @@ describe('a planned handoff, before the wall (PRD 2537, s8)', () => {
     expect(await f.run()).not.toBe(0);
     const record = readParts(partsPath(f.files.log));
     expect(record?.reason).toBe(`no tokens left: every account is out until ${WARNING_RESET}`);
+    expect(record?.limit).toEqual({ resetsAt: WARNING_RESET, guessed: false });
     expect(record?.parts).toEqual([expect.objectContaining({ account: 'codex-1', ended: 'usage', resetsAt: WARNING_RESET })]);
     expect(existsSync(join(root, 'open.stdin'))).toBe(false);
     expect(existsSync(join(root, 'codex.note-stdin'))).toBe(false);
