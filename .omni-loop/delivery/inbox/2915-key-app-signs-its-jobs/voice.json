@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-16",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "What shipped matches the spec: the key's App mints the token at claim, and a key with no App still runs as the Omni App.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The App's key stays sealed on the server and a key that cannot be opened fails the job with its own why. The install check before the merge is still done by hand.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The tests prove whose App mints the token and whose bot signs, and none of them calls GitHub.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The guide now says a key's App signs its jobs, so I know what to check before I send one.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 4,
+          "reaction": "A refused send names the repository the App is missing on, and every other repository the fix would reach is checked too.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✓"
     }
   ]
 }
