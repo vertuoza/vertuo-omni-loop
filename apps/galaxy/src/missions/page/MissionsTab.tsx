@@ -4,7 +4,7 @@ import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
 import { MissionLevelSchema, type MissionAction } from '../missions.contract';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
-import { ACTION_WORDS, LEVEL_WORDS, LEVELS, WORDS, type MissionsView } from './missions-tab';
+import { ACTION_WORDS, LEVEL_WORDS, LEVELS, WORDS, type FleetPrds, type MissionsView } from './missions-tab';
 import './missions-tab.css';
 
 // The Missions tab of a Virtual Fleet (PRD 2842 s7, the `mission-start` screen): each mission's goal, its
@@ -66,6 +66,20 @@ function WaitList({ waits, titled }: { waits: MissionsView['missions'][number]['
   );
 }
 
+/** What the fleet's PM added to the mission, then each row its cap left unwritten (PRD 2896 s12). */
+function FleetPrdsLine({ fleet }: { fleet: FleetPrds }) {
+  return (
+    <>
+      {fleet.words !== null && <p className="mission-fleet-prds ask-muted">{fleet.words}</p>}
+      {fleet.notWritten.length > 0 && (
+        <ul className="mission-not-written">
+          {fleet.notWritten.map((line) => <li key={line} className="ask-muted">{line}</li>)}
+        </ul>
+      )}
+    </>
+  );
+}
+
 /** The one move a status allows: `Start` is the primary action of a draft. */
 function ActionButton({ action, title, busy, disabled, onMove }: { action: MissionAction; title: string; busy: boolean; disabled: boolean; onMove: (action: MissionAction) => void }) {
   return (
@@ -108,6 +122,7 @@ function MissionItem({ mission, busy, problem, onMove, onLevel }: {
           />
           {mission.branch !== null && <BranchLine branch={mission.branch} />}
           {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
+          {mission.fleetPrds !== null && <FleetPrdsLine fleet={mission.fleetPrds} />}
           <WaitList waits={mission.waits} titled={mission.level === 'alone'} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
           {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}

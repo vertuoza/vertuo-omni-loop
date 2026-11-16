@@ -9,11 +9,25 @@
 // so `/yolo` never means `/omni:yolo`. The same length and the same argument characters.
 
 /** The skills a runner runs: they run without a person typing, and end on their own. `committee` is the fleet's (PRD 2896). The ultra skills (PRD 2873) build a PRD
- * across a product's repositories, sent from its plan repository. */
+ * across a product's repositories, sent from its plan repository. The PM's four writing skills ({@link PM_SKILLS}, PRD 2896) run
+ * only on a job of a mission at `alone`. */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap',
 ]);
+
+/** The PM's writing skills (PRD 2896, spec "7. The PM's own PRDs"): a runner takes them for a mission's PM only, on a job of a
+ * mission at `alone`. Outside one they need a person at the terminal, as before. */
+export const PM_SKILLS: readonly string[] = Object.freeze(['brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
+
+/** The mission a job belongs to, as far as a runner reads it: its level. `null` for a job no mission sent. */
+export type JobMission = { level: string } | null;
+
+/** Why fixed skill `skill` may not run on a job of `mission`, or null when it may: a PM skill runs for a mission at `alone` only. */
+export function missionRefusal(skill: string, mission: JobMission): string | null {
+  if (!PM_SKILLS.includes(skill) || mission?.level === 'alone') return null;
+  return `/omni:${skill} runs on a runner for a mission's PM only`;
+}
 
 /** The skills a lost job of is resumed (PRD 2809): the runnable skills that pick up from what GitHub holds (claims, sub-PRs,
  * merged slices), so a second attempt carries the first on. The Omni app's database holds the same list, which a test of the

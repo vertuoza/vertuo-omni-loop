@@ -99,6 +99,9 @@ export type JobRow = z.infer<typeof JobRow>;
 export type JobRowStatus = JobRow['status'];
 
 const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, version, last_seen_at, health, github_app, registered_at';
+/** A mission's mandate, as far as a runner's job reads it: its level, none for a mission made before PRD 2896. */
+const MissionMandateRow = z.object({ mandate: z.object({ level: z.string().optional() }).loose() });
+
 const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, mission_id, continues, resumes, attempt, resume_after, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
@@ -399,6 +402,12 @@ export function runnersRepository(db: RunnersDb) {
      * repository_runner_skills_of(), supabase/migrations/20261222090000_repository_runner_skills.sql). */
     allowedSkills: async (workspaceId: string, repo: string): Promise<string[]> =>
       parsed(db.rpc('repository_runner_skills_of', { p_workspace: workspaceId, p_full_name: repo }), z.array(z.string()), 'repository_runner_skills_of()'),
+
+    /** The level of mission `id` (PRD 2896 s12), `with-you` for one whose mandate names none; null when there is no such mission. */
+    missionLevel: async (id: string): Promise<string | null> => {
+      const row = await parsed(db.from('missions').select('mandate').eq('id', id).maybeSingle(), MissionMandateRow.nullable(), 'missions');
+      return row === null ? null : row.mandate.level ?? 'with-you';
+    },
 
     /** The oldest queued job the runner may run, claimed for it; null when none, or when the runner registered again since `registeredAt` (runner_claim()). */
     claim: async (runnerId: string, registeredAt: string): Promise<JobRow | null> =>

@@ -54,8 +54,8 @@ describe('missionStore — the mission as the service role, never calling Supaba
 
   it('reads the mission row as the supervisor sees it', async () => {
     const db = recordingFetch([[{ id: ID, workspace_id: 'ws-1', repo: 'acme/widgets', fleet: 'night-shift', number: 12, title: 'Faster quotes', status: 'running', waiting_on: null, mandate: { parallel: 3 }, scope: { prds: [7], roadmaps: [] } }]]);
-    // A brief with no hard-to-revert bound reads its default (PRD 2896 s10).
-    expect(await storeOn(db.fetch).mission(ID)).toEqual({ ...mission, parallel: 3, scope: { prds: [7], roadmaps: [] }, hardToRevert: 0.6 });
+    // A brief with no hard-to-revert bound and no cap on the fleet's own PRDs reads their defaults (PRD 2896 s10, s12).
+    expect(await storeOn(db.fetch).mission(ID)).toEqual({ ...mission, parallel: 3, scope: { prds: [7], roadmaps: [] }, hardToRevert: 0.6, ownPrds: 0 });
     expect(nth(db.requests, 0).query.get('id')).toBe(`eq.${ID}`);
     expect(await storeOn(recordingFetch([[]]).fetch).mission(ID)).toBeNull();
   });

@@ -36,6 +36,9 @@
 //                the database escalates what it reads itself, and a carried approval approves the PRD in the fleet's name
 //   approve      a committee's job queued (`/omni:committee <n> --approve`), sent by the app, to the fleet's runners or else to
 //                any runner of the workspace, under its key: a key already held inserts nothing and answers null
+//   pmJobs       the PM jobs the mission sent (PRD 2896 s12): its jobs keyed `…:pm:<k>`, each with its line; their logs read
+//                through committeeLog, only for the PM's record line
+//   pm           the mission's PM job queued (`/omni:roadmap --mission <n> --cap <k>` or its kin), sent by the app, under its key
 //   record      the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
 //   update       the mission's status, what it waits on and its next wake, only while its status is still the
 //                one this run read: a Pause landing meanwhile is never overwritten
@@ -49,6 +52,8 @@ import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import { approveLine, committeeKey, committeeOfKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } from './answers.ts';
+import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
+import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
 import {
   approvalOf,
   baseOf,
@@ -79,6 +84,8 @@ export type MissionRecord = Mission & {
   scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] };
   /** `mandate.hardToRevert` (PRD 2896 s10): the bound an item's score is read against at `alone`; its default when absent. */
   hardToRevert?: number;
+  /** `mandate.ownPrds` (PRD 2896 s12): how many PRDs the fleet's PM may add at `alone`; 0, none, when absent. */
+  ownPrds?: number;
 };
 
 /** An item's committee to send (PRD 2896 s10): the mission, the PRD, the item, and whether the fleet's runners take it. */
@@ -87,8 +94,14 @@ export type Ask = { mission: MissionRecord; prd: PrdNumber; item: string; toFlee
 /** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
 export type MissionSkill = BuildSkill;
 
-/** A committee to send (PRD 2896 s9): the mission, the PRD, its round, and whether the fleet's runners take it. */
-export type Approve = { mission: MissionRecord; prd: PrdNumber; round: number; toFleet: boolean };
+/**
+ * A committee to send (PRD 2896 s9): the mission, the PRD, its round, whether the fleet's runners take it, and the hero who wrote
+ * the PRD and sits out (PRD 2896 s12: the PM, for a PRD its fleet added), none by default.
+ */
+export type Approve = { mission: MissionRecord; prd: PrdNumber; round: number; toFleet: boolean; author?: CommitteeRole | null };
+
+/** The mission's PM job to send (PRD 2896 s12): the mission, its round, its line, and whether the fleet's runners take it. */
+export type PmSend = { mission: MissionRecord; round: number; line: string; toFleet: boolean };
 
 /** A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill. */
 export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill };
@@ -122,6 +135,10 @@ export type MissionStore = {
   decide: (mission: MissionRecord, one: Committee, recorded: Recorded) => Promise<Decision>;
   /** A committee's job: its id, or null when its key was already held. */
   approve: (job: Approve) => Promise<string | null>;
+  /** The PM jobs the mission sent (PRD 2896 s12): its jobs keyed `…:pm:<k>`, in order. */
+  pmJobs: (id: string) => Promise<PmJob[]>;
+  /** The mission's PM job queued under its key: its id, or null when the key was already held. */
+  pm: (job: PmSend) => Promise<string | null>;
   /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>`, in order. */
   asks: (id: string) => Promise<Omit<ItemCommittee, 'decision'>[]>;
   /** An item's committee queued, with no mission key: its id, or null when one was sent for that item already. */
@@ -172,6 +189,7 @@ export const MissionRowSchema = z.object({
     parallel: z.number().int().min(1).max(4),
     level: z.enum(MISSION_LEVELS).default('with-you'),
     hardToRevert: z.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z.number().int().min(0).max(10).default(0),
   }),
   scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
 });
@@ -301,7 +319,7 @@ export function missionStore(connection: Connection): MissionStore {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds };
     },
 
     async facts(mission) {
@@ -411,7 +429,17 @@ export function missionStore(connection: Connection): MissionStore {
       return DecidedSchema.parse(answer.data);
     },
 
-    approve: ({ mission, prd, round, toFleet }) => queue({ mission, toFleet, line: approveLine(prd), key: committeeKey(mission.id, prd, round) }),
+    approve: ({ mission, prd, round, toFleet, author = null }) => queue({ mission, toFleet, line: approveLine(prd, author), key: committeeKey(mission.id, prd, round) }),
+
+    async pmJobs(id) {
+      const jobs = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).like('mission_key', `mission:${id}:pm:%`).order('queued_at'));
+      return jobs.flatMap((job): PmJob[] => {
+        const round = job.mission_key === null ? null : pmRoundOfKey(job.mission_key);
+        return round === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job) }];
+      });
+    },
+
+    pm: ({ mission, round, line, toFleet }) => queue({ mission, toFleet, line, key: pmKey(mission.id, round) }),
 
     async asks(id) {
       const rows = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).is('mission_key', null).like('line', '/omni:committee % --item %').order('queued_at'));

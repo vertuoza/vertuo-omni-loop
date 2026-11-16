@@ -148,7 +148,8 @@ export type Send = { prd: PrdNumber; run: number; step: Step };
 export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null };
 
 export type EventKind =
-  | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated';
+  | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated'
+  | 'prd-added' | 'not-written';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm';
 
 /** An event to record, signed by its role and `agent`. */

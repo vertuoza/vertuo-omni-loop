@@ -40,6 +40,12 @@ export interface RoleDefaults {
   limits: readonly string[];
 }
 
+/**
+ * What the PM never approves (PRD 2896): it chairs a mission's committee at `alone`, which approves a PRD by its members' `yes`,
+ * but it sits out on a PRD it wrote, and approves nothing outside a mission's committee. It said `It never approves a PRD.` before.
+ */
+const PM_APPROVES = 'It never approves a PRD it wrote, nor one outside a mission\'s committee.';
+
 /** What every hero never does, whatever its role (the mission's mandate). */
 const EVERY_HERO: readonly string[] = ['It never merges into the default branch.', 'It never answers for a person.'];
 
@@ -61,7 +67,7 @@ export const ROLES: readonly RoleDefaults[] = [
   },
   {
     role: 'pm', name: 'PM', skills: ['pitch', 'plan', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'mission'],
-    agent: 'claude', model: 'opus', limits: [...EVERY_HERO, 'It never approves a PRD.'],
+    agent: 'claude', model: 'opus', limits: [...EVERY_HERO, PM_APPROVES],
   },
   {
     role: 'architect', name: 'Architect', skills: ['plan', 'tech-review'],

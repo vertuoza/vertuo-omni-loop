@@ -91,7 +91,8 @@ describe('the count line', () => {
   it('reads `Runs <k> of <n> skills alone` for each role with a skill that runs alone', () => {
     expect(roleLine('engineer')).toEqual({ alone: true, line: 'Runs 10 of 13 skills alone' });
     expect(roleLine('qa').line).toBe('Runs 2 of 3 skills alone');
-    expect(roleLine('pm').line).toBe('Runs 2 of 7 skills alone');
+    expect(roleLine('pm').line).toBe('Runs 6 of 7 skills alone');
+    expect(roleOf('pm').limits).toContain('It never approves a PRD it wrote, nor one outside a mission\'s committee.');
     expect(roleLine('architect').line).toBe('Runs 1 of 2 skills alone');
     expect(roleLine('designer').line).toBe('Runs 1 of 3 skills alone');
     // PRD 2871: the Reviewer runs its review alone; its tech-review still needs a person.
