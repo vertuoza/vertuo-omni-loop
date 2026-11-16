@@ -8,12 +8,19 @@ import { queryEmbedClient } from './embed/client';
 import type { ProductMcpDeps } from './product-mcp.controller';
 import { knowledgeVectorsRepository, productMcpRepository, searchLogRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
+import { accessCache } from './access-cache';
+
+/** The accesses this server keeps, shared by every request it answers. */
+const kept = accessCache();
 
 // A product's MCP server's real dependencies (PRD 2707 s3), for /api/products/<key>/mcp: the rules over the
 // service role's client (SUPABASE_SERVICE_ROLE_KEY, server only), since an API key is no person's session and
 // product_mcp_for_key() is the service role's alone, as api_key_of() is for /api/v1 (public-api.live.ts).
-// A client per request, nothing cached. Without Supabase or the service role key (the demo galaxy) every
-// request answers 503. A failure is one JSON log line (ADR-0102), never the key.
+// A client per request. Without Supabase or the service role key (the demo galaxy) every request answers 503.
+// A failure is one JSON log line (ADR-0102), never the key.
+//
+// One cache for the whole server (bug #2954): a key's served access is kept a minute per key and product, by the
+// key's hash, and checked against the database on every call before it is served (product-mcp.service.ts).
 //
 // The meaning search (PRD 2728 s5) calls the project's `embed` Edge Function with the same service role key,
 // and reads the workspace's vectors on the same client.
@@ -28,7 +35,7 @@ export function productMcpDeps(): ProductMcpDeps {
   }
   const db = serviceDb();
   return {
-    service: productMcpService(productMcpRepository(db)),
+    service: productMcpService(productMcpRepository(db), kept),
     log: (message) => { log.error({ event: 'product-mcp', outcome: 'failed', message }); },
     meaning: { embedder: queryEmbedClient({ url: supabase.url, serviceRoleKey: serviceRole.key }), vectors: knowledgeVectorsRepository(db) },
     searchLog: searchLogRepository(db),

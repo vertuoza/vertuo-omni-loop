@@ -13,6 +13,10 @@
 // the service role's alone, each taking the workspace and reading only its rows (BR-PRODUCT-63). They are
 // asked only once the key check has served the request.
 //
+// A kept access (bug #2954, access-cache.ts) is checked on every call with three small reads instead of the
+// whole answer: api_key_of() for the key's id, the product's row for its switch, and the newest pack of each
+// repository it names (knowledge_packs, through its unique index on the workspace, repository and newest).
+//
 // The search log (PRD omni-loop-6 s1) is one insert into mcp_search_log
 // (supabase/migrations/20270119090000_mcp_search_log.sql), which only the service role may write: a row holds
 // the API key's id, which product_mcp_for_key() answers as `key_id`, never the key.
@@ -54,6 +58,26 @@ export function productMcpRepository(db: ProductMcpDb) {
     /** Whether `hash` names a live API key whose maker is still a member (api_key_of()). */
     keyLive: async (hash: string): Promise<boolean> =>
       (await read(db.rpc('api_key_of', { p_hash: hash }), z.unknown(), 'api_key_of')) !== null,
+
+    /** The id of the live API key whose SHA-256 is `hash` and whose maker is still a member, or null (api_key_of()). */
+    keyIdOf: async (hash: string): Promise<string | null> =>
+      (await read(db.rpc('api_key_of', { p_hash: hash }), z.object({ key_id: z.string() }).nullable(), 'api_key_of'))?.key_id ?? null,
+
+    /** Whether the product `productId` still has its MCP server on and is not archived. */
+    productOpen: async (productId: string): Promise<boolean> =>
+      (await read(db.from('products').select('id').eq('id', productId).eq('mcp_enabled', true).is('archived_at', null),
+        z.array(z.object({ id: z.string() })), 'products')).length > 0,
+
+    /** The id of the newest pack of each of `repos` in the workspace; a repository with none is absent. */
+    async newestPacks(workspace: string, repos: readonly string[]): Promise<Map<string, string>> {
+      if (repos.length === 0) return new Map();
+      const rows = await read(
+        db.from('knowledge_packs').select('repository, id').eq('workspace_id', workspace).eq('newest', true).in('repository', [...repos]),
+        z.array(z.object({ repository: z.string(), id: z.string() })),
+        'knowledge_packs',
+      );
+      return new Map(rows.map((row) => [row.repository, row.id]));
+    },
 
     /** Every file of the pack, in path order, a page at a time. */
     async packFiles(packId: string): Promise<z.infer<typeof FileRow>[]> {
