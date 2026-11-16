@@ -3,7 +3,9 @@
 // `not judged` (its evidence could not be read), each with why:
 //
 // 1. CI green on the latest commit: every check run of that commit finished `success`, the rule's own
-//    check left out. A run that skipped or was cancelled is not green.
+//    check left out. A run that skipped or ended neutral is left out too (a pull request skips jobs on
+//    purpose); one that failed, was cancelled, timed out or needs an action is red. When only skipped or
+//    neutral runs are there, no check that decides has run yet: not finished.
 // 2. The full tests and lint ran: each CI job `ready.full` names succeeded on that commit.
 // 3. Every acceptance criterion has its proof: each `AC-<n>` of the spec has a passing proof of its own
 //    kind in the acceptance report of that commit.
@@ -114,16 +116,21 @@ function listed(items: readonly string[], separator: string): string {
 
 const plural = (count: number, word: string) => `${String(count)} ${word}${count === 1 ? '' : 's'}`;
 
-/** Check 1: every check run of the head commit, the rule's own left out, finished success. */
+/** A conclusion that is left out of check 1: the job did not run, or took no side. */
+const LEFT_OUT = new Set(['skipped', 'neutral']);
+
+/** Check 1: every check run of the head commit, the rule's own and the skipped or neutral ones left out, finished success. */
 function ciCheck(runs: Readable<readonly CheckRun[]>): Outcome {
   if (!runs.ok) return unjudged(runs.why);
   const counted = runs.value.filter((run) => run.name !== READY_CHECK_NAME);
   if (counted.length === 0) return waiting('no check has run on the latest commit yet');
-  const red = counted.filter((run) => run.status === 'completed' && run.conclusion !== 'success');
+  const red = counted.filter((run) => run.status === 'completed' && run.conclusion !== 'success' && !LEFT_OUT.has(run.conclusion ?? ''));
   if (red.length > 0) return fail(`not green: ${red.map((run) => `${run.name} (${run.conclusion ?? 'no conclusion'})`).join(', ')}`);
   const going = counted.filter((run) => run.status !== 'completed');
   if (going.length > 0) return waiting(`still running: ${going.map((run) => run.name).join(', ')}`);
-  return pass(`${plural(counted.length, 'check')} green`);
+  const green = counted.filter((run) => run.conclusion === 'success');
+  if (green.length === 0) return waiting('only skipped or neutral checks have run on the latest commit: no check that decides has run yet');
+  return pass(`${plural(green.length, 'check')} green`);
 }
 
 /** The runs of one CI job: its name, or a leg of its matrix (`test (1)`). */

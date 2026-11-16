@@ -25,8 +25,10 @@ test was loosened, the change stayed in its area. Not merged: only a person merg
 model) decides whether a feature PR may be marked ready. It passes only when all five checks pass
 on the PR's latest commit:
 
-1. **CI green on the latest commit:** every check run of that commit finished `success`. A check
-   that only skipped or was cancelled is not green. `omni / ready` itself is left out.
+1. **CI green on the latest commit:** every check run of that commit finished `success`, except
+   that a skipped or neutral run is left out (a pull request skips jobs on purpose); a run that failed,
+   was cancelled, timed out or needs an action is red. When only skipped or neutral runs are there, the
+   check is not finished. `omni / ready` itself is left out.
 2. **The full tests and lint ran:** the CI jobs `ready.full` names (here `test` and `lint`, never
    `quick`, which runs only the changed files) succeeded on that commit.
 3. **Every acceptance criterion has its proof:** each `AC-n` of the spec has a passing proof on that
