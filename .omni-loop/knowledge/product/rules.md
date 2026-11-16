@@ -898,3 +898,27 @@ Stated: 2026-11-14
 Decided: nobody — adopted when raised (medium), 2026-11-14
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-144
+
+When a fact is missing, the status shows the earlier step: a feature whose build progress was not read is never shown as building or being checked, and a bug fix whose changed files are unknown reads as still being fixed. The visual update's options step asks nothing of the person.
+
+Serves: P-PRODUCT-116
+Source: .omni-loop/delivery/shipped/2906-plain-status/outbox/settled.md, entry s1-02-steps-when-facts-missing, PRD #2906
+Enforced by: kit/lib/now/status/steps.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2908
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-145
+
+The status says GitHub did not answer only when GitHub was asked and gave no answer. Read from this computer alone, it gives the age of the saved copy. With no copy at all, it says the work was not checked yet.
+
+Serves: P-PRODUCT-117
+Source: .omni-loop/delivery/shipped/2906-plain-status/outbox/settled.md, entry s1-03-freshness-without-fetch, PRD #2906
+Enforced by: kit/lib/now/status/render.test.ts, kit/lib/now/status/words.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2908
+Proposed: harvest 2026-11-16

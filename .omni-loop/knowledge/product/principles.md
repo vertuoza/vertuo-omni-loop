@@ -988,3 +988,21 @@ Why: Re-sending failed or cancelled work automatically would spend runs on a gue
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-116
+
+The status never claims progress it cannot see; when a fact is missing, it shows the earlier step.
+
+Why: A person who trusts the status must not be told work moved on, or be asked to act, on a guess.
+Source: .omni-loop/delivery/shipped/2906-plain-status/outbox/settled.md, entry s1-02-steps-when-facts-missing, PRD #2906
+Merged: @pierrederval, 2026-11-16, PR #2908
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-117
+
+The status never reports a failure that did not happen; it says only what it actually checked and how old that is.
+
+Why: A person who is told GitHub failed when it was never asked loses trust in every freshness claim the kit makes.
+Source: .omni-loop/delivery/shipped/2906-plain-status/outbox/settled.md, entry s1-03-freshness-without-fetch, PRD #2906
+Merged: @pierrederval, 2026-11-16, PR #2908
+Proposed: harvest 2026-11-16
