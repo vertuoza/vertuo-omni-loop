@@ -1368,6 +1368,7 @@ export type Database = {
           dossier_id: string
           read_at: string
           refreshing_until: string | null
+          repo: string | null
           stale_since: string | null
           summary: Json
           workspace_id: string
@@ -1376,6 +1377,7 @@ export type Database = {
           dossier_id: string
           read_at?: string
           refreshing_until?: string | null
+          repo?: string | null
           stale_since?: string | null
           summary: Json
           workspace_id: string
@@ -1384,6 +1386,7 @@ export type Database = {
           dossier_id?: string
           read_at?: string
           refreshing_until?: string | null
+          repo?: string | null
           stale_since?: string | null
           summary?: Json
           workspace_id?: string

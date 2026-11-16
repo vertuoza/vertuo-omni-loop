@@ -27,7 +27,7 @@ describe('snapshotsOf', () => {
   it('reads the snapshots of the workspace\'s repository, each summary parsed', async () => {
     const { calls, db } = recording({ data: [{ dossier_id: 'd1', summary: SUMMARY }], error: null });
     expect(await snapshotsOf(db, 'w1', 'acme/widgets')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
-    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['ilike', 'summary->>repo', 'acme/widgets']]]);
+    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['eq', 'repo', 'acme/widgets']]]);
   });
 
   it('leaves out a row whose summary does not parse, and logs it, keeping the others', async () => {
@@ -44,8 +44,8 @@ describe('snapshotsOf', () => {
 
   it('reads only the snapshots of the touched repository, in any case, not the whole workspace (#1854)', async () => {
     const { calls, db } = recording({ data: [{ dossier_id: 'd1', summary: SUMMARY }], error: null });
-    expect(await snapshotsOf(db, 'w1', 'Acme/Widgets_2%')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
-    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['ilike', 'summary->>repo', 'Acme/Widgets\\_2\\%']]]);
+    expect(await snapshotsOf(db, 'w1', 'ACME/WIDGETS')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
+    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['eq', 'repo', 'acme/widgets']]]);
   });
 
   it('filters on the indexed lower-case repo column, never on the jsonb summary, so no summary is read to filter (#2952)', async () => {
