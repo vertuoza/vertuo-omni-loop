@@ -1720,3 +1720,239 @@ B is `deployments: read` in the manifest and in `APP_PERMISSIONS`, its line in `
 ```
 
 <!-- /omni-outbox-settled: s8-04-preview-address-needs-a-grant -->
+
+<!-- omni-outbox-settled: s1-05-config-rule-tests-list-new-defaults -->
+
+## s1-05-config-rule-tests-list-new-defaults — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T05:52:37Z
+- Channel: feature pull request #2902
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2902#issuecomment-6908569428
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-23
+- Raised: 2026-11-15
+- Slice: s1
+- Wave: 1
+- Stays here: an approval of this PRD's lists of defaults in two tests; BR-PRODUCT-23 itself is unchanged
+
+### The answer, as it was given
+
+```text
+A. Let the lists name the new defaults, the rules' own tests unchanged: what was built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-05-config-rule-tests-list-new-defaults
+prd: 2898
+slice: s1
+rank: high
+bears-on: BR-PRODUCT-23
+raised: 2026-11-15
+wave: 1
+---
+
+## The question, in plain words
+
+Two test files that prove rules about the settings file also list every default of some of its sections. The new ready settings add defaults there, so may those lists grow by the new entries, with the rules' own tests left as they are?
+
+## The decision, in plain words
+
+Yes. The lists now name the new defaults, and nothing those files prove about the rules changed: no assertion was removed or weakened.
+
+## The intro, for fun
+
+Adding a chair to the table means counting one more chair.
+
+## The punchline, for fun
+
+The house rules about chairs stay exactly as written.
+
+## The options, in plain words
+
+A. Let the lists name the new defaults, the rules' own tests unchanged: what was built.
+B. Make the new settings optional with no default, so these files stay as they were and the defaults are read in code.
+
+## What I had to decide
+
+`kit/lib/config.test.ts` (the proof of BR-PRODUCT-23) and `kit/lib/schema/config.test.ts` (with it, the proof of BR-PRODUCT-117) hold tests that compare whole defaults with `toEqual`: the top-level key list, the `e2e` section and the `acceptance` section. The spec names `acceptance.kind`, `e2e.ci`, `e2e.repo` and a `ready` section, each printed by `omni config` with its default, so those lists change. Making the keys optional, as PRD 2175 did for `labels.released`, would leave the files untouched but `omni config` would print no default, which s1's done-when asks for.
+
+## What I did meanwhile
+
+Added `'ready'` to the key list, `ci: false, repo: null` to the two `e2e` lists and `kind: 'test'` to the `acceptance` list. The new settings' own tests are in `kit/lib/config-ready.test.ts`. No test of BR-PRODUCT-23 or BR-PRODUCT-117 changed.
+
+## What it costs to change later
+
+Four lines in two test files; going the optional way instead is a reader per key and the same four lines reverted.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the owner of these rules would rather the new keys stay optional, so these files never change
+
+```
+
+<!-- /omni-outbox-settled: s1-05-config-rule-tests-list-new-defaults -->
+
+<!-- omni-outbox-settled: s5-04-e2e-settings-read-the-environment -->
+
+## s5-04-e2e-settings-read-the-environment — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T05:52:37Z
+- Channel: feature pull request #2902
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2902#issuecomment-6908569428
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0057
+- Raised: 2026-11-15
+- Slice: s5
+- Wave: 2
+- Stays here: how this PRD's e2e config reads three settings by name; ADR-0057 is unchanged
+
+### The answer, as it was given
+
+```text
+A. Read the three settings by name from the shared reader: what was built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-e2e-settings-read-the-environment
+prd: 2898
+slice: s5
+rank: high
+bears-on: ADR-0057
+raised: 2026-11-15
+wave: 2
+---
+
+## The question, in plain words
+
+The end-to-end tests need three settings from the machine they run on, and the repository reads such settings in one shared place only. How should the test settings get them?
+
+## The decision, in plain words
+
+They take them from the one shared reader of the machine's settings, by name, without adding a new group of settings to it. The secret is sent only to the address under test.
+
+## The intro, for fun
+
+Three notes on the fridge, and one rule about who may read the fridge.
+
+## The punchline, for fun
+
+The tests asked the one who holds the key to the kitchen.
+
+## The options, in plain words
+
+A. Read the three settings by name from the shared reader: what was built.
+B. Add a named group for the end-to-end settings to the shared reader, and read them through it.
+C. Give the end-to-end tests a reader of their own, listed beside the others in the guard that checks them.
+
+## What I had to decide
+
+`e2e/e2e.config.ts` needs `APP_URL`, the variable `e2e.bypassEnv` names, and `e2e.model`. The environment guard (`scripts/env-guard.test.ts`, ADR-0057) refuses `process.env` outside the env modules, and a new module for the e2e runtime would be a new entry in that guard, a file the access area's locked N-PRODUCT-17 governs. A new group in `kit/lib/env/read.ts` is outside the territory. The e2e framework itself reads no `APP_URL`: its docs say a config reads it.
+
+Decided by: Jev (hardToRevert 0.56) · agent said false
+
+## What I did meanwhile
+
+`e2e/e2e.config.ts` takes `processEnv()` from `kit/lib/env/read.ts` and reads `APP_URL` and the bypass variable from it; the model comes from `.omni-loop/config.yml` through `loadConfig`. No guard changed.
+
+## What it costs to change later
+
+Three lines in `e2e/e2e.config.ts`; a group in `kit/lib/env/read.ts` instead is one `envGroup` and its listing.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the decision record on reading the environment means a program's configuration file may read a variable by name from the shared reader
+
+```
+
+<!-- /omni-outbox-settled: s5-04-e2e-settings-read-the-environment -->
+
+<!-- omni-outbox-settled: s1-06-ci-check-counts-skipped-runs -->
+
+## s1-06-ci-check-counts-skipped-runs — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-11-16T05:52:37Z
+- Channel: feature pull request #2902
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2902#issuecomment-6908569428
+- Basis: contradiction-marker — the answer says "not", which reads as a change to the recorded choice
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: high
+- Bears on: ADR-0006
+- Raised: 2026-11-15
+- Slice: s1
+- Wave: 4
+- Stays here: the rework writes it into the spec's check 1 sentence and the rule's code, where it lives
+
+### The answer, as it was given
+
+```text
+Go with A, which is not built yet: change check 1 so skipped and neutral check runs are left out, and only failure, cancelled, timed_out and action_required are red; check 2 still proves the full suite ran. Update the spec's check 1 sentence to match.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-06-ci-check-counts-skipped-runs
+prd: 2898
+slice: s1
+rank: high
+bears-on: ADR-0006
+raised: 2026-11-15
+wave: 4
+---
+
+## The question, in plain words
+
+Check 1 (CI green) fails as soon as one CI job was skipped, and every pull request here skips some jobs on purpose, so no mission's pull request could ever be marked ready. Should a skipped or neutral job stop counting against check 1?
+
+## The decision, in plain words
+
+Nothing changed yet: check 1 follows the spec word for word, so a skipped job is not green. On the last commit of pull request 2872 it would read not green, naming five skipped jobs and the neutral approval check.
+
+## The options, in plain words
+
+A. A. Skipped and neutral jobs are left out; failed, cancelled and timed-out jobs are red (recommended).
+B. B. Keep the spec as written, and change CI so a labelled draft skips no job.
+C. C. Check 1 counts only the jobs that the full-suite setting names.
+
+## What I had to decide
+
+Whether check 1 counts a skipped or neutral check run as red. Recommended: count only failure, cancelled, timed_out and action_required as red, treat skipped and neutral as not counted, and keep check 2 (each ready.full job succeeded) as the guard that the real suite ran.
+
+## What I did meanwhile
+
+Check 1 stays as the spec reads it, so omni / ready would read not ready on every gated pull request of this repository until it is changed.
+
+## What it costs to change later
+
+One function in kit/lib/ready/checks.ts (ciCheck) and its tests, and the spec's check 1 sentence; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says a run that only skipped or was cancelled is not green, but this repository's CI skips jobs on purpose on every pull request.
+
+```
+
+<!-- /omni-outbox-settled: s1-06-ci-check-counts-skipped-runs -->
