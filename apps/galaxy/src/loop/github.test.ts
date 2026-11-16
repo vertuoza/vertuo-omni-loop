@@ -7,6 +7,7 @@ import { LoopChangeDetailSchema } from 'omni-loop/kit/lib/loop-reads/contract.ts
 import { changeOf, checkRunState, commitStatusState, githubLoopHost, issueOf, MAX_LIST_PAGES, MAX_PAGES, stateOf } from './github';
 import { ChangeDetailSchema, ChangeSchema, ChangesQuerySchema, CommentsQuerySchema, IssueDetailSchema, IssueSchema, IssuesQuerySchema } from './loop.contract';
 import { HostSpent, HostUnreadable } from './loop.service';
+import { loopTiming } from './timing';
 
 vi.mock('server-only', () => ({}));
 
@@ -524,5 +525,37 @@ describe('githubLoopHost: refusals', () => {
       const error: unknown = await host.changes(query(), 200).catch((e: unknown) => e);
       expect(error instanceof Error ? `${error.message} ${error.stack ?? ''}` : String(error)).not.toContain(TOKEN);
     }
+  });
+});
+
+describe('githubLoopHost: where a read\'s time goes (Server-Timing)', () => {
+  /** A step's count, from the header's `<step>;dur=…;desc="<n> calls"`. */
+  const callsOf = (header: string, step: string) => Number(new RegExp(`${step};dur=[\\d.]+;desc="(\\d+) calls"`).exec(header)?.[1]);
+
+  it('counts the token minted, each store round-trip, each GitHub call and each answer read, for its own request only', async () => {
+    const { host } = fakeGithub({ pulls: [pull(1)], etag: true });
+    const first = loopTiming();
+    await host.timed(first).changes(query(), 200);
+    const header = first.header();
+    expect(callsOf(header, 'token')).toBe(1);
+    expect(callsOf(header, 'github')).toBe(1);
+    expect(callsOf(header, 'store')).toBe(3);
+    expect(callsOf(header, 'parse')).toBe(2);
+    expect(header).not.toContain(TOKEN);
+    expect(header).not.toContain('acme');
+
+    const second = loopTiming();
+    await host.timed(second).changes(query(), 200);
+    expect(callsOf(second.header(), 'token')).toBe(0);
+    expect(callsOf(second.header(), 'github')).toBe(1);
+    expect(callsOf(first.header(), 'github')).toBe(1);
+  });
+
+  it('times a token refused as the token step, and throws as before', async () => {
+    const { host } = fakeGithub({ installed: false });
+    const timing = loopTiming();
+    await expect(host.timed(timing).changes(query(), 200)).rejects.toBeInstanceOf(HostUnreadable);
+    expect(callsOf(timing.header(), 'token')).toBe(1);
+    expect(callsOf(timing.header(), 'github')).toBe(0);
   });
 });

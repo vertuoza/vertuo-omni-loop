@@ -7,6 +7,7 @@ import {
   IssuesSchema, RepoSchema,
 } from './loop.contract';
 import { HostSpent, HostUnreadable, type LoopRead, type LoopService } from './loop.service';
+import type { LoopTiming } from './timing';
 
 // The loop's read routes for the kit (PRD 1665, s1 and s2; ADR-0095), as plain functions of a Request,
 // so they are tested with a fake service and each route stays one line:
@@ -23,6 +24,9 @@ import { HostSpent, HostUnreadable, type LoopRead, type LoopService } from './lo
 // checked against the contract before it leaves; each refusal is `{error}` in plain words (ADR-0029,
 // ./loop.contract.ts). The host's token is never in an answer, and a failure is logged by its message
 // only, which never carries it (./github.ts).
+//
+// Every answer, a refusal too, carries a `Server-Timing` header saying where the request's time went,
+// step by step (./timing.ts): durations and counts only.
 
 export type LoopReadsDeps = {
   /** A client acting as the given access token, for the sign-in's check; null when no database is configured. */
@@ -32,6 +36,8 @@ export type LoopReadsDeps = {
   /** The App's install link, put after a 424's words and a refusal's install hint; null: none. */
   installLink: string | null;
   log: (line: string) => void;
+  /** This request's own timing, read into the answer's Server-Timing header. */
+  timing: LoopTiming;
 };
 
 const NO_DATABASE = 'The loop cannot be read here: this deployment has no database.';
@@ -78,13 +84,14 @@ function hostRefusal(error: unknown, repo: string, deps: LoopReadsDeps): Respons
 function answerOf<T>(read: LoopRead<T>, repo: string, schema: z.ZodType<T>, deps: LoopReadsDeps, missing: string): Response {
   if (read.kind === 'outside') return refuse(403, `${repo} is not in your workspace: ${withInstallLink(read.reason, deps.installLink)}`);
   if (read.kind === 'missing') return refuse(404, missing);
-  return reply(200, schema.parse(read.reply));
+  return reply(200, deps.timing.timeSync('parse', () => schema.parse(read.reply)));
 }
 
 /** The caller, checked first; a Response when refused. */
 async function callerOf(request: Request, deps: LoopReadsDeps) {
   if (!deps.connect) return refuse(503, NO_DATABASE);
-  const auth = await authenticate(request.headers.get('authorization'), deps.connect);
+  const connect = deps.connect;
+  const auth = await deps.timing.time('auth', () => authenticate(request.headers.get('authorization'), connect));
   return auth.ok ? auth.caller : refuse(auth.status, auth.error);
 }
 
@@ -121,37 +128,44 @@ async function serveOne<N, T>(request: Request, number: string, deps: LoopReadsD
   return serve({ repo, ...served(caller.id, repo, parsedNumber.data) }, deps);
 }
 
+/** The answer, with where its time went. */
+async function timed(answer: Promise<Response>, deps: LoopReadsDeps): Promise<Response> {
+  const response = await answer;
+  response.headers.set('server-timing', deps.timing.header());
+  return response;
+}
+
 /** GET /api/loop/changes: a repository's changes, filtered. */
 export function readChanges(request: Request, deps: LoopReadsDeps): Promise<Response> {
-  return serveList(request, deps, { schema: ChangesQuerySchema, bad: BAD_QUERY }, (caller, query) => ({
+  return timed(serveList(request, deps, { schema: ChangesQuerySchema, bad: BAD_QUERY }, (caller, query) => ({
     read: (service) => service.changes(caller, query), schema: ChangesSchema, missing: NOT_READ,
-  }));
+  })), deps);
 }
 
 /** GET /api/loop/changes/<n>: one change of a repository, with its review. */
 export function readChange(request: Request, number: string, deps: LoopReadsDeps): Promise<Response> {
-  return serveOne(request, number, deps, { schema: NumberSchema.pipe(PrNumberSchema), bad: BAD_NUMBER }, (caller, repo, n) => ({
+  return timed(serveOne(request, number, deps, { schema: NumberSchema.pipe(PrNumberSchema), bad: BAD_NUMBER }, (caller, repo, n) => ({
     read: (service) => service.change(caller, repo, n), schema: ChangeDetailSchema, missing: `No change ${n} in ${repo}.`,
-  }));
+  })), deps);
 }
 
 /** GET /api/loop/comments: the conversation of one issue or change. */
 export function readComments(request: Request, deps: LoopReadsDeps): Promise<Response> {
-  return serveList(request, deps, { schema: CommentsQuerySchema, bad: BAD_COMMENTS }, (caller, query) => ({
+  return timed(serveList(request, deps, { schema: CommentsQuerySchema, bad: BAD_COMMENTS }, (caller, query) => ({
     read: (service) => service.comments(caller, query), schema: CommentsSchema, missing: `No issue or change ${query.on} in ${query.repo}.`,
-  }));
+  })), deps);
 }
 
 /** GET /api/loop/issues: a repository's issues, filtered. */
 export function readIssues(request: Request, deps: LoopReadsDeps): Promise<Response> {
-  return serveList(request, deps, { schema: IssuesQuerySchema, bad: BAD_ISSUES }, (caller, query) => ({
+  return timed(serveList(request, deps, { schema: IssuesQuerySchema, bad: BAD_ISSUES }, (caller, query) => ({
     read: (service) => service.issues(caller, query), schema: IssuesSchema, missing: NOT_READ,
-  }));
+  })), deps);
 }
 
 /** GET /api/loop/issues/<n>: one issue of a repository, with its comments and what closes it. */
 export function readIssue(request: Request, number: string, deps: LoopReadsDeps): Promise<Response> {
-  return serveOne(request, number, deps, { schema: NumberSchema.pipe(IssueNumberSchema), bad: BAD_ISSUE }, (caller, repo, n) => ({
+  return timed(serveOne(request, number, deps, { schema: NumberSchema.pipe(IssueNumberSchema), bad: BAD_ISSUE }, (caller, repo, n) => ({
     read: (service) => service.issue(caller, repo, n), schema: IssueDetailSchema, missing: `No issue ${n} in ${repo}.`,
-  }));
+  })), deps);
 }
