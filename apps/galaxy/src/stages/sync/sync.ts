@@ -11,8 +11,9 @@
 // still says what was slow. A repository's stale snapshots are refreshed three at a time, and none is started
 // once the run has taken 200 s: those wait for the next run. No repository is started once the run has taken
 // 120 s either: those wait too, and the repositories synced longest ago are read first, so the ones left
-// out go first next time; the workspace whose oldest repository waited longest goes first, so a slow workspace
-// never keeps another's out run after run. A repository that
+// out go first next time (a repository's read is recorded whatever it held, #2963); no workspace's fix and
+// concept facts are started once it has taken 180 s (#2963); the workspace whose oldest repository waited
+// longest goes first, so a slow workspace never keeps another's out run after run. A repository that
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
@@ -194,6 +195,9 @@ const SNAPSHOT_BUDGET_MS = 200_000;
 /** Once a run has taken this long, it starts no repository: a repository read takes up to two minutes, so one
  * started later could run past the route's 300 s (#2529). */
 const REPO_BUDGET_MS = 120_000;
+/** Once a run has taken this long, it starts no workspace's fix and concept facts: they took up to 115 s, so ones
+ * started later ran past the route's 300 s, and the run answered 504 (#2963). They wait for the next run. */
+const FACTS_BUDGET_MS = 180_000;
 
 /** When a repository was last synced, in ms; -Infinity when never. */
 type LastSync = (workspace: SyncWorkspace, repository: string) => number;
@@ -370,6 +374,16 @@ async function recordRepoWaits(
   }
 }
 
+/** Records that the repository was read at `syncedAt`, so the next run reads it after the ones that waited, and
+ * only from then on (#2963). Logs, never throws: unrecorded, the next run reads it from its earlier read. */
+async function recordRead(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string): Promise<void> {
+  try {
+    await deps.store.recordSynced(workspace.id, repository, syncedAt);
+  } catch (error) {
+    deps.log(`stages sync: when ${repository} was read was not recorded — ${why(error)}`);
+  }
+}
+
 /** Reads and records one repository; its counts, or throws with why it was skipped. */
 async function syncRepo(
   deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string, lanes: TargetLanes, overdue: () => boolean,
@@ -380,6 +394,7 @@ async function syncRepo(
   const born = serverBorn ?? [];
   const { stages, topics } = stagesOfRepo(snapshot, syncedAt, born);
   await deps.store.recordStages(stages.map((s) => ({ ...s, workspace_id: workspace.id })), syncedAt);
+  await recordRead(deps, workspace, repository, syncedAt);
   await timed(deps, `the milestones of ${repository}`, () => recordMilestones(deps, workspace, snapshot, born, syncedAt));
   noteTargets(lanes, snapshot, born);
   let learnt = 0;
@@ -462,6 +477,17 @@ async function refreshConcepts(deps: SyncDeps, workspace: SyncWorkspace, syncedA
   }
 }
 
+/** Refreshes the workspace's fix then concept facts, unless the run is `late`: then they wait for the next run,
+ * said in one line, so the run ends before the route's 300 s (#2963). Logs, never throws. */
+async function refreshWorkspaceFacts(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string, late: () => boolean): Promise<void> {
+  if (late()) {
+    if (deps.fixes || deps.concepts) deps.log(`stages sync: the fix and concept facts of ${workspace.slug} wait for the next run`);
+    return;
+  }
+  await timed(deps, `the fix facts of ${workspace.slug}`, () => refreshFixes(deps, workspace, syncedAt));
+  await timed(deps, `the concept facts of ${workspace.slug}`, () => refreshConcepts(deps, workspace, syncedAt));
+}
+
 /** Runs `step`, swallowing what it throws: the run line never changes the run's answer. */
 function quietly(step: () => void): void {
   try {
@@ -516,6 +542,7 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
   const past = (ms: number) => () => sinceStart !== undefined && sinceStart() >= ms;
   const overdue = past(SNAPSHOT_BUDGET_MS);
   const late = past(REPO_BUDGET_MS);
+  const factsLate = past(FACTS_BUDGET_MS);
   let workspaces: SyncWorkspace[];
   try {
     workspaces = await deps.workspaces();
@@ -553,8 +580,7 @@ async function runSync(request: Request, deps: SyncDeps): Promise<SyncRun> {
       else reply.repositories.push(repo);
     }
     await recordTargetLanes(deps, workspace, lanes, syncedAt);
-    await timed(deps, `the fix facts of ${workspace.slug}`, () => refreshFixes(deps, workspace, syncedAt));
-    await timed(deps, `the concept facts of ${workspace.slug}`, () => refreshConcepts(deps, workspace, syncedAt));
+    await refreshWorkspaceFacts(deps, workspace, syncedAt, factsLate);
   }
   return { answer: json(200, reply), repos: reply.repositories.length };
 }

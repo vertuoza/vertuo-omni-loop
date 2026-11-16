@@ -165,5 +165,37 @@ begin
   end if;
 end $$;
 
+-- ── When each repository was last read (#2963): the service role only ──
+set local role service_role;
+do $$
+declare
+  w uuid := (select id from public.workspaces where slug = 'initech');
+begin
+  insert into public.repository_syncs (workspace_id, repository, synced_at) values (w, 'acme/widgets', '2026-11-16T15:00:00Z');
+  insert into public.repository_syncs (workspace_id, repository, synced_at) values (w, 'acme/widgets', '2026-11-16T15:15:00Z')
+  on conflict (workspace_id, repository) do update set synced_at = excluded.synced_at;
+  if (select synced_at from public.repository_syncs where workspace_id = w and repository = 'acme/widgets') <> '2026-11-16T15:15:00Z'::timestamptz
+     or (select count(*) from public.repository_syncs where workspace_id = w) <> 1 then
+    raise exception 'FAIL: a repository''s read was not refreshed in place';
+  end if;
+  begin
+    insert into public.repository_syncs (workspace_id, repository, synced_at) values (w, 'Acme/Gears', now());
+    raise exception 'FAIL: a repository was stored in upper case';
+  exception when check_violation then null; end;
+  begin
+    delete from public.repository_syncs;
+    raise exception 'FAIL: the service role deleted a repository''s read';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+do $$
+begin
+  if has_table_privilege('authenticated', 'public.repository_syncs', 'select, insert, update, delete')
+     or has_table_privilege('anon', 'public.repository_syncs', 'select, insert, update, delete') then
+    raise exception 'FAIL: a browser role may touch when the repositories were read';
+  end if;
+end $$;
+
 select 'prd stages checks passed' as result;
 rollback;

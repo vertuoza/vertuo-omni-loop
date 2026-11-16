@@ -13,6 +13,8 @@ type Stored = StageKey & StageRow;
 export type FakeStageStore = StageStore & {
   stages: Stored[];
   topics: TopicRecord[];
+  /** When each repository was last read, keyed `<workspace> <repository>` (#2963). */
+  syncs: Map<string, string>;
   /** Every write, in order: what a test counts to prove a rerun wrote nothing new. */
   writes: string[];
   fail: string | null;
@@ -24,6 +26,7 @@ export function fakeStageStore(now: () => string = () => new Date().toISOString(
   const fake: FakeStageStore = {
     stages: [],
     topics: [],
+    syncs: new Map(),
     writes: [],
     fail: null,
 
@@ -87,14 +90,17 @@ export function fakeStageStore(now: () => string = () => new Date().toISOString(
       });
     },
 
+    recordSynced(workspace, repository, at) {
+      return settled(() => {
+        check();
+        fake.syncs.set(`${workspace} ${repository.toLowerCase()}`, at);
+      });
+    },
+
     lastSynced(workspace, repository) {
       return settled(() => {
         check();
-        const seen = fake.stages
-          .filter((s) => s.workspace_id === workspace && s.repository === repository.toLowerCase() && s.stage === 'prd')
-          .map((s) => s.synced_at)
-          .sort((a, b) => Date.parse(b) - Date.parse(a));
-        return seen[0] ?? null;
+        return fake.syncs.get(`${workspace} ${repository.toLowerCase()}`) ?? null;
       });
     },
   };
