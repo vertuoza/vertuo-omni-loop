@@ -100,7 +100,7 @@ import { accountBook, accountsStateFile, agentAccountOf, chooseAccount, FALLBACK
 import type { AccountBook, Accounts } from './accounts.ts';
 import { agentNamed } from './agents/index.ts';
 import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
-import { checkRunnerLine } from './line.ts';
+import { checkRunnerLine, missionRefusal } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
 import { bugFixReading, fixIssueOf, fixOutcome, handOffPrd, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
@@ -526,10 +526,12 @@ function worktreeOf(loop: Loop, job: RunnerJob): string {
 }
 
 /** Where `job` runs, or the status it ends on before it runs: a line refused (a repository's own skill
- * the job does not carry included, PRD 2313), a repository not held. */
+ * the job does not carry included, PRD 2313; a PM skill on a job of no mission at `alone`, PRD 2896), a repository not held. */
 function placeOf(loop: Loop, job: RunnerJob): Place | JobUpdate {
   const line = checkRunnerLine(job.line, job.allowedSkills);
   if (!line.ok) return { status: 'failed', reason: `refused: ${line.reason}` };
+  const forMission = line.kind === 'omni' ? missionRefusal(line.skill, job.mission ?? null) : null;
+  if (forMission !== null) return { status: 'failed', reason: `refused: ${forMission}` };
   const checkout = loop.checkouts.get(job.repo);
   if (checkout === undefined) return { status: 'failed', reason: `${job.repo} is not held by this runner` };
   const logs = join(loop.home, 'logs');

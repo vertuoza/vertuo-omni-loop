@@ -32,6 +32,7 @@ import type { CheckpointManifest } from './checkpoint.manifest.ts';
 import { ResumeClaimSchema } from './resume.claim.ts';
 import type { ResumeClaim } from './resume.claim.ts';
 import type { Sample } from './health.ts';
+import type { JobMission } from './line.ts';
 import type { BugFixOutcome, RunOutcome } from './log.ts';
 import type { JobQuestionList } from './questions.ts';
 import type { MachineTokens, TokenCounts } from './tokens.ts';
@@ -94,12 +95,15 @@ const JobSchema = z.object({
   // A resume's attempt, chain and saves (PRD 2809, s5): an older app sends none, and one the runner cannot read is
   // none too, so the job still runs, starting over from what GitHub holds.
   resume: ResumeClaimSchema.nullish().catch(null).transform((value) => value ?? null),
+  // The mission that sent it, by its level (PRD 2896 s12): the PM's skills run on a job of a mission at `alone` only. An older app
+  // sends none, and the job belongs to no mission: a PM skill is refused on it.
+  mission: z.object({ level: z.string() }).nullish().catch(null).transform((value) => value ?? null),
 });
 
 /** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, the
  * repository's own skills it may run, the GitHub App it runs as, the API key that sent it, and, for a resume, its chain
- * (absent or `null` for any other job). */
-export type RunnerJob = Omit<z.output<typeof JobSchema>, 'resume'> & { resume?: ResumeClaim | null | undefined };
+ * (absent or `null` for any other job), and the mission that sent it, by its level (absent or `null` for a job no mission sent). */
+export type RunnerJob = Omit<z.output<typeof JobSchema>, 'resume' | 'mission'> & { resume?: ResumeClaim | null | undefined; mission?: JobMission | undefined };
 
 /** What a job update answers: whether a cancel waits. */
 const UpdatedSchema = z.object({ cancel: z.boolean().optional() }).loose();

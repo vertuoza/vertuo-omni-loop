@@ -2,7 +2,7 @@
 // repository's own skills (PRD 2313): `/<name> <args>`, when the job's allowed skills name it; the app
 // runs the shared table through both checks (apps/galaxy/src/runners/runners.contract.test.ts).
 import { describe, expect, it } from 'vitest';
-import { checkRunnerLine, LINE_MAX, prdOfRunnerLine, RESUMABLE_SKILLS, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
+import { checkRunnerLine, LINE_MAX, missionRefusal, PM_SKILLS, prdOfRunnerLine, RESUMABLE_SKILLS, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
 
 describe('RESUMABLE_SKILLS (PRD 2809)', () => {
   it('names the skills that pick up from what GitHub holds, and no other', () => {
@@ -40,7 +40,7 @@ describe('checkRunnerLine', () => {
   });
 
   it('refuses an unlisted skill, a conversational one and /omni:drive', () => {
-    for (const skill of ['brainstorm', 'think-big', 'drive', 'ask', 'unknown']) {
+    for (const skill of ['think-big', 'drive', 'ask', 'mission', 'unknown']) {
       expect(checkRunnerLine(`/omni:${skill} 1`)).toEqual({ ok: false, reason: `/omni:${skill} does not run on a runner` });
     }
   });
@@ -62,6 +62,26 @@ describe('checkRunnerLine', () => {
     const own = '/validate-prd ';
     expect(checkRunnerLine(own + 'a'.repeat(LINE_MAX - own.length), ['validate-prd'])).toMatchObject({ ok: true });
     expect(checkRunnerLine(own + 'a'.repeat(LINE_MAX + 1 - own.length), ['validate-prd'])).toEqual({ ok: false, reason: `the line is over ${String(LINE_MAX)} characters` });
+  });
+});
+
+describe('the PM\'s four writing skills (PRD 2896 s12)', () => {
+  it('are runnable, and are the PM\'s brainstorm, roadmap, mega-brainstorm and mega-roadmap', () => {
+    expect([...PM_SKILLS]).toEqual(['brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
+    for (const skill of PM_SKILLS) expect(checkRunnerLine(`/omni:${skill} --mission 12 --cap 2`)).toMatchObject({ ok: true, kind: 'omni', skill });
+  });
+
+  it('run on a job of a mission at alone, and are refused on any other job, naming why', () => {
+    for (const skill of PM_SKILLS) {
+      expect(missionRefusal(skill, { level: 'alone' })).toBeNull();
+      for (const mission of [null, { level: 'with-you' }, { level: 'own-branch' }]) {
+        expect(missionRefusal(skill, mission), `${skill} ${JSON.stringify(mission)}`).toBe(`/omni:${skill} runs on a runner for a mission's PM only`);
+      }
+    }
+  });
+
+  it('leave every other skill as it was, on any job', () => {
+    for (const skill of RUNNABLE_SKILLS.filter((one) => !PM_SKILLS.includes(one))) expect(missionRefusal(skill, null), skill).toBeNull();
   });
 });
 

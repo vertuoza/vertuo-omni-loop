@@ -596,7 +596,7 @@ describe("a repository's own skill (PRD 2313, s2)", () => {
    * Runs one job on `line` carrying `allowed`, its worktree holding the skills `present`, its run ending on
    * `exit`: every report the app got, the sessions started, and the git calls made.
    */
-  async function claimed({ line, allowed, present = [], exit = '0\n' }: { line: string; allowed: string[]; present?: string[]; exit?: string }) {
+  async function claimed({ line, allowed, present = [], exit = '0\n', mission = null }: { line: string; allowed: string[]; present?: string[]; exit?: string; mission?: { level: string } | null }) {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-skills-'));
     const worktree = join(home, 'wt', 'widgets-job-7');
     const git: string[][] = [];
@@ -614,7 +614,7 @@ describe("a repository's own skill (PRD 2313, s2)", () => {
     };
     const started: string[] = [];
     const base = holdingApp(7, (n) => {
-      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: allowed });
+      if (n === 2) base.held[0]?.({ id: '7', line, repo: 'acme/widgets', sentBy: null, sentByKey: null, github: GRANT, allowedSkills: allowed, mission });
       if (n === 6) {
         mkdirSync(join(home, 'logs'), { recursive: true });
         writeFileSync(join(home, 'logs', 'job-7.exit'), exit);
@@ -643,6 +643,15 @@ describe("a repository's own skill (PRD 2313, s2)", () => {
     expect(sent).toEqual([{ status: 'failed', reason: 'refused: /validate-prd is not allowed on a runner for this repository' }]);
     expect(started).toEqual([]);
     expect(worktreeAdd(git)).toEqual([]);
+  });
+
+  it('refuses a PM skill on a job of no mission at alone, naming why, before it makes a worktree (PRD 2896 s12)', async () => {
+    for (const mission of [null, { level: 'own-branch' }]) {
+      const { sent, started, git } = await claimed({ line: '/omni:brainstorm --mission 12 --cap 1', allowed: [], mission });
+      expect(sent).toEqual([{ status: 'failed', reason: 'refused: /omni:brainstorm runs on a runner for a mission\'s PM only' }]);
+      expect(started).toEqual([]);
+      expect(worktreeAdd(git)).toEqual([]);
+    }
   });
 
   it('refuses a skill the job carries but the default branch lacks, once the worktree is cut from it, without running it', async () => {
