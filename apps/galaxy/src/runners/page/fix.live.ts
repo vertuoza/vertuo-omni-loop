@@ -5,7 +5,7 @@ import { serviceDb } from '../../data/sign-in-live';
 import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import { serverEnv } from '../../env';
 import { outboxStand } from '../../dossier/page/stage';
-import { snapshotsOf } from '../../touched/store';
+import { snapshotOf } from '../../touched/store';
 import { continuationsRepository, runnersRepository } from '../runners.repository';
 import { continuationsService } from '../runners.service';
 import type { FixDeps } from './fix';
@@ -16,8 +16,8 @@ import type { FixDeps } from './fix';
 
 /** Where a PRD's asked questions stand in its stored GitHub snapshot, as the service role reads it. */
 export const standOf = (db: ReturnType<typeof serviceDb>) => async (workspaceId: string, repo: string, prd: PrdNumber) => {
-  const found = (await snapshotsOf(db, workspaceId, repo)).find((snapshot) => snapshot.summary.prd === prd);
-  return found ? outboxStand(found.summary) : null;
+  const found = await snapshotOf(db, workspaceId, repo, prd);
+  return found ? outboxStand(found) : null;
 };
 
 export function fixDeps(): FixDeps | null {
