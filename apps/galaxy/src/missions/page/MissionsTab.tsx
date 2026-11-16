@@ -66,6 +66,21 @@ function WaitList({ waits, titled }: { waits: MissionsView['missions'][number]['
   );
 }
 
+/** Each PRD that waits out a provider limit or for room (PRD 2949): the line the room shows, the account and its linked job. */
+function LimitWaits({ waits }: { waits: MissionsView['missions'][number]['limitWaits'] }) {
+  if (waits.length === 0) return null;
+  return (
+    <ul className="mission-limit-waits">
+      {waits.map((wait) => (
+        <li key={wait.prd}>
+          PRD {wait.prd}: {wait.headline}.
+          <small className="ask-muted"> {wait.lead}{wait.job === null ? null : <a href={wait.job.href}>{wait.job.label}</a>}{wait.tail}</small>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** What the fleet's PM added to the mission, then each row its cap left unwritten (PRD 2896 s12). */
 function FleetPrdsLine({ fleet }: { fleet: FleetPrds }) {
   return (
@@ -126,6 +141,7 @@ function MissionItem({ mission, busy, problem, onMove, onLevel }: {
           {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
           {mission.fleetPrds !== null && <FleetPrdsLine fleet={mission.fleetPrds} />}
           <WaitList waits={mission.waits} titled={mission.level === 'alone'} />
+          <LimitWaits waits={mission.limitWaits} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
           {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
         </div>

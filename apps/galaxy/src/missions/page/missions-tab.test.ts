@@ -1,8 +1,13 @@
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+import { MissionsTab } from './MissionsTab';
 import { branchOf, fleetPrdsOf, missionOf, onBranchOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
 import { missionsTabService } from './missions-tab.service';
 import { missionsTabRepository, type MissionsTabDb } from './missions-tab.repository';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, refresh: () => undefined }) }));
 
 // The Missions tab's rules (PRD 2842 s7): progress, what each PRD waits on, the one move a status allows,
 // and the service and repository that read them as the signed-in person.
@@ -87,7 +92,7 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
     for (const name of ['select', 'eq', 'is', 'in', 'not', 'or', 'order', 'limit']) self[name] = () => self;
     return self;
   };
-  return { from: (table: string) => chain(table === 'missions' ? missions : table === 'products' ? products : events, failing === table) } as unknown as MissionsTabDb;
+  return { from: (table: string) => chain(table === 'missions' ? missions : table === 'products' ? products : table === 'runner_jobs' ? [] : events, failing === table) } as unknown as MissionsTabDb;
 }
 
 const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waiting_on: 'PRD 2: merge it', scope: { prds: [1, 2], roadmaps: [] }, mandate: { parallel: 2 } };
@@ -200,5 +205,18 @@ describe('the service over the repository', () => {
     await expect(missionsTabService(missionsTabRepository(fakeDb([], [], 'missions'))).view(WORKSPACE, 'f')).rejects.toThrow('could not read the missions');
     await expect(missionsTabService(missionsTabRepository(fakeDb([MISSION_ROW], [], 'mission_events'))).view(WORKSPACE, 'f')).rejects.toThrow('events');
     await expect(missionsTabService(missionsTabRepository(fakeDb([{ id: 'x' }], []))).view(WORKSPACE, 'f')).rejects.toThrow();
+  });
+});
+
+describe("a mission's waits (PRD 2949 s5)", () => {
+  const wait = { mission: ID, prd: parsePrd(2), kind: 'limit' as const, headline: 'Provider limit reached until 09:00 · waiting until 09:00 (guessed)', lead: 'claude-1 ran out · ', job: { href: '/app/runners#job-abc', label: 'job abc' }, tail: ' · tokens spent waiting 0 · next try 09:00', chip: 'Waiting until 09:00' };
+
+  it("says the room's line on the row, and drops the supervisor's shorter words for the same PRD", () => {
+    const mission = missionOf(row({ status: 'running', waitingOn: 'PRD 2: waiting for a provider limit until 09:00 UTC (guessed) · PRD 3: merge it' }), [], [wait]);
+    expect(mission.waits.map((w) => w.prd)).toEqual([3]);
+    expect(mission.limitWaits).toEqual([wait]);
+    const out = renderToStaticMarkup(createElement(MissionsTab, { view: { workspace: null, fleet: 'f', missions: [mission] } }));
+    expect(out).toContain('PRD 2: Provider limit reached until 09:00 · waiting until 09:00 (guessed).');
+    expect(out).toContain('claude-1 ran out · <a href="/app/runners#job-abc">job abc</a> · tokens spent waiting 0 · next try 09:00');
   });
 });

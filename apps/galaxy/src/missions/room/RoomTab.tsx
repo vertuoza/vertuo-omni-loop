@@ -26,6 +26,17 @@ function Mark({ role, color }: { role: EventRole; color: string | null }) {
   return <span className="room-mark" aria-hidden="true" dangerouslySetInnerHTML={{ __html: decorative(heroSvg(role, color, '', 1)) }} />;
 }
 
+/** A hero whose PRD waits (PRD 2949): who, the headline, the account and its linked job, and the state chip. */
+function WaitingNow({ line, wait }: { line: RoomView['now'][number]; wait: NonNullable<RoomView['now'][number]['wait']> }) {
+  return (
+    <span className="room-wait">
+      <span className="room-hero">{line.heading}</span>
+      <span className="room-doing">{wait.headline}.<small>{wait.lead}{wait.job === null ? null : <a href={wait.job.href}>{wait.job.label}</a>}{wait.tail}</small></span>
+      <span className="room-state">{wait.chip}</span>
+    </span>
+  );
+}
+
 export function RoomTab({ view, keep, refresh }: RoomTabProps) {
   const router = useRouter();
   const seen = useRef<Set<string> | null>(null);
@@ -45,7 +56,7 @@ export function RoomTab({ view, keep, refresh }: RoomTabProps) {
         <h2 className="room-title">{ROOM_WORDS.now}</h2>
         <ul className="room-nows">
           {view.now.map((line) => (
-            <li key={line.id} data-state={line.state}>{line.state === 'working' ? line.words : <><span className="room-hero">{line.heading}</span>: {line.words}</>}</li>
+            <li key={line.id} data-state={line.state}>{line.wait !== undefined ? <WaitingNow line={line} wait={line.wait} /> : line.state === 'working' ? line.words : <><span className="room-hero">{line.heading}</span>: {line.words}</>}</li>
           ))}
         </ul>
       </div>
