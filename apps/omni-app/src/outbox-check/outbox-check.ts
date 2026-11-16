@@ -64,6 +64,7 @@ import {
   type GitHubClient,
 } from './github.ts';
 import { deliveryFetched } from './delivery-scope.ts';
+import { withFleetHeld } from './fleet-held.ts';
 import { lawGateAt, withLawGate } from './law-locked.ts';
 import { productOutboxVerdict, type OutboxReading, type ProductOutboxReader } from './product-outbox.ts';
 import { heldAt, type HeldNow } from '../escalation/held.ts';
@@ -251,13 +252,9 @@ async function evaluateAt(
       changes = await changedFiles(octokit, { owner, repo, baseSha: pr.baseSha, headSha });
     }
 
-    const verdict = evaluate({
-      base,
-      head,
-      pr: { baseRef: pr.baseRef, headRef: pr.headRef, headSha, labels: pr.labels },
-      changes,
-      comments,
-    });
+    const facts = { baseRef: pr.baseRef, headRef: pr.headRef, headSha, labels: pr.labels };
+    // An item a fleet answered holds a feature pull request into the default branch (PRD 2896 s10): a person answers it there.
+    const verdict = withFleetHeld(evaluate({ base, head, pr: facts, changes, comments }), { config, head, pr: facts });
     // A change to a locked law (PRD 1726) is cleared by its CODEOWNERS' review alone, whatever `evaluate` said.
     // A pull request `evaluate` skips is still held when it changes a business law (PRD 2632): `checkTarget` gated it for that.
     if (!config || changes === null) return verdict;

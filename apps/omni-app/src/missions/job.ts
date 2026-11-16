@@ -60,9 +60,11 @@ import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { MissionBranches } from './branch.ts';
 import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mission/drop.ts';
-import { recordedOf, sendsCommittees, type Committee } from './committee.ts';
+import { answeredOf, withDecisions, type ItemCommittee, type OpenAt } from './answers.ts';
+import { recordedOf, sendsCommittees, type Committee, type Decision } from './committee.ts';
+import type { MissionAnswers } from './settle.ts';
 import type { MissionDrops, Reopened } from './drop.ts';
-import { checksOf, judge } from './gate.ts';
+import { checksOf, judge, type OpenItems } from './gate.ts';
 import type { MissionJoins } from './join.ts';
 import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
 import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
@@ -83,6 +85,8 @@ import {
   waitsForMerge,
   withLanded,
   withWaits,
+  type AnswersView,
+  type CommitteeView,
   type Concluded,
   type Joined,
   type NewEvent,
@@ -121,6 +125,8 @@ export type MissionDeps = {
   drops?: MissionDrops | null;
   /** The mission pull request, opened and rewritten, and the landings read from it (PRD 2896 s6); null (no GitHub): none is opened or read. */
   landings?: MissionLandings | null;
+  /** A high item the fleet's committee answered, settled on its PRD's feature branch (PRD 2896 s10); null (no GitHub): it goes to a person. */
+  answers?: MissionAnswers | null;
   /** The Omni page's host, which each PRD's page in the mission pull request is linked on. */
   galaxyUrl?: string;
   /** Refreshes a job on the ledger: how a run resets its count of `later`s. */
@@ -133,7 +139,15 @@ export type MissionDeps = {
 type Supervised = { next: Concluded; running: boolean; moved: boolean; sent: number; events: number };
 
 /** What GitHub the run may ask: the branch to cut, keep up and join to, and its mission pull request, as the mission's installation. */
-type GitHubDeps = { branches: MissionBranches | null; joins: MissionJoins | null; keepUps: MissionKeepUps | null; landings: MissionLandings | null; drops: MissionDrops | null; galaxyUrl: string };
+type GitHubDeps = {
+  branches: MissionBranches | null;
+  joins: MissionJoins | null;
+  keepUps: MissionKeepUps | null;
+  landings: MissionLandings | null;
+  drops: MissionDrops | null;
+  answers: MissionAnswers | null;
+  galaxyUrl: string;
+};
 
 /** One run of a running, waiting, paused or stopped mission: check, land, keep up, join, write the mission pull request, pick, send, record, set. */
 async function supervise(store: MissionStore, mission: MissionRecord, now: number, github: GitHubDeps): Promise<Supervised> {
@@ -151,15 +165,18 @@ async function supervise(store: MissionStore, mission: MissionRecord, now: numbe
   const held = holdOf(kept, await redBranch({ mission, at, joined, joins: github.joins }));
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, off, installation: ready.installation, joins: github.joins, hold: held.hold });
   if (kept.hold === null) await missionPull({ at, mission, landing, on: [...branch.joined], facts, runs, github });
-  const view = { alone: mission.level === 'alone', committees: decided };
+  const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
+  const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
   const before = prdStates(facts, runs, branch, view);
-  const sent = unready === null ? await sendAll({ store, mission, facts, states: before, toFleet, skill }) : [];
-  const committees = [...decided, ...(unready === null ? await approveAll(store, mission, facts, before, toFleet) : [])];
+  const { sent, approved, asked } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill }) : NOTHING_SENT;
+  const committees = [...decided, ...approved];
+  const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all, branch, { ...view, committees });
-  const concluded = withWaits(conclude({ mission, facts, states, sent: sent.length + committees.length - decided.length, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
+  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } });
+  const fresh = sent.length + approved.length + asked.length;
+  const concluded = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks });
   await store.record(mission.id, events, new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === 'running'), moved, sent: sent.length, events: events.length };
@@ -240,6 +257,100 @@ async function approveAll(store: MissionStore, mission: MissionRecord, facts: re
     if (state?.state !== 'approvable') continue;
     const job = await store.approve({ mission, prd, round: state.round, toFleet });
     if (job !== null) made.push({ prd, round: state.round, job, attempt: { id: job, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null });
+  }
+  return made;
+}
+
+/** What a run sends: builds and steps, approvals' committees (PRD 2896 s9), items' committees (s10). */
+type SentAll = { sent: Run[]; approved: Committee[]; asked: ItemCommittee[] };
+
+/** Nothing sent: the mission's branch is not ready. */
+const NOTHING_SENT: SentAll = { sent: [], approved: [], asked: [] };
+
+/** Everything this run sends, in order: the builds and steps, then the committees of approvals, then those of items. */
+async function sendEvery(at: { store: MissionStore; mission: MissionRecord; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState>; toFleet: boolean; skill: 'yolo' | 'ultra-yolo' }): Promise<SentAll> {
+  const sent = await sendAll(at);
+  const approved = await approveAll(at.store, at.mission, at.facts, at.states, at.toFleet);
+  const asked = await askAll(at);
+  return { sent, approved, asked };
+}
+
+/** What a run of the item committees works from (PRD 2896 s10). */
+type AnswerRun = {
+  store: MissionStore;
+  mission: MissionRecord;
+  facts: readonly PrdFacts[];
+  runs: readonly Run[];
+  branch: OnBranch;
+  recorded: readonly RecordedEvent[];
+  installation: number | null;
+  now: number;
+  github: GitHubDeps;
+};
+
+/** Whether a job ended: done, failed or cancelled. */
+const ended = ({ status }: { status: string }): boolean => status === 'done' || status === 'failed' || status === 'cancelled';
+
+/**
+ * The item committees of a mission at `alone` (PRD 2896 s10), each that ended decided once (./answers.ts, ./settle.ts), and the
+ * items open at the head of each PRD that waits on answers. Below `alone`, none is read.
+ */
+async function answerAll(run: AnswerRun): Promise<AnswersView> {
+  if (run.mission.level !== 'alone') return { open: new Map(), committees: [] };
+  const committees: ItemCommittee[] = [];
+  for (const one of withDecisions(await run.store.asks(run.mission.id), run.recorded)) {
+    committees.push(one.decision !== null || !ended(one.attempt) ? one : { ...one, decision: await decideAsk(run, one) });
+  }
+  return { open: await openAtHeads(run, committees), committees };
+}
+
+/**
+ * The items open at the head of each PRD that waits on answers, by PRD, read through the merge gate's reads (./join.ts), while the
+ * mission runs or waits with its branch prepared. A PRD whose items were not read is absent: it waits for a person, as below `alone`.
+ */
+async function openAtHeads({ mission, facts, runs, branch, installation, github }: AnswerRun, committees: readonly ItemCommittee[]): Promise<Map<PrdNumber, readonly OpenAt[]>> {
+  const open = new Map<PrdNumber, readonly OpenAt[]>();
+  const joins = github.joins;
+  if (installation === null || joins === null || !sendsCommittees(mission.status)) return open;
+  const first = prdStates(facts, runs, branch, { alone: true, committees: [], answers: { open, committees } });
+  for (const { prd } of facts.filter((fact) => waitsOnAnswers(first.get(fact.prd)))) {
+    const pr = featurePrOf(runs, prd);
+    const listed = pr === null ? undefined : listedOf((await joins.read({ installation, repo: mission.repo, prd, pr })).items);
+    if (listed !== undefined) open.set(prd, listed);
+  }
+  return open;
+}
+
+/** Whether a PRD waits on a person's answers. */
+const waitsOnAnswers = (state: PrdState | undefined): boolean => state?.state === 'waits' && state.on === 'answer';
+
+/** The items a head lists by id; none when they were not read, or were read by ranks alone. */
+const listedOf = (items: OpenItems): readonly OpenAt[] | undefined => ('notRead' in items ? undefined : items.open);
+
+/** An ended item committee's decision: escalated as its log reads, or carried once the App settled the item on the feature branch. */
+async function decideAsk({ store, mission, runs, branch, installation, now, github }: AnswerRun, one: ItemCommittee): Promise<Decision> {
+  const log = one.attempt.status === 'done' ? await store.committeeLog(one.job) : null;
+  const { verdicts, decision } = answeredOf(one.prd, one, log);
+  if (decision.outcome === 'escalated') return decision;
+  const pr = featurePrOf(runs, one.prd);
+  const answers = github.answers;
+  if (pr === null || installation === null || answers === null || branch.branch === null) return { outcome: 'escalated', why: ['the App cannot settle it here: no feature pull request or no GitHub access'] };
+  const answer = { fleet: mission.fleet, option: 'A', branch: branch.branch, at: new Date(now).toISOString(), verdicts };
+  const settled = await answers.settle({ installation, repo: mission.repo, prd: one.prd, pr, item: one.item, answer });
+  return settled.ok ? decision : { outcome: 'escalated', why: [settled.why] };
+}
+
+/** The item committees this run sends (PRD 2896 s10): one per high item of a PRD that waits on its committee, while the mission runs or waits. */
+async function askAll({ store, mission, facts, states, toFleet }: { store: MissionStore; mission: MissionRecord; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState>; toFleet: boolean }): Promise<ItemCommittee[]> {
+  if (!sendsCommittees(mission.status)) return [];
+  const made: ItemCommittee[] = [];
+  for (const { prd } of facts) {
+    const state = states.get(prd);
+    if (state?.state !== 'answering') continue;
+    for (const item of state.send) {
+      const job = await store.ask({ mission, prd, item, toFleet });
+      if (job !== null) made.push({ prd, item, job, attempt: { id: job, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null });
+    }
   }
   return made;
 }
@@ -591,6 +702,7 @@ export function missionHandler({
   keepUps = null,
   landings = null,
   drops = null,
+  answers = null,
   galaxyUrl = DEFAULT_GALAXY_URL,
   now = Date.now,
   log = noteTo('missions'),
@@ -600,7 +712,7 @@ export function missionHandler({
     const mission = await runnable(store, id);
     if (!('id' in mission)) return mission;
     const at = now();
-    const run = await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
+    const run = await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
     log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
     // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
     if (!watched(run) && run.moved) return { outcome: 'done' };

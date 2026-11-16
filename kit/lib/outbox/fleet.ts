@@ -68,11 +68,12 @@ function openItem(ctx: FleetContext, prd: PrdNumber, item: string): { file: stri
  */
 export function settleByFleet({ ctx, prd, item, answer }: { ctx: FleetContext; prd: PrdNumber; item: string; answer: FleetAnswer }):
   | { ok: true; settledFile: string; text: string; entry: string; deletes: string[] }
-  | { ok: false; errors: string[] } {
+  | { ok: false; errors: string[]; gone?: true } {
   const refused = (why: string) => ({ ok: false as const, errors: [`${item}: ${why}`] });
   const outboxDir = ctx.layout.outboxDir(prd);
   const open = outboxDir === null ? null : openItem(ctx, prd, item);
-  if (outboxDir === null || open === null) return refused(`no such open item of PRD ${String(prd)}.`);
+  // `gone`: no item of that id is open, settled already or never raised here.
+  if (outboxDir === null || open === null) return { ...refused(`no such open item of PRD ${String(prd)}.`), gone: true };
   const parsed = parseItem(open.text, open.file);
   if (!parsed.ok) return { ok: false, errors: parsed.errors };
   const { item: read } = parsed;

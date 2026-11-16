@@ -54,7 +54,8 @@ describe('missionStore — the mission as the service role, never calling Supaba
 
   it('reads the mission row as the supervisor sees it', async () => {
     const db = recordingFetch([[{ id: ID, workspace_id: 'ws-1', repo: 'acme/widgets', fleet: 'night-shift', number: 12, title: 'Faster quotes', status: 'running', waiting_on: null, mandate: { parallel: 3 }, scope: { prds: [7], roadmaps: [] } }]]);
-    expect(await storeOn(db.fetch).mission(ID)).toEqual({ ...mission, parallel: 3, scope: { prds: [7], roadmaps: [] } });
+    // A brief with no hard-to-revert bound reads its default (PRD 2896 s10).
+    expect(await storeOn(db.fetch).mission(ID)).toEqual({ ...mission, parallel: 3, scope: { prds: [7], roadmaps: [] }, hardToRevert: 0.6 });
     expect(nth(db.requests, 0).query.get('id')).toBe(`eq.${ID}`);
     expect(await storeOn(recordingFetch([[]]).fetch).mission(ID)).toBeNull();
   });
@@ -201,6 +202,28 @@ describe('missionStore — the mission as the service role, never calling Supaba
     // One already queued since then: nothing is inserted.
     expect(await store.care({ mission, line, since, toFleet: false })).toBeNull();
     expect(db.requests).toHaveLength(3);
+  });
+
+  it('sends an item\'s committee as the app with no mission key, once per item whatever its bound (PRD 2896 s10)', async () => {
+    const db = recordingFetch([[], [{ id: 'j-5' }], [{ id: 'j-5' }]]);
+    const store = storeOn(db.fetch);
+    expect(await store.ask({ mission: { ...mission, hardToRevert: 0.4 }, prd: parsePrd(7), item: 's3-01-keep-the-cap', toFleet: true })).toBe('j-5');
+    const read = nth(db.requests, 0);
+    expect(read.query.get('mission_id')).toBe(`eq.${ID}`);
+    expect(read.query.get('mission_key')).toBe('is.null');
+    expect(read.query.get('line')).toBe('like./omni:committee 7 --item s3-01-keep-the-cap%');
+    expect(nth(db.requests, 1).body).toEqual({ workspace_id: 'ws-1', repo: 'acme/widgets', line: '/omni:committee 7 --item s3-01-keep-the-cap --bound 0.4', sent_by_app: 'omni-app', to_fleet: 'night-shift', mission_id: ID, mission_key: null });
+    expect(await store.ask({ mission, prd: parsePrd(7), item: 's3-01-keep-the-cap', toFleet: false })).toBeNull();
+    expect(db.requests).toHaveLength(3);
+  });
+
+  it('reads the item committees back by their line, leaving out any other job (PRD 2896 s10)', async () => {
+    const row = (id: string, line: string) => ({ id, mission_key: null, resumes: null, status: 'done', outcome: null, reason: null, pr_url: null, line });
+    const db = recordingFetch([[row('j-5', '/omni:committee 7 --item s3-01-keep-the-cap --bound 0.6'), row('j-6', '/omni:committee 7 --item Not An Id')]]);
+    expect(await storeOn(db.fetch).asks(ID)).toEqual([
+      { prd: parsePrd(7), item: 's3-01-keep-the-cap', job: 'j-5', attempt: { id: 'j-5', status: 'done', outcome: null, reason: null, prUrl: null } },
+    ]);
+    expect(nth(db.requests, 0).query.get('line')).toBe('like./omni:committee % --item %');
   });
 
   it('sends the build and the fix on the mission branch above with-you, never the Reviewer (PRD 2896)', async () => {
