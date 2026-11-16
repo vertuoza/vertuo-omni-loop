@@ -58391,6 +58391,34 @@ init_define_OMNI_BUNDLE();
 import { existsSync as existsSync78, readFileSync as readFileSync94 } from "node:fs";
 import { join as join121 } from "node:path";
 
+// kit/lib/loop-reads/once.ts
+init_define_OMNI_BUNDLE();
+function keyOf3(name3, args) {
+  const fields = args.map(
+    (arg) => typeof arg === "object" && arg !== null ? Object.fromEntries(Object.entries(arg).filter(([, value]) => value !== void 0).sort(([a], [b]) => a.localeCompare(b))) : arg
+  );
+  return JSON.stringify([name3, ...fields]);
+}
+function readOnce(reads2) {
+  const kept2 = /* @__PURE__ */ new Map();
+  const once2 = (name3, args, read3) => {
+    const key2 = keyOf3(name3, args);
+    const known2 = kept2.get(key2);
+    if (known2 !== void 0) return known2;
+    const answer = read3();
+    kept2.set(key2, answer);
+    answer.catch(() => kept2.delete(key2));
+    return answer;
+  };
+  return {
+    changes: (query) => once2("changes", [query], () => reads2.changes(query)),
+    change: (repo, number5) => once2("change", [repo, number5], () => reads2.change(repo, number5)),
+    comments: (repo, on2) => once2("comments", [repo, on2], () => reads2.comments(repo, on2)),
+    issues: (query) => once2("issues", [query], () => reads2.issues(query)),
+    issue: (repo, number5) => once2("issue", [repo, number5], () => reads2.issue(repo, number5))
+  };
+}
+
 // kit/lib/roadmap/answers.ts
 init_define_OMNI_BUNDLE();
 var ANSWER_MAX = 1e3;
@@ -59205,12 +59233,35 @@ function replanLine(plan2) {
   return `replanned v${plan2.version}: ${plan2.reason ?? "no reason given"}`;
 }
 
+// kit/lib/side-by-side.ts
+init_define_OMNI_BUNDLE();
+async function sideBySide(items, limit, each) {
+  const results = new Array(items.length);
+  const failures = /* @__PURE__ */ new Map();
+  let next2 = 0;
+  const worker = async () => {
+    while (next2 < items.length && failures.size === 0) {
+      const index2 = next2;
+      next2 += 1;
+      try {
+        results[index2] = await each(items[index2]);
+      } catch (error62) {
+        failures.set(index2, error62);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
+  if (failures.size > 0) throw failures.get(Math.min(...failures.keys()));
+  return results;
+}
+
 // kit/bin/commands/next.ts
 var GH_STATES2 = { open: "OPEN", draft: "OPEN", merged: "MERGED", closed: "CLOSED" };
 function listedOf(change2) {
   const { number: number5, url: url2, state, updatedAt, body, author, labels: labels2 } = change2;
   return { number: number5, url: url2, state: GH_STATES2[state], isDraft: state === "draft", updatedAt, body, author, labels: labels2 };
 }
+var PRDS_AT_ONCE = 4;
 var ASKED_RANKS2 = /* @__PURE__ */ new Set(["human-action", "high"]);
 function git6(args, { ctx, exec }) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -59356,19 +59407,26 @@ function folderOf2(prd2, ctx) {
 }
 async function readFacts2(prd2, reader, gate) {
   const folder = folderOf2(prd2, reader.ctx);
-  const phase02 = await openPhase0(prd2, reader);
-  if (folder === null) return beforeInbox(prd2, phase02, reader);
+  const phase0Read = openPhase0(prd2, reader);
+  if (folder === null) return beforeInbox(prd2, await phase0Read, reader);
   const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
-  const pr = await featurePr2(branch, reader);
+  const prRead = featurePr2(branch, reader);
+  const boardRead = boardFacts(prd2, reader);
+  awaitedLater(prRead, boardRead);
+  const phase02 = await phase0Read;
+  const pr = await prRead;
   const open3 = pr?.state === "OPEN" ? pr : null;
   const feature = pr === null ? null : await featureFacts(pr, reader);
-  const { board: board2, slices, claims } = await boardFacts(prd2, reader);
+  const { board: board2, slices, claims } = await boardRead;
   const across = await acrossFacts(branch, slices, reader);
   const outbox = await outboxFacts(prd2, { branch, pr: open3 }, reader);
   const facts2 = { prd: prd2, shipped: folder.shipped, phase0: phase02, feature, board: board2, outbox, ...across ? { across: across.across } : {}, approval: gate };
   const targets2 = (across?.listed ?? []).map(({ repo, pr: listed4 }) => ({ slug: targetSlug(repo, reader), pr: listed4 }));
   const running = await runningOf2(claims, [...open3 ? [{ slug: reader.slug, pr: open3 }] : [], ...targets2], reader);
   return { facts: facts2, slices, prs: standingsOf(pr, outbox, across, reader), running };
+}
+function awaitedLater(...reads2) {
+  for (const read3 of reads2) read3.catch(() => void 0);
 }
 async function beforeInbox(prd2, phase02, reader) {
   if (phase02 === null) throw usageError(`omni next: PRD ${prd2} has no inbox or shipped folder, and no open phase-0 PR.`);
@@ -59401,8 +59459,7 @@ async function acrossFacts(branch, slices, reader) {
   const repo = shortName9(reader.slug);
   const named5 = new Set(reposOf2(slices));
   const landed = targets2.filter((target3) => named5.has(shortName9(target3.repo)) && shortName9(target3.repo) !== repo);
-  const read3 = [];
-  for (const target3 of landed) read3.push({ repo: shortName9(target3.repo), ...await targetPr(branch, { ...reader, slug: target3.repo }) });
+  const read3 = await sideBySide(landed, PRDS_AT_ONCE, async (target3) => ({ repo: shortName9(target3.repo), ...await targetPr(branch, { ...reader, slug: target3.repo }) }));
   return {
     across: { repo, targets: read3.map(({ repo: name3, pr }) => ({ repo: name3, pr })) },
     listed: read3.flatMap(({ repo: name3, listed: listed4 }) => listed4 ? [{ repo: name3, pr: listed4 }] : [])
@@ -59450,8 +59507,7 @@ async function yourPrds(reader) {
   return yours2.rows.filter((row) => row.stage !== "prd").map((row) => row.prd).sort((a, b) => a - b);
 }
 async function readAll2(prds2, reader, roadmap2 = null) {
-  const read3 = [];
-  for (const prd2 of prds2) read3.push(await readPrd(prd2, reader));
+  const read3 = await sideBySide(prds2, PRDS_AT_ONCE, (prd2) => readPrd(prd2, reader));
   const driven = new Set(prds2);
   const rowBlockers = roadmapBlockers(roadmap2);
   const inputs = read3.map(({ input: input2 }) => {
@@ -59596,8 +59652,7 @@ async function yoursOrRefuse(reader, flag) {
   return prds2;
 }
 async function printVerdicts(named5, { reader, out, json: json4 }) {
-  const verdicts = [];
-  for (const prd2 of named5) verdicts.push((await readPrd(prd2, reader)).verdict);
+  const verdicts = (await sideBySide(named5, PRDS_AT_ONCE, (prd2) => readPrd(prd2, reader))).map(({ verdict: verdict2 }) => verdict2);
   if (json4) out(JSON.stringify({ prds: verdicts }, null, 2));
   else for (const verdict2 of verdicts) out(verdictLine2(verdict2));
   return 0;
@@ -59638,7 +59693,7 @@ var next = {
     if (flags.roadmap !== void 0 && named5.length > 0) throw usageError("omni next: --roadmap <n> drives the roadmap's PRDs; name no PRD beside it.");
     const roadmap2 = flags.roadmap === void 0 ? null : roadmapOf(issueArg("next", "--roadmap", flags.roadmap), ctx);
     const slug = repoSlug("next", ctx, void 0);
-    const loop2 = reads2 ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens: tokens2, home, fetch, callMs });
+    const loop2 = readOnce(reads2 ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens: tokens2, home, fetch, callMs }));
     const reader = { ctx, exec, env, slug, reads: loop2, approval: gateApproval(ctx, { tokens: tokens2, home, fetch, callMs }) };
     const io = { reader, out: (line3) => {
       println(stdout, line3);
