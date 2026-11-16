@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:Paul - Product Manager ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-16",
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:Paul - Product Manager ~",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 3,
+          "reaction": "A ready PR now proves itself in five lines, but e2e still waits on secrets and a label someone must add.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Skipped CI jobs no longer block ready, and a loosened test needs an agreed excuse: green means something.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One rule decides in the kit and in the App, and the verdict table keeps writes to the service role.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Off by default, mission here: the gate can be rolled back with one setting.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The Ready panel names the failing check first, though it shows nothing until the App saves a verdict.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ]
     }
   ]
 }
