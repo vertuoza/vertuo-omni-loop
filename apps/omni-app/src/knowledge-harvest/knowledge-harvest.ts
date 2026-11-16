@@ -32,25 +32,33 @@
 //                          candidates stayed local." (PRD 487), rewritten in place on a replay
 //   failure hook           one comment on the merged PR: "The knowledge harvest could not run: <reason>"
 //
+// A landing (PRD 2896 s6): a mission pull request merged into the default branch carries several PRDs, one squash commit each
+// (./landing.ts). Its one harvest covers every one: step "tip" reads the default branch's tip once, then each PRD, in the order
+// it landed, runs the steps above under `prd-<n>:` (its files read from its own feature pull request), writing on a tree that
+// holds what the PRDs before it wrote, so no id is numbered twice; then one "publish" on `branches.knowledge` filled with
+// `landing-<n>`, one commit and one knowledge PR whose body has a section per PRD. A feature PR merged into a mission branch
+// is never harvested on its own: only its landing is.
+//
 // The files are read at the tip "settle" reads, never at the merge commit: the merge only supplies
 // the provenance. A replay finds the branch, sees its commit, never commits twice, and rewrites the
 // PR's body. Nothing to publish opens no branch and no PR, only the verdict comment: with no
 // promotion, the kit's `finishHarvest` writes no "Stays here" note. Settling and shipping never need
 // the model.
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
-import { classifyCandidate, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest, withoutWorth } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
+import { applyHarvestEdits, classifyCandidate, finishHarvest, keptPaths, lawQuestions, noEdits, prepareHarvest, withoutWorth } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import type { FailureHook, JobHandler, JobResult } from '../jobs/worker.ts';
 import type { OctokitFor } from '../octokit-for.ts';
 import { qualify } from '../retro/qualify.ts';
 import { failureCommentHook, upsertComment } from '../verdict-comment/verdict-comment.ts';
-import type { Classification, LawQuestion } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
+import type { Classification, HarvestEdits, LawQuestion } from 'omni-loop/kit/lib/knowledge/pipeline.ts';
 import type { ChangedFile, LawIssue, LawWorth } from 'omni-loop/kit/lib/knowledge/write.ts';
-import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { IssueNumber, PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { filesIn, openLawIssue, pullFiles, readMerge, type RequestOctokit, takenElsewhere, tipOf, withTreeAt } from './github.ts';
 import type { LawJudge, LawJudgement } from './law-judge.ts';
-import { commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.ts';
+import { qualifyLanding, type LandingPrd } from './landing.ts';
+import { afterEdits, commitMarker, commitMessage, knowledgeBody, knowledgeTitle, landingBody, landingCommitMessage, landingTitle, toCommit } from './render.ts';
 import {
   ClassificationOutSchema,
   CommentedSchema,
@@ -63,6 +71,7 @@ import {
   PublishedSchema,
   QualifiedSchema,
   SettledSchema,
+  TipSchema,
   WrittenSchema,
 } from './schema.ts';
 import { memorySteps, savedStep, type StepRun } from '../saved-step.ts';
@@ -133,12 +142,12 @@ async function judged(judge: LawJudge, question: LawQuestion, asked: { repo: str
 async function lawAnswers(
   step: StepRun,
   judge: LawJudge,
-  { questions, repo, prd }: { questions: () => Promise<LawQuestion[]>; repo: string; prd: PrdNumber },
+  { questions, repo, prd, prefix }: { questions: () => Promise<LawQuestion[]>; repo: string; prd: PrdNumber; prefix: string },
 ): Promise<Record<string, LawWorth | null>> {
   const worth: Record<string, LawWorth | null> = {};
-  for (const question of await savedStep(step, 'law-questions', LawQuestionsSchema, questions)) {
+  for (const question of await savedStep(step, `${prefix}law-questions`, LawQuestionsSchema, questions)) {
     const asked = { repo, ref: `PRD ${prd} ${question.id}` };
-    worth[question.id] = (await savedStep(step, `law-worth:${question.id}`, LawJudgementSchema, () => judged(judge, question, asked))).worth;
+    worth[question.id] = (await savedStep(step, `${prefix}law-worth:${question.id}`, LawJudgementSchema, () => judged(judge, question, asked))).worth;
   }
   return worth;
 }
@@ -150,17 +159,18 @@ async function lawAnswers(
  */
 async function worthAnswered(
   step: StepRun,
-  { judge, laws, classified, questions, repo, prd }: {
+  { judge, laws, classified, questions, repo, prd, prefix }: {
     judge: LawJudge | null;
     laws: boolean;
     classified: readonly Classification[];
     questions: (replies: readonly Classification[]) => Promise<LawQuestion[]>;
     repo: string;
     prd: PrdNumber;
+    prefix: string;
   },
 ): Promise<(Classification & { worth: LawWorth | null })[]> {
   const replies = laws ? classified : withoutWorth(classified);
-  const worth = judge && asksWorth(replies) ? await lawAnswers(step, judge, { questions: () => questions(replies), repo, prd }) : {};
+  const worth = judge && asksWorth(replies) ? await lawAnswers(step, judge, { questions: () => questions(replies), repo, prd, prefix }) : {};
   return replies.map((entry) => ({ ...entry, worth: worth[entry.id] ?? null }));
 }
 
@@ -174,18 +184,19 @@ type Written = z.infer<typeof WrittenSchema>;
  */
 async function writeWithLaws(
   step: StepRun,
-  { write, open }: {
+  { write, open, prefix }: {
     write: (id: string, lawIssues?: Record<string, IssueNumber>) => Promise<Written>;
     open: (issue: LawIssue) => Promise<{ number: IssueNumber; created: boolean }>;
+    prefix: string;
   },
 ): Promise<Written> {
-  const first = await write('write');
+  const first = await write(`${prefix}write`);
   if (first.lawIssues.length === 0) return first;
   const opened: Record<string, IssueNumber> = {};
   for (const issue of first.lawIssues) {
-    opened[issue.id] = (await savedStep(step, `law-issue:${issue.id}`, LawIssueOpenedSchema, () => open(issue))).number;
+    opened[issue.id] = (await savedStep(step, `${prefix}law-issue:${issue.id}`, LawIssueOpenedSchema, () => open(issue))).number;
   }
-  return write('write:laws', opened);
+  return write(`${prefix}write:laws`, opened);
 }
 
 /** What the harvest reads beside GitHub: OpenRouter (`null`: every candidate is not placed), galaxy's law judge (`null`: the classifier's own `worthALaw` counts) and fetch; `now` gives the harvest's day, for `Proposed:`. */
@@ -225,25 +236,85 @@ export async function harvest(
     // A merged pull request always carries its merge time; one without is read as not merged.
     if (!merge.merged || !merge.sha || !merge.at) return { skip: `#${prNumber} was closed, not merged.` };
     const found = await qualify(octokit, { owner, repo, prNumber, mergeSha: merge.sha });
-    if (found.skip !== null) return { skip: found.skip };
-    return {
-      skip: null,
-      config: found.config,
-      prd: { number: found.prd.number, topic: found.prd.topic, title: found.prd.title },
-      merge: { by: merge.by ?? '', at: merge.at, pr: prNumber, ...(merge.url ? { url: merge.url } : {}) },
-    };
+    const provenance = { by: merge.by ?? '', at: merge.at, pr: prNumber, ...(merge.url ? { url: merge.url } : {}) };
+    if (found.skip === null) return { skip: null, config: found.config, prd: { number: found.prd.number, topic: found.prd.topic, title: found.prd.title }, merge: provenance };
+    // No feature PR: a mission pull request may be a landing (PRD 2896 s6), which the harvest covers whole.
+    const landing = await qualifyLanding(octokit, { owner, repo, pr: found.pr ?? null, mergeSha: merge.sha, otherwise: found.skip });
+    return landing.skip === null ? { skip: null, config: landing.config, landing: { branch: landing.branch, prds: landing.prds }, merge: provenance } : landing;
   });
   if (qualified.skip !== null) return { skipped: qualified.skip };
+  const run: HarvestRun = { step, github, owner, repo, prNumber, config: qualified.config, merge: qualified.merge, openrouter, lawJudge, fetch, now };
+  if ('landing' in qualified) return harvestLanding(run, qualified.landing.prds);
   const { config, prd, merge } = qualified;
   const base = config.repo.defaultBranch;
   const branch = config.branches.knowledge.replaceAll('{topic}', prd.topic);
   refuseDefault(branch, base);
 
-  const settled = await savedStep(step, 'settle', SettledSchema, async () => {
+  const { tip, prepared, written } = await harvestPrd(run, { prd, pr: prNumber, branch, fetched: prd.number, prefix: '', prior: null, tip: async () => tipOf(await github(), { owner, repo, branch: base }) });
+
+  const published = await savedStep(step, 'publish', PublishedSchema, async () => {
+    if (noEdits(written.edits)) return null;
+    const body = knowledgeBody({
+      prd,
+      merge,
+      settled: prepared.settled,
+      shipped: prepared.shipped,
+      placed: written.placed,
+      notPlaced: written.notPlaced,
+      checks: written.checks,
+      delivery: config.paths.delivery,
+    });
+    return publishKnowledge(await github(), { run, branch, tip, commit: written.commit, message: commitMessage({ prd, merge }), title: knowledgeTitle(prd), body });
+  });
+
+  const verdict = published ? null : await nothingNew(run, prepared.candidates.length);
+
+  return {
+    prd: prd.number,
+    settled: prepared.settled.length,
+    shipped: prepared.shipped.length > 0,
+    placed: written.placed.length,
+    notPlaced: written.notPlaced.length,
+    published,
+    verdict,
+  };
+}
+
+/** What every step of a harvest reads: its steps, GitHub, the merged pull request, its config and merge, and the model. */
+type HarvestRun = {
+  step: StepRun;
+  github: () => Promise<RequestOctokit>;
+  owner: string;
+  repo: string;
+  prNumber: PrNumber;
+  config: Extract<Qualified, { skip: null }>['config'];
+  merge: Extract<Qualified, { skip: null }>['merge'];
+  openrouter: OpenRouterEnv | null;
+  lawJudge: LawJudge | null;
+  fetch: typeof globalThis.fetch;
+  now: () => string;
+};
+
+/** What a PRD's harvest made: the tip it read, what it prepared there, and the knowledge it wrote. */
+type PrdHarvested = { tip: string; prepared: z.infer<typeof SettledSchema>['prepared']; written: Written };
+
+/**
+ * One PRD's harvest, its steps named under `prefix` (none for a feature PR; `prd-<n>:` for each PRD of a landing): settle at the
+ * tip, classify each candidate, ask whether each is worth a law, then write. `pr` is the pull request whose files it read: the
+ * feature PR's. `prior` is what the PRDs before it in a landing wrote (PRD 2896 s6), applied to the tree it writes on, so no id
+ * it numbers is one they took. `fetched` names the PRDs whose folders the tree holds.
+ */
+async function harvestPrd(
+  run: HarvestRun,
+  { prd, pr, branch, fetched, prefix, prior, tip: tipAt }: { prd: { number: PrdNumber; title: string }; pr: PrNumber; branch: string; fetched: PrdNumber | readonly PrdNumber[]; prefix: string; prior: HarvestEdits | null; tip: () => Promise<string> },
+): Promise<PrdHarvested> {
+  const { step, github, owner, repo, config, merge, openrouter, lawJudge, fetch, now } = run;
+  const base = config.repo.defaultBranch;
+  const settled = await savedStep(step, `${prefix}settle`, SettledSchema, async () => {
     const octokit = await github();
-    const changed = await pullFiles(octokit, { owner, repo, prNumber });
-    const tip = await tipOf(octokit, { owner, repo, branch: base });
-    const prepared = await withTreeAt(octokit, { owner, repo, sha: tip, config, prd: prd.number }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
+    const changed = await pullFiles(octokit, { owner, repo, prNumber: pr });
+    const tip = await tipAt();
+    const prepared = await withTreeAt(octokit, { owner, repo, sha: tip, config, prd: fetched }, (ctx) => prepareHarvest({ ctx, prd: prd.number, merge, changed }));
     if (!prepared.ok) {
       throw new Error(`PRD ${prd.number} cannot be harvested at ${base}: ${prepared.errors.join('; ')}`);
     }
@@ -254,7 +325,7 @@ export async function harvest(
   const classified: Classification[] = [];
   for (const candidate of prepared.candidates) {
     classified.push(
-      await savedStep(step, `classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter, fetch })),
+      await savedStep(step, `${prefix}classify:${candidate.id}`, ClassificationOutSchema, () => classifyCandidate({ candidate, summary: prepared.summary, changed: prepared.changed, openrouter, fetch })),
     );
   }
 
@@ -266,86 +337,97 @@ export async function harvest(
     laws: config.laws.source === 'knowledge',
     classified,
     questions: async (replies) =>
-      withTreeAt(await github(), { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
+      withTreeAt(await github(), { owner, repo, sha: tip, config, also, prd: fetched }, (ctx) => lawQuestions({ ctx, prepared, classified: replies, prdTitle: prd.title })),
     repo: `${owner}/${repo}`,
     prd: prd.number,
+    prefix,
   });
 
   const written = await writeWithLaws(step, {
+    prefix,
     write: (id, lawIssues) =>
       savedStep(step, id, WrittenSchema, async () => {
         const octokit = await github();
         const taken = await takenElsewhere(octokit, { owner, repo, config, own: branch });
-        return withTreeAt(octokit, { owner, repo, sha: tip, config, also, prd: prd.number }, (ctx, root) => {
+        return withTreeAt(octokit, { owner, repo, sha: tip, config, also, prd: fetched }, (ctx, root) => {
+          const before = filesIn(root);
+          if (prior !== null) applyHarvestEdits({ root, edits: prior });
           const result = finishHarvest({ ctx, prepared, classified: answered, merge, taken, date: now(), lawIssues });
-          return { ...result, commit: toCommit(result.edits, filesIn(root)), taken: taken.branches };
+          return { ...result, commit: toCommit(result.edits, before), taken: taken.branches };
         });
       }),
     open: async (issue) => openLawIssue(await github(), { owner, repo, label: config.labels.law, issue }),
   });
+  return { tip, prepared, written };
+}
 
+/**
+ * The knowledge PR from `branch`, cut from `tip`: one commit carrying `commit`, unless the branch's head is already the harvest of
+ * this merge (a replay), then the open PR rewritten or a new one opened, labelled `labels.knowledge` while open.
+ */
+async function publishKnowledge(
+  octokit: RequestOctokit,
+  { run, branch, tip, commit: files, message, title, body }: { run: HarvestRun; branch: string; tip: string; commit: Written['commit']; message: string; title: string; body: string },
+): Promise<z.infer<typeof PublishedSchema>> {
+  const { owner, repo, config, merge } = run;
+  const base = config.repo.defaultBranch;
+  const head = await branchHead(octokit, { owner, repo, branch, from: tip, defaultBranch: base });
+  const { data: headCommit } = await octokit.request('GET /repos/{owner}/{repo}/git/commits/{commit_sha}', { owner, repo, commit_sha: head });
+  const { message: headMessage } = parsedOr(CommitSchema, headCommit, `GitHub answered the commit ${head} unexpectedly`);
+  const already = head !== tip && (headMessage ?? '').includes(commitMarker(merge.pr));
+  const commit = already ? head : await addCommit(octokit, { owner, repo, branch, parent: head, defaultBranch: base, message, ...files });
+  const pull = await upsertPull(octokit, { owner, repo, branch, base, head: commit, title, body });
+  if (pull.open) {
+    await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/labels', { owner, repo, issue_number: pull.number, labels: [config.labels.knowledge] });
+  }
+  return { branch, commit, committed: !already, pr: { number: pull.number, url: pull.url, created: pull.created } };
+}
+
+/** The "nothing new" comment on the merged pull request, rewritten in place on a replay: `count` candidates stayed local. */
+const nothingNew = async (run: HarvestRun, count: number) =>
+  savedStep(run.step, 'verdict', CommentedSchema, async () =>
+    upsertComment(await run.github(), { owner: run.owner, repo: run.repo, prNumber: run.prNumber, marker: verdictMarker(run.config.markers.prefix), text: nothingNewText(count) }),
+  );
+
+/**
+ * The harvest of a landing (PRD 2896 s6, criterion 10): the mission pull request merged into the default branch, once, covering
+ * every PRD it landed. Each PRD is harvested in the order it landed, at the one tip read first, its steps under `prd-<n>:`, on a
+ * tree holding what the PRDs before it wrote, so every new id is numbered once; then one commit on `branches.knowledge` filled
+ * with `landing-<n>` and one knowledge PR. Nothing to publish leaves the "nothing new" comment on the mission pull request.
+ */
+async function harvestLanding(run: HarvestRun, prds: readonly LandingPrd[]) {
+  const { step, github, owner, repo, config, merge, prNumber } = run;
+  const base = config.repo.defaultBranch;
+  const branch = config.branches.knowledge.replaceAll('{topic}', `landing-${String(prNumber)}`);
+  refuseDefault(branch, base);
+  const numbers = prds.map(({ number }) => number);
+  const tip = await savedStep(step, 'tip', TipSchema, async () => tipOf(await github(), { owner, repo, branch: base }));
+  let edits: HarvestEdits | null = null;
+  const parts: (PrdHarvested & { prd: LandingPrd })[] = [];
+  for (const prd of prds) {
+    const done = await harvestPrd(run, { prd, pr: prd.pr, branch, fetched: numbers, prefix: `prd-${String(prd.number)}:`, prior: edits, tip: () => Promise.resolve(tip) });
+    parts.push({ ...done, prd });
+    edits = afterEdits(edits, done.written.edits);
+  }
+  const all = edits;
   const published = await savedStep(step, 'publish', PublishedSchema, async () => {
-    if (noEdits(written.edits)) return null;
+    if (all === null || noEdits(all)) return null;
     const octokit = await github();
-    const head = await branchHead(octokit, { owner, repo, branch, from: tip, defaultBranch: base });
-    const { data: headCommit } = await octokit.request('GET /repos/{owner}/{repo}/git/commits/{commit_sha}', {
-      owner,
-      repo,
-      commit_sha: head,
-    });
-    const { message } = parsedOr(CommitSchema, headCommit, `GitHub answered the commit ${head} unexpectedly`);
-    const already = head !== tip && (message ?? '').includes(commitMarker(merge.pr));
-    const commit = already
-      ? head
-      : await addCommit(octokit, {
-          owner,
-          repo,
-          branch,
-          parent: head,
-          defaultBranch: base,
-          message: commitMessage({ prd, merge }),
-          ...written.commit,
-        });
-    const body = knowledgeBody({
+    const before = await withTreeAt(octokit, { owner, repo, sha: tip, config, prd: numbers }, (_ctx, root) => filesIn(root));
+    const sections = parts.map(({ prd, prepared, written }) => ({
       prd,
-      merge,
-      settled: prepared.settled,
-      shipped: prepared.shipped,
-      placed: written.placed,
-      notPlaced: written.notPlaced,
-      checks: written.checks,
-      delivery: config.paths.delivery,
-    });
-    const pull = await upsertPull(octokit, { owner, repo, branch, base, head: commit, title: knowledgeTitle(prd), body });
-    if (pull.open) {
-      await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/labels', {
-        owner,
-        repo,
-        issue_number: pull.number,
-        labels: [config.labels.knowledge],
-      });
-    }
-    return { branch, commit, committed: !already, pr: { number: pull.number, url: pull.url, created: pull.created } };
+      body: knowledgeBody({ prd, merge, settled: prepared.settled, shipped: prepared.shipped, placed: written.placed, notPlaced: written.notPlaced, checks: written.checks, delivery: config.paths.delivery }),
+    }));
+    return publishKnowledge(octokit, { run, branch, tip, commit: toCommit(all, before), message: landingCommitMessage({ merge, prds }), title: landingTitle({ merge, prds }), body: landingBody({ merge, parts: sections }) });
   });
-
-  const verdict = published
-    ? null
-    : await savedStep(step, 'verdict', CommentedSchema, async () =>
-        upsertComment(await github(), {
-          owner,
-          repo,
-          prNumber,
-          marker: verdictMarker(config.markers.prefix),
-          text: nothingNewText(prepared.candidates.length),
-        }),
-      );
-
+  const sum = (count: (part: PrdHarvested) => number): number => parts.reduce((total, part) => total + count(part), 0);
+  const verdict = published ? null : await nothingNew(run, sum(({ prepared }) => prepared.candidates.length));
   return {
-    prd: prd.number,
-    settled: prepared.settled.length,
-    shipped: prepared.shipped.length > 0,
-    placed: written.placed.length,
-    notPlaced: written.notPlaced.length,
+    prds: numbers,
+    settled: sum(({ prepared }) => prepared.settled.length),
+    shipped: parts.some(({ prepared }) => prepared.shipped.length > 0),
+    placed: sum(({ written }) => written.placed.length),
+    notPlaced: sum(({ written }) => written.notPlaced.length),
     published,
     verdict,
   };

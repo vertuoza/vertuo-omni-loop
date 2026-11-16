@@ -71,11 +71,22 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   held: 'Held',
   stopped: 'Stopped',
   delivered: 'Delivered',
+  'prd-joined': 'Joined',
+  'prd-dropped': 'Dropped',
+  'drop-asked': 'Drop asked',
+  'drop-asked-keep': 'Drop asked',
+  // The fleet's committee (PRD 2896 s9, s10): what it decided alone, and what it sent to a person.
+  decided: 'Decided',
+  escalated: 'Sent to you',
 };
 
 /** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); any other kind has its fixed word. */
-const stateWord = (kind: string, sentence: string): string =>
-  kind === 'reviewed' ? (sentence.startsWith('Passed') ? 'Passed' : 'Changes') : (STATE_WORDS[kind] ?? kind);
+const stateWord = (kind: string, sentence: string): string => {
+  if (kind === 'reviewed') return sentence.startsWith('Passed') ? 'Passed' : 'Changes';
+  // A PRD a mission pull request put on the default branch is a landing (PRD 2896); any other merge is as before.
+  if (kind === 'prd-merged' && sentence.includes('landed on the default branch')) return 'Landed';
+  return STATE_WORDS[kind] ?? kind;
+};
 
 /** What a ledger link is called: a Reviewer's verdict links its GitHub review, any other row its PRD or `Open`. */
 const linkLabel = (kind: string, prd: PrdNumber | null): string => (kind === 'reviewed' ? 'Review' : prd === null ? 'Open' : `PRD ${String(prd)}`);

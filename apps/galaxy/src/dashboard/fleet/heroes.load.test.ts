@@ -54,6 +54,26 @@ describe('the Fleet section\'s read of heroes', () => {
     expect(await heroesOf('night-shift')).toMatchObject({ canEdit: false });
   });
 
+  it('tells the New virtual fleet drawer whether the viewer owns the workspace (PRD 2896 s1), and none when it cannot be read', async () => {
+    const ownerRead = async () => {
+      const read = await loadFleetBoard(db(true), { id: PEOPLE.ada.id }, 'night-shift', '7d', NOW);
+      return read.kind === 'no-workspace' ? null : read.virtual?.owner;
+    };
+    person.current = ADA;
+    expect(await ownerRead()).toBe(true);
+    person.current = BEN;
+    expect(await ownerRead()).toBe(false);
+    broken.current = true;
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      expect(await ownerRead()).toBe(false);
+      expect(log).toHaveBeenCalledWith('fleet: the workspace\'s owners could not be read (down)');
+    } finally {
+      broken.current = false;
+      log.mockRestore();
+    }
+  });
+
   it('reads no heroes for a players\' fleet', async () => {
     person.current = ADA;
     expect(await heroesOf('beaver')).toBeUndefined();

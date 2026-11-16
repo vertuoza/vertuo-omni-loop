@@ -51,7 +51,10 @@ export function parsedOr<S extends z.ZodType>(schema: S, value: unknown, context
 /** Who merged the feature PR, when, through which pull request: the provenance the harvest writes. */
 const MergeSchema = z.object({ by: z.string(), at: z.string(), pr: PrNumberSchema, url: z.string().exactOptional() });
 
-/** The step "qualify": a skip, or the merged feature PR's config, PRD and merge. */
+/**
+ * The step "qualify": a skip, or the merged feature PR's config, PRD and merge, or a landing's (PRD 2896 s6): the mission pull
+ * request's config and merge, its mission branch, and each PRD it landed with the feature pull request that joined it.
+ */
 export const QualifiedSchema = z.union([
   z.object({ skip: z.string() }),
   z.object({
@@ -60,7 +63,16 @@ export const QualifiedSchema = z.union([
     prd: z.object({ number: PrdNumberSchema, topic: z.string(), title: z.string() }),
     merge: MergeSchema,
   }),
+  z.object({
+    skip: z.null(),
+    config: ConfigSchema,
+    landing: z.object({ branch: z.string(), prds: z.array(z.object({ number: PrdNumberSchema, topic: z.string(), title: z.string(), pr: PrNumberSchema })).min(1) }),
+    merge: MergeSchema,
+  }),
 ]);
+
+/** The step "tip" of a landing's harvest: the default branch's tip every PRD of it is harvested at. */
+export const TipSchema = z.string().min(1);
 
 const MoveSchema = z.object({ from: z.string(), to: z.string() });
 

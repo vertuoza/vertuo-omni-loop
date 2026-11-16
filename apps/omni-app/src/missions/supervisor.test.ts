@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   approvalOf,
+  baseOf,
   conclude,
   endOf,
   eventsOf,
   expandScope,
+  lineOf,
+  missionBranch,
   missionKey,
   outcome,
   pick,
@@ -24,7 +27,7 @@ const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
 const NOW = Date.parse('2027-01-22T09:00:00Z');
 const p = (n: number): PrdNumber => parsePrd(n);
 
-const mission = (over: Partial<Mission> = {}): Mission => ({ id: ID, fleet: 'night-shift', status: 'running', parallel: 2, waitingOn: null, ...over });
+const mission = (over: Partial<Mission> = {}): Mission => ({ id: ID, fleet: 'night-shift', status: 'running', parallel: 2, waitingOn: null, level: 'with-you', number: 12, title: 'Faster quotes', ...over });
 const facts = (n: number, over: Partial<PrdFacts> = {}): PrdFacts => ({ prd: p(n), approval: 'standing', stage: 'open', blockers: [], territory: [`apps/area-${String(n)}/`], ...over });
 const attempt = (id: string, over: Partial<Attempt> = {}): Attempt => ({ id, status: 'running', outcome: null, reason: null, prUrl: null, ...over });
 const run = (n: number, k: number, ...attempts: Attempt[]): Run => ({ prd: p(n), run: k, step: 'build', job: attempts[0]?.id ?? `job-${String(n)}-${String(k)}`, attempts });
@@ -32,6 +35,47 @@ const ended = (id: string, outcomeWord: string | null, over: Partial<Attempt> = 
 
 /** The PRDs a run sends, as numbers. */
 const sends = (m: Mission, all: PrdFacts[], runs: Run[] = []) => pick({ mission: m, facts: all, states: prdStates(all, runs) }).map(({ prd, run: k }) => [Number(prd), k]);
+
+describe('the mission branch (PRD 2896)', () => {
+  it('is mission/<number>-<topic>, the topic the title as a slug, kept to 40 characters', () => {
+    expect(missionBranch(12, 'Faster quotes, now!')).toBe('mission/12-faster-quotes-now');
+    expect(missionBranch(7, '  --Écrire: 100% PDF--  ')).toBe('mission/7-crire-100-pdf');
+    expect(missionBranch(3, 'a'.repeat(60))).toBe(`mission/3-${'a'.repeat(40)}`);
+    expect(missionBranch(3, 'word '.repeat(20))).toBe('mission/3-word-word-word-word-word-word-word-word');
+    expect(missionBranch(5, '!!!')).toBe('mission/5-mission');
+  });
+
+  it('matches branches.mission as the kit declares it', async () => {
+    const { parseConfig } = await import('omni-loop/kit/lib/config.ts');
+    expect(parseConfig('kit: 1\n').branches.mission).toBe('mission/{number}-{topic}');
+  });
+
+  it('is the base of a PRD above with-you, never at with-you and never in a plan repository', () => {
+    const m = { number: 12, title: 'Faster quotes' };
+    expect(baseOf({ ...m, level: 'with-you' }, false)).toBeNull();
+    expect(baseOf({ ...m, level: 'own-branch' }, false)).toBe('mission/12-faster-quotes');
+    expect(baseOf({ ...m, level: 'alone' }, false)).toBe('mission/12-faster-quotes');
+    expect(baseOf({ ...m, level: 'alone' }, true)).toBeNull();
+  });
+
+  it('is named on the line of a build and of a fix, never of the Reviewer or of an ultra build', () => {
+    expect(lineOf(p(7), 'build', 'yolo', 'mission/12-q')).toBe('/omni:yolo 7 --for-review --base mission/12-q');
+    expect(lineOf(p(7), 'fix:1', 'yolo', 'mission/12-q')).toBe('/omni:yolo-fix 7 --for-review --base mission/12-q');
+    expect(lineOf(p(7), 'review:1', 'yolo', 'mission/12-q')).toBe('/omni:review 7');
+    expect(lineOf(p(7), 'build', 'ultra-yolo', null)).toBe('/omni:ultra-yolo 7');
+    expect(lineOf(p(7), 'build')).toBe('/omni:yolo 7 --for-review');
+  });
+
+  it('is in the dispatch event\'s sentence', () => {
+    const m = mission({ level: 'own-branch' });
+    const all = [facts(7)];
+    const runs: Run[] = [{ prd: p(7), run: 1, step: 'build', job: 'j-1', attempts: [{ id: 'j-1', status: 'queued', outcome: null, reason: null, prUrl: null }] }];
+    const states = prdStates(all, runs);
+    const next = conclude({ mission: m, facts: all, states, sent: 1, now: NOW });
+    const [dispatched] = eventsOf({ mission: m, facts: all, states, runs, next, toFleet: true, recorded: recordedKeys([]) });
+    expect(dispatched?.sentence).toContain('/omni:yolo 7 --for-review --base mission/12-faster-quotes');
+  });
+});
 
 describe('the mission key: one per PRD and run, never twice', () => {
   it('reads mission:<id>:prd:<n>:run:<k>, and back', () => {

@@ -1,7 +1,7 @@
 // The brief's schema (PRD 2842 s2): a mission.md's front matter read into its brief, every fault
 // naming its field; and the page rules mission.html keeps.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PARALLEL, parseBrief } from './brief.ts';
+import { DEFAULT_PARALLEL, levelRefusal, parseBrief } from './brief.ts';
 import { PAGE_MAX_BYTES, pageFaults } from './page.ts';
 
 const FRONT = [
@@ -42,7 +42,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
         goal: 'Every quote can be paid online, for every customer.',
         measures: [{ sign: 'Quotes paid online', read: 'the payments report, weekly', target: 'three in ten within a month' }],
         scope: { prds: [2803, 2804], roadmaps: [12] },
-        mandate: { parallel: 3 },
+        mandate: { parallel: 3, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 },
       },
     });
   });
@@ -50,11 +50,11 @@ describe('a mission.md, read through the brief\'s schema', () => {
   it('reads a one-line mission: one PRD, no measure, no roadmap, and the default mandate', () => {
     const lines = ['mission: 2851', 'title: Dark mode for quotes', 'fleet: night-shift', 'goal: Dark mode for quotes on site.', 'scope:', '  prds: [2803]'];
     const parsed = parseBrief(record(lines));
-    expect(parsed.ok && parsed.brief).toMatchObject({ measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: DEFAULT_PARALLEL } });
+    expect(parsed.ok && parsed.brief).toMatchObject({ measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: DEFAULT_PARALLEL, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 } });
     expect(DEFAULT_PARALLEL).toBe(2);
     // A mandate that names nothing keeps the default too.
     const empty = parseBrief(record([...lines, 'mandate: {}']));
-    expect(empty.ok && empty.brief.mandate).toEqual({ parallel: 2 });
+    expect(empty.ok && empty.brief.mandate).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 });
   });
 
   it('reads roadmaps alone as a scope', () => {
@@ -103,6 +103,18 @@ describe('a mission.md, read through the brief\'s schema', () => {
       .toEqual(['scope.prds: holds 50 PRDs at most.']);
   });
 
+  it('reads the level and the two bounds under it, and refuses any other value by name (PRD 2896)', () => {
+    const mandate = (...lines: string[]) => record(swap('mandate', ['mandate:', '  parallel: 3', ...lines.map((line) => `  ${line}`)]));
+    const read = parseBrief(mandate('level: alone', 'hardToRevert: 0.8', 'ownPrds: 4'));
+    expect(read.ok && read.brief.mandate).toEqual({ parallel: 3, level: 'alone', hardToRevert: 0.8, ownPrds: 4 });
+    expect(errorsOf(mandate('level: on-its-own'))).toEqual(['mandate.level: is one of with-you, own-branch, alone.']);
+    expect(errorsOf(mandate('hardToRevert: 1.2'))).toEqual(['mandate.hardToRevert: is 0 to 1.']);
+    expect(errorsOf(mandate('hardToRevert: -0.1'))).toEqual(['mandate.hardToRevert: is 0 to 1.']);
+    expect(errorsOf(mandate('ownPrds: 11'))).toEqual(['mandate.ownPrds: is 0 to 10.']);
+    expect(errorsOf(mandate('ownPrds: 2.5'))).toEqual(['mandate.ownPrds: must be a whole number.']);
+    expect(errorsOf(mandate('ownPrds: many'))).toEqual(['mandate.ownPrds: must be a number.']);
+  });
+
   it('refuses a mandate outside 1 to 4, or one naming another rule', () => {
     expect(errorsOf(record(swap('mandate', ['mandate:', '  parallel: 5'])))).toEqual(['mandate.parallel: is 1 to 4.']);
     expect(errorsOf(record(swap('mandate', ['mandate:', '  parallel: 0'])))).toEqual(['mandate.parallel: is 1 to 4.']);
@@ -128,5 +140,14 @@ describe('a mission.html, under the page rules', () => {
   it('names a page over the cap', () => {
     const page = `<p>${'x'.repeat(PAGE_MAX_BYTES)}</p>`;
     expect(pageFaults('m/mission.html', page)).toEqual([`m/mission.html: ${page.length} bytes, over the 512 KiB a page holds.`]);
+  });
+});
+
+describe('levelRefusal (PRD 2896 s14)', () => {
+  it('refuses own-branch in a plan repository only', () => {
+    expect(levelRefusal('own-branch', true)).toBe('a mission branch holds one repository: use with-you or alone');
+    expect(levelRefusal('own-branch', false)).toBeNull();
+    expect(levelRefusal('alone', true)).toBeNull();
+    expect(levelRefusal('with-you', true)).toBeNull();
   });
 });

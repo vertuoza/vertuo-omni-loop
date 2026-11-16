@@ -12,7 +12,10 @@
 -- deleted, but goes with its mission. A runner job's mission_key is unique and keeps its shape; the
 -- general dossier push takes no mission. The Reviewer (PRD 2871): an event may be `reviewed`, a job may end
 -- `review` or `changes`, under a key of a review round (1 or 2, never 3) or of the fix after round 1; a
--- member reads them and writes none. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- member reads them and writes none. A PRD joining its mission's branch (PRD 2896 s4): an event may be `prd-joined`, written by
+-- the service role, signed `supervisor` and `agent`, linking the pull request; a member reads it and writes none. A drop (PRD 2896 s7): an event may be `drop-asked`,
+-- `drop-asked-keep` or `prd-dropped`, read by a member who writes none. One
+-- transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -117,7 +120,7 @@ begin
                          'Every quote can be paid online, for every customer.'::text, 'draft'::text, null::text, null::uuid, null::timestamptz) then
     raise exception 'FAIL: the mission is not as pushed: %', row(m.*);
   end if;
-  if m.measures <> pg_temp.brief() -> 'measures' or m.scope <> pg_temp.brief() -> 'scope' or m.mandate <> '{"parallel": 2}'::jsonb then
+  if m.measures <> pg_temp.brief() -> 'measures' or m.scope <> pg_temp.brief() -> 'scope' or m.mandate <> '{"parallel": 2, "level": "with-you"}'::jsonb then
     raise exception 'FAIL: the mission''s measures, scope or mandate are not as pushed: %', row(m.*);
   end if;
   if not exists (select 1 from public.dossiers d
@@ -177,7 +180,7 @@ begin
   -- No measure yet, and the default mandate: a one-line mission's brief.
   perform public.mission_push('initech/nimbus-plan', 2851, 'Dark mode', jsonb_build_object('fleet', 'night-shift', 'goal', 'Dark mode for quotes on site.',
                               'scope', jsonb_build_object('prds', jsonb_build_array(2803), 'roadmaps', jsonb_build_array())), pg_temp.files());
-  if (select (measures, mandate) from public.missions where number = 2851) is distinct from ('[]'::jsonb, '{"parallel": 2}'::jsonb) then
+  if (select (measures, mandate) from public.missions where number = 2851) is distinct from ('[]'::jsonb, '{"parallel": 2, "level": "with-you"}'::jsonb) then
     raise exception 'FAIL: a brief with no measure and no mandate did not read as none and the default';
   end if;
 end $$;
@@ -204,6 +207,14 @@ begin
   perform pg_temp.refused_for(pg_temp.brief('{"scope": {"prds": [2803]}}'), pg_temp.files(), 'scope');
   perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 5}}'), pg_temp.files(), 'mandate');
   perform pg_temp.refused_for(pg_temp.brief('{"mandate": {}}'), pg_temp.files(), 'mandate');
+  -- The level and its two bounds (PRD 2896): each value outside its range, and any other key, is refused.
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "level": "sometimes"}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "hardToRevert": 1.5}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "hardToRevert": "high"}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "ownPrds": 11}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "ownPrds": 1.5}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"parallel": 2, "merge": true}}'), pg_temp.files(), 'mandate');
+  perform pg_temp.refused_for(pg_temp.brief('{"mandate": {"level": "alone"}}'), pg_temp.files(), 'mandate');
   perform pg_temp.refused_for(pg_temp.brief(), '[{"kind": "brief", "content": "<p>"}]'::jsonb, 'artifacts');
   perform pg_temp.refused_for(pg_temp.brief(), pg_temp.files() || '[{"kind": "spec", "content": "# Spec"}]'::jsonb, 'artifacts');
   perform pg_temp.refused_for(pg_temp.brief(), pg_temp.files() || pg_temp.files(), 'artifacts');
@@ -258,6 +269,18 @@ begin
   -- The Reviewer's verdict (PRD 2871), linking its review.
   insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
     (mission, 'reviewer', 'agent', 'reviewed', 2803, 'https://github.com/initech/nimbus-plan/pull/2817#pullrequestreview-1', 'Changes asked: 2 findings, round 1/2.');
+  -- A PRD joined the mission branch (PRD 2896 s4), linking its feature pull request.
+  insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
+    (mission, 'supervisor', 'agent', 'prd-joined', 2803, 'https://github.com/initech/nimbus-plan/pull/2817', 'PRD 2803 joined mission/2850-paid-online: #2817 squash-merged.');
+  -- A member asked for it to be dropped, then the App dropped it (PRD 2896 s7).
+  insert into public.mission_events (mission_id, role, actor, kind, prd, sentence) values
+    (mission, 'supervisor', '00000000ada', 'drop-asked', 2803, 'ada asked to drop PRD 2803 from mission/2850-paid-online.'),
+    (mission, 'supervisor', '00000000ada', 'drop-asked-keep', 2803, 'ada asked to drop only PRD 2803 from mission/2850-paid-online.');
+  insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
+    (mission, 'supervisor', 'agent', 'prd-dropped', 2803, 'https://github.com/initech/nimbus-plan/pull/2818', 'PRD 2803 was dropped from mission/2850-paid-online: its commit is off the branch, #2818 reopened.');
+  -- A member overturned a decision the fleet carried (PRD 2896 s11): added beside it, signed with their login.
+  insert into public.mission_events (mission_id, role, actor, kind, prd, sentence) values
+    (mission, 'supervisor', '00000000ada', 'overturned', 2803, 'ada overturned fleet decision 2803: the spec is not what we meant.');
   begin
     update public.mission_events set sentence = 'Rewritten.' where mission_id = mission;
     raise exception 'FAIL: the service role updated a mission event';
@@ -268,7 +291,7 @@ begin
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'agent', 'merged', 'x');
-    raise exception 'FAIL: an event took a kind that is none of the twelve';
+    raise exception 'FAIL: an event took a kind that is none of the sixteen';
   exception when check_violation then null; end;
   begin
     insert into public.mission_events (mission_id, role, actor, kind, sentence) values (mission, 'supervisor', 'Ada Lovelace', 'started', 'x');
@@ -350,9 +373,19 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000028b1');
 do $$
 begin
-  if (select count(*) from public.mission_events) <> 3 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
+  if (select count(*) from public.mission_events) <> 8 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
+  if not exists (select 1 from public.mission_events where kind = 'prd-joined' and role = 'supervisor' and actor = 'agent' and prd = 2803) then
+    raise exception 'FAIL: a member does not read a PRD''s join of the mission branch';
+  end if;
   if not exists (select 1 from public.mission_events where kind = 'reviewed' and role = 'reviewer' and actor = 'agent') then
     raise exception 'FAIL: a member does not read the Reviewer''s verdict';
+  end if;
+  if not exists (select 1 from public.mission_events where kind = 'prd-dropped' and role = 'supervisor' and actor = 'agent' and prd = 2803)
+     or (select count(*) from public.mission_events where kind in ('drop-asked', 'drop-asked-keep')) <> 2 then
+    raise exception 'FAIL: a member does not read a PRD''s drop from the mission branch';
+  end if;
+  if not exists (select 1 from public.mission_events where kind = 'overturned' and role = 'supervisor' and actor = '00000000ada' and prd = 2803) then
+    raise exception 'FAIL: a member does not read a person''s overturn of a decision';
   end if;
   if (select count(*) from public.runner_jobs where mission_id is not null) <> 5 then raise exception 'FAIL: a member does not read the mission''s jobs'; end if;
   if (select count(*) from public.runner_jobs where outcome in ('review', 'changes')) <> 2 then
@@ -387,6 +420,99 @@ begin
 end $$;
 reset role;
 
+-- ── A mission's level (PRD 2896): inherited from its fleet, raised only by an owner ──
+-- Bob is made an owner; Ada stays a member. NIGHT SHIFT reads with-you; a second fleet, set to own-branch by
+-- the service role, is the one a mission inherits a level from.
+select set_config('request.jwt.claims', '', true);
+update public.workspace_members set role = 'owner' where user_id = '00000000-0000-4000-8000-0000000028b1';
+insert into public.teams (workspace_id, name, label, color, sort, kind, level)
+select w.id, 'branchy', 'BRANCHY', '#8bd450', 120, 'virtual', 'own-branch' from public.workspaces w where w.slug = 'initech';
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+declare
+  m public.missions;
+begin
+  -- A brief naming no level takes its fleet's; one that names a level the fleet already has is a member's to write.
+  perform public.mission_push('initech/nimbus-plan', 2860, 'Inherits', pg_temp.brief('{"fleet": "branchy"}'), pg_temp.files());
+  if (select mandate from public.missions where number = 2860) <> '{"parallel": 2, "level": "own-branch"}'::jsonb then
+    raise exception 'FAIL: a mission did not inherit its fleet''s level: %', (select mandate from public.missions where number = 2860);
+  end if;
+  perform public.mission_push('initech/nimbus-plan', 2861, 'Explicit', pg_temp.brief('{"fleet": "branchy", "mandate": {"parallel": 3, "level": "own-branch", "hardToRevert": 0.7, "ownPrds": 3}}'), pg_temp.files());
+  if (select mandate from public.missions where number = 2861) <> '{"parallel": 3, "level": "own-branch", "hardToRevert": 0.7, "ownPrds": 3}'::jsonb then
+    raise exception 'FAIL: a mission did not keep the level and the bounds its brief named';
+  end if;
+  -- A member who is not an owner cannot write a level above the fleet's, in a brief or through the change.
+  begin
+    perform public.mission_push('initech/nimbus-plan', 2862, 'Above', pg_temp.brief('{"mandate": {"parallel": 2, "level": "own-branch"}}'), pg_temp.files());
+    raise exception 'FAIL: a member pushed a mission above its fleet''s level';
+  exception when insufficient_privilege then null; end;
+  if exists (select 1 from public.missions where number = 2862) then raise exception 'FAIL: a refused level left a mission behind'; end if;
+  -- A re-push of the same brief keeps the level the mission has.
+  perform public.mission_push('initech/nimbus-plan', 2860, 'Inherits', pg_temp.brief('{"fleet": "branchy"}'), pg_temp.files());
+  if (select mandate ->> 'level' from public.missions where number = 2860) <> 'own-branch' then
+    raise exception 'FAIL: a second push changed the mission''s level';
+  end if;
+  -- Change for this mission: a member lowers it, and raises it only up to the fleet's own.
+  m := public.set_mission_level((select id from public.missions where number = 2860), 'with-you');
+  if m.mandate ->> 'level' <> 'with-you' or m.mandate ->> 'parallel' <> '2' then raise exception 'FAIL: a member could not lower a mission''s level: %', row(m.*); end if;
+  m := public.set_mission_level(m.id, 'own-branch');
+  if m.mandate ->> 'level' <> 'own-branch' then raise exception 'FAIL: a member could not raise a mission to its fleet''s level'; end if;
+  begin
+    perform public.set_mission_level(m.id, 'alone');
+    raise exception 'FAIL: a member raised a mission above its fleet''s level';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.set_mission_level(m.id, 'sometimes');
+    raise exception 'FAIL: a level that is none was taken';
+  exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028b1');
+do $$
+begin
+  -- An owner raises a mission above its fleet's level.
+  if (public.set_mission_level((select id from public.missions where number = 2860), 'alone')).mandate ->> 'level' <> 'alone' then
+    raise exception 'FAIL: an owner could not raise a mission above its fleet''s level';
+  end if;
+end $$;
+reset role;
+
+-- A delivered or stopped mission keeps its level; another workspace's member and anon change nothing.
+update public.missions set status = 'delivered' where number = 2861;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+begin
+  begin
+    perform public.set_mission_level((select id from public.missions where number = 2861), 'with-you');
+    raise exception 'FAIL: a delivered mission''s level was changed';
+  exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028c1');
+do $$
+begin
+  begin
+    perform public.set_mission_level((select id from public.missions where number = 2860), 'with-you');
+    raise exception 'FAIL: a member of another workspace changed a mission''s level';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+set local role anon;
+do $$
+begin
+  begin
+    perform public.set_mission_level((select id from public.missions where number = 2860), 'with-you');
+    raise exception 'FAIL: anon changed a mission''s level';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
 -- ── An event is never changed or deleted, even by the tables' owner; its mission's deletion takes it ──
 do $$
 declare
@@ -408,5 +534,226 @@ begin
     raise exception 'FAIL: a deleted mission did not let go of its jobs, or took them';
   end if;
 end $$;
+
+-- ── The committee approves a mission's PRD at `alone` (PRD 2896 s9) ──
+-- Mission 2870 of NIGHT SHIFT runs at alone; PRD 2805 is born on the server with its spec, plan and before/after, PRD 2806
+-- in the repository. The service role records each committee job's decision once, through mission_decide_approval() alone:
+-- carried, it approves the PRD in the fleet's name (`fleet night-shift`, for that mission, its approver read as a member
+-- while the fleet lives); escalated, by the App or by what the function reads itself (a phase-0 PRD, a file changed since
+-- the committee read it), it approves nothing. A member reads the decisions and writes none; nobody signed in runs the
+-- function; a decision is never changed or deleted.
+select set_config('request.jwt.claims', '', true);
+do $$
+declare
+  ws uuid := (select id from public.workspaces where slug = 'initech');
+  mission uuid;
+  server uuid;
+  repo uuid;
+begin
+  insert into public.missions (workspace_id, repo, fleet, number, title, goal, scope, mandate, status)
+  values (ws, 'initech/nimbus-plan', 'night-shift', 2870, 'Alone', 'The fleet works alone.', '{"prds": [2805, 2806], "roadmaps": []}',
+          '{"parallel": 1, "level": "alone"}', 'running')
+  returning id into mission;
+  insert into public.dossiers (workspace_id, home_repo, prd, kind, title, numbered_at) values (ws, 'initech/nimbus-plan', 2805, 'prd', 'Server', now())
+  returning id into server;
+  insert into public.dossiers (workspace_id, home_repo, prd, kind, title, numbered_at) values (ws, 'initech/nimbus-plan', 2806, 'prd', 'Repo', now())
+  returning id into repo;
+  insert into public.dossier_versions (dossier_id, kind, content, sha256, bytes, source, created_at) values
+    (server, 'spec', E'---\nprd: 2805\nphase0: server\n---\n', repeat('a', 64), 30, 'kit', now() - interval '3 minutes'),
+    (server, 'plan', 'plan', repeat('b', 64), 4, 'kit', now() - interval '3 minutes'),
+    (server, 'before-after', '<html>', repeat('c', 64), 6, 'kit', now() - interval '3 minutes'),
+    (repo, 'spec', E'---\nprd: 2806\n---\n', repeat('d', 64), 20, 'kit', now() - interval '3 minutes'),
+    (repo, 'plan', 'plan', repeat('e', 64), 4, 'kit', now() - interval '3 minutes'),
+    (repo, 'before-after', '<html>', repeat('f', 64), 6, 'kit', now() - interval '3 minutes');
+  insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key) values
+    (ws, '/omni:committee 2805 --approve', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, format('mission:%s:prd:2805:approve:1', mission)),
+    (ws, '/omni:committee 2805 --approve', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, format('mission:%s:prd:2805:approve:2', mission)),
+    (ws, '/omni:committee 2806 --approve', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, format('mission:%s:prd:2806:approve:1', mission)),
+    (ws, '/omni:committee 2805 --approve', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, format('mission:%s:prd:2805:approve:3', mission));
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:committee 2805 --approve', 'initech/nimbus-plan', 'omni-app', mission, format('mission:%s:prd:2805:approve:0', mission));
+    raise exception 'FAIL: a committee job took the key of its 0th round';
+  exception when check_violation then null; end;
+  insert into pg_temp.ids values ('alone', mission), ('server', server), ('repo', repo);
+end $$;
+
+-- The record a committee job read: the three files at their hashes, three yes.
+create function pg_temp.record(spec text default repeat('a', 64)) returns jsonb language sql as $$
+  select jsonb_build_object(
+    'author', null,
+    'read', jsonb_build_array(jsonb_build_object('kind', 'spec', 'sha256', spec), jsonb_build_object('kind', 'plan', 'sha256', repeat('b', 64)),
+                              jsonb_build_object('kind', 'before-after', 'sha256', repeat('c', 64))),
+    'verdicts', jsonb_build_array(jsonb_build_object('role', 'pm', 'answer', 'yes', 'sentence', 'In scope.'),
+                                  jsonb_build_object('role', 'architect', 'answer', 'yes', 'sentence', 'Reversible.'),
+                                  jsonb_build_object('role', 'reviewer', 'answer', 'yes', 'sentence', 'Tested.')));
+$$;
+create function pg_temp.job(prd int, k int) returns uuid language sql as $$
+  select j.id from public.runner_jobs j where j.mission_key = format('mission:%s:prd:%s:approve:%s', (select id from pg_temp.ids where name = 'alone'), prd, k);
+$$;
+grant execute on function pg_temp.record(text), pg_temp.job(int, int) to authenticated, service_role;
+
+-- Nobody signed in records a decision, nor writes the table.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+begin
+  begin
+    perform public.mission_decide_approval((select id from pg_temp.ids where name = 'alone'), 2805, pg_temp.job(2805, 1), pg_temp.record(), 'carried', '[]');
+    raise exception 'FAIL: a member recorded a committee decision';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.mission_decisions (mission_id, prd, kind, job_id, verdicts, outcome)
+    values ((select id from pg_temp.ids where name = 'alone'), 2805, 'approve', gen_random_uuid(), '[]', 'carried');
+    raise exception 'FAIL: a member inserted a committee decision';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+set local role service_role;
+do $$
+declare
+  mission uuid := (select id from pg_temp.ids where name = 'alone');
+  got jsonb;
+  again jsonb;
+  a public.approvals;
+begin
+  -- Three yes on the files as they stand: carried, and the PRD approved by the fleet for this mission.
+  got := public.mission_decide_approval(mission, 2805, pg_temp.job(2805, 1), pg_temp.record(), 'carried', '[]');
+  if got ->> 'outcome' <> 'carried' or got ->> 'approval' is null then raise exception 'FAIL: three yes did not carry: %', got; end if;
+  select * into a from public.approvals where id = (got ->> 'approval')::uuid;
+  if (a.approver_login, a.fleet, a.mission_id, a.approved_by, a.approval_kind) is distinct from ('fleet night-shift'::text, 'night-shift'::text, mission, mission, 'product'::text)
+     or jsonb_array_length(a.files) <> 3 then
+    raise exception 'FAIL: the fleet''s approval is not the fleet''s, for its mission, pinning the three files: %', row(a.*);
+  end if;
+  -- A replay records nothing more and answers the same decision, whatever it is given.
+  again := public.mission_decide_approval(mission, 2805, pg_temp.job(2805, 1), jsonb_set(pg_temp.record(), '{verdicts,0,answer}', '"maybe"'), 'escalated', '["late"]');
+  if again <> got or (select count(*) from public.mission_decisions where job_id = pg_temp.job(2805, 1)) <> 1 then
+    raise exception 'FAIL: a replayed committee job recorded a second decision: %', again;
+  end if;
+  -- Escalated by the App: nothing approved, its reasons kept.
+  got := public.mission_decide_approval(mission, 2805, pg_temp.job(2805, 2), pg_temp.record(), 'escalated', '["the Reviewer answered no: Out of scope."]');
+  if got ->> 'outcome' <> 'escalated' or got ->> 'approval' is not null or got -> 'why' <> '["the Reviewer answered no: Out of scope."]'::jsonb then
+    raise exception 'FAIL: an escalated decision approved, or lost its reason: %', got;
+  end if;
+  -- A PRD whose phase-0 pull request approves it is never approved by the fleet, three yes or not.
+  got := public.mission_decide_approval(mission, 2806, pg_temp.job(2806, 1), pg_temp.record(repeat('d', 64)), 'carried', '[]');
+  if got ->> 'outcome' <> 'escalated' or got -> 'why' ->> 0 not like '%phase-0 pull request%' or got ->> 'approval' is not null then
+    raise exception 'FAIL: the fleet approved a PRD born in the repository: %', got;
+  end if;
+  -- A file read at a hash that is no longer its latest: escalated, naming it.
+  got := public.mission_decide_approval(mission, 2805, pg_temp.job(2805, 3), pg_temp.record(repeat('9', 64)), 'carried', '[]');
+  if got ->> 'outcome' <> 'escalated' or got -> 'why' ->> 0 <> 'the spec changed after the committee read it' then
+    raise exception 'FAIL: a decision on files that changed since was carried: %', got;
+  end if;
+  begin
+    perform public.mission_decide_approval(mission, 2805, gen_random_uuid(), pg_temp.record(), 'carried', '[]');
+    raise exception 'FAIL: a decision was recorded for a job that is no committee job of the mission';
+  exception when no_data_found then null; end;
+  begin
+    insert into public.mission_decisions (mission_id, prd, kind, job_id, verdicts, outcome)
+    values (mission, 2805, 'approve', gen_random_uuid(), '[]', 'carried');
+    raise exception 'FAIL: the service role wrote a decision beside the function';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- The fleet's approval reads as a member's for the kit while the fleet lives; a member reads the decisions, writes none.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+declare
+  got jsonb := public.dossier_approval('initech/nimbus-plan', 2805);
+begin
+  if got #>> '{approval,approver,login}' <> 'fleet night-shift' or (got #>> '{approval,approver,member}')::boolean is not true then
+    raise exception 'FAIL: the kit does not read the fleet''s approval as in force: %', got;
+  end if;
+  if (select count(*) from public.mission_decisions) <> 4 or (select count(*) from public.mission_decisions where outcome = 'carried') <> 1 then
+    raise exception 'FAIL: a member does not read the committee''s decisions';
+  end if;
+  begin
+    update public.mission_decisions set outcome = 'escalated';
+    raise exception 'FAIL: a member changed a committee decision';
+  exception when insufficient_privilege then null; end;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028c1');
+do $$
+begin
+  if exists (select 1 from public.mission_decisions) then raise exception 'FAIL: an account of another workspace read Initech''s committee decisions'; end if;
+end $$;
+reset role;
+
+
+-- ── The PM writes the mission's own PRDs (PRD 2896 s12) ──
+-- The PM's job takes a key of its own, mission:<id>:pm:<k>, once; a PRD it wrote is recorded `prd-added`, a row the cap left
+-- `not-written`, both by the service role, role pm and actor agent; a member writes neither. The runners' fixed skills hold the
+-- PM's four, so no repository allows its own skill under one of their names; a new PM hero reads the PM's new limit.
+do $$
+declare
+  ws uuid := (select id from public.workspaces where slug = 'initech');
+  mission uuid := (select id from pg_temp.ids where name = 'alone');
+begin
+  insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key)
+  values (ws, '/omni:roadmap --mission 2870 --cap 2', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, format('mission:%s:pm:1', mission));
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:roadmap --mission 2870 --cap 2', 'initech/nimbus-plan', 'omni-app', mission, format('mission:%s:pm:1', mission));
+    raise exception 'FAIL: a PM job was sent twice under one key';
+  exception when unique_violation then null; end;
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:roadmap --mission 2870 --cap 2', 'initech/nimbus-plan', 'omni-app', mission, format('mission:%s:pm:0', mission));
+    raise exception 'FAIL: a PM job took the key of its 0th round';
+  exception when check_violation then null; end;
+  insert into public.mission_events (mission_id, role, actor, kind, prd, sentence) values
+    (mission, 'pm', 'agent', 'prd-added', 2807, 'PRD 2807 added by the fleet.'),
+    (mission, 'pm', 'agent', 'not-written', null, 'Refunds by card: not written: the cap is 2.');
+  if (select count(*) from public.mission_events where mission_id = mission and kind in ('prd-added', 'not-written')) <> 2 then
+    raise exception 'FAIL: the PM''s events were not recorded';
+  end if;
+  if not (public.virtual_hero_roles() @> '[{"role": "pm", "limits": ["It never approves a PRD it wrote, nor one outside a mission''s committee."]}]'::jsonb) then
+    raise exception 'FAIL: a new PM hero does not read its new limit';
+  end if;
+  if pg_get_functiondef('public.set_repository_runner_skill(uuid, text, text, boolean)'::regprocedure) !~ '''mega-roadmap''' then
+    raise exception 'FAIL: the runners'' fixed skills lack the PM''s';
+  end if;
+end $$;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+begin
+  if not exists (select 1 from public.mission_events where kind = 'prd-added' and prd = 2807) then
+    raise exception 'FAIL: a member does not read the PRDs the fleet added';
+  end if;
+  begin
+    insert into public.mission_events (mission_id, role, actor, kind, prd, sentence)
+    values ((select id from public.missions where number = 2870), 'pm', 'agent', 'prd-added', 2808, 'PRD 2808 added by the fleet.');
+    raise exception 'FAIL: a member recorded a PRD the fleet added';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- A decision is never changed or deleted, even by the table's owner; a retired fleet's approval no longer reads as a member's.
+do $$
+begin
+  begin
+    update public.mission_decisions set outcome = 'escalated';
+    raise exception 'FAIL: a committee decision was updated';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.mission_decisions;
+    raise exception 'FAIL: a committee decision was deleted';
+  exception when insufficient_privilege then null; end;
+  update public.teams set retired_at = now() where name = 'night-shift';
+end $$;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+begin
+  if (public.dossier_approval('initech/nimbus-plan', 2805) #>> '{approval,approver,member}')::boolean is not false then
+    raise exception 'FAIL: a retired fleet''s approval still reads as a member''s';
+  end if;
+end $$;
+reset role;
 
 rollback;

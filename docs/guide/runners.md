@@ -29,8 +29,10 @@ server, and connecting it to your workspace.
 A runner takes only these lines: `/omni:yolo`, `/omni:yolo-fix`, `/omni:pr-care`, `/omni:do-work`,
 `/omni:wave`, `/omni:bug-fix`, `/omni:mega-bug-fix`, `/omni:visual-fix`, `/omni:plan`, `/omni:pitch`,
 `/omni:prove`, `/omni:retro-apply`, `/omni:rewind`, `/omni:knowledge-add`, `/omni:rewind-apply`,
-`/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix` and `/omni:review`.
-Lines that need a person to talk to, such as `/omni:brainstorm`, stay in your own terminal.
+`/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix`, `/omni:review`, `/omni:committee`,
+`/omni:brainstorm`, `/omni:roadmap`, `/omni:mega-brainstorm` and `/omni:mega-roadmap`. The last four
+are the PM's: a runner takes them only when a mission at Works alone sends them, and you cannot send
+them from here. Run them in your own terminal, where they ask you their questions.
 
 ### Follow it on the Runners page
 

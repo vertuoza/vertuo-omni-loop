@@ -39,6 +39,11 @@ says. With no `flow`, `flow show` prints `hooks none` and `kitStep: run`: the st
 A PRD number. Re-running on the same PRD picks up where the last run stopped: the board is rebuilt
 from GitHub every time, never remembered.
 
+`--base <branch>` (PRD 2896), passed on by `/omni:yolo` for a mission above `with-you`, names the
+mission's branch: the feature PR's base is `<branch>` wherever this skill reads `repo.defaultBranch`
+for it (the board's `base`, its `behind` and `onto`, and the merge check below: never merge a PR whose
+base is `<branch>` or the default branch). Slices and sub-PRs are unchanged.
+
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON;

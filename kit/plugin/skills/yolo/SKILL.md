@@ -45,6 +45,14 @@ every time, `/omni:wave` resumes what a previous run left, and every step below 
 (the PR waits for the Reviewer) in place of marking it ready. Without `--for-review`, every step is
 as written below and the feature PR is marked ready as today.
 
+**`--base <branch>`** (PRD 2896) is added by a mission job above `with-you`: `<branch>` is the mission's
+branch (`branches.mission`). Wherever this skill reads `repo.defaultBranch` for the feature PR's base,
+it reads `<branch>`: the feature branch is cut from `<remote>/<branch>`, the feature PR opens against
+it (one the plan opened against the default branch is retargeted: `gh pr edit <n> --base <branch>`),
+and steps 1, 4 and 5 meet it. It is no stacked base: no PR is waited on or retargeted, the App
+squash-merges the PRD into it, and this skill never merges into it. Pass `--base <branch>` on to
+`/omni:wave`, `/omni:pr` and `/omni:pr-care`. Without it, `repo.defaultBranch`, as before.
+
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON;

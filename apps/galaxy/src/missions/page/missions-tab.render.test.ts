@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, r
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 const row = (over: Partial<MissionRow>): MissionRow => ({
-  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [parsePrd(1), parsePrd(2)], ...over,
+  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [parsePrd(1), parsePrd(2)], level: 'with-you', inPlan: false, ...over,
 });
 const view = (...missions: MissionRow[]): MissionsView => ({ workspace: WORKSPACE, fleet: 'night-shift', missions: missions.map((m) => missionOf(m, [])) });
 const html = (v: MissionsView) => renderToStaticMarkup(createElement(MissionsTab, { view: v }));
@@ -34,6 +34,35 @@ describe('MissionsTab', () => {
     expect(out).toContain('href="https://github.com/acme/shop/issues/40"');
   });
 
+  it('says committee only for a plan-repository mission at alone, and offers no own-branch (PRD 2896 s14)', () => {
+    const out = html(view(row({ level: 'alone', inPlan: true })));
+    expect(text(out)).toContain('committee only: a person merges each target&#x27;s pull request');
+    expect(out).not.toContain('value="own-branch"');
+  });
+
+  it('shows each mission\'s level, and Change for this mission on a draft alone (PRD 2896)', () => {
+    const draft = html(view(row({ level: 'own-branch' })));
+    expect(text(draft)).toContain('Level: Own branch');
+    expect(text(draft)).toContain('Change for this mission');
+    expect(draft).toMatch(/<option value="own-branch" selected/);
+    const running = html(view(row({ status: 'running', level: 'alone' })));
+    expect(text(running)).toContain('Level: Works alone');
+    expect(running).not.toContain('<select');
+    // A mission at with-you reads as it did, with the level's name added to its row.
+    expect(text(html(view(row({}))))).toContain('Level: Reviews with you');
+  });
+
+  it('draws the Branch line above with-you, and none at with-you (PRD 2896 s8)', () => {
+    const joined = { mission: row({}).id, kind: 'prd-joined', prd: parsePrd(1), link: null, sentence: 'PRD 1 joined mission/40-pay: #9 squash-merged.' };
+    const above = renderToStaticMarkup(createElement(MissionsTab, { view: { workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(row({ status: 'running', level: 'own-branch' }), [joined])] } }));
+    expect(text(above)).toContain('Branch: PRD 1 · up to date Mission pull request');
+    expect(text(above)).toContain('0 of 2 on main · 1 joined');
+    expect(above).toContain('href="https://github.com/acme/shop/pulls?q=is%3Apr%20head%3Amission%2F40-pay"');
+    const held = row({ status: 'waiting', level: 'alone', waitingOn: 'mission/40-pay is red (checks) since PRD 1 joined: no further PRD joins' });
+    expect(text(renderToStaticMarkup(createElement(MissionsTab, { view: { workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(held, [joined])] } })))).toContain('is red (checks)');
+    expect(text(html(view(row({ status: 'running' }))))).not.toContain('Branch:');
+  });
+
   it('shows a waiting mission with the PRD it waits on, linked, and Pause', () => {
     const out = html(view(row({ status: 'waiting', waitingOn: 'PRD 2803: approve it' })));
     expect(text(out)).toContain('Waiting on you');
@@ -46,6 +75,26 @@ describe('MissionsTab', () => {
   it('shows Resume on a paused mission, and no button on a delivered one', () => {
     expect(text(html(view(row({ status: 'paused' }))))).toContain('Resume');
     expect(html(view(row({ status: 'delivered' })))).not.toContain('<button');
+  });
+
+  it('at Works alone shows only what was escalated under Waiting on you, and the trust line (PRD 2896 s11)', () => {
+    const events = [{ mission: 'm', kind: 'decided', prd: parsePrd(2), link: null, sentence: 'The committee approved PRD 2: pm yes, architect yes, reviewer yes.' }];
+    const waiting = row({ level: 'alone', status: 'waiting', waitingOn: 'PRD 3: the committee sent it to you: a locked law' });
+    const alone = text(html({ workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(waiting, events)] }));
+    expect(alone).toContain('1 decisions by the fleet · 0 overturned');
+    expect(alone).toContain('Waiting on you');
+    expect(alone).toContain('the committee sent it to you: a locked law');
+    expect(text(html(view(row({ waitingOn: 'PRD 3: merge it' }))))).not.toContain('decisions by the fleet');
+  });
+
+  it('at Works alone names the PRDs the fleet added and the rows its cap left unwritten (PRD 2896 s12)', () => {
+    const events = [
+      { mission: 'm', kind: 'not-written', prd: null, link: null, sentence: 'Refunds by card: not written: the cap is 1.' },
+      { mission: 'm', kind: 'prd-added', prd: parsePrd(50), link: null, sentence: 'PRD 50 added by the fleet.' },
+    ];
+    const alone = text(html({ workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(row({ level: 'alone', status: 'running' }), events)] }));
+    expect(alone).toContain('PRD 50 added by the fleet Refunds by card: not written: the cap is 1.');
+    expect(text(html(view(row({ level: 'alone', status: 'running' }))))).not.toContain('added by the fleet');
   });
 
   it('is the Missions tab of a virtual fleet, and the tab is not open without its block', () => {

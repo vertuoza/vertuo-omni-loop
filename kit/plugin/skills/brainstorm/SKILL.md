@@ -29,6 +29,7 @@ signed. A command that prints nothing means signing is off here: add nothing.
 | input | example | notes |
 |---|---|---|
 | the idea | `/omni:brainstorm 'a line or a paragraph'` | what someone wants changed, in their words |
+| `--mission <m> --cap <k>` | `/omni:brainstorm --mission 12 --cap 1` | sent by a mission at Works alone to its PM, on a runner: in place of the idea, its goal, as **For a mission's PM** says |
 | `--concept <n> <area>` | `/omni:brainstorm --concept 712 day-view` | in place of the idea: one area of a concept that `/omni:think-big` recorded and a person merged into the inbox, read as **From a concept** says |
 
 | `--rework <n>` | `/omni:brainstorm --rework 822` | in place of the idea: rework PRD `<n>`'s spec and before/after from what its personas said, as **Rework** says; the User voice tab on the PRD's page copies this line |
@@ -950,6 +951,35 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
 7. **Hand off:** the new round's scores beside the last ones, the PR updated or opened, the dossier
    link, and, as the reply's last line, `/omni:yolo <n>` once that PR is merged (◆: once it is
    approved again on its page).
+
+## For a mission's PM
+
+`/omni:brainstorm --mission <m> --cap <k>` is the line a mission at Works alone sends its PM on a
+runner (PRD 2896, "7. The PM's own PRDs"). A runner refuses it on any other job, and nobody sends it
+by hand. It writes at most one PRD for the mission's goal and asks nobody. The steps above run as
+written, with these differences.
+
+- **The idea** is the mission's goal and measures, read from `mission.md` in the folder of mission
+  `<m>` under `.omni-loop/delivery/missions/`. No such folder, or step 0 read `phase 0: pr`: write
+  nothing and go straight to the record line, with no PRD. A PRD the fleet adds is born on the
+  server (◆), so its committee can approve it on its page: a phase-0 PR waits for a person.
+- **Asks nobody.** `OMNI_UNATTENDED` is set. Each question a step would ask a person (the design,
+  the voice, the proof, the e2e question) takes its most reversible answer, and once the PRD has a
+  number becomes one outbox item on it through `omni item new --prd <n>`, with `hardToRevert: true`,
+  its question and the answer taken: a high item, which the fleet's committee settles or sends to a
+  person. No Tech Approval is asked.
+- **Planned, never sent.** Step 8 plans it (`/omni:plan`), so its page holds the spec, the plan and
+  the before/after the committee reads. Step 9 opens no phase-0 PR. Step 10 hands off no
+  `/omni:yolo` line: the mission builds it once its committee approves, the PM sitting out.
+- **At most `<k>`.** One PRD, whatever `<k>` is.
+- **The record line,** the run's last output, one line exactly, `prds` empty when it wrote none:
+
+  ```
+  omni pm: {"v":1,"mission":<m>,"skill":"brainstorm","cap":<k>,"prds":[<n>],"unwritten":[]}
+  ```
+
+  The Omni app reads it from the job's log, and only it: the PRD joins the mission as
+  `added by the fleet`, at most `<k>` of them, and a line it cannot read adds nothing.
 
 ## Scaling
 

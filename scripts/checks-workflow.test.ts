@@ -24,7 +24,7 @@ type Job = {
 };
 
 const workflow = parse(readFileSync(fileURLToPath(new URL('../.github/workflows/checks.yml', import.meta.url)), 'utf8')) as {
-  on: { pull_request: { types?: string[] } & Record<string, unknown> };
+  on: { pull_request: { types?: string[]; branches?: string[] } & Record<string, unknown> };
   concurrency: { group: string; 'cancel-in-progress': boolean };
   jobs: Record<string, Job>;
 };
@@ -123,6 +123,13 @@ describe('the unsharded checks', () => {
       expect(needs(job(name))).toEqual(['settle']);
       expect(job(name).strategy).toBeUndefined();
     }
+  });
+});
+
+// PRD 2896: above `with-you` a PRD's feature pull request targets its mission's branch, and is checked as one into main.
+describe('a pull request into a mission branch', () => {
+  it('runs the workflow as one into main does, a sub-PR into a feature branch still not', () => {
+    expect(workflow.on.pull_request.branches).toEqual(['main', 'mission/**']);
   });
 });
 

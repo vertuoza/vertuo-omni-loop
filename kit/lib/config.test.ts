@@ -703,6 +703,11 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(parseConfig('kit: 1\nbranches:\n  megaInvade: kb/targets\n').branches.megaInvade).toBe('kb/targets');
   });
 
+  it('names the mission branch mission/{number}-{topic} when the file does not (PRD 2896), and keeps one it sets', () => {
+    expect(parseConfig('kit: 1\n').branches.mission).toBe('mission/{number}-{topic}');
+    expect(parseConfig('kit: 1\nbranches:\n  mission: m/{number}\n').branches.mission).toBe('m/{number}');
+  });
+
   it('reads a valid plan section: the guide, then each target in order, readAt null where it has none', () => {
     expect(parseConfig(plan([IMPORTED, OWN, NONE])).plan).toEqual({
       guide: 'docs/git-repositories/README.md',

@@ -106,15 +106,21 @@ describe('runnerApi().next()', () => {
 
   it('reads the job with the repository skills it carries', async () => {
     const { client, calls } = api(job({ id: 7, line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'] }));
-    expect(await client.next('r 1')).toEqual({ id: '7', line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'], github: null, sentByKey: null, resume: null });
+    expect(await client.next('r 1')).toEqual({ id: '7', line: '/validate-prd 347', repo: 'acme/widgets', sentBy: 'ada', allowedSkills: ['audit', 'validate-prd'], github: null, sentByKey: null, resume: null, mission: null });
     expect(calls[0]?.url).toBe('https://omni.test/api/runners/next?runner=r+1');
   });
 
   it('reads a job with no allowed skills, or with none listed, as allowing none', async () => {
     expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null })).client.next('r1'))
-      .toEqual({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [], github: null, sentByKey: null, resume: null });
+      .toEqual({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', sentBy: null, allowedSkills: [], github: null, sentByKey: null, resume: null, mission: null });
     expect(await api(job({ id: 'j1', line: '/omni:yolo 7', repo: 'acme/widgets', allowedSkills: null })).client.next('r1'))
       .toMatchObject({ allowedSkills: [] });
+  });
+
+  it('reads the mission that sent a job by its level, and one it cannot read as none (PRD 2896 s12)', async () => {
+    const line = '/omni:roadmap --mission 12 --cap 3';
+    expect(await api(job({ id: 'j1', line, repo: 'acme/widgets', mission: { level: 'alone' } })).client.next('r1')).toMatchObject({ mission: { level: 'alone' } });
+    expect(await api(job({ id: 'j1', line, repo: 'acme/widgets', mission: 'alone' })).client.next('r1')).toMatchObject({ mission: null });
   });
 
   it('answers none when the hold ended with no job', async () => {
@@ -131,7 +137,7 @@ describe("runnerApi().next(): a key's job and its GitHub App (PRD 2433)", () => 
 
   it("reads the app's token, its expiry, its bot login and its email, and the key's name", async () => {
     const claimed = await api(job({ ...BASE, github: GITHUB, sentByKey: 'deploy bot' })).client.next('r1');
-    expect(claimed).toEqual({ ...BASE, id: '7', github: GITHUB, sentByKey: 'deploy bot', resume: null });
+    expect(claimed).toEqual({ ...BASE, id: '7', github: GITHUB, sentByKey: 'deploy bot', resume: null, mission: null });
   });
 
   it('reads a payload without github and sentByKey, or with both null, as a job with neither', async () => {

@@ -1,3 +1,4 @@
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { ADA, BEN, DAN, DELIVERED, DRAFT, ELSEWHERE, fakeMissionsDb, PAUSED, RUNNING } from './missions.fake';
 import { FAILED, missionsService, NOT_YOURS } from './missions.service';
@@ -5,7 +6,7 @@ import { FAILED, missionsService, NOT_YOURS } from './missions.service';
 // Start, Pause, Resume and the wakes (PRD 2842 s5), on the database in memory and a fixed clock.
 
 const NOW = new Date('2027-01-22T10:00:00.000Z');
-const setup = (options: { refusesRefresh?: boolean } = {}) => {
+const setup = (options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: 'with-you' | 'own-branch' | 'alone'; planRepos?: readonly string[] } = {}) => {
   const db = fakeMissionsDb(options);
   return { db, service: missionsService(db.writer, { now: () => NOW }) };
 };
@@ -79,6 +80,7 @@ describe('Pause and Resume', () => {
     const { db, service } = setup();
     const reader = db.reader(ADA);
     const stale = {
+      ...reader,
       mission: async (id: string) => {
         const seen = await reader.mission(id);
         const row = db.missions.get(id);
@@ -88,6 +90,54 @@ describe('Pause and Resume', () => {
     };
     expect(await service.move('pause', RUNNING, ADA, stale)).toMatchObject({ ok: false, kind: 'conflict', error: 'Only a running or waiting mission pauses. It has just moved: look again.' });
     expect(db.events).toEqual([]);
+  });
+});
+
+describe('A mission in a plan repository (PRD 2896 s14)', () => {
+  it('refuses own-branch with the words of the spec, and takes with-you and alone', async () => {
+    const { db, service } = setup({ fleetLevel: 'alone', planRepos: ['acme/shop'] });
+    expect(await service.setLevel(DRAFT, 'own-branch', ADA, db.reader(ADA))).toEqual({ ok: false, kind: 'conflict', error: 'a mission branch holds one repository: use with-you or alone' });
+    expect(db.missions.get(DRAFT)?.level).toBe('with-you');
+    expect(await service.setLevel(DRAFT, 'alone', ADA, db.reader(ADA))).toEqual({ ok: true, value: { mission: { id: DRAFT, level: 'alone' } } });
+  });
+});
+
+describe('Change for this mission (PRD 2896)', () => {
+  it('lets a member set a mission to the level its fleet is at, and any member lower it', async () => {
+    const { db, service } = setup({ fleetLevel: 'own-branch' });
+    expect(await service.setLevel(DRAFT, 'own-branch', ADA, db.reader(ADA))).toEqual({ ok: true, value: { mission: { id: DRAFT, level: 'own-branch' } } });
+    expect(db.missions.get(DRAFT)?.level).toBe('own-branch');
+    expect(await service.setLevel(DRAFT, 'with-you', BEN, db.reader(BEN))).toEqual({ ok: true, value: { mission: { id: DRAFT, level: 'with-you' } } });
+  });
+
+  it('refuses a member who is not an owner a level above the fleet\'s, and lets an owner take it', async () => {
+    const { db, service } = setup({ owners: [BEN.id] });
+    expect(await service.setLevel(DRAFT, 'alone', ADA, db.reader(ADA))).toMatchObject({ ok: false, kind: 'forbidden', error: 'Only an owner of the workspace takes a mission above its fleet\'s level.' });
+    expect(db.missions.get(DRAFT)?.level).toBe('with-you');
+    expect(await service.setLevel(DRAFT, 'alone', BEN, db.reader(BEN))).toMatchObject({ ok: true });
+    expect(db.missions.get(DRAFT)?.level).toBe('alone');
+  });
+
+  it('refuses to lower a mission to with-you while PRDs sit on its branch, saying how many to land or drop', async () => {
+    const { db, service } = setup({ owners: [BEN.id] });
+    await service.setLevel(RUNNING, 'own-branch', BEN, db.reader(BEN));
+    const at = NOW.toISOString();
+    db.events.push(
+      { mission: RUNNING, kind: 'prd-joined', actor: 'agent', sentence: 'PRD 7 joined.', at, prd: parsePrd(7) },
+      { mission: RUNNING, kind: 'prd-joined', actor: 'agent', sentence: 'PRD 8 joined.', at, prd: parsePrd(8) },
+      { mission: RUNNING, kind: 'prd-joined', actor: 'agent', sentence: 'PRD 9 joined.', at, prd: parsePrd(9) },
+      { mission: RUNNING, kind: 'prd-dropped', actor: 'ada', sentence: 'PRD 9 dropped.', at, prd: parsePrd(9) },
+    );
+    expect(await service.setLevel(RUNNING, 'with-you', ADA, db.reader(ADA))).toEqual({ ok: false, kind: 'conflict', error: 'Land or drop the 2 PRDs on mission/42-pay-online first.' });
+    expect(db.missions.get(RUNNING)?.level).toBe('own-branch');
+    db.events.push({ mission: RUNNING, kind: 'prd-dropped', actor: 'ada', sentence: 'PRD 8 dropped.', at, prd: parsePrd(8) });
+    expect(await service.setLevel(RUNNING, 'with-you', ADA, db.reader(ADA))).toMatchObject({ ok: false, error: 'Land or drop the 1 PRD on mission/42-pay-online first.' });
+  });
+
+  it('keeps a delivered mission\'s level, and shows a mission to a member of its workspace alone', async () => {
+    const { db, service } = setup();
+    expect(await service.setLevel(DELIVERED, 'with-you', ADA, db.reader(ADA))).toMatchObject({ ok: false, kind: 'conflict' });
+    expect(await service.setLevel(DRAFT, 'with-you', DAN, db.reader(DAN))).toMatchObject({ ok: false, kind: 'forbidden', error: NOT_YOURS });
   });
 });
 

@@ -1,3 +1,5 @@
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
 import { z } from 'zod';
 
 // The missions' contract (PRD 2842 s5; spec "3. The supervisor"): what the Start, Pause and Resume routes
@@ -7,6 +9,7 @@ import { z } from 'zod';
 //   POST /api/missions/<id>/start    a draft goes running
 //   POST /api/missions/<id>/pause    a running or waiting mission goes paused
 //   POST /api/missions/<id>/resume   a paused mission goes running
+//   POST /api/missions/<id>/level    {level}: Change for this mission (PRD 2896), the level it runs at
 
 export type MissionAction = 'start' | 'pause' | 'resume';
 
@@ -23,6 +26,48 @@ export const MOVES: Record<MissionAction, { from: readonly MissionStatus[]; to: 
 
 export const MovedMissionSchema = z.object({ mission: z.object({ id: z.uuid(), status: MissionStatusSchema }) });
 export type MovedMission = z.infer<typeof MovedMissionSchema>;
+
+/** What a mission runs at (PRD 2896): the brief's three keys. */
+export const MissionLevelSchema = z.enum(MISSION_LEVELS);
+export const LevelBodySchema = z.object({ level: MissionLevelSchema });
+export const LeveledMissionSchema = z.object({ mission: z.object({ id: z.uuid(), level: MissionLevelSchema }) });
+export type LeveledMission = z.infer<typeof LeveledMissionSchema>;
+
+/** What `omni mission drop` sends (PRD 2896 s7): the repository, the mission's number, the PRD to take off its branch and whether the later PRDs sharing its territory stay. */
+export const DropBodySchema = z.object({
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
+  mission: z.number().int().positive(),
+  prd: PrdNumberSchema,
+  keep: z.boolean().default(false),
+});
+export type DropBody = z.infer<typeof DropBodySchema>;
+
+/** The ask as recorded: the branch the PRD leaves, the later PRDs sharing its territory and every PRD that leaves, in join order. */
+export const DroppedMissionSchema = z.object({
+  drop: z.object({
+    mission: z.uuid(),
+    branch: z.string(),
+    prd: PrdNumberSchema,
+    sharing: z.array(PrdNumberSchema),
+    dropped: z.array(PrdNumberSchema),
+    keep: z.boolean(),
+  }),
+});
+export type DroppedMission = z.infer<typeof DroppedMissionSchema>;
+
+/** What `omni mission overturn` sends (PRD 2896 s11): the repository, the mission's number and the decision (`<prd>` or `<prd>/<item>`). */
+export const OverturnBodySchema = z.object({
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
+  mission: z.number().int().positive(),
+  decision: z.string().regex(/^[1-9][0-9]*(?:\/[a-z0-9][a-z0-9-]*)?$/).max(200),
+});
+export type OverturnBody = z.infer<typeof OverturnBodySchema>;
+
+/** The overturn as recorded: the branch the PRD leaves (null when it was not on it), the decision, its PRD and whether it was on the branch. */
+export const OverturnedMissionSchema = z.object({
+  overturn: z.object({ mission: z.uuid(), branch: z.string().nullable(), decision: z.string(), prd: PrdNumberSchema, onBranch: z.boolean() }),
+});
+export type OverturnedMission = z.infer<typeof OverturnedMissionSchema>;
 
 /** Each refusal's status. */
 export const MISSION_REFUSALS = {

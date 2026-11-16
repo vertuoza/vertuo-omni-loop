@@ -20,8 +20,14 @@
 .mission-state[data-status='running'], .mission-state[data-status='delivered'] { border-color: var(--ask-green); color: var(--ask-green); }
 .mission-state[data-status='waiting'] { border-color: var(--ask-plasma); }
 .mission-state[data-status='stopped'] { border-color: var(--ask-red); color: var(--ask-red); }
+.mission-level { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 15px; }
+.mission-level-change { display: inline-flex; align-items: center; gap: 6px; }
+.mission-branch { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 15px; }
+.mission-branch-hold { flex-basis: 100%; color: var(--ask-red); }
 .mission-progress { font-variant-numeric: tabular-nums; }
 .mission-waits { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 15px; }
+.mission-fleet-prds { margin: 0; font-size: 15px; }
+.mission-not-written { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; }
 .mission-problem { color: var(--ask-red); font-size: 14px; line-height: 1.4; }
 
 @media (max-width: 719px) {

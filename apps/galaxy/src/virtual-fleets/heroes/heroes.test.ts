@@ -50,7 +50,7 @@ describe('rowOf', () => {
   });
 
   it('puts the skills that run alone first, whatever order the hero holds them in', () => {
-    expect(rowOf(hero('pm', ['brainstorm', 'pitch', 'roadmap', 'plan'])).skills.map((s) => s.mark)).toEqual(['alone', 'alone', 'person', 'person']);
+    expect(rowOf(hero('pm', ['mission', 'pitch', 'brainstorm', 'plan'])).skills.map((s) => s.name)).toEqual(['/omni:pitch', '/omni:brainstorm', '/omni:plan', '/omni:mission']);
   });
 
   it('writes a Reviewer with its review as an agent that runs it alone, its tech-review a person\'s (PRD 2871)', () => {

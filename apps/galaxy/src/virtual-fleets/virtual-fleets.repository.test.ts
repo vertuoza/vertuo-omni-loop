@@ -26,20 +26,20 @@ const ROW = { workspace_id: WORKSPACE, name: 'night-shift', label: 'Night Shift'
 describe('the virtual fleets repository', () => {
   it('calls create_virtual_fleet() as the person, and answers the fleet as made', async () => {
     const { db, calls } = client({ data: ROW, error: null });
-    const made = await virtualFleetsRepository(db).create({ workspace: WORKSPACE, name: 'Night Shift', mascot: 'robot', roles: ['engineer', 'qa'] });
+    const made = await virtualFleetsRepository(db).create({ workspace: WORKSPACE, name: 'Night Shift', mascot: 'robot', roles: ['engineer', 'qa'], level: 'with-you' });
     expect(made).toEqual({ ok: true, value: { name: 'night-shift', label: 'Night Shift', color: '#4fb0ff', mascot: 'robot' } });
-    expect(calls).toEqual([['rpc', 'create_virtual_fleet', { p_workspace: WORKSPACE, p_name: 'Night Shift', p_mascot: 'robot', p_roles: ['engineer', 'qa'] }]]);
+    expect(calls).toEqual([['rpc', 'create_virtual_fleet', { p_workspace: WORKSPACE, p_name: 'Night Shift', p_mascot: 'robot', p_roles: ['engineer', 'qa'], p_level: 'with-you' }]]);
   });
 
   it('passes a refusal on with its code, hint and words', async () => {
     const { db } = client({ data: null, error: { code: '22023', hint: 'name', message: 'Name taken: choose another' } });
-    expect(await virtualFleetsRepository(db).create({ workspace: WORKSPACE, name: 'Beaver', mascot: 'robot', roles: ['qa'] }))
+    expect(await virtualFleetsRepository(db).create({ workspace: WORKSPACE, name: 'Beaver', mascot: 'robot', roles: ['qa'], level: 'with-you' }))
       .toEqual({ ok: false, code: '22023', hint: 'name', message: 'Name taken: choose another' });
   });
 
   it('throws on a row it cannot read', async () => {
     const { db } = client({ data: { name: 'x' }, error: null });
-    await expect(virtualFleetsRepository(db).create({ workspace: WORKSPACE, name: 'X', mascot: 'robot', roles: ['qa'] })).rejects.toThrow();
+    await expect(virtualFleetsRepository(db).create({ workspace: WORKSPACE, name: 'X', mascot: 'robot', roles: ['qa'], level: 'with-you' })).rejects.toThrow();
   });
 
   it('reads the keys of the workspace\'s virtual fleets by kind, and throws when it cannot', async () => {

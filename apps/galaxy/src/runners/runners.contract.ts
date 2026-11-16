@@ -36,10 +36,11 @@ import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. The ultra skills (PRD 2873)
  * are sent from a product's plan repository only, which the service checks once it knows the repository. `review` is the Reviewer's
- * (PRD 2871). */
+ * (PRD 2871), `committee` a mission's fleet's (PRD 2896), and the PM's four writing skills run on a job of a mission at `alone` only
+ * (PRD 2896 s12), which the service and the runner check. */
 export const RUNNER_SKILLS = [
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap',
 ] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
@@ -201,10 +202,11 @@ export type GithubGrant = z.infer<typeof GithubGrantSchema>;
  * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs.
  * `sentByKey` is the name of the API key that sent it, or null (PRD 2433); `github` is the App it runs as,
  * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. `resume` is
- * a resume's (PRD 2809, s5): its attempt, the earlier jobs of its chain and the saves they left; absent for any other job. */
+ * a resume's (PRD 2809, s5): its attempt, the earlier jobs of its chain and the saves they left; absent for any other job. `mission` is
+ * the level of the mission that sent it (PRD 2896 s12), null for a job no mission sent: a PM skill runs on one at `alone` only. */
 export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
-  sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(),
+  sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(), mission: z.object({ level: z.string() }).nullable().optional(),
 }).refine((job) => checkLine(job.line, job.allowedSkills).ok || isAppLine(job.line), { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 

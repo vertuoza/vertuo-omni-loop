@@ -567,6 +567,14 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
     decide: ({ decision, repo, state, old, ref = null }: { decision: string; repo: unknown; state: unknown; old: unknown; ref?: unknown }) =>
       call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
+    /** PRD 2896 s7: asks for PRD `prd` to leave mission `mission`'s branch in `repo` (`omni mission drop`); with `keep`, the later PRDs
+     * sharing its territory stay. @returns {Promise<{ drop: { mission: string, branch: string, prd: number, sharing: number[], dropped: number[], keep: boolean } }>} */
+    dropMission: ({ repo, mission, prd, keep }: { repo: string; mission: number; prd: PrdNumber; keep: boolean }) =>
+      call('POST', '/api/missions/drop', { body: { repo, mission, prd, keep } }),
+    /** PRD 2896 s11: a person overturns decision `decision` (`<prd>` for an approval, `<prd>/<item>` for an answer) the fleet of mission `mission` in `repo`
+     * carried (`omni mission overturn`). @returns {Promise<{ overturn: { mission: string, branch: string | null, decision: string, prd: number, onBranch: boolean } }>} */
+    overturnMission: ({ repo, mission, decision }: { repo: string; mission: number; decision: string }) =>
+      call('POST', '/api/missions/overturn', { body: { repo, mission, decision } }),
     /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
      * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
     pushLoop: (body: unknown) => call('POST', '/api/loops', { body }),

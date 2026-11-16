@@ -12,7 +12,7 @@ const prd = (n: number): PrdNumber => parsePrd(n);
 const PR = 'https://github.com/acme/widgets/pull/9';
 const REVIEW = `${PR}#pullrequestreview-41`;
 
-const team = (over: Partial<Mission> = {}): Mission => ({ id: ID, fleet: 'night-shift', status: 'running', parallel: 2, waitingOn: null, ...over });
+const team = (over: Partial<Mission> = {}): Mission => ({ id: ID, fleet: 'night-shift', status: 'running', parallel: 2, waitingOn: null, level: 'with-you', number: 12, title: 'Faster quotes', ...over });
 const one = (n: number, over: Partial<PrdFacts> = {}): PrdFacts => ({ prd: prd(n), approval: 'standing', stage: 'open', blockers: [], territory: [`apps/ground-${String(n)}/`], ...over });
 const busy = (id: string, over: Partial<Attempt> = {}): Attempt => ({ id, status: 'running', outcome: null, reason: null, prUrl: null, ...over });
 const done = (id: string, word: string | null, over: Partial<Attempt> = {}): Attempt => busy(id, { status: 'done', outcome: word, ...over });

@@ -28,6 +28,8 @@ export interface VirtualOf {
   workspace: string | null;
   mascots: readonly string[];
   names: readonly string[];
+  /** True for an owner of the workspace: the drawer lets only them choose a level above `Reviews with you` (PRD 2896 s1). */
+  owner?: boolean;
 }
 
 /** A virtual fleet's heroes for its Heroes tab: null when they could not be read. */
@@ -43,6 +45,16 @@ async function virtualNames(db: SupabaseClient<Database>, workspace: string): Pr
   }
 }
 
+/** Whether the person owns the workspace; a failed read says no, and the database refuses the raise either way. */
+async function ownerOf(db: SupabaseClient<Database>, workspace: string, person: string): Promise<boolean> {
+  try {
+    return await heroesServiceAs(db).owns(workspace, person);
+  } catch (error) {
+    console.error(`fleet: the workspace's owners could not be read (${messageOf(error)})`);
+    return false;
+  }
+}
+
 export async function loadFleetBoard(db: SupabaseClient<Database>, user: Pick<User, 'id'>, asked: string | null, period: Period, now: Date): Promise<FleetBoard> {
   const request = { asked, viewerId: user.id, period, now };
   let workspace: Workspace | null;
@@ -54,8 +66,8 @@ export async function loadFleetBoard(db: SupabaseClient<Database>, user: Pick<Us
   }
   if (!workspace) return { kind: 'no-workspace' };
   const id = workspace.id;
-  const [value, names] = await Promise.all([loadFleet(supabaseReads(db, id, once(() => loadGalaxy(db, id, now))), request), virtualNames(db, id)]);
-  const virtual = { workspace: id, mascots: MASCOTS, names };
+  const [value, names, owner] = await Promise.all([loadFleet(supabaseReads(db, id, once(() => loadGalaxy(db, id, now))), request), virtualNames(db, id), ownerOf(db, id, user.id)]);
+  const virtual = { workspace: id, mascots: MASCOTS, names, owner };
   if (value.kind !== 'board' || !names.includes(value.fleet.name)) return { ...value, virtual };
   return { ...value, virtual, heroes: await heroesOf(db, id, user.id, value.fleet) };
 }
@@ -79,5 +91,5 @@ export function demoFleetBoard(asked: string | null, period: Period, now: Date, 
     { roster, activity: demoActivity(roster, now), answered: demoAnswered(roster), galaxy, prds: demoPrds(roster) },
     { asked, viewerId: DEMO_VIEWER.userId, period, now },
   );
-  return { ...value, virtual: { workspace: null, mascots: MASCOTS, names: [] } };
+  return { ...value, virtual: { workspace: null, mascots: MASCOTS, names: [], owner: false } };
 }

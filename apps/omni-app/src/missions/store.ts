@@ -7,32 +7,56 @@
 //   facts        each PRD of its scope, in order: the PRDs it names alone, then each roadmap's (`roadmaps` of
 //                the workspace and repository, by number, then their `roadmap_prds`, blockers included); for
 //                each, its stages (`prd_stages`), its page (a `dossiers` row of kind prd), the latest product
-//                approval there and whether a push voided it (`approvals`, `approval_voids`: BL-APPROVALS-1),
+//                approval there and whether a push voided it (`approvals`, `approval_voids`: BL-APPROVALS-1); a fleet's
+//                approval given in another mission counts as none here (PRD 2896 s9),
 //                and the territory of the latest plan on its page (`dossier_versions` of kind plan)
 //   runs         the runner jobs the mission sent (`runner_jobs.mission_id`), each with the resumes that carry
 //                it on after a lost runner (`runner_jobs.resumes`, PRD 2809), one chain per job, its step read
 //                from its key; for a Reviewer job's verdict, what its log's `omni review post` line says it
 //                posted (`runner_jobs.log_tail`, PRD 2871): its count of findings and its review's link, nothing
 //                else of the log
-//   events       the events already recorded, read back as keys, so nothing is recorded twice
+//   events       the events already recorded, in the order they happened, read back as keys, so nothing is
+//                recorded twice, and as the PRDs on the mission branch (PRD 2896)
 //   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
+//   installation the GitHub installation of the mission's workspace (`workspaces.github_installation_id`), for the mission
+//                branch the App cuts (PRD 2896); null when the workspace has none
 //   planRepository whether the mission's repository is a live product's plan repository (`products.plan_repository`)
 //   send         the step's line queued (`/omni:yolo <n> --for-review`, `/omni:review <n>` or `/omni:yolo-fix
 //                <n> --for-review`, PRD 2871; the build `/omni:ultra-yolo <n>` for a PRD of a plan repository, PRD
 //                2873), sent by the app (`sent_by_app`, never a person's name, Never 10), to the fleet's runners or
 //                else to any runner of the workspace, under `mission_key`: a key already held (23505) inserts
 //                nothing and answers null
-//   record       the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
+//   care         a feature branch's care job (PRD 2896 s5: `/omni:pr-care <n> --once --base <mission branch>`, for a branch that
+//                conflicts with the mission branch only in generated paths), sent by the app with no mission key, unless a
+//                job of the same line was queued for the mission since the mission branch's head was committed: one per head
+//   committees   the committees the mission sent (PRD 2896 s9): its jobs keyed `…:approve:<k>`, each with the decision recorded
+//                for it (`mission_decisions`), if any
+//   committeeLog what an ended committee job's log ends on (`runner_jobs.log_tail`): read only for its record line
+//   decide       a committee job's decision, recorded through mission_decide_approval() as the service role (BR-PRODUCT-94):
+//                the database escalates what it reads itself, and a carried approval approves the PRD in the fleet's name
+//   approve      a committee's job queued (`/omni:committee <n> --approve`), sent by the app, to the fleet's runners or else to
+//                any runner of the workspace, under its key: a key already held inserts nothing and answers null
+//   pmJobs       the PM jobs the mission sent (PRD 2896 s12): its jobs keyed `…:pm:<k>`, each with its line; their logs read
+//                through committeeLog, only for the PM's record line
+//   pm           the mission's PM job queued (`/omni:roadmap --mission <n> --cap <k>` or its kin), sent by the app, under its key
+//   record      the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
 //   update       the mission's status, what it waits on and its next wake, only while its status is still the
 //                one this run read: a Pause landing meanwhile is never overwritten
 //
 // Throws when the database refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
+import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
+import { approveLine, committeeKey, committeeOfKey, type Committee, type Decision, type Recorded } from './committee.ts';
+import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } from './answers.ts';
+import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
+import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
 import {
   approvalOf,
+  baseOf,
   expandScope,
   lineOf,
   missionKey,
@@ -54,24 +78,71 @@ import {
 } from './supervisor.ts';
 
 /** A mission as the store reads it: the supervisor's view, its workspace and repository, and its scope. */
-export type MissionRecord = Mission & { workspace: string; repo: string; scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] } };
+export type MissionRecord = Mission & {
+  workspace: string;
+  repo: string;
+  scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] };
+  /** `mandate.hardToRevert` (PRD 2896 s10): the bound an item's score is read against at `alone`; its default when absent. */
+  hardToRevert?: number;
+  /** `mandate.ownPrds` (PRD 2896 s12): how many PRDs the fleet's PM may add at `alone`; 0, none, when absent. */
+  ownPrds?: number;
+};
+
+/** An item's committee to send (PRD 2896 s10): the mission, the PRD, the item, and whether the fleet's runners take it. */
+export type Ask = { mission: MissionRecord; prd: PrdNumber; item: string; toFleet: boolean };
 
 /** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
 export type MissionSkill = BuildSkill;
 
+/**
+ * A committee to send (PRD 2896 s9): the mission, the PRD, its round, whether the fleet's runners take it, and the hero who wrote
+ * the PRD and sits out (PRD 2896 s12: the PM, for a PRD its fleet added), none by default.
+ */
+export type Approve = { mission: MissionRecord; prd: PrdNumber; round: number; toFleet: boolean; author?: CommitteeRole | null };
+
+/** The mission's PM job to send (PRD 2896 s12): the mission, its round, its line, and whether the fleet's runners take it. */
+export type PmSend = { mission: MissionRecord; round: number; line: string; toFleet: boolean };
+
 /** A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill. */
 export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill };
+
+/**
+ * A care job to send (PRD 2896 s5): its line, and since when one of it counts as sent, the mission branch's head's commit time,
+ * so one job is sent per feature branch and head of the mission branch. It is no step of a run: it has no mission key.
+ */
+export type Care = { mission: MissionRecord; line: string; since: string; toFleet: boolean };
 
 export type MissionStore = {
   mission: (id: string) => Promise<MissionRecord | null>;
   facts: (mission: MissionRecord) => Promise<PrdFacts[]>;
   runs: (id: string) => Promise<Run[]>;
   events: (id: string) => Promise<RecordedEvent[]>;
+  fleetEvents: (id: string) => Promise<DecisionEvent[]>;
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
   /** Whether the mission's repository is the plan repository of a live product of its workspace. */
   planRepository: (mission: MissionRecord) => Promise<boolean>;
+  /** The GitHub installation of the mission's workspace; null when it has none. */
+  installation: (mission: MissionRecord) => Promise<number | null>;
   /** The job's id, or null when its key was already held. */
   send: (job: Dispatch) => Promise<string | null>;
+  /** A feature branch's care job (PRD 2896 s5): its id, or null when a job of `line` was queued for the mission since `since`. */
+  care: (job: Care) => Promise<string | null>;
+  /** The committees the mission sent (PRD 2896 s9), each with its decision once recorded. */
+  committees: (id: string) => Promise<Committee[]>;
+  /** The log tail of a committee's job; null when it has none. */
+  committeeLog: (job: string) => Promise<string | null>;
+  /** A committee job's decision recorded once, as the database kept it. */
+  decide: (mission: MissionRecord, one: Committee, recorded: Recorded) => Promise<Decision>;
+  /** A committee's job: its id, or null when its key was already held. */
+  approve: (job: Approve) => Promise<string | null>;
+  /** The PM jobs the mission sent (PRD 2896 s12): its jobs keyed `…:pm:<k>`, in order. */
+  pmJobs: (id: string) => Promise<PmJob[]>;
+  /** The mission's PM job queued under its key: its id, or null when the key was already held. */
+  pm: (job: PmSend) => Promise<string | null>;
+  /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>`, in order. */
+  asks: (id: string) => Promise<Omit<ItemCommittee, 'decision'>[]>;
+  /** An item's committee queued, with no mission key: its id, or null when one was sent for that item already. */
+  ask: (job: Ask) => Promise<string | null>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
   /** Whether the mission was still at `from`, and so was moved. */
   update: (id: string, from: MissionStatus, next: Concluded) => Promise<boolean>;
@@ -84,17 +155,22 @@ const APP_SENDER = 'omni-app';
 const TAKEN = '23505';
 
 /** The columns each read selects, shared with ./store.boundary.ts. */
-export const MISSION = 'id, workspace_id, repo, fleet, status, waiting_on, mandate, scope';
+export const MISSION = 'id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope';
+export const WORKSPACE = 'github_installation_id';
 export const ROADMAP = 'id, number';
 export const ROADMAP_PRD = 'roadmap_id, position, row_id, prd, blockers';
 export const STAGE = 'prd, stage';
 export const DOSSIER = 'id, prd';
-export const APPROVAL = 'id, dossier_id';
+export const APPROVAL = 'id, dossier_id, mission_id, approved_at';
+export const OVERTURN = 'prd, at';
+export const FLEET_EVENT = 'kind, prd, sentence, link, actor';
 export const VOID = 'approval_id';
 export const PLAN = 'content';
 export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url';
 export const JOB_LOG = 'id, log_tail';
+export const CARE = 'id';
 export const EVENT = 'kind, prd, job_id';
+export const DECISION = 'job_id, outcome, why';
 export const RUNNER = 'repos';
 export const PRODUCT = 'plan_repository';
 
@@ -105,16 +181,26 @@ export const MissionRowSchema = z.object({
   workspace_id: text,
   repo: text,
   fleet: text,
+  number: IssueNumberSchema,
+  title: text,
   status: z.enum(['draft', 'running', 'waiting', 'paused', 'delivered', 'stopped']),
   waiting_on: z.string().nullable(),
-  mandate: z.object({ parallel: z.number().int().min(1).max(4) }),
+  mandate: z.object({
+    parallel: z.number().int().min(1).max(4),
+    level: z.enum(MISSION_LEVELS).default('with-you'),
+    hardToRevert: z.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z.number().int().min(0).max(10).default(0),
+  }),
   scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
 });
+export const WorkspaceRowSchema = z.object({ github_installation_id: z.number().int().positive().nullable() });
 export const RoadmapRowSchema = z.object({ id: text, number: IssueNumberSchema.nullable() });
 export const RoadmapPrdRowSchema = z.object({ roadmap_id: text, position: z.number().int(), row_id: text, prd: PrdNumberSchema.nullable(), blockers: z.array(z.string()) });
 export const StageRowSchema = z.object({ prd: PrdNumberSchema, stage: text });
 export const DossierRowSchema = z.object({ id: text, prd: PrdNumberSchema.nullable() });
-export const ApprovalRowSchema = z.object({ id: text, dossier_id: text });
+export const ApprovalRowSchema = z.object({ id: text, dossier_id: text, mission_id: z.string().nullable(), approved_at: text });
+export const FleetEventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), sentence: text, link: z.string().nullable(), actor: z.string().nullable() });
+export const OverturnRowSchema = z.object({ prd: PrdNumberSchema.nullable(), at: text });
 export const VoidRowSchema = z.object({ approval_id: text });
 export const PlanRowSchema = z.object({ content: z.string() });
 export const JobRowSchema = z.object({
@@ -127,7 +213,13 @@ export const JobRowSchema = z.object({
   pr_url: z.string().nullable(),
 });
 export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
+/** An item committee's job (PRD 2896 s10): a job row with its line, which names the PRD and the item. */
+export const ASK = `${JOB}, line`;
+export const AskRowSchema = JobRowSchema.extend({ line: z.string() });
+export const CareRowSchema = z.object({ id: text });
 export const EventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), job_id: z.string().nullable() });
+export const DecisionRowSchema = z.object({ job_id: text, outcome: z.enum(['carried', 'escalated']), why: z.array(z.string()) });
+const DecidedSchema = z.object({ outcome: z.enum(['carried', 'escalated']), why: z.array(z.string()) });
 export const RunnerRowSchema = z.object({ repos: z.array(z.string()) });
 export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
 
@@ -154,18 +246,40 @@ export function missionStore(connection: Connection): MissionStore {
     });
   }
 
-  /** Each PRD's latest product approval, and whether a push voided it, by its page's id. */
-  async function approvals(dossiers: readonly string[]): Promise<Map<string, { voided: boolean }>> {
+  /** The pages whose fleet approval (`given`, this mission's) a person overturned after it was given (PRD 2896 s11); no read when none was given. */
+  async function overturnedAmong(given: readonly z.infer<typeof ApprovalRowSchema>[], mission: string, pageOf: ReadonlyMap<PrdNumber, string>): Promise<Set<string>> {
+    const overturned = new Set<string>();
+    if (given.length === 0) return overturned;
+    for (const event of rowsOf(OverturnRowSchema, await db.from('mission_events').select(OVERTURN).eq('mission_id', mission).eq('kind', 'overturned').not('prd', 'is', null).order('at'))) {
+      const page = event.prd === null ? undefined : pageOf.get(event.prd);
+      const row = given.find((one) => one.dossier_id === page);
+      if (row !== undefined && Date.parse(event.at) > Date.parse(row.approved_at)) overturned.add(row.dossier_id);
+    }
+    return overturned;
+  }
+
+  /**
+   * Each PRD's latest product approval, and whether a push voided it, by its page's id. A fleet's approval given in another
+   * mission than `mission` counts for that mission only (PRD 2896 s9): here it reads as none.
+   */
+  async function approvals(dossiers: readonly string[], mission: string, pageOf: ReadonlyMap<PrdNumber, string>): Promise<Map<string, { voided: boolean; overturned: boolean }>> {
     if (dossiers.length === 0) return new Map();
     const rows = rowsOf(
       ApprovalRowSchema,
       await db.from('approvals').select(APPROVAL).in('dossier_id', dossiers).eq('approval_kind', 'product').order('approved_at', { ascending: false }).order('id', { ascending: false }),
     );
     const latest = new Map<string, string>();
-    for (const row of rows) if (!latest.has(row.dossier_id)) latest.set(row.dossier_id, row.id);
+    const elsewhere = new Set<string>();
+    for (const row of rows) {
+      if (latest.has(row.dossier_id) || elsewhere.has(row.dossier_id)) continue;
+      if (row.mission_id !== null && row.mission_id !== mission) elsewhere.add(row.dossier_id);
+      else latest.set(row.dossier_id, row.id);
+    }
     const ids = [...latest.values()];
     const voided = new Set(ids.length === 0 ? [] : rowsOf(VoidRowSchema, await db.from('approval_voids').select(VOID).in('approval_id', ids)).map((row) => row.approval_id));
-    return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id) }]));
+    // A person overturned the fleet's approval, given in this mission, after it was given (PRD 2896 s11): it no longer counts here.
+    const overturnedHere = await overturnedAmong(rows.filter((row) => row.mission_id === mission && latest.get(row.dossier_id) === row.id), mission, pageOf);
+    return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id), overturned: overturnedHere.has(dossier) }]));
   }
 
   /** `runs`, each Reviewer verdict carrying what its log says it posted: one read of those jobs' log tails, none without one. */
@@ -189,11 +303,23 @@ export function missionStore(connection: Connection): MissionStore {
     return plan?.content ?? null;
   }
 
+  /** A job of the mission queued under its key (none for a care or an item's committee), sent by the app: its id, or null when the key was already held. */
+  async function queue({ mission, toFleet, line, key }: { mission: MissionRecord; toFleet: boolean; line: string; key: string | null }): Promise<string | null> {
+    const answer = await db
+      .from('runner_jobs')
+      .insert({ workspace_id: mission.workspace, repo: mission.repo, line, sent_by_app: APP_SENDER, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: key })
+      .select('id');
+    if (answer.error?.code === TAKEN) return null;
+    const [made] = rowsOf(z.object({ id: text }), answer);
+    if (!made) throw new Error('the database queued no job and gave no reason');
+    return made.id;
+  }
+
   return {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds };
     },
 
     async facts(mission) {
@@ -203,7 +329,7 @@ export function missionStore(connection: Connection): MissionStore {
       const stages = rowsOf(StageRowSchema, await db.from('prd_stages').select(STAGE).eq('workspace_id', mission.workspace).eq('repository', mission.repo).in('prd', prds));
       const dossiers = rowsOf(DossierRowSchema, await db.from('dossiers').select(DOSSIER).eq('workspace_id', mission.workspace).eq('home_repo', mission.repo).eq('kind', 'prd').in('prd', prds));
       const pageOf = new Map(dossiers.flatMap((row) => (row.prd === null ? [] : [[row.prd, row.id] as const])));
-      const approved = await approvals([...pageOf.values()]);
+      const approved = await approvals([...pageOf.values()], mission.id, pageOf);
       const facts: PrdFacts[] = [];
       for (const { prd, blockers } of scope) {
         const page = pageOf.get(prd);
@@ -213,6 +339,7 @@ export function missionStore(connection: Connection): MissionStore {
           stage: stageOf(stages.filter((row) => row.prd === prd).map((row) => row.stage)),
           blockers,
           territory: territoryOf(await planOf(page)),
+          page: page ?? null,
         });
       }
       return facts;
@@ -241,8 +368,12 @@ export function missionStore(connection: Connection): MissionStore {
       return withPosted(runs);
     },
 
+    async fleetEvents(id) {
+      return rowsOf(FleetEventRowSchema, await db.from('mission_events').select(FLEET_EVENT).eq('mission_id', id).in('kind', ['decided', 'overturned']).order('at')).map((row) => ({ kind: row.kind, prd: row.prd, sentence: row.sentence, link: row.link, actor: row.actor }));
+    },
+
     async events(id) {
-      return rowsOf(EventRowSchema, await db.from('mission_events').select(EVENT).eq('mission_id', id)).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
+      return rowsOf(EventRowSchema, await db.from('mission_events').select(EVENT).eq('mission_id', id).order('at')).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
     },
 
     async fleetRunners(mission) {
@@ -255,23 +386,73 @@ export function missionStore(connection: Connection): MissionStore {
       return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
     },
 
-    async send({ mission, prd, run, step, toFleet, skill }) {
-      const answer = await db
-        .from('runner_jobs')
-        .insert({
-          workspace_id: mission.workspace,
-          repo: mission.repo,
-          line: lineOf(prd, step, skill),
-          sent_by_app: APP_SENDER,
-          to_fleet: toFleet ? mission.fleet : null,
-          mission_id: mission.id,
-          mission_key: missionKey(mission.id, prd, run, step),
-        })
-        .select('id');
-      if (answer.error?.code === TAKEN) return null;
-      const [made] = rowsOf(z.object({ id: text }), answer);
-      if (!made) throw new Error('the database queued no job and gave no reason');
-      return made.id;
+    async installation(mission) {
+      const [workspace] = rowsOf(WorkspaceRowSchema, await db.from('workspaces').select(WORKSPACE).eq('id', mission.workspace).limit(1));
+      return workspace?.github_installation_id ?? null;
+    },
+
+    send: ({ mission, prd, run, step, toFleet, skill }) =>
+      queue({ mission, toFleet, line: lineOf(prd, step, skill, baseOf(mission, skill === 'ultra-yolo')), key: missionKey(mission.id, prd, run, step) }),
+
+    async care({ mission, line, since, toFleet }) {
+      // The mission's runs happen one at a time (its lane): a read, then the insert, sends one.
+      const sent = rowsOf(CareRowSchema, await db.from('runner_jobs').select(CARE).eq('mission_id', mission.id).eq('line', line).gte('queued_at', since).limit(1));
+      return sent.length > 0 ? null : queue({ mission, toFleet, line, key: null });
+    },
+
+    async committees(id) {
+      const jobs = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).eq('mission_id', id).like('mission_key', `mission:${id}:prd:%:approve:%`).order('queued_at'));
+      if (jobs.length === 0) return [];
+      const decided = rowsOf(DecisionRowSchema, await db.from('mission_decisions').select(DECISION).eq('mission_id', id));
+      return jobs.flatMap((job): Committee[] => {
+        const key = job.mission_key === null ? null : committeeOfKey(job.mission_key);
+        const decision = decided.find((row) => row.job_id === job.id);
+        return key === null ? [] : [{ prd: key.prd, round: key.round, job: job.id, attempt: attemptOf(job), decision: decision ? { outcome: decision.outcome, why: decision.why } : null }];
+      });
+    },
+
+    async committeeLog(job) {
+      const [row] = rowsOf(JobLogRowSchema, await db.from('runner_jobs').select(JOB_LOG).eq('id', job).limit(1));
+      return row?.log_tail ?? null;
+    },
+
+    async decide(mission, one, { record, decision }) {
+      const answer = await db.rpc('mission_decide_approval', {
+        p_mission: mission.id,
+        p_prd: one.prd,
+        p_job: one.job,
+        p_record: record,
+        p_outcome: decision.outcome,
+        p_why: decision.why,
+      });
+      if (answer.error) throw new Error(`the database refused the committee's decision: ${answer.error.message}`);
+      return DecidedSchema.parse(answer.data);
+    },
+
+    approve: ({ mission, prd, round, toFleet, author = null }) => queue({ mission, toFleet, line: approveLine(prd, author), key: committeeKey(mission.id, prd, round) }),
+
+    async pmJobs(id) {
+      const jobs = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).like('mission_key', `mission:${id}:pm:%`).order('queued_at'));
+      return jobs.flatMap((job): PmJob[] => {
+        const round = job.mission_key === null ? null : pmRoundOfKey(job.mission_key);
+        return round === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job) }];
+      });
+    },
+
+    pm: ({ mission, round, line, toFleet }) => queue({ mission, toFleet, line, key: pmKey(mission.id, round) }),
+
+    async asks(id) {
+      const rows = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).is('mission_key', null).like('line', '/omni:committee % --item %').order('queued_at'));
+      return rows.flatMap((row) => {
+        const named = itemOfLine(row.line);
+        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row) }];
+      });
+    },
+
+    async ask({ mission, prd, item, toFleet }) {
+      // The mission's runs happen one at a time (its lane): a read, then the insert, sends one per item, whatever its bound.
+      const sent = rowsOf(CareRowSchema, await db.from('runner_jobs').select(CARE).eq('mission_id', mission.id).is('mission_key', null).like('line', `${askPrefix(prd, item)}%`).limit(1));
+      return sent.length > 0 ? null : queue({ mission, toFleet, line: askLine(prd, item, mission.hardToRevert ?? DEFAULT_BOUND), key: null });
     },
 
     async record(id, events, at) {

@@ -25,6 +25,9 @@ an agent is not a person.
 - **The clean-up line:** `Nothing to clean up`, or what is kept, by whom, until when, how big.
 - **The ledger:** newest first; each row has its time, the role's mark and name
   (`Reviewer · agent`), one sentence, the PRD or pull request as a link, and a state word.
+- **A mission branch row** (PRD 2896): one row each, signed `Supervisor · agent`, for a PRD that joined the
+  branch (`Joined`), a drop asked (`Drop asked`) and made (`Dropped`), and a landing (`Landed`), each linking its
+  pull request. A rebase of the branch is a row of its own once the App records one.
 - **Filters:** by role and by mission, kept in the address.
 - **A Reviewer row, opened:** its verdict, `pass` or `changes`, its findings (at most five),
   and the round (`Round 1 of 2`).

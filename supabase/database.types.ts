@@ -412,7 +412,9 @@ export type Database = {
           approver_login: string
           dossier_id: string
           files: Json
+          fleet: string | null
           id: string
+          mission_id: string | null
         }
         Insert: {
           approval_kind?: string
@@ -421,7 +423,9 @@ export type Database = {
           approver_login: string
           dossier_id: string
           files: Json
+          fleet?: string | null
           id?: string
+          mission_id?: string | null
         }
         Update: {
           approval_kind?: string
@@ -430,7 +434,9 @@ export type Database = {
           approver_login?: string
           dossier_id?: string
           files?: Json
+          fleet?: string | null
           id?: string
+          mission_id?: string | null
         }
         Relationships: [
           {
@@ -2356,6 +2362,71 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_decisions: {
+        Row: {
+          actor: string
+          approval_id: string | null
+          author: string | null
+          decided_at: string
+          files: Json
+          id: string
+          item: string | null
+          job_id: string
+          kind: string
+          mission_id: string
+          option: string | null
+          outcome: string
+          prd: number
+          role: string
+          verdicts: Json
+          why: Json
+        }
+        Insert: {
+          actor?: string
+          approval_id?: string | null
+          author?: string | null
+          decided_at?: string
+          files?: Json
+          id?: string
+          item?: string | null
+          job_id: string
+          kind: string
+          mission_id: string
+          option?: string | null
+          outcome: string
+          prd: number
+          role?: string
+          verdicts: Json
+          why?: Json
+        }
+        Update: {
+          actor?: string
+          approval_id?: string | null
+          author?: string | null
+          decided_at?: string
+          files?: Json
+          id?: string
+          item?: string | null
+          job_id?: string
+          kind?: string
+          mission_id?: string
+          option?: string | null
+          outcome?: string
+          prd?: number
+          role?: string
+          verdicts?: Json
+          why?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_decisions_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
             referencedColumns: ["id"]
           },
         ]
@@ -5175,6 +5246,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -5190,6 +5262,7 @@ export type Database = {
           home?: string | null
           kind?: string
           label: string
+          level?: string
           mascot?: string | null
           motto?: string
           name: string
@@ -5205,6 +5278,7 @@ export type Database = {
           home?: string | null
           kind?: string
           label?: string
+          level?: string
           mascot?: string | null
           motto?: string
           name?: string
@@ -5718,7 +5792,9 @@ export type Database = {
           approver_login: string
           dossier_id: string
           files: Json
+          fleet: string | null
           id: string
+          mission_id: string | null
         }
         SetofOptions: {
           from: "*"
@@ -6514,6 +6590,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -6531,35 +6608,68 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      create_virtual_fleet: {
-        Args: {
-          p_mascot: string
-          p_name: string
-          p_roles: string[]
-          p_workspace: string
-        }
-        Returns: {
-          color: string
-          home: string | null
-          kind: string
-          label: string
-          mascot: string | null
-          motto: string
-          name: string
-          project_note: string | null
-          project_noted_at: string | null
-          project_url: string | null
-          retired_at: string | null
-          sort: number
-          workspace_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "teams"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      create_virtual_fleet:
+        | {
+            Args: {
+              p_mascot: string
+              p_name: string
+              p_roles: string[]
+              p_workspace: string
+            }
+            Returns: {
+              color: string
+              home: string | null
+              kind: string
+              label: string
+              level: string
+              mascot: string | null
+              motto: string
+              name: string
+              project_note: string | null
+              project_noted_at: string | null
+              project_url: string | null
+              retired_at: string | null
+              sort: number
+              workspace_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "teams"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_level: string
+              p_mascot: string
+              p_name: string
+              p_roles: string[]
+              p_workspace: string
+            }
+            Returns: {
+              color: string
+              home: string | null
+              kind: string
+              label: string
+              level: string
+              mascot: string | null
+              motto: string
+              name: string
+              project_note: string | null
+              project_noted_at: string | null
+              project_url: string | null
+              retired_at: string | null
+              sort: number
+              workspace_id: string
+            }
+            SetofOptions: {
+              from: "*"
+              to: "teams"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       create_workspace_from_installation: {
         Args: {
           p_installation_id: number
@@ -6690,6 +6800,11 @@ export type Database = {
       }
       fix_rows_pull: { Args: { p_dossier: string }; Returns: Json }
       fix_rows_summary: { Args: { p_dossier: string }; Returns: Json }
+      fleet_has_mission_roles: {
+        Args: { p_fleet: string; p_workspace: string }
+        Returns: boolean
+      }
+      fleet_level_rank: { Args: { p_level: string }; Returns: number }
       fleet_look: {
         Args: {
           p_color: string
@@ -6830,6 +6945,17 @@ export type Database = {
         Args: { p_user: string; p_workspace: string }
         Returns: string
       }
+      mission_decide_approval: {
+        Args: {
+          p_job: string
+          p_mission: string
+          p_outcome: string
+          p_prd: number
+          p_record: Json
+          p_why: Json
+        }
+        Returns: Json
+      }
       mission_mandate_ok: { Args: { p_mandate: Json }; Returns: boolean }
       mission_measures_ok: { Args: { p_measures: Json }; Returns: boolean }
       mission_push: {
@@ -6842,7 +6968,9 @@ export type Database = {
         }
         Returns: Json
       }
+      mission_reasons_ok: { Args: { p_reasons: Json }; Returns: boolean }
       mission_scope_ok: { Args: { p_scope: Json }; Returns: boolean }
+      mission_verdicts_ok: { Args: { p_verdicts: Json }; Returns: boolean }
       my_github: {
         Args: never
         Returns: {
@@ -8200,6 +8328,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -8224,6 +8353,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -8651,6 +8781,31 @@ export type Database = {
         }
         Returns: string
       }
+      set_fleet_level: {
+        Args: { p_fleet: string; p_level: string; p_workspace: string }
+        Returns: {
+          color: string
+          home: string | null
+          kind: string
+          label: string
+          level: string
+          mascot: string | null
+          motto: string
+          name: string
+          project_note: string | null
+          project_noted_at: string | null
+          project_url: string | null
+          retired_at: string | null
+          sort: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "teams"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_fleet_project: {
         Args: { p_name: string; p_url: string; p_workspace: string }
         Returns: {
@@ -8658,6 +8813,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string
@@ -8710,6 +8866,33 @@ export type Database = {
           last_four: string
           set_at: string
         }[]
+      }
+      set_mission_level: {
+        Args: { p_level: string; p_mission: string }
+        Returns: {
+          created_at: string
+          fleet: string
+          goal: string
+          id: string
+          mandate: Json
+          measures: Json
+          next_wake_at: string | null
+          number: number
+          repo: string
+          scope: Json
+          started_by: string | null
+          status: string
+          title: string
+          updated_at: string
+          waiting_on: string | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "missions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_pitch_look: {
         Args: { p_look: string; p_product: string; p_workspace: string }
@@ -8910,6 +9093,7 @@ export type Database = {
           home: string | null
           kind: string
           label: string
+          level: string
           mascot: string | null
           motto: string
           name: string

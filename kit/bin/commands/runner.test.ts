@@ -584,7 +584,7 @@ describe('omni runner', () => {
     run.stop.abort();
     await run.done;
     expect(app.updates()).toEqual([
-      { status: 'failed', reason: 'refused: /omni:brainstorm does not run on a runner' },
+      { status: 'failed', reason: 'refused: /omni:brainstorm runs on a runner for a mission\'s PM only' },
       { status: 'failed', reason: 'refused: the arguments hold a character other than letters, digits, spaces and ._/:#-' },
       { status: 'failed', reason: 'acme/elsewhere is not held by this runner' },
     ]);

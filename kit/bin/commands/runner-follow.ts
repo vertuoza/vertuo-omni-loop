@@ -27,7 +27,7 @@ import { RunnerRefused, RunnerUnreachable, runnerApi } from '../../lib/runner/ap
 import type { KitReads, PrdJob, SendTarget } from '../../lib/runner/api.ts';
 import { exitCodeOf, isEnded, milestones } from '../../lib/runner/follow.ts';
 import type { MergedCount, Seen } from '../../lib/runner/follow.ts';
-import { checkRunnerLine, prdOfRunnerLine } from '../../lib/runner/line.ts';
+import { checkRunnerLine, missionRefusal, prdOfRunnerLine } from '../../lib/runner/line.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeIo, Out } from '../io.ts';
 import { board } from './board.ts';
@@ -114,8 +114,10 @@ export async function send(args: string[], io: Io): Promise<number> {
   // A repository's own skill (PRD 2313) is the app's to allow: the shape and the fixed list are checked here, the name left to it.
   const own = /^\/([a-z][a-z0-9-]*)(?: |$)/.exec(line)?.[1];
   const checked = checkRunnerLine(line, own === undefined ? [] : [own]);
-  if (!checked.ok) {
-    println(io.stderr, `omni runner: ${checked.reason}`);
+  // A line sent from a terminal belongs to no mission: the PM's writing skills are a mission's at `alone` alone (PRD 2896).
+  const why = checked.ok ? (checked.kind === 'omni' ? missionRefusal(checked.skill, null) : null) : checked.reason;
+  if (why !== null) {
+    println(io.stderr, `omni runner: ${why}`);
     return 1;
   }
   const at = signedInAt(io);

@@ -20,6 +20,13 @@ describe('harvestFetched (issue 2400)', () => {
     expect(fetched('.omni-loop/delivery/bugs/0043-widgets/bug.md')).toBe(false);
   });
 
+  it('fetches the folders of every PRD of a landing, and no other (PRD 2896 s6)', () => {
+    const landing = harvestFetched('.omni-loop/delivery/', [parsePrd(42), parsePrd(44)]);
+    expect(landing('.omni-loop/delivery/shipped/0042-widgets/spec.md')).toBe(true);
+    expect(landing('.omni-loop/delivery/shipped/0044-gadgets/spec.md')).toBe(true);
+    expect(landing('.omni-loop/delivery/shipped/0420-other/spec.md')).toBe(false);
+  });
+
   it('fetches everything outside the delivery folder, and a file directly under an area', () => {
     expect(fetched('.omni-loop/config.yml')).toBe(true);
     expect(fetched('.omni-loop/knowledge/product/rules.md')).toBe(true);

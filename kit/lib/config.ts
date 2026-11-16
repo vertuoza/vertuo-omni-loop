@@ -340,6 +340,9 @@ export const ConfigSchema = z
       // A PRD of one landing keeps `feature`.
       landing: branchTemplate.default('feat/{topic}-{landing}of{landings}-{name}'),
       rework: branchTemplate.default('fix-{item}'),
+      // PRD 2896: the branch of a mission at `own-branch` or `alone`, cut from the default branch; `{number}` is the
+      // mission's issue number, `{topic}` its title as a slug. Its PRDs are built on it, one commit each.
+      mission: branchTemplate.default('mission/{number}-{topic}'),
       retro: branchTemplate.default('docs/retro-{topic}'),
       knowledge: branchTemplate.default('docs/knowledge-{topic}'),
       invade: branchTemplate.default('docs/omni-invade'),

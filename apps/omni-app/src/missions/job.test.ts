@@ -3,6 +3,7 @@ import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine } from 'omni-loop/kit/lib/runner/line.ts';
 import type { ClaimedJob, Finish, JobLedger, RefreshJob } from '../jobs/ledger.ts';
 import { runDue, type JobResult } from '../jobs/worker.ts';
+import type { MissionBranches } from './branch.ts';
 import { LATERS_BEFORE_RENEW, MISSION_KIND, missionHandler, missionJob } from './job.ts';
 import { fakeMissionStore } from './store.fake.ts';
 import type { MissionRecord } from './store.ts';
@@ -18,6 +19,9 @@ const record = (over: Partial<MissionRecord> = {}): MissionRecord => ({
   workspace: 'ws-1',
   repo: 'acme/widgets',
   fleet: 'night-shift',
+  number: parseIssue(12),
+  title: 'Faster quotes',
+  level: 'with-you',
   status: 'running',
   waitingOn: null,
   parallel: 2,
@@ -41,12 +45,13 @@ const claimed = (over: Partial<ClaimedJob> = {}): ClaimedJob => ({
   ...over,
 });
 
-function setup({ mission = record(), all = [facts(1), facts(2), facts(3)], fleetRunners = true, planRepository = false }: { mission?: MissionRecord; all?: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean } = {}) {
-  const fake = fakeMissionStore({ mission, facts: all, fleetRunners, planRepository });
+function setup({ mission = record(), all = [facts(1), facts(2), facts(3)], fleetRunners = true, planRepository = false, installation = 1, branches = null }: { mission?: MissionRecord; all?: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null; branches?: MissionBranches | null } = {}) {
+  const fake = fakeMissionStore({ mission, facts: all, fleetRunners, planRepository, installation });
   const refreshed: RefreshJob[] = [];
   const clock = { now: NOW };
   const handler = missionHandler({
     store: fake.store,
+    branches,
     refresh: (job) => {
       refreshed.push(job);
       return Promise.resolve('again');
@@ -63,6 +68,88 @@ const later = (ms: number, laters: number): JobResult => ({ outcome: 'later', at
 describe('the mission job: one per mission, in a lane of its own', () => {
   it('is keyed and laned by the mission, due at once, its payload the mission alone', () => {
     expect(missionJob(ID, 'Acme/Widgets')).toEqual({ kind: 'mission', key: `mission:${ID}`, subject: 'acme/widgets', payload: { mission: ID }, lane: `mission:${ID}`, delaySeconds: 0 });
+  });
+});
+
+/** A GitHub that cuts the branch, or says why it cannot; every ask is kept. */
+function branchesThat(answer: Awaited<ReturnType<MissionBranches['prepare']>>) {
+  const asked: { installation: number; repo: string; branch: string }[] = [];
+  return { asked, branches: { prepare: (where: { installation: number; repo: string; branch: string }) => { asked.push(where); return Promise.resolve(answer); } } satisfies MissionBranches };
+}
+
+describe('a mission above with-you builds on its own branch (PRD 2896)', () => {
+  it('cuts the branch once, then sends each PRD on it, the line and its event naming it', async () => {
+    const gh = branchesThat({ ok: true, cut: true });
+    const { fake, run } = setup({ mission: record({ level: 'own-branch' }), branches: gh.branches });
+    await run();
+    expect(gh.asked).toEqual([{ installation: 1, repo: 'acme/widgets', branch: 'mission/12-faster-quotes' }]);
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1 --for-review --base mission/12-faster-quotes', '/omni:yolo 2 --for-review --base mission/12-faster-quotes']);
+    for (const job of fake.jobs()) expect(checkRunnerLine(job.line)).toMatchObject({ ok: true, skill: 'yolo' });
+    expect(fake.events()[0]?.sentence).toContain('--base mission/12-faster-quotes');
+    expect(fake.mission().status).toBe('running');
+  });
+
+  it('sends nothing and waits, naming the setting, where rebase merges are not allowed', async () => {
+    const gh = branchesThat({ ok: false, why: 'acme/widgets does not allow rebase merges: turn on "Allow rebase merging"' });
+    const { fake, run } = setup({ mission: record({ level: 'alone' }), branches: gh.branches });
+    await run();
+    expect(fake.jobs()).toEqual([]);
+    expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'acme/widgets does not allow rebase merges: turn on "Allow rebase merging"' });
+    expect(fake.events().map((event) => event.kind)).toEqual(['waits']);
+  });
+
+  it('sends again once the setting is on', async () => {
+    const refused = branchesThat({ ok: false, why: 'rebase merges are off' });
+    const first = setup({ mission: record({ level: 'own-branch' }), branches: refused.branches });
+    await first.run();
+    const allowed = branchesThat({ ok: true, cut: true });
+    const second = setup({ mission: record({ level: 'own-branch', status: 'waiting', waitingOn: 'rebase merges are off' }), branches: allowed.branches });
+    await second.run();
+    expect(second.fake.jobs()).toHaveLength(2);
+    expect(second.fake.mission().status).toBe('running');
+  });
+
+  it('waits when the app has no GitHub access, or the workspace no installation, and cuts nothing', async () => {
+    const none = setup({ mission: record({ level: 'own-branch' }), branches: null });
+    await none.run();
+    expect(none.fake.jobs()).toEqual([]);
+    expect(none.fake.mission().status).toBe('waiting');
+    const gh = branchesThat({ ok: true, cut: true });
+    const uninstalled = setup({ mission: record({ level: 'own-branch' }), branches: gh.branches, installation: null });
+    await uninstalled.run();
+    expect(gh.asked).toEqual([]);
+    expect(uninstalled.fake.mission().waitingOn).toContain('installed');
+  });
+
+  it('asks GitHub for nothing at with-you, in a plan repository, or while paused', async () => {
+    const gh = branchesThat({ ok: true, cut: true });
+    await setup({ branches: gh.branches }).run();
+    await setup({ mission: record({ level: 'alone' }), planRepository: true, branches: gh.branches }).run();
+    await setup({ mission: record({ level: 'alone', status: 'paused' }), branches: gh.branches }).run();
+    expect(gh.asked).toEqual([]);
+  });
+
+  it('refuses own-branch in a plan repository: it waits, names why, sends nothing and asks GitHub for nothing (PRD 2896 s14)', async () => {
+    const gh = branchesThat({ ok: true, cut: true });
+    const { fake, run } = setup({ mission: record({ level: 'own-branch' }), planRepository: true, branches: gh.branches });
+    await run();
+    expect(gh.asked).toEqual([]);
+    expect(fake.jobs()).toEqual([]);
+    expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'a mission branch holds one repository: use with-you or alone' });
+  });
+
+  it('sends alone in a plan repository to ultra-yolo with no base (PRD 2896 s14)', async () => {
+    const { fake, run } = setup({ mission: record({ level: 'alone' }), planRepository: true });
+    await run();
+    expect(fake.jobs().map((job) => job.line).every((line) => line.startsWith('/omni:ultra-yolo') || line.startsWith('/omni:'))).toBe(true);
+    expect(fake.jobs().map((job) => job.line).join(' ')).not.toContain('--base');
+  });
+
+  it('runs a mission at with-you as before: no base on any line', async () => {
+    const gh = branchesThat({ ok: true, cut: true });
+    const { fake, run } = setup({ branches: gh.branches });
+    await run();
+    expect(fake.jobs().map((job) => job.line)).toEqual(['/omni:yolo 1 --for-review', '/omni:yolo 2 --for-review']);
   });
 });
 

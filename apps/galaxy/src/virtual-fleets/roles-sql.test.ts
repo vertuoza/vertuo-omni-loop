@@ -58,7 +58,6 @@ describe('every hero lists its role\'s skills (PRD 2873 s3)', () => {
   const flat = EVERY_SKILL.replace(/\s+/g, ' ');
 
   it('is the last definition of the roles before the Reviewer\'s, which changes only the Reviewer', () => {
-    expect(newest('virtual_hero_roles')).toBe(REVIEWER);
     const others = (roles: Role[]) => roles.filter((r) => r.role !== 'reviewer');
     expect(others(rolesIn(REVIEWER))).toEqual(others(rolesIn(EVERY_SKILL)));
   });
@@ -77,6 +76,29 @@ describe('every hero lists its role\'s skills (PRD 2873 s3)', () => {
     const update = /update public\.virtual_heroes h set ([\s\S]*?) from /.exec(flat)?.[1] ?? '';
     expect(update).toMatch(/^skills = /);
     for (const column of ['name', 'agent', 'model', 'limits', 'position', 'role']) expect(update).not.toMatch(new RegExp(`\\b${column} =`));
+  });
+});
+
+// The PM (PRD 2896 s12): the newest definition of the roles changes only the PM's last limit, and a PM's limits take it only while
+// they are still the default it was made with, never a person's.
+describe('what the PM never approves (PRD 2896 s12)', () => {
+  const PM = read('20270124150000_mission_pm.sql');
+  const flat = PM.replace(/\s+/g, ' ');
+
+  it('is the newest definition of the roles, and changes only the PM\'s limits', () => {
+    expect(newest('virtual_hero_roles')).toBe(PM);
+    const others = (roles: Role[]) => roles.filter((r) => r.role !== 'pm');
+    expect(others(rolesIn(PM))).toEqual(others(rolesIn(REVIEWER)));
+    const pm = (roles: Role[]) => roles.find((r) => r.role === 'pm');
+    expect(pm(rolesIn(PM))?.skills).toEqual(pm(rolesIn(REVIEWER))?.skills);
+    expect(pm(rolesIn(PM))?.limits.at(-1)).toBe('It never approves a PRD it wrote, nor one outside a mission\'s committee.');
+  });
+
+  it('replaces a PM\'s limits only while they are its old default', () => {
+    const update = /update public\.virtual_heroes h set ([\s\S]*?);/.exec(flat)?.[1] ?? '';
+    const old = rolesIn(REVIEWER).find((r) => r.role === 'pm')?.limits ?? [];
+    expect(update).toMatch(/^limits = /);
+    expect(update).toContain(`and h.limits = array[${old.map((limit) => `'${limit}'`).join(', ')}]`);
   });
 });
 
