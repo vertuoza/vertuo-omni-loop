@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
-import { DropBodySchema, DroppedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
+import { DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
 import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
@@ -67,16 +67,34 @@ const BAD_DROP = 'A drop names the repository as owner/name, the mission\'s numb
 
 /** POST /api/missions/drop: a member, signed in at the terminal, asks for a PRD to leave its mission's branch (PRD 2896 s7). */
 export async function dropMission(request: Request, deps: MissionsDeps): Promise<Response> {
+  return fromTerminal(request, deps, { schema: DropBodySchema, bad: BAD_DROP }, (service, body, person) => service.drop(body, person.caller, person.reader), (value) => DroppedMissionSchema.parse(value));
+}
+
+/** A route of the terminal: the bearer's person, the body read through `schema`, the service's answer served as the contract says. */
+async function fromTerminal<B, T>(
+  request: Request,
+  deps: MissionsDeps,
+  { schema, bad }: { schema: z.ZodType<B>; bad: string },
+  serve: (service: MissionsService, body: B, person: { caller: Caller; reader: MissionsReader }) => Promise<{ ok: true; value: T } | { ok: false; kind: MissionRefusal; error: string; cause?: string }>,
+  parse: (value: T) => unknown,
+): Promise<Response> {
   try {
     if (!deps.bearer || !deps.service) return refuse('unavailable', NO_DATABASE);
     const person = await deps.bearer(request.headers.get('authorization'));
     if (!person) return refuse('signed-out', SIGNED_OUT);
-    const body = DropBodySchema.safeParse(await request.json().catch(() => null));
-    if (!body.success) return refuse('malformed', BAD_DROP);
-    return answer(await deps.service.drop(body.data, person.caller, person.reader), (value) => DroppedMissionSchema.parse(value), deps);
+    const body = schema.safeParse(await request.json().catch(() => null));
+    if (!body.success) return refuse('malformed', bad);
+    return answer(await serve(deps.service, body.data, person), parse, deps);
   } catch (error) {
     return failed(error, deps);
   }
+}
+
+const BAD_OVERTURN = 'An overturn names the repository as owner/name, the mission\'s number and the decision: a PRD\'s number, or <prd>/<item>.';
+
+/** POST /api/missions/overturn: a member, signed in at the terminal, overturns a decision the fleet carried (PRD 2896 s11). */
+export async function overturnMission(request: Request, deps: MissionsDeps): Promise<Response> {
+  return fromTerminal(request, deps, { schema: OverturnBodySchema, bad: BAD_OVERTURN }, (service, body, person) => service.overturn(body, person.caller, person.reader), (value) => OverturnedMissionSchema.parse(value));
 }
 
 const BAD_LEVEL ='A mission\'s level is with-you, own-branch or alone.';

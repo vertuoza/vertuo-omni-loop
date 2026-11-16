@@ -11,6 +11,10 @@
 // prints what leaves and what shares the territory: the later PRDs on the branch that share the PRD's territory go with it unless
 // `--keep`. A person runs it; it needs their sign-in, and the app refuses a PRD that is not on the branch.
 //
+// `omni mission overturn <mission> <decision>` (PRD 2896 s11) overturns a decision the fleet's committee carried at `alone`:
+// `<decision>` is a PRD's number (its approval) or `<prd>/<item>` (the answer to one of its items). The decision stays as recorded and
+// the person's is added beside it; the PRD leaves the mission branch when it had joined. A person runs it, with their sign-in.
+//
 // It never blocks the skill that runs it: every call has the contract's 5-second limit and one token
 // refresh, and anything that stops it is exit 1 with one line — `off`, `no sign-in (omni signin)`,
 // `unreachable`, `refused (<status>)` or `refused (<status>): <the server's reason>`. Exit 2 is the kit
@@ -27,6 +31,7 @@ import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { parsePrd, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
 import { dropWords } from '../../lib/mission/drop.ts';
+import { overturnWords, parseRef } from '../../lib/mission/overturn.ts';
 import { readMissionFolder } from '../../lib/mission/folder.ts';
 import type { MissionFolder } from '../../lib/mission/folder.ts';
 import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
@@ -39,7 +44,7 @@ type Io = FreeIo & MissionOptions;
 /** Where a push goes: the signed-in client, and the repository. */
 type Target = { client: ReturnType<typeof askClient>; repo: string };
 
-const USAGE = 'usage: omni mission push <n> | omni mission drop <mission> <prd> [--keep]';
+const USAGE = 'usage: omni mission push <n> | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision>';
 
 /** The one line a failed call is reported with: a refusal carries the server's reason when it gave one. */
 function skipLine(error: unknown): string {
@@ -108,13 +113,38 @@ async function drop(mission: IssueNumber, prd: PrdNumber, keep: boolean, io: Io)
   return 0;
 }
 
+/** `overturn <mission> <decision>`: the overturn sent, then what it changes. */
+async function overturn(mission: IssueNumber, decision: string, io: Io): Promise<number> {
+  const ref = parseRef(decision);
+  if (ref === null) throw usageError(`omni mission overturn: <decision> is a PRD's number (its approval) or <prd>/<item> (an item's answer), not "${decision}".`);
+  const ctx = loadContext(io.cwd, { exec: io.exec });
+  const target = connect(ctx, io);
+  if (typeof target === 'string') return stopped(io, [target]);
+  const sent = await target.client.overturnMission({ repo: target.repo, mission, decision }).then((reply: unknown) => ({ reply }), skipLine);
+  if (typeof sent === 'string') return stopped(io, [sent]);
+  const overturned = field(sent.reply, 'overturn');
+  if (!isText(field(overturned, 'decision'))) return stopped(io, ['refused (no overturn in the reply)']);
+  const branch = field(overturned, 'branch');
+  for (const line of overturnWords({ ref, branch: isText(branch) ? branch : null, onBranch: field(overturned, 'onBranch') === true })) println(io.stdout, line);
+  return 0;
+}
+
 export const mission = {
   withoutContext: true,
   run(args: string[], io: Io) {
     const { positional, flags } = parseArgs('mission', args, { booleans: ['keep'] });
-    const [verb, number, second, ...rest] = positional;
-    if (verb === 'push' && second === undefined && rest.length === 0 && flags.keep === undefined) return push(issueArg('mission push', '<n>', number), io);
-    if (verb === 'drop' && second !== undefined && rest.length === 0) return drop(issueArg('mission drop', '<mission>', number), prdArg('mission drop', '<prd>', second), flags.keep === true, io);
-    throw usageError(USAGE);
+    const [verb, ...operands] = positional;
+    const keep = flags.keep === true;
+    switch (`${verb ?? ''} ${String(operands.length)}${flags.keep === undefined ? '' : ' keep'}`) {
+      case 'push 1':
+        return push(issueArg('mission push', '<n>', operands[0]), io);
+      case 'drop 2':
+      case 'drop 2 keep':
+        return drop(issueArg('mission drop', '<mission>', operands[0]), prdArg('mission drop', '<prd>', operands[1]), keep, io);
+      case 'overturn 2':
+        return overturn(issueArg('mission overturn', '<mission>', operands[0]), operands[1] ?? '', io);
+      default:
+        throw usageError(USAGE);
+    }
   },
 } satisfies FreeCommand;

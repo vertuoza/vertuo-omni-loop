@@ -54,10 +54,11 @@ function BranchLine({ branch }: { branch: NonNullable<MissionsView['missions'][n
 }
 
 /** Each PRD the mission waits on, linked, with what it waits on. */
-function WaitList({ waits }: { waits: MissionsView['missions'][number]['waits'] }) {
+function WaitList({ waits, titled }: { waits: MissionsView['missions'][number]['waits']; titled: boolean }) {
   if (waits.length === 0) return null;
   return (
-    <ul className="mission-waits">
+    <ul className="mission-waits" {...(titled ? { 'aria-label': WORDS.waitingOnYou } : {})}>
+      {titled && <li className="mission-waits-title"><strong>{WORDS.waitingOnYou}</strong></li>}
       {waits.map((wait) => (
         <li key={wait.prd}><a href={wait.href}>PRD {wait.prd}</a>: {wait.on}</li>
       ))}
@@ -106,7 +107,8 @@ function MissionItem({ mission, busy, problem, onMove, onLevel }: {
             onChange={onLevel}
           />
           {mission.branch !== null && <BranchLine branch={mission.branch} />}
-          <WaitList waits={mission.waits} />
+          {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
+          <WaitList waits={mission.waits} titled={mission.level === 'alone'} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
           {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
         </div>

@@ -1,6 +1,7 @@
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
-import { MOVES, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
+import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from 'omni-loop/kit/lib/mission/overturn.ts';
+import { MOVES, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
@@ -66,6 +67,31 @@ function dropBlock(mission: { number: number; level: MissionLevel; status: strin
   if (mission.level === 'with-you') return { ok: false, kind: 'conflict', error: `Mission ${String(mission.number)} runs at with-you: it has no branch to drop a PRD from.` };
   if (!['running', 'waiting', 'paused'].includes(mission.status)) return { ok: false, kind: 'conflict', error: `Only a started mission has a branch to drop from. This one is ${mission.status}.` };
   return null;
+}
+
+/** Why `caller` cannot overturn a decision of `mission` at all (nothing seen, no login, not at alone, not started), or null. */
+function overturnBlock(mission: { number: number; level: MissionLevel; status: string } | null, caller: Caller): { ok: false; kind: MissionRefusal; error: string } | null {
+  if (mission === null) return { ok: false, kind: 'forbidden', error: NOT_YOURS };
+  if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
+  if (mission.level !== 'alone') return { ok: false, kind: 'conflict', error: `Mission ${String(mission.number)} runs at ${mission.level}: the fleet decides nothing there.` };
+  if (!['running', 'waiting', 'paused'].includes(mission.status)) return { ok: false, kind: 'conflict', error: `Only a started mission has decisions to overturn. This one is ${mission.status}.` };
+  return null;
+}
+
+/** The events an overturn adds: the person's own, and, for a PRD on the branch, the ask that takes it off (a millisecond later, so the order is kept). */
+async function recordOverturn(write: MissionsWriter, { mission, login, ref, onBranch, at }: { mission: { id: string; number: number; title: string }; login: string; ref: DecisionRef; onBranch: boolean; at: string }): Promise<void> {
+  const why = ref.item === null ? 'its approval no longer counts for this mission.' : 'the item is open again for the person.';
+  await write.event(mission.id, { kind: 'overturned', actor: login, prd: ref.prd, at, sentence: overturnSentence(login, ref, why) });
+  if (!onBranch) return;
+  await write.event(mission.id, { kind: 'drop-asked-keep', actor: login, prd: ref.prd, at: new Date(Date.parse(at) + 1).toISOString(), sentence: `${login} asked to drop only PRD ${String(ref.prd)} from ${branchOf(mission)}, having overturned the fleet.` });
+}
+
+/** The decision the fleet carried in `mission` that `name` stands for and nobody overturned yet, or why there is none. */
+async function standingDecision(reader: MissionsReader, mission: { id: string; number: number }, name: string): Promise<{ ref: DecisionRef } | { error: string }> {
+  const ref = parseRef(name);
+  const decision = ref === null ? undefined : decisionsOf(await reader.decisionEvents(mission.id)).findLast((one) => refOf(one.ref) === refOf(ref));
+  if (ref === null || decision === undefined) return { error: `The fleet carried no decision ${name} in mission ${String(mission.number)}: the mission pull request lists each.` };
+  return decision.overturnedBy === null ? { ref } : { error: `${decision.overturnedBy} overturned decision ${name} already.` };
 }
 
 /** What a drop's ask says in the mission's events: who asked, what leaves the branch and the PRDs that go with it. */
@@ -143,6 +169,29 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
         return { ok: false, kind: 'database', error: 'The ask is recorded, but the mission could not be woken: it is taken on its next run.', cause: error instanceof Error ? error.message : String(error) };
       }
       return { ok: true, value: { drop: { mission: mission.id, branch, prd, sharing: set.sharing, dropped: set.dropped, keep: body.keep } } };
+    },
+
+    /**
+     * A member overturns a decision the fleet carried (PRD 2896 s11, `omni mission overturn`): their `overturned` event is added beside
+     * the decision, which stays as recorded, and, when the PRD sits on the mission branch, `drop-asked-keep` rides with it, so the next run
+     * takes the PRD off by rebase. An approval overturned no longer counts for the mission; an answer overturned is open for the person.
+     * Refused for a mission that is not at `alone` or not started, and for a decision the fleet did not carry or a person overturned already.
+     */
+    async overturn(body: OverturnBody, caller: Caller, reader: MissionsReader): Promise<Served<OverturnedMission>> {
+      const mission = await reader.byNumber(body.repo, body.mission);
+      const blocked = overturnBlock(mission, caller);
+      if (blocked !== null || mission === null || caller.login === null) return blocked ?? { ok: false, kind: 'forbidden', error: NOT_YOURS };
+      const found = await standingDecision(reader, mission, body.decision);
+      if ('error' in found) return { ok: false, kind: 'conflict', error: found.error };
+      const ref = found.ref;
+      const onBranch = (await reader.onBranch(mission.id)).includes(ref.prd);
+      await recordOverturn(write, { mission, login: caller.login, ref, onBranch, at: iso() });
+      try {
+        await write.refresh(missionJob(mission.id, mission.repo));
+      } catch (error) {
+        return { ok: false, kind: 'database', error: 'The overturn is recorded, but the mission could not be woken: it is taken on its next run.', cause: error instanceof Error ? error.message : String(error) };
+      }
+      return { ok: true, value: { overturn: { mission: mission.id, branch: onBranch ? branchOf(mission) : null, decision: refOf(ref), prd: ref.prd, onBranch } } };
     },
 
     /** Wakes mission `id` at once (a job of it ended): its job is added or refreshed, due now. Nothing for a draft, delivered or stopped mission. */

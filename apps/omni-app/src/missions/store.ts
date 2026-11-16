@@ -44,6 +44,7 @@
 import { z } from 'zod';
 import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
+import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import { approveLine, committeeKey, committeeOfKey, type Committee, type Decision, type Recorded } from './committee.ts';
@@ -103,6 +104,7 @@ export type MissionStore = {
   facts: (mission: MissionRecord) => Promise<PrdFacts[]>;
   runs: (id: string) => Promise<Run[]>;
   events: (id: string) => Promise<RecordedEvent[]>;
+  fleetEvents: (id: string) => Promise<DecisionEvent[]>;
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
   /** Whether the mission's repository is the plan repository of a live product of its workspace. */
   planRepository: (mission: MissionRecord) => Promise<boolean>;
@@ -142,7 +144,9 @@ export const ROADMAP = 'id, number';
 export const ROADMAP_PRD = 'roadmap_id, position, row_id, prd, blockers';
 export const STAGE = 'prd, stage';
 export const DOSSIER = 'id, prd';
-export const APPROVAL = 'id, dossier_id, mission_id';
+export const APPROVAL = 'id, dossier_id, mission_id, approved_at';
+export const OVERTURN = 'prd, at';
+export const FLEET_EVENT = 'kind, prd, sentence, link, actor';
 export const VOID = 'approval_id';
 export const PLAN = 'content';
 export const JOB = 'id, mission_key, resumes, status, outcome, reason, pr_url';
@@ -176,7 +180,9 @@ export const RoadmapRowSchema = z.object({ id: text, number: IssueNumberSchema.n
 export const RoadmapPrdRowSchema = z.object({ roadmap_id: text, position: z.number().int(), row_id: text, prd: PrdNumberSchema.nullable(), blockers: z.array(z.string()) });
 export const StageRowSchema = z.object({ prd: PrdNumberSchema, stage: text });
 export const DossierRowSchema = z.object({ id: text, prd: PrdNumberSchema.nullable() });
-export const ApprovalRowSchema = z.object({ id: text, dossier_id: text, mission_id: z.string().nullable() });
+export const ApprovalRowSchema = z.object({ id: text, dossier_id: text, mission_id: z.string().nullable(), approved_at: text });
+export const FleetEventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), sentence: text, link: z.string().nullable(), actor: z.string().nullable() });
+export const OverturnRowSchema = z.object({ prd: PrdNumberSchema.nullable(), at: text });
 export const VoidRowSchema = z.object({ approval_id: text });
 export const PlanRowSchema = z.object({ content: z.string() });
 export const JobRowSchema = z.object({
@@ -222,11 +228,23 @@ export function missionStore(connection: Connection): MissionStore {
     });
   }
 
+  /** The pages whose fleet approval (`given`, this mission's) a person overturned after it was given (PRD 2896 s11); no read when none was given. */
+  async function overturnedAmong(given: readonly z.infer<typeof ApprovalRowSchema>[], mission: string, pageOf: ReadonlyMap<PrdNumber, string>): Promise<Set<string>> {
+    const overturned = new Set<string>();
+    if (given.length === 0) return overturned;
+    for (const event of rowsOf(OverturnRowSchema, await db.from('mission_events').select(OVERTURN).eq('mission_id', mission).eq('kind', 'overturned').not('prd', 'is', null).order('at'))) {
+      const page = event.prd === null ? undefined : pageOf.get(event.prd);
+      const row = given.find((one) => one.dossier_id === page);
+      if (row !== undefined && Date.parse(event.at) > Date.parse(row.approved_at)) overturned.add(row.dossier_id);
+    }
+    return overturned;
+  }
+
   /**
    * Each PRD's latest product approval, and whether a push voided it, by its page's id. A fleet's approval given in another
    * mission than `mission` counts for that mission only (PRD 2896 s9): here it reads as none.
    */
-  async function approvals(dossiers: readonly string[], mission: string): Promise<Map<string, { voided: boolean }>> {
+  async function approvals(dossiers: readonly string[], mission: string, pageOf: ReadonlyMap<PrdNumber, string>): Promise<Map<string, { voided: boolean; overturned: boolean }>> {
     if (dossiers.length === 0) return new Map();
     const rows = rowsOf(
       ApprovalRowSchema,
@@ -241,7 +259,9 @@ export function missionStore(connection: Connection): MissionStore {
     }
     const ids = [...latest.values()];
     const voided = new Set(ids.length === 0 ? [] : rowsOf(VoidRowSchema, await db.from('approval_voids').select(VOID).in('approval_id', ids)).map((row) => row.approval_id));
-    return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id) }]));
+    // A person overturned the fleet's approval, given in this mission, after it was given (PRD 2896 s11): it no longer counts here.
+    const overturnedHere = await overturnedAmong(rows.filter((row) => row.mission_id === mission && latest.get(row.dossier_id) === row.id), mission, pageOf);
+    return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id), overturned: overturnedHere.has(dossier) }]));
   }
 
   /** `runs`, each Reviewer verdict carrying what its log says it posted: one read of those jobs' log tails, none without one. */
@@ -291,7 +311,7 @@ export function missionStore(connection: Connection): MissionStore {
       const stages = rowsOf(StageRowSchema, await db.from('prd_stages').select(STAGE).eq('workspace_id', mission.workspace).eq('repository', mission.repo).in('prd', prds));
       const dossiers = rowsOf(DossierRowSchema, await db.from('dossiers').select(DOSSIER).eq('workspace_id', mission.workspace).eq('home_repo', mission.repo).eq('kind', 'prd').in('prd', prds));
       const pageOf = new Map(dossiers.flatMap((row) => (row.prd === null ? [] : [[row.prd, row.id] as const])));
-      const approved = await approvals([...pageOf.values()], mission.id);
+      const approved = await approvals([...pageOf.values()], mission.id, pageOf);
       const facts: PrdFacts[] = [];
       for (const { prd, blockers } of scope) {
         const page = pageOf.get(prd);
@@ -328,6 +348,10 @@ export function missionStore(connection: Connection): MissionStore {
         return key === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
       });
       return withPosted(runs);
+    },
+
+    async fleetEvents(id) {
+      return rowsOf(FleetEventRowSchema, await db.from('mission_events').select(FLEET_EVENT).eq('mission_id', id).in('kind', ['decided', 'overturned']).order('at')).map((row) => ({ kind: row.kind, prd: row.prd, sentence: row.sentence, link: row.link, actor: row.actor }));
     },
 
     async events(id) {

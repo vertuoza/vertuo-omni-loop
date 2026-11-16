@@ -60,6 +60,7 @@ import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { MissionBranches } from './branch.ts';
 import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mission/drop.ts';
+import { decisionsOf, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { answeredOf, withDecisions, type ItemCommittee, type OpenAt } from './answers.ts';
 import { recordedOf, sendsCommittees, type Committee, type Decision } from './committee.ts';
 import type { MissionAnswers } from './settle.ts';
@@ -164,7 +165,7 @@ async function supervise(store: MissionStore, mission: MissionRecord, now: numbe
   const kept = await keepUp({ store, mission, inPlan, facts, runs, joined, off, toFleet, installation: ready.installation, keepUps: github.keepUps });
   const held = holdOf(kept, await redBranch({ mission, at, joined, joins: github.joins }));
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, off, installation: ready.installation, joins: github.joins, hold: held.hold });
-  if (kept.hold === null) await missionPull({ at, mission, landing, on: [...branch.joined], facts, runs, github });
+  if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
   const before = prdStates(facts, runs, branch, view);
@@ -241,9 +242,10 @@ async function decideAll(store: MissionStore, mission: MissionRecord, committees
       continue;
     }
     const log = one.attempt.status === 'done' ? await store.committeeLog(one.job) : null;
-    const decision = await store.decide(mission, one, recordedOf(one.prd, one, log));
+    const recorded = recordedOf(one.prd, one, log);
+    const decision = await store.decide(mission, one, recorded);
     carried ||= decision.outcome === 'carried';
-    out.push({ ...one, decision });
+    out.push({ ...one, decision: { ...decision, verdicts: recorded.record.verdicts } });
   }
   return { committees: out, carried };
 }
@@ -337,7 +339,7 @@ async function decideAsk({ store, mission, runs, branch, installation, now, gith
   if (pr === null || installation === null || answers === null || branch.branch === null) return { outcome: 'escalated', why: ['the App cannot settle it here: no feature pull request or no GitHub access'] };
   const answer = { fleet: mission.fleet, option: 'A', branch: branch.branch, at: new Date(now).toISOString(), verdicts };
   const settled = await answers.settle({ installation, repo: mission.repo, prd: one.prd, pr, item: one.item, answer });
-  return settled.ok ? decision : { outcome: 'escalated', why: [settled.why] };
+  return settled.ok ? { ...decision, verdicts } : { outcome: 'escalated', why: [settled.why] };
 }
 
 /** The item committees this run sends (PRD 2896 s10): one per high item of a PRD that waits on its committee, while the mission runs or waits. */
@@ -486,6 +488,7 @@ function afterLanding(read: readonly PrdFacts[], recorded: readonly RecordedEven
 
 /** The mission pull request of a run, once a PRD is on the branch (PRD 2896 s6): the mission pull requests read first when no landing read them. */
 async function missionPull({
+  store,
   at,
   mission,
   landing,
@@ -494,6 +497,7 @@ async function missionPull({
   runs,
   github,
 }: {
+  store: MissionStore;
   at: LandingAt | null;
   mission: MissionRecord;
   landing: Landing;
@@ -506,7 +510,8 @@ async function missionPull({
   // The first join of this run: the mission pull requests were not read yet.
   const known = landing.defaultBranch === null ? await landAll({ at, runs, joined: new Set(), landings: github.landings, always: true }) : landing;
   if (known.defaultBranch === null) return;
-  await writeMissionPull({ at, mission, defaultBranch: known.defaultBranch, open: known.open, on, facts, runs, landings: github.landings, galaxyUrl: github.galaxyUrl });
+  const decisions = mission.level === 'alone' ? decisionsOf(await store.fleetEvents(mission.id)) : [];
+  await writeMissionPull({ at, mission, decisions, defaultBranch: known.defaultBranch, open: known.open, on, facts, runs, landings: github.landings, galaxyUrl: github.galaxyUrl });
 }
 
 /**
@@ -517,6 +522,7 @@ async function missionPull({
 async function writeMissionPull({
   at,
   mission,
+  decisions,
   defaultBranch,
   open,
   on,
@@ -527,6 +533,7 @@ async function writeMissionPull({
 }: {
   at: LandingAt;
   mission: MissionRecord;
+  decisions: readonly FleetDecision[];
   defaultBranch: string;
   open: MissionPull | null;
   on: readonly PrdNumber[];
@@ -543,7 +550,7 @@ async function writeMissionPull({
     return { prd, pr, commit: commits.find((one) => pr !== null && one.pr === pr)?.sha ?? null, pass: passOf(runs, prd), page: page === null ? null : `${galaxyUrl}/prd/${encodeURIComponent(page)}` };
   });
   const title = missionPullTitle(mission);
-  const body = missionPullBody({ mission, branch: at.branch, defaultBranch, rows, link });
+  const body = missionPullBody({ mission, branch: at.branch, defaultBranch, rows, link, decisions });
   if (open !== null && open.title === title && open.body === body) return;
   await landings.write({ ...at, defaultBranch, pull: open?.number ?? null, title, body });
 }

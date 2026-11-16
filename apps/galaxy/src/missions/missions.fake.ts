@@ -76,6 +76,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
       return {
         mission: (id) => Promise.resolve(sees(id) ? record(missions.get(id)) : null),
         onBranch: onBranchOf,
+        decisionEvents: (id) => Promise.resolve(events.filter((event) => event.mission === id && (event.kind === 'decided' || event.kind === 'overturned')).map(({ kind, prd, sentence, actor }) => ({ kind, prd: prd ?? null, sentence, link: null, actor }))),
         joined: async (id) => (await onBranchOf(id)).length,
         byNumber: (repo, number) => {
           const row = [...missions.values()].find((one) => one.repo === repo.toLowerCase() && one.number === number);

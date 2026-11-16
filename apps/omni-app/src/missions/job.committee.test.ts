@@ -83,7 +83,7 @@ describe('at alone, a PRD waiting for approval goes to its committee', () => {
     expect(sent?.recorded).toEqual({ record: { author: null, read: [{ kind: 'spec', sha256: 'a'.repeat(64) }], verdicts: yes }, decision: { outcome: 'carried', why: [] } });
     expect(fake.jobs().map((job) => job.line)).toEqual([`/omni:yolo 1 --for-review --base ${BRANCH}`]);
     expect(fake.events().filter((event) => event.kind === 'decided')).toEqual([
-      expect.objectContaining({ role: 'pm', actor: 'agent', prd: p(1), sentence: 'The committee approved PRD 1: every member who sat answered yes.' }),
+      expect.objectContaining({ role: 'pm', actor: 'agent', prd: p(1), sentence: 'The committee approved PRD 1: pm yes, architect yes, reviewer yes.' }),
     ]);
     await run();
     expect(fake.committees()).toHaveLength(1);

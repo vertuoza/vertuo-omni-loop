@@ -24,6 +24,7 @@ import { messageOf, PullWrittenSchema, RefSchema, statusOf, type GitHubClient } 
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { missionRepo } from './branch.ts';
+import { decisionLists, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { Landed } from './supervisor.ts';
 
 /** Where a mission branch is: the installation, the repository (`owner/name`) and the branch. */
@@ -183,14 +184,18 @@ export function missionPullBody({
   defaultBranch,
   rows,
   link,
+  decisions = [],
 }: {
   mission: { number: number; title: string };
   branch: string;
   defaultBranch: string;
   rows: readonly LandingRow[];
   link: string | null;
+  decisions?: readonly FleetDecision[];
 }): string {
   const lines = [
+    // What the fleet decided at `alone` opens the body: every approval and every answer, each with its verdicts (PRD 2896 s11).
+    ...decisionLists(decisions),
     `Lands mission #${String(mission.number)}, ${cell(mission.title)}, on \`${defaultBranch}\`: each PRD below joined \`${branch}\` as one commit, in this order.`,
     '',
     '| # | PRD | Its pull request | Commit | Reviewer | Page |',

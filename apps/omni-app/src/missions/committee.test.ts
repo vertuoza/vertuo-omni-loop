@@ -35,6 +35,12 @@ describe('where a PRD\'s approval stands', () => {
     expect(approvalNext('standing', [], false)).toEqual({ next: 'standing' });
   });
 
+  it('waits for a person once one overturned the fleet\'s approval, and never sends its committee again (PRD 2896 s11)', () => {
+    expect(approvalNext('overturned', [], true)).toEqual({ next: 'person', why: 'you overturned the fleet\'s approval' });
+    expect(approvalNext('overturned', [committee(1, 'done', { outcome: 'carried', why: [] })], true)).toMatchObject({ next: 'person' });
+    expect(approvalNext('overturned', [], false)).toEqual({ next: 'person', why: null });
+  });
+
   it('waits for a person below alone, as before this PRD', () => {
     expect(approvalNext('none', [], false)).toEqual({ next: 'person', why: null });
     expect(approvalNext('voided', [committee(1, 'done', { outcome: 'carried', why: [] })], false)).toEqual({ next: 'person', why: null });
