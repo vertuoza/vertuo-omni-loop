@@ -22,7 +22,11 @@ import type { Approval, Attempt, MissionStatus } from './supervisor.ts';
 const COMMITTEE_ROUNDS = 3;
 
 /** What a committee's job came to, once the App recorded it: its outcome and why, one line each. */
-export type Decision = { outcome: 'carried' | 'escalated'; why: string[] };
+export type Decision = { outcome: 'carried' | 'escalated'; why: string[]; verdicts?: readonly { role: string; answer: string }[] };
+
+/** The verdicts as the mission's events say them, `pm yes, architect yes, reviewer yes`; null when none were kept. */
+export const verdictWords = (verdicts: Decision['verdicts']): string | null =>
+  verdicts === undefined || verdicts.length === 0 ? null : verdicts.map(({ role, answer }) => `${role} ${answer}`).join(', ');
 
 /** One committee the mission sent for a PRD: its round, its job, the job's attempt, and the decision recorded for it, if any. */
 export type Committee = { prd: PrdNumber; round: number; job: string; attempt: Attempt; decision: Decision | null };
@@ -59,6 +63,8 @@ const working = ({ status }: Attempt): boolean => status === 'queued' || status 
 export function approvalNext(approval: Approval, committees: readonly Committee[], alone: boolean): ApprovalNext {
   if (approval === 'standing') return { next: 'standing' };
   if (!alone) return { next: 'person', why: null };
+  // A person overturned the fleet's approval (PRD 2896 s11): the committee does not judge it again, a person approves it.
+  if (approval === 'overturned') return { next: 'person', why: 'you overturned the fleet\'s approval' };
   const latest = committees.reduce<Committee | null>((last, one) => (last === null || one.round > last.round ? one : last), null);
   if (latest === null) return { next: 'send', round: 1 };
   if (working(latest.attempt) || latest.decision === null) return { next: 'deciding', round: latest.round };

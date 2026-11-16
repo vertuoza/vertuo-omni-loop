@@ -69,7 +69,7 @@ describe('missionStore — the mission as the service role, never calling Supaba
       ],
       [{ prd: 7, stage: 'inbox' }, { prd: 8, stage: 'building' }, { prd: 8, stage: 'outbox' }, { prd: 9, stage: 'shipped' }],
       [{ id: 'd-7', prd: 7 }, { id: 'd-8', prd: 8 }],
-      [{ id: 'a-7b', dossier_id: 'd-7', mission_id: null }, { id: 'a-7a', dossier_id: 'd-7', mission_id: null }, { id: 'a-8', dossier_id: 'd-8', mission_id: null }],
+      [{ id: 'a-7b', dossier_id: 'd-7', mission_id: null, approved_at: '2027-01-22T08:00:00Z' }, { id: 'a-7a', dossier_id: 'd-7', mission_id: null, approved_at: '2027-01-22T08:00:00Z' }, { id: 'a-8', dossier_id: 'd-8', mission_id: null, approved_at: '2027-01-22T08:00:00Z' }],
       [{ approval_id: 'a-8' }],
       [{ content: PLAN }],
       [],
@@ -93,13 +93,37 @@ describe('missionStore — the mission as the service role, never calling Supaba
     const db = recordingFetch([
       [{ prd: 7, stage: 'inbox' }, { prd: 8, stage: 'inbox' }],
       [{ id: 'd-7', prd: 7 }, { id: 'd-8', prd: 8 }],
-      [{ id: 'a-7f', dossier_id: 'd-7', mission_id: 'other-mission' }, { id: 'a-7p', dossier_id: 'd-7', mission_id: null }, { id: 'a-8f', dossier_id: 'd-8', mission_id: ID }],
+      [{ id: 'a-7f', dossier_id: 'd-7', mission_id: 'other-mission', approved_at: '2027-01-22T08:00:00Z' }, { id: 'a-7p', dossier_id: 'd-7', mission_id: null, approved_at: '2027-01-22T08:00:00Z' }, { id: 'a-8f', dossier_id: 'd-8', mission_id: ID, approved_at: '2027-01-22T08:00:00Z' }],
       [],
     ]);
     const read = await storeOn(db.fetch).facts({ ...mission, scope: { prds: [parsePrd(7), parsePrd(8)], roadmaps: [] } });
     expect(read.map(({ prd, approval }) => [prd, approval])).toEqual([[7, 'none'], [8, 'standing']]);
-    expect(nth(db.requests, 2).query.get('select')).toBe('id,dossier_id,mission_id');
+    expect(nth(db.requests, 2).query.get('select')).toBe('id,dossier_id,mission_id,approved_at');
     expect(nth(db.requests, 3).query.get('approval_id')).toBe('in.(a-8f)');
+  });
+
+  it('reads the fleet\'s approval as overturned once a person overturned it after it was given, and as standing when it was given again since (PRD 2896 s11)', async () => {
+    const run = async (overturnedAt: string) => {
+      const db = recordingFetch([
+        [{ prd: 8, stage: 'inbox' }],
+        [{ id: 'd-8', prd: 8 }],
+        [{ id: 'a-8f', dossier_id: 'd-8', mission_id: ID, approved_at: '2027-01-22T08:00:00Z' }],
+        [],
+        [{ prd: 8, at: overturnedAt }],
+      ]);
+      const read = await storeOn(db.fetch).facts({ ...mission, scope: { prds: [parsePrd(8)], roadmaps: [] } });
+      return { approval: read[0]?.approval, asked: nth(db.requests, 4) };
+    };
+    const after = await run('2027-01-22T09:00:00Z');
+    expect(after.approval).toBe('overturned');
+    expect([after.asked.query.get('mission_id'), after.asked.query.get('kind')]).toEqual([`eq.${ID}`, 'eq.overturned']);
+    expect((await run('2027-01-22T07:00:00Z')).approval).toBe('standing');
+  });
+
+  it('reads the fleet\'s decisions and the overturns of them, oldest first (PRD 2896 s11)', async () => {
+    const db = recordingFetch([[{ kind: 'decided', prd: 7, sentence: 'The committee approved PRD 7: pm yes.', link: null, actor: 'agent' }]]);
+    expect(await storeOn(db.fetch).fleetEvents(ID)).toEqual([{ kind: 'decided', prd: 7, sentence: 'The committee approved PRD 7: pm yes.', link: null, actor: 'agent' }]);
+    expect(nth(db.requests, 0).query.get('kind')).toBe('in.(decided,overturned)');
   });
 
   it('reads the committees it sent by their keys, each with the decision recorded for it (PRD 2896 s9)', async () => {

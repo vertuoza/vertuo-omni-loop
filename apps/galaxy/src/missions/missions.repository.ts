@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
+import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
 import { MissionLevelSchema, MissionStatusSchema, type MissionStatus } from './missions.contract';
@@ -37,6 +38,7 @@ export const missionJob = (id: string, repo: string): MissionJob =>
   ({ kind: 'mission', key: `mission:${id}`, subject: repo.toLowerCase(), payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 });
 
 const JoinRow = z.object({ kind: z.enum(['prd-joined', 'prd-dropped', 'landed', 'prd-merged']), prd: PrdNumberSchema });
+const DecisionRow = z.object({ kind: z.string(), prd: PrdNumberSchema.nullable(), sentence: z.string(), link: z.string().nullable(), actor: z.string() });
 const PageRow = z.object({ id: z.uuid(), prd: PrdNumberSchema.nullable() });
 const PlanRow = z.object({ content: z.string() });
 const Refreshed = z.enum(['added', 'updated', 'again', 'requeued']);
@@ -65,6 +67,13 @@ export function missionsReader(db: MissionsDb) {
 
     /** The PRDs on the mission's branch, in the order they joined: those whose latest join event is not followed by a drop or a landing. */
     onBranch,
+
+    /** The fleet's decisions and the overturns of them, oldest first, as the mission's events say them (PRD 2896 s11). */
+    async decisionEvents(id: string): Promise<DecisionEvent[]> {
+      const { data, error } = await db.from('mission_events').select('kind, prd, sentence, link, actor').eq('mission_id', id).in('kind', ['decided', 'overturned']).order('at', { ascending: true });
+      if (error) throw new Error(`Supabase: could not read the mission's decisions (${error.message})`);
+      return orThrow(parseRows(DecisionRow, data, `${WHERE}: mission_events`));
+    },
 
     /** How many PRDs sit on the mission's branch. */
     async joined(id: string): Promise<number> {
@@ -126,7 +135,7 @@ export function missionsWriter(db: MissionsDb) {
     },
 
     /** Records one event of the mission, signed with the member's login. */
-    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'drop-asked' | 'drop-asked-keep'; actor: string; sentence: string; at: string; prd?: PrdNumber }): Promise<void> {
+    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'drop-asked' | 'drop-asked-keep' | 'overturned'; actor: string; sentence: string; at: string; prd?: PrdNumber }): Promise<void> {
       const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }) });
       if (error) throw new Error(`Supabase: could not record the mission's event (${error.message})`);
     },

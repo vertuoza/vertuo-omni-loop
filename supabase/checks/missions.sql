@@ -278,6 +278,9 @@ begin
     (mission, 'supervisor', '00000000ada', 'drop-asked-keep', 2803, 'ada asked to drop only PRD 2803 from mission/2850-paid-online.');
   insert into public.mission_events (mission_id, role, actor, kind, prd, link, sentence) values
     (mission, 'supervisor', 'agent', 'prd-dropped', 2803, 'https://github.com/initech/nimbus-plan/pull/2818', 'PRD 2803 was dropped from mission/2850-paid-online: its commit is off the branch, #2818 reopened.');
+  -- A member overturned a decision the fleet carried (PRD 2896 s11): added beside it, signed with their login.
+  insert into public.mission_events (mission_id, role, actor, kind, prd, sentence) values
+    (mission, 'supervisor', '00000000ada', 'overturned', 2803, 'ada overturned fleet decision 2803: the spec is not what we meant.');
   begin
     update public.mission_events set sentence = 'Rewritten.' where mission_id = mission;
     raise exception 'FAIL: the service role updated a mission event';
@@ -370,7 +373,7 @@ set local role authenticated;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000028b1');
 do $$
 begin
-  if (select count(*) from public.mission_events) <> 7 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
+  if (select count(*) from public.mission_events) <> 8 then raise exception 'FAIL: a member does not read the mission''s events'; end if;
   if not exists (select 1 from public.mission_events where kind = 'prd-joined' and role = 'supervisor' and actor = 'agent' and prd = 2803) then
     raise exception 'FAIL: a member does not read a PRD''s join of the mission branch';
   end if;
@@ -380,6 +383,9 @@ begin
   if not exists (select 1 from public.mission_events where kind = 'prd-dropped' and role = 'supervisor' and actor = 'agent' and prd = 2803)
      or (select count(*) from public.mission_events where kind in ('drop-asked', 'drop-asked-keep')) <> 2 then
     raise exception 'FAIL: a member does not read a PRD''s drop from the mission branch';
+  end if;
+  if not exists (select 1 from public.mission_events where kind = 'overturned' and role = 'supervisor' and actor = '00000000ada' and prd = 2803) then
+    raise exception 'FAIL: a member does not read a person''s overturn of a decision';
   end if;
   if (select count(*) from public.runner_jobs where mission_id is not null) <> 5 then raise exception 'FAIL: a member does not read the mission''s jobs'; end if;
   if (select count(*) from public.runner_jobs where outcome in ('review', 'changes')) <> 2 then

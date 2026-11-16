@@ -56,6 +56,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       });
     },
     events: () => Promise.resolve(events.map(({ kind, prd, job }) => ({ kind, prd, job }))),
+    fleetEvents: () => Promise.resolve(events.filter(({ kind }) => kind === 'decided' || kind === 'overturned').map(({ kind, prd, sentence, link, actor }) => ({ kind, prd, sentence, link, actor }))),
     fleetRunners: () => Promise.resolve(fleetRunners),
     planRepository: () => Promise.resolve(planRepository),
     installation: () => Promise.resolve(installation),

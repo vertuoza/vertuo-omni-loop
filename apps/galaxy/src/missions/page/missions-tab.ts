@@ -1,5 +1,6 @@
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
+import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { MissionAction, MissionStatus } from '../missions.contract';
 
 // The Missions tab's rules (PRD 2842 s7, the `mission-start` screen), pure so each is tested without a
@@ -25,6 +26,7 @@ export const WORDS = {
   behind: 'behind the default branch',
   noneOnBranch: 'no PRD on it yet',
   pull: 'Mission pull request',
+  waitingOnYou: 'Waiting on you',
 } as const;
 
 /** A level in the words the fleet's drawer and this tab use (PRD 2896). */
@@ -104,6 +106,8 @@ export interface MissionView {
   canChangeLevel: boolean;
   /** The Branch line (PRD 2896 s8); null for a mission at `with-you`, which has no branch. */
   branch: BranchLine | null;
+  /** The trust line (PRD 2896 s11), `14 decisions by the fleet · 1 overturned`; null below `alone`. */
+  trust: string | null;
 }
 
 /** The mission branch as the Missions tab says it: the PRDs on it, whether it follows the default branch, the mission pull request. */
@@ -201,6 +205,7 @@ export function missionOf(row: MissionRow, events: readonly EventRow[]): Mission
     levelWords: LEVEL_WORDS[row.level],
     canChangeLevel: row.status === 'draft',
     branch: row.level === 'with-you' || row.status === 'draft' ? null : branchOf(row, events),
+    trust: row.level === 'alone' && row.status !== 'draft' ? trustLine(decisionsOf(events.toReversed())) : null,
   };
 }
 

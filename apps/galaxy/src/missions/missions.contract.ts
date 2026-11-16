@@ -55,6 +55,20 @@ export const DroppedMissionSchema = z.object({
 });
 export type DroppedMission = z.infer<typeof DroppedMissionSchema>;
 
+/** What `omni mission overturn` sends (PRD 2896 s11): the repository, the mission's number and the decision (`<prd>` or `<prd>/<item>`). */
+export const OverturnBodySchema = z.object({
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
+  mission: z.number().int().positive(),
+  decision: z.string().regex(/^[1-9][0-9]*(?:\/[a-z0-9][a-z0-9-]*)?$/).max(200),
+});
+export type OverturnBody = z.infer<typeof OverturnBodySchema>;
+
+/** The overturn as recorded: the branch the PRD leaves (null when it was not on it), the decision, its PRD and whether it was on the branch. */
+export const OverturnedMissionSchema = z.object({
+  overturn: z.object({ mission: z.uuid(), branch: z.string().nullable(), decision: z.string(), prd: PrdNumberSchema, onBranch: z.boolean() }),
+});
+export type OverturnedMission = z.infer<typeof OverturnedMissionSchema>;
+
 /** Each refusal's status. */
 export const MISSION_REFUSALS = {
   malformed: 400,

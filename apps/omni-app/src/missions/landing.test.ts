@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { replayGitHub, type Recorded } from '../../test/github-replay.ts';
+import { decisionsOf } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { landedBy, missionLandings, missionPullBody, missionPullTitle, prOfTitle, type MissionPull } from './landing.ts';
 
 const BRANCH = 'mission/12-faster-quotes';
@@ -165,6 +166,19 @@ describe('the mission pull request\'s title and body', () => {
 
   it('is titled by the mission', () => {
     expect(missionPullTitle({ number: 12, title: 'Faster quotes' })).toBe('Mission #12: Faster quotes');
+  });
+
+  it('opens with what the fleet approved and answered, each with its verdicts, and who overturned it (PRD 2896 s11)', () => {
+    const decisions = decisionsOf([
+      { kind: 'decided', prd: parsePrd(1), sentence: 'The committee approved PRD 1: pm yes, architect yes, reviewer yes.' },
+      { kind: 'decided', prd: parsePrd(2), sentence: 'The committee answered s2-01 of PRD 2 with option A: pm yes, architect yes, reviewer yes.' },
+      { kind: 'overturned', prd: parsePrd(2), sentence: 'ada overturned fleet decision 2/s2-01: no.', actor: 'ada' },
+    ]);
+    const body = missionPullBody({ mission: { number: 12, title: 'Faster quotes' }, branch: BRANCH, defaultBranch: 'main', rows, link: null, decisions });
+    expect(body.startsWith('**Approved by the fleet**\n\n- PRD 1: pm yes, architect yes, reviewer yes.')).toBe(true);
+    expect(body).toContain('**Answered by the fleet**\n\n- s2-01 of PRD 2, option A: pm yes, architect yes, reviewer yes · overturned by ada.');
+    expect(body.indexOf('Lands mission #12')).toBeGreaterThan(body.indexOf('Answered by the fleet'));
+    expect(missionPullBody({ mission: { number: 12, title: 'Faster quotes' }, branch: BRANCH, defaultBranch: 'main', rows, link: null })).not.toContain('by the fleet');
   });
 
   it('lists each PRD in the order it joined, with its commit, the Reviewer\'s pass and its page, then how to merge it', () => {

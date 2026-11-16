@@ -147,6 +147,19 @@ describe('the service over the repository', () => {
     expect(view.missions).toEqual([]);
   });
 
+  it('shows the trust line at alone only, counting what the fleet decided and what a person overturned (PRD 2896 s11)', () => {
+    const decided = (prd: number, sentence: string) => event('decided', prd, null, ID, sentence);
+    const events = [
+      event('overturned', 2, null, ID, 'ada overturned fleet decision 2: no.'),
+      decided(2, 'The committee approved PRD 2: pm yes, architect yes, reviewer yes.'),
+      decided(1, 'The committee answered a-1 of PRD 1 with option A: pm yes, architect yes, reviewer yes.'),
+    ];
+    expect(missionOf(row({ level: 'alone' }), events).trust).toBe('2 decisions by the fleet · 1 overturned');
+    expect(missionOf(row({ level: 'alone', status: 'draft' }), []).trust).toBeNull();
+    expect(missionOf(row({ level: 'own-branch' }), events).trust).toBeNull();
+    expect(missionOf(row({}), events).trust).toBeNull();
+  });
+
   it('throws when a read fails, and when a row is malformed', async () => {
     await expect(missionsTabService(missionsTabRepository(fakeDb([], [], 'missions'))).view(WORKSPACE, 'f')).rejects.toThrow('could not read the missions');
     await expect(missionsTabService(missionsTabRepository(fakeDb([MISSION_ROW], [], 'mission_events'))).view(WORKSPACE, 'f')).rejects.toThrow('events');

@@ -1213,8 +1213,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mission',
     kind: 'command',
     who: 'skills',
-    usage: ['omni mission push <n>', 'omni mission drop <mission> <prd> [--keep]'],
-    summary: "send a mission's brief to its page, or drop a PRD from its branch",
+    usage: ['omni mission push <n>', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>'],
+    summary: "send a mission's brief to its page, drop a PRD from its branch, or overturn a decision of the fleet",
     detail:
       "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
       "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
@@ -1226,7 +1226,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "the mission's branch: its commit leaves by rebase on the mission's next run, its feature pull " +
       'request is reopened, and the default branch is never changed. The later PRDs on the branch that ' +
       'share its territory are named and dropped with it unless --keep. A branch whose checks go red ' +
-      'names the PRD to drop.',
+      'names the PRD to drop. overturn <mission> <decision>, run by a person, overturns a decision the ' +
+      "fleet's committee carried at alone, <decision> being a PRD's number for its approval or " +
+      "<prd>/<item> for the answer to one of its items (the mission pull request's lists name each): " +
+      'the decision stays as it was recorded and yours is added beside it; an overturned approval no ' +
+      'longer counts for the mission, an overturned answer is open for you again, and the PRD is ' +
+      'dropped from the mission branch when it had joined.',
   },
   {
     name: 'sign',

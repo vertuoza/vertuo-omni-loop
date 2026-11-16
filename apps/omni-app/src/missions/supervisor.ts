@@ -44,7 +44,7 @@ import { PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber } from '
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
-import { approvalNext, approveLine, type Committee } from './committee.ts';
+import { approvalNext, approveLine, verdictWords, type Committee } from './committee.ts';
 import { answerEvents, answersNext, itemsOpen, type ItemCommittee, type OpenAt } from './answers.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
@@ -53,7 +53,7 @@ export type RunnerJobStatus = 'queued' | 'claimed' | 'running' | 'done' | 'faile
 /** The mission as a run reads it. */
 export type Mission = { id: string; fleet: string; status: MissionStatus; parallel: number; waitingOn: string | null; level: Level; number: number; title: string };
 
-export type Approval = 'standing' | 'none' | 'voided';
+export type Approval = 'standing' | 'none' | 'voided' | 'overturned';
 export type Stage = 'merged' | 'ready' | 'open';
 
 /**
@@ -258,7 +258,8 @@ function prOfUrl(url: string | null): PrNumber | null {
 // ── The reads, made plain ────────────────────────────────────────────────────────
 
 /** A PRD's latest approval, as standing or voided, or none. */
-export const approvalOf = (latest: { voided: boolean } | null): Approval => (latest === null ? 'none' : latest.voided ? 'voided' : 'standing');
+export const approvalOf = (latest: { voided: boolean; overturned?: boolean } | null): Approval =>
+  latest === null ? 'none' : latest.overturned === true ? 'overturned' : latest.voided ? 'voided' : 'standing';
 
 /** A PRD's stage, from the stages it reached. */
 export function stageOf(stages: readonly string[]): Stage {
@@ -784,7 +785,7 @@ function committeeEvents(committees: readonly Committee[], where: string): NewEv
     if (one.decision === null) return [sent];
     const decided: NewEvent =
       one.decision.outcome === 'carried'
-        ? { kind: 'decided', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: `The committee approved ${n}: every member who sat answered yes.` }
+        ? { kind: 'decided', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: `The committee approved ${n}: ${verdictWords(one.decision.verdicts) ?? 'every member who sat answered yes'}.` }
         : { kind: 'escalated', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: `${n} goes to a person: ${one.decision.why.join('; ')}` };
     return [sent, decided];
   });

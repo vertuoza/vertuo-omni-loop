@@ -71,6 +71,16 @@ describe('MissionsTab', () => {
     expect(html(view(row({ status: 'delivered' })))).not.toContain('<button');
   });
 
+  it('at Works alone shows only what was escalated under Waiting on you, and the trust line (PRD 2896 s11)', () => {
+    const events = [{ mission: 'm', kind: 'decided', prd: parsePrd(2), link: null, sentence: 'The committee approved PRD 2: pm yes, architect yes, reviewer yes.' }];
+    const waiting = row({ level: 'alone', status: 'waiting', waitingOn: 'PRD 3: the committee sent it to you: a locked law' });
+    const alone = text(html({ workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(waiting, events)] }));
+    expect(alone).toContain('1 decisions by the fleet · 0 overturned');
+    expect(alone).toContain('Waiting on you');
+    expect(alone).toContain('the committee sent it to you: a locked law');
+    expect(text(html(view(row({ waitingOn: 'PRD 3: merge it' }))))).not.toContain('decisions by the fleet');
+  });
+
   it('is the Missions tab of a virtual fleet, and the tab is not open without its block', () => {
     const read = { roster: [], activity: [], answered: [], prds: [], galaxy: { heroes: [], teams: [{ name: 'night-shift', label: 'Night Shift', color: '#4fb0ff', mascot: 'robot', points: 0, rank: 1 }] } };
     const virtual: VirtualOf = { workspace: WORKSPACE, mascots: ['robot'], names: ['night-shift'] };

@@ -19,7 +19,7 @@
 import { answerOf } from 'omni-loop/kit/lib/committee/record.ts';
 import { tally, type Verdict } from 'omni-loop/kit/lib/committee/vote.ts';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { noRecord, type Decision } from './committee.ts';
+import { noRecord, verdictWords, type Decision } from './committee.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
 
 /** The option the fleet settles an item with: what was built. */
@@ -118,7 +118,7 @@ export function answerEvents(committees: readonly ItemCommittee[], where: string
     if (one.decision === null) return [sent];
     const decided: NewEvent =
       one.decision.outcome === 'carried'
-        ? { kind: 'decided', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: cut(`The committee answered ${one.item} of ${n} with option ${BUILT}: every member who sat answered yes.`) }
+        ? { kind: 'decided', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: cut(`The committee answered ${one.item} of ${n} with option ${BUILT}: ${verdictWords(one.decision.verdicts) ?? 'every member who sat answered yes'}.`) }
         : { kind: 'escalated', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: cut(`${one.item} of ${n} goes to a person: ${one.decision.why.join('; ') || 'the committee sent it to you'}`) };
     return [sent, decided];
   });

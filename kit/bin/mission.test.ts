@@ -169,3 +169,40 @@ describe('omni mission drop (PRD 2896 s7)', () => {
     expect(await mission(['drop', '12', '7'], { root: off.root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'off\n' });
   });
 });
+
+describe('omni mission overturn (PRD 2896 s11)', () => {
+  const overturned = (over: Record<string, unknown> = {}) => ({ overturn: { mission: 'm-1', branch: 'mission/12-faster-quotes', decision: '7', prd: 7, onBranch: true, ...over } });
+
+  it('sends the decision and prints what changes: the decision stays, the PRD leaves the branch', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = recordingFetch(() => json(200, overturned()));
+    const done = await mission(['overturn', '12', '7'], { root, fetch });
+    expect(done.code).toBe(0);
+    expect(done.out).toContain('The decision stays as it was recorded; yours is added beside it.');
+    expect(done.out).toContain('approve it yourself');
+    expect(done.out).toContain('PRD 7 leaves mission/12-faster-quotes');
+    expect(calls).toEqual([{ url: `${BASE}/api/missions/overturn`, method: 'POST', body: { repo: 'acme/widgets', mission: 12, decision: '7' } }]);
+  });
+
+  it('names an item\'s answer by <prd>/<item>, and prints no drop for a PRD that was not on the branch', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = recordingFetch(() => json(200, overturned({ decision: '7/s1-01', branch: null, onBranch: false })));
+    const done = await mission(['overturn', '12', '7/s1-01'], { root, fetch });
+    expect(done.out).toContain('s1-01 of PRD 7 is open again for you');
+    expect(done.out).not.toContain('leaves');
+    expect(calls[0]?.body).toMatchObject({ decision: '7/s1-01' });
+  });
+
+  it('refuses a decision that is no name, prints the app\'s refusal, and says off or unreachable in one line', async () => {
+    const { root } = checkout();
+    const none = recordingFetch(() => json(200, {}));
+    expect((await mission(['overturn', '12', 'x'], { root, fetch: none.fetch })).code).toBe(2);
+    expect(none.calls).toEqual([]);
+    const refused = recordingFetch(() => json(409, { error: 'The fleet carried no decision 7 in mission 12.' }));
+    expect(await mission(['overturn', '12', '7'], { root, fetch: refused.fetch })).toEqual({ code: 1, out: '', err: 'refused (409): The fleet carried no decision 7 in mission 12.\n' });
+    const down = () => { throw new TypeError('fetch failed'); };
+    expect(await mission(['overturn', '12', '7'], { root, fetch: recordingFetch(down).fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
+    expect(await mission(['overturn', '12', '7'], { root: checkout({ enabled: false }).root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'off\n' });
+    expect(await mission(['overturn', '12', '7'], { root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'refused (no overturn in the reply)\n' });
+  });
+});

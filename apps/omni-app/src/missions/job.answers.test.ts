@@ -123,7 +123,7 @@ describe('at alone, a high item goes to the committee', () => {
       { installation: 1, repo: 'acme/widgets', prd: p(1), pr: 31, item: ITEM, answer: { fleet: 'night-shift', option: 'A', branch: BRANCH, at: new Date(NOW).toISOString(), verdicts: yes } },
     ]);
     expect(fake.events().filter((event) => event.kind === 'decided').map(({ role, actor, sentence }) => [role, actor, sentence])).toEqual([
-      ['pm', 'agent', `The committee answered ${ITEM} of PRD 1 with option A: every member who sat answered yes.`],
+      ['pm', 'agent', `The committee answered ${ITEM} of PRD 1 with option A: pm yes, architect yes, reviewer yes.`],
     ]);
     expect(fake.jobs().map(({ line, run: n }) => [line, n])).toEqual([
       [`/omni:yolo 1 --for-review --base ${BRANCH}`, 1],

@@ -21,7 +21,9 @@ runners while the laptop is closed.
 - **One row per mission:** its goal, its status (`Draft`, `Running`, `Waiting on you`, `Paused`,
   `Delivered`, `Stopped`), its progress (`2 of 4 merged · 1 ready`) and a link to its brief.
 - **What waits on a person:** each PRD that waits, with what it waits on (approve, answer, merge) and its link.
-  At Works alone, only what the fleet sent back, with why (`answer s2-01, a locked law`).
+  At Works alone, only what the fleet sent back, under the heading `Waiting on you`, with why (`answer s2-01, a locked law`).
+  What the fleet decided is on the mission pull request, in two lists (`Approved by the fleet`, `Answered by the fleet`); a person overturns one
+  there or with `omni mission overturn <mission> <decision>`.
 - **A mission's level,** on its row; on a draft, with `Change for this mission`.
 - **The branch line,** at Own branch and Works alone: the PRDs on the mission's branch, whether it is up to
   date with the default branch (`up to date`, or `behind the default branch` with what the supervisor
