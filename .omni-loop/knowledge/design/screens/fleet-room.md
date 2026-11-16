@@ -86,4 +86,4 @@ an agent is not a person.
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2871: .omni-loop/delivery/shipped/2871-reviewer/before-after.html
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html (an idle hero with a skill that runs alone reads `Idle`; the Designer has a now line)
-/omni:brainstorm, PRD 2949: .omni-loop/delivery/inbox/2949-limit-waits/before-after.html (the two waiting lines)
+/omni:brainstorm, PRD 2949: .omni-loop/delivery/shipped/2949-limit-waits/before-after.html (the two waiting lines)
