@@ -59,6 +59,8 @@ async function world({ database = true, failing = false, logFails = false, openF
     makerIsMember: true,
     laws: lawsFile('A quote can be sent only when its total is above zero.'),
     apiPack: true,
+    // The id of acme/widgets' newest pack: a merge keeps a new one (bug #2954).
+    widgetsPack: 'pack-widgets',
   };
   const calls: string[] = [];
   // The id of the key each live hash names, as api_key_of() answers it.
@@ -71,7 +73,7 @@ async function world({ database = true, failing = false, logFails = false, openF
       const live = (hash === hashes.live || hash === hashes.narrow) && state.makerIsMember;
       if (!live || key !== 'acme-app' || !state.on) return Promise.resolve(null);
       const api = ref('acme/api', state.apiPack ? 'pack-api' : null);
-      const widgets = ref('acme/widgets', 'pack-widgets');
+      const widgets = ref('acme/widgets', state.widgetsPack);
       const access: AccessRow = {
         product: { id: 'p-acme', key: 'acme-app', name: 'Acme App', workspace_id: 'w-acme' },
         key_id: keyIdOf(hash),
@@ -84,6 +86,20 @@ async function world({ database = true, failing = false, logFails = false, openF
     keyLive: (hash) => {
       calls.push('keyLive');
       return Promise.resolve(hash === hashes.other || ((hash === hashes.live || hash === hashes.narrow) && state.makerIsMember));
+    },
+    keyIdOf: (hash) => {
+      calls.push('keyIdOf');
+      if (hash === hashes.other) return Promise.resolve('k-other');
+      return Promise.resolve((hash === hashes.live || hash === hashes.narrow) && state.makerIsMember ? keyIdOf(hash) : null);
+    },
+    productOpen: (productId) => {
+      calls.push('productOpen');
+      return Promise.resolve(productId === 'p-acme' && state.on);
+    },
+    newestPacks: (workspace, repos) => {
+      calls.push('newestPacks');
+      const newest = new Map<string, string>([['acme/widgets', state.widgetsPack], ...(state.apiPack ? [['acme/api', 'pack-api'] as const] : [])]);
+      return Promise.resolve(new Map(workspace === 'w-acme' ? repos.flatMap((repo) => { const id = newest.get(repo); return id === undefined ? [] : [[repo, id] as const]; }) : []));
     },
     packFiles: (id) => Promise.resolve(id === 'pack-api' ? API : [...WIDGETS, { path: '.omni-loop/knowledge/domains/quotes/business-laws.md', content: state.laws }]),
     never: () => Promise.resolve(NEVER),
@@ -591,5 +607,70 @@ describe('/api/products/<key>/mcp asks the database for a key\'s access once a m
     expect((await w.ask(client, 'search_knowledge', {})).isError).toBe(false);
     await client.close();
     expect(w.calls.filter((call) => call === 'access acme-app')).toHaveLength(1);
+  });
+
+  it('still asks the database on every call whether the kept access holds: the key, the switch and the newest packs', async () => {
+    const w = await world();
+    const client = await w.connect(LIVE);
+    const before = w.calls.length;
+    expect((await w.ask(client, 'search_knowledge', { query: 'quote' })).isError).toBe(false);
+    expect((await w.ask(client, 'get_knowledge', { id: 'BL-QUOTES-1' })).isError).toBe(false);
+    await client.close();
+    const asked = w.calls.slice(before);
+    expect(asked.length).toBeGreaterThanOrEqual(6);
+    expect(asked.length % 3).toBe(0);
+    for (let at = 0; at < asked.length; at += 3) expect(asked.slice(at, at + 3)).toEqual(['keyIdOf', 'productOpen', 'newestPacks']);
+  });
+
+  it('logs every call it answers from a kept access, each under the key\'s id', async () => {
+    const w = await world();
+    const client = await w.connect(LIVE);
+    await w.ask(client, 'search_knowledge', { query: 'quote' });
+    await w.ask(client, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    await w.ask(client, 'search_knowledge', {});
+    await client.close();
+    await w.flush();
+    expect(w.rows.map((row) => [row.tool, row.api_key_id])).toEqual([
+      ['search_knowledge', 'k-live'], ['get_knowledge', 'k-live'], ['search_knowledge', 'k-live'],
+    ]);
+  });
+
+  it('never keeps a refusal: a server turned on serves the very next call', async () => {
+    const w = await world();
+    w.state.on = false;
+    expect((await w.post('acme-app', LIVE, INITIALIZE)).status).toBe(404);
+    w.state.on = true;
+    expect((await w.post('acme-app', LIVE, INITIALIZE)).status).toBe(200);
+    expect(w.calls.filter((call) => call === 'access acme-app')).toHaveLength(2);
+  });
+
+  it('a merge that keeps a new pack drops the kept access: the next call asks again and reads the new pack', async () => {
+    const w = await world();
+    const client = await w.connect(LIVE);
+    expect((await w.ask(client, 'get_knowledge', { id: 'BL-QUOTES-1' })).text).toContain('above zero');
+    w.state.widgetsPack = 'pack-widgets-2';
+    w.state.laws = lawsFile('A quote can be sent only once its customer has an address.');
+    const after = GetAnswerSchema.parse(JSON.parse((await w.ask(client, 'get_knowledge', { id: 'BL-QUOTES-1' })).text));
+    await client.close();
+    expect(after.entry.body).toContain('once its customer has an address');
+    expect(w.calls.filter((call) => call === 'access acme-app')).toHaveLength(2);
+  });
+
+  it('a revoked key, or one whose maker left, drops the kept access and reads nothing on its next call (BL-ACCESS-1)', async () => {
+    const w = await world();
+    const client = await w.connect(LIVE);
+    expect((await w.ask(client, 'search_knowledge', {})).isError).toBe(false);
+    w.state.makerIsMember = false;
+    expect(await w.ask(client, 'search_knowledge', {})).toEqual({ isError: true, text: KEY_REFUSED });
+    w.state.makerIsMember = true;
+    expect((await w.ask(client, 'search_knowledge', {})).isError).toBe(false);
+    await client.close();
+  });
+
+  it('keeps one access per key: a narrower key of the same product reads only its own repositories', async () => {
+    const w = await world();
+    expect((await w.call(LIVE, 'search_knowledge', { kind: 'business-law' })).isError).toBe(false);
+    const narrow = SearchAnswerSchema.parse(JSON.parse((await w.call(NARROW, 'search_knowledge', { query: 'api key' })).text));
+    expect(narrow.repositories.map((r) => r.repo)).toEqual(['acme/api']);
   });
 });
