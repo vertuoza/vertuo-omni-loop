@@ -63,4 +63,4 @@ person merges.
 ## Source
 
 - /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
-- /omni:brainstorm, PRD 2898: .omni-loop/delivery/inbox/2898-ready-five-checks/before-after.html
+- /omni:brainstorm, PRD 2898: .omni-loop/delivery/shipped/2898-ready-five-checks/before-after.html

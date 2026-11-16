@@ -117,4 +117,4 @@ Could not check; on a finding: Approve, Reject. Business laws (PRD 2632): Busine
 - /omni:brainstorm, PRD 2410: .omni-loop/delivery/shipped/2410-broke-main/before-after.html
 - /omni:brainstorm, PRD 2498: .omni-loop/delivery/shipped/2498-rewind-apply/before-after.html
 - /omni:brainstorm, PRD 2632: .omni-loop/delivery/shipped/2632-business-laws/before-after.html
-- /omni:brainstorm, PRD 2898: .omni-loop/delivery/inbox/2898-ready-five-checks/before-after.html (the Ready panel)
+- /omni:brainstorm, PRD 2898: .omni-loop/delivery/shipped/2898-ready-five-checks/before-after.html (the Ready panel)
