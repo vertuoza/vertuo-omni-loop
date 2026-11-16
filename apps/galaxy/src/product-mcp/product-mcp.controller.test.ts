@@ -581,3 +581,15 @@ describe('/api/products/<key>/mcp opens the search a get_knowledge follows (PRD 
     expect(w.logged).toEqual(['product mcp: opened rank not written: mcp_search_log: the database refused: no update']);
   });
 });
+
+describe('/api/products/<key>/mcp asks the database for a key\'s access once a minute, not on every call (#2954)', () => {
+  it('one agent session asks product_mcp_for_key() once, however many calls it makes', async () => {
+    const w = await world();
+    const client = await w.connect(LIVE);
+    expect((await w.ask(client, 'search_knowledge', { query: 'quote' })).isError).toBe(false);
+    expect((await w.ask(client, 'get_knowledge', { id: 'BL-QUOTES-1' })).isError).toBe(false);
+    expect((await w.ask(client, 'search_knowledge', {})).isError).toBe(false);
+    await client.close();
+    expect(w.calls.filter((call) => call === 'access acme-app')).toHaveLength(1);
+  });
+});
