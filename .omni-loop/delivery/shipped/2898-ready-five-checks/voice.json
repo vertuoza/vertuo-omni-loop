@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 2,
+          "reaction": "Five checks plus an e2e run on every mission PR: my small fixes now wait for a preview and an agent clicking through it before anyone can even look.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "Only missions are gated, so my own quick builds stay as they are; I would still like to see the panel before trusting it.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "Ready finally means something I can point to: CI on the latest commit, the full run, and no test quietly skipped.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A loosened test caught by plain code, not by another agent's opinion: that is the check I would have asked for.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each check links its run or its diff, so a red one is something I can debug, not a verdict to argue with.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "Paul - Product Manager",
+        "text": "Five checks plus an e2e run on every mission PR: my small fixes now wait for a preview and an agent clicking through it before anyone can even look.",
+        "citations": [
+          "persona:Paul - Product Manager"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:Paul - Product Manager ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 3,
+          "reaction": "Criteria marked test never wait on a preview, so only screen changes pay the e2e wait.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Writing each criterion as Given, When, Then is close to how I already describe a change.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "One rule in the kit and the same rule in the App, and rollback is one setting: easy to adopt.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Weaker assertions and changed AC tests are named one by one; I will judge the heuristics on real diffs.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "waiting and not judged never pass, and omni ready still decides when the App is down.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:Paul - Product Manager ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-16",
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ✓ · persona:Irisa ~ · persona:Paul - Product Manager ~",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 3,
+          "reaction": "A ready PR now proves itself in five lines, but e2e still waits on secrets and a label someone must add.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Skipped CI jobs no longer block ready, and a loosened test needs an agreed excuse: green means something.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "One rule decides in the kit and in the App, and the verdict table keeps writes to the service role.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Off by default, mission here: the gate can be rolled back with one setting.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The Ready panel names the failing check first, though it shows nothing until the App saves a verdict.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ]
+    }
+  ]
+}

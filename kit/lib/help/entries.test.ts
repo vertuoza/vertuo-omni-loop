@@ -108,11 +108,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 70 commands and the 41 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(70);
-    expect(skillFolders()).toHaveLength(41);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(70);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(41);
+  it('holds the 72 commands and the 42 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(72);
+    expect(skillFolders()).toHaveLength(42);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(72);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(42);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -425,7 +425,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'review', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'tech-review', 'validate-e2e'],
+      everyday: ['ask', 'dashboard', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'tech-review', 'validate-e2e'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
   });
@@ -473,6 +473,15 @@ describe('the help table in this repository', () => {
     expect(item.usage).toContain('omni item relay <dir> --prd <n>');
     expect(item.detail).toMatch(/\bnever adopts\b/);
     expect(item.detail).toMatch(/\brelay moves\b/);
+  });
+
+  it('shows omni item new --excuses, an exact path and never a folder or a pattern (PRD 2898)', () => {
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    assertDefined(item, 'item');
+    expect(item.usage.join(' ')).toMatch(/--excuses <path>/);
+    const words = item.detail.replace(/\s+/g, ' ');
+    expect(words).toMatch(/--excuses, once per path, names an exact file/);
+    expect(words).toMatch(/a folder or a pattern is refused/);
   });
 
   it('describes the ask verbs any agent runs, and the heartbeat\'s switch (PRD 1831)', () => {
@@ -627,6 +636,14 @@ describe('the e2e entry', () => {
   it('names heals, hold, confirm and reject', () => {
     const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
     for (const sub of ['heals', 'hold', 'confirm', 'reject']) expect(entry?.usage.join('\n')).toContain(`omni e2e ${sub} <prd>`);
+  });
+});
+
+describe('the ready help (PRD 2898)', () => {
+  it('lists omni ready with its five checks and its exit code', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'ready');
+    expect(entry?.usage).toEqual(['omni ready <prd> [--json]']);
+    expect(entry?.detail).toContain('Exit 0 only on 5 of 5');
   });
 });
 

@@ -504,3 +504,38 @@ describe("the product's avoided words in a spec (PRD 2299)", () => {
     expect(codeWith).toBe(0);
   });
 });
+
+describe('a spec whose acceptance criteria are scenarios (PRD 2898)', () => {
+  const file = `${IN}/0042-a/spec.md`;
+  const scenario = (heading: string, steps = 'Given a\n  When b\n  Then c') =>
+    `${heading}\n\n\`\`\`gherkin\nScenario: x\n  ${steps}\n\`\`\`\n`;
+
+  it('reads well-formed criteria', () => {
+    const { ctx } = makeRepo({});
+    const text = `${specText()}${scenario('### AC-1 · test')}\n${scenario('### AC-2 · e2e')}`;
+    expect(checkSpecText(file, text, { ctx })).toEqual([]);
+  });
+
+  it('still reads plain bullets', () => {
+    const { ctx } = makeRepo({});
+    expect(checkSpecText(file, `${specText()}## Acceptance criteria\n\n- it works\n`, { ctx })).toEqual([]);
+  });
+
+  it('refuses a number written twice and a scenario with no Then, naming each', () => {
+    const { ctx } = makeRepo({});
+    const text = `${specText()}${scenario('### AC-3 · test')}\n${scenario('### AC-3 · test')}\n${scenario('### AC-4 · test', 'Given a\n  When b')}`;
+    const violations = checkSpecText(file, text, { ctx });
+    expect(violations).toHaveLength(2);
+    expect(violations.some((v) => v.includes('AC-3') && v.includes('twice'))).toBe(true);
+    expect(violations.some((v) => v.includes('AC-4') && v.includes('no Then'))).toBe(true);
+  });
+
+  it('refuses a missing number, a missing kind and an unknown kind', () => {
+    const { ctx } = makeRepo({});
+    const text = `${specText()}${scenario('### AC · test')}\n${scenario('### AC-2')}\n${scenario('### AC-3 · manual')}`;
+    const violations = checkSpecText(file, text, { ctx });
+    expect(violations.some((v) => v.includes('no number'))).toBe(true);
+    expect(violations.some((v) => v.includes('AC-2') && v.includes('no kind'))).toBe(true);
+    expect(violations.some((v) => v.includes('AC-3') && v.includes('manual'))).toBe(true);
+  });
+});

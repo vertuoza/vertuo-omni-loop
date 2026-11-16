@@ -93,6 +93,19 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for.',
   },
   {
+    name: 'dashboard',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni dashboard [--fetch]'],
+    label: 'omni dashboard',
+    summary: 'the overview of every PRD, where each stands',
+    detail:
+      'The repository\'s overview, exactly what `omni status` prints with no PRD number: how many ' +
+      'PRDs sit at each stage, a bar of delivered against in progress, and the PRDs that are yours. ' +
+      'Read from git only; --fetch fetches {remote}/{defaultBranch} first. This session\'s own work ' +
+      'is `omni now --status`.',
+  },
+  {
     name: 'sync',
     kind: 'command',
     who: 'you',
@@ -967,7 +980,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'skills',
     usage: [
       'omni item new --prd <n> --slice <id> --file <file>',
-      '  [--adopt | --out <dir>] [--json]',
+      '  [--excuses <path>]… [--adopt | --out <dir>] [--json]',
       'omni item relay <dir> --prd <n>',
       'omni item new --prd <key>-<n> … · omni item relay <dir> --prd <key>-<n>',
     ],
@@ -975,7 +988,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'Records one decision an agent took without asking as an outbox item, from a JSON file: the ' +
       "kit picks its rank and its id. A decision that would break a named law stops the slice " +
-      "instead, and one that needs a person's action blocks it. --adopt sends a medium item " +
+      "instead, and one that needs a person's action blocks it. --excuses, once per path, names an " +
+      'exact file whose finding of the ready checks (a loosened test, a file outside the plan) the item ' +
+      'excuses once a person agreed to it; a folder or a pattern is refused. --adopt sends a medium item ' +
       'straight to the settled ledger. --out writes the item to a folder instead of the outbox, ' +
       'for a slice built in another repository, and never adopts. relay moves every item and ' +
       "account of such a folder into PRD n's outbox, checked as new items are; a refused file " +
@@ -1338,6 +1353,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'in. It runs nothing of a provider, merges nothing and writes nothing.',
   },
   {
+    name: 'ready',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni ready <prd> [--json]'],
+    summary: "whether a PRD's feature pull request may be marked ready: five checks",
+    detail:
+      "Reads, through gh, the feature pull request's latest commit: its check runs, the acceptance " +
+      'report its acceptance check run carries, the diff against the default branch, and the PRD\'s ' +
+      'plan, spec and outbox ledger at that commit. It prints one line per check (CI green, the full ' +
+      'tests and lint ran, every acceptance criterion has its proof, no test was loosened, the change ' +
+      'stayed in its area), each pass, fail, not finished or not judged with why, then the verdict as ' +
+      'the last line. Exit 0 only on 5 of 5; anything else, a pull request it cannot find included, is ' +
+      'exit 1, and a check that is still running or unreadable never reads as passed. The first line ' +
+      'says whether the PRD is named by a mission here, beside ready.checks; it never changes the ' +
+      'verdict. --json prints the verdict, the pull request and that line as one object. It writes ' +
+      'nothing and merges nothing.',
+  },
+  {
     name: 'design',
     kind: 'command',
     who: 'skills',
@@ -1449,7 +1482,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'now',
     kind: 'command',
     who: 'skills',
-    usage: ['omni now [--json] [--stdin] [--session <id>]'],
+    usage: ['omni now [--json] [--stdin] [--session <id>]', 'omni now --status [--fetch]'],
     summary: 'what this session is on now, and the slices being built',
     detail:
       'The PRD this session works on, from its branch or else from the last command that named ' +
@@ -1458,7 +1491,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "or any other agent. --stdin reads the session's folder and id from Claude Code's status line " +
       'JSON, --session names the session; else it is OMNI_SESSION_ID, then CLAUDE_CODE_SESSION_ID, ' +
       'then the id omni dossier open stored for the checkout. It reads only this computer: it never fetches, never calls ' +
-      'GitHub, writes nothing and always exits 0.',
+      'GitHub, writes nothing and always exits 0. --status prints the work\'s status in plain words (the verdict, ' +
+      'the step, what you must do, what comes next, the links), the same block /omni:status shows; --json then ' +
+      'carries it as its status key. --status --fetch first reads the work\'s pull request (its state, changed files ' +
+      'and checks) from the Omni page, within 5 seconds, and keeps it beside the links; when it does not answer, ' +
+      'the last copy is shown with its age.',
   },
 
   // Skills you type in Claude. Their order is the overview's.
@@ -2066,6 +2103,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     when: 'Use it when you want to know where your PRDs stand without leaving Claude.',
     example: {
       type: '/omni:status',
+      result: 'how many PRDs shipped, wait in the inbox or the outbox, and yours',
+    },
+  },
+  {
+    name: 'dashboard',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:dashboard [--fetch]'],
+    label: '/omni:dashboard',
+    summary: 'where all your PRDs are',
+    detail:
+      'Runs omni dashboard inside Claude and prints the repository\'s overview as is: how many PRDs ' +
+      'sit at each stage of the loop, and the PRDs that are yours, each with where it stands. It ' +
+      'fetches first only when you ask for fresh data, and never runs the outbox gate of one PRD.',
+    group: 'everyday',
+    when: 'Use it when you want every PRD of the repository on one screen.',
+    example: {
+      type: '/omni:dashboard',
       result: 'how many PRDs shipped, wait in the inbox or the outbox, and yours',
     },
   },

@@ -53,6 +53,21 @@ proof:
   deployment: Preview – vertuo-omni-loop-galaxy
   setup: node .omni-loop/bin/omni.mjs proof session
   bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET
+# Ready checks (PRD 2898): a mission's feature PR is marked ready only when five checks pass (the guide's
+# What ready proves). `mission` gates the PRs of running or paused missions; `full` names the CI jobs that
+# run the whole suite. The label that starts the full checks on a gated draft is `omni:ready-check`, made
+# by a person in this repository.
+ready:
+  checks: mission
+  full: [test, lint]
+# E2E in CI (PRD 2898): the e2e scenarios run on the draft's preview, against the arcade's deployment of
+# the feature PR's commit; the repository needs the secrets OPENROUTER_API_KEY and
+# VERCEL_AUTOMATION_BYPASS_SECRET. `enabled` stays false: the e2e skill is not run by this repository.
+e2e:
+  ci: true
+  url: github-deployment
+  deployment: Preview – vertuo-omni-loop-galaxy
+  bypassEnv: VERCEL_AUTOMATION_BYPASS_SECRET
 # Generated files (PRD 1138): outputs this repository builds rather than writes. A slice rebuilds them
 # only to test and commits none; the wave rebuilds the stale ones once, after merging, in a commit of
 # their own. Never a territory breach, never shared ground between two slices. `from` names every

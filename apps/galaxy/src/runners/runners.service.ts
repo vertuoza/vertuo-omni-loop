@@ -91,7 +91,7 @@
 //   job's own runner while the job is claimed or running, and refuses one that ended, whatever its status (PRD 2809 s3).
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
-  CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
+  CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, isAppLine, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type BoardSave, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
@@ -136,6 +136,9 @@ export interface GithubDeps {
 /** The repositories, lower case, of the live products that name `repo` in the workspace, each still listed by it: what a mega bug
  * fix no key sent widens its token to (PRD 2573), as api_key_github_app_of_job()'s `product_repos` does for a key's. */
 export type ProductRepos = (workspaceId: string, repo: string) => Promise<string[]>;
+
+/** One of the Omni App's own jobs that ended (PRD 2898 s8): its workspace, its repository and its line. */
+export type AppJobEnded = { workspaceId: string; repo: string; line: string };
 
 /** The product reads of a service built without them: no product, so a mega bug fix no key sent reaches its own repository alone. */
 const NO_PRODUCTS: ProductRepos = () => Promise.resolve([]);
@@ -628,10 +631,12 @@ const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<strin
  * configured. `notifier` pings the link of a job a key sent when its status, outcome or questions change (PRD 2425 s8); with none, no
  * link is taken. `products` reads the product repositories a mega bug fix no key sent reaches (PRD 2573); with none, its own alone.
  * `saves` reads the saves a resume's chain left and signs their download links (PRD 2809, s5); with none, a resume carries no save.
- * `woke` is told the mission of a job it sent that ended (PRD 2842 s5), so the mission is woken at once; with none, nothing is. */
+ * `woke` is told the mission of a job it sent that ended (PRD 2842 s5), so the mission is woken at once; with none, nothing is.
+ * `ended` is told each of the Omni App's own jobs that ended (PRD 2898 s8: its e2e fallback, `isAppLine`), so the App reads its
+ * result at once; with none, nothing is. */
 export function runnersService(
   store: RunnersRepository, clock: Clock, github: GithubDeps | null = null, notifier: Notifier = NO_NOTIFIER, products: ProductRepos = NO_PRODUCTS, saves: ResumeSaves = NO_SAVES,
-  woke: (missionId: string) => void = () => undefined,
+  woke: (missionId: string) => void = () => undefined, ended: (job: AppJobEnded) => void = () => undefined,
 ) {
   const iso = () => clock.now().toISOString();
   const ago = (ms: number) => new Date(clock.now().getTime() - ms).toISOString();
@@ -640,10 +645,12 @@ export function runnersService(
 
   /** Tells the job's link that its status, outcome or questions changed (PRD 2425 s8), once the change is stored; a job with no link tells
    * none. The notifier answers after the response and never throws, so a ping never changes what a request answers. */
-  const tell = (job: Pick<JobRow, 'id' | 'notify_url' | 'status' | 'mission_id'>, event: PingEvent): void => {
+  const tell = (job: Pick<JobRow, 'id' | 'notify_url' | 'status' | 'mission_id' | 'workspace_id' | 'repo' | 'line' | 'sent_by_app'>, event: PingEvent): void => {
     if (job.notify_url) notifier.ping({ url: job.notify_url, jobId: job.id, event, at: iso() });
     // A job a mission sent that ended wakes that mission at once (PRD 2842 s5); a question is no end.
     if (event !== 'questions' && job.mission_id && ENDED.includes(job.status)) woke(job.mission_id);
+    // One of the App's own jobs that ended (PRD 2898 s8) is told to the App, which reads its result from the job's log tail.
+    if (event !== 'questions' && job.sent_by_app !== null && ENDED.includes(job.status) && isAppLine(job.line)) ended({ workspaceId: job.workspace_id, repo: job.repo, line: job.line });
   };
   /** Tells the link of a job the change that took it from `before` to `after`, when it is one. */
   const tellChange = (before: JobRow, after: JobRow): void => {

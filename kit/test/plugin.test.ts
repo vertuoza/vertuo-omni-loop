@@ -395,32 +395,37 @@ function gateRuns(text: string) {
 describe('the status skill in this repository', () => {
   const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/status/SKILL.md'), 'utf8');
 
-  it('is named status, and its description says what triggers it', () => {
+  it('is named status, and its triggers are the session status, not the overview', () => {
     const { name, description } = frontmatter(read()) ?? {};
     expect(name).toBe('status');
-    expect(description).toMatch(/\bTriggers on\b.*"\/omni:status"/);
+    expect(description).toMatch(/\bTriggers on\b.*"status".*"where are we".*"what are you doing".*"\/omni:status"/);
+    expect(description).not.toMatch(/what has shipped|where are my PRDs/);
   });
 
-  it('runs a bare omni status, adds --fetch for fresh data only, and names no other command but dossier link', () => {
+  it('runs omni now --status --fetch, and names no other command', () => {
     const text = read();
-    expect(new Set(commandMentions(text))).toEqual(new Set(['status', 'dossier']));
-    expect(text).toMatch(/omni\.mjs dossier link <n>/);
-    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs status$/m);
-    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs status --fetch$/m);
-    expect(text).toContain('fresh data');
+    expect(new Set(commandMentions(text))).toEqual(new Set(['now']));
+    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs now --status --fetch$/m);
+    expect(text).toContain('/omni:dashboard shows all your work.');
   });
 
-  it('never runs the gate: no omni status < form, and no PRD number or gate flag after it', () => {
+  it('never runs the gate, and changes no pull request, label or approval', () => {
     const text = read();
-    expect(text).toContain('omni status');
-    expect(text).not.toContain('omni status <');
+    expect(text).toMatch(/never a pull request, a label\s+or an approval/);
     expect(gateRuns(text)).toEqual([]);
   });
 
-  it('prints the output as is, in a text block', () => {
+  it('prints the output as is, in a text block, and adds one Right now line in the agent\'s own name', () => {
     const text = read();
     expect(text).toContain('as is');
     expect(text).toMatch(/^```text$/m);
+    expect(text).toContain('Right now');
+    expect(text).toContain('L-AIACT-1');
+  });
+
+  it.each(['status', 'dashboard'])('the plugin ships the %s skill, named as its folder', (skill) => {
+    const { name } = frontmatter(readFileSync(join(repoRoot, PLUGIN_DIR, `skills/${skill}/SKILL.md`), 'utf8')) ?? {};
+    expect(name).toBe(skill);
   });
 
   it('the gate check flags every form of the gate, and none of the overview', () => {

@@ -4,10 +4,12 @@
 # deployments of a branch are all skipped by scripts/vercel-ignore.sh, unless the commit carries the
 # check run vercel/preview/<project> this script adds.
 #
-# 1. Stops (exit 0, one line why) on a draft, a base other than main, or a dependabot/ head.
+# 1. Stops (exit 0, one line why) on a draft, a base other than main, or a dependabot/ head. A draft
+#    labelled PREVIEW_READY_LABEL (default omni:ready-check, PRD 2898) previews as a ready one does.
 # 2. Waits PREVIEW_DEBOUNCE_SECONDS (default 150): a newer push cancels this run while it waits (the
 #    workflow's concurrency group), so a burst of agent pushes builds once.
-# 3. Stops when the head moved or the pull request turned draft meanwhile: the newer push has its run.
+# 3. Stops when the head moved or the pull request turned an unlabelled draft meanwhile: the newer
+#    push has its run.
 # 4. For each project scripts/vercel-inputs.ts says the pull request's files reach (as a branch, so
 #    .omni-loop/ never counts), adds the check run vercel/preview/<project> = success to the head
 #    commit (which scripts/vercel-ignore.sh reads as the omni-loop App), then asks
@@ -17,12 +19,14 @@
 #
 # Reads GITHUB_REPOSITORY, DEBOUNCE_PR, GH_TOKEN (checks: write, pull-requests: read), VERCEL_TOKEN,
 # VERCEL_TEAM_ID, VERCEL_PROJECT_ID_GALAXY, VERCEL_PROJECT_ID_OMNI_APP, VERCEL_GITHUB_REPO_ID,
-# PREVIEW_DEBOUNCE_SECONDS and VERCEL_API (default https://api.vercel.com). Needs gh, curl and node.
+# PREVIEW_DEBOUNCE_SECONDS, PREVIEW_READY_LABEL and VERCEL_API (default https://api.vercel.com). Needs
+# gh, curl and node.
 set -uo pipefail
 
 repo="${GITHUB_REPOSITORY:?}"
 pr="${DEBOUNCE_PR:?}"
 base_branch="${PREVIEW_BASE_BRANCH:-main}"
+ready_label="${PREVIEW_READY_LABEL:-omni:ready-check}"
 
 fail() {
   echo "::error::preview-debounce: $1"
@@ -34,14 +38,19 @@ stop() {
   exit 0
 }
 
-# Prints `<draft> <base> <head ref> <head sha>` of the pull request.
+# Prints `<draft> <base> <head ref> <head sha> <labels, comma-separated>` of the pull request.
 read_pr() {
-  gh api "repos/$repo/pulls/$pr" --jq '"\(.draft) \(.base.ref) \(.head.ref) \(.head.sha)"'
+  gh api "repos/$repo/pulls/$pr" --jq '"\(.draft) \(.base.ref) \(.head.ref) \(.head.sha) \([.labels[].name] | join(","))"'
+}
+
+# Whether the comma-separated labels hold the ready-check label.
+labelled() {
+  case ",$1," in *",$ready_label,"*) return 0 ;; *) return 1 ;; esac
 }
 
 state="$(read_pr)" || fail "could not read #$pr"
-read -r draft base ref sha <<<"$state"
-[ "$draft" = "false" ] || stop "a draft"
+read -r draft base ref sha labels <<<"$state"
+[ "$draft" = "false" ] || labelled "${labels:-}" || stop "a draft"
 [ "$base" = "$base_branch" ] || stop "its base is $base, not $base_branch"
 case "$ref" in dependabot/*) stop "a dependabot branch" ;; esac
 
@@ -50,9 +59,9 @@ echo "preview-debounce: #$pr: waiting ${wait_s}s for $ref@${sha:0:7} to settle"
 sleep "$wait_s"
 
 state="$(read_pr)" || fail "could not read #$pr again"
-read -r draft _ _ now <<<"$state"
+read -r draft _ _ now labels <<<"$state"
 [ "$now" = "$sha" ] || stop "$ref moved to ${now:0:7} while ${sha:0:7} waited; the newer push has its own run"
-[ "$draft" = "false" ] || stop "turned draft while it waited"
+[ "$draft" = "false" ] || labelled "${labels:-}" || stop "turned draft while it waited"
 
 files="$(gh api "repos/$repo/pulls/$pr/files" --paginate --jq '.[].filename')" || fail "could not read the files of #$pr"
 pkg_diff="$(mktemp)"

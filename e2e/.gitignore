@@ -1,0 +1,5 @@
+# What a run writes under .e2e/ (the report, junit.xml, the HTML report, results, sessions, logs) is
+# CI's artifact, never committed. The replay cache is: the recordings are the reference a person
+# reads (/omni:validate-e2e).
+.e2e/*
+!.e2e/cache/

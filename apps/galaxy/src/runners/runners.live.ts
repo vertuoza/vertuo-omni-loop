@@ -1,4 +1,5 @@
 import 'server-only';
+import { after } from 'next/server';
 import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { serviceDb } from '../data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../data/supabase-server';
@@ -8,8 +9,10 @@ import { wakeMission } from '../missions/missions.live';
 import { liveNotifier } from '../public-api/notify.live';
 import type { RunnersDeps } from './runners.controller';
 import { githubDeps } from './runners.github';
+import { readyWake } from './ready-wake';
+import { readyWakeStore } from './ready-wake.repository';
 import { checkpointsRepository, runnersRepository } from './runners.repository';
-import { checkpointsService, productReposOf, runnersService, type CheckpointsService, type GithubDeps, type ProductRepos, type RunnersService } from './runners.service';
+import { checkpointsService, productReposOf, runnersService, type AppJobEnded, type CheckpointsService, type GithubDeps, type ProductRepos, type RunnersService } from './runners.service';
 
 // The runners' real dependencies (PRD 1830 s1), for /api/runners/*: the kit's sign-in checked with the
 // Auth server (a client acting as the caller's access token), the browser's from the page's session
@@ -23,6 +26,8 @@ import { checkpointsService, productReposOf, runnersService, type CheckpointsSer
 // SECRETS_MASTER_KEY: its token is minted through the global fetch (./runners.github.ts), by one wiring kept
 // for the server's process, so the Omni App's bot is read from GitHub once. A skill that spans the product (a mega bug fix,
 // an ultra skill: PRD 2873) no key sent reads its product's repositories through the products' storage, as the service role.
+// One of the Omni App's own jobs that ended (its e2e fallback, PRD 2898 s8) refreshes its pull request's ready check on the
+// App's ledger (./ready-wake.ts).
 
 const clock = {
   now: () => new Date(),
@@ -43,11 +48,29 @@ const productRepos = (products: ProductsRepository): ProductRepos => async (work
   return productReposOf({ products: rows, links, repositories }, repo);
 };
 
+/** One of the Omni App's own jobs ended (PRD 2898 s8): the ready check of its pull request is refreshed on the App's ledger once
+ * the response has gone, so a wake never changes what the runner's report answers; one that fails is logged. */
+function wakeReady(job: AppJobEnded): void {
+  const run = async () => {
+    try {
+      await readyWake(readyWakeStore(serviceDb()))(job);
+    } catch (error) {
+      log.error({ event: 'runners', outcome: 'failed', message: `the ready check of ${job.repo} was not woken: ${error instanceof Error ? error.message : String(error)}` });
+    }
+  };
+  try {
+    after(run);
+  } catch {
+    // Outside a request (a script): run it now.
+    void run();
+  }
+}
+
 /** The rules over the service role's client, or null when this deployment has none. */
 function liveRunnersService(): RunnersService | null {
   if (!supabaseEnv() || serverEnv().serviceRole === null) return null;
   const db = serviceDb();
-  return runnersService(runnersRepository(db), clock, omniGithub(), liveNotifier(), productRepos(productsRepository(db)), checkpointsRepository(db), wakeMission);
+  return runnersService(runnersRepository(db), clock, omniGithub(), liveNotifier(), productRepos(productsRepository(db)), checkpointsRepository(db), wakeMission, wakeReady);
 }
 
 /** A job's save (PRD 2809, s4) over the service role's client, which signs the upload links; null when this deployment has none. */

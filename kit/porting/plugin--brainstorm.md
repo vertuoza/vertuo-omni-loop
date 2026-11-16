@@ -377,3 +377,10 @@ now writes (slice s1) and `omni check inbox` grades by nine rules (slice s2):
 
 `kit/test/before-after-skills.test.ts`, `kit/test/design-skills.test.ts`; the skill stays neutral to
 the agent (`kit/test/agent-neutral.test.ts`, unchanged).
+
+### Acceptance criteria as scenarios (PRD 2898)
+
+Step 4's **Acceptance criteria as scenarios** bullet has the spec's criteria written as
+`### AC-<n> · <kind>` scenarios, the kind from `acceptance.kind`; `omni check inbox` grades them
+(`kit/lib/inbox/check-inbox.ts`, through `kit/lib/ready/criteria.ts`). Guard:
+`kit/test/brainstorm-acceptance-format.test.ts`.

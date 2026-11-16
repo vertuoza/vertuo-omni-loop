@@ -56,11 +56,13 @@ stages from idea to retro, its principles, the slash commands, the terminal comm
 only the skills run; `omni help <name>` prints one command or skill (`board`, `yolo` or
 `/omni:yolo`) with its usage, who runs it and what it does, both entries for a name that is both. It
 needs no config: outside an installed repository it uses the kit's defaults. A bare `omni status`
-(also `/omni:status`) prints the repository's overview, read from git only, never from GitHub: how
+(also `/omni:dashboard`, which runs `omni dashboard`) prints the repository's overview, read from git only, never from GitHub: how
 many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, a bar
 of delivered against in progress, and the PRDs that are yours (by `git config user.email`), each
 with where it stands. It reads the default branch as last fetched, and `--fetch` fetches it first.
-`omni status <prd>`, the outbox gate, is unchanged.
+`omni status <prd>`, the outbox gate, is unchanged. `/omni:status` is this session's status instead:
+it runs `omni now --status --fetch` and prints one plain block, the verdict, the step of its work, what
+you must do and the links.
 
 **Ask mode** puts the questions Claude asks through `AskUserQuestion` on a web page: sign in once per
 computer with `omni signin`, then `/omni:ask on` in a checkout prints the page's link, and

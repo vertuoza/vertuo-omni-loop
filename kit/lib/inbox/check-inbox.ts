@@ -21,7 +21,10 @@
  *    included (`../before-after/grade.ts`). A page without either meta is graded on its size alone.
  * 6. The sibling `voice.json`, when present, reads as the voice record (PRD 822, `../voice/voice.ts`):
  *    each refusal names the file, the round and the field.
- * 7. Every roadmap under the inbox's `roadmaps/` passes `omni roadmap check` (PRD 1162,
+ * 7. Its acceptance criteria written as `### AC-<n> · <kind>` scenarios (PRD 2898) read: a number
+ *    missing or twice, a kind missing or unknown, a scenario without a Given, a When and a Then each
+ *    fail, naming the criterion. A spec of plain bullets holds none and passes.
+ * 8. Every roadmap under the inbox's `roadmaps/` passes `omni roadmap check` (PRD 1162,
  *    `../roadmap/index.ts`): each violation names the roadmap's file and its row or question.
  *
  * An empty inbox passes trivially. A missing `plan.md` is never graded here — whether a PRD has
@@ -31,6 +34,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { productAvoids } from '../design/words/product.ts';
+import { parseCriteria } from '../ready/criteria.ts';
 import { gradeBeforeAfter } from '../before-after/grade.ts';
 import { readRepoFile } from '../check-report.ts';
 import { domainsDir } from '../knowledge/registers.ts';
@@ -92,6 +96,10 @@ function violationsForFile(
         violations.push(`${file}: areas names "${area}", which is not a folder under ${domainsDir(ctx)}.`);
       }
     }
+  }
+
+  for (const { criterion, line, problem } of parseCriteria(text).problems) {
+    violations.push(`${file}: ${criterion} (line ${line}): ${problem}.`);
   }
 
   return { record, violations };
