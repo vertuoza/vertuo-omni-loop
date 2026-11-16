@@ -13,7 +13,8 @@
 //   of them per check, the same ones on every push. A tree named by a branch is asked for as any read.
 // - Every answer's x-ratelimit-* headers update the installation's budget for the answer's resource,
 //   when they say something the stored budget does not (worthWriting): a write per answer cost the
-//   database a sixth of its time (#1851).
+//   database a sixth of its time (#1851). Below the background floor, only the answer that crosses it
+//   is written at once: under it, the refusal is the same whatever the remaining (#2953).
 // - A background call is refused with GithubDeferred, unsent, while the resource's remaining is below
 //   20% of its limit and its window has not reset. An interactive call may spend it to zero.
 // - A 403 or 429 that says the limit is spent (nothing remaining, a retry-after, or the secondary-limit
@@ -71,7 +72,7 @@ const BUDGET_STEP = 0.02;
 /** ...or once the stored one is this old. */
 const BUDGET_FRESH_MS = 60_000;
 /** A 304 marks its ETag read once a day at most; the sync drops ETags not read for 7 days. */
-const TOUCH_EVERY_MS = 24 * 3_600_000;
+export const TOUCH_EVERY_MS = 24 * 3_600_000;
 /** A body longer than this (in UTF-16 units, as it is read) is not stored with its ETag. */
 const MAX_STORED_BODY = 512 * 1024;
 
@@ -138,25 +139,28 @@ async function saysSpent(res: Response): Promise<boolean> {
   return SECONDARY.test(await res.clone().text().catch(() => ''));
 }
 
+/** Whether a remaining is below the background floor of its limit, where background calls are refused. */
+const belowFloor = (remaining: number, limit: number): boolean => remaining < limit * BACKGROUND_FLOOR;
+
 /**
  * Whether an answer's budget is worth a write over the stored one: there is none, it is another window
- * or limit, it is BUDGET_FRESH_MS old, its remaining moved by BUDGET_STEP of the limit, or the answer is
- * within BUDGET_STEP of the background floor, where the refusal below turns on the stored remaining.
+ * or limit, it is BUDGET_FRESH_MS old, its remaining moved by BUDGET_STEP of the limit, or it crossed the
+ * background floor, the one line the refusal below turns on. Under the floor every background call is
+ * refused whatever the remaining, so a write per answer there bought nothing (#2953).
  */
 function worthWriting(known: StoredBudget | null, reported: { limit: number; remaining: number; resetAt: number }, at: number): boolean {
   if (!known || known.limit !== reported.limit || known.resetAt !== reported.resetAt) return true;
-  const step = reported.limit * BUDGET_STEP;
   return at - known.updatedAt >= BUDGET_FRESH_MS
-    || Math.abs(known.remaining - reported.remaining) >= step
-    || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
+    || Math.abs(known.remaining - reported.remaining) >= reported.limit * BUDGET_STEP
+    || belowFloor(known.remaining, known.limit) !== belowFloor(reported.remaining, reported.limit);
 }
 
 /** Refused unsent: a pause on the resource, or a background call below the floor of a window not yet reset. */
 function refusal(budget: StoredBudget | null, priority: Priority, now: number): Error | null {
   if (!budget) return null;
   if (budget.pausedUntil !== null && budget.pausedUntil > now) return new GithubPaused(budget.pausedUntil);
-  const belowFloor = budget.resetAt > now && budget.remaining < budget.limit * BACKGROUND_FLOOR;
-  return priority === 'background' && belowFloor ? new GithubDeferred(budget.resetAt) : null;
+  const held = budget.resetAt > now && belowFloor(budget.remaining, budget.limit);
+  return priority === 'background' && held ? new GithubDeferred(budget.resetAt) : null;
 }
 
 /** A Git object named by its 40-hex sha, which never changes: a blob, or a tree (listed recursively or not). */

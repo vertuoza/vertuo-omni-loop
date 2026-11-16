@@ -62,6 +62,35 @@ describe('productMcpRepository', () => {
     expect(lines[0]).toBe(`rpc("api_key_of",{"p_hash":"${HASH}"})`);
   });
 
+  it('reads a live key\'s id from api_key_of(), or null (bug #2954)', async () => {
+    const { db, lines } = fakeDb([{ data: { key_id: 'k-live', workspace_id: 'w-acme' }, error: null }, { data: null, error: null }]);
+    const repository = productMcpRepository(db);
+    expect(await repository.keyIdOf(HASH)).toBe('k-live');
+    expect(await repository.keyIdOf(HASH)).toBeNull();
+    expect(lines).toEqual([`rpc("api_key_of",{"p_hash":"${HASH}"})`, `rpc("api_key_of",{"p_hash":"${HASH}"})`]);
+    await expect(productMcpRepository(fakeDb([{ data: { id: 1 }, error: null }]).db).keyIdOf(HASH)).rejects.toThrow('api_key_of answered out of shape');
+  });
+
+  it('reads whether a product\'s server is still on and the product not archived (bug #2954)', async () => {
+    const { db, lines } = fakeDb([{ data: [{ id: 'p-acme' }], error: null }, { data: [], error: null }]);
+    const repository = productMcpRepository(db);
+    expect(await repository.productOpen('p-acme')).toBe(true);
+    expect(await repository.productOpen('p-acme')).toBe(false);
+    expect(lines[0]).toBe('from("products").select("id").eq("id","p-acme").eq("mcp_enabled",true).is("archived_at",null)');
+    await expect(productMcpRepository(fakeDb([{ data: null, error: { message: 'down' } }]).db).productOpen('p-acme'))
+      .rejects.toThrow('products: the database refused: down');
+  });
+
+  it('reads the newest pack of each repository in the workspace, asking nothing for none (bug #2954)', async () => {
+    const { db, lines } = fakeDb([{ data: [{ repository: 'acme/widgets', id: 'k-1' }], error: null }]);
+    const repository = productMcpRepository(db);
+    expect(await repository.newestPacks('w-acme', ['acme/api', 'acme/widgets'])).toEqual(new Map([['acme/widgets', 'k-1']]));
+    expect(await repository.newestPacks('w-acme', [])).toEqual(new Map());
+    expect(lines).toEqual(['from("knowledge_packs").select("repository, id").eq("workspace_id","w-acme").eq("newest",true).in("repository",["acme/api","acme/widgets"])']);
+    await expect(productMcpRepository(fakeDb([{ data: [{ repository: 'acme/api' }], error: null }]).db).newestPacks('w-acme', ['acme/api']))
+      .rejects.toThrow('knowledge_packs answered out of shape');
+  });
+
   it('reads a pack\'s files in path order, a thousand at a time', async () => {
     const page = (count: number) => Array.from({ length: count }, (_, at) => ({ path: `k/${String(at)}.md`, content: 'x' }));
     const { db, lines } = fakeDb([{ data: page(1000), error: null }, { data: page(3), error: null }]);

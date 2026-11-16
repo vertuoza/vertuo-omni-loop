@@ -12,8 +12,9 @@
 //   or out of the key's reach, for a working key   404 {error: "No MCP server here."}
 //   a missing, malformed, wrong or revoked key      connects, lists the tools, each call answers KEY_REFUSED
 //   the database failing                            500 {error}, logged
-// Nothing is kept between requests: the next call after a person leaves, or the server is turned off, reads
-// nothing, and the first call after a merge reads its pack. The workspace's vectors are read only after the
+// A key's access is kept a minute (bug #2954), but checked against the database on every request before it is
+// served: the next call after a person leaves, or the server is turned off, reads nothing, and the first call
+// after a merge reads its pack. The workspace's vectors are read only after the
 // key check served the request, and only that workspace's (search-meaning.ts).
 //
 // Every call the key check served and the knowledge answered adds one row to the search log (PRD omni-loop-6
