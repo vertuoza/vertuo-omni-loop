@@ -7,15 +7,16 @@
 export async function sideBySide<T, R>(items: readonly T[], limit: number, each: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array<R>(items.length);
   const failures = new Map<number, unknown>();
-  let next = 0;
+  // One queue the workers share: each takes the next item in order; once one failed, none starts another.
+  const queue = items.entries();
   const worker = async (): Promise<void> => {
-    while (next < items.length && failures.size === 0) {
-      const index = next;
-      next += 1;
+    for (const [index, item] of queue) {
+      if (failures.size > 0) return;
       try {
-        results[index] = await each(items[index] as T);
+        results[index] = await each(item);
       } catch (error) {
         failures.set(index, error);
+        return;
       }
     }
   };

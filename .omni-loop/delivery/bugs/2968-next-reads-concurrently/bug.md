@@ -22,4 +22,4 @@ The two reproduction tests count the reads one tick sends and how many wait at o
 
 ## Mutation
 
-mutation:changed: no delivery-core file changed (kit/bin/commands/next.ts, kit/lib/loop-reads/, kit/lib/side-by-side.ts are outside mutation/floor.json's modules)
+`mutation: no changed core file against origin/main (cc1c586a): nothing to mutate` (`kit/bin/commands/next.ts`, `kit/lib/loop-reads/once.ts` and `kit/lib/side-by-side.ts` are outside the delivery core)

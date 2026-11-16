@@ -14,23 +14,27 @@ function keyOf(name: string, args: readonly unknown[]): string {
   return JSON.stringify([name, ...fields]);
 }
 
-/** `reads`, each distinct read sent once while the result lives; a failed read is sent again when asked again. */
-export function readOnce(reads: LoopReads): LoopReads {
-  const kept = new Map<string, Promise<unknown>>();
-  const once = <T>(name: string, args: readonly unknown[], read: () => Promise<T>): Promise<T> => {
+/** `read`, each distinct ask sent once while its answer lives; a failed one is sent again when asked again. */
+function remembered<A extends unknown[], T>(name: string, read: (...args: A) => Promise<T>): (...args: A) => Promise<T> {
+  const kept = new Map<string, Promise<T>>();
+  return (...args) => {
     const key = keyOf(name, args);
     const known = kept.get(key);
-    if (known !== undefined) return known as Promise<T>;
-    const answer = read();
+    if (known !== undefined) return known;
+    const answer = read(...args);
     kept.set(key, answer);
     answer.catch(() => kept.delete(key));
     return answer;
   };
+}
+
+/** `reads`, each distinct read sent once while its answer lives; a failed read is sent again when asked again. */
+export function readOnce(reads: LoopReads): LoopReads {
   return {
-    changes: (query) => once('changes', [query], () => reads.changes(query)),
-    change: (repo, number) => once('change', [repo, number], () => reads.change(repo, number)),
-    comments: (repo, on) => once('comments', [repo, on], () => reads.comments(repo, on)),
-    issues: (query) => once('issues', [query], () => reads.issues(query)),
-    issue: (repo, number) => once('issue', [repo, number], () => reads.issue(repo, number)),
+    changes: remembered('changes', (query: Parameters<LoopReads['changes']>[0]) => reads.changes(query)),
+    change: remembered('change', (repo: string, number: Parameters<LoopReads['change']>[1]) => reads.change(repo, number)),
+    comments: remembered('comments', (repo: string, on: Parameters<LoopReads['comments']>[1]) => reads.comments(repo, on)),
+    issues: remembered('issues', (query: Parameters<LoopReads['issues']>[0]) => reads.issues(query)),
+    issue: remembered('issue', (repo: string, number: Parameters<LoopReads['issue']>[1]) => reads.issue(repo, number)),
   };
 }

@@ -43551,11 +43551,11 @@ var RememberedSchema = external_exports.object({
 });
 function rememberProduct(root, key2, now2) {
   if (!isProductKey(key2)) throw new Error(`not a product key: ${key2} (lowercase kebab-case, as mobile)`);
-  const remembered = { key: key2, usedAt: now2.toISOString() };
+  const remembered2 = { key: key2, usedAt: now2.toISOString() };
   ensureLocalDir(root);
-  writeFileSync26(join59(root, PRODUCT_FILE), `${JSON.stringify(remembered, null, 2)}
+  writeFileSync26(join59(root, PRODUCT_FILE), `${JSON.stringify(remembered2, null, 2)}
 `);
-  return remembered;
+  return remembered2;
 }
 function rememberedProduct(root) {
   let value;
@@ -58399,23 +58399,25 @@ function keyOf3(name3, args) {
   );
   return JSON.stringify([name3, ...fields]);
 }
-function readOnce(reads2) {
+function remembered(name3, read3) {
   const kept2 = /* @__PURE__ */ new Map();
-  const once2 = (name3, args, read3) => {
+  return (...args) => {
     const key2 = keyOf3(name3, args);
     const known2 = kept2.get(key2);
     if (known2 !== void 0) return known2;
-    const answer = read3();
+    const answer = read3(...args);
     kept2.set(key2, answer);
     answer.catch(() => kept2.delete(key2));
     return answer;
   };
+}
+function readOnce(reads2) {
   return {
-    changes: (query) => once2("changes", [query], () => reads2.changes(query)),
-    change: (repo, number5) => once2("change", [repo, number5], () => reads2.change(repo, number5)),
-    comments: (repo, on2) => once2("comments", [repo, on2], () => reads2.comments(repo, on2)),
-    issues: (query) => once2("issues", [query], () => reads2.issues(query)),
-    issue: (repo, number5) => once2("issue", [repo, number5], () => reads2.issue(repo, number5))
+    changes: remembered("changes", (query) => reads2.changes(query)),
+    change: remembered("change", (repo, number5) => reads2.change(repo, number5)),
+    comments: remembered("comments", (repo, on2) => reads2.comments(repo, on2)),
+    issues: remembered("issues", (query) => reads2.issues(query)),
+    issue: remembered("issue", (repo, number5) => reads2.issue(repo, number5))
   };
 }
 
@@ -59238,15 +59240,15 @@ init_define_OMNI_BUNDLE();
 async function sideBySide(items, limit, each) {
   const results = new Array(items.length);
   const failures = /* @__PURE__ */ new Map();
-  let next2 = 0;
+  const queue = items.entries();
   const worker = async () => {
-    while (next2 < items.length && failures.size === 0) {
-      const index2 = next2;
-      next2 += 1;
+    for (const [index2, item2] of queue) {
+      if (failures.size > 0) return;
       try {
-        results[index2] = await each(items[index2]);
+        results[index2] = await each(item2);
       } catch (error62) {
         failures.set(index2, error62);
+        return;
       }
     }
   };
@@ -72548,8 +72550,8 @@ function useProduct(key2, io) {
   return 0;
 }
 function rememberedLines(io) {
-  const remembered = rememberedProduct(checkoutOf(io));
-  return remembered ? [`remembered: ${remembered.key}`] : [];
+  const remembered2 = rememberedProduct(checkoutOf(io));
+  return remembered2 ? [`remembered: ${remembered2.key}`] : [];
 }
 function phase0Repos(repos) {
   if (repos.length === 0) throw usageError("omni product phase0: name each repository as <owner/name>.");
@@ -72871,11 +72873,11 @@ async function statusLines({
     const input2 = parseInput(await readText5(stdin).catch(() => ""));
     const instant2 = now2();
     if (!input2) return renderLines({ input: input2, facts: null, terminal, now: instant2 });
-    const remembered = rememberedExec(exec);
+    const remembered2 = rememberedExec(exec);
     const { seen, started } = trackedSpawn(spawn5);
-    const facts2 = attempt11(() => readFacts6(input2, { cwd, exec: remembered, now: instant2, spawn: seen, script: script2, env }));
+    const facts2 = attempt11(() => readFacts6(input2, { cwd, exec: remembered2, now: instant2, spawn: seen, script: script2, env }));
     if (!facts2?.installed) return renderLines({ input: input2, facts: facts2, terminal, now: instant2 });
-    const second = secondLineFacts({ input: input2, facts: facts2, cwd, exec: remembered, now: instant2, spawn: spawn5, seen, script: script2, env, started });
+    const second = secondLineFacts({ input: input2, facts: facts2, cwd, exec: remembered2, now: instant2, spawn: spawn5, seen, script: script2, env, started });
     return renderLines({ input: input2, facts: { ...facts2, ...second }, terminal, now: instant2 });
   } catch {
     return [UNREADABLE_LINE];
