@@ -22,4 +22,4 @@
 
 ## Mutation
 
-mutation: no delivery-core file changed (apps/galaxy is outside `mutation/floor.json`'s modules)
+mutation: no changed core file against origin/main (7bfc0391): nothing to mutate
