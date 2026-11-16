@@ -4,7 +4,7 @@
 import { rmSync } from 'node:fs';
 import type { ExecFileSyncOptions } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { committeeOf } from '../lib/committee/record.ts';
+import { answerOf, committeeOf } from '../lib/committee/record.ts';
 import { sha256 } from '../lib/dossier/folder.ts';
 import { parsePrd } from '../lib/ids.ts';
 import { makeRepo, realExec } from '../test/fixture.ts';
@@ -119,5 +119,59 @@ describe('omni committee record', () => {
     expect(bad.code).toBe(1);
     expect(bad.err).toContain('the votes are refused, nothing recorded');
     expect(bad.out).toBe('');
+  });
+});
+
+// PRD 2896 s10: the committee answers a high outbox item, open on the feature branch.
+const OUTBOX = '.omni-loop/delivery/outbox/0042-widgets';
+const item = (decide = 'Decided by: Jev (hardToRevert 0.3) · agent said true', body = 'Should the cap stay at five?'): string =>
+  [
+    '---', 'id: s1-01-keep-the-cap', 'prd: 42', 'slice: s1', 'rank: high', 'bears-on: none', 'raised: 2026-11-16', 'wave: 1', '---', '',
+    '## The question, in plain words', '', body, '',
+    '## The decision, in plain words', '', 'It stays.', '',
+    '## The options, in plain words', '', 'A. Keep five (built).', 'B. Ten.', '',
+    '## What I had to decide', '', `Whether.\n${decide}`, '',
+    '## What I did meanwhile', '', 'y', '',
+    '## What it costs to change later', '', 'z', '',
+    '## What I could not know', '', '(author) w', '',
+  ].join('\n');
+
+function itemRepo(text = item()): Repo {
+  const made = repo();
+  made.write(`${OUTBOX}/s1-01-keep-the-cap.md`, text);
+  return made;
+}
+
+describe('omni committee, on an item', () => {
+  it('reads the item by its hash, and lets through one Jev scored under the bound that bears on nothing', async () => {
+    const text = item();
+    const { code, out } = await omni(itemRepo(text), ['check', '42', '--item', 's1-01-keep-the-cap', '--bound', '0.6', '--json']);
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toMatchObject({ item: 's1-01-keep-the-cap', read: [{ kind: 'item', sha256: sha256(text) }], escalations: [] });
+  });
+
+  it('escalates an item with no hard-to-revert score, one at the bound, and one bearing on a business law', async () => {
+    const unknown = await omni(itemRepo(item('')), ['check', '42', '--item', 's1-01-keep-the-cap']);
+    expect(unknown.out).toContain('escalates: its hard-to-revert score is unknown');
+    const at = await omni(itemRepo(), ['check', '42', '--item', 's1-01-keep-the-cap', '--bound', '0.3']);
+    expect(at.out).toContain("escalates: its hard-to-revert score 0.3 is at or above the mission's bound 0.3");
+    const law = await omni(itemRepo(item(undefined, 'Keeps BL-GATE-1.')), ['check', '42', '--item', 's1-01-keep-the-cap']);
+    expect(law.out).toContain('escalates: it bears on the business law BL-GATE-1: a person decides');
+  });
+
+  it('records three yes as an answer with option A, for that item', async () => {
+    const r = itemRepo();
+    const { code, out } = await omni(r, ['record', '42', '--item', 's1-01-keep-the-cap', '--file', votes(r, [yes('pm'), yes('architect'), yes('reviewer')])]);
+    expect(code).toBe(0);
+    expect(out).toContain('carried: the fleet answers s1-01-keep-the-cap with option A once the App records it');
+    expect(answerOf(out, parsePrd(42), 's1-01-keep-the-cap')).toMatchObject({ kind: 'answer', option: 'A', outcome: 'carried' });
+    expect(committeeOf(out, parsePrd(42))).toBeNull();
+  });
+
+  it('refuses an item not open here, both --approve and --item, and a bound out of 0 to 1', async () => {
+    const r = itemRepo();
+    expect((await omni(r, ['check', '42', '--item', 's1-09-gone'])).code).toBe(2);
+    expect((await omni(r, ['check', '42', '--approve', '--item', 's1-01-keep-the-cap'])).code).toBe(2);
+    expect((await omni(r, ['check', '42', '--item', 's1-01-keep-the-cap', '--bound', '2'])).code).toBe(2);
   });
 });
