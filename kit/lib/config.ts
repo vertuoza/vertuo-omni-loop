@@ -10,6 +10,7 @@ import { parseSelector } from './design/words/selector.ts';
 import { FlowSchema, hooksByMode, regexSource } from './flow/schema.ts';
 import { CANONICAL_LAYERS, layerList, layerOf } from './layers/layers.ts';
 import { KIT_MESSAGES } from './schema/messages.ts';
+import { AC_KINDS } from './ready/criteria.ts';
 
 export const CONFIG_FILE = '.omni-loop/config.yml';
 export const CONFIG_VERSION = 1;
@@ -114,6 +115,14 @@ export const DEFAULT_CLAIM_DEAD_MINUTES = 240;
 
 /** PRD 2175: the label a runner puts on a claim whose job ended, when `labels.released` is not set. */
 export const DEFAULT_RELEASED_LABEL = 'omni:released';
+
+/** PRD 2898: the label that starts the full checks on a gated draft, when `labels.readyCheck` is not set. */
+export const DEFAULT_READY_CHECK_LABEL = 'omni:ready-check';
+
+/** The label a gated draft carries: `labels.readyCheck`, or `DEFAULT_READY_CHECK_LABEL` when it is not set. */
+export function readyCheckLabel(labels: { readyCheck?: string | undefined }): string {
+  return labels.readyCheck ?? DEFAULT_READY_CHECK_LABEL;
+}
 
 /** The label a released claim carries: `labels.released`, or `DEFAULT_RELEASED_LABEL` when it is not set. */
 export function releasedLabel(labels: { released?: string | undefined }): string {
@@ -296,6 +305,19 @@ const syncHours = z
   .string({ error: HOURS_MESSAGE })
   .refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
 
+/** PRD 2898: which feature PRs the ready checks gate. */
+const READY_SCOPES = Object.freeze(['off', 'mission', 'all'] as const);
+
+/**
+ * PRD 2898: the ground the ready rule's check 4 reads a loosening on — the files whose numbers are a
+ * floor that may never go down, and the folders whose JSON files are a baseline that may never grow.
+ * The spec's own: a repository with neither has nothing there to loosen.
+ */
+export const READY_LOOSENING_GROUND = Object.freeze({
+  floors: Object.freeze(['mutation/floor.json']),
+  baselines: Object.freeze(['fallow/', 'layering/']),
+});
+
 /** Where the context budget's ceilings live when `budgets.context.file` does not say (PRD 1679). */
 const CONTEXT_BUDGET_FILE = '.omni-loop/budgets/context.json';
 
@@ -370,6 +392,11 @@ export const ConfigSchema = z
       approved: labelName.default('omni:approved'),
       // PRD 1342: a law issue — a law written `Enforced by: pending #<n>`, waiting for its test.
       law: labelName.default('omni:law'),
+      // PRD 2898: the label a gated skill adds to a draft feature PR before `omni ready`: it starts the
+      // full checks, the e2e job and the preview on the draft's latest commit, and again on each push.
+      // Left out, `readyCheckLabel()` reads `DEFAULT_READY_CHECK_LABEL`, and a config that does not set
+      // it parses exactly as before (so `omni init` does not create it, as for `released`: a person does).
+      readyCheck: labelName.optional(),
       // PRD 2175: the label a runner swaps in for `inProgress` on a claim whose job ended while it held
       // it. The board reads a draft carrying it as `claimed-stale` at once (`kit/lib/board.ts`). Left
       // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
@@ -440,6 +467,8 @@ export const ConfigSchema = z
         dir: nullableText.default(null),
         pendingSuffix: nullableText.default(null),
         run: nullableText.default(null),
+        // PRD 2898: the kind a new spec's `### AC-<n> · <kind>` criteria take when its author names none.
+        kind: z.enum(AC_KINDS, { error: (issue) => `${String(issue.input)} is no kind — one of ${AC_KINDS.join(', ')}` }).default('test'),
       })
       .strict()
       .refine((a) => !a.enabled || a.dir !== null, {
@@ -560,6 +589,25 @@ export const ConfigSchema = z
       bypassEnv: envName.nullable().default(null),
       dir: text.default('e2e'),
       model: text.default('anthropic/claude-sonnet-5.5'),
+      // PRD 2898: whether CI runs a PRD's `e2e` criteria against its preview (with the model key in a CI
+      // secret); false, a runner of the workspace runs them and the App writes the `acceptance` check.
+      ci: z.boolean().default(false),
+      // PRD 2898: the repository that holds the e2e tests, `owner/name`; null, this one, in `dir`.
+      repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name').nullable().default(null),
+    }),
+    // PRD 2898: the ready checks — the five a feature PR must pass before a gated skill marks it ready
+    // (`kit/lib/ready/`). `checks` says which PRs are gated: `off` none (the default), `mission` the
+    // feature PR of a PRD in a running or paused mission, `all` every feature PR. `full` names the CI
+    // jobs that run the whole suite, never only the changed files: check 2 passes when each succeeded.
+    ready: section({
+      checks: z.enum(READY_SCOPES, { error: (issue) => `${String(issue.input)} is no scope — one of ${READY_SCOPES.join(', ')}` }).default('off'),
+      full: z
+        .array(text)
+        .superRefine((jobs, issues) => {
+          const twice = jobs.find((job, index) => jobs.indexOf(job) !== index);
+          if (twice !== undefined) issues.addIssue({ code: 'custom', message: `${twice} is listed twice` });
+        })
+        .default([]),
     }),
     // PRD 1369: design craft — the `design` form's readers and `/omni:pixel-perfect review` on UI work.
     // Off by default: a repository opts in, and off restores the loop as it was. `paths` are globs over

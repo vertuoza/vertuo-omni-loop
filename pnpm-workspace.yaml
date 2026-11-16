@@ -3,6 +3,8 @@ packages:
   - '.'
   - 'apps/*'
   - 'packages/*'
+  # The e2e project (PRD 2898): the e2e framework, its config and the scenarios, in `e2e.dir`.
+  - 'e2e'
 # pnpm settings live here since pnpm 10, which no longer reads the `pnpm` field of package.json.
 allowBuilds:
   esbuild: true

@@ -3931,6 +3931,62 @@ export type Database = {
         }
         Relationships: []
       }
+      ready_verdicts: {
+        Row: {
+          check_url: string | null
+          checks: Json
+          criteria: Json
+          decided_at: string
+          head_sha: string
+          headline: string
+          id: string
+          passed: number
+          pr_number: number
+          prd: number
+          repo: string
+          state: string
+          workspace_id: string
+        }
+        Insert: {
+          check_url?: string | null
+          checks: Json
+          criteria?: Json
+          decided_at?: string
+          head_sha: string
+          headline: string
+          id?: string
+          passed: number
+          pr_number: number
+          prd: number
+          repo: string
+          state: string
+          workspace_id: string
+        }
+        Update: {
+          check_url?: string | null
+          checks?: Json
+          criteria?: Json
+          decided_at?: string
+          head_sha?: string
+          headline?: string
+          id?: string
+          passed?: number
+          pr_number?: number
+          prd?: number
+          repo?: string
+          state?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ready_verdicts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       releases: {
         Row: {
           description: string

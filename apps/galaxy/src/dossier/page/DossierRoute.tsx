@@ -41,6 +41,8 @@ import { findingsOf } from '../../rewind/rewind.repository';
 import { milestoneStore } from '../../timeline/store.repository';
 import { proofStore } from '../../proof/store';
 import { readProofs } from './proof-read';
+import { readyView } from './ready';
+import { readLatestVerdict } from './ready.repository';
 import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
 import { readProductOutbox } from './outbox-product.repository';
@@ -210,6 +212,7 @@ function prdReads(db: Db, read: DossierRead, prd: PrdNumber): DossierReads {
     milestones: milestoneStore(db).milestonesOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
     mainWatch: mainWatchStore(db).mainWatchOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
     rewind: findingsOf(db, { workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
+    ready: readLatestVerdict(db, dossier.home_repo, prd).then(readyView).catch(logged),
   };
 }
 

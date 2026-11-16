@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const SKILLS = ['plan', 'wave', 'yolo', 'yolo-fix', 'status', 'brainstorm'];
+const SKILLS = ['plan', 'wave', 'yolo', 'yolo-fix', 'dashboard', 'brainstorm'];
 
 /** A skill's SKILL.md, as text. */
 const skillText = (name: string) => readFileSync(new URL(`../plugin/skills/${name}/SKILL.md`, import.meta.url), 'utf8');

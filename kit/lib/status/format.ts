@@ -3,7 +3,7 @@
 // 80 columns.
 // Pure: the clock comes in as `now`.
 import { BAR_CELLS } from './overview.ts';
-import type { Counts, HeldPrd, LandingStatus, Overview, StagedPrd, YourRow, Yours } from './overview.ts';
+import type { Counts, HeldPrd, LandingStatus, Overview, YourRow, Yours } from './overview.ts';
 import type { Stage } from '../types.ts';
 import { at } from '../narrow.ts';
 
@@ -102,8 +102,6 @@ const followUpsLine = (followUps: FollowUpsCount | null | undefined): string[] =
 /** The gap between a row's PRD number and its topic, and between its topic and what it says. */
 const NUMBER_GAP = '  ';
 const TOPIC_GAP = '    ';
-/** Between two shipped PRDs of yours on one line. */
-const SEPARATOR = ' · ';
 
 /** `text` cut to `width` columns, its last one `…`, when it is wider. */
 const cut = (text: string, width: number): string => (text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`);
@@ -143,43 +141,15 @@ function landingLines(landings: readonly LandingStatus[]): string[] {
   });
 }
 
-/** `#<n> <topic>`, its topic cut with `…` when the whole would be wider than `width`. */
-function shippedEntry({ prd, topic }: StagedPrd, width: number): string {
-  const number = `#${prd} `;
-  return `${number}${cut(topic, width - number.length)}`;
-}
-
-/** The shipped row: how many PRDs of yours shipped, then every one of them, newest first, `SEPARATOR`
- * apart, wrapped at `WIDTH` with each next line starting under the bar. */
-function shippedRow(shipped: readonly StagedPrd[]): string[] {
-  const out: string[] = [];
-  let line = `${stageColumn('shipped')}${shipped.length}: `;
-  let fresh = true;
-  for (const entry of shipped) {
-    if (!fresh) {
-      const joined = `${line}${SEPARATOR}${shippedEntry(entry, Infinity)}`;
-      if (joined.length <= WIDTH) {
-        line = joined;
-        continue;
-      }
-      out.push(line);
-      line = UNDER_BAR;
-    }
-    line = `${line}${shippedEntry(entry, WIDTH - line.length)}`;
-    fresh = false;
-  }
-  out.push(line);
-  return out;
-}
-
 /** The PRDs that are yours: one line when it cannot tell whose they are, else a heading naming you,
- * then a row per PRD in progress or at PRD and one row for the delivered, or `none yet`. */
+ * then a row per PRD in progress or at PRD, `nothing in progress` when every one of yours shipped, or
+ * `none yet`. The delivered ones are counted at the top, never listed here. */
 function yours({ state, email, rows: inFlight, shipped }: Yours): string[] {
   if (state === 'no-email') return [`${INDENT}set git config user.email to see yours`];
   if (state === 'shallow') return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];
   const heading = cut(`${INDENT}Yours · ${email}`, WIDTH);
-  if (inFlight.length === 0 && shipped.length === 0) return [heading, `${INDENT}none yet`];
-  return [heading, ...(inFlight.length ? rows(inFlight) : []), ...(shipped.length ? shippedRow(shipped) : [])];
+  if (inFlight.length > 0) return [heading, ...rows(inFlight)];
+  return [heading, `${INDENT}${shipped.length > 0 ? 'nothing in progress' : 'none yet'}`];
 }
 
 /** The ◆ PRDs held out of every stage (PRD 1299): `held` and each one's number and topic, then each
