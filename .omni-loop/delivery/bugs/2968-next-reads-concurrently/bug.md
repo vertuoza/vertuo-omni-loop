@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `kit/bin/next.test.ts`
+- **File:** `kit/bin/next-reads.test.ts` (first committed in `kit/bin/next.test.ts`, then moved to its own file: `next.test.ts` proves laws)
 - **Level:** unit
 - **Red:** `AssertionError: expected [ …(3) ] to have a length of 1 but got 3` (the phase-0 list asked once per PRD) and `AssertionError: expected 1 to be greater than 1` (never more than one read waiting at once)
 
