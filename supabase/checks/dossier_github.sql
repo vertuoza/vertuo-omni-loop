@@ -156,6 +156,39 @@ begin
 end $$;
 reset role;
 
+-- ── The read by repository filters on an indexed column, never on the summary (#2952) ──
+-- Every GitHub webhook reads the snapshots of one repository: its filter on summary->>'repo' detoasted
+-- every summary of the workspace. repo is the summary's repository in lower case, kept by the database.
+do $$
+declare
+  initech uuid := (select id from public.workspaces where slug = 'initech');
+  plan    text := '';
+  step    text;
+begin
+  if exists (select 1 from public.dossier_github where repo is distinct from lower(summary ->> 'repo')) then
+    raise exception 'FAIL: a snapshot''s repo is not its summary''s repository in lower case';
+  end if;
+  update public.dossier_github set summary = '{"repo":"Initech/Nimbus-Plan","prd":902,"issue":null}'
+   where dossier_id = '00000000-0000-4000-8000-00000000d902';
+  if (select repo from public.dossier_github where dossier_id = '00000000-0000-4000-8000-00000000d902') <> 'initech/nimbus-plan' then
+    raise exception 'FAIL: a refreshed snapshot''s repo did not follow its summary, in lower case';
+  end if;
+  begin
+    update public.dossier_github set repo = 'initech/other' where dossier_id = '00000000-0000-4000-8000-00000000d902';
+    raise exception 'FAIL: a snapshot''s repo was written apart from its summary';
+  exception when generated_always then null; end;
+
+  set local enable_seqscan = off;
+  for step in execute format('explain select dossier_id, summary from public.dossier_github where workspace_id = %L and repo = %L',
+                             initech, 'initech/nimbus-plan') loop
+    plan := plan || step || E'\n';
+  end loop;
+  reset enable_seqscan;
+  if plan not like '%dossier_github_workspace_repo_idx%' then
+    raise exception 'FAIL: the read by repository does not use the (workspace_id, repo) index: %', plan;
+  end if;
+end $$;
+
 -- ── A row goes with its dossier ──
 delete from public.dossiers where id = '00000000-0000-4000-8000-00000000d902';
 do $$
