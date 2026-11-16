@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Stays here: This is a choice of labels and wording on the status line, and labels are look rather than lasting behaviour. Each name is one string in a single table, so it is cheap to change.
 
 ### The answer, as it was given
 
@@ -99,6 +100,7 @@ A constant: each short name is one string in the table, and which name the curre
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-144, P-PRODUCT-116
 
 ### The answer, as it was given
 
@@ -178,6 +180,7 @@ A constant per rule: each reading is one branch of a pure function, with no stor
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-145, P-PRODUCT-117
 
 ### The answer, as it was given
 
@@ -258,6 +261,7 @@ A constant: five strings in the table and one small pure function; s2 only passe
 - Raised: 2026-11-15
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off test-maintenance choice outside the step's territory; nothing about product behaviour or a lasting guarantee is decided.
 
 ### The answer, as it was given
 
@@ -335,6 +339,7 @@ One line in a test outside this step's territory.
 - Raised: 2026-11-15
 - Slice: s4
 - Wave: 3
+- Stays here: A local test-maintenance choice following a rename; nothing lasting about the product's behaviour to keep in the knowledge base.
 
 ### The answer, as it was given
 
