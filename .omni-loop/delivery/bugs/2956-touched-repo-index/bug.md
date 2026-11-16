@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `supabase/checks/touched_lookup.sql`, with `apps/galaxy/src/touched/store.test.ts`
+- **File:** `supabase/checks/touched_lookup.sql`
 - **Level:** unit
 - **Red:** `psql:/tmp/checks-2956/touched_lookup.sql:63: ERROR:  FAIL: dossier_github has no repo_key to look a repository up by: every touch reads every summary of the workspace`
 
