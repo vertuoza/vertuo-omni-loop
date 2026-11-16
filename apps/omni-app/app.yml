@@ -22,6 +22,10 @@
 # App already registered, it is ticked by hand in its settings, and each organization's admin accepts it
 # once; until then GitHub refuses the add, and the fleet's note says to ask an org admin.
 #
+# PRD 2898 adds `deployments: read`, so the ready check's runner fallback finds a commit's Vercel preview
+# (`e2e.url: github-deployment`, `src/ready-check/runner-fallback.ts`). It only reads. On the App already
+# registered, it is ticked by hand in its settings, and each installation accepts it once.
+#
 # `url` and the webhook point at the app's Vercel project, `setup_url` at galaxy's; replace a host with
 # its project's production domain before registering if it differs.
 name: omni-loop
@@ -40,6 +44,7 @@ default_permissions:
   issues: write
   actions: read
   organization_projects: write
+  deployments: read
 default_events:
   - pull_request
   - check_run
