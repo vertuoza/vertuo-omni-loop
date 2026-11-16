@@ -4,7 +4,7 @@ import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
 import { MissionLevelSchema, type MissionAction } from '../missions.contract';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
-import { ACTION_WORDS, LEVEL_WORDS, LEVELS, WORDS, type FleetPrds, type MissionsView } from './missions-tab';
+import { ACTION_WORDS, LEVEL_WORDS, WORDS, type FleetPrds, type MissionsView } from './missions-tab';
 import './missions-tab.css';
 
 // The Missions tab of a Virtual Fleet (PRD 2842 s7, the `mission-start` screen): each mission's goal, its
@@ -19,7 +19,7 @@ export interface MissionsTabProps {
 }
 
 /** `Level: Own branch`, and on a draft the choice that changes it for this mission alone (`level` null: no choice). */
-function LevelLine({ words, level, disabled, onChange }: { words: string; level: MissionLevel | null; disabled: boolean; onChange: (level: MissionLevel) => void }) {
+function LevelLine({ words, level, levels, disabled, onChange }: { words: string; level: MissionLevel | null; levels: readonly MissionLevel[]; disabled: boolean; onChange: (level: MissionLevel) => void }) {
   return (
     <p className="mission-level">
       <span>{WORDS.level}: {words}</span>
@@ -34,7 +34,7 @@ function LevelLine({ words, level, disabled, onChange }: { words: string; level:
               if (picked.success) onChange(picked.data);
             }}
           >
-            {LEVELS.map((each) => <option key={each} value={each}>{LEVEL_WORDS[each]}</option>)}
+            {levels.map((each) => <option key={each} value={each}>{LEVEL_WORDS[each]}</option>)}
           </select>
         </label>
       )}
@@ -117,9 +117,11 @@ function MissionItem({ mission, busy, problem, onMove, onLevel }: {
           <LevelLine
             words={mission.levelWords}
             level={mission.canChangeLevel ? mission.level : null}
+            levels={mission.levels}
             disabled={busy !== null}
             onChange={onLevel}
           />
+          {mission.committeeOnly !== null && <p className="mission-committee-only ask-muted">{mission.committeeOnly}</p>}
           {mission.branch !== null && <BranchLine branch={mission.branch} />}
           {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
           {mission.fleetPrds !== null && <FleetPrdsLine fleet={mission.fleetPrds} />}

@@ -6,7 +6,7 @@ import { FAILED, missionsService, NOT_YOURS } from './missions.service';
 // Start, Pause, Resume and the wakes (PRD 2842 s5), on the database in memory and a fixed clock.
 
 const NOW = new Date('2027-01-22T10:00:00.000Z');
-const setup = (options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: 'with-you' | 'own-branch' | 'alone' } = {}) => {
+const setup = (options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: 'with-you' | 'own-branch' | 'alone'; planRepos?: readonly string[] } = {}) => {
   const db = fakeMissionsDb(options);
   return { db, service: missionsService(db.writer, { now: () => NOW }) };
 };
@@ -90,6 +90,15 @@ describe('Pause and Resume', () => {
     };
     expect(await service.move('pause', RUNNING, ADA, stale)).toMatchObject({ ok: false, kind: 'conflict', error: 'Only a running or waiting mission pauses. It has just moved: look again.' });
     expect(db.events).toEqual([]);
+  });
+});
+
+describe('A mission in a plan repository (PRD 2896 s14)', () => {
+  it('refuses own-branch with the words of the spec, and takes with-you and alone', async () => {
+    const { db, service } = setup({ fleetLevel: 'alone', planRepos: ['acme/shop'] });
+    expect(await service.setLevel(DRAFT, 'own-branch', ADA, db.reader(ADA))).toEqual({ ok: false, kind: 'conflict', error: 'a mission branch holds one repository: use with-you or alone' });
+    expect(db.missions.get(DRAFT)?.level).toBe('with-you');
+    expect(await service.setLevel(DRAFT, 'alone', ADA, db.reader(ADA))).toEqual({ ok: true, value: { mission: { id: DRAFT, level: 'alone' } } });
   });
 });
 

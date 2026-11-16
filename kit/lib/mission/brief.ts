@@ -43,6 +43,16 @@ export const DEFAULT_PARALLEL = 2;
 export const MISSION_LEVELS = ['with-you', 'own-branch', 'alone'] as const;
 export type MissionLevel = (typeof MISSION_LEVELS)[number];
 const DEFAULT_LEVEL: MissionLevel = 'with-you';
+
+/** Why `own-branch` is refused for a mission whose PRDs live in a plan repository: no mission branch spans repositories (PRD 2896 s14). */
+const PLAN_OWN_BRANCH_REFUSAL = 'a mission branch holds one repository: use with-you or alone';
+/** What a plan-repository mission at `alone` says on its page: the committee works, a person still merges (PRD 2896 s14). */
+export const COMMITTEE_ONLY_WORDS = "committee only: a person merges each target's pull request";
+
+/** The refusal of `level` for a mission in a plan repository (`inPlan`), or null when it may run at it. */
+export function levelRefusal(level: MissionLevel, inPlan: boolean): string | null {
+  return inPlan && level === 'own-branch' ? PLAN_OWN_BRANCH_REFUSAL : null;
+}
 /** The mandate's two bounds under the level, when the brief says nothing. */
 const DEFAULT_HARD_TO_REVERT = 0.6;
 const DEFAULT_OWN_PRDS = 0;

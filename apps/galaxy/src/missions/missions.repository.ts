@@ -41,6 +41,7 @@ const JoinRow = z.object({ kind: z.enum(['prd-joined', 'prd-dropped', 'landed', 
 const DecisionRow = z.object({ kind: z.string(), prd: PrdNumberSchema.nullable(), sentence: z.string(), link: z.string().nullable(), actor: z.string() });
 const PageRow = z.object({ id: z.uuid(), prd: PrdNumberSchema.nullable() });
 const PlanRow = z.object({ content: z.string() });
+const ProductRow = z.object({ plan_repository: z.string().nullable() });
 const Refreshed = z.enum(['added', 'updated', 'again', 'requeued']);
 
 async function readOne(db: MissionsDb, id: string): Promise<MissionRecord | null> {
@@ -64,6 +65,13 @@ export function missionsReader(db: MissionsDb) {
   return {
     /** The mission, or null when it is none or the person may not see it. */
     mission: (id: string): Promise<MissionRecord | null> => readOne(db, id),
+
+    /** Whether the mission's repository is the plan repository of a live product of its workspace (PRD 2896 s14). */
+    async inPlan(mission: MissionRecord): Promise<boolean> {
+      const { data, error } = await db.from('products').select('plan_repository').eq('workspace_id', mission.workspace).is('archived_at', null);
+      if (error) throw new Error(`Supabase: could not read the products (${error.message})`);
+      return orThrow(parseRows(ProductRow, data, `${WHERE}: products`)).some((row) => row.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
+    },
 
     /** The PRDs on the mission's branch, in the order they joined: those whose latest join event is not followed by a drop or a landing. */
     onBranch,

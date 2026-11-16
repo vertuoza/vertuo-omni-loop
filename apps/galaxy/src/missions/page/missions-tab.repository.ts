@@ -29,6 +29,7 @@ const MissionRowSchema = z.object({
   // A mission made before PRD 2896 holds no level: it reads `with-you`.
   mandate: z.object({ level: MissionLevelSchema.optional() }).loose(),
 });
+const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
 const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: PrdNumberSchema.nullable(), link: z.string().nullable(), sentence: z.string() });
 
 export function missionsTabRepository(db: MissionsTabDb) {
@@ -37,8 +38,12 @@ export function missionsTabRepository(db: MissionsTabDb) {
     async missions(workspace: string, fleet: string): Promise<MissionRow[]> {
       const { data, error } = await db.from('missions').select(MISSION).eq('workspace_id', workspace).eq('fleet', fleet).order('updated_at', { ascending: false });
       if (error) throw new Error(`Supabase: could not read the missions (${error.message})`);
+      const products = await db.from('products').select('plan_repository').eq('workspace_id', workspace).is('archived_at', null);
+      if (products.error) throw new Error(`Supabase: could not read the products (${products.error.message})`);
+      const plans = new Set(orThrow(parseRows(ProductRowSchema, products.data, `${WHERE}: products`)).flatMap((product) => product.plan_repository === null ? [] : [product.plan_repository.toLowerCase()]));
       return orThrow(parseRows(MissionRowSchema, data, `${WHERE}: missions`)).map((row) => ({
         id: row.id, repo: row.repo, number: row.number, title: row.title, goal: row.goal, status: row.status, waitingOn: row.waiting_on, prds: row.scope.prds, level: row.mandate.level ?? 'with-you',
+        inPlan: plans.has(row.repo.toLowerCase()),
       }));
     },
 
