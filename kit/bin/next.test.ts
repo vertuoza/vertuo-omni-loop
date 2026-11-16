@@ -736,3 +736,63 @@ describe('omni next — the pool of steps', () => {
     ]);
   });
 });
+
+describe('omni next — reading the Omni page (issue 2968)', () => {
+  const ME = 'me@example.com';
+  const planOf = (path: string) => ['# A plan', '', '| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', `| s1 | s1 | \`${path}\` | — | 1 |`, ''].join('\n');
+
+  /** PRDs 7, 8 and 9, all yours, sharing no ground. */
+  function three() {
+    const { root, write } = makeRepo({ git: true, files: CONFIG });
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+    for (const [folder, plan] of Object.entries({ '0007-widgets': PLAN, '0008-gadgets': planOf('q/'), '0009-gizmos': planOf('z/') })) {
+      write(`.omni-loop/delivery/inbox/${folder}/plan.md`, plan);
+      git('add', '-A');
+      git('-c', `user.email=${ME}`, '-c', 'user.name=x', 'commit', '-q', '-m', folder);
+    }
+    git('config', 'user.email', ME);
+    return root;
+  }
+
+  /** `fake`'s reads, each answered after `delay(query)` ms, counting how many wait at once. */
+  function slowed(fake: ReturnType<typeof fakeExec>, delay: (what: string) => number) {
+    const seen = { now: 0, most: 0 };
+    const slow = async <R,>(args: unknown[], read: () => Promise<R>): Promise<R> => {
+      seen.now += 1;
+      seen.most = Math.max(seen.most, seen.now);
+      try {
+        await new Promise((done) => setTimeout(done, delay(JSON.stringify(args))));
+        return await read();
+      } finally {
+        seen.now -= 1;
+      }
+    };
+    const { reads } = fake;
+    const wrapped: ReturnType<typeof fakeLoopReads> = {
+      reads: reads.reads,
+      changes: (query) => slow([query], () => reads.changes(query)),
+      change: (repo, number) => slow([repo, number], () => reads.change(repo, number)),
+      comments: (repo, on) => slow([repo, on], () => reads.comments(repo, on)),
+      issues: (query) => slow([query], () => reads.issues(query)),
+      issue: (repo, number) => slow([repo, number], () => reads.issue(repo, number)),
+    };
+    return { fake: { exec: fake.exec, reads: wrapped }, seen };
+  }
+
+  it('one tick asks for the open phase-0 PRs once, and never sends the same read twice', async () => {
+    const fake = fakeExec({ subs: [] });
+    const { code } = await run(['next', '--json'], three(), fake);
+    expect(code).toBe(0);
+    const sent = fake.reads.reads.map((read) => JSON.stringify(read));
+    expect(sent.filter((read) => read.includes('omni:phase-0'))).toHaveLength(1);
+    expect(new Set(sent).size).toBe(sent.length);
+  });
+
+  it('reads the PRDs side by side and still prints them in plan order, the first PRD answered last', async () => {
+    const { fake, seen } = slowed(fakeExec({ subs: [] }), (what) => (what.includes('widgets') ? 60 : 5));
+    const { code, out } = await run(['next', '--json'], three(), fake);
+    expect(code).toBe(0);
+    expect(seen.most).toBeGreaterThan(1);
+    expect((JSON.parse(out) as { steps: { prd: number }[] }).steps.map((one) => one.prd)).toEqual([7, 8, 9]);
+  });
+});
