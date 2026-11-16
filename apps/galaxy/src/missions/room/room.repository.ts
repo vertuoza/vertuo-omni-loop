@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { HERO_ROLES, HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
+import { limitWaitRepository } from '../limit-wait.repository';
 import type { EventRow, HeroLine, KeptSave } from './room';
 
 // The Operation room's reads (PRD 2842 s8; ADR-0095), on the signed-in person's own client: row-level security
@@ -33,6 +34,9 @@ const SaveRowSchema = z.object({ bytes: z.number(), keep_until: z.string() });
 
 export function roomRepository(db: RoomDb) {
   return {
+    /** What the PRDs of these missions wait on (PRD 2949), as the room and the Missions tab say it. */
+    waits: (missions: readonly string[]) => limitWaitRepository(db).facts(missions),
+
     /** A virtual fleet's heroes, in the order the fleet keeps them. */
     async heroes(workspace: string, fleet: string): Promise<HeroLine[]> {
       const { data, error } = await db.from('virtual_heroes').select('id, name, role, skills').eq('workspace_id', workspace).eq('fleet', fleet).order('position');
