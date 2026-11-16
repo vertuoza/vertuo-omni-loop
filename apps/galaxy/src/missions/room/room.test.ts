@@ -107,6 +107,23 @@ describe('the mission branch rows (PRD 2896 s8)', () => {
   });
 });
 
+describe('the committee rows (PRD 2896 s9, s10)', () => {
+  it('shows the committee\'s decision as Decided, and what it sent to a person as Sent to you, signed by the PM', () => {
+    const at = (hour: string) => `2026-11-16T${hour}:00Z`;
+    const rows = ledgerOf(
+      [
+        event({ role: 'pm', kind: 'decided', sentence: 'The committee answered s3-01-keep-the-cap of PRD 7 with option A: every member who sat answered yes.', at: at('08'), job: 'j-1', link: null }),
+        event({ role: 'pm', kind: 'escalated', sentence: 's3-02-other of PRD 7 goes to a person: the Reviewer answered unsure: No test.', at: at('09'), job: 'j-2', link: null }),
+      ],
+      { role: null, mission: null },
+    );
+    expect(rows.map((r) => [r.state, r.by])).toEqual([
+      ['Sent to you', 'PM · agent'],
+      ['Decided', 'PM · agent'],
+    ]);
+  });
+});
+
 describe('roomService', () => {
   it('reads the heroes, missions, events and saves as one view', async () => {
     const repository = {

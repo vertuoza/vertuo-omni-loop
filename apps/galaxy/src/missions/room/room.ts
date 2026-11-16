@@ -75,6 +75,9 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   'prd-dropped': 'Dropped',
   'drop-asked': 'Drop asked',
   'drop-asked-keep': 'Drop asked',
+  // The fleet's committee (PRD 2896 s9, s10): what it decided alone, and what it sent to a person.
+  decided: 'Decided',
+  escalated: 'Sent to you',
 };
 
 /** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); any other kind has its fixed word. */
