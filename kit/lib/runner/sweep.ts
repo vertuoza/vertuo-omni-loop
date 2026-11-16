@@ -5,7 +5,8 @@
 //   `git worktree prune` in every checkout;
 // - each local `agent/job-<id>` branch of those checkouts, unless it was pushed: it has an upstream,
 //   or `origin` has a branch of that name. Origin unreadable, every branch of that checkout stays;
-// - each `~/logs/job-<id>.<ext>` file older than `--keep-logs` days, `<ext>` one or more parts (`.parts.json`, PRD 2537).
+// - each `~/logs/job-<id>.<ext>` file older than `--keep-logs` days, `<ext>` one or more parts (`.parts.json`, PRD 2537),
+//   and each `~/logs/job-<id>.gh` folder as old, the job's own `gh` sign-in a crash left (bug 2914).
 //
 // `~/logs/runner.log`, any other folder, file or branch is never touched. The line it prints counts
 // what went and the space freed; a sweep that removed nothing prints nothing.
@@ -168,7 +169,7 @@ function sweepBranches({ exec, running }: SweepOptions, checkout: string): numbe
   return candidates.filter((name) => !onOrigin.has(name) && deleteBranch(exec, checkout, name)).length;
 }
 
-/** Removes the `~/logs/job-<id>.*` files older than `keepLogsDays` of jobs not running. */
+/** Removes the `~/logs/job-<id>.*` files, and `job-<id>.gh` sign-in folders, older than `keepLogsDays` of jobs not running. */
 function sweepLogs({ home, running, keepLogsDays, now }: SweepOptions): { count: number; bytes: number } {
   const logs = join(home, 'logs');
   let count = 0;
@@ -178,10 +179,12 @@ function sweepLogs({ home, running, keepLogsDays, now }: SweepOptions): { count:
     if (job === undefined || running.has(job)) continue;
     const path = join(logs, name);
     const stat = lstatSync(path);
-    if (!stat.isFile() || now - stat.mtimeMs <= keepLogsDays * DAY_MS) continue;
-    rmSync(path, { force: true });
+    const signIn = stat.isDirectory() && name === `job-${job}.gh`;
+    if (!(stat.isFile() || signIn) || now - stat.mtimeMs <= keepLogsDays * DAY_MS) continue;
+    const size = sizeOf(path);
+    rmSync(path, { recursive: signIn, force: true });
     count += 1;
-    bytes += stat.size;
+    bytes += size;
   }
   return { count, bytes };
 }

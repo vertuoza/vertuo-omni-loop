@@ -35110,7 +35110,7 @@ import { homedir as homedir3 } from "node:os";
 // kit/lib/runner/github-token.ts
 init_define_OMNI_BUNDLE();
 import { chmodSync as chmodSync4, mkdirSync as mkdirSync11, readFileSync as readFileSync25, renameSync as renameSync2, rmSync as rmSync8, writeFileSync as writeFileSync15 } from "node:fs";
-import { dirname as dirname8, join as join33 } from "node:path";
+import { basename as basename7, dirname as dirname8, join as join33 } from "node:path";
 var MASK = "***";
 var JOB_ID = /^[A-Za-z0-9_-]+$/;
 var MIN_START = 6;
@@ -35133,12 +35133,27 @@ function readGithubToken(file2) {
     return null;
   }
 }
-function writeTokenFile(file2, content) {
-  mkdirSync11(dirname8(file2), { recursive: true });
-  const next2 = `${file2}tmp`;
-  writeFileSync15(next2, JSON.stringify(content), { mode: 384 });
+function githubCliDir(file2) {
+  return join33(dirname8(file2), `${basename7(file2, ".github")}.gh`);
+}
+var GH_CONFIG = 'version: "1"\ngit_protocol: https\n';
+function replaceWhole(file2, next2, text19) {
+  writeFileSync15(next2, text19, { mode: 384 });
   chmodSync4(next2, 384);
   renameSync2(next2, file2);
+}
+function writeTokenFile(file2, content) {
+  mkdirSync11(dirname8(file2), { recursive: true });
+  replaceWhole(file2, `${file2}tmp`, JSON.stringify(content));
+}
+function writeGhSignIn(dir, token) {
+  mkdirSync11(dir, { recursive: true, mode: 448 });
+  chmodSync4(dir, 448);
+  replaceWhole(join33(dir, "config.yml"), join33(dir, "config.yml.tmp"), GH_CONFIG);
+  replaceWhole(join33(dir, "hosts.yml"), join33(dir, "hosts.yml.tmp"), `github.com:
+    oauth_token: ${JSON.stringify(token)}
+    git_protocol: https
+`);
 }
 function saveGithubToken(file2, runner2, grant, page2) {
   const held3 = readGithubToken(file2);
@@ -35146,12 +35161,17 @@ function saveGithubToken(file2, runner2, grant, page2) {
   const past3 = same2 ? held3.tokens.filter((entry3) => entry3.token !== grant.token) : [];
   const asked = page2 ?? (same2 ? held3.page : void 0);
   writeTokenFile(file2, { runner: runner2, tokens: [...past3, { token: grant.token, expiresAt: grant.expiresAt }], ...asked === void 0 ? {} : { page: asked } });
+  writeGhSignIn(githubCliDir(file2), grant.token);
 }
 function noteFailedRefresh(file2, runner2, retry) {
   const held3 = readGithubToken(file2);
   if (held3 !== null && held3.runner === runner2) writeTokenFile(file2, { ...held3, retry });
 }
 function forgetGithubToken(file2) {
+  try {
+    rmSync8(githubCliDir(file2), { recursive: true, force: true });
+  } catch {
+  }
   try {
     rmSync8(file2, { force: true });
   } catch {
@@ -35486,7 +35506,7 @@ import { join as join36 } from "node:path";
 // kit/lib/approval/approval.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync28, readFileSync as readFileSync27 } from "node:fs";
-import { basename as basename7, join as join35 } from "node:path";
+import { basename as basename8, join as join35 } from "node:path";
 
 // kit/lib/dossier/folder.ts
 init_define_OMNI_BUNDLE();
@@ -35962,14 +35982,14 @@ function judged(reply, { named: named5, fileOf: fileOf3, drift: driftIn }) {
       const file2 = approval3.files.find((f) => f.kind === kind2);
       return file2 ? fileOf3(file2) : kind2;
     };
-    const lines5 = voids.map((v) => `\u2260 ${basename7(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url2}`);
+    const lines5 = voids.map((v) => `\u2260 ${basename8(fileOfKind(v.kind))} \xB7 voided by ${v.pusher}'s push ${v.from.slice(0, 7)}\u2192${v.to.slice(0, 7)} \xB7 \u2717 refuse \xB7 approve again: ${url2}`);
     return reading("drifted", [...lines5, ...techLine], voids.map((v) => ({ kind: v.kind, file: fileOfKind(v.kind), how: "voided" })));
   }
   const { login: login2, member } = approval3.approver;
   if (!member) return reading("refused", [`approver ${login2} is not a workspace member`]);
   const drift = driftIn(approval3.files.filter((file2) => file2.kind !== "voice"));
   if (drift.length > 0) {
-    return reading("drifted", drift.map((d) => `\u2260 ${basename7(d.file)} \xB7 ${d.how} \xB7 \u2717 refuse \xB7 restore it, or approve again: ${url2}`), drift);
+    return reading("drifted", drift.map((d) => `\u2260 ${basename8(d.file)} \xB7 ${d.how} \xB7 \u2717 refuse \xB7 restore it, or approve again: ${url2}`), drift);
   }
   return reading("approved", [`approved by ${login2} \xB7 ${approval3.approvedAt}`]);
 }
@@ -36952,7 +36972,7 @@ async function closeTerminal({ root, host, client, terminalId }) {
 
 // kit/lib/ask/title.ts
 init_define_OMNI_BUNDLE();
-import { basename as basename8 } from "node:path";
+import { basename as basename9 } from "node:path";
 var TITLE_MAX2 = 200;
 var QUIET7 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function attempt4(fn) {
@@ -36966,7 +36986,7 @@ function currentBranch(root, exec) {
   return attempt4(() => exec("git", ["branch", "--show-current"], { cwd: root, ...QUIET7 }).trim()) || attempt4(() => exec("git", ["rev-parse", "--short", "HEAD"], { cwd: root, ...QUIET7 }).trim()) || "HEAD";
 }
 function sessionTitle({ slug, branch, root }) {
-  return `${slug || basename8(root)} \xB7 ${branch}`.slice(0, TITLE_MAX2);
+  return `${slug || basename9(root)} \xB7 ${branch}`.slice(0, TITLE_MAX2);
 }
 
 // kit/lib/ask/hook.ts
@@ -40679,7 +40699,7 @@ function readCareVerdict(body) {
 // kit/lib/care/later.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync39, mkdirSync as mkdirSync18, writeFileSync as writeFileSync24 } from "node:fs";
-import { basename as basename9, dirname as dirname13, join as join52 } from "node:path";
+import { basename as basename10, dirname as dirname13, join as join52 } from "node:path";
 
 // kit/lib/follow-ups/follow-ups.ts
 init_define_OMNI_BUNDLE();
@@ -40838,7 +40858,7 @@ var QUESTION = "Postpone this to a follow-up, or fix it in this PRD?";
 var WHY_LINE = "Why the agent proposes to postpone it:";
 var THREAD_LINE = /^Whether a reviewer's comment can wait for a follow-up\. Thread `[^`\n]*`: (\S+)$/m;
 function postponeItem({ threadId, url: url2, followUp: followUp2, asked, note }) {
-  const slug = basename9(followUp2, ".md").replace(/^\d{4}-\d{2}-\d{2}-/, "");
+  const slug = basename10(followUp2, ".md").replace(/^\d{4}-\d{2}-\d{2}-/, "");
   return {
     slug: `postpone-${slug}`,
     questionPlain: `A reviewer asked for a change, and the agent proposes to make it after this PRD instead. ${QUESTION}`,
@@ -44665,7 +44685,7 @@ import { join as join78 } from "node:path";
 // kit/lib/inbox/check-inbox.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync44, readdirSync as readdirSync19, statSync as statSync12 } from "node:fs";
-import { basename as basename10, dirname as dirname14, join as join65 } from "node:path";
+import { basename as basename11, dirname as dirname14, join as join65 } from "node:path";
 
 // kit/lib/design/words/product.ts
 init_define_OMNI_BUNDLE();
@@ -45065,7 +45085,7 @@ function voiceViolations(file2, ctx) {
   return parseVoice(readRepoFile(ctx, file2)).errors.map((error62) => `${file2}: ${error62}`);
 }
 function gradeFolder(specFile, ctx) {
-  const folder = basename10(dirname14(specFile));
+  const folder = basename11(dirname14(specFile));
   const violations = [];
   let record2 = null;
   if (!existsSync44(join65(ctx.root, specFile))) {
@@ -47781,7 +47801,7 @@ import { resolve as resolve6 } from "node:path";
 init_define_OMNI_BUNDLE();
 var import_yaml6 = __toESM(require_dist(), 1);
 import { readdirSync as readdirSync24, readFileSync as readFileSync63, statSync as statSync15 } from "node:fs";
-import { basename as basename11, dirname as dirname17, isAbsolute as isAbsolute7, join as join82, relative as relative4, resolve as resolve5, sep } from "node:path";
+import { basename as basename12, dirname as dirname17, isAbsolute as isAbsolute7, join as join82, relative as relative4, resolve as resolve5, sep } from "node:path";
 var READMES = ["readme.md", "index.md"];
 var DOCS = "docs";
 var ADR = "adr";
@@ -47839,7 +47859,7 @@ function titleOf2(file2) {
     const heading2 = /^#\s+(.+?)\s*#*\s*$/.exec(line3);
     if (heading2?.[1]) return heading2[1];
   }
-  return basename11(file2);
+  return basename12(file2);
 }
 function isMarkdown(path) {
   return path.toLowerCase().endsWith(".md");
@@ -47890,7 +47910,7 @@ function add(index2, file2, from, missing2 = false) {
   const path = posix9(index2.base, file2);
   if (index2.seen.has(path)) return false;
   index2.seen.add(path);
-  index2.entries.push({ path, title: missing2 ? basename11(file2) : titleOf2(file2), from, missing: missing2 });
+  index2.entries.push({ path, title: missing2 ? basename12(file2) : titleOf2(file2), from, missing: missing2 });
   if (!missing2) index2.found.push(file2);
   return true;
 }
@@ -51284,7 +51304,7 @@ import { dirname as dirname22, join as join100 } from "node:path";
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync13 } from "node:child_process";
 import { existsSync as existsSync61, readFileSync as readFileSync73, writeFileSync as writeFileSync36, mkdirSync as mkdirSync25 } from "node:fs";
-import { basename as basename12, join as join95, dirname as dirname20 } from "node:path";
+import { basename as basename13, join as join95, dirname as dirname20 } from "node:path";
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
 function releaseNoteReasons(ctx, prd2, dir, read3) {
   if (!ctx.config.releaseNotes.enabled) return [];
@@ -51312,7 +51332,7 @@ function planShip(ctx, prd2, { files, read: read3, held: held3 = [] }) {
   if (hasOutbox) moves.push({ from: outbox, to: `${shipped}/outbox` });
   const rewrites = [];
   for (const file2 of files) {
-    if (!REWRITTEN.test(file2) || basename12(file2) === SETTLED_FILE) continue;
+    if (!REWRITTEN.test(file2) || basename13(file2) === SETTLED_FILE) continue;
     if (!existsSync61(join95(ctx.root, file2))) continue;
     const before2 = read3(file2);
     let after2 = before2.split(where.dir).join(shipped);
@@ -55642,9 +55662,9 @@ import { join as join114, resolve as resolve9 } from "node:path";
 
 // kit/lib/knowledge/business-laws-home.ts
 init_define_OMNI_BUNDLE();
-import { basename as basename13 } from "node:path";
+import { basename as basename14 } from "node:path";
 var isHome = (home, repo) => repo !== null && repo.toLowerCase() === home.toLowerCase();
-var shaOf = (folder) => basename13(folder).split("@")[1]?.slice(0, 7) ?? "";
+var shaOf = (folder) => basename14(folder).split("@")[1]?.slice(0, 7) ?? "";
 async function businessLawsAt({ ctx, repo, home, getPack }) {
   if (home === null || isHome(home, repo)) return { laws: readBusinessLaws({ ctx }), notes: [] };
   const pack2 = await getPack(home);
@@ -69387,10 +69407,12 @@ function sweepLogs({ home, running, keepLogsDays, now: now2 }) {
     if (job2 === void 0 || running.has(job2)) continue;
     const path = join166(logs, name3);
     const stat = lstatSync2(path);
-    if (!stat.isFile() || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS4) continue;
-    rmSync24(path, { force: true });
+    const signIn = stat.isDirectory() && name3 === `job-${job2}.gh`;
+    if (!(stat.isFile() || signIn) || now2 - stat.mtimeMs <= keepLogsDays * DAY_MS4) continue;
+    const size = sizeOf(path);
+    rmSync24(path, { recursive: signIn, force: true });
     count11 += 1;
-    bytes2 += stat.size;
+    bytes2 += size;
   }
   return { count: count11, bytes: bytes2 };
 }
@@ -69761,7 +69783,7 @@ function asApp(loop2, job2) {
   try {
     saveGithubToken(file2, loop2.name, job2.github, loop2.askUrl);
     const shimDir = installGhShim({ home: loop2.home, tokenCommand: loop2.githubToken, path: loop2.env.PATH });
-    return { env: githubJobEnv({ bot: job2.github, tokenCommand: loop2.githubToken, shimDir, path: loop2.env.PATH }) };
+    return { env: { ...githubJobEnv({ bot: job2.github, tokenCommand: loop2.githubToken, shimDir, path: loop2.env.PATH }), GH_CONFIG_DIR: githubCliDir(file2) } };
   } catch (error62) {
     loop2.print(`job ${job2.id}: its GitHub App token could not be kept (${error62 instanceof Error ? error62.message : String(error62)})`);
     return { failed: "github app: the token could not be kept on this machine" };
