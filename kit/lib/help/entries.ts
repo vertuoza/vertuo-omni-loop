@@ -181,6 +181,24 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'names another repository. Needs gh logged in.',
   },
   {
+    name: 'committee',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni committee check <prd> --approve [--author <role>] [--json]',
+      'omni committee record <prd> --approve --file <votes.json> [--author <role>]',
+    ],
+    summary: "What a fleet's committee reads before it votes on PRD n, and its decision",
+    detail:
+      "check prints the PRD's files with their hashes, the members who sit (the PM, the Architect and " +
+      'the Reviewer, but the author --author names) with their agent and model, and each line of the ' +
+      'escalation list that applies: a spec that does not say phase0: server, a locked law or a Legal ' +
+      "entry it names, a migration of its branch that drops or rewrites data. record checks the members' " +
+      'verdicts (yes, no, unsure, failed or timeout, one sentence each), decides (by rule first, then ' +
+      'every member who sits must answer yes) and ends on the record line the App reads back from the ' +
+      "job's log. Neither touches the network.",
+  },
+  {
     name: 'follow-up',
     kind: 'command',
     who: 'skills',
@@ -2331,6 +2349,27 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     example: {
       type: '/omni:knowledge-add add a never line: we never store card numbers',
       result: 'the item shown whole, then on Yes its line and link, as added never#4',
+    },
+  },
+  {
+    name: 'committee',
+    kind: 'skill',
+    who: 'skills',
+    usage: ['/omni:committee <n> --approve [--author <role>]'],
+    summary: "the fleet's committee approves a mission's PRD, or sends it to a person",
+    detail:
+      "At a mission's level alone: reads the escalation list by code first (a PRD approved by its " +
+      'phase-0 PR, a locked law, a Legal entry, a migration that drops or rewrites data go to a person, ' +
+      'no member running), then the PM, the Architect and the Reviewer each read the spec, the plan and ' +
+      'the before/after alone and answer yes, no or unsure in one sentence; the hero that wrote the PRD ' +
+      'sits out. Every member who sits must answer yes. omni committee record ends on the line the App ' +
+      "reads to approve the PRD in the fleet's name, for that mission only, or to send it to a person " +
+      'with the verdicts. A mission sends it on a runner; it asks nothing and never merges.',
+    group: 'run-by-skills',
+    when: "Use it when a mission at alone has a PRD waiting for approval on its page.",
+    example: {
+      type: '/omni:committee 2896 --approve',
+      result: 'three verdicts and the record line: carried, or escalated with why',
     },
   },
   {

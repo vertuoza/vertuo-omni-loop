@@ -44,6 +44,7 @@ import { PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber } from '
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
+import { approvalNext, approveLine, type Committee } from './committee.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
 export type RunnerJobStatus = 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
@@ -94,12 +95,21 @@ export type PrdState =
   | { state: 'dropped' }
   | { state: 'waits'; on: 'join'; lacks: readonly string[] }
   | { state: 'running'; run: number }
-  | { state: 'waits'; on: Exclude<WaitsOn, 'decide'> }
+  | { state: 'waits'; on: Exclude<WaitsOn, 'decide'>; why?: string | null }
   | { state: 'waits'; on: 'decide'; pr: PrNumber | null }
   | { state: 'blocked'; by: PrdNumber[] }
   | { state: 'stopped'; why: string }
   | { state: 'paused' }
-  | { state: 'startable'; run: number; step: Step };
+  | { state: 'startable'; run: number; step: Step }
+  /** At `alone` (PRD 2896 s9): its committee to send, or at work. Neither takes a slot of `mandate.parallel`: no code runs. */
+  | { state: 'approvable'; round: number }
+  | { state: 'deciding'; round: number };
+
+/** The committees a run read (PRD 2896 s9), and whether the mission is at `alone`, where a PRD not approved goes to its committee. */
+export type CommitteeView = { alone: boolean; committees: readonly Committee[] };
+
+/** Below `alone`, or no committee read: a PRD not approved waits for a person, as before. */
+const NO_COMMITTEE: CommitteeView = { alone: false, committees: [] };
 
 /**
  * The mission branch as a run read it (PRD 2896): the PRDs on it, and what the merge gate lacks for each PRD that ended
@@ -125,8 +135,9 @@ export type Send = { prd: PrdNumber; run: number; step: Step };
 /** What a run sets on the mission. */
 export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null };
 
-export type EventKind = 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped';
-export type EventRole = 'supervisor' | 'engineer' | 'reviewer';
+export type EventKind =
+  | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated';
+export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm';
 
 /** An event to record, signed by its role and `agent`. */
 export type NewEvent = { kind: EventKind; role: EventRole; prd: PrdNumber | null; job: string | null; link: string | null; sentence: string };
@@ -320,12 +331,13 @@ const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && 
  * Where each PRD of the scope is, by PRD. On a mission branch (PRD 2896), a PRD on it is `joined` and unblocks the PRDs
  * it blocked, and one waiting to be merged waits on what the merge gate lacks, when the run judged it.
  */
-export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[], branch: OnBranch = NO_BRANCH): Map<PrdNumber, PrdState> {
+export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[], branch: OnBranch = NO_BRANCH, view: CommitteeView = NO_COMMITTEE): Map<PrdNumber, PrdState> {
   const merged = new Set([...facts.filter((fact) => fact.stage === 'merged').map((fact) => fact.prd), ...branch.joined]);
   const of = (fact: PrdFacts): PrdState => {
     if (fact.stage !== 'merged' && branch.joined.has(fact.prd)) return { state: 'joined' };
     if (fact.stage !== 'merged' && branch.dropped?.has(fact.prd) === true) return { state: 'dropped' };
-    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), merged, branch);
+    const own = { alone: view.alone, committees: view.committees.filter((one) => one.prd === fact.prd) };
+    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own });
   };
   return new Map(facts.map((fact) => [fact.prd, of(fact)]));
 }
@@ -336,13 +348,16 @@ const toMerge = (prd: PrdNumber, branch: OnBranch): PrdState => {
   return lacks === undefined ? { state: 'waits', on: 'merge' } : { state: 'waits', on: 'join', lacks };
 };
 
-function stateOf(fact: PrdFacts, runs: readonly Run[], merged: ReadonlySet<PrdNumber>, branch: OnBranch): PrdState {
+/** What a PRD's state is read against: the PRDs merged (or on the branch), the mission branch, and the PRD's committees. */
+type Around = { merged: ReadonlySet<PrdNumber>; branch: OnBranch; view: CommitteeView };
+
+function stateOf(fact: PrdFacts, runs: readonly Run[], around: Around): PrdState {
   if (fact.stage === 'merged') return { state: 'merged' };
   const latest = runs.reduce<Run | null>((last, one) => (last === null || after(one, last) ? one : last), null);
   const last = latest ? lastOf(latest) : undefined;
   if (latest && last && endOf(last) === null) return { state: 'running', run: latest.run };
-  if (fact.stage === 'ready') return toMerge(fact.prd, branch);
-  return latest && last ? afterEnd(fact, latest, last, merged, branch) : gate(fact, 1, 'build', merged);
+  if (fact.stage === 'ready') return toMerge(fact.prd, around.branch);
+  return latest && last ? afterEnd(fact, latest, last, around) : gate(fact, 1, 'build', around);
 }
 
 /** What a PRD whose job ended waits on: its merge (into the mission branch, on a branch), the Reviewer's findings, or a person. */
@@ -352,24 +367,27 @@ function waitsAfter(on: Extract<Next, { next: 'waits' }>['on'], prd: PrdNumber, 
 }
 
 /** Where a PRD is once its latest job ended: the table's next step, the next step of a run under the same run. */
-function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, merged: ReadonlySet<PrdNumber>, branch: OnBranch): PrdState {
+function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, around: Around): PrdState {
   const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason, latest.step);
-  if (next.next === 'waits') return waitsAfter(next.on, fact.prd, last, branch);
+  if (next.next === 'waits') return waitsAfter(next.on, fact.prd, last, around.branch);
   if (next.next === 'send') return { state: 'startable', run: latest.run, step: next.step };
   if (next.next === 'stops') return { state: 'stopped', why: next.why };
   if (next.next === 'paused') return { state: 'paused' };
-  if (next.next === 'again') return gate(fact, latest.run + 1, latest.step, merged);
+  if (next.next === 'again') return gate(fact, latest.run + 1, latest.step, around);
   return { state: 'running', run: latest.run };
 }
 
 /**
  * Step `step` of run `run` of the PRD. A build waits for its approval to stand and every blocker to be merged; a
- * later step (the Reviewer, the fix) carries on a build already sent, and waits on neither.
+ * later step (the Reviewer, the fix) carries on a build already sent, and waits on neither. At `alone` (PRD 2896 s9) a PRD
+ * not approved goes to its fleet's committee first, and waits for a person only once the committee sent it to one.
  */
-function gate(fact: PrdFacts, run: number, step: Step, merged: ReadonlySet<PrdNumber>): PrdState {
+function gate(fact: PrdFacts, run: number, step: Step, { merged, view }: Around): PrdState {
   if (step !== 'build') return { state: 'startable', run, step };
-  if (fact.approval === 'none') return { state: 'waits', on: 'approve' };
-  if (fact.approval === 'voided') return { state: 'waits', on: 'approve-again' };
+  const approval = approvalNext(fact.approval, view.committees, view.alone);
+  if (approval.next === 'send') return { state: 'approvable', round: approval.round };
+  if (approval.next === 'deciding') return { state: 'deciding', round: approval.round };
+  if (approval.next === 'person') return { state: 'waits', on: fact.approval === 'voided' ? 'approve-again' : 'approve', why: approval.why };
   const by = fact.blockers.filter((blocker) => !merged.has(blocker));
   return by.length > 0 ? { state: 'blocked', by } : { state: 'startable', run, step };
 }
@@ -472,7 +490,7 @@ const WAITS_WORDS: Readonly<Record<Exclude<WaitsOn, 'decide'>, string>> = {
  */
 function waitWords(state: Extract<PrdState, { state: 'waits' }>, branch: string | null): string {
   if (state.on === 'join') return `joins ${branch ?? 'the mission branch'} once: ${state.lacks.join('; ')}`;
-  if (state.on !== 'decide') return WAITS_WORDS[state.on];
+  if (state.on !== 'decide') return state.why == null ? WAITS_WORDS[state.on] : `${WAITS_WORDS[state.on]} (${state.why})`;
   return `decide the Reviewer's findings on ${state.pr === null ? 'its feature PR' : `PR #${String(state.pr)}`}`;
 }
 
@@ -518,6 +536,9 @@ function stoppedWhy(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, P
   return cut(`${why}. ${CARRY_ON}`);
 }
 
+/** The states of a PRD that keep a mission running: a job of it at work or to send, its committee too (PRD 2896 s9). */
+const MOVING: ReadonlySet<PrdState['state']> = new Set(['running', 'startable', 'approvable', 'deciding']);
+
 /** The mission's status, what it waits on, and when it checks again; `branch` the mission branch its PRDs join, when it has one. */
 export function conclude({
   mission,
@@ -540,7 +561,7 @@ export function conclude({
   if (facts.length > 0 && all.every((state) => state.state === 'merged')) return { status: 'delivered', waitingOn: null, nextWakeAt: null };
   if (mission.status === 'paused') return { status: 'paused', waitingOn: mission.waitingOn, nextWakeAt: null };
   const waitingOn = waitsOf(facts, states, branch);
-  if (sent > 0 || all.some((state) => state.state === 'running' || state.state === 'startable')) return { status: 'running', waitingOn, nextWakeAt: at };
+  if (sent > 0 || all.some((state) => MOVING.has(state.state))) return { status: 'running', waitingOn, nextWakeAt: at };
   if (waitingOn !== null) return { status: 'waiting', waitingOn, nextWakeAt: at };
   return { status: 'stopped', waitingOn: stoppedWhy(facts, states), nextWakeAt: null };
 }
@@ -566,6 +587,8 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   'job-ended': (_prdKey, job) => jobKey('end', job),
   held: (_prdKey, job) => jobKey('end', job),
   reviewed: (_prdKey, job) => jobKey('end', job),
+  decided: (_prdKey, job) => jobKey('end', job),
+  escalated: (_prdKey, job) => jobKey('end', job),
   'prd-ready': (prdKey, job) => [`ready:${prdKey ?? 'mission'}`, ...jobKey('end', job)],
   'prd-merged': (prdKey) => [`merged:${prdKey ?? 'mission'}`],
   stopped: (prdKey) => (prdKey === null ? [] : [`stopped:${prdKey}`]),
@@ -715,6 +738,23 @@ const landEvents = (landings: readonly Landed[]): NewEvent[] =>
     sentence: `PRD ${String(prd)} landed on the default branch with #${String(pr)}: shipped.`,
   }));
 
+/**
+ * What each committee says (PRD 2896 s9): its dispatch, signed `supervisor`; then, once recorded, its decision, signed `pm` (the
+ * chair) and `agent`: `decided` when every member who sat answered yes, `escalated` with why when it went to a person.
+ */
+function committeeEvents(committees: readonly Committee[], where: string): NewEvent[] {
+  return committees.flatMap((one) => {
+    const n = `PRD ${String(one.prd)}`;
+    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: `Sent ${approveLine(one.prd)} to ${where} (round ${String(one.round)}).` };
+    if (one.decision === null) return [sent];
+    const decided: NewEvent =
+      one.decision.outcome === 'carried'
+        ? { kind: 'decided', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: `The committee approved ${n}: every member who sat answered yes.` }
+        : { kind: 'escalated', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: `${n} goes to a person: ${one.decision.why.join('; ')}` };
+    return [sent, decided];
+  });
+}
+
 /** What the mission's own change says: delivered, stopped, or a new wait on a person. */
 function missionEvents(mission: Mission, next: Concluded): NewEvent[] {
   const said = (kind: EventKind, sentence: string): NewEvent => ({ kind, role: 'supervisor', prd: null, job: null, link: null, sentence });
@@ -742,6 +782,7 @@ export function eventsOf({
   recorded,
   joins = [],
   landings = [],
+  committees = [],
 }: {
   mission: Mission;
   facts: readonly PrdFacts[];
@@ -755,11 +796,20 @@ export function eventsOf({
   joins?: readonly Joined[];
   /** The PRDs this run read landed on the default branch by the mission pull request (PRD 2896 s6). */
   landings?: readonly Landed[];
+  /** The committees the mission sent (PRD 2896 s9), each with its decision once recorded. */
+  committees?: readonly Committee[];
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
   const base = baseOf(mission, skill === 'ultra-yolo');
-  const all = [...runEvents(runs, where, skill, base), ...joinEvents(joins, base), ...landEvents(landings), ...prdEvents(facts, states), ...missionEvents(mission, next)];
+  const all = [
+    ...committeeEvents(committees, where),
+    ...runEvents(runs, where, skill, base),
+    ...joinEvents(joins, base),
+    ...landEvents(landings),
+    ...prdEvents(facts, states),
+    ...missionEvents(mission, next),
+  ];
   return all.flatMap((event) => {
     const own = keysOf(event);
     if (own.some((key) => keys.has(key))) return [];
