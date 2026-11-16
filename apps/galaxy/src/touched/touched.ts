@@ -41,7 +41,7 @@ export type Touch = { repository: string; issue?: IssueNumber; pr?: PrNumber; br
 
 /** A dossier's snapshot, as a touch is matched against it: its home repository, and the keys its summary
  * holds, the PRD's number, its issue's (null when it read none) and its pull requests' (#2970). */
-export type TouchedSnapshot = { dossierId: string; repo: string; prd: PrdNumber; issue: number | null; pulls: number[] };
+export type TouchedSnapshot = { dossierId: string; repo: string; prd: PrdNumber; issue: IssueNumber | null; pulls: PrNumber[] };
 
 export type TouchedDeps = {
   /** STAGE_EVENT_SECRET; unset, every touch is refused. */
