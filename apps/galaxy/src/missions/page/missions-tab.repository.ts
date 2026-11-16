@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
-import { limitWaitRepository } from '../limit-wait.repository';
 import { MissionLevelSchema, MissionStatusSchema } from '../missions.contract';
 import type { EventRow, MissionRow } from './missions-tab';
 
@@ -35,8 +34,6 @@ const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: P
 
 export function missionsTabRepository(db: MissionsTabDb) {
   return {
-    /** What the PRDs of these missions wait on (PRD 2949), as the room and the Missions tab say it. */
-    waits: (missions: readonly string[]) => limitWaitRepository(db).facts(missions),
 
     /** A virtual fleet's missions, the most recently moved first. */
     async missions(workspace: string, fleet: string): Promise<MissionRow[]> {

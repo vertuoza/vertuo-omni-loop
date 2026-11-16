@@ -46,3 +46,5 @@ export function limitWaitRepository(db: LimitWaitDb) {
     },
   };
 }
+
+export type LimitWaitRepository = ReturnType<typeof limitWaitRepository>;

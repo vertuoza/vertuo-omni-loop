@@ -1,11 +1,12 @@
 import { cleanUpLine, filterOf, ledgerOf, nowLines, type RoomView } from './room';
 import { limitWaitsOf } from '../limit-wait';
+import type { LimitWaitRepository } from '../limit-wait.repository';
 import type { RoomRepository } from './room.repository';
 
 // The Operation room's rules over the repository (PRD 2842 s8; ADR-0095): the heroes' now lines, the clean-up
 // line and the ledger of a virtual fleet's missions, as the signed-in person reads them.
 
-type Port = Pick<RoomRepository, 'heroes' | 'missions' | 'events' | 'kept' | 'waits'>;
+type Port = Pick<RoomRepository, 'heroes' | 'missions' | 'events' | 'kept'> & { waits: LimitWaitRepository['facts'] };
 
 export function roomService(repository: Port) {
   return {

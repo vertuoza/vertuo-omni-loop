@@ -7,6 +7,7 @@ import { RoomTab } from './RoomTab';
 import { cleanUpLine, filterOf, ledgerOf, nowLines, roomHref, type EventRow, type HeroLine, type RoomView } from './room';
 import { roomRepository, type RoomDb } from './room.repository';
 import { roomService } from './room.service';
+import { limitWaitRepository } from '../limit-wait.repository';
 import { limitWaitsOf, type WaitFacts } from '../limit-wait';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined }) }));
@@ -218,7 +219,7 @@ describe('roomRepository waits', () => {
       runner_jobs: [{ id: JOB, mission_id: M1, mission_key: null, resumes: null, queued_at: '2026-11-16T01:00:00Z' }],
     };
     const db = { from: (table: string) => { const self: Record<string, unknown> = { then: (done: (v: unknown) => void) => { done({ data: answers[table], error: null }); } }; for (const n of ['select', 'in', 'eq']) self[n] = () => self; return self; } } as unknown as RoomDb;
-    expect(await roomRepository(db).waits([M1])).toMatchObject({ queued: [{ id: JOB, mission: M1 }], limited: [] });
-    expect(await roomRepository(db).waits([])).toMatchObject({ queued: [] });
+    expect(await limitWaitRepository(db).facts([M1])).toMatchObject({ queued: [{ id: JOB, mission: M1 }], limited: [] });
+    expect(await limitWaitRepository(db).facts([])).toMatchObject({ queued: [] });
   });
 });

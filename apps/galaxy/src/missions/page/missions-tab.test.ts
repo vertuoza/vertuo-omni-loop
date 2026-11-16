@@ -4,8 +4,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { MissionsTab } from './MissionsTab';
 import { branchOf, fleetPrdsOf, missionOf, onBranchOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
+import { limitWaitRepository } from '../limit-wait.repository';
 import { missionsTabService } from './missions-tab.service';
 import { missionsTabRepository, type MissionsTabDb } from './missions-tab.repository';
+
+/** The tab's repository with the waits read beside it, as missions-tab.live.ts composes them. */
+const withWaits = (db: Parameters<typeof missionsTabRepository>[0]) => ({ ...missionsTabRepository(db), waits: (missions: readonly string[]) => limitWaitRepository(db).facts(missions) });
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, refresh: () => undefined }) }));
 
@@ -99,7 +103,7 @@ const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online'
 
 describe('a mission\'s level (PRD 2896)', () => {
   it('reads with-you for a mandate without one, the level it names otherwise, and allows the change on a draft alone', async () => {
-    const level = async (mandate: unknown) => (await missionsTabService(missionsTabRepository(fakeDb([{ ...MISSION_ROW, mandate }], []))).view(WORKSPACE, 'night-shift')).missions[0]?.level;
+    const level = async (mandate: unknown) => (await missionsTabService(withWaits(fakeDb([{ ...MISSION_ROW, mandate }], []))).view(WORKSPACE, 'night-shift')).missions[0]?.level;
     expect(await level({ parallel: 2 })).toBe('with-you');
     expect(await level({ parallel: 2, level: 'alone', hardToRevert: 0.6, ownPrds: 0 })).toBe('alone');
     expect(missionOf(row({ status: 'draft', level: 'own-branch' }), [])).toMatchObject({ level: 'own-branch', levelWords: 'Own branch', canChangeLevel: true });
@@ -109,12 +113,12 @@ describe('a mission\'s level (PRD 2896)', () => {
 
 describe('a mission in a plan repository, read (PRD 2896 s14)', () => {
   it('is in a plan repository when a live product of the workspace names its repository as its plan', async () => {
-    const inPlan = async (products: unknown[]) => (await missionsTabService(missionsTabRepository(fakeDb([MISSION_ROW], [], null, products))).view(WORKSPACE, 'night-shift')).missions[0]?.committeeOnly;
+    const inPlan = async (products: unknown[]) => (await missionsTabService(withWaits(fakeDb([MISSION_ROW], [], null, products))).view(WORKSPACE, 'night-shift')).missions[0]?.committeeOnly;
     expect(await inPlan([])).toBeNull();
     expect(await inPlan([{ plan_repository: null }])).toBeNull();
     expect(await inPlan([{ plan_repository: 'Acme/Shop' }])).toBeNull();
     const alone = { ...MISSION_ROW, mandate: { level: 'alone' } };
-    const view = await missionsTabService(missionsTabRepository(fakeDb([alone], [], null, [{ plan_repository: 'Acme/Shop' }]))).view(WORKSPACE, 'night-shift');
+    const view = await missionsTabService(withWaits(fakeDb([alone], [], null, [{ plan_repository: 'Acme/Shop' }]))).view(WORKSPACE, 'night-shift');
     expect(view.missions[0]?.committeeOnly).toBe("committee only: a person merges each target's pull request");
   });
 });
@@ -165,14 +169,14 @@ describe('the service over the repository', () => {
       { mission_id: ID, kind: 'prd-merged', prd: 1, link: null, sentence: 'merged' },
       { mission_id: OTHER, kind: 'prd-merged', prd: 7, link: null, sentence: 'merged' },
     ]);
-    const view = await missionsTabService(missionsTabRepository(db)).view(WORKSPACE, 'night-shift');
+    const view = await missionsTabService(withWaits(db)).view(WORKSPACE, 'night-shift');
     expect(view.fleet).toBe('night-shift');
     expect(view.missions.map((m) => m.progress)).toEqual(['1 of 2 merged · 0 ready', '1 of 3 merged · 0 ready']);
     expect(view.missions[0]?.waits[0]?.prd).toBe(2);
   });
 
   it('reads no events for a fleet with no mission', async () => {
-    const view = await missionsTabService(missionsTabRepository(fakeDb([], [], 'mission_events'))).view(WORKSPACE, 'night-shift');
+    const view = await missionsTabService(withWaits(fakeDb([], [], 'mission_events'))).view(WORKSPACE, 'night-shift');
     expect(view.missions).toEqual([]);
   });
 
@@ -202,9 +206,9 @@ describe('the service over the repository', () => {
   });
 
   it('throws when a read fails, and when a row is malformed', async () => {
-    await expect(missionsTabService(missionsTabRepository(fakeDb([], [], 'missions'))).view(WORKSPACE, 'f')).rejects.toThrow('could not read the missions');
-    await expect(missionsTabService(missionsTabRepository(fakeDb([MISSION_ROW], [], 'mission_events'))).view(WORKSPACE, 'f')).rejects.toThrow('events');
-    await expect(missionsTabService(missionsTabRepository(fakeDb([{ id: 'x' }], []))).view(WORKSPACE, 'f')).rejects.toThrow();
+    await expect(missionsTabService(withWaits(fakeDb([], [], 'missions'))).view(WORKSPACE, 'f')).rejects.toThrow('could not read the missions');
+    await expect(missionsTabService(withWaits(fakeDb([MISSION_ROW], [], 'mission_events'))).view(WORKSPACE, 'f')).rejects.toThrow('events');
+    await expect(missionsTabService(withWaits(fakeDb([{ id: 'x' }], []))).view(WORKSPACE, 'f')).rejects.toThrow();
   });
 });
 
