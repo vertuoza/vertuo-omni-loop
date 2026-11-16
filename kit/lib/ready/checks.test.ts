@@ -88,9 +88,21 @@ describe('check 1: CI green on the latest commit (PRD 2898)', () => {
     expect(check({ runs: { ok: true, value: [run('test'), run(READY_CHECK_NAME, 'failure')] } }, 'ci')).toBe('pass · 1 check green');
   });
 
-  it('fails on a run that failed, skipped or was cancelled, naming each', () => {
-    const runs = [run('test'), run('lint', 'failure'), run('quick', 'skipped'), run('e2e', 'cancelled')];
-    expect(check({ runs: { ok: true, value: runs } }, 'ci')).toBe('fail · not green: lint (failure), quick (skipped), e2e (cancelled)');
+  it('fails on a run that failed, was cancelled, timed out or needs an action, naming each', () => {
+    const runs = [run('test'), run('lint', 'failure'), run('quick', 'skipped'), run('e2e', 'cancelled'), run('slow', 'timed_out'), run('deploy', 'action_required')];
+    expect(check({ runs: { ok: true, value: runs } }, 'ci')).toBe('fail · not green: lint (failure), e2e (cancelled), slow (timed_out), deploy (action_required)');
+  });
+
+  it('leaves a skipped or neutral run out, and counts only the runs that succeeded', () => {
+    expect(check({ runs: { ok: true, value: [run('test'), run('quick', 'skipped'), run('info', 'neutral')] } }, 'ci')).toBe('pass · 1 check green');
+  });
+
+  it('is not finished when every counted run was skipped or neutral', () => {
+    expect(check({ runs: { ok: true, value: [run('quick', 'skipped'), run('info', 'neutral')] } }, 'ci')).toMatch(/^not finished · only skipped or neutral/);
+  });
+
+  it('stays not finished while a run is going, even beside skipped ones', () => {
+    expect(check({ runs: { ok: true, value: [run('quick', 'skipped'), run('lint', null, 'queued')] } }, 'ci')).toBe('not finished · still running: lint');
   });
 
   it('is not finished while a run is going or none has started', () => {

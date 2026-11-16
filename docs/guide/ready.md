@@ -9,8 +9,10 @@ Nothing here merges: only a person merges.
 
 ## The five checks
 
-1. **CI is green on the latest commit.** Every check run of that commit finished `success`. A check
-   that only skipped or was cancelled is not green. The `omni / ready` check itself is left out.
+1. **CI is green on the latest commit.** Every check run of that commit finished `success`. A skipped
+   or neutral run is left out, since a pull request skips jobs on purpose; a run that failed, was
+   cancelled, timed out or needs an action is red. If only skipped or neutral runs are there, the check
+   is not finished. The `omni / ready` check itself is left out.
 2. **The full tests and lint ran.** The CI jobs named by `ready.full` (here `test` and `lint`, never
    `quick`, which runs only the changed files) succeeded on that commit.
 3. **Every acceptance criterion has its proof.** Each `AC-n` of the spec has a passing proof on that
