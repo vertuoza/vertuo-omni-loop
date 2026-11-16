@@ -8,13 +8,13 @@
 
 ## Reproduction
 
-- **File:** `kit/bin/next-reads.test.ts` (first committed in `kit/bin/next.test.ts`, then moved to its own file: `next.test.ts` proves laws)
+- **File:** `kit/bin/next-reads.test.ts`
 - **Level:** unit
 - **Red:** `AssertionError: expected [ …(3) ] to have a length of 1 but got 3` (the phase-0 list asked once per PRD) and `AssertionError: expected 1 to be greater than 1` (never more than one read waiting at once)
 
 ## Fix
 
-`omni next` read every PRD one after another, each PRD's lists one after another, and asked every PRD for the same open phase-0 list. Its reads now go through `readOnce` (`kit/lib/loop-reads/once.ts`), which sends each distinct read once per run and forgets a failed one, and it reads up to four PRDs (and a plan repository's targets) at once with `sideBySide` (`kit/lib/side-by-side.ts`), which keeps the results in order and throws the first failure in item order, as the one-by-one loop did. Within a PRD, the phase-0 list, the feature PR and the board start together and are awaited in today's order. `omni status` reads no `/api/loop/changes`, so it is unchanged.
+`omni next` read every PRD one after another, each PRD's lists one after another, and asked every PRD for the same open phase-0 list. Its reads now go through `readOnce` (`kit/lib/loop-reads/once.ts`), which sends each distinct read once per run and forgets a failed one, and it reads up to four PRDs (and a plan repository's targets) at once with `sideBySide` (`kit/lib/side-by-side.ts`), which keeps the results in order and throws the first failure in item order, as the one-by-one loop did. Within a PRD, the phase-0 list, the feature PR and the board start together and are awaited in today's order. `omni status` reads no `/api/loop/changes`, so it is unchanged. The reproduction was first committed in `kit/bin/next.test.ts`, then moved, its assertions unchanged, to a file of its own: `next.test.ts` proves laws.
 
 ## Guard
 
