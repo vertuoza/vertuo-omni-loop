@@ -683,6 +683,56 @@ begin
 end $$;
 reset role;
 
+
+-- ── The PM writes the mission's own PRDs (PRD 2896 s12) ──
+-- The PM's job takes a key of its own, mission:<id>:pm:<k>, once; a PRD it wrote is recorded `prd-added`, a row the cap left
+-- `not-written`, both by the service role, role pm and actor agent; a member writes neither. The runners' fixed skills hold the
+-- PM's four, so no repository allows its own skill under one of their names; a new PM hero reads the PM's new limit.
+do $$
+declare
+  ws uuid := (select id from public.workspaces where slug = 'initech');
+  mission uuid := (select id from pg_temp.ids where name = 'alone');
+begin
+  insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key)
+  values (ws, '/omni:roadmap --mission 2870 --cap 2', 'initech/nimbus-plan', 'omni-app', 'night-shift', mission, format('mission:%s:pm:1', mission));
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:roadmap --mission 2870 --cap 2', 'initech/nimbus-plan', 'omni-app', mission, format('mission:%s:pm:1', mission));
+    raise exception 'FAIL: a PM job was sent twice under one key';
+  exception when unique_violation then null; end;
+  begin
+    insert into public.runner_jobs (workspace_id, line, repo, sent_by_app, mission_id, mission_key)
+    values (ws, '/omni:roadmap --mission 2870 --cap 2', 'initech/nimbus-plan', 'omni-app', mission, format('mission:%s:pm:0', mission));
+    raise exception 'FAIL: a PM job took the key of its 0th round';
+  exception when check_violation then null; end;
+  insert into public.mission_events (mission_id, role, actor, kind, prd, sentence) values
+    (mission, 'pm', 'agent', 'prd-added', 2807, 'PRD 2807 added by the fleet.'),
+    (mission, 'pm', 'agent', 'not-written', null, 'Refunds by card: not written: the cap is 2.');
+  if (select count(*) from public.mission_events where mission_id = mission and kind in ('prd-added', 'not-written')) <> 2 then
+    raise exception 'FAIL: the PM''s events were not recorded';
+  end if;
+  if not (public.virtual_hero_roles() @> '[{"role": "pm", "limits": ["It never approves a PRD it wrote, nor one outside a mission''s committee."]}]'::jsonb) then
+    raise exception 'FAIL: a new PM hero does not read its new limit';
+  end if;
+  if pg_get_functiondef('public.set_repository_runner_skill(uuid, text, text, boolean)'::regprocedure) !~ '''mega-roadmap''' then
+    raise exception 'FAIL: the runners'' fixed skills lack the PM''s';
+  end if;
+end $$;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028a1');
+do $$
+begin
+  if not exists (select 1 from public.mission_events where kind = 'prd-added' and prd = 2807) then
+    raise exception 'FAIL: a member does not read the PRDs the fleet added';
+  end if;
+  begin
+    insert into public.mission_events (mission_id, role, actor, kind, prd, sentence)
+    values ((select id from public.missions where number = 2870), 'pm', 'agent', 'prd-added', 2808, 'PRD 2808 added by the fleet.');
+    raise exception 'FAIL: a member recorded a PRD the fleet added';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
 -- A decision is never changed or deleted, even by the table's owner; a retired fleet's approval no longer reads as a member's.
 do $$
 begin

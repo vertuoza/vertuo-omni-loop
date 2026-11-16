@@ -55,7 +55,7 @@ describe('the line check', () => {
 
   it.each([
     ['an unlisted skill', '/omni:enforce 1400', 'not a skill a runner runs'],
-    ['a conversational skill', '/omni:brainstorm a new idea', 'not a skill a runner runs'],
+    ['a conversational skill', '/omni:think-big a new idea', 'not a skill a runner runs'],
     ['the loop, which never ends', '/omni:drive 1717', 'not a skill a runner runs'],
     ['another plugin\'s skill', '/vercel:deploy prod', 'reads `/omni:<skill> <arguments>`'],
     ['no slash', 'omni:yolo 1717', 'reads `/omni:<skill> <arguments>`'],
@@ -490,7 +490,7 @@ describe('the PRD a line names', () => {
     ['a word first', '/omni:yolo s1 2251'],
     ['a number glued to a word', '/omni:yolo 2251abc'],
     ['zero', '/omni:yolo 0'],
-    ['a line no runner runs', '/omni:brainstorm 2251'],
+    ['a line no runner runs', '/omni:think-big 2251'],
     ['a fixed skill\'s name with no /omni:', '/yolo 2251'],
     ['a name that is no skill\'s', '/Validate_PRD 2251'],
   ])('names none for %s', (_, line) => {

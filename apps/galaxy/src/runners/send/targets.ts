@@ -1,4 +1,5 @@
 import { checkLine, type Board, type Runner, type RunnerState, type Target } from '../runners.contract';
+import { missionRefusal } from 'omni-loop/kit/lib/runner/line.ts';
 
 // Send to terminal's targets (PRD 1830 s4): what its picker lists for one line of one repository, read
 // from the workspace's runners and what the viewer may do there (the Runners page's read, Board). In
@@ -21,9 +22,12 @@ export type SendSetup = {
 
 const STATE_WORDS: Record<RunnerState, string> = { online: 'Online', busy: 'Busy', offline: 'Offline' };
 
-/** Whether a runner may run `line`: a listed skill with checked arguments, or a skill of `allowed`, the
- * repository's own (PRD 2313). */
-export const sendable = (line: string, allowed: readonly string[] = []): boolean => checkLine(line, allowed).ok;
+/** Whether a runner may run `line` sent from here: a listed skill with checked arguments, or a skill of `allowed`, the
+ * repository's own (PRD 2313); never a PM skill, which a mission at `alone` sends alone (PRD 2896 s12). */
+export function sendable(line: string, allowed: readonly string[] = []): boolean {
+  const check = checkLine(line, allowed);
+  return check.ok && (check.kind !== 'omni' || missionRefusal(check.skill, null) === null);
+}
 
 /** Whether the viewer may send to this runner: it has no fleet, or the viewer is its player or an owner. */
 const mayUse = (viewer: Board['viewer'], runner: Runner) => runner.fleet === null || viewer.owner || viewer.fleet === runner.fleet;

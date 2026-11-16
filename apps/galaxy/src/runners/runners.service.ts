@@ -87,6 +87,7 @@
 //   `githubToken` mints a fresh token, for the same repositories, for the job's own runner while the job is
 //   claimed or running, and refuses one that ended, whatever its status (PRD 2809 s3).
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { missionRefusal } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type BoardSave, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
@@ -660,6 +661,9 @@ export function runnersService(
 
   /** Whether the line may run from the repository: a repository's own skill as its owner allowed, an ultra skill from a plan repository. */
   async function mayRun(workspaceId: string, repo: string, line: LineCheck & { ok: true }): Promise<Served<null>> {
+    // A person's or a key's job belongs to no mission: the PM's writing skills are sent by a mission at `alone` alone (PRD 2896 s12).
+    const pm = line.kind === 'omni' ? missionRefusal(line.skill, null) : null;
+    if (pm !== null) return no('malformed', `${pm}: it is sent by a mission at Works alone, never from here.`);
     const allowed = await allowance(workspaceId, repo, line);
     return allowed.ok ? fromPlan(workspaceId, repo, line) : allowed;
   }
@@ -811,8 +815,15 @@ export function runnersService(
     const resume = await resumeClaimOf(job);
     return {
       id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(job.sent_by === null ? null : logins.get(job.sent_by) ?? null, keyName, job.sent_by_app), allowedSkills,
-      sentByKey: keyName, github: granted.grant, ...(resume === null ? {} : { resume }),
+      sentByKey: keyName, github: granted.grant, ...(resume === null ? {} : { resume }), ...await missionClaimOf(job),
     };
+  }
+
+  /** The mission that sent `job`, by its level (PRD 2896 s12), for the runner, which runs a PM skill on a job of a mission at `alone`
+   * only; nothing for a job no mission sent. */
+  async function missionClaimOf(job: Pick<JobRow, 'mission_id'>): Promise<{ mission?: { level: string } }> {
+    const level = typeof job.mission_id === 'string' ? await store.missionLevel(job.mission_id) : null;
+    return level === null ? {} : { mission: { level } };
   }
 
   /** The earlier jobs of a resume's chain, oldest first, the job it resumes last (PRD 2809, s5); none for a job that resumes none. */
