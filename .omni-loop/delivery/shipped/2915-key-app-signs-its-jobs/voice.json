@@ -1,0 +1,170 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Two bots can sign agent work now, but each is an agent's and the rule that picks one is a single line I can read.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Since PRD 2573 the other app's private key slept in your database. Now Omni opens it again at every claim and every refresh: one leak of the master key and anyone pushes as that app wherever it is installed.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A job whose App cannot mint fails before it starts instead of quietly signing as someone else: no surprise authors in my reviews.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "My customers see the fix come from the tool they reported it in, and a missing install is refused at send rather than half-way.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 4,
+          "reaction": "Fixes sent from every repository through one key, each signed by the app that asked: as long as the mega check tells me at send what is missing.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "Since PRD 2573 the other app's private key slept in your database. Now Omni opens it again at every claim and every refresh: one leak of the master key and anyone pushes as that app wherever it is installed.",
+        "citations": [
+          "persona:B-E DEv"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "fits persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✓ · persona:B-E DEv ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-15",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "No migration and no runner change: the spec restores PRD 2433's mint behind the rule and names every why.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The key stays sealed, never reaches a runner or a log, and the last token date moves again so an owner sees each use. I can live with that.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Each failure has its own acceptance line, and no test calls GitHub.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The manual install check before the merge is written down, so nothing breaks on my side by surprise.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 4,
+          "reaction": "A refused mega names the repository to install the app on: I fix it and send again in a minute.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✓"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-16",
+      "personas": [
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "What shipped matches the spec: the key's App mints the token at claim, and a key with no App still runs as the Omni App.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "The App's key stays sealed on the server and a key that cannot be opened fails the job with its own why. The install check before the merge is still done by hand.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The tests prove whose App mints the token and whose bot signs, and none of them calls GitHub.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The guide now says a key's App signs its jobs, so I know what to check before I send one.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 4,
+          "reaction": "A refused send names the repository the App is missing on, and every other repository the fix would reach is checked too.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ✓ · persona:Irisa ✓ · persona:Paul - Product Manager ✓"
+    }
+  ]
+}

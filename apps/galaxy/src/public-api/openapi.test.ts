@@ -289,9 +289,16 @@ describe('the OpenAPI reference', () => {
       expect(answer, path).toContain('github_app_permissions');
       expect(post?.description, path).toContain('nothing is queued');
     }
+
     for (const path of ['/api/v1/prds', '/api/v1/bug-fixes']) {
       expect(described(document.paths?.[path]?.get?.responses?.['422']), path).not.toContain('github_app');
     }
+  });
+
+  it('says a mega bug fix is checked on every repository of its product the key may reach (PRD 2915 s2)', () => {
+    const mega = document.paths?.['/api/v1/mega-bug-fixes']?.post;
+    expect(JSON.stringify(mega?.responses?.['422'])).toContain('every repository of its product the key may reach');
+    expect(mega?.description).toContain('every other repository of its product the key may reach');
   });
 
   it('is what GET /api/v1/openapi.json answers, with no key', async () => {

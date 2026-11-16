@@ -6,7 +6,7 @@ import {
 import { ANSWER_CHARS } from './runners.contract';
 import type { JobLineRow, JobRow, QuestionsRow, RunnerRow } from './runners.repository';
 import { runnersService, type GithubDeps } from './runners.service';
-import { BOT, EXPIRES, OMNI_APP, PRIVATE_KEY, stubGithub, TOKEN } from './fixtures/github.fake';
+import { BOT, EXPIRES, KEY_APP_CREDENTIALS, KEY_BOT, KEY_PRIVATE_KEY, OMNI_APP, PRIVATE_KEY, stubGithub, TOKEN } from './fixtures/github.fake';
 import { API_KEY, CIA_BOX, EVE, fakeStore, jobRow, KEY_APP, lineRows, MO, OLGA, PIA, QUESTION, questionsRow, runnerRow, RUNNERS, SHARED, T0, type KeyState } from './fixtures/store.fake';
 
 // The runners' routes (PRD 1830 s1), with the real service on the fake store: the sign-in is checked
@@ -139,9 +139,9 @@ describe('GET /api/runners/next', () => {
   });
 });
 
-// A key's job runs as the Omni App like every job (PRD 2573 s1, over PRD 2433 s7): the claim answers it with the App's
-// token and bot beside the key's name, and the runner asks a route of its own for a fresh token.
-describe('a key\'s job that runs as the Omni App (PRD 2433, PRD 2573)', () => {
+// A key's job runs as the key's own App when the key holds one (PRD 2915 s1, over PRD 2433 s7): the claim answers it with the
+// App's token and bot beside the key's name, and the runner asks a route of its own for a fresh token.
+describe('a key\'s job that runs as the key\'s App (PRD 2433, PRD 2915)', () => {
   const APP_RUNNERS = [runnerRow({ id: SHARED, name: 'shared', slots: 1, github_app: true })];
   const WORKS: KeyState = { id: API_KEY, app: KEY_APP, working: true };
   const keyJob = (more: Partial<JobRow> = {}) => jobRow({ sent_by: OLGA, sent_by_key: API_KEY, line: '/omni:bug-fix 2433', ...more });
@@ -157,9 +157,16 @@ describe('a key\'s job that runs as the Omni App (PRD 2433, PRD 2573)', () => {
       status: 200,
       body: {
         id: job.id, line: '/omni:bug-fix 2433', repo: 'demo-org/app', sentBy: 'API key QA dashboard (@olga)', allowedSkills: [], sentByKey: 'QA dashboard',
-        github: { token: TOKEN, expiresAt: EXPIRES, ...BOT },
+        github: { token: TOKEN, expiresAt: EXPIRES, ...KEY_BOT },
       },
     });
+  });
+
+  it('ends a job of a key whose App cannot mint failed, `github app: <why>`, and answers 204 with no job', async () => {
+    const w = world({ jobs: [keyJob()], runners: APP_RUNNERS, keys: [WORKS], github: { master: () => null } });
+    expect((await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps)).status).toBe(204);
+    expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'github app: this Omni server has no key to open the App\'s private key' });
+    expect(w.asked.minted).toEqual([]);
   });
 
   it('ends a job whose key no longer works failed, `github app: <why>`, and answers 204 with no job', async () => {
@@ -174,7 +181,8 @@ describe('a key\'s job that runs as the Omni App (PRD 2433, PRD 2573)', () => {
     const response = await refreshGithubToken(refresh(job.id), job.id, w.deps);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await read(response)).toEqual({ status: 200, body: { token: TOKEN, expiresAt: EXPIRES } });
-    expect(w.asked.minted.map((minted) => minted.appId)).toEqual([OMNI_APP.appId]);
+    expect(w.asked.minted.map((minted) => minted.appId)).toEqual([KEY_APP_CREDENTIALS.appId]);
+    expect(w.asked.minted.map((minted) => minted.appId)).not.toContain(OMNI_APP.appId);
   });
 
   it('refuses a signed-out caller, or a bad token, before anything is minted', async () => {
@@ -226,7 +234,7 @@ describe('a key\'s job that runs as the Omni App (PRD 2433, PRD 2573)', () => {
     const failed = await refreshGithubToken(refresh(job.id), job.id, failing);
     expect(failed.status).toBe(500);
     const said = JSON.stringify([refused.status, await refused.json(), await failed.json(), w.logged, broken.logged]);
-    for (const secret of [TOKEN, PRIVATE_KEY, KEY_APP.ciphertext]) expect(said, secret).not.toContain(secret);
+    for (const secret of [TOKEN, PRIVATE_KEY, KEY_PRIVATE_KEY, KEY_APP.ciphertext]) expect(said, secret).not.toContain(secret);
     expect(broken.logged).toEqual(['runners: api_key_github_app_of_job(): connection reset']);
   });
 });
