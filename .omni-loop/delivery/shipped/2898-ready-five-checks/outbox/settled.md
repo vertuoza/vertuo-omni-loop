@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Stays here: A local setup choice that is cheap to reverse and guarantees nothing lasting to people; no product behaviour or law hangs on who creates the label.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Creating it at install is a style line, the label in two install test lists (one
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off test file placement following the existing testing form; nothing lasting for the product to guarantee, and moving it is a rename.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Moving the tests is a file rename, or folding them into the proof file once its 
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Became: BR-GATE-2
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ A default and one matching line in `kit/lib/ready/checks.ts`.
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Became: ADR-0153
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ Comparing across files is a change inside the detector; a `ready.floors` and `re
 - Raised: 2026-11-15
 - Slice: s3
 - Wave: 2
+- Became: ADR-0154
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ A small page call later, if the state must be read: one function in kit/lib/miss
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 2
+- Became: ADR-0155
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ One small function in one file, and its test: a constant's worth of change if s5
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 2
+- Became: BR-GATE-3
 
 ### The answer, as it was given
 
@@ -563,6 +570,7 @@ One constant and one test line.
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 2
+- Became: BR-GATE-4
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ One filter in the webhook and its test; taking it out leaves the check refreshed
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 2
+- Became: BR-GATE-5
 
 ### The answer, as it was given
 
@@ -719,6 +728,7 @@ A table of four rows in one file.
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 2
+- Became: ADR-0028
 
 ### The answer, as it was given
 
@@ -796,6 +806,7 @@ Two lines in one workflow file.
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 2
+- Became: ADR-0156
 
 ### The answer, as it was given
 
@@ -875,6 +886,7 @@ The few lines of `postCheckRun` and `verdictOf` in `scripts/acceptance-report.ts
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 2
+- Stays here: A one-off territory call for this slice that follows the kit's own e2e setup guide; cheap to change and nothing lasting beyond what the guide already says.
 
 ### The answer, as it was given
 
@@ -955,6 +967,7 @@ One line in `pnpm-workspace.yaml` and the workspace's lockfile lines; moving the
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 2
+- Stays here: A one-slice choice to edit a script outside the slice's territory rather than copy it; cheap to change, and the behaviour already lives in the spec's done-when.
 
 ### The answer, as it was given
 
@@ -1035,6 +1048,7 @@ A few lines in `scripts/preview-debounce.sh` and their tests.
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 2
+- Became: BR-GATE-6, P-GATE-1
 
 ### The answer, as it was given
 
@@ -1114,6 +1128,7 @@ One filter in `testResults` of `scripts/acceptance-report.ts`; a tag rule instea
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 2
+- Became: N-GATE-1
 
 ### The answer, as it was given
 
@@ -1193,6 +1208,7 @@ One clause in each workflow's gate and group, written twice per file, and their 
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 2
+- Stays here: A sequencing choice between two steps of one feature, reversible with four config lines; it sets no lasting rule or build decision for the knowledge base.
 
 ### The answer, as it was given
 
@@ -1272,6 +1288,7 @@ Four config lines in s10 and two repository secrets; nothing in this slice chang
 - Raised: 2026-11-15
 - Slice: s4
 - Wave: 3
+- Became: ADR-0157
 
 ### The answer, as it was given
 
@@ -1349,6 +1366,7 @@ A reword of two skill paragraphs and one test.
 - Raised: 2026-11-15
 - Slice: s9
 - Wave: 3
+- Stays here: A sequencing choice about slice scope with a small, known follow-up edit; nothing lasting about how the product behaves or is built.
 
 ### The answer, as it was given
 
@@ -1426,6 +1444,7 @@ One small edit in the page's route file and its test.
 - Raised: 2026-11-15
 - Slice: s8
 - Wave: 3
+- Became: ADR-0158
 
 ### The answer, as it was given
 
@@ -1504,6 +1523,7 @@ Making it a skill later is a plugin skill folder, its help entry, the name in `R
 - Raised: 2026-11-15
 - Slice: s8
 - Wave: 3
+- Became: BR-GATE-7
 
 ### The answer, as it was given
 
@@ -1581,6 +1601,7 @@ Showing nothing until done is one branch in `runnerFallback` and the old `report
 - Raised: 2026-11-15
 - Slice: s8
 - Wave: 3
+- Became: BR-PRODUCT-146
 
 ### The answer, as it was given
 
@@ -1658,6 +1679,7 @@ Retrying is a count of the App's ended jobs of the line and a second insert unde
 - Raised: 2026-11-15
 - Slice: s8
 - Wave: 3
+- Stays here: This is a deferred, interim choice that waits on a person's call about App permissions. It sets no lasting rule or design, so it belongs in the ledger, not the knowledge base.
 
 ### The answer, as it was given
 
