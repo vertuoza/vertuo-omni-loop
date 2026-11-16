@@ -3097,3 +3097,934 @@ Changing the sentence costs one line on the Missions page.
 ```
 
 <!-- /omni-outbox-settled: s13-01-missions-page-rebuild-is-a-person -->
+
+<!-- omni-outbox-settled: s4-04-missions-check-learns-joins -->
+
+## s4-04-missions-check-learns-joins — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-138
+- Raised: 2026-11-15
+- Slice: s4
+- Wave: 4
+- Stays here: agrees the missions check was extended; the rule it proves did not change
+
+### The answer, as it was given
+
+```text
+A. A. Accept the changed check, extended to cover a PRD joining the branch (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-missions-check-learns-joins
+prd: 2896
+slice: s4
+rank: high
+bears-on: BR-PRODUCT-138
+raised: 2026-11-15
+wave: 4
+---
+
+## The question, in plain words
+
+The database check that proves the product's rules for missions was changed so it also expects a PRD joining its mission's branch. Do you accept this change to the rule check?
+
+## The decision, in plain words
+
+The check was extended, not loosened: every old expectation still holds, the list of event kinds grows from twelve to thirteen, and a member now also reads a join event. The service role still writes every event and a member still writes none.
+
+## The intro, for fun
+
+The mission's diary learned one new word: joined.
+
+## The punchline, for fun
+
+Nobody tore out a page; the diary just got one more line.
+
+## The options, in plain words
+
+A. A. Accept the changed check, extended to cover a PRD joining the branch (built).
+B. B. Undo it, and keep joins out of the mission's events.
+
+## What I had to decide
+
+Accept the changed check as built, or undo it and record joins in a way the old check accepts unchanged.
+
+## What I did meanwhile
+
+The check passes as changed, run against a local database with this PRD's migrations, and fails without this slice's migration.
+
+## What it costs to change later
+
+Undoing it means dropping the join event, which every later slice of this PRD reads to know what is on the mission branch.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The rules this check proves are proposed, not confirmed: no owner is named to approve them.
+- (author) Raised high because a change to a rule's proof is a person's to accept; the kit ranks it medium on its own, as for PRD 2871.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-missions-check-learns-joins -->
+
+<!-- omni-outbox-settled: s9-01-fleet-approval-is-an-approval-row -->
+
+## s9-01-fleet-approval-is-an-approval-row — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-APPROVALS-1
+- Raised: 2026-11-15
+- Slice: s9
+- Wave: 9
+- Became: BR-PRODUCT-144
+
+### The answer, as it was given
+
+```text
+A. The fleet's approval is an approval row naming its fleet and its mission: the mission reads it for itself only, the build's approval check reads it for anyone (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-01-fleet-approval-is-an-approval-row
+prd: 2896
+slice: s9
+rank: high
+bears-on: BR-APPROVALS-1
+raised: 2026-11-15
+wave: 9
+---
+
+## The question, in plain words
+
+When the fleet's committee approves a PRD, should that approval also count outside the mission that asked for it?
+
+## The decision, in plain words
+
+The fleet's approval is written like a person's, naming the fleet and the mission, so the page shows it and a later change cancels it. The mission only trusts its own, but the build's approval check cannot tell who is building, so a person building the same PRD by hand would see it approved too.
+
+## The intro, for fun
+
+Three agents said yes, and now the whole office thinks the boss signed it.
+
+## The punchline, for fun
+
+The signature says fleet, at least, in large letters.
+
+## The options, in plain words
+
+A. The fleet's approval is an approval row naming its fleet and its mission: the mission reads it for itself only, the build's approval check reads it for anyone (built).
+B. Keep the fleet's approval in the mission's decisions only, and teach the build's approval check to accept it for that mission's own jobs.
+
+## What I had to decide
+
+Whether a fleet's approval may read as given to a build outside its own mission, or only to the mission's own jobs.
+
+## What I did meanwhile
+
+It reads as given to any build of the PRD; another mission's supervisor reads it as none and asks its own committee or a person.
+
+## What it costs to change later
+
+Option B needs the kit's approval reader and the approval route to learn the job's mission, outside this slice's territory, and keeps the page's words to change too.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether a person ever builds by hand a PRD that sits in a running mission at alone
+- (author) whether the page's words read exactly Approved by fleet <key>: the page's own code (apps/galaxy/src/dossier/page/approval.ts) was not changed and prints the approver's login, fleet <key>
+
+```
+
+<!-- /omni-outbox-settled: s9-01-fleet-approval-is-an-approval-row -->
+
+<!-- omni-outbox-settled: s9-04-runner-list-proofs-name-committee -->
+
+## s9-04-runner-list-proofs-name-committee — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-19
+- Raised: 2026-11-15
+- Slice: s9
+- Wave: 9
+- Stays here: agrees two proofs now name the committee; neither rule changed
+
+### The answer, as it was given
+
+```text
+A. The two proofs expect committee in the list, the rules' words unchanged (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-04-runner-list-proofs-name-committee
+prd: 2896
+slice: s9
+rank: high
+bears-on: N-PRODUCT-19
+raised: 2026-11-15
+wave: 9
+---
+
+## The question, in plain words
+
+The runner's list of the loop's own skills now holds the committee, and two tests proving rules about that list were changed to name it: do you agree?
+
+## The decision, in plain words
+
+The committee joins that list in the kit, the app and the database, and the tests proving a runner refuses any other line, and that a repository's own skill is never named like one of the loop's, now expect it there; neither rule's words changed.
+
+## The intro, for fun
+
+The guest list got one name longer, so the bouncer's checklist did too.
+
+## The punchline, for fun
+
+The door policy itself stayed exactly as strict.
+
+## The options, in plain words
+
+A. The two proofs expect committee in the list, the rules' words unchanged (built).
+B. Keep committee off the runner's list, so a mission's committee needs a person at a terminal.
+
+## What I had to decide
+
+Whether the proofs of N-PRODUCT-19 and BR-PRODUCT-140 may expect committee among the loop's own skills.
+
+## What I did meanwhile
+
+kit/lib/runner/line.test.ts checks the committee's line is taken; apps/galaxy/src/runners/runners.skills.migration.test.ts counts committee among the skills added after its migration.
+
+## What it costs to change later
+
+Reverting is removing committee from the three lists and the two tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether the committee should be sendable by a person from the Runners page too, as every skill on the list is
+
+```
+
+<!-- /omni-outbox-settled: s9-04-runner-list-proofs-name-committee -->
+
+<!-- omni-outbox-settled: s10-01-fleet-answer-held-only-by-the-app-check -->
+
+## s10-01-fleet-answer-held-only-by-the-app-check — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-5
+- Raised: 2026-11-16
+- Slice: s10
+- Wave: 10
+- Became: BR-PRODUCT-145
+
+### The answer, as it was given
+
+```text
+A. The App's check on a pull request into the main branch holds each question the fleet answered; the terminal's check reads it as answered (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-01-fleet-answer-held-only-by-the-app-check
+prd: 2896
+slice: s10
+rank: high
+bears-on: BR-PRODUCT-5
+raised: 2026-11-16
+wave: 10
+---
+
+## The question, in plain words
+
+When the fleet answers a question for a mission, should the terminal's own check also keep the feature waiting before the main branch, or is the check the App runs on the pull request enough?
+
+## The decision, in plain words
+
+A question the fleet answered counts as answered for the mission's branch. The App's check on a pull request into the main branch still holds it until a person answers, but the check an agent runs in a terminal does not know where the pull request goes, so it reads the question as answered.
+
+## The intro, for fun
+
+The fleet signed the permission slip, but only for the school trip.
+
+## The punchline, for fun
+
+The main door still asks a grown-up.
+
+## The options, in plain words
+
+A. The App's check on a pull request into the main branch holds each question the fleet answered; the terminal's check reads it as answered (built).
+B. The terminal's check learns the pull request's base too, and holds the fleet's answers toward the main branch the same way.
+
+## What I had to decide
+
+Whether a question the fleet answered keeps a feature a draft toward the main branch everywhere, or only in the App's check on the pull request. Bears on BR-PRODUCT-5, whose owner confirms the reading: changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+
+## What I did meanwhile
+
+The merge gate into the mission branch and the terminal's gate read a question the fleet answered as answered; the App's outbox check on a feature pull request into the main branch fails on it, naming each such question, unless a person applies the override label.
+
+## What it costs to change later
+
+Option B adds a base to the terminal's outbox check and has the skills that mark a pull request ready pass it: a few files of the kit, no stored shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a feature pull request of a mission ever goes to the main branch other than through the mission pull request: the PRD says it does not, unless a person retargets it.
+- (author) Whether the owner reads BR-PRODUCT-5 as kept when the fleet's answer closes a question for the mission branch only, as the spec asks the owner to confirm.
+
+```
+
+<!-- /omni-outbox-settled: s10-01-fleet-answer-held-only-by-the-app-check -->
+
+<!-- omni-outbox-settled: s11-01-overturned-answer-not-written-back -->
+
+## s11-01-overturned-answer-not-written-back — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-12
+- Raised: 2026-11-16
+- Slice: s11
+- Wave: 11
+- Became: BR-PRODUCT-146
+
+### The answer, as it was given
+
+```text
+A. The overturn is an event; the answered question is not put back on the feature branch (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-overturned-answer-not-written-back
+prd: 2896
+slice: s11
+rank: high
+bears-on: BR-PRODUCT-12
+raised: 2026-11-16
+wave: 11
+---
+
+## The question, in plain words
+
+When a person overturns an answer the fleet gave, should the App also put the question back in the feature branch's outbox, or is a note in the mission's record enough?
+
+## The decision, in plain words
+
+An overturn is recorded as the person's own note beside the fleet's decision, which stays as it was, and the PRD leaves the mission branch if it had joined. The App does not put the answered question back on the feature branch: the person answers it on the pull request.
+
+## The intro, for fun
+
+The fleet wrote its answer in pen.
+
+## The punchline, for fun
+
+You may cross it out, but only in the margin.
+
+## The options, in plain words
+
+A. The overturn is an event; the answered question is not put back on the feature branch (built).
+B. The App also writes a commit on the feature branch that opens the question again, from the settled list.
+
+## What I had to decide
+
+How far "reopens the item for that person" goes. Putting the question back needs a commit on the PRD's branch that reverses the fleet's settlement, which the slice's territory does not hold (the kit's outbox files and the settlement code belong to slice s10).
+
+## What I did meanwhile
+
+The decision stays as recorded and the person's overturn sits beside it; the PRD is dropped from the branch when it had joined, so it cannot join again until a person sends it again. The PRD's own pull request into the mission branch is where the person answers.
+
+## What it costs to change later
+
+Option B is one more function next to the App's settlement code and one call in the overturn's run: no stored shape changes.
+
+## What I could not know
+
+(author) The spec says an overturned answer "reopens the item for that person", and does not say whether the item must be a file on the branch again.
+
+- (author) Whether answering on the pull request is enough for the person, or the item must reappear in the outbox folder.
+
+```
+
+<!-- /omni-outbox-settled: s11-01-overturned-answer-not-written-back -->
+
+<!-- omni-outbox-settled: s11-02-overturn-needs-a-migration-and-a-client-call -->
+
+## s11-02-overturn-needs-a-migration-and-a-client-call — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-12
+- Raised: 2026-11-16
+- Slice: s11
+- Wave: 11
+- Stays here: a territory call for this PRD only
+
+### The answer, as it was given
+
+```text
+A. Add the migration and the client method here, flagged (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-02-overturn-needs-a-migration-and-a-client-call
+prd: 2896
+slice: s11
+rank: high
+bears-on: BR-PRODUCT-12
+raised: 2026-11-16
+wave: 11
+---
+
+## The question, in plain words
+
+The overturn needed a new kind of event in the database and a new call in the terminal's client, both outside this slice's territory. Should they have waited for another slice?
+
+## The decision, in plain words
+
+I added one new kind of event to the database and one new call to the terminal's client, both outside this slice's territory. Nothing else outside the territory changed.
+
+## The intro, for fun
+
+The slice asked for a door and the wall was next door.
+
+## The punchline, for fun
+
+It knocked a small hole and left a note.
+
+## The options, in plain words
+
+A. Add the migration and the client method here, flagged (built).
+B. Leave the overturn unrecorded and ask for a slice that owns them.
+
+## What I had to decide
+
+Without the event kind the database refuses an overturn, and without the client method the command cannot call the App. The plan's shared-ground note names the migration folder for other slices only.
+
+## What I did meanwhile
+
+The migration is additive and dated after the newest one on the feature branch; the check proves a member reads the event and nobody else writes it.
+
+## What it costs to change later
+
+Moving the two files into another slice later is a rename of ownership only.
+
+## What I could not know
+
+(author) Whether the plan's territory for s11 was meant to hold the event kind and the client call.
+
+- (author) The owner's reading of the shared-ground note in the plan.
+
+```
+
+<!-- /omni-outbox-settled: s11-02-overturn-needs-a-migration-and-a-client-call -->
+
+<!-- omni-outbox-settled: s11-03-decision-names-and-trust-line-from-events -->
+
+## s11-03-decision-names-and-trust-line-from-events — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-12
+- Raised: 2026-11-16
+- Slice: s11
+- Wave: 11
+- Stays here: how this PRD names decisions, written in the mission command help and the guide
+
+### The answer, as it was given
+
+```text
+A. Name by PRD number and item, read the lists from the events (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-03-decision-names-and-trust-line-from-events
+prd: 2896
+slice: s11
+rank: high
+bears-on: BR-PRODUCT-12
+raised: 2026-11-16
+wave: 11
+---
+
+## The question, in plain words
+
+How does a person name the decision they overturn, and where do the lists and the trust line get their numbers?
+
+## The decision, in plain words
+
+A person names an approval by its PRD's number, and an answer by its PRD's number and the question's name. The lists and the trust line are both read from the mission's own record of decisions and overturns.
+
+## The intro, for fun
+
+Every decision gets a name tag.
+
+## The punchline, for fun
+
+The tag is a number, a slash and a word.
+
+## The options, in plain words
+
+A. Name by PRD number and item, read the lists from the events (built).
+B. Give each decision an id of its own in a new table.
+
+## What I had to decide
+
+The spec leaves `<decision>` open. Answers have no row of their own, only an event, so a table id would have needed a new stored shape.
+
+## What I did meanwhile
+
+An overturn of the same decision twice is refused; a decision made again later (a new committee) stands on its own. Events written before this slice keep no verdicts: their lines read `every member who sat answered yes`.
+
+## What it costs to change later
+
+Option B adds a table and a migration; the pure reader in `kit/lib/mission/overturn.ts` is the one place that changes.
+
+## What I could not know
+
+(author) Whether a person would rather paste a decision's link than type its name.
+
+- (author) Whether the tab itself should offer the overturn, beside the pull request's list: the screen's open question names it.
+
+```
+
+<!-- /omni-outbox-settled: s11-03-decision-names-and-trust-line-from-events -->
+
+<!-- omni-outbox-settled: s12-07-runner-refuses-pm-skills-off-a-mission -->
+
+## s12-07-runner-refuses-pm-skills-off-a-mission — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-19
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+- Stays here: agrees the proof holds the new refusal; the rule did not change
+
+### The answer, as it was given
+
+```text
+A. A. The proof holds the new refusal, the rule's words unchanged (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-07-runner-refuses-pm-skills-off-a-mission
+prd: 2896
+slice: s12
+rank: high
+bears-on: N-PRODUCT-19
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+The runner now also refuses the PM's four writing skills on any job that no mission at Works alone sent, and a test proving what the runner refuses gained that case: do you agree?
+
+## The decision, in plain words
+
+The four skills join the runner's list of the loop's own skills, so they are refused as a repository's own skill too, and the runner refuses them before any work starts unless the job carries a mission at Works alone. The rule's words did not change.
+
+## The intro, for fun
+
+Four new names on the guest list, with a plus-one rule.
+
+## The punchline, for fun
+
+They only get in when a mission walks them to the door.
+
+## The options, in plain words
+
+A. A. The proof holds the new refusal, the rule's words unchanged (built).
+B. B. Keep the PM's skills off the runner's list, so a mission's PM needs a person at a terminal.
+
+## What I had to decide
+
+Whether the proof of N-PRODUCT-19 may hold the new refusal, and whether the rule's words should name it.
+
+## What I did meanwhile
+
+kit/lib/runner/runner.test.ts gains one case: a PM skill on a job of no mission, or of one below alone, ends failed before any worktree is made. Its helper takes the job's mission; every earlier case is unchanged.
+
+## What it costs to change later
+
+Removing the four skills from the three lists and the case from the test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person expects to send these skills to a runner by hand some day, which this refuses.
+
+```
+
+<!-- /omni-outbox-settled: s12-07-runner-refuses-pm-skills-off-a-mission -->
+
+<!-- omni-outbox-settled: s1-02-fleet-level-extends-fleet-proofs -->
+
+## s1-02-fleet-level-extends-fleet-proofs — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-GAME-2
+- Raised: 2026-11-16
+- Slice: s1
+- Wave: 1
+- Stays here: agrees the fleet proofs still prove the same rules
+
+### The answer, as it was given
+
+```text
+A. A. The proofs hold the same rules, with the level added (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-fleet-level-extends-fleet-proofs
+prd: 2896
+slice: s1
+rank: high
+bears-on: BR-GAME-2
+raised: 2026-11-16
+wave: 1
+---
+
+## The question, in plain words
+
+Adding a level to every fleet changed the tests that prove how a fleet is made and who may change it: do you agree they still prove the same rules?
+
+## The decision, in plain words
+
+Every fleet is now made with a level, so the fleet tests pass the level with-you where they made a fleet, and new cases prove the level guard. No case that proves a fleet rule was removed or loosened.
+
+## The options, in plain words
+
+A. A. The proofs hold the same rules, with the level added (built).
+B. B. Keep the old fleet proofs as they were and prove the level in separate tests only.
+
+## What I had to decide
+
+Before the feature pull request is marked ready.
+
+## What I did meanwhile
+
+The proofs run as changed; nothing is held.
+
+## What it costs to change later
+
+Low: the change only adds cases and new arguments; undoing it means removing the new cases.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The fleet controller and repository tests, and the database check for fleets, were read for this by the person who finished the PRD, not by the law's owner.
+
+```
+
+<!-- /omni-outbox-settled: s1-02-fleet-level-extends-fleet-proofs -->
+
+<!-- omni-outbox-settled: s14-02-plan-repository-extends-mission-proofs -->
+
+## s14-02-plan-repository-extends-mission-proofs — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-137
+- Raised: 2026-11-16
+- Slice: s14
+- Wave: 14
+- Stays here: agrees the brief and approval proofs still prove the same rules
+
+### The answer, as it was given
+
+```text
+A. A. The proofs hold the same rules, with the refusal cases added (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s14-02-plan-repository-extends-mission-proofs
+prd: 2896
+slice: s14
+rank: high
+bears-on: BR-PRODUCT-137
+raised: 2026-11-16
+wave: 14
+---
+
+## The question, in plain words
+
+Refusing own-branch in a plan repository added cases to the tests that prove what a valid brief is and who approves a PRD: do you agree they still prove the same rules?
+
+## The decision, in plain words
+
+Cases were added for the refusal only. No case that proves either rule was removed or loosened.
+
+## The options, in plain words
+
+A. A. The proofs hold the same rules, with the refusal cases added (built).
+B. B. Move the refusal cases out to tests of their own.
+
+## What I had to decide
+
+Before the feature pull request is marked ready.
+
+## What I did meanwhile
+
+The proofs run as changed; nothing is held.
+
+## What it costs to change later
+
+Low: the change only adds cases and new arguments; undoing it means removing the new cases.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The brief and mission service tests were read for this by the person who finished the PRD, not by the laws' owner.
+
+```
+
+<!-- /omni-outbox-settled: s14-02-plan-repository-extends-mission-proofs -->
+
+<!-- omni-outbox-settled: s2-03-mission-level-extends-mission-proofs -->
+
+## s2-03-mission-level-extends-mission-proofs — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-137
+- Raised: 2026-11-16
+- Slice: s2
+- Wave: 2
+- Stays here: agrees the brief and approval proofs still prove the same rules
+
+### The answer, as it was given
+
+```text
+A. A. The proofs hold the same rules, with the new mandate fields added (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-mission-level-extends-mission-proofs
+prd: 2896
+slice: s2
+rank: high
+bears-on: BR-PRODUCT-137
+raised: 2026-11-16
+wave: 2
+---
+
+## The question, in plain words
+
+Adding a level and two bounds to a mission's mandate changed the tests that prove what a valid brief is and who approves a PRD: do you agree they still prove the same rules?
+
+## The decision, in plain words
+
+A mandate now also reads a level and two bounds, each with a default, so tests that read a whole mandate expect those defaults and new cases prove each field. No case that proves either rule was removed or loosened.
+
+## The options, in plain words
+
+A. A. The proofs hold the same rules, with the new mandate fields added (built).
+B. B. Keep the old brief proofs as they were and prove the new fields in separate tests only.
+
+## What I had to decide
+
+Before the feature pull request is marked ready.
+
+## What I did meanwhile
+
+The proofs run as changed; nothing is held.
+
+## What it costs to change later
+
+Low: the change only adds cases and new arguments; undoing it means removing the new cases.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The brief and mission service tests were read for this by the person who finished the PRD, not by the laws' owner.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-mission-level-extends-mission-proofs -->
+
+<!-- omni-outbox-settled: s3-03-mission-branch-extends-mission-proofs -->
+
+## s3-03-mission-branch-extends-mission-proofs — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T12:57:41Z
+- Channel: feature pull request #2897
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2897#issuecomment-6917059051
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-139
+- Raised: 2026-11-16
+- Slice: s3
+- Wave: 3
+- Stays here: agrees the mission and config proofs still prove the same rules
+
+### The answer, as it was given
+
+```text
+A. A. The proofs hold the same rules, with the mission branch cases added (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-mission-branch-extends-mission-proofs
+prd: 2896
+slice: s3
+rank: high
+bears-on: BR-PRODUCT-139
+raised: 2026-11-16
+wave: 3
+---
+
+## The question, in plain words
+
+The mission branch added cases to the tests that prove a mission never resends a failed PRD and that the config refuses a bad signature: do you agree they still prove the same rules?
+
+## The decision, in plain words
+
+The supervisor's test mission now carries its level, and cases were added for the mission branch and for the new branch name in the config. No case that proves either rule was removed or loosened.
+
+## The options, in plain words
+
+A. A. The proofs hold the same rules, with the mission branch cases added (built).
+B. B. Move the mission branch cases out to tests of their own.
+
+## What I had to decide
+
+Before the feature pull request is marked ready.
+
+## What I did meanwhile
+
+The proofs run as changed; nothing is held.
+
+## What it costs to change later
+
+Low: the change only adds cases and new arguments; undoing it means removing the new cases.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The supervisor, mission end-to-end and config tests were read for this by the person who finished the PRD, not by the laws' owner.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-mission-branch-extends-mission-proofs -->
