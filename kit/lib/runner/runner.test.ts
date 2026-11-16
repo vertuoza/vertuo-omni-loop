@@ -816,6 +816,14 @@ describe("a job's parts (PRD 2537, s3)", () => {
     const reason = 'no tokens left: every account is out until 2026-10-16T17:00:00.000Z';
     const sent = await jobEnding('/omni:yolo 7', 'working\n', '1\n', { over: { terminal: writing('working\n', { ...PARTS, reason }) } });
     expect(sent.at(-1)).toMatchObject({ status: 'failed', exitCode: 1, reason });
+    expect(sent.at(-1)?.limit).toBeUndefined();
+  });
+
+  it('reports the limit the turnover met beside its reason (PRD 2949)', async () => {
+    const reason = 'no tokens left: every account is out until 2026-10-16T17:00:00.000Z';
+    const limit = { resetsAt: '2026-10-16T17:00:00.000Z', guessed: true };
+    const sent = await jobEnding('/omni:yolo 7', 'working\n', '1\n', { over: { terminal: writing('working\n', { ...PARTS, reason, limit }) } });
+    expect(sent.at(-1)).toMatchObject({ status: 'failed', exitCode: 1, reason, limit });
   });
 
   it('sends a report an app refuses for its parts again without them, and none after', async () => {

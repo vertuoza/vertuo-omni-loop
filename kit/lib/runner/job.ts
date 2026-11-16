@@ -41,7 +41,7 @@ import {
   CAP_REASON, FRESH_CAP_REASON, GUESSED_RESET_MS, handoffPath, LIMIT_WHY, masked, MAX_ACCOUNT_CHANGES, MAX_FRESH_SESSIONS, NOTE_TURN_MS, notePrompt, noTokensReason,
   partsPath, plannedHandoff, runnerNote, takeoverLine, tokensSince, writeParts,
 } from './turnover.ts';
-import type { JobPart, PartsRecord, PlannedHandoff, Turnover } from './turnover.ts';
+import type { JobLimit, JobPart, PartsRecord, PlannedHandoff, Turnover } from './turnover.ts';
 
 /** The files a job's run reads and writes. */
 export type JobFiles = { line: string; log: string; exit: string };
@@ -259,13 +259,13 @@ type JobPlace = { cwd: string; files: JobFiles; out: Out; env: Readonly<Record<s
 type Runs = { agent: Agent; account: AgentAccount };
 
 /** A job's parts as they go: the record, written to the parts file at every change, and the clock. */
-type Parts = { record: PartsRecord; keep(part: JobPart, at: number): void; fail(reason: string): void; iso(): string };
+type Parts = { record: PartsRecord; keep(part: JobPart, at: number): void; fail(reason: string, limit?: JobLimit): void; iso(): string };
 
 /** A run that ended: its exit code, the limit its agent read (`null`: none), the handoff its pressure called for (`null`: none), its part, where it sits in the record, what it printed, and the tokens read before it. */
 type Ran = { code: number; limit: Limit | null; called: PlannedHandoff | null; part: JobPart; at: number; lines: readonly string[]; before: Usage | null };
 
 /** What comes after a run: the next one, `runs` with `handoff` after the job's line, or the reason the job fails on. */
-type Next = { runs: Runs; handoff: string } | { failed: string };
+type Next = { runs: Runs; handoff: string } | { failed: string; limit?: JobLimit };
 
 const isoOf = (ms: number): string => new Date(ms).toISOString();
 
@@ -278,8 +278,9 @@ function partsOf(log: string, now: () => number): Parts {
       record.parts[at] = part;
       writeParts(partsPath(log), record);
     },
-    fail(reason) {
+    fail(reason, limit) {
       record.reason = reason;
+      if (limit !== undefined) record.limit = limit;
       writeParts(partsPath(log), record);
     },
     iso: () => isoOf(now()),
@@ -350,7 +351,7 @@ function turnOver(place: JobPlace, args: TurnArgs & { limit: Limit; changes: num
   parts.keep({ ...ran.part, resetsAt, guessed, note: 'runner' }, ran.at);
   if ('none' in next) {
     say(files, out, `↻ account ${runs.account.id} reached its usage limit: ${next.none}`);
-    return { failed: next.none };
+    return { failed: next.none, limit: earliestLimit(args) };
   }
   const note = runnersNote(place, args);
   writeFileSync(handoffPath(files.log), note);
@@ -370,6 +371,19 @@ function outAndNext({ cwd }: JobPlace, { line, runs, parts, turnover }: TurnArgs
   turnover.book.markOut(runs.account.id, resetsAt);
   const next = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line), cwd);
   return { resetsAt, guessed, next };
+}
+
+/**
+ * The provider limit a job ends on when no account is left to take it over (PRD 2949): the earliest reset among its
+ * accounts that are out, guessed when the parts of this job recorded that reset as the runner's guess.
+ */
+function earliestLimit({ parts, turnover }: TurnArgs): JobLimit {
+  const resets = turnover.accounts.flatMap((account) => {
+    const state = turnover.book.stateOf(account.id);
+    return state.state === 'out' && state.resetsAt !== null ? [state.resetsAt] : [];
+  });
+  const earliest = [...resets].sort((a, b) => Date.parse(a) - Date.parse(b))[0] ?? parts.iso();
+  return { resetsAt: earliest, guessed: parts.record.parts.some((part) => part.resetsAt === earliest && part.guessed === true) };
 }
 
 /** The next run: on `next`, its message the takeover line (from the part that ran, because `why`), then the note. */
@@ -429,7 +443,7 @@ async function usageHandoff(place: JobPlace, args: TurnArgs & { why: string; res
   if ('none' in next) {
     parts.keep({ ...ran.part, ended: 'usage', resetsAt, guessed }, ran.at);
     say(files, out, `↻ account ${runs.account.id} hands off, ${why}: ${next.none}`);
-    return { failed: next.none };
+    return { failed: next.none, limit: earliestLimit(args) };
   }
   const { note, by } = await handoffNote(place, args);
   parts.keep({ ...handedOffPart(args, cwd, 'usage', by), resetsAt, guessed }, ran.at);
@@ -519,7 +533,7 @@ async function carryOn(place: JobPlace, job: Omit<TurnArgs, 'runs' | 'ran'>, fir
     const next = await afterRun(place, { ...job, runs, ran }, counts);
     if (next === null) return ran.code;
     if ('failed' in next) {
-      job.parts.fail(next.failed);
+      job.parts.fail(next.failed, next.limit);
       return ran.code === 0 ? 1 : ran.code;
     }
     ({ runs, handoff } = next);

@@ -68720,7 +68720,8 @@ var JobPartSchema = external_exports.object({
   guessed: external_exports.boolean().optional(),
   note: external_exports.enum(["agent", "runner"]).optional()
 }).strict();
-var PartsRecordSchema = external_exports.object({ parts: external_exports.array(JobPartSchema), reason: external_exports.string().nullable() }).strict();
+var JobLimitSchema = external_exports.object({ resetsAt: external_exports.string(), guessed: external_exports.boolean() }).strict();
+var PartsRecordSchema = external_exports.object({ parts: external_exports.array(JobPartSchema), reason: external_exports.string().nullable(), limit: JobLimitSchema.optional() }).strict();
 var partsPath = (log) => `${log.replace(/\.log$/, "")}.parts.json`;
 var handoffPath = (log) => `${log.replace(/\.log$/, "")}.handoff.md`;
 function writeParts(path, record3) {
@@ -69037,8 +69038,9 @@ function partsOf2(log, now2) {
       record3.parts[at2] = part;
       writeParts(partsPath(log), record3);
     },
-    fail(reason2) {
+    fail(reason2, limit) {
       record3.reason = reason2;
+      if (limit !== void 0) record3.limit = limit;
       writeParts(partsPath(log), record3);
     },
     iso: () => isoOf2(now2())
@@ -69087,7 +69089,7 @@ function turnOver(place, args) {
   parts.keep({ ...ran.part, resetsAt, guessed, note: "runner" }, ran.at);
   if ("none" in next2) {
     say2(files, out, `\u21BB account ${runs3.account.id} reached its usage limit: ${next2.none}`);
-    return { failed: next2.none };
+    return { failed: next2.none, limit: earliestLimit(args) };
   }
   const note = runnersNote(place, args);
   writeFileSync61(handoffPath(files.log), note);
@@ -69101,6 +69103,14 @@ function outAndNext({ cwd }, { line: line3, runs: runs3, parts, turnover }, give
   turnover.book.markOut(runs3.account.id, resetsAt);
   const next2 = changes >= MAX_ACCOUNT_CHANGES ? { none: CAP_REASON } : nextAccount(turnover, skillOf(line3), cwd);
   return { resetsAt, guessed, next: next2 };
+}
+function earliestLimit({ parts, turnover }) {
+  const resets = turnover.accounts.flatMap((account) => {
+    const state = turnover.book.stateOf(account.id);
+    return state.state === "out" && state.resetsAt !== null ? [state.resetsAt] : [];
+  });
+  const earliest = [...resets].sort((a, b) => Date.parse(a) - Date.parse(b))[0] ?? parts.iso();
+  return { resetsAt: earliest, guessed: parts.record.parts.some((part) => part.resetsAt === earliest && part.guessed === true) };
 }
 var takenOver = ({ ran, turnover }, next2, why3, note) => ({
   runs: { agent: next2.agent, account: turnover.seenAs(next2.account) },
@@ -69144,7 +69154,7 @@ async function usageHandoff2(place, args) {
   if ("none" in next2) {
     parts.keep({ ...ran.part, ended: "usage", resetsAt, guessed }, ran.at);
     say2(files, out, `\u21BB account ${runs3.account.id} hands off, ${why3}: ${next2.none}`);
-    return { failed: next2.none };
+    return { failed: next2.none, limit: earliestLimit(args) };
   }
   const { note, by } = await handoffNote(place, args);
   parts.keep({ ...handedOffPart(args, cwd, "usage", by), resetsAt, guessed }, ran.at);
@@ -69218,7 +69228,7 @@ async function carryOn(place, job2, first) {
     const next2 = await afterRun(place, { ...job2, runs: runs3, ran }, counts3);
     if (next2 === null) return ran.code;
     if ("failed" in next2) {
-      job2.parts.fail(next2.failed);
+      job2.parts.fail(next2.failed, next2.limit);
       return ran.code === 0 ? 1 : ran.code;
     }
     ({ runs: runs3, handoff: handoff2 } = next2);
@@ -70321,7 +70331,7 @@ function ended(log, exitText, job2, turnedOver2) {
     const outcome2 = outcomeOf3(log, job2.line);
     return { ...done, ...bugFix === null ? {} : bugFixFields(bugFix), ...outcome2 === null ? {} : { outcome: outcome2 } };
   }
-  return failedWithPrs({ status: "failed", logTail: logTail(log), exitCode, reason: turnedOver2 ?? `exit code ${String(exitCode)}` }, log, job2.line);
+  return failedWithPrs({ status: "failed", logTail: logTail(log), exitCode, reason: turnedOver2?.reason ?? `exit code ${String(exitCode)}`, ...turnedOver2?.limit === void 0 ? {} : { limit: turnedOver2.limit } }, log, job2.line);
 }
 function vanished(log, job2) {
   const reason2 = "the job stopped before it wrote its exit code";
@@ -70329,7 +70339,11 @@ function vanished(log, job2) {
   if (outcome2 === null || outcome2 === "stopped") return failedWithPrs({ status: "failed", logTail: logTail(log), reason: reason2 }, log, job2.line);
   return { status: "done", logTail: logTail(log), prUrl: lastPullRequest(log, job2.repo), exitCode: null, reason: reason2, outcome: outcome2 };
 }
-var turnedOver = (place) => readParts(partsPath(place.log))?.reason ?? null;
+function turnedOver(place) {
+  const record3 = readParts(partsPath(place.log));
+  if (record3?.reason === null || record3 === null) return null;
+  return { reason: record3.reason, ...record3.limit === void 0 ? {} : { limit: record3.limit } };
+}
 function killed(loop2, job2, place, update2) {
   loop2.terminal.stop(place.session);
   return { ...update2, logTail: logTail(readLog(loop2, job2, place.log)) };

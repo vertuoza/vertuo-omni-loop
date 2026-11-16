@@ -108,6 +108,7 @@ import { bugFixReading, fixIssueOf, fixOutcome, handOffPrd, lastPullRequest, lin
 import type { BugFixReading, HandOffSkill, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import { handoffPath, partsPath, readParts } from './turnover.ts';
+import type { JobLimit } from './turnover.ts';
 import type { PluginKeeper } from './plugin.ts';
 import { MAX_RELEASE_ERROR, MAX_RELEASED, notReleased } from './release.ts';
 import type { Released, Releaser } from './release.ts';
@@ -736,9 +737,9 @@ function failedWithPrs(failed: JobUpdate, log: string, line: string): JobUpdate 
 
 /**
  * The status a run that ended with `exitText` reports: done with its pull request, or failed with its code, or with
- * the reason its turnover ended it on (`turnedOver`, PRD 2537: no account left to take it over).
+ * the reason its turnover ended it on (`turnedOver`, PRD 2537: no account left to take it over; PRD 2949: with the limit it met).
  */
-function ended(log: string, exitText: string, job: RunnerJob, turnedOver: string | null): JobUpdate {
+function ended(log: string, exitText: string, job: RunnerJob, turnedOver: { reason: string; limit?: JobLimit } | null): JobUpdate {
   const code = Number.parseInt(exitText, 10);
   const exitCode = Number.isNaN(code) ? 1 : code;
   if (exitCode === 0) {
@@ -748,7 +749,7 @@ function ended(log: string, exitText: string, job: RunnerJob, turnedOver: string
     // A mega bug fix whose hand-off ends on the line that resumes it reads `stopped` (#2449), whatever its Outcome word.
     return { ...done, ...(bugFix === null ? {} : bugFixFields(bugFix)), ...(outcome === null ? {} : { outcome }) };
   }
-  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: turnedOver ?? `exit code ${String(exitCode)}` }, log, job.line);
+  return failedWithPrs({ status: 'failed', logTail: logTail(log), exitCode, reason: turnedOver?.reason ?? `exit code ${String(exitCode)}`, ...(turnedOver?.limit === undefined ? {} : { limit: turnedOver.limit }) }, log, job.line);
 }
 
 /** The status a run whose session ended before it wrote its exit code reports: done on its hand-off's
@@ -761,8 +762,12 @@ function vanished(log: string, job: RunnerJob): JobUpdate {
   return { status: 'done', logTail: logTail(log), prUrl: lastPullRequest(log, job.repo), exitCode: null, reason, outcome };
 }
 
-/** The reason the job's turnover ended it on (PRD 2537): no account left to take it over; `null` when it did not. */
-const turnedOver = (place: Place): string | null => readParts(partsPath(place.log))?.reason ?? null;
+/** The reason the job's turnover ended it on (PRD 2537): no account left to take it over, with the provider limit it met when it was one (PRD 2949); `null` when it did not. */
+function turnedOver(place: Place): { reason: string; limit?: JobLimit } | null {
+  const record = readParts(partsPath(place.log));
+  if (record?.reason === null || record === null) return null;
+  return { reason: record.reason, ...(record.limit === undefined ? {} : { limit: record.limit }) };
+}
 
 /** Stops the job's session and answers `update`. */
 function killed(loop: Loop, job: string, place: Place, update: JobUpdate): JobUpdate {
