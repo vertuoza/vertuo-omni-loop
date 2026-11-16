@@ -8,7 +8,7 @@ import type { SnapshotDeps } from '../dossier/snapshot/snapshot';
 import { STAGE_SIGNATURE_HEADER } from '../stages/event/event';
 import type { FixRef } from '../dossier/github/reader';
 import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { parseTouch, receiveTouch, refreshAfterTouch, topicOfBranch, type TouchedDeps } from './touched';
+import { parseTouch, receiveTouch, refreshAfterTouch, topicOfBranch, type TouchedDeps, type TouchedSnapshot } from './touched';
 
 vi.mock('server-only', () => ({}));
 
@@ -25,6 +25,13 @@ const summary = (prd: PrdNumber, more: Partial<GithubSummary> = {}): GithubSumma
   issue: { number: parseIssue(prd), url: `https://github.com/${REPO}/issues/${prd}`, state: 'open' },
   phase0: null, feature: null, retro: null, mergedSlices: 0,
   ...more,
+});
+
+/** The keys the database generates from a stored summary (dossier_github's prd, issue and pulls, #2970). */
+const keysOf = (dossierId: string, kept: GithubSummary): TouchedSnapshot => ({
+  dossierId, repo: kept.repo, prd: kept.prd,
+  issue: kept.issue && kept.issue !== UNREAD ? kept.issue.number : null,
+  pulls: [kept.phase0, kept.feature, kept.retro].flatMap((part) => (part && part !== UNREAD ? [part.number] : [])),
 });
 
 const pull = (number: number) => ({ number: parsePr(number), url: `https://github.com/${REPO}/pull/${number}`, state: 'open' as const, draft: true });
@@ -68,7 +75,7 @@ function setup({ topics = new Map<string, PrdNumber>(), workspaces = [WS], read 
     workspacesOf: (repository) => Promise.resolve(repository.toLowerCase() === REPO.toLowerCase() ? workspaces : []),
     prdByTopic: (_workspace, _repository, topic) => Promise.resolve(topics.get(topic) ?? null),
     snapshotsOf: (workspace) => Promise.resolve([...store.rows].filter(([, row]) => row.workspaceId === workspace)
-      .map(([dossierId, row]) => ({ dossierId, summary: row.summary }))),
+      .map(([dossierId, row]) => keysOf(dossierId, row.summary))),
     snapshot,
     log,
     note,

@@ -31,7 +31,6 @@ import { z } from 'zod';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { FixRef } from '../dossier/github/reader';
-import { UNREAD, type GithubSummary } from '../dossier/github/summary';
 import { outboxStand, type OutboxStand } from '../dossier/page/stage';
 import { answeredAll } from '../runners/continue';
 import { refreshSnapshot, staleSnapshot, type SnapshotDeps, type SnapshotDossier } from '../dossier/snapshot/snapshot';
@@ -40,8 +39,9 @@ import { STAGE_SIGNATURE_HEADER, verifySignature } from '../stages/event/event';
 
 export type Touch = { repository: string; issue?: IssueNumber; pr?: PrNumber; branch?: string };
 
-/** A dossier's snapshot, as a touch is matched against it. */
-export type TouchedSnapshot = { dossierId: string; summary: GithubSummary };
+/** A dossier's snapshot, as a touch is matched against it: its home repository, and the keys its summary
+ * holds, the PRD's number, its issue's (null when it read none) and its pull requests' (#2970). */
+export type TouchedSnapshot = { dossierId: string; repo: string; prd: PrdNumber; issue: IssueNumber | null; pulls: PrNumber[] };
 
 export type TouchedDeps = {
   /** STAGE_EVENT_SECRET; unset, every touch is refused. */
@@ -108,16 +108,6 @@ export function topicOfBranch(branch: string): string | null {
 
 const why = (error: unknown) => (error instanceof Error ? error.message.split('\n')[0] : String(error));
 
-/** The numbers of the pull requests a snapshot holds. */
-function pullsOf(summary: GithubSummary): number[] {
-  return [summary.phase0, summary.feature, summary.retro].flatMap((pull) => (pull && pull !== UNREAD ? [pull.number] : []));
-}
-
-/** The issue a snapshot holds, when it read one. */
-function issueOf(summary: GithubSummary): number | null {
-  return summary.issue && summary.issue !== UNREAD ? summary.issue.number : null;
-}
-
 /** The workspace's dossiers the touch names, each as the snapshot refreshes it. */
 async function resolve(touch: Touch, workspace: string, deps: TouchedDeps): Promise<SnapshotDossier[]> {
   const prds = new Set<number>();
@@ -131,11 +121,11 @@ async function resolve(touch: Touch, workspace: string, deps: TouchedDeps): Prom
   if (prds.size === 0 && touch.pr === undefined && touch.issue === undefined) return [];
   const repository = touch.repository.toLowerCase();
   return (await deps.snapshotsOf(workspace, touch.repository))
-    .filter(({ summary }) => summary.repo.toLowerCase() === repository)
-    .filter(({ summary }) => prds.has(summary.prd)
-      || (touch.pr !== undefined && pullsOf(summary).includes(touch.pr))
-      || (touch.issue !== undefined && issueOf(summary) === touch.issue))
-    .map(({ dossierId, summary }) => ({ id: dossierId, workspace_id: workspace, home_repo: summary.repo, prd: summary.prd }));
+    .filter(({ repo }) => repo.toLowerCase() === repository)
+    .filter(({ prd, issue, pulls }) => prds.has(prd)
+      || (touch.pr !== undefined && pulls.includes(touch.pr))
+      || (touch.issue !== undefined && issue === touch.issue))
+    .map(({ dossierId, repo, prd }) => ({ id: dossierId, workspace_id: workspace, home_repo: repo, prd }));
 }
 
 /** Marks the snapshot stale. While a refresh holds its lease, the mark moves to now, past the refresh's
