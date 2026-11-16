@@ -35,6 +35,7 @@ signed. A command that prints nothing means signing is off here: add nothing.
 | a page link | `/omni:roadmap https://example.com/crew-plan` | read as it is served |
 | a file in the repository | `/omni:roadmap plans/crew.md` | read from the checkout |
 | pasted text | `/omni:roadmap '<the plan>'` | read as given; the roadmap has no `source` then |
+| `--mission <m> --cap <k>` | `/omni:roadmap --mission 12 --cap 3` | sent by a mission at Works alone to its PM, on a runner: its goal is the source, as **For a mission's PM** says |
 
 `<n>` everywhere below is the roadmap's number, its issue's; `<prd>` is one PRD's number.
 
@@ -393,6 +394,36 @@ and `omni roadmap prereqs` did not). Its **What is next?** block reads:
 
 /omni:drive --roadmap <key>-R<n>
 ```
+
+## For a mission's PM
+
+`/omni:roadmap --mission <m> --cap <k>` is the line a mission at Works alone sends its PM on a runner
+(PRD 2896, "7. The PM's own PRDs"). A runner refuses it on any other job, and nobody sends it by
+hand. It writes at most `<k>` PRDs for the mission's goal and asks nobody. The steps above run as
+written, with these differences.
+
+- **The source** is the mission's goal and measures, read from `mission.md` in the folder of mission
+  `<m>` under `.omni-loop/delivery/missions/`. No such folder, or step 0 read `phase 0: pr`: write
+  nothing and go straight to the record line, with no PRD.
+- **The cap.** Step 2's map lists the PRDs in the roadmap's order; step 3 writes the first `<k>` and
+  no other. The rows past the cap are not written: name each by its title in `unwritten`, and the
+  mission page shows them as `not written: the cap is <k>`.
+- **Asks nobody.** `OMNI_UNATTENDED` is set. Step 2 shows no map to a person: each open question
+  takes its most reversible answer, and becomes one outbox item, `hardToRevert: true`, on the PRD
+  it concerns (on the first PRD written, when it concerns the roadmap), through
+  `omni item new --prd <prd>`: a high item, which the fleet's committee settles or sends to a person.
+- **Born on the server, each planned.** Every PRD's spec says `phase0: server`, and each is planned
+  with `/omni:plan` once written, so its page holds the spec, the plan and the before/after its
+  committee reads. Step 5 opens no phase-0 PR; it pushes the roadmap to its page. Step 6 hands off
+  no `/omni:drive` line: the mission builds each PRD once its committee approves, the PM sitting out.
+- **The record line,** the run's last output, one line exactly, its PRDs in the roadmap's order:
+
+  ```
+  omni pm: {"v":1,"mission":<m>,"skill":"roadmap","cap":<k>,"prds":[<prd>, …],"unwritten":["<title>", …]}
+  ```
+
+  The Omni app reads it from the job's log, and only it: each PRD joins the mission as
+  `added by the fleet`, at most `<k>` of them, and a line it cannot read adds nothing.
 
 ## Guardrails
 

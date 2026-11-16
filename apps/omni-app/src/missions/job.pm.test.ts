@@ -62,7 +62,9 @@ const kinds = (fake: ReturnType<typeof setup>['fake'], kind: string) => fake.eve
 
 describe('the PM\'s job', () => {
   it('is never sent with mandate.ownPrds at 0, nor below alone', async () => {
-    for (const mission of [record({ ownPrds: 0 }), record({ level: 'own-branch' }), record({ ownPrds: undefined })]) {
+    const unset = record();
+    delete unset.ownPrds;
+    for (const mission of [record({ ownPrds: 0 }), record({ level: 'own-branch' }), unset]) {
       const { fake, run } = setup({ mission });
       await run();
       expect(fake.pms(), JSON.stringify(mission)).toEqual([]);

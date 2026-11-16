@@ -24,7 +24,8 @@ fleet`.
 - **Icon,** the fleet mascots as tiles, in the library's order, the first (the beaver) selected.
 - **Heroes,** the six roles (Engineer, QA, Reviewer, PM, Architect, Designer), each a yes/no switch,
   all on, each with its count line: `Runs <k> of <n> skills alone`, or `A person does this today`
-  (PRD 2873).
+  (PRD 2873). The PM's reads `Runs 6 of 7 skills alone`: runners take its four writing skills for a
+  mission at Works alone, and `mission` stays a person's (PRD 2896).
 - **Level,** one choice of three, `Reviews with you` selected: `Reviews with you` (`You merge each PRD`),
   `Own branch` (`You land the mission`), `Works alone` (`Asks you when needed`).
 - **The foot,** `Cancel` and `Create fleet`, the primary; a refusal of the whole form above them.

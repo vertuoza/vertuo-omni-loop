@@ -225,6 +225,25 @@ and writes nothing in any repository. It follows that section step for step, wit
   `/omni:mega-drive --roadmap <key>-R<n>` does the same in a plan repository), once an approver of
   the product approved the roadmap on its page.
 
+## For a mission's PM
+
+`/omni:mega-roadmap --mission <m> --cap <k>` is the line a mission at Works alone sends its PM on a
+runner when the mission's PRDs live in this plan repository (PRD 2896, "7. The PM's own PRDs"). A
+runner refuses it on any other job, and nobody sends it by hand. It runs as `/omni:roadmap`'s
+**For a mission's PM** says, in the plan repository, with these differences.
+
+- **The source** is the mission's goal and measures, read from `mission.md` in the folder of mission
+  `<m>` under `.omni-loop/delivery/missions/` of the plan repository.
+- **The cap.** Step 3 writes the first `<k>` PRDs of the map, in its order, and no other; the rest
+  are named by their titles in `unwritten`.
+- **Born on the server, each planned, never sent.** Each PRD is planned once written; step 5 opens
+  no phase-0 PR, here or in any target; step 6 hands off no `/omni:mega-drive` line.
+- **The record line,** the run's last output, one line exactly, its PRDs in the roadmap's order:
+
+  ```
+  omni pm: {"v":1,"mission":<m>,"skill":"mega-roadmap","cap":<k>,"prds":[<prd>, …],"unwritten":["<title>", …]}
+  ```
+
 ## Guardrails
 
 - Runs in a plan repository, and writes only there (a product run, `--product`, writes in no repository):

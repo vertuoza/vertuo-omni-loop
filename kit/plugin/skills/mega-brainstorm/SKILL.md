@@ -319,6 +319,26 @@ ultra-yolo is not in this kit yet: the plan waits in the inbox
 /omni:ultra-yolo <n>
 ```
 
+## For a mission's PM
+
+`/omni:mega-brainstorm --mission <m> --cap <k>` is the line a mission at Works alone sends its PM on
+a runner when the mission's PRDs live in this plan repository (PRD 2896, "7. The PM's own PRDs").
+A runner refuses it on any other job, and nobody sends it by hand. It runs as `/omni:brainstorm`'s
+**For a mission's PM** says, in the plan repository, with these differences.
+
+- **The idea** is the mission's goal and measures, read from `mission.md` in the folder of mission
+  `<m>` under `.omni-loop/delivery/missions/` of the plan repository. Step 2 asks nobody: which
+  repository does what takes the most reversible answer, and becomes a high outbox item on the PRD
+  like every other question.
+- **Born on the server, planned, never sent.** Step 8 plans it; step 9 opens no phase-0 PR, here or
+  in any target; step 10 hands off no `/omni:ultra-yolo` line: the mission builds it once its
+  committee approves, the PM sitting out.
+- **The record line,** the run's last output, one line exactly, `prds` empty when it wrote none:
+
+  ```
+  omni pm: {"v":1,"mission":<m>,"skill":"mega-brainstorm","cap":<k>,"prds":[<n>],"unwritten":[]}
+  ```
+
 ## Guardrails
 
 - Runs only in a plan repository, and writes only there: never a branch, a commit, a pull request,
