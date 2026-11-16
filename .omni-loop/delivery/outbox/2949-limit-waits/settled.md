@@ -392,3 +392,406 @@ The `fleet-room` screen's two waiting states match what is built. The screen is 
 ```
 
 <!-- /omni-outbox-settled: s5-01-room-says-waits-from-existing-reads -->
+
+<!-- omni-outbox-settled: s1-01-limit-wait-extends-cancel-proof -->
+
+## s1-01-limit-wait-extends-cancel-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T20:26:33Z
+- Channel: feature pull request #2950
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2950#issuecomment-6928316627
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-134
+- Raised: 2026-11-16
+- Slice: s1
+- Wave: 1
+- Stays here: agrees the extended proof still proves the same rule; the rule did not change
+
+### The answer, as it was given
+
+```text
+A. A. Keep the limit cases in the same proof files: they prove the same rule for one more ending
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-01-limit-wait-extends-cancel-proof
+prd: 2949
+slice: s1
+rank: high
+bears-on: BR-PRODUCT-134
+raised: 2026-11-16
+wave: 1
+---
+
+## The question, in plain words
+
+The check that proves a cancelled job is never picked up again now also covers jobs that wait out a provider limit. Does that wider check still prove the same rule?
+
+## The decision, in plain words
+
+We added the waiting jobs to the same check: a job whose cancel was asked before it hit the limit queues nothing, and a waiting copy that someone cancels is never picked up by any machine. The earlier cases are kept as they were.
+
+## The intro, for fun
+
+A rule's proof grew a new chapter while nobody was watching.
+
+## The punchline, for fun
+
+Same promise, longer receipt: a cancel still means stop.
+
+## The options, in plain words
+
+A. A. Keep the limit cases in the same proof files: they prove the same rule for one more ending
+B. B. Move the limit cases into a check of their own, leaving the rule's proof as it was
+C. C. Keep them, and amend the rule's words to name a limit's wait
+
+## What I had to decide
+
+Confirm that supabase/checks/runner_resume.sql and apps/galaxy/src/runners/runners.resume.migration.test.ts still prove BR-PRODUCT-134 once they also cover a limit's wait (PRD 2949 s1), or say which case the rule should name.
+
+## What I did meanwhile
+
+The extended check runs in the supabase workflow; the rule's text is unchanged.
+
+## What it costs to change later
+
+Low: answering B only moves the limit cases into a check of their own.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether BR-PRODUCT-134 should say in words that it covers a limit's wait too, not only a lost runner (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-01-limit-wait-extends-cancel-proof -->
+
+<!-- omni-outbox-settled: s1-03-limit-report-extends-access-proof -->
+
+## s1-03-limit-report-extends-access-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T20:26:33Z
+- Channel: feature pull request #2950
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2950#issuecomment-6928316627
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-ACCESS-7
+- Raised: 2026-11-16
+- Slice: s1
+- Wave: 1
+- Stays here: agrees the extended proof still proves the same rule; the rule did not change
+
+### The answer, as it was given
+
+```text
+A. A. Keep the limit tests in the same file, as their own group: the rule's proof is untouched
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-03-limit-report-extends-access-proof
+prd: 2949
+slice: s1
+rank: high
+bears-on: BR-ACCESS-7
+raised: 2026-11-16
+wave: 1
+---
+
+## The question, in plain words
+
+The test file that proves how a machine's request for a fresh access pass is refused now also holds the tests for how a job reports a provider limit. Does that file still prove the same rule?
+
+## The decision, in plain words
+
+We added the limit tests beside the others in the same file, as their own group; none of the refusal tests changed.
+
+## The intro, for fun
+
+A test file that guards the door also learned to read the clock.
+
+## The punchline, for fun
+
+The door rule did not move, it just got a neighbour.
+
+## The options, in plain words
+
+A. A. Keep the limit tests in the same file, as their own group: the rule's proof is untouched
+B. B. Move the limit tests to a file of their own
+
+## What I had to decide
+
+Confirm that apps/galaxy/src/runners/runners.service.test.ts still proves BR-ACCESS-7 with its new group 'a job that meets a provider limit (PRD 2949)', or ask for the group to move to a file of its own.
+
+## What I did meanwhile
+
+The new group runs with the file's other tests; nothing in the refusal tests changed.
+
+## What it costs to change later
+
+Low: answering B moves one test group to a new file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether BR-ACCESS-7 should list the limit group among what proves it, or the file should be split (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-03-limit-report-extends-access-proof -->
+
+<!-- omni-outbox-settled: s2-01-limit-report-extends-runner-proof -->
+
+## s2-01-limit-report-extends-runner-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T20:26:33Z
+- Channel: feature pull request #2950
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2950#issuecomment-6928316627
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-19
+- Raised: 2026-11-16
+- Slice: s2
+- Wave: 2
+- Stays here: agrees the extended proof still proves the same rule; the rule did not change
+
+### The answer, as it was given
+
+```text
+A. Keep the limit tests in the same files, as their own cases: the rule's proof is untouched
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-limit-report-extends-runner-proof
+prd: 2949
+slice: s2
+rank: high
+bears-on: N-PRODUCT-19
+raised: 2026-11-16
+wave: 2
+---
+
+## The question, in plain words
+
+The test files that prove how a runner ends and reports a job now also hold the tests for how a job that ran out of every provider account reports its limit. Do they still prove the same rule?
+
+## The decision, in plain words
+
+We added the limit tests beside the others, in the same files, as their own cases; no existing test changed except that some failed-report cases now also say a limit is absent where none is due.
+
+## The intro, for fun
+
+A runner that knows when it will be allowed back.
+
+## The punchline, for fun
+
+The old tests still guard the door; the new ones read the clock.
+
+## The options, in plain words
+
+A. Keep the limit tests in the same files, as their own cases: the rule's proof is untouched
+B. Move the limit tests to a file of their own
+
+## What I had to decide
+
+Confirm that kit/lib/runner/runner.test.ts and kit/lib/runner/turnover.test.ts still prove their rules with the new limit cases, or ask for the cases to move to a file of their own.
+
+## What I did meanwhile
+
+The new cases run with the files' other tests; the existing cases I touched only gained an assertion.
+
+## What it costs to change later
+
+Low: answering B moves a few test cases to a new file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The PRD, the registers and the glossary do not settle whether these files should list the limit cases among what proves the rule.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-limit-report-extends-runner-proof -->
+
+<!-- omni-outbox-settled: s3-01-claim-extends-keeper-proof -->
+
+## s3-01-claim-extends-keeper-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T20:26:33Z
+- Channel: feature pull request #2950
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2950#issuecomment-6928316627
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-135
+- Raised: 2026-11-16
+- Slice: s3
+- Wave: 2
+- Stays here: agrees the extended proof still proves the same rule; the rule did not change
+
+### The answer, as it was given
+
+```text
+A. A. Keep the new cases in the same proof files: they prove the same rule over longer chains
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-claim-extends-keeper-proof
+prd: 2949
+slice: s3
+rank: high
+bears-on: BR-PRODUCT-135
+raised: 2026-11-16
+wave: 2
+---
+
+## The question, in plain words
+
+The proofs that a resumed job waits for the machine holding its saved work now also cover long chains of waits, and the new order that hands recovery out first. Do the wider proofs still prove the same rule?
+
+## The decision, in plain words
+
+We extended the same proofs: the saved work is now looked for along the whole history of the job, not only its two latest tries, and the queue hands out every resumed job before any new one. The earlier cases are kept as they were.
+
+## The intro, for fun
+
+The rule about waiting for the right machine just learned to count past two.
+
+## The punchline, for fun
+
+Same promise, longer memory: the saved work still goes home first.
+
+## The options, in plain words
+
+A. A. Keep the new cases in the same proof files: they prove the same rule over longer chains
+B. B. Move the new cases into a check and a test of their own, leaving the rule's proof as it was
+C. C. Keep them, and amend the rule's words to name the whole chain and the recovery-first order
+
+## What I had to decide
+
+Confirm that supabase/checks/runner_resume.sql, apps/galaxy/src/runners/runners.claim-resume.migration.test.ts and apps/galaxy/src/runners/runners.resume-claim.test.ts still prove BR-PRODUCT-135 once they also cover a whole chain of waits and the recovery-first order (PRD 2949 s3), or say what the rule should name.
+
+## What I did meanwhile
+
+The extended check and tests pass; the rule's text is unchanged. Each new case was seen failing against the previous claim before the new one made it pass.
+
+## What it costs to change later
+
+Low: answering B only moves the new cases into a check and a test of their own.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether BR-PRODUCT-135 should say in words that it reads the job's whole history, now that waits make it longer than three tries (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-claim-extends-keeper-proof -->
+
+<!-- omni-outbox-settled: s4-01-limit-wait-extends-mission-proof -->
+
+## s4-01-limit-wait-extends-mission-proof — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T20:26:33Z
+- Channel: feature pull request #2950
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2950#issuecomment-6928316627
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-139
+- Raised: 2026-11-16
+- Slice: s4
+- Wave: 2
+- Stays here: agrees the extended proof still proves the same rule; the rule did not change
+
+### The answer, as it was given
+
+```text
+A. Keep the limit cases in the same tests: they prove the same rule for one more ending
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-limit-wait-extends-mission-proof
+prd: 2949
+slice: s4
+rank: high
+bears-on: BR-PRODUCT-139
+raised: 2026-11-16
+wave: 2
+---
+
+## The question, in plain words
+
+The tests that prove a mission carries on after a lost runner now also cover a PRD that waits out a provider limit. Do the extended tests still prove the same rule?
+
+## The decision, in plain words
+
+We kept the old cases and added new ones beside them: a limited job with a resume reads as waiting and keeps its run and its place, a job no runner can take reads as waiting for room, and the 6th wait's failure stops the PRD with its reason.
+
+## The intro, for fun
+
+The mission learned to sleep through a storm instead of calling it a day.
+
+## The punchline, for fun
+
+Same promise, more weather: the mission keeps going.
+
+## The options, in plain words
+
+A. Keep the limit cases in the same tests: they prove the same rule for one more ending
+B. Move the limit cases into tests of their own, leaving the rule's proof as it was
+C. Keep them, and amend the rule's words to name a provider limit's wait
+
+## What I had to decide
+
+Confirm that supervisor.test.ts and mission.e2e.test.ts still prove BR-PRODUCT-139 once they also cover a provider limit's wait and a wait for room (PRD 2949 s4), or say which case the rule should name.
+
+## What I did meanwhile
+
+The extended tests run in the workspace test run; the rule's text is unchanged.
+
+## What it costs to change later
+
+Low: answering B only moves the limit cases into tests of their own.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether BR-PRODUCT-139 should say in words that it covers a provider limit's wait too.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-limit-wait-extends-mission-proof -->
