@@ -29,8 +29,11 @@ export type CheckVerdict = { name: string; state: CheckState; why: string | null
 /** One review of the pull request, as GitHub lists it, oldest first. */
 export type ListedReview = { body: string | null; commit: string | null };
 
-/** The open items of the PRD's outbox at the head, by rank (`unread` for one that does not parse), or why they were not read. */
-export type OpenItems = { ranks: readonly (string | null)[] } | { notRead: string };
+/**
+ * The open items of the PRD's outbox at the head, by rank (null for one that does not parse), or why they were not read. `open`
+ * names each with its id, null for one that does not parse (PRD 2896 s10: the committee answers a high item by its id).
+ */
+export type OpenItems = { ranks: readonly (string | null)[]; open?: readonly { id: string | null; rank: string | null }[] } | { notRead: string };
 
 /** What ./join.ts read of a PRD's feature pull request. */
 export type PullRead = {

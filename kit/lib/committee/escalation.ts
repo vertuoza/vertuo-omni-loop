@@ -33,6 +33,8 @@ export type AnswerFacts = {
   lockedLaws: readonly string[];
   legal: readonly string[];
   redBusinessLaws: readonly string[];
+  /** The business laws the item bears on: no verdict judges an item, so the committee cannot tell whether it breaks one. */
+  businessLaws?: readonly string[];
   dataMigrations: readonly string[];
   /** Its hard-to-revert score, 0 to 1; null when it has none. */
   hardToRevert: number | null;
@@ -50,16 +52,22 @@ function whoActs(facts: CommitteeFacts): string[] {
   return facts.rank === 'human-action' ? ['it is a human-action item: only a person can act on it'] : [];
 }
 
-/** The laws it bears on: locked laws, Legal entries, business laws judged red. */
+/** One reason naming `ids`, in its one-id or its many-ids words; none when `ids` is empty. */
+const naming = (ids: readonly string[], one: (id: string) => string, many: (ids: string) => string): string[] =>
+  ids.length === 0 ? [] : [ids.length === 1 ? one(listed(ids)) : many(listed(ids))];
+
+/** The laws it bears on: locked laws, Legal entries, business laws judged red, and the business laws an item bears on (s10). */
 function lawsOf(facts: CommitteeFacts): string[] {
-  const { lockedLaws, legal, redBusinessLaws } = facts;
-  const why: string[] = [];
-  if (lockedLaws.length > 0) {
-    why.push(lockedLaws.length === 1 ? `it bears on the locked law ${listed(lockedLaws)}: its owner decides` : `it bears on the locked laws ${listed(lockedLaws)}: their owners decide`);
-  }
-  if (legal.length > 0) why.push(`it bears on the Legal ${legal.length === 1 ? 'entry' : 'entries'} ${listed(legal)}`);
-  if (redBusinessLaws.length > 0) why.push(`its spec breaks the business ${redBusinessLaws.length === 1 ? 'law' : 'laws'} ${listed(redBusinessLaws)}`);
-  return why;
+  return [
+    ...naming(facts.lockedLaws, (id) => `it bears on the locked law ${id}: its owner decides`, (ids) => `it bears on the locked laws ${ids}: their owners decide`),
+    ...naming(facts.legal, (id) => `it bears on the Legal entry ${id}`, (ids) => `it bears on the Legal entries ${ids}`),
+    ...naming(facts.redBusinessLaws, (id) => `its spec breaks the business law ${id}`, (ids) => `its spec breaks the business laws ${ids}`),
+    ...naming(
+      facts.kind === 'answer' ? (facts.businessLaws ?? []) : [],
+      (id) => `it bears on the business law ${id}: a person decides`,
+      (ids) => `it bears on the business laws ${ids}: a person decides`,
+    ),
+  ];
 }
 
 /** An item's hard-to-revert score at or above the mission's bound, or unknown. */
@@ -93,6 +101,41 @@ export function bearsOn(text: string, locked: readonly string[]): { lockedLaws: 
   const lockedLaws = locked.filter((id) => at(id) >= 0).sort((a, b) => at(a) - at(b));
   const legal = [...new Set(text.match(LEGAL) ?? [])];
   return { lockedLaws, legal };
+}
+
+const BUSINESS_LAW = /\bBL-[A-Z][A-Z0-9]*-[1-9][0-9]*\b/g;
+
+/** Jev's line an item's decision ends on when the workspace let Jev answer `hardToRevert` (`/omni:do-work`, step 3). */
+const JEV = /^Decided by: Jev \(hardToRevert ([01](?:\.\d+)?)\)/m;
+
+/**
+ * An item's hard-to-revert score (PRD 2896 s10): Jev's confidence, when Jev decided its `hardToRevert`; null otherwise, and
+ * for a confidence out of 0 to 1. An item carries no other score, so an item no Jev scored is unknown, never under a bound.
+ */
+export function jevScore(text: string): number | null {
+  const match = JEV.exec(text);
+  const score = match ? Number(match[1]) : Number.NaN;
+  return score >= 0 && score <= 1 ? score : null;
+}
+
+/**
+ * What the list reads of a high outbox item (PRD 2896 s10), from its text: the locked laws (of `locked`), the Legal entries and
+ * the business laws its front matter or its words name, Jev's score, and the mission's `bound`. `dataMigrations` are the
+ * migrations of its branch that drop or rewrite data, read by the caller.
+ */
+export function itemFacts({ text, rank, locked, bound, dataMigrations }: { text: string; rank: string; locked: readonly string[]; bound: number; dataMigrations: readonly string[] }): AnswerFacts {
+  const named = bearsOn(text, locked);
+  return {
+    kind: 'answer',
+    rank,
+    lockedLaws: named.lockedLaws,
+    legal: named.legal,
+    redBusinessLaws: [],
+    businessLaws: [...new Set(text.match(BUSINESS_LAW) ?? [])],
+    dataMigrations,
+    hardToRevert: jevScore(text),
+    bound,
+  };
 }
 
 const REWRITES: readonly RegExp[] = [

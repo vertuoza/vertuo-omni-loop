@@ -1,33 +1,38 @@
 ---
 name: committee
-description: The fleet's committee, at a mission's level `alone` — decides whether PRD n, waiting for approval on its page, is approved by the fleet instead of a person. Reads the escalation list by code first with omni committee check (a PRD approved by its phase-0 PR, a locked law, a Legal entry, a migration that drops or rewrites data all go to a person, no member running); then the PM, the Architect and the Reviewer, each as its own agent and model, read the spec, the plan and the before/after with no other member's verdict in front of them and answer yes, no or unsure in one sentence; the hero whose job wrote the PRD sits out. Records the decision with omni committee record, whose last line the App reads back to approve the PRD in the fleet's name or send it to a person with the verdicts. Never approves on the page, never merges, asks nothing, writes no file of the repository. A mission sends it on a runner. Triggers on "the committee approves PRD 2896", "/omni:committee 2896 --approve".
+description: The fleet's committee, at a mission's level `alone` — decides whether PRD n, waiting for approval on its page, is approved by the fleet instead of a person (--approve), or whether one of its high outbox items is answered by the fleet with option A, as built, instead of a person (--item <id>). Reads the escalation list by code first with omni committee check (a PRD approved by its phase-0 PR; a human-action item; a locked law, a Legal entry, a business law an item bears on; an item's hard-to-revert score unknown or at the mission's bound; a migration that drops or rewrites data all go to a person, no member running); then the PM, the Architect and the Reviewer, each as its own agent and model, read the PRD's files or the item with no other member's verdict in front of them and answer yes, no or unsure in one sentence; the hero whose job wrote the PRD or raised the item sits out. Records the decision with omni committee record, whose last line the App reads back to approve the PRD or settle the item in the fleet's name, or send it to a person with the verdicts. Never approves on the page, never settles an item itself, never merges, asks nothing, writes no file of the repository. A mission sends it on a runner. Triggers on "the committee approves PRD 2896", "/omni:committee 2896 --approve", "/omni:committee 2896 --item s3-01-keep-the-cap".
 ---
 
-# Committee: the fleet approves a mission's PRD, or a person does
+# Committee: the fleet decides for a mission, or a person does
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
 A mission whose level is `alone` (PRD 2896) has its fleet's committee decide what a person would
-otherwise approve. The PM chairs; the Architect and the Reviewer sit on it. **Every member who sits
-must answer `yes`:** three, or two when the hero whose job wrote the PRD sits out. Anything else goes
-to a person, with the verdicts. The escalation list is read by code before any member runs, so the
-members' judgement only meets what it lets through.
+otherwise decide: a PRD's approval (`--approve`), and a high outbox item's answer (`--item <id>`).
+The PM chairs; the Architect and the Reviewer sit on it. **Every member who sits must answer
+`yes`:** three, or two when the hero whose job wrote the PRD, or raised the item, sits out. Anything
+else goes to a person, with the verdicts. The escalation list is read by code before any member
+runs, so the members' judgement only meets what it lets through.
+
+An item is answered with **option A, what was built**, or not at all: a member who would rather
+another option answers `no`, says which in its sentence, and the item goes to a person.
 
 This skill decides nothing itself: it runs the members and records what they answered. The App
 records the decision as the service, from this job's last line, and decides again from it: a line
-written any other way is never carried.
+written any other way is never carried. For an item, the App also settles it on the feature branch,
+`answered by fleet <key>`: this skill never does.
 
 **Signing.** It makes no commit and opens no pull request, issue or comment. Each verdict is signed
 by its role and `agent` in the record, never in a person's name (L-AIACT-1).
 
 **It asks nothing,** on a runner (`OMNI_UNATTENDED` set) or in a terminal: a member that cannot
-decide answers `unsure`, and the PRD goes to a person.
+decide answers `unsure`, and the PRD or the item goes to a person.
 
 ## Never
 
-- **It never approves on the page**, never merges, and never applies a label: the App approves in
-  the fleet's name once it reads a carried record.
+- **It never approves on the page**, never settles an item, never merges, and never applies a
+  label: the App acts in the fleet's name once it reads a carried record.
 - **It never lets the author vote:** the hero `--author` names sits out, its verdict never asked.
 - **No member reads another's verdict:** each runs alone, on the files only.
 - **It writes nothing in the repository:** no commit, no push, no edit of the PRD's folder.
@@ -35,8 +40,11 @@ decide answers `unsure`, and the PRD goes to a person.
 
 ## Input
 
-`<n> --approve`, and `--author <role>` (`pm`, `architect` or `reviewer`) when a hero of the fleet
-wrote the PRD. With no `--approve`, say that this skill takes `<n> --approve`, and stop.
+`<n> --approve`, or `<n> --item <id> [--bound <0-1>]`, `--bound` the mission's
+`mandate.hardToRevert`; and `--author <role>` (`pm`, `architect` or `reviewer`) when a hero of the
+fleet wrote the PRD or raised the item. With neither `--approve` nor `--item`, say that this skill
+takes `<n> --approve` or `<n> --item <id>`, and stop. `<what>` below is `--approve`, or
+`--item <id> [--bound <b>]` as given.
 
 ## Step 0
 
@@ -48,34 +56,40 @@ Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs s
 rules bind every step below.
 
 **Every stop** ends the run on one line, `committee: <why>`, its last: the mission reads no record,
-and the PRD goes to a person.
+and the PRD or the item goes to a person.
 
 ## 1. Find the PRD's files
 
 1. `git fetch <remote>`. When `<remote>/<feature branch>` exists, check it out in a worktree of
    its own, under `worktrees`: `git worktree add --detach <path> <remote>/<feature branch>`. Every
-   step below runs there; with no feature branch, it runs in this checkout.
+   step below runs there; with no feature branch, it runs in this checkout. An item is read on the
+   feature branch only: with `--item` and no feature branch, stop with
+   `committee: PRD <n> has no feature branch to read <id> on`.
 2. `node .omni-loop/bin/omni.mjs prd <n>`. A `repos:` line, or no folder: stop with
    `committee: PRD <n> has no folder here to read`.
 
 ## 2. The escalation list, before any member runs
 
-`node .omni-loop/bin/omni.mjs committee check <n> --approve [--author <role>] --json`. Keep its
-`read` (each file with its hash), its `sitting` (each member with its agent and model) and its
-`escalations`.
+`node .omni-loop/bin/omni.mjs committee check <n> <what> [--author <role>] --json`. Keep its
+`read` (each file with its hash and path), its `sitting` (each member with its agent and model) and
+its `escalations`.
 
 When `escalations` is not empty, **no member runs**: write `{ "verdicts": [] }` to a scratch file
-outside the repository and go to step 4. The PRD goes to a person whatever a member would say.
+outside the repository and go to step 4. It goes to a person whatever a member would say.
 
 ## 3. Each member, alone
 
 For each member of `sitting`, in order, start one sub-agent of its agent and model (in Claude, the
 Agent tool with that model), never two at once, and give it only:
 
-- its role: `You are the <role> of a Virtual Fleet's committee`, the spec, the plan and the
-  before/after files `read` names, to read whole;
-- what it decides: `Would you approve this PRD to be built as written, with no person reading it
-  first? Answer yes, no or unsure, and say why in one sentence of at most 200 characters.`;
+- its role: `You are the <role> of a Virtual Fleet's committee`, and the files `read` names, to
+  read whole: the spec, the plan and the before/after for `--approve`; the item for `--item`, with
+  the spec and the plan beside it for context;
+- what it decides, for `--approve`: `Would you approve this PRD to be built as written, with no
+  person reading it first? Answer yes, no or unsure, and say why in one sentence of at most 200
+  characters.`; for `--item`: `Would you settle this question with option A, what was built, with
+  no person answering it? Answer yes, no or unsure, and say why in one sentence of at most 200
+  characters; if you would rather another option, answer no and name it.`;
 - what it answers: one JSON object, `{ "answer": "yes" | "no" | "unsure", "sentence": "…" }`, and
   nothing else.
 
@@ -92,7 +106,7 @@ Write `{ "verdicts": [<each verdict>] }` to a scratch file outside the repositor
 
 ## 4. Record it
 
-`node .omni-loop/bin/omni.mjs committee record <n> --approve --file <votes> [--author <role>]`,
+`node .omni-loop/bin/omni.mjs committee record <n> <what> --file <votes> [--author <role>]`,
 printing each line it prints. It decides (escalated by rule first, by vote second) and ends on its
 record line, `omni committee: {…}`, which the App reads.
 

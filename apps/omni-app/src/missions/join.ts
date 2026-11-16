@@ -17,7 +17,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { createContext } from 'omni-loop/kit/lib/context.ts';
+import { createContext, type Context } from 'omni-loop/kit/lib/context.ts';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import { openItems } from 'omni-loop/kit/lib/outbox/status.ts';
@@ -80,17 +80,31 @@ export class DefaultBranchMergeError extends Error {
   }
 }
 
+/**
+ * The head's `.omni-loop/config.yml` and PRD `prd`'s outbox folder at `ref`, fetched into `folder`: the context the kit reads them
+ * through, or why not, when the head holds no config that reads. Shared with ./settle.ts (PRD 2896 s10).
+ */
+export async function prdOutboxAt(
+  octokit: GitHubClient,
+  { owner, repo, ref, prd, folder }: { owner: string; repo: string; ref: string; prd: PrdNumber; folder: string },
+): Promise<{ ctx: Context } | { notRead: string }> {
+  const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
+  if (!config) return { notRead: error ? `its .omni-loop/config.yml cannot be read: ${error.message.split('\n')[0] ?? ''}` : 'its head has no .omni-loop/config.yml' };
+  const outbox = createContext(folder, config).layout.dirs.outbox;
+  // Only this PRD's folder is fetched: another PRD's file is written empty, its name kept, its blob never asked.
+  const ofPrd = (path: string): boolean => parseFolderName(path.slice(outbox.length + 1).split('/')[0] ?? '')?.prd === prd;
+  await snapshot(octokit, { owner, repo, ref, paths: [outbox], dest: folder, fetchIf: ofPrd });
+  return { ctx: createContext(folder, config) };
+}
+
 /** The PRD's open outbox items at `ref`, by rank (null for one that does not parse); why not, when the head holds no config. */
 async function openItemsAt(octokit: GitHubClient, { owner, repo, ref, prd }: { owner: string; repo: string; ref: string; prd: PrdNumber }): Promise<OpenItems> {
   const folder = mkdtempSync(join(tmpdir(), 'omni-join-'));
   try {
-    const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
-    if (!config) return { notRead: error ? `its .omni-loop/config.yml cannot be read: ${error.message.split('\n')[0] ?? ''}` : 'its head has no .omni-loop/config.yml' };
-    const outbox = createContext(folder, config).layout.dirs.outbox;
-    // Only this PRD's folder is fetched: another PRD's file is written empty, its name kept, its blob never asked.
-    const ofPrd = (path: string): boolean => parseFolderName(path.slice(outbox.length + 1).split('/')[0] ?? '')?.prd === prd;
-    await snapshot(octokit, { owner, repo, ref, paths: [outbox], dest: folder, fetchIf: ofPrd });
-    return { ranks: openItems(prd, { ctx: createContext(folder, config) }).map(({ rank }) => rank) };
+    const read = await prdOutboxAt(octokit, { owner, repo, ref, prd, folder });
+    if ('notRead' in read) return read;
+    const open = openItems(prd, read).map(({ id, rank }) => ({ id, rank }));
+    return { ranks: open.map(({ rank }) => rank), open };
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }

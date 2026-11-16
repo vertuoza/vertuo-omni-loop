@@ -73,6 +73,13 @@ export const sendsCommittees = (status: MissionStatus): boolean => status === 'r
 
 const failedAll = (sentence: string): Verdict[] => COMMITTEE_ROLES.map((role) => ({ role, answer: 'failed', sentence }));
 
+/** The vote of a committee job that failed, was cancelled, or ended with no record: every member counted failed, why each. */
+export function noRecord(attempt: Pick<Attempt, 'status'>): { verdicts: Verdict[]; why: string[] } {
+  const sentence = attempt.status === 'done' ? 'Its job ended with no record of the vote.' : `Its job ${attempt.status === 'cancelled' ? 'was cancelled' : 'failed'}.`;
+  const vote = tally(failedAll(sentence), null);
+  return { verdicts: vote.verdicts, why: vote.why };
+}
+
 /** What the App records for an ended committee job: the record its log holds, and the decision taken again from it. */
 export type Recorded = { record: Pick<CommitteeRecord, 'author' | 'read' | 'verdicts'>; decision: Decision };
 
@@ -83,8 +90,7 @@ export type Recorded = { record: Pick<CommitteeRecord, 'author' | 'read' | 'verd
 export function recordedOf(prd: PrdNumber, one: Committee, log: string | null): Recorded {
   const found = one.attempt.status === 'done' && log !== null ? committeeOf(log, prd) : null;
   if (found === null) {
-    const sentence = one.attempt.status === 'done' ? 'Its job ended with no record of the vote.' : `Its job ${one.attempt.status === 'cancelled' ? 'was cancelled' : 'failed'}.`;
-    const vote = tally(failedAll(sentence), null);
+    const vote = noRecord(one.attempt);
     return { record: { author: null, read: [], verdicts: vote.verdicts }, decision: { outcome: 'escalated', why: vote.why } };
   }
   const vote = found.escalations.length > 0 ? { outcome: 'escalated' as const, why: found.escalations, verdicts: found.verdicts } : tally(found.verdicts, found.author);

@@ -3,6 +3,7 @@
 // attempts, and its events. Test helpers move what a real fleet would: a job's end, a lost runner and its resume, a
 // PRD's facts, a person's Pause. No database, no model call.
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
@@ -25,6 +26,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const events: FakeEvent[] = [];
   /** The committees it queued (PRD 2896 s9): their key, line and log, and what the database recorded for each. */
   const committees: (Committee & { key: string; line: string; toFleet: string | null; log: string | null; recorded: Recorded | null })[] = [];
+  /** The item committees it queued (PRD 2896 s10), with no mission key: their line and log. */
+  const asks: (Omit<ItemCommittee, 'decision'> & { line: string; toFleet: string | null; log: string | null })[] = [];
   /** What the database decides when the App records a decision: by default, what the App decided. */
   let database: (recorded: Recorded) => Decision = (recorded) => recorded.decision;
   let made = 0;
@@ -73,7 +76,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       return Promise.resolve(id);
     },
     committees: () => Promise.resolve(committees.map(({ prd, round, job, attempt, decision }) => ({ prd, round, job, attempt: { ...attempt }, decision }))),
-    committeeLog: (job) => Promise.resolve(committees.find((one) => one.job === job)?.log ?? null),
+    committeeLog: (job) => Promise.resolve(committees.find((one) => one.job === job)?.log ?? asks.find((one) => one.job === job)?.log ?? null),
     decide: (_mission, one, recorded) => {
       const held = committees.find((each) => each.job === one.job);
       if (!held) return Promise.reject(new Error(`no committee job ${one.job}`));
@@ -83,6 +86,14 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       held.recorded = recorded;
       if (decision.outcome === 'carried') current = current.map((fact) => (fact.prd === one.prd ? { ...fact, approval: 'standing' } : fact));
       return Promise.resolve(decision);
+    },
+    asks: () => Promise.resolve(asks.map(({ prd, item, job, attempt }) => ({ prd, item, job, attempt: { ...attempt } }))),
+    ask: ({ mission: sent, prd, item, toFleet }) => {
+      if (asks.some((one) => one.prd === prd && one.item === item)) return Promise.resolve(null);
+      made += 1;
+      const id = `job-${String(made)}`;
+      asks.push({ prd, item, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, line: askLine(prd, item, sent.hardToRevert ?? DEFAULT_BOUND), toFleet: toFleet ? sent.fleet : null, log: null });
+      return Promise.resolve(id);
     },
     approve: ({ mission: sent, prd, round, toFleet }) => {
       const key = committeeKey(sent.id, prd, round);
@@ -119,6 +130,15 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     endCommittee: (prd: PrdNumber, change: Partial<Attempt>, log: string | null = null) => {
       const one = committees.filter((each) => each.prd === prd).at(-1);
       if (!one) throw new Error(`no committee of PRD ${String(prd)} was sent`);
+      Object.assign(one.attempt, change);
+      one.log = log;
+    },
+    /** The item committees queued (PRD 2896 s10), in order. */
+    asks: () => asks.map((one) => ({ ...one, attempt: { ...one.attempt } })),
+    /** The item's latest committee job ends as `change` says, its log `log`. */
+    endAsk: (item: string, change: Partial<Attempt>, log: string | null = null) => {
+      const one = asks.filter((each) => each.item === item).at(-1);
+      if (!one) throw new Error(`no committee of item ${item} was sent`);
       Object.assign(one.attempt, change);
       one.log = log;
     },

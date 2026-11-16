@@ -45,6 +45,7 @@ import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import { approvalNext, approveLine, type Committee } from './committee.ts';
+import { answerEvents, answersNext, itemsOpen, type ItemCommittee, type OpenAt } from './answers.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
 export type RunnerJobStatus = 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
@@ -103,10 +104,21 @@ export type PrdState =
   | { state: 'startable'; run: number; step: Step }
   /** At `alone` (PRD 2896 s9): its committee to send, or at work. Neither takes a slot of `mandate.parallel`: no code runs. */
   | { state: 'approvable'; round: number }
-  | { state: 'deciding'; round: number };
+  | { state: 'deciding'; round: number }
+  /** At `alone` (PRD 2896 s10): its high items' committees to send (`send`), or at work. No slot of `mandate.parallel` either. */
+  | { state: 'answering'; send: readonly string[] };
 
-/** The committees a run read (PRD 2896 s9), and whether the mission is at `alone`, where a PRD not approved goes to its committee. */
-export type CommitteeView = { alone: boolean; committees: readonly Committee[] };
+/**
+ * What a run read of the PRDs' items at `alone` (PRD 2896 s10): the items open at the head of each PRD's feature pull request that
+ * waits on answers, by PRD (a PRD not read is absent), and the item committees the mission sent.
+ */
+export type AnswersView = { open: ReadonlyMap<PrdNumber, readonly OpenAt[]>; committees: readonly ItemCommittee[] };
+
+/**
+ * The committees a run read (PRD 2896 s9), and whether the mission is at `alone`, where a PRD not approved goes to its committee;
+ * and its items' committees (s10), where a PRD waiting on answers goes to its committee item by item.
+ */
+export type CommitteeView = { alone: boolean; committees: readonly Committee[]; answers?: AnswersView };
 
 /** Below `alone`, or no committee read: a PRD not approved waits for a person, as before. */
 const NO_COMMITTEE: CommitteeView = { alone: false, committees: [] };
@@ -336,7 +348,8 @@ export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[], bran
   const of = (fact: PrdFacts): PrdState => {
     if (fact.stage !== 'merged' && branch.joined.has(fact.prd)) return { state: 'joined' };
     if (fact.stage !== 'merged' && branch.dropped?.has(fact.prd) === true) return { state: 'dropped' };
-    const own = { alone: view.alone, committees: view.committees.filter((one) => one.prd === fact.prd) };
+    const answers = view.answers === undefined ? undefined : { open: view.answers.open, committees: view.answers.committees.filter((one) => one.prd === fact.prd) };
+    const own = { alone: view.alone, committees: view.committees.filter((one) => one.prd === fact.prd), ...(answers === undefined ? {} : { answers }) };
     return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own });
   };
   return new Map(facts.map((fact) => [fact.prd, of(fact)]));
@@ -360,21 +373,43 @@ function stateOf(fact: PrdFacts, runs: readonly Run[], around: Around): PrdState
   return latest && last ? afterEnd(fact, latest, last, around) : gate(fact, 1, 'build', around);
 }
 
-/** What a PRD whose job ended waits on: its merge (into the mission branch, on a branch), the Reviewer's findings, or a person. */
-function waitsAfter(on: Extract<Next, { next: 'waits' }>['on'], prd: PrdNumber, last: Attempt, branch: OnBranch): PrdState {
-  if (on === 'merge') return toMerge(prd, branch);
+/**
+ * What a PRD whose job ended waits on: its merge (into the mission branch, on a branch), the Reviewer's findings, a person, or, at
+ * `alone`, its answers from its committee (PRD 2896 s10).
+ */
+function waitsAfter(on: Extract<Next, { next: 'waits' }>['on'], { fact, latest, last }: { fact: PrdFacts; latest: Run; last: Attempt }, around: Around): PrdState {
+  if (on === 'merge') return toMerge(fact.prd, around.branch);
+  if (on === 'answer' && around.view.alone) return answering(fact, latest, around);
   return on === 'decide' ? { state: 'waits', on: 'decide', pr: prOfUrl(last.prUrl) } : { state: 'waits', on };
 }
 
 /** Where a PRD is once its latest job ended: the table's next step, the next step of a run under the same run. */
 function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, around: Around): PrdState {
   const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason, latest.step);
-  if (next.next === 'waits') return waitsAfter(next.on, fact.prd, last, around.branch);
+  if (next.next === 'waits') return waitsAfter(next.on, { fact, latest, last }, around);
   if (next.next === 'send') return { state: 'startable', run: latest.run, step: next.step };
   if (next.next === 'stops') return { state: 'stopped', why: next.why };
   if (next.next === 'paused') return { state: 'paused' };
   if (next.next === 'again') return gate(fact, latest.run + 1, latest.step, around);
   return { state: 'running', run: latest.run };
+}
+
+/**
+ * At `alone` (PRD 2896 s10), a PRD whose job ended Waiting on answers: each high item open at its head goes to the fleet's
+ * committee, and the PRD waits for a person only on what the committee sent to one, a human-action item, or an item that does not
+ * read. Once none is open, its run is sent again, once: its gate is green, so it ships and goes to the Reviewer. Its items not read
+ * (no feature pull request known, no GitHub): it waits for a person, as below `alone`.
+ */
+function answering(fact: PrdFacts, latest: Run, around: Around): PrdState {
+  const open = around.view.answers?.open.get(fact.prd);
+  if (open === undefined) return { state: 'waits', on: 'answer' };
+  if (!itemsOpen(open)) {
+    if (latest.run >= LAST_RUN) return { state: 'waits', on: 'answer', why: 'its questions are answered, and its run was sent again once already' };
+    return gate(fact, latest.run + 1, latest.step, around);
+  }
+  const next = answersNext(open, around.view.answers?.committees ?? []);
+  if (next.send.length > 0 || next.deciding) return { state: 'answering', send: next.send };
+  return { state: 'waits', on: 'answer', why: next.person.length > 0 ? next.person.join('; ') : null };
 }
 
 /**
@@ -537,7 +572,7 @@ function stoppedWhy(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, P
 }
 
 /** The states of a PRD that keep a mission running: a job of it at work or to send, its committee too (PRD 2896 s9). */
-const MOVING: ReadonlySet<PrdState['state']> = new Set(['running', 'startable', 'approvable', 'deciding']);
+const MOVING: ReadonlySet<PrdState['state']> = new Set(['running', 'startable', 'approvable', 'deciding', 'answering']);
 
 /** The mission's status, what it waits on, and when it checks again; `branch` the mission branch its PRDs join, when it has one. */
 export function conclude({
@@ -783,6 +818,7 @@ export function eventsOf({
   joins = [],
   landings = [],
   committees = [],
+  asks = [],
 }: {
   mission: Mission;
   facts: readonly PrdFacts[];
@@ -798,12 +834,15 @@ export function eventsOf({
   landings?: readonly Landed[];
   /** The committees the mission sent (PRD 2896 s9), each with its decision once recorded. */
   committees?: readonly Committee[];
+  /** The item committees the mission sent (PRD 2896 s10), each with its decision once recorded. */
+  asks?: readonly ItemCommittee[];
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
   const base = baseOf(mission, skill === 'ultra-yolo');
   const all = [
     ...committeeEvents(committees, where),
+    ...answerEvents(asks, where),
     ...runEvents(runs, where, skill, base),
     ...joinEvents(joins, base),
     ...landEvents(landings),

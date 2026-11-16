@@ -47,6 +47,7 @@ import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import { approveLine, committeeKey, committeeOfKey, type Committee, type Decision, type Recorded } from './committee.ts';
+import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } from './answers.ts';
 import {
   approvalOf,
   baseOf,
@@ -71,7 +72,16 @@ import {
 } from './supervisor.ts';
 
 /** A mission as the store reads it: the supervisor's view, its workspace and repository, and its scope. */
-export type MissionRecord = Mission & { workspace: string; repo: string; scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] } };
+export type MissionRecord = Mission & {
+  workspace: string;
+  repo: string;
+  scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] };
+  /** `mandate.hardToRevert` (PRD 2896 s10): the bound an item's score is read against at `alone`; its default when absent. */
+  hardToRevert?: number;
+};
+
+/** An item's committee to send (PRD 2896 s10): the mission, the PRD, the item, and whether the fleet's runners take it. */
+export type Ask = { mission: MissionRecord; prd: PrdNumber; item: string; toFleet: boolean };
 
 /** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
 export type MissionSkill = BuildSkill;
@@ -110,6 +120,10 @@ export type MissionStore = {
   decide: (mission: MissionRecord, one: Committee, recorded: Recorded) => Promise<Decision>;
   /** A committee's job: its id, or null when its key was already held. */
   approve: (job: Approve) => Promise<string | null>;
+  /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>`, in order. */
+  asks: (id: string) => Promise<Omit<ItemCommittee, 'decision'>[]>;
+  /** An item's committee queued, with no mission key: its id, or null when one was sent for that item already. */
+  ask: (job: Ask) => Promise<string | null>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
   /** Whether the mission was still at `from`, and so was moved. */
   update: (id: string, from: MissionStatus, next: Concluded) => Promise<boolean>;
@@ -150,7 +164,11 @@ export const MissionRowSchema = z.object({
   title: text,
   status: z.enum(['draft', 'running', 'waiting', 'paused', 'delivered', 'stopped']),
   waiting_on: z.string().nullable(),
-  mandate: z.object({ parallel: z.number().int().min(1).max(4), level: z.enum(MISSION_LEVELS).default('with-you') }),
+  mandate: z.object({
+    parallel: z.number().int().min(1).max(4),
+    level: z.enum(MISSION_LEVELS).default('with-you'),
+    hardToRevert: z.number().min(0).max(1).default(DEFAULT_BOUND),
+  }),
   scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
 });
 export const WorkspaceRowSchema = z.object({ github_installation_id: z.number().int().positive().nullable() });
@@ -171,6 +189,9 @@ export const JobRowSchema = z.object({
   pr_url: z.string().nullable(),
 });
 export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
+/** An item committee's job (PRD 2896 s10): a job row with its line, which names the PRD and the item. */
+export const ASK = `${JOB}, line`;
+export const AskRowSchema = JobRowSchema.extend({ line: z.string() });
 export const CareRowSchema = z.object({ id: text });
 export const EventRowSchema = z.object({ kind: text, prd: PrdNumberSchema.nullable(), job_id: z.string().nullable() });
 export const DecisionRowSchema = z.object({ job_id: text, outcome: z.enum(['carried', 'escalated']), why: z.array(z.string()) });
@@ -244,8 +265,8 @@ export function missionStore(connection: Connection): MissionStore {
     return plan?.content ?? null;
   }
 
-  /** A job of the mission queued under its key, sent by the app: its id, or null when the key was already held. */
-  async function queue({ mission, toFleet, line, key }: { mission: MissionRecord; toFleet: boolean; line: string; key: string }): Promise<string | null> {
+  /** A job of the mission queued under its key (none for a care or an item's committee), sent by the app: its id, or null when the key was already held. */
+  async function queue({ mission, toFleet, line, key }: { mission: MissionRecord; toFleet: boolean; line: string; key: string | null }): Promise<string | null> {
     const answer = await db
       .from('runner_jobs')
       .insert({ workspace_id: mission.workspace, repo: mission.repo, line, sent_by_app: APP_SENDER, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: key })
@@ -260,7 +281,7 @@ export function missionStore(connection: Connection): MissionStore {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert };
     },
 
     async facts(mission) {
@@ -334,14 +355,7 @@ export function missionStore(connection: Connection): MissionStore {
     async care({ mission, line, since, toFleet }) {
       // The mission's runs happen one at a time (its lane): a read, then the insert, sends one.
       const sent = rowsOf(CareRowSchema, await db.from('runner_jobs').select(CARE).eq('mission_id', mission.id).eq('line', line).gte('queued_at', since).limit(1));
-      if (sent.length > 0) return null;
-      const answer = await db
-        .from('runner_jobs')
-        .insert({ workspace_id: mission.workspace, repo: mission.repo, line, sent_by_app: APP_SENDER, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: null })
-        .select('id');
-      const [made] = rowsOf(CareRowSchema, answer);
-      if (!made) throw new Error('the database queued no job and gave no reason');
-      return made.id;
+      return sent.length > 0 ? null : queue({ mission, toFleet, line, key: null });
     },
 
     async committees(id) {
@@ -374,6 +388,20 @@ export function missionStore(connection: Connection): MissionStore {
     },
 
     approve: ({ mission, prd, round, toFleet }) => queue({ mission, toFleet, line: approveLine(prd), key: committeeKey(mission.id, prd, round) }),
+
+    async asks(id) {
+      const rows = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).is('mission_key', null).like('line', '/omni:committee % --item %').order('queued_at'));
+      return rows.flatMap((row) => {
+        const named = itemOfLine(row.line);
+        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row) }];
+      });
+    },
+
+    async ask({ mission, prd, item, toFleet }) {
+      // The mission's runs happen one at a time (its lane): a read, then the insert, sends one per item, whatever its bound.
+      const sent = rowsOf(CareRowSchema, await db.from('runner_jobs').select(CARE).eq('mission_id', mission.id).is('mission_key', null).like('line', `${askPrefix(prd, item)}%`).limit(1));
+      return sent.length > 0 ? null : queue({ mission, toFleet, line: askLine(prd, item, mission.hardToRevert ?? DEFAULT_BOUND), key: null });
+    },
 
     async record(id, events, at) {
       if (events.length === 0) return;

@@ -105,24 +105,24 @@ describe('missionJoins.read: what the gate reads of a feature pull request (PRD 
       runs: [{ id: 3, name: 'test', status: 'completed', conclusion: 'success', title: 'green' }],
       statuses: [{ context: 'Vercel', state: 'pending', description: null }],
       reviews: [{ body: '<!-- omni-review: 1 pass -->', commit: HEAD }],
-      items: { ranks: ['high'] },
+      items: { ranks: ['high'], open: [{ id: 's1-01-colour', rank: 'high' }] },
     });
   });
 
   it('fetches only this PRD\'s items, never another PRD\'s', async () => {
     const gh = github({ files: { ...CONFIG, [`${OUTBOX}/0007-quotes/s1-01-colour.md`]: item('s1-01-colour', 'medium'), [`${OUTBOX}/0008-other/s1-01-x.md`]: item('s1-01-x', 'high') } });
-    expect((await gh.joins.read(at)).items).toEqual({ ranks: ['medium'] });
+    expect((await gh.joins.read(at)).items).toEqual({ ranks: ['medium'], open: [{ id: 's1-01-colour', rank: 'medium' }] });
     const blobs = gh.calls.filter(({ route }) => route.endsWith('/git/blobs/{file_sha}')).map(({ params }) => params.file_sha);
     expect(blobs).not.toContain(`blob:${OUTBOX}/0008-other/s1-01-x.md`);
   });
 
   it('counts an item that does not parse as open, with no rank', async () => {
     const gh = github({ files: { ...CONFIG, [`${OUTBOX}/0007-quotes/broken.md`]: 'no front matter' } });
-    expect((await gh.joins.read(at)).items).toEqual({ ranks: [null] });
+    expect((await gh.joins.read(at)).items).toEqual({ ranks: [null], open: [{ id: null, rank: null }] });
   });
 
   it('reads no item when the PRD has no outbox, and says so when the head has no config', async () => {
-    expect((await github({ files: CONFIG }).joins.read(at)).items).toEqual({ ranks: [] });
+    expect((await github({ files: CONFIG }).joins.read(at)).items).toEqual({ ranks: [], open: [] });
     expect((await github({ files: {} }).joins.read(at)).items).toEqual({ notRead: 'its head has no .omni-loop/config.yml' });
   });
 
