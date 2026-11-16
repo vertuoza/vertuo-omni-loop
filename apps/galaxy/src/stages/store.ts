@@ -1,5 +1,5 @@
 // The one way into the stored PRD stages (supabase/migrations/20261009090000_prd_stages.sql): public.prd_stages
-// and public.prd_topics. The sync and the stage events write, as the service role; the pages read, as
+// and public.prd_topics, and public.repository_syncs, when the sync last read each repository (#2963). The sync and the stage events write, as the service role; the pages read, as
 // the signed-in member, so row-level security keeps each workspace's rows to its members.
 //
 // A PRD is a workspace, a repository and an issue number. A repository is kept in lower case, as a
@@ -15,6 +15,7 @@ import { type PrdNumber, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 const STAGES_TABLE = 'prd_stages';
 const TOPICS_TABLE = 'prd_topics';
+const SYNCS_TABLE = 'repository_syncs';
 
 /** A PRD of a workspace: its repository (`owner/name`) and its issue number. */
 export type StageKey = { workspace_id: string; repository: string; prd: PrdNumber };
@@ -40,8 +41,11 @@ export type StageStore = {
   stageCounts(workspace: string, prds?: readonly PrdRef[]): Promise<StageCounts>;
   /** The PRD whose folder has this topic in the repository; null when none is known. */
   prdByTopic(workspace: string, repository: string, topic: string): Promise<PrdNumber | null>;
-  /** When the sync last recorded the repository: the latest synced_at of its PRD stages, which only the
-   * sync writes (a stage event never does); null when it holds none. */
+  /** Records that the sync read the repository at `at`, whatever stages it wrote (#2963). */
+  recordSynced(workspace: string, repository: string, at: string): Promise<void>;
+  /** When the sync last read the repository, as recordSynced() keeps it, which a stage event never writes; null
+   * when it was never read. Not the latest PRD stage: that moves only when a PRD issue changed, so a quiet
+   * repository looked never read and went first in every run (#2963). */
   lastSynced(workspace: string, repository: string): Promise<string | null>;
 };
 
@@ -154,10 +158,15 @@ export function stageStore(db: Pick<SupabaseClient<Database>, 'from'>): StageSto
       return row && row.prd !== undefined && row.prd !== null ? parsePrd(numberOf(row.prd)) : null;
     },
 
+    async recordSynced(workspace, repository, at) {
+      const { error } = await db.from(SYNCS_TABLE)
+        .upsert({ workspace_id: workspace, repository: lower(repository), synced_at: at }, { onConflict: 'workspace_id,repository' });
+      settle(`record when ${lower(repository)} was read`, error);
+    },
+
     async lastSynced(workspace, repository) {
-      const { data, error } = await db.from(STAGES_TABLE).select('synced_at')
-        .eq('workspace_id', workspace).eq('repository', lower(repository)).eq('stage', 'prd')
-        .order('synced_at', { ascending: false }).limit(1).maybeSingle();
+      const { data, error } = await db.from(SYNCS_TABLE).select('synced_at')
+        .eq('workspace_id', workspace).eq('repository', lower(repository)).maybeSingle();
       settle(`read when ${lower(repository)} was last synced`, error);
       const row = data;
       return row && typeof row.synced_at === 'string' ? row.synced_at : null;

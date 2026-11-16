@@ -175,8 +175,7 @@ describe('the stages sync starts no repository once it has taken 120 s (#2529)',
   it('reads the repositories synced longest ago first, the never-synced ones before all', async () => {
     // r1 and r2 were synced, r1 last; the four never synced start first, and r3's read takes 130 s.
     const { deps, lines } = run({ ...reads(6, 0), 'acme/r3': 130_000 });
-    const synced = (repository: string, at: string) =>
-      deps.store.recordStages([{ workspace_id: ACME.id, repository, prd: parsePrd(1), stage: 'prd', reached_at: NOW }], at);
+    const synced = (repository: string, at: string) => deps.store.recordSynced(ACME.id, repository, at);
     await synced('acme/r1', '2026-10-27T11:00:00.000Z');
     await synced('acme/r2', '2026-10-27T10:00:00.000Z');
     await syncStages(post(), deps);
@@ -190,8 +189,7 @@ describe('the stages sync starts no repository once it has taken 120 s (#2529)',
     const { deps, lines } = run({ 'clement/slow': 130_000, ...reads(2, 0) });
     deps.workspaces = () => Promise.resolve([CLEMENT, ACME]);
     deps.repositories = (workspace) => Promise.resolve(workspace.id === CLEMENT.id ? ['clement/slow'] : names(2));
-    const synced = (workspace: string, repository: string, at: string) =>
-      deps.store.recordStages([{ workspace_id: workspace, repository, prd: parsePrd(1), stage: 'prd', reached_at: NOW }], at);
+    const synced = (workspace: string, repository: string, at: string) => deps.store.recordSynced(workspace, repository, at);
     await synced(CLEMENT.id, 'clement/slow', '2026-10-27T11:00:00.000Z');
     await synced(ACME.id, 'acme/r1', '2026-10-27T10:00:00.000Z');
     await synced(ACME.id, 'acme/r2', '2026-10-27T10:00:00.000Z');
@@ -211,7 +209,7 @@ describe('the stages sync starts no repository once it has taken 120 s (#2529)',
 describe('the stages sync reaches every repository in turn (#2963)', () => {
   const names = (count: number) => Array.from({ length: count }, (_, i) => `acme/r${String(i + 1)}`);
 
-  it('reads next run the repositories that waited, ahead of the ones it read, though none holds a new PRD issue', async () => {
+  it('reads next run the repositories that waited before the ones it read, though none holds a new PRD issue', async () => {
     // Eight quiet repositories: no PRD issue changed, so the sync writes no `prd` stage for any of them. r1's
     // read takes 130 s, so the first run reads r1–r4 and leaves r5–r8 for the next one, as on 2026-11-16, when
     // a repository holding a new PRD waited behind quiet repositories run after run.
@@ -222,7 +220,8 @@ describe('the stages sync reaches every repository in turn (#2963)', () => {
       return answer.repositories.map((r) => r.repository);
     };
     expect(await read('2026-10-27T12:00:00.000Z')).toEqual(names(4));
-    expect(await read('2026-10-27T12:15:00.000Z')).toEqual(names(8).slice(4));
+    // The four that waited go first; the run has time left, so the four it read last time follow.
+    expect(await read('2026-10-27T12:15:00.000Z')).toEqual([...names(8).slice(4), ...names(4)]);
     expect(lines).toContain('stages sync: 4 repositories of acme wait for the next run — acme/r5, acme/r6, acme/r7, acme/r8');
   });
 });
