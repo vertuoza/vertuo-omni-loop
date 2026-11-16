@@ -90,6 +90,10 @@ const JobRow = z.object({
   attempt: z.number().int().min(1).max(3).catch(1).optional(),
   /** Before it, no runner claims it: a resume's wait (PRD 2809); one out of shape reads as none. */
   resume_after: z.string().nullable().catch(null).optional(),
+  /** When the provider limit it met is over (PRD 2949); one out of shape reads as none. */
+  limited_until: z.string().nullable().catch(null).optional(),
+  /** How many provider limits its chain waited out, 0 to 6 (PRD 2949); one out of shape reads as 0. */
+  waits: z.number().int().min(0).max(6).catch(0).optional(),
   queued_at: z.string(),
   claimed_at: z.string().nullable(),
   running_at: z.string().nullable(),
@@ -102,7 +106,7 @@ const RUNNER_COLUMNS = 'id, workspace_id, owner, name, fleet, slots, repos, vers
 /** A mission's mandate, as far as a runner's job reads it: its level, none for a mission made before PRD 2896. */
 const MissionMandateRow = z.object({ mandate: z.object({ level: z.string().optional() }).loose() });
 
-const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, mission_id, continues, resumes, attempt, resume_after, queued_at, claimed_at, running_at, ended_at';
+const JOB_COLUMNS = 'id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_app, sent_by_key, status, runner_id, cancel_requested, log_tail, pr_url, exit_code, reason, tokens, parts, released, release_error, outcome, fixed_by, prs, follow_ups, acting_for, notify_url, cancelled_by_key, cancelled_for, slices_merged, slices_total, mission_id, continues, resumes, attempt, resume_after, limited_until, waits, queued_at, claimed_at, running_at, ended_at';
 
 /** A job's questions (PRD 2255), as runner_job_questions holds a row: open while `closed_at` is null; closed
  * with answers it was answered, without them dismissed. */
@@ -198,7 +202,7 @@ export type KeyStart = { actingFor?: string | undefined; notifyUrl?: string | un
 export type NewRelaunch = NewJob & { continues: string; actingFor: string | null; notifyUrl: string | null };
 
 /** What a job's update may change. */
-export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'parts' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'follow_ups' | 'slices_merged' | 'slices_total' | 'running_at' | 'ended_at'>>;
+export type JobPatch = Partial<Pick<JobRow, 'status' | 'cancel_requested' | 'cancelled_by_key' | 'cancelled_for' | 'log_tail' | 'pr_url' | 'exit_code' | 'reason' | 'tokens' | 'parts' | 'released' | 'release_error' | 'outcome' | 'fixed_by' | 'prs' | 'follow_ups' | 'slices_merged' | 'slices_total' | 'limited_until' | 'running_at' | 'ended_at'>>;
 
 type Raw = { data: unknown; error: { code?: string; message?: string } | null };
 

@@ -4756,6 +4756,7 @@ export type Database = {
           fixed_by: string | null
           follow_ups: Json
           id: string
+          limited_until: string | null
           line: string
           log_tail: string
           mission_id: string | null
@@ -4783,6 +4784,7 @@ export type Database = {
           to_fleet: string | null
           to_runner: string | null
           tokens: Json | null
+          waits: number
           workspace_id: string
         }
         Insert: {
@@ -4798,6 +4800,7 @@ export type Database = {
           fixed_by?: string | null
           follow_ups?: Json
           id?: string
+          limited_until?: string | null
           line: string
           log_tail?: string
           mission_id?: string | null
@@ -4825,6 +4828,7 @@ export type Database = {
           to_fleet?: string | null
           to_runner?: string | null
           tokens?: Json | null
+          waits?: number
           workspace_id: string
         }
         Update: {
@@ -4840,6 +4844,7 @@ export type Database = {
           fixed_by?: string | null
           follow_ups?: Json
           id?: string
+          limited_until?: string | null
           line?: string
           log_tail?: string
           mission_id?: string | null
@@ -4867,6 +4872,7 @@ export type Database = {
           to_fleet?: string | null
           to_runner?: string | null
           tokens?: Json | null
+          waits?: number
           workspace_id?: string
         }
         Relationships: [
@@ -8559,6 +8565,7 @@ export type Database = {
           fixed_by: string | null
           follow_ups: Json
           id: string
+          limited_until: string | null
           line: string
           log_tail: string
           mission_id: string | null
@@ -8586,6 +8593,7 @@ export type Database = {
           to_fleet: string | null
           to_runner: string | null
           tokens: Json | null
+          waits: number
           workspace_id: string
         }[]
         SetofOptions: {
@@ -8616,6 +8624,7 @@ export type Database = {
           fixed_by: string | null
           follow_ups: Json
           id: string
+          limited_until: string | null
           line: string
           log_tail: string
           mission_id: string | null
@@ -8643,6 +8652,7 @@ export type Database = {
           to_fleet: string | null
           to_runner: string | null
           tokens: Json | null
+          waits: number
           workspace_id: string
         }
         SetofOptions: {

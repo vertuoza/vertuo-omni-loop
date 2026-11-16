@@ -12,7 +12,14 @@
 -- the resumable ones or a repository's own skill. runner_claim() hands out no job before its resume_after,
 -- and the resume once it has passed. A member reads the new columns, another workspace nothing, and nobody
 -- signed in writes them. A resume whose chain's local save a runner keeps goes to that runner while it is
--- online, to any runner once it is not, and a save past its keep date holds nothing back (s5). Any `FAIL:` stops the run.
+-- online, to any runner once it is not, and a save past its keep date holds nothing back (s5).
+-- A provider limit (PRD 2949, s1): a job sent anew has waited nothing; a wait outside 0 to 6 is refused, and so is a
+-- resume that neither spends a try nor counts a wait; nobody signed in writes them. A claimed or running job of any
+-- skill that ends `failed` with limited_until queues one resume at that time, with its line, repository, sender and
+-- target, attempt unchanged and waits one more, its own reason kept; the seventh limit queues nothing and its reason
+-- reads `waited 6 times for a provider limit (last until <HH:MM> UTC)`. A limited job whose cancel was asked queues
+-- nothing, and a cancelled resume is never claimed (BR-PRODUCT-134). A lost runner still spends a try and keeps the
+-- chain's waits; `no tokens left` with no reset is a plain failure. Any `FAIL:` stops the run.
 
 begin;
 
@@ -320,6 +327,190 @@ begin
   got := (select id from public.runner_claim('00000000-0000-4000-8000-0000028091a3'));
   if got is distinct from e2 then
     raise exception 'FAIL: box-3 claimed %, not the resume whose only local save is past its keep date', got;
+  end if;
+end $$;
+
+reset role;
+
+-- ── A provider limit: the job waits for the reset, spending no try (PRD 2949, s1) ──
+-- M1 /omni:plan 2950 (a skill no loss resumes: every skill waits), the key pipeline's for Jane D. with a link, to the fleet
+-- cia: the chain of seven limits. M2 /omni:yolo 2951, Mo's, cancel asked, then limited. M3 /omni:yolo 2952, Mo's: limited, its
+-- resume cancelled. M4 /omni:yolo 2953: limited, then its resume lost. M5 /omni:wave 2954, claimed: the account cap's limit.
+-- M6 /omni:yolo 2955 fails `no tokens left` with no reset. All on box-cia.
+insert into public.runner_jobs (id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, acting_for, notify_url, status, runner_id, claimed_at, running_at, queued_at) values
+  ('00000000-0000-4000-8000-000002949201', '00000000-0000-4000-8000-000002809001', '/omni:plan 2950', 'resume-check/app', null, 'cia', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-0000028093a1', 'Jane D.', 'https://hooks.resume.test/ping', 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949202', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2951', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949203', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2952', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949204', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2953', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949205', '00000000-0000-4000-8000-000002809001', '/omni:wave 2954', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'claimed', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', null, now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949206', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2955', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes');
+
+-- The columns' rules: a job sent anew has waited nothing and met no limit; a wait outside 0 to 6, and a resume that neither
+-- spends a try nor counts a wait, are refused; nobody signed in writes them.
+do $$
+declare
+  got public.runner_jobs;
+begin
+  select * into got from public.runner_jobs where id = '00000000-0000-4000-8000-000002949201';
+  if got.waits <> 0 or got.limited_until is not null then
+    raise exception 'FAIL: a job sent anew reads waits %, limited_until %, not 0 and none', got.waits, got.limited_until;
+  end if;
+  begin
+    update public.runner_jobs set waits = 7 where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a seventh wait was stored';
+  exception when check_violation then null; end;
+  begin
+    update public.runner_jobs set waits = -1 where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a wait below 0 was stored';
+  exception when check_violation then null; end;
+  begin
+    update public.runner_jobs set resumes = '00000000-0000-4000-8000-000002949205', waits = 0 where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a first attempt that waited nothing was stored as a resume';
+  exception when check_violation then null; end;
+end $$;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000028090b1');
+do $$
+begin
+  if (select waits from public.runner_jobs where id = '00000000-0000-4000-8000-000002949206') is distinct from 0::smallint then
+    raise exception 'FAIL: a member did not read a job''s waits';
+  end if;
+  begin
+    update public.runner_jobs set limited_until = now() where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a member wrote a job''s limit';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+set local role service_role;
+
+-- ── The first limit: one resume, at the reset, the same try, one wait more ──
+do $$
+declare
+  limited constant uuid := '00000000-0000-4000-8000-000002949201';
+  resume  public.runner_jobs;
+  queued  integer;
+begin
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = '2027-01-25T09:00:00Z', ended_at = now() where id = limited;
+  select * into resume from public.runner_jobs where resumes = limited;
+  if resume.id is null then
+    raise exception 'FAIL: the limited plan queued no resume: every skill waits for a limit';
+  end if;
+  if resume.status <> 'queued' or resume.attempt <> 1 or resume.waits <> 1 or resume.resume_after <> '2027-01-25T09:00:00Z'::timestamptz
+     or resume.limited_until is not null or resume.line <> '/omni:plan 2950' or resume.repo <> 'resume-check/app'
+     or resume.to_fleet is distinct from 'cia' or resume.to_runner is not null
+     or resume.sent_by is distinct from '00000000-0000-4000-8000-0000028090a1' or resume.sent_by_key is distinct from '00000000-0000-4000-8000-0000028093a1'
+     or resume.acting_for is distinct from 'Jane D.' or resume.notify_url is distinct from 'https://hooks.resume.test/ping' or resume.runner_id is not null then
+    raise exception 'FAIL: the limit''s resume is %/attempt %/waits %/after %/% to %,% by %, key %: not the queued same try, one wait on, at the reset, of the same line, target and sender',
+      resume.status, resume.attempt, resume.waits, resume.resume_after, resume.line, resume.to_runner, resume.to_fleet, resume.sent_by, resume.sent_by_key;
+  end if;
+  if (select reason from public.runner_jobs where id = limited) <> 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z' then
+    raise exception 'FAIL: a limit that queued its resume changed the job''s reason';
+  end if;
+  -- Marked again from running, its resume stays the one.
+  update public.runner_jobs set status = 'running', ended_at = null where id = limited;
+  update public.runner_jobs set status = 'failed', ended_at = now() where id = limited;
+  select count(*) into queued from public.runner_jobs where resumes = limited;
+  if queued <> 1 then
+    raise exception 'FAIL: the same limit marked again left % resumes, not one', queued;
+  end if;
+end $$;
+
+-- ── Six waits, then the seventh limit queues nothing and says why ──
+do $$
+declare
+  job    uuid := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949201');
+  ended  public.runner_jobs;
+  next   uuid;
+begin
+  -- Waits 1 to 5 each meet the limit again and queue the next; the sixth wait meets the seventh limit, until 23:40.
+  for n in 1..6 loop
+    update public.runner_jobs set status = 'running', runner_id = '00000000-0000-4000-8000-0000028091c1', claimed_at = now(), running_at = now() where id = job;
+    update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until ' || n, ended_at = now(),
+           limited_until = '2027-01-25T23:40:00Z'::timestamptz + (n - 6) * interval '1 minute' where id = job;
+    next := (select id from public.runner_jobs where resumes = job);
+    if n < 6 and (next is null or (select waits from public.runner_jobs where id = next) <> n + 1 or (select attempt from public.runner_jobs where id = next) <> 1) then
+      raise exception 'FAIL: wait % queued %, not one resume with waits % on the first try', n, next, n + 1;
+    end if;
+    exit when n = 6;
+    job := next;
+  end loop;
+  if next is not null then
+    raise exception 'FAIL: the seventh limit queued a resume: a job waits six times at most';
+  end if;
+  select * into ended from public.runner_jobs where id = job;
+  if ended.status <> 'failed' or ended.waits <> 6 or ended.reason <> 'waited 6 times for a provider limit (last until 23:40 UTC)' then
+    raise exception 'FAIL: the seventh limit ended %, waits %, %: not failed, waits 6, with why', ended.status, ended.waits, ended.reason;
+  end if;
+  if (select count(*) from public.runner_jobs where line = '/omni:plan 2950') <> 7 then
+    raise exception 'FAIL: the chain holds % jobs, not the limited one and its six waits', (select count(*) from public.runner_jobs where line = '/omni:plan 2950');
+  end if;
+end $$;
+
+-- ── A cancel: asked on the limited job, nothing waits; asked on its resume, no runner claims it ──
+do $$
+declare
+  resume uuid;
+  got    uuid;
+begin
+  update public.runner_jobs set cancel_requested = true where id = '00000000-0000-4000-8000-000002949202';
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = now() - interval '1 second', ended_at = now() where id = '00000000-0000-4000-8000-000002949202';
+  if exists (select 1 from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949202') then
+    raise exception 'FAIL: a limited job whose cancel was asked queued a resume (BR-PRODUCT-134)';
+  end if;
+
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = now() - interval '1 second', ended_at = now() where id = '00000000-0000-4000-8000-000002949203';
+  resume := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949203');
+  -- As the Cancel route ends a queued job: at once. Its wait is over, yet no runner takes it.
+  update public.runner_jobs set status = 'cancelled', cancel_requested = true, ended_at = now() where id = resume and status = 'queued';
+  for n in 1..3 loop
+    for got in select id from public.runner_claim('00000000-0000-4000-8000-0000028091a3') union all select id from public.runner_claim('00000000-0000-4000-8000-0000028091a1') loop
+      if got = resume then
+        raise exception 'FAIL: a runner claimed the limit''s resume after its cancel (BR-PRODUCT-134)';
+      end if;
+    end loop;
+  end loop;
+  if (select status from public.runner_jobs where id = resume) is distinct from 'cancelled' then
+    raise exception 'FAIL: the cancelled resume reads %, not cancelled', (select status from public.runner_jobs where id = resume);
+  end if;
+end $$;
+
+-- ── A lost runner still spends a try, and keeps the chain's waits ──
+do $$
+declare
+  waited uuid;
+  lost   public.runner_jobs;
+begin
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = now() - interval '1 second', ended_at = now() where id = '00000000-0000-4000-8000-000002949204';
+  waited := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949204');
+  update public.runner_jobs set status = 'running', runner_id = '00000000-0000-4000-8000-0000028091c1', claimed_at = now(), running_at = now() where id = waited;
+  update public.runner_jobs set status = 'failed', reason = 'runner lost', ended_at = now() where id = waited;
+  select * into lost from public.runner_jobs where resumes = waited;
+  if lost.id is null or lost.attempt <> 2 or lost.waits <> 1 or lost.resume_after <> now() + interval '1 minute' then
+    raise exception 'FAIL: the lost wait queued %, attempt %, waits %, % on: not attempt 2, still one wait, a minute on', lost.id, lost.attempt, lost.waits, lost.resume_after - now();
+  end if;
+
+  -- A claimed wave that changed account as often as it may: its limit waits as well.
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: the job changed account 3 times, the most a job may',
+         limited_until = now() + interval '1 hour', ended_at = now() where id = '00000000-0000-4000-8000-000002949205';
+  waited := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949205');
+  if waited is null or (select resume_after from public.runner_jobs where id = waited) <> now() + interval '1 hour' then
+    raise exception 'FAIL: the account cap''s limit queued no resume at its reset';
+  end if;
+end $$;
+
+-- ── `no tokens left` with no reset: a plain failure, as before ──
+do $$
+begin
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: no account can take this job over', ended_at = now()
+   where id = '00000000-0000-4000-8000-000002949206';
+  if exists (select 1 from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949206') then
+    raise exception 'FAIL: a failure with no reset queued a resume';
   end if;
 end $$;
 
