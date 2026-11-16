@@ -10,7 +10,7 @@
 // installation token is an App-JWT call, on the App's own budget, so it goes out plain.
 import { App } from '@octokit/app';
 import { createClient } from '@supabase/supabase-js';
-import { supabaseGithubStore, type GithubClient, type GithubStore, type PlainFetch, type Priority } from '@omni/github';
+import { etagMemory, rememberingGithubStore, supabaseGithubStore, type GithubClient, type GithubStore, type PlainFetch, type Priority } from '@omni/github';
 import type { Database } from '../../../supabase/database.types.ts';
 import { GITHUB_APP, requireGroup, type GithubAppEnv, type SupabaseEnv } from './env.ts';
 
@@ -59,15 +59,19 @@ export function appOctokitFor(githubApp: GithubAppEnv | null) {
   };
 }
 
+/** This instance's ETags, remembered across the requests it serves (#2953). */
+const etags = etagMemory();
+
 /**
  * The client's store on the database, as the service role (`SUPABASE_URL`,
- * `SUPABASE_SERVICE_ROLE_KEY`): `github_etags` and `github_budget`, which galaxy writes too. Unset,
- * none: the client calls GitHub plain, with no shared budget.
+ * `SUPABASE_SERVICE_ROLE_KEY`): `github_etags` and `github_budget`, which galaxy writes too, with this
+ * instance's memory of the ETags in front (#2953). Unset, none: the client calls GitHub plain, with no
+ * shared budget.
  */
 export function githubStoreOf(supabase: SupabaseEnv | null): GithubStore | null {
   if (!supabase) return null;
   const db = createClient<Database>(supabase.url, supabase.key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-  return supabaseGithubStore({ etags: () => db.from('github_etags'), budget: () => db.from('github_budget') });
+  return rememberingGithubStore(supabaseGithubStore({ etags: () => db.from('github_etags'), budget: () => db.from('github_budget') }), etags);
 }

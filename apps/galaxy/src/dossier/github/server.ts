@@ -1,5 +1,5 @@
 import 'server-only';
-import { supabaseGithubStore, type GithubStore } from '@omni/github';
+import { rememberingGithubStore, supabaseGithubStore, type GithubStore } from '@omni/github';
 import { serviceDb } from '../../data/sign-in-live';
 import { serverEnv, type GithubAppEnv } from '../../env';
 import { appCredentials } from '../../signup/github-app';
@@ -9,7 +9,8 @@ import { githubReader, type ConceptReader, type FixReader, type GithubReader } f
 // every request. It holds the App's existing GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY, set for
 // sign-up (PRD 359); without them, there is no reader, and every numbered dossier's stage is unknown.
 // Its calls spend the installation's budget through the shared client (PRD 902, s1), whose ETags and
-// budget live in Supabase, written with the service role as prd_stages is.
+// budget live in Supabase, written with the service role as prd_stages is. The ETags are remembered
+// by this server instance in front of Supabase (#2953): a read it made before asks the database nothing.
 
 let reader: (GithubReader & FixReader & ConceptReader) | null | undefined;
 let store: GithubStore | undefined;
@@ -25,14 +26,14 @@ export function githubStore(): GithubStore {
     made = supabaseGithubStore({ etags: () => client.from('github_etags'), budget: () => client.from('github_budget') });
     return made;
   };
-  store = {
+  store = rememberingGithubStore({
     etag: (...args) => db().etag(...args),
     saveEtag: (...args) => db().saveEtag(...args),
     touchEtag: (...args) => db().touchEtag(...args),
     budget: (...args) => db().budget(...args),
     saveBudget: (...args) => db().saveBudget(...args),
     pause: (...args) => db().pause(...args),
-  };
+  });
   return store;
 }
 

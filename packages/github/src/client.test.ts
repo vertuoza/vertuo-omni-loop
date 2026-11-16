@@ -241,6 +241,15 @@ describe('githubFetch: what a read writes (#1851)', () => {
     expect(writes.saveBudget).toBe(1);
   });
 
+  it('writes the budget once for reads below the background floor that move it less than 2% (#2953)', async () => {
+    const { client, writes, at } = counting(...Array.from({ length: 10 }, (_, i) => ok({}, limits(900 - i))));
+    for (let i = 0; i < 10; i += 1) {
+      at(T0 + i * 1000);
+      await call(client);
+    }
+    expect(writes.saveBudget).toBe(1);
+  });
+
   it('does not write a stored ETag again for every 304 within a day of its last read', async () => {
     const { client, writes, at } = counting(ok({ n: 1 }, { etag: '"a"' }), ...Array.from({ length: 5 }, () => new Response(null, { status: 304, headers: limits(4000) })));
     await call(client);
@@ -274,16 +283,26 @@ describe('githubFetch: what a read writes (#1851)', () => {
     expect(writes.saveBudget).toBe(3);
   });
 
-  it('writes every answer within 2% of the background floor, so the floor still refuses on time', async () => {
-    const { client, writes, sent } = counting(ok({}, limits(1150)), ok({}, limits(1100)), ok({}, limits(1099)), ok({}, limits(999)));
+  it('writes the answer that crosses the background floor, however little it moved, so the floor still refuses on time (#2953)', async () => {
+    const { client, writes, sent, store } = counting(ok({}, limits(1050)), ok({}, limits(1001)), ok({}, limits(1000)), ok({}, limits(999)));
+    await call(client, ISSUE, 'background');
     await call(client, ISSUE, 'background');
     await call(client, ISSUE, 'background');
     expect(writes.saveBudget).toBe(1);
     await call(client, ISSUE, 'background');
-    await call(client, ISSUE, 'background');
-    expect(writes.saveBudget).toBe(3);
+    expect(writes.saveBudget).toBe(2);
+    expect(await store.budget(42, 'core')).toMatchObject({ remaining: 999 });
     await expect(call(client, ISSUE, 'background')).rejects.toBeInstanceOf(GithubDeferred);
     expect(sent).toHaveLength(4);
+  });
+
+  it('writes the answer that climbs back over the floor, so background calls go out again (#2953)', async () => {
+    const { client, writes, sent } = counting(ok({}, limits(999)), ok({}, limits(1000)), ok({}, limits(1000)));
+    await call(client);
+    await call(client);
+    expect(writes.saveBudget).toBe(2);
+    await call(client, ISSUE, 'background');
+    expect(sent).toHaveLength(3);
   });
 
   it('writes the budget of a new window, a new limit, or a resource the call did not guess', async () => {

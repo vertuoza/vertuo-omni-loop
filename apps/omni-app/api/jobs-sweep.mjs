@@ -541,16 +541,16 @@ async function saysSpent(res) {
   if (res.headers.get("x-ratelimit-remaining") === "0" || res.status === 429) return true;
   return SECONDARY.test(await res.clone().text().catch(() => ""));
 }
+var belowFloor = (remaining, limit) => remaining < limit * BACKGROUND_FLOOR;
 function worthWriting(known, reported, at4) {
   if (!known || known.limit !== reported.limit || known.resetAt !== reported.resetAt) return true;
-  const step = reported.limit * BUDGET_STEP;
-  return at4 - known.updatedAt >= BUDGET_FRESH_MS || Math.abs(known.remaining - reported.remaining) >= step || reported.remaining < reported.limit * BACKGROUND_FLOOR + step;
+  return at4 - known.updatedAt >= BUDGET_FRESH_MS || Math.abs(known.remaining - reported.remaining) >= reported.limit * BUDGET_STEP || belowFloor(known.remaining, known.limit) !== belowFloor(reported.remaining, reported.limit);
 }
 function refusal(budget, priority, now) {
   if (!budget) return null;
   if (budget.pausedUntil !== null && budget.pausedUntil > now) return new GithubPaused(budget.pausedUntil);
-  const belowFloor = budget.resetAt > now && budget.remaining < budget.limit * BACKGROUND_FLOOR;
-  return priority === "background" && belowFloor ? new GithubDeferred(budget.resetAt) : null;
+  const held = budget.resetAt > now && belowFloor(budget.remaining, budget.limit);
+  return priority === "background" && held ? new GithubDeferred(budget.resetAt) : null;
 }
 var GIT_OBJECT = /\/git\/(?:blobs|trees)\/[0-9a-f]{40}$/i;
 var isGitObject = (url) => GIT_OBJECT.test(new URL(url).pathname);
@@ -636,6 +636,70 @@ function githubClient({ store, fetch: send = (url, init) => globalThis.fetch(url
     bound({ installation, priority }) {
       return (url, init) => githubFetch(url, { ...stripPriority(init), installation, priority });
     }
+  };
+}
+
+// packages/github/src/remembering-store.ts
+var ETAG_MEMORY_LIMITS = { entries: 2e3, bodyChars: 16 * 1024 * 1024 };
+function etagMemory(limits = ETAG_MEMORY_LIMITS) {
+  const kept3 = /* @__PURE__ */ new Map();
+  let chars = 0;
+  const sizeOf = (value) => value?.body.length ?? 0;
+  const drop = (key) => {
+    chars -= sizeOf(kept3.get(key));
+    kept3.delete(key);
+  };
+  return {
+    get(key) {
+      const value = kept3.get(key);
+      if (value === void 0) return void 0;
+      kept3.delete(key);
+      kept3.set(key, value);
+      return value;
+    },
+    set(key, value) {
+      drop(key);
+      if (sizeOf(value) > limits.bodyChars) return;
+      kept3.set(key, value);
+      chars += sizeOf(value);
+      for (const oldest of kept3.keys()) {
+        if (kept3.size <= limits.entries && chars <= limits.bodyChars) break;
+        drop(oldest);
+      }
+    }
+  };
+}
+var copy = (value) => value ? { ...value } : null;
+function rememberingGithubStore(shared, memory = etagMemory()) {
+  const keyOf2 = (installation, url) => `${String(installation)} ${url}`;
+  return {
+    async etag(installation, url) {
+      const key = keyOf2(installation, url);
+      const known = memory.get(key);
+      if (known !== void 0) return copy(known);
+      const read2 = await shared.etag(installation, url);
+      memory.set(key, copy(read2));
+      return read2;
+    },
+    async saveEtag(installation, url, { etag, body, contentType = null, at: at4 }) {
+      const key = keyOf2(installation, url);
+      const known = memory.get(key);
+      if (known && known.body === body && known.contentType === contentType && at4 - known.readAt < TOUCH_EVERY_MS) {
+        memory.set(key, { etag, body, contentType, readAt: known.readAt });
+        return;
+      }
+      await shared.saveEtag(installation, url, { etag, body, contentType, at: at4 });
+      memory.set(key, { etag, body, contentType, readAt: at4 });
+    },
+    async touchEtag(installation, url, at4) {
+      await shared.touchEtag(installation, url, at4);
+      const key = keyOf2(installation, url);
+      const known = memory.get(key);
+      if (known) memory.set(key, { ...known, readAt: at4 });
+    },
+    budget: (...args) => shared.budget(...args),
+    saveBudget: (...args) => shared.saveBudget(...args),
+    pause: (...args) => shared.pause(...args)
   };
 }
 
@@ -842,12 +906,13 @@ function appOctokitFor(githubApp) {
     return app.octokit;
   };
 }
+var etags = etagMemory();
 function githubStoreOf(supabase) {
   if (!supabase) return null;
   const db = createClient(supabase.url, supabase.key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
   });
-  return supabaseGithubStore({ etags: () => db.from("github_etags"), budget: () => db.from("github_budget") });
+  return rememberingGithubStore(supabaseGithubStore({ etags: () => db.from("github_etags"), budget: () => db.from("github_budget") }), etags);
 }
 
 // apps/omni-app/src/run-log/run-log.ts
@@ -1874,8 +1939,8 @@ function dropUnrecognized(raw, issues) {
 function checkConfig(raw, ignoreUnknownKeys) {
   const result = ConfigSchema.safeParse(raw, { error: KIT_MESSAGES });
   if (result.success || !ignoreUnknownKeys) return result;
-  const copy = structuredClone(raw);
-  return dropUnrecognized(copy, result.error.issues) ? ConfigSchema.safeParse(copy, { error: KIT_MESSAGES }) : result;
+  const copy2 = structuredClone(raw);
+  return dropUnrecognized(copy2, result.error.issues) ? ConfigSchema.safeParse(copy2, { error: KIT_MESSAGES }) : result;
 }
 function parseConfig(source, file = CONFIG_FILE, { migrate = false, ignoreUnknownKeys = false } = {}) {
   let raw;
@@ -11231,8 +11296,8 @@ function readDecisions({
   const held = new Set(records.map((record) => record.number));
   const inherited = [];
   if (ctx.config) {
-    for (const copy of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
-      const own = readFolder(ctx.root, copy.ctx.layout.adrDir.replace(/\/+$/, ""), copy.level);
+    for (const copy2 of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
+      const own = readFolder(ctx.root, copy2.ctx.layout.adrDir.replace(/\/+$/, ""), copy2.level);
       const taken = new Set(held);
       for (const record of own) if (!taken.has(record.number)) inherited.push(record);
       for (const record of own) held.add(record.number);
@@ -19096,8 +19161,8 @@ function targetFlows({ root, config }) {
   const flows = /* @__PURE__ */ new Map();
   for (const { repo } of config.plan?.targets ?? []) {
     try {
-      const copy = readCopyFlow(repo, { root, config });
-      if (copy) flows.set(shortName4(repo), { ok: true, config: copy.config });
+      const copy2 = readCopyFlow(repo, { root, config });
+      if (copy2) flows.set(shortName4(repo), { ok: true, config: copy2.config });
     } catch (error) {
       flows.set(shortName4(repo), { ok: false, file: join65(copyFlowFolder(repo, { config }), COPY_FLOW_FILE), reason: messageOf2(error) });
     }
