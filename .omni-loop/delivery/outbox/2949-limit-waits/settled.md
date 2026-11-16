@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 2949
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-02-lost-resume-keeps-waits -->
+
+## s1-02-lost-resume-keeps-waits — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-02-lost-resume-keeps-waits
 prd: 2949
@@ -46,3 +76,7 @@ A constant in one database function: a follow-up migration changes it.
 (author) The PRD, the registers and the glossary do not settle this:
 
 - The spec says a lost runner spends a try as before, and says nothing of the waits count across a loss (author)
+
+```
+
+<!-- /omni-outbox-settled: s1-02-lost-resume-keeps-waits -->
