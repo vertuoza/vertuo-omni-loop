@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 2963
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-sync-test-seeds-last-read -->
+
+## s1-01-sync-test-seeds-last-read — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-16T18:43:12Z
+- Channel: feature pull request #2964
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2964#issuecomment-6925665009
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-123
+- Raised: 2026-11-16
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built and states nothing new about the product; BR-PRODUCT-123 reads as before.
+
+### The answer, as it was given
+
+```text
+1: A
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-sync-test-seeds-last-read
 prd: 2963
@@ -44,3 +77,6 @@ Moving the three tests to a file of their own is a small test-only change.
 ## What I could not know
 
 - Whether the rule's owner wants tests of the sync's read order kept out of the rule's proof file altogether (author).
+```
+
+<!-- /omni-outbox-settled: s1-01-sync-test-seeds-last-read -->
