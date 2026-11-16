@@ -16,7 +16,8 @@
 // a handoff on usage (at `handoff.usage` percent of a window, Claude's `allowed_warning`, or the account's
 // `budget` spent) to the next account, or on context (at `handoff.context` percent of the model's window)
 // to a fresh session of the same account. The run is stopped, the same session is resumed for one turn
-// to write its own note (`notePrompt`, five minutes at most), and the runner's note is the fallback when
+// to write its own note (`notePrompt`, which tells it the runner stopped it and why, so it never reads the
+// stop as a person's refusal; five minutes at most), and the runner's note is the fallback when
 // that turn fails, times out or writes nothing. At most five fresh sessions a job.
 //
 // Before a run on a T3 Codex or OpenCode instance, the kit's skills are written in that instance's own
@@ -132,8 +133,8 @@ export const FRESH_CAP_REASON = `context full: the job opened ${String(MAX_FRESH
 export const NOTE_TURN_MS = 5 * 60 * 1000;
 
 /** The one message that resumes the outgoing session to write its handoff note at `path`. */
-export const notePrompt = (path: string): string =>
-  `Write the handoff note for whoever continues this job to ${path}: what is done, what is next, the pull requests and branches open, and every decision you took. Change no other file.`;
+export const notePrompt = (path: string, why: string): string =>
+  `The runner stopped your run, not a person, because ${why}: another session takes this job over. Nothing you ran was refused: a command it cut short may not have finished, so say which. Write the handoff note for whoever continues this job to ${path}: what is done, what is next, the pull requests and branches open, and every decision you took. Change no other file.`;
 
 /** A planned handoff: on usage, to the next account (this one out until `resetsAt`, `null` when the agent gave none); on context, to a fresh session of the same account. `why` is the takeover line's. */
 export type PlannedHandoff = { ended: 'usage'; why: string; resetsAt: string | null } | { ended: 'context'; why: string };
