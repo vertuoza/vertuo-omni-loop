@@ -101,6 +101,19 @@ describe('the claim of a resume (PRD 2809, s5)', () => {
     ]);
   });
 
+  it('carries, for a limit\'s resume at the end of a long chain, the limited job it resumes and the save it left (PRD 2949 s3)', async () => {
+    // Lost once, then limited twice: the resume waits a third time, four jobs on. The limited job holds the newest save.
+    const first = lost();
+    const second = lost({ resumes: first.id, attempt: 2, reason: 'no tokens left', limited_until: at(-400) });
+    const third = lost({ resumes: second.id, attempt: 2, waits: 1, reason: 'no tokens left', limited_until: at(-1) });
+    const fourth = jobRow({ line: '/omni:wave 2803', resumes: third.id, attempt: 2, waits: 2, resume_after: at(-1), queued_at: at(-60) });
+    const { saves } = fakeSaves([saveRow(third.id, 'local'), saveRow(first.id, 'portable')]);
+    const claimed = value(await world([first, second, third, fourth], saves).next(OLGA, SHARED));
+    expect(claimed?.resume?.attempt).toBe(2);
+    expect(claimed?.resume?.chain.at(-1)).toBe(third.id);
+    expect(claimed?.resume?.saves).toContainEqual({ job: third.id, kind: 'local', manifest: manifest(third.id, 'local', 'box-1') });
+  });
+
   it('carries no resume for a job that resumes none, and no save on a service that reads none', async () => {
     const sent = jobRow({ line: '/omni:wave 2803' });
     const claimed = value(await world([sent], fakeSaves([]).saves).next(OLGA, SHARED));

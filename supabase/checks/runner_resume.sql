@@ -19,7 +19,13 @@
 -- target, attempt unchanged and waits one more, its own reason kept; the seventh limit queues nothing and its reason
 -- reads `waited 6 times for a provider limit (last until <HH:MM> UTC)`. A limited job whose cancel was asked queues
 -- nothing, and a cancelled resume is never claimed (BR-PRODUCT-134). A lost runner still spends a try and keeps the
--- chain's waits; `no tokens left` with no reset is a plain failure. Any `FAIL:` stops the run.
+-- chain's waits; `no tokens left` with no reset is a plain failure.
+-- Recovery first (PRD 2949, s3): runner_claim() hands out every resume before any fresh job, a resume queued last first
+-- when its chain began first, the chain followed back whole, and the runner's slots still bound it. A runner whose health,
+-- under two minutes old, reports every account out until a time to come gets nothing; one whose health is older, or
+-- lists an account ready, out until a time past, out with no reset or a reset that reads as no time, or no account at
+-- all, gets a job. A long chain's local save, three jobs back, holds its resume for the runner that keeps it.
+-- Any `FAIL:` stops the run.
 
 begin;
 
@@ -511,6 +517,146 @@ begin
    where id = '00000000-0000-4000-8000-000002949206';
   if exists (select 1 from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949206') then
     raise exception 'FAIL: a failure with no reset queued a resume';
+  end if;
+end $$;
+
+reset role;
+
+-- ── Recovery first, never to a runner with every account out (PRD 2949, s3) ──
+-- In the workspace Order, its own queue: o-1 (2 slots), o-2 and o-3 (8 each), no fleet, on order-check/app, all Olga's.
+-- F1, a job sent anew three hours ago, and G1 to G5, sent anew since. Chain X: X1 queued five hours ago, then X2 to X4
+-- (lost and limited, each queued within the last hour), and X5, its resume, queued a minute ago: five jobs, the first
+-- four back. Chain Y: Y1 queued two and a half hours ago, and Y2, its resume, queued two hours ago.
+insert into public.workspaces (id, slug, name, github_org) values
+  ('00000000-0000-4000-8000-000002949003', 'order-check', 'Order', 'order-check');
+insert into public.workspace_members (workspace_id, user_id, role) values
+  ('00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'owner');
+insert into public.runners (id, workspace_id, owner, name, fleet, slots, repos, github_app, last_seen_at) values
+  ('00000000-0000-4000-8000-000002949301', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'o-1', null, 2, '{order-check/app}', true, now()),
+  ('00000000-0000-4000-8000-000002949302', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'o-2', null, 8, '{order-check/app}', true, now()),
+  ('00000000-0000-4000-8000-000002949303', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'o-3', null, 8, '{order-check/app}', true, now());
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by, runner_id, status, reason, resumes, attempt, waits, limited_until, resume_after, queued_at, ended_at) values
+  ('00000000-0000-4000-8000-000002949401', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3001', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '3 hours', null),
+  ('00000000-0000-4000-8000-000002949411', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3011', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '170 minutes', null),
+  ('00000000-0000-4000-8000-000002949412', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3012', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '160 minutes', null),
+  ('00000000-0000-4000-8000-000002949413', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3013', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '150 minutes', null),
+  ('00000000-0000-4000-8000-000002949414', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3014', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '140 minutes', null),
+  ('00000000-0000-4000-8000-000002949415', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3015', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '130 minutes', null),
+  ('00000000-0000-4000-8000-000002949421', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'runner lost', null, 1, 0, null, null, now() - interval '5 hours', now() - interval '70 minutes'),
+  ('00000000-0000-4000-8000-000002949422', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949421', 2, 0, now() - interval '50 minutes', now() - interval '69 minutes', now() - interval '60 minutes', now() - interval '55 minutes'),
+  ('00000000-0000-4000-8000-000002949423', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949422', 2, 1, now() - interval '30 minutes', now() - interval '50 minutes', now() - interval '55 minutes', now() - interval '35 minutes'),
+  ('00000000-0000-4000-8000-000002949424', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949423', 2, 2, now() - interval '2 minutes', now() - interval '30 minutes', now() - interval '35 minutes', now() - interval '5 minutes'),
+  ('00000000-0000-4000-8000-000002949425', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, '00000000-0000-4000-8000-000002949424', 2, 3, null, now() - interval '2 minutes', now() - interval '1 minute', null),
+  ('00000000-0000-4000-8000-000002949431', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3003', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'runner lost', null, 1, 0, null, null, now() - interval '150 minutes', now() - interval '125 minutes'),
+  ('00000000-0000-4000-8000-000002949432', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3003', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, '00000000-0000-4000-8000-000002949431', 2, 0, null, now() - interval '119 minutes', now() - interval '2 hours', null);
+
+set local role service_role;
+
+-- Resumes before any fresh job, by their chain's first queued time, followed back the whole chain; the slots still bound it.
+do $$
+declare
+  o1  constant uuid := '00000000-0000-4000-8000-000002949301';
+  got uuid;
+begin
+  got := (select id from public.runner_claim(o1));
+  if got is distinct from '00000000-0000-4000-8000-000002949425' then
+    raise exception 'FAIL: o-1 claimed %, not X5, the resume whose chain began first (five hours ago, four jobs back), though queued last', got;
+  end if;
+  got := (select id from public.runner_claim(o1));
+  if got is distinct from '00000000-0000-4000-8000-000002949432' then
+    raise exception 'FAIL: o-1 claimed %, not Y2, the other resume, before F1, a job sent anew earlier', got;
+  end if;
+  if exists (select 1 from public.runner_claim(o1)) then
+    raise exception 'FAIL: o-1, its two slots taken by the resumes, claimed a third job';
+  end if;
+end $$;
+
+-- A runner whose health, under two minutes old, reports every account out until a time to come gets nothing; any other
+-- runner is judged by its own pause, and gets a job.
+do $$
+declare
+  o2     constant uuid := '00000000-0000-4000-8000-000002949302';
+  got    uuid;
+  out_1h constant jsonb := jsonb_build_object('id', 'max-1', 'agent', 'claude', 'state', 'out', 'resetsAt', to_char((now() + interval '1 hour') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+  out_2h constant jsonb := jsonb_build_object('id', 'max-2', 'agent', 'claude', 'state', 'out', 'resetsAt', to_char((now() + interval '2 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+  fresh  constant text := to_char((now() - interval '15 seconds') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+begin
+  update public.runners set health = jsonb_build_object('cpu', 3, 'at', fresh, 'accounts', jsonb_build_array(out_1h, out_2h)) where id = o2;
+  if exists (select 1 from public.runner_claim(o2)) then
+    raise exception 'FAIL: o-2, its fresh health reporting every account out, was handed a job';
+  end if;
+
+  -- The same report, three minutes old: judged by its own pause, it takes F1.
+  update public.runners set health = jsonb_build_object('cpu', 3, 'at', to_char((now() - interval '3 minutes') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                                                        'accounts', jsonb_build_array(out_1h, out_2h)) where id = o2;
+  got := (select id from public.runner_claim(o2));
+  if got is distinct from '00000000-0000-4000-8000-000002949401' then
+    raise exception 'FAIL: o-2, its health three minutes old, claimed %, not F1', got;
+  end if;
+
+  -- One account ready: a job.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(out_1h, jsonb_build_object('id', 'pro-1', 'agent', 'claude', 'state', 'ready'))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949411' then
+    raise exception 'FAIL: o-2, one account ready, was not handed G1';
+  end if;
+
+  -- Every account out, one of them until a time already past: a job.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(out_1h,
+         jsonb_build_object('id', 'max-2', 'agent', 'claude', 'state', 'out', 'resetsAt', to_char((now() - interval '1 minute') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949412' then
+    raise exception 'FAIL: o-2, an account''s reset already past, was not handed G2';
+  end if;
+
+  -- Its only account out with no reset, then with a reset that reads as no time: a job each, and no error.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(
+         jsonb_build_object('id', 'max-1', 'agent', 'claude', 'state', 'out'))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949413' then
+    raise exception 'FAIL: o-2, its only account out with no reset, was not handed G3';
+  end if;
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(
+         jsonb_build_object('id', 'max-1', 'agent', 'claude', 'state', 'out', 'resetsAt', 'soon'))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949414' then
+    raise exception 'FAIL: o-2, its account''s reset reading as no time, was not handed G4';
+  end if;
+
+  -- A fresh health that lists no account: a job.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', '[]'::jsonb) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949415' then
+    raise exception 'FAIL: o-2, its health listing no account, was not handed G5';
+  end if;
+end $$;
+
+reset role;
+
+-- A long chain's local save: Z1 left one on o-3's disk, and Z4, three jobs on, waits for o-3 while it is online. H1, a
+-- job sent anew, waits too.
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by, runner_id, status, reason, resumes, attempt, waits, resume_after, queued_at, ended_at) values
+  ('00000000-0000-4000-8000-000002949441', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'runner lost', null, 1, 0, null, now() - interval '4 hours', now() - interval '3 hours'),
+  ('00000000-0000-4000-8000-000002949442', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949441', 2, 0, now() - interval '3 hours', now() - interval '3 hours', now() - interval '2 hours'),
+  ('00000000-0000-4000-8000-000002949443', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949442', 2, 1, now() - interval '2 hours', now() - interval '2 hours', now() - interval '1 hour'),
+  ('00000000-0000-4000-8000-000002949444', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, '00000000-0000-4000-8000-000002949443', 2, 2, now() - interval '1 second', now() - interval '1 hour', null),
+  ('00000000-0000-4000-8000-000002949451', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3005', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, now() - interval '5 hours', null);
+insert into public.runner_checkpoints (job_id, workspace_id, runner_id, kind, manifest, bytes, keep_until) values
+  ('00000000-0000-4000-8000-000002949441', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-000002949303', 'local',
+   '{"job": "00000000-0000-4000-8000-000002949441", "kind": "local"}', 4096, now() + interval '7 days');
+
+set local role service_role;
+
+do $$
+declare
+  got uuid;
+begin
+  -- o-2 is handed H1 and nothing more: Z4 waits for o-3, which keeps its chain's save three jobs back.
+  got := (select id from public.runner_claim('00000000-0000-4000-8000-000002949302'));
+  if got is distinct from '00000000-0000-4000-8000-000002949451' then
+    raise exception 'FAIL: o-2 claimed %, not H1: a resume whose chain''s save, three jobs back, is on o-3''s disk went to another runner', got;
+  end if;
+  if exists (select 1 from public.runner_claim('00000000-0000-4000-8000-000002949302')) then
+    raise exception 'FAIL: o-2 claimed Z4, whose chain''s local save o-3 keeps, while o-3 is online';
+  end if;
+  got := (select id from public.runner_claim('00000000-0000-4000-8000-000002949303'));
+  if got is distinct from '00000000-0000-4000-8000-000002949444' then
+    raise exception 'FAIL: o-3, which keeps the chain''s save, claimed %, not Z4', got;
   end if;
 end $$;
 
