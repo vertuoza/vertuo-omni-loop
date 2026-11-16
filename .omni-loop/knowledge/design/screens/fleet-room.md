@@ -40,7 +40,11 @@ an agent is not a person.
   Engineer).
 - **Waiting on a seat:** which one.
 - **Waiting for you:** one question, one action.
-- **Waiting for room:** the fleet is full, or a provider limit holds, until when; no tokens spent.
+- **Waiting for room:** every runner of the fleet is busy or paused: `All runners are busy · waiting for room`,
+  the queued job linked, `tokens spent waiting 0` (PRD 2949).
+- **Waiting for a limit:** a provider limit holds: `Provider limit reached until 09:00 · waiting until 09:00`,
+  `(guessed)` when the provider gave no time, the account that ran out named and its job linked,
+  `tokens spent waiting 0 · next try 09:00` (PRD 2949).
 - **Resumed:** a runner went silent; the work carried on elsewhere from its last save, the minutes
   redone; work that could only stay on the lost runner is named.
 - **Stopped:** why, which limit was hit, how to resume.
@@ -51,7 +55,7 @@ an agent is not a person.
 ## Words
 
 - `Reviewer · agent`, `Engineer · agent`, `QA · agent`, `Designer · agent`, `A person does this today`,
-  `Nothing to clean up`, `Round 1 of 2`, `Waiting for room`, `Ready for review`.
+  `Nothing to clean up`, `Round 1 of 2`, `Waiting for room`, `Waiting until 09:00`, `Ready for review`.
 
 ## Refusals
 
@@ -82,3 +86,4 @@ an agent is not a person.
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2871: .omni-loop/delivery/shipped/2871-reviewer/before-after.html
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html (an idle hero with a skill that runs alone reads `Idle`; the Designer has a now line)
+/omni:brainstorm, PRD 2949: .omni-loop/delivery/inbox/2949-limit-waits/before-after.html (the two waiting lines)
