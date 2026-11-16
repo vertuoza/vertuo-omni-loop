@@ -1782,3 +1782,157 @@ A constant and a state word in the room, plus one event kind in the database che
 ```
 
 <!-- /omni-outbox-settled: s8-01-room-shows-no-rebase-row-yet -->
+
+<!-- omni-outbox-settled: s9-02-committee-wired-outside-territory -->
+
+## s9-02-committee-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s9
+- Wave: 9
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-02-committee-wired-outside-territory
+prd: 2896
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 9
+---
+
+## The question, in plain words
+
+The new committee command and its runner line had to be listed in two places outside this slice's ground. Is that acceptable?
+
+## The decision, in plain words
+
+Two one-line changes outside the slice: the list of the kit's commands now names the committee command, and the guide's Runners page names the committee among the lines a runner takes, since a test holds that page to the runner's list.
+
+## The intro, for fun
+
+The new colleague needed a badge and a line in the phone book.
+
+## The punchline, for fun
+
+Both took one line, and nobody else moved desks.
+
+## The options, in plain words
+
+A. Keep the two one-line changes outside the territory (built).
+B. Move them to a slice whose territory holds the command table and the guide.
+
+## What I had to decide
+
+Whether the command table and the guide's runner list may each take the one line the committee needs, outside s9's territory.
+
+## What I did meanwhile
+
+kit/bin/commands/index.ts registers omni committee; docs/guide/runners.md lists /omni:committee.
+
+## What it costs to change later
+
+Reverting either is one line; without them the command does not exist and the guide's test fails.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) s13 rewrites the guide's Missions page and may want the committee described there as well
+
+```
+
+<!-- /omni-outbox-settled: s9-02-committee-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s9-03-committee-members-use-role-defaults -->
+
+## s9-03-committee-members-use-role-defaults — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-15
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-15
+- Slice: s9
+- Wave: 9
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-03-committee-members-use-role-defaults
+prd: 2896
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-11-15
+wave: 9
+---
+
+## The question, in plain words
+
+Should each committee member run on the agent and model its fleet's hero was given, or on its role's default?
+
+## The decision, in plain words
+
+Each member runs on its role's default agent and model (the PM, the Architect and the Reviewer all on the strongest model today), since the runner's job does not yet carry the fleet's own hero settings. The red business law and a waiting Tech Approval are read when the decision is recorded, not before the members run: they still send the PRD to a person.
+
+## The intro, for fun
+
+The committee showed up in the default uniforms.
+
+## The punchline, for fun
+
+Same faces, same rules, the tailoring comes later.
+
+## The options, in plain words
+
+A. Members run on their role's defaults; the business-law verdict and the Tech Approval are checked when the decision is recorded (built).
+B. Carry each hero's agent and model, and the business-law verdict, in the committee's job before any member runs.
+
+## What I had to decide
+
+Whether the committee job must carry each hero's own agent and model, and the business-law verdict, before any member runs.
+
+## What I did meanwhile
+
+omni committee check names each member with its role's defaults; the database escalates a red business law or a waiting Tech Approval when it records the decision.
+
+## What it costs to change later
+
+Carrying the heroes' settings means the job line or the runner's claim naming them: a later slice's change, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether a hero a person set to another model should be honoured for its vote
+
+```
+
+<!-- /omni-outbox-settled: s9-03-committee-members-use-role-defaults -->
