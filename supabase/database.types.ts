@@ -5792,7 +5792,9 @@ export type Database = {
           approver_login: string
           dossier_id: string
           files: Json
+          fleet: string | null
           id: string
+          mission_id: string | null
         }
         SetofOptions: {
           from: "*"
