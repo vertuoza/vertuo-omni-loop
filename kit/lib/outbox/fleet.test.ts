@@ -5,7 +5,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, assert, describe, expect, it } from 'vitest';
 import { makeRepo, type Repo } from '../../test/fixture.ts';
-import { parsePrd } from '../ids.ts';
+import { parsePr, parsePrd } from '../ids.ts';
 import { fleetAnswered, fleetHeldLines, settleByFleet, type FleetAnswer } from './fleet.ts';
 import { SETTLED_FILE } from './outbox.ts';
 import { parseSettledEntries, settleItem } from './settle.ts';
@@ -68,7 +68,7 @@ const answer = (over: Partial<FleetAnswer> = {}): FleetAnswer => ({
   option: 'A',
   branch: 'mission/12-faster-quotes',
   at: '2026-11-16T09:00:00Z',
-  pr: 43,
+  pr: parsePr(43),
   url: 'https://github.com/acme/widgets/pull/43',
   verdicts: [
     { role: 'pm', answer: 'yes', sentence: 'In scope.' },

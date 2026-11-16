@@ -24,7 +24,7 @@ import { committeeLine, type CommitteeRecord } from '../../lib/committee/record.
 import { CommitteeRoleSchema, parseVotes, sitting, type CommitteeRole } from '../../lib/committee/vote.ts';
 import { readDossierFolder, sha256 } from '../../lib/dossier/folder.ts';
 import { readRepoFile } from '../../lib/check-report.ts';
-import type { PrdNumber } from '../../lib/ids.ts';
+import { parseOutboxItemId, type PrdNumber } from '../../lib/ids.ts';
 import { lockedLaws } from '../../lib/laws.ts';
 import { openItems } from '../../lib/outbox/status.ts';
 import { parseItem } from '../../lib/outbox/settle.ts';
@@ -180,7 +180,7 @@ function record(args: string[], io: CommandIo): number {
     verdicts: decided.verdicts,
     outcome: decided.outcome,
   };
-  const line = (item === null ? { ...common, kind: 'approve' } : { ...common, kind: 'answer', item, option: BUILT }) as CommitteeRecord;
+  const line: CommitteeRecord = item === null ? { ...common, kind: 'approve' } : { ...common, kind: 'answer', item: parseOutboxItemId(item), option: BUILT };
   println(io.stdout, `omni committee: PRD ${String(prd)} ${decided.outcome === 'carried' ? carriedWords(item) : 'escalated: it goes to a person'}`);
   for (const why of decided.why) println(io.stdout, `  ${why}`);
   println(io.stdout, committeeLine(line));

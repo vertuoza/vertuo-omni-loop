@@ -18,7 +18,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRepoFile } from '../check-report.ts';
-import type { PrdNumber } from '../ids.ts';
+import type { PrdNumber, PrNumber } from '../ids.ts';
 import type { Layout } from '../layout.ts';
 import { SETTLED_FILE } from './outbox.ts';
 import { parseItem, parseSettledEntries, renderSettledEntry, settledHeader, type Markers } from './settle.ts';
@@ -34,7 +34,7 @@ const BUILT = 'A';
 export type FleetVerdict = { role: string; answer: string; sentence: string };
 
 /** What the fleet answered: its key, the option, the mission branch it answered for, when, on which pull request, and the verdicts. */
-export type FleetAnswer = { fleet: string; option: string; branch: string; at: string; pr: number; url?: string; verdicts: readonly FleetVerdict[] };
+export type FleetAnswer = { fleet: string; option: string; branch: string; at: string; pr: PrNumber; url?: string; verdicts: readonly FleetVerdict[] };
 
 /** What settling reads of a context. */
 type FleetContext = { root: string; layout: Pick<Layout, 'outboxDir' | 'outboxDirs'>; markers: Markers; config: { paths: { delivery: string } } };

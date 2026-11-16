@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, assert, describe, expect, it } from 'vitest';
 import { parseConfig } from 'omni-loop/kit/lib/config.ts';
 import { createContext } from 'omni-loop/kit/lib/context.ts';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { settleByFleet } from 'omni-loop/kit/lib/outbox/fleet.ts';
 import type { Verdict } from '../evaluate/evaluate.ts';
 import { withFleetHeld } from './fleet-held.ts';
@@ -41,7 +41,7 @@ function headWith(answered: boolean): string {
   write(`${OUTBOX}/${ITEM}.md`, item);
   if (answered) {
     const verdicts = [{ role: 'pm', answer: 'yes', sentence: 'Fine.' }];
-    const settled = settleByFleet({ ctx: createContext(head, config), prd: parsePrd(42), item: ITEM, answer: { fleet: 'blue', option: 'A', branch: 'mission/1-x', at: '2026-11-16', pr: 43, verdicts } });
+    const settled = settleByFleet({ ctx: createContext(head, config), prd: parsePrd(42), item: ITEM, answer: { fleet: 'blue', option: 'A', branch: 'mission/1-x', at: '2026-11-16', pr: parsePr(43), verdicts } });
     assert(settled.ok);
     write(settled.settledFile, settled.text);
     for (const file of settled.deletes) rmSync(join(head, file));
