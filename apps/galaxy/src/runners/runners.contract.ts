@@ -3,7 +3,7 @@
 //
 //   POST  /api/runners/register            runner  {name, slots, repos, version}            → {id, name, fleet}
 //   GET   /api/runners/next?runner=<id>    runner  held up to 40 s                          → RunnerJob | 204
-//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?, parts?} → {cancel}
+//   POST  /api/runners/jobs/<id>           runner  {status, logTail?, from?, lines?, prUrl?, exitCode?, reason?, tokens?, released?, releaseError?, outcome?, fixedBy?, prs?, followUps?, slicesMerged?, slicesTotal?, parts?, limit?} → {cancel}
 //   POST  /api/runners/<id>/health         runner  HealthReport, every 15 s (PRD 2102)       → {at}
 //   POST  /api/runners/jobs/<id>/github-token  runner, the job's own, while it is claimed or running (PRD 2433, PRD 2809) → {token, expiresAt}
 //   POST  /api/runners/jobs/<id>/checkpoint    runner, the job's own, whatever its status (PRD 2809 s4) {step: link, bytes} → {path, url, expiresAt}
@@ -344,6 +344,9 @@ export const JobUpdateSchema = z.object({
   slicesTotal: z.number().int().nonnegative().optional(),
   /** The job's runs, one per account it ran on, in order, at most 20 (PRD 2537), stored in `runner_jobs.parts`. */
   parts: z.array(JobPartSchema).min(1).max(PARTS_MAX).optional(),
+  /** The provider limit a failed job met with no account left to take it over (PRD 2949): the earliest reset among its
+   * runner's accounts, `guessed` when the provider named none. Stored in `runner_jobs.limited_until` on a failed report only. */
+  limit: z.object({ resetsAt: z.iso.datetime(), guessed: z.boolean() }).strict().optional(),
 }).strict()
   .refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' })
   .refine((report) => (report.slicesMerged === undefined) === (report.slicesTotal === undefined), { message: 'slicesMerged and slicesTotal come together' })
