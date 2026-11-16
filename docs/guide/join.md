@@ -56,7 +56,7 @@ In your coding agent, at the root of the repository (another agent than Claude C
 in its own form: [Any coding agent](/docs/any-agent#set-up-your-agent)):
 
 ```text agent
-/omni:status
+/omni:dashboard
 ```
 
 On a repository your team has been running, it is not empty: how many PRDs have shipped, how many
@@ -120,7 +120,7 @@ Where your team's work lives, once you are set up:
 
 ## Your first day
 
-1. **See what is in flight:** `/omni:status`, and the **PRDs** page of the app.
+1. **See what is in flight:** `/omni:dashboard`, and the **PRDs** page of the app.
 2. **Read the rules every agent follows here**, in a terminal at the root of the repository:
 
    ```bash terminal agent

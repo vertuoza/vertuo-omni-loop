@@ -110,8 +110,13 @@ async function now(cwd: string, args: string[] = [], { env = {}, stdin }: { env?
   return { code, out: out.join(''), err: err.join(''), calls };
 }
 
-/** `omni now --json` in `cwd`, held to the rules every case keeps: exit 0, no stderr, no network, no file written. */
+/** `omni now --json` in `cwd`, held to the rules every case keeps: exit 0, no stderr, no network, no file written. Its `status` key is read apart (`nowStatusKey`). */
 async function nowJson(cwd: string, root: string, args: string[] = [], options = {}) {
+  const answer = (await nowJsonWithStatus(cwd, root, args, options)) as Record<string, unknown>;
+  return Object.fromEntries(Object.entries(answer).filter(([key]) => key !== 'status'));
+}
+
+async function nowJsonWithStatus(cwd: string, root: string, args: string[] = [], options = {}) {
   const before = tree(root);
   const run = await now(cwd, ['--json', ...args], options);
   expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
@@ -446,5 +451,87 @@ describe('omni now — a loop or a roadmap', () => {
     rmSync(join(repo.root, LOOP_FILE), { force: true });
     await main(['roadmap', 'check', '12'], { cwd: repo.root, stdout: { write: () => true }, stderr: { write: () => true }, env: { CLAUDE_CODE_SESSION_ID: 'road-3' } });
     expect(await nowJson(repo.root, repo.root, ['--session', 'road-3'])).toEqual({ headline: ROADMAP_12, work: null, doing: null });
+  });
+});
+
+/** Keeps a pull request beside the links of the `kind` work `n`, as `omni now --status --fetch` does. */
+function keepPullRequest(root: string, kind: string, n: number, pullRequest: Record<string, unknown>) {
+  mkdirSync(join(root, '.omni-loop/local/now'), { recursive: true });
+  writeFileSync(join(root, `.omni-loop/local/now/pr-${kind}-${n}.json`), JSON.stringify({ number: 2892, url: 'https://github.com/acme/widgets/pull/2892', at: new Date(NOW - 120_000).toISOString(), ...pullRequest }));
+}
+
+const TEST_FILE = 'kit/lib/login.test.ts';
+
+/** `omni now --status` in `cwd`: its text, held to exit 0, no stderr and no `gh` call. */
+async function nowStatus(cwd: string, args: string[] = []) {
+  const run = await now(cwd, ['--status', ...args]);
+  expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
+  expect(run.calls.filter((call) => /^gh\b/.test(call))).toEqual([]);
+  return run.out;
+}
+
+describe('omni now --status', () => {
+  const repo = fixture({ [`${DELIVERY}/inbox/0007-bravo/plan.md`]: '# plan\n' });
+  let fixDir = '';
+  const fixBranch = () => (fixDir ||= repo.on('fix/login-redirect', 'origin/fix/login-redirect'));
+
+  it('reads a bug fix whose draft pull request changes only tests as Reproduced, fixing it, with a You line and the links', async () => {
+    keepPullRequest(repo.root, 'bug', 1180, { state: 'draft', files: [TEST_FILE, `${DELIVERY}/bugs/1180-login-redirect/bug.md`], checks: [{ name: 'test', state: 'success' }] });
+    const out = await nowStatus(fixBranch());
+    expect(out).toContain('Step 3 of 6');
+    expect(out).toContain('▶ Reproduced, fixing it');
+    expect(out).toMatch(/^You: /m);
+    expect(out).toContain('Pull request:');
+    expect(out).toContain('https://github.com/acme/widgets/pull/2892');
+    expect(out).toContain('Checked 2 min ago.');
+    expect(out).not.toContain('Right now');
+  });
+
+  it('says 🔴 Stuck with the failed check\'s real name, and never 🟢 while a check is red', async () => {
+    keepPullRequest(repo.root, 'bug', 1180, { state: 'draft', files: ['kit/lib/login.ts'], checks: [{ name: 'lint-and-test', state: 'failure' }] });
+    const out = await nowStatus(fixBranch());
+    expect(out.split('\n')[0]).toMatch(/^🔴 Stuck/);
+    expect(out).toContain('Details (RAW');
+    expect(out).toContain('lint-and-test · failed');
+    expect(out).not.toContain('🟢');
+  });
+
+  it('reads a PRD whose board shows 4 of 6 slices merged as Building (4 of 6 parts)', async () => {
+    repo.board(7, ['s1', 's2', 's3', 's4', 's5', 's6'].map((id, index) => ({ id, wave: 1, state: index < 4 ? 'merged' : 'in-flight', name: id })));
+    const out = await nowStatus(repo.on('feat/bravo--s5'));
+    expect(out).toContain('Building (4 of 6 parts)');
+    expect(out).toContain('Step ');
+  });
+
+  it('prints the two lines of a session on nothing, in the checkout and outside the loop', async () => {
+    const nothing = 'Nothing is running in this terminal.\n/omni:dashboard shows all your work.\n';
+    expect(await nowStatus(repo.root)).toBe(nothing);
+    const outside = mkdtempSync(join(tmpdir(), 'omni-now-status-outside-'));
+    try {
+      expect(await nowStatus(outside)).toBe(nothing);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('shows the branch\'s work (BR-PRODUCT-90) and carries the same status as the json status key', async () => {
+    keepPullRequest(repo.root, 'bug', 1180, { state: 'draft', files: [TEST_FILE], checks: [] });
+    const dir = fixBranch();
+    const { status } = (await nowJsonWithStatus(dir, repo.root)) as { status: { kind: string; at: number; steps: unknown[]; verdict: { level: string }; you: string; next: string[]; details: string[]; checkedAt: string } };
+    expect(status).toMatchObject({ kind: 'bug', at: 3, verdict: { level: 'on-track' }, details: [], checkedAt: new Date(NOW - 120_000).toISOString() });
+    expect(status.steps).toHaveLength(6);
+    expect(status.you).not.toBe('');
+  });
+
+  it('adds no status key to a session on nothing, and leaves omni now with no flag as it was', async () => {
+    expect(await nowJsonWithStatus(repo.root, repo.root)).toEqual(NOTHING);
+    expect((await now(repo.root)).out).toBe(NO_PRD);
+  });
+
+  it('lists --status and --fetch in omni help now', async () => {
+    const out: string[] = [];
+    expect(await main(['help', 'now'], { cwd: repo.root, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} }, env: {} })).toBe(0);
+    expect(out.join('')).toContain('--status');
+    expect(out.join('')).toContain('--fetch');
   });
 });

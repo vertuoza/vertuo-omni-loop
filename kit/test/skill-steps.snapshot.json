@@ -388,14 +388,9 @@
   },
   "status": {
     "commands": [
-      "dossier",
-      "signin",
-      "status"
+      "now"
     ],
-    "guards": [
-      "omni status",
-      "draft"
-    ]
+    "guards": []
   },
   "think-big": {
     "commands": [

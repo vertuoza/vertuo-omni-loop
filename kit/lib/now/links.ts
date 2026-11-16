@@ -96,3 +96,36 @@ export async function refreshLinks({ root, kind, n, now, build }: { root: string
   }
   return 'written';
 }
+
+// The work's pull request, kept beside its links (PRD 2906, `omni now --status --fetch`): its link, its
+// state, its changed files and its checks, with when they were read. `omni now --status` shows the last
+// copy however old, with its age; only `--fetch` writes one.
+const PullRequestSchema = z.object({
+  at: z.string(),
+  number: z.number(),
+  url: z.string(),
+  state: z.enum(['open', 'draft', 'merged', 'closed']),
+  files: z.array(z.string()),
+  checks: z.array(z.object({ name: z.string(), state: z.enum(['pending', 'success', 'failure', 'neutral', 'skipped']) })),
+});
+
+/** The pull request of a work as kept: its facts and when they were read. */
+export type KeptPullRequest = z.infer<typeof PullRequestSchema>;
+
+const pullRequestFile = (root: string, kind: LinksKind, n: number): string => join(root, LINKS_DIR, `pr-${kind}-${n}.json`);
+
+/** The pull request kept for the `kind` work numbered `n` in the main checkout at `root`; `null` when none is kept or it does not read. Never throws. */
+export function readPullRequest(root: string, kind: LinksKind, n: number): KeptPullRequest | null {
+  try {
+    const parsed = PullRequestSchema.safeParse(JSON.parse(readFileSync(pullRequestFile(root, kind, n), 'utf8')));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keeps `pullRequest` as the `kind` work numbered `n`'s, in the main checkout at `root`. */
+export function writePullRequest(root: string, kind: LinksKind, n: number, pullRequest: KeptPullRequest): void {
+  ensureLinksDir(root);
+  writeJsonAt(pullRequestFile(root, kind, n), pullRequest);
+}

@@ -425,7 +425,7 @@ describe('the help table in this repository', () => {
       build: ['do-work', 'drive', 'plan', 'pr', 'pr-care', 'review', 'wave', 'yolo', 'yolo-fix', 'yolo-runner'],
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
-      everyday: ['ask', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'tech-review', 'validate-e2e'],
+      everyday: ['ask', 'dashboard', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'tech-review', 'validate-e2e'],
       'run-by-skills': ['committee', 'dossier-open', 'dossier-push'],
     });
   });
