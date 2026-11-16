@@ -64,12 +64,14 @@ describe('the store, on its fake', () => {
     await expect(store.recordTopic({ workspace_id: W, repository: REPO, prd: parsePrd(8), topic: 'shared-inbox' })).rejects.toThrow(/23505/);
   });
 
-  it('says when a repository was last synced: its latest PRD stage, never another stage', async () => {
+  it('says when a repository was last synced: its latest recorded read, whatever stages it wrote (#2963)', async () => {
     const store = fakeStageStore();
     expect(await store.lastSynced(W, REPO)).toBeNull();
     await store.recordStages([rec(7, 'prd')], at(3));
-    await store.recordStages([rec(8, 'prd', 1, { repository: 'Acme/Widgets' })], at(5));
-    await store.recordStages([rec(7, 'shipped'), rec(9, 'prd', 1, { workspace_id: OTHER })], at(9));
+    expect(await store.lastSynced(W, REPO)).toBeNull();
+    await store.recordSynced(W, REPO, at(4));
+    await store.recordSynced(W, 'Acme/Widgets', at(5));
+    await store.recordSynced(OTHER, REPO, at(9));
     expect(await store.lastSynced(W, 'ACME/widgets')).toBe(at(5));
   });
 
@@ -149,13 +151,16 @@ describe('the store, on Supabase', () => {
     expect(await stageStore(recording(rows).db).currentStages(W, [])).toEqual(new Map());
   });
 
-  it('reads when a repository was last synced from its PRD stages, the latest first; null for none', async () => {
+  it('records when a repository was read, the repository in lower case (#2963)', async () => {
+    const { calls, db } = recording();
+    await stageStore(db).recordSynced(W, 'Acme/Widgets', at(12));
+    expect(calls).toEqual([['upsert', 'repository_syncs', { workspace_id: W, repository: 'acme/widgets', synced_at: at(12) }, { onConflict: 'workspace_id,repository' }]]);
+  });
+
+  it('reads when a repository was last synced from its recorded read; null for none (#2963)', async () => {
     const { calls, db } = recording([{ synced_at: at(12) }]);
     expect(await stageStore(db).lastSynced(W, 'Acme/Widgets')).toBe(at(12));
-    expect(calls).toEqual([[
-      'select', 'prd_stages', 'synced_at', ['workspace_id', W], ['repository', 'acme/widgets'], ['stage', 'prd'],
-      ['order', 'synced_at', { ascending: false }], ['limit', 1], 'maybeSingle',
-    ]]);
+    expect(calls).toEqual([['select', 'repository_syncs', 'synced_at', ['workspace_id', W], ['repository', 'acme/widgets'], 'maybeSingle']]);
     expect(await stageStore(recording([]).db).lastSynced(W, REPO)).toBeNull();
   });
 

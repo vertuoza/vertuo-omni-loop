@@ -166,15 +166,16 @@ describe('the stages sync route', () => {
     const byRepo = (reads: typeof seen) => reads.toSorted(([a], [b]) => a.localeCompare(b));
     expect(byRepo(first)).toEqual([['acme/gears', null], ['acme/widgets', null], ['globex/core', null]]);
     expect(byRepo(seen)).toEqual([
-      // acme/gears holds no PRD issue: nothing tells when it was last synced, so it is read in full again.
-      ['acme/gears', null], ['acme/widgets', '2026-09-29T11:55:00.000Z'], ['globex/core', '2026-09-29T11:55:00.000Z'],
+      // acme/gears holds no PRD issue, yet its read is recorded: it too is read only from then on (#2963).
+      ['acme/gears', '2026-09-29T11:55:00.000Z'], ['acme/widgets', '2026-09-29T11:55:00.000Z'], ['globex/core', '2026-09-29T11:55:00.000Z'],
     ]);
   });
 
-  it('takes when a repository was last synced from its PRD stages only, which no stage event writes', async () => {
+  it('takes when a repository was last synced from its recorded read only, which no stage event writes (#2963)', async () => {
     const seen: (string | null | undefined)[] = [];
     const { d, store } = deps({}, { acme: ['acme/widgets'] });
-    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T10:00:00.000Z');
+    await store.recordSynced('w-acme', 'acme/widgets', '2026-09-29T10:00:00.000Z');
+    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T11:00:00.000Z');
     await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'outbox', reached_at: '2026-09-29T11:30:00Z' }], '2026-09-29T11:30:00.000Z');
     d.snapshot = (_w, repo, since) => { seen.push(since); return Promise.resolve(snap(repo)); };
     await syncStages(post(`Bearer ${SECRET}`), d);
@@ -628,7 +629,7 @@ describe('the milestones (PRD 2370, s1)', () => {
   it('logs milestones it cannot read or record, and the stages still land from what changed since their last sync', async () => {
     const seen: (string | null)[] = [];
     const { d, store, milestones, lines: logged } = withMilestones();
-    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: parsePrd(42), stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T11:00:00.000Z');
+    await store.recordSynced('w-acme', 'acme/widgets', '2026-09-29T11:00:00.000Z');
     const base = { ...d };
     d.snapshot = (w, repo, since) => { seen.push(since); return base.snapshot(w, repo, since); };
     milestones.fail = 'down';
