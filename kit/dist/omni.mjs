@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.644" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.645" };
   }
 });
 
@@ -48734,7 +48734,6 @@ var rulesLine = ({ rules }) => rules === null ? [] : [`${INDENT}rules enforced  
 var followUpsLine = (followUps) => followUps === void 0 || followUps === null || followUps.count === 0 ? [] : [`${INDENT}follow-ups  ${followUps.count} open \xB7 oldest ${followUps.oldest} \u2192 omni follow-up list`];
 var NUMBER_GAP = "  ";
 var TOPIC_GAP = "    ";
-var SEPARATOR = " \xB7 ";
 var cut3 = (text19, width) => text19.length <= width ? text19 : `${text19.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
 function standing({ stage: stage2, prd: prd2, openItems: openItems3 = 0, approval: approval3 }) {
@@ -48761,36 +48760,12 @@ function landingLines(landings) {
     return cut3(`${UNDER_BAR}landing ${landing}/${count10} ${name3}: ${state}${waits3}`, WIDTH2);
   });
 }
-function shippedEntry({ prd: prd2, topic }, width) {
-  const number5 = `#${prd2} `;
-  return `${number5}${cut3(topic, width - number5.length)}`;
-}
-function shippedRow(shipped) {
-  const out = [];
-  let line3 = `${stageColumn("shipped")}${shipped.length}: `;
-  let fresh = true;
-  for (const entry3 of shipped) {
-    if (!fresh) {
-      const joined3 = `${line3}${SEPARATOR}${shippedEntry(entry3, Infinity)}`;
-      if (joined3.length <= WIDTH2) {
-        line3 = joined3;
-        continue;
-      }
-      out.push(line3);
-      line3 = UNDER_BAR;
-    }
-    line3 = `${line3}${shippedEntry(entry3, WIDTH2 - line3.length)}`;
-    fresh = false;
-  }
-  out.push(line3);
-  return out;
-}
 function yours({ state, email: email3, rows: inFlight3, shipped }) {
   if (state === "no-email") return [`${INDENT}set git config user.email to see yours`];
   if (state === "shallow") return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];
   const heading2 = cut3(`${INDENT}Yours \xB7 ${email3}`, WIDTH2);
-  if (inFlight3.length === 0 && shipped.length === 0) return [heading2, `${INDENT}none yet`];
-  return [heading2, ...inFlight3.length ? rows(inFlight3) : [], ...shipped.length ? shippedRow(shipped) : []];
+  if (inFlight3.length > 0) return [heading2, ...rows(inFlight3)];
+  return [heading2, `${INDENT}${shipped.length > 0 ? "nothing in progress" : "none yet"}`];
 }
 function heldLines(held3) {
   return held3.flatMap(({ prd: prd2, topic, lines: lines4 }) => [
@@ -56172,14 +56147,14 @@ init_define_OMNI_BUNDLE();
 var INDEX_CAP_BYTES = 3072;
 var INDEX_BUDGET_MS = 3e3;
 var CARRY_ON3 = "\u2014 agents carry on";
-var SEPARATOR2 = " \xB7 ";
+var SEPARATOR = " \xB7 ";
 var INDENT2 = "       ";
 var bytes = (text19) => Buffer.byteLength(text19, "utf8");
 function fit(items, budget2, command2) {
   for (let kept2 = items.length; kept2 > 0; kept2 -= 1) {
-    const text19 = items.slice(0, kept2).join(SEPARATOR2);
+    const text19 = items.slice(0, kept2).join(SEPARATOR);
     const more = items.length - kept2;
-    const full = more === 0 ? text19 : `${text19}${SEPARATOR2}\u2026 ${more} more: ${command2}`;
+    const full = more === 0 ? text19 : `${text19}${SEPARATOR}\u2026 ${more} more: ${command2}`;
     if (bytes(full) <= budget2) return { text: full, kept: kept2 };
   }
   return { text: `\u2026 ${items.length} more: ${command2}`, kept: 0 };
@@ -59485,7 +59460,7 @@ function stageOf2({ folder, base, feature, slices = null }) {
 var BUILDING = "building";
 var NOTHING2 = Object.freeze({ headline: null, work: null, doing: null });
 var NO_WORK_LINE = "no PRD \xB7 /omni:brainstorm to start";
-var SEPARATOR3 = " \xB7 ";
+var SEPARATOR2 = " \xB7 ";
 function workStage(stage2, slices) {
   if (stage2 !== OUTBOX2 || !slices || slices.length === 0) return stage2;
   return slices.every((slice) => slice.state === MERGED) ? OUTBOX2 : BUILDING;
@@ -59523,16 +59498,16 @@ function roadmapHeadline(number5, merged, rows2) {
   return { kind: "roadmap", number: number5, progress: `${merged}/${rows2} ${MERGED}`, links: [] };
 }
 function underHeadline(answer, headline2, last) {
-  const doing = last ? `step ${last.step}: ${last.action} PRD ${last.prd}${SEPARATOR3}${last.result}` : answer.doing;
+  const doing = last ? `step ${last.step}: ${last.action} PRD ${last.prd}${SEPARATOR2}${last.result}` : answer.doing;
   return { headline: headline2, work: answer.work, doing };
 }
 var workName = ({ kind: kind2, number: number5, topic }) => kind2 === "prd" ? `PRD ${number5} ${topic}` : `${kind2} #${number5} ${topic}`;
-var headlineLine = ({ kind: kind2, number: number5, progress }) => [number5 === void 0 ? kind2 : `${kind2} ${number5}`, ...progress ? [progress] : []].join(SEPARATOR3);
+var headlineLine = ({ kind: kind2, number: number5, progress }) => [number5 === void 0 ? kind2 : `${kind2} ${number5}`, ...progress ? [progress] : []].join(SEPARATOR2);
 function workLines(work, doing) {
   const stuck = work?.slices.filter((slice) => slice.state === STUCK) ?? [];
   const status5 = [...doing ? [doing] : [], ...stuck.length > 0 ? [`stuck ${stuck.map(label).join(", ")}`] : []];
-  const head = work ? [[workName(work), ...work.stage ? [work.stage] : []].join(SEPARATOR3)] : [];
-  return status5.length > 0 ? [...head, status5.join(SEPARATOR3)] : head;
+  const head = work ? [[workName(work), ...work.stage ? [work.stage] : []].join(SEPARATOR2)] : [];
+  return status5.length > 0 ? [...head, status5.join(SEPARATOR2)] : head;
 }
 function nowLines({ headline: headline2, work, doing, wait: wait6 }) {
   const waitLines = wait6 ? [wait6.line] : [];
@@ -71492,7 +71467,7 @@ import { spawn as spawnProcess2 } from "node:child_process";
 init_define_OMNI_BUNDLE();
 var NO_PRD_LINE = "no PRD \xB7 /omni:brainstorm to start";
 var UNREADABLE_LINE = "omni";
-var SEPARATOR4 = " \xB7 ";
+var SEPARATOR3 = " \xB7 ";
 var BAR_CELLS2 = 10;
 var FILLED = "\u2588";
 var EMPTY = "\u2591";
@@ -71527,7 +71502,7 @@ function usagePart(fiveHour, now2) {
   return `usage ${Math.floor(fiveHour.percent)}%, resets in ${resetIn(fiveHour.resetsAt - now2)}`;
 }
 function sessionLine({ model, contextPercent, fiveHour, askOn }, { now: now2, color }) {
-  return [model, contextPart(contextPercent, { color }), usagePart(fiveHour, now2), askOn ? "ask on" : null].filter(Boolean).join(SEPARATOR4);
+  return [model, contextPart(contextPercent, { color }), usagePart(fiveHour, now2), askOn ? "ask on" : null].filter(Boolean).join(SEPARATOR3);
 }
 function visibleLength(line3) {
   let length = 0;
@@ -71580,7 +71555,7 @@ function stuckPart(slices, names, color) {
   return stuck ? paint(stuck, "red", color) : null;
 }
 function workLine(work, board2, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
-  const draw2 = (topic, names) => [workName2(work, topic), ...workParts(work, board2, names, color)].filter(Boolean).join(SEPARATOR4);
+  const draw2 = (topic, names) => [workName2(work, topic), ...workParts(work, board2, names, color)].filter(Boolean).join(SEPARATOR3);
   const full = draw2(work.topic, true);
   if (visibleLength(full) <= width) return full;
   const line3 = draw2(work.topic, false);
@@ -71593,7 +71568,7 @@ function headlineLine2({ headline: headline2, work }, width) {
   const head = headline2 ? [headline2.number === void 0 ? headline2.kind : `${headline2.kind} ${headline2.number}`, headline2.progress ?? null] : [];
   const ref2 = work ? `now ${work.kind === "prd" ? `PRD ${work.number}` : `${work.kind} #${work.number}`}` : null;
   const first = work?.slices.find(inFlight2)?.id ?? null;
-  return fit3([...head, ref2, first].filter(Boolean).join(SEPARATOR4), width);
+  return fit3([...head, ref2, first].filter(Boolean).join(SEPARATOR3), width);
 }
 function secondLine(answer, board2, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
   const { headline: headline2, work } = answer;
@@ -71612,11 +71587,11 @@ function withBadge(record3, draw2, width) {
   const text19 = syncText(record3);
   const [first = ""] = text19.split(" ");
   const line3 = draw2(width);
-  const room = width - visibleLength(`${dot} ${SEPARATOR4}${line3}`);
+  const room = width - visibleLength(`${dot} ${SEPARATOR3}${line3}`);
   const length = Array.from(text19).length;
-  if (room >= length) return `${dot} ${text19}${SEPARATOR4}${line3}`;
-  if (room > Array.from(first).length) return `${dot} ${cutTo(text19, room).replace(/ +…$/u, CUT)}${SEPARATOR4}${line3}`;
-  const prefix = `${dot} ${first}${SEPARATOR4}`;
+  if (room >= length) return `${dot} ${text19}${SEPARATOR3}${line3}`;
+  if (room > Array.from(first).length) return `${dot} ${cutTo(text19, room).replace(/ +…$/u, CUT)}${SEPARATOR3}${line3}`;
+  const prefix = `${dot} ${first}${SEPARATOR3}`;
   return `${prefix}${draw2(Math.max(1, width - visibleLength(prefix)))}`;
 }
 function renderLines({ input: input2, facts: facts2, terminal, now: now2 }) {
