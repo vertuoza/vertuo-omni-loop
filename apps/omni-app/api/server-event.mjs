@@ -21204,7 +21204,7 @@ function missionJoins({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/job.ts
-import { z as z88 } from "zod";
+import { z as z89 } from "zod";
 
 // kit/lib/mission/drop.ts
 function territoryOf(plan) {
@@ -21351,7 +21351,7 @@ function committeeOfKey(key) {
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
   return match && prd.success ? { prd: prd.data, round: Number(match[3]) } : null;
 }
-var approveLine = (prd) => `/omni:committee ${String(prd)} --approve`;
+var approveLine = (prd, author = null) => `/omni:committee ${String(prd)} --approve${author === null ? "" : ` --author ${author}`}`;
 var working = ({ status }) => status === "queued" || status === "claimed" || status === "running";
 function approvalNext(approval, committees, alone) {
   if (approval === "standing") return { next: "standing" };
@@ -21371,14 +21371,14 @@ function noRecord(attempt3) {
   const vote = tally(failedAll(sentence2), null);
   return { verdicts: vote.verdicts, why: vote.why };
 }
-function recordedOf(prd, one, log2) {
+function recordedOf(prd, one, log2, author = null) {
   const found = one.attempt.status === "done" && log2 !== null ? committeeOf(log2, prd) : null;
   if (found === null) {
     const vote2 = noRecord(one.attempt);
     return { record: { author: null, read: [], verdicts: vote2.verdicts }, decision: { outcome: "escalated", why: vote2.why } };
   }
-  const vote = found.escalations.length > 0 ? { outcome: "escalated", why: found.escalations, verdicts: found.verdicts } : tally(found.verdicts, found.author);
-  return { record: { author: found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why: vote.why } };
+  const vote = found.escalations.length > 0 ? { outcome: "escalated", why: found.escalations, verdicts: found.verdicts } : tally(found.verdicts, author ?? found.author);
+  return { record: { author: author ?? found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why: vote.why } };
 }
 
 // apps/omni-app/src/missions/answers.ts
@@ -21438,29 +21438,168 @@ function answerEvents(committees, where) {
   });
 }
 
-// kit/lib/review/verdict.ts
+// kit/lib/virtual-fleet/pm.ts
 import { z as z87 } from "zod";
+
+// kit/lib/runner/line.ts
+var RUNNABLE_SKILLS = Object.freeze([
+  "yolo",
+  "yolo-fix",
+  "pr-care",
+  "do-work",
+  "wave",
+  "bug-fix",
+  "mega-bug-fix",
+  "visual-fix",
+  "plan",
+  "pitch",
+  "prove",
+  "retro-apply",
+  "rewind",
+  "knowledge-add",
+  "rewind-apply",
+  "ultra-yolo",
+  "ultra-wave",
+  "ultra-yolo-fix",
+  "review",
+  "committee",
+  "brainstorm",
+  "roadmap",
+  "mega-brainstorm",
+  "mega-roadmap"
+]);
+var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var RESUMABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "wave", "do-work", "pr-care", "bug-fix"]);
+var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "plan", "pitch", "prove", "ultra-yolo", "ultra-wave", "ultra-yolo-fix"]);
+
+// kit/lib/virtual-fleet/pm.ts
+var OWN_PRDS_MAX = 10;
+var TITLE_MAX2 = 120;
+var UNWRITTEN_MAX = 20;
+var PmSkillSchema = z87.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var PM_LINE = "omni pm: ";
+var PmRecordSchema = z87.object({
+  v: z87.literal(1),
+  mission: z87.number().int().positive(),
+  skill: PmSkillSchema,
+  cap: z87.number().int().min(1).max(OWN_PRDS_MAX),
+  prds: z87.array(PrdNumberSchema).max(OWN_PRDS_MAX),
+  unwritten: z87.array(z87.string().trim().min(1).max(TITLE_MAX2).refine((text19) => !/[\r\n]/.test(text19))).max(UNWRITTEN_MAX)
+});
+function pmSkillFor(left, planRepository) {
+  if (!Number.isInteger(left) || left < 1) return null;
+  const one = left === 1;
+  if (planRepository) return one ? "mega-brainstorm" : "mega-roadmap";
+  return one ? "brainstorm" : "roadmap";
+}
+var pmJobLine = (skill, mission, cap) => `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+var isPmSkill = (skill) => PM_SKILLS.includes(skill);
+function fitCap(rows, cap) {
+  const room = Math.max(0, Math.floor(cap));
+  return { written: rows.slice(0, room), unwritten: rows.slice(room) };
+}
+var notWrittenWords = (cap) => `not written: the cap is ${String(cap)}`;
+var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
+function pmRecordOf(log2, mission) {
+  for (const raw of log2.split("\n").reverse()) {
+    const line2 = raw.trim().replace(STAMP2, "");
+    if (!line2.startsWith(PM_LINE)) continue;
+    let json;
+    try {
+      json = JSON.parse(line2.slice(PM_LINE.length));
+    } catch {
+      continue;
+    }
+    const parsed3 = PmRecordSchema.safeParse(json);
+    if (parsed3.success && parsed3.data.mission === mission) return parsed3.data;
+  }
+  return null;
+}
+function keptOf2(record, cap, held) {
+  const fresh = [...new Set(record.prds)].filter((prd) => !held.has(prd));
+  const { written, unwritten } = fitCap(fresh, Math.min(cap, record.cap));
+  return { added: written, unwritten: [...unwritten.map((prd) => `PRD ${String(prd)}`), ...record.unwritten] };
+}
+
+// apps/omni-app/src/missions/pm.ts
+var PM_ROUND = 1;
+var KEY2 = /^mission:([0-9a-f-]{36}):pm:([1-9][0-9]*)$/;
+var pmKey = (mission, round) => `mission:${mission}:pm:${String(round)}`;
+function pmRoundOfKey(key) {
+  const match = KEY2.exec(key);
+  return match ? Number(match[2]) : null;
+}
+function addedOf(recorded) {
+  const added = [];
+  for (const event of recorded) if (event.kind === "prd-added" && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
+  return added;
+}
+function pmNext({ mission, ownPrds, added, jobs, inPlan }) {
+  if (mission.level !== "alone" || !sendsCommittees(mission.status) || jobs.length > 0) return { next: "none" };
+  const left = ownPrds - added;
+  const skill = pmSkillFor(left, inPlan);
+  if (skill === null) return { next: "none" };
+  return { next: "send", round: PM_ROUND, skill, cap: left, line: pmJobLine(skill, mission.number, left) };
+}
+var pmWorking = ({ attempt: attempt3 }) => attempt3.status === "queued" || attempt3.status === "claimed" || attempt3.status === "running";
+var capOf = (line2) => Number(/ --cap ([1-9][0-9]*)/.exec(line2)?.[1] ?? 0);
+var skillWords = (line2) => {
+  const skill = /^\/omni:([a-z-]+)/.exec(line2)?.[1] ?? "";
+  return isPmSkill(skill) ? `/omni:${skill}` : "the PM's job";
+};
+function pmEvents(mission, one, log2, held, recorded) {
+  if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== "dispatched")) return [];
+  const record = one.attempt.status === "done" && log2 !== null ? pmRecordOf(log2, mission.number) : null;
+  const cap = capOf(one.line);
+  if (record === null) {
+    const why = one.attempt.status === "done" ? "ended with no record" : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
+    return [{ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
+  }
+  const { added, unwritten } = keptOf2(record, cap, held);
+  const events = added.map((prd) => ({ kind: "prd-added", role: "pm", prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
+  for (const title of unwritten) events.push({ kind: "not-written", role: "pm", prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
+  if (events.length === 0) events.push({ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
+  return events;
+}
+var pmDispatched = (job, next) => ({
+  kind: "dispatched",
+  role: "supervisor",
+  prd: null,
+  job,
+  link: null,
+  sentence: `Sent the PM /omni:${next.skill} for the mission's goal: ${String(next.cap)} PRD${next.cap === 1 ? "" : "s"} at most.`
+});
+function withAdded(scope, added) {
+  return [...scope, ...added.filter((prd) => !scope.includes(prd))];
+}
+function withPm(next, writing, wakeAt) {
+  if (!writing || next.status === "paused" || next.status === "draft" || next.status === "running") return next;
+  return { status: "running", waitingOn: next.status === "waiting" ? next.waitingOn : null, nextWakeAt: wakeAt };
+}
+
+// kit/lib/review/verdict.ts
+import { z as z88 } from "zod";
 var REVIEW_ROUNDS = 2;
 var MAX_FINDINGS = 5;
 var SEVERITIES = Object.freeze(["blocker", "major", "minor"]);
 var VERDICTS3 = Object.freeze(["pass", "changes"]);
 var ONE_LINE = "one line";
 var MAX_TEXT2 = 500;
-var line = (what) => z87.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text19) => !text19.includes("\n"), `${ONE_LINE}: ${what}`);
-var RepoPathSchema = z87.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
-var FindingSchema5 = z87.strictObject({
+var line = (what) => z88.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text19) => !text19.includes("\n"), `${ONE_LINE}: ${what}`);
+var RepoPathSchema = z88.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
+var FindingSchema5 = z88.strictObject({
   file: RepoPathSchema,
-  line: z87.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
-  severity: z87.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
+  line: z88.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
+  severity: z88.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
   rule: line("the rule it breaks: a law or rule id, a playbook form and section, or default \u203A <item>"),
   problem: line("what is wrong"),
   fix: line("what would fix it")
 });
-var VerdictSchema6 = z87.strictObject({
-  round: z87.union([z87.literal(1), z87.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
-  verdict: z87.enum(VERDICTS3, { error: `one of ${VERDICTS3.join(", ")}` }),
+var VerdictSchema6 = z88.strictObject({
+  round: z88.union([z88.literal(1), z88.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
+  verdict: z88.enum(VERDICTS3, { error: `one of ${VERDICTS3.join(", ")}` }),
   summary: line("the summary").optional(),
-  findings: z87.array(FindingSchema5).default([])
+  findings: z88.array(FindingSchema5).default([])
 }).superRefine((verdict, context) => {
   const count3 = verdict.findings.length;
   if (verdict.verdict === "pass" && count3 > 0) {
@@ -21567,11 +21706,11 @@ var WAKE_MS = 6e4;
 var WORDS_MAX = 300;
 var LAST_RUN = 2;
 var ROUNDS = 2;
-var KEY2 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1))?$/;
+var KEY3 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1))?$/;
 var missionKey = (mission, prd, run, step = "build") => `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === "build" ? "" : `:${step}`}`;
 var isStep = (text19) => STEPS.some((step) => step === text19);
 function runOfKey(key) {
-  const match = KEY2.exec(key);
+  const match = KEY3.exec(key);
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
   const step = match?.[4] ?? "build";
   return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
@@ -22012,9 +22151,9 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z88.looseObject({ laters: z88.number().int().min(0).optional() });
-async function supervise(store, mission, now, github) {
-  const { read, runs, recorded, toFleet, inPlan, decided } = await readRun(store, mission);
+var ProgressSchema3 = z89.looseObject({ laters: z89.number().int().min(0).optional() });
+async function supervise(store, sought, now, github) {
+  const { mission, read, runs, recorded, toFleet, inPlan, decided, pm } = await readRun(store, sought, now);
   const skill = inPlan ? "ultra-yolo" : "yolo";
   const ready = await branchReady(store, mission, inPlan, github.branches);
   const unready = ready.waits;
@@ -22030,31 +22169,57 @@ async function supervise(store, mission, now, github) {
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered };
   const before2 = prdStates(facts, runs, branch, view);
-  const { sent, approved, asked } = unready === null ? await sendEvery({ store, mission, facts, states: before2, toFleet, skill }) : NOTHING_SENT;
+  const { sent, approved, asked } = unready === null ? await sendEvery({ store, mission, facts, states: before2, toFleet, skill, added: pm.added }) : NOTHING_SENT;
+  const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
   const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } });
   const fresh = sent.length + approved.length + asked.length;
-  const concluded = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
+  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
+  const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
   const next = unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready };
   const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks });
-  await store.record(mission.id, events, new Date(now));
+  await store.record(mission.id, [...pmSent, ...events], new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === "running"), moved, sent: sent.length, events: events.length };
 }
-async function readRun(store, mission) {
-  const [first, runs, recorded, toFleet, inPlan, asked] = await Promise.all([
+async function readRun(store, sought, now) {
+  const [events, jobs] = await Promise.all([store.events(sought.id), store.pmJobs(sought.id)]);
+  const pm = await pmRead(store, sought, events, jobs, now);
+  const mission = pm.mission;
+  const [first, runs, toFleet, inPlan, asked] = await Promise.all([
     store.facts(mission),
     store.runs(mission.id),
-    store.events(mission.id),
     store.fleetRunners(mission),
     store.planRepository(mission),
     store.committees(mission.id)
   ]);
-  const decided = await decideAll(store, mission, asked);
+  const decided = await decideAll(store, mission, asked, pm.added);
   const read = decided.carried ? await store.facts(mission) : first;
-  return { read, runs, recorded, toFleet, inPlan, decided: decided.committees };
+  return { mission, read, runs, recorded: pm.recorded, toFleet, inPlan, decided: decided.committees, pm };
+}
+async function pmRead(store, mission, events, jobs, now) {
+  const fresh = [];
+  if (mission.level === "alone") {
+    for (const one of jobs) {
+      const known = [...events, ...fresh.map(asRecorded)];
+      const held = /* @__PURE__ */ new Set([...mission.scope.prds, ...addedOf(known)]);
+      const log2 = pmWorking(one) ? null : await store.committeeLog(one.job);
+      fresh.push(...pmEvents(mission, one, log2, held, events));
+    }
+    if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now - 1e3));
+  }
+  const recorded = [...events, ...fresh.map(asRecorded)];
+  const added = addedOf(recorded);
+  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking) };
+}
+var asRecorded = ({ kind, prd, job }) => ({ kind, prd, job });
+async function sendPm(store, mission, pm, inPlan, toFleet) {
+  const next = pmNext({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
+  if (next.next !== "send") return [];
+  const job = await store.pm({ mission, round: next.round, line: next.line, toFleet });
+  return job === null ? [] : [pmDispatched(job, next)];
 }
 async function sendAll({
   store,
@@ -22072,7 +22237,7 @@ async function sendAll({
   return sent;
 }
 var toRecord = (one) => one.decision === null && (one.attempt.status === "done" || one.attempt.status === "failed" || one.attempt.status === "cancelled");
-async function decideAll(store, mission, committees) {
+async function decideAll(store, mission, committees, added) {
   if (mission.level !== "alone") return { committees: [...committees], carried: false };
   let carried2 = false;
   const out = [];
@@ -22082,20 +22247,20 @@ async function decideAll(store, mission, committees) {
       continue;
     }
     const log2 = one.attempt.status === "done" ? await store.committeeLog(one.job) : null;
-    const recorded = recordedOf(one.prd, one, log2);
+    const recorded = recordedOf(one.prd, one, log2, added.has(one.prd) ? "pm" : null);
     const decision = await store.decide(mission, one, recorded);
     carried2 ||= decision.outcome === "carried";
     out.push({ ...one, decision: { ...decision, verdicts: recorded.record.verdicts } });
   }
   return { committees: out, carried: carried2 };
 }
-async function approveAll(store, mission, facts, states, toFleet) {
+async function approveAll(store, mission, facts, states, toFleet, added) {
   if (!sendsCommittees(mission.status)) return [];
   const made = [];
   for (const { prd } of facts) {
     const state = states.get(prd);
     if (state?.state !== "approvable") continue;
-    const job = await store.approve({ mission, prd, round: state.round, toFleet });
+    const job = await store.approve({ mission, prd, round: state.round, toFleet, author: added.has(prd) ? "pm" : null });
     if (job !== null) made.push({ prd, round: state.round, job, attempt: { id: job, status: "queued", outcome: null, reason: null, prUrl: null }, decision: null });
   }
   return made;
@@ -22103,7 +22268,7 @@ async function approveAll(store, mission, facts, states, toFleet) {
 var NOTHING_SENT = { sent: [], approved: [], asked: [] };
 async function sendEvery(at4) {
   const sent = await sendAll(at4);
-  const approved = await approveAll(at4.store, at4.mission, at4.facts, at4.states, at4.toFleet);
+  const approved = await approveAll(at4.store, at4.mission, at4.facts, at4.states, at4.toFleet, at4.added);
   const asked = await askAll(at4);
   return { sent, approved, asked };
 }
@@ -22396,12 +22561,12 @@ async function laterOf({ job, refresh, mission, at: at4 }) {
 import { mkdtempSync as mkdtempSync16, rmSync as rmSync20 } from "node:fs";
 import { tmpdir as tmpdir16 } from "node:os";
 import { join as join74 } from "node:path";
-import { z as z89 } from "zod";
-var PullSchema7 = z89.looseObject({
-  html_url: z89.string(),
-  state: z89.string(),
-  base: z89.looseObject({ ref: z89.string(), repo: z89.looseObject({ default_branch: z89.string() }) }),
-  head: z89.looseObject({ ref: z89.string(), sha: z89.string() })
+import { z as z90 } from "zod";
+var PullSchema7 = z90.looseObject({
+  html_url: z90.string(),
+  state: z90.string(),
+  base: z90.looseObject({ ref: z90.string(), repo: z90.looseObject({ default_branch: z90.string() }) }),
+  head: z90.looseObject({ ref: z90.string(), sha: z90.string() })
 });
 var messageOf5 = (item, prd, fleet) => `docs(outbox): ${item} answered by fleet ${fleet}
 
@@ -22441,43 +22606,43 @@ function missionAnswers({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z91 } from "zod";
+import { z as z92 } from "zod";
 
 // kit/lib/mission/brief.ts
 import { parse as parse4 } from "yaml";
-import { z as z90 } from "zod";
+import { z as z91 } from "zod";
 var DEFAULT_PARALLEL = 2;
 var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
 var DEFAULT_LEVEL = "with-you";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-var text17 = (max) => z90.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
+var text17 = (max) => z91.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
 var distinct = (list2) => new Set(list2).size === list2.length;
-var MeasureSchema = z90.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
-var ScopeSchema = z90.object(
+var MeasureSchema = z91.object({ sign: text17(200), read: text17(200), target: text17(200) }, { message: "must be {sign, read, target}" }).strict();
+var ScopeSchema = z91.object(
   {
-    prds: z90.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
-    roadmaps: z90.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+    prds: z91.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z91.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
 ).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
-var MandateSchema = z90.object(
+var MandateSchema = z91.object(
   {
-    parallel: z90.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
-    level: z90.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
-    hardToRevert: z90.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z90.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
+    parallel: z91.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
+    level: z91.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
+    hardToRevert: z91.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
+    ownPrds: z91.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
   },
   { message: "must be {parallel, level, hardToRevert, ownPrds}" }
 ).strict();
 var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
-var BriefSchema = z90.object({
+var BriefSchema = z91.object({
   mission: IssueNumberSchema,
   title: text17(200),
   fleet: text17(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
   goal: text17(500),
-  measures: z90.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
+  measures: z91.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
   scope: ScopeSchema,
   mandate: MandateSchema.default(DEFAULT_MANDATE)
 }).strict();
@@ -22503,51 +22668,52 @@ var EVENT = "kind, prd, job_id";
 var DECISION = "job_id, outcome, why";
 var RUNNER = "repos";
 var PRODUCT = "plan_repository";
-var text18 = z91.string().min(1);
-var MissionRowSchema = z91.object({
+var text18 = z92.string().min(1);
+var MissionRowSchema = z92.object({
   id: text18,
   workspace_id: text18,
   repo: text18,
   fleet: text18,
   number: IssueNumberSchema,
   title: text18,
-  status: z91.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z91.string().nullable(),
-  mandate: z91.object({
-    parallel: z91.number().int().min(1).max(4),
-    level: z91.enum(MISSION_LEVELS).default("with-you"),
-    hardToRevert: z91.number().min(0).max(1).default(DEFAULT_BOUND)
+  status: z92.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z92.string().nullable(),
+  mandate: z92.object({
+    parallel: z92.number().int().min(1).max(4),
+    level: z92.enum(MISSION_LEVELS).default("with-you"),
+    hardToRevert: z92.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z92.number().int().min(0).max(10).default(0)
   }),
-  scope: z91.object({ prds: z91.array(PrdNumberSchema), roadmaps: z91.array(IssueNumberSchema) })
+  scope: z92.object({ prds: z92.array(PrdNumberSchema), roadmaps: z92.array(IssueNumberSchema) })
 });
-var WorkspaceRowSchema2 = z91.object({ github_installation_id: z91.number().int().positive().nullable() });
-var RoadmapRowSchema = z91.object({ id: text18, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z91.object({ roadmap_id: text18, position: z91.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z91.array(z91.string()) });
-var StageRowSchema = z91.object({ prd: PrdNumberSchema, stage: text18 });
-var DossierRowSchema5 = z91.object({ id: text18, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z91.object({ id: text18, dossier_id: text18, mission_id: z91.string().nullable(), approved_at: text18 });
-var FleetEventRowSchema = z91.object({ kind: text18, prd: PrdNumberSchema.nullable(), sentence: text18, link: z91.string().nullable(), actor: z91.string().nullable() });
-var OverturnRowSchema = z91.object({ prd: PrdNumberSchema.nullable(), at: text18 });
-var VoidRowSchema2 = z91.object({ approval_id: text18 });
-var PlanRowSchema = z91.object({ content: z91.string() });
-var JobRowSchema2 = z91.object({
+var WorkspaceRowSchema2 = z92.object({ github_installation_id: z92.number().int().positive().nullable() });
+var RoadmapRowSchema = z92.object({ id: text18, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z92.object({ roadmap_id: text18, position: z92.number().int(), row_id: text18, prd: PrdNumberSchema.nullable(), blockers: z92.array(z92.string()) });
+var StageRowSchema = z92.object({ prd: PrdNumberSchema, stage: text18 });
+var DossierRowSchema5 = z92.object({ id: text18, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z92.object({ id: text18, dossier_id: text18, mission_id: z92.string().nullable(), approved_at: text18 });
+var FleetEventRowSchema = z92.object({ kind: text18, prd: PrdNumberSchema.nullable(), sentence: text18, link: z92.string().nullable(), actor: z92.string().nullable() });
+var OverturnRowSchema = z92.object({ prd: PrdNumberSchema.nullable(), at: text18 });
+var VoidRowSchema2 = z92.object({ approval_id: text18 });
+var PlanRowSchema = z92.object({ content: z92.string() });
+var JobRowSchema2 = z92.object({
   id: text18,
-  mission_key: z91.string().nullable(),
-  resumes: z91.string().nullable(),
-  status: z91.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z91.string().nullable(),
-  reason: z91.string().nullable(),
-  pr_url: z91.string().nullable()
+  mission_key: z92.string().nullable(),
+  resumes: z92.string().nullable(),
+  status: z92.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z92.string().nullable(),
+  reason: z92.string().nullable(),
+  pr_url: z92.string().nullable()
 });
-var JobLogRowSchema = z91.object({ id: text18, log_tail: z91.string() });
+var JobLogRowSchema = z92.object({ id: text18, log_tail: z92.string() });
 var ASK2 = `${JOB2}, line`;
-var AskRowSchema = JobRowSchema2.extend({ line: z91.string() });
-var CareRowSchema = z91.object({ id: text18 });
-var EventRowSchema = z91.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z91.string().nullable() });
-var DecisionRowSchema = z91.object({ job_id: text18, outcome: z91.enum(["carried", "escalated"]), why: z91.array(z91.string()) });
-var DecidedSchema = z91.object({ outcome: z91.enum(["carried", "escalated"]), why: z91.array(z91.string()) });
-var RunnerRowSchema = z91.object({ repos: z91.array(z91.string()) });
-var ProductRowSchema3 = z91.object({ plan_repository: z91.string().nullable() });
+var AskRowSchema = JobRowSchema2.extend({ line: z92.string() });
+var CareRowSchema = z92.object({ id: text18 });
+var EventRowSchema = z92.object({ kind: text18, prd: PrdNumberSchema.nullable(), job_id: z92.string().nullable() });
+var DecisionRowSchema = z92.object({ job_id: text18, outcome: z92.enum(["carried", "escalated"]), why: z92.array(z92.string()) });
+var DecidedSchema = z92.object({ outcome: z92.enum(["carried", "escalated"]), why: z92.array(z92.string()) });
+var RunnerRowSchema = z92.object({ repos: z92.array(z92.string()) });
+var ProductRowSchema3 = z92.object({ plan_repository: z92.string().nullable() });
 var attemptOf = (row) => ({ id: row.id, status: row.status, outcome: row.outcome, reason: row.reason, prUrl: row.pr_url });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 function missionStore(connection) {
@@ -22610,7 +22776,7 @@ function missionStore(connection) {
   async function queue({ mission, toFleet, line: line2, key }) {
     const answer = await db.from("runner_jobs").insert({ workspace_id: mission.workspace, repo: mission.repo, line: line2, sent_by_app: APP_SENDER2, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: key }).select("id");
     if (answer.error?.code === TAKEN) return null;
-    const [made] = rowsOf(z91.object({ id: text18 }), answer);
+    const [made] = rowsOf(z92.object({ id: text18 }), answer);
     if (!made) throw new Error("the database queued no job and gave no reason");
     return made.id;
   }
@@ -22618,7 +22784,7 @@ function missionStore(connection) {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds };
     },
     async facts(mission) {
       const scope = expandScope(mission.scope.prds, await roadmapRows(mission));
@@ -22712,7 +22878,15 @@ function missionStore(connection) {
       if (answer.error) throw new Error(`the database refused the committee's decision: ${answer.error.message}`);
       return DecidedSchema.parse(answer.data);
     },
-    approve: ({ mission, prd, round, toFleet }) => queue({ mission, toFleet, line: approveLine(prd), key: committeeKey(mission.id, prd, round) }),
+    approve: ({ mission, prd, round, toFleet, author = null }) => queue({ mission, toFleet, line: approveLine(prd, author), key: committeeKey(mission.id, prd, round) }),
+    async pmJobs(id) {
+      const jobs = rowsOf(AskRowSchema, await db.from("runner_jobs").select(ASK2).eq("mission_id", id).like("mission_key", `mission:${id}:pm:%`).order("queued_at"));
+      return jobs.flatMap((job) => {
+        const round = job.mission_key === null ? null : pmRoundOfKey(job.mission_key);
+        return round === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job) }];
+      });
+    },
+    pm: ({ mission, round, line: line2, toFleet }) => queue({ mission, toFleet, line: line2, key: pmKey(mission.id, round) }),
     async asks(id) {
       const rows = rowsOf(AskRowSchema, await db.from("runner_jobs").select(ASK2).eq("mission_id", id).is("mission_key", null).like("line", "/omni:committee % --item %").order("queued_at"));
       return rows.flatMap((row) => {
@@ -22737,11 +22911,11 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z91.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z92.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status, waitingOn, nextWakeAt }) {
       const moved = rowsOf(
-        z91.object({ id: text18 }),
+        z92.object({ id: text18 }),
         await db.from("missions").update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -22788,7 +22962,7 @@ function checkpointsForgetHandler({
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z93 } from "zod";
+import { z as z94 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -22928,7 +23102,7 @@ function knowledgeEntries(sources) {
 }
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z92 } from "zod";
+import { z as z93 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -22981,7 +23155,7 @@ var AGAIN_MS = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema2 = z92.object({ slot: z92.string().min(1).max(80), productId: z92.string().min(1).optional() });
+var PayloadSchema2 = z93.object({ slot: z93.string().min(1).max(80), productId: z93.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -23065,9 +23239,9 @@ function payloadOf2(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS2 = 6e4;
-var EmbedPayloadSchema = z93.object({
-  repository: z93.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z93.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z94.object({
+  repository: z94.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z94.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -23153,7 +23327,7 @@ function payloadOf3(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z95 } from "zod";
+import { z as z96 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash6 } from "node:crypto";
@@ -23188,12 +23362,12 @@ function packFiles(read) {
 import { mkdtempSync as mkdtempSync17, readdirSync as readdirSync23, readFileSync as readFileSync48, rmSync as rmSync21, statSync as statSync16 } from "node:fs";
 import { tmpdir as tmpdir17 } from "node:os";
 import { join as join75 } from "node:path";
-import { z as z94 } from "zod";
-var PullFileSchema = z94.looseObject({ filename: z94.string().min(1), previous_filename: z94.string().nullish() });
+import { z as z95 } from "zod";
+var PullFileSchema = z95.looseObject({ filename: z95.string().min(1), previous_filename: z95.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z94.array(PullFileSchema).parse(data);
+    return z95.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -23273,12 +23447,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z95.object({
-  installationId: z95.number(),
-  owner: z95.string().min(1),
-  repo: z95.string().min(1),
-  sha: z95.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z95.string().min(1),
+var PackPayloadSchema = z96.object({
+  installationId: z96.number(),
+  owner: z96.string().min(1),
+  repo: z96.string().min(1),
+  sha: z96.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z96.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packHandler({
@@ -23420,9 +23594,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z96 } from "zod";
+import { z as z97 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z96.looseObject({ category: z96.string().nullable() });
+var ReplySchema2 = z97.looseObject({ category: z97.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -23445,10 +23619,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z97 } from "zod";
-var UngroupedRowSchema = z97.object({ id: z97.string().min(1), product_id: z97.string().min(1), workspace_id: z97.string().min(1), query: z97.string().min(1) });
-var NearestRowSchema = z97.object({ group_id: z97.string().min(1), cosine: z97.number() });
-var GroupIdSchema = z97.object({ id: z97.string().min(1) });
+import { z as z98 } from "zod";
+var UngroupedRowSchema = z98.object({ id: z98.string().min(1), product_id: z98.string().min(1), workspace_id: z98.string().min(1), query: z98.string().min(1) });
+var NearestRowSchema = z98.object({ group_id: z98.string().min(1), cosine: z98.number() });
+var GroupIdSchema = z98.object({ id: z98.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -23466,7 +23640,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z97.array(NearestRowSchema).parse(data);
+      const [row] = z98.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -23486,13 +23660,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z98 } from "zod";
+import { z as z99 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z98.looseObject({
-  verdicts: z98.array(z98.looseObject({ entryId: z98.string().min(1), relevant: z98.boolean().nullable(), confidence: z98.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z99.looseObject({
+  verdicts: z99.array(z99.looseObject({ entryId: z99.string().min(1), relevant: z99.boolean().nullable(), confidence: z99.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z98.looseObject({ ids: z98.array(z98.string().min(1)) });
+var SearchSchema2 = z99.looseObject({ ids: z99.array(z99.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -23528,19 +23702,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z99 } from "zod";
+import { z as z100 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z99.object({ group_id: z99.string().min(1), product_id: z99.string().min(1), workspace_id: z99.string().min(1), category: z99.string().nullable() });
-var GroupRowSchema = z99.object({ group_id: z99.string().min(1) });
-var QuestionTextSchema = z99.object({ question: z99.string() });
-var OpenedRowSchema = z99.object({ opened_id: z99.string().min(1) });
-var ProductRowSchema4 = z99.object({ product_id: z99.string().min(1) });
-var HolderRowSchema5 = z99.object({ product_id: z99.string().min(1) });
-var LiveProductSchema = z99.object({ id: z99.string().min(1) });
-var QuestionRowSchema = z99.object({ id: z99.string().min(1), product_id: z99.string().min(1), workspace_id: z99.string().min(1), question: z99.string(), category: z99.string().nullable() });
-var AnswerRowSchema = z99.object({ question_id: z99.string().min(1), entry_id: z99.string().min(1) });
-var RunRowSchema = z99.object({ id: z99.string().min(1) });
+var LogRowSchema = z100.object({ group_id: z100.string().min(1), product_id: z100.string().min(1), workspace_id: z100.string().min(1), category: z100.string().nullable() });
+var GroupRowSchema = z100.object({ group_id: z100.string().min(1) });
+var QuestionTextSchema = z100.object({ question: z100.string() });
+var OpenedRowSchema = z100.object({ opened_id: z100.string().min(1) });
+var ProductRowSchema4 = z100.object({ product_id: z100.string().min(1) });
+var HolderRowSchema5 = z100.object({ product_id: z100.string().min(1) });
+var LiveProductSchema = z100.object({ id: z100.string().min(1) });
+var QuestionRowSchema = z100.object({ id: z100.string().min(1), product_id: z100.string().min(1), workspace_id: z100.string().min(1), question: z100.string(), category: z100.string().nullable() });
+var AnswerRowSchema = z100.object({ question_id: z100.string().min(1), entry_id: z100.string().min(1) });
+var RunRowSchema = z100.object({ id: z100.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -23575,7 +23749,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z99.string().min(1).nullable().parse(data);
+      return z100.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -23588,7 +23762,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z99.boolean().parse(data);
+      return z100.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -23621,7 +23795,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z99.string().min(1).nullable().parse(data);
+      return z100.string().min(1).nullable().parse(data);
     }
   };
 }
