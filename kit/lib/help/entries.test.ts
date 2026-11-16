@@ -108,11 +108,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 71 commands and the 42 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(71);
-    expect(skillFolders()).toHaveLength(42);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(71);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(42);
+  it('holds the 72 commands and the 43 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(72);
+    expect(skillFolders()).toHaveLength(43);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(72);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(43);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
