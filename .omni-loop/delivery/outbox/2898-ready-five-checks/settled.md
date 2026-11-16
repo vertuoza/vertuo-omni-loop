@@ -1894,7 +1894,7 @@ Three lines in `e2e/e2e.config.ts`; a group in `kit/lib/env/read.ts` instead is 
 - Channel: feature pull request #2902
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2902#issuecomment-6908569428
 - Basis: contradiction-marker — the answer says "not", which reads as a change to the recorded choice
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #2936, the sub-pull request that brought the build back in line
 - Rank: high
 - Bears on: ADR-0006
 - Raised: 2026-11-15
