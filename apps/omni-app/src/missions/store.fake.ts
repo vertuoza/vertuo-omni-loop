@@ -5,6 +5,7 @@
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
+import { pmKey, type PmJob } from './pm.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
 
@@ -17,7 +18,11 @@ type FakeEvent = Omit<NewEvent, 'kind'> & { kind: string; actor: string; at: str
 const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
-export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1 }: { mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null }) {
+export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [] }: {
+  mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null;
+  /** PRDs with a page that are in no scope yet (PRD 2896 s12): read as facts once the mission's scope names them, as a PRD its PM wrote. */
+  pages?: PrdFacts[];
+}) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
   const jobs: FakeJob[] = [];
@@ -26,6 +31,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const events: FakeEvent[] = [];
   /** The committees it queued (PRD 2896 s9): their key, line and log, and what the database recorded for each. */
   const committees: (Committee & { key: string; line: string; toFleet: string | null; log: string | null; recorded: Recorded | null })[] = [];
+  /** The PM jobs it queued (PRD 2896 s12): their key and log. */
+  const pms: (PmJob & { key: string; toFleet: string | null; log: string | null })[] = [];
   /** The item committees it queued (PRD 2896 s10), with no mission key: their line and log. */
   const asks: (Omit<ItemCommittee, 'decision'> & { line: string; toFleet: string | null; log: string | null })[] = [];
   /** What the database decides when the App records a decision: by default, what the App decided. */
@@ -39,7 +46,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
 
   const store: MissionStore = {
     mission: (id) => Promise.resolve(id === record.id ? { ...record } : null),
-    facts: () => Promise.resolve(current.map((fact) => ({ ...fact }))),
+    facts: (read) => Promise.resolve([...current, ...pages.filter((page) => read.scope.prds.includes(page.prd) && !current.some((fact) => fact.prd === page.prd))].map((fact) => ({ ...fact }))),
     runs: () => {
       const snapshot = jobs.map(copyOf);
       if (together <= 1) return Promise.resolve(snapshot);
@@ -77,7 +84,16 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       return Promise.resolve(id);
     },
     committees: () => Promise.resolve(committees.map(({ prd, round, job, attempt, decision }) => ({ prd, round, job, attempt: { ...attempt }, decision }))),
-    committeeLog: (job) => Promise.resolve(committees.find((one) => one.job === job)?.log ?? asks.find((one) => one.job === job)?.log ?? null),
+    committeeLog: (job) => Promise.resolve(committees.find((one) => one.job === job)?.log ?? asks.find((one) => one.job === job)?.log ?? pms.find((one) => one.job === job)?.log ?? null),
+    pmJobs: () => Promise.resolve(pms.map(({ round, job, line, attempt }) => ({ round, job, line, attempt: { ...attempt } }))),
+    pm: ({ mission: sent, round, line, toFleet }) => {
+      const key = pmKey(sent.id, round);
+      if (pms.some((one) => one.key === key)) return Promise.resolve(null);
+      made += 1;
+      const id = `job-${String(made)}`;
+      pms.push({ round, job: id, line, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, key, toFleet: toFleet ? sent.fleet : null, log: null });
+      return Promise.resolve(id);
+    },
     decide: (_mission, one, recorded) => {
       const held = committees.find((each) => each.job === one.job);
       if (!held) return Promise.reject(new Error(`no committee job ${one.job}`));
@@ -96,12 +112,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       asks.push({ prd, item, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, line: askLine(prd, item, sent.hardToRevert ?? DEFAULT_BOUND), toFleet: toFleet ? sent.fleet : null, log: null });
       return Promise.resolve(id);
     },
-    approve: ({ mission: sent, prd, round, toFleet }) => {
+    approve: ({ mission: sent, prd, round, toFleet, author = null }) => {
       const key = committeeKey(sent.id, prd, round);
       if (committees.some((one) => one.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      committees.push({ prd, round, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null, key, line: approveLine(prd), toFleet: toFleet ? sent.fleet : null, log: null, recorded: null });
+      committees.push({ prd, round, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null, key, line: approveLine(prd, author), toFleet: toFleet ? sent.fleet : null, log: null, recorded: null });
       return Promise.resolve(id);
     },
     record: (_id, list, at) => {
@@ -131,6 +147,15 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     endCommittee: (prd: PrdNumber, change: Partial<Attempt>, log: string | null = null) => {
       const one = committees.filter((each) => each.prd === prd).at(-1);
       if (!one) throw new Error(`no committee of PRD ${String(prd)} was sent`);
+      Object.assign(one.attempt, change);
+      one.log = log;
+    },
+    /** The PM jobs queued (PRD 2896 s12), in order. */
+    pms: () => pms.map((one) => ({ ...one, attempt: { ...one.attempt } })),
+    /** The mission's latest PM job ends as `change` says, its log `log`. */
+    endPm: (change: Partial<Attempt>, log: string | null = null) => {
+      const one = pms.at(-1);
+      if (!one) throw new Error('no PM job was sent');
       Object.assign(one.attempt, change);
       one.log = log;
     },

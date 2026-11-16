@@ -19,8 +19,9 @@ const hero = (role: HeroLine['role'], skills: string[]): HeroLine => ({ id: `${r
 const event = (over: Partial<EventRow>): EventRow => ({
   id: crypto.randomUUID(), mission: M1, at: '2026-11-14T09:12:00Z', role: 'engineer', actor: 'agent', kind: 'dispatched', prd: parsePrd(2803), job: JOB, link: null, sentence: 'Sent PRD 2803.', ...over,
 });
-// A PM whose skills need a person (since PRD 2871 the Reviewer's review runs alone): the seat a person still holds.
-const HEROES = [hero('engineer', [...roleOf('engineer').skills]), hero('pm', ['brainstorm', 'roadmap'])];
+// A PM whose skills need a person (since PRD 2871 the Reviewer's review runs alone, and since PRD 2896 the PM's writing skills on a
+// mission's runner): `mission` is the seat a person still holds.
+const HEROES = [hero('engineer', [...roleOf('engineer').skills]), hero('pm', ['mission'])];
 
 describe('nowLines', () => {
   it('reads what a working hero does, Idle when it is not, and that a person does what no agent can', () => {
@@ -30,7 +31,7 @@ describe('nowLines', () => {
   });
 
   it('reads an idle hero with a skill that runs alone as Idle, and one with none as `A person does this today`', () => {
-    const lines = nowLines([hero('designer', [...roleOf('designer').skills]), hero('pm', ['brainstorm', 'roadmap']), hero('reviewer', ['tech-review'])], []);
+    const lines = nowLines([hero('designer', [...roleOf('designer').skills]), hero('pm', ['mission']), hero('reviewer', ['tech-review'])], []);
     expect(lines.map((l) => [l.heading, l.words, l.state])).toEqual([
       ['Designer · agent', 'Idle', 'idle'],
       ['PM · agent', 'A person does this today', 'person'],

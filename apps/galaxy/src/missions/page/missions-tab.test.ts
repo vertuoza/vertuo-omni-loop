@@ -1,6 +1,6 @@
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
-import { branchOf, missionOf, onBranchOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
+import { branchOf, fleetPrdsOf, missionOf, onBranchOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
 import { missionsTabService } from './missions-tab.service';
 import { missionsTabRepository, type MissionsTabDb } from './missions-tab.repository';
 
@@ -72,7 +72,7 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
   const chain = (data: unknown[], fails: boolean) => {
     const answer = Promise.resolve(fails ? { data: null, error: { message: 'boom' } } : { data, error: null });
     const self: Record<string, unknown> = { then: answer.then.bind(answer) };
-    for (const name of ['select', 'eq', 'in', 'not', 'order', 'limit']) self[name] = () => self;
+    for (const name of ['select', 'eq', 'in', 'not', 'or', 'order', 'limit']) self[name] = () => self;
     return self;
   };
   return { from: (table: string) => chain(table === 'missions' ? missions : events, failing === table) } as unknown as MissionsTabDb;
@@ -145,6 +145,18 @@ describe('the service over the repository', () => {
   it('reads no events for a fleet with no mission', async () => {
     const view = await missionsTabService(missionsTabRepository(fakeDb([], [], 'mission_events'))).view(WORKSPACE, 'night-shift');
     expect(view.missions).toEqual([]);
+  });
+
+  it('names the PRDs the fleet\'s PM added, in order, and each row its cap left unwritten (PRD 2896 s12)', () => {
+    const events = [
+      event('not-written', null, null, ID, 'Refunds by card: not written: the cap is 2.'),
+      event('prd-added', 51, null, ID, 'PRD 51 added by the fleet.'),
+      event('prd-added', 50, null, ID, 'PRD 50 added by the fleet.'),
+    ];
+    expect(fleetPrdsOf(events)).toEqual({ added: [parsePrd(50), parsePrd(51)], words: 'PRD 50, PRD 51 added by the fleet', notWritten: ['Refunds by card: not written: the cap is 2.'] });
+    expect(missionOf(row({ level: 'alone' }), events).fleetPrds?.words).toBe('PRD 50, PRD 51 added by the fleet');
+    expect(fleetPrdsOf([event('prd-ready', 1)])).toBeNull();
+    expect(fleetPrdsOf([event('not-written', null, null, ID, 'PRD 52: not written: the cap is 1.')])).toEqual({ added: [], words: null, notWritten: ['PRD 52: not written: the cap is 1.'] });
   });
 
   it('shows the trust line at alone only, counting what the fleet decided and what a person overturned (PRD 2896 s11)', () => {

@@ -27,6 +27,7 @@ export const WORDS = {
   noneOnBranch: 'no PRD on it yet',
   pull: 'Mission pull request',
   waitingOnYou: 'Waiting on you',
+  addedByFleet: 'added by the fleet',
 } as const;
 
 /** A level in the words the fleet's drawer and this tab use (PRD 2896). */
@@ -108,6 +109,17 @@ export interface MissionView {
   branch: BranchLine | null;
   /** The trust line (PRD 2896 s11), `14 decisions by the fleet · 1 overturned`; null below `alone`. */
   trust: string | null;
+  /** The PRDs the fleet's PM wrote (PRD 2896 s12), and the rows its cap left unwritten; null when it wrote none and left none. */
+  fleetPrds: FleetPrds | null;
+}
+
+/** What the fleet's PM added to the mission (PRD 2896 s12): `PRD 50, PRD 51 added by the fleet`, then each row the cap left. */
+export interface FleetPrds {
+  added: PrdNumber[];
+  /** `PRD 50, PRD 51 added by the fleet`; null when it added none. */
+  words: string | null;
+  /** Each row of its roadmap the cap left, as the supervisor wrote it: `Refunds by card: not written: the cap is 2.` */
+  notWritten: string[];
 }
 
 /** The mission branch as the Missions tab says it: the PRDs on it, whether it follows the default branch, the mission pull request. */
@@ -187,6 +199,17 @@ export function waitsOf(waitingOn: string | null, repo: string, events: readonly
   });
 }
 
+/** What the fleet's PM added and left unwritten (PRD 2896 s12), oldest first; null when neither. `events` are newest first. */
+export function fleetPrdsOf(events: readonly EventRow[]): FleetPrds | null {
+  const oldest = events.toReversed();
+  const added: PrdNumber[] = [];
+  for (const event of oldest) if (event.kind === 'prd-added' && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
+  const notWritten = oldest.filter((event) => event.kind === 'not-written').map((event) => event.sentence);
+  if (added.length === 0 && notWritten.length === 0) return null;
+  const words = added.length === 0 ? null : `${added.map((prd) => `PRD ${String(prd)}`).join(', ')} ${WORDS.addedByFleet}`;
+  return { added, words, notWritten };
+}
+
 /** One mission as the tab shows it; `events` are its own, newest first. */
 export function missionOf(row: MissionRow, events: readonly EventRow[]): MissionView {
   const waiting = row.status === 'waiting' || row.status === 'running';
@@ -206,6 +229,7 @@ export function missionOf(row: MissionRow, events: readonly EventRow[]): Mission
     canChangeLevel: row.status === 'draft',
     branch: row.level === 'with-you' || row.status === 'draft' ? null : branchOf(row, events),
     trust: row.level === 'alone' && row.status !== 'draft' ? trustLine(decisionsOf(events.toReversed())) : null,
+    fleetPrds: fleetPrdsOf(events),
   };
 }
 

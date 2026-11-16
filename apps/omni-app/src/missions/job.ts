@@ -34,6 +34,11 @@
 //                  (./committee.ts, then mission_decide_approval()): carried, the PRD's approval stands for this mission and the
 //                  facts are read again; escalated, it waits for a person, why attached. Then a PRD not approved is sent to its
 //                  fleet's committee (`/omni:committee <n> --approve`) instead of waiting for a person, outside `mandate.parallel`
+//   the PM         at `alone` with `mandate.ownPrds` above 0 (PRD 2896 s12, ./pm.ts) a run first records what each ended PM job wrote,
+//                  once: the PRDs it added join the scope (`prd-added`), the rows its cap left are named (`not-written`). Then, once,
+//                  the mission sends its PM `/omni:brainstorm` or `/omni:roadmap` (their mega forms in a plan repository) for the
+//                  PRDs left under the cap; a PRD it wrote goes to the committee with the PM sitting out. While it writes, the
+//                  mission runs
 //   red            a mission branch whose own checks go red once a PRD joined holds every further join: the mission waits on a
 //                  person, naming the PRD that joined last and the drop line (`omni mission drop <mission> <prd>`)
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
@@ -63,6 +68,7 @@ import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mi
 import { decisionsOf, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { answeredOf, withDecisions, type ItemCommittee, type OpenAt } from './answers.ts';
 import { recordedOf, sendsCommittees, type Committee, type Decision } from './committee.ts';
+import { addedOf, pmDispatched, pmEvents, pmNext, pmWorking, withAdded, withPm, type PmJob } from './pm.ts';
 import type { MissionAnswers } from './settle.ts';
 import type { MissionDrops, Reopened } from './drop.ts';
 import { checksOf, judge, type OpenItems } from './gate.ts';
@@ -151,8 +157,8 @@ type GitHubDeps = {
 };
 
 /** One run of a running, waiting, paused or stopped mission: check, land, keep up, join, write the mission pull request, pick, send, record, set. */
-async function supervise(store: MissionStore, mission: MissionRecord, now: number, github: GitHubDeps): Promise<Supervised> {
-  const { read, runs, recorded, toFleet, inPlan, decided } = await readRun(store, mission);
+async function supervise(store: MissionStore, sought: MissionRecord, now: number, github: GitHubDeps): Promise<Supervised> {
+  const { mission, read, runs, recorded, toFleet, inPlan, decided, pm } = await readRun(store, sought, now);
   const skill = inPlan ? 'ultra-yolo' : 'yolo';
   // Above `with-you` the PRDs are built on the mission's branch: with it not cut, nothing is sent and the mission says why.
   const ready = await branchReady(store, mission, inPlan, github.branches);
@@ -169,36 +175,75 @@ async function supervise(store: MissionStore, mission: MissionRecord, now: numbe
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
   const before = prdStates(facts, runs, branch, view);
-  const { sent, approved, asked } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill }) : NOTHING_SENT;
+  const { sent, approved, asked } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added }) : NOTHING_SENT;
+  const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
   const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } });
   const fresh = sent.length + approved.length + asked.length;
-  const concluded = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
+  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
+  const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
   const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
   const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks });
-  await store.record(mission.id, events, new Date(now));
+  await store.record(mission.id, [...pmSent, ...events], new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === 'running'), moved, sent: sent.length, events: events.length };
 }
 
 /**
  * What a run reads first: the PRDs, the mission's jobs and events, where its jobs go, and its committees, each that ended
- * recorded at `alone` (PRD 2896 s9). A carried committee approved its PRD, so the PRDs are read again then.
+ * recorded at `alone` (PRD 2896 s9). A carried committee approved its PRD, so the PRDs are read again then. Before them, what the
+ * mission's PM wrote (PRD 2896 s12): its scope widened by the PRDs its fleet added, which a PRD the PM wrote reads as.
  */
-async function readRun(store: MissionStore, mission: MissionRecord) {
-  const [first, runs, recorded, toFleet, inPlan, asked] = await Promise.all([
+async function readRun(store: MissionStore, sought: MissionRecord, now: number) {
+  const [events, jobs] = await Promise.all([store.events(sought.id), store.pmJobs(sought.id)]);
+  const pm = await pmRead(store, sought, events, jobs, now);
+  const mission = pm.mission;
+  const [first, runs, toFleet, inPlan, asked] = await Promise.all([
     store.facts(mission),
     store.runs(mission.id),
-    store.events(mission.id),
     store.fleetRunners(mission),
     store.planRepository(mission),
     store.committees(mission.id),
   ]);
-  const decided = await decideAll(store, mission, asked);
+  const decided = await decideAll(store, mission, asked, pm.added);
   const read = decided.carried ? await store.facts(mission) : first;
-  return { read, runs, recorded, toFleet, inPlan, decided: decided.committees };
+  return { mission, read, runs, recorded: pm.recorded, toFleet, inPlan, decided: decided.committees, pm };
+}
+
+/** What a run read of the mission's PM (PRD 2896 s12): the mission, its scope widened by the PRDs its fleet added, its events, those PRDs, its PM jobs, and whether one is at work. */
+type PmRead = { mission: MissionRecord; recorded: RecordedEvent[]; added: ReadonlySet<PrdNumber>; jobs: readonly PmJob[]; writing: boolean };
+
+/**
+ * Each PM job of a mission at `alone` that ended, what it wrote recorded once, a second before this run's events (./pm.ts): the PRDs it
+ * added and the rows its cap left unwritten. Then the mission's scope holds the PRDs its fleet added, after its own.
+ */
+async function pmRead(store: MissionStore, mission: MissionRecord, events: readonly RecordedEvent[], jobs: readonly PmJob[], now: number): Promise<PmRead> {
+  const fresh: NewEvent[] = [];
+  if (mission.level === 'alone') {
+    for (const one of jobs) {
+      const known = [...events, ...fresh.map(asRecorded)];
+      const held = new Set([...mission.scope.prds, ...addedOf(known)]);
+      const log = pmWorking(one) ? null : await store.committeeLog(one.job);
+      fresh.push(...pmEvents(mission, one, log, held, events));
+    }
+    if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now - 1000));
+  }
+  const recorded = [...events, ...fresh.map(asRecorded)];
+  const added = addedOf(recorded);
+  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking) };
+}
+
+/** A new event as a run reads it back. */
+const asRecorded = ({ kind, prd, job }: NewEvent): RecordedEvent => ({ kind, prd, job });
+
+/** The mission's PM job, when this run sends it (PRD 2896 s12): its dispatch, or nothing. */
+async function sendPm(store: MissionStore, mission: MissionRecord, pm: PmRead, inPlan: boolean, toFleet: boolean): Promise<NewEvent[]> {
+  const next = pmNext({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
+  if (next.next !== 'send') return [];
+  const job = await store.pm({ mission, round: next.round, line: next.line, toFleet });
+  return job === null ? [] : [pmDispatched(job, next)];
 }
 
 /** The builds and steps this run sends, picked in scope order, each a run with its queued attempt. */
@@ -232,7 +277,7 @@ const toRecord = (one: Committee): boolean => one.decision === null && (one.atte
  * Each committee job that ended, its decision recorded once (PRD 2896 s9): its log's record decided again (./committee.ts), then
  * kept by the database, which escalates what it reads itself; at `alone` only. `carried` when one approved its PRD.
  */
-async function decideAll(store: MissionStore, mission: MissionRecord, committees: readonly Committee[]): Promise<{ committees: Committee[]; carried: boolean }> {
+async function decideAll(store: MissionStore, mission: MissionRecord, committees: readonly Committee[], added: ReadonlySet<PrdNumber>): Promise<{ committees: Committee[]; carried: boolean }> {
   if (mission.level !== 'alone') return { committees: [...committees], carried: false };
   let carried = false;
   const out: Committee[] = [];
@@ -242,7 +287,7 @@ async function decideAll(store: MissionStore, mission: MissionRecord, committees
       continue;
     }
     const log = one.attempt.status === 'done' ? await store.committeeLog(one.job) : null;
-    const recorded = recordedOf(one.prd, one, log);
+    const recorded = recordedOf(one.prd, one, log, added.has(one.prd) ? 'pm' : null);
     const decision = await store.decide(mission, one, recorded);
     carried ||= decision.outcome === 'carried';
     out.push({ ...one, decision: { ...decision, verdicts: recorded.record.verdicts } });
@@ -251,13 +296,14 @@ async function decideAll(store: MissionStore, mission: MissionRecord, committees
 }
 
 /** The committees this run sends (PRD 2896 s9): one per PRD whose approval goes to its committee, while the mission runs or waits. */
-async function approveAll(store: MissionStore, mission: MissionRecord, facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdState>, toFleet: boolean): Promise<Committee[]> {
+async function approveAll(store: MissionStore, mission: MissionRecord, facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdState>, toFleet: boolean, added: ReadonlySet<PrdNumber>): Promise<Committee[]> {
   if (!sendsCommittees(mission.status)) return [];
   const made: Committee[] = [];
   for (const { prd } of facts) {
     const state = states.get(prd);
     if (state?.state !== 'approvable') continue;
-    const job = await store.approve({ mission, prd, round: state.round, toFleet });
+    // A PRD the mission's PM wrote (PRD 2896 s12): the PM sits out, the Architect and the Reviewer approve it.
+    const job = await store.approve({ mission, prd, round: state.round, toFleet, author: added.has(prd) ? 'pm' : null });
     if (job !== null) made.push({ prd, round: state.round, job, attempt: { id: job, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null });
   }
   return made;
@@ -270,9 +316,9 @@ type SentAll = { sent: Run[]; approved: Committee[]; asked: ItemCommittee[] };
 const NOTHING_SENT: SentAll = { sent: [], approved: [], asked: [] };
 
 /** Everything this run sends, in order: the builds and steps, then the committees of approvals, then those of items. */
-async function sendEvery(at: { store: MissionStore; mission: MissionRecord; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState>; toFleet: boolean; skill: 'yolo' | 'ultra-yolo' }): Promise<SentAll> {
+async function sendEvery(at: { store: MissionStore; mission: MissionRecord; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState>; toFleet: boolean; skill: 'yolo' | 'ultra-yolo'; added: ReadonlySet<PrdNumber> }): Promise<SentAll> {
   const sent = await sendAll(at);
-  const approved = await approveAll(at.store, at.mission, at.facts, at.states, at.toFleet);
+  const approved = await approveAll(at.store, at.mission, at.facts, at.states, at.toFleet, at.added);
   const asked = await askAll(at);
   return { sent, approved, asked };
 }

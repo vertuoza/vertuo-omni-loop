@@ -81,6 +81,16 @@ describe('MissionsTab', () => {
     expect(text(html(view(row({ waitingOn: 'PRD 3: merge it' }))))).not.toContain('decisions by the fleet');
   });
 
+  it('at Works alone names the PRDs the fleet added and the rows its cap left unwritten (PRD 2896 s12)', () => {
+    const events = [
+      { mission: 'm', kind: 'not-written', prd: null, link: null, sentence: 'Refunds by card: not written: the cap is 1.' },
+      { mission: 'm', kind: 'prd-added', prd: parsePrd(50), link: null, sentence: 'PRD 50 added by the fleet.' },
+    ];
+    const alone = text(html({ workspace: WORKSPACE, fleet: 'night-shift', missions: [missionOf(row({ level: 'alone', status: 'running' }), events)] }));
+    expect(alone).toContain('PRD 50 added by the fleet Refunds by card: not written: the cap is 1.');
+    expect(text(html(view(row({ level: 'alone', status: 'running' }))))).not.toContain('added by the fleet');
+  });
+
   it('is the Missions tab of a virtual fleet, and the tab is not open without its block', () => {
     const read = { roster: [], activity: [], answered: [], prds: [], galaxy: { heroes: [], teams: [{ name: 'night-shift', label: 'Night Shift', color: '#4fb0ff', mascot: 'robot', points: 0, rank: 1 }] } };
     const virtual: VirtualOf = { workspace: WORKSPACE, mascots: ['robot'], names: ['night-shift'] };

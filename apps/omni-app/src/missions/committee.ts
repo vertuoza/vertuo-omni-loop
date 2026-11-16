@@ -14,7 +14,7 @@
 //   the events        each committee's dispatch, signed `supervisor`; its decision, `decided` or `escalated`, signed `pm` (the
 //                     chair) and `agent`, never in a person's name
 import { committeeOf, type CommitteeRecord } from 'omni-loop/kit/lib/committee/record.ts';
-import { COMMITTEE_ROLES, tally, type Verdict } from 'omni-loop/kit/lib/committee/vote.ts';
+import { COMMITTEE_ROLES, tally, type CommitteeRole, type Verdict } from 'omni-loop/kit/lib/committee/vote.ts';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Approval, Attempt, MissionStatus } from './supervisor.ts';
 
@@ -50,8 +50,12 @@ export function committeeOfKey(key: string): { prd: PrdNumber; round: number } |
   return match && prd.success ? { prd: prd.data, round: Number(match[3]) } : null;
 }
 
-/** The line a committee is sent as. */
-export const approveLine = (prd: PrdNumber): string => `/omni:committee ${String(prd)} --approve`;
+/**
+ * The line a committee is sent as: with `--author pm` for a PRD the mission's PM wrote (PRD 2896 s12), whose committee the PM sits
+ * out, the Architect and the Reviewer approving it.
+ */
+export const approveLine = (prd: PrdNumber, author: CommitteeRole | null = null): string =>
+  `/omni:committee ${String(prd)} --approve${author === null ? '' : ` --author ${author}`}`;
 
 /** Whether the job is still to end: queued, claimed or running. */
 const working = ({ status }: Attempt): boolean => status === 'queued' || status === 'claimed' || status === 'running';
@@ -91,14 +95,15 @@ export type Recorded = { record: Pick<CommitteeRecord, 'author' | 'read' | 'verd
 
 /**
  * The decision on committee `one` of PRD `prd`, from its job's log `log`: the record decided again (by rule when it names a
- * reason, else by vote), never its own word on the outcome. A job that failed, or whose log holds no record, escalates.
+ * reason, else by vote), never its own word on the outcome. A job that failed, or whose log holds no record, escalates. `author` the
+ * hero the App knows wrote the PRD (PRD 2896 s12: the PM, for a PRD its fleet added), who sits out whatever the record says.
  */
-export function recordedOf(prd: PrdNumber, one: Committee, log: string | null): Recorded {
+export function recordedOf(prd: PrdNumber, one: Committee, log: string | null, author: CommitteeRole | null = null): Recorded {
   const found = one.attempt.status === 'done' && log !== null ? committeeOf(log, prd) : null;
   if (found === null) {
     const vote = noRecord(one.attempt);
     return { record: { author: null, read: [], verdicts: vote.verdicts }, decision: { outcome: 'escalated', why: vote.why } };
   }
-  const vote = found.escalations.length > 0 ? { outcome: 'escalated' as const, why: found.escalations, verdicts: found.verdicts } : tally(found.verdicts, found.author);
-  return { record: { author: found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why: vote.why } };
+  const vote = found.escalations.length > 0 ? { outcome: 'escalated' as const, why: found.escalations, verdicts: found.verdicts } : tally(found.verdicts, author ?? found.author);
+  return { record: { author: author ?? found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why: vote.why } };
 }

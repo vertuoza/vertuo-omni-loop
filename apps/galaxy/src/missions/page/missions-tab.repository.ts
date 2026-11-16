@@ -45,7 +45,8 @@ export function missionsTabRepository(db: MissionsTabDb) {
     /** The PRD events of these missions (ready, merged, waiting, sent), newest first. */
     async events(missions: readonly string[]): Promise<EventRow[]> {
       if (missions.length === 0) return [];
-      const read = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).not('prd', 'is', null).order('at', { ascending: false }).limit(EVENTS_MAX);
+      // A row the PM's cap left unwritten (PRD 2896 s12) names no PRD, and is read too.
+      const read = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).or('prd.not.is.null,kind.eq.not-written').order('at', { ascending: false }).limit(EVENTS_MAX);
       if (read.error) throw new Error(`Supabase: could not read the missions' events (${read.error.message})`);
       const rows = orThrow(parseRows(EventRowSchema, read.data, `${WHERE}: mission_events`));
       return rows.map(({ mission_id: mission, ...rest }) => ({ mission, ...rest }));
