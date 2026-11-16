@@ -1,7 +1,7 @@
 // PRD 2896 s9: the escalation list, pure. Each line reaches a person although three members would answer `yes`
 // (criterion 15): it is read by code before any member runs, so the committee's judgement only meets what it lets through.
 import { describe, expect, it } from 'vitest';
-import { bearsOn, decide, escalations, rewritesData, type ApprovalFacts, type AnswerFacts } from './escalation.ts';
+import { bearsOn, decide, escalations, itemFacts, jevScore, rewritesData, type ApprovalFacts, type AnswerFacts } from './escalation.ts';
 import { COMMITTEE_ROLES, type Verdict } from './vote.ts';
 
 const approval = (over: Partial<ApprovalFacts> = {}): ApprovalFacts => ({
@@ -118,5 +118,59 @@ describe('a migration that drops or rewrites data', () => {
       '-- drop table public.x;\ncreate index x on public.y (z);',
       'create or replace function f() returns void language sql as $$ select 1 $$;',
     ]) expect(rewritesData(sql), sql).toBe(false);
+  });
+});
+
+// PRD 2896 s10: what the list reads of a high outbox item, from the item's own text.
+describe('an item\'s facts', () => {
+  const itemText = (over: { rank?: string; bearsOn?: string; decide?: string; body?: string } = {}): string =>
+    [
+      '---',
+      'id: s3-01-keep-the-cap',
+      'prd: 2896',
+      'slice: s3',
+      `rank: ${over.rank ?? 'high'}`,
+      `bears-on: ${over.bearsOn ?? 'none'}`,
+      'raised: 2026-11-16',
+      'wave: 3',
+      '---',
+      '',
+      '## The question, in plain words',
+      '',
+      over.body ?? 'Should the cap stay at five?',
+      '',
+      '## What I had to decide',
+      '',
+      over.decide ?? 'Whether the cap is five.',
+      '',
+    ].join('\n');
+
+  it('reads its rank, the mission\'s bound and the migrations it was handed', () => {
+    expect(itemFacts({ text: itemText(), rank: 'high', locked: [], bound: 0.6, dataMigrations: ['m.sql'] })).toEqual({
+      kind: 'answer', rank: 'high', lockedLaws: [], legal: [], redBusinessLaws: [], businessLaws: [], dataMigrations: ['m.sql'], hardToRevert: null, bound: 0.6,
+    });
+  });
+
+  it('reads the locked law, the Legal entry and the business law it bears on, in its front matter or its words', () => {
+    const facts = itemFacts({ text: itemText({ bearsOn: 'BR-PRODUCT-5', body: 'Keeps L-GDPR-4 and BL-GATE-1.' }), rank: 'high', locked: ['BR-PRODUCT-5', 'N-PRODUCT-15'], bound: 0.6, dataMigrations: [] });
+    expect(facts).toMatchObject({ lockedLaws: ['BR-PRODUCT-5'], legal: ['L-GDPR-4'], businessLaws: ['BL-GATE-1'] });
+  });
+
+  it('reads its hard-to-revert score from Jev\'s line, and none without it', () => {
+    expect(jevScore(itemText({ decide: 'Whether.\nDecided by: Jev (hardToRevert 0.55) · agent said true' }))).toBe(0.55);
+    expect(jevScore(itemText({ decide: 'Decided by: Jev (hardToRevert 1) · agent said false' }))).toBe(1);
+    expect(jevScore(itemText())).toBeNull();
+    expect(jevScore(itemText({ decide: 'Decided by: Jev (hardToRevert 1.5) · agent said true' }))).toBeNull();
+  });
+
+  it('sends a person an item bearing on a business law: the committee cannot tell whether it breaks it', () => {
+    expect(escalations(answer({ businessLaws: ['BL-GATE-1'] }))).toEqual(['it bears on the business law BL-GATE-1: a person decides']);
+    expect(escalations(answer({ businessLaws: ['BL-GATE-1', 'BL-ASK-1'] }))).toEqual(['it bears on the business laws BL-GATE-1, BL-ASK-1: a person decides']);
+  });
+
+  it('lets through an item Jev scored under the bound that bears on nothing, and carries it on three yes', () => {
+    const facts = itemFacts({ text: itemText({ decide: 'Decided by: Jev (hardToRevert 0.3) · agent said true' }), rank: 'high', locked: [], bound: 0.6, dataMigrations: [] });
+    expect(escalations(facts)).toEqual([]);
+    expect(decide(facts, threeYes, null)).toMatchObject({ outcome: 'carried' });
   });
 });
