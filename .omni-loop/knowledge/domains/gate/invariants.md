@@ -50,3 +50,14 @@ Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-13
 Decided: @pierrederval via the terminal, 2026-10-13
 Kept id: moved from product, PRD 2346
+
+## N-GATE-1
+
+Marking a labelled draft ready, or adding any other label, never starts or cancels the full checks or the preview: those events run no job and never share a concurrency group with a graded run, and any new change runs everything again.
+
+Source: .omni-loop/delivery/shipped/2898-ready-five-checks/outbox/settled.md, entry s5-06-labelled-draft-ready-runs-nothing, PRD #2898
+Enforced by: scripts/checks-workflow.test.ts, scripts/preview-debounce.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2902
+Proposed: harvest 2026-11-16

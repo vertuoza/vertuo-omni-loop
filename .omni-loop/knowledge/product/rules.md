@@ -898,3 +898,15 @@ Stated: 2026-11-14
 Decided: nobody — adopted when raised (medium), 2026-11-14
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## BR-PRODUCT-146
+
+The ready check sends at most one App runner acceptance job per head commit. A run that ends with no result or fails leaves each e2e criterion pending with the run's own reason, and only a new commit sends another; a person's job of the same line never counts as the App's.
+
+Serves: P-PRODUCT-5
+Source: .omni-loop/delivery/shipped/2898-ready-five-checks/outbox/settled.md, entry s8-03-one-runner-job-per-commit, PRD #2898
+Enforced by: apps/omni-app/src/ready-check/runner-fallback.test.ts, apps/omni-app/src/ready-check/store.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2902
+Proposed: harvest 2026-11-16
