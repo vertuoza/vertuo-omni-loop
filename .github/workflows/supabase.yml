@@ -343,6 +343,10 @@ jobs:
         # in place. A member reads their own workspace's snapshots; nobody else reads, nobody signed in
         # writes, and a snapshot goes with its dossier.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossier_github.sql
+      - name: A GitHub webhook finds its repository's snapshots through an index
+        # At production's size, the lookup by repository uses dossier_github_repo_idx, finds a
+        # repository's rows in any case, and repo_key follows the summary (bug #2956).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/touched_lookup.sql
       - name: Who may read and change a product's pitch look
         # Every product starts in arcade. Any member of a workspace (whoever may edit Business) changes
         # one product's look to keynote or back through set_pitch_look(), and its other products keep
