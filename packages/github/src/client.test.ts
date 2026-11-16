@@ -241,6 +241,15 @@ describe('githubFetch: what a read writes (#1851)', () => {
     expect(writes.saveBudget).toBe(1);
   });
 
+  it('writes the budget once for reads below the background floor that move it less than 2% (#2953)', async () => {
+    const { client, writes, at } = counting(...Array.from({ length: 10 }, (_, i) => ok({}, limits(900 - i))));
+    for (let i = 0; i < 10; i += 1) {
+      at(T0 + i * 1000);
+      await call(client);
+    }
+    expect(writes.saveBudget).toBe(1);
+  });
+
   it('does not write a stored ETag again for every 304 within a day of its last read', async () => {
     const { client, writes, at } = counting(ok({ n: 1 }, { etag: '"a"' }), ...Array.from({ length: 5 }, () => new Response(null, { status: 304, headers: limits(4000) })));
     await call(client);
