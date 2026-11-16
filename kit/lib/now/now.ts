@@ -27,7 +27,10 @@
 // - **The approval wait** (PRD 1322's s5, `wait.ts`), only while `omni wait approval` has something
 //   to show: `wait: { prd, line, toast, until }`, the line the band draws, `toast` while it is the
 //   approved or voided line highlighted until `until` (milliseconds). No wait, no `wait` key.
+// - **The status** (PRD 2906, `status/`), only when `omni now --json` is on a work: `status`, the plain
+//   answer `{ verdict, kind, steps, at, you, next, details, checkedAt }`, read from this computer alone.
 import type { IssueNumber, PrdNumber } from '../ids.ts';
+import type { Status } from './status/steps.ts';
 import type { NamedSlice } from '../statusline/board-cache.ts';
 import { IN_FLIGHT, MERGED, OUTBOX, STUCK } from '../statusline/stage.ts';
 import type { PrdStage } from '../statusline/stage.ts';
@@ -65,7 +68,7 @@ export type NowWait = { prd: PrdNumber; line: string; toast: boolean; until: num
 export type NowSync = { status: 'blue' | 'red' | 'orange' | 'green'; headline: string | null; checkedAt: string; setupDone?: number };
 
 /** `omni now`'s answer; `wait` only while an approval wait shows something, `sync` only when `omni sync` has kept a record. */
-export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait; sync?: NowSync; runners?: NowRunners | null; runner?: NowRunner };
+export type Now = { headline: NowHeadline | null; work: NowWork | null; doing: string | null; wait?: NowWait; sync?: NowSync; runners?: NowRunners | null; runner?: NowRunner; status?: Status };
 
 /** The runner slots free while a runner of the workspace is online for this repository (PRD 2251); `null` when none is or the read failed. */
 export type NowRunners = { free: number; slots: number };
@@ -178,3 +181,6 @@ export const withRunners = (answer: Now, runners: NowRunners | null | undefined,
 
 /** `answer` with the `sync` record's status, headline and time, when `omni sync` kept one. */
 export const withSync = (answer: Now, sync: NowSync | null): Now => (sync ? { ...answer, sync } : answer);
+
+/** `answer` with the `status` of its work, when it has one. */
+export const withStatus = (answer: Now, status: Status | null): Now => (status ? { ...answer, status } : answer);

@@ -1,78 +1,57 @@
 ---
 name: status
-description: Shows where the repository's PRDs stand, on one screen — how many have shipped, how many wait in the inbox, are being built in the outbox or wait for review, a bar of delivered against in progress, and the PRDs that are the person's own, each with where it stands. Runs omni status, read from git on this computer, adding --fetch only when the person asks for fresh data, and prints its output as is. Never runs the outbox gate of one PRD. Triggers on "where are my PRDs", "what is in the inbox", "what has shipped", "show the status", "omni status", "/omni:status", "/omni:status --fetch".
+description: Prints this session's status in plain words — one block with the verdict (on track, waiting for you, or stuck), the work and its step, what the person must do, what comes next and the links. Runs omni now --status --fetch, prints its output as is, and adds one Right now sentence only when this session is the one doing the work. Changes nothing. For the overview of every PRD, use /omni:dashboard. Triggers on "status", "where are we", "what are you doing", "/omni:status".
 ---
 
-# Status: where the PRDs are
+# Status: where this session's work stands
 
-`omni` below is `node .omni-loop/bin/omni.mjs`. This skill runs `omni status` with no PRD number,
-the repository's overview, and prints what it printed, then `omni dossier link` for the pages of
-the PRDs still in progress that are yours. It changes nothing. It never runs the outbox gate, which
-is `omni status` given one PRD's number: the skills that ship run that one.
-
-The overview reads git only, on this computer: the default branch as it was last fetched, and the
-feature and phase-0 branches fetched beside it. It never calls GitHub, and its header says when the
-last fetch was. A PRD of several landings gets one line per landing under its row, each `merged`,
-`open` or `not started`, and the landing it waits for: git cannot tell a draft pull request from a
-ready one, and the overview never guesses.
-
-## Input
-
-- **Nothing:** run the overview as it stands.
-- **Fresh data:** `--fetch`, or words asking for it ("fetch first", "fresh", "the latest", "as it
-  is on the remote now"). The overview fetches the remote first.
-- **A PRD number, or anything else:** this skill has no view of one PRD. Run the overview anyway
-  (fetching first when they also asked for fresh data), then say one line under it:
-  `/omni:status` shows the whole repository, never one PRD alone, and the PRDs that are theirs are
-  listed in it, each with where it stands.
+`omni` below is `node .omni-loop/bin/omni.mjs`. This skill runs `omni now --status --fetch`, prints
+the block it printed, and adds one plain sentence. It changes nothing: never a pull request, a label
+or an approval (BR-PRODUCT-3, BR-PRODUCT-5, N-PRODUCT-15). Every word of the block comes from the
+kit; the facts win on the step, the verdict, **You** and the links.
 
 ## Run
 
 ```bash
-node .omni-loop/bin/omni.mjs status
+node .omni-loop/bin/omni.mjs now --status --fetch
 ```
 
-or, only when the person asked for fresh data:
-
-```bash
-node .omni-loop/bin/omni.mjs status --fetch
-```
-
-Add nothing else to either line.
+Add nothing else to the line.
 
 | exit | what you do |
 |---|---|
-| `0` | Print its output as is, in a text block (below). A first line `fetch failed: …; showing your last fetch` is part of it: the fetch did not work, and the overview is as old as its header says. Add nothing but the one line **Input** asks for and the pages below. |
-| `2` | It printed one line on stderr: print it as is and stop. One naming `--fetch` means this checkout has fetched no default branch and holds none of its own: say that `/omni:status --fetch` fetches it first, and never fetch for them. Any other line: the kit is not installed here, or its config does not read. |
+| `0` | Print its output as is, in a text block (below). A session on nothing prints `Nothing is running in this terminal.` and `/omni:dashboard shows all your work.`: print them as is, add no Right now line. Outside the loop it prints nothing: say in one line that nothing is running in this terminal. |
 | anything else | The command failed. Print its first line as is and stop. With no `.omni-loop/bin/omni.mjs` in this repository, the kit is not installed here. |
-
-## The pages of your PRDs
-
-Under the text block, give the page of each PRD the overview lists as yours that is still in the
-inbox or the outbox, one line each, in the order the overview lists them; a shipped one gets none.
-When they gave a PRD number, that PRD gets its line too, first, whatever its stage. For each `<n>`,
-run `node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0` prints the page's link on one line, so
-the line is `PRD <n>: <link>`. Anything else (`none`, `off`, `no sign-in (omni signin)`,
-`unreachable`, `refused (<status>)`, or exit `2` from a kit without the verb) means it has no page
-to show: the line is `PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>`. None of
-these lines goes inside the block, and none of them stops the skill.
 
 ## The text block
 
-The bar and the columns line up only in a fixed-width font, so the output goes in a fenced block
+The step line and the links line up only in a fixed-width font, so the output goes in a fenced block
 marked `text`, never as Markdown:
 
 ```text
-<what omni status printed, every line and every blank line exactly as it came>
+<what omni now --status --fetch printed, every line and every blank line exactly as it came>
 ```
 
-Never reword, shorten, translate or reorder it, never turn its rows into a table or a list, and
-never add a line inside the block. A long output stays whole.
+Never reword, shorten, translate or reorder it, and never turn it into a table or a list.
+
+## The Right now line
+
+Only when this session is the one doing the work and knows what it is doing at this moment, add one
+line inside the block, directly under the step line (the line of `✓`, `▶` and `○` marks):
+
+```text
+Right now: I'm waiting for the last check to finish.
+```
+
+One sentence, in plain words, in your own name as the agent ("I'm …"), never in a person's name
+(L-AIACT-1), and never contradicting the block: on the step, the verdict, **You** and the links, the
+facts win. After a fresh session, or when you do not know what you are doing now, leave the line out: the
+facts answer alone. A stop the facts cannot see (a bug you cannot reproduce, a fix that needs a
+product decision) is said here, in that one sentence.
 
 ## Never
 
-- Never give `omni status` a PRD number, or a flag other than `--fetch`: that is the outbox gate,
-  which can exit 1 when a PRD's outbox is red, and it is not this skill's.
-- Never fetch unless the person asked for fresh data: without `--fetch` the overview never touches
-  the network.
-- Never change a file, a branch or a remote to make the overview read differently.
+- Never give the command another flag, and never run the repository's overview or the outbox gate
+  with it: the overview is `/omni:dashboard`'s and the gate is the shipping skills'.
+- Never change a file, a branch, a pull request, a label or an approval to make the block read
+  differently, and never merge: **You** names the person as the one who merges.
