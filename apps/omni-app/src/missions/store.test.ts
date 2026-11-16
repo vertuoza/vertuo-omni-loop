@@ -169,7 +169,32 @@ describe('missionStore — the mission as the service role, never calling Supaba
     expect(nth(db.requests, 0).query.get('mission_id')).toBe(`eq.${ID}`);
     expect(nth(db.requests, 1).query.get('resumes')).toBe('in.(j-1,j-2)');
     expect(nth(db.requests, 2).query.get('resumes')).toBe('in.(j-1b)');
-    expect(db.requests).toHaveLength(3);
+    // The chain is followed until no resume is left to read.
+    expect(db.requests).toHaveLength(4);
+  });
+
+  it('follows the whole chain of a limited job: three tries and six waits, with the reset and whether it was guessed (PRD 2949)', async () => {
+    const job = (id: string, over: Record<string, unknown> = {}) => ({ id, mission_key: null, resumes: null, status: 'failed', outcome: null, reason: null, pr_url: null, limited_until: null, parts: null, ...over });
+    const chain = Array.from({ length: 9 }, (_, n) => [job(`w-${String(n + 1)}`, { resumes: n === 0 ? 'j-1' : `w-${String(n)}`, status: n === 8 ? 'queued' : 'failed', limited_until: n === 8 ? null : '2027-01-23T09:00:00Z', parts: n === 7 ? [{ guessed: true }] : null })]);
+    const db = recordingFetch([[job('j-1', { mission_key: `mission:${ID}:prd:7:run:1`, limited_until: '2027-01-23T02:00:00Z', parts: [{ agent: 'claude', guessed: false }] })], ...chain]);
+    const [one] = await storeOn(db.fetch).runs(ID);
+    expect(one?.attempts).toHaveLength(10);
+    expect(one?.attempts[0]).toMatchObject({ limitedUntil: '2027-01-23T02:00:00Z', guessed: false });
+    expect(one?.attempts[8]).toMatchObject({ limitedUntil: '2027-01-23T09:00:00Z', guessed: true });
+    expect(one?.attempts[9]).toMatchObject({ status: 'queued' });
+    expect(one?.attempts[9]).not.toHaveProperty('limitedUntil');
+  });
+
+  it('reads the runners a job goes to with their slots in use: a fleet\'s, else the ones with no fleet (PRD 2949)', async () => {
+    const runner = { id: 'r-1', repos: ['acme/widgets'], slots: 2, last_seen_at: '2027-01-22T09:00:00Z', health: { at: '2027-01-22T09:00:00Z', accounts: [{ state: 'out', resetsAt: '2027-01-22T11:00:00Z' }] } };
+    const db = recordingFetch([[runner], [{ runner_id: 'r-1' }, { runner_id: 'r-1' }, { runner_id: null }]]);
+    const [seen] = await storeOn(db.fetch).room(mission, true);
+    expect(seen).toMatchObject({ repos: ['acme/widgets'], slots: 2, used: 2, lastSeenAt: '2027-01-22T09:00:00Z' });
+    expect(nth(db.requests, 0).query.get('fleet')).toBe(`eq.${mission.fleet}`);
+    expect(nth(db.requests, 1).query.get('status')).toBe('in.(claimed,running)');
+    const none = recordingFetch([[]]);
+    expect(await storeOn(none.fetch).room(mission, false)).toEqual([]);
+    expect(nth(none.requests, 0).query.get('fleet')).toBe('is.null');
   });
 
   it('reads a Reviewer job\'s step from its key, and what it posted from its log\'s posted line alone (PRD 2871)', async () => {

@@ -7,7 +7,7 @@ import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
-import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
+import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type RoomRunner, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
 type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[] };
@@ -26,6 +26,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
   const jobs: FakeJob[] = [];
+  /** The runners of the mission's target the room is read from (PRD 2949): none holds the repository, so there is room. */
+  let runners: RoomRunner[] = [];
   /** The care jobs it queued (PRD 2896 s5), with no mission key. */
   const cares: { id: string; line: string; queuedAt: string; toFleet: string | null }[] = [];
   const events: FakeEvent[] = [];
@@ -65,6 +67,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     events: () => Promise.resolve(events.map(({ kind, prd, job }) => ({ kind, prd, job }))),
     fleetEvents: () => Promise.resolve(events.filter(({ kind }) => kind === 'decided' || kind === 'overturned').map(({ kind, prd, sentence, link, actor }) => ({ kind, prd, sentence, link, actor }))),
     fleetRunners: () => Promise.resolve(fleetRunners),
+    room: () => Promise.resolve(runners.map((one) => ({ ...one }))),
     planRepository: () => Promise.resolve(planRepository),
     installation: () => Promise.resolve(installation),
     send: ({ mission: sent, prd, run, step, toFleet, skill }) => {
@@ -171,6 +174,18 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     /** What the database decides from now on, as mission_decide_approval() would (a phase-0 PRD, a file changed since). */
     database: (decides: (recorded: Recorded) => Decision) => {
       database = decides;
+    },
+    /** The target's runners from now on (PRD 2949): what its room is read from. */
+    runners: (next: RoomRunner[]) => {
+      runners = next;
+    },
+    /** The PRD's latest job ends on a provider limit that lifts at `until`, and its resume is queued (PRD 2949), as the database does on a limited report. */
+    limit: (prd: PrdNumber, until: string, { guessed = false }: { guessed?: boolean } = {}) => {
+      const job = jobs.filter((one) => one.prd === prd).at(-1);
+      if (!job) throw new Error(`no job of PRD ${String(prd)} was sent`);
+      Object.assign(lastOf(prd), { status: 'failed', reason: 'no tokens left: every account is out', limitedUntil: until, guessed });
+      made += 1;
+      job.attempts.push({ id: `job-${String(made)}`, status: 'queued', outcome: null, reason: null, prUrl: null });
     },
     /** The jobs queued, in order. */
     jobs: () => jobs.map((job) => ({ ...job })),

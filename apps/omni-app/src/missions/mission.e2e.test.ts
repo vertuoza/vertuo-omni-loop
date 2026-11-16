@@ -74,9 +74,9 @@ const claimed = (): ClaimedJob => ({
 });
 
 /** A fleet: a mission whose clock moves a minute on every run, as its `later` asks. */
-function fleet() {
+function fleet(start = START) {
   const fake = fakeMissionStore({ mission: { ...mission, status: 'draft' }, facts });
-  const clock = { now: START };
+  const clock = { now: start };
   const handler = missionHandler({ store: fake.store, refresh: () => Promise.resolve('again'), now: () => clock.now, log: () => undefined });
   /** One run of the mission, a minute after the last. */
   const run = (): Promise<JobResult> => {
@@ -157,5 +157,57 @@ describe('a fake fleet delivers a two-roadmap mission (PRD 2842 s9)', () => {
     await run();
     expect(lines()).not.toContain('/omni:yolo 20 --for-review');
     expect(lines()).not.toContain('/omni:yolo 11 --for-review');
+  });
+});
+
+describe('a fake fleet waits out a provider limit (PRD 2949, BR-PRODUCT-139)', () => {
+  const NIGHT = Date.parse('2027-01-23T02:00:00Z');
+  const RESET = '2027-01-23T04:00:00.000Z';
+
+  it('a limit at 02:00 keeps the PRD in the mission, its run and its place; the resume goes at the reset and the PRD reaches ready, no job lost', async () => {
+    const { fake, run, lines } = fleet(NIGHT - MINUTE);
+    fake.status('running');
+    await run();
+    expect(lines()).toEqual(['/omni:yolo 10 --for-review', '/omni:yolo 21 --for-review']);
+
+    // 02:00: PRD 10's runner has no account left. The database queues the resume after the reset, on the same try.
+    fake.limit(p(10), RESET);
+    await run();
+    expect(fake.mission()).toMatchObject({ status: 'running', waitingOn: 'PRD 10: waiting for a provider limit until 04:00 UTC' });
+    // It still holds its place: nothing is sent for it, nor beside it, and its run is still run 1.
+    expect(lines()).toEqual(['/omni:yolo 10 --for-review', '/omni:yolo 21 --for-review']);
+    expect(fake.jobs().map((job) => job.key)).toEqual([`mission:${ID}:prd:10:run:1`, `mission:${ID}:prd:21:run:1`]);
+    expect(fake.events().map((event) => event.kind)).not.toContain('stopped');
+
+    // The wait passes minute by minute without a new job.
+    for (let minute = 0; minute < 5; minute += 1) await run();
+    expect(fake.jobs()).toHaveLength(2);
+
+    // The reset: a runner claims the resume, and the PRD ends ready.
+    fake.end(p(10), { status: 'running' });
+    await run();
+    expect(fake.mission().waitingOn).toBeNull();
+    fake.end(p(10), { status: 'done', outcome: 'ready', prUrl: 'https://github.com/acme/widgets/pull/91' });
+    fake.end(p(21), { status: 'done', outcome: 'ready' });
+    fake.set(p(10), { stage: 'ready' });
+    fake.set(p(21), { stage: 'ready' });
+    await run();
+    expect(fake.mission().waitingOn).toContain('PRD 10: merge it');
+
+    // No job was lost: the limit and its resume are one chain of run 1, and no run was sent again.
+    expect(fake.jobs().filter((job) => job.prd === p(10)).map((job) => job.key)).toEqual([`mission:${ID}:prd:10:run:1`]);
+    expect(fake.events().map((event) => event.sentence)).toContain('PRD 10 met a provider limit: its resume waits for the reset and carries the work on.');
+    expect(fake.events().map((event) => event.sentence).join(' ')).not.toMatch(/lost|failed|stops/);
+  });
+
+  it('waits for room when no runner of the fleet can take its job, and runs once one can', async () => {
+    const { fake, run } = fleet();
+    fake.runners([{ repos: ['acme/widgets'], slots: 1, used: 1, lastSeenAt: new Date(START).toISOString(), health: null }]);
+    fake.status('running');
+    await run();
+    expect(fake.mission().waitingOn).toBe("PRD 10: waiting for room on the fleet's runners · PRD 21: waiting for room on the fleet's runners");
+    fake.runners([{ repos: ['acme/widgets'], slots: 1, used: 0, lastSeenAt: new Date(START + 2 * MINUTE).toISOString(), health: null }]);
+    await run();
+    expect(fake.mission().waitingOn).toBeNull();
   });
 });

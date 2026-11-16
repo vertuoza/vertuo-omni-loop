@@ -14,6 +14,7 @@
 //                   Need human             waits for a person to act on its runner job
 //                   Held, Stopped mid-way  sent again once (run 2, at the same step); a second time stops that PRD
 //                   Runner lost            recorded: PRD 2809's resume carries it
+//                   Provider limit         recorded: its resume waits for the reset and spends no try (PRD 2949); the PRD stays running, waiting
 //                   Cancelled              never sent again: that PRD is paused
 //                   Failed                 stops that PRD, saying why
 //
@@ -66,7 +67,51 @@ export type PrdFacts = { prd: PrdNumber; approval: Approval; stage: Stage; block
 export type Posted = { findings: number | null; url: string | null };
 
 /** One runner job of a run: the job the mission sent, or a resume of it (PRD 2809). A Reviewer job's carries what it posted. */
-export type Attempt = { id: string; status: RunnerJobStatus; outcome: string | null; reason: string | null; prUrl: string | null; posted?: Posted | null };
+export type Attempt = {
+  id: string;
+  status: RunnerJobStatus;
+  outcome: string | null;
+  reason: string | null;
+  prUrl: string | null;
+  posted?: Posted | null;
+  /** When the provider limit that ended this job lifts (PRD 2949: `runner_jobs.limited_until`), and whether the runner guessed it (the job's parts). */
+  limitedUntil?: string | null;
+  guessed?: boolean;
+};
+
+/** Why a running PRD does not run yet (PRD 2949): its job met a provider limit and its resume waits for the reset, or no runner of its target can take it now. */
+export type Wait = { on: 'limit'; until: string; guessed: boolean } | { on: 'room' };
+
+/** A runner of the mission's target, as the room's read sees it: what it holds, its slots, its last sight and its health. */
+export type RoomRunner = {
+  repos: readonly string[];
+  slots: number;
+  used: number;
+  lastSeenAt: string;
+  health: { at: string; paused?: string | null | undefined; accounts?: readonly { state: string; resetsAt?: string | undefined }[] | undefined } | null;
+};
+
+/** A runner is offline after this long without a sight (the Runners page's 90 s); its health is fresh under the claim's two minutes. */
+const OFFLINE_MS = 90_000;
+const FRESH_MS = 120_000;
+
+/**
+ * Whether a runner of the target can take a job now (PRD 2949): one that holds the repository, is online, is not paused, has a free slot and,
+ * by a fresh health, an account left. With no runner holding the repository the mission's own check says so, not this one: there is room.
+ */
+export function roomOn(runners: readonly RoomRunner[], repo: string, now: number): boolean {
+  const mine = runners.filter((runner) => runner.repos.some((one) => one.toLowerCase() === repo.toLowerCase()));
+  if (mine.length === 0) return true;
+  return mine.some((runner) => {
+    if (now - Date.parse(runner.lastSeenAt) > OFFLINE_MS || runner.used >= runner.slots) return false;
+    const health = runner.health;
+    if (health === null) return true;
+    if (health.paused != null) return false;
+    const accounts = health.accounts ?? [];
+    const out = accounts.length > 0 && accounts.every((one) => one.state === 'out' && one.resetsAt !== undefined && Date.parse(one.resetsAt) > now);
+    return !(out && now - Date.parse(health.at) < FRESH_MS);
+  });
+}
 
 /** A step of a run, in order (PRD 2871): the build, the Reviewer's round 1, the fix after it, the Reviewer's round 2. */
 export type Step = 'build' | 'review:1' | 'fix:1' | 'review:2';
@@ -76,7 +121,7 @@ const STEPS: readonly Step[] = ['build', 'review:1', 'fix:1', 'review:2'];
 export type Run = { prd: PrdNumber; run: number; step: Step; job: string; attempts: Attempt[] };
 
 /** How a runner job ended, as the table reads it. */
-export type JobEnd = 'ready' | 'answers' | 'human' | 'held' | 'stopped' | 'review' | 'changes' | 'lost' | 'cancelled' | 'failed';
+export type JobEnd = 'ready' | 'answers' | 'human' | 'held' | 'stopped' | 'review' | 'changes' | 'lost' | 'limited' | 'cancelled' | 'failed';
 
 /** What a person must do for a PRD to carry on: `decide` the Reviewer's findings after round 2 (PRD 2871). */
 export type WaitsOn = 'approve' | 'approve-again' | 'answer' | 'merge' | 'act' | 'decide';
@@ -95,7 +140,7 @@ export type PrdState =
   | { state: 'joined' }
   | { state: 'dropped' }
   | { state: 'waits'; on: 'join'; lacks: readonly string[] }
-  | { state: 'running'; run: number }
+  | { state: 'running'; run: number; waiting?: Wait }
   | { state: 'waits'; on: Exclude<WaitsOn, 'decide'>; why?: string | null }
   | { state: 'waits'; on: 'decide'; pr: PrNumber | null }
   | { state: 'blocked'; by: PrdNumber[] }
@@ -325,6 +370,7 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null, 
     case 'stopped':
       return stoppedAt(run);
     case 'lost':
+    case 'limited':
       return { next: 'records' };
     case 'cancelled':
       return { next: 'paused' };
@@ -345,14 +391,14 @@ const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && 
  * Where each PRD of the scope is, by PRD. On a mission branch (PRD 2896), a PRD on it is `joined` and unblocks the PRDs
  * it blocked, and one waiting to be merged waits on what the merge gate lacks, when the run judged it.
  */
-export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[], branch: OnBranch = NO_BRANCH, view: CommitteeView = NO_COMMITTEE): Map<PrdNumber, PrdState> {
+export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[], branch: OnBranch = NO_BRANCH, view: CommitteeView = NO_COMMITTEE, fleet: Fleet = NO_FLEET): Map<PrdNumber, PrdState> {
   const merged = new Set([...facts.filter((fact) => fact.stage === 'merged').map((fact) => fact.prd), ...branch.joined]);
   const of = (fact: PrdFacts): PrdState => {
     if (fact.stage !== 'merged' && branch.joined.has(fact.prd)) return { state: 'joined' };
     if (fact.stage !== 'merged' && branch.dropped?.has(fact.prd) === true) return { state: 'dropped' };
     const answers = view.answers === undefined ? undefined : { open: view.answers.open, committees: view.answers.committees.filter((one) => one.prd === fact.prd) };
     const own = { alone: view.alone, committees: view.committees.filter((one) => one.prd === fact.prd), ...(answers === undefined ? {} : { answers }) };
-    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own });
+    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own, fleet });
   };
   return new Map(facts.map((fact) => [fact.prd, of(fact)]));
 }
@@ -364,13 +410,34 @@ const toMerge = (prd: PrdNumber, branch: OnBranch): PrdState => {
 };
 
 /** What a PRD's state is read against: the PRDs merged (or on the branch), the mission branch, and the PRD's committees. */
-type Around = { merged: ReadonlySet<PrdNumber>; branch: OnBranch; view: CommitteeView };
+type Around = { merged: ReadonlySet<PrdNumber>; branch: OnBranch; view: CommitteeView; fleet: Fleet };
+
+/** What the target's runners let a queued job do (PRD 2949): whether one can take it, at `now`. */
+export type Fleet = { room: boolean; now: number };
+const NO_FLEET: Fleet = { room: true, now: 0 };
+
+/**
+ * Why a job still queued does not run (PRD 2949): its resume waits for the provider limit that ended the job before it, until the
+ * reset; else no runner of its target can take it now. A claimed or running job waits for nothing.
+ */
+function waitOf(attempts: readonly Attempt[], fleet: Fleet): Wait | undefined {
+  if (attempts.at(-1)?.status !== 'queued') return undefined;
+  const limited = attempts.at(-2);
+  if (limited?.limitedUntil != null && Date.parse(limited.limitedUntil) > fleet.now) return { on: 'limit', until: limited.limitedUntil, guessed: limited.guessed === true };
+  return fleet.room ? undefined : { on: 'room' };
+}
+
+/** A PRD whose job is at work or queued: running, and waiting when its job is queued and cannot go yet (PRD 2949). */
+function runningAt(latest: Run, fleet: Fleet): PrdState {
+  const waiting = waitOf(latest.attempts, fleet);
+  return waiting === undefined ? { state: 'running', run: latest.run } : { state: 'running', run: latest.run, waiting };
+}
 
 function stateOf(fact: PrdFacts, runs: readonly Run[], around: Around): PrdState {
   if (fact.stage === 'merged') return { state: 'merged' };
   const latest = runs.reduce<Run | null>((last, one) => (last === null || after(one, last) ? one : last), null);
   const last = latest ? lastOf(latest) : undefined;
-  if (latest && last && endOf(last) === null) return { state: 'running', run: latest.run };
+  if (latest && last && endOf(last) === null) return runningAt(latest, around.fleet);
   if (fact.stage === 'ready') return toMerge(fact.prd, around.branch);
   return latest && last ? afterEnd(fact, latest, last, around) : gate(fact, 1, 'build', around);
 }
@@ -531,6 +598,13 @@ function waitWords(state: Extract<PrdState, { state: 'waits' }>, branch: string 
   return `decide the Reviewer's findings on ${state.pr === null ? 'its feature PR' : `PR #${String(state.pr)}`}`;
 }
 
+/** `09:00` of an ISO time, in UTC. */
+const clockOf = (iso: string): string => new Date(iso).toISOString().slice(11, 16);
+
+/** What a running PRD waits for (PRD 2949): the provider limit's reset, or room on its target's runners. */
+const limitWords = (wait: Wait): string =>
+  wait.on === 'limit' ? `waiting for a provider limit until ${clockOf(wait.until)} UTC${wait.guessed ? ' (guessed)' : ''}` : "waiting for room on the fleet's runners";
+
 /** How a stopped mission carries on. */
 const CARRY_ON = 'Take it to ready by hand and the mission carries on.';
 
@@ -553,6 +627,7 @@ const cut = (text: string, max = WORDS_MAX): string => (text.length <= max ? tex
 function waitsOf(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdState>, branch: string | null): string | null {
   const parts = facts.flatMap((fact) => {
     const state = states.get(fact.prd);
+    if (state?.state === 'running' && state.waiting !== undefined) return [`PRD ${String(fact.prd)}: ${limitWords(state.waiting)}`];
     return state?.state === 'waits' ? [`PRD ${String(fact.prd)}: ${waitWords(state, branch)}`] : [];
   });
   for (const fact of facts) if (states.get(fact.prd)?.state === 'dropped') parts.push(`PRD ${String(fact.prd)}: dropped from ${branch ?? 'the mission branch'}, until a person sends it again`);
@@ -659,6 +734,7 @@ const END_WORDS: Readonly<Record<Exclude<JobEnd, 'review' | 'changes'>, (n: stri
   held: (n, run) => ({ kind: 'held', role: 'supervisor', sentence: againWords(n, 'was held', run) }),
   stopped: (n, run) => ({ kind: 'held', role: 'supervisor', sentence: againWords(n, 'stopped mid-way', run) }),
   lost: (n) => ({ kind: 'job-ended', role: 'engineer', sentence: `${n}'s runner was lost: its resume carries the work on.` }),
+  limited: (n) => ({ kind: 'job-ended', role: 'engineer', sentence: `${n} met a provider limit: its resume waits for the reset and carries the work on.` }),
   cancelled: (n) => ({ kind: 'job-ended', role: 'engineer', sentence: `${n}'s job was cancelled: the mission never sends it again.` }),
   failed: (n, _run, reason) => ({ kind: 'job-ended', role: 'engineer', sentence: reason ? `${n}'s job failed: ${reason}.` : `${n}'s job failed.` }),
 };
@@ -729,7 +805,7 @@ function runEvents(runs: readonly Run[], where: string, skill: BuildSkill, base:
     const end = last ? endOf(last) : null;
     const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill, base) };
     const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base })] : [];
-    return [sent, ...one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, 'lost')), ...ending];
+    return [sent, ...one.attempts.slice(0, -1).map((gone) => endEvent(one.prd, one, gone, gone.limitedUntil == null ? 'lost' : 'limited')), ...ending];
   });
 }
 

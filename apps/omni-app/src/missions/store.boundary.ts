@@ -36,6 +36,10 @@ import {
   RoadmapRowSchema,
   RUNNER,
   RunnerRowSchema,
+  RoomRunnerRowSchema,
+  RoomJobRowSchema,
+  ROOM_RUNNER,
+  ROOM_JOB,
   STAGE,
   StageRowSchema,
   VOID,
@@ -64,4 +68,6 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: products', read: (db) => db.from('products').select(PRODUCT).limit(5), schema: ProductRowSchema, shape: 'rows' },
   { name: 'missions/store: workspaces', read: (db) => db.from('workspaces').select(WORKSPACE).limit(5), schema: WorkspaceRowSchema, shape: 'rows' },
   { name: 'missions/store: runners', read: (db) => db.from('runners').select(RUNNER).limit(5), schema: RunnerRowSchema, shape: 'rows' },
+  { name: 'missions/store: room runners', read: (db) => db.from('runners').select(ROOM_RUNNER).limit(5), schema: RoomRunnerRowSchema, shape: 'rows' },
+  { name: 'missions/store: room jobs', read: (db) => db.from('runner_jobs').select(ROOM_JOB).in('status', ['claimed', 'running']).limit(5), schema: RoomJobRowSchema, shape: 'rows' },
 ];

@@ -14,12 +14,14 @@ import {
   pick,
   prdStates,
   recordedKeys,
+  roomOn,
   runOfKey,
   stageOf,
   territoryOf,
   type Attempt,
   type Mission,
   type PrdFacts,
+  type RoomRunner,
   type Run,
 } from './supervisor.ts';
 
@@ -210,6 +212,85 @@ describe('pick: the PRDs a run sends', () => {
 
   it('checks the approval again before sending a held PRD again', () => {
     expect(sends(mission(), [facts(1, { approval: 'voided' })], [run(1, 1, ended('a', 'held'))])).toEqual([]);
+  });
+});
+
+describe('a provider limit is a wait, not a failure (PRD 2949, BR-PRODUCT-139)', () => {
+  const RESET = '2027-01-22T11:00:00Z';
+  const limited = (id: string, over: Partial<Attempt> = {}) => attempt(id, { status: 'failed', reason: 'no tokens left: every account is out', limitedUntil: RESET, guessed: false, ...over });
+  const read = (all: PrdFacts[], runs: Run[], fleet = { room: true, now: NOW }) => prdStates(all, runs, undefined, undefined, fleet);
+
+  it('reads a limited job whose resume is queued as running, waiting until the reset, guessed or not', () => {
+    expect(read([facts(1)], [run(1, 1, limited('a'), attempt('a2', { status: 'queued' }))]).get(p(1))).toEqual({ state: 'running', run: 1, waiting: { on: 'limit', until: RESET, guessed: false } });
+    expect(read([facts(1)], [run(1, 1, limited('a', { guessed: true }), attempt('a2', { status: 'queued' }))]).get(p(1))).toMatchObject({ waiting: { guessed: true } });
+  });
+
+  it('keeps the PRD running on its run, however many waits it has met: the run counter does not move', () => {
+    const waits = Array.from({ length: 6 }, (_, n) => limited(`w${String(n)}`));
+    const state = read([facts(1)], [run(1, 1, ...waits, attempt('last', { status: 'queued' }))]).get(p(1));
+    expect(state).toMatchObject({ state: 'running', run: 1 });
+    expect(outcome('limited', 1)).toEqual({ next: 'records' });
+  });
+
+  it('keeps its mandate.parallel place: no other PRD is sent while it waits', () => {
+    const runs = [run(1, 1, limited('a'), attempt('a2', { status: 'queued' }))];
+    expect(pick({ mission: mission({ parallel: 1 }), facts: [facts(1), facts(2)], states: read([facts(1), facts(2)], runs) })).toEqual([]);
+  });
+
+  it('runs once the resume is claimed: no wait', () => {
+    expect(read([facts(1)], [run(1, 1, limited('a'), attempt('a2', { status: 'running' }))]).get(p(1))).toEqual({ state: 'running', run: 1 });
+  });
+
+  it('reads a resume still queued after the reset as waiting for room only when no runner can take it', () => {
+    const runs = [run(1, 1, limited('a', { limitedUntil: '2027-01-22T08:00:00Z' }), attempt('a2', { status: 'queued' }))];
+    expect(read([facts(1)], runs).get(p(1))).toEqual({ state: 'running', run: 1 });
+    expect(read([facts(1)], runs, { room: false, now: NOW }).get(p(1))).toEqual({ state: 'running', run: 1, waiting: { on: 'room' } });
+  });
+
+  it('reads a job still queued that no runner of its target can take as waiting for room; a claimed one waits for nothing', () => {
+    expect(read([facts(1)], [run(1, 1, attempt('a', { status: 'queued' }))], { room: false, now: NOW }).get(p(1))).toEqual({ state: 'running', run: 1, waiting: { on: 'room' } });
+    expect(read([facts(1)], [run(1, 1, attempt('a', { status: 'claimed' }))], { room: false, now: NOW }).get(p(1))).toEqual({ state: 'running', run: 1 });
+  });
+
+  it('stops the PRD on the 6th wait\'s failure, with its reason, as any failure', () => {
+    const reason = 'waited 6 times for a provider limit (last until 11:00 UTC)';
+    expect(read([facts(1)], [run(1, 1, limited('a'), limited('b', { reason }))]).get(p(1))).toEqual({ state: 'stopped', why: `its job failed: ${reason}` });
+  });
+
+  it('says what the mission waits on, naming the reset or the room', () => {
+    const next = (runs: Run[], fleet: { room: boolean; now: number }) => conclude({ mission: mission(), facts: [facts(1)], states: read([facts(1)], runs, fleet), sent: 0, now: NOW });
+    expect(next([run(1, 1, limited('a', { guessed: true }), attempt('a2', { status: 'queued' }))], { room: true, now: NOW })).toMatchObject({ status: 'running', waitingOn: 'PRD 1: waiting for a provider limit until 11:00 UTC (guessed)' });
+    expect(next([run(1, 1, limited('a'), attempt('a2', { status: 'queued' }))], { room: true, now: NOW }).waitingOn).toBe('PRD 1: waiting for a provider limit until 11:00 UTC');
+    expect(next([run(1, 1, attempt('a', { status: 'queued' }))], { room: false, now: NOW }).waitingOn).toBe("PRD 1: waiting for room on the fleet's runners");
+  });
+
+  it('records the limit, not a lost runner', () => {
+    const runs = [run(1, 1, limited('a'), attempt('a2', { status: 'queued' }))];
+    const out = eventsOf({ mission: mission(), facts: [facts(1)], states: read([facts(1)], runs), runs, next: { status: 'running', waitingOn: null, nextWakeAt: null }, toFleet: true, skill: 'yolo', recorded: recordedKeys([{ kind: 'dispatched', prd: p(1), job: 'a' }]) });
+    expect(out.map((event) => event.sentence)).toEqual(['PRD 1 met a provider limit: its resume waits for the reset and carries the work on.']);
+  });
+});
+
+describe('roomOn: a runner of the target that can take a job now (PRD 2949)', () => {
+  const repo = 'acme/widgets';
+  const runner = (over: Partial<RoomRunner> = {}): RoomRunner => ({ repos: ['Acme/Widgets'], slots: 2, used: 0, lastSeenAt: '2027-01-22T08:59:30Z', health: null, ...over });
+  const health = (over: Partial<NonNullable<RoomRunner['health']>> = {}) => ({ at: '2027-01-22T08:59:50Z', ...over });
+
+  it('is there when one is online with a free slot, or when no runner holds the repository (the mission checks that elsewhere)', () => {
+    expect(roomOn([runner()], repo, NOW)).toBe(true);
+    expect(roomOn([], repo, NOW)).toBe(true);
+    expect(roomOn([runner({ repos: ['acme/other'], used: 2 })], repo, NOW)).toBe(true);
+  });
+
+  it('is gone when every runner is busy, paused, offline, or has every account out per its fresh health', () => {
+    expect(roomOn([runner({ used: 2 })], repo, NOW)).toBe(false);
+    expect(roomOn([runner({ health: health({ paused: 'memory' }) })], repo, NOW)).toBe(false);
+    expect(roomOn([runner({ lastSeenAt: '2027-01-22T08:50:00Z' })], repo, NOW)).toBe(false);
+    const out = [{ state: 'out', resetsAt: '2027-01-22T11:00:00Z' }];
+    expect(roomOn([runner({ health: health({ accounts: out }) })], repo, NOW)).toBe(false);
+    expect(roomOn([runner({ health: health({ accounts: out, at: '2027-01-22T08:50:00Z' }) })], repo, NOW)).toBe(true);
+    expect(roomOn([runner({ health: health({ accounts: [...out, { state: 'ready' }] }) })], repo, NOW)).toBe(true);
+    expect(roomOn([runner({ used: 2 }), runner()], repo, NOW)).toBe(true);
   });
 });
 
