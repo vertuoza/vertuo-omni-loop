@@ -4170,6 +4170,32 @@ export type Database = {
           },
         ]
       }
+      repository_syncs: {
+        Row: {
+          repository: string
+          synced_at: string
+          workspace_id: string
+        }
+        Insert: {
+          repository: string
+          synced_at: string
+          workspace_id: string
+        }
+        Update: {
+          repository?: string
+          synced_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repository_syncs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rewind_finding_events: {
         Row: {
           action: string

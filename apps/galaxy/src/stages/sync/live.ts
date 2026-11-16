@@ -67,6 +67,7 @@ function lazyStore(): StageStore {
     currentStages: (workspace, prds) => get().currentStages(workspace, prds),
     stageCounts: (workspace, prds) => get().stageCounts(workspace, prds),
     prdByTopic: (workspace, repository, topic) => get().prdByTopic(workspace, repository, topic),
+    recordSynced: (workspace, repository, at) => get().recordSynced(workspace, repository, at),
     lastSynced: (workspace, repository) => get().lastSynced(workspace, repository),
   };
 }
