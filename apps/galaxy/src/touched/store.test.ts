@@ -53,6 +53,14 @@ describe('snapshotsOf', () => {
     expect(await snapshotsOf(db, 'w1', 'Acme/Widgets_2%')).toEqual([{ dossierId: 'd1', summary: SUMMARY }]);
     expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, summary'], ['eq', 'workspace_id', 'w1'], ['eq', 'repo', 'acme/widgets_2%']]]);
   });
+
+  it('reads only the keys a touch matches on, never the whole summary of each snapshot (#2970)', async () => {
+    const row = { dossier_id: 'd1', prd: 7, issue: 7, pulls: [8, 9], dossiers: { home_repo: 'Acme/Widgets' } };
+    const { calls, db } = recording({ data: [row], error: null });
+    expect(await snapshotsOf(db, 'w1', 'Acme/Widgets')).toEqual([{ dossierId: 'd1', repo: 'Acme/Widgets', prd: 7, issue: 7, pulls: [8, 9] }]);
+    expect(calls).toEqual([['dossier_github', ['select', 'dossier_id, prd, issue, pulls, dossiers(home_repo)'], ['eq', 'workspace_id', 'w1'],
+      ['eq', 'repo', 'acme/widgets']]]);
+  });
 });
 
 describe('conceptOf', () => {
