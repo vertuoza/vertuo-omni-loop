@@ -7,6 +7,8 @@ import { RoomTab } from './RoomTab';
 import { cleanUpLine, filterOf, ledgerOf, nowLines, roomHref, type EventRow, type HeroLine, type RoomView } from './room';
 import { roomRepository, type RoomDb } from './room.repository';
 import { roomService } from './room.service';
+import { limitWaitRepository } from '../limit-wait.repository';
+import { limitWaitsOf, type WaitFacts } from '../limit-wait';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 
@@ -132,6 +134,7 @@ describe('roomService', () => {
       missions: () => Promise.resolve([{ id: M1, title: 'Pay online' }]),
       events: () => Promise.resolve([event({})]),
       kept: () => Promise.resolve([]),
+      waits: () => Promise.resolve({ queued: [], limited: [], waitingOn: new Map() }),
     };
     const view = await roomService(repository).view('w', 'night', null, { role: 'engineer' }, new Date());
     expect(view).toMatchObject({ empty: false, cleanUp: 'Nothing to clean up', filter: { role: 'engineer', mission: null } });
@@ -166,5 +169,57 @@ describe('RoomTab', () => {
 
   it('points an empty room to Missions', () => {
     expect(renderToStaticMarkup(createElement(RoomTab, { view: { ...view, ledger: [], empty: true }, keep: {} }))).toContain('Start one in Missions.');
+  });
+});
+
+describe('the waiting now lines (PRD 2949 s5, the `fleet-room` screen)', () => {
+  const LIMITED = '44444444-4444-4444-8444-444444444444';
+  const QUEUED = '55555555-5555-4555-8555-555555555555';
+  const key = `mission:${M1}:prd:2803:run:1`;
+  const now = new Date('2026-11-16T02:00:00Z');
+  const limitFacts = (guessed: boolean): WaitFacts => ({
+    queued: [{ id: QUEUED, mission: M1, key, resumes: LIMITED, queuedAt: '2026-11-16T01:59:00Z' }],
+    limited: [{ id: LIMITED, limitedUntil: '2026-11-16T09:00:00Z', account: 'claude-1', guessed }],
+    waitingOn: new Map([[M1, 'PRD 2803: waiting for a provider limit until 09:00 UTC']]),
+  });
+  const ended = [event({}), event({ kind: 'job-ended', at: '2026-11-14T10:00:00Z' })];
+  const viewOf = (lines: RoomView['now']): RoomView => ({ fleet: 'night', color: null, now: lines, cleanUp: 'x', missions: [], ledger: [], filter: { role: null, mission: null }, empty: false });
+
+  it('says the provider limit, the account that ran out, its linked job, and that no tokens are spent', () => {
+    const lines = nowLines(HEROES, ended, limitWaitsOf(limitFacts(false), now));
+    expect(lines[0]).toMatchObject({ state: 'waiting', words: 'Provider limit reached until 09:00 · waiting until 09:00' });
+    const out = renderToStaticMarkup(createElement(RoomTab, { view: viewOf(lines), keep: {} }));
+    expect(out).toContain('Provider limit reached until 09:00 · waiting until 09:00.');
+    expect(out).toContain(`claude-1 ran out · <a href="/app/runners#job-${LIMITED}">job 44444444</a> · tokens spent waiting 0 · next try 09:00`);
+    expect(out).toContain('Waiting until 09:00');
+  });
+
+  it('adds (guessed) when the runner guessed the reset', () => {
+    expect(nowLines(HEROES, ended, limitWaitsOf(limitFacts(true), now))[0]?.words).toBe('Provider limit reached until 09:00 · waiting until 09:00 (guessed)');
+  });
+
+  it('reads a limit already lifted as no wait', () => {
+    expect(limitWaitsOf(limitFacts(false), new Date('2026-11-16T09:00:01Z'))).toEqual([]);
+  });
+
+  it('says every runner is busy when the supervisor wrote that the PRD waits for room, linking its queued job', () => {
+    const facts: WaitFacts = { queued: [{ id: QUEUED, mission: M1, key, resumes: null, queuedAt: '2026-11-16T01:59:00Z' }], limited: [], waitingOn: new Map([[M1, "PRD 2803: waiting for room on the fleet's runners"]]) };
+    const lines = nowLines(HEROES, ended, limitWaitsOf(facts, now));
+    expect(lines[0]?.words).toBe('All runners are busy · waiting for room');
+    const out = renderToStaticMarkup(createElement(RoomTab, { view: viewOf(lines), keep: {} }));
+    expect(out).toContain(`<a href="/app/runners#job-${QUEUED}">job 55555555</a> queued · tokens spent waiting 0`);
+    expect(out).toContain('Waiting for room');
+  });
+});
+
+describe('roomRepository waits', () => {
+  it("reads the queued jobs, the jobs they resume and the missions' words", async () => {
+    const answers: Record<string, unknown[]> = {
+      missions: [{ id: M1, waiting_on: null }],
+      runner_jobs: [{ id: JOB, mission_id: M1, mission_key: null, resumes: null, queued_at: '2026-11-16T01:00:00Z' }],
+    };
+    const db = { from: (table: string) => { const self: Record<string, unknown> = { then: (done: (v: unknown) => void) => { done({ data: answers[table], error: null }); } }; for (const n of ['select', 'in', 'eq']) self[n] = () => self; return self; } } as unknown as RoomDb;
+    expect(await limitWaitRepository(db).facts([M1])).toMatchObject({ queued: [{ id: JOB, mission: M1 }], limited: [] });
+    expect(await limitWaitRepository(db).facts([])).toMatchObject({ queued: [] });
   });
 });

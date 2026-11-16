@@ -74,8 +74,12 @@ const JobPartSchema = z.object({
 }).strict();
 export type JobPart = z.infer<typeof JobPartSchema>;
 
-/** What the parts file holds: the job's parts in order, and the reason turnover ended the job on, `null` when it did not. */
-const PartsRecordSchema = z.object({ parts: z.array(JobPartSchema), reason: z.string().nullable() }).strict();
+/** The provider limit a job ended on with no account left (PRD 2949): the earliest reset among its accounts, `guessed` when no provider gave it. */
+const JobLimitSchema = z.object({ resetsAt: z.string(), guessed: z.boolean() }).strict();
+export type JobLimit = z.infer<typeof JobLimitSchema>;
+
+/** What the parts file holds: the job's parts in order, and the reason turnover ended the job on, `null` when it did not, with the `limit` when that reason was a provider limit (PRD 2949). */
+const PartsRecordSchema = z.object({ parts: z.array(JobPartSchema), reason: z.string().nullable(), limit: JobLimitSchema.optional() }).strict();
 export type PartsRecord = z.infer<typeof PartsRecordSchema>;
 
 /** The file a job's parts are kept in: its log's path with `.parts.json` for `.log`. */

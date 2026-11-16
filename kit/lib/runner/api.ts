@@ -144,6 +144,8 @@ export type JobUpdate = {
   slicesTotal?: number;
   /** The job's runs, one per account it ran on, in order (PRD 2537): its agent, model, account, times, tokens and how each ended. */
   parts?: JobPart[];
+  /** The provider limit a failed job met with no account left to take it over (PRD 2949): the earliest reset among its runner's accounts, `guessed` when the runner guessed it. */
+  limit?: { resetsAt: string; guessed: boolean };
 };
 
 /** The limits a runner pauses at (PRD 2102): memory used above, in percent; disk free below, in GB; load above, times its cores. */

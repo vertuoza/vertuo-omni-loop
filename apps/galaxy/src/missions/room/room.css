@@ -7,6 +7,10 @@
 .room-nows { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
 .room-nows li[data-state='working'] { color: var(--ask-green); font-weight: 700; }
 .room-hero { font-weight: 700; }
+.room-nows li[data-state='waiting'] { color: inherit; }
+.room-wait { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+.room-doing { min-width: 0; overflow-wrap: anywhere; }
+.room-doing small { display: block; color: var(--ask-muted); font-size: 13px; }
 .room-cleanup { margin: 0; }
 .room-filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: end; margin: 6px 0 10px; }
 .room-filters label { display: grid; gap: 2px; font-size: 14px; }
@@ -28,6 +32,8 @@
 @media (max-width: 719px) {
   .room-row { grid-template-columns: minmax(0, 1fr) auto; }
   .room-sentence { grid-column: 1 / -1; }
+  .room-wait { grid-template-columns: minmax(0, 1fr) auto; }
+  .room-doing { grid-column: 1 / -1; grid-row: 2; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

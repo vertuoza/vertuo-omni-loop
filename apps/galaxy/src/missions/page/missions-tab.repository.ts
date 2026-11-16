@@ -34,6 +34,7 @@ const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: P
 
 export function missionsTabRepository(db: MissionsTabDb) {
   return {
+
     /** A virtual fleet's missions, the most recently moved first. */
     async missions(workspace: string, fleet: string): Promise<MissionRow[]> {
       const { data, error } = await db.from('missions').select(MISSION).eq('workspace_id', workspace).eq('fleet', fleet).order('updated_at', { ascending: false });

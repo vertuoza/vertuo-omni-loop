@@ -1,4 +1,5 @@
 import 'server-only';
+import { limitWaitRepository } from '../limit-wait.repository';
 import type { MissionsView } from './missions-tab';
 import { missionsTabRepository, type MissionsTabDb } from './missions-tab.repository';
 import { missionsTabService } from './missions-tab.service';
@@ -8,4 +9,4 @@ import { missionsTabService } from './missions-tab.service';
 
 /** The tab of `fleet` in `workspace`, as the person `db` acts for. */
 export const loadMissionsTab = (db: MissionsTabDb, workspace: string, fleet: string): Promise<MissionsView> =>
-  missionsTabService(missionsTabRepository(db)).view(workspace, fleet);
+  missionsTabService({ ...missionsTabRepository(db), waits: (missions: readonly string[]) => limitWaitRepository(db).facts(missions) }).view(workspace, fleet);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { OutboxStand } from '../dossier/page/stage';
 import { canResume, canSendAgain } from './page/model';
-import { ENDED_JOBS_SHOWN, STORED_OUTCOMES, type Notifier, type Ping } from './runners.contract';
+import { ENDED_JOBS_SHOWN, JobUpdateSchema, STORED_OUTCOMES, type Notifier, type Ping } from './runners.contract';
 import type { ContinuationsRepository, JobLineRow, JobRow, QuestionsRow, RunnerRow, SampleRow } from './runners.repository';
 import { continuationsService, cutLogTail, NEXT_POLL_MS, runnersService, runnerState } from './runners.service';
 import {
@@ -353,6 +353,44 @@ describe('a runner\'s reports', () => {
     const kept = w.state.jobs[0]?.log_tail.split('\n') ?? [];
     expect(kept).toHaveLength(200);
     expect(kept[0]).toBe('line 300');
+  });
+});
+
+describe('a job that meets a provider limit (PRD 2949)', () => {
+  const running = () => jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+  const RESET = '2026-10-16T09:00:00.000Z';
+
+  it('stores the reset its report\'s limit carries, guessed or not', async () => {
+    const job = running();
+    const guessed = running();
+    const w = world({ jobs: [job, guessed] });
+    value(await w.service.update(OLGA, job.id, { status: 'failed', reason: `no tokens left: every account is out until ${RESET}`, limit: { resetsAt: RESET, guessed: false } }));
+    value(await w.service.update(OLGA, guessed.id, { status: 'failed', reason: 'no tokens left: the job changed account 3 times, the most a job may', limit: { resetsAt: RESET, guessed: true } }));
+    expect(w.state.jobs.map((row) => row.limited_until)).toEqual([RESET, RESET]);
+    expect(w.state.jobs[1]).toMatchObject({ status: 'failed', reason: 'no tokens left: the job changed account 3 times, the most a job may' });
+  });
+
+  it('reads an older runner\'s reason, every account out until a time, as the same reset', async () => {
+    const job = running();
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'failed', reason: `no tokens left: every account is out until ${RESET}` }));
+    expect(w.state.jobs[0]?.limited_until).toBe(RESET);
+  });
+
+  it('stores no reset for a reason with no time, any other failure, or a report that does not fail', async () => {
+    const jobs = [running(), running(), running(), running()];
+    const w = world({ jobs });
+    value(await w.service.update(OLGA, jobs[0]?.id ?? '', { status: 'failed', reason: 'no tokens left: no account can take this job over' }));
+    value(await w.service.update(OLGA, jobs[1]?.id ?? '', { status: 'failed', reason: 'no account can take this job: it needs claude' }));
+    value(await w.service.update(OLGA, jobs[2]?.id ?? '', { status: 'failed', reason: 'every account is out until 2026-10-16T09:00:00.000Z, said the skill' }));
+    value(await w.service.update(OLGA, jobs[3]?.id ?? '', { status: 'done', exitCode: 0, limit: { resetsAt: RESET, guessed: false } }));
+    expect(w.state.jobs.map((row) => row.limited_until ?? null)).toEqual([null, null, null, null]);
+  });
+
+  it('takes a report\'s limit only with a reset in time and whether it was guessed', () => {
+    expect(JobUpdateSchema.safeParse({ status: 'failed', reason: 'no tokens left', limit: { resetsAt: RESET, guessed: true } }).success).toBe(true);
+    expect(JobUpdateSchema.safeParse({ status: 'failed', reason: 'no tokens left', limit: { resetsAt: 'at nine', guessed: false } }).success).toBe(false);
+    expect(JobUpdateSchema.safeParse({ status: 'failed', limit: { resetsAt: RESET } }).success).toBe(false);
   });
 });
 

@@ -89,6 +89,7 @@ import {
   pick,
   prdStates,
   recordedKeys,
+  roomOn,
   WAKE_MS,
   waitsForMerge,
   withLanded,
@@ -159,7 +160,7 @@ type GitHubDeps = {
 
 /** One run of a running, waiting, paused or stopped mission: check, land, keep up, join, write the mission pull request, pick, send, record, set. */
 async function supervise(store: MissionStore, sought: MissionRecord, now: number, github: GitHubDeps): Promise<Supervised> {
-  const { mission, read, runs, recorded, toFleet, inPlan, decided, pm } = await readRun(store, sought, now);
+  const { mission, read, runs, recorded, toFleet, inPlan, decided, pm, fleet } = await readRun(store, sought, now);
   const skill = inPlan ? 'ultra-yolo' : 'yolo';
   // Above `with-you` the PRDs are built on the mission's branch: with it not cut, nothing is sent and the mission says why.
   const ready = await branchReady(store, mission, inPlan, github.branches);
@@ -175,13 +176,13 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
-  const before = prdStates(facts, runs, branch, view);
+  const before = prdStates(facts, runs, branch, view, fleet);
   const { sent, approved, asked } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added }) : NOTHING_SENT;
   const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } });
+  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet);
   const fresh = sent.length + approved.length + asked.length;
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
@@ -201,16 +202,17 @@ async function readRun(store: MissionStore, sought: MissionRecord, now: number) 
   const [events, jobs] = await Promise.all([store.events(sought.id), store.pmJobs(sought.id)]);
   const pm = await pmRead(store, sought, events, jobs, now);
   const mission = pm.mission;
-  const [first, runs, toFleet, inPlan, asked] = await Promise.all([
+  const [first, runs, toFleet, inPlan, asked, runners] = await Promise.all([
     store.facts(mission),
     store.runs(mission.id),
     store.fleetRunners(mission),
     store.planRepository(mission),
     store.committees(mission.id),
+    store.fleetRunners(mission).then((to) => store.room(mission, to)),
   ]);
   const decided = await decideAll(store, mission, asked, pm.added);
   const read = decided.carried ? await store.facts(mission) : first;
-  return { mission, read, runs, recorded: pm.recorded, toFleet, inPlan, decided: decided.committees, pm };
+  return { mission, read, runs, recorded: pm.recorded, toFleet, inPlan, decided: decided.committees, pm, fleet: { room: roomOn(runners, mission.repo, now), now } };
 }
 
 /** What a run read of the mission's PM (PRD 2896 s12): the mission, its scope widened by the PRDs its fleet added, its events, those PRDs, its PM jobs, and whether one is at work. */

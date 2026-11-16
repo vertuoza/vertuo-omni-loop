@@ -1,5 +1,6 @@
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { HERO_ROLES, roleOf, worksAlone, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
+import type { WaitLine } from '../limit-wait';
 
 // The Operation room's rules (PRD 2842 s8, PRD 2873 s3, the `fleet-room` screen), pure so each is tested without a
 // browser: one now line per hero (what a working hero does, else Idle, else, when none of its skills is one a
@@ -110,7 +111,9 @@ export interface NowLine {
   role: HeroRole;
   heading: string;
   words: string;
-  state: 'working' | 'idle' | 'person';
+  state: 'working' | 'idle' | 'person' | 'waiting';
+  /** A hero whose PRD waits on a provider limit or on room (PRD 2949): the line says so, names the job and links it. */
+  wait?: WaitLine;
 }
 
 /** The PRD a role is building: its newest `dispatched` event whose job has no `job-ended` yet; events newest first. */
@@ -122,10 +125,13 @@ function workingOn(role: EventRole, events: readonly EventRow[]): PrdNumber | nu
 
 /** One line per hero of the fleet: what a working hero does, else Idle; a hero none of whose skills a runner takes reads that a
  * person does it. */
-export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[]): NowLine[] {
+export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[], waits: readonly WaitLine[] = []): NowLine[] {
   return heroes.map((hero) => {
     const heading = `${roleOf(hero.role).name} · ${ROOM_WORDS.agent}`;
     if (!worksAlone(hero.skills)) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.person, state: 'person' };
+    // A PRD that waits is still the seat's that sent it, though its job ended on the limit: the wait is the line (PRD 2949).
+    const wait = waits.find((one) => events.some((e) => e.role === hero.role && e.kind === 'dispatched' && e.prd === one.prd && e.mission === one.mission));
+    if (wait !== undefined) return { id: hero.id, role: hero.role, heading, words: wait.headline, state: 'waiting', wait };
     const prd = workingOn(hero.role, events);
     if (prd === null) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.idle, state: 'idle' };
     return { id: hero.id, role: hero.role, heading, words: `${heading}: building PRD ${String(prd)}`, state: 'working' };

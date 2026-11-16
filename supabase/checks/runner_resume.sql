@@ -12,7 +12,20 @@
 -- the resumable ones or a repository's own skill. runner_claim() hands out no job before its resume_after,
 -- and the resume once it has passed. A member reads the new columns, another workspace nothing, and nobody
 -- signed in writes them. A resume whose chain's local save a runner keeps goes to that runner while it is
--- online, to any runner once it is not, and a save past its keep date holds nothing back (s5). Any `FAIL:` stops the run.
+-- online, to any runner once it is not, and a save past its keep date holds nothing back (s5).
+-- A provider limit (PRD 2949, s1): a job sent anew has waited nothing; a wait outside 0 to 6 is refused, and so is a
+-- resume that neither spends a try nor counts a wait; nobody signed in writes them. A claimed or running job of any
+-- skill that ends `failed` with limited_until queues one resume at that time, with its line, repository, sender and
+-- target, attempt unchanged and waits one more, its own reason kept; the seventh limit queues nothing and its reason
+-- reads `waited 6 times for a provider limit (last until <HH:MM> UTC)`. A limited job whose cancel was asked queues
+-- nothing, and a cancelled resume is never claimed (BR-PRODUCT-134). A lost runner still spends a try and keeps the
+-- chain's waits; `no tokens left` with no reset is a plain failure.
+-- Recovery first (PRD 2949, s3): runner_claim() hands out every resume before any fresh job, a resume queued last first
+-- when its chain began first, the chain followed back whole, and the runner's slots still bound it. A runner whose health,
+-- under two minutes old, reports every account out until a time to come gets nothing; one whose health is older, or
+-- lists an account ready, out until a time past, out with no reset or a reset that reads as no time, or no account at
+-- all, gets a job. A long chain's local save, three jobs back, holds its resume for the runner that keeps it.
+-- Any `FAIL:` stops the run.
 
 begin;
 
@@ -320,6 +333,330 @@ begin
   got := (select id from public.runner_claim('00000000-0000-4000-8000-0000028091a3'));
   if got is distinct from e2 then
     raise exception 'FAIL: box-3 claimed %, not the resume whose only local save is past its keep date', got;
+  end if;
+end $$;
+
+reset role;
+
+-- ── A provider limit: the job waits for the reset, spending no try (PRD 2949, s1) ──
+-- M1 /omni:plan 2950 (a skill no loss resumes: every skill waits), the key pipeline's for Jane D. with a link, to the fleet
+-- cia: the chain of seven limits. M2 /omni:yolo 2951, Mo's, cancel asked, then limited. M3 /omni:yolo 2952, Mo's: limited, its
+-- resume cancelled. M4 /omni:yolo 2953: limited, then its resume lost. M5 /omni:wave 2954, claimed: the account cap's limit.
+-- M6 /omni:yolo 2955 fails `no tokens left` with no reset. All on box-cia.
+insert into public.runner_jobs (id, workspace_id, line, repo, to_runner, to_fleet, sent_by, sent_by_key, acting_for, notify_url, status, runner_id, claimed_at, running_at, queued_at) values
+  ('00000000-0000-4000-8000-000002949201', '00000000-0000-4000-8000-000002809001', '/omni:plan 2950', 'resume-check/app', null, 'cia', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-0000028093a1', 'Jane D.', 'https://hooks.resume.test/ping', 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949202', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2951', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949203', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2952', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949204', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2953', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949205', '00000000-0000-4000-8000-000002809001', '/omni:wave 2954', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'claimed', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', null, now() - interval '10 minutes'),
+  ('00000000-0000-4000-8000-000002949206', '00000000-0000-4000-8000-000002809001', '/omni:yolo 2955', 'resume-check/app', null, null, '00000000-0000-4000-8000-0000028090b1', null, null, null, 'running', '00000000-0000-4000-8000-0000028091c1', now() - interval '9 minutes', now() - interval '8 minutes', now() - interval '10 minutes');
+
+-- The columns' rules: a job sent anew has waited nothing and met no limit; a wait outside 0 to 6, and a resume that neither
+-- spends a try nor counts a wait, are refused; nobody signed in writes them.
+do $$
+declare
+  got public.runner_jobs;
+begin
+  select * into got from public.runner_jobs where id = '00000000-0000-4000-8000-000002949201';
+  if got.waits <> 0 or got.limited_until is not null then
+    raise exception 'FAIL: a job sent anew reads waits %, limited_until %, not 0 and none', got.waits, got.limited_until;
+  end if;
+  begin
+    update public.runner_jobs set waits = 7 where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a seventh wait was stored';
+  exception when check_violation then null; end;
+  begin
+    update public.runner_jobs set waits = -1 where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a wait below 0 was stored';
+  exception when check_violation then null; end;
+  begin
+    update public.runner_jobs set resumes = '00000000-0000-4000-8000-000002949205', waits = 0 where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a first attempt that waited nothing was stored as a resume';
+  exception when check_violation then null; end;
+end $$;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000028090b1');
+do $$
+begin
+  if (select waits from public.runner_jobs where id = '00000000-0000-4000-8000-000002949206') is distinct from 0::smallint then
+    raise exception 'FAIL: a member did not read a job''s waits';
+  end if;
+  begin
+    update public.runner_jobs set limited_until = now() where id = '00000000-0000-4000-8000-000002949206';
+    raise exception 'FAIL: a member wrote a job''s limit';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+set local role service_role;
+
+-- ── The first limit: one resume, at the reset, the same try, one wait more ──
+do $$
+declare
+  limited constant uuid := '00000000-0000-4000-8000-000002949201';
+  resume  public.runner_jobs;
+  queued  integer;
+begin
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = '2027-01-25T09:00:00Z', ended_at = now() where id = limited;
+  select * into resume from public.runner_jobs where resumes = limited;
+  if resume.id is null then
+    raise exception 'FAIL: the limited plan queued no resume: every skill waits for a limit';
+  end if;
+  if resume.status <> 'queued' or resume.attempt <> 1 or resume.waits <> 1 or resume.resume_after <> '2027-01-25T09:00:00Z'::timestamptz
+     or resume.limited_until is not null or resume.line <> '/omni:plan 2950' or resume.repo <> 'resume-check/app'
+     or resume.to_fleet is distinct from 'cia' or resume.to_runner is not null
+     or resume.sent_by is distinct from '00000000-0000-4000-8000-0000028090a1' or resume.sent_by_key is distinct from '00000000-0000-4000-8000-0000028093a1'
+     or resume.acting_for is distinct from 'Jane D.' or resume.notify_url is distinct from 'https://hooks.resume.test/ping' or resume.runner_id is not null then
+    raise exception 'FAIL: the limit''s resume is %/attempt %/waits %/after %/% to %,% by %, key %: not the queued same try, one wait on, at the reset, of the same line, target and sender',
+      resume.status, resume.attempt, resume.waits, resume.resume_after, resume.line, resume.to_runner, resume.to_fleet, resume.sent_by, resume.sent_by_key;
+  end if;
+  if (select reason from public.runner_jobs where id = limited) <> 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z' then
+    raise exception 'FAIL: a limit that queued its resume changed the job''s reason';
+  end if;
+  -- Marked again from running, its resume stays the one.
+  update public.runner_jobs set status = 'running', ended_at = null where id = limited;
+  update public.runner_jobs set status = 'failed', ended_at = now() where id = limited;
+  select count(*) into queued from public.runner_jobs where resumes = limited;
+  if queued <> 1 then
+    raise exception 'FAIL: the same limit marked again left % resumes, not one', queued;
+  end if;
+end $$;
+
+-- ── Six waits, then the seventh limit queues nothing and says why ──
+do $$
+declare
+  job    uuid := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949201');
+  ended  public.runner_jobs;
+  next   uuid;
+begin
+  -- Waits 1 to 5 each meet the limit again and queue the next; the sixth wait meets the seventh limit, until 23:40.
+  for n in 1..6 loop
+    update public.runner_jobs set status = 'running', runner_id = '00000000-0000-4000-8000-0000028091c1', claimed_at = now(), running_at = now() where id = job;
+    update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until ' || n, ended_at = now(),
+           limited_until = '2027-01-25T23:40:00Z'::timestamptz + (n - 6) * interval '1 minute' where id = job;
+    next := (select id from public.runner_jobs where resumes = job);
+    if n < 6 and (next is null or (select waits from public.runner_jobs where id = next) <> n + 1 or (select attempt from public.runner_jobs where id = next) <> 1) then
+      raise exception 'FAIL: wait % queued %, not one resume with waits % on the first try', n, next, n + 1;
+    end if;
+    exit when n = 6;
+    job := next;
+  end loop;
+  if next is not null then
+    raise exception 'FAIL: the seventh limit queued a resume: a job waits six times at most';
+  end if;
+  select * into ended from public.runner_jobs where id = job;
+  if ended.status <> 'failed' or ended.waits <> 6 or ended.reason <> 'waited 6 times for a provider limit (last until 23:40 UTC)' then
+    raise exception 'FAIL: the seventh limit ended %, waits %, %: not failed, waits 6, with why', ended.status, ended.waits, ended.reason;
+  end if;
+  if (select count(*) from public.runner_jobs where line = '/omni:plan 2950') <> 7 then
+    raise exception 'FAIL: the chain holds % jobs, not the limited one and its six waits', (select count(*) from public.runner_jobs where line = '/omni:plan 2950');
+  end if;
+end $$;
+
+-- ── A cancel: asked on the limited job, nothing waits; asked on its resume, no runner claims it ──
+do $$
+declare
+  resume uuid;
+  got    uuid;
+begin
+  update public.runner_jobs set cancel_requested = true where id = '00000000-0000-4000-8000-000002949202';
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = now() - interval '1 second', ended_at = now() where id = '00000000-0000-4000-8000-000002949202';
+  if exists (select 1 from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949202') then
+    raise exception 'FAIL: a limited job whose cancel was asked queued a resume (BR-PRODUCT-134)';
+  end if;
+
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = now() - interval '1 second', ended_at = now() where id = '00000000-0000-4000-8000-000002949203';
+  resume := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949203');
+  -- As the Cancel route ends a queued job: at once. Its wait is over, yet no runner takes it.
+  update public.runner_jobs set status = 'cancelled', cancel_requested = true, ended_at = now() where id = resume and status = 'queued';
+  for n in 1..3 loop
+    for got in select id from public.runner_claim('00000000-0000-4000-8000-0000028091a3') union all select id from public.runner_claim('00000000-0000-4000-8000-0000028091a1') loop
+      if got = resume then
+        raise exception 'FAIL: a runner claimed the limit''s resume after its cancel (BR-PRODUCT-134)';
+      end if;
+    end loop;
+  end loop;
+  if (select status from public.runner_jobs where id = resume) is distinct from 'cancelled' then
+    raise exception 'FAIL: the cancelled resume reads %, not cancelled', (select status from public.runner_jobs where id = resume);
+  end if;
+end $$;
+
+-- ── A lost runner still spends a try, and keeps the chain's waits ──
+do $$
+declare
+  waited uuid;
+  lost   public.runner_jobs;
+begin
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: every account is out until 2027-01-25T09:00:00.000Z',
+         limited_until = now() - interval '1 second', ended_at = now() where id = '00000000-0000-4000-8000-000002949204';
+  waited := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949204');
+  update public.runner_jobs set status = 'running', runner_id = '00000000-0000-4000-8000-0000028091c1', claimed_at = now(), running_at = now() where id = waited;
+  update public.runner_jobs set status = 'failed', reason = 'runner lost', ended_at = now() where id = waited;
+  select * into lost from public.runner_jobs where resumes = waited;
+  if lost.id is null or lost.attempt <> 2 or lost.waits <> 1 or lost.resume_after <> now() + interval '1 minute' then
+    raise exception 'FAIL: the lost wait queued %, attempt %, waits %, % on: not attempt 2, still one wait, a minute on', lost.id, lost.attempt, lost.waits, lost.resume_after - now();
+  end if;
+
+  -- A claimed wave that changed account as often as it may: its limit waits as well.
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: the job changed account 3 times, the most a job may',
+         limited_until = now() + interval '1 hour', ended_at = now() where id = '00000000-0000-4000-8000-000002949205';
+  waited := (select id from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949205');
+  if waited is null or (select resume_after from public.runner_jobs where id = waited) <> now() + interval '1 hour' then
+    raise exception 'FAIL: the account cap''s limit queued no resume at its reset';
+  end if;
+end $$;
+
+-- ── `no tokens left` with no reset: a plain failure, as before ──
+do $$
+begin
+  update public.runner_jobs set status = 'failed', reason = 'no tokens left: no account can take this job over', ended_at = now()
+   where id = '00000000-0000-4000-8000-000002949206';
+  if exists (select 1 from public.runner_jobs where resumes = '00000000-0000-4000-8000-000002949206') then
+    raise exception 'FAIL: a failure with no reset queued a resume';
+  end if;
+end $$;
+
+reset role;
+
+-- ── Recovery first, never to a runner with every account out (PRD 2949, s3) ──
+-- In the workspace Order, its own queue: o-1 (2 slots), o-2 and o-3 (8 each), no fleet, on order-check/app, all Olga's.
+-- F1, a job sent anew three hours ago, and G1 to G5, sent anew since. Chain X: X1 queued five hours ago, then X2 to X4
+-- (lost and limited, each queued within the last hour), and X5, its resume, queued a minute ago: five jobs, the first
+-- four back. Chain Y: Y1 queued two and a half hours ago, and Y2, its resume, queued two hours ago.
+insert into public.workspaces (id, slug, name, github_org) values
+  ('00000000-0000-4000-8000-000002949003', 'order-check', 'Order', 'order-check');
+insert into public.workspace_members (workspace_id, user_id, role) values
+  ('00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'owner');
+insert into public.runners (id, workspace_id, owner, name, fleet, slots, repos, github_app, last_seen_at) values
+  ('00000000-0000-4000-8000-000002949301', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'o-1', null, 2, '{order-check/app}', true, now()),
+  ('00000000-0000-4000-8000-000002949302', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'o-2', null, 8, '{order-check/app}', true, now()),
+  ('00000000-0000-4000-8000-000002949303', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-0000028090a1', 'o-3', null, 8, '{order-check/app}', true, now());
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by, runner_id, status, reason, resumes, attempt, waits, limited_until, resume_after, queued_at, ended_at) values
+  ('00000000-0000-4000-8000-000002949401', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3001', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '3 hours', null),
+  ('00000000-0000-4000-8000-000002949411', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3011', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '170 minutes', null),
+  ('00000000-0000-4000-8000-000002949412', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3012', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '160 minutes', null),
+  ('00000000-0000-4000-8000-000002949413', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3013', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '150 minutes', null),
+  ('00000000-0000-4000-8000-000002949414', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3014', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '140 minutes', null),
+  ('00000000-0000-4000-8000-000002949415', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3015', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, null, now() - interval '130 minutes', null),
+  ('00000000-0000-4000-8000-000002949421', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'runner lost', null, 1, 0, null, null, now() - interval '5 hours', now() - interval '70 minutes'),
+  ('00000000-0000-4000-8000-000002949422', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949421', 2, 0, now() - interval '50 minutes', now() - interval '69 minutes', now() - interval '60 minutes', now() - interval '55 minutes'),
+  ('00000000-0000-4000-8000-000002949423', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949422', 2, 1, now() - interval '30 minutes', now() - interval '50 minutes', now() - interval '55 minutes', now() - interval '35 minutes'),
+  ('00000000-0000-4000-8000-000002949424', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949423', 2, 2, now() - interval '2 minutes', now() - interval '30 minutes', now() - interval '35 minutes', now() - interval '5 minutes'),
+  ('00000000-0000-4000-8000-000002949425', '00000000-0000-4000-8000-000002949003', '/omni:wave 3002', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, '00000000-0000-4000-8000-000002949424', 2, 3, null, now() - interval '2 minutes', now() - interval '1 minute', null),
+  ('00000000-0000-4000-8000-000002949431', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3003', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'runner lost', null, 1, 0, null, null, now() - interval '150 minutes', now() - interval '125 minutes'),
+  ('00000000-0000-4000-8000-000002949432', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3003', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, '00000000-0000-4000-8000-000002949431', 2, 0, null, now() - interval '119 minutes', now() - interval '2 hours', null);
+
+set local role service_role;
+
+-- Resumes before any fresh job, by their chain's first queued time, followed back the whole chain; the slots still bound it.
+do $$
+declare
+  o1  constant uuid := '00000000-0000-4000-8000-000002949301';
+  got uuid;
+begin
+  got := (select id from public.runner_claim(o1));
+  if got is distinct from '00000000-0000-4000-8000-000002949425' then
+    raise exception 'FAIL: o-1 claimed %, not X5, the resume whose chain began first (five hours ago, four jobs back), though queued last', got;
+  end if;
+  got := (select id from public.runner_claim(o1));
+  if got is distinct from '00000000-0000-4000-8000-000002949432' then
+    raise exception 'FAIL: o-1 claimed %, not Y2, the other resume, before F1, a job sent anew earlier', got;
+  end if;
+  if exists (select 1 from public.runner_claim(o1)) then
+    raise exception 'FAIL: o-1, its two slots taken by the resumes, claimed a third job';
+  end if;
+end $$;
+
+-- A runner whose health, under two minutes old, reports every account out until a time to come gets nothing; any other
+-- runner is judged by its own pause, and gets a job.
+do $$
+declare
+  o2     constant uuid := '00000000-0000-4000-8000-000002949302';
+  got    uuid;
+  out_1h constant jsonb := jsonb_build_object('id', 'max-1', 'agent', 'claude', 'state', 'out', 'resetsAt', to_char((now() + interval '1 hour') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+  out_2h constant jsonb := jsonb_build_object('id', 'max-2', 'agent', 'claude', 'state', 'out', 'resetsAt', to_char((now() + interval '2 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+  fresh  constant text := to_char((now() - interval '15 seconds') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+begin
+  update public.runners set health = jsonb_build_object('cpu', 3, 'at', fresh, 'accounts', jsonb_build_array(out_1h, out_2h)) where id = o2;
+  if exists (select 1 from public.runner_claim(o2)) then
+    raise exception 'FAIL: o-2, its fresh health reporting every account out, was handed a job';
+  end if;
+
+  -- The same report, three minutes old: judged by its own pause, it takes F1.
+  update public.runners set health = jsonb_build_object('cpu', 3, 'at', to_char((now() - interval '3 minutes') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                                                        'accounts', jsonb_build_array(out_1h, out_2h)) where id = o2;
+  got := (select id from public.runner_claim(o2));
+  if got is distinct from '00000000-0000-4000-8000-000002949401' then
+    raise exception 'FAIL: o-2, its health three minutes old, claimed %, not F1', got;
+  end if;
+
+  -- One account ready: a job.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(out_1h, jsonb_build_object('id', 'pro-1', 'agent', 'claude', 'state', 'ready'))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949411' then
+    raise exception 'FAIL: o-2, one account ready, was not handed G1';
+  end if;
+
+  -- Every account out, one of them until a time already past: a job.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(out_1h,
+         jsonb_build_object('id', 'max-2', 'agent', 'claude', 'state', 'out', 'resetsAt', to_char((now() - interval '1 minute') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949412' then
+    raise exception 'FAIL: o-2, an account''s reset already past, was not handed G2';
+  end if;
+
+  -- Its only account out with no reset, then with a reset that reads as no time: a job each, and no error.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(
+         jsonb_build_object('id', 'max-1', 'agent', 'claude', 'state', 'out'))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949413' then
+    raise exception 'FAIL: o-2, its only account out with no reset, was not handed G3';
+  end if;
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', jsonb_build_array(
+         jsonb_build_object('id', 'max-1', 'agent', 'claude', 'state', 'out', 'resetsAt', 'soon'))) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949414' then
+    raise exception 'FAIL: o-2, its account''s reset reading as no time, was not handed G4';
+  end if;
+
+  -- A fresh health that lists no account: a job.
+  update public.runners set health = jsonb_build_object('at', fresh, 'accounts', '[]'::jsonb) where id = o2;
+  if (select id from public.runner_claim(o2)) is distinct from '00000000-0000-4000-8000-000002949415' then
+    raise exception 'FAIL: o-2, its health listing no account, was not handed G5';
+  end if;
+end $$;
+
+reset role;
+
+-- A long chain's local save: Z1 left one on o-3's disk, and Z4, three jobs on, waits for o-3 while it is online. H1, a
+-- job sent anew, waits too.
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by, runner_id, status, reason, resumes, attempt, waits, resume_after, queued_at, ended_at) values
+  ('00000000-0000-4000-8000-000002949441', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'runner lost', null, 1, 0, null, now() - interval '4 hours', now() - interval '3 hours'),
+  ('00000000-0000-4000-8000-000002949442', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949441', 2, 0, now() - interval '3 hours', now() - interval '3 hours', now() - interval '2 hours'),
+  ('00000000-0000-4000-8000-000002949443', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', '00000000-0000-4000-8000-000002949303', 'failed', 'no tokens left', '00000000-0000-4000-8000-000002949442', 2, 1, now() - interval '2 hours', now() - interval '2 hours', now() - interval '1 hour'),
+  ('00000000-0000-4000-8000-000002949444', '00000000-0000-4000-8000-000002949003', '/omni:wave 3004', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, '00000000-0000-4000-8000-000002949443', 2, 2, now() - interval '1 second', now() - interval '1 hour', null),
+  ('00000000-0000-4000-8000-000002949451', '00000000-0000-4000-8000-000002949003', '/omni:yolo 3005', 'order-check/app', '00000000-0000-4000-8000-0000028090a1', null, 'queued', null, null, 1, 0, null, now() - interval '5 hours', null);
+insert into public.runner_checkpoints (job_id, workspace_id, runner_id, kind, manifest, bytes, keep_until) values
+  ('00000000-0000-4000-8000-000002949441', '00000000-0000-4000-8000-000002949003', '00000000-0000-4000-8000-000002949303', 'local',
+   '{"job": "00000000-0000-4000-8000-000002949441", "kind": "local"}', 4096, now() + interval '7 days');
+
+set local role service_role;
+
+do $$
+declare
+  got uuid;
+begin
+  -- o-2 is handed H1 and nothing more: Z4 waits for o-3, which keeps its chain's save three jobs back.
+  got := (select id from public.runner_claim('00000000-0000-4000-8000-000002949302'));
+  if got is distinct from '00000000-0000-4000-8000-000002949451' then
+    raise exception 'FAIL: o-2 claimed %, not H1: a resume whose chain''s save, three jobs back, is on o-3''s disk went to another runner', got;
+  end if;
+  if exists (select 1 from public.runner_claim('00000000-0000-4000-8000-000002949302')) then
+    raise exception 'FAIL: o-2 claimed Z4, whose chain''s local save o-3 keeps, while o-3 is online';
+  end if;
+  got := (select id from public.runner_claim('00000000-0000-4000-8000-000002949303'));
+  if got is distinct from '00000000-0000-4000-8000-000002949444' then
+    raise exception 'FAIL: o-3, which keeps the chain''s save, claimed %, not Z4', got;
   end if;
 end $$;
 

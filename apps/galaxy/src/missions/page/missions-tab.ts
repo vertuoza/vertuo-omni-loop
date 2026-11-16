@@ -1,6 +1,7 @@
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
+import { isWaitWords, type WaitLine } from '../limit-wait';
 import type { MissionAction, MissionStatus } from '../missions.contract';
 
 // The Missions tab's rules (PRD 2842 s7, the `mission-start` screen), pure so each is tested without a
@@ -99,6 +100,8 @@ export interface MissionView {
   /** `2 of 4 merged · 1 ready`, or why there is none yet. */
   progress: string;
   waits: Waits[];
+  /** The PRDs that wait out a provider limit or for room (PRD 2949), as the room says them. */
+  limitWaits: WaitLine[];
   /** Why a stopped mission stopped, and how to carry on. */
   stopped: string | null;
   briefHref: string;
@@ -217,7 +220,7 @@ export function fleetPrdsOf(events: readonly EventRow[]): FleetPrds | null {
 }
 
 /** One mission as the tab shows it; `events` are its own, newest first. */
-export function missionOf(row: MissionRow, events: readonly EventRow[]): MissionView {
+export function missionOf(row: MissionRow, events: readonly EventRow[], limitWaits: readonly WaitLine[] = []): MissionView {
   const waiting = row.status === 'waiting' || row.status === 'running';
   return {
     id: row.id,
@@ -226,7 +229,8 @@ export function missionOf(row: MissionRow, events: readonly EventRow[]): Mission
     status: row.status,
     statusWords: STATUS_WORDS[row.status],
     progress: progressOf(row.status, row.prds, events, row.level),
-    waits: waiting ? waitsOf(row.waitingOn, row.repo, events) : [],
+    waits: waiting ? waitsOf(row.waitingOn, row.repo, events).filter((wait) => !isWaitWords(wait.on)) : [],
+    limitWaits: waiting ? limitWaits.filter((wait) => wait.mission === row.id) : [],
     stopped: row.status === 'stopped' ? row.waitingOn : null,
     briefHref: issueHref(row.repo, row.number),
     action: ACTION[row.status],
