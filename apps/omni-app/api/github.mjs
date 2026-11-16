@@ -22652,15 +22652,18 @@ function listed(items, separator) {
   return [...items.slice(0, LISTED), ...more > 0 ? [`and ${String(more)} more`] : []].join(separator);
 }
 var plural7 = (count3, word) => `${String(count3)} ${word}${count3 === 1 ? "" : "s"}`;
+var LEFT_OUT = /* @__PURE__ */ new Set(["skipped", "neutral"]);
 function ciCheck(runs) {
   if (!runs.ok) return unjudged(runs.why);
   const counted3 = runs.value.filter((run) => run.name !== READY_CHECK_NAME);
   if (counted3.length === 0) return waiting("no check has run on the latest commit yet");
-  const red = counted3.filter((run) => run.status === "completed" && run.conclusion !== "success");
+  const red = counted3.filter((run) => run.status === "completed" && run.conclusion !== "success" && !LEFT_OUT.has(run.conclusion ?? ""));
   if (red.length > 0) return fail(`not green: ${red.map((run) => `${run.name} (${run.conclusion ?? "no conclusion"})`).join(", ")}`);
   const going = counted3.filter((run) => run.status !== "completed");
   if (going.length > 0) return waiting(`still running: ${going.map((run) => run.name).join(", ")}`);
-  return pass(`${plural7(counted3.length, "check")} green`);
+  const green = counted3.filter((run) => run.conclusion === "success");
+  if (green.length === 0) return waiting("only skipped or neutral checks have run on the latest commit: no check that decides has run yet");
+  return pass(`${plural7(green.length, "check")} green`);
 }
 var runsOf = (runs, job) => runs.filter((run) => run.name === job || run.name.startsWith(`${job} (`));
 function fullCheck(runs, full) {
