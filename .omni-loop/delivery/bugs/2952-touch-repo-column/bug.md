@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `apps/galaxy/src/touched/store.test.ts` (the read filters on an indexed column), with `supabase/checks/dossier_github.sql` (that column, its index and the plan that uses it)
+- **File:** `apps/galaxy/src/touched/store.test.ts`
 - **Level:** unit
 - **Red:** FAIL  apps/galaxy/src/touched/store.test.ts > snapshotsOf > filters on the indexed lower-case repo column, never on the jsonb summary, so no summary is read to filter (#2952); and the database check: `psql:/tmp/checks/dossier_github.sql:190: ERROR:  column "repo" does not exist`
 
