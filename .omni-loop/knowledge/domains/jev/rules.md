@@ -39,3 +39,15 @@ Stated: 2026-09-30
 Decided: nobody — adopted when raised (medium), 2026-09-30
 Merged: @pierrederval, 2026-09-30, PR #814
 Kept id: moved from product, PRD 2346
+
+## BR-JEV-1
+
+A question's hard-to-undo score is Jev's confidence when Jev judged it; a question with no such score is unknown and always goes to a person, so without Jev switched on the fleet answers no question on its own.
+
+Serves: P-JEV-1
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s10-03-item-score-is-jevs-or-unknown, PRD #2896
+Enforced by: kit/lib/committee/escalation.test.ts, kit/lib/committee/escalation.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16

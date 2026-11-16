@@ -988,3 +988,66 @@ Why: Re-sending failed or cancelled work automatically would spend runs on a gue
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-118
+
+A mission only lets work join a branch that is current with the default branch, and never overwrites a branch that changed beneath it.
+
+Why: Joining a lagging branch or clobbering a moved head would land work on stale ground and lose others' commits.
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s5-05-joins-held-while-behind, PRD #2896
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-119
+
+Landing a mission closes each of its PRDs' issues, just as landing a PRD's feature pull request into the main branch would.
+
+Why: A mission's feature pull requests merge into the mission branch and close nothing, so without this a PRD's issue would stay open after its work shipped.
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s6-06-landing-closes-prd-issues, PRD #2896
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-120
+
+A mission never piles new work onto a red mission branch; it points to the likeliest cause, but a person decides what leaves.
+
+Why: Joining onto a broken branch hides which PRD broke it, and only a person should choose what to drop.
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s7-02-red-branch-names-the-last-joined-prd, PRD #2896
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-121
+
+A fleet never decides on its own that built work must be redone; choosing rework is always a person's call.
+
+Why: Rework without a person deciding would let automated agreement overturn what was built and spend effort nobody approved.
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s10-02-fleet-settles-with-the-built-option-only, PRD #2896
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-122
+
+A mission carries a feature on by itself after its questions are answered only once; beyond that, a person decides how it goes on.
+
+Why: Unbounded automatic re-runs could loop on questions forever and spend work nobody asked for.
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s10-07-build-sent-again-once-questions-answered, PRD #2896
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-123
+
+A mission never asks for more PRDs than its cap allows, and never sends its PM again on its own.
+
+Why: People set the cap to bound a mission's work; repeated or oversized PM rounds would grow the work behind their backs.
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s12-01-one-pm-job-per-mission, PRD #2896
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-124
+
+The PM's writing skills run only on behalf of a mission; work that belongs to no mission never reaches them, whichever way it is sent.
+
+Why: Each entry point refusing the same lines means no path lets mission-only writing run outside a mission.
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s12-08-terminal-send-refuses-pm-skills, PRD #2896
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16

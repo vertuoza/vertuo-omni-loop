@@ -53,3 +53,15 @@ Stated: 2026-11-13
 Decided: nobody — adopted when raised (medium), 2026-11-13
 Merged: @pierrederval, 2026-11-13, PR #2747
 Proposed: harvest 2026-11-13
+
+## BR-GATE-8
+
+A mission's merge gate counts every check run and commit status on the pull request's latest commit, each judged by its latest decided run. A red, unfinished, skipped, cancelled or verdict-less check holds the merge, so a pull request whose checks were all skipped waits for a person.
+
+Serves: P-GATE-2
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s4-01-gate-reads-every-check, PRD #2896
+Enforced by: apps/omni-app/src/missions/gate.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16

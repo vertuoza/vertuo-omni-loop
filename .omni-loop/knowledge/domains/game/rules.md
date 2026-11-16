@@ -371,3 +371,15 @@ Stated: 2026-11-14
 Decided: nobody — adopted when raised (medium), 2026-11-14
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## BR-GAME-4
+
+A PM hero's limits take the new wording, that the PM never approves a PRD it wrote nor one outside a mission's committee, only while they still equal the old default; limits a person changed are kept as they wrote them.
+
+Serves: P-GAME-3
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s12-05-pm-limit-wording-and-default-heroes, PRD #2896
+Enforced by: kit/lib/virtual-fleet/roles.test.ts, apps/galaxy/src/virtual-fleets/roles-sql.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16

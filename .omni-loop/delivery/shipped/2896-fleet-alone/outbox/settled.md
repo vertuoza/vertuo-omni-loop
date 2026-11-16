@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-15
 - Slice: s1
 - Wave: 1
+- Stays here: Exact wording of drawer copy is a look-and-label choice, costs one constant to change, and carries no lasting product guarantee for the knowledge base.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ A reword costs one constant in the drawer and one line in the screen file.
 - Raised: 2026-11-15
 - Slice: s2
 - Wave: 2
+- Became: N-PRODUCT-23
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Reading the level in the skill later costs one command and one route; the trigge
 - Raised: 2026-11-15
 - Slice: s2
 - Wave: 2
+- Stays here: An interim build choice that costs one function to change; the message's branch-name wording is copy. Nothing lasting for the knowledge base yet.
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ Changing where the count is read costs one function in the missions repository a
 - Raised: 2026-11-15
 - Slice: s3
 - Wave: 3
+- Stays here: A temporary sequencing choice about which slice edits the webhook; nothing lasting to keep once the later slice adds the filter.
 
 ### The answer, as it was given
 
@@ -326,6 +330,7 @@ Changing the webhook later costs one small filter and its tests, in a slice whos
 - Raised: 2026-11-15
 - Slice: s3
 - Wave: 3
+- Became: ADR-0159
 
 ### The answer, as it was given
 
@@ -403,6 +408,7 @@ Refusing in the route as well costs one call to GitHub in the Start route and on
 - Raised: 2026-11-15
 - Slice: s4
 - Wave: 4
+- Became: BR-GATE-8, P-GATE-2
 
 ### The answer, as it was given
 
@@ -483,6 +489,7 @@ Reading a named list instead costs one setting and one filter in the gate; nothi
 - Raised: 2026-11-15
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-147
 
 ### The answer, as it was given
 
@@ -560,6 +567,7 @@ Sending the care agent later costs one more step key and its tests in the superv
 - Raised: 2026-11-15
 - Slice: s4
 - Wave: 4
+- Stays here: A one-off territory exception for wiring during this slice; it leaves no lasting rule or design choice beyond the ledger.
 
 ### The answer, as it was given
 
@@ -637,6 +645,7 @@ Undoing it is one line; the gate then never runs and a ready PRD waits for a per
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 5
+- Stays here: A stopgap until a runner skill can rebase a mission branch. It is meant to be replaced, so there is nothing lasting for the knowledge base to keep.
 
 ### The answer, as it was given
 
@@ -716,6 +725,7 @@ Adding the job later costs one new runner skill, its place in the runner lists o
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 5
+- Became: ADR-0160
 
 ### The answer, as it was given
 
@@ -794,6 +804,7 @@ Switching to a rebase later costs one function in the mission's keeping up and i
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 5
+- Stays here: A one-line wiring choice about slice territory; nothing lasting for the knowledge base beyond the code itself.
 
 ### The answer, as it was given
 
@@ -871,6 +882,7 @@ Undoing it is one line; the mission branch then stays where it was cut, as befor
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 5
+- Stays here: A temporary scope choice awaiting a later slice's migration; nothing lasting to keep as a rule, invariant or decision record.
 
 ### The answer, as it was given
 
@@ -948,6 +960,7 @@ Recording rebases later costs one event kind in a migration, its database check,
 - Raised: 2026-11-15
 - Slice: s5
 - Wave: 5
+- Became: BR-PRODUCT-148, P-PRODUCT-118
 
 ### The answer, as it was given
 
@@ -1026,6 +1039,7 @@ Letting joins through costs one condition in the mission's run and its test.
 - Raised: 2026-11-15
 - Slice: s6
 - Wave: 6
+- Stays here: A stopgap within this slice's database limits, meant to be replaced by a landing event in a later slice, so there is no lasting rule or decision to keep.
 
 ### The answer, as it was given
 
@@ -1103,6 +1117,7 @@ Recording landings with their own event later costs one event kind in a migratio
 - Raised: 2026-11-15
 - Slice: s6
 - Wave: 6
+- Stays here: A one-off territory exception for wiring a handler; it records no lasting product guarantee or build decision beyond this slice.
 
 ### The answer, as it was given
 
@@ -1180,6 +1195,7 @@ Undoing it is one line; the mission pull request then never opens and no landing
 - Raised: 2026-11-15
 - Slice: s6
 - Wave: 6
+- Stays here: A branch-naming choice held in one constant and cheap to change later; it guarantees nothing a person relies on, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -1257,6 +1273,7 @@ A different name later is one constant; branches already opened keep theirs.
 - Raised: 2026-11-15
 - Slice: s6
 - Wave: 6
+- Stays here: A temporary scope deferral for this slice, expected to change in a later slice; nothing lasting to record in the knowledge base.
 
 ### The answer, as it was given
 
@@ -1335,6 +1352,7 @@ Starting them later costs a retro read that takes a feature pull request merged 
 - Raised: 2026-11-15
 - Slice: s6
 - Wave: 6
+- Stays here: A scoping deferral outside the slice's ground, not a lasting rule; P-PRODUCT-101 already states the intended dating, so nothing new needs keeping.
 
 ### The answer, as it was given
 
@@ -1412,6 +1430,7 @@ Dating it by the landing later costs reading the mission pull request's merge ti
 - Raised: 2026-11-15
 - Slice: s6
 - Wave: 6
+- Became: BR-PRODUCT-149, P-PRODUCT-119
 
 ### The answer, as it was given
 
@@ -1489,6 +1508,7 @@ Dropping the lines later is one change to the body and its tests; issues already
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 7
+- Became: BR-PRODUCT-150
 
 ### The answer, as it was given
 
@@ -1566,6 +1586,7 @@ Adding a way to send it again later is a new command and one event, with no chan
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 7
+- Became: BR-PRODUCT-151, P-PRODUCT-120
 
 ### The answer, as it was given
 
@@ -1643,6 +1664,7 @@ Finding the first PRD whose commit turned the checks red means reading the check
 - Raised: 2026-11-15
 - Slice: s7
 - Wave: 7
+- Stays here: A one-off territory call for this slice; the lasting behaviour of dropping lives elsewhere, and nothing here is a durable decision or guarantee.
 
 ### The answer, as it was given
 
@@ -1720,6 +1742,7 @@ Reverting means a follow-up migration that only works while no drop is recorded,
 - Raised: 2026-11-15
 - Slice: s8
 - Wave: 8
+- Stays here: A temporary scoping choice for this slice, cheap to change later and with nothing stored depending on it; no lasting rule or design record to keep.
 
 ### The answer, as it was given
 
@@ -1797,6 +1820,7 @@ A constant and a state word in the room, plus one event kind in the database che
 - Raised: 2026-11-15
 - Slice: s9
 - Wave: 9
+- Stays here: A one-off territory exception for wiring a command; nothing lasting about how the product behaves or is built.
 
 ### The answer, as it was given
 
@@ -1874,6 +1898,7 @@ Reverting either is one line; without them the command does not exist and the gu
 - Raised: 2026-11-15
 - Slice: s9
 - Wave: 9
+- Stays here: A temporary implementation choice, changeable in a later slice without migration; nothing lasting about which model each member uses.
 
 ### The answer, as it was given
 
@@ -1951,6 +1976,7 @@ Carrying the heroes' settings means the job line or the runner's claim naming th
 - Raised: 2026-11-16
 - Slice: s10
 - Wave: 10
+- Became: BR-PRODUCT-152, P-PRODUCT-121
 
 ### The answer, as it was given
 
@@ -2029,6 +2055,7 @@ Option B lets the committee pick a letter and settles it as drifted, then the mi
 - Raised: 2026-11-16
 - Slice: s10
 - Wave: 10
+- Became: BR-JEV-1, P-JEV-1
 
 ### The answer, as it was given
 
@@ -2107,6 +2134,7 @@ Option B writes the agent's own hard-to-revert judgement into each new question,
 - Raised: 2026-11-16
 - Slice: s10
 - Wave: 10
+- Became: BR-PRODUCT-153
 
 ### The answer, as it was given
 
@@ -2184,6 +2212,7 @@ Option B needs a judgement of each question against the business laws, which not
 - Raised: 2026-11-16
 - Slice: s10
 - Wave: 10
+- Became: ADR-0161
 
 ### The answer, as it was given
 
@@ -2262,6 +2291,7 @@ Option B is one migration (a writer for answers, a key shape for a question's co
 - Raised: 2026-11-16
 - Slice: s10
 - Wave: 10
+- Stays here: A one-off choice about slice territory and wiring; it sets no lasting product guarantee or build pattern worth keeping.
 
 ### The answer, as it was given
 
@@ -2339,6 +2369,7 @@ Reverting is removing the item flag from the command and the one line of wiring.
 - Raised: 2026-11-16
 - Slice: s10
 - Wave: 10
+- Became: BR-PRODUCT-154, P-PRODUCT-122
 
 ### The answer, as it was given
 
@@ -2417,6 +2448,7 @@ Sending the fix instead changes one line of the supervisor's next step.
 - Raised: 2026-11-16
 - Slice: s12
 - Wave: 12
+- Became: BR-PRODUCT-155, P-PRODUCT-123
 
 ### The answer, as it was given
 
@@ -2495,6 +2527,7 @@ A constant in apps/omni-app/src/missions/pm.ts (PM_ROUND and the check on jobs a
 - Raised: 2026-11-16
 - Slice: s12
 - Wave: 12
+- Stays here: not worth a law (classifier)
 
 ### The answer, as it was given
 
@@ -2573,6 +2606,7 @@ One sentence in each of the four skills.
 - Raised: 2026-11-16
 - Slice: s12
 - Wave: 12
+- Stays here: An interim choice of who prints the line, driven by this slice's territory and cheap to change later; nothing lasting about the product's behaviour to keep.
 
 ### The answer, as it was given
 
@@ -2650,6 +2684,7 @@ One small command in kit/bin that calls pmLine, and one sentence in each of the 
 - Raised: 2026-11-16
 - Slice: s12
 - Wave: 12
+- Became: ADR-0162
 
 ### The answer, as it was given
 
@@ -2727,6 +2762,7 @@ A database function that appends to missions.scope, and the readers that would t
 - Raised: 2026-11-16
 - Slice: s12
 - Wave: 12
+- Became: BR-GAME-4, P-GAME-3
 
 ### The answer, as it was given
 
@@ -2805,6 +2841,7 @@ One sentence in the kit's roles and a follow-up migration with the same sentence
 - Raised: 2026-11-16
 - Slice: s12
 - Wave: 12
+- Stays here: A one-off territory choice about editing one guide paragraph early; nothing lasting about the product or its build to keep.
 
 ### The answer, as it was given
 
@@ -2882,6 +2919,7 @@ One paragraph of the guide.
 - Raised: 2026-11-16
 - Slice: s12
 - Wave: 12
+- Became: BR-PRODUCT-156, P-PRODUCT-124
 
 ### The answer, as it was given
 
@@ -2959,6 +2997,7 @@ Three lines of the send command and one expected sentence in its test.
 - Raised: 2026-11-16
 - Slice: s14
 - Wave: 13
+- Became: ADR-0163
 
 ### The answer, as it was given
 
@@ -3034,6 +3073,7 @@ Adding a database rule later is one migration; the app's checks can stay.
 - Raised: 2026-11-16
 - Slice: s13
 - Wave: 14
+- Stays here: A documentation wording choice matching current behaviour, cheap to change; nothing lasting for the knowledge base.
 
 ### The answer, as it was given
 
