@@ -189,6 +189,33 @@ begin
   end if;
 end $$;
 
+-- ── The keys a touch matches on are columns, never read from the summary (#2970) ──
+-- Every GitHub webhook matches its repository's snapshots on the PRD's number, its issue's and its pull
+-- requests': reading each summary whole for them sent about 1 MB a webhook. prd, issue and pulls are those
+-- numbers, kept by the database; a part that is null or 'unread' gives none.
+do $$
+begin
+  update public.dossier_github
+     set summary = '{"repo":"initech/nimbus-plan","prd":902,"issue":{"number":902,"url":"u","state":"open"},'
+                   '"phase0":{"number":910,"url":"u","state":"merged","draft":false},"feature":"unread",'
+                   '"retro":{"number":930,"url":"u","state":"open","draft":true}}'
+   where dossier_id = '00000000-0000-4000-8000-00000000d902';
+  if (select row(prd, issue, pulls) from public.dossier_github where dossier_id = '00000000-0000-4000-8000-00000000d902')
+     is distinct from row(902, 902, array[910, 930]) then
+    raise exception 'FAIL: a snapshot''s prd, issue and pulls are not its summary''s numbers';
+  end if;
+  update public.dossier_github set summary = '{"repo":"initech/nimbus-plan","prd":902,"issue":"unread","phase0":null}'
+   where dossier_id = '00000000-0000-4000-8000-00000000d902';
+  if (select row(prd, issue, pulls) from public.dossier_github where dossier_id = '00000000-0000-4000-8000-00000000d902')
+     is distinct from row(902, null::integer, '{}'::integer[]) then
+    raise exception 'FAIL: an unread or missing part of a snapshot gave a number';
+  end if;
+  begin
+    update public.dossier_github set pulls = array[1] where dossier_id = '00000000-0000-4000-8000-00000000d902';
+    raise exception 'FAIL: a snapshot''s pulls were written apart from its summary';
+  exception when generated_always then null; end;
+end $$;
+
 -- ── A row goes with its dossier ──
 delete from public.dossiers where id = '00000000-0000-4000-8000-00000000d902';
 do $$

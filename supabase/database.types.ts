@@ -1366,6 +1366,9 @@ export type Database = {
       dossier_github: {
         Row: {
           dossier_id: string
+          issue: number | null
+          prd: number | null
+          pulls: number[]
           read_at: string
           refreshing_until: string | null
           repo: string | null
@@ -1375,6 +1378,9 @@ export type Database = {
         }
         Insert: {
           dossier_id: string
+          issue?: number | null
+          prd?: number | null
+          pulls?: number[]
           read_at?: string
           refreshing_until?: string | null
           repo?: string | null
@@ -1384,6 +1390,9 @@ export type Database = {
         }
         Update: {
           dossier_id?: string
+          issue?: number | null
+          prd?: number | null
+          pulls?: number[]
           read_at?: string
           refreshing_until?: string | null
           repo?: string | null

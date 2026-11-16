@@ -6,6 +6,7 @@ import {
 } from './loop.contract';
 import { readChange, readChanges, readComments, readIssue, readIssues, type LoopReadsDeps } from './loop.controller';
 import { HostSpent, HostUnreadable, loopService, type LoopHost } from './loop.service';
+import { loopTiming, timedWorkspaces } from './timing';
 
 // The loop's read routes (PRD 1665, s1 and s2), with a fake host and a fake
 // workspace check behind the real service: the sign-in is checked first, the workspace before any call
@@ -79,31 +80,37 @@ function world({ owned = ['acme/widgets'], changes = [change(1), change(2)], iss
       return Promise.resolve(owned.includes(repo) ? { workspace: 'w-acme' } : { refusal: 'No workspace you belong to lists it; install the Omni App' });
     },
   };
-  const deps: LoopReadsDeps = {
-    connect: database
-      ? () => ({ auth: { getUser: (jwt: string) => Promise.resolve(jwt === 'ada-token' ? { data: { user: ADA }, error: null } : { data: { user: null }, error: { status: 401 } }) } })
-      : null,
-    service: app ? loopService(workspaces, host) : null,
-    installLink: INSTALL,
-    log: (line) => logged.push(line),
+  /** Each request's dependencies, with its own timing, as ./loop-reads-live.ts makes them. */
+  const depsOf = (): LoopReadsDeps => {
+    const timing = loopTiming();
+    return {
+      connect: database
+        ? () => ({ auth: { getUser: (jwt: string) => Promise.resolve(jwt === 'ada-token' ? { data: { user: ADA }, error: null } : { data: { user: null }, error: { status: 401 } }) } })
+        : null,
+      service: app ? loopService(timedWorkspaces(workspaces, timing), host) : null,
+      installLink: INSTALL,
+      log: (line) => logged.push(line),
+      timing,
+    };
   };
   const request = (path: string, token: string | null) =>
     new Request(`https://omni.example/api/loop/${path}`, { headers: token ? { authorization: `Bearer ${token}` } : {} });
   const list = async (query: string, token: string | null = 'ada-token') => {
-    const response = await readChanges(request(`changes${query}`, token), deps);
+    const response = await readChanges(request(`changes${query}`, token), depsOf());
     return { status: response.status, body: (await response.json()) as unknown, headers: response.headers };
   };
   const one = async (number: string, query: string, token: string | null = 'ada-token') => {
-    const response = await readChange(request(`changes/${number}${query}`, token), number, deps);
-    return { status: response.status, body: (await response.json()) as unknown };
+    const response = await readChange(request(`changes/${number}${query}`, token), number, depsOf());
+    return { status: response.status, body: (await response.json()) as unknown, headers: response.headers };
   };
   /** A read of one of s2's routes: `comments`, `issues`, or `issues/<n>`. */
   const read = async (path: string, token: string | null = 'ada-token') => {
     const req = request(path, token);
     const [route, number] = new URL(req.url).pathname.replace('/api/loop/', '').split('/');
+    const deps = depsOf();
     const response = route === 'comments' ? await readComments(req, deps)
       : number === undefined ? await readIssues(req, deps) : await readIssue(req, number, deps);
-    return { status: response.status, body: (await response.json()) as unknown };
+    return { status: response.status, body: (await response.json()) as unknown, headers: response.headers };
   };
   return { list, one, read, calls, logged };
 }
@@ -322,5 +329,50 @@ describe('the comments and issues routes: the refusals every read shares', () =>
   it.each(PATHS)('%s answers 503 without a database, and without an app', async (path) => {
     expect((await world({ database: false }).read(path)).status).toBe(503);
     expect((await world({ app: false }).read(path)).status).toBe(503);
+  });
+});
+
+describe('the Server-Timing header of every read', () => {
+  const STEP = (name: string) => new RegExp(`^${name};dur=\\d+\\.\\d;desc="\\d+ calls"$`);
+  /** The header's entries, each checked to carry a step's name, its duration and its count only. */
+  const entriesOf = (headers: Headers) => {
+    const entries = (headers.get('server-timing') ?? '').split(', ');
+    const names = ['setup', 'auth', 'workspace', 'token', 'store', 'github', 'parse'];
+    names.forEach((name, i) => { expect(entries[i]).toMatch(STEP(name)); });
+    expect(entries.at(-1)).toMatch(/^total;dur=\d+\.\d$/);
+    expect(entries).toHaveLength(names.length + 1);
+    return entries;
+  };
+
+  it.each([
+    ['changes', (w: ReturnType<typeof world>) => w.list('?repo=acme/widgets')],
+    ['changes/<n>', (w: ReturnType<typeof world>) => w.one('2', '?repo=acme/widgets')],
+    ['comments', (w: ReturnType<typeof world>) => w.read('comments?repo=acme/widgets&on=2')],
+    ['issues', (w: ReturnType<typeof world>) => w.read('issues?repo=acme/widgets')],
+    ['issues/<n>', (w: ReturnType<typeof world>) => w.read('issues/5?repo=acme/widgets')],
+  ])('a served read of %s says where its time went, step by step', async (_, served) => {
+    const { status, headers } = await served(world());
+    expect(status).toBe(200);
+    const entries = entriesOf(headers);
+    expect(entries[1]).toContain('desc="1 calls"');
+    expect(entries[2]).toContain('desc="1 calls"');
+    expect(entries[6]).toContain('desc="1 calls"');
+  });
+
+  it.each([
+    ['signed out', (w: ReturnType<typeof world>) => w.list('?repo=acme/widgets', null)],
+    ['a bad query', (w: ReturnType<typeof world>) => w.list('?repo=acme')],
+    ['outside the workspace', (w: ReturnType<typeof world>) => w.read('issues?repo=other/thing')],
+    ['unreadable', () => world({ failure: new HostUnreadable('acme/widgets', `token ${TOKEN} refused`) }).one('2', '?repo=acme/widgets')],
+    ['failed', () => world({ failure: new Error(`GitHub answered 502 with ${TOKEN}`) }).read('comments?repo=acme/widgets&on=2')],
+  ])('a refusal (%s) carries the same steps, and nothing but durations and counts', async (_, refused) => {
+    const { status, headers } = await refused(world());
+    expect(status).toBeGreaterThanOrEqual(400);
+    const header = entriesOf(headers).join(', ');
+    for (const secret of [TOKEN, 'ada-token', ADA.id, ADA.email, 'acme', 'other/thing', 'http']) expect(header).not.toContain(secret);
+  });
+
+  it('answers 503 with the header too', async () => {
+    entriesOf((await world({ database: false }).list('?repo=acme/widgets')).headers);
   });
 });
