@@ -50,7 +50,7 @@ describe('runner_claim(), the claim of a resume (PRD 2809 s5)', () => {
 // Recovery first, and no job to a runner with every account out (PRD 2949 s3): the claim of 2809 s5, with three changes
 // and nothing else. What the rows do is proven on a database by supabase/checks/runner_resume.sql.
 describe('runner_claim(), recovery first and no job to a runner with every account out (PRD 2949 s3)', () => {
-  const NEXT = flat(read('supabase/migrations/20270125110000_runner_claim_recovery_first.sql'));
+  const NEXT = flat(read('supabase/migrations/20270125130000_runner_claim_recovery_first.sql'));
   const fn = claim(NEXT);
   const HEALTH = "if jsonb_typeof(r.health -> 'accounts') = 'array' and pg_catalog.pg_input_is_valid(r.health ->> 'at', 'timestamptz') then "
     + "if (r.health ->> 'at')::timestamptz > now() - interval '2 minutes' and jsonb_array_length(r.health -> 'accounts') > 0 "

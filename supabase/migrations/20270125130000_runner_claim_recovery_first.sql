@@ -3,7 +3,7 @@
 --
 -- - runner_claim(runner, registered_at): as 20270121110000_runner_claim_resume.sql, and:
 --   - Recovery comes first. A resume (`resumes` set: of a lost runner, PRD 2809, or of a provider limit,
---     20270125100000_runner_limit_waits.sql) is claimed before any fresh job, the resumes ordered by when the first job
+--     20270125120000_runner_limit_waits.sql) is claimed before any fresh job, the resumes ordered by when the first job
 --     of their chain was queued, then by their own queued time. The runner's `slots` bound it as before.
 --   - No job to a runner with every account out. A runner whose last health (`runners.health`, its `at` the server's
 --     time) is less than two minutes old, and lists at least one account, each `out` with a `resetsAt` still to come,

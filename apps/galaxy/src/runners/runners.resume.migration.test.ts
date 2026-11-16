@@ -91,8 +91,8 @@ describe('runner_job_resume_lost(), the trigger that queues a resume', () => {
   });
 });
 
-describe('a provider limit\'s wait (PRD 2949, 20270125100000_runner_limit_waits.sql)', () => {
-  const LIMIT = read('supabase/migrations/20270125100000_runner_limit_waits.sql');
+describe('a provider limit\'s wait (PRD 2949, 20270125120000_runner_limit_waits.sql)', () => {
+  const LIMIT = read('supabase/migrations/20270125120000_runner_limit_waits.sql');
   const code = LIMIT.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
   const limitBody = (name: string): string => {
     const match = new RegExp(`create (?:or replace )?function public\\.${name}\\(.*?\\$\\$(.*?)\\$\\$;`).exec(code);

@@ -23,7 +23,7 @@
 //   A job that ends `failed` on a provider limit (PRD 2949 s1) stores when the limit is over, `limited_until`: the reset
 //   its report's `limit` carries, or, from a runner older than PRD 2949, the time its reason names
 //   (`no tokens left: every account is out until <ISO>`). The database then queues one resume at that time, the same
-//   try, one wait more, six waits at most (supabase/migrations/20270125100000_runner_limit_waits.sql).
+//   try, one wait more, six waits at most (supabase/migrations/20270125120000_runner_limit_waits.sql).
 // - A job's status only goes forward: claimed, running, then done, failed or cancelled. A report on a
 //   job that has ended is refused, and the runner stops it.
 // - Anyone of the workspace sends to any runner, or to a runner with no fleet; only a fleet's players
@@ -472,7 +472,7 @@ const OUT_UNTIL = /^no tokens left: every account is out until (\d{4}-\d{2}-\d{2
 
 /** When the provider limit a failed report met is over (PRD 2949): its `limit`'s reset, or, from a runner that sends none,
  * the time its reason names; none for any other report, which then fails or ends as before. The database queues the
- * resume that waits for it (supabase/migrations/20270125100000_runner_limit_waits.sql). */
+ * resume that waits for it (supabase/migrations/20270125120000_runner_limit_waits.sql). */
 function limitedUntil(report: JobUpdate): string | undefined {
   if (report.status !== 'failed') return undefined;
   if (report.limit) return report.limit.resetsAt;
