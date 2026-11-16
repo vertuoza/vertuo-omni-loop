@@ -2402,3 +2402,545 @@ Sending the fix instead changes one line of the supervisor's next step.
 ```
 
 <!-- /omni-outbox-settled: s10-07-build-sent-again-once-questions-answered -->
+
+<!-- omni-outbox-settled: s12-01-one-pm-job-per-mission -->
+
+## s12-01-one-pm-job-per-mission — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-01-one-pm-job-per-mission
+prd: 2896
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+How many times may a mission send its PM to write PRDs, and when does it pick a brainstorm over a roadmap?
+
+## The decision, in plain words
+
+A mission sends its PM once. It asks for a brainstorm when one PRD is left under the cap, and a roadmap when several are, so the PM never writes more than the cap allows.
+
+## The intro, for fun
+
+The PM gets one blank page per mission.
+
+## The punchline, for fun
+
+No second draft unless a person asks for one.
+
+## The options, in plain words
+
+A. A. One PM job per mission; brainstorm for one PRD left, roadmap for several (built).
+B. B. Send the PM again after each job while the fleet added fewer than the cap.
+C. C. Always send a roadmap and let it write one PRD or several.
+
+## What I had to decide
+
+Whether a mission may send its PM again when the first job wrote fewer PRDs than the cap, and whether the PM should choose brainstorm or roadmap itself.
+
+## What I did meanwhile
+
+The PM job's key is mission:<id>:pm:1, unique, so a replay never sends a second one. A job that failed or wrote nothing adds nothing, and the mission carries on with the PRDs it has.
+
+## What it costs to change later
+
+A constant in apps/omni-app/src/missions/pm.ts (PM_ROUND and the check on jobs already sent): a later round only needs a new round in the key, which the database already accepts.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person expects the fleet to keep proposing PRDs until the cap is reached.
+
+```
+
+<!-- /omni-outbox-settled: s12-01-one-pm-job-per-mission -->
+
+<!-- omni-outbox-settled: s12-02-pm-writes-nothing-where-phase0-is-a-pr -->
+
+## s12-02-pm-writes-nothing-where-phase0-is-a-pr — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-02-pm-writes-nothing-where-phase0-is-a-pr
+prd: 2896
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+What does the PM do for a mission whose repository approves its PRDs through a review pull request rather than on their page?
+
+## The decision, in plain words
+
+It writes nothing there. A PRD the fleet adds must be approved on its page, where the committee can approve it; one approved through a review pull request would wait for a person anyway.
+
+## The intro, for fun
+
+Some repositories only take paper forms.
+
+## The punchline, for fun
+
+The PM checks the counter before filling one in.
+
+## The options, in plain words
+
+A. A. Write nothing where phase 0 is a pull request (built).
+B. B. Write each PRD on the server anyway, whatever the repository's phase 0.
+C. C. Write it with a review pull request and let it wait for a person.
+
+## What I had to decide
+
+Whether the PM should write such PRDs on the server anyway, overriding the repository's phase 0, or write nothing as built.
+
+## What I did meanwhile
+
+The four skills' For a mission's PM section ends on the record line with no PRD when step 0 reads phase 0: pr; the mission page then names no PRD added by the fleet.
+
+## What it costs to change later
+
+One sentence in each of the four skills.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says each PRD the fleet adds is born on the server; it does not say what happens in a repository whose phase 0 is a pull request.
+
+```
+
+<!-- /omni-outbox-settled: s12-02-pm-writes-nothing-where-phase0-is-a-pr -->
+
+<!-- omni-outbox-settled: s12-03-pm-record-line-printed-by-the-skill -->
+
+## s12-03-pm-record-line-printed-by-the-skill — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-03-pm-record-line-printed-by-the-skill
+prd: 2896
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+How does the PM tell the app which PRDs it wrote for the mission?
+
+## The decision, in plain words
+
+It ends its run on one line in a fixed shape that the app reads from the job's log. The app keeps at most the cap it sent, and a line it cannot read adds nothing.
+
+## The intro, for fun
+
+The PM leaves a sticky note on the way out.
+
+## The punchline, for fun
+
+The app only reads notes in the right handwriting.
+
+## The options, in plain words
+
+A. A. The skill prints the line itself (built).
+B. B. A kit command prints it, as the committee's record command does.
+
+## What I had to decide
+
+Whether a kit command should print the line, as the committee's record is printed, instead of the skill writing it out.
+
+## What I did meanwhile
+
+kit/lib/virtual-fleet/pm.ts holds the line's shape (pmLine, pmRecordOf) and the App reads it with it. The skills write the line by hand, since the kit's commands were outside this slice's territory.
+
+## What it costs to change later
+
+One small command in kit/bin that calls pmLine, and one sentence in each of the four skills.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether an agent writing the line by hand gets its shape right often enough; a wrong line adds nothing, which is safe but silent.
+
+```
+
+<!-- /omni-outbox-settled: s12-03-pm-record-line-printed-by-the-skill -->
+
+<!-- omni-outbox-settled: s12-04-fleet-prds-kept-as-events-not-scope -->
+
+## s12-04-fleet-prds-kept-as-events-not-scope — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-04-fleet-prds-kept-as-events-not-scope
+prd: 2896
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+Where does the app keep the PRDs the fleet added to a mission?
+
+## The decision, in plain words
+
+As entries in the mission's own history, one per PRD added and one per roadmap row the cap left out. The mission's written scope stays as the person wrote it, and the app adds the fleet's PRDs after it each time it reads the mission.
+
+## The intro, for fun
+
+The person's list stays in their handwriting.
+
+## The punchline, for fun
+
+The fleet's additions go in the margin.
+
+## The options, in plain words
+
+A. A. History entries only, the scope left as the person wrote it (built).
+B. B. Also append them to the mission's scope.
+
+## What I had to decide
+
+Whether the fleet's PRDs should also be written into the mission's scope, so other readers see them without reading its history.
+
+## What I did meanwhile
+
+Two new kinds of mission event, prd-added and not-written, written by the service role; the supervisor widens the scope from them on every run and the Missions tab reads them.
+
+## What it costs to change later
+
+A database function that appends to missions.scope, and the readers that would then read the scope alone.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the mission page should list the fleet's PRDs inside the scope rather than on a line of their own.
+
+```
+
+<!-- /omni-outbox-settled: s12-04-fleet-prds-kept-as-events-not-scope -->
+
+<!-- omni-outbox-settled: s12-05-pm-limit-wording-and-default-heroes -->
+
+## s12-05-pm-limit-wording-and-default-heroes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-05-pm-limit-wording-and-default-heroes
+prd: 2896
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+What should the PM's limit say now that it chairs a committee that approves PRDs, and do existing PM heroes take the new words?
+
+## The decision, in plain words
+
+It now says the PM never approves a PRD it wrote, nor one outside a mission's committee. PM heroes whose limits are still the old default take the new words; a hero a person changed keeps what they wrote.
+
+## The intro, for fun
+
+The PM's job description got a new line.
+
+## The punchline, for fun
+
+Only the copies still on the template get reprinted.
+
+## The options, in plain words
+
+A. A. The new sentence, rewritten on PM heroes still at the default (built).
+B. B. The new sentence for new heroes only.
+C. C. Keep the old sentence: the committee approving is not the PM approving.
+
+## What I had to decide
+
+Whether the new words are right, and whether existing PM heroes should keep the old line until a person edits them.
+
+## What I did meanwhile
+
+The kit's roles and the database's defaults hold the same sentence, and the migration rewrites a PM's limits only while they equal the old default.
+
+## What it costs to change later
+
+One sentence in the kit's roles and a follow-up migration with the same sentence.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person who wrote their own PM limit would want to be told the default changed.
+
+```
+
+<!-- /omni-outbox-settled: s12-05-pm-limit-wording-and-default-heroes -->
+
+<!-- omni-outbox-settled: s12-06-runners-guide-names-the-pm-skills -->
+
+## s12-06-runners-guide-names-the-pm-skills — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-06-runners-guide-names-the-pm-skills
+prd: 2896
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+May this slice change the guide's page on runners, which belongs to a later slice?
+
+## The decision, in plain words
+
+Yes, one paragraph: the guide's own test holds its list of the lines a runner takes equal to the kit's, so adding the four skills without it would have turned the build red. The paragraph also says only a mission sends them.
+
+## The intro, for fun
+
+The guide and the code keep each other honest.
+
+## The punchline, for fun
+
+Change one, and the other insists on a matching update.
+
+## The options, in plain words
+
+A. A. Change the paragraph here, outside the territory (built).
+B. B. Leave the guide's test red until its own slice changes it.
+
+## What I had to decide
+
+Whether the paragraph should stay as written or wait for the guide's own slice to reword it.
+
+## What I did meanwhile
+
+Only the list of runner lines in docs/guide/runners.md and two sentences after it changed; the guide's Missions page is left to its own slice.
+
+## What it costs to change later
+
+One paragraph of the guide.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the guide's own slice would word the paragraph differently.
+
+```
+
+<!-- /omni-outbox-settled: s12-06-runners-guide-names-the-pm-skills -->
+
+<!-- omni-outbox-settled: s12-08-terminal-send-refuses-pm-skills -->
+
+## s12-08-terminal-send-refuses-pm-skills — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s12
+- Wave: 12
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s12-08-terminal-send-refuses-pm-skills
+prd: 2896
+slice: s12
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 12
+---
+
+## The question, in plain words
+
+May this slice change how the terminal sends a line to a runner, which lies outside its territory?
+
+## The decision, in plain words
+
+Yes, three lines: a line sent from a terminal belongs to no mission, so the terminal now refuses the PM's four writing skills before asking the app, as the app and the runner do. Without it the terminal's own tests turned red.
+
+## The intro, for fun
+
+The terminal learned the new door policy too.
+
+## The punchline, for fun
+
+Better told at home than turned away at the door.
+
+## The options, in plain words
+
+A. A. The terminal refuses them before any call, outside the territory (built).
+B. B. Leave the terminal as it was and let the app refuse them, changing only the test's example.
+
+## What I had to decide
+
+Whether the terminal should refuse these lines itself, or leave the refusal to the app.
+
+## What I did meanwhile
+
+kit/bin/commands/runner-follow.ts calls missionRefusal before sending; kit/bin/commands/runner.test.ts expects the new refusal words for a brainstorm job claimed with no mission.
+
+## What it costs to change later
+
+Three lines of the send command and one expected sentence in its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the send command's help should name the four skills it refuses.
+
+```
+
+<!-- /omni-outbox-settled: s12-08-terminal-send-refuses-pm-skills -->
