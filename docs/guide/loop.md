@@ -235,7 +235,8 @@ point on the feature branch, so each one merges with the change that raised it.
 | `/omni:rewind-apply <n> <finding>` | never by hand unless no runner took it: an approved knowledge finding's card reads **Proposing the rule…** | one docs-only pull request proposing the rule in your repository's knowledge, or the rule that already says it, or one question, shown on the finding's card; it never merges |
 | `/omni:tech-review <n>` | you were named for a PRD's Tech Approval ([Tech Approval](/docs/approvals#tech-approval)) | the coding parts of the spec and plan changed with you, each settled question recorded under `### Tech review`, and the PRD's page link; it gives no approval and never merges, and a runner never runs it |
 | `/omni:invade` | once, after the install; with `--refresh` when the repository has changed a lot | one docs pull request: the knowledge base |
-| `/omni:status` | you want to see where the PRDs are | one screen |
+| `/omni:status` | you want to know where this session's work stands | one plain block: the verdict, the step, what you must do, the links |
+| `/omni:dashboard` | you want to see where all the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |
 | `/omni:ask on` | you would rather answer your agent's questions on a web page | the page's link |
 | `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm`, `/omni:think-big` and `/omni:plan` run them | the PRD's page on the Omni page, or a concept's page under **Work › Concepts** |

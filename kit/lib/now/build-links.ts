@@ -90,3 +90,24 @@ async function fixLinks(ctx: Context, kind: FixKind, n: PrdNumber | IssueNumber,
 export function buildLinks(ctx: Context, kind: 'prd' | FixKind, n: PrdNumber | IssueNumber, io: LinkReads): Promise<NowLink[]> {
   return kind === 'prd' ? prdLinks(ctx, n, io) : fixLinks(ctx, kind, n, io);
 }
+
+/** The work's pull request as `--fetch` reads it: its link, state, changed files and checks; `null` when it has none or cannot be read. */
+export type FetchedPullRequest = { number: number; url: string; state: LoopChange['state']; files: string[]; checks: { name: string; state: 'pending' | 'success' | 'failure' | 'neutral' | 'skipped' }[] };
+
+/**
+ * The pull request of the `kind` work numbered `n` (its feature PR for a PRD, its fix PR for a fix; the
+ * open one, else the latest), read through `reads`. `null` when the work has no folder or no pull request.
+ * A read that fails throws: the caller says GitHub did not answer.
+ */
+export async function fetchPullRequest(ctx: Context, kind: 'prd' | FixKind, n: PrdNumber | IssueNumber, { reads, exec }: Pick<LinkReads, 'reads' | 'exec'>): Promise<FetchedPullRequest | null> {
+  const repo = ctx.config.repo.slug;
+  const dirs = kind === 'prd' ? [ctx.layout.dirs.inbox, ctx.layout.dirs.shipped] : [kind === 'bug' ? bugRoot(ctx) : visualRoot(ctx)];
+  const topic = topicOf(ctx, dirs, n, exec);
+  if (!repo || topic === null) return null;
+  const head = fillBranch(ctx.config.branches[kind === 'prd' ? 'feature' : 'fix'], { topic });
+  const changes = await reads.changes({ repo, head, state: 'all' });
+  const found = changes.find(isOpen) ?? changes[0];
+  if (!found) return null;
+  const detail = await reads.change(repo, found.number);
+  return { number: detail.number, url: detail.url, state: detail.state, files: detail.files, checks: detail.review.checks };
+}

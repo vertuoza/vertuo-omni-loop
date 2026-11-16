@@ -27,6 +27,7 @@ import { concept } from './concept.ts';
 import { config } from './config.ts';
 import { conventions } from './conventions.ts';
 import { credits } from './credits.ts';
+import { dashboard } from './dashboard.ts';
 import { decide } from './decide.ts';
 import { design } from './design.ts';
 import { dossier } from './dossier.ts';
@@ -84,4 +85,4 @@ const bug = {
   run: (args: string[], io: FreeIo) => (args[0] === 'ci' ? bugCi(args.slice(1), io) : bugCommand.run(args, io)),
 } satisfies FreeCommand;
 
-export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, 'before-after': beforeAfter, prd, budget, approval, wait, status, settle, adopt, replies, answers, comment, ship, harvest, retro, review, rewind, check, claim, generated, design, knowledge, kb, item, plan, roadmap, board, care, 'follow-up': followUp, next, loop, rework, phase0, visual, bug, concept, mission, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version, update, help, statusline, now, targets, product, session, runner, tier, ref, hold, ready, sync, worktrees });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, 'before-after': beforeAfter, prd, budget, approval, wait, status, dashboard, settle, adopt, replies, answers, comment, ship, harvest, retro, review, rewind, check, claim, generated, design, knowledge, kb, item, plan, roadmap, board, care, 'follow-up': followUp, next, loop, rework, phase0, visual, bug, concept, mission, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version, update, help, statusline, now, targets, product, session, runner, tier, ref, hold, ready, sync, worktrees });
