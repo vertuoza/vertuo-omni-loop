@@ -29700,6 +29700,9 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
     /** PRD 2896 s7: asks for PRD `prd` to leave mission `mission`'s branch in `repo` (`omni mission drop`); with `keep`, the later PRDs
      * sharing its territory stay. @returns {Promise<{ drop: { mission: string, branch: string, prd: number, sharing: number[], dropped: number[], keep: boolean } }>} */
     dropMission: ({ repo, mission: mission2, prd: prd2, keep: keep3 }) => call("POST", "/api/missions/drop", { body: { repo, mission: mission2, prd: prd2, keep: keep3 } }),
+    /** PRD 2896 s11: a person overturns decision `decision` (`<prd>` for an approval, `<prd>/<item>` for an answer) the fleet of mission `mission` in `repo`
+     * carried (`omni mission overturn`). @returns {Promise<{ overturn: { mission: string, branch: string | null, decision: string, prd: number, onBranch: boolean } }>} */
+    overturnMission: ({ repo, mission: mission2, decision }) => call("POST", "/api/missions/overturn", { body: { repo, mission: mission2, decision } }),
     /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
      * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
     pushLoop: (body) => call("POST", "/api/loops", { body }),
@@ -53143,9 +53146,9 @@ var ENTRIES = deepFreeze([
     name: "mission",
     kind: "command",
     who: "skills",
-    usage: ["omni mission push <n>", "omni mission drop <mission> <prd> [--keep]"],
-    summary: "send a mission's brief to its page, or drop a PRD from its branch",
-    detail: "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, sending nothing, when mission.md does not read through the brief's schema (its fleet, goal, 0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the network or is over the size cap. The page keeps every version and adds one only of a file that changed; the mission waits in draft until a person starts it. Prints the page's link and the versions added. drop <mission> <prd>, run by a person, asks the Omni app to take that PRD off the mission's branch: its commit leaves by rebase on the mission's next run, its feature pull request is reopened, and the default branch is never changed. The later PRDs on the branch that share its territory are named and dropped with it unless --keep. A branch whose checks go red names the PRD to drop."
+    usage: ["omni mission push <n>", "omni mission drop <mission> <prd> [--keep]", "omni mission overturn <mission> <decision>"],
+    summary: "send a mission's brief to its page, drop a PRD from its branch, or overturn a decision of the fleet",
+    detail: "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, sending nothing, when mission.md does not read through the brief's schema (its fleet, goal, 0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the network or is over the size cap. The page keeps every version and adds one only of a file that changed; the mission waits in draft until a person starts it. Prints the page's link and the versions added. drop <mission> <prd>, run by a person, asks the Omni app to take that PRD off the mission's branch: its commit leaves by rebase on the mission's next run, its feature pull request is reopened, and the default branch is never changed. The later PRDs on the branch that share its territory are named and dropped with it unless --keep. A branch whose checks go red names the PRD to drop. overturn <mission> <decision>, run by a person, overturns a decision the fleet's committee carried at alone, <decision> being a PRD's number for its approval or <prd>/<item> for the answer to one of its items (the mission pull request's lists name each): the decision stays as it was recorded and yours is added beside it; an overturned approval no longer counts for the mission, an overturned answer is open for you again, and the PRD is dropped from the mission branch when it had joined."
   },
   {
     name: "sign",
@@ -57899,6 +57902,23 @@ function dropWords({ branch, set: set3, keep: keep3 }) {
   return keep3 ? [drops, `Later PRDs sharing its territory, kept on the branch (--keep): ${prds(set3.sharing)}.`] : [drops, `Later PRDs sharing its territory, dropped with it: ${prds(set3.sharing)}. Pass --keep to leave them on the branch.`];
 }
 
+// kit/lib/mission/overturn.ts
+init_define_OMNI_BUNDLE();
+var REF = /^([1-9][0-9]*)(?:\/([a-z0-9][a-z0-9-]*))?$/;
+var refOf2 = ({ prd: prd2, item: item2 }) => item2 === null ? String(prd2) : `${String(prd2)}/${item2}`;
+function parseRef(text19) {
+  const match = REF.exec(text19);
+  const prd2 = PrdNumberSchema.safeParse(Number(match?.[1]));
+  return match && prd2.success ? { prd: prd2.data, item: match[2] ?? null } : null;
+}
+var VERDICT2 = "(?:pm|architect|reviewer) (?:yes|no|unsure|failed|timeout)";
+var VERDICTS2 = new RegExp(`^${VERDICT2}(?:, ${VERDICT2})*$`);
+function overturnWords({ ref: ref2, branch, onBranch }) {
+  const what = ref2.item === null ? `The fleet's approval of PRD ${String(ref2.prd)} no longer counts for this mission: approve it yourself on its page.` : `${ref2.item} of PRD ${String(ref2.prd)} is open again for you: answer it on the PRD's feature pull request.`;
+  const dropped = onBranch && branch !== null ? [`PRD ${String(ref2.prd)} leaves ${branch} on the mission's next run, and the default branch is never changed.`] : [];
+  return [`Overturned fleet decision ${refOf2(ref2)}. The decision stays as it was recorded; yours is added beside it.`, what, ...dropped];
+}
+
 // kit/lib/mission/folder.ts
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync76, readdirSync as readdirSync34, readFileSync as readFileSync91 } from "node:fs";
@@ -58025,7 +58045,7 @@ function readMissionFolder(ctx, mission2) {
 }
 
 // kit/bin/commands/mission.ts
-var USAGE36 = "usage: omni mission push <n> | omni mission drop <mission> <prd> [--keep]";
+var USAGE36 = "usage: omni mission push <n> | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision>";
 function skipLine4(error62) {
   if (!(error62 instanceof AskCallError)) throw error62;
   if (error62.status === null) return "unreachable";
@@ -58078,14 +58098,37 @@ async function drop(mission2, prd2, keep3, io) {
   for (const line3 of dropWords({ branch, set: { prd: prd2, sharing, dropped: leaves }, keep: keep3 })) println(io.stdout, line3);
   return 0;
 }
+async function overturn(mission2, decision, io) {
+  const ref2 = parseRef(decision);
+  if (ref2 === null) throw usageError(`omni mission overturn: <decision> is a PRD's number (its approval) or <prd>/<item> (an item's answer), not "${decision}".`);
+  const ctx = loadContext(io.cwd, { exec: io.exec });
+  const target3 = connect2(ctx, io);
+  if (typeof target3 === "string") return stopped5(io, [target3]);
+  const sent2 = await target3.client.overturnMission({ repo: target3.repo, mission: mission2, decision }).then((reply) => ({ reply }), skipLine4);
+  if (typeof sent2 === "string") return stopped5(io, [sent2]);
+  const overturned = field(sent2.reply, "overturn");
+  if (!isText6(field(overturned, "decision"))) return stopped5(io, ["refused (no overturn in the reply)"]);
+  const branch = field(overturned, "branch");
+  for (const line3 of overturnWords({ ref: ref2, branch: isText6(branch) ? branch : null, onBranch: field(overturned, "onBranch") === true })) println(io.stdout, line3);
+  return 0;
+}
 var mission = {
   withoutContext: true,
   run(args, io) {
     const { positional, flags } = parseArgs("mission", args, { booleans: ["keep"] });
-    const [verb2, number5, second, ...rest] = positional;
-    if (verb2 === "push" && second === void 0 && rest.length === 0 && flags.keep === void 0) return push4(issueArg("mission push", "<n>", number5), io);
-    if (verb2 === "drop" && second !== void 0 && rest.length === 0) return drop(issueArg("mission drop", "<mission>", number5), prdArg("mission drop", "<prd>", second), flags.keep === true, io);
-    throw usageError(USAGE36);
+    const [verb2, ...operands2] = positional;
+    const keep3 = flags.keep === true;
+    switch (`${verb2 ?? ""} ${String(operands2.length)}${flags.keep === void 0 ? "" : " keep"}`) {
+      case "push 1":
+        return push4(issueArg("mission push", "<n>", operands2[0]), io);
+      case "drop 2":
+      case "drop 2 keep":
+        return drop(issueArg("mission drop", "<mission>", operands2[0]), prdArg("mission drop", "<prd>", operands2[1]), keep3, io);
+      case "overturn 2":
+        return overturn(issueArg("mission overturn", "<mission>", operands2[0]), operands2[1] ?? "", io);
+      default:
+        throw usageError(USAGE36);
+    }
   }
 };
 
@@ -60735,7 +60778,7 @@ var KIND_NAMES = Object.freeze({ prd: "[[PRD]]", bug: "Bug fix", visual: "Visual
 var PAGE_LABELS = Object.freeze({ prd: "PRD page", bug: "Bug page", visual: "Visual update page" });
 var LINK_LABELS = Object.freeze({ issue: "GitHub issue", pullRequest: "Pull request" });
 var LEVEL_LABELS = Object.freeze({ "on-track": "\u{1F7E2} On track", waiting: "\u{1F7E1} Waiting for you" });
-var VERDICTS2 = Object.freeze({
+var VERDICTS3 = Object.freeze({
   closed: { label: "\u{1F534} Stopped", sentence: "the [[pull request]] was closed without merging", next: ["nothing more happens unless the [[pull request]] is reopened"] },
   failed: { label: "\u{1F534} Stuck", sentence: "{failed} of the [[checks]] failed", next: ["I look at why the [[checks]] failed, and fix it"] },
   stuck: { label: "\u{1F534} Stuck", sentence: "{stuck}", next: ["the stuck part is taken up again, and you are asked only if it cannot be finished"] }
@@ -60879,7 +60922,7 @@ function stepsOf2({ track, at: at2 }, values) {
 }
 var failedChecks = (facts2) => (facts2.pullRequest?.checks ?? []).filter((check6) => check6.state === "failure");
 function stuckSaid(key2, values = {}) {
-  const said2 = VERDICTS2[key2];
+  const said2 = VERDICTS3[key2];
   return { verdict: { level: "stuck", line: `${said2.label}: ${fill3(said2.sentence, values)}.` }, next: said2.next };
 }
 function stuckVerdict(facts2) {
@@ -63697,7 +63740,7 @@ var PROOF_GIF_NAME = "preview.gif";
 var PROOF_FILE_MAX_BYTES = 50 * 1024 * 1024;
 var PROOF_FILES_MAX = 25;
 var PROOF_CRITERIA_MAX = 10;
-var VERDICTS3 = Object.freeze(["pass", "fail", "unfilmable"]);
+var VERDICTS4 = Object.freeze(["pass", "fail", "unfilmable"]);
 var TYPES2 = Object.freeze({ webm: "video/webm", gif: "image/gif", ts: "text/plain", txt: "text/plain" });
 var FILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 var COMMIT4 = /^[0-9a-f]{7,64}$/;
@@ -63724,7 +63767,7 @@ function isHttpUrl(value) {
     return false;
   }
 }
-var KNOWN_VERDICTS2 = VERDICTS3;
+var KNOWN_VERDICTS2 = VERDICTS4;
 var isVerdict2 = (value) => KNOWN_VERDICTS2.includes(value);
 var isBlank = (value) => value === void 0 || value === null;
 function textOf9(item2, at2) {
@@ -63735,7 +63778,7 @@ function textOf9(item2, at2) {
 }
 function verdictOf4(item2, at2) {
   const { verdict: verdict2 } = item2;
-  if (!isVerdict2(verdict2)) return refuse4(`${at2}: a verdict is ${VERDICTS3.slice(0, -1).join(", ")} or ${VERDICTS3.at(-1)}, not ${String(item2.verdict)}`);
+  if (!isVerdict2(verdict2)) return refuse4(`${at2}: a verdict is ${VERDICTS4.slice(0, -1).join(", ")} or ${VERDICTS4.at(-1)}, not ${String(item2.verdict)}`);
   return verdict2;
 }
 function extrasOf2(item2, at2, criterion) {
@@ -64533,7 +64576,7 @@ init_define_OMNI_BUNDLE();
 var REVIEW_ROUNDS = 2;
 var MAX_FINDINGS = 5;
 var SEVERITIES2 = Object.freeze(["blocker", "major", "minor"]);
-var VERDICTS4 = Object.freeze(["pass", "changes"]);
+var VERDICTS5 = Object.freeze(["pass", "changes"]);
 var ONE_LINE = "one line";
 var MAX_TEXT2 = 500;
 var line2 = (what) => external_exports.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text19) => !text19.includes("\n"), `${ONE_LINE}: ${what}`);
@@ -64548,7 +64591,7 @@ var FindingSchema3 = external_exports.strictObject({
 });
 var VerdictSchema2 = external_exports.strictObject({
   round: external_exports.union([external_exports.literal(1), external_exports.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
-  verdict: external_exports.enum(VERDICTS4, { error: `one of ${VERDICTS4.join(", ")}` }),
+  verdict: external_exports.enum(VERDICTS5, { error: `one of ${VERDICTS5.join(", ")}` }),
   summary: line2("the summary").optional(),
   findings: external_exports.array(FindingSchema3).default([])
 }).superRefine((verdict2, context) => {
@@ -64572,7 +64615,7 @@ function reviewMarker(round2, verdict2) {
   return `<!-- omni-review: ${String(round2)} ${verdict2} -->`;
 }
 var MARKER_RE2 = /<!-- omni-review: (\d+) ([a-z]+) -->/;
-var KNOWN_VERDICTS3 = VERDICTS4;
+var KNOWN_VERDICTS3 = VERDICTS5;
 var isVerdictName = (value) => KNOWN_VERDICTS3.includes(value);
 function readReviewMarker(body) {
   const match = MARKER_RE2.exec(body ?? "");
@@ -65817,7 +65860,7 @@ function worktreesIn(exec, checkout, folder) {
   const root = real2(folder);
   return worktreesOf(exec, checkout).filter((worktree) => existsSync92(worktree.path)).map((worktree) => ({ ...worktree, path: real2(worktree.path) })).filter((worktree) => within5(worktree.path, root)).sort((a, b) => a.path.length - b.path.length || a.path.localeCompare(b.path)).map((worktree) => ({ ...worktree, path: join148(folder, relative7(root, worktree.path)) }));
 }
-function refOf2(worktree, path) {
+function refOf3(worktree, path) {
   if (worktree.branch !== null) return `${CHECKPOINT_REFS}${worktree.branch}`;
   const parts = path === "." ? ["root"] : path.split("/").map((part) => part.replace(/[^A-Za-z0-9_-]/g, "-").replace(/^-+/, "") || "x");
   return `${CHECKPOINT_REFS}detached/${parts.join("/")}`;
@@ -65847,7 +65890,7 @@ function unsavedOf(options, worktree, nested) {
     const message2 = `chore(checkpoint): the work of job ${job2} not on origin, saved by runner ${runner2}`;
     const head = files === 0 ? worktree.head : exec("git", ["-C", at2, "-c", `user.name=${who2.name}`, "-c", `user.email=${who2.email}`, "commit-tree", tree, "-p", worktree.head, "-m", message2], QUIET13).trim();
     const path = relative7(real2(folder), real2(at2)).split(sep5).join("/") || ".";
-    return { branch: worktree.branch, ref: refOf2(worktree, path), path, base: baseOf3(exec, at2, worktree.head, commits), head, files, commits };
+    return { branch: worktree.branch, ref: refOf3(worktree, path), path, base: baseOf3(exec, at2, worktree.head, commits), head, files, commits };
   } finally {
     rmSync19(scratch, { recursive: true, force: true });
   }
