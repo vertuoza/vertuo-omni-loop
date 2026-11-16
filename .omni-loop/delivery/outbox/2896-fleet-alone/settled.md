@@ -1936,3 +1936,469 @@ Carrying the heroes' settings means the job line or the runner's claim naming th
 ```
 
 <!-- /omni-outbox-settled: s9-03-committee-members-use-role-defaults -->
+
+<!-- omni-outbox-settled: s10-02-fleet-settles-with-the-built-option-only -->
+
+## s10-02-fleet-settles-with-the-built-option-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s10
+- Wave: 10
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-02-fleet-settles-with-the-built-option-only
+prd: 2896
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 10
+---
+
+## The question, in plain words
+
+When the fleet answers a question for a mission, may it choose a different option than the one that was built, or only agree with what was built?
+
+## The decision, in plain words
+
+The fleet only agrees with what was built. A member who prefers another option answers no and says which, and the question goes to a person, so nothing has to be redone without a person deciding it.
+
+## The intro, for fun
+
+The committee can say yes to the soup, or send it back to the chef.
+
+## The punchline, for fun
+
+It cannot cook a new soup on its own.
+
+## The options, in plain words
+
+A. The fleet settles a question only with option A, as built; a member who wants another option answers no and it goes to a person (built).
+B. The fleet may choose any offered option; another option than A is settled as drifted, and the mission sends the rework before the feature joins.
+
+## What I had to decide
+
+Which options the fleet's committee may settle a question with: only the one that was built, or any option the question offers.
+
+## What I did meanwhile
+
+Each member is asked whether it would settle the question with option A, as built; three yes settle it as agreed, and any other answer sends it to a person with every verdict.
+
+## What it costs to change later
+
+Option B lets the committee pick a letter and settles it as drifted, then the mission sends the rework: a change to the committee's question, the answer record and the supervisor's next step, no stored shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the item is settled with the option chosen, and does not say whether the fleet may choose an option other than what was built.
+- (author) Whether a rework the fleet chose, with no person reading it, is wanted at the level that works alone.
+
+```
+
+<!-- /omni-outbox-settled: s10-02-fleet-settles-with-the-built-option-only -->
+
+<!-- omni-outbox-settled: s10-03-item-score-is-jevs-or-unknown -->
+
+## s10-03-item-score-is-jevs-or-unknown — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s10
+- Wave: 10
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-03-item-score-is-jevs-or-unknown
+prd: 2896
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 10
+---
+
+## The question, in plain words
+
+A question goes to a person when it is hard to undo. Where should that score come from, when the question itself carries none?
+
+## The decision, in plain words
+
+The score is Jev's confidence when Jev decided whether the choice is hard to undo; otherwise it is unknown, and an unknown score always goes to a person. Until a workspace turns Jev on, the fleet answers no question on its own.
+
+## The intro, for fun
+
+The bouncer only lets in guests whose age is written down.
+
+## The punchline, for fun
+
+Nobody wrote anything down yet.
+
+## The options, in plain words
+
+A. The score is Jev's confidence when present; no score sends the question to a person (built).
+B. Each new question carries the agent's own judgement as a score, 1 or 0, read when Jev gave none.
+
+## What I had to decide
+
+Where the hard-to-revert score of a question comes from, for the mission's bound: Jev's confidence when present, or something the question would have to carry.
+
+## What I did meanwhile
+
+Jev's confidence is read from its line in the question; a question without one is sent to a person, whatever the members would say.
+
+## What it costs to change later
+
+Option B writes the agent's own hard-to-revert judgement into each new question, 1 when it judged it hard and 0 otherwise, and reads it here: a change to how questions are written, older questions staying unknown.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) A question does not record whether the agent judged it hard to undo; only Jev's line carries a number.
+- (author) Whether Jev's confidence is the score the spec means by a question's hard-to-revert score.
+
+```
+
+<!-- /omni-outbox-settled: s10-03-item-score-is-jevs-or-unknown -->
+
+<!-- omni-outbox-settled: s10-04-item-on-a-business-law-goes-to-a-person -->
+
+## s10-04-item-on-a-business-law-goes-to-a-person — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s10
+- Wave: 10
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-04-item-on-a-business-law-goes-to-a-person
+prd: 2896
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 10
+---
+
+## The question, in plain words
+
+Should the fleet be allowed to answer a question that names a business law, when nothing tells it whether the answer breaks that law?
+
+## The decision, in plain words
+
+Any question that names a business law goes to a person. The spec only sends a person the laws judged broken, but no judge reads a single question, so the fleet cannot tell.
+
+## The intro, for fun
+
+The rulebook is on the table, but nobody brought the referee.
+
+## The punchline, for fun
+
+So the whistle goes to a person.
+
+## The options, in plain words
+
+A. A question naming a business law always goes to a person (built).
+B. Only a business law the spec's judge found broken sends it to a person, as for a PRD's approval.
+
+## What I had to decide
+
+Whether a question bearing on a business law goes to a person always, or only when a judge said the law is broken, as for a PRD's approval.
+
+## What I did meanwhile
+
+Every question naming a business law, in its front matter or its words, goes to a person before any member votes.
+
+## What it costs to change later
+
+Option B needs a judgement of each question against the business laws, which nothing makes today: a new check, or reading the PRD's spec verdict instead.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The escalation list speaks of a business law judged red; the judge reads a PRD's spec, never one question.
+
+```
+
+<!-- /omni-outbox-settled: s10-04-item-on-a-business-law-goes-to-a-person -->
+
+<!-- omni-outbox-settled: s10-05-fleet-answer-recorded-in-ledger-and-room -->
+
+## s10-05-fleet-answer-recorded-in-ledger-and-room — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s10
+- Wave: 10
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-05-fleet-answer-recorded-in-ledger-and-room
+prd: 2896
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 10
+---
+
+## The question, in plain words
+
+Where should the fleet's answer to a question be kept: in the mission's list of decisions like its approvals, or in the question's own record and the mission's history?
+
+## The decision, in plain words
+
+The answer is kept where every answer to a question is kept, with the question, the option and each member's verdict, and the mission's history says it was decided or sent to a person. It is not yet a row of the mission's list of decisions, which only takes approvals today.
+
+## The intro, for fun
+
+The minutes were written in the notebook, not yet typed into the binder.
+
+## The punchline, for fun
+
+Every word is there, just on a different shelf.
+
+## The options, in plain words
+
+A. The answer lives in the question's settled record and the mission's events; the decisions list keeps approvals only (built).
+B. A migration lets the App write each answer to the decisions list too, beside the record.
+
+## What I had to decide
+
+Whether this slice writes the fleet's answers to the mission's decisions list, which needs a database change outside its ground, or keeps them in the question's record and the mission's events.
+
+## What I did meanwhile
+
+The answer, its option and the verdicts are in the PRD's settled questions; the mission records a decided or escalated event signed by the PM and agent; the committee's job is sent with no mission key and found again by its line, since the database's key shape holds no question.
+
+## What it costs to change later
+
+Option B is one migration (a writer for answers, a key shape for a question's committee) and the App calling it; answers given before it would not be in the list unless read back from the ledger.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names one decisions list for approvals and answers; the slice's ground holds no migration.
+- (author) Whether the next slice, which lists every answer on the mission pull request and lets a person overturn one, prefers to read the list or the ledger.
+
+```
+
+<!-- /omni-outbox-settled: s10-05-fleet-answer-recorded-in-ledger-and-room -->
+
+<!-- omni-outbox-settled: s10-06-committee-wired-outside-territory -->
+
+## s10-06-committee-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s10
+- Wave: 10
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-06-committee-wired-outside-territory
+prd: 2896
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 10
+---
+
+## The question, in plain words
+
+Two small changes landed outside this slice's ground so the fleet's answers can run at all: is that fine?
+
+## The decision, in plain words
+
+The terminal command the committee records with learned to read a question, and the App's job list now hands the missions the way to settle a question. Without them nothing in this slice would run.
+
+## The intro, for fun
+
+The new kitchen needed one extra plug in the hallway.
+
+## The punchline, for fun
+
+The electrician signed the hallway too.
+
+## The options, in plain words
+
+A. Both changes stay, so the fleet can answer questions (built).
+B. Move them to a later slice whose ground names them, leaving this one unwired.
+
+## What I had to decide
+
+Whether to change the committee's terminal command and the App's wiring of the missions' job, both outside the slice's ground, or leave the answers unreachable.
+
+## What I did meanwhile
+
+The committee command takes an item and a bound beside an approval, with its tests; the App's job wiring passes the settlement to the missions' job, one line.
+
+## What it costs to change later
+
+Reverting is removing the item flag from the command and the one line of wiring.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's ground for this slice names the committee's skill and library but not its command, nor the App's job wiring.
+
+```
+
+<!-- /omni-outbox-settled: s10-06-committee-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s10-07-build-sent-again-once-questions-answered -->
+
+## s10-07-build-sent-again-once-questions-answered — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-16
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-16
+- Slice: s10
+- Wave: 10
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-07-build-sent-again-once-questions-answered
+prd: 2896
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-11-16
+wave: 10
+---
+
+## The question, in plain words
+
+Once the fleet has answered every question of a feature, how should the mission carry it on?
+
+## The decision, in plain words
+
+The mission sends the build again, once: with nothing left open it ships and goes to the reviewer, as any build does. After a second round of questions, a person carries it on.
+
+## The intro, for fun
+
+Homework checked, the student is sent back to class.
+
+## The punchline, for fun
+
+Twice at most, then the teacher steps in.
+
+## The options, in plain words
+
+A. Send the build again, once, then wait for a person (built).
+B. Send the fix after the fleet's answers instead of the build.
+
+## What I had to decide
+
+What the mission sends once no high question of a feature is open at the level that works alone: the build again, the fix, or nothing until a person acts.
+
+## What I did meanwhile
+
+The build is sent again under the next run; a feature whose second run also ended on questions waits for a person once they are answered. It is also sent again when a person answered every question on the pull request.
+
+## What it costs to change later
+
+Sending the fix instead changes one line of the supervisor's next step.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The page's own fix may also run when a person answers on the page, so a feature could be carried on twice.
+- (author) The spec does not say what carries a feature on after the fleet answered.
+
+```
+
+<!-- /omni-outbox-settled: s10-07-build-sent-again-once-questions-answered -->
