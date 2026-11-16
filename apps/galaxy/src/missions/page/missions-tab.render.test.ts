@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, r
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 const row = (over: Partial<MissionRow>): MissionRow => ({
-  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [parsePrd(1), parsePrd(2)], level: 'with-you', ...over,
+  id: '22222222-2222-4222-8222-222222222222', repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'draft', waitingOn: null, prds: [parsePrd(1), parsePrd(2)], level: 'with-you', inPlan: false, ...over,
 });
 const view = (...missions: MissionRow[]): MissionsView => ({ workspace: WORKSPACE, fleet: 'night-shift', missions: missions.map((m) => missionOf(m, [])) });
 const html = (v: MissionsView) => renderToStaticMarkup(createElement(MissionsTab, { view: v }));
@@ -32,6 +32,12 @@ describe('MissionsTab', () => {
     expect(text(out)).toContain('Every quote can be paid online. Draft Not started Brief');
     expect(out).toMatch(/<button[^>]*data-primary[^>]*>Start/);
     expect(out).toContain('href="https://github.com/acme/shop/issues/40"');
+  });
+
+  it('says committee only for a plan-repository mission at alone, and offers no own-branch (PRD 2896 s14)', () => {
+    const out = html(view(row({ level: 'alone', inPlan: true })));
+    expect(text(out)).toContain('committee only: a person merges each target&#x27;s pull request');
+    expect(out).not.toContain('value="own-branch"');
   });
 
   it('shows each mission\'s level, and Change for this mission on a draft alone (PRD 2896)', () => {

@@ -2,7 +2,7 @@ import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { MOVES, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
-import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
+import { levelRefusal as planRefusal, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
 /** The reader a route hands the service: the controller names it through the service, never the repository (ADR-0095). */
@@ -43,6 +43,12 @@ function branchOf(mission: { number: number; title: string }): string {
 /** Why a mission with `joined` PRDs on its branch cannot go back to with-you, or null when none sits there. */
 const landFirst = (mission: { number: number; title: string }, joined: number): string | null =>
   joined > 0 ? `Land or drop the ${String(joined)} PRD${joined === 1 ? '' : 's'} on ${branchOf(mission)} first.` : null;
+
+/** Why `action` cannot move `mission`: it is not in a status the move takes, or Start meets `own-branch` in a plan repository (PRD 2896 s14); null otherwise. */
+async function moveRefusal(action: MissionAction, mission: Parameters<MissionsReader['inPlan']>[0], reader: MissionsReader): Promise<string | null> {
+  if (!MOVES[action].from.includes(mission.status)) return `${CANNOT[action]} This one is ${mission.status}.`;
+  return action === 'start' ? planRefusal(mission.level, await reader.inPlan(mission)) : null;
+}
 
 /** Why a mission's level cannot be changed by `caller` at all (nothing seen, no login, over), or null. */
 function levelBlock(mission: { status: string } | null, caller: Caller): { ok: false; kind: MissionRefusal; error: string } | null {
@@ -113,7 +119,8 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       if (mission === null) return { ok: false, kind: 'forbidden', error: NOT_YOURS };
       if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
       const move = MOVES[action];
-      if (!move.from.includes(mission.status)) return { ok: false, kind: 'conflict', error: `${CANNOT[action]} This one is ${mission.status}.` };
+      const refused = await moveRefusal(action, mission, reader);
+      if (refused !== null) return { ok: false, kind: 'conflict', error: refused };
       const at = iso();
       const moved = await write.move(id, move.from, move.to, { at, startedBy: action === 'start' ? caller.id : null });
       if (!moved) return { ok: false, kind: 'conflict', error: `${CANNOT[action]} It has just moved: look again.` };
@@ -139,6 +146,8 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       const mission = await reader.mission(id);
       const blocked = levelBlock(mission, caller);
       if (blocked !== null || mission === null) return blocked ?? { ok: false, kind: 'forbidden', error: NOT_YOURS };
+      const inPlan = planRefusal(level, await reader.inPlan(mission));
+      if (inPlan !== null) return { ok: false, kind: 'conflict', error: inPlan };
       const refused = level === 'with-you' && mission.level !== 'with-you' ? landFirst(mission, await reader.joined(id)) : null;
       if (refused !== null) return { ok: false, kind: 'conflict', error: refused };
       const set = await reader.setLevel(id, level);

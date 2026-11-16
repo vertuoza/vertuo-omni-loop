@@ -81,6 +81,10 @@ briefing's Any agent section for the rest), each with its recommended answer fir
    mission on the Missions tab (**Change for this mission**) while the mission is a draft. Its two
    bounds, `hardToRevert` (0 to 1, 0.6) and `ownPrds` (0 to 10, 0), keep their defaults and are
    written only when the person asks for another value; both are read only at `alone`.
+   When the PRDs live in a plan repository, the mission cuts no branch: `with-you` and `alone` are
+   offered, and `own-branch` is refused with `a mission branch holds one repository: use with-you or
+   alone`. At `alone` there, the committee approves each PRD, each is built with `/omni:ultra-yolo`,
+   and the page says `committee only: a person merges each target's pull request`.
 
 Then show the brief whole (fleet, goal, measures, scope, mandate) and ask Yes / Change. Write
 nothing before the yes.

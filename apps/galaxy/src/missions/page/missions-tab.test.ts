@@ -12,9 +12,21 @@ const OTHER = '22222222-2222-4222-8222-222222222222';
 const WORKSPACE = '33333333-3333-4333-8333-333333333333';
 
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
-  id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], level: 'with-you', ...over,
+  id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], level: 'with-you', inPlan: false, ...over,
 });
 const event = (kind: string, prd: number | null, link: string | null = null, mission = ID, sentence = ''): EventRow => ({ mission, kind, prd: prd === null ? null : parsePrd(prd), link, sentence });
+
+describe('a mission in a plan repository (PRD 2896 s14)', () => {
+  it('says committee only at alone, offers no own-branch, and says nothing elsewhere', () => {
+    const plan = missionOf(row({ level: 'alone', inPlan: true, status: 'draft' }), []);
+    expect(plan.committeeOnly).toBe("committee only: a person merges each target's pull request");
+    expect(plan.levels).toEqual(['with-you', 'alone']);
+    expect(missionOf(row({ level: 'with-you', inPlan: true }), []).committeeOnly).toBeNull();
+    const one = missionOf(row({ level: 'alone' }), []);
+    expect(one.committeeOnly).toBeNull();
+    expect(one.levels).toEqual(['with-you', 'own-branch', 'alone']);
+  });
+});
 
 describe('progressOf', () => {
   it('reads a draft as not started', () => {
@@ -68,14 +80,14 @@ describe('missionOf', () => {
   });
 });
 
-function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null): MissionsTabDb {
+function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null, products: unknown[] = []): MissionsTabDb {
   const chain = (data: unknown[], fails: boolean) => {
     const answer = Promise.resolve(fails ? { data: null, error: { message: 'boom' } } : { data, error: null });
     const self: Record<string, unknown> = { then: answer.then.bind(answer) };
-    for (const name of ['select', 'eq', 'in', 'not', 'or', 'order', 'limit']) self[name] = () => self;
+    for (const name of ['select', 'eq', 'is', 'in', 'not', 'or', 'order', 'limit']) self[name] = () => self;
     return self;
   };
-  return { from: (table: string) => chain(table === 'missions' ? missions : events, failing === table) } as unknown as MissionsTabDb;
+  return { from: (table: string) => chain(table === 'missions' ? missions : table === 'products' ? products : events, failing === table) } as unknown as MissionsTabDb;
 }
 
 const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waiting_on: 'PRD 2: merge it', scope: { prds: [1, 2], roadmaps: [] }, mandate: { parallel: 2 } };
@@ -87,6 +99,18 @@ describe('a mission\'s level (PRD 2896)', () => {
     expect(await level({ parallel: 2, level: 'alone', hardToRevert: 0.6, ownPrds: 0 })).toBe('alone');
     expect(missionOf(row({ status: 'draft', level: 'own-branch' }), [])).toMatchObject({ level: 'own-branch', levelWords: 'Own branch', canChangeLevel: true });
     expect(missionOf(row({ status: 'running', level: 'alone' }), [])).toMatchObject({ levelWords: 'Works alone', canChangeLevel: false });
+  });
+});
+
+describe('a mission in a plan repository, read (PRD 2896 s14)', () => {
+  it('is in a plan repository when a live product of the workspace names its repository as its plan', async () => {
+    const inPlan = async (products: unknown[]) => (await missionsTabService(missionsTabRepository(fakeDb([MISSION_ROW], [], null, products))).view(WORKSPACE, 'night-shift')).missions[0]?.committeeOnly;
+    expect(await inPlan([])).toBeNull();
+    expect(await inPlan([{ plan_repository: null }])).toBeNull();
+    expect(await inPlan([{ plan_repository: 'Acme/Shop' }])).toBeNull();
+    const alone = { ...MISSION_ROW, mandate: { level: 'alone' } };
+    const view = await missionsTabService(missionsTabRepository(fakeDb([alone], [], null, [{ plan_repository: 'Acme/Shop' }]))).view(WORKSPACE, 'night-shift');
+    expect(view.missions[0]?.committeeOnly).toBe("committee only: a person merges each target's pull request");
   });
 });
 

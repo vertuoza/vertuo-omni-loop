@@ -129,6 +129,22 @@ describe('a mission above with-you builds on its own branch (PRD 2896)', () => {
     expect(gh.asked).toEqual([]);
   });
 
+  it('refuses own-branch in a plan repository: it waits, names why, sends nothing and asks GitHub for nothing (PRD 2896 s14)', async () => {
+    const gh = branchesThat({ ok: true, cut: true });
+    const { fake, run } = setup({ mission: record({ level: 'own-branch' }), planRepository: true, branches: gh.branches });
+    await run();
+    expect(gh.asked).toEqual([]);
+    expect(fake.jobs()).toEqual([]);
+    expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'a mission branch holds one repository: use with-you or alone' });
+  });
+
+  it('sends alone in a plan repository to ultra-yolo with no base (PRD 2896 s14)', async () => {
+    const { fake, run } = setup({ mission: record({ level: 'alone' }), planRepository: true });
+    await run();
+    expect(fake.jobs().map((job) => job.line).every((line) => line.startsWith('/omni:ultra-yolo') || line.startsWith('/omni:'))).toBe(true);
+    expect(fake.jobs().map((job) => job.line).join(' ')).not.toContain('--base');
+  });
+
   it('runs a mission at with-you as before: no base on any line', async () => {
     const gh = branchesThat({ ok: true, cut: true });
     const { fake, run } = setup({ branches: gh.branches });

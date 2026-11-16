@@ -21,7 +21,7 @@ export const DAN = { id: '00000000-0000-4000-8000-0000000000da', login: 'dan' };
 
 type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber };
 
-export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel; territories?: Record<number, string[]> } = {}) {
+export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel; territories?: Record<number, string[]>; planRepos?: readonly string[] } = {}) {
   const missions = new Map<string, MissionRecord & { startedBy: string | null; nextWakeAt: string | null }>();
   let numbered = 40;
   const add = (id: string, status: MissionStatus, workspace = NORTHWIND, repo = 'acme/shop') => missions.set(id, { id, workspace, repo, status, number: (numbered += 1), title: 'Pay online', level: 'with-you', startedBy: null, nextWakeAt: null });
@@ -75,6 +75,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
       const rank = (level: MissionLevel) => ['with-you', 'own-branch', 'alone'].indexOf(level);
       return {
         mission: (id) => Promise.resolve(sees(id) ? record(missions.get(id)) : null),
+        inPlan: (mission) => Promise.resolve((options.planRepos ?? []).includes(mission.repo)),
         onBranch: onBranchOf,
         decisionEvents: (id) => Promise.resolve(events.filter((event) => event.mission === id && (event.kind === 'decided' || event.kind === 'overturned')).map(({ kind, prd, sentence, actor }) => ({ kind, prd: prd ?? null, sentence, link: null, actor }))),
         joined: async (id) => (await onBranchOf(id)).length,

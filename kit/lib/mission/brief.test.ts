@@ -1,7 +1,7 @@
 // The brief's schema (PRD 2842 s2): a mission.md's front matter read into its brief, every fault
 // naming its field; and the page rules mission.html keeps.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PARALLEL, parseBrief } from './brief.ts';
+import { DEFAULT_PARALLEL, levelRefusal, parseBrief } from './brief.ts';
 import { PAGE_MAX_BYTES, pageFaults } from './page.ts';
 
 const FRONT = [
@@ -140,5 +140,14 @@ describe('a mission.html, under the page rules', () => {
   it('names a page over the cap', () => {
     const page = `<p>${'x'.repeat(PAGE_MAX_BYTES)}</p>`;
     expect(pageFaults('m/mission.html', page)).toEqual([`m/mission.html: ${page.length} bytes, over the 512 KiB a page holds.`]);
+  });
+});
+
+describe('levelRefusal (PRD 2896 s14)', () => {
+  it('refuses own-branch in a plan repository only', () => {
+    expect(levelRefusal('own-branch', true)).toBe('a mission branch holds one repository: use with-you or alone');
+    expect(levelRefusal('own-branch', false)).toBeNull();
+    expect(levelRefusal('alone', true)).toBeNull();
+    expect(levelRefusal('with-you', true)).toBeNull();
   });
 });

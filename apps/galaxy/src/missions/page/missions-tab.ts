@@ -1,5 +1,5 @@
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
+import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { MissionAction, MissionStatus } from '../missions.contract';
 
@@ -36,7 +36,7 @@ export const LEVEL_WORDS: Readonly<Record<MissionLevel, string>> = {
   'own-branch': 'Own branch',
   alone: 'Works alone',
 };
-export const LEVELS: readonly MissionLevel[] = ['with-you', 'own-branch', 'alone'];
+const LEVELS: readonly MissionLevel[] = ['with-you', 'own-branch', 'alone'];
 
 const STATUS_WORDS: Readonly<Record<MissionStatus, string>> = {
   draft: 'Draft',
@@ -69,6 +69,8 @@ export interface MissionRow {
   prds: readonly PrdNumber[];
   /** What it runs at: `with-you` for a mission whose brief names none. */
   level: MissionLevel;
+  /** Whether its repository is a product's plan repository (PRD 2896 s14): no mission branch, no `own-branch`. */
+  inPlan: boolean;
 }
 
 /** One of its events, as far as the tab reads: which PRD reached which point. */
@@ -103,6 +105,10 @@ export interface MissionView {
   action: MissionAction | null;
   level: MissionLevel;
   levelWords: string;
+  /** The levels a draft may be changed to: not `own-branch` in a plan repository (PRD 2896 s14). */
+  levels: readonly MissionLevel[];
+  /** `committee only: a person merges each target's pull request` for a plan-repository mission at `alone`; null otherwise. */
+  committeeOnly: string | null;
   /** A draft's level is changed for this mission alone. */
   canChangeLevel: boolean;
   /** The Branch line (PRD 2896 s8); null for a mission at `with-you`, which has no branch. */
@@ -226,6 +232,8 @@ export function missionOf(row: MissionRow, events: readonly EventRow[]): Mission
     action: ACTION[row.status],
     level: row.level,
     levelWords: LEVEL_WORDS[row.level],
+    levels: row.inPlan ? LEVELS.filter((each) => each !== 'own-branch') : LEVELS,
+    committeeOnly: row.inPlan && row.level === 'alone' ? COMMITTEE_ONLY_WORDS : null,
     canChangeLevel: row.status === 'draft',
     branch: row.level === 'with-you' || row.status === 'draft' ? null : branchOf(row, events),
     trust: row.level === 'alone' && row.status !== 'draft' ? trustLine(decisionsOf(events.toReversed())) : null,

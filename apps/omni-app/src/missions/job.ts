@@ -64,6 +64,7 @@ import { checkPayloadOf, MissionJobDataSchema } from '../jobs/payloads.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { MissionBranches } from './branch.ts';
+import { levelRefusal } from 'omni-loop/kit/lib/mission/brief.ts';
 import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { answeredOf, withDecisions, type ItemCommittee, type OpenAt } from './answers.ts';
@@ -403,6 +404,11 @@ async function askAll({ store, mission, facts, states, toFleet }: { store: Missi
   return made;
 }
 
+/** Why a mission at `own-branch` in a plan repository waits: no branch spans repositories (PRD 2896 s14); null otherwise, and while paused or stopped. */
+function ownBranchRefusal(mission: MissionRecord, inPlan: boolean): string | null {
+  return mission.status === 'paused' || mission.status === 'stopped' ? null : levelRefusal(mission.level, inPlan);
+}
+
 /**
  * Why the mission's PRDs cannot be built yet (`waits`, null when they can), and the installation its branch was prepared as
  * (null when it was not): a mission above `with-you` in a repository that is not a plan repository needs its branch (PRD 2896),
@@ -410,6 +416,16 @@ async function askAll({ store, mission, facts, states, toFleet }: { store: Missi
  * paused or a delivered mission, nor at `with-you`.
  */
 async function branchReady(
+  store: MissionStore,
+  mission: MissionRecord,
+  inPlan: boolean,
+  branches: MissionBranches | null,
+): Promise<{ waits: string | null; installation: number | null }> {
+  const refused = ownBranchRefusal(mission, inPlan);
+  return refused === null ? cutBranch(store, mission, inPlan, branches) : { waits: refused, installation: null };
+}
+
+async function cutBranch(
   store: MissionStore,
   mission: MissionRecord,
   inPlan: boolean,
