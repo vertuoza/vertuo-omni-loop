@@ -904,7 +904,7 @@ Proposed: harvest 2026-11-14
 When a fleet's committee approves a PRD for a mission, the approval is an approval row naming the fleet and the mission: the mission counts it for itself only, and the build's approval check reads it for anyone who builds that PRD.
 
 Serves: P-PRODUCT-3
-Source: .omni-loop/delivery/outbox/2896-fleet-alone/settled.md, entry s9-01-fleet-approval-is-an-approval-row, PRD #2896
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s9-01-fleet-approval-is-an-approval-row, PRD #2896
 Enforced by: apps/omni-app/src/missions/store.test.ts, supabase/checks/missions.sql
 Stated: 2026-11-16
 Decided: @pierrederval, 2026-11-16
@@ -915,7 +915,7 @@ Proposed: yolo-fix 2026-11-16
 A question a fleet answered counts as answered for its mission's branch only: the Omni App's outbox check on a pull request into the default branch holds it until a person answers, while the terminal's outbox gate reads it as answered.
 
 Serves: P-PRODUCT-3
-Source: .omni-loop/delivery/outbox/2896-fleet-alone/settled.md, entry s10-01-fleet-answer-held-only-by-the-app-check, PRD #2896
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s10-01-fleet-answer-held-only-by-the-app-check, PRD #2896
 Enforced by: apps/omni-app/src/outbox-check/fleet-held.test.ts, kit/lib/outbox/fleet.test.ts
 Stated: 2026-11-16
 Decided: @pierrederval, 2026-11-16
@@ -926,7 +926,7 @@ Proposed: yolo-fix 2026-11-16
 A person who overturns a fleet's decision adds an overturned event signed with their login beside it; the fleet's decision stays as it was, the PRD leaves the mission branch if it had joined, and an overturned answer is not put back in the feature branch's outbox.
 
 Serves: P-PRODUCT-3
-Source: .omni-loop/delivery/outbox/2896-fleet-alone/settled.md, entry s11-01-overturned-answer-not-written-back, PRD #2896
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s11-01-overturned-answer-not-written-back, PRD #2896
 Enforced by: kit/lib/mission/overturn.test.ts
 Stated: 2026-11-16
 Decided: @pierrederval, 2026-11-16

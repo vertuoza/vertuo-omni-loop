@@ -66,4 +66,4 @@ fleet`.
 
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html
-/omni:brainstorm, PRD 2896: .omni-loop/delivery/inbox/2896-fleet-alone/before-after.html
+/omni:brainstorm, PRD 2896: .omni-loop/delivery/shipped/2896-fleet-alone/before-after.html
