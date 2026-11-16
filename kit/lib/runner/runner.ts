@@ -64,9 +64,10 @@
 //
 // A job as a GitHub App (PRD 2433): a runner given `githubToken`, the command that prints a job's token,
 // registers with `githubApp: true`. A job whose claim carries `github` starts as that app (`github-app.ts`):
-// its identity, git over HTTPS and a `gh` first on its `PATH`, with the token in `~/logs/job-<id>.github`
-// (`github-token.ts`) and in no variable. Every line, log tail and report the runner sends reads `***` for
-// every token the job had, and the file goes once the job is reported. A job whose app cannot be set up ends
+// its identity, git over HTTPS, a `gh` first on its `PATH` and a `gh` sign-in of its own (`GH_CONFIG_DIR`,
+// bug 2914), with the token in `~/logs/job-<id>.github` (`github-token.ts`) and in no variable. Every line, log
+// tail and report the runner sends reads `***` for every token the job had, and the file goes once the job is
+// reported. A job whose app cannot be set up ends
 // `failed`, `github app: <why>`, before its session starts: it never runs as a person. A job with no `github` (PRD 2573)
 // ends `failed`, `github app: the job came without its App`, before its session starts, whatever the server sent.
 //
@@ -99,7 +100,7 @@ import type { RefreshOptions } from './github-refresh.ts';
 import { accountBook, accountsStateFile, agentAccountOf, chooseAccount, FALLBACK_ACCOUNT, DEFAULT_HANDOFF, readSecret } from './accounts.ts';
 import type { AccountBook, Accounts } from './accounts.ts';
 import { agentNamed } from './agents/index.ts';
-import { forgetGithubToken, githubTokenFile, jobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
+import { forgetGithubToken, githubCliDir, githubTokenFile, jobTokens, maskTokens, readGithubToken, saveGithubToken } from './github-token.ts';
 import { checkRunnerLine, missionRefusal } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
@@ -645,7 +646,8 @@ function asApp(loop: Loop, job: RunnerJob): { env: Record<string, string> } | { 
   try {
     saveGithubToken(file, loop.name, job.github, loop.askUrl);
     const shimDir = installGhShim({ home: loop.home, tokenCommand: loop.githubToken, path: loop.env.PATH });
-    return { env: githubJobEnv({ bot: job.github, tokenCommand: loop.githubToken, shimDir, path: loop.env.PATH }) };
+    // Its own `gh` sign-in as `GH_CONFIG_DIR` (bug 2914): any `gh` a login shell puts ahead of the shim signs in as the app.
+    return { env: { ...githubJobEnv({ bot: job.github, tokenCommand: loop.githubToken, shimDir, path: loop.env.PATH }), GH_CONFIG_DIR: githubCliDir(file) } };
   } catch (error) {
     // The detail names a folder of this machine: it stays here, and the report carries the reason alone.
     loop.print(`job ${job.id}: its GitHub App token could not be kept (${error instanceof Error ? error.message : String(error)})`);

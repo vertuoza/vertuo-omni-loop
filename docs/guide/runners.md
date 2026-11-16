@@ -130,10 +130,15 @@ job never uses the runner's GitHub account:
   everything it writes on GitHub: the issue, its comments and labels, the branch, the pull request.
 - **Git:** every remote operation goes over HTTPS with the app's token, even in a checkout cloned over
   SSH, so the machine's SSH key is never used.
-- **`gh`:** the job's `gh` runs the machine's `gh` with the app's token. The machine's `gh auth login`
-  is never read for it, not even by the kit's own commands.
-- **The token:** git and `gh` read it through `omni runner github-token`, which prints the current
-  token inside a job of this runner and nowhere else. The runner keeps it current, and replaces it
+- **`gh`:** the job's `gh` runs the machine's `gh` with the app's token, and the job has a `gh`
+  sign-in of its own, as the app (`GH_CONFIG_DIR`). So even when the job's shell is a login shell that
+  puts the machine's `gh` first again (on a Mac, `path_helper` and `brew shellenv` do), that `gh` opens
+  the pull request as the app. The machine's `gh auth login` is never read for it, not even by the
+  kit's own commands.
+- **The token:** git reads it through `omni runner github-token`, which prints the current token
+  inside a job of this runner and nowhere else, and `gh` from the job's own sign-in, kept beside the
+  job's log (`~/logs/job-<id>.gh`, readable by the runner's user alone). The runner keeps it current,
+  rewrites that sign-in with every fresh token, removes it when the job ends, and replaces the token
   with `***` in every line, log tail and report it sends to Omni.
 - **The release:** when the job ends, the runner releases its claims, label and comments, as the app
   too. A job that had no token left to release with is released by no one, never as the machine's
@@ -180,6 +185,8 @@ gh auth login
 
 Jobs never push branches or open pull requests as this account: every job signs as a GitHub App's
 bot ([above](#what-a-job-writes-as)). Sign in anyway if you use `gh` yourself on this machine.
+Keep `GH_TOKEN` and `GITHUB_TOKEN` out of the runner user's shell profile (`~/.zprofile`,
+`~/.bash_profile`): `gh` reads them before any sign-in, and a job's login shell would hand them to it.
 
 ### 3. Sign in to Claude
 
@@ -333,6 +340,7 @@ it.
 | a job Failed with a reason that says the Omni plugin is not installed | Claude Code has no Omni plugin for the runner's user | install it as the runner's user, the way the [Install](/docs/install) page shows, then **Send again** |
 | a job Failed with a reason that starts `github app:` | Omni could not give the job its GitHub App token (the Omni App's, or its key's own App's: [the reasons](/docs/api#when-the-app-cannot-make-the-token)), or the runner refused a job that came without one; the rest of the reason says which | read the reason, then follow [Failed with `github app:`](/docs/troubleshooting#a-job-failed-with-github-app) and send the job again. It never runs as the runner's account |
 | a job stays Queued, and the Runners page says `Update the runner's kit` | no runner of the workspace is free that registered as able to run a job as a GitHub App: a runner on an older kit never is | update the runners ([Look after it](#4-look-after-it)) and restart them while no job runs |
+| a job's pull request was opened by the runner's user, though its commits are the app's bot | the runner's kit predates the job's own `gh` sign-in, so a login shell that put the machine's `gh` first ran it as the runner's user; or the runner user's shell profile sets `GH_TOKEN` or `GITHUB_TOKEN` | update the runner ([Look after it](#4-look-after-it)) and restart it while no job runs; remove `GH_TOKEN` and `GITHUB_TOKEN` from the runner user's shell profile |
 | a job's row says **Could not release this job's claims:** and why | the runner could not reach GitHub with `gh`, or `gh` is signed out, or the `omni:released` label is missing | sign `gh` in as the runner's user (`gh auth status`), or create the label. The claims become takeable after 240 quiet minutes anyway |
 | an account's chip reads `T3 not running` | T3 Code is not running on the runner's machine, or the account's instance is unknown to it | start T3 Code (its service), check the instance's name in `accounts.yml`; the job starts on the next account meanwhile |
 | an account's chip reads `unusable · no skills` | its agent reads no skills folder outside the repository, so the Omni skills cannot reach it | use an agent that reads one, or remove the account from `accounts.yml`; the job starts on the next account meanwhile |
