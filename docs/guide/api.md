@@ -172,8 +172,8 @@ The Runners page shows the job as sent by `API key <name>`, with `made by @<logi
 ` · for <acting_for>` when you sent one, and the pull request the job opens says it was sent by the
 key: `Sent through the Omni API by API key <name> on runner <runner>`, with no login in it. The job
 still ends in a pull request a person merges: a key never merges anything. The job writes on
-GitHub as the Omni App's bot, `<slug>[bot]`, never as a person's account, whether or not the key has
-a [GitHub App of its own](#run-as-your-own-github-app).
+GitHub as the Omni App's bot, `<slug>[bot]`, or as the bot of the key's own
+[GitHub App](#run-as-your-own-github-app) when the key holds one, never as a person's account.
 
 ## Start a bug fix across repositories
 
@@ -202,12 +202,13 @@ each target pull request on a `Merge after` line. A person merges every one, the
 
 ## Run as your own GitHub App
 
-A job a key starts writes on GitHub as the Omni App's bot, `<slug>[bot]`: the bug's issue, its comments
-and labels, the branch, the commits (author and committer), the pull request and its status comment,
-and the release of the job's claims. The job names no person, adds no assignee, requests no reviewer
-and mentions no `@login`. A key's own GitHub App no longer decides a job's identity: an App attached
-to a key stays as it is and is not used. The steps below describe attaching that App, kept for the
-keys that still hold one.
+A job a key starts runs as one of two GitHub Apps. When the key holds a GitHub App of its own, or held
+one when the job was queued, the job is that App's: the bug's issue, its comments and labels, the
+branch, the commits (author and committer), the pull request and its status comment, and the release of
+the job's claims are the App's bot's, `<slug>[bot]`, so your users see the fix as yours. Every other job,
+a job sent from the Omni page and a job of a key with no App, runs as the Omni App's bot, as before. The
+job names no person, adds no assignee, requests no reviewer and mentions no `@login`. The steps below
+attach that App to a key.
 
 1. **Create the app.** On GitHub, create a GitHub App (in your account's or your organization's
    Settings › Developer settings › GitHub Apps › New GitHub App) with these repository permissions,
@@ -239,30 +240,47 @@ with a 422 and queues nothing:
 - `github_app_not_installed`: the app is not installed on the repository; the message names the
   repository.
 - `github_app_permissions`: the app's installation on the repository lacks write access to
-  `contents`, `pull_requests` or `issues`; the message names the permission.
+  `contents`, `pull_requests` or `issues`; the message names the permission and the repository.
 
-For a mega bug fix the repository checked is the plan repository, since its targets are only chosen
-while the job runs. Install the app on those targets too: a target the app does not hold fails its
-push, and the whole fix stops, as it does whenever a target cannot be pushed to.
+A bug fix is checked on its own repository. A mega bug fix is checked on every repository its token
+would reach: the plan repository and each repository of the plan repository's product within the key's
+allow-list. The first one the app is not installed on, or lacks a permission on, is refused, and the
+message names it. A key that holds no app is not checked. Install the app on each of those
+repositories before you send.
 
 ### What the job gets
 
-When a runner takes the job, Omni makes a token for it from the Omni App, and the job writes with that
-token and nothing else:
+When a runner takes the job, Omni opens the App's sealed `.pem` key in its own memory, makes a token
+for the job from the key's App, and the job writes with that token and nothing else:
 
 - it lasts an hour, and the runner refreshes it before it ends, so a job that runs longer keeps
-  writing as the app;
+  writing as the app. A refresh reads the key's App as it is then: an owner who replaces the App
+  while a job runs gives the later tokens to the new App;
 - it covers the job's repository. For a mega bug fix it covers the plan repository and every
   repository its product names that the app's installation holds, each within the key's allow-list;
 - it holds `contents`, `pull_requests` and `issues` write and `metadata` read, nothing more. A fix
   that changes a workflow file therefore fails to push, as any push that fails does;
 - the runner replaces it with `***` in every line, log tail and report it sends to Omni.
 
-A job never runs as a person: when its token cannot be made, it ends `failed` with a reason that
-starts `github app:`, and no runner runs it under its own account. That covers an app removed or
-uninstalled, a pair GitHub now refuses, a key revoked or whose maker left the workspace, and a master
-key Omni lost. A job queued while an app was attached keeps needing one: removing the app does not
-send it as a person. A refresh that keeps failing until the token ends fails the job the same way.
+Each token the app makes moves `last token <date>` on **Settings › API keys**, so an owner sees when
+the key was used.
+
+### When the app cannot make the token
+
+A job of a key's App never runs as the Omni App, as a person or as the runner's account: when its
+token cannot be made, it ends `failed` with a reason that starts `github app:`, and no runner starts
+it. A key that was revoked, or whose maker left the workspace, still fails first, with that reason. A
+refresh that keeps failing until the token ends fails the job the same way. What each reason means, and
+what an owner does:
+
+| reason | what it means | what to do |
+|---|---|---|
+| `github app: the key's App was removed` | the job was queued while its key held an App, which an owner has removed since | attach an App to the key again, or send the job again from a key with none |
+| `github app:` and that this Omni server has no key to open the App's key | this deployment has no master key, or a malformed one | tell whoever runs the Omni server to set `SECRETS_MASTER_KEY` |
+| `github app:` and that the App's key could not be opened | the App's `.pem` key was sealed under another master key, or is garbled | **Replace** the App on the key with its App ID and a `.pem` file |
+| `github app: the App is not installed on <repo>` | the app is not installed on the job's repository | install it on `<repo>`, then send the job again |
+| `github app: the App's installation lacks write access to <permission>` | the installation does not hold that permission | grant `<permission>` to the app on GitHub and accept it for the installation, then send again |
+| `github app:` and GitHub's own words | GitHub refused to make the token | read the line, fix what it names (a suspended installation, a pair GitHub now refuses) and send again |
 
 Two things stay with the repository, outside the job. A `CODEOWNERS` file still makes GitHub request
 its owners' review on the pull request. The job asks for no reviewer itself, not even one the
@@ -499,8 +517,8 @@ Every refusal answers one shape, `{"error": {"code": "…", "message": "…"}}`.
 | 404 | `not_found` | a job that does not exist or that no key of this workspace queued, or, for its questions, a job that asked none |
 | 409 | `conflict` | questions already answered or dismissed, by a key or by a person on the Runners page (the first close wins), or a job that is not waiting for an answer; a cancel of a job that has ended; a relaunch of a job the Runners page offers neither Send again nor Resume for, or that was carried on already |
 | 422 | `invalid_request` | a query or body the contract refuses, a bad cursor, a repository that is not a plan repository, answers that are not one to each question the job asked, an `acting_for` the contract refuses, or a `notify_url` on a host that is not public or does not resolve; the message names the field |
-| 422 | `github_app_not_installed` | the key has a GitHub App and it is not installed on the repository; the message names the repository, and nothing is queued |
-| 422 | `github_app_permissions` | the key has a GitHub App whose installation on the repository lacks write access to `contents`, `pull_requests` or `issues`; the message names the permission, and nothing is queued |
+| 422 | `github_app_not_installed` | the key has a GitHub App and it is not installed on the repository (for a mega bug fix, on any repository of its product within the key's allow-list); the message names the repository, and nothing is queued |
+| 422 | `github_app_permissions` | the key has a GitHub App whose installation on the repository lacks write access to `contents`, `pull_requests` or `issues` (a mega bug fix is checked the same way on its product's repositories); the message names the permission and the repository, and nothing is queued |
 | 500 | `internal` | anything else; the message never carries a stack or a database error |
 
 ## Reference

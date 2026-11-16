@@ -5,6 +5,8 @@ import type { GithubSummary } from '../../github/summary';
 import { DEMO_GITHUB, DEMO_VIEWER, demoDossier } from '../demo';
 import { DossierStream, type DossierReads } from './DossierStream';
 import { GITHUB_PENDING } from './pending';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { readyView, type ReadyRow } from '../ready';
 
 vi.mock('server-only', () => ({}));
 
@@ -73,5 +75,21 @@ describe('a PRD\'s page, streamed', () => {
     const html = await settled(Promise.resolve(null));
     expect(html).not.toContain(GITHUB_PENDING);
     expect((await everything(Promise.resolve(null))).match(/data-live=/g)).toHaveLength(1);
+  });
+  // PRD 2898 s9: the route hands the page its latest ready verdict, and the Ready panel shows it.
+  it('shows the Ready panel once the route hands it a verdict, and none without one', async () => {
+    const check = (at: number): ReadyRow['checks'][number] => ({ id: `c${String(at + 1)}`, title: `Check ${String(at + 1)}`, state: 'pass', why: '', evidence: null, excused: [] });
+    const row: ReadyRow = {
+      repo: 'acme/widgets', prd: parsePrd(71), pr_number: 72, head_sha: 'a'.repeat(40), state: 'ready', passed: 5, headline: 'Ready for review · 5 of 5',
+      checks: [0, 1, 2, 3, 4].map(check), criteria: [], decided_at: '2026-11-15T07:00:00Z',
+    };
+    const page = (ready: Promise<ReturnType<typeof readyView>>) => createElement('main', null, createElement(DossierStream, {
+      read: { ...read, github: undefined }, me: DEMO_VIEWER, pick: { tab: 'outbox', version: null },
+      reads: { ...reads(Promise.resolve(DEMO_GITHUB)), ready }, markdown: Promise.resolve(null), supabase: SUPABASE,
+      live: () => null,
+    }));
+    const html = async (ready: Promise<ReturnType<typeof readyView>>) => new Response((await prerender(page(ready))).prelude).text();
+    expect(await html(Promise.resolve(readyView(row)))).toContain('data-screen="ready-checks"');
+    expect(await html(Promise.resolve(null))).not.toContain('data-screen="ready-checks"');
   });
 });

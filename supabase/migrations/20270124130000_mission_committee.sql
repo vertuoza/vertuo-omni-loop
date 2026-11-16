@@ -1,5 +1,5 @@
 -- The committee approves a mission's PRD at `alone` (PRD 2896 s9, docs: .omni-loop/delivery/inbox/2896-fleet-alone/spec.md,
--- "6. The committee, at `alone`", criteria 13, 15 and 16). It runs after 20270123120000_mission_drops.sql, which last set the
+-- "6. The committee, at `alone`", criteria 13, 15 and 16). It runs after 20270124120000_mission_drops.sql, which last set the
 -- kinds of a mission event, and 20270122122000_reviewer.sql, which last set a mission key's shape and the runners' fixed skills.
 --
 -- - mission_decisions: what the fleet's committee decided, append only, one row per committee job: the mission, the PRD,
@@ -30,7 +30,7 @@
 -- Every statement can run twice. Nobody's grants change but mission_decisions', new: a member reads it, the service role reads
 -- it and writes it only through mission_decide_approval(). Proven by supabase/checks/missions.sql.
 -- Rollback: a follow-up migration, once no row holds a `decided` or `escalated` event or an `:approve:` key, restores
--- runner_jobs_mission_key_shape of 20270122122000_reviewer.sql, mission_events_kind_check of 20270123120000_mission_drops.sql,
+-- runner_jobs_mission_key_shape of 20270122122000_reviewer.sql, mission_events_kind_check of 20270124120000_mission_drops.sql,
 -- set_repository_runner_skill() of 20270122122000_reviewer.sql and dossier_approval() of 20270110093000_tech_approval.sql; drops
 -- mission_decide_approval() and mission_decisions. The two approvals columns stay while a fleet's approval is kept.
 

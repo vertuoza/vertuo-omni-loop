@@ -6,6 +6,12 @@
 // optional with a safe default, so a JSON file that names none of them still "carries what it
 // needs": a plain question with no `bears-on` and no named risk.
 //
+// `--excuses <path>` (PRD 2898, s1), given once per path, writes the item's `excuses:` field: the exact
+// paths whose finding of the ready checks 4 and 5 the item excuses once a person agreed to it. Each is
+// refused, nothing written, exit 2, when it is a folder (on disk, or by a trailing `/`), a pattern, a
+// path outside the repository root, or given twice. The field is written before the item is graded, so
+// the gate grades the text that is written.
+//
 // `--out <dir>` (PRD 563, s3) writes the item into `<dir>` instead of the PRD's outbox: the same
 // checks, the same id (the folder's own items count as spent) and the same file name, so a slice
 // built in another repository can hand its items to `omni item relay` below. It never adopts:
@@ -60,6 +66,7 @@ import { z } from 'zod';
 import { lawsFor } from '../../lib/laws.ts';
 import { funLineProblems } from '../../lib/outbox/outbox.ts';
 import { checkItemText } from '../../lib/outbox/check-outbox.ts';
+import { excuseProblem, withExcuses } from '../../lib/outbox/excuses.ts';
 import type { OutboxStore, OutFolder } from '../../lib/outbox/store.ts';
 import { OutboxServerError, serverFailure } from '../../lib/outbox/server-store.ts';
 import { outboxStore } from '../../lib/outbox/stores.ts';
@@ -73,7 +80,7 @@ import type { FreeCommand, FreeIo, Out } from '../io.ts';
 import { isProductPrdId, OutboxItemIdSchema } from '../../lib/ids.ts';
 import type { OutboxItemId, PrdNumber, ProductPrdId, WorkSliceId } from '../../lib/ids.ts';
 
-const NEW_USAGE = 'usage: omni item new --prd <n>|<key>-<n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]';
+const NEW_USAGE = 'usage: omni item new --prd <n>|<key>-<n> --slice <id> --file <file> [--excuses <path>]… [--adopt | --out <dir>] [--json]';
 const RELAY_USAGE = 'usage: omni item relay <dir> --prd <n>|<key>-<n>';
 const USAGE = `${NEW_USAGE} | ${RELAY_USAGE.slice('usage: '.length)}`;
 
@@ -216,11 +223,41 @@ type Decision = ReturnType<typeof decideRecording>;
 type ItemIo = { ctx: Context; stdout: Out; stderr: Out; signIn: OutboxSignIn };
 /** What `item new` was asked: the PRD, the slice, where the item goes (the PRD's outbox folder, or a
  * product PRD's id), and how to answer. */
-type NewRequest = { prd: PrdNumber | ProductPrdId; slice: WorkSliceId; asJson: boolean; adopt: boolean; outboxDir: string; out: OutFolder | null; file: string };
+type NewRequest = { prd: PrdNumber | ProductPrdId; slice: WorkSliceId; asJson: boolean; adopt: boolean; outboxDir: string; out: OutFolder | null; file: string; excuses: string[] };
+
+const EXCUSES_FLAG = '--excuses';
+
+/** `args` without its `--excuses <path>` pairs, and those paths, in order: the one flag given once per value. */
+function takeExcuses(args: readonly string[]): { rest: string[]; excuses: string[] } {
+  const rest: string[] = [];
+  const excuses: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index] ?? '';
+    if (arg !== EXCUSES_FLAG) {
+      rest.push(arg);
+      continue;
+    }
+    const path = args[index + 1];
+    if (path === undefined || path.startsWith('--')) throw usageError(`omni item new: ${EXCUSES_FLAG} needs a value.`);
+    excuses.push(path);
+    index += 1;
+  }
+  return { rest, excuses };
+}
+
+/** The `--excuses` paths, each checked: a usage error naming the first one refused. */
+function checkedExcuses(ctx: Context, excuses: readonly string[]): string[] {
+  for (const [index, path] of excuses.entries()) {
+    const problem = excuseProblem(ctx.root, path, index, excuses);
+    if (problem !== null) throw usageError(`omni item new: ${EXCUSES_FLAG} ${problem}.`);
+  }
+  return [...excuses];
+}
 
 /** `item new`'s arguments, checked: a usage error for any that is missing or clashes. */
 function newRequest(args: string[], ctx: Context): NewRequest {
-  const { positional, flags } = parseArgs('item new', args, {
+  const { rest, excuses } = takeExcuses(args);
+  const { positional, flags } = parseArgs('item new', rest, {
     values: ['prd', 'slice', 'file', 'out'],
     booleans: ['adopt', 'json'],
   });
@@ -236,7 +273,7 @@ function newRequest(args: string[], ctx: Context): NewRequest {
 
   // `--out` (PRD 563) writes into a folder outside the outbox, shown as the caller spelled it.
   const out = flags.out === undefined ? null : { abs: inRoot(ctx, flags.out), shown: flags.out };
-  return { prd, slice: sliceArg('item new', '--slice', flags.slice), asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, out, file: flags.file };
+  return { prd, slice: sliceArg('item new', '--slice', flags.slice), asJson: Boolean(flags.json), adopt: Boolean(flags.adopt), outboxDir, out, file: flags.file, excuses: checkedExcuses(ctx, excuses) };
 }
 
 /** The recording policy's decision on `input`: a usage error when it refuses the input. */
@@ -368,7 +405,7 @@ async function recordNew(request: NewRequest, { ctx, stdout, stderr, signIn }: I
   requireSections(input, decision);
   const store = outboxStore(ctx, prd, signIn);
   const id = await nextItemId(prd, slice, input.slug, { store, out: request.out });
-  const text = renderedItem(input, decision, { id, prd, slice, laws });
+  const text = withExcuses(renderedItem(input, decision, { id, prd, slice, laws }), request.excuses);
 
   // The same grading `omni check outbox` runs on every open item, run here before anything is
   // written — a raised item that `check outbox` would immediately reject (a below-floor rank, a

@@ -1,5 +1,5 @@
 -- A person overturns a decision of the fleet (PRD 2896 s11, docs: .omni-loop/delivery/inbox/2896-fleet-alone/spec.md, "6. The committee,
--- at `alone`", criteria 17 and 18). It runs after 20270123130000_mission_committee.sql, which last set the kinds of a mission event.
+-- at `alone`", criteria 17 and 18). It runs after 20270124130000_mission_committee.sql, which last set the kinds of a mission event.
 --
 -- - mission_events.kind takes one more kind:
 --     overturned   a member ran `omni mission overturn <mission> <decision>`: the fleet's decision (a PRD's approval, or the answer to one
@@ -10,7 +10,7 @@
 --
 -- Every statement can run twice. Nobody's grants change. Proven by supabase/checks/missions.sql.
 -- Rollback: the kind is additive, and an event is never deleted: once one is recorded it stays in the list. Reverting the App's code stops
--- new overturns; mission_events_kind_check of 20270123130000_mission_committee.sql comes back only while none is recorded.
+-- new overturns; mission_events_kind_check of 20270124130000_mission_committee.sql comes back only while none is recorded.
 
 alter table public.mission_events drop constraint if exists mission_events_kind_check;
 alter table public.mission_events add constraint mission_events_kind_check check (kind in (

@@ -1,5 +1,5 @@
 -- A person drops a PRD from its mission's branch (PRD 2896 s7, docs: .omni-loop/delivery/inbox/2896-fleet-alone/spec.md, criterion 11).
--- It runs after 20270123110000_mission_joins.sql, which last set the kinds of a mission event.
+-- It runs after 20270124110000_mission_joins.sql, which last set the kinds of a mission event.
 --
 -- - mission_events.kind takes three more kinds:
 --     drop-asked        a member ran `omni mission drop <mission> <prd>`: the PRD's commit leaves the branch on the mission's next run,
@@ -12,7 +12,7 @@
 -- Every statement can run twice. Nobody's grants change: a member still reads the events, and only the service role writes them.
 -- Proven by supabase/checks/missions.sql.
 -- Rollback: the kinds are additive, and an event is never deleted: once one of them is recorded it stays in the list.
--- Reverting the App's code stops new drops; the kinds of 20270123110000_mission_joins.sql come back only while none is recorded.
+-- Reverting the App's code stops new drops; the kinds of 20270124110000_mission_joins.sql come back only while none is recorded.
 
 alter table public.mission_events drop constraint if exists mission_events_kind_check;
 alter table public.mission_events add constraint mission_events_kind_check check (kind in (

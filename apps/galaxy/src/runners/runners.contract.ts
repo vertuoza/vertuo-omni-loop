@@ -44,6 +44,11 @@ export const RUNNER_SKILLS = [
 ] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
+/** The lines only the Omni App sends (PRD 2898 s8): `acceptance`, a gated feature PR's e2e scenarios on its preview, which the runner
+ * runs with no agent. The App queues it itself; Send never takes it, and a runner receives it as any job. The kit's own `APP_SKILLS`,
+ * which a test holds to this one. */
+export const APP_RUNNER_SKILLS = ['acceptance'] as const;
+
 /** The longest line a runner runs, skill included: the kit's own `LINE_MAX`, which `omni runner` checks
  * again before it runs a job. */
 const MAX_LINE = 200;
@@ -135,6 +140,12 @@ export function checkLineShape(line: string): LineCheck {
   return verdict(line, () => true);
 }
 
+/** Whether `line` is one of the App's own lines, as the kit's runner checks it: `/omni:<app skill> <args>`, 200 characters at most. */
+export function isAppLine(line: string): boolean {
+  const fixed = LINE.exec(line);
+  return line.length <= MAX_LINE && fixed !== null && APP_RUNNER_SKILLS.some((skill) => skill === fixed[1]) && ARGS.test(fixed[2] ?? '');
+}
+
 /** The PRD a line names (PRD 2251): its first argument, when it is a PRD number (`/omni:yolo 2251`,
  * `/omni:do-work 2251 s1`, a repository skill's `/validate-prd 347`, PRD 2313); null for a line no
  * runner runs, or whose first argument is anything else. */
@@ -186,8 +197,8 @@ const GithubGrantSchema = z.object({
 });
 export type GithubGrant = z.infer<typeof GithubGrantSchema>;
 
-/** A job, as the runner that claimed it receives it: the sender's GitHub login, when they have one, goes
- * to the run as OMNI_SENT_BY. `allowedSkills` are the repository's own skills its owner allowed, read
+/** A job, as the runner that claimed it receives it, its line a runner's or one of the App's own (`isAppLine`): the sender's GitHub
+ * login, when they have one, goes to the run as OMNI_SENT_BY. `allowedSkills` are the repository's own skills its owner allowed, read
  * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs.
  * `sentByKey` is the name of the API key that sent it, or null (PRD 2433); `github` is the App it runs as,
  * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. `resume` is
@@ -196,7 +207,7 @@ export type GithubGrant = z.infer<typeof GithubGrantSchema>;
 export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
   sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(), mission: z.object({ level: z.string() }).nullable().optional(),
-}).refine((job) => checkLine(job.line, job.allowedSkills).ok, { message: 'not a line a runner runs', path: ['line'] });
+}).refine((job) => checkLine(job.line, job.allowedSkills).ok || isAppLine(job.line), { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 
 /** What `POST /api/runners/jobs/<id>/github-token` answers: a fresh token of the job's App, and when it stops working. */

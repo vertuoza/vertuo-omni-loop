@@ -108,10 +108,10 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 72 commands and the 43 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(72);
+  it('holds the 73 commands and the 43 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(73);
     expect(skillFolders()).toHaveLength(43);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(72);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(73);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(43);
   });
 
@@ -475,6 +475,15 @@ describe('the help table in this repository', () => {
     expect(item.detail).toMatch(/\brelay moves\b/);
   });
 
+  it('shows omni item new --excuses, an exact path and never a folder or a pattern (PRD 2898)', () => {
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    assertDefined(item, 'item');
+    expect(item.usage.join(' ')).toMatch(/--excuses <path>/);
+    const words = item.detail.replace(/\s+/g, ' ');
+    expect(words).toMatch(/--excuses, once per path, names an exact file/);
+    expect(words).toMatch(/a folder or a pattern is refused/);
+  });
+
   it('describes the ask verbs any agent runs, and the heartbeat\'s switch (PRD 1831)', () => {
     const find = (name: string) => {
       const entry = ENTRIES.find((e) => e.name === name && e.kind === 'command');
@@ -627,6 +636,14 @@ describe('the e2e entry', () => {
   it('names heals, hold, confirm and reject', () => {
     const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'e2e');
     for (const sub of ['heals', 'hold', 'confirm', 'reject']) expect(entry?.usage.join('\n')).toContain(`omni e2e ${sub} <prd>`);
+  });
+});
+
+describe('the ready help (PRD 2898)', () => {
+  it('lists omni ready with its five checks and its exit code', () => {
+    const entry = ENTRIES.find((e) => e.kind === 'command' && e.name === 'ready');
+    expect(entry?.usage).toEqual(['omni ready <prd> [--json]']);
+    expect(entry?.detail).toContain('Exit 0 only on 5 of 5');
   });
 });
 

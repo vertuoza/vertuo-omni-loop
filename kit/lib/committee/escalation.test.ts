@@ -2,7 +2,7 @@
 // (criterion 15): it is read by code before any member runs, so the committee's judgement only meets what it lets through.
 import { describe, expect, it } from 'vitest';
 import { bearsOn, decide, escalations, itemFacts, jevScore, rewritesData, type ApprovalFacts, type AnswerFacts } from './escalation.ts';
-import { COMMITTEE_ROLES, type Verdict } from './vote.ts';
+import { COMMITTEE_ROLES, type MemberVerdict } from './vote.ts';
 
 const approval = (over: Partial<ApprovalFacts> = {}): ApprovalFacts => ({
   kind: 'approve', phase0: 'server', lockedLaws: [], legal: [], redBusinessLaws: [], dataMigrations: [], ...over,
@@ -10,7 +10,7 @@ const approval = (over: Partial<ApprovalFacts> = {}): ApprovalFacts => ({
 const answer = (over: Partial<AnswerFacts> = {}): AnswerFacts => ({
   kind: 'answer', rank: 'high', lockedLaws: [], legal: [], redBusinessLaws: [], dataMigrations: [], hardToRevert: 0.2, bound: 0.6, ...over,
 });
-const threeYes: Verdict[] = COMMITTEE_ROLES.map((role) => ({ role, answer: 'yes', sentence: 'In scope.' }));
+const threeYes: MemberVerdict[] = COMMITTEE_ROLES.map((role) => ({ role, answer: 'yes', sentence: 'In scope.' }));
 
 describe('the escalation list', () => {
   it('lets through a PRD born on the server that bears on no law, no Legal entry, no red business law and no data migration', () => {
@@ -82,7 +82,7 @@ describe('the decision', () => {
   });
 
   it('escalates by vote what the list lets through', () => {
-    const verdicts: Verdict[] = [...threeYes.slice(0, 2), { role: 'reviewer', answer: 'no', sentence: 'Out of scope.' }];
+    const verdicts: MemberVerdict[] = [...threeYes.slice(0, 2), { role: 'reviewer', answer: 'no', sentence: 'Out of scope.' }];
     expect(decide(approval(), verdicts, null)).toMatchObject({ outcome: 'escalated', why: ['the Reviewer answered no: Out of scope.'] });
   });
 });

@@ -12,7 +12,7 @@
  *
  * Pure: the facts are read by the caller (the kit's `omni committee`, the App's supervisor).
  */
-import { tally, type CommitteeRole, type Tally, type Verdict } from './vote.ts';
+import { tally, type CommitteeRole, type Tally, type MemberVerdict } from './vote.ts';
 
 /** What the list reads of a PRD waiting for approval. */
 export type ApprovalFacts = {
@@ -86,7 +86,7 @@ export const escalations = (facts: CommitteeFacts): string[] => [
 ];
 
 /** The decision: escalated by rule when the list names anything, the vote being only recorded; else the vote's. */
-export function decide(facts: CommitteeFacts, verdicts: readonly Verdict[], author: CommitteeRole | null): Tally {
+export function decide(facts: CommitteeFacts, verdicts: readonly MemberVerdict[], author: CommitteeRole | null): Tally {
   const rule = escalations(facts);
   const vote = tally(verdicts, author);
   return rule.length > 0 ? { outcome: 'escalated', why: rule, verdicts: vote.verdicts } : vote;

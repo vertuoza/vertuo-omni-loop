@@ -31,10 +31,10 @@ describe('the runners\' fixed skills, as the database holds them', () => {
   it('are defined by the runner ultra skills migration, then by the Reviewer\'s (PRD 2871), which adds review, then by the committee\'s (PRD 2896), which adds committee, then last by the PM\'s (PRD 2896 s12), which adds its four', () => {
     expect(defining).toContain('20270122120000_runner_ultra_skills.sql');
     expect(defining).toContain('20270122122000_reviewer.sql');
-    expect(NEWEST).toBe('20270123150000_mission_pm.sql');
+    expect(NEWEST).toBe('20270124150000_mission_pm.sql');
     expect(fixedOf(body('20270122122000_reviewer.sql'))).toEqual([...fixedOf(body('20270122120000_runner_ultra_skills.sql')), 'review']);
-    expect(fixedOf(body('20270123130000_mission_committee.sql'))).toEqual([...fixedOf(body('20270122122000_reviewer.sql')), 'committee']);
-    expect(fixedOf(body(NEWEST))).toEqual([...fixedOf(body('20270123130000_mission_committee.sql')), 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
+    expect(fixedOf(body('20270124130000_mission_committee.sql'))).toEqual([...fixedOf(body('20270122122000_reviewer.sql')), 'committee']);
+    expect(fixedOf(body(NEWEST))).toEqual([...fixedOf(body('20270124130000_mission_committee.sql')), 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
   });
 
   it('equal the app\'s list, the four the database lacked and the three ultra skills among them', () => {

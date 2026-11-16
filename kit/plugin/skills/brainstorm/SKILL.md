@@ -360,6 +360,13 @@ spec: file
   here verbatim, in a gherkin block under the path of its file; a scenario with no harness yet is
   written the same way and marked "no harness — ordinary tests". A scenario edited later is edited
   in both places, in the same push.
+- **Acceptance criteria as scenarios (PRD 2898).** Write each criterion as a numbered scenario: a
+  heading `### AC-<n> · <kind>` (numbers from 1, each once), then a ```gherkin block holding its
+  `Scenario:` and its Given, When and Then lines. The kind is `test` (proven by a vitest test titled
+  `AC-<n>: …`) or `e2e` (the scenario run against the pull request's preview); a criterion takes the
+  kind `omni config acceptance.kind` prints unless the person named another. `omni check inbox`
+  refuses a number missing or twice, a missing or unknown kind, and a scenario without a Given, a
+  When and a Then.
 - **Test seams** and **Acceptance criteria** follow `omni kb show testing`: how this repository
   tests, at which levels, and what a test must never do.
 - **Risks** names what merging this PRD would publish, and how that is rolled back: read

@@ -1,9 +1,10 @@
-// The pull-request checks on the job ledger (PRD 2688 s7, spec "What refreshes the jobs"): the four kinds, one job
+// The pull-request checks on the job ledger (PRD 2688 s7, spec "What refreshes the jobs"): the five kinds, one job
 // per pull request and check, and the one worker every runner of the ledger runs.
 //
 //   the kinds        `pr-outbox`, `pr-inbox`, `pr-approved` and `pr-budgets`, each the body of today's check moved
 //                    over (../outbox-check/job.ts, ../inbox-check/inbox-check.ts, ../approved-check/approved-job.ts,
-//                    ../budgets-check/job.ts), with its failure hook
+//                    ../budgets-check/job.ts), and `pr-ready` (PRD 2898 s7, ../ready-check/job.ts), each with its
+//                    failure hook
 //   the job          keyed `<owner/name>#<number>`, lower case; its payload the check request (installation,
 //                    repository, pull request, head commit), never a token (L-GDPR-2). It is refreshed, never
 //                    added: the latest event wins, due 5 seconds after it (../jobs/ledger.ts)
@@ -21,7 +22,7 @@
 //                    omni-loop-8 s4, and `checkpoints-forget`, PRD 2809 s6, ./schedule.ts; the run also added by the embed), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
-//                    refreshes the four checks' jobs of a product PRD's target pull requests, and the
+//                    refreshes the five checks' jobs of a product PRD's target pull requests, and the
 //                    `knowledge-harvest` and the `retro` the webhook adds for a merged pull request (PRD omni-loop-4 s2,
 //                    s3), the retro's also added by the hourly comparison when owed (./gaps.ts), and the `main-watch`
 //                    the webhook adds too (s4), its own also added by the comparison for a watch still open, and the
@@ -85,11 +86,14 @@ import { evalSearchUrl, galaxyEvalSearcher, galaxyJudge, relevantUrl } from '../
 import { searchEvalStore } from '../search-eval/store.ts';
 import { searchEvalPromoteHandler, SEARCH_EVAL_PROMOTE_KIND } from './search-eval-promote.ts';
 import { searchEvalRunHandler, SEARCH_EVAL_RUN_KIND } from './search-eval-run.ts';
+import { READY_KIND, readyFailureHook, readyHandler } from '../ready-check/job.ts';
+import { READY_EXTERNAL_ID } from '../ready-check/output.ts';
+import { readyStore, type ReadyStore } from '../ready-check/store.ts';
 import { APPROVED_EXTERNAL_ID, BUDGETS_EXTERNAL_ID, INBOX_EXTERNAL_ID, type CheckRequestData } from './payloads.ts';
 import type { FailureHook, JobHandler } from './worker.ts';
 
-/** The four kinds, in the order a pull request's jobs are refreshed. */
-export const PR_CHECK_KINDS = Object.freeze([OUTBOX_KIND, PR_INBOX_KIND, APPROVED_KIND, BUDGETS_KIND] as const);
+/** The five kinds, in the order a pull request's jobs are refreshed. */
+export const PR_CHECK_KINDS = Object.freeze([OUTBOX_KIND, PR_INBOX_KIND, APPROVED_KIND, BUDGETS_KIND, READY_KIND] as const);
 export type PrCheckKind = (typeof PR_CHECK_KINDS)[number];
 
 /** The job of `kind` for the pull request `request` names, due `delaySeconds` after the refresh. */
@@ -100,7 +104,7 @@ export function prCheckJob(kind: PrCheckKind, request: CheckRequestData, delaySe
   return { kind, key: `${subject}#${String(prNumber)}`, subject, payload, delaySeconds };
 }
 
-/** The four jobs of a pull request, one per check. */
+/** The five jobs of a pull request, one per check. */
 export function prCheckJobs(request: CheckRequestData, delaySeconds = REFRESH_DELAY_SECONDS): RefreshJob[] {
   return PR_CHECK_KINDS.map((kind) => prCheckJob(kind, request, delaySeconds));
 }
@@ -110,6 +114,7 @@ export function rerunKindOf(externalId: string | null | undefined): PrCheckKind 
   if (externalId === INBOX_EXTERNAL_ID) return PR_INBOX_KIND;
   if (externalId === APPROVED_EXTERNAL_ID) return APPROVED_KIND;
   if (externalId === BUDGETS_EXTERNAL_ID) return BUDGETS_KIND;
+  if (externalId === READY_EXTERNAL_ID) return READY_KIND;
   return OUTBOX_KIND;
 }
 
@@ -132,13 +137,15 @@ export async function approvedRerunJobs(octokit: GitHubClient, { installationId,
   );
 }
 
-/** What the four checks read beside GitHub: the server's readers, galaxy and its judges. */
+/** What the five checks read beside GitHub: the server's readers, galaxy and its judges, and the ready verdicts' store. */
 export type PrCheckDeps = {
   octokitFor: OctokitFor<GitHubClient>;
   /** Each reader is null when the App cannot read the server here, which holds every product PRD's check. */
   readProductOutbox?: ProductOutboxReader | null;
   readRecord?: RecordReader | null;
   readOutboxRows?: OutboxRowsReader | null;
+  /** The ready check's missions and verdicts (PRD 2898); null, a `mission` gate posts nothing and no verdict is saved. */
+  ready?: ReadyStore | null;
   galaxyUrl?: string;
   /** Galaxy's judge of a ◆ PRD's approval; none given, every ◆ PRD's check is held. */
   ask?: AskJudge;
@@ -146,7 +153,7 @@ export type PrCheckDeps = {
   laws?: LawsGrader | null;
 };
 
-/** The server event's recheck: the four checks' jobs of a pull request refreshed on `ledger`, due at once. */
+/** The server event's recheck: the five checks' jobs of a pull request refreshed on `ledger`, due at once. */
 export function serverEventRecheck(ledger: { refresh: (job: RefreshJob) => Promise<unknown> }): (request: CheckRequestData) => Promise<void> {
   return async (request) => {
     for (const job of prCheckJobs(request, 0)) await ledger.refresh(job);
@@ -162,8 +169,8 @@ export type Workers = { handlers: Record<string, JobHandler>; failures: Record<s
  */
 const foreground = <Client>(octokitFor: OctokitFor<Client>): OctokitFor<Client> => (installationId) => octokitFor(installationId, 'interactive');
 
-/** The four checks' handlers and failure hooks, each spending the budget as foreground work. */
-export function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = null, readRecord = null, readOutboxRows = null, galaxyUrl = DEFAULT_GALAXY_URL, ask, canon = null, laws = null }: PrCheckDeps): Workers {
+/** The five checks' handlers and failure hooks, each spending the budget as foreground work. */
+export function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = null, readRecord = null, readOutboxRows = null, ready = null, galaxyUrl = DEFAULT_GALAXY_URL, ask, canon = null, laws = null }: PrCheckDeps): Workers {
   const octokitFor = foreground(anyPriority);
   return {
     handlers: {
@@ -171,12 +178,14 @@ export function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = nu
       [PR_INBOX_KIND]: inboxHandler({ octokitFor, canon, laws }),
       [APPROVED_KIND]: approvedHandler({ octokitFor, readRecord, galaxyUrl, ...(ask ? { ask } : {}) }),
       [BUDGETS_KIND]: budgetsHandler({ octokitFor, readOutboxRows }),
+      [READY_KIND]: readyHandler({ octokitFor, store: ready }),
     },
     failures: {
       [OUTBOX_KIND]: outboxFailureHook({ octokitFor }),
       [PR_INBOX_KIND]: inboxFailureHook({ octokitFor }),
       [APPROVED_KIND]: approvedFailure({ octokitFor }),
       [BUDGETS_KIND]: budgetsFailureHook({ octokitFor }),
+      [READY_KIND]: readyFailureHook({ octokitFor, store: ready }),
     },
   };
 }
@@ -189,7 +198,7 @@ export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'github
 
 /**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the knowledge
- * embed's, the four checks', the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet
+ * embed's, the five checks', the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet
  * board's, the canon buttons', the knowledge harvest's, the retro's, the main watch's, the server event's and the
  * mission's.
  */
@@ -201,6 +210,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
     readProductOutbox: productOutboxReader(supabase),
     readRecord: recordReader(supabase),
     readOutboxRows: outboxRowsReader(supabase),
+    ready: readyStore(supabase),
     galaxyUrl,
     ask: (repo, prd) => askJudge(repo, prd, { galaxyUrl, secret: env.stageEvents?.secret }),
     canon: liveCanon({ supabase, openrouter: env.openrouter ?? null, constituentJudge: env.constituentJudge ?? null, galaxyUrl }),

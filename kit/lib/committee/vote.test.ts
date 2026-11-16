@@ -1,10 +1,10 @@
 // PRD 2896 s9: the committee's vote, pure. Every member who sits answers `yes`, or the decision goes to a person with
 // the verdicts attached; the hero whose job wrote the PRD sits out and never votes.
 import { describe, expect, it } from 'vitest';
-import { COMMITTEE_ROLES, parseVotes, sitting, tally, type Verdict } from './vote.ts';
+import { COMMITTEE_ROLES, parseVotes, sitting, tally, type MemberVerdict } from './vote.ts';
 
-const yes = (role: Verdict['role'], sentence = 'It is in scope and reversible.'): Verdict => ({ role, answer: 'yes', sentence });
-const three = (): Verdict[] => COMMITTEE_ROLES.map((role) => yes(role));
+const yes = (role: MemberVerdict['role'], sentence = 'It is in scope and reversible.'): MemberVerdict => ({ role, answer: 'yes', sentence });
+const three = (): MemberVerdict[] => COMMITTEE_ROLES.map((role) => yes(role));
 
 describe('who sits', () => {
   it('is the PM, the Architect and the Reviewer, the PM chairing first', () => {

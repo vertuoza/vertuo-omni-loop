@@ -58,6 +58,7 @@ function evaluating(tables: Record<string, Row[]>, rpc: Record<string, unknown> 
         tests.push((row) => row[column] !== null && row[column] !== undefined);
         return builder;
       },
+      is: (column: string, value: null) => { steps.push(['is', column, value]); tests.push((row) => (row[column] ?? null) === value); return builder; },
       or: (filter: string) => { steps.push(['or', filter]); tests.push(keyset(filter)); return builder; },
       order: (column: string, options: { ascending: boolean }) => { steps.push(['order', column, options]); orders = [...orders, { column, ascending: options.ascending }]; return builder; },
       limit: (n: number) => { steps.push(['limit', n]); take = n; return builder; },
@@ -199,6 +200,30 @@ describe('the public API’s repository', () => {
     expect(await repository.isPlanRepository(NORTHWIND, 'northwind/backend')).toBe(false);
     expect(await repository.isPlanRepository(NORTHWIND, 'southwind/plan')).toBe(false);
     expect(calls[0]).toEqual(['products', ['select', 'id'], ['eq', 'workspace_id', NORTHWIND], ['eq', 'plan_repository', 'northwind/plan'], ['limit', 1]]);
+  });
+
+  it('reads what a plan repository’s job reaches through the live products, listed repositories only, in lower case (PRD 2915 s2)', async () => {
+    const { db, calls } = evaluating({
+      products: [
+        { id: 'p1', workspace_id: NORTHWIND, plan_repository: 'northwind/plan', archived_at: null },
+        { id: 'p2', workspace_id: NORTHWIND, plan_repository: null, archived_at: null },
+        { id: 'p3', workspace_id: NORTHWIND, plan_repository: 'northwind/plan', archived_at: '2026-01-01T00:00:00Z' },
+        { id: 'p4', workspace_id: SOUTHWIND, plan_repository: 'northwind/plan', archived_at: null },
+      ],
+      product_repositories: [
+        { workspace_id: NORTHWIND, product_id: 'p1', repository: 'Northwind/Web' }, { workspace_id: NORTHWIND, product_id: 'p1', repository: 'northwind/gone' },
+        { workspace_id: NORTHWIND, product_id: 'p2', repository: 'northwind/plan' }, { workspace_id: NORTHWIND, product_id: 'p2', repository: 'northwind/docs' },
+        { workspace_id: NORTHWIND, product_id: 'p3', repository: 'northwind/archived' }, { workspace_id: SOUTHWIND, product_id: 'p4', repository: 'southwind/api' },
+      ],
+      repositories: [
+        { workspace_id: NORTHWIND, full_name: 'northwind/plan', removed_at: null }, { workspace_id: NORTHWIND, full_name: 'northwind/web', removed_at: null },
+        { workspace_id: NORTHWIND, full_name: 'northwind/docs', removed_at: null }, { workspace_id: NORTHWIND, full_name: 'northwind/gone', removed_at: '2026-01-01T00:00:00Z' },
+        { workspace_id: NORTHWIND, full_name: 'northwind/archived', removed_at: null },
+      ],
+    });
+    expect(await publicApiRepository(db).productReach(NORTHWIND, 'northwind/plan')).toEqual({ named: ['northwind/docs', 'northwind/plan'], planned: ['northwind/web'] });
+    expect(calls.map((call) => call[0])).toEqual(['products', 'product_repositories', 'repositories']);
+    expect(calls[0]).toEqual(['products', ['select', 'id, plan_repository'], ['eq', 'workspace_id', NORTHWIND], ['is', 'archived_at', null]]);
   });
 
   describe('a job’s lines (PRD 2425 s4)', () => {

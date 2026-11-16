@@ -1,6 +1,6 @@
 -- The PM writes the mission's own PRDs at `alone` (PRD 2896 s12, docs: .omni-loop/delivery/inbox/2896-fleet-alone/spec.md,
--- "7. The PM's own PRDs, at `alone`", criteria 19, 21 and 22). It runs after 20270123140000_mission_overturn.sql, which last set
--- the kinds of a mission event, 20270123130000_mission_committee.sql, which last set a mission key's shape and the runners'
+-- "7. The PM's own PRDs, at `alone`", criteria 19, 21 and 22). It runs after 20270124140000_mission_overturn.sql, which last set
+-- the kinds of a mission event, 20270124130000_mission_committee.sql, which last set a mission key's shape and the runners'
 -- fixed skills, and 20270122122000_reviewer.sql, which last set the heroes' defaults.
 --
 -- - runner_jobs.mission_key: also takes `mission:<id>:pm:<k>`, the mission's k-th PM job (`/omni:brainstorm`, `/omni:roadmap`,
@@ -19,8 +19,8 @@
 --
 -- Every statement can run twice. Nobody's grants change. Proven by supabase/checks/missions.sql.
 -- Rollback: once no row holds a `prd-added` or `not-written` event or a `:pm:` key, a follow-up migration restores
--- runner_jobs_mission_key_shape and set_repository_runner_skill() of 20270123130000_mission_committee.sql, mission_events_kind_check
--- of 20270123140000_mission_overturn.sql and virtual_hero_roles() of 20270122122000_reviewer.sql.
+-- runner_jobs_mission_key_shape and set_repository_runner_skill() of 20270124130000_mission_committee.sql, mission_events_kind_check
+-- of 20270124140000_mission_overturn.sql and virtual_hero_roles() of 20270122122000_reviewer.sql.
 
 -- ── The PM's job ───────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ comment on column public.mission_events.kind is
 
 -- ── The PM's skills are the loop's own ─────────────────────────────────────────
 
--- set_repository_runner_skill() of 20270123130000_mission_committee.sql, the PM's four writing skills added to its fixed list.
+-- set_repository_runner_skill() of 20270124130000_mission_committee.sql, the PM's four writing skills added to its fixed list.
 create or replace function public.set_repository_runner_skill(p_workspace uuid, p_full_name text, p_skill text, p_allowed boolean) returns void
 language plpgsql
 security definer

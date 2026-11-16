@@ -82,7 +82,7 @@ describe('every hero lists its role\'s skills (PRD 2873 s3)', () => {
 // The PM (PRD 2896 s12): the newest definition of the roles changes only the PM's last limit, and a PM's limits take it only while
 // they are still the default it was made with, never a person's.
 describe('what the PM never approves (PRD 2896 s12)', () => {
-  const PM = read('20270123150000_mission_pm.sql');
+  const PM = read('20270124150000_mission_pm.sql');
   const flat = PM.replace(/\s+/g, ' ');
 
   it('is the newest definition of the roles, and changes only the PM\'s limits', () => {

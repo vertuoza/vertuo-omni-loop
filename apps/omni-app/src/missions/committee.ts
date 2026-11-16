@@ -14,7 +14,7 @@
 //   the events        each committee's dispatch, signed `supervisor`; its decision, `decided` or `escalated`, signed `pm` (the
 //                     chair) and `agent`, never in a person's name
 import { committeeOf, type CommitteeRecord } from 'omni-loop/kit/lib/committee/record.ts';
-import { COMMITTEE_ROLES, tally, type CommitteeRole, type Verdict } from 'omni-loop/kit/lib/committee/vote.ts';
+import { COMMITTEE_ROLES, tally, type CommitteeRole, type MemberVerdict } from 'omni-loop/kit/lib/committee/vote.ts';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Approval, Attempt, MissionStatus } from './supervisor.ts';
 
@@ -81,10 +81,10 @@ export function approvalNext(approval: Approval, committees: readonly Committee[
 /** Whether the run sends committees: while the mission runs or waits. */
 export const sendsCommittees = (status: MissionStatus): boolean => status === 'running' || status === 'waiting';
 
-const failedAll = (sentence: string): Verdict[] => COMMITTEE_ROLES.map((role) => ({ role, answer: 'failed', sentence }));
+const failedAll = (sentence: string): MemberVerdict[] => COMMITTEE_ROLES.map((role) => ({ role, answer: 'failed', sentence }));
 
 /** The vote of a committee job that failed, was cancelled, or ended with no record: every member counted failed, why each. */
-export function noRecord(attempt: Pick<Attempt, 'status'>): { verdicts: Verdict[]; why: string[] } {
+export function noRecord(attempt: Pick<Attempt, 'status'>): { verdicts: MemberVerdict[]; why: string[] } {
   const sentence = attempt.status === 'done' ? 'Its job ended with no record of the vote.' : `Its job ${attempt.status === 'cancelled' ? 'was cancelled' : 'failed'}.`;
   const vote = tally(failedAll(sentence), null);
   return { verdicts: vote.verdicts, why: vote.why };

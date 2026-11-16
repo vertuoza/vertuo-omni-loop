@@ -694,7 +694,7 @@ describe('the plan section and branches.megaInvade (PRD 522)', () => {
     expect(Object.hasOwn(config, 'plan')).toBe(false);
     expect(Object.keys(config)).toEqual([
       'kit', 'repo', 'github', 'branches', 'worktrees', 'agents', 'paths', 'labels', 'prLinks', 'pr', 'board', 'ci', 'commands',
-      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'retro', 'mainWatch', 'proof', 'e2e', 'design', 'markers', 'signature', 'sync',
+      'acceptance', 'laws', 'risk', 'landings', 'contracts', 'notify', 'limits', 'wave', 'ask', 'dossier', 'releaseNotes', 'answers', 'retro', 'mainWatch', 'proof', 'e2e', 'ready', 'design', 'markers', 'signature', 'sync',
     ]);
   });
 
@@ -889,7 +889,7 @@ describe('the e2e section (PRD 1233)', () => {
     return 'parsed';
   };
   const defaults = {
-    enabled: false, url: null, deployment: null, setup: null, bypassEnv: null, dir: 'e2e', model: 'anthropic/claude-sonnet-5.5',
+    enabled: false, url: null, deployment: null, setup: null, bypassEnv: null, dir: 'e2e', model: 'anthropic/claude-sonnet-5.5', ci: false, repo: null,
   };
 
   it('is off, with dir e2e and the default model, when the file has no e2e section', () => {
@@ -901,7 +901,7 @@ describe('the e2e section (PRD 1233)', () => {
       'kit: 1\ne2e:\n  enabled: true\n  url: github-deployment\n  deployment: Preview\n  setup: pnpm signin\n  bypassEnv: BYPASS_SECRET\n  dir: tests/e2e\n  model: openai/gpt-x\n',
     );
     expect(config.e2e).toEqual({
-      enabled: true, url: 'github-deployment', deployment: 'Preview', setup: 'pnpm signin', bypassEnv: 'BYPASS_SECRET', dir: 'tests/e2e', model: 'openai/gpt-x',
+      enabled: true, url: 'github-deployment', deployment: 'Preview', setup: 'pnpm signin', bypassEnv: 'BYPASS_SECRET', dir: 'tests/e2e', model: 'openai/gpt-x', ci: false, repo: null,
     });
   });
 

@@ -183,6 +183,14 @@ edit only a file that is on it. Then answer `<number>: B` on the feature PR and 
 the rework adds `critical` and `flow-<id>` to that test file. The default is adopted, so the gate
 does not turn red on it.
 
+## The `AC-n` tests and the ready check
+
+A mission's pull request is ready only when each `AC-n` of its spec has a passing proof (check 3 of
+[What ready proves](/docs/ready)). For an `e2e` criterion that proof is the scenario run against the
+pull request's preview: each test `/omni:validate-e2e` writes is titled `AC-n: …` and tagged
+`prd-<n>`, and CI runs it on the labelled draft. With `e2e.ci` off, or with no key, a runner of the
+workspace runs the scenarios instead; with no runner, the check reads `not finished` and says why.
+
 ## Run it
 
 In your agent's form ([Any coding agent](/docs/any-agent#set-up-your-agent)):
@@ -309,4 +317,4 @@ table of criterion, test and verdict: **✓**, **✗**, or "not filmable".
 Read the tests too. The same agent may have seen the code, so reading the spec alone is a rule of the
 skill, not a guarantee; a person reading the tests in the sub-PR is the check.
 
-[Next → Use cases](/docs/use-cases)
+[Next → What ready proves](/docs/ready)

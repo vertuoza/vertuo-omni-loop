@@ -1,5 +1,5 @@
 -- A mission inherits its fleet's level (PRD 2896 s2, docs: .omni-loop/delivery/inbox/2896-fleet-alone/spec.md, criteria
--- 2 and 3). It runs after 20270123090000_fleet_level.sql (teams.level) and 20270122093000_missions.sql (the mandate).
+-- 2 and 3). It runs after 20270124090000_fleet_level.sql (teams.level) and 20270122093000_missions.sql (the mandate).
 --
 -- - mission_mandate_ok(): the mandate is {parallel} plus, optionally, level (with-you, own-branch or alone),
 --   hardToRevert (a number from 0 to 1) and ownPrds (a whole number from 0 to 10). A mandate that holds only

@@ -75,21 +75,24 @@
 //   it: Send again for a failed or cancelled one, Resume for one stopped mid-way. The new job is the
 //   first one's key's and maker's, sent to its target, `continues` it, and keeps its notify_url; the job
 //   was carried on already when another job continues it, runner_jobs.continues being unique.
-// - Every job runs as the Omni GitHub App (PRD 2573 s1, over PRD 2433 s7), the App this deployment signs in with
-//   (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY), however it was sent: from the page, by the Omni app or by an API key,
-//   whose own App is no longer read. `next` finds the Omni App's installation on the job's repository, mints a
-//   token and answers the job with it and the App's bot (`github`), whose id is read from GitHub by the App's
-//   slug once per service; every claimed job carries `sentByKey`, the key's name or null. The token is for the
-//   job's repository and, for a skill that spans the product (a mega bug fix, and the ultra skills, PRD 2873), the
-//   other repositories of its product that the installation holds, never one outside a key's allow-list (BR-PRODUCT-63). A mint that fails (the App not configured here, not
-//   installed, lacking a permission, its bot unreadable), or a key that no longer works (BR-PRODUCT-64), ends the
-//   job `failed`, `github app: <why>`: the job is never answered without `github`, and never runs as a person.
-//   `githubToken` mints a fresh token, for the same repositories, for the job's own runner while the job is
-//   claimed or running, and refuses one that ended, whatever its status (PRD 2809 s3).
+// - A job runs as one of two GitHub Apps, decided at every mint (PRD 2915 s1, over PRD 2573 s1 and PRD 2433 s7): its key's App,
+//   when an API key sent it and the key holds an App, or held one when the job was queued (`needs_app`, BR-ACCESS-2); the Omni
+//   App, the App this deployment signs in with (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY), for every other job: one sent from the
+//   page or by the Omni app, or by a key that holds no App and held none. `next` opens a key App's sealed private key under
+//   SECRETS_MASTER_KEY, in memory only, finds the App's installation on the job's repository, mints a token and answers the
+//   job with it and the App's bot (`github`): a key App's bot is read from its stored row, the Omni App's from GitHub by its
+//   slug once per service; every claimed job carries `sentByKey`, the key's name or null. Each mint of a key's App is recorded
+//   for the key's `last token`. The token is for the job's repository and, for a skill that spans the product (a mega bug fix,
+//   and the ultra skills, PRD 2873), the other repositories of its product that the installation holds, never one outside a
+//   key's allow-list (BR-PRODUCT-63). A mint that fails (the App not configured here, removed from the key, not installed,
+//   lacking a permission, its private key not opened, its bot unreadable), or a key that no longer works (BR-PRODUCT-64), ends
+//   the job `failed`, `github app: <why>`: the job is never answered without `github`, never falls back from a key's App to the
+//   Omni App, and never runs as a person. `githubToken` mints a fresh token, of the same App, for the same repositories, for the
+//   job's own runner while the job is claimed or running, and refuses one that ended, whatever its status (PRD 2809 s3).
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { missionRefusal } from 'omni-loop/kit/lib/runner/line.ts';
 import {
-  CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
+  CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, isAppLine, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type BoardSave, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
@@ -111,11 +114,16 @@ export type Served<T> = { ok: true; value: T } | { ok: false; kind: RunnerRefusa
 /** The Omni App's slug and its bot's id, as GitHub names them: the bot is `<slug>[bot]`. */
 export type AppBot = { slug: string; botId: number };
 
-/** What running every job as the Omni App needs beyond the database (PRD 2573 s1, over PRD 2433 s7): the App's credentials and
- * the means to ask GitHub, which the live wiring builds (./runners.github.ts) and a test stubs. */
+/** What running a job as the Omni App, or as its key's App, needs beyond the database (PRD 2915 s1, over PRD 2573 s1 and PRD 2433 s7):
+ * the Omni App's credentials, the means to open a key App's sealed private key and to ask GitHub, which the live wiring builds
+ * (./runners.github.ts) and a test stubs. */
 export interface GithubDeps {
   /** The Omni App's id and private key (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY), or null on a deployment without them. */
   credentials: AppCredentials | null;
+  /** The master key a key App's private key is sealed under, or null on a deployment with none (SECRETS_MASTER_KEY unset or malformed). */
+  master: () => Buffer | null;
+  /** Opens a sealed private key under the master key; throws when it cannot (a key sealed under another master, or garbled). */
+  open: (sealed: { ciphertext: string; iv: string }, master: Buffer) => string;
   /** The App's slug and its bot's id; throws naming GitHub's status. */
   bot: (credentials: AppCredentials, token: string) => Promise<AppBot>;
   /** The App's installation on the repository `owner/name`, or null when it is not installed there; throws naming GitHub's status. */
@@ -129,6 +137,9 @@ export interface GithubDeps {
 /** The repositories, lower case, of the live products that name `repo` in the workspace, each still listed by it: what a mega bug
  * fix no key sent widens its token to (PRD 2573), as api_key_github_app_of_job()'s `product_repos` does for a key's. */
 export type ProductRepos = (workspaceId: string, repo: string) => Promise<string[]>;
+
+/** One of the Omni App's own jobs that ended (PRD 2898 s8): its workspace, its repository and its line. */
+export type AppJobEnded = { workspaceId: string; repo: string; line: string };
 
 /** The product reads of a service built without them: no product, so a mega bug fix no key sent reaches its own repository alone. */
 const NO_PRODUCTS: ProductRepos = () => Promise.resolve([]);
@@ -155,17 +166,26 @@ export function productReposOf(read: ProductReads, repo: string): string[] {
  * token (L-GDPR-2). */
 type FailedMint = { kind: 'failed'; why: string; unreachable: boolean };
 
-/** What a job's token may reach: its repositories beyond its own, or why it may have none. */
-type Reach = { kind: 'reach'; also: string[] } | FailedMint;
+/** The App a key holds, as the database reads it for a job. */
+type KeyApp = NonNullable<AppOfJob['app']>;
 
-/** A token the Omni App minted for a job, with the App that minted it. */
-type Token = { kind: 'token'; deps: GithubDeps; credentials: AppCredentials; minted: MintedToken };
+/** The key's App a job runs as, with the key that holds it. */
+type KeyAppRun = { keyId: string; app: KeyApp };
+
+/** What a job's token may reach: its repositories beyond its own, and the key's App it runs as (null: the Omni App); or why it may have none. */
+type Reach = { kind: 'reach'; also: string[]; keyApp: KeyAppRun | null } | FailedMint;
+
+/** A token an App minted for a job, with the App that minted it and its bot when already known (a key App's, from its stored row). */
+type Token = { kind: 'token'; deps: GithubDeps; credentials: AppCredentials; minted: MintedToken; bot: AppBot | null };
 
 /** The longest why a failed mint keeps: the job's reason is `github app: <why>`, at most 200 characters in all. */
 const MAX_WHY = 150;
 const KEY_STOPPED = 'the API key no longer works: it was revoked, or its maker left the workspace';
 const outsideKey = (repo: string) => `the API key may not reach ${repo}`;
 const NOT_CONFIGURED = 'the Omni App is not configured on this server';
+const APP_REMOVED = 'the key\'s App was removed';
+const NO_MASTER = 'this Omni server has no key to open the App\'s private key';
+const CANNOT_OPEN = 'the App\'s private key could not be opened';
 const ENDED_NO_TOKEN = 'This job has ended: it takes no new GitHub token.';
 
 const failedMint = (why: string, unreachable = false): FailedMint => ({ kind: 'failed', why: why.length <= MAX_WHY ? why : `${why.slice(0, MAX_WHY - 1)}…`, unreachable });
@@ -241,8 +261,36 @@ const allows = (allowed: readonly string[], repo: string): boolean => allowed.le
 /** The repositories besides the job's own that its token should reach: for a skill that spans the product, the other repositories of
  * its product that the allow-list names (or all of them, with no list: a job no key sent has none). Which of them the installation
  * holds is for GitHub to say. */
-function alsoFor(job: Pick<JobRow, 'repo'>, read: Pick<AppOfJob, 'repos' | 'product_repos'>): string[] {
+function alsoFor(job: Pick<JobRow, 'repo'>, read: { repos: readonly string[]; product_repos: readonly string[] }): string[] {
   return [...new Set(read.product_repos)].filter((repo) => repo !== job.repo && allows(read.repos, repo));
+}
+
+/** A key App's private key, opened under the master key, as credentials; the why when this deployment cannot open it. The opened key
+ * lives in this call's memory only: it is never logged, stored or sent, and the box's own words, which speak of ciphers, never reach a why. */
+function openApp(github: GithubDeps, app: KeyApp): AppCredentials | FailedMint {
+  const master = github.master();
+  if (master === null) return failedMint(NO_MASTER);
+  try {
+    return { appId: String(app.app_id), privateKey: github.open(app, master) };
+  } catch {
+    return failedMint(CANNOT_OPEN);
+  }
+}
+
+/** The App a key's job runs as: the key's own when the key holds one or held one when the job was queued (`needs_app`, BR-ACCESS-2), none
+ * (the Omni App) otherwise, and a failure when the job needed one and the key holds none now: it never falls back to the Omni App. */
+function keyAppOf(read: Pick<AppOfJob, 'key_id' | 'needs_app' | 'app'>): { kind: 'app'; app: KeyAppRun | null } | FailedMint {
+  if (!read.needs_app) return { kind: 'app', app: null };
+  return read.app === null ? failedMint(APP_REMOVED) : { kind: 'app', app: { keyId: read.key_id, app: read.app } };
+}
+
+/** The repositories besides `repo` that a job's token reaches when its skill spans the product (BR-ACCESS-1, BR-PRODUCT-63, PRD 2873): the other
+ * repositories of the products that name `repo` (`named`), then those of the products whose plan repository it is (`planned`), once each, each
+ * within the allow-list (an empty one is every repository). Which of them an installation holds is for GitHub to say. The service mints with
+ * it, and a send checks with it (PRD 2915). */
+export function reachedRepos(input: { repo: string; allowed: readonly string[]; named: readonly string[]; planned: readonly string[] }): string[] {
+  const { repo, allowed } = input;
+  return [...new Set([...alsoFor({ repo }, { repos: allowed, product_repos: input.named }), ...alsoFor({ repo }, { repos: allowed, product_repos: input.planned })])];
 }
 
 /** What a minted token reaches a runner as: the token beside the App's bot, who the job's commits read as. */
@@ -584,10 +632,12 @@ const answersEach = (row: Pick<QuestionsRow, 'questions'>, answers: Record<strin
  * configured. `notifier` pings the link of a job a key sent when its status, outcome or questions change (PRD 2425 s8); with none, no
  * link is taken. `products` reads the product repositories a mega bug fix no key sent reaches (PRD 2573); with none, its own alone.
  * `saves` reads the saves a resume's chain left and signs their download links (PRD 2809, s5); with none, a resume carries no save.
- * `woke` is told the mission of a job it sent that ended (PRD 2842 s5), so the mission is woken at once; with none, nothing is. */
+ * `woke` is told the mission of a job it sent that ended (PRD 2842 s5), so the mission is woken at once; with none, nothing is.
+ * `ended` is told each of the Omni App's own jobs that ended (PRD 2898 s8: its e2e fallback, `isAppLine`), so the App reads its
+ * result at once; with none, nothing is. */
 export function runnersService(
   store: RunnersRepository, clock: Clock, github: GithubDeps | null = null, notifier: Notifier = NO_NOTIFIER, products: ProductRepos = NO_PRODUCTS, saves: ResumeSaves = NO_SAVES,
-  woke: (missionId: string) => void = () => undefined,
+  woke: (missionId: string) => void = () => undefined, ended: (job: AppJobEnded) => void = () => undefined,
 ) {
   const iso = () => clock.now().toISOString();
   const ago = (ms: number) => new Date(clock.now().getTime() - ms).toISOString();
@@ -596,10 +646,12 @@ export function runnersService(
 
   /** Tells the job's link that its status, outcome or questions changed (PRD 2425 s8), once the change is stored; a job with no link tells
    * none. The notifier answers after the response and never throws, so a ping never changes what a request answers. */
-  const tell = (job: Pick<JobRow, 'id' | 'notify_url' | 'status' | 'mission_id'>, event: PingEvent): void => {
+  const tell = (job: Pick<JobRow, 'id' | 'notify_url' | 'status' | 'mission_id' | 'workspace_id' | 'repo' | 'line' | 'sent_by_app'>, event: PingEvent): void => {
     if (job.notify_url) notifier.ping({ url: job.notify_url, jobId: job.id, event, at: iso() });
     // A job a mission sent that ended wakes that mission at once (PRD 2842 s5); a question is no end.
     if (event !== 'questions' && job.mission_id && ENDED.includes(job.status)) woke(job.mission_id);
+    // One of the App's own jobs that ended (PRD 2898 s8) is told to the App, which reads its result from the job's log tail.
+    if (event !== 'questions' && job.sent_by_app !== null && ENDED.includes(job.status) && isAppLine(job.line)) ended({ workspaceId: job.workspace_id, repo: job.repo, line: job.line });
   };
   /** Tells the link of a job the change that took it from `before` to `after`, when it is one. */
   const tellChange = (before: JobRow, after: JobRow): void => {
@@ -740,41 +792,71 @@ export function runnersService(
   }
 
   /**
-   * What the job's token may reach beyond its own repository (PRD 2573): for a job an API key sent, a key that no longer works
-   * (revoked, or its maker left) fails it (BR-PRODUCT-64), and so does a job whose own repository the key may not reach; a skill
-   * that spans the product (a mega bug fix, an ultra skill: PRD 2873) also reaches the other repositories of its product within the
-   * key's allow-list, the others never even asked of GitHub (BR-PRODUCT-63). A job no key sent was checked against its workspace
-   * when it was sent: such a skill of it reaches its product's other repositories. The key's own App is never read.
+   * What the job's token may reach beyond its own repository, and the App it runs as (PRD 2573, PRD 2915): for a job an API key sent, a key
+   * that no longer works (revoked, or its maker left) fails it (BR-PRODUCT-64), and so does a job whose own repository the key may not
+   * reach; a skill that spans the product (a mega bug fix, an ultra skill: PRD 2873) also reaches the other repositories of its product
+   * within the key's allow-list, the others never even asked of GitHub (BR-PRODUCT-63). A job runs as its key's App when the key holds one,
+   * or held one when the job was queued (`needs_app`, BR-ACCESS-2); one whose App was removed since fails, and never falls back to the Omni
+   * App. A job no key sent was checked against its workspace when it was sent: such a skill of it reaches its product's other repositories.
    */
   async function reachOf(job: Pick<JobRow, 'id' | 'repo' | 'line' | 'sent_by_key' | 'workspace_id'>): Promise<Reach> {
     const spans = spansProduct(job.line);
-    if (job.sent_by_key === null) return { kind: 'reach', also: spans ? await productReach(job, { repos: [], product_repos: await products(job.workspace_id, job.repo) }) : [] };
+    if (job.sent_by_key === null) return { kind: 'reach', also: spans ? await productReach(job, { repos: [], product_repos: await products(job.workspace_id, job.repo) }) : [], keyApp: null };
     const read = await store.appOfJob(job.id);
     // No answer for a key's job is no allow-list: it never reads as an empty one, which allows everything.
     if (read?.working !== true) return failedMint(KEY_STOPPED);
     if (!allows(read.repos, job.repo)) return failedMint(outsideKey(job.repo));
-    return { kind: 'reach', also: spans ? await productReach(job, read) : [] };
+    const keyApp = keyAppOf(read);
+    if (keyApp.kind === 'failed') return keyApp;
+    return { kind: 'reach', also: spans ? await productReach(job, read) : [], keyApp: keyApp.app };
   }
 
   /** The product's other repositories a job that spans it reaches, within the allow-list: those of the products that name its repository,
    * then those of the products whose plan repository it is (PRD 2873), once each. */
   async function productReach(job: Pick<JobRow, 'repo' | 'workspace_id'>, read: Pick<AppOfJob, 'repos' | 'product_repos'>): Promise<string[]> {
     const planned = planReposOf(await store.productPlans(job.workspace_id), job.repo);
-    return [...new Set([...alsoFor(job, read), ...alsoFor(job, { repos: read.repos, product_repos: planned })])];
+    return reachedRepos({ repo: job.repo, allowed: read.repos, named: read.product_repos, planned });
+  }
+
+  /** The key's `last token` label in Settings: a mint that could not be recorded is still a mint, and the job runs. */
+  async function recordMint(keyId: string): Promise<void> {
+    try {
+      await store.appMinted(keyId);
+    } catch {
+      // Left unrecorded: nothing the runner needs hangs on it.
+    }
   }
 
   /**
-   * A token of the Omni App for the job, minted now (PRD 2573): on the App's installation on the job's repository, for that
-   * repository and the others its reach allows that the installation holds. A deployment without the App, a key that no longer
-   * works, an uninstalled App, a missing permission or a GitHub that refuses each fail it: it never runs as anyone else.
+   * A token of the App the job runs as, minted now (PRD 2573, PRD 2915): its key's App, its private key opened in memory, or the Omni App;
+   * on the App's installation on the job's repository, for that repository and the others its reach allows that the installation holds.
+   * A deployment without the App or the key to open it, a key that no longer works, an uninstalled App, a missing permission or a GitHub
+   * that refuses each fail it: a job never runs as another App than its own, and never as anyone else.
    */
   async function tokenFor(job: Pick<JobRow, 'id' | 'repo' | 'line' | 'sent_by_key' | 'workspace_id'>): Promise<Token | FailedMint> {
     const reach = await reachOf(job);
     if (reach.kind === 'failed') return reach;
+    return reach.keyApp === null ? mintAsOmni(job.repo, reach.also) : mintAsKeyApp(job.repo, reach.also, reach.keyApp);
+  }
+
+  /** A token of the Omni App, whose bot is read from GitHub (null here). */
+  async function mintAsOmni(repo: string, also: readonly string[]): Promise<Token | FailedMint> {
     const credentials = github?.credentials ?? null;
     if (github === null || credentials === null) return failedMint(NOT_CONFIGURED);
-    const minted = await mintOn(github, credentials, job.repo, reach.also);
-    return 'kind' in minted ? minted : { kind: 'token', deps: github, credentials, minted };
+    const minted = await mintOn(github, credentials, repo, also);
+    return 'kind' in minted ? minted : { kind: 'token', deps: github, credentials, minted, bot: null };
+  }
+
+  /** A token of the key's App, its private key opened in this call's memory; the mint is recorded for the key's `last token`, and its bot
+   * is the one stored when the App was attached. */
+  async function mintAsKeyApp(repo: string, also: readonly string[], key: KeyAppRun): Promise<Token | FailedMint> {
+    if (github === null) return failedMint(NO_MASTER);
+    const opened = openApp(github, key.app);
+    if ('kind' in opened) return opened;
+    const minted = await mintOn(github, opened, repo, also);
+    if ('kind' in minted) return minted;
+    await recordMint(key.keyId);
+    return { kind: 'token', deps: github, credentials: opened, minted, bot: { slug: key.app.slug, botId: key.app.bot_id } };
   }
 
   /** The Omni App's bot, read from GitHub once for this service; why not, when GitHub cannot name it. */
@@ -788,17 +870,17 @@ export function runnersService(
     }
   }
 
-  /** The Omni App's grant for a job a runner claimed: the token and the bot it runs as; why not otherwise. */
+  /** The grant for a job a runner claimed: the token and the bot of the App it runs as (a key App's read from its stored row, the Omni App's from GitHub); why not otherwise. */
   async function grantFor(job: JobRow): Promise<{ kind: 'grant'; grant: GithubGrant } | FailedMint> {
     const token = await tokenFor(job);
     if (token.kind === 'failed') return token;
-    const named = await botOf(token.deps, token.credentials, token.minted.token);
+    const named = token.bot ?? await botOf(token.deps, token.credentials, token.minted.token);
     return 'kind' in named ? named : { kind: 'grant', grant: grantOf(named, token.minted) };
   }
 
   /**
-   * The answer to a runner that claimed `job`, or null when the job ended failed instead. Every job runs as the Omni App and
-   * takes its token now (PRD 2573); one the App cannot mint for ends failed and is never answered without `github`.
+   * The answer to a runner that claimed `job`, or null when the job ended failed instead. Every job takes its token now (PRD 2573,
+   * PRD 2915), of its key's App or the Omni App; one the App cannot mint for ends failed and is never answered without `github`.
    */
   async function replyTo(job: JobRow): Promise<RunnerJob | null> {
     const granted = await grantFor(job);
@@ -1047,11 +1129,11 @@ export function runnersService(
     },
 
     /**
-     * A fresh token of the Omni App a job runs as (PRD 2573), for the runner that claimed it, while the job is claimed or
+     * A fresh token of the App a job runs as (PRD 2573, PRD 2915: its key's App, or the Omni App), for the runner that claimed it, while the job is claimed or
      * running: the runner releases the job's claims before it reports the end. A job that ended, whatever its status, is
      * refused (409, PRD 2809 s3): a replaced attempt keeps only the token it holds, which runs out within its hour.
      * Another runner's owner is refused (403); a job the App can no longer mint for is 409 too (its words say why: the
-     * App not configured here, a key that stopped working); GitHub out of reach is 503, for a later try.
+     * App not configured here, a key that stopped working, a key's App that cannot mint); GitHub out of reach is 503, for a later try.
      */
     async githubToken(caller: string, jobId: string): Promise<Served<GithubTokenReply>> {
       const held = await reporting(caller, jobId);

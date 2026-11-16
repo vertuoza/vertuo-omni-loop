@@ -1,12 +1,25 @@
 # The checks of a ready pull request into main (PRD 598): `test` runs `pnpm test`, `typecheck` runs
 # `pnpm typecheck` (PRD 725), `lint` runs `pnpm lint` (PRD 976) and `fallow` runs `pnpm fallow:audit`, each against
 # its own gate, side by side. `test` and `lint` each run as shards (PRD 1042), gathered into one check
-# of that name; scripts/checks-workflow.test.ts holds that shape. A draft runs nothing, and neither does
-# a sub-PR into a feature branch (its base is neither main nor a mission branch). A feature PR into a mission
+# of that name; scripts/checks-workflow.test.ts holds that shape. A draft runs nothing (unless labelled,
+# below), and neither does a sub-PR into a feature branch (its base is neither main nor a mission branch). A feature PR into a mission
 # branch (`mission/**`, `branches.mission` in .omni-loop/config.yml, PRD 2896) is checked as one into main. A pull request that changes only docs runs
 # `settle` alone, which answers stale at once: its checks report as skipped, never missing, so a
 # required check on main lets it merge.
 # Marking a feature PR ready is what grades it, then every push after.
+#
+# A draft labelled `omni:ready-check` (`labels.readyCheck`, PRD 2898) is graded as a ready one: a
+# gated skill adds the label before `omni ready`, so the full checks, the e2e job and the acceptance
+# report run on the draft's latest commit, then again on each push to it. Marking that draft ready
+# runs nothing more (its latest commit was graded already), and adding any other label runs nothing
+# and cancels nothing: a run of its own does nothing in a group of its own. An unlabelled draft runs
+# nothing, as before. The gate is one expression, written twice below (the concurrency group and
+# `settle`), which scripts/checks-workflow.test.ts evaluates event by event.
+#
+# The acceptance report (PRD 2898): each test shard keeps vitest's JSON report, the e2e job runs the
+# PRD's `e2e` scenarios on the pull request's preview, and `acceptance report` gathers both into the
+# report of the head commit (scripts/acceptance-report.ts), kept as the `acceptance-report` artifact
+# and written as the check run `acceptance` once nothing in it waits on a runner.
 #
 # `settle` waits first (scripts/settle-head.sh carries the numbers): a newer push cancels this run
 # while it is still one idle runner (the concurrency group below), and a branch that moved anyway
@@ -19,19 +32,32 @@ name: checks
 on:
   pull_request:
     branches: [main, 'mission/**']
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 permissions:
   contents: read
   pull-requests: read
 # A draft run has a group of its own (issue 1167): a push and `gh pr ready` seconds apart start a
 # draft `synchronize` run, which runs nothing, beside the `ready_for_review` run, and in one shared
-# group either could cancel the other, leaving the ready PR green with no check run at all.
+# group either could cancel the other, leaving the ready PR green with no check run at all. A run that
+# grades (a ready pull request, a labelled draft) is in the `ready` group; a run that does nothing on
+# a label or on ready (above) is alone in a group named by its run id, so it never cancels one.
 concurrency:
-  group: checks-${{ github.head_ref }}-${{ github.event.pull_request.draft && 'draft' || 'ready' }}
+  group: >-
+    checks-${{ github.head_ref }}-${{
+    (github.event.action == 'labeled' && github.event.label.name == 'omni:ready-check' && github.event.pull_request.draft
+    || github.event.action == 'ready_for_review' && !contains(github.event.pull_request.labels.*.name, 'omni:ready-check')
+    || github.event.action != 'labeled' && github.event.action != 'ready_for_review' && (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'omni:ready-check')))
+    && 'ready'
+    || (github.event.action == 'labeled' || github.event.action == 'ready_for_review') && github.run_id
+    || 'draft' }}
   cancel-in-progress: true
 jobs:
   settle:
-    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'docs/phase-0-')
+    if: >-
+      ${{ !startsWith(github.head_ref, 'docs/phase-0-')
+      && (github.event.action == 'labeled' && github.event.label.name == 'omni:ready-check' && github.event.pull_request.draft
+      || github.event.action == 'ready_for_review' && !contains(github.event.pull_request.labels.*.name, 'omni:ready-check')
+      || github.event.action != 'labeled' && github.event.action != 'ready_for_review' && (!github.event.pull_request.draft || contains(github.event.pull_request.labels.*.name, 'omni:ready-check'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 6
     outputs:
@@ -46,7 +72,8 @@ jobs:
         run: bash scripts/settle-head.sh
 
   # `pnpm test` in 3 shards side by side (PRD 1042): each runs a third of the files through vitest's own
-  # `--shard`, and none cancels another, so every failure shows.
+  # `--shard`, and none cancels another, so every failure shows. Each keeps vitest's JSON report, even
+  # when a test failed: the acceptance report reads the tests titled `AC-<n>: …` from it (PRD 2898).
   test-shard:
     name: test shard ${{ matrix.shard }}/3
     needs: settle
@@ -63,7 +90,14 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm vitest run --shard=${{ matrix.shard }}/3
+      - run: pnpm vitest run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=json --outputFile.json=.acceptance/vitest-${{ matrix.shard }}.json
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-vitest-${{ matrix.shard }}
+          path: .acceptance/vitest-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 14
 
   # The one `test` check, gathered from its shards: green only when every shard passed. `always()` runs
   # it after a failed shard, to fail itself; a stale settle still skips it, as it skips the shards.
@@ -135,3 +169,115 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm fallow:audit
+
+  # The PRD's `e2e` scenarios on the pull request's preview (PRD 2898). The job always runs behind
+  # settle, so its check is never a skipped one; its plan step decides whether there is anything to
+  # run: a pull request that is no PRD's feature PR, a PRD with no `e2e` criterion, `e2e.ci` false,
+  # no `e2e.url` or no model key run nothing here, and the acceptance report says why (a runner of
+  # the workspace runs them instead when `e2e.ci` is false). Otherwise it waits for the preview of the
+  # head commit, runs the tests tagged `prd-<n>` with telemetry off, and keeps `.e2e/` (the report,
+  # junit.xml and the HTML report: steps and screenshots) as the `e2e-report` artifact. The model key
+  # and the protection bypass come from secrets, only into the step that runs the tests (L-GDPR-2).
+  e2e:
+    needs: settle
+    if: needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      deployments: read
+    outputs:
+      state: ${{ steps.plan.outputs.state }}
+    env:
+      E2E_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.event.pull_request.head.sha }}' }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # The head branch is the pull request's to name, so it reaches the shell as a variable, never
+      # spliced into the command.
+      - id: plan
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          KEY_SET: ${{ secrets.OPENROUTER_API_KEY != '' }}
+        run: node scripts/acceptance-report.ts e2e-plan --branch "$HEAD_REF" --key-set "$KEY_SET"
+      - id: preview
+        if: steps.plan.outputs.state == 'ran'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/acceptance-report.ts preview --repo "$GITHUB_REPOSITORY" --head "$HEAD_SHA"
+      - if: steps.plan.outputs.state == 'ran'
+        run: pnpm --filter @omni/e2e exec e2e-web install chromium --with-deps
+      - if: steps.plan.outputs.state == 'ran'
+        env:
+          APP_URL: ${{ steps.preview.outputs.url }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          PRD: ${{ steps.plan.outputs.prd }}
+        run: pnpm --filter @omni/e2e exec e2e run --tag "prd-$PRD" --pass-with-no-tests
+      - if: ${{ !cancelled() && steps.plan.outputs.state == 'ran' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            e2e/.e2e/
+            !e2e/.e2e/cache/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # The acceptance report of the head commit (PRD 2898, scripts/acceptance-report.ts): each criterion
+  # of the PRD's spec with its proof, from the shards' tests titled `AC-<n>: …` in the files the pull
+  # request changed and from the e2e job's report. It runs after a failed shard or e2e job too, since
+  # a failed proof is still a result. It keeps the report as the `acceptance-report` artifact and, once
+  # nothing in it waits on a runner, writes it on the head commit as the check run `acceptance`, its
+  # text the report itself. A pull request that is no PRD's feature PR gets no report.
+  acceptance-report:
+    name: acceptance report
+    needs: [settle, test-shard, e2e]
+    if: always() && needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      # The head commit itself, with the whole history: the spec is read there, and the changed files
+      # are measured from the base.
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.event.pull_request.head.sha }}', fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: acceptance-vitest-*
+          merge-multiple: true
+          path: .acceptance/vitest
+      - if: needs.e2e.outputs.state == 'ran'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-report
+          path: e2e/.e2e
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          E2E_STATE: ${{ needs.e2e.outputs.state }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          node scripts/acceptance-report.ts post --repo "$GITHUB_REPOSITORY" --branch "$HEAD_REF" --head "$HEAD_SHA"
+          --base "origin/$GITHUB_BASE_REF" --vitest .acceptance/vitest --e2e-state "$E2E_STATE"
+          --e2e-report e2e/.e2e/report.json --out .acceptance/report.json --details-url "$RUN_URL"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-report
+          path: .acceptance/report.json
+          if-no-files-found: ignore
+          retention-days: 14

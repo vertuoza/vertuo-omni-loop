@@ -39,10 +39,10 @@ export const VerdictSchema = z.object({
 });
 
 /** One member's verdict. */
-export type Verdict = z.infer<typeof VerdictSchema>;
+export type MemberVerdict = z.infer<typeof VerdictSchema>;
 
 /** What a vote comes to: carried, or escalated with why, one line each; the verdicts as recorded, in the committee's order. */
-export type Tally = { outcome: 'carried' | 'escalated'; why: string[]; verdicts: Verdict[] };
+export type Tally = { outcome: 'carried' | 'escalated'; why: string[]; verdicts: MemberVerdict[] };
 
 const NAMES: Readonly<Record<CommitteeRole, string>> = { pm: 'PM', architect: 'Architect', reviewer: 'Reviewer' };
 
@@ -53,7 +53,7 @@ const roleName = (role: CommitteeRole): string => `the ${NAMES[role]}`;
 export const sitting = (author: CommitteeRole | null): CommitteeRole[] => COMMITTEE_ROLES.filter((role) => role !== author);
 
 /** Why a verdict that is not `yes` escalates. */
-function whyOf({ role, answer, sentence }: Verdict): string {
+function whyOf({ role, answer, sentence }: MemberVerdict): string {
   if (answer === 'failed') return `${roleName(role)} failed, counted unsure: ${sentence}`;
   if (answer === 'timeout') return `${roleName(role)} timed out, counted unsure: ${sentence}`;
   return `${roleName(role)} answered ${answer}: ${sentence}`;
@@ -62,11 +62,11 @@ function whyOf({ role, answer, sentence }: Verdict): string {
 const NO_VERDICT = 'It gave no verdict.';
 
 /** The vote on `verdicts`, the hero `author` sitting out (null when no hero of the fleet wrote it). */
-export function tally(verdicts: readonly Verdict[], author: CommitteeRole | null): Tally {
+export function tally(verdicts: readonly MemberVerdict[], author: CommitteeRole | null): Tally {
   const why: string[] = [];
   if (author !== null && verdicts.some((verdict) => verdict.role === author)) why.push(`${roleName(author)} wrote it and may not vote on it`);
   for (const role of COMMITTEE_ROLES) if (verdicts.filter((verdict) => verdict.role === role).length > 1) why.push(`${roleName(role)} answered twice`);
-  const recorded: Verdict[] = sitting(author).map((role) => verdicts.find((verdict) => verdict.role === role) ?? { role, answer: 'failed', sentence: NO_VERDICT });
+  const recorded: MemberVerdict[] = sitting(author).map((role) => verdicts.find((verdict) => verdict.role === role) ?? { role, answer: 'failed', sentence: NO_VERDICT });
   if (why.length === 0) why.push(...recorded.filter((verdict) => verdict.answer !== 'yes').map(whyOf));
   return { outcome: why.length === 0 ? 'carried' : 'escalated', why, verdicts: recorded };
 }
@@ -75,7 +75,7 @@ export function tally(verdicts: readonly Verdict[], author: CommitteeRole | null
 const VotesSchema = z.object({ verdicts: z.array(VerdictSchema).max(COMMITTEE_ROLES.length + 1) });
 
 /** The verdicts of a votes file, or every field it is refused for, one line each. */
-export function parseVotes(input: unknown): { ok: true; verdicts: Verdict[] } | { ok: false; errors: string[] } {
+export function parseVotes(input: unknown): { ok: true; verdicts: MemberVerdict[] } | { ok: false; errors: string[] } {
   const parsed = VotesSchema.safeParse(input);
   if (parsed.success) return { ok: true, verdicts: parsed.data.verdicts };
   return { ok: false, errors: parsed.error.issues.map((issue) => `${issue.path.join('.') || 'votes'}: ${issue.message}`) };
