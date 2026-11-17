@@ -39,7 +39,12 @@ export function testContext(root: string, overrides: Overrides = {}): Context {
   return createContext(root, config);
 }
 
-export function makeRepo({ files = {}, config = {}, git = false }: { files?: Readonly<Record<string, string | undefined>>; config?: Overrides; git?: boolean } = {}) {
+/**
+ * A temporary repository holding `files`. With `git`, they are committed on `main`; with `fetched` as
+ * well, `origin/main` points at that commit, as a checkout that fetched its default branch has it,
+ * so a gate grading the range since the default branch reads an empty one (#2999).
+ */
+export function makeRepo({ files = {}, config = {}, git = false, fetched = false }: { files?: Readonly<Record<string, string | undefined>>; config?: Overrides; git?: boolean; fetched?: boolean } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'omni-'));
   const write = (path: string, text: string) => {
     mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -54,6 +59,7 @@ export function makeRepo({ files = {}, config = {}, git = false }: { files?: Rea
       run('add', '-A');
       run('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'fixture');
     }
+    if (fetched) run('update-ref', 'refs/remotes/origin/main', 'HEAD');
   }
   return { root, ctx: testContext(root, config), write, read: (path: string) => readFileSync(join(root, path), 'utf8') };
 }

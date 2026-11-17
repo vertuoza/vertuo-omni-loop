@@ -209,6 +209,24 @@ describe('riskyChanges — law-proof', () => {
     expect(rulesFiredOn('scripts/unrelated.mjs')).toEqual([]);
   });
 
+  // #3005: a proposed entry is no law yet (P-PRODUCT-81), so the item a slice raises on its proof
+  // is ranked medium; the gate must not ask a person for that proof either.
+  it('does not fire on a path only a proposed entry names', () => {
+    seed(INVARIANTS, ['## N1', '', 'Not yet a law.', '', 'Enforced by: scripts/check-proposed.mjs', 'Proposed: harvest 2026-10-01', ''].join('\n'));
+    expect(rulesFiredOn('scripts/check-proposed.mjs')).toEqual([]);
+  });
+
+  it('still fires on a path a confirmed entry names beside a proposed one', () => {
+    seed(
+      INVARIANTS,
+      [
+        '## N1', '', 'Not yet a law.', '', 'Enforced by: scripts/check-shared.mjs', 'Proposed: harvest 2026-10-01', '',
+        '## N2', '', 'A law.', '', 'Enforced by: scripts/check-shared.mjs', '',
+      ].join('\n'),
+    );
+    expect(rulesFiredOn('scripts/check-shared.mjs')).toEqual(['law-proof']);
+  });
+
   it('splits a comma-separated Enforced by: line into several proof paths', () => {
     seed(
       INVARIANTS,
