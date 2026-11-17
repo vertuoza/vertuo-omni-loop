@@ -75,5 +75,7 @@ export function qaLine(log: string): QaPosted | null {
   const verdict = QaVerdictSchema.safeParse(word === 'pass' ? { round: Number(round), verdict: 'pass' } : { round: Number(round), verdict: 'bugs', bugs });
   const posted = PrNumberSchema.safeParse(Number(pr));
   if (!verdict.success || !posted.success) return null;
-  return { verdict: verdict.data, count: verdict.data.verdict === 'pass' ? 0 : verdict.data.bugs.length, pr: posted.data, url: COMMENT_URL.test(url) ? url : null };
+  return { verdict: verdict.data, count: verdict.data.verdict === 'pass' ? 0 : verdict.data.bugs.length, pr: posted.data, url: commentUrl(url) };
 }
+
+const commentUrl = (url: string | undefined): string | null => (url !== undefined && COMMENT_URL.test(url) ? url : null);
