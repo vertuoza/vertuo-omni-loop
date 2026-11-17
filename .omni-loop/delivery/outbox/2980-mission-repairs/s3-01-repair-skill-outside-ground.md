@@ -2,7 +2,7 @@
 id: s3-01-repair-skill-outside-ground
 prd: 2980
 slice: s3
-rank: medium
+rank: high
 bears-on: none
 raised: 2026-11-17
 wave: 2
@@ -46,3 +46,9 @@ Undoing it removes repair from those lists again; the skill folder then fails th
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) the plan lists none of these paths in s3's territory, though the wave's note named them.
+
+## Raised to high by the wave
+
+Two of these files prove rules: `runners.skills.migration.test.ts` (BR-PRODUCT-140) and
+`virtual-fleets.controller.test.ts` (BR-GAME-2). Each only adds `repair` to an expected list of
+skills; the rules' own assertions are unchanged. A change to a rule's proof is answered by a person.
