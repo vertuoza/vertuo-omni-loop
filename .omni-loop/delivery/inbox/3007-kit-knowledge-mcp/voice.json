@@ -1,0 +1,34 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-17",
+      "personas": [
+        {"name": "B-E DEv", "stance": "skeptical", "score": 2, "reaction": "One more MCP server in every session sounds like fluff to me, unless it costs nothing until my agent actually needs a rule.", "citations": ["persona:B-E DEv"]},
+        {"name": "F-E Developer", "stance": "skeptical", "score": 3, "reaction": "If the runner's agents read the real rules before they decide, there is less slop for me to catch in review.", "citations": ["persona:F-E Developer"]},
+        {"name": "Paul - Product Manager", "stance": "enthusiastic", "score": 5, "reaction": "Every runner I send a PRD to knows the product's laws with no setup: that is what lets me ship across repositories.", "citations": ["persona:Paul - Product Manager"]},
+        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "Every agent on the team, not only the ones whose owner pasted a key, reads the same ADRs: that is the cohesion I want.", "citations": ["persona:Lead Engineer"]},
+        {"name": "Irisa", "stance": "neutral", "score": 4, "reaction": "Nothing to paste for my mobile team: if I am signed in, it works.", "citations": ["persona:Irisa"]}
+      ],
+      "objection": {
+        "persona": "B-E DEv",
+        "text": "One more MCP server in every session sounds like fluff to me. If it slows my session or answers junk, I will switch it off.",
+        "citations": ["persona:B-E DEv", "persona:F-E Developer"],
+        "settled": "accepted"
+      },
+      "fit": "Fits the PM, the lead engineer and Irisa best, and the skeptical back-end developer worst, until the server was made silent before its first call."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-17",
+      "personas": [
+        {"name": "B-E DEv", "stance": "skeptical", "score": 3, "reaction": "Silent until called, one line when it fails, and the ids cited: I can check it is not fluff.", "citations": ["persona:B-E DEv"]},
+        {"name": "F-E Developer", "stance": "skeptical", "score": 4, "reaction": "Outbox items that cite the rule they followed are something I can review instead of guessing.", "citations": ["persona:F-E Developer"]},
+        {"name": "Paul - Product Manager", "stance": "enthusiastic", "score": 5, "reaction": "Runners on fixed skills finally read the product's knowledge with their own token.", "citations": ["persona:Paul - Product Manager"]},
+        {"name": "Lead Engineer", "stance": "neutral", "score": 4, "reaction": "One switch stops every agent, keys and sign-ins alike: I keep control.", "citations": ["persona:Lead Engineer"]},
+        {"name": "Irisa", "stance": "neutral", "score": 4, "reaction": "No key to make and no line to paste: it is just there.", "citations": ["persona:Irisa"]}
+      ],
+      "fit": "Fits every persona at 3 or more; the skeptical back-end developer waits to see that it stays silent until used."
+    }
+  ]
+}
