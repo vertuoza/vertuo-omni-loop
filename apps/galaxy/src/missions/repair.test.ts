@@ -83,7 +83,7 @@ describe('the Operation room (AC-10)', () => {
     expect(out).toContain(`<a href="${PR(2984)}">PR 2984</a>`);
   });
 
-  it('draws the Stopped block under the now lines, with Resume, the repairs tried and the proposed fix', () => {
+  it('AC-10: draws the Stopped block under the now lines, with Resume, the repairs tried and the proposed fix', () => {
     const stopped = repairLinesOf(stoppedFacts());
     const out = renderToStaticMarkup(createElement(RoomTab, { view: viewOf({ stopped }), keep: {} }));
     expect(out).toContain('PRD 2801 stopped');

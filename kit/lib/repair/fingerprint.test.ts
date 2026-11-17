@@ -9,7 +9,7 @@ const failure = (line: number, at: string, hash: string, tmp: string) => ({
 });
 
 describe('fingerprint', () => {
-  it('gives two failures of one test, at other lines, times, hashes and temporary paths, one fingerprint', () => {
+  it('AC-2: gives two failures of one test, at other lines, times, hashes and temporary paths, one fingerprint', () => {
     const first = failure(12, '2026-11-17T02:00:00.123Z', 'a1b2c3d', '/tmp/vitest-x7k2Qa');
     const second = failure(40, '2026-11-18T14:31:07Z', 'f9e8d7c6b5a4f9e8d7c6b5a4f9e8d7c6b5a4f9e8', '/private/var/folders/9z/k3j2h1/T/vitest-Pq81');
     expect(fingerprint(first)).toBe(fingerprint(second));

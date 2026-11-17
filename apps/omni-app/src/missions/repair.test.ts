@@ -135,7 +135,7 @@ describe('a failed step is repaired (AC-1)', () => {
     expect(fake.repairJobs()).toHaveLength(1);
   });
 
-  it('lands its fix on the mission branch once green, sends the step again, and the repair ends fixed', async () => {
+  it('AC-1: lands its fix on the mission branch once green, sends the step again, and the repair ends fixed', async () => {
     const gh = githubOf({ 51: fixPull(51, { runs: [{ id: 1, name: 'test', status: 'in_progress', conclusion: null, title: null }] }) });
     const { fake, run } = setup({ joins: gh.joins });
     await failed(fake, run);
@@ -182,7 +182,7 @@ function setupAgain(fake: Fake, joins: MissionJoins) {
 }
 
 describe('a flake is retried, a person\'s decision stops (AC-9)', () => {
-  it('sends the step once more with no fix for a flake', async () => {
+  it('AC-9: sends the step once more with no fix for a flake', async () => {
     const { fake, run } = setup();
     await failed(fake, run);
     fake.endRepairJob(p(1), { status: 'done' }, line(1, 'flake', { place: 'pnpm test', message: 'socket hang up' }));
@@ -191,7 +191,7 @@ describe('a flake is retried, a person\'s decision stops (AC-9)', () => {
     expect(fake.repairRows()[0]).toMatchObject({ fixPr: null, outcome: null });
   });
 
-  it('stops its PRD with the question for a person', async () => {
+  it('AC-9: stops its PRD with the question for a person', async () => {
     const { fake, run } = setup();
     await failed(fake, run);
     fake.endRepairJob(p(1), { status: 'done' }, line(1, 'person', { place: 'deploy key', message: 'Permission denied' }));
@@ -203,7 +203,7 @@ describe('a flake is retried, a person\'s decision stops (AC-9)', () => {
 });
 
 describe('an Omni Loop bug is reported once, scrubbed (AC-5, AC-6)', () => {
-  it('adds the scrubbed report to the ledger, then waits on the Omni Loop bug it was filed as', async () => {
+  it('AC-5: adds the scrubbed report to the ledger, then waits on the Omni Loop bug it was filed as', async () => {
     const { fake, run } = setup();
     await failed(fake, run);
     // The retro, kept in the workspace, names its repository, login and path; the report the skill scrubbed still names the
@@ -226,7 +226,7 @@ describe('an Omni Loop bug is reported once, scrubbed (AC-5, AC-6)', () => {
     expect(fake.added()).toHaveLength(1);
   });
 
-  it('files nothing when the report cannot be proven clean, and says why on the mission alone', async () => {
+  it('AC-6: files nothing when the report cannot be proven clean, and says why on the mission alone', async () => {
     const { fake, run } = setup();
     await failed(fake, run);
     // The repair met a token it could not scrub out of the message: it left its report null, as /omni:repair does.
@@ -247,7 +247,7 @@ describe('the budget: 3 per cause, 9 per mission (AC-3, AC-4, AC-7, AC-8)', () =
     await run();
   }
 
-  it('stops a cause after 3 repairs in the round, explaining, and the database keeps no 4th', async () => {
+  it('AC-3: stops a cause after 3 repairs in the round, explaining, and the database keeps no 4th', async () => {
     const { fake, run } = setup();
     await run();
     for (let n = 0; n < 3; n += 1) await failAndFlake(fake, run);
@@ -258,7 +258,7 @@ describe('the budget: 3 per cause, 9 per mission (AC-3, AC-4, AC-7, AC-8)', () =
     expect(fake.mission().waitingOn).toMatch(/^PRD 1 stopped: its cause \[[0-9a-f]{8}\] was repaired 3 times: The quote total is not rounded\. Tried: retry not fixed, retry not fixed, retry not fixed\. Proposed fix: Round the total before it is compared\. Resume gives each cause 3 more \(6 of 9 left in this mission\)\. Take it to ready by hand/);
   });
 
-  it('a Resume opens a new round: the cause gets 3 again, and the mission\'s 9 stay counted', async () => {
+  it('AC-8: a Resume opens a new round: the cause gets 3 again, and the mission\'s 9 stay counted', async () => {
     const { fake, run } = setup();
     await run();
     for (let n = 0; n < 4; n += 1) await failAndFlake(fake, run);
@@ -272,7 +272,7 @@ describe('the budget: 3 per cause, 9 per mission (AC-3, AC-4, AC-7, AC-8)', () =
     expect(fake.mission().waitingOn).toBe('PRD 1: repairing (2 of 3) · 4 left in this mission');
   });
 
-  it('never runs a 10th repair: the PRD stops saying the mission spent its 9', async () => {
+  it('AC-4: never runs a 10th repair: the PRD stops saying the mission spent its 9', async () => {
     const { fake, run } = setup({ mission: record({ parallel: 1, scope: { prds: [p(1), p(2), p(3), p(4)], roadmaps: [] } }), all: [facts(1), facts(2), facts(3), facts(4)] });
     await run();
     // Three PRDs, three causes each: 9 repairs, each a flake of its own cause.
@@ -289,7 +289,7 @@ describe('the budget: 3 per cause, 9 per mission (AC-3, AC-4, AC-7, AC-8)', () =
     expect(fake.mission().waitingOn).toBe('PRD 4 stopped: its job failed: exit code 1, and the mission spent its 9 repairs. Take it to ready by hand and the mission carries on.');
   });
 
-  it('a lost repair spends nothing; an unreadable record spends one and is repaired again', async () => {
+  it('AC-7: a lost repair spends nothing; an unreadable record spends one and is repaired again', async () => {
     const { fake, run } = setup();
     await failed(fake, run);
     fake.loseRepair(p(1));
