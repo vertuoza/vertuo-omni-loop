@@ -1,4 +1,4 @@
-// The raw-value lint (PRD omni-loop-10): stylelint.config.mjs refuses a raw font size, space, radius,
+// The raw-value lint (PRD omni-loop-10): stylelint.config.ts refuses a raw font size, space, radius,
 // shadow or colour, accepts a token read, and the design parts' stylesheets pass it.
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -6,14 +6,14 @@ import stylelint from 'stylelint';
 import { describe, expect, it } from 'vitest';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const configFile = `${root}stylelint.config.mjs`;
+const configFile = `${root}stylelint.config.ts`;
 
 async function warnings(css: string): Promise<string[]> {
   const { results } = await stylelint.lint({ code: css, configFile });
   return results.flatMap((result) => result.warnings.map((warning) => warning.rule));
 }
 
-describe('stylelint.config.mjs', () => {
+describe('stylelint.config.ts', () => {
   it.each([
     'font-size: 14px',
     'padding: 8px',

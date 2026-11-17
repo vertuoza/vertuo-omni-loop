@@ -1,3 +1,5 @@
+import type { Config } from 'stylelint';
+
 // The raw-value lint (PRD omni-loop-10): a stylesheet under the paths `pnpm lint` hands to stylelint
 // (`STYLELINT_PATHS` in scripts/lint-repository.ts) writes every font size, space, radius, shadow
 // and colour as a token (`var(--space-3)`), never as a number or a hex. Border widths, outlines and
@@ -14,8 +16,8 @@ const spacing = ['padding', 'padding-top', 'padding-right', 'padding-bottom', 'p
 const radii = ['border-radius', 'border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius'];
 const colours = ['color', 'background-color', 'background', 'border-color', 'outline-color', 'fill', 'stroke'];
 
-/** @type {import('stylelint').Config} */
-export default {
+/** The stylelint rules. */
+const config: Config = {
   rules: {
     'declaration-property-value-allowed-list': {
       'font-size': [/^var\(--type-[a-z0-9-]+-size\)$/],
@@ -29,3 +31,5 @@ export default {
     'function-disallowed-list': ['rgb', 'rgba', 'hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color'],
   },
 };
+
+export default config;

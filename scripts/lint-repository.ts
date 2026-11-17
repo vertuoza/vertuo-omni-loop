@@ -15,7 +15,7 @@ export type Finding = { path: string; line: number; rule: string };
 export type Linter = (files: readonly string[]) => Promise<{ findings: Finding[]; text: string }>;
 
 /**
- * The stylesheets stylelint reads (stylelint.config.mjs refuses a raw font size, space, radius,
+ * The stylesheets stylelint reads (stylelint.config.ts refuses a raw font size, space, radius,
  * shadow or colour in them): the design parts' own. PRD omni-loop-10 starts with them and the PRD
  * page; the ratchet across the app is a later PRD's.
  */
@@ -33,7 +33,7 @@ const stylelintFiles: StyleLinter = async (files) => {
   if (files.length === 0) return { findings: [], text: '' };
   // Loaded here, not at the top, for the same reason as ESLint.
   const { default: stylelint } = await import('stylelint');
-  const data = await stylelint.lint({ files: files.map((file) => `${root}${file}`), configFile: `${root}stylelint.config.mjs` });
+  const data = await stylelint.lint({ files: files.map((file) => `${root}${file}`), configFile: `${root}stylelint.config.ts` });
   const findings = data.results.flatMap((result) =>
     result.warnings.map((warning) => ({ path: result.source?.slice(root.length) ?? '', line: warning.line, rule: warning.rule })),
   );
