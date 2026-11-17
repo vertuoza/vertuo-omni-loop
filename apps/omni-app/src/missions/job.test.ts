@@ -237,16 +237,17 @@ describe('a run of the mission (PRD 2842 s4)', () => {
     expect(fake.events().at(-1)).toMatchObject({ kind: 'delivered', sentence: 'Every PRD of the mission is merged: delivered.' });
   });
 
-  it('sends a held PRD again once, then stops it, saying why', async () => {
+  it('sends a held PRD again once, then sends a repair where it stopped it before (PRD 2980)', async () => {
     const { fake, run } = setup({ mission: record({ scope: { prds: [p(1)], roadmaps: [] } }), all: [facts(1)] });
     await run();
     fake.end(p(1), { status: 'done', outcome: 'held' });
     await run();
     expect(fake.jobs().map((job) => job.key)).toEqual([`mission:${ID}:prd:1:run:1`, `mission:${ID}:prd:1:run:2`]);
     fake.end(p(1), { status: 'done', outcome: 'held' });
-    expect(await run()).toEqual({ outcome: 'done' });
+    expect(await run()).toMatchObject({ outcome: 'later' });
     expect(fake.jobs()).toHaveLength(2);
-    expect(fake.mission()).toMatchObject({ status: 'stopped', waitingOn: 'PRD 1 stopped: it was held twice. Take it to ready by hand and the mission carries on.' });
+    expect(fake.repairJobs().map(({ key, line }) => [key, line])).toEqual([[`mission:${ID}:prd:1:repair:1`, '/omni:repair --mission 12 --prd 1 --job job-2']]);
+    expect(fake.mission()).toMatchObject({ status: 'running', waitingOn: 'PRD 1: repairing (1 of 3) · 8 left in this mission' });
   });
 
   it('never sends a cancelled PRD again', async () => {

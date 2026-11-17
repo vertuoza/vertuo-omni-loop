@@ -18,6 +18,10 @@
 //                   Cancelled              never sent again: that PRD is paused
 //                   Failed                 stops that PRD, saying why
 //
+//                 where the table stops a PRD (a failure, a second hold, a second stop mid-way), a mission with repairs left sends
+//                 a repair first (PRD 2980, ./repair.ts): the PRD is repaired, sent its step again once its fix landed, or stopped
+//                 with the cause, what was tried and how to resume
+//
 //   prdStates     where each PRD of the scope is: merged, on the mission branch (PRD 2896), running (a job of it
 //                 queued, claimed or running, resumes followed), waiting on a person, blocked by an unmerged PRD,
 //                 stopped, paused, or startable. A stage of ready or merged wins over the mission's own runs: a PRD a
@@ -47,6 +51,7 @@ import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import { approvalNext, approveLine, verdictWords, type Committee } from './committee.ts';
 import { answerEvents, answersNext, itemsOpen, type ItemCommittee, type OpenAt } from './answers.ts';
+import { NO_REPAIRS, repairEvents, repairingWords, repairNext, type RepairView } from './repair.ts';
 
 export type MissionStatus = 'draft' | 'running' | 'waiting' | 'paused' | 'delivered' | 'stopped';
 export type RunnerJobStatus = 'queued' | 'claimed' | 'running' | 'done' | 'failed' | 'cancelled';
@@ -151,7 +156,10 @@ export type PrdState =
   | { state: 'approvable'; round: number }
   | { state: 'deciding'; round: number }
   /** At `alone` (PRD 2896 s10): its high items' committees to send (`send`), or at work. No slot of `mandate.parallel` either. */
-  | { state: 'answering'; send: readonly string[] };
+  | { state: 'answering'; send: readonly string[] }
+  /** Its step failed (PRD 2980): its repair to send, first in line, or at work. A repair runs on the PRD's own slot. */
+  | { state: 'repairable'; k: number; failedJob: string }
+  | { state: 'repairing'; number: number; left: number; why: string | null };
 
 /**
  * What a run read of the PRDs' items at `alone` (PRD 2896 s10): the items open at the head of each PRD's feature pull request that
@@ -194,7 +202,7 @@ export type Concluded = { status: MissionStatus; waitingOn: string | null; nextW
 
 export type EventKind =
   | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated'
-  | 'prd-added' | 'not-written';
+  | 'prd-added' | 'not-written' | 'repair-started' | 'retro' | 'repair-ended' | 'bug-reported';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm';
 
 /** An event to record, signed by its role and `agent`. */
@@ -385,20 +393,27 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null, 
 const lastOf = (run: Run): Attempt | undefined => run.attempts.at(-1);
 
 /** Whether job `a` comes after job `b`: a later run, or a later step of the same run. */
-const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step));
+export const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step));
 
 /**
  * Where each PRD of the scope is, by PRD. On a mission branch (PRD 2896), a PRD on it is `joined` and unblocks the PRDs
  * it blocked, and one waiting to be merged waits on what the merge gate lacks, when the run judged it.
  */
-export function prdStates(facts: readonly PrdFacts[], runs: readonly Run[], branch: OnBranch = NO_BRANCH, view: CommitteeView = NO_COMMITTEE, fleet: Fleet = NO_FLEET): Map<PrdNumber, PrdState> {
+export function prdStates(
+  facts: readonly PrdFacts[],
+  runs: readonly Run[],
+  branch: OnBranch = NO_BRANCH,
+  view: CommitteeView = NO_COMMITTEE,
+  fleet: Fleet = NO_FLEET,
+  repairs: RepairView = NO_REPAIRS,
+): Map<PrdNumber, PrdState> {
   const merged = new Set([...facts.filter((fact) => fact.stage === 'merged').map((fact) => fact.prd), ...branch.joined]);
   const of = (fact: PrdFacts): PrdState => {
     if (fact.stage !== 'merged' && branch.joined.has(fact.prd)) return { state: 'joined' };
     if (fact.stage !== 'merged' && branch.dropped?.has(fact.prd) === true) return { state: 'dropped' };
     const answers = view.answers === undefined ? undefined : { open: view.answers.open, committees: view.answers.committees.filter((one) => one.prd === fact.prd) };
     const own = { alone: view.alone, committees: view.committees.filter((one) => one.prd === fact.prd), ...(answers === undefined ? {} : { answers }) };
-    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own, fleet });
+    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own, fleet, repairs });
   };
   return new Map(facts.map((fact) => [fact.prd, of(fact)]));
 }
@@ -410,7 +425,7 @@ const toMerge = (prd: PrdNumber, branch: OnBranch): PrdState => {
 };
 
 /** What a PRD's state is read against: the PRDs merged (or on the branch), the mission branch, and the PRD's committees. */
-type Around = { merged: ReadonlySet<PrdNumber>; branch: OnBranch; view: CommitteeView; fleet: Fleet };
+type Around = { merged: ReadonlySet<PrdNumber>; branch: OnBranch; view: CommitteeView; fleet: Fleet; repairs: RepairView };
 
 /** What the target's runners let a queued job do (PRD 2949): whether one can take it, at `now`. */
 export type Fleet = { room: boolean; now: number };
@@ -457,10 +472,23 @@ function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, around: Around): P
   const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason, latest.step);
   if (next.next === 'waits') return waitsAfter(next.on, { fact, latest, last }, around);
   if (next.next === 'send') return { state: 'startable', run: latest.run, step: next.step };
-  if (next.next === 'stops') return { state: 'stopped', why: next.why };
+  if (next.next === 'stops') return repaired(fact, latest, last, next.why, around);
   if (next.next === 'paused') return { state: 'paused' };
   if (next.next === 'again') return gate(fact, latest.run + 1, latest.step, around);
   return { state: 'running', run: latest.run };
+}
+
+/**
+ * A PRD the table stops (PRD 2980): repaired first while the mission has repairs left (./repair.ts), its step sent again once the
+ * repair allows it, else stopped, saying why. With repairs off it stops, as before.
+ */
+function repaired(fact: PrdFacts, latest: Run, last: Attempt, why: string, around: Around): PrdState {
+  const next = repairNext(around.repairs, fact.prd, last.id, why);
+  if (next === null || next.next === 'stops') return { state: 'stopped', why: next?.why ?? why };
+  if (next.next === 'repair') return { state: 'repairable', k: next.k, failedJob: next.failedJob };
+  if (next.next === 'repairing') return { state: 'repairing', number: next.number, left: next.left, why: next.why };
+  if (next.next === 'paused') return { state: 'paused' };
+  return gate(fact, latest.run + 1, latest.step, around);
 }
 
 /**
@@ -553,10 +581,13 @@ export function featurePrOf(runs: readonly Run[], prd: PrdNumber): PrNumber | nu
 
 // ── Pick ─────────────────────────────────────────────────────────────────────────
 
+/** The states that hold a slot of `mandate.parallel`: a job at work, a repair of its step to send or at work (PRD 2980). */
+const AT_WORK: ReadonlySet<PrdState['state']> = new Set(['running', 'repairable', 'repairing']);
+
 /** The PRDs this run sends, in scope order. */
 export function pick({ mission, facts, states }: { mission: Mission; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState> }): Send[] {
   if (mission.status === 'draft' || mission.status === 'paused' || mission.status === 'delivered') return [];
-  const running = facts.filter((fact) => states.get(fact.prd)?.state === 'running');
+  const running = facts.filter((fact) => AT_WORK.has(states.get(fact.prd)?.state ?? 'paused'));
   const busy = running.map((fact) => fact.territory);
   if (busy.includes(null)) return [];
   const slots = mission.parallel - running.length;
@@ -628,6 +659,7 @@ function waitsOf(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdS
   const parts = facts.flatMap((fact) => {
     const state = states.get(fact.prd);
     if (state?.state === 'running' && state.waiting !== undefined) return [`PRD ${String(fact.prd)}: ${limitWords(state.waiting)}`];
+    if (state?.state === 'repairing') return [`PRD ${String(fact.prd)}: ${repairingWords(state)}`];
     return state?.state === 'waits' ? [`PRD ${String(fact.prd)}: ${waitWords(state, branch)}`] : [];
   });
   for (const fact of facts) if (states.get(fact.prd)?.state === 'dropped') parts.push(`PRD ${String(fact.prd)}: dropped from ${branch ?? 'the mission branch'}, until a person sends it again`);
@@ -649,7 +681,7 @@ function stoppedWhy(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, P
 }
 
 /** The states of a PRD that keep a mission running: a job of it at work or to send, its committee too (PRD 2896 s9). */
-const MOVING: ReadonlySet<PrdState['state']> = new Set(['running', 'startable', 'approvable', 'deciding', 'answering']);
+const MOVING: ReadonlySet<PrdState['state']> = new Set(['running', 'startable', 'approvable', 'deciding', 'answering', 'repairable', 'repairing']);
 
 /** The mission's status, what it waits on, and when it checks again; `branch` the mission branch its PRDs join, when it has one. */
 export function conclude({
@@ -705,6 +737,10 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   'prd-merged': (prdKey) => [`merged:${prdKey ?? 'mission'}`],
   stopped: (prdKey) => (prdKey === null ? [] : [`stopped:${prdKey}`]),
   delivered: () => ['delivered'],
+  'repair-started': (_prdKey, job) => jobKey('repair', job),
+  retro: (_prdKey, job) => jobKey('retro', job),
+  'repair-ended': (_prdKey, job) => jobKey('repair-ended', job),
+  'bug-reported': (_prdKey, job) => jobKey('bug', job),
 };
 
 /** The keys an event recorded stands for; none for a kind recorded on every change (waits, Start, Pause). */
@@ -718,7 +754,11 @@ const linkOf = (url: string | null): string | null => (url !== null && /^https?:
 
 /** A held or stopped-mid-way PRD: sent again once, stopped the second time. */
 const againWords = (n: string, what: string, run: number): string =>
-  run >= LAST_RUN ? `${n} ${what} a second time: it stops here.` : `${n} ${what}: the mission sends it again, once.`;
+  run >= LAST_RUN ? `${n} ${what} a second time${STOPS_HERE}` : `${n} ${what}: the mission sends it again, once.`;
+
+const STOPS_HERE = ': it stops here.';
+/** Where the table stops a PRD and the mission repairs (PRD 2980): a repair goes first, while the mission has one left. */
+const REPAIRS_HERE = ': the mission sends a repair, while it has one left.';
 
 type EndWords = Pick<NewEvent, 'kind' | 'role' | 'sentence'>;
 
@@ -771,17 +811,24 @@ const shippedEvent = (prd: PrdNumber, one: Run, last: Attempt, asked: number | n
 });
 
 /** Any other end, in END_WORDS's words (a hand-off its step never ends on reads as stopped mid-way's), a Reviewer job's signed by it. */
-function plainEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, branch: string | null): NewEvent {
+function plainEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, { branch, repairs }: { branch: string | null; repairs: boolean }): NewEvent {
   const words = END_WORDS[end === 'review' || end === 'changes' ? 'stopped' : end](`PRD ${String(prd)}`, one.run, last.reason, branch);
   const role = roundOf(one.step) !== null && words.role === 'engineer' ? 'reviewer' : words.role;
-  return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role };
+  const sentence = repairs ? words.sentence.replace(STOPS_HERE, REPAIRS_HERE) : words.sentence;
+  return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role, sentence };
 }
 
 /** The event of a job's end, at its step: a Reviewer's verdict is `reviewed`; a build or fix shipped for review waits for it. */
-function endEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, { asked = null, branch = null }: { asked?: number | null; branch?: string | null } = {}): NewEvent {
+function endEvent(
+  prd: PrdNumber,
+  one: Run,
+  last: Attempt,
+  end: JobEnd,
+  { asked = null, branch = null, repairs = false }: { asked?: number | null; branch?: string | null; repairs?: boolean } = {},
+): NewEvent {
   const round = roundOf(one.step);
   if (round !== null && (end === 'changes' || end === 'ready')) return verdictEvent(prd, round, last, end);
-  return end === 'review' && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end, branch);
+  return end === 'review' && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end, { branch, repairs });
 }
 
 /** How many findings the Reviewer's round 1 raised before fix `one`, when its log said: the latest round 1 of its PRD up to its run. */
@@ -799,12 +846,12 @@ function sentWords(one: Run, where: string, skill: BuildSkill, base: string | nu
 }
 
 /** What each job says: its dispatch, each runner lost along the way, and its end. */
-function runEvents(runs: readonly Run[], where: string, skill: BuildSkill, base: string | null): NewEvent[] {
+function runEvents(runs: readonly Run[], where: string, skill: BuildSkill, base: string | null, repairs = false): NewEvent[] {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
     const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill, base) };
-    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base })] : [];
+    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base, repairs })] : [];
     return [sent, ...one.attempts.slice(0, -1).map((gone) => endEvent(one.prd, one, gone, gone.limitedUntil == null ? 'lost' : 'limited')), ...ending];
   });
 }
@@ -897,6 +944,7 @@ export function eventsOf({
   landings = [],
   committees = [],
   asks = [],
+  repairs = NO_REPAIRS,
 }: {
   mission: Mission;
   facts: readonly PrdFacts[];
@@ -914,6 +962,8 @@ export function eventsOf({
   committees?: readonly Committee[];
   /** The item committees the mission sent (PRD 2896 s10), each with its decision once recorded. */
   asks?: readonly ItemCommittee[];
+  /** The mission's repairs (PRD 2980): each repair sent, its retro, its end and its Omni Loop bug report. */
+  repairs?: RepairView;
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
@@ -921,7 +971,8 @@ export function eventsOf({
   const all = [
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
-    ...runEvents(runs, where, skill, base),
+    ...runEvents(runs, where, skill, base, repairs.budget > 0),
+    ...repairEvents(repairs, { where, mission: mission.number }),
     ...joinEvents(joins, base),
     ...landEvents(landings),
     ...prdEvents(facts, states),

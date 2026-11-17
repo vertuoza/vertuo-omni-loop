@@ -889,7 +889,7 @@ Proposed: harvest 2026-11-14
 
 ## BR-PRODUCT-139
 
-A mission never sends a PRD again once it failed, was held twice or had its job cancelled; it comes back only when a person takes it to ready for review, and the mission then waits for its merge. A mission with nothing able to move reads stopped.
+A mission sends a PRD again after it failed, was held twice or stopped mid-way twice only when a repair allows it: while the mission has repairs left (3 per cause in a round, 9 per mission), it sends a repair, and the step goes again once the repair's fix landed on the mission branch or its cause was a flake. The PRD stops for good when its cause's 3 or the mission's 9 are spent, its job was cancelled, or its repair needs a person or met an Omni Loop bug; it comes back when a person resumes the mission, which opens a new round, or takes it to ready for review, and the mission then waits for its merge. A mission with nothing able to move reads stopped.
 
 Serves: P-PRODUCT-114
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
