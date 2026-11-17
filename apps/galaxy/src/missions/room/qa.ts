@@ -1,4 +1,4 @@
-import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parsePr, parsePrd, type PrNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 
 // What the Operation room says of QA and of a job's cost (PRD 3001 s5, the `fleet-room` screen), pure so each line is tested
 // without a page: a job's tokens on its row (`41k tokens`, or `tokens unknown`), and QA's now line (`Checking PR 12 · round 1 of 2`,
@@ -46,13 +46,13 @@ export function qaJobOf({ mission, key, logTail }: { mission: string; key: strin
 }
 
 /** QA's now line: `Waiting for the preview`, else `Checking PR 12 · round 1 of 2` (`PRD 3001` while its feature PR is not known from the events). */
-export function qaNowWords(job: QaJob, pr: number | null): string {
+export function qaNowWords(job: QaJob, pr: PrNumber | null): string {
   if (job.previewWait) return 'Waiting for the preview';
   return `Checking ${pr === null ? `PRD ${String(job.prd)}` : `PR ${String(pr)}`} · round ${String(job.round)} of 2`;
 }
 
 /** The pull request a link names, when it is one. */
-export const prOfLink = (link: string | null): number | null => {
+export const prOfLink = (link: string | null): PrNumber | null => {
   const match = link === null ? null : /\/pull\/([1-9][0-9]*)/.exec(link);
-  return match === null ? null : Number(match[1]);
+  return match === null ? null : parsePr(Number(match[1]));
 };

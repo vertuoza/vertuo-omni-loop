@@ -1,4 +1,4 @@
-import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { isWaitWords, type WaitLine } from '../limit-wait';
@@ -94,7 +94,7 @@ export interface Waits {
   on: string;
   href: string;
   /** A PRD on `Decide the bugs` (PRD 3001): QA's bugs still there, each linked to its issue; null for any other wait. */
-  bugs: { issue: number; href: string }[] | null;
+  bugs: { issue: IssueNumber; href: string }[] | null;
 }
 
 export interface MissionView {
@@ -208,7 +208,7 @@ const DECIDE_BUGS = /^decide bugs? ((?:#\d+ ?)+)$/;
 /** The bugs a wait's words name (`decide bugs #13 #14`), each with its issue's address; null when the wait is another. */
 function bugsOfWait(on: string, repo: string): Waits['bugs'] {
   const named = DECIDE_BUGS.exec(on)?.[1];
-  return named === undefined ? null : [...named.matchAll(/#(\d+)/g)].map((one) => ({ issue: Number(one[1]), href: issueHref(repo, Number(one[1])) }));
+  return named === undefined ? null : [...named.matchAll(/#(\d+)/g)].map((one) => ({ issue: parseIssue(Number(one[1])), href: issueHref(repo, Number(one[1])) }));
 }
 
 /** The PRDs a mission waits a person on, read from what the supervisor wrote (`PRD 2803: approve it · PRD 2804: merge it`), each linked to its latest event's link, else to its issue. */
