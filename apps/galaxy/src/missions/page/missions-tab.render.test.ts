@@ -106,3 +106,19 @@ describe('MissionsTab', () => {
     expect(text(screen())).toContain('This tab is not open yet.');
   });
 });
+
+describe('Decide the bugs (PRD 3001, `fleet-room` 1.A and 1.B)', () => {
+  it('reads Waits for you · Decide the bugs, lists each bug by issue and offers the two actions', () => {
+    const out = html(view(row({ status: 'waiting', waitingOn: 'PRD 3001: decide bugs #13 #14' })));
+    expect(text(out)).toContain('PRD 3001 : Waits for you · Decide the bugs #13 #14 Send on to the Reviewer Stop this PRD');
+    expect(out).toContain('href="https://github.com/acme/shop/issues/13"');
+    expect(out).toMatch(/<button[^>]*data-primary[^>]*>Send on to the Reviewer/);
+    expect(out).toContain('>Stop this PRD</button>');
+  });
+
+  it('offers no pick for any other wait', () => {
+    const out = html(view(row({ status: 'waiting', waitingOn: 'PRD 3001: approve it' })));
+    expect(text(out)).toContain('approve it');
+    expect(out).not.toContain('Stop this PRD');
+  });
+});

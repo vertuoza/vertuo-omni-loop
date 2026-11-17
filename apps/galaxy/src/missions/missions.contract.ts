@@ -10,6 +10,7 @@ import { z } from 'zod';
 //   POST /api/missions/<id>/pause    a running or waiting mission goes paused
 //   POST /api/missions/<id>/resume   a paused mission goes running; so does a stopped one (PRD 2980: Resume opens a new round of repairs)
 //   POST /api/missions/<id>/level    {level}: Change for this mission (PRD 2896), the level it runs at
+//   POST /api/missions/<id>/bugs     {prd, pick}: a person's pick on Decide the bugs (PRD 3001), send the PRD on to the Reviewer or stop it
 
 export type MissionAction = 'start' | 'pause' | 'resume';
 
@@ -32,6 +33,14 @@ export const MissionLevelSchema = z.enum(MISSION_LEVELS);
 export const LevelBodySchema = z.object({ level: MissionLevelSchema });
 export const LeveledMissionSchema = z.object({ mission: z.object({ id: z.uuid(), level: MissionLevelSchema }) });
 export type LeveledMission = z.infer<typeof LeveledMissionSchema>;
+
+/** A person's pick on `Decide the bugs` (PRD 3001): send the PRD on to the Reviewer with its bugs open, or stop it. */
+const BugsPickSchema = z.enum(['review', 'stop']);
+export type BugsPick = z.infer<typeof BugsPickSchema>;
+export const BugsBodySchema = z.object({ prd: PrdNumberSchema, pick: BugsPickSchema });
+export type BugsBody = z.infer<typeof BugsBodySchema>;
+export const PickedBugsSchema = z.object({ bugs: z.object({ mission: z.uuid(), prd: PrdNumberSchema, pick: BugsPickSchema }) });
+export type PickedBugs = z.infer<typeof PickedBugsSchema>;
 
 /** What `omni mission drop` sends (PRD 2896 s7): the repository, the mission's number, the PRD to take off its branch and whether the later PRDs sharing its territory stay. */
 export const DropBodySchema = z.object({

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { HERO_ROLES, HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
+import { qaJobOf, type JobTokens, type QaJob } from './qa';
 import type { EventRow, HeroLine, KeptSave } from './room';
 
 // The Operation room's reads (PRD 2842 s8; ADR-0095), on the signed-in person's own client: row-level security
@@ -29,6 +30,9 @@ const EventRowSchema = z.object({
   link: z.string().nullable(),
   sentence: z.string(),
 });
+const TokensSchema = z.object({ input: z.number().int().min(0), output: z.number().int().min(0), cacheRead: z.number().int().min(0), cacheWrite: z.number().int().min(0) });
+const TokenRowSchema = z.object({ id: z.uuid(), tokens: TokensSchema.nullable().catch(null) });
+const QaRowSchema = z.object({ mission_id: z.uuid(), mission_key: z.string().nullable(), log_tail: z.string().nullable() });
 const SaveRowSchema = z.object({ bytes: z.number(), keep_until: z.string() });
 
 export function roomRepository(db: RoomDb) {
@@ -56,6 +60,22 @@ export function roomRepository(db: RoomDb) {
       return orThrow(parseRows(EventRowSchema, data, `${WHERE}: mission_events`)).map((row) => ({
         id: row.id, mission: row.mission_id, at: row.at, role: row.role, actor: row.actor, kind: row.kind, prd: row.prd, job: row.job_id, link: row.link, sentence: row.sentence,
       }));
+    },
+
+    /** What these jobs spent (PRD 3001): their tokens by job, null for a job whose agent gave none. */
+    async tokens(jobs: readonly string[]): Promise<Map<string, JobTokens | null>> {
+      if (jobs.length === 0) return new Map();
+      const { data, error } = await db.from('runner_jobs').select('id, tokens').in('id', [...new Set(jobs)]);
+      if (error) throw new Error(`Supabase: could not read the jobs' tokens (${error.message})`);
+      return new Map(orThrow(parseRows(TokenRowSchema, data, `${WHERE}: runner_jobs`)).map((row) => [row.id, row.tokens]));
+    },
+
+    /** The QA jobs of these missions that run now (PRD 3001): their PRD, their round, whether they wait for the preview. */
+    async qaJobs(missions: readonly string[]): Promise<QaJob[]> {
+      if (missions.length === 0) return [];
+      const { data, error } = await db.from('runner_jobs').select('mission_id, mission_key, log_tail').in('mission_id', [...missions]).in('status', ['claimed', 'running']).like('mission_key', '%:qa:_');
+      if (error) throw new Error(`Supabase: could not read the QA jobs (${error.message})`);
+      return orThrow(parseRows(QaRowSchema, data, `${WHERE}: runner_jobs`)).flatMap((row) => qaJobOf({ mission: row.mission_id, key: row.mission_key, logTail: row.log_tail ?? '' }) ?? []);
     },
 
     /** The saves a workspace's runners still keep (PRD 2809): not deleted, not past their day. */

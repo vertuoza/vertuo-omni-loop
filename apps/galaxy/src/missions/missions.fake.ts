@@ -19,7 +19,7 @@ export const ADA = { id: '00000000-0000-4000-8000-00000000ada0', login: 'ada' };
 export const BEN = { id: '00000000-0000-4000-8000-0000000000be', login: 'ben' };
 export const DAN = { id: '00000000-0000-4000-8000-0000000000da', login: 'dan' };
 
-type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber };
+type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string };
 
 export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel; territories?: Record<number, string[]>; planRepos?: readonly string[] } = {}) {
   const missions = new Map<string, MissionRecord & { startedBy: string | null; nextWakeAt: string | null }>();
@@ -78,6 +78,13 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
         inPlan: (mission) => Promise.resolve((options.planRepos ?? []).includes(mission.repo)),
         onBranch: onBranchOf,
         decisionEvents: (id) => Promise.resolve(events.filter((event) => event.mission === id && (event.kind === 'decided' || event.kind === 'overturned')).map(({ kind, prd, sentence, actor }) => ({ kind, prd: prd ?? null, sentence, link: null, actor }))),
+        bugsToDecide: (id, prd) => {
+          const rows = events.filter((event) => event.mission === id && event.prd === prd && event.job !== undefined && ['checked', 'resumed', 'stopped'].includes(event.kind));
+          const checked = rows.findLast((row) => row.kind === 'checked');
+          if (checked?.job === undefined || !/Round 2 of 2/.test(checked.sentence) || /^pass/.test(checked.sentence)) return Promise.resolve(null);
+          const pick = rows.find((row) => row.job === checked.job && row.kind !== 'checked');
+          return Promise.resolve({ job: checked.job, picked: pick === undefined ? null : { pick: pick.kind === 'resumed' ? 'review' : 'stop', actor: pick.actor } });
+        },
         joined: async (id) => (await onBranchOf(id)).length,
         byNumber: (repo, number) => {
           const row = [...missions.values()].find((one) => one.repo === repo.toLowerCase() && one.number === number);

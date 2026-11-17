@@ -2,7 +2,8 @@
 import { useMemo, useState } from 'react';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
-import { MissionLevelSchema, type MissionAction } from '../missions.contract';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { MissionLevelSchema, type BugsPick, type MissionAction } from '../missions.contract';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
 import { ACTION_WORDS, LEVEL_WORDS, WORDS, type FleetPrds, type MissionsView } from './missions-tab';
 import { RepairDetail, StoppedBlock } from '../RepairParts';
@@ -55,15 +56,31 @@ function BranchLine({ branch }: { branch: NonNullable<MissionsView['missions'][n
 }
 
 /** Each PRD the mission waits on, linked, with what it waits on. */
-function WaitList({ waits, titled }: { waits: MissionsView['missions'][number]['waits']; titled: boolean }) {
+function WaitList({ waits, titled, busy, onPick }: { waits: MissionsView['missions'][number]['waits']; titled: boolean; busy: boolean; onPick: (prd: PrdNumber, pick: BugsPick) => void }) {
   if (waits.length === 0) return null;
   return (
     <ul className="mission-waits" {...(titled ? { 'aria-label': WORDS.waitingOnYou } : {})}>
       {titled && <li className="mission-waits-title"><strong>{WORDS.waitingOnYou}</strong></li>}
       {waits.map((wait) => (
-        <li key={wait.prd}><a href={wait.href}>PRD {wait.prd}</a>: {wait.on}</li>
+        <li key={wait.prd}>
+          <a href={wait.href}>PRD {wait.prd}</a>: {wait.bugs === null ? wait.on : <DecideBugs wait={wait} bugs={wait.bugs} busy={busy} onPick={onPick} />}
+        </li>
       ))}
     </ul>
+  );
+}
+
+/** A PRD on `Decide the bugs` (PRD 3001, `fleet-room` 1.A and 1.B): QA's bugs still there, by issue, and the two actions. */
+function DecideBugs({ wait, bugs, busy, onPick }: { wait: MissionsView['missions'][number]['waits'][number]; bugs: NonNullable<MissionsView['missions'][number]['waits'][number]['bugs']>; busy: boolean; onPick: (prd: PrdNumber, pick: BugsPick) => void }) {
+  return (
+    <span className="mission-decide-bugs">
+      {WORDS.decideBugs}
+      <ul className="mission-bugs">
+        {bugs.map((bug) => <li key={bug.issue}><a href={bug.href}>#{bug.issue}</a></li>)}
+      </ul>
+      <button type="button" className="ask-button mission-action" data-primary="" disabled={busy} onClick={() => { onPick(wait.prd, 'review'); }}>{WORDS.sendOn}</button>
+      <button type="button" className="ask-button quiet mission-action" disabled={busy} onClick={() => { onPick(wait.prd, 'stop'); }}>{WORDS.stopPrd}</button>
+    </span>
   );
 }
 
@@ -128,13 +145,14 @@ function ActionButton({ action, title, busy, disabled, onMove }: { action: Missi
 }
 
 /** One mission's row: its words at the left, its one button at the right. */
-function MissionItem({ mission, demo, busy, problem, onMove, onLevel }: {
+function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick }: {
   demo: boolean;
   mission: MissionsView['missions'][number];
   busy: string | null;
   problem: string | null;
   onMove: (action: MissionAction) => void;
   onLevel: (level: MissionLevel) => void;
+  onPick: (prd: PrdNumber, pick: BugsPick) => void;
 }) {
   const action = mission.action;
   return (
@@ -157,7 +175,7 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel }: {
           {mission.branch !== null && <BranchLine branch={mission.branch} />}
           {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
           {mission.fleetPrds !== null && <FleetPrdsLine fleet={mission.fleetPrds} />}
-          <WaitList waits={mission.waits} titled={mission.level === 'alone'} />
+          <WaitList waits={mission.waits} titled={mission.level === 'alone'} busy={busy !== null} onPick={onPick} />
           <LimitWaits waits={mission.limitWaits} />
           <Repairs lines={mission.repairs} demo={demo} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
@@ -198,6 +216,18 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
     router.refresh();
   }
 
+  async function pick(mission: string, prd: PrdNumber, choice: BugsPick) {
+    setBusy(mission);
+    setProblem(null);
+    const done = await calls.pickBugs(mission, prd, choice);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
   return (
     <section className="missions" data-screen="mission-start" aria-label={WORDS.tab}>
       {view.missions.length === 0 && <p className="ask-muted missions-empty">{WORDS.empty}</p>}
@@ -211,6 +241,7 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
             problem={problem?.mission === mission.id ? problem.message : null}
             onMove={(action) => { void move(mission.id, action); }}
             onLevel={(level) => { void changeLevel(mission.id, level); }}
+            onPick={(prd, choice) => { void pick(mission.id, prd, choice); }}
           />
         ))}
       </ul>

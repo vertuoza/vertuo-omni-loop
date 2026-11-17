@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
-import { LeveledMissionSchema, MovedMissionSchema, type MissionAction } from '../missions.contract';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { LeveledMissionSchema, MovedMissionSchema, PickedBugsSchema, type BugsPick, type MissionAction } from '../missions.contract';
 
 // The Missions tab's calls from the browser (PRD 2842 s7; ADR-0095): POST /api/missions/<id>/start | pause |
 // resume, as the signed-in person, the answer checked against the contract. A refusal comes back in its words.
@@ -11,6 +12,8 @@ export interface MissionsPort {
   move(mission: string, action: MissionAction): Promise<Moved>;
   /** Change for this mission (PRD 2896): the level it runs at. */
   setLevel(mission: string, level: MissionLevel): Promise<Moved>;
+  /** Decide the bugs (PRD 3001): send the PRD on to the Reviewer, or stop it. */
+  pickBugs(mission: string, prd: PrdNumber, pick: BugsPick): Promise<Moved>;
 }
 
 export const COULD_NOT = 'Couldn’t move the mission. Try again in a moment.';
@@ -33,10 +36,11 @@ export function httpMissionsPort(fetch: typeof globalThis.fetch = globalThis.fet
   return {
     move: (mission, action) => post(fetch, `/api/missions/${mission}/${action}`, MovedMissionSchema),
     setLevel: (mission, level) => post(fetch, `/api/missions/${mission}/level`, LeveledMissionSchema, { level }),
+    pickBugs: (mission, prd, pick) => post(fetch, `/api/missions/${mission}/bugs`, PickedBugsSchema, { prd, pick }),
   };
 }
 
 const DEMO: Moved = { ok: false, message: 'The demo world keeps its own fleets.' };
 
 /** The demo's port: the demo world keeps its own fleets, so it moves no mission. */
-export const demoMissionsPort: MissionsPort = { move: () => Promise.resolve(DEMO), setLevel: () => Promise.resolve(DEMO) };
+export const demoMissionsPort: MissionsPort = { move: () => Promise.resolve(DEMO), setLevel: () => Promise.resolve(DEMO), pickBugs: () => Promise.resolve(DEMO) };
