@@ -44,7 +44,8 @@ The Runners page, under Dashboard in the sidebar (`/app/runners`), lists:
 - **Jobs:** queued and running first, then the last 50 that ended. Each shows its line, who sent it,
   where it went and its status: Queued, Running, Done with its pull request, Failed with its reason
   (`runner lost`, `timeout` or an exit code), Cancelled, or **Need human** when it stopped to ask
-  you something.
+  you something. A job keeps the tokens it spent, shown on its row as `· 41k tokens`, or
+  `tokens unknown` when its agent reported none.
 
 A mission hands a PRD's feature pull request to the Reviewer before it goes ready: it sends
 `/omni:review <n>` to a runner as a job of its own. Two endings belong to the Reviewer, and both read
