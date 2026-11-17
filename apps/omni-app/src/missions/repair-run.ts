@@ -14,7 +14,7 @@
 //   report    each `omni-loop` repair of this round: the Omni Loop bug its fingerprint was filed as, else its report scrubbed with
 //             the workspace's names and added to the ledger once per repair (../bug-reports/job.ts); a report the scrub
 //             refuses is never sent, and says why on the workspace's own pages only (never#5, never#11, never#12)
-import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { repairLine as readRepairLine, type RepairRecord } from 'omni-loop/kit/lib/repair/line.ts';
 import { submitBugReport } from '../bug-reports/job.ts';
@@ -57,7 +57,7 @@ const spends = (job: RepairJob): boolean => {
 };
 
 /** The record a repair job's log ends on, when it reads whole and names this mission and PRD; null otherwise. */
-function recordOf(log: string | null, mission: MissionRecord, prd: number): RepairRecord | null {
+function recordOf(log: string | null, mission: MissionRecord, prd: PrdNumber): RepairRecord | null {
   if (log === null) return null;
   const read = readRepairLine(log);
   return read.readable && read.record.mission === mission.number && read.record.prd === prd ? read.record : null;

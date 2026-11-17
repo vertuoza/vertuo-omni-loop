@@ -1,6 +1,6 @@
 // The supervisor's repair decisions (PRD 2980 s5), pure: where a failed PRD goes given what a run read of its mission's repairs.
 import { describe, expect, it } from 'vitest';
-import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RepairRetro } from 'omni-loop/kit/lib/repair/retro.ts';
 import type { PullRead } from './gate.ts';
 import {
@@ -115,7 +115,7 @@ describe('a repair\'s record, by its class', () => {
   it('omni-loop: stops, waiting on the Omni Loop bug once filed, or saying why no report was sent (AC-5, AC-6)', () => {
     const base = { jobs: [ended], rows: [row({ retro: retro({ class: 'omni-loop' }), fixPr: null, outcome: 'stopped' })] };
     expect(stateOf(failedRun, view(base))).toEqual({ state: 'stopped', why: `its Omni Loop bug report [${FP.slice(0, 8)}] is being filed` });
-    expect(stateOf(failedRun, view({ ...base, reports: new Map([['r1', { state: 'filed', repo: 'vertuoza/vertuo-omni-loop', issue: 3100 }]]) }))).toEqual({ state: 'stopped', why: 'Waits on Omni Loop bug #3100' });
+    expect(stateOf(failedRun, view({ ...base, reports: new Map([['r1', { state: 'filed', repo: 'vertuoza/vertuo-omni-loop', issue: parseIssue(3100) }]]) }))).toEqual({ state: 'stopped', why: 'Waits on Omni Loop bug #3100' });
     expect(stateOf(failedRun, view({ ...base, reports: new Map([['r1', { state: 'refused', why: 'the message still holds a token after scrubbing' }]]) }))).toMatchObject({ why: expect.stringContaining('was not sent: the message still holds a token') as unknown });
   });
 
@@ -217,7 +217,7 @@ describe('the repair events: one sentence and one link each, recorded once', () 
     const repairs = view({
       jobs: [repairJob(1, 1, 'a', attempt('r1', { status: 'done' }))],
       rows: [row({ retro: retro({ class: 'omni-loop' }), fixPr: null, outcome: 'stopped' })],
-      reports: new Map([['r1', { state: 'filed', repo: 'vertuoza/vertuo-omni-loop', issue: 3100 }]]),
+      reports: new Map([['r1', { state: 'filed', repo: 'vertuoza/vertuo-omni-loop', issue: parseIssue(3100) }]]),
     });
     const runs = [run(1, 1, failed('a'))];
     const states = prdStates([facts(1)], runs, undefined, undefined, undefined, repairs);

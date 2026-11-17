@@ -22,7 +22,7 @@
 //   the events    repair-started, retro, repair-ended and bug-reported: one sentence and one link each, never a log, naming the
 //                 cause by its fingerprint's first 8 characters
 import { createHash } from 'node:crypto';
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RepairRetro } from 'omni-loop/kit/lib/repair/retro.ts';
 import { checksOf, type PullRead } from './gate.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
@@ -56,7 +56,7 @@ export type RepairJob = { prd: PrdNumber; k: number; job: string; failedJob: str
 export type FixLanding = { state: 'landed' } | { state: 'waits'; lacks: readonly string[] } | { state: 'refused'; why: string };
 
 /** An omni-loop repair's report: filed as an issue, being filed, or refused by the scrub, with why. */
-export type BugReport = { state: 'filed'; repo: string; issue: number } | { state: 'filing' } | { state: 'refused'; why: string };
+export type BugReport = { state: 'filed'; repo: string; issue: IssueNumber } | { state: 'filing' } | { state: 'refused'; why: string };
 
 /** A repair whose row the budget refused: the cause spent its 3 in the round, or the mission its 9. */
 export type Refused = { spent: 'cause' | 'mission'; fingerprint: string; retro: RepairRetro | null };
@@ -94,9 +94,10 @@ const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
 export const repairKey = (mission: string, prd: PrdNumber, k: number): string => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
 
 /** The PRD and number a repair key names; null for any other text. */
-export function repairOfKey(key: string): { prd: number; k: number } | null {
+export function repairOfKey(key: string): { prd: PrdNumber; k: number } | null {
   const match = KEY.exec(key);
-  return match ? { prd: Number(match[2]), k: Number(match[3]) } : null;
+  const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
+  return match && prd.success ? { prd: prd.data, k: Number(match[3]) } : null;
 }
 
 /** The line a repair is sent as: the mission by its number, the PRD, and the job whose failure it repairs. */

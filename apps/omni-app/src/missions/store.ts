@@ -178,7 +178,7 @@ export type MissionStore = {
   /** A repair's outcome, set once. */
   endRepair: (id: string, outcome: RepairOutcome) => Promise<void>;
   /** The Omni Loop bug a fingerprint was filed as; null when none was. */
-  bugIssue: (fingerprint: string) => Promise<{ repo: string; issue: number } | null>;
+  bugIssue: (fingerprint: string) => Promise<{ repo: string; issue: IssueNumber } | null>;
   /** A job added to the App's ledger: whether it was added (a key already held adds none). */
   addJob: (job: NewJob) => Promise<boolean>;
   /** The names the mission's workspace is known by, which a public report never holds. */
@@ -294,7 +294,7 @@ export const RepairRowSchema = z.object({
   fix_pr: z.string().nullable(),
   outcome: z.enum(['fixed', 'not fixed', 'stopped', 'lost']).nullable(),
 });
-export const BugReportRowSchema = z.object({ repo: text, issue: z.number().int().positive() });
+export const BugReportRowSchema = z.object({ repo: text, issue: IssueNumberSchema });
 export const RepositoryRowSchema = z.object({ full_name: text });
 export const ActorRowSchema = z.object({ actor: z.string().nullable() });
 
@@ -579,8 +579,7 @@ export function missionStore(connection: Connection): MissionStore {
       const repairJobs = jobs.flatMap((job): RepairJob[] => {
         const key = job.mission_key === null ? null : repairOfKey(job.mission_key);
         const failedJob = failedJobOf(job.line);
-        const prd = PrdNumberSchema.safeParse(key?.prd);
-        return key === null || failedJob === null || !prd.success ? [] : [{ prd: prd.data, k: key.k, job: job.id, failedJob, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+        return key === null || failedJob === null ? [] : [{ prd: key.prd, k: key.k, job: job.id, failedJob, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
       });
       const rows = rowsOf(RepairRowSchema, await db.from('mission_repairs').select(REPAIR).eq('mission_id', id).order('started_at')).map(repairOf);
       return { jobs: repairJobs, rows };

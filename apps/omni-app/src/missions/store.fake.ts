@@ -3,7 +3,7 @@
 // attempts, and its events. Test helpers move what a real fleet would: a job's end, a lost runner and its resume, a
 // PRD's facts, a person's Pause. Its repairs (PRD 2980) are kept as `mission_repairs` keeps them: the database's caps
 // hold here too, 3 per cause in a round and 9 per mission. No database, no model call.
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { repairKey, repairLine, type RepairJob, type RepairRow } from './repair.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
@@ -47,7 +47,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   /** The rows `mission_repairs` kept. */
   const rows: RepairRow[] = [];
   /** The Omni Loop bugs `omni_bug_reports` holds, by fingerprint, and the jobs added to the App's ledger. */
-  const bugs = new Map<string, { repo: string; issue: number }>();
+  const bugs = new Map<string, { repo: string; issue: IssueNumber }>();
   const added: NewJob[] = [];
   let made = 0;
   /** Reads of the runs held until this many are waiting: two runs at once read the same state. */
@@ -259,8 +259,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     /** The rows `mission_repairs` kept, in order. */
     repairRows: () => rows.map((one) => ({ ...one })),
     /** The App's bug-report job filed the fingerprint as `issue` (PRD 2980 s4). */
-    fileBug: (fingerprint: string, issue: number, repo = 'vertuoza/vertuo-omni-loop') => {
-      bugs.set(fingerprint, { repo, issue });
+    fileBug: (fingerprint: string, filed: number, repo = 'vertuoza/vertuo-omni-loop') => {
+      bugs.set(fingerprint, { repo, issue: parseIssue(filed) });
     },
     /** The jobs added to the App's ledger, in order. */
     added: () => added.map((one) => ({ ...one })),
