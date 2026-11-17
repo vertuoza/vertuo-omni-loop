@@ -1,0 +1,17 @@
+.omni-stack {
+  display: flex;
+  min-width: 0;
+}
+.omni-stack--column { flex-direction: column; }
+.omni-stack--row { flex-direction: row; }
+.omni-stack--wrap { flex-wrap: wrap; }
+.omni-stack--gap-1 { gap: var(--space-1); }
+.omni-stack--gap-2 { gap: var(--space-2); }
+.omni-stack--gap-3 { gap: var(--space-3); }
+.omni-stack--gap-4 { gap: var(--space-4); }
+.omni-stack--gap-5 { gap: var(--space-5); }
+.omni-stack--gap-6 { gap: var(--space-6); }
+.omni-stack--align-start { align-items: flex-start; }
+.omni-stack--align-center { align-items: center; }
+.omni-stack--align-end { align-items: flex-end; }
+.omni-stack--align-stretch { align-items: stretch; }

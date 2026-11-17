@@ -10,7 +10,11 @@ screen follows.
 - **One entry point.** `import { … } from '@omni/design'` gives every module below;
   `src/index.ts` re-exports each one. The modules are strict TypeScript, and their types are read
   from the source itself: there is no declaration file beside them.
-- **Two stylesheets.** `@omni/design/tokens.css` (the colours, as `:root` custom properties) and
+- **Tokens from DTCG files.** Every token is written once, in the W3C DTCG 2025.10 files of
+  `tokens/` (`*.tokens.json`); `tokens/build.ts` generates `tokens.css` and
+  `src/tokens.generated.ts` from them.
+- **Two stylesheets.** `@omni/design/tokens.css` (the colours, the scale and each theme's semantic
+  roles, as custom properties) and
   `@omni/design/fonts.css` (the `@font-face` rules, and the type scale as `:root` custom
   properties). The woff2 files are served as `@omni/design/fonts/<file>`.
 
@@ -23,7 +27,8 @@ own colour on `:root`, or if a galaxy page links Google Fonts.
 | Module | Exports | What it holds |
 |---|---|---|
 | `palette` | `PALETTE`, `INK` | The pixel palette, one character to one colour, so a sprite can be written as strings; and the named colours: the arcade's (`void`, `deep`, `navy`, `navyDark`, `white`, `plasma`, `plasmaDark`, `yellow`, `gold`, `red`, `cyan`, `green`…), the logo's ramp (`highlight`, `yellow`, `orange`, `ember`) and the print ad's accents (`magenta`, `adPurple`, `starfield`). |
-| `tokens` | `ARCADE`, `COLOURS`, `cssName`, `tokensCss`, `ASK`, `ASK_TEXT_PAIRS`, `ASK_UI_PAIRS`, `contrast` | The one source of colour: `INK` plus the arcade's own (the cabinet, dim text, the Game Boy's body), every colour by its CSS name (`COLOURS`, `navy-dark`), Ask's Omni, light and dark reading tokens with the text and edge pairs each must pass (Omni is HOME's palette on the app's pages, the default there; its `yellow` holds magenta, so the Recommended badge never reads as the yellow signal), and the generator of `tokens.css`. |
+| `tokens` | `COLOURS`, `ARCADE`, `cssName`, `SCALE`, `THEME_ROLES`, `THEME_ROLES_ANTI`, `ROLE_TEXT_PAIRS`, `ROLE_UI_PAIRS`, `ASK`, `ASK_ROLES`, `ASK_ANTI`, `ASK_TEXT_PAIRS`, `ASK_UI_PAIRS`, `tokensCss`, `contrast` | The tokens, named: every named colour by its CSS name (`COLOURS`, `navy-dark`: `INK` plus the arcade's own), the scale (`SCALE`: space, radius, type, weight, elevation, motion), each theme's semantic roles with the text and edge pairs each must pass, Ask's names kept as aliases of the roles (`ASK_ROLES`), and the writer of `tokens.css`. |
+| `tokens.generated` | `TOKEN_COLOURS`, `TOKEN_SCALE`, `TOKEN_THEMES`, `TOKEN_THEMES_ANTI` | The DTCG files' tokens as `tokens/build.ts` writes them: never edited by hand. |
 | `fonts` | `FACES`, `ROLES`, `TYPE_SCALE`, `SUBSETS`, `fontFiles`, `fontFaceCss`, `fontsCss` | The four font roles, their faces and files, the type scale, and the generator of `fonts.css`. |
 | `logo` | `LOGO_FORMS`, `LOGO_DRAWINGS`, `logoPixels`, `logoSvg`, `drawLogo` | The 16-bit crest in its three forms and the favicon, each with a one-colour variant: as pixels, as a crisp SVG at any whole-number scale, and drawn on a canvas. |
 | `brand` | `OMNI_LOOP` | The product brand: its name, its tagline, its logo form, its favicon and its theme colour. |
@@ -32,18 +37,32 @@ own colour on `:root`, or if a galaxy page links Google Fonts.
 | `heroes` | `HERO_PRESETS`, `heroLook`, `heroPose`, `OMNI_POSES`, `validHero`, `randomHero`, `rampFrom`, `fleetSprite` | A player's hero: the OmniMan body recoloured by ramp swaps (skin, hair, suit, cape), in any of OmniMan's poses; a fleet's mascot, or a hero in its colour. |
 | `draw` | `spritePixels`, `spriteImage`, `drawSprite`, `spriteSize`, `posterPixels`, `posterImage`, `POSTER_MAX_SCALE`, `drawPlanet`, `planetTexture`, `drawSun`, `sunPixels`, `sunSize`, `SUN_FRAMES`, `drawStarfield`, `makeStarfield`, `makeNebula`, `rng`, `SURFACES` | Drawing at native resolution: sprites, sprites at poster scale (a whole number from 1 to 16, every pixel a block), the procedural planets and suns, the starfield and the nebulae. |
 
-### Colours
+### Tokens
 
-Change a colour in `src/palette.ts` or `src/tokens.ts`, then regenerate the stylesheet:
+The files of `tokens/` hold every token, in the W3C DTCG 2025.10 format (a colour is sRGB
+components with its hex beside them; an alias is `"{void}"`):
+
+| File | Holds | In CSS |
+|---|---|---|
+| `palette.tokens.json` | The named colours: `INK` (whose sprites' copy stays in `src/palette.ts`; a test holds the two equal) and the arcade's own | `--void`, `--navy-dark`… on `:root` |
+| `scale.tokens.json` | Space on a 4 px grid (`space-1` 4 px … `space-8` 64 px), radius (`radius-1` 4 px, `radius-2` 8 px, `radius-full`), seven UI type steps (`type-1` 12 px … `type-7` 32 px) and prose (17 px on 1.6), each a `-size` and a `-line`, weights 400 to 700, three elevations, two durations and one ease-out | `--space-1`, `--type-3-size`, `--weight-medium`, `--elevation-raised`, `--motion-ease-out`… on `:root` |
+| `omni.tokens.json`, `light.tokens.json`, `dark.tokens.json` | Each theme's semantic roles, named by their job: `canvas`, `surface`, `raised`, `sunken`; `text-primary`, `-secondary`, `-tertiary`, `-on-accent`, `-on-signal`, `-on-highlight`; `border-subtle` (cards), `border-strong` (controls); `accent` and `accent-soft` (links, selection, focus); `signal` and `signal-soft` (the one thing to look at, once per view); `highlight` (the Recommended badge); `success`, `warning`, `danger`, `info` | `--color-<role>`, where the theme script marks the ask root (`data-ask-theme`), Omni by default |
+| `<theme>.anti.tokens.json` | The roles the anti-loop mode remaps in that theme | the same names, under `data-ask-mode="anti"` |
+
+Ask's names (`ASK`: `ground`, `ink`, `plasma`…) stay, each an alias of one role (`ASK_ROLES`) at the
+colour it always had, so no stylesheet has to change. Change a token in a file, then:
 
 ```bash
 pnpm --filter @omni/design tokens
 ```
 
-`src/tokens.test.ts` fails while the committed `tokens.css` differs from what the generator writes,
-and while any of Ask's text or edge pairs misses WCAG AA, in Omni, in light or in dark. A workspace's
-theme (the galaxy's `src/arcade/theme.ts`) takes its defaults from `COLOURS` and overrides them on
-the arcade's root element; it never writes on `:root`.
+`tokens/build.test.ts` fails while the committed `tokens.css` or `src/tokens.generated.ts` differs
+from what the files generate, and the generator refuses a type it does not know, an alias to nothing,
+a colour whose hex and components disagree, or a theme missing a role another has.
+`src/tokens.test.ts` fails while any role's text pair misses WCAG AA (4.5:1) or any control's edge
+3:1, in Omni, in Light, in Dark or in the anti-loop mode. A workspace's theme (the galaxy's
+`src/arcade/theme.ts`) takes its defaults from `COLOURS` and overrides them on the arcade's root
+element; it never writes on `:root`.
 
 ### Fonts
 
@@ -54,8 +73,11 @@ Every face ships the latin and latin-ext subsets.
 |---|---|---|
 | `display` | Anton, slanted 12° by the type scale | Ad headlines, and taglines beside the logo |
 | `pixel` | Press Start 2P for labels and the HUD, Jersey 10 for longer game text | The game, its hints, its numbers |
-| `body` | Atkinson Hyperlegible Next (400, 700, 400 italic) | Reading copy, Ask |
+| `body` | Atkinson Hyperlegible Next (400, 500, 600, 700, 400 italic) | Reading copy, Ask; 500 and 600 for controls, labels and headings |
 | `mono` | JetBrains Mono (400, 600) | Code, commands |
+
+Atkinson Hyperlegible Next draws its zero with a slash, its tabular zero too, and has no zero
+without one: no font setting turns the slash off.
 
 The type scale names each step as a role, a size, a line height and a slant: `display-xl` to
 `display-s`, `pixel-l` to `pixel-s`, `body-l` to `body-s`, and `mono` (`TYPE_SCALE` in JS, and
@@ -140,7 +162,7 @@ icons.
 
 ## Tests
 
-`pnpm test` from the repository root runs them all, beside their modules: `tokens.test.ts`,
+`pnpm test` from the repository root runs them all, beside their modules: `tokens/build.test.ts`, `tokens.test.ts`,
 `fonts.test.ts`, `logo.test.ts`, `brand.test.ts`, `sprites.test.ts`, `heroes.test.ts`,
 `mascots.test.ts`, `personas.test.ts`, `sun.test.ts` and `index.test.ts`. `pnpm typecheck` checks
 them with the modules.

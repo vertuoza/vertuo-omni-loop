@@ -1,0 +1,67 @@
+# The PRD page's screenshot test (PRD omni-loop-10): on a pull request whose diff meets the `ui` layer
+# (the `layers.ui` paths of .omni-loop/config.yml, plus packages/ui, the design system's parts), it runs
+# `pnpm --filter @omni/galaxy-app visual`: the demo world (no database, no network) shot at 1440 and
+# 393 in Omni, Light and Dark, compared with the baselines committed in apps/galaxy/visual/baselines/.
+# On a difference the run goes red and the diff images are attached to it as an artifact, never to the
+# repository.
+#
+# A baseline is never updated by itself. After a deliberate change of the page, a person runs
+# `pnpm --filter @omni/galaxy-app visual --update` and commits the images, or runs this workflow by hand
+# with `update` on: it then uploads the new baselines as an artifact to review and commit.
+name: visual
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'apps/galaxy/app/**'
+      - 'apps/galaxy/src/**/*.tsx'
+      - 'apps/galaxy/src/**/*.css'
+      - 'apps/galaxy/visual/**'
+      - 'apps/galaxy/scripts/visual.ts'
+      - 'packages/design/**'
+      - 'packages/galaxy/**'
+      - 'packages/ui/**'
+      - '.github/workflows/visual.yml'
+  workflow_dispatch:
+    inputs:
+      update:
+        description: 'Write new baselines and upload them as an artifact (never committed)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: visual-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  visual:
+    # Playwright 1.56 installs Chromium's system libraries for Ubuntu 24.04 and older, not for the
+    # 26.04 that ubuntu-latest now is.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @omni/galaxy-app exec playwright install --with-deps chromium
+      - name: Compare with the baselines
+        if: ${{ !inputs.update }}
+        run: pnpm --filter @omni/galaxy-app visual
+      - name: Write new baselines
+        if: ${{ inputs.update }}
+        run: pnpm --filter @omni/galaxy-app visual --update
+      - name: Attach the diff images
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diff
+          path: apps/galaxy/visual/diff/
+          if-no-files-found: ignore
+      - name: Attach the new baselines
+        if: ${{ inputs.update }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines
+          path: apps/galaxy/visual/baselines/

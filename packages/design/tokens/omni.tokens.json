@@ -1,0 +1,125 @@
+{
+  "$description": "Omni, the default: HOME's palette on the reading surface, the void and the cabinet, comic yellow as the signal.",
+  "color": {
+    "$type": "color",
+    "canvas": {
+      "$value": "{void}"
+    },
+    "surface": {
+      "$value": "{cab}"
+    },
+    "raised": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.102,
+          0.0902,
+          0.2863
+        ],
+        "hex": "#1a1749"
+      }
+    },
+    "sunken": {
+      "$value": "{deep}"
+    },
+    "text-primary": {
+      "$value": "{white}"
+    },
+    "text-secondary": {
+      "$value": "{dim}"
+    },
+    "text-tertiary": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.4863,
+          0.5098,
+          0.7686
+        ],
+        "hex": "#7c82c4"
+      }
+    },
+    "text-on-accent": {
+      "$value": "{void}"
+    },
+    "text-on-signal": {
+      "$value": "{void}"
+    },
+    "text-on-highlight": {
+      "$value": "{void}"
+    },
+    "border-subtle": {
+      "$value": "{navy-dark}"
+    },
+    "border-strong": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.3529,
+          0.3765,
+          0.7686
+        ],
+        "hex": "#5a60c4"
+      }
+    },
+    "accent": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.5608,
+          0.6078,
+          1
+        ],
+        "hex": "#8f9bff"
+      }
+    },
+    "accent-soft": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1176,
+          0.1294,
+          0.3765
+        ],
+        "hex": "#1e2160"
+      }
+    },
+    "signal": {
+      "$value": "{yellow}"
+    },
+    "signal-soft": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1647,
+          0.1373,
+          0.3137
+        ],
+        "hex": "#2a2350"
+      }
+    },
+    "highlight": {
+      "$value": "{magenta}"
+    },
+    "success": {
+      "$value": "{green}"
+    },
+    "warning": {
+      "$value": "{orange}"
+    },
+    "danger": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          1,
+          0.4196,
+          0.5255
+        ],
+        "hex": "#ff6b86"
+      }
+    },
+    "info": {
+      "$value": "{cyan}"
+    }
+  }
+}

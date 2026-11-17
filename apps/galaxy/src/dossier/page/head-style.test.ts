@@ -38,8 +38,8 @@ describe('the PRD header frame', () => {
   it('is pulled out to the edges by the page gutter, and pads its rows by it', () => {
     const margins = value('.dossier-head', 'margin');
     expect(margins).toHaveLength(1);
-    expect(margins[0]).toMatch(/calc\(-1 \* var\(--ask-gutter, 16px\)\)/);
-    for (const padding of value('.dossier-head', 'padding')) expect(padding).toContain('var(--ask-gutter, 16px)');
+    expect(margins[0]).toContain('var(--dossier-gutter-pull)');
+    for (const padding of value('.dossier-head', 'padding')) expect(padding).toContain('var(--dossier-gutter)');
     expect(value('.dossier-head', 'padding').length).toBeGreaterThan(0);
   });
 
@@ -48,9 +48,9 @@ describe('the PRD header frame', () => {
   });
 
   it('draws the tabs rule across the whole header', () => {
-    for (const margin of value('.dossier-tabs', 'margin')) expect(margin).toBe('0 calc(-1 * var(--ask-gutter, 16px))');
+    for (const margin of value('.dossier-tabs', 'margin')) expect(margin).toBe('0 var(--dossier-gutter-pull)');
     expect(value('.dossier-tabs', 'margin').length).toBeGreaterThan(0);
-    expect(value('.dossier-tabs', 'border-top')).toEqual(['1px solid var(--ask-line-strong)']);
+    expect(value('.dossier-tabs', 'border-top')).toEqual(['1px solid var(--color-border-subtle)']);
   });
 });
 

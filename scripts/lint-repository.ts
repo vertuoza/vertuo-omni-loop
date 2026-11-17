@@ -14,10 +14,34 @@ export type Finding = { path: string; line: number; rule: string };
 /** Lints the files (paths from the root): every finding, and the findings as a person reads them. */
 export type Linter = (files: readonly string[]) => Promise<{ findings: Finding[]; text: string }>;
 
-function trackedTypeScript(): string[] {
-  const out = execFileSync('git', ['ls-files', '-z', '--', '*.ts', '*.tsx', '*.mts', '*.cts'], { cwd: root, encoding: 'utf8' });
+/**
+ * The stylesheets stylelint reads (stylelint.config.ts refuses a raw font size, space, radius,
+ * shadow or colour in them): the design parts' own. PRD omni-loop-10 starts with them and the PRD
+ * page; the ratchet across the app is a later PRD's.
+ */
+const STYLELINT_PATHS: readonly string[] = ['packages/ui/', 'apps/galaxy/src/dossier/page/'];
+
+/** Lints the stylesheets (paths from the root) with stylelint. */
+export type StyleLinter = Linter;
+
+function trackedSources(): string[] {
+  const out = execFileSync('git', ['ls-files', '-z', '--', '*.ts', '*.tsx', '*.mts', '*.cts', '*.css'], { cwd: root, encoding: 'utf8' });
   return out.split('\0').filter(Boolean);
 }
+
+const stylelintFiles: StyleLinter = async (files) => {
+  if (files.length === 0) return { findings: [], text: '' };
+  // Loaded here, not at the top, for the same reason as ESLint.
+  const { default: stylelint } = await import('stylelint');
+  const data = await stylelint.lint({ files: files.map((file) => `${root}${file}`), configFile: `${root}stylelint.config.ts` });
+  const findings = data.results.flatMap((result) =>
+    result.warnings.map((warning) => ({ path: result.source?.slice(root.length) ?? '', line: warning.line, rule: warning.rule })),
+  );
+  const text = data.results
+    .flatMap((result) => result.warnings.map((warning) => `${result.source?.slice(root.length) ?? ''}:${String(warning.line)}  ${warning.text}`))
+    .join('\n');
+  return { findings, text: text === '' ? '' : `${text}\n` };
+};
 
 const eslintFiles: Linter = async (files) => {
   // Loaded here, not at the top, so a test that hands in its own linter never loads ESLint.
@@ -80,16 +104,23 @@ function parseArgs(args: readonly string[]): { prefixes: string[]; shard: Shard 
  */
 export async function lintRepository(
   args: readonly string[],
-  { tracked = trackedTypeScript, lint = eslintFiles }: { tracked?: () => string[]; lint?: Linter } = {},
+  { tracked = trackedSources, lint = eslintFiles, lintStyles = stylelintFiles }: { tracked?: () => string[]; lint?: Linter; lintStyles?: StyleLinter } = {},
 ): Promise<{ exitCode: number; report: string }> {
   const parsed = parseArgs(args);
   if (!parsed) return { exitCode: 2, report: shardUsage };
   const { prefixes, shard } = parsed;
-  const all = tracked();
-  const scoped = prefixes.length > 0 ? all.filter((path) => prefixes.some((prefix) => path.startsWith(prefix))) : all;
+  const every = tracked();
+  const all = every.filter((path) => !path.endsWith('.css'));
+  const sheets = every.filter((path) => path.endsWith('.css') && STYLELINT_PATHS.some((prefix) => path.startsWith(prefix)));
+  const within = (paths: string[]) => (prefixes.length > 0 ? paths.filter((path) => prefixes.some((prefix) => path.startsWith(prefix))) : paths);
+  const scoped = within(all);
   const files = shard ? scoped.filter((_, position) => position % shard.count === shard.index - 1) : scoped;
-  const { findings, text } = await lint(files);
+  // The stylesheets are few: the first shard (or the only run) lints them all.
+  const styleFiles = !shard || shard.index === 1 ? within(sheets) : [];
+  const [code, styles] = [await lint(files), await lintStyles(styleFiles)];
+  const findings = [...code.findings, ...styles.findings];
+  const text = `${code.text}${styles.text}`;
   const of = shard ? ` (shard ${String(shard.index)}/${String(shard.count)})` : '';
-  const report = `${text}\n${perRule(findings)}\npnpm lint: ${String(findings.length)} findings in ${String(files.length)} files${of}\n`;
+  const report = `${text}\n${perRule(findings)}\npnpm lint: ${String(findings.length)} findings in ${String(files.length + styleFiles.length)} files${of}\n`;
   return { exitCode: findings.length === 0 ? 0 : 1, report };
 }

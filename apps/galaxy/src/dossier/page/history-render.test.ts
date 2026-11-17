@@ -243,7 +243,7 @@ describe('the stages (PRD 587)', () => {
     stages: historyStageBar(rows, filters, 'u-pierre', new Map(), stages),
   }));
   const bar = (html: string) =>
-    [...html.matchAll(/<a class="stage-stop stage-(passed|current)"( aria-current="page")? style="text-decoration:none" href="([^"]+)">([^<]+) <small>(\d+)<\/small><\/a>/g)]
+    [...html.matchAll(/<a class="stage-stop stage-(passed|current)"( aria-current="page")? href="([^"]+)">([^<]+) <small>(\d+)<\/small><\/a>/g)]
       .map((m) => [m[4], Number(m[5]), m[3]?.replaceAll('&amp;', '&'), m[1] === 'current']);
 
   it('shows the bar above the list, the seven stages in order with their counts, each a link', () => {
@@ -263,7 +263,7 @@ describe('the stages (PRD 587)', () => {
     const html = render({ who: 'all', stage: 'building' });
     expect(bar(html).find(([label]) => label === 'building')).toEqual(['building', 1, '/prd?who=all', true]);
     expect(bar(html).filter(([, , , current]) => current)).toHaveLength(1);
-    expect(html).toContain('aria-current="page" style="text-decoration:none" href="/prd?who=all">building');
+    expect(html).toContain('aria-current="page" href="/prd?who=all">building');
     expect(html.match(/class="dossier-history-row"/g)).toHaveLength(1);
     expect(html).toContain('<input type="hidden" name="stage" value="building"/>');
     expect(html).toContain('<a class="dossier-history-clear" href="/prd?who=all">Clear</a>');
@@ -331,13 +331,13 @@ describe('client navigation (PRD 2401)', () => {
     const history = source('./DossierHistory.tsx');
     const page = source('./DossierPage.tsx');
     expect(history).toContain("import Link from 'next/link'");
-    expect(page).toContain("import Link from 'next/link'");
+    expect(page).not.toContain("from 'next/link'");
     for (const cls of ['dossier-history-who', 'dossier-history-clear', 'dossier-history-row', 'dossier-history-to-all']) {
       expect(history).toContain(`<Link className="${cls}"`);
     }
     expect(history).toMatch(/<Link\s+key=\{s\.id\}/);
     expect(history).not.toMatch(/<a\s+key=\{s\.id\}/);
-    expect(page).toContain('<Link key={t.kind} className={t.empty');
+    expect(page).toContain('<Tabs'); // @omni/ui's Tabs draws plain links: a tab click is a full navigation (see the sub-PR's items)
   });
 
   it("has a loading.tsx for /prd/[id] that shows the PRD's skeleton", () => {

@@ -88,7 +88,7 @@ describe('the Main tab', () => {
   const broken = { watches: [watch({ status: 'broke' })], breaks: [red] };
 
   it('is in the bar once the PRD is watched', () => {
-    expect(html({ watches: [watch()], breaks: [] })).toContain('>Main</a>');
+    expect(html({ watches: [watch()], breaks: [] })).toContain('>Main</span></a>');
   });
 
   it('lists each break with its kind and its link, escaped, the parent result beside a CI red', () => {
