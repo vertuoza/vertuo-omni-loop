@@ -929,3 +929,27 @@ Enforced by: kit/lib/mission/overturn.test.ts
 Stated: 2026-11-16
 Decided: @pierrederval, 2026-11-16
 Proposed: yolo-fix 2026-11-16
+
+## BR-PRODUCT-164
+
+A job report with no tokens field keeps the job's last stored count. An ending report (done, failed or cancelled) may say tokens is null, and then the job keeps no count; a running report saying null is refused.
+
+Serves: P-PRODUCT-36
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s2-02-job-end-tokens-null, PRD #3001
+Enforced by: apps/galaxy/src/runners/runners.service.test.ts, apps/galaxy/src/runners/runners.contract.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #3002
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-165
+
+When a QA bug fix's pull request is still a draft once its bug-fix job has ended, the bug is marked not fixed, naming the draft, and the mission moves on to the next bug; QA's second check looks at that bug again. Checks still running on a ready fix are waited for.
+
+Serves: P-PRODUCT-128
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s4-03-draft-fix-is-not-fixed, PRD #3001
+Enforced by: apps/omni-app/src/missions/qa.test.ts, apps/omni-app/src/missions/qa.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #3002
+Proposed: harvest 2026-11-17

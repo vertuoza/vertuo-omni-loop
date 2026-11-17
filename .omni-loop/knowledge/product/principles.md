@@ -988,3 +988,12 @@ Why: Re-sending failed or cancelled work automatically would spend runs on a gue
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-128
+
+A mission never waits on work that no job is left to finish; it records what was not done and moves on.
+
+Why: Waiting on a draft nobody will mark ready would hold the PRD with nothing at work.
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s4-03-draft-fix-is-not-fixed, PRD #3001
+Merged: @pierrederval, 2026-11-17, PR #3002
+Proposed: harvest 2026-11-17
