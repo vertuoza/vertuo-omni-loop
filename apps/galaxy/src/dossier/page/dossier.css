@@ -25,7 +25,7 @@
    a screen tall enough to keep the box under about a third of it; below either, it scrolls away. Above
    the content, under the user menu, the drawer and its scrim. */
 @media (min-width: 900px) and (min-height: 700px) {
-  .dossier-head { position: sticky; top: 0; z-index: 10; }
+  .dossier-head { position: sticky; top: 0; z-index: var(--layer-sticky); }
 }
 .dossier-head-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); flex-wrap: wrap; min-width: 0; }
 .dossier-head-top .dossier-title { flex: 1 1 320px; min-width: 0; }
@@ -131,7 +131,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 20;
+  z-index: var(--layer-overlay);
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3);
