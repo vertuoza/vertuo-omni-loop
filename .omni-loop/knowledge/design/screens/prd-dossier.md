@@ -18,6 +18,10 @@ shell (`apps/galaxy/app/prd/layout.tsx`), a shared screen of its own, `app-shell
 own `notifications`: their files are in `reads` here. The PRD's own text the page shows (its title,
 its spec, its plan) is content, marked `data-content` in the mockup.
 
+Its parts are `@omni/ui`'s (`packages/ui/`), on the tokens of `packages/design/tokens/`: PageHeader
+(the head), Tabs, Button (the header's actions and Copy link), Badge, ListRow (the facts and the
+stage), Notice, EmptyState, Stack, Text and Card. The page's own CSS keeps layout only.
+
 ## Regions
 
 - **The head, one box in three rows** (`dossier/page/DossierPage.tsx`, `StageHeader.tsx`): the
