@@ -17,6 +17,7 @@ on:
       - 'apps/galaxy/src/**/*.tsx'
       - 'apps/galaxy/src/**/*.css'
       - 'apps/galaxy/visual/**'
+      - 'apps/galaxy/scripts/visual.ts'
       - 'packages/design/**'
       - 'packages/galaxy/**'
       - 'packages/ui/**'
@@ -34,7 +35,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   visual:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 installs Chromium's system libraries for Ubuntu 24.04 and older, not for the
+    # 26.04 that ubuntu-latest now is.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4

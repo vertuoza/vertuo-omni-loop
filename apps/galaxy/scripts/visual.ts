@@ -8,7 +8,7 @@
 //
 //   pnpm --filter @omni/galaxy-app visual                 compares; exit 1 on a difference
 //   pnpm --filter @omni/galaxy-app visual --update        writes the baselines: the explicit command
-//   GALAXY_URL=http://localhost:3000/ pnpm … visual       uses a dev server already running
+//   pnpm --filter @omni/galaxy-app visual --url http://localhost:3000/   uses a dev server already running
 //
 // Only golden screens have baselines (ADR-0108); review screenshots are never committed. It is no
 // vitest test: nothing here runs in `pnpm test`. Needs Playwright's Chromium, installed once:
@@ -36,11 +36,13 @@ const CHANNEL = 24;
 /** The share of pixels that may differ before a shot fails. */
 const THRESHOLD = 0.01;
 
-const BASELINES = fileURLToPath(new URL('./baselines/', import.meta.url));
-const DIFFS = fileURLToPath(new URL('./diff/', import.meta.url));
+const BASELINES = fileURLToPath(new URL('../visual/baselines/', import.meta.url));
+const DIFFS = fileURLToPath(new URL('../visual/diff/', import.meta.url));
 const APP = fileURLToPath(new URL('../', import.meta.url));
 
 const update = process.argv.includes('--update');
+/** A dev server already running, given as `--url <base>`. */
+const given = ((i) => (i < 0 ? undefined : process.argv[i + 1]))(process.argv.indexOf('--url'));
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** Finite animations are shown finished and the dev server's badge is left out. */
@@ -48,12 +50,11 @@ const STILL = `nextjs-portal { display: none !important; } *, *::before, *::afte
 
 /** Starts `next dev` for the demo on a port of its own and waits until the PRD page answers. */
 async function startServer(): Promise<{ base: string; stop: () => void }> {
-  const given = process.env['GALAXY_URL'];
   if (given) return { base: given, stop: () => undefined };
   const port = 3217;
   const base = `http://localhost:${port}/`;
-  const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', String(port)], {
-    cwd: APP, detached: true, stdio: 'ignore', env: { ...process.env, OMNI_LOOP_DEMO: '1' },
+  const child = spawn('env', ['OMNI_LOOP_DEMO=1', 'pnpm', 'exec', 'next', 'dev', '--port', String(port)], {
+    cwd: APP, detached: true, stdio: 'ignore',
   });
   const stop = (): void => {
     try { process.kill(-(child.pid ?? 0)); } catch { /* already gone */ }

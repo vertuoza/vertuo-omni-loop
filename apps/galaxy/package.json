@@ -16,7 +16,7 @@
     "artifact": "node artifact/build.ts",
     "seed": "node scripts/seed.ts",
     "shots": "node scripts/shots.ts",
-    "visual": "node visual/visual.ts"
+    "visual": "node scripts/visual.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
