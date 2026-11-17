@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-17
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-24
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ A constant: drop the recomputation in repairLine() and the record keeps the runn
 - Raised: 2026-11-17
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-159, P-PRODUCT-127
 
 ### The answer, as it was given
 
@@ -176,6 +178,7 @@ Constants and patterns in kit/lib/repair/sensitive.ts and scrub.ts, and four ref
 - Raised: 2026-11-17
 - Slice: s2
 - Wave: 1
+- Stays here: This is a staging choice between two steps of one feature. Its temporary tripwire ended once s3 landed, so nothing lasting needs keeping beyond the ledger.
 
 ### The answer, as it was given
 
@@ -256,6 +259,7 @@ A constant: s3 adds repair to RUNNER_SKILLS, RUNNABLE_SKILLS, the Engineer in ki
 - Raised: 2026-11-17
 - Slice: s2
 - Wave: 1
+- Became: ADR-0165
 
 ### The answer, as it was given
 
@@ -335,6 +339,7 @@ A small migration: a repair_round column on missions, moved by Resume, and the b
 - Raised: 2026-11-17
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-160
 
 ### The answer, as it was given
 
@@ -413,6 +418,7 @@ A constant: the outcome's check and the budget trigger's one condition, changed 
 - Raised: 2026-11-17
 - Slice: s3
 - Wave: 2
+- Stays here: An interim workaround until a later slice adds omni repair commands; the App's second scrub is the lasting safeguard, and this choice itself is not a lasting rule.
 
 ### The answer, as it was given
 
@@ -490,6 +496,7 @@ A later slice adds the commands and the skill swaps its words for them.
 - Raised: 2026-11-17
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-161
 
 ### The answer, as it was given
 
@@ -568,6 +575,7 @@ Each rule is one line of judgeFix; naming the files would read the fix's conflic
 - Raised: 2026-11-17
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-162
 
 ### The answer, as it was given
 
@@ -647,6 +655,7 @@ Each is a constant or one function: the round rule, the fingerprint an unreadabl
 - Raised: 2026-11-17
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-163
 
 ### The answer, as it was given
 
@@ -725,6 +734,7 @@ Each is a line: send a repair instead of the step after a Resume, read the works
 - Raised: 2026-11-17
 - Slice: s6
 - Wave: 4
+- Became: BR-PRODUCT-139
 
 ### The answer, as it was given
 
@@ -802,6 +812,7 @@ Reverting is one word in the table of moves, and the Resume button then shows bu
 - Raised: 2026-11-17
 - Slice: s6
 - Wave: 4
+- Stays here: A scoping choice about one page line, deferring a count until the App copies it onto the event; it guarantees nothing lasting beyond existing principles.
 
 ### The answer, as it was given
 
