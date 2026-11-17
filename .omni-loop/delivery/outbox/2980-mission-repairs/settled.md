@@ -710,3 +710,157 @@ Each is a line: send a repair instead of the step after a Resume, read the works
 ```
 
 <!-- /omni-outbox-settled: s5-04-repair-resume-and-report-names -->
+
+<!-- omni-outbox-settled: s6-01-resume-moves-a-stopped-mission -->
+
+## s6-01-resume-moves-a-stopped-mission — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-resume-moves-a-stopped-mission
+prd: 2980
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 4
+---
+
+## The question, in plain words
+
+The Stopped block offers Resume, and until now only a paused mission could resume: may Resume also carry a stopped mission on?
+
+## The decision, in plain words
+
+Resume now moves a stopped mission back to running, which opens a new round where each cause gets three repairs again, and the page shows the button only once a stopped mission has repairs to explain.
+
+## The intro, for fun
+
+The Resume button waited at the door of a room only paused missions could enter.
+
+## The punchline, for fun
+
+Now a stopped mission gets a key too, but only one with a story to tell.
+
+## The options, in plain words
+
+A. A. Resume moves a stopped mission too, through the existing route.
+B. B. A stopped mission is taken by hand only, and the block names Resume without a button.
+
+## What I had to decide
+
+The spec says Resume of a stopped mission opens a new round, and the supervisor already counts a Resume that follows a stop as a new round, but the Resume route took paused missions only. I added stopped to the statuses Resume moves, inside the missions folder, and the Missions tab and Operation room show the button only for a stopped mission whose repairs explain the stop.
+
+## What I did meanwhile
+
+Built as the spec asks: Resume in the Stopped block calls the existing resume route.
+
+## What it costs to change later
+
+Reverting is one word in the table of moves, and the Resume button then shows but the route answers that a stopped mission cannot resume.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not name the route Resume uses for a stopped mission.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-resume-moves-a-stopped-mission -->
+
+<!-- omni-outbox-settled: s6-02-waits-on-omni-loop-without-met-by-count -->
+
+## s6-02-waits-on-omni-loop-without-met-by-count — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-waits-on-omni-loop-without-met-by-count
+prd: 2980
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 4
+---
+
+## The question, in plain words
+
+The page for a PRD that waits on an Omni Loop bug draws how many missions met it, but a workspace cannot read that count: may the page leave it out?
+
+## The decision, in plain words
+
+The Waits on Omni Loop line names the bug and links it, and leaves out the line saying how many missions met it, because that count lives in a table no signed-in person can read.
+
+## The intro, for fun
+
+The page wanted to say how many missions shared its bad luck.
+
+## The punchline, for fun
+
+The count lives behind a door that rightly stays locked.
+
+## The options, in plain words
+
+A. A. The line names and links the bug, with no count.
+B. B. The App writes the count onto the event, and the page shows Met by n missions.
+
+## What I had to decide
+
+The before and after page draws Met by 2 missions under the bug link, but the count is a column of the Omni Loop bug table, which names no workspace and which nobody signed in may read. I linked the issue from the bug-reported event and left the count out, instead of reading the table with a service key.
+
+## What I did meanwhile
+
+Built as the spec asks for the link and the state word, without the count.
+
+## What it costs to change later
+
+Adding it later is a read of a count the App would copy onto the bug-reported event, then one line on each page.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say where a workspace reads the count from.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-waits-on-omni-loop-without-met-by-count -->
