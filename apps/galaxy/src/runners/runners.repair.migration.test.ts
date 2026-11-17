@@ -53,7 +53,7 @@ describe('mission_repairs, one row per repair a mission sent', () => {
   it('names its mission, its PRD, the cause\'s fingerprint, its round and its number, 1 to 3', () => {
     expect(columns).toContain('mission_id uuid not null references public.missions (id) on delete cascade');
     expect(columns).toContain('prd integer not null check (prd > 0)');
-    expect(columns).toContain("fingerprint text not null check (fingerprint ~ '^[0-9a-f]{8,64}$')");
+    expect(columns).toContain("fingerprint text not null check (fingerprint ~ '^[0-9a-f]{64}$')");
     expect(columns).toContain('round integer not null default 1 check (round >= 1)');
     expect(columns).toContain('number smallint not null default 1 check (number between 1 and 3)');
   });
@@ -103,7 +103,7 @@ describe('omni_bug_reports, one Omni Loop issue per fingerprint', () => {
   const columns = table('omni_bug_reports');
 
   it('keys a report by its fingerprint, with the repository and issue it was filed as and how often it was met', () => {
-    expect(columns).toContain("fingerprint text primary key check (fingerprint ~ '^[0-9a-f]{8,64}$')");
+    expect(columns).toContain("fingerprint text primary key check (fingerprint ~ '^[0-9a-f]{64}$')");
     expect(columns).toContain("repo text not null check (repo ~ '^[a-z0-9_.-]+/[a-z0-9_.-]+$')");
     expect(columns).toContain('issue integer not null check (issue > 0)');
     expect(columns).toContain('count integer not null default 1 check (count >= 1)');

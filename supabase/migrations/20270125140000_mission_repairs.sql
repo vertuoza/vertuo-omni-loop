@@ -45,7 +45,7 @@ create table if not exists public.mission_repairs (
   id            uuid primary key default gen_random_uuid(),
   mission_id    uuid not null references public.missions (id) on delete cascade,
   prd           integer not null check (prd > 0),
-  fingerprint   text not null check (fingerprint ~ '^[0-9a-f]{8,64}$'),
+  fingerprint   text not null check (fingerprint ~ '^[0-9a-f]{64}$'),
   round         integer not null default 1 check (round >= 1),
   number        smallint not null default 1 check (number between 1 and 3),
   failed_job_id uuid not null,
@@ -64,7 +64,7 @@ create index if not exists mission_repairs_mission_idx on public.mission_repairs
 comment on table public.mission_repairs is
   'A mission''s repairs (PRD 2980): one row per repair the supervisor sent, 3 per cause in a round and 9 per mission at most, held by the database. Read by the workspace''s members, written by the service role.';
 comment on column public.mission_repairs.prd is 'The PRD whose step failed.';
-comment on column public.mission_repairs.fingerprint is 'The cause''s fingerprint (kit/lib/repair): one cause, one fingerprint, whichever run met it. Its first 8 characters name it on the pages.';
+comment on column public.mission_repairs.fingerprint is 'The cause''s fingerprint (kit/lib/repair: a sha256, 64 lower-case hex characters): one cause, one fingerprint, whichever run met it. Its first 8 characters name it on the pages.';
 comment on column public.mission_repairs.round is 'The mission''s round of repairs it counts in: a person''s Resume of a stopped PRD opens a new one, where each cause gets 3 again; the mission''s 9 count every round.';
 comment on column public.mission_repairs.number is 'Its number for its cause in its round, 1 to 3: set by the database, never by the caller.';
 comment on column public.mission_repairs.failed_job_id is 'The runner job whose failure it repairs: kept even once that job is gone.';
@@ -145,7 +145,7 @@ grant select, insert, update on public.mission_repairs to service_role;
 -- ── The Omni Loop bugs a mission reported ───────────────────────────────────────
 
 create table if not exists public.omni_bug_reports (
-  fingerprint text primary key check (fingerprint ~ '^[0-9a-f]{8,64}$'),
+  fingerprint text primary key check (fingerprint ~ '^[0-9a-f]{64}$'),
   repo        text not null check (repo ~ '^[a-z0-9_.-]+/[a-z0-9_.-]+$'),
   issue       integer not null check (issue > 0),
   count       integer not null default 1 check (count >= 1),

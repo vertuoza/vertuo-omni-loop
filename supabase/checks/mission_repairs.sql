@@ -83,45 +83,49 @@ reset role;
 set local role service_role;
 do $$
 begin
-  if pg_temp.repair('aaaaaaaa11112222', 1, 3::smallint) <> 1 then raise exception 'FAIL: the first repair of a cause took the caller''s number'; end if;
-  if pg_temp.repair('aaaaaaaa11112222') <> 2 then raise exception 'FAIL: the second repair of a cause is not number 2'; end if;
-  if pg_temp.repair('aaaaaaaa11112222') <> 3 then raise exception 'FAIL: the third repair of a cause is not number 3'; end if;
-  perform pg_temp.refused('aaaaaaaa11112222', 1, 'fingerprint');
+  if pg_temp.repair('aaaaaaaa11112222000000000000000000000000000000000000000000000000', 1, 3::smallint) <> 1 then raise exception 'FAIL: the first repair of a cause took the caller''s number'; end if;
+  if pg_temp.repair('aaaaaaaa11112222000000000000000000000000000000000000000000000000') <> 2 then raise exception 'FAIL: the second repair of a cause is not number 2'; end if;
+  if pg_temp.repair('aaaaaaaa11112222000000000000000000000000000000000000000000000000') <> 3 then raise exception 'FAIL: the third repair of a cause is not number 3'; end if;
+  perform pg_temp.refused('aaaaaaaa11112222000000000000000000000000000000000000000000000000', 1, 'fingerprint');
 
   -- A lost repair spends nothing: the next one of its cause takes its number again.
-  if pg_temp.repair('bbbbbbbb11112222') <> 1 then raise exception 'FAIL: a new cause did not start at 1'; end if;
-  update public.mission_repairs set outcome = 'lost' where fingerprint = 'bbbbbbbb11112222';
-  if pg_temp.repair('bbbbbbbb11112222') <> 1 then raise exception 'FAIL: a lost repair spent its cause''s number'; end if;
+  if pg_temp.repair('bbbbbbbb11112222000000000000000000000000000000000000000000000000') <> 1 then raise exception 'FAIL: a new cause did not start at 1'; end if;
+  update public.mission_repairs set outcome = 'lost' where fingerprint = 'bbbbbbbb11112222000000000000000000000000000000000000000000000000';
+  if pg_temp.repair('bbbbbbbb11112222000000000000000000000000000000000000000000000000') <> 1 then raise exception 'FAIL: a lost repair spent its cause''s number'; end if;
 
   -- A new round gives a cause 3 again.
-  if pg_temp.repair('aaaaaaaa11112222', 2) <> 1 then raise exception 'FAIL: a new round did not give the cause 3 again'; end if;
+  if pg_temp.repair('aaaaaaaa11112222000000000000000000000000000000000000000000000000', 2) <> 1 then raise exception 'FAIL: a new round did not give the cause 3 again'; end if;
 
   -- 3 + 1 + 1 spent; four causes more make 9, the lost one apart.
-  perform pg_temp.repair('cccccccc11112222');
-  perform pg_temp.repair('dddddddd11112222');
-  perform pg_temp.repair('eeeeeeee11112222');
-  perform pg_temp.repair('ffffffff11112222');
+  perform pg_temp.repair('cccccccc11112222000000000000000000000000000000000000000000000000');
+  perform pg_temp.repair('dddddddd11112222000000000000000000000000000000000000000000000000');
+  perform pg_temp.repair('eeeeeeee11112222000000000000000000000000000000000000000000000000');
+  perform pg_temp.repair('ffffffff11112222000000000000000000000000000000000000000000000000');
   if (select count(*) from public.mission_repairs where outcome is distinct from 'lost') <> 9 then
     raise exception 'FAIL: the mission has not run 9 repairs';
   end if;
-  perform pg_temp.refused('abababab11112222', 1, 'mission');
-  perform pg_temp.refused('aaaaaaaa11112222', 3, 'mission');
+  perform pg_temp.refused('abababab11112222000000000000000000000000000000000000000000000000', 1, 'mission');
+  perform pg_temp.refused('aaaaaaaa11112222000000000000000000000000000000000000000000000000', 3, 'mission');
 end $$;
 
 -- ── A repair's life: filled in while it runs, ended once, never changed after ──
 do $$
 declare
-  one uuid := (select id from public.mission_repairs where fingerprint = 'cccccccc11112222');
+  one uuid := (select id from public.mission_repairs where fingerprint = 'cccccccc11112222000000000000000000000000000000000000000000000000');
   got public.mission_repairs;
 begin
   begin
     insert into public.mission_repairs (mission_id, prd, fingerprint, failed_job_id, outcome, ended_at)
-    values ('00000000-0000-4000-8000-000002980a01', 2981, 'abababab11112222', '00000000-0000-4000-8000-000002980b01', 'fixed', now());
+    values ('00000000-0000-4000-8000-000002980a01', 2981, 'abababab11112222000000000000000000000000000000000000000000000000', '00000000-0000-4000-8000-000002980b01', 'fixed', now());
     raise exception 'FAIL: a repair started with an outcome';
   exception when invalid_parameter_value then null; end;
   begin
     perform pg_temp.repair('NOT-HEX');
     raise exception 'FAIL: a fingerprint out of its shape was taken';
+  exception when check_violation then null; end;
+  begin
+    perform pg_temp.repair('abababab11112222');
+    raise exception 'FAIL: a fingerprint shorter than a sha256 was taken';
   exception when check_violation then null; end;
   begin
     update public.mission_repairs set fix_pr = 'https://example.test/pull/1' where id = one;
@@ -142,7 +146,7 @@ begin
     raise exception 'FAIL: a running repair was not filled in, or read as ended: %', row(got.*);
   end if;
   begin
-    update public.mission_repairs set fingerprint = 'abababab11112222' where id = one;
+    update public.mission_repairs set fingerprint = 'abababab11112222000000000000000000000000000000000000000000000000' where id = one;
     raise exception 'FAIL: a repair''s cause changed';
   exception when insufficient_privilege then null; end;
   begin
@@ -162,7 +166,7 @@ begin
     raise exception 'FAIL: an ended repair''s fix changed';
   exception when insufficient_privilege then null; end;
   begin
-    update public.mission_repairs set outcome = 'gone' where fingerprint = 'dddddddd11112222';
+    update public.mission_repairs set outcome = 'gone' where fingerprint = 'dddddddd11112222000000000000000000000000000000000000000000000000';
     raise exception 'FAIL: an outcome off the list was taken';
   exception when check_violation then null; end;
   begin
@@ -182,7 +186,7 @@ begin
   end if;
   begin
     insert into public.mission_repairs (mission_id, prd, fingerprint, failed_job_id)
-    values ('00000000-0000-4000-8000-000002980a01', 2981, 'abababab11112222', '00000000-0000-4000-8000-000002980b01');
+    values ('00000000-0000-4000-8000-000002980a01', 2981, 'abababab11112222000000000000000000000000000000000000000000000000', '00000000-0000-4000-8000-000002980b01');
     raise exception 'FAIL: a member wrote a repair';
   exception when insufficient_privilege then null; end;
   begin
@@ -191,7 +195,7 @@ begin
   exception when insufficient_privilege then null; end;
   begin perform 1 from public.omni_bug_reports limit 1; raise exception 'FAIL: a member read the Omni Loop bug reports';
   exception when insufficient_privilege then null; end;
-  begin perform public.omni_bug_report_seen('aaaaaaaa11112222'); raise exception 'FAIL: a member counted an Omni Loop bug report';
+  begin perform public.omni_bug_report_seen('aaaaaaaa11112222000000000000000000000000000000000000000000000000'); raise exception 'FAIL: a member counted an Omni Loop bug report';
   exception when insufficient_privilege then null; end;
 end $$;
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000298c1');
@@ -212,18 +216,18 @@ do $$
 declare
   got public.omni_bug_reports;
 begin
-  insert into public.omni_bug_reports (fingerprint, repo, issue) values ('0123456789abcdef', 'demo-org/omni-loop', 3001);
+  insert into public.omni_bug_reports (fingerprint, repo, issue) values ('0123456789abcdef000000000000000000000000000000000000000000000000', 'demo-org/omni-loop', 3001);
   begin
-    insert into public.omni_bug_reports (fingerprint, repo, issue) values ('0123456789abcdef', 'demo-org/omni-loop', 3002);
+    insert into public.omni_bug_reports (fingerprint, repo, issue) values ('0123456789abcdef000000000000000000000000000000000000000000000000', 'demo-org/omni-loop', 3002);
     raise exception 'FAIL: a fingerprint was filed twice';
   exception when unique_violation then null; end;
   begin
-    insert into public.omni_bug_reports (fingerprint, repo, issue) values ('fedcba9876543210', 'Demo-Org/Omni Loop', 3003);
+    insert into public.omni_bug_reports (fingerprint, repo, issue) values ('fedcba9876543210000000000000000000000000000000000000000000000000', 'Demo-Org/Omni Loop', 3003);
     raise exception 'FAIL: a repository out of its shape was taken';
   exception when check_violation then null; end;
-  select * into got from public.omni_bug_report_seen('0123456789abcdef');
+  select * into got from public.omni_bug_report_seen('0123456789abcdef000000000000000000000000000000000000000000000000');
   if got.count is distinct from 2 or got.issue is distinct from 3001 then raise exception 'FAIL: a repeat was not counted: %', row(got.*); end if;
-  if exists (select 1 from public.omni_bug_report_seen('fedcba9876543210')) then
+  if exists (select 1 from public.omni_bug_report_seen('fedcba9876543210000000000000000000000000000000000000000000000000')) then
     raise exception 'FAIL: a fingerprint never filed was counted';
   end if;
 end $$;
