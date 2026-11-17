@@ -275,7 +275,23 @@ describe('the before/after has a Functional part and a Pixel perfect part (PRD 1
       inOrder(page(), ['**Three tabs,**', '**Functional** (`data-section="functional"`)', '**Pixel perfect** (`pixel-perfect`, the third tab)', '(`data-section="pixel-perfect"`)', 'screens: quote-list · app-shell', '`Pixel perfect: no screen changes`']),
     ).toEqual([]);
     expect(page()).toMatch(/the line review and\s+the word pass\s+read/);
-    expect(page()).toMatch(/With the design flag off, the section is `na`/);
+  });
+
+  it('AC-1: a changed screen is drawn today beside after, design flag on or off', () => {
+    expect(page()).toMatch(/with the design flag on or off, `design\.paths` set or empty, a\s+library or none/);
+    expect(page()).toMatch(/or when it changes a file `design\.paths` lists by glob/);
+  });
+
+  it('AC-2: the N/A line is gone; no screen change says one line whatever the flag', () => {
+    expect(read('brainstorm/SKILL.md')).not.toContain('N/A — design craft is off here');
+    expect(page()).toMatch(/`Pixel perfect: no screen changes`/);
+    expect(page()).toMatch(/is `none`, whatever the flag/);
+  });
+
+  it('AC-3: with design off, today is read from the page\'s own code, no design extras, a guess is said', () => {
+    expect(page()).toMatch(/\*\*Design flag off:\*\* read "today" from the page's own markup, styles and words/);
+    expect(page()).toMatch(/Use no design form,\s+library, word pass or draft screen; say in one line under the screen what was guessed/);
+    expect(section('brainstorm/SKILL.md', 'Step 0')).toMatch(/still\s+draws every changed screen/);
   });
 
   it('visual-fix keeps its page as the Pixel perfect part alone', () => {
