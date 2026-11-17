@@ -80,7 +80,9 @@ async function open(page: Page, base: string): Promise<void> {
   await page.addStyleTag({ content: STILL });
   await page.evaluate(() => document.fonts.ready.then(() => true));
   const text = await page.evaluate(() => document.body.innerText);
-  if (!text.includes(HEADING)) throw new Error(`/${ROUTE} should show the demo PRD ("${HEADING}")`);
+  if (!text.includes(HEADING)) {
+    throw new Error(`/${ROUTE} should show the demo PRD ("${HEADING}"); ${page.url()} shows: ${text.slice(0, 600)}`);
+  }
   await sleep(500);
 }
 
