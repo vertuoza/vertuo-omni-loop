@@ -37,6 +37,8 @@ import { briefingLaws } from '../../lib/knowledge/briefing-laws.ts';
 import { readBusinessLaws, selectBusinessLaws, type BusinessLaw } from '../../lib/knowledge/business-laws.ts';
 import { businessLawsAt } from '../../lib/knowledge/business-laws-home.ts';
 import { businessLawsText, lawsOfDomain, selectionText } from '../../lib/knowledge/business-laws-text.ts';
+import { nextFreeId } from '../../lib/knowledge/next-id.ts';
+import { readPlaces } from '../../lib/knowledge/next-id-read.ts';
 import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
 import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
 import { LEVELS } from '../../lib/knowledge-tree/levels.ts';
@@ -750,8 +752,37 @@ function specLaws(all: BusinessLaw[], spec: string, json: boolean, { ctx, exec }
   return json ? JSON.stringify(selection, null, 2) : selectionText(selection, { spec, glossaryRead: cache.state === 'cached' });
 }
 
+const NEXT_ID_USAGE = 'usage: omni kb next-id <prefix> [--json]  (a prefix is an id without its number, as BR-PIPELINE)';
+
+/**
+ * `omni kb next-id <prefix>` (PRD 3015): the next free id of a register prefix, one past the highest
+ * number in the tree, on the default branch as last fetched and in every open pull request into it.
+ * A place it cannot read is named on stderr, and the id is still printed: it is advice, never a block.
+ */
+function nextId(args: string[], { ctx, exec, stdout, stderr }: CommandIo): number {
+  const { positional, flags } = parseArgs('kb next-id', args, { booleans: ['json'] });
+  const [prefix, ...extra] = positional;
+  if (prefix === undefined || extra.length > 0) throw usageError(NEXT_ID_USAGE);
+  const { remote } = ctx.config.repo;
+  const base = `${remote}/${ctx.config.repo.defaultBranch}`;
+  const read = readPlaces({ ctx, tree: readKnowledge({ ctx }).entries.map((entry) => entry.id), remote, defaultBranch: ctx.config.repo.defaultBranch, exec });
+  let found: ReturnType<typeof nextFreeId>;
+  try {
+    found = nextFreeId(prefix, read.sets);
+  } catch (error) {
+    throw usageError(`omni kb next-id: ${messageOf(error)}. ${NEXT_ID_USAGE}`);
+  }
+  const unread = [
+    ...(read.pulls === null ? [] : [`open pull requests not read: ${read.pulls}`]),
+    ...(read.base === null ? [] : [`${base} not read: ${read.base}`]),
+  ];
+  if (unread.length > 0) println(stderr, `${unread.join('; ')}; the id may still be taken by one`);
+  println(stdout, flags.json ? JSON.stringify(found, null, 2) : found.id);
+  return 0;
+}
+
 /** The verbs that read their own flags, each handed the arguments after its name. */
-const OWN_FLAGS: Readonly<Record<string, (args: string[], io: CommandIo) => number>> = { laws, graph };
+const OWN_FLAGS: Readonly<Record<string, (args: string[], io: CommandIo) => number>> = { laws, graph, 'next-id': nextId };
 
 /** The verbs that take only `--json` (and `show`'s `--all`), each handed what follows its name. */
 const PLAIN: Readonly<Record<string, (positional: string[], flags: KbFlags, io: CommandIo) => number>> = { init, show, status, owners };
