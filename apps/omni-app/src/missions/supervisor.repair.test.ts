@@ -202,6 +202,17 @@ describe('a fix\'s landing on the mission branch', () => {
 });
 
 describe('the repair events: one sentence and one link each, recorded once', () => {
+  it('says a PRD held a second time is repaired, not stopped, while repairs are on', () => {
+    const runs = [run(1, 1, attempt('a', { status: 'done', outcome: 'held' })), run(1, 2, attempt('b', { status: 'done', outcome: 'held' }))];
+    const states = prdStates([facts(1)], runs, undefined, undefined, undefined, view());
+    const next = conclude({ mission: mission(), facts: [facts(1)], states, sent: 0, now: NOW });
+    const events = eventsOf({ mission: mission(), facts: [facts(1)], states, runs, next, toFleet: true, recorded: recordedKeys([]), repairs: view() });
+    expect(events.filter((event) => event.kind === 'held').map((event) => event.sentence)).toEqual([
+      'PRD 1 was held: the mission sends it again, once.',
+      'PRD 1 was held a second time: the mission sends a repair, while it has one left.',
+    ]);
+  });
+
   it('records the dispatch, the retro, the end and the Omni Loop bug, each naming the cause by 8 characters', () => {
     const repairs = view({
       jobs: [repairJob(1, 1, 'a', attempt('r1', { status: 'done' }))],

@@ -754,7 +754,11 @@ const linkOf = (url: string | null): string | null => (url !== null && /^https?:
 
 /** A held or stopped-mid-way PRD: sent again once, stopped the second time. */
 const againWords = (n: string, what: string, run: number): string =>
-  run >= LAST_RUN ? `${n} ${what} a second time: it stops here.` : `${n} ${what}: the mission sends it again, once.`;
+  run >= LAST_RUN ? `${n} ${what} a second time${STOPS_HERE}` : `${n} ${what}: the mission sends it again, once.`;
+
+const STOPS_HERE = ': it stops here.';
+/** Where the table stops a PRD and the mission repairs (PRD 2980): a repair goes first, while the mission has one left. */
+const REPAIRS_HERE = ': the mission sends a repair, while it has one left.';
 
 type EndWords = Pick<NewEvent, 'kind' | 'role' | 'sentence'>;
 
@@ -807,17 +811,24 @@ const shippedEvent = (prd: PrdNumber, one: Run, last: Attempt, asked: number | n
 });
 
 /** Any other end, in END_WORDS's words (a hand-off its step never ends on reads as stopped mid-way's), a Reviewer job's signed by it. */
-function plainEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, branch: string | null): NewEvent {
+function plainEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, { branch, repairs }: { branch: string | null; repairs: boolean }): NewEvent {
   const words = END_WORDS[end === 'review' || end === 'changes' ? 'stopped' : end](`PRD ${String(prd)}`, one.run, last.reason, branch);
   const role = roundOf(one.step) !== null && words.role === 'engineer' ? 'reviewer' : words.role;
-  return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role };
+  const sentence = repairs ? words.sentence.replace(STOPS_HERE, REPAIRS_HERE) : words.sentence;
+  return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role, sentence };
 }
 
 /** The event of a job's end, at its step: a Reviewer's verdict is `reviewed`; a build or fix shipped for review waits for it. */
-function endEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, { asked = null, branch = null }: { asked?: number | null; branch?: string | null } = {}): NewEvent {
+function endEvent(
+  prd: PrdNumber,
+  one: Run,
+  last: Attempt,
+  end: JobEnd,
+  { asked = null, branch = null, repairs = false }: { asked?: number | null; branch?: string | null; repairs?: boolean } = {},
+): NewEvent {
   const round = roundOf(one.step);
   if (round !== null && (end === 'changes' || end === 'ready')) return verdictEvent(prd, round, last, end);
-  return end === 'review' && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end, branch);
+  return end === 'review' && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end, { branch, repairs });
 }
 
 /** How many findings the Reviewer's round 1 raised before fix `one`, when its log said: the latest round 1 of its PRD up to its run. */
@@ -835,12 +846,12 @@ function sentWords(one: Run, where: string, skill: BuildSkill, base: string | nu
 }
 
 /** What each job says: its dispatch, each runner lost along the way, and its end. */
-function runEvents(runs: readonly Run[], where: string, skill: BuildSkill, base: string | null): NewEvent[] {
+function runEvents(runs: readonly Run[], where: string, skill: BuildSkill, base: string | null, repairs = false): NewEvent[] {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
     const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, skill, base) };
-    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base })] : [];
+    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base, repairs })] : [];
     return [sent, ...one.attempts.slice(0, -1).map((gone) => endEvent(one.prd, one, gone, gone.limitedUntil == null ? 'lost' : 'limited')), ...ending];
   });
 }
@@ -960,7 +971,7 @@ export function eventsOf({
   const all = [
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
-    ...runEvents(runs, where, skill, base),
+    ...runEvents(runs, where, skill, base, repairs.budget > 0),
     ...repairEvents(repairs, { where, mission: mission.number }),
     ...joinEvents(joins, base),
     ...landEvents(landings),
