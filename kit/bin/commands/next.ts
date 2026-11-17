@@ -66,6 +66,7 @@ import { gateApproval } from '../../lib/delivery/prd.ts';
 import type { IssueNumber, PrNumber, PrdNumber, WorkSliceId } from '../../lib/ids.ts';
 import type { LoopChange, LoopComment } from '../../lib/loop-reads/contract.ts';
 import { omniLoopReads } from '../../lib/loop-reads/omni.ts';
+import { readOnce } from '../../lib/loop-reads/once.ts';
 import { boardReads, LoopReadError } from '../../lib/loop-reads/port.ts';
 import type { LoopReads } from '../../lib/loop-reads/port.ts';
 import { parseSpec } from '../../lib/inbox/inbox.ts';
@@ -103,6 +104,7 @@ import { planReplies } from '../../lib/outbox/replies.ts';
 import { issueArg, parseArgs, prdArg, println, repoSlug, usageError } from '../args.ts';
 import type { Env, Exec, FreeCommand } from '../io.ts';
 import { targetsOf } from '../../lib/plan-repo/target-list.ts';
+import { sideBySide } from '../../lib/side-by-side.ts';
 import { buildBoard, contextWithTargets } from './board.ts';
 import type { TargetsIo } from './board.ts';
 
@@ -115,6 +117,10 @@ function listedOf(change: LoopChange): ListedPr {
   const { number, url, state, updatedAt, body, author, labels } = change;
   return { number, url, state: GH_STATES[state], isDraft: state === 'draft', updatedAt, body, author, labels };
 }
+
+/** How many PRDs a tick reads at once (issue 2968): enough to wait on the Omni page side by side,
+ * few enough that a runner driving many PRDs does not burst it. */
+const PRDS_AT_ONCE = 4;
 
 /** What every read of this command needs. */
 type Reader = { ctx: Context; exec: Exec; env: Env; slug: string; reads: LoopReads; approval: ApprovalCall };
@@ -318,19 +324,30 @@ type Read = { facts: PrdFacts; slices: PlanSliceInput[] | null; prs: PrStanding[
  * that cannot be made. */
 async function readFacts(prd: PrdNumber, reader: Reader, gate: ApprovalGate | null): Promise<Read> {
   const folder = folderOf(prd, reader.ctx);
-  const phase0 = await openPhase0(prd, reader);
-  if (folder === null) return beforeInbox(prd, phase0, reader);
+  const phase0Read = openPhase0(prd, reader);
+  if (folder === null) return beforeInbox(prd, await phase0Read, reader);
   const branch = fillBranch(reader.ctx.config.branches.feature, { topic: folder.topic });
-  const pr = await featurePr(branch, reader);
+  // Issue 2968: the phase-0 list, the feature PR and the board are read side by side, then awaited in
+  // this order, so a failure stops the PRD with the same line it did when they were read one by one.
+  const prRead = featurePr(branch, reader);
+  const boardRead = boardFacts(prd, reader);
+  awaitedLater(prRead, boardRead);
+  const phase0 = await phase0Read;
+  const pr = await prRead;
   const open = pr?.state === 'OPEN' ? pr : null;
   const feature = pr === null ? null : await featureFacts(pr, reader);
-  const { board, slices, claims } = await boardFacts(prd, reader);
+  const { board, slices, claims } = await boardRead;
   const across = await acrossFacts(branch, slices, reader);
   const outbox = await outboxFacts(prd, { branch, pr: open }, reader);
   const facts: PrdFacts = { prd, shipped: folder.shipped, phase0, feature, board, outbox, ...(across ? { across: across.across } : {}), approval: gate };
   const targets = (across?.listed ?? []).map(({ repo, pr: listed }) => ({ slug: targetSlug(repo, reader), pr: listed }));
   const running = await runningOf(claims, [...(open ? [{ slug: reader.slug, pr: open }] : []), ...targets], reader);
   return { facts, slices, prs: standingsOf(pr, outbox, across, reader), running };
+}
+
+/** Reads started now and awaited later: an earlier read failing first leaves them unawaited, never unhandled. */
+function awaitedLater(...reads: Promise<unknown>[]): void {
+  for (const read of reads) read.catch(() => undefined);
 }
 
 /** A PRD with no folder yet: its open phase-0 PR is all there is, or it is a usage error. */
@@ -380,8 +397,7 @@ async function acrossFacts(branch: string, slices: readonly PlanSliceInput[] | n
   const repo = shortName(reader.slug);
   const named = new Set(reposOf(slices));
   const landed = targets.filter((target) => named.has(shortName(target.repo)) && shortName(target.repo) !== repo);
-  const read: { repo: string; pr: TargetPr['pr']; listed: ListedPr | null }[] = [];
-  for (const target of landed) read.push({ repo: shortName(target.repo), ...(await targetPr(branch, { ...reader, slug: target.repo })) });
+  const read = await sideBySide(landed, PRDS_AT_ONCE, async (target) => ({ repo: shortName(target.repo), ...(await targetPr(branch, { ...reader, slug: target.repo })) }));
   return {
     across: { repo, targets: read.map(({ repo: name, pr }) => ({ repo: name, pr })) },
     listed: read.flatMap(({ repo: name, listed }) => (listed ? [{ repo: name, pr: listed }] : [])),
@@ -446,8 +462,7 @@ async function yourPrds(reader: Reader): Promise<PrdNumber[]> {
 /** Every driven PRD read once: the verdicts, what the plan is computed from (a roadmap's rows adding
  * their blockers), and each PRD as read. */
 async function readAll(prds: readonly PrdNumber[], reader: Reader, roadmap: Roadmap | null = null): Promise<{ verdicts: Verdict[]; inputs: PlanInputs; reads: Map<PrdNumber, Read> }> {
-  const read: Awaited<ReturnType<typeof readPrd>>[] = [];
-  for (const prd of prds) read.push(await readPrd(prd, reader));
+  const read = await sideBySide(prds, PRDS_AT_ONCE, (prd) => readPrd(prd, reader));
   const driven = new Set(prds);
   const rowBlockers = roadmapBlockers(roadmap);
   const inputs = read.map(({ input }) => {
@@ -637,8 +652,7 @@ async function yoursOrRefuse(reader: Reader, flag: string): Promise<PrdNumber[]>
 
 /** One verdict per PRD named, outside any loop plan. */
 async function printVerdicts(named: readonly PrdNumber[], { reader, out, json }: Out): Promise<number> {
-  const verdicts: Verdict[] = [];
-  for (const prd of named) verdicts.push((await readPrd(prd, reader)).verdict);
+  const verdicts = (await sideBySide(named, PRDS_AT_ONCE, (prd) => readPrd(prd, reader))).map(({ verdict }) => verdict);
   if (json) out(JSON.stringify({ prds: verdicts }, null, 2));
   else for (const verdict of verdicts) out(verdictLine(verdict));
   return 0;
@@ -688,7 +702,7 @@ export const next = {
     if (flags.roadmap !== undefined && named.length > 0) throw usageError("omni next: --roadmap <n> drives the roadmap's PRDs; name no PRD beside it.");
     const roadmap = flags.roadmap === undefined ? null : roadmapOf(issueArg('next', '--roadmap', flags.roadmap), ctx);
     const slug = repoSlug('next', ctx, undefined);
-    const loop = reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs });
+    const loop = readOnce(reads ?? omniLoopReads({ askUrl: ctx.config.ask.url, tokens, home, fetch, callMs }));
     const reader: Reader = { ctx, exec, env, slug, reads: loop, approval: gateApproval(ctx, { tokens, home, fetch, callMs }) };
     const io: Out = { reader, out: (line: string) => { println(stdout, line); }, json: flags.json === true, ...(roadmap ? { roadmap } : {}) };
     try {
