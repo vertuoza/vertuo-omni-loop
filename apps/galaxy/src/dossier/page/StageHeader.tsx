@@ -1,3 +1,4 @@
+import { Badge, Button, ListRow, Stack } from '@omni/ui';
 import type { StageView } from './stage';
 import { PitchAction } from './PitchAction';
 import { StageHeaderCopy } from './StageHeaderCopy';
@@ -11,6 +12,7 @@ import { StageHeaderCopy } from './StageHeaderCopy';
 // nothing, and say Brainstorming or Syncing…. A fix's title (PRD 627) reads `#n ↗` after its kind's
 // badge; a fix has no stage track. The open feature PR's link carries its health chip (PRD 790, s2).
 
+/** The title of a page that has no PageHeader yet (the concept page): the same marks, in the old h1. */
 export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: {
   heading: string; draft: boolean; title: string; issueUrl: string | null; badge?: string | null;
 }) {
@@ -27,23 +29,40 @@ export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: 
   );
 }
 
+/** What stands beside the page's title (the PageHeader's status): a fix's kind, then the PRD's number
+ * linking its issue, or DRAFT. */
+export function DossierMarks({ heading, draft, issueUrl, badge = null }: {
+  heading: string; draft: boolean; issueUrl: string | null; badge?: string | null;
+}) {
+  return (
+    <>
+      {badge && <Badge tone="neutral">{badge}</Badge>}
+      {draft || !issueUrl ? (
+        <Badge tone="warning">DRAFT</Badge>
+      ) : (
+        <a className="dossier-number" href={issueUrl} target="_blank" rel="noopener noreferrer">{heading} ↗</a>
+      )}
+    </>
+  );
+}
+
 /** The stage's one button: a link to GitHub, a command to copy, or Pitch's panel (PRD 859), disabled in
  * the demo; nothing when the stage has none. */
 export function StageAction({ stage, demo = false }: { stage: StageView | null; demo?: boolean }) {
   const action = stage?.action;
   if (action?.kind === 'pitch') return <PitchAction prd={action.prd} disabled={demo} />;
   if (action?.kind === 'link') {
-    return <a className="ask-button stage-action" href={action.href} target="_blank" rel="noopener noreferrer">{action.label}</a>;
+    return <Button variant="primary" href={action.href}>{action.label}</Button>;
   }
   if (action?.kind === 'copy') {
     const copy = <StageHeaderCopy label={action.label} command={action.command} />;
     if (!stage?.fixes) return copy;
     // Fix with answers (PRD 2223): the answers it acts on, under the button, linking the Outbox tab (a query-only link, so it stays on this page).
     return (
-      <span className="stage-action-stack">
+      <Stack gap="1" align="end">
         {copy}
         <a className="stage-fixes ask-hint" href="?tab=outbox">{stage.fixes}</a>
-      </span>
+      </Stack>
     );
   }
   return null;
@@ -79,9 +98,16 @@ export function StageLinks({ links }: { links: StageView['links'] }) {
     <ul className="stage-links" aria-label="On GitHub">
       {links.map((link) => (
         <li key={link.label}>
-          <a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>{' '}
-          <span className="ask-hint">{link.done ? '✓' : 'open'}</span>
-          {link.chip && <>{' '}<span className={`care-chip care-${link.chip.tone}`} title="PR care">{link.chip.label}</span></>}
+          <ListRow
+            density="compact"
+            title={<a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>}
+            trailing={(
+              <>
+                <span className="ask-hint">{link.done ? '✓' : 'open'}</span>
+                {link.chip && <Badge tone={link.chip.tone === 'red' ? 'danger' : link.chip.tone === 'grey' ? 'neutral' : 'success'}>{link.chip.label}</Badge>}
+              </>
+            )}
+          />
         </li>
       ))}
     </ul>

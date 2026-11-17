@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Button, Notice } from '@omni/ui';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { deleteDraft } from './source';
@@ -34,8 +35,8 @@ export function DeleteDraft({ supabase, id }: { supabase: Supabase; id: string }
 
   return (
     <span className="dossier-delete">
-      <button type="button" className="ask-button quiet" disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete draft'}</button>
-      {problem && <span className="ask-problem" role="alert">{problem}</span>}
+      <Button variant="quiet" disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete draft'}</Button>
+      {problem && <Notice tone="danger">{problem}</Notice>}
     </span>
   );
 }
