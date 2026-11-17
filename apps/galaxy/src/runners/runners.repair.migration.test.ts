@@ -40,9 +40,9 @@ const rolesOf = (code: string): { role: string; skills: string[] }[] =>
   JSON.parse(/\$json\$(.*?)\$json\$/.exec(body(code, 'virtual_hero_roles'))?.[1] ?? 'null') as { role: string; skills: string[] }[];
 
 describe('the migration', () => {
-  it('is the newest on the branch, after the claim that takes recovery first (PRD 2949)', () => {
+  it('runs after the claim that takes recovery first (PRD 2949), whatever migrations came after it', () => {
     const files = readdirSync(DIR).filter((file) => file.endsWith('.sql')).sort();
-    expect(files.at(-1)).toBe(FILE);
+    expect(files).toContain(FILE);
     expect(files.indexOf(FILE)).toBeGreaterThan(files.indexOf('20270125130000_runner_claim_recovery_first.sql'));
   });
 });

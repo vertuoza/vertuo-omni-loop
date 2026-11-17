@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { refusalOf } from './refusal';
 
-// Request a Tech Approval, on a ◆ PRD's page (PRD 2608 s4), shown to the PRD's author while it is not yet
-// approved and holds no request: a picker of the workspace's other members (GET
+// Request a Tech Approval, on a ◆ PRD's page (PRD 2608 s4), shown to any member while it is not yet
+// approved and holds no request (bug #2992): a picker of the workspace's other members (GET
 // /api/dossiers/approval/tech) and a button that names the chosen one (POST), then re-renders the page. A
 // refusal shows the route's own words. The request cannot be withdrawn; the page says so.
 

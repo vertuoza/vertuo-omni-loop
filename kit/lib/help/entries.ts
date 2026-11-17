@@ -2290,19 +2290,20 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     label: '/omni:tech-review <n>',
     summary: "review a PRD's coding side, as the person named",
     detail:
-      "Grills the coding side of PRD n's plan with the one member its Tech Approval names, and changes what they " +
-      'decide. It refuses, in one line, a PRD with no plan, no open tech request, a sub-PR already merged, a ' +
-      'person who is not the named one, and any run under OMNI_UNATTENDED. It reads the spec, the plan, the ' +
+      "Grills the coding side of PRD n's plan with any member, named for its Tech Approval or not, while the " +
+      'plan is not approved, and changes what they decide. It refuses, in one line, a PRD with no plan, an ' +
+      'approved PRD or Tech Approval, a sub-PR already merged, a person whose GitHub login cannot be read, and ' +
+      'any run under OMNI_UNATTENDED. It reads the spec, the plan, the ' +
       'Technical tab, the architecture, testing, conventions and ci forms, the laws and the code, shows the ' +
       'choices already made, then asks one question at a time, each with a recommended answer and why. It ' +
       "changes only the spec's Conventions, Test seams and Risks and the technical side of Solution and " +
       "Decisions, the Technical tab and the plan's slices, territories, blockers and waves, grades the plan " +
       'again with omni plan check, and records each settled question under ### Tech review in the spec. A ' +
       "question only the PM can settle becomes a comment on the PRD's issue naming the author. It pushes one " +
-      "signed commit and the PRD's dossier, and ends on the page's link. It gives no approval: only the named " +
-      'person presses Give Tech Approval there, and it never merges. A runner never runs it.',
+      "signed commit and the PRD's dossier, and ends on the page's link. It gives no approval: only the person " +
+      'a request names presses Give Tech Approval there, and it never merges. A runner never runs it.',
     group: 'everyday',
-    when: "Use it when you were named for a PRD's Tech Approval, in your Waiting section or by email.",
+    when: "Use it when you were named for a PRD's Tech Approval, or to review any plan not approved yet.",
     example: {
       type: '/omni:tech-review 2608',
       result: "the plan's coding parts changed with you, each settled question recorded in the spec, and the PRD's page link",

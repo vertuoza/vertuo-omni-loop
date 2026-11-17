@@ -9,8 +9,8 @@ happens to an approval when a file changes.
 | | Product approval | Tech Approval |
 |---|---|---|
 | **What it judges** | the PRD as a whole: what it builds and why | the coding side only: architecture and harness |
-| **When it applies** | every PRD | only when the PRD's author asks for one, on a PRD approved on its page (◆) |
-| **Who gives it** | the product's approvers ([the approval handshake](#the-approval-handshake)), or whoever merges the phase-0 pull request | the one member the author names, never the author |
+| **When it applies** | every PRD | only when a member asks for one, on a PRD approved on its page (◆) |
+| **Who gives it** | the product's approvers ([the approval handshake](#the-approval-handshake)), or whoever merges the phase-0 pull request | the one member the request names, never the author |
 | **Where** | **Approve** on the PRD's page, or merging the phase-0 pull request | **Give Tech Approval** on the PRD's page, after `/omni:tech-review <n>` |
 | **Order** | second, when a Tech Approval was asked for | first |
 
@@ -87,15 +87,18 @@ approval, and waits for it, instead of stopping.
 ## Tech Approval
 
 A ◆ PRD may carry a second approval, a **Tech Approval**, asked for one PRD at a time. At the end of
-`/omni:brainstorm` the author is asked **Request a Tech Approval?**; yes names one workspace member (the
-author may also press **Request a Tech Approval** on the PRD's page, before the PRD is approved, or run
-`omni approval tech request <n> --to <login>`). A PRD with no request has the product approval alone.
+`/omni:brainstorm` the author is asked **Request a Tech Approval?**; yes names one workspace member. Any member may also press
+**Request a Tech Approval** on the PRD's page, before the PRD is approved, or run
+`omni approval tech request <n> --to <login>`, naming anyone but the author. A PRD with no request has the
+product approval alone.
 
 - **Tech first, then product.** The named person sees the request in their **Waiting** section and by
   email, runs `/omni:tech-review <n>`, and presses **Give Tech Approval** on the PRD's page. Only then are
   the product's approvers asked. Until it is given the product approval is refused, so `/omni:yolo`,
   `omni approval <n>` and the `omni/approved` check all read "not approved yet", and `omni wait approval <n>`
   prints `waiting for <login>'s tech approval`.
+- **`/omni:tech-review <n>` needs no request.** Any member may run it on a plan that is not approved
+  yet, with or without a request; only the person a request names presses **Give Tech Approval**.
 - **`/omni:tech-review <n>` covers coding only.** The agent shows the choices already made, then grills
   the architecture and the harness one question at a time, each with a recommended answer. It changes
   the spec's Conventions, Test seams and Risks, the technical side of Solution and Decisions, the
@@ -103,8 +106,8 @@ author may also press **Request a Tech Approval** on the PRD's page, before the 
   Problem, User stories, Scope, Acceptance criteria, the proof or e2e choices. A question only the PM can
   settle becomes a comment on the PRD's issue naming the author. Each settled question is recorded under
   `### Tech review` in the spec's Decisions, and each change reaches the page as a new version.
-- **The skill never approves.** Only the named person presses the button. It refuses a PRD with no plan or
-  no open request, anyone but the named person, a PRD with a merged sub-PR, and any run under
+- **The skill never approves.** Only the named person presses the button. It refuses a PRD with no plan,
+  a PRD or a Tech Approval already approved, a PRD with a merged sub-PR, and any run under
   `OMNI_UNATTENDED`: a grill needs a person.
 - **It cannot be skipped or withdrawn,** and a push that changes a pinned file voids both approvals, the
   named person's first.
