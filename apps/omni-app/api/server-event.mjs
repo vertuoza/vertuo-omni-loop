@@ -4546,7 +4546,7 @@ function isStoredShape(change2, { ctx }) {
   return ctx.config.risk.storedShape.some((source) => new RegExp(source).test(change2.path));
 }
 function enforcedByPaths({ ctx }) {
-  return new Set(readRegisters({ ctx }).entries.flatMap(proofPathsOf));
+  return new Set(readRegisters({ ctx }).entries.filter((entry) => entry.proposed === null).flatMap(proofPathsOf));
 }
 function proofPathsOf(entry) {
   if (!entry.enforced) return [];
