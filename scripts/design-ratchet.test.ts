@@ -3,11 +3,11 @@
 // inline fixture stylesheets, git is a fake; then one guard runs the ratchet over the tracked tree, so
 // the baseline is exact at every commit.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { BASELINE, main, stylelintSheets, type Deps, type Git } from './design-ratchet.ts';
+import { BASELINE, eslintPages, main, replacedClasses, stylelintSheets, type Deps, type Git } from './design-ratchet.ts';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -43,7 +43,9 @@ function deps(
   files: Record<string, string>,
   { baseline = json([]), base = null, read = [], seenRefs = [] }: { baseline?: string | null; base?: string | null; read?: string[][]; seenRefs?: string[] } = {},
 ): Deps {
-  const lint = stylelintSheets((path) => files[path] ?? '');
+  const css = stylelintSheets((path) => files[path] ?? '');
+  const tsx = eslintPages((path) => files[path] ?? '', ['dossier-approve', 'pitch-action']);
+  const lint = async (paths: readonly string[]) => [...(await css(paths)), ...(await tsx(paths))];
   return {
     tracked: () => Object.keys(files),
     lint: async (paths) => {
@@ -69,7 +71,7 @@ describe('the design ratchet, on fixtures', () => {
   it('AC-2: passes when every breach is listed in the baseline', async () => {
     const { code, lines } = await main([], deps(tree, { baseline: json([COLOUR]) }));
     expect(code).toBe(0);
-    expect(lines.at(-1)).toMatch(/^design ratchet: 2 stylesheets read, 1 breach, each listed in design\/baseline\.json$/);
+    expect(lines.at(-1)).toMatch(/^design ratchet: 3 files read, 1 breach, each listed in design\/baseline\.json$/);
   });
 
   it('AC-3: fails on a baseline holding a line the base does not, naming it', async () => {
@@ -124,7 +126,44 @@ describe('the design ratchet, on fixtures', () => {
     const read: string[][] = [];
     const { code } = await main([], deps(tree, { baseline: json([COLOUR]), read }));
     expect(code).toBe(0);
-    expect(read).toEqual([[PAGE, OTHER].sort()]);
+    expect(read).toEqual([[PAGE, OTHER, 'apps/galaxy/src/ask/ask.tsx'].sort()]);
+  });
+
+  it('AC-5: never reads a TSX under the arcade or HOME', async () => {
+    const files = { ...tree, 'apps/galaxy/src/arcade/Hud.tsx': 'export const H = () => <button style={{ top: 1 }} />;\n', 'apps/galaxy/src/home/Home.tsx': 'export const H = () => <table />;\n' };
+    expect((await main([], deps(files, { baseline: json([COLOUR]) }))).code).toBe(0);
+  });
+
+  it('AC-4: a raw button in a page fails, naming the file and raw-component', async () => {
+    const file = 'apps/galaxy/src/ask/Raw.tsx';
+    const files = { ...tree, [file]: 'export const A = () => <button type="button">Go</button>;\n' };
+    const { code, lines } = await main([], deps(files, { baseline: json([COLOUR]) }));
+    expect(code).toBe(1);
+    expect(lines).toContain(`${file} raw-component`);
+  });
+
+  it('AC-4: a raw table, dialog, input, select, textarea or a replaced class fails; a Button from @omni/ui passes', async () => {
+    for (const body of ['<table />', '<dialog />', '<input />', '<select />', '<textarea />', '<div className="x dossier-approve" />', '<div className={`pitch-action ${y}`} />']) {
+      const file = 'apps/galaxy/src/ask/Raw.tsx';
+      const { code, lines } = await main([], deps({ ...tree, [file]: `export const A = () => ${body};\n` }, { baseline: json([COLOUR]) }));
+      expect({ body, code }).toEqual({ body, code: 1 });
+      expect(lines).toContain(`${file} raw-component`);
+    }
+    const good = "import { Button } from '@omni/ui';\nexport const A = () => <Button className=\"dossier-approver\">Go</Button>;\n";
+    expect((await main([], deps({ ...tree, 'apps/galaxy/src/ask/Good.tsx': good }, { baseline: json([COLOUR]) }))).code).toBe(0);
+  });
+
+  it('a style prop fails as inline-style', async () => {
+    const file = 'apps/galaxy/src/ask/Styled.tsx';
+    const files = { ...tree, [file]: 'export const A = () => <div style={{ top: 1 }} />;\n' };
+    const { code, lines } = await main([], deps(files, { baseline: json([COLOUR]) }));
+    expect(code).toBe(1);
+    expect(lines).toContain(`${file} inline-style`);
+  });
+
+  it('reads the classes @omni/ui components replace from the meta files', () => {
+    const metas: Record<string, string> = { a: "replaces: ['x-one', 'x-two'],", b: "replaces: ['x-one'],", c: 'no list' };
+    expect(replacedClasses((file) => metas[file] ?? '', () => ['a', 'b', 'c'])).toEqual(['x-one', 'x-two']);
   });
 
   it('AC-5: never reads them even when named', async () => {
@@ -139,7 +178,7 @@ describe('the design ratchet, on fixtures', () => {
     const elsewhere = 'apps/galaxy/src/old/old.css color-no-hex';
     const { code } = await main([`./${PAGE}`, 'apps/galaxy/src/ask/ask.tsx'], deps(tree, { baseline: json([COLOUR, elsewhere].sort()), read }));
     expect(code).toBe(0);
-    expect(read).toEqual([[PAGE]]);
+    expect(read).toEqual([[PAGE, 'apps/galaxy/src/ask/ask.tsx']]);
     const folder = await main(['apps/galaxy/src/outbox'], deps(tree, { baseline: json([]), read }));
     expect(folder.code).toBe(1);
     expect(folder.lines).toContain(COLOUR);
@@ -178,9 +217,11 @@ describe('the design ratchet, on the tracked tree', () => {
   it(`finds no breach ${BASELINE} does not list, and no line there whose breach is gone`, async () => {
     const tracked = execFileSync('git', ['ls-files', '-z', 'apps/galaxy/src'], { cwd: repoRoot, encoding: 'utf8' }).split('\0').filter(Boolean);
     const read = (path: string) => readFileSync(join(repoRoot, path), 'utf8');
+    const metas = readdirSync(join(repoRoot, 'packages/ui/src')).filter((file) => file.endsWith('.meta.ts')).map((file) => `packages/ui/src/${file}`);
+    const uiClasses = replacedClasses(read, () => metas);
     // The base is the CI's to compare (s6): here the baseline is held exact, and growth is the fixtures'.
-    const real: Deps = { tracked: () => tracked, lint: stylelintSheets(read), baseline: () => read(BASELINE), git: fakeGit(null) };
+    const real: Deps = { tracked: () => tracked, lint: async (paths) => [...(await stylelintSheets(read)(paths)), ...(await eslintPages(read, uiClasses)(paths))], baseline: () => read(BASELINE), git: fakeGit(null) };
     const { code, lines } = await main([], real);
-    expect({ code, lines }).toEqual({ code: 0, lines: [expect.stringMatching(/^design ratchet: \d+ stylesheets read, \d+ breach(es)?, each listed/)] });
+    expect({ code, lines }).toEqual({ code: 0, lines: [expect.stringMatching(/^design ratchet: \d+ files read, \d+ breach(es)?, each listed/)] });
   });
 });
