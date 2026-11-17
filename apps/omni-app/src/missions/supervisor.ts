@@ -393,7 +393,7 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null, 
 const lastOf = (run: Run): Attempt | undefined => run.attempts.at(-1);
 
 /** Whether job `a` comes after job `b`: a later run, or a later step of the same run. */
-const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step));
+export const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step));
 
 /**
  * Where each PRD of the scope is, by PRD. On a mission branch (PRD 2896), a PRD on it is `joined` and unblocks the PRDs

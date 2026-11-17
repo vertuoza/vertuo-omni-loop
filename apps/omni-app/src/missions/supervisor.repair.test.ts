@@ -109,7 +109,7 @@ describe('a repair\'s record, by its class', () => {
   it('flake: sends the step again with no fix; person: stops with the question (AC-9)', () => {
     expect(stateOf(failedRun, view({ jobs: [ended], rows: [row({ retro: retro({ class: 'flake' }), fixPr: null })] }))).toEqual({ state: 'startable', run: 2, step: 'build' });
     const person = view({ jobs: [ended], rows: [row({ retro: retro({ class: 'person', cause: 'The deploy key is missing.', proposedFix: 'Add the deploy key.' }), fixPr: null, outcome: 'stopped' })] });
-    expect(stateOf(failedRun, person)).toEqual({ state: 'stopped', why: `its repair [${FP.slice(0, 8)}] needs a person: The deploy key is missing. Add the deploy key.` });
+    expect(stateOf(failedRun, person)).toEqual({ state: 'stopped', why: `its repair [${FP.slice(0, 8)}] needs a person: The deploy key is missing. Add the deploy key` });
   });
 
   it('omni-loop: stops, waiting on the Omni Loop bug once filed, or saying why no report was sent (AC-5, AC-6)', () => {
@@ -134,7 +134,7 @@ describe('the budget: 3 per cause in a round, 9 per mission (AC-3, AC-4, AC-8)',
     const state = stateOf([run(1, 4, failed('f4'))], repairs);
     expect(state).toEqual({
       state: 'stopped',
-      why: `its cause [${FP.slice(0, 8)}] was repaired 3 times: The quote total test expects a rounded sum. Tried: #11 not fixed, #12 not fixed, #13 not fixed. Proposed fix: Round the total before it is compared. Resume gives each cause 3 more (6 of 9 left in this mission).`,
+      why: `its cause [${FP.slice(0, 8)}] was repaired 3 times: The quote total test expects a rounded sum. Tried: #11 not fixed, #12 not fixed, #13 not fixed. Proposed fix: Round the total before it is compared. Resume gives each cause 3 more (6 of 9 left in this mission)`,
     });
   });
 

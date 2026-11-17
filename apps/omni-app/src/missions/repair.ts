@@ -28,7 +28,7 @@ import { checksOf, type PullRead } from './gate.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
 
 /** The repairs one cause gets in a round. */
-const CAUSE_REPAIRS = 3;
+export const CAUSE_REPAIRS = 3;
 /** The repairs a mission runs at most, every round counted. 0 turns repairs off: a failure stops its PRD, as before PRD 2980. */
 export const MISSION_REPAIRS = 9;
 
@@ -143,7 +143,7 @@ function spentOf(view: RepairView): number {
 }
 
 /** The repairs the mission has left. */
-const leftOf = (view: RepairView): number => Math.max(0, view.budget - spentOf(view));
+export const leftOf = (view: RepairView): number => Math.max(0, view.budget - spentOf(view));
 
 /** `abcd1234`: a cause as the pages name it. */
 const short = (fingerprint: string): string => fingerprint.slice(0, 8);
@@ -154,8 +154,11 @@ const prWords = (url: string | null): string | null => {
   return number === undefined ? null : `#${number}`;
 };
 
-/** `Resume gives each cause 3 more (6 of 9 left in this mission).` */
-const resumeWords = (view: RepairView): string => `Resume gives each cause ${String(CAUSE_REPAIRS)} more (${String(leftOf(view))} of ${String(view.budget)} left in this mission).`;
+/** `Resume gives each cause 3 more (6 of 9 left in this mission)`: the end of a why, which the mission's stopped line ends. */
+const resumeWords = (view: RepairView): string => `Resume gives each cause ${String(CAUSE_REPAIRS)} more (${String(leftOf(view))} of ${String(view.budget)} left in this mission)`;
+
+/** A sentence without its final stop, for the end of a why, which the mission's stopped line ends. */
+const bare = (text: string): string => text.replace(/[.!?]+$/, '');
 
 /** What a repair tried and how it ended: `#12 not fixed`, `retry fixed`. */
 function triedWords(row: RepairRow): string {
@@ -167,7 +170,7 @@ function triedWords(row: RepairRow): string {
 function spentWords(view: RepairView, prd: PrdNumber, refused: Refused): string {
   const cause = refused.retro === null ? 'its repairs left no record that could be read.' : refused.retro.cause;
   const fix = refused.retro === null ? '' : ` Proposed fix: ${refused.retro.proposedFix}`;
-  if (refused.spent === 'mission') return `the mission spent its ${String(view.budget)} repairs [${short(refused.fingerprint)}]: ${cause}${fix}`;
+  if (refused.spent === 'mission') return bare(`the mission spent its ${String(view.budget)} repairs [${short(refused.fingerprint)}]: ${cause}${fix}`);
   const tried = view.rows.filter((row) => row.prd === prd && row.round === view.round && row.fingerprint === refused.fingerprint).sort((a, b) => a.number - b.number);
   return `its cause [${short(refused.fingerprint)}] was repaired ${String(CAUSE_REPAIRS)} times: ${cause} Tried: ${tried.map(triedWords).join(', ')}.${fix} ${resumeWords(view)}`;
 }
@@ -211,7 +214,7 @@ function afterRow(view: RepairView, prd: PrdNumber, row: RepairRow, failure: str
     case 'flake':
       return { next: 'again' };
     case 'person':
-      return { next: 'stops', why: `its repair ${cause} needs a person: ${retro.cause} ${retro.proposedFix}` };
+      return { next: 'stops', why: `its repair ${cause} needs a person: ${retro.cause} ${bare(retro.proposedFix)}` };
     case 'omni-loop':
       return { next: 'stops', why: reportWords(view, row) };
     case 'code':
@@ -222,7 +225,7 @@ function afterRow(view: RepairView, prd: PrdNumber, row: RepairRow, failure: str
 /** Where a code repair leaves its PRD: its fix landed (the step again), on its way, or unable to land. */
 function afterFix(view: RepairView, prd: PrdNumber, row: RepairRow, retro: RepairRetro): RepairNext {
   const fix = prWords(row.fixPr);
-  if (fix === null) return { next: 'stops', why: `its repair [${short(row.fingerprint)}] found the cause but opened no fix: ${retro.cause} Proposed fix: ${retro.proposedFix}` };
+  if (fix === null) return { next: 'stops', why: `its repair [${short(row.fingerprint)}] found the cause but opened no fix: ${retro.cause} Proposed fix: ${bare(retro.proposedFix)}` };
   const landing = view.landings.get(row.job ?? '');
   if (landing?.state === 'landed') return { next: 'again' };
   if (landing?.state === 'refused') return { next: 'stops', why: `its fix ${fix} cannot land on the mission branch: ${landing.why}` };
