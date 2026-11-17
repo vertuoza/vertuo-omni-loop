@@ -33,6 +33,14 @@ describe('the tech-review skill', () => {
     expect(at('## 1. Refuse')).toBeLessThan(at('## 2. Read before you ask'));
   });
 
+  it('reviews any plan not yet approved, with or without a request, by anyone (bug #2992)', () => {
+    expect(FLAT).toContain('the PRD is approved: `omni approval <n> --json` prints `"state":"approved"`, or its `tech` state is `approved`');
+    expect(FLAT).toContain('A tech review needs no request');
+    expect(FLAT).not.toContain('no open tech request');
+    expect(FLAT).not.toContain('is not the login `tech` names');
+    expect(FLAT).not.toContain('only the named person reviews it');
+  });
+
   it('reads the person\'s GitHub login and compares it with the named one, asking nothing and never taking their word', () => {
     expect(FLAT).toContain('`gh api user --jq .login`');
     expect(FLAT).toContain('is not the login `tech` names, or no login can be read');

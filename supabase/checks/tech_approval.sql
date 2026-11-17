@@ -118,9 +118,26 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000e00c1', 'carl@ta-other.te
 select pg_temp.refused('a request by a non-member', '42501',
   $q$select public.dossier_request_tech_approval((select id from ids where name = 'p1'), 'bea-gh')$q$);
 
+-- Any member requests it, not only the author (bug #2992): Bea names herself on Ada's PRD 4, the request
+-- keeps Ada as its author and Bea as who asked, then it is undone so the rest of the run starts clean.
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000e00a3', 'bea@ta.test');
-select pg_temp.refused('a request by a member who is not the author', '42501',
+savepoint request_by_any_member;
+do $$
+declare
+  made jsonb := public.dossier_request_tech_approval((select id from ids where name = 'p4'), 'bea-gh');
+  row  public.approval_requests%rowtype;
+begin
+  select r.* into row from public.approval_requests r where r.id = (made ->> 'id')::uuid;
+  if row.approval_kind <> 'tech' or row.asked <> array['00000000-0000-4000-8000-0000000e00a3'::uuid]
+     or row.asked_by <> '00000000-0000-4000-8000-0000000e00a3' or made ->> 'author' <> 'ada@ta.test' then
+    raise exception 'FAIL: a request by a member who is not the author read % and answered %', to_jsonb(row), made;
+  end if;
+end $$;
+rollback to savepoint request_by_any_member;
+select pg_temp.refused('a member who is not the author naming the author', '22023',
   $q$select public.dossier_request_tech_approval((select id from ids where name = 'p1'), 'ada@ta.test')$q$);
+select pg_temp.refused('a request by a member who is not the author on a ◇ PRD', '22023',
+  $q$select public.dossier_request_tech_approval((select id from ids where name = 'p2'), 'dan@ta.test')$q$);
 
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000e00a2', 'ada@ta.test');
 select pg_temp.refused('the author naming themselves', '22023',
