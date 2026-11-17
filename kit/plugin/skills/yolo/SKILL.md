@@ -661,6 +661,7 @@ keeps its one line: nothing was built, so there is nothing to hand off.
 
 ## Guardrails
 
+- **Search the product's knowledge before deciding.** Before deciding anything the spec does not settle, search it (`search_knowledge` from the `omni-knowledge` server when the session has it, else `node .omni-loop/bin/omni.mjs kb search <query>`), read each entry it relies on whole (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox item that records the decision.
 - **Never ask along the way.** A decision is an outbox item; nothing waits on a person until the
   end. The one question is step 6's last part, on a red gate with `answers.enabled` on, and mediums
   are never asked there.
