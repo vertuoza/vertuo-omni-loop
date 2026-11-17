@@ -1,13 +1,14 @@
 // The Omni Loop repository's issues, as the Omni App (PRD 2980 s4): the live side of `BugIssues` (./file.ts). The App's own
 // JWT finds its installation on the repository, then that installation's client writes, so the issue and its comments are
 // signed as the Omni App, never as a person (L-AIACT-1). Every answer is parsed where it comes in.
+import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import type { OctokitFor } from '../octokit-for.ts';
 import type { GitHubClient } from '../outbox-check/github-schema.ts';
 import type { BugIssues } from './file.ts';
 
 const InstallationSchema = z.looseObject({ id: z.number().int().positive() });
-const IssueCreatedSchema = z.looseObject({ number: z.number().int().positive() });
+const IssueCreatedSchema = z.looseObject({ number: IssueNumberSchema });
 
 /** The App's own client: it looks up its installation on a repository (`GET /repos/{owner}/{repo}/installation`). */
 export type AppLookup = () => Promise<GitHubClient> | GitHubClient;

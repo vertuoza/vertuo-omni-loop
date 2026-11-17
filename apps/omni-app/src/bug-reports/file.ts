@@ -7,6 +7,7 @@
 // A report that `scrub()` refuses never reaches this file: `submitBugReport` (./job.ts) files nothing for it and says why. The
 // issue holds the report's fixed fields and nothing else: no workspace, no repository of the customer, no login (never#5,
 // never#11, never#12), and says it was written by the Omni App (L-AIACT-1).
+import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { PublicReport } from 'omni-loop/kit/lib/repair/scrub.ts';
 
 /** The Omni Loop repository a report is filed on when the App's setting names none. */
@@ -16,14 +17,14 @@ export const OMNI_LOOP_REPOSITORY = 'vertuoza/vertuo-omni-loop';
 export const BUG_LABEL = 'bug';
 
 /** A report as the store keeps it: the issue it was filed as, and how often it was met. */
-export type FiledReport = { fingerprint: string; repo: string; issue: number; count: number };
+export type FiledReport = { fingerprint: string; repo: string; issue: IssueNumber; count: number };
 
 /** `omni_bug_reports`, as the App reads and writes it. */
 export type BugReportStore = {
   /** The row of a fingerprint, or none. */
   find: (fingerprint: string) => Promise<FiledReport | null>;
   /** A fingerprint filed as an issue, counted once. `false` when a row already holds it (another run filed it first). */
-  record: (row: { fingerprint: string; repo: string; issue: number }) => Promise<boolean>;
+  record: (row: { fingerprint: string; repo: string; issue: IssueNumber }) => Promise<boolean>;
   /** A repeat counted, in one statement: the row as it now stands, or none. */
   seen: (fingerprint: string) => Promise<FiledReport | null>;
 };
@@ -31,13 +32,13 @@ export type BugReportStore = {
 /** The issues of the Omni Loop repository, as the Omni App. */
 export type BugIssues = {
   /** A new issue, labelled; its number. */
-  create: (input: { repo: string; title: string; body: string; labels: readonly string[] }) => Promise<number>;
+  create: (input: { repo: string; title: string; body: string; labels: readonly string[] }) => Promise<IssueNumber>;
   /** A comment on an issue. */
-  comment: (input: { repo: string; issue: number; body: string }) => Promise<void>;
+  comment: (input: { repo: string; issue: IssueNumber; body: string }) => Promise<void>;
 };
 
 /** What filing did: a new issue, or a repeat on the one already filed. */
-export type Filed = { kind: 'filed' | 'repeat'; repo: string; issue: number; fingerprint: string };
+export type Filed = { kind: 'filed' | 'repeat'; repo: string; issue: IssueNumber; fingerprint: string };
 
 /** The line every issue and comment ends with: who wrote it. */
 const SIGNATURE = 'Filed by the Omni App from a mission that met this bug. No customer work is in this report.';

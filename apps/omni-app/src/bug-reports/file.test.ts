@@ -1,6 +1,7 @@
 // The filer of an Omni Loop bug report (PRD 2980 s4, AC-5 and AC-6) on a fake GitHub and a fake store: no test calls GitHub
 // or the database. One issue per fingerprint, a `+1` on a repeat, nothing filed on a refused scrub, a refusal thrown for the
 // ledger to retry.
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { scrub } from 'omni-loop/kit/lib/repair/scrub.ts';
 import { describe, expect, it } from 'vitest';
 import type { ClaimedJob, NewJob } from '../jobs/ledger.ts';
@@ -49,7 +50,7 @@ function fakes({ refuse = false }: { refuse?: boolean } = {}) {
     create: (issue) => {
       if (refuse) return Promise.reject(new Error('GitHub refused: 502'));
       created.push(issue);
-      return Promise.resolve(40 + created.length);
+      return Promise.resolve(parseIssue(40 + created.length));
     },
     comment: (comment) => {
       if (refuse) return Promise.reject(new Error('GitHub refused: 502'));
@@ -64,10 +65,10 @@ describe('fileBugReport', () => {
   it('files one issue labelled bug on the Omni Loop repository and records it', async () => {
     const db = fakes();
     const filed = await fileBugReport({ report: report(), store: db.store, issues: db.issues });
-    expect(filed).toEqual({ kind: 'filed', repo: OMNI_LOOP_REPOSITORY, issue: 41, fingerprint: FINGERPRINT });
+    expect(filed).toEqual({ kind: 'filed', repo: OMNI_LOOP_REPOSITORY, issue: parseIssue(41), fingerprint: FINGERPRINT });
     expect(db.created).toHaveLength(1);
     expect(db.created[0]).toMatchObject({ repo: 'vertuoza/vertuo-omni-loop', labels: [BUG_LABEL] });
-    expect(db.rows.get(FINGERPRINT)).toEqual({ fingerprint: FINGERPRINT, repo: OMNI_LOOP_REPOSITORY, issue: 41, count: 1 });
+    expect(db.rows.get(FINGERPRINT)).toEqual({ fingerprint: FINGERPRINT, repo: OMNI_LOOP_REPOSITORY, issue: parseIssue(41), count: 1 });
   });
 
   it('files on the repository the setting names', async () => {
@@ -81,7 +82,7 @@ describe('fileBugReport', () => {
     const db = fakes();
     await fileBugReport({ report: report(), store: db.store, issues: db.issues });
     const again = await fileBugReport({ report: report({ kitVersion: '0.0.700' }), store: db.store, issues: db.issues });
-    expect(again).toEqual({ kind: 'repeat', repo: OMNI_LOOP_REPOSITORY, issue: 41, fingerprint: FINGERPRINT });
+    expect(again).toEqual({ kind: 'repeat', repo: OMNI_LOOP_REPOSITORY, issue: parseIssue(41), fingerprint: FINGERPRINT });
     expect(db.created).toHaveLength(1);
     expect(db.comments).toHaveLength(1);
     expect(db.comments[0]).toMatchObject({ issue: 41 });
@@ -102,7 +103,7 @@ describe('fileBugReport', () => {
         };
       })(),
       record: (row) => {
-        db.rows.set(row.fingerprint, { ...row, issue: 7, count: 1 });
+        db.rows.set(row.fingerprint, { ...row, issue: parseIssue(7), count: 1 });
         return Promise.resolve(false);
       },
     };

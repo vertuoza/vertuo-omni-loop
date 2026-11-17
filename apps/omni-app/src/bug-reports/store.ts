@@ -1,5 +1,6 @@
 // `omni_bug_reports` as the App reads and writes it (PRD 2980 s4), as the service role: nobody signed in reads or writes it
 // (supabase/migrations/20270125140000_mission_repairs.sql). Every answer is parsed where it comes in.
+import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
@@ -11,7 +12,7 @@ export const REPORT_COLUMNS = 'fingerprint, repo, issue, count';
 export const ReportRowSchema = z.object({
   fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
   repo: z.string().min(1),
-  issue: z.number().int().positive(),
+  issue: IssueNumberSchema,
   count: z.number().int().positive(),
 });
 

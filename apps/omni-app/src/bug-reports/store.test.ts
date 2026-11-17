@@ -1,11 +1,12 @@
 // The Omni Loop bug report store (PRD 2980 s4) against a stubbed PostgREST: no test calls Supabase.
+import { parseIssue } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { bugReportStore } from './store.ts';
 
 type Call = { method: string; path: string; search: string; body: unknown };
 
 const FINGERPRINT = 'd'.repeat(64);
-const ROW = { fingerprint: FINGERPRINT, repo: 'vertuoza/vertuo-omni-loop', issue: 12, count: 2 };
+const ROW = { fingerprint: FINGERPRINT, repo: 'vertuoza/vertuo-omni-loop', issue: parseIssue(12), count: 2 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 function dbFetch(answer: (call: Call) => Response) {
@@ -33,15 +34,15 @@ describe('bugReportStore', () => {
 
   it('records a new fingerprint, and answers false when the row is already there', async () => {
     const db = dbFetch(() => new Response(null, { status: 201 }));
-    expect(await store(db.fetch).record({ fingerprint: FINGERPRINT, repo: ROW.repo, issue: 12 })).toBe(true);
-    expect(db.calls[0]).toMatchObject({ method: 'POST', path: 'omni_bug_reports', body: { fingerprint: FINGERPRINT, repo: ROW.repo, issue: 12 } });
+    expect(await store(db.fetch).record({ fingerprint: FINGERPRINT, repo: ROW.repo, issue: parseIssue(12) })).toBe(true);
+    expect(db.calls[0]).toMatchObject({ method: 'POST', path: 'omni_bug_reports', body: { fingerprint: FINGERPRINT, repo: ROW.repo, issue: parseIssue(12) } });
     const taken = dbFetch(() => json({ message: 'duplicate key', code: '23505' }, 409));
-    expect(await store(taken.fetch).record({ fingerprint: FINGERPRINT, repo: ROW.repo, issue: 12 })).toBe(false);
+    expect(await store(taken.fetch).record({ fingerprint: FINGERPRINT, repo: ROW.repo, issue: parseIssue(12) })).toBe(false);
   });
 
   it('throws any other refusal', async () => {
     const refused = dbFetch(() => json({ message: 'permission denied', code: '42501' }, 403));
-    await expect(store(refused.fetch).record({ fingerprint: FINGERPRINT, repo: ROW.repo, issue: 12 })).rejects.toThrow('permission denied (42501)');
+    await expect(store(refused.fetch).record({ fingerprint: FINGERPRINT, repo: ROW.repo, issue: parseIssue(12) })).rejects.toThrow('permission denied (42501)');
   });
 
   it('counts a repeat in one statement and reads the row it answers', async () => {
