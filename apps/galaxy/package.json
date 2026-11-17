@@ -15,7 +15,8 @@
     "typecheck:tsc": "fumadocs-mdx && tsc --noEmit",
     "artifact": "node artifact/build.ts",
     "seed": "node scripts/seed.ts",
-    "shots": "node scripts/shots.ts"
+    "shots": "node scripts/shots.ts",
+    "visual": "node visual/visual.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
