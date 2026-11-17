@@ -1,3 +1,36 @@
+# Settled outbox items — PRD 2999
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-omni-test-fixtures -->
+
+## s1-01-omni-test-fixtures — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-17T12:53:49Z
+- Channel: feature pull request #3000
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3000#issuecomment-6948602243
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: N-PRODUCT-12
+- Raised: 2026-11-17
+- Slice: s1
+- Wave: 1
+- Stays here: the answer keeps what the fix built; N-PRODUCT-12 reads as before, and only three outbox-gate tests beside its proof gained a fetched main branch.
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-omni-test-fixtures
 prd: 2999
@@ -44,3 +77,6 @@ Small: moving three tests to another file, one commit.
 ## What I could not know
 
 Whether the rule's owner prefers its proof file to hold only the rule's own tests (author).
+```
+
+<!-- /omni-outbox-settled: s1-01-omni-test-fixtures -->
