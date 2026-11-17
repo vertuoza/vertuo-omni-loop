@@ -2488,4 +2488,22 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       result: 'a retro, then a bug fix into the mission branch, and the omni repair: record line',
     },
   },
+  {
+    name: 'qa',
+    kind: 'skill',
+    who: 'skills',
+    usage: ['/omni:qa <n>', '/omni:qa <n> --round 2'],
+    summary: 'check a PRD on its preview and report its bugs',
+    detail:
+      'QA\'s skill. Checks each acceptance criterion of PRD n on its feature PR\'s preview (or by its AC test), ' +
+      'then tries what the criteria do not name. Files each bug, five at most, as an issue with its steps, ' +
+      'expected and actual, posts one comment on the feature PR and ends on one omni qa: record line. ' +
+      'Round 2 checks the criteria and round 1\'s bugs again. It never commits, pushes or opens a pull request.',
+    group: 'run-by-skills',
+    when: "Use it when a PRD's build is ready for review: a mission sends it before the Reviewer, or you run it to check a PRD.",
+    example: {
+      type: '/omni:qa 3001',
+      result: 'a comment QA · agent · round 1 of 2 on the feature PR, its bugs filed, and the omni qa: record line',
+    },
+  },
 ]);
