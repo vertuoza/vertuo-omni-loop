@@ -33,7 +33,7 @@ describe('the Heroes tab, every skill of each role', () => {
     expect(t).toContain('It never locks a screen: a person does.');
   });
 
-  it('says what QA does and never does: three of its four skills alone, and its four limits (PRD 3001, AC-10)', () => {
+  it('AC-10: says what QA does and never does: three of its four skills alone, and its four limits (PRD 3001)', () => {
     const t = text(render(EVERY_ROLE));
     expect(t).toContain('QA · QA · agent Runs 3 of 4 skills alone');
     expect(t).toContain('It never writes the branch. It reports bugs to the Engineer. It reports five bugs at most. It checks two rounds at most.');

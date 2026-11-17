@@ -243,7 +243,7 @@ describe('the QA rows and now line (PRD 3001, AC-9)', () => {
   const QA = hero('qa', [...roleOf('qa').skills]);
   const checked = event({ role: 'qa', kind: 'checked', sentence: '2 bugs found · Round 1 of 2 · #12 #13', link: 'https://github.com/o/r/pull/2817#issuecomment-5', tokens: { input: 39000, output: 1000, cacheRead: 500, cacheWrite: 500 } });
 
-  it('reads a verdict row as QA · agent · 2 bugs found · Round 1 of 2 · #12 #13 · 41k tokens, with its state and its comment', () => {
+  it('AC-9: reads a verdict row as QA · agent · 2 bugs found · Round 1 of 2 · #12 #13 · 41k tokens, with its state and its comment', () => {
     const [row] = ledgerOf([checked], { role: null, mission: null });
     expect(row).toMatchObject({ by: 'QA · agent', sentence: '2 bugs found · Round 1 of 2 · #12 #13 · 41k tokens', state: 'Bugs', linkLabel: 'QA comment' });
     expect(ledgerOf([event({ role: 'qa', kind: 'checked', sentence: 'pass · Round 2 of 2', tokens: null })], { role: null, mission: null })[0]).toMatchObject({ sentence: 'pass · Round 2 of 2 · tokens unknown', state: 'Passed' });
