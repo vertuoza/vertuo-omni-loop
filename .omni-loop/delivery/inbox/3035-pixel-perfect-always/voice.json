@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-17",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "I approve what I see; a PRD that changes a screen showing that screen is exactly what I need to ship fast.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "I can't read code, so seeing the figures page before and after is the only way I can say yes with confidence.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Every PRD page looking the same whatever a team configured keeps reviews consistent across teams.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Fine as long as it never turns the rest of design craft on in my repository behind my back.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Redrawing a page by hand from its code, with no design system to read, is how you get a mockup that looks like the app but isn't.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "Redrawing a page by hand from its code, with no design system to read, is how you get a mockup that looks like the app but isn't — and I'd be the one approving a picture that drifts from what ships.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ~ · persona:F-E Developer ✗"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-17",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "The spec keeps it to the page: no extra setup for my teams, and the screen is there to approve.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The after shows only what changes, so I can point at the difference my customer asked for.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Design craft's extras stay off when the flag is off; the scope is narrow and easy to roll back.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The spec says in so many words that no library, word pass or review turns on; that answers me.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Today copied from the real markup and a line saying what was guessed is better than nothing; I'll still read it closely.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
+    }
+  ]
+}
