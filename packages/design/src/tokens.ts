@@ -1,152 +1,218 @@
-// The one source of colour. The pixel palette and INK live in palette.mjs, where the sprites read
-// them; this module adds the arcade's own colours (its cabinet, its dim text and the Game Boy's
-// body), Ask's Omni, light and dark reading tokens, and the generator of tokens.css, the :root custom
-// properties every stylesheet reads. Change a colour here, then run `pnpm --filter @omni/design
-// tokens`: tokens.test.mjs fails while the committed tokens.css differs from what this writes.
+// Every token, read from the W3C DTCG files in ../tokens (the one source: palette, scale, and each
+// theme's semantic roles), as tokens/build.ts generates them into tokens.generated.ts; this module
+// names them, keeps Ask's names as aliases of the roles, lists the pairs each theme must pass, and
+// writes tokens.css, the custom properties every stylesheet reads. Change a token in a
+// *.tokens.json file, then run `pnpm --filter @omni/design tokens`: tokens/build.test.ts fails while
+// a committed output differs from what the files generate.
 import { INK } from './palette.ts';
-
-const arcade = {
-  cab: '#120f3a',
-  dim: '#8a90d6',
-  // The Game Boy's body: its shell runs from plasma through bodyMid to plasmaDark; A is red with
-  // its shine, B plasma with its.
-  bodyMid: '#8a45ee',
-  bodyInk: '#1a1560',
-  bodyInkSoft: '#2a1d78',
-  bodyLens1: '#1d1a4a',
-  bodyLens2: '#14123a',
-  bodyLensText: '#9aa0e0',
-  bodyLedOff: '#3a1030',
-  bodyPad1: '#26224f',
-  bodyPad2: '#15122f',
-  bodyPadArrow: '#5a54a8',
-  bodyPadDown1: '#151230',
-  bodyPadDown2: '#0b0a1e',
-  bodyAShine: '#ff7d94',
-  bodyBShine: '#caa0ff',
-  bodyPill1: '#3b2a86',
-  bodyPill2: '#241a5a',
-  bodyGrille: '#4a1fa6',
-};
-/** The arcade's colours that are not INK: the cabinet, dim text, and the Game Boy's body. */
-export const ARCADE: Readonly<typeof arcade> = Object.freeze(arcade);
+import { TOKEN_COLOURS, TOKEN_SCALE, TOKEN_THEMES, TOKEN_THEMES_ANTI } from './tokens.generated.ts';
 
 /** A JS colour name as its CSS custom property's name: `navyDark` → `navy-dark`, `bodyLens1` → `body-lens-1`. */
 export function cssName(name: string): string {
   return name.replace(/[A-Z]|\d+/g, (m: string) => `-${m.toLowerCase()}`);
 }
 
-/** Every colour tokens.css declares, by its CSS name (no `--`): INK, then the arcade's own. */
-export const COLOURS: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
-  Object.entries({ ...INK, ...ARCADE }).map(([name, value]) => [cssName(name), value]),
+/** Every named colour tokens.css declares, by its CSS name (no `--`): INK, then the arcade's own. */
+export const COLOURS: Readonly<Record<string, string>> = TOKEN_COLOURS;
+
+const inkNames = new Set(Object.keys(INK).map(cssName));
+const camelName = (name: string): string => name.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+/** The arcade's colours that are not INK: the cabinet, dim text, and the Game Boy's body, by their JS name. */
+export const ARCADE: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
+  Object.entries(COLOURS).filter(([name]) => !inkNames.has(name)).map(([name, value]) => [camelName(name), value]),
 ));
 
-/** tokens.css, as the generator writes it. */
-export function tokensCss(): string {
-  const lines = Object.entries(COLOURS).map(([name, value]) => `  --${name}: ${value};`);
+/**
+ * The scale, by its CSS name (no `--`): `space-1`…`space-8` (4 to 64 px), `radius-1`, `radius-2`,
+ * `radius-full`, the UI type steps `type-1`…`type-7` (12 to 32 px) and `type-prose` (17 px on 1.6),
+ * each as `-size` and `-line`, `weight-regular`…`weight-bold`, `elevation-flat`, `-raised` and
+ * `-overlay`, and the motion's two durations and its ease-out.
+ */
+export const SCALE: Readonly<Record<string, string>> = TOKEN_SCALE;
+
+export type AskTheme = 'omni' | 'light' | 'dark';
+
+/**
+ * A semantic colour role, named by its job: the surfaces (canvas, surface, raised, sunken), the text
+ * on them and on the filled colours, the borders (subtle on cards, strong on controls), the accent
+ * that marks what is interactive and selected, the signal used once per view, the highlight (the
+ * Recommended badge), and the status colours. `--color-<role>` in CSS.
+ */
+export type ColourRole = keyof (typeof TOKEN_THEMES)['omni'];
+
+/** Each theme's roles: Omni (the default: HOME's palette on the reading surface), Light and Dark. */
+export const THEME_ROLES: Readonly<Record<AskTheme, Readonly<Record<ColourRole, string>>>> = TOKEN_THEMES;
+
+/** The roles the anti-loop mode remaps (Rewind Light): magenta takes the signal, the highlight takes yellow. */
+export type AntiRole = keyof (typeof TOKEN_THEMES_ANTI)['omni'];
+export const THEME_ROLES_ANTI: Readonly<Record<AskTheme, Readonly<Record<AntiRole, string>>>> = TOKEN_THEMES_ANTI;
+
+/** The theme an ask root shows when the theme script never marked it. */
+const DEFAULT_THEME: AskTheme = 'omni';
+const THEME_ORDER: readonly AskTheme[] = ['omni', 'light', 'dark'];
+
+/** The colours, the scale and each theme's roles, as the generator reads them from the DTCG files. */
+export interface TokenSet {
+  readonly colours: Readonly<Record<string, string>>;
+  readonly scale: Readonly<Record<string, string>>;
+  readonly themes: Readonly<Record<AskTheme, Readonly<Record<string, string>>>>;
+  readonly anti: Readonly<Record<AskTheme, Readonly<Record<string, string>>>>;
+}
+const COMMITTED: TokenSet = { colours: COLOURS, scale: SCALE, themes: THEME_ROLES, anti: THEME_ROLES_ANTI };
+
+const declare = (values: Readonly<Record<string, string>>, prefix = ''): string[] =>
+  Object.entries(values).map(([name, value]) => `  --${prefix}${name}: ${value};`);
+
+/**
+ * tokens.css, as the generator writes it: the named colours and the scale on `:root`, then each
+ * theme's roles where the theme script marks the ask root (and on <html> where :has() is known, so
+ * the page's own background follows), Omni on `:root` and on an unmarked root, and the anti-loop
+ * mode's after them, so they win.
+ */
+export function tokensCss(set: TokenSet = COMMITTED): string {
+  const marked = (theme: string, also = '') => `:is(html:has(.ask[data-ask-theme="${theme}"]${also}), .ask[data-ask-theme="${theme}"]${also})`;
+  const themes = THEME_ORDER;
+  const rule = (selector: string, lines: readonly string[]) => [`${selector} {`, ...lines, '}'];
   return [
-    '/* Generated from @omni/design (src/tokens.ts): do not edit. Change a colour there and run',
+    '/* Generated from packages/design/tokens/*.tokens.json: do not edit. Change a token there and run',
     '   `pnpm --filter @omni/design tokens`. */',
-    ':root {',
-    ...lines,
-    '}',
+    ...rule(':root', declare(set.colours)),
+    '',
+    '/* The scale: space, radius, type, weight, elevation and motion. */',
+    ...rule(':root', declare(set.scale)),
+    '',
+    '/* The semantic roles of each theme, Omni by default. */',
+    ...themes.flatMap((theme) => rule(
+      theme === DEFAULT_THEME ? `:root, .ask:not([data-ask-theme]), ${marked(theme)}` : marked(theme),
+      declare(set.themes[theme], 'color-'),
+    )),
+    '',
+    '/* The anti-loop mode (data-ask-mode="anti"): the roles it remaps, after the theme\'s own. */',
+    ...themes.flatMap((theme) => rule(
+      theme === DEFAULT_THEME
+        ? `.ask[data-ask-mode="anti"]:not([data-ask-theme]), ${marked(theme, '[data-ask-mode="anti"]')}`
+        : marked(theme, '[data-ask-mode="anti"]'),
+      declare(set.anti[theme], 'color-'),
+    )),
     '',
   ].join('\n');
 }
 
-// Ask's reading surface: the galaxy's hues turned into signals. Plasma marks the selected option,
-// yellow the Recommended badge, cyan links and focus, green what is answered, red errors only. The
-// light theme darkens the same hues on an off-white ground. Omni is HOME's own palette on the same
-// surface (PRD 284): the void and the cabinet's navy, with comic yellow as the signal.
-export type AskTheme = 'omni' | 'light' | 'dark';
+// Ask's names, kept as aliases of the roles so no stylesheet has to change: the galaxy's hues turned
+// into signals. The signal (`plasma`) marks the selected option, the highlight (`yellow`) the
+// Recommended badge, `cyan` links and focus, `green` what is answered, `red` errors only. In Omni the
+// signal is comic yellow and the highlight magenta, so the badge never reads as a selection.
 export type AskToken =
   | 'ground' | 'surface' | 'sunk' | 'line' | 'lineStrong' | 'ink' | 'muted'
   | 'plasma' | 'plasmaSoft' | 'onPlasma' | 'yellow' | 'onYellow' | 'cyan' | 'green' | 'red';
 /** A text colour, the background it sits on, and where Ask puts the pair. */
 export type AskPair = { readonly text: AskToken; readonly on: AskToken; readonly where: string };
 
-/** Ask's semantic tokens: Omni, light and dark. In Omni, `yellow` holds magenta (the Recommended badge). */
+/** The role each of Ask's names is an alias of. */
+export const ASK_ROLES: Readonly<Record<AskToken, ColourRole>> = Object.freeze({
+  ground: 'canvas',
+  surface: 'surface',
+  sunk: 'sunken',
+  line: 'border-subtle',
+  lineStrong: 'border-strong',
+  ink: 'text-primary',
+  muted: 'text-secondary',
+  plasma: 'signal',
+  plasmaSoft: 'signal-soft',
+  onPlasma: 'text-on-signal',
+  yellow: 'highlight',
+  onYellow: 'text-on-highlight',
+  cyan: 'info',
+  green: 'success',
+  red: 'danger',
+});
+
+const askOf = (roles: Readonly<Record<ColourRole, string>>): Readonly<Record<AskToken, string>> => {
+  const of = (token: AskToken): string => roles[ASK_ROLES[token]];
+  return Object.freeze({
+    ground: of('ground'),
+    surface: of('surface'),
+    sunk: of('sunk'),
+    line: of('line'),
+    lineStrong: of('lineStrong'),
+    ink: of('ink'),
+    muted: of('muted'),
+    plasma: of('plasma'),
+    plasmaSoft: of('plasmaSoft'),
+    onPlasma: of('onPlasma'),
+    yellow: of('yellow'),
+    onYellow: of('onYellow'),
+    cyan: of('cyan'),
+    green: of('green'),
+    red: of('red'),
+  });
+};
+
+/** Ask's tokens: Omni, light and dark, each an alias of its theme's role. In Omni, `yellow` holds magenta. */
 export const ASK: Readonly<Record<AskTheme, Readonly<Record<AskToken, string>>>> = Object.freeze({
-  omni: Object.freeze({
-    ground: INK.void,
-    surface: ARCADE.cab,
-    sunk: INK.deep,
-    line: INK.navyDark,
-    // What outlines a chip, a card or a control (PRD 476): 3:1 on ground, surface and sunk, where
-    // `line` stays the quiet divider.
-    lineStrong: '#5a60c4',
-    ink: INK.white,
-    muted: ARCADE.dim,
-    // The signal is comic yellow with the void's text on it, as HOME's PRESS START.
-    plasma: INK.yellow,
-    // Omni's own: a deep purple between the cabinet and the ad's purple, where the hint stays readable.
-    plasmaSoft: '#2a2350',
-    onPlasma: INK.void,
-    // `yellow` holds magenta here: the Recommended badge must never read as a selection, and the
-    // signal is already yellow. The token keeps its name so no stylesheet has to change.
-    yellow: INK.magenta,
-    onYellow: INK.void,
-    cyan: INK.cyan,
-    green: INK.green,
-    red: '#ff6b86', // the dark theme's red
-  }),
-  light: Object.freeze({
-    ground: '#f5f4fc',
-    surface: '#ffffff',
-    sunk: '#eceaf8',
-    line: '#d9d6ee',
-    lineStrong: '#85819f',
-    ink: '#17153d',
-    muted: '#4f5486',
-    plasma: INK.plasmaDark,
-    plasmaSoft: '#efe7ff',
-    onPlasma: '#ffffff',
-    yellow: INK.yellow,
-    onYellow: '#3a2c00',
-    cyan: '#0b6f86',
-    green: '#15703f',
-    red: '#b3122f',
-  }),
-  dark: Object.freeze({
-    ground: INK.deep,
-    surface: '#16144a',
-    sunk: '#1d1a58',
-    line: '#2f2c78',
-    lineStrong: '#6d6acc',
-    ink: INK.white,
-    muted: '#a9aee6',
-    plasma: '#b37cff',
-    plasmaSoft: '#2a1d66',
-    onPlasma: INK.deep,
-    yellow: INK.yellow,
-    onYellow: '#3a2c00',
-    cyan: INK.cyan,
-    green: INK.green,
-    red: '#ff6b86',
-  }),
+  omni: askOf(THEME_ROLES.omni),
+  light: askOf(THEME_ROLES.light),
+  dark: askOf(THEME_ROLES.dark),
 });
 
 /** The tokens the anti-loop mode remaps; every other token stays Ask's. */
 export type AskAntiToken = 'line' | 'lineStrong' | 'plasma' | 'plasmaSoft' | 'onPlasma' | 'yellow' | 'onYellow';
+
+const antiOf = (theme: AskTheme): Readonly<Record<AskAntiToken, string>> => {
+  const roles: Readonly<Record<ColourRole, string>> = { ...THEME_ROLES[theme], ...THEME_ROLES_ANTI[theme] };
+  const of = (token: AskAntiToken): string => roles[ASK_ROLES[token]];
+  return Object.freeze({
+    line: of('line'),
+    lineStrong: of('lineStrong'),
+    plasma: of('plasma'),
+    plasmaSoft: of('plasmaSoft'),
+    onPlasma: of('onPlasma'),
+    yellow: of('yellow'),
+    onYellow: of('onYellow'),
+  });
+};
 
 /**
  * Rewind Light (concept #1964, round 4): the anti-loop mode's overrides of `ASK`, per theme. Magenta
  * takes the signal, the Recommended badge takes yellow, errors stay red. Apply them over `ASK[theme]`.
  */
 export const ASK_ANTI: Readonly<Record<AskTheme, Readonly<Record<AskAntiToken, string>>>> = Object.freeze({
-  omni: Object.freeze({
-    line: '#3a1458', lineStrong: '#b0489a', plasma: '#ff3ea5', plasmaSoft: '#3a1238',
-    onPlasma: '#07061c', yellow: '#ffd84a', onYellow: '#07061c',
-  }),
-  light: Object.freeze({
-    line: '#ecd3e4', lineStrong: '#a0558f', plasma: '#b0127a', plasmaSoft: '#fbe3f2',
-    onPlasma: '#ffffff', yellow: '#ffd84a', onYellow: '#3a2c00',
-  }),
-  dark: Object.freeze({
-    line: '#4a1c66', lineStrong: '#c05aa8', plasma: '#ff5fb4', plasmaSoft: '#3a1650',
-    onPlasma: '#0e0d33', yellow: '#ffd84a', onYellow: '#3a2c00',
-  }),
+  omni: antiOf('omni'),
+  light: antiOf('light'),
+  dark: antiOf('dark'),
 });
+
+/** A role's text or edge colour, the role it sits on, and where a page puts the pair. */
+export type RolePair = { readonly text: ColourRole; readonly on: ColourRole; readonly where: string };
+
+const onSurfaces = (text: ColourRole, where: string): RolePair[] =>
+  (['canvas', 'surface', 'raised', 'sunken'] as const).map((on) => ({ text, on, where: `${where}, on the ${on}` }));
+
+/** Every text role on every role it is read on. Each must reach 4.5:1 in every theme. */
+export const ROLE_TEXT_PAIRS: readonly RolePair[] = Object.freeze<RolePair[]>([
+  ...onSurfaces('text-primary', 'body text'),
+  { text: 'text-primary', on: 'accent-soft', where: 'a selected row' },
+  { text: 'text-primary', on: 'signal-soft', where: 'the selected option' },
+  ...onSurfaces('text-secondary', 'a hint, a description'),
+  ...onSurfaces('text-tertiary', 'a timestamp, a count'),
+  { text: 'text-on-accent', on: 'accent', where: 'a filled accent control' },
+  { text: 'text-on-signal', on: 'signal', where: 'the primary action' },
+  { text: 'text-on-highlight', on: 'highlight', where: 'the Recommended badge' },
+  ...onSurfaces('accent', 'a link'),
+  { text: 'signal', on: 'canvas', where: 'the wordmark' },
+  { text: 'signal', on: 'surface', where: 'a pressed control on a card' },
+  ...(['success', 'warning', 'danger', 'info'] as const).flatMap((status) => onSurfaces(status, `a ${status} status`)),
+]);
+
+/** Edges that tell a control's state (WCAG 1.4.11): 3:1 against what they sit on. */
+export const ROLE_UI_PAIRS: readonly RolePair[] = Object.freeze<RolePair[]>([
+  ...onSurfaces('border-strong', 'a control\'s edge'),
+  { text: 'accent', on: 'canvas', where: 'the focus ring' },
+  { text: 'accent', on: 'surface', where: 'the focus ring on a card' },
+  { text: 'accent', on: 'accent-soft', where: 'a selected row\'s edge' },
+  { text: 'signal', on: 'surface', where: 'the selected option\'s edge' },
+  { text: 'signal', on: 'signal-soft', where: 'the selected option\'s edge, inside' },
+]);
 
 /** Every text colour on every background Ask puts it on. Each must reach 4.5:1. */
 export const ASK_TEXT_PAIRS: readonly AskPair[] = Object.freeze<AskPair[]>([
