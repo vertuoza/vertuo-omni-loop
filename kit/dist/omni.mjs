@@ -341,8 +341,8 @@ var require_directives = __commonJS({
               if (parts.length < 2)
                 return false;
             }
-            const [handle3, prefix] = parts;
-            this.tags[handle3] = prefix;
+            const [handle4, prefix] = parts;
+            this.tags[handle4] = prefix;
             return true;
           }
           case "%YAML": {
@@ -389,10 +389,10 @@ var require_directives = __commonJS({
             onError("Verbatim tags must end with a >");
           return verbatim;
         }
-        const [, handle3, suffix] = source2.match(/^(.*!)([^!]*)$/s);
+        const [, handle4, suffix] = source2.match(/^(.*!)([^!]*)$/s);
         if (!suffix)
           onError(`The ${source2} tag has no suffix`);
-        const prefix = this.tags[handle3];
+        const prefix = this.tags[handle4];
         if (prefix) {
           try {
             return prefix + decodeURIComponent(suffix);
@@ -401,7 +401,7 @@ var require_directives = __commonJS({
             return null;
           }
         }
-        if (handle3 === "!")
+        if (handle4 === "!")
           return source2;
         onError(`Could not resolve tag: ${source2}`);
         return null;
@@ -411,9 +411,9 @@ var require_directives = __commonJS({
        * taking into account current tag prefixes and defaults.
        */
       tagString(tag) {
-        for (const [handle3, prefix] of Object.entries(this.tags)) {
+        for (const [handle4, prefix] of Object.entries(this.tags)) {
           if (tag.startsWith(prefix))
-            return handle3 + escapeTagName(tag.substring(prefix.length));
+            return handle4 + escapeTagName(tag.substring(prefix.length));
         }
         return tag[0] === "!" ? tag : `!<${tag}>`;
       }
@@ -430,11 +430,11 @@ var require_directives = __commonJS({
           tagNames = Object.keys(tags);
         } else
           tagNames = [];
-        for (const [handle3, prefix] of tagEntries) {
-          if (handle3 === "!!" && prefix === "tag:yaml.org,2002:")
+        for (const [handle4, prefix] of tagEntries) {
+          if (handle4 === "!!" && prefix === "tag:yaml.org,2002:")
             continue;
           if (!doc || tagNames.some((tn) => tn.startsWith(prefix)))
-            lines5.push(`%TAG ${handle3} ${prefix}`);
+            lines5.push(`%TAG ${handle4} ${prefix}`);
         }
         return lines5.join("\n");
       }
@@ -8942,7 +8942,7 @@ function $constructor(name3, initializer3, proto, params) {
   }
   Internals.prototype = zodProto;
   const protoMembers = proto;
-  const initialized = protoMembers && /* @__PURE__ */ new WeakSet();
+  const initialized2 = protoMembers && /* @__PURE__ */ new WeakSet();
   function init3(inst, def) {
     if (!inst._zod) {
       _zodDesc.value = new Internals(def);
@@ -8956,15 +8956,15 @@ function $constructor(name3, initializer3, proto, params) {
     }
     inst._zod.traits.add(name3);
     initializer3(inst, def);
-    if (initialized) {
+    if (initialized2) {
       const own2 = Object.getPrototypeOf(inst);
       const ctorProto = inst._zod.constr.prototype;
       let up = own2;
       while (up && up !== ctorProto)
         up = Object.getPrototypeOf(up);
       const target3 = up ?? own2;
-      if (!initialized.has(target3)) {
-        initialized.add(target3);
+      if (!initialized2.has(target3)) {
+        initialized2.add(target3);
         members(target3, protoMembers);
       }
     }
@@ -12532,26 +12532,26 @@ function isRecursive(inst, stack, resolve25) {
   let result2 = NONE;
   const check6 = (child) => {
     if (result2 !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve25);
-      if (answer > result2)
-        result2 = answer;
+      const answer2 = isRecursive(child, stack, resolve25);
+      if (answer2 > result2)
+        result2 = answer2;
     }
   };
   const shape = (sh, spread) => {
-    let answer = NONE;
+    let answer2 = NONE;
     for (const key2 of Reflect.ownKeys(sh)) {
       const desc = Object.getOwnPropertyDescriptor(sh, key2);
       if (spread && !desc.enumerable)
         continue;
       const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve25) : NONE;
-      if (child > answer)
-        answer = child;
+      if (child > answer2)
+        answer2 = child;
     }
-    return answer;
+    return answer2;
   };
-  const merge2 = (answer) => {
-    if (answer > result2)
-      result2 = answer;
+  const merge2 = (answer2) => {
+    if (answer2 > result2)
+      result2 = answer2;
   };
   const def = inst._zod.def;
   const kind2 = def.type;
@@ -12654,10 +12654,10 @@ function isRecursive(inst, stack, resolve25) {
   stack.delete(inst);
   return settle(inst, result2);
 }
-function settle(inst, answer) {
-  if (answer !== ASSUMED)
-    recursive.set(inst, answer === PROVEN);
-  return answer;
+function settle(inst, answer2) {
+  if (answer2 !== ASSUMED)
+    recursive.set(inst, answer2 === PROVEN);
+  return answer2;
 }
 function isRecursiveSchema(inst) {
   return isRecursive(inst, /* @__PURE__ */ new Set(), true) !== NONE;
@@ -29743,7 +29743,7 @@ function askClient({ baseUrl, host, tokens: tokens2, fetch = globalThis.fetch, c
      * with `adopt`, a medium item adopted at once. */
     putOutboxItem: ({ key: key2, seq, repo, body, adopt: adopt2 }) => call("POST", "/api/outbox/items", { body: { product: key2, prd: seq, ...repo ? { repo } : {}, body, ...adopt2 ? { adopt: adopt2 } : {} } }),
     /** PRD 1548 s7: settles product PRD `<key>-<seq>`'s open item with an answer given in the terminal. */
-    settleOutboxItem: ({ key: key2, seq, repo, item: item2, verdict: verdict2, basis, answer }) => call("POST", "/api/outbox/items/settle", { body: { product: key2, prd: seq, ...repo ? { repo } : {}, item: item2, verdict: verdict2, basis, answer } }),
+    settleOutboxItem: ({ key: key2, seq, repo, item: item2, verdict: verdict2, basis, answer: answer2 }) => call("POST", "/api/outbox/items/settle", { body: { product: key2, prd: seq, ...repo ? { repo } : {}, item: item2, verdict: verdict2, basis, answer: answer2 } }),
     /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
      * PRD 627, a fix's by its kind (visual or bug), and since PRD 1272 a concept's. Since PRD 1364 it answers
      * the dossier's product by its name, or null. @returns {Promise<{ id: string, url: string, product?: string | null }>} */
@@ -30837,11 +30837,11 @@ function kitDefault(kitSlot, holes, { ctx, formId, problems }) {
   return { ...base, source: "kit", label: "[kit default]", text: kit.text, questions: [] };
 }
 function fallThrough(kitSlot, holes, io) {
-  const answer = levelAnswer(kitSlot.id, io.levels);
-  if (!answer) return kitDefault(kitSlot, holes, io);
+  const answer2 = levelAnswer(kitSlot.id, io.levels);
+  if (!answer2) return kitDefault(kitSlot, holes, io);
   const base = { slot: kitSlot.id, heading: kitSlot.heading };
-  if (holes) return { ...base, source: "hole", label: `[hole \xB7 ${answer.level}]`, text: answer.text, questions: holes };
-  return { ...base, source: LEVEL_SOURCE[answer.level], label: `[${answer.level}]`, text: answer.text, questions: answer.questions };
+  if (holes) return { ...base, source: "hole", label: `[hole \xB7 ${answer2.level}]`, text: answer2.text, questions: holes };
+  return { ...base, source: LEVEL_SOURCE[answer2.level], label: `[${answer2.level}]`, text: answer2.text, questions: answer2.questions };
 }
 function resolveSlot(kitSlot, repoSlot, io) {
   const base = { slot: kitSlot.id, heading: kitSlot.heading };
@@ -31069,14 +31069,14 @@ function findTarget({ home, to = null, exec, timeoutMs = 15e3 }) {
   if (!home) throw new UpdateError("omni update: this omni does not know where the kit comes from, so it cannot find a release.");
   const tag = to === null ? null : `v${parseVersion(to)}`;
   const what = tag ? `the release ${tag} of ${home}` : `the latest release of ${home}`;
-  let answer;
+  let answer2;
   try {
-    answer = exec("gh", ["release", "view", ...tag ? [tag] : [], "--repo", home, "--json", "tagName", "--jq", ".tagName"], { ...QUIET5, timeout: timeoutMs });
+    answer2 = exec("gh", ["release", "view", ...tag ? [tag] : [], "--repo", home, "--json", "tagName", "--jq", ".tagName"], { ...QUIET5, timeout: timeoutMs });
   } catch {
     throw new UpdateError(`omni update: cannot find ${what}: ${tag ? "no such tag, or " : ""}GitHub is out of reach or gh is not signed in.`);
   }
-  const version3 = parseVersion(answer);
-  if (!version3) throw new UpdateError(`omni update: ${what} is not a version: ${answer.trim() || "(nothing)"}.`);
+  const version3 = parseVersion(answer2);
+  if (!version3) throw new UpdateError(`omni update: ${what} is not a version: ${answer2.trim() || "(nothing)"}.`);
   return version3;
 }
 function downloadBundle({ home, version: version3, dir, exec }) {
@@ -32383,10 +32383,10 @@ function markerFound(haystack, marker) {
 }
 function judgeAnswer({
   choice,
-  answer,
+  answer: answer2,
   statedVerdict = null
 }) {
-  const statedWord = answer.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase();
+  const statedWord = answer2.match(STATED_VERDICT_LINE)?.[1]?.toLowerCase();
   const stated = statedVerdict ?? VERDICTS.find((verdict2) => verdict2 === statedWord) ?? null;
   if (stated) {
     return {
@@ -32395,14 +32395,14 @@ function judgeAnswer({
       reason: `the answer is settled as "${stated}" because a human said so, not because a comparison read it`
     };
   }
-  if (choice && normalizeWhole(answer) === normalizeWhole(choice)) {
+  if (choice && normalizeWhole(answer2) === normalizeWhole(choice)) {
     return {
       verdict: "agreed",
       basis: "restates-the-choice",
       reason: "the answer repeats the recorded choice word for word"
     };
   }
-  const haystack = normalizeWhole(answer);
+  const haystack = normalizeWhole(answer2);
   const found2 = CONTRADICTION_MARKERS.filter((marker) => markerFound(haystack, marker));
   if (found2.length > 0) {
     return {
@@ -32411,7 +32411,7 @@ function judgeAnswer({
       reason: `the answer says ${found2.map((marker) => `"${marker}"`).join(", ")}, which reads as a change to the recorded choice`
     };
   }
-  const opening2 = openingClause(answer);
+  const opening2 = openingClause(answer2);
   if (AFFIRMATIONS.has(opening2)) {
     return {
       verdict: "agreed",
@@ -32457,7 +32457,7 @@ function settledHeader(prd2, { ctx }) {
 function renderSettledEntry({
   item: item2,
   itemText: itemText2,
-  answer,
+  answer: answer2,
   judgement,
   markers,
   closed = null
@@ -32468,12 +32468,12 @@ function renderSettledEntry({
     `## ${item2.id} \u2014 ${judgement.verdict}`,
     "",
     `- Verdict: ${judgement.verdict}`,
-    `- Approved by: ${answer.approvedBy}`,
-    `- Approved at: ${answer.approvedAt}`
+    `- Approved by: ${answer2.approvedBy}`,
+    `- Approved at: ${answer2.approvedAt}`
   ];
-  if (answer.channel) {
-    lines5.push(`- Channel: ${channelLabel(answer.channel)}`);
-    if (answer.channel.url) lines5.push(`- Channel URL: ${answer.channel.url}`);
+  if (answer2.channel) {
+    lines5.push(`- Channel: ${channelLabel(answer2.channel)}`);
+    if (answer2.channel.url) lines5.push(`- Channel URL: ${answer2.channel.url}`);
   }
   lines5.push(
     `- Basis: ${judgement.basis} \u2014 ${judgement.reason}`,
@@ -32486,7 +32486,7 @@ function renderSettledEntry({
     "",
     "### The answer, as it was given",
     "",
-    verbatimBlock(answer.text),
+    verbatimBlock(answer2.text),
     "",
     "### The item, as it was raised",
     "",
@@ -32563,10 +32563,10 @@ function locate(root, file2) {
 function settleItem({
   ctx,
   file: file2,
-  answer
+  answer: answer2
 }) {
   const { absoluteFile, relativeFile } = locate(ctx.root, file2);
-  const parsedAnswer = AnswerSchema.safeParse(answer, { error: KIT_MESSAGES });
+  const parsedAnswer = AnswerSchema.safeParse(answer2, { error: KIT_MESSAGES });
   if (!parsedAnswer.success) return { ok: false, errors: answerErrors(parsedAnswer.error) };
   if (!existsSync17(absoluteFile)) {
     return { ok: false, errors: [`${relativeFile}: no such open item.`] };
@@ -33456,8 +33456,8 @@ function serverOutboxStore({ ctx, connect: connect3, now: now2 }) {
         return { ok: true, entry: renderAdoptedEntry({ item: item2, itemText: itemText2, markers: ctx.markers }), settledFile: ledgerOf2(prd2), item: item2 };
       });
     },
-    async settle(ref2, answer) {
-      const given = ServerAnswerSchema.safeParse(answer, { error: KIT_MESSAGES });
+    async settle(ref2, answer2) {
+      const given = ServerAnswerSchema.safeParse(answer2, { error: KIT_MESSAGES });
       if (!given.success) return { ok: false, errors: answerErrors(given.error) };
       const named5 = refParts(ref2);
       const row = named5 === null ? void 0 : (await openRows(named5.prd)).find((open3) => open3.item === named5.id);
@@ -34542,9 +34542,9 @@ function countWriters(comments, markers, canWrite) {
   const writes = (login2) => {
     const seen = known2.get(login2);
     if (seen !== void 0) return seen;
-    const answer = canWrite(login2);
-    known2.set(login2, answer);
-    return answer;
+    const answer2 = canWrite(login2);
+    known2.set(login2, answer2);
+    return answer2;
   };
   return comments.map((comment2) => {
     const login2 = comment2.user?.login;
@@ -34612,15 +34612,15 @@ function planFor({ comments: all, items, adopted, markers }) {
   for (const { number: number5, item: item2, adoptedEntry } of questions2) {
     const raw = numbered.get(number5) ?? approved.get(number5);
     if (!raw) continue;
-    const { answer, judgement } = readAnswer(raw, item2);
+    const { answer: answer2, judgement } = readAnswer(raw, item2);
     if (judgement.verdict === null) {
       const lastRound = reaskedAt.get(number5);
-      const due2 = lastRound === void 0 || time3(answer.approvedAt) > lastRound;
-      held3.push({ number: number5, item: item2, answer, due: due2 });
+      const due2 = lastRound === void 0 || time3(answer2.approvedAt) > lastRound;
+      held3.push({ number: number5, item: item2, answer: answer2, due: due2 });
       continue;
     }
     if (adoptedEntry && judgement.verdict !== "drifted") continue;
-    settle4.push({ number: number5, item: item2, answer, judgement, adoptedEntry });
+    settle4.push({ number: number5, item: item2, answer: answer2, judgement, adoptedEntry });
   }
   return { settle: settle4, held: held3, round: roundOf(held3, highestRound) };
 }
@@ -34650,7 +34650,7 @@ function rawAnswers(all, markers, byNumber2, open3) {
 }
 function readAnswer(raw, item2) {
   const reading = raw.approveAll ? { statedVerdict: "agreed", recorded: raw.text } : interpretAnswer({ text: raw.text, options: item2.sections.options });
-  const answer = {
+  const answer2 = {
     ...raw,
     recorded: reading.recorded,
     ...reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {}
@@ -34661,21 +34661,21 @@ function readAnswer(raw, item2) {
     reason: "the reply names an option the question does not offer"
   } : judgeAnswer({
     choice: item2.sections.whatIDidMeanwhile,
-    answer: answer.recorded,
+    answer: answer2.recorded,
     statedVerdict: reading.statedVerdict ?? null
   });
-  return { answer, judgement };
+  return { answer: answer2, judgement };
 }
 function roundOf(held3, highestRound) {
   const dueQuestions = held3.filter((question) => question.due);
   if (dueQuestions.length === 0) return null;
   return {
     number: Math.max(highestRound, 1) + 1,
-    questions: dueQuestions.map(({ number: number5, item: item2, answer }) => ({
+    questions: dueQuestions.map(({ number: number5, item: item2, answer: answer2 }) => ({
       number: number5,
       rank: item2.rank,
       questionPlain: item2.sections.questionPlain ?? item2.sections.whatIHadToDecide ?? "",
-      answerText: answer.text
+      answerText: answer2.text
     }))
   };
 }
@@ -34712,10 +34712,10 @@ function appendObjection({
   prd: prd2,
   adoptedEntry,
   item: item2,
-  answer,
+  answer: answer2,
   judgement
 }) {
-  const parsedAnswer = AnswerSchema.safeParse(answer);
+  const parsedAnswer = AnswerSchema.safeParse(answer2);
   if (!parsedAnswer.success) return { ok: false, errors: answerErrors(parsedAnswer.error) };
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
   const absoluteSettled = join31(ctx.root, settledFile);
@@ -34741,17 +34741,17 @@ function readReplies({ ctx, prd: prd2, pr, post: post5 = false }, client) {
   const plan2 = planFor({ comments: countWriters(replyComments(comments), ctx.markers, client.canWrite), items, adopted, markers: ctx.markers });
   const settled2 = [];
   const failed5 = [];
-  for (const { number: number5, item: item2, answer, judgement, adoptedEntry } of plan2.settle) {
+  for (const { number: number5, item: item2, answer: answer2, judgement, adoptedEntry } of plan2.settle) {
     const given = {
-      text: answer.recorded,
-      approvedBy: answer.approvedBy,
-      approvedAt: answer.approvedAt,
+      text: answer2.recorded,
+      approvedBy: answer2.approvedBy,
+      approvedAt: answer2.approvedAt,
       channel: {
         kind: "feature-pull-request",
         number: pr,
-        ...answer.url ? { url: answer.url } : {}
+        ...answer2.url ? { url: answer2.url } : {}
       },
-      ...answer.statedVerdict ? { statedVerdict: answer.statedVerdict } : {}
+      ...answer2.statedVerdict ? { statedVerdict: answer2.statedVerdict } : {}
     };
     const result2 = adoptedEntry ? appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer: given, judgement }) : settleItem({ ctx, file: defined(item2.file, "the file of an open item"), answer: given });
     if (result2.ok) {
@@ -34759,7 +34759,7 @@ function readReplies({ ctx, prd: prd2, pr, post: post5 = false }, client) {
         number: number5,
         id: item2.id,
         verdict: result2.verdict ?? judgement.verdict,
-        answer: answer.recorded,
+        answer: answer2.recorded,
         settledFile: result2.settledFile,
         removedFile: result2.removedFile ?? null,
         objection: Boolean(adoptedEntry)
@@ -34781,10 +34781,10 @@ function readReplies({ ctx, prd: prd2, pr, post: post5 = false }, client) {
   return {
     settled: settled2,
     failed: failed5,
-    held: plan2.held.map(({ number: number5, item: item2, answer, due: due2 }) => ({
+    held: plan2.held.map(({ number: number5, item: item2, answer: answer2, due: due2 }) => ({
       number: number5,
       id: item2.id,
-      answer: answer.text,
+      answer: answer2.text,
       due: due2
     })),
     round: round2
@@ -34876,7 +34876,7 @@ function gitOutboxStore(ctx) {
       return writeInto(out ?? { abs: join32(ctx.root, outboxDir), shown: outboxDir }, id, text19);
     }),
     adopt: (itemText2) => promised(() => adoptItem({ ctx, itemText: itemText2 })),
-    settle: (ref2, answer) => promised(() => settleItem({ ctx, file: ref2, answer })),
+    settle: (ref2, answer2) => promised(() => settleItem({ ctx, file: ref2, answer: answer2 })),
     relay: (prd2, dir, laws2) => promised(() => isFolder(dir) ? relayFolder({ ctx, laws: laws2, prd: repoPrd(prd2), dir }) : null),
     gate: (prd2, options) => promised(() => gateResult(repoPrd(prd2), { ctx, ...options })),
     openItems: (prd2) => promised(() => openItemsForPrd(repoPrd(prd2), { ctx })),
@@ -35107,8 +35107,8 @@ async function answerOnServer({ store, prd: prd2, picks }) {
     if (line3.kind !== "numbered") continue;
     const { number: number5, id, item: item2, options } = defined(byNumber2.get(line3.number), `question ${line3.number}`);
     const reading = interpretAnswer({ text: line3.text, options });
-    const answer = { text: reading.recorded, ...reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {} };
-    const result2 = await store.settle(defined(item2.file, `the ref of ${id}`), answer);
+    const answer2 = { text: reading.recorded, ...reading.statedVerdict ? { statedVerdict: reading.statedVerdict } : {} };
+    const result2 = await store.settle(defined(item2.file, `the ref of ${id}`), answer2);
     if (result2.ok) answers2.settled.push({ number: number5, id, verdict: result2.verdict });
     else answers2.failed.push({ number: number5, id, errors: result2.errors });
   }
@@ -37450,9 +37450,9 @@ async function startDevice(options) {
     if (stop.signal.aborted) throw new DeviceError("closed");
   }
   async function pollOnce(seconds4) {
-    const answer = await post2(fetch, askUrl2, "/api/ask/device/poll", { device_code: deviceCode }, stop.signal);
+    const answer2 = await post2(fetch, askUrl2, "/api/ask/device/poll", { device_code: deviceCode }, stop.signal);
     stillOpen();
-    return outcomeOf(answer ? await bodyOf(answer) : null, seconds4);
+    return outcomeOf(answer2 ? await bodyOf(answer2) : null, seconds4);
   }
   async function run2() {
     let seconds4 = firstInterval;
@@ -37546,22 +37546,22 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
   });
   let done = false;
   const server = createServer((request2, response) => {
-    const answer = (status5, body, type = "text/html; charset=utf-8") => {
+    const answer2 = (status5, body, type = "text/html; charset=utf-8") => {
       response.writeHead(status5, { "content-type": type, "cache-control": "no-store", connection: "close" });
       response.end(body);
     };
     const url2 = new URL(request2.url ?? "/", `http://${HOST}`);
     if (request2.method !== "GET" || url2.pathname !== PATH || done) {
-      answer(404, "not found\n", "text/plain; charset=utf-8");
+      answer2(404, "not found\n", "text/plain; charset=utf-8");
       return;
     }
     if (!sameText(url2.searchParams.get("state") ?? "", state)) {
-      answer(400, pages.notOurs);
+      answer2(400, pages.notOurs);
       return;
     }
     const given = take(url2.searchParams);
     if (given === null) {
-      answer(400, pages.incomplete);
+      answer2(400, pages.incomplete);
       return;
     }
     done = true;
@@ -37570,7 +37570,7 @@ async function listen({ state, timeoutMs = LOOPBACK_WAIT_MS }, { take, pages, wh
         settle4.resolve(given);
       });
     });
-    answer(200, pages.done);
+    answer2(200, pages.done);
   });
   let closedResolve = () => {
   };
@@ -40018,11 +40018,11 @@ var drawing = (source2, id) => `(async () => {
   }
 })()`;
 async function draw(page2, source2, id) {
-  const answer = await page2.evaluate(drawing(source2, id));
-  if (propertyOf(answer, "missing") === true) return "missing";
-  const svg = propertyOf(answer, "svg");
+  const answer2 = await page2.evaluate(drawing(source2, id));
+  if (propertyOf(answer2, "missing") === true) return "missing";
+  const svg = propertyOf(answer2, "svg");
   if (typeof svg === "string") return { svg };
-  const error62 = propertyOf(answer, "error");
+  const error62 = propertyOf(answer2, "error");
   return { error: typeof error62 === "string" ? error62 : "Mermaid drew nothing" };
 }
 var whyOf2 = (error62) => firstPart(error62 instanceof Error ? error62.message : String(error62), "\n");
@@ -41938,8 +41938,8 @@ var storedOf = (raw) => {
   return reply && isText3(reply.id) && STORED_STATES.includes(reply.state) && typeof reply.added === "boolean" ? { id: reply.id, state: String(reply.state), added: reply.added } : null;
 };
 async function claim2(positional, flags, env) {
-  const answer = answerOf(positional, flags);
-  const result2 = await called(env, (client, repo) => client.addClaim({ repo, ...answer }));
+  const answer2 = answerOf(positional, flags);
+  const result2 = await called(env, (client, repo) => client.addClaim({ repo, ...answer2 }));
   if ("line" in result2) return skipped(env, "claim", result2.line);
   const stored = storedOf(result2.reply);
   if (!stored) return skipped(env, "claim", `refused (the reply is not a claim) ${CARRY_ON}`);
@@ -42033,9 +42033,9 @@ function personaRefusal(error62) {
   return error62.reason ?? `refused (${String(error62.status)})`;
 }
 function personaLine(action, reply) {
-  const answer = jsonObject(reply);
-  if (!answer || answer.done !== "applied" || !isText3(answer.id)) return null;
-  return `${action === "add" ? "added" : "edited"} persona:${answer.id}${isText3(answer.url) ? ` \xB7 ${answer.url}` : ""}`;
+  const answer2 = jsonObject(reply);
+  if (!answer2 || answer2.done !== "applied" || !isText3(answer2.id)) return null;
+  return `${action === "add" ? "added" : "edited"} persona:${answer2.id}${isText3(answer2.url) ? ` \xB7 ${answer2.url}` : ""}`;
 }
 async function persona(args, env) {
   const { change: change2, json: json4 } = personaChangeOf(args);
@@ -44171,9 +44171,9 @@ function readPullHead({ exec, root, repo, number: number5 }) {
   const label2 = `${repo}#${number5}`;
   try {
     const text19 = exec("gh", ["pr", "view", String(number5), "--repo", repo, "--json", "headRefOid,commits"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    const answer = HeadAnswerSchema.safeParse(JSON.parse(text19));
-    if (!answer.success) return { kind: "unread", label: label2, why: "gh gave no head commit" };
-    const { headRefOid, commits } = answer.data;
+    const answer2 = HeadAnswerSchema.safeParse(JSON.parse(text19));
+    if (!answer2.success) return { kind: "unread", label: label2, why: "gh gave no head commit" };
+    const { headRefOid, commits } = answer2.data;
     return { kind: "read", sha: headRefOid, commits: (commits ?? []).map((commit) => commit.oid), subject: `${label2}'s head`, of: label2 };
   } catch (error62) {
     return { kind: "unread", label: label2, why: firstLine3(error62) };
@@ -47478,10 +47478,10 @@ function changeOf(args) {
   return { change: change2, json: flags.json === true };
 }
 function successLine(action, reply) {
-  const answer = jsonObject(reply);
-  if (!answer) return null;
-  const [id, url2] = [textOf4(answer.id), textOf4(answer.url)];
-  return answer.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${url2 === null ? "" : ` \xB7 ${url2}`}` : null;
+  const answer2 = jsonObject(reply);
+  if (!answer2) return null;
+  const [id, url2] = [textOf4(answer2.id), textOf4(answer2.url)];
+  return answer2.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${url2 === null ? "" : ` \xB7 ${url2}`}` : null;
 }
 function refusalLine2(error62, host) {
   if (!(error62 instanceof AskCallError)) throw error62;
@@ -49085,11 +49085,11 @@ var UNSET = "unset";
 var isUnit = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 function readReply(reply) {
   const decidedBy = field(reply, "decidedBy");
-  const answer = field(reply, "answer");
+  const answer2 = field(reply, "answer");
   const confidence = field(reply, "confidence");
   if (decidedBy === "old") return { reason: "the decision is Off or in Shadow, or Jev did not decide" };
-  if (decidedBy === "jev" && typeof answer === "string" && answer !== "" && isUnit(confidence)) {
-    return { answer, confidence };
+  if (decidedBy === "jev" && typeof answer2 === "string" && answer2 !== "" && isUnit(confidence)) {
+    return { answer: answer2, confidence };
   }
   return { reason: "the reply is not a decision" };
 }
@@ -51442,7 +51442,7 @@ function settleAtMerge({
   }
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   const existing = existsSync62(join96(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
-  const answer = mergeAnswer(facts2);
+  const answer2 = mergeAnswer(facts2);
   const errors = [];
   const entries4 = [];
   const deletes = [];
@@ -51456,7 +51456,7 @@ function settleAtMerge({
     const entry3 = renderSettledEntry({
       item: parsed2.item,
       itemText: itemText2,
-      answer,
+      answer: answer2,
       judgement: JUDGEMENT,
       markers: ctx.markers,
       closed: `yes \u2014 adopted at the merge by @${facts2.by}`
@@ -51471,7 +51471,7 @@ function settleAtMerge({
     const entry3 = renderSettledEntry({
       item: itemFromEntry(settled2),
       itemText: settled2.itemText,
-      answer,
+      answer: answer2,
       judgement: JUDGEMENT,
       markers: ctx.markers,
       closed: `yes \u2014 merged without rework, by @${facts2.by}`
@@ -51803,8 +51803,8 @@ function slugOf3(title) {
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
-    const answer = (candidate.answer ?? "").trim();
-    return answer ? `The answer, as it was given: ${answer}` : null;
+    const answer2 = (candidate.answer ?? "").trim();
+    return answer2 ? `The answer, as it was given: ${answer2}` : null;
   }
   const option = candidate.item?.sections?.options?.[0];
   return option ? `The option chosen: ${option.letter}. ${option.text}` : null;
@@ -52268,7 +52268,7 @@ async function classifyCandidate({
     return { id: candidate.id, reply: null, reason: NO_PLACE, error: null };
   }
   const check6 = classificationSchema(summary2);
-  const answer = await askModel({
+  const answer2 = await askModel({
     system: CLASSIFY_SYSTEM,
     user: classificationPrompt({ candidate, summary: summary2, changed: keptPaths(changed) }),
     check: check6,
@@ -52277,13 +52277,13 @@ async function classifyCandidate({
     fetch,
     title: "omni harvest"
   });
-  if (answer.ok) {
-    const kept2 = check6.safeParse(answer.reply);
+  if (answer2.ok) {
+    const kept2 = check6.safeParse(answer2.reply);
     if (kept2.success) return { id: candidate.id, reply: kept2.data, reason: null, error: null };
     return { id: candidate.id, reply: null, reason: `the model's reply could not be read: ${kept2.error.message}`, error: null };
   }
-  const reason2 = answer.error === REFUSED ? `${REFUSED_TWICE}: ${answer.reason}` : `the model could not be asked: ${answer.reason}`;
-  return { id: candidate.id, reply: null, reason: reason2, error: answer.error === NO_KEY ? NO_KEY : answer.error };
+  const reason2 = answer2.error === REFUSED ? `${REFUSED_TWICE}: ${answer2.reason}` : `the model could not be asked: ${answer2.reason}`;
+  return { id: candidate.id, reply: null, reason: reason2, error: answer2.error === NO_KEY ? NO_KEY : answer2.error };
 }
 function knowledgeFiles(ctx) {
   return filesUnder4(ctx.root, ctx.layout.knowledgeRoot).filter((file2) => file2.endsWith(".md"));
@@ -53127,6 +53127,14 @@ var ENTRIES = deepFreeze([
     usage: ["omni product import --product <name>", "omni product which", "omni product use <key>", "omni product phase0 <owner/name>\u2026"],
     summary: "plan targets into a product; this repo's products",
     detail: "omni product import --product <name> copies the targets of this plan repository, its plan.targets, into the product of that name on the Omni page, with your sign-in: each target becomes a repository link with its role, knowledge, read-at commit, read-only flag and what it consumes, an existing link is changed to match, and it prints what it added and changed. A second run changes nothing. It never edits the config: swap targets for product: <name> in the plan section yourself, and omni targets then reads the links from the product. Only an owner of the workspace changes its links. omni product which prints the products this repository is in, one per line, or none, after remembered: <key> when this checkout remembers one. Either exits 1, with one line saying why, when there is no Omni page or sign-in, or the page is unreachable or refuses. omni product use <key> remembers the product this checkout runs from, for every worktree of it, so a product PRD (mobile-12) is built from here with no plan repository. omni product phase0 <owner/name>\u2026 reads each repository's phase-0 flag and prints one line each, refusing by name any not on server, which a product PRD cannot land in. Exit 0 when every one is on server, 1 otherwise."
+  },
+  {
+    name: "mcp",
+    kind: "command",
+    who: "skills",
+    usage: ["omni mcp"],
+    summary: "the product's knowledge, as an MCP server over stdio",
+    detail: "Runs an MCP server on stdin and stdout, with the two tools of the product knowledge route: search_knowledge and get_knowledge. The omni plugin declares it as omni-knowledge, so every session with the plugin, and every runner job, reads the product's knowledge with its own sign-in (omni signin, or OMNI_TOKEN on a runner), with no API key to make. It says nothing to the Omni page until the first call. A call that cannot be answered answers one line as the tool result: not signed in, knowledge off, no product, or the Omni page unreachable. Nothing is written: no key, no token, no file. From a terminal, omni kb search and omni kb get make the same two calls."
   },
   {
     name: "whoami",
@@ -54697,8 +54705,8 @@ function takeAgentFlags(args) {
   return { values, rest };
 }
 var AGENTS_QUESTION = `agents: the coding agents your team uses, any of ${AGENTS.join(", ")}, separated by commas (empty for claude): `;
-function agentsAnswer(answer) {
-  const names = (answer ?? "").split(/[\s,]+/).map((name3) => name3.trim().toLowerCase()).filter(Boolean);
+function agentsAnswer(answer2) {
+  const names = (answer2 ?? "").split(/[\s,]+/).map((name3) => name3.trim().toLowerCase()).filter(Boolean);
   return names.length ? names : [CLAUDE3];
 }
 function copiesRefusal(root) {
@@ -55250,8 +55258,8 @@ async function resolveCommands(root, flags, { interactive, ask: ask6 }) {
   if (interactive) {
     for (const key2 of COMMAND_KEYS) {
       if (commands[key2] !== null) continue;
-      const answer = (await ask6(`commands.${key2}: ${QUESTIONS[key2]} (empty for none): `) ?? "").trim();
-      commands[key2] = answer || null;
+      const answer2 = (await ask6(`commands.${key2}: ${QUESTIONS[key2]} (empty for none): `) ?? "").trim();
+      commands[key2] = answer2 || null;
     }
   }
   return commands;
@@ -56567,15 +56575,15 @@ function refusal3(error62) {
 async function readProductGraph({ askUrl: askUrl2, client, key: key2, id, depth, json: json4 }) {
   if (!askUrl2) return FAIL2("kb graph: ask.url is not set, so there is no Omni page to ask");
   if (client === null) return FAIL2("kb graph: no sign-in for the Omni page (omni signin)");
-  let answer;
+  let answer2;
   try {
-    answer = await client.readKnowledgeGraph({ key: key2, id, depth });
+    answer2 = await client.readKnowledgeGraph({ key: key2, id, depth });
   } catch (error62) {
     return refusal3(error62);
   }
-  const read3 = readNeighbourhood(answer);
+  const read3 = readNeighbourhood(answer2);
   if (read3 === null) return FAIL2("kb graph: the server answered something that is not a knowledge graph");
-  return { ok: true, lines: json4 ? [JSON.stringify(answer, null, 2)] : productGraphText(read3) };
+  return { ok: true, lines: json4 ? [JSON.stringify(answer2, null, 2)] : productGraphText(read3) };
 }
 
 // kit/lib/knowledge/packs/get.ts
@@ -56784,13 +56792,13 @@ function ghReader({ exec, env }) {
   return {
     // The repository itself: any failure, a 404 included, means gh cannot read it.
     repository(repo) {
-      let answer;
+      let answer2;
       try {
-        answer = JSON.parse(api([`repos/${repo}`]));
+        answer2 = JSON.parse(api([`repos/${repo}`]));
       } catch (error62) {
         throw new Unreachable(ghLine(error62));
       }
-      return answerOf3(GhRepositorySchema, answer, `repos/${repo}`);
+      return answerOf3(GhRepositorySchema, answer2, `repos/${repo}`);
     },
     file: (repo, path, ref2) => call(["-H", "Accept: application/vnd.github.raw", contents(repo, path, ref2)]),
     dir(repo, path, ref2) {
@@ -56805,8 +56813,8 @@ function ghReader({ exec, env }) {
     }
   };
 }
-function answerOf3(schema, answer, what) {
-  const parsed2 = schema.safeParse(answer);
+function answerOf3(schema, answer2, what) {
+  const parsed2 = schema.safeParse(answer2);
   if (!parsed2.success) throw new Unreachable(`gh answered ${what} without what it needs \u2014 ${firstIssue(parsed2.error)}`);
   return parsed2.data;
 }
@@ -56983,12 +56991,12 @@ function checkChange(kind2, action, positionals, entry3, fields) {
   if (action === "edit" && Object.keys(fields).length === 0) throw usageError(`omni kb ${kind2} edit: give at least one field to change. ${USAGE32[kind2]}`);
 }
 function successLine2(action, reply) {
-  const answer = jsonObject(reply);
-  if (!answer) return null;
-  const [id, url2, owner] = [textOf7(answer.id), textOf7(answer.url), textOf7(answer.owner)];
+  const answer2 = jsonObject(reply);
+  if (!answer2) return null;
+  const [id, url2, owner] = [textOf7(answer2.id), textOf7(answer2.url), textOf7(answer2.owner)];
   const link3 = url2 === null ? "" : ` \xB7 ${url2}`;
-  if (answer.done === "proposed") return `proposed \xB7 waits for ${owner === null ? "the section's owner" : `@${owner.replace(/^@/, "")}`}${link3}`;
-  return answer.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${link3}` : null;
+  if (answer2.done === "proposed") return `proposed \xB7 waits for ${owner === null ? "the section's owner" : `@${owner.replace(/^@/, "")}`}${link3}`;
+  return answer2.done === "applied" && id !== null ? `${action === "add" ? "added" : "edited"} ${id}${link3}` : null;
 }
 function refusalLine3(error62, host, kind2) {
   if (!(error62 instanceof AskCallError)) throw error62;
@@ -57885,7 +57893,7 @@ function knowledgeFiles2(root, dir) {
   }
 }
 async function classifierWorth(state, vars) {
-  const answer = await askModel({
+  const answer2 = await askModel({
     system: WORTH_SYSTEM,
     user: worthPrompt(state),
     check: WorthReplySchema,
@@ -57894,9 +57902,9 @@ async function classifierWorth(state, vars) {
     fetch: globalThis.fetch,
     title: "omni knowledge judge"
   });
-  const read3 = WorthReplySchema.safeParse(answer.reply);
-  if (answer.ok && read3.success) return { worth: read3.data.worthALaw };
-  return { reason: answer.reason ?? "the model gave no answer" };
+  const read3 = WorthReplySchema.safeParse(answer2.reply);
+  if (answer2.ok && read3.success) return { worth: read3.data.worthALaw };
+  return { reason: answer2.reason ?? "the model gave no answer" };
 }
 var worthText = (worth) => worth.worth ? lawWorthNote(worth).replace(/^not /, "") : lawWorthNote(worth);
 function requireProofLine(result2, undecided) {
@@ -58315,33 +58323,33 @@ function nextWakeAfter(event, wake2, kept2) {
 function planVersionAfter(event, sentVersion, kept2) {
   return event === "tick" ? Math.max(sentVersion, kept2?.planVersion ?? 1) : kept2?.planVersion ?? sentVersion;
 }
-function loopAfter({ body, plan: plan2, kept: kept2, repo, wake: wake2, at: at2, roadmap: roadmap2 }, answer) {
+function loopAfter({ body, plan: plan2, kept: kept2, repo, wake: wake2, at: at2, roadmap: roadmap2 }, answer2) {
   const seenAt = new Date(at2).toISOString();
   if (body.event === "start" && plan2) {
-    return { loopId: answer.loopId, repo, prds: [...plan2.prds], state: answer.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version, roadmap: roadmap2 };
+    return { loopId: answer2.loopId, repo, prds: [...plan2.prds], state: answer2.state, startedAt: seenAt, seenAt, nextWakeAt: null, planVersion: plan2.version, roadmap: roadmap2 };
   }
   const sentVersion = sentVersionOf(plan2, kept2);
   return {
-    ...kept2 ?? { loopId: answer.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion },
-    state: answer.state,
+    ...kept2 ?? { loopId: answer2.loopId, repo, prds: [], startedAt: seenAt, nextWakeAt: null, planVersion: sentVersion },
+    state: answer2.state,
     seenAt,
     nextWakeAt: nextWakeAfter(body.event, wake2, kept2),
     planVersion: planVersionAfter(body.event, sentVersion, kept2),
     ...body.event === "tick" ? { last: { step: body.step, prd: body.prd, action: body.action, result: body.result, at: seenAt } } : {}
   };
 }
-function pushedLine(body, answer, loop2) {
+function pushedLine(body, answer2, loop2) {
   const stepPart = body.event === "tick" ? ` \xB7 step ${body.step}/${body.steps}` : "";
-  return `${body.event}: ${answer.loopId} ${answer.state}${stepPart} \xB7 plan v${loop2.planVersion}`;
+  return `${body.event}: ${answer2.loopId} ${answer2.state}${stepPart} \xB7 plan v${loop2.planVersion}`;
 }
 async function sendAndKeep(sending, io) {
   const client = signedInClient({ askUrl: sending.askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
   if (!client) return refuse3(io.stderr, "no sign-in (omni signin)");
-  const answer = await sendBody(client, sending.body);
-  if (typeof answer === "string") return refuse3(io.stderr, answer);
-  const loop2 = loopAfter(sending, answer);
+  const answer2 = await sendBody(client, sending.body);
+  if (typeof answer2 === "string") return refuse3(io.stderr, answer2);
+  const loop2 = loopAfter(sending, answer2);
   writeLocalLoop(sending.root, loop2);
-  println(io.stdout, pushedLine(sending.body, answer, loop2));
+  println(io.stdout, pushedLine(sending.body, answer2, loop2));
   return 0;
 }
 function repoContext({ cwd, exec }) {
@@ -58651,11 +58659,11 @@ var ANSWER_MAX = 1e3;
 var MARKER5 = /^<!-- omni-roadmap-answer: ([A-Za-z0-9][A-Za-z0-9._-]{0,19}) -->[ \t]*\r?\n?/;
 var answerMarker = (question) => `<!-- omni-roadmap-answer: ${question} -->`;
 var heading = (question) => `**${question}**, answered:`;
-function answerComment(question, answer) {
+function answerComment(question, answer2) {
   return `${answerMarker(question)}
 ${heading(question)}
 
-${answer.trim()}
+${answer2.trim()}
 `;
 }
 function answerOf5(body) {
@@ -60034,13 +60042,13 @@ function loopHeadline(page2) {
   return { kind: "loop", links: page2 ? [{ label: "loop page", href: page2 }] : [] };
 }
 var FIX_PR = "fix PR";
-function linked(answer, linksOf5) {
-  const { headline: headline3, work } = answer;
+function linked(answer2, linksOf5) {
+  const { headline: headline3, work } = answer2;
   const headlineLinks = headline3?.kind === "roadmap" && headline3.number !== void 0 ? linksOf5("roadmap", headline3.number) : null;
   const links2 = work ? linksOf5(work.kind, work.number) : [];
   const prOpen = links2.some((link3) => link3.label.startsWith(`${FIX_PR} `));
   return {
-    ...answer,
+    ...answer2,
     headline: headline3 && headlineLinks ? { ...headline3, links: headlineLinks } : headline3,
     work: work && (work.kind === "prd" ? { ...work, links: links2 } : { ...work, links: links2, stage: work.stage === "in progress" && prOpen ? "fix PR open" : work.stage })
   };
@@ -60048,9 +60056,9 @@ function linked(answer, linksOf5) {
 function roadmapHeadline(number5, merged, rows2) {
   return { kind: "roadmap", number: number5, progress: `${merged}/${rows2} ${MERGED}`, links: [] };
 }
-function underHeadline(answer, headline3, last) {
-  const doing = last ? `step ${last.step}: ${last.action} PRD ${last.prd}${SEPARATOR2}${last.result}` : answer.doing;
-  return { headline: headline3, work: answer.work, doing };
+function underHeadline(answer2, headline3, last) {
+  const doing = last ? `step ${last.step}: ${last.action} PRD ${last.prd}${SEPARATOR2}${last.result}` : answer2.doing;
+  return { headline: headline3, work: answer2.work, doing };
 }
 var workName = ({ kind: kind2, number: number5, topic }) => kind2 === "prd" ? `PRD ${number5} ${topic}` : `${kind2} #${number5} ${topic}`;
 var headlineLine = ({ kind: kind2, number: number5, progress }) => [number5 === void 0 ? kind2 : `${kind2} ${number5}`, ...progress ? [progress] : []].join(SEPARATOR2);
@@ -60065,14 +60073,14 @@ function nowLines({ headline: headline3, work, doing, wait: wait6 }) {
   if (!work && !headline3) return waitLines.length > 0 ? waitLines : [NO_WORK_LINE];
   return [...headline3 ? [headlineLine(headline3)] : [], ...workLines(work, doing), ...waitLines];
 }
-var withWait = (answer, wait6) => wait6 ? { ...answer, wait: wait6 } : answer;
-var withRunners = (answer, runners, runner2) => ({
-  ...answer,
+var withWait = (answer2, wait6) => wait6 ? { ...answer2, wait: wait6 } : answer2;
+var withRunners = (answer2, runners, runner2) => ({
+  ...answer2,
   ...runners === void 0 ? {} : { runners },
   ...runner2 ? { runner: runner2 } : {}
 });
-var withSync = (answer, sync3) => sync3 ? { ...answer, sync: sync3 } : answer;
-var withStatus = (answer, status5) => status5 ? { ...answer, status: status5 } : answer;
+var withSync = (answer2, sync3) => sync3 ? { ...answer2, sync: sync3 } : answer2;
+var withStatus = (answer2, status5) => status5 ? { ...answer2, status: status5 } : answer2;
 
 // kit/lib/now/tree.ts
 init_define_OMNI_BUNDLE();
@@ -60809,10 +60817,10 @@ function readNowSession({ cwd, folder, sessionId, exec, now: now2 }) {
     const ctx = contextOf2(where, exec);
     if (!ctx) return null;
     const reading = { folder: where, sessionId, exec, now: now2, base: baseOf2(ctx, exec) };
-    const answer = readSession(ctx, reading);
+    const answer2 = readSession(ctx, reading);
     const main2 = attempt8(() => mainCheckout(where, exec), null);
-    const withLinks = linked(answer, (kind2, n) => main2 ? readLinks(main2, kind2, n, now2) : []);
-    const waited = withWait(withLinks, readWait(ctx.root, answer.work?.kind === "prd" ? answer.work.number : null, now2));
+    const withLinks = linked(answer2, (kind2, n) => main2 ? readLinks(main2, kind2, n, now2) : []);
+    const waited = withWait(withLinks, readWait(ctx.root, answer2.work?.kind === "prd" ? answer2.work.number : null, now2));
     return { answer: withSync(waited, syncOf(main2)), ctx, main: main2, reading };
   } catch {
     return null;
@@ -60864,14 +60872,14 @@ function prdBoardFacts(prd2, stage2) {
   };
 }
 function prdStatusFacts(session2, work, common) {
-  const { answer, ctx, reading } = session2;
+  const { answer: answer2, ctx, reading } = session2;
   const prd2 = prdFactsOf(reading, fillBranch(ctx.config.branches.feature, { topic: work.topic }));
   return {
     ...common,
     ...prdBoardFacts(prd2, prd2?.stage ?? work.stage),
     kind: "prd",
     number: work.number,
-    approvalWait: answer.wait?.prd === work.number && !answer.wait.toast,
+    approvalWait: answer2.wait?.prd === work.number && !answer2.wait.toast,
     phase0Open: work.links.some((link3) => link3.label.startsWith("phase-0 PR")),
     plan: planWritten(ctx, folderOf3(ctx, [ctx.layout.dirs.inbox], work.number, reading))
   };
@@ -60882,8 +60890,8 @@ function statusFacts(session2, pullRequest3, checked5) {
   const common = commonFacts(session2, work, pullRequest3, checked5);
   return work.kind === "prd" ? prdStatusFacts(session2, work, common) : fixStatusFacts(session2, work, common);
 }
-function keptPullRequest({ answer, main: main2 }) {
-  const { work } = answer;
+function keptPullRequest({ answer: answer2, main: main2 }) {
+  const { work } = answer2;
   const kept2 = work && main2 ? readPullRequest(main2, work.kind, work.number) : null;
   return kept2 ? { at: kept2.at, url: kept2.url, state: kept2.state, files: kept2.files, checks: kept2.checks } : null;
 }
@@ -61571,16 +61579,16 @@ function valueOf2(args, flag) {
   const value = args[args.indexOf(flag) + 1];
   return value !== void 0 && !value.startsWith("--") ? value : null;
 }
-async function withRunnerRows(answer, { folder, io, at: at2 }) {
+async function withRunnerRows(answer2, { folder, io, at: at2 }) {
   try {
     const ctx = loadContext(folder, { exec: io.exec });
     const { slug } = ctx.config.repo;
     const askUrl2 = ctx.config.ask.url;
     const tokens2 = io.tokens ?? homeTokens({ home: io.home, omniToken: io.vars.omniToken?.token ?? null });
     const runners = slug && askUrl2 ? await readRunners({ root: ctx.root, repo: slug, askUrl: askUrl2, tokens: tokens2, fetch: io.fetch ?? globalThis.fetch, now: at2 }) : void 0;
-    return withRunners(answer, runners, readFollow(ctx.root));
+    return withRunners(answer2, runners, readFollow(ctx.root));
   } catch {
-    return answer;
+    return answer2;
   }
 }
 async function sessionInput(args, stdin) {
@@ -61596,8 +61604,8 @@ function sessionOf2(args, input2, { vars, folder, exec }) {
     return null;
   }
 }
-var rendered = (args, answer) => args.includes(JSON_FLAG) ? `${JSON.stringify(answer, null, 2)}
-` : `${nowLines(answer).join("\n")}
+var rendered = (args, answer2) => args.includes(JSON_FLAG) ? `${JSON.stringify(answer2, null, 2)}
+` : `${nowLines(answer2).join("\n")}
 `;
 async function within4(promise2, ms) {
   let timer;
@@ -61641,10 +61649,10 @@ async function statusText2(session2, args, io, at2) {
 ` : `${NOTHING_RUNNING.join("\n")}
 `;
 }
-function withStatusOf(session2, answer) {
+function withStatusOf(session2, answer2) {
   const kept2 = keptPullRequest(session2);
   const facts2 = statusFacts(session2, kept2, { at: kept2?.at ?? null, fetch: "not-asked" });
-  return withStatus(answer, facts2 ? statusOf3(facts2) : null);
+  return withStatus(answer2, facts2 ? statusOf3(facts2) : null);
 }
 async function answerOf6(args, session2, io, folder, at2) {
   const read3 = session2?.answer ?? NOTHING2;
@@ -63091,9 +63099,9 @@ var BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.3
 var FONT_URL = /url\((https:\/\/fonts\.gstatic\.com\/[^)\s]+)\)/g;
 var cssUrl = ({ family, weight }) => `${API}?family=${encodeURIComponent(family).replace(/%20/g, "+")}:wght@${String(weight)}&display=block`;
 async function answered(fetch, url2, what) {
-  const answer = await fetch(url2, { headers: { "user-agent": BROWSER } });
-  if (!answer.ok) throw new Error(`Google Fonts answered ${String(answer.status)} for ${what}`);
-  return answer;
+  const answer2 = await fetch(url2, { headers: { "user-agent": BROWSER } });
+  if (!answer2.ok) throw new Error(`Google Fonts answered ${String(answer2.status)} for ${what}`);
+  return answer2;
 }
 var googleFonts = Object.freeze({
   kind: "fonts",
@@ -63185,15 +63193,15 @@ function pickTrack(mood, seconds4) {
 var isMp3 = (bytes2) => bytes2[0] === 73 && bytes2[1] === 68 && bytes2[2] === 51 || bytes2[0] === 255 && ((bytes2[1] ?? 0) & 224) === 224;
 var ATTEMPTS = 3;
 async function fetchMp3(url2, fetch) {
-  const answer = await fetch(url2);
-  const bytes2 = answer.ok ? new Uint8Array(await answer.arrayBuffer()) : null;
+  const answer2 = await fetch(url2);
+  const bytes2 = answer2.ok ? new Uint8Array(await answer2.arrayBuffer()) : null;
   if (bytes2 !== null && isMp3(bytes2)) return bytes2;
-  return bytes2 === null ? `the archive answered ${String(answer.status)}` : "the download is not an MP3";
+  return bytes2 === null ? `the archive answered ${String(answer2.status)}` : "the download is not an MP3";
 }
 async function serverUrls(track, fetch) {
-  const answer = await fetch(METADATA).catch(() => null);
-  if (answer === null || !answer.ok) return [];
-  const metadata = await answer.text().then((text19) => JSON.parse(text19)).catch(() => null);
+  const answer2 = await fetch(METADATA).catch(() => null);
+  if (answer2 === null || !answer2.ok) return [];
+  const metadata = await answer2.text().then((text19) => JSON.parse(text19)).catch(() => null);
   const dir = propertyOf(metadata, "dir");
   if (typeof dir !== "string") return [];
   const [d1, d2] = [propertyOf(metadata, "d1"), propertyOf(metadata, "d2")];
@@ -63476,9 +63484,9 @@ var fallback4 = (reason2) => ({
   settings: defaultPitchSettings(),
   why: `settings: the ${DEFAULT_PRESET} preset (the product's Pitch settings could not be read: ${reason2})`
 });
-function startSettings(answer) {
-  if ("failure" in answer) return fallback4(answer.failure);
-  const parsed2 = parsePitchSettings(propertyOf(answer.reply, "settings") ?? null);
+function startSettings(answer2) {
+  if ("failure" in answer2) return fallback4(answer2.failure);
+  const parsed2 = parsePitchSettings(propertyOf(answer2.reply, "settings") ?? null);
   return parsed2.ok ? { settings: parsed2.settings, why: null } : fallback4(`out of shape, ${parsed2.errors[0] ?? "no settings"}`);
 }
 var ASSET = "asset:";
@@ -63716,8 +63724,8 @@ async function serveRun({ dir, page: page2 = enginePage() }) {
       request2.on("close", () => listeners.delete(response));
       return;
     }
-    const answer = answerGet(dir, page2, url2, request2.headers.range);
-    response.writeHead(answer.status, headersOf(answer)).end(answer.body);
+    const answer2 = answerGet(dir, page2, url2, request2.headers.range);
+    response.writeHead(answer2.status, headersOf(answer2)).end(answer2.body);
   });
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const address = server.address();
@@ -65304,10 +65312,10 @@ var VerdictSchema = external_exports.object({
 var NAMES = { pm: "PM", architect: "Architect", reviewer: "Reviewer" };
 var roleName = (role) => `the ${NAMES[role]}`;
 var sitting = (author) => COMMITTEE_ROLES.filter((role) => role !== author);
-function whyOf3({ role, answer, sentence: sentence3 }) {
-  if (answer === "failed") return `${roleName(role)} failed, counted unsure: ${sentence3}`;
-  if (answer === "timeout") return `${roleName(role)} timed out, counted unsure: ${sentence3}`;
-  return `${roleName(role)} answered ${answer}: ${sentence3}`;
+function whyOf3({ role, answer: answer2, sentence: sentence3 }) {
+  if (answer2 === "failed") return `${roleName(role)} failed, counted unsure: ${sentence3}`;
+  if (answer2 === "timeout") return `${roleName(role)} timed out, counted unsure: ${sentence3}`;
+  return `${roleName(role)} answered ${answer2}: ${sentence3}`;
 }
 var NO_VERDICT = "It gave no verdict.";
 function tally2(verdicts, author) {
@@ -65686,6 +65694,188 @@ var committee = {
     if (which === "record") return record2(rest, io);
     throw usageError(USAGE45);
   })
+};
+
+// kit/bin/commands/mcp.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/knowledge/mcp-server.ts
+init_define_OMNI_BUNDLE();
+var INSTRUCTIONS = [
+  "The knowledge of this product, across every repository of it: its business laws, the decisions behind its architecture (ADRs), its rules and invariants, its Legal entries, its terms and its Never lines.",
+  "Search it with search_knowledge before you decide anything it may settle, and read what you rely on whole with get_knowledge.",
+  "Cite the ids you rely on, like BL-QUOTES-1 or shop-app/ADR-0067."
+].join(" ");
+var PROTOCOL = "2025-06-18";
+var KINDS7 = ["business-law", "adr", "rule", "legal", "term", "never"];
+var TOOLS = [
+  {
+    name: "search_knowledge",
+    title: "Search the product's knowledge",
+    description: "Searches the product's knowledge by meaning: its business laws, ADRs, rules and invariants, Legal entries, terms and Never lines, in every repository of the product. Ask in your own words: an exact id or term comes first, then the entries nearest in meaning. Filter by kind, domain or repository; with no query it lists the entries that match the filters, in id order. At most 20 hits, the best first. Read an entry whole with get_knowledge. No hit means the knowledge holds no answer to the question: say so rather than citing an unrelated entry. Cite the ids you rely on, like BL-QUOTES-1 or shop-app/ADR-0067.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", maxLength: 300, description: 'A question or plain words, like "can a quote be sent without a payment term". Leave it out to list.' },
+        kind: { type: "string", enum: KINDS7, description: "Only entries of this kind." },
+        domain: { type: "string", maxLength: 80, description: "Only entries of this domain, like quotes." },
+        repo: { type: "string", maxLength: 200, description: "Only entries of this repository, as owner/name or its short name." }
+      }
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false }
+  },
+  {
+    name: "get_knowledge",
+    title: "Read one entry of the product's knowledge",
+    description: "One entry of the product's knowledge, its body whole: an ADR's whole record, a business law's statement, Why, domains and owner, a rule's text and status. Name it by the id search_knowledge gave, like BL-QUOTES-1, shop-app/ADR-0067, L-GDPR-2, term:API key or never#6.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", minLength: 1, maxLength: 300, description: "The entry's id, as search_knowledge gives it." } },
+      required: ["id"]
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false }
+  }
+];
+var SearchArgs = external_exports.object({
+  query: external_exports.string().max(300).optional(),
+  kind: external_exports.enum(KINDS7).optional(),
+  domain: external_exports.string().max(80).optional(),
+  repo: external_exports.string().max(200).optional()
+});
+var GetArgs = external_exports.object({ id: external_exports.string().min(1).max(300) });
+var RequestSchema = external_exports.object({
+  id: external_exports.union([external_exports.string(), external_exports.number()]).nullable().optional(),
+  method: external_exports.string(),
+  params: external_exports.record(external_exports.string(), external_exports.unknown()).optional()
+});
+var INVALID_JSON = -32700;
+var NOT_A_REQUEST = -32600;
+var NO_METHOD = -32601;
+var BAD_PARAMS = -32602;
+function searchCall2(args) {
+  const parsed2 = SearchArgs.safeParse(args);
+  if (!parsed2.success) return `search_knowledge: the inputs are query, kind, domain and repo, each text (kind one of ${KINDS7.join(", ")}).`;
+  const defined2 = Object.entries(parsed2.data).filter(([, value]) => value !== void 0);
+  return { tool: "search_knowledge", args: Object.fromEntries(defined2) };
+}
+function getCall2(args) {
+  const parsed2 = GetArgs.safeParse(args);
+  return parsed2.success ? { tool: "get_knowledge", args: { id: parsed2.data.id } } : "get_knowledge: give the id of the entry, as search_knowledge gives it.";
+}
+function callOf(params) {
+  const name3 = params?.name;
+  const args = params?.arguments ?? {};
+  if (name3 === "search_knowledge") return searchCall2(args);
+  if (name3 === "get_knowledge") return getCall2(args);
+  return `No tool ${typeof name3 === "string" ? name3 : "of that name"}: the tools are search_knowledge and get_knowledge.`;
+}
+var toolResult = (text19, isError) => ({ result: { content: [{ type: "text", text: text19 }], ...isError ? { isError: true } : {} } });
+function initialized(params, io) {
+  const asked = params?.protocolVersion;
+  return {
+    result: {
+      protocolVersion: typeof asked === "string" ? asked : PROTOCOL,
+      capabilities: { tools: {} },
+      serverInfo: { name: "omni-knowledge", version: io.version ?? "1.0.0" },
+      instructions: INSTRUCTIONS
+    }
+  };
+}
+async function called2(params, io) {
+  const call = callOf(params);
+  if (typeof call === "string") return toolResult(call, true);
+  try {
+    const reply = await io.call(call);
+    return reply.ok ? toolResult(reply.text, false) : toolResult(reply.line, true);
+  } catch {
+    return toolResult(UNREACHABLE2, true);
+  }
+}
+async function answer(method, params, io) {
+  if (method === "initialize") return initialized(params, io);
+  if (method === "tools/call") return called2(params, io);
+  if (method === "tools/list") return { result: { tools: TOOLS } };
+  if (method === "ping") return { result: {} };
+  return { error: { code: NO_METHOD, message: `Method not found: ${method}` } };
+}
+async function handle3(line3, io) {
+  const send5 = (id2, reply) => {
+    io.write(`${JSON.stringify({ jsonrpc: "2.0", id: id2, ...reply })}
+`);
+  };
+  let raw;
+  try {
+    raw = JSON.parse(line3);
+  } catch {
+    send5(null, { error: { code: INVALID_JSON, message: "Parse error" } });
+    return;
+  }
+  const request2 = RequestSchema.safeParse(raw);
+  if (!request2.success) {
+    send5(null, { error: { code: NOT_A_REQUEST, message: "Invalid request" } });
+    return;
+  }
+  const { id, method, params } = request2.data;
+  if (id === void 0) return;
+  if (method === "tools/call" && params !== void 0 && typeof params.name !== "string") {
+    send5(id, { error: { code: BAD_PARAMS, message: "Invalid params: name the tool" } });
+    return;
+  }
+  send5(id, await answer(method, params, io));
+}
+async function serveKnowledgeMcp(io) {
+  const decoder = new TextDecoder();
+  const pending = [];
+  let buffer = "";
+  const take = (line3) => {
+    if (line3.trim() !== "") pending.push(handle3(line3, io));
+  };
+  for await (const chunk of io.input) {
+    buffer += typeof chunk === "string" ? chunk : decoder.decode(chunk, { stream: true });
+    const lines5 = buffer.split("\n");
+    buffer = lines5.pop() ?? "";
+    lines5.forEach(take);
+  }
+  take(buffer);
+  await Promise.all(pending);
+}
+
+// kit/bin/commands/mcp.ts
+async function* chunksOf(stdin) {
+  if (typeof stdin === "string") {
+    yield stdin;
+    return;
+  }
+  if (!stdin) return;
+  yield* stdin;
+}
+var mcp = {
+  withoutContext: true,
+  async run(args, io) {
+    const { positional } = parseArgs("mcp", args);
+    if (positional.length > 0) throw usageError("usage: omni mcp");
+    const stdin = io.stdin === void 0 ? process.stdin : io.stdin;
+    const tokens2 = io.tokens ?? homeTokens({ home: io.home, omniToken: io.vars.omniToken?.token ?? null });
+    const call = async (asked) => {
+      let ctx;
+      try {
+        ctx = loadContext(io.cwd, { exec: io.exec });
+      } catch {
+        return { ok: false, line: NO_PRODUCT };
+      }
+      return callKnowledge({
+        askUrl: ctx.config.ask.url,
+        repo: ctx.config.repo.slug,
+        remembered: rememberedProduct(mainCheckout(io.cwd, io.exec) ?? ctx.root)?.key ?? null,
+        tokens: tokens2,
+        home: io.home,
+        fetch: io.fetch,
+        callMs: io.callMs
+      }, asked);
+    };
+    await serveKnowledgeMcp({ input: chunksOf(stdin), write: (line3) => io.stdout.write(line3), call });
+    return 0;
+  }
 };
 
 // kit/bin/commands/review.ts
@@ -66658,10 +66848,10 @@ function answerArgs(rest) {
   if (positional.length !== 3) throw usageError(USAGE48);
   const [number5, question = "", given = ""] = positional;
   const n = issueArg("roadmap answer", "<n>", number5);
-  const answer = given.trim();
-  if (!answer) throw usageError("omni roadmap answer: the answer is empty.");
-  if (answer.length > ANSWER_MAX) throw usageError(`omni roadmap answer: an answer holds ${ANSWER_MAX} characters at most.`);
-  return { n, question, answer };
+  const answer2 = given.trim();
+  if (!answer2) throw usageError("omni roadmap answer: the answer is empty.");
+  if (answer2.length > ANSWER_MAX) throw usageError(`omni roadmap answer: an answer holds ${ANSWER_MAX} characters at most.`);
+  return { n, question, answer: answer2 };
 }
 function assertAsks(roadmap2, n, question) {
   const ids2 = roadmap2.questions.map((q) => q.id);
@@ -66669,14 +66859,14 @@ function assertAsks(roadmap2, n, question) {
   throw usageError(`omni roadmap answer: roadmap ${n} has no question ${question}${ids2.length ? ` (its questions: ${ids2.join(", ")})` : ""}.`);
 }
 function answerCommand(rest, io) {
-  const { n, question, answer } = answerArgs(rest);
+  const { n, question, answer: answer2 } = answerArgs(rest);
   const { ctx } = repoContext2(io);
   const read3 = readRoadmap(ctx, roadmapFile(ctx, "answer", n));
   if (typeof read3 === "string") return refuse7(io.stderr, read3);
   assertAsks(read3.roadmap, n, question);
   let url2;
   try {
-    url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(answerComment(question, answer))?.html_url;
+    url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(answerComment(question, answer2))?.html_url;
   } catch {
     return refuse7(io.stderr, "github unreachable");
   }
@@ -67379,7 +67569,7 @@ function duration4(ms) {
   if (minutes2 > 0) return `${String(minutes2)}m ${String(seconds4 % 60)}s`;
   return `${String(seconds4)}s`;
 }
-var TOOLS = {
+var TOOLS2 = {
   Bash: ["Bash", (input2) => firstLine7(text18(input2.command))],
   Edit: ["Edit", (input2) => text18(input2.file_path)],
   MultiEdit: ["Edit", (input2) => text18(input2.file_path)],
@@ -67392,7 +67582,7 @@ var TOOLS = {
   Agent: ["Agent", (input2) => text18(input2.description)]
 };
 function toolCall(name3, input2) {
-  const tool = Object.hasOwn(TOOLS, name3) ? TOOLS[name3] : void 0;
+  const tool = Object.hasOwn(TOOLS2, name3) ? TOOLS2[name3] : void 0;
   return tool ? `${tool[0]}: ${tool[1](input2)}` : name3;
 }
 function resultText(content) {
@@ -67867,7 +68057,7 @@ function rpcOf2(text19) {
     return void 0;
   }
 }
-async function mcp(fetch, origin, token, session2, message2) {
+async function mcp2(fetch, origin, token, session2, message2) {
   const response = await reach6(fetch, origin, `${origin}/mcp`, {
     method: "POST",
     headers: {
@@ -67882,7 +68072,7 @@ async function mcp(fetch, origin, token, session2, message2) {
   if (!response.ok) throw new T3Refused(`T3 answered ${String(response.status)}`);
   return { rpc: rpcOf2(await response.text()), session: response.headers.get("mcp-session-id") ?? session2 };
 }
-function toolResult(rpc) {
+function toolResult2(rpc) {
   const result2 = field(rpc, "result");
   if (result2 === void 0) throw new T3Refused(textOf11(field(field(rpc, "error"), "message")) || "T3 answered no result");
   if (field(result2, "isError") !== true) return field(result2, "structuredContent");
@@ -67897,10 +68087,10 @@ function toolResult(rpc) {
 }
 async function t3Interrupt({ origin, token, threadId, fetch }) {
   try {
-    const opened = await mcp(fetch, origin, token, null, { id: 1, method: "initialize", params: { protocolVersion: MCP_PROTOCOL, capabilities: {}, clientInfo: { name: "omni-runner", version: "1" } } });
-    await mcp(fetch, origin, token, opened.session, { method: "notifications/initialized" });
-    const called2 = await mcp(fetch, origin, token, opened.session, { id: 2, method: "tools/call", params: { name: "t3_thread_interrupt", arguments: { threadId, reason: INTERRUPT_REASON } } });
-    return { status: textOf11(field(toolResult(called2.rpc), "status")) || "unknown" };
+    const opened = await mcp2(fetch, origin, token, null, { id: 1, method: "initialize", params: { protocolVersion: MCP_PROTOCOL, capabilities: {}, clientInfo: { name: "omni-runner", version: "1" } } });
+    await mcp2(fetch, origin, token, opened.session, { method: "notifications/initialized" });
+    const called3 = await mcp2(fetch, origin, token, opened.session, { id: 2, method: "tools/call", params: { name: "t3_thread_interrupt", arguments: { threadId, reason: INTERRUPT_REASON } } });
+    return { status: textOf11(field(toolResult2(called3.rpc), "status")) || "unknown" };
   } catch (error62) {
     if (error62 instanceof T3Refused) return { refused: error62.message };
     throw error62;
@@ -68706,8 +68896,8 @@ async function deployed(step4, { slug, sha, environment }) {
   const asked = async (path) => {
     const ran = await step4("gh", ["api", path]);
     if (ran.code !== 0) throw new StepFailed(`the preview's address could not be read: gh api ${path.replace(/\?.*$/, "")} exited ${String(ran.code)}`);
-    const answer = JSON.parse(ran.stdout);
-    return answer;
+    const answer2 = JSON.parse(ran.stdout);
+    return answer2;
   };
   const deployments = DEPLOYMENTS.parse(await asked(`repos/${slug}/deployments?sha=${sha}&per_page=100`));
   const newest = deployments.find((deployment) => environment === null || deployment.environment === environment);
@@ -69329,12 +69519,12 @@ async function runPart(place, { line: line3, runs: runs3, handoff: handoff2, par
   parts.keep(started, at2);
   const watch4 = watchOf(turnover, { cwd, runs: runs3, before: before2, parts });
   const command2 = runs3.agent.command({ line: line3, cwd }, runs3.account, handoff2);
-  const { code, printed: printed4, called: called2 } = await runOnce({ cwd, files, out, env: runEnv(env, command2), agent: runs3.agent, command: command2, watch: watch4 });
+  const { code, printed: printed4, called: called3 } = await runOnce({ cwd, files, out, env: runEnv(env, command2), agent: runs3.agent, command: command2, watch: watch4 });
   const ran = { cwd, lines: printed4, exit: code };
   const limit = code === 0 ? null : runs3.agent.limit(ran);
   const part = endedPart(started, { code, limit, usage: runs3.agent.usage(ran), before: before2, to: parts.iso() });
   parts.keep(part, at2);
-  return { code, limit, called: called2, part, at: at2, lines: printed4, before: before2 };
+  return { code, limit, called: called3, part, at: at2, lines: printed4, before: before2 };
 }
 var runnersNote = ({ files, cwd }, { line: line3, start: start4, turnover }) => masked2(turnover, runnerNote({ line: line3, log: readFileSync126(files.log, "utf8"), start: start4, git: (args) => turnover.git(cwd, args) }));
 function turnOver(place, args) {
@@ -69432,19 +69622,19 @@ async function freshSession(place, args) {
 ${note}` };
 }
 async function afterRun(place, args, counts3) {
-  const { limit, called: called2 } = args.ran;
+  const { limit, called: called3 } = args.ran;
   if (limit !== null) {
     const next3 = turnOver(place, { ...args, limit, changes: counts3.changes });
     if ("runs" in next3) counts3.changes += 1;
     return next3;
   }
-  if (called2 === null) return null;
-  if (called2.ended === "context") {
-    const next3 = await freshSession(place, { ...args, why: called2.why, fresh: counts3.fresh });
+  if (called3 === null) return null;
+  if (called3.ended === "context") {
+    const next3 = await freshSession(place, { ...args, why: called3.why, fresh: counts3.fresh });
     if ("runs" in next3) counts3.fresh += 1;
     return next3;
   }
-  const next2 = await usageHandoff2(place, { ...args, why: called2.why, resetsAt: called2.resetsAt, changes: counts3.changes });
+  const next2 = await usageHandoff2(place, { ...args, why: called3.why, resetsAt: called3.resetsAt, changes: counts3.changes });
   if ("runs" in next2) counts3.changes += 1;
   return next2;
 }
@@ -72287,8 +72477,8 @@ var settle3 = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, ...signIn }) {
     const ctx = loadContext(cwd, { exec });
-    const { product: product2, file: file2, answer } = settleRequest(args, ctx);
-    const result2 = await outboxStore(ctx, product2, signIn).settle(file2, answer).catch((error62) => withPrdFolder("settle", () => {
+    const { product: product2, file: file2, answer: answer2 } = settleRequest(args, ctx);
+    const result2 = await outboxStore(ctx, product2, signIn).settle(file2, answer2).catch((error62) => withPrdFolder("settle", () => {
       throw error62;
     })).catch((error62) => serverFailure("settle", error62, stderr));
     if (typeof result2 === "number") return result2;
@@ -72911,9 +73101,9 @@ function headlineLine2({ headline: headline3, work }, width) {
   const first = work?.slices.find(inFlight2)?.id ?? null;
   return fit3([...head, ref2, first].filter(Boolean).join(SEPARATOR3), width);
 }
-function secondLine(answer, board2, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
-  const { headline: headline3, work } = answer;
-  if (headline3) return headlineLine2(answer, width);
+function secondLine(answer2, board2, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
+  const { headline: headline3, work } = answer2;
+  if (headline3) return headlineLine2(answer2, width);
   if (!work) return fit3(NO_PRD_LINE, width);
   return workLine(work, work.kind === "prd" && board2?.number === work.number ? board2 : null, width, { color });
 }
@@ -72941,8 +73131,8 @@ function renderLines({ input: input2, facts: facts2, terminal, now: now2 }) {
   const color = terminal.color;
   const lines5 = [sessionLine({ ...input2, askOn: facts2?.askOn === true }, { now: now2, color })];
   if (facts2?.installed) {
-    const { now: answer, board: board2 = null, sync: sync3 } = facts2;
-    const draw2 = (columns3) => answer ? secondLine(answer, board2, columns3, { color }) : fit3(NO_PRD_LINE, columns3);
+    const { now: answer2, board: board2 = null, sync: sync3 } = facts2;
+    const draw2 = (columns3) => answer2 ? secondLine(answer2, board2, columns3, { color }) : fit3(NO_PRD_LINE, columns3);
     lines5.push(sync3 ? withBadge(sync3, draw2, width) : draw2(width));
   }
   return lines5.map((line3) => fit3(line3, width));
@@ -73000,25 +73190,25 @@ function rememberedExec(exec) {
   const answers2 = /* @__PURE__ */ new Map();
   return (file2, args, options) => {
     const key2 = JSON.stringify([file2, args, options.cwd ?? null]);
-    let answer = answers2.get(key2);
-    if (!answer) {
+    let answer2 = answers2.get(key2);
+    if (!answer2) {
       try {
-        answer = { out: exec(file2, args, options) };
+        answer2 = { out: exec(file2, args, options) };
       } catch (error62) {
-        answer = { error: error62 };
+        answer2 = { error: error62 };
       }
-      answers2.set(key2, answer);
+      answers2.set(key2, answer2);
     }
-    if ("error" in answer) throw answer.error;
-    return answer.out;
+    if ("error" in answer2) throw answer2.error;
+    return answer2.out;
   };
 }
 function secondLineFacts({ input: input2, facts: facts2, cwd, exec, now: now2, spawn: spawn5, seen, script: script2, env, started }) {
   const folder = input2.currentDir ?? cwd;
-  const answer = readNow({ cwd, folder: input2.currentDir, sessionId: input2.sessionId, exec, now: now2 });
-  if (answer.work && !started.has(String(answer.work.number))) refreshLinksOf(answer.work, { folder, now: now2, spawn: seen, script: script2, env }, exec);
+  const answer2 = readNow({ cwd, folder: input2.currentDir, sessionId: input2.sessionId, exec, now: now2 });
+  if (answer2.work && !started.has(String(answer2.work.number))) refreshLinksOf(answer2.work, { folder, now: now2, spawn: seen, script: script2, env }, exec);
   const board2 = facts2.prd ? { number: facts2.prd.number, slices: facts2.prd.slices, openItems: facts2.prd.openItems } : null;
-  return { now: answer, board: board2, sync: readSyncBadge({ folder, exec, now: now2, spawn: spawn5, script: script2, env }) };
+  return { now: answer2, board: board2, sync: readSyncBadge({ folder, exec, now: now2, spawn: spawn5, script: script2, env }) };
 }
 async function statusLines({
   cwd,
@@ -74367,7 +74557,7 @@ var VERBS5 = {
   },
   hint: (command2, rest) => parseArgs(command2, rest).positional.length === 0 ? { verb: "hint" } : null
 };
-function callOf(args) {
+function callOf2(args) {
   const [verb2 = "", ...rest] = args;
   const parse14 = Object.hasOwn(VERBS5, verb2) ? VERBS5[verb2] : void 0;
   const call = parse14 === void 0 ? null : parse14(`worktrees ${verb2}`, rest);
@@ -74418,7 +74608,7 @@ async function runCall(call, seams, { stdout, cwd }) {
 var worktrees = {
   withoutContext: true,
   async run(args, io) {
-    const call = callOf(args);
+    const call = callOf2(args);
     try {
       const ctx = loadContext(io.cwd, { exec: io.exec });
       const seams = {
@@ -74442,7 +74632,7 @@ var bug2 = {
   withoutContext: true,
   run: (args, io) => args[0] === "ci" ? ci(args.slice(1), io) : bug.run(args, io)
 };
-var COMMAND_TABLE = Object.freeze({ config: config2, "before-after": beforeAfter, prd, budget, approval, wait, status, dashboard, settle: settle3, adopt, replies, answers, comment, ship, harvest, retro, review, committee, rewind, check: check2, claim: claim3, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, "follow-up": followUp, next, loop, rework, phase0, visual, bug: bug2, concept, mission, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, ref, hold: hold2, ready, sync: sync2, worktrees });
+var COMMAND_TABLE = Object.freeze({ config: config2, "before-after": beforeAfter, prd, budget, approval, wait, status, dashboard, settle: settle3, adopt, replies, answers, comment, ship, harvest, retro, review, committee, rewind, check: check2, claim: claim3, generated, design, knowledge, kb: kb2, item, plan, roadmap, board, care, "follow-up": followUp, next, loop, rework, phase0, visual, bug: bug2, concept, mission, init, ask: ask3, heartbeat, signin, signout, whoami, "setup-token": setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version: version2, update, help, statusline, now, targets, product, session, runner, tier, ref, hold: hold2, ready, sync: sync2, worktrees, mcp });
 
 // kit/bin/omni.ts
 var USAGE62 = `usage: omni <command> [args]
