@@ -22,7 +22,10 @@ const SEARCH = {
 
 const tool = (payload: unknown, isError = false) => Response.json({ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: typeof payload === 'string' ? payload : JSON.stringify(payload) }], ...(isError ? { isError: true } : {}) } });
 
-type Route = (seen: Seen) => Response | Promise<Response>;
+/** The JSON body a request carries, or null. */
+const bodyOf = (init: RequestInit): unknown => (typeof init.body === 'string' ? (JSON.parse(init.body) as unknown) : null);
+
+type Route =(seen: Seen) => Response | Promise<Response>;
 
 async function omni(args: string[], { route, tokens: stored = { 'omni.test': { access_token: 'access-1', refresh_token: 'refresh-1' } }, remembered = true }: {
   route: Route; tokens?: Record<string, Tokens>; remembered?: boolean;
@@ -39,7 +42,7 @@ async function omni(args: string[], { route, tokens: stored = { 'omni.test': { a
   const seen: Seen[] = [];
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
     const headers = new Headers(init.headers);
-    const entry = { url: url.replace(URL_BASE, ''), method: String(init.method), auth: headers.get('authorization'), body: init.body === undefined ? null : JSON.parse(String(init.body)) as unknown };
+    const entry = { url: url.replace(URL_BASE, ''), method: String(init.method), auth: headers.get('authorization'), body: bodyOf(init) };
     seen.push(entry);
     return route(entry);
   };
@@ -117,7 +120,7 @@ describe('under OMNI_TOKEN', () => {
     const seen: Seen[] = [];
     const fetch = (url: string, init: RequestInit): Promise<Response> => {
       const headers = new Headers(init.headers);
-      seen.push({ url: url.replace(URL_BASE, ''), method: String(init.method), auth: headers.get('authorization'), body: JSON.parse(String(init.body)) as unknown });
+      seen.push({ url: url.replace(URL_BASE, ''), method: String(init.method), auth: headers.get('authorization'), body: bodyOf(init) });
       return Promise.resolve(url.endsWith('/api/ask/token') ? Response.json({ access_token: 'traded-1' }) : tool(SEARCH));
     };
     const out: string[] = [];
