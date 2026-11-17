@@ -43,6 +43,11 @@
 //                  repair's fix landed on the mission branch once green, each step sent again settled, each Omni Loop bug report
 //                  sent. Then, where the table stops a PRD, a repair is sent first in line while the mission has repairs left,
 //                  outside `mandate.parallel` (the PRD's own slot is held)
+//   the QA pair    each run reads QA's pair (PRD 3001, ./qa-run.ts): a QA job done with no verdict of its round reads failed,
+//                  `verdict not read`; for a PRD in its fix phase, its feature branch, from the feature pull request QA checked,
+//                  and each fix that ended landed on it once green, or refused; a person's pick on `Decide the bugs`. A build
+//                  ready for review is then sent to QA, each bug of its round 1 to the Engineer one at a time, and its round 2,
+//                  before the Reviewer
 //   red            a mission branch whose own checks go red once a PRD joined holds every further join: the mission waits on a
 //                  person, naming the PRD that joined last and the drop line (`omni mission drop <mission> <prd>`)
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
@@ -82,6 +87,8 @@ import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep
 import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
 import { readRepairs } from './repair-run.ts';
+import { readQa } from './qa-run.ts';
+import { withVerdicts } from './qa.ts';
 import { leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } from './repair.ts';
 import {
   baseOf,
@@ -183,19 +190,20 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
   const repairRead = await readRepairs({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS });
-  const before = prdStates(facts, runs, branch, view, fleet, repairRead);
+  const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
+  const before = prdStates(facts, runs, branch, view, fleet, repairRead, qa);
   const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added, left: leftOf(repairRead) }) : NOTHING_SENT;
   const repairs: RepairView = { ...repairRead, jobs: [...repairRead.jobs, ...repaired] };
   const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs);
+  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa);
   const fresh = sent.length + approved.length + asked.length + repaired.length;
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
   const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
   await store.record(mission.id, [...pmSent, ...events], new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
   return { next, running: [...states.values()].some((state) => state.state === 'running' || state.state === 'repairing'), moved, sent: sent.length + repaired.length, events: events.length };
@@ -212,7 +220,8 @@ async function readRun(store: MissionStore, sought: MissionRecord, now: number) 
   const mission = pm.mission;
   const [first, runs, toFleet, inPlan, asked, runners] = await Promise.all([
     store.facts(mission),
-    store.runs(mission.id),
+    // A QA job done with no verdict of its round reads failed, verdict not read (PRD 3001, ./qa.ts).
+    store.runs(mission.id).then(withVerdicts),
     store.fleetRunners(mission),
     store.planRepository(mission),
     store.committees(mission.id),
@@ -274,8 +283,8 @@ async function sendAll({
   skill: 'yolo' | 'ultra-yolo';
 }): Promise<Run[]> {
   const sent: Run[] = [];
-  for (const { prd, run, step } of pick({ mission, facts, states })) {
-    const made = await store.send({ mission, prd, run, step, toFleet, skill });
+  for (const { prd, run, step, fix } of pick({ mission, facts, states })) {
+    const made = await store.send({ mission, prd, run, step, toFleet, skill, ...(fix === undefined ? {} : { fix }) });
     if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
   }
   return sent;
