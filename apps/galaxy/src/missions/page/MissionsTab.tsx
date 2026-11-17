@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MissionLevelSchema, type MissionAction } from '../missions.contract';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
 import { ACTION_WORDS, LEVEL_WORDS, WORDS, type FleetPrds, type MissionsView } from './missions-tab';
+import { RepairDetail, StoppedBlock } from '../RepairParts';
 import './missions-tab.css';
 
 // The Missions tab of a Virtual Fleet (PRD 2842 s7, the `mission-start` screen): each mission's goal, its
@@ -81,6 +82,21 @@ function LimitWaits({ waits }: { waits: MissionsView['missions'][number]['limitW
   );
 }
 
+/** Each PRD that repairs or waits on an Omni Loop bug (PRD 2980), then the Stopped block of each that stopped after repairs. */
+function Repairs({ lines, demo }: { lines: MissionsView['missions'][number]['repairs']; demo: boolean }) {
+  const going = lines.filter((line) => line.kind !== 'stopped');
+  return (
+    <>
+      {going.length > 0 && (
+        <ul className="mission-limit-waits">
+          {going.map((line) => <li key={line.prd}>PRD {line.prd}: {line.headline}.<RepairDetail line={line} /></li>)}
+        </ul>
+      )}
+      {lines.filter((line) => line.kind === 'stopped').map((line) => <StoppedBlock key={line.prd} line={line} demo={demo} />)}
+    </>
+  );
+}
+
 /** What the fleet's PM added to the mission, then each row its cap left unwritten (PRD 2896 s12). */
 function FleetPrdsLine({ fleet }: { fleet: FleetPrds }) {
   return (
@@ -112,7 +128,8 @@ function ActionButton({ action, title, busy, disabled, onMove }: { action: Missi
 }
 
 /** One mission's row: its words at the left, its one button at the right. */
-function MissionItem({ mission, busy, problem, onMove, onLevel }: {
+function MissionItem({ mission, demo, busy, problem, onMove, onLevel }: {
+  demo: boolean;
   mission: MissionsView['missions'][number];
   busy: string | null;
   problem: string | null;
@@ -142,6 +159,7 @@ function MissionItem({ mission, busy, problem, onMove, onLevel }: {
           {mission.fleetPrds !== null && <FleetPrdsLine fleet={mission.fleetPrds} />}
           <WaitList waits={mission.waits} titled={mission.level === 'alone'} />
           <LimitWaits waits={mission.limitWaits} />
+          <Repairs lines={mission.repairs} demo={demo} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
           {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
         </div>
@@ -188,6 +206,7 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
           <MissionItem
             key={mission.id}
             mission={mission}
+            demo={view.workspace === null}
             busy={busy}
             problem={problem?.mission === mission.id ? problem.message : null}
             onMove={(action) => { void move(mission.id, action); }}

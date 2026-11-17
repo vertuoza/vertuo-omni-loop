@@ -28,13 +28,14 @@ const fixedOf = (fn: string): string[] =>
   (/fixed text\[\] := array\[([^\]]*)\]/.exec(fn)?.[1] ?? '').split(',').map((name) => name.trim().replace(/^'|'$/g, '')).filter((name) => name !== '');
 
 describe('the runners\' fixed skills, as the database holds them', () => {
-  it('are defined by the runner ultra skills migration, then by the Reviewer\'s (PRD 2871), which adds review, then by the committee\'s (PRD 2896), which adds committee, then last by the PM\'s (PRD 2896 s12), which adds its four', () => {
+  it('are defined by the runner ultra skills migration, then by the Reviewer\'s (PRD 2871), which adds review, then by the committee\'s (PRD 2896), which adds committee, then by the PM\'s (PRD 2896 s12), which adds its four, then last by a mission\'s repairs\' (PRD 2980), which adds repair', () => {
     expect(defining).toContain('20270122120000_runner_ultra_skills.sql');
     expect(defining).toContain('20270122122000_reviewer.sql');
-    expect(NEWEST).toBe('20270124150000_mission_pm.sql');
+    expect(NEWEST).toBe('20270125140000_mission_repairs.sql');
     expect(fixedOf(body('20270122122000_reviewer.sql'))).toEqual([...fixedOf(body('20270122120000_runner_ultra_skills.sql')), 'review']);
     expect(fixedOf(body('20270124130000_mission_committee.sql'))).toEqual([...fixedOf(body('20270122122000_reviewer.sql')), 'committee']);
-    expect(fixedOf(body(NEWEST))).toEqual([...fixedOf(body('20270124130000_mission_committee.sql')), 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
+    expect(fixedOf(body('20270124150000_mission_pm.sql'))).toEqual([...fixedOf(body('20270124130000_mission_committee.sql')), 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
+    expect(fixedOf(body(NEWEST))).toEqual([...fixedOf(body('20270124150000_mission_pm.sql')), 'repair']);
   });
 
   it('equal the app\'s list, the four the database lacked and the three ultra skills among them', () => {

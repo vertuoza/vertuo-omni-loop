@@ -39,6 +39,10 @@
 //                  the mission sends its PM `/omni:brainstorm` or `/omni:roadmap` (their mega forms in a plan repository) for the
 //                  PRDs left under the cap; a PRD it wrote goes to the committee with the PM sitting out. While it writes, the
 //                  mission runs
+//   the repairs    each run reads the mission's repairs first (PRD 2980, ./repair-run.ts): each repair that ended kept, each code
+//                  repair's fix landed on the mission branch once green, each step sent again settled, each Omni Loop bug report
+//                  sent. Then, where the table stops a PRD, a repair is sent first in line while the mission has repairs left,
+//                  outside `mandate.parallel` (the PRD's own slot is held)
 //   red            a mission branch whose own checks go red once a PRD joined holds every further join: the mission waits on a
 //                  person, naming the PRD that joined last and the drop line (`omni mission drop <mission> <prd>`)
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
@@ -77,6 +81,8 @@ import type { MissionJoins } from './join.ts';
 import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
 import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
+import { readRepairs } from './repair-run.ts';
+import { leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } from './repair.ts';
 import {
   baseOf,
   conclude,
@@ -176,21 +182,23 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
-  const before = prdStates(facts, runs, branch, view, fleet);
-  const { sent, approved, asked } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added }) : NOTHING_SENT;
+  const repairRead = await readRepairs({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS });
+  const before = prdStates(facts, runs, branch, view, fleet, repairRead);
+  const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added, left: leftOf(repairRead) }) : NOTHING_SENT;
+  const repairs: RepairView = { ...repairRead, jobs: [...repairRead.jobs, ...repaired] };
   const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet);
-  const fresh = sent.length + approved.length + asked.length;
+  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs);
+  const fresh = sent.length + approved.length + asked.length + repaired.length;
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
   const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks });
+  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs });
   await store.record(mission.id, [...pmSent, ...events], new Date(now));
   const moved = await store.update(mission.id, mission.status, next);
-  return { next, running: [...states.values()].some((state) => state.state === 'running'), moved, sent: sent.length, events: events.length };
+  return { next, running: [...states.values()].some((state) => state.state === 'running' || state.state === 'repairing'), moved, sent: sent.length + repaired.length, events: events.length };
 }
 
 /**
@@ -273,6 +281,22 @@ async function sendAll({
   return sent;
 }
 
+/**
+ * The repairs this run sends (PRD 2980): one per PRD whose step failed, first in line and outside `mandate.parallel`, in scope order,
+ * never more than the mission has left. Nothing while paused, a draft or delivered.
+ */
+async function repairAll({ store, mission, facts, states, toFleet, left }: { store: MissionStore; mission: MissionRecord; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState>; toFleet: boolean; left: number }): Promise<RepairJob[]> {
+  if (mission.status === 'draft' || mission.status === 'paused' || mission.status === 'delivered') return [];
+  const sent: RepairJob[] = [];
+  for (const { prd } of facts) {
+    const state = states.get(prd);
+    if (state?.state !== 'repairable' || sent.length >= left) continue;
+    const job = await store.repair({ mission, prd, k: state.k, failedJob: state.failedJob, toFleet });
+    if (job !== null) sent.push({ prd, k: state.k, job, failedJob: state.failedJob, attempts: [{ id: job, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+  }
+  return sent;
+}
+
 /** Whether a committee's job ended and has no decision yet: the App records it. */
 const toRecord = (one: Committee): boolean => one.decision === null && (one.attempt.status === 'done' || one.attempt.status === 'failed' || one.attempt.status === 'cancelled');
 
@@ -312,18 +336,28 @@ async function approveAll(store: MissionStore, mission: MissionRecord, facts: re
   return made;
 }
 
-/** What a run sends: builds and steps, approvals' committees (PRD 2896 s9), items' committees (s10). */
-type SentAll = { sent: Run[]; approved: Committee[]; asked: ItemCommittee[] };
+/** What a run sends: builds and steps, approvals' committees (PRD 2896 s9), items' committees (s10), repairs (PRD 2980). */
+type SentAll = { sent: Run[]; approved: Committee[]; asked: ItemCommittee[]; repaired: RepairJob[] };
 
 /** Nothing sent: the mission's branch is not ready. */
-const NOTHING_SENT: SentAll = { sent: [], approved: [], asked: [] };
+const NOTHING_SENT: SentAll = { sent: [], approved: [], asked: [], repaired: [] };
 
-/** Everything this run sends, in order: the builds and steps, then the committees of approvals, then those of items. */
-async function sendEvery(at: { store: MissionStore; mission: MissionRecord; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState>; toFleet: boolean; skill: 'yolo' | 'ultra-yolo'; added: ReadonlySet<PrdNumber> }): Promise<SentAll> {
+/** Everything this run sends, in order: the builds and steps, then the committees of approvals, then those of items, then the repairs, `left` at most. */
+async function sendEvery(at: {
+  store: MissionStore;
+  mission: MissionRecord;
+  facts: readonly PrdFacts[];
+  states: ReadonlyMap<PrdNumber, PrdState>;
+  toFleet: boolean;
+  skill: 'yolo' | 'ultra-yolo';
+  added: ReadonlySet<PrdNumber>;
+  left: number;
+}): Promise<SentAll> {
   const sent = await sendAll(at);
   const approved = await approveAll(at.store, at.mission, at.facts, at.states, at.toFleet, at.added);
   const asked = await askAll(at);
-  return { sent, approved, asked };
+  const repaired = await repairAll(at);
+  return { sent, approved, asked, repaired };
 }
 
 /** What a run of the item committees works from (PRD 2896 s10). */

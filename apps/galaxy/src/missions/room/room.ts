@@ -1,6 +1,7 @@
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { HERO_ROLES, roleOf, worksAlone, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import type { WaitLine } from '../limit-wait';
+import { repairLinkLabel, repairStateWord, type RepairLine } from '../repair';
 
 // The Operation room's rules (PRD 2842 s8, PRD 2873 s3, the `fleet-room` screen), pure so each is tested without a
 // browser: one now line per hero (what a working hero does, else Idle, else, when none of its skills is one a
@@ -79,6 +80,10 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   // The fleet's committee (PRD 2896 s9, s10): what it decided alone, and what it sent to a person.
   decided: 'Decided',
   escalated: 'Sent to you',
+  // A mission repairs a failed step (PRD 2980 s6).
+  'repair-started': 'Repairing',
+  retro: 'Retro',
+  'bug-reported': 'Reported',
 };
 
 /** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); any other kind has its fixed word. */
@@ -86,11 +91,14 @@ const stateWord = (kind: string, sentence: string): string => {
   if (kind === 'reviewed') return sentence.startsWith('Passed') ? 'Passed' : 'Changes';
   // A PRD a mission pull request put on the default branch is a landing (PRD 2896); any other merge is as before.
   if (kind === 'prd-merged' && sentence.includes('landed on the default branch')) return 'Landed';
-  return STATE_WORDS[kind] ?? kind;
+  return repairStateWord(kind, sentence) ?? STATE_WORDS[kind] ?? kind;
 };
 
 /** What a ledger link is called: a Reviewer's verdict links its GitHub review, any other row its PRD or `Open`. */
-const linkLabel = (kind: string, prd: PrdNumber | null): string => (kind === 'reviewed' ? 'Review' : prd === null ? 'Open' : `PRD ${String(prd)}`);
+const linkLabel = (kind: string, prd: PrdNumber | null, link: string | null = null): string => {
+  if (kind === 'reviewed') return 'Review';
+  return repairLinkLabel(kind, link) ?? (prd === null ? 'Open' : `PRD ${String(prd)}`);
+};
 
 /** The role's name, as it is signed. */
 export const roleName = (role: EventRole): string => (role === 'supervisor' ? ROOM_WORDS.supervisor : roleOf(role).name);
@@ -111,7 +119,9 @@ export interface NowLine {
   role: HeroRole;
   heading: string;
   words: string;
-  state: 'working' | 'idle' | 'person' | 'waiting';
+  state: 'working' | 'idle' | 'person' | 'waiting' | 'repairing';
+  /** A hero whose PRD repairs a failed step or waits on an Omni Loop bug (PRD 2980): the line, its headline and its link. */
+  repair?: RepairLine;
   /** A hero whose PRD waits on a provider limit or on room (PRD 2949): the line says so, names the job and links it. */
   wait?: WaitLine;
 }
@@ -125,11 +135,14 @@ function workingOn(role: EventRole, events: readonly EventRow[]): PrdNumber | nu
 
 /** One line per hero of the fleet: what a working hero does, else Idle; a hero none of whose skills a runner takes reads that a
  * person does it. */
-export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[], waits: readonly WaitLine[] = []): NowLine[] {
+export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[], waits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = []): NowLine[] {
   return heroes.map((hero) => {
     const heading = `${roleOf(hero.role).name} · ${ROOM_WORDS.agent}`;
     if (!worksAlone(hero.skills)) return { id: hero.id, role: hero.role, heading, words: ROOM_WORDS.person, state: 'person' };
     // A PRD that waits is still the seat's that sent it, though its job ended on the limit: the wait is the line (PRD 2949).
+    // A PRD that repairs, or waits on an Omni Loop bug, says so (PRD 2980); a stopped one has its block under the lines.
+    const repair = repairs.find((one) => one.kind !== 'stopped' && events.some((e) => e.role === hero.role && e.kind === 'dispatched' && e.prd === one.prd && e.mission === one.mission));
+    if (repair !== undefined) return { id: hero.id, role: hero.role, heading, words: repair.headline, state: 'repairing', repair };
     const wait = waits.find((one) => events.some((e) => e.role === hero.role && e.kind === 'dispatched' && e.prd === one.prd && e.mission === one.mission));
     if (wait !== undefined) return { id: hero.id, role: hero.role, heading, words: wait.headline, state: 'waiting', wait };
     const prd = workingOn(hero.role, events);
@@ -188,7 +201,7 @@ export function ledgerOf(events: readonly EventRow[], filter: Filter): LedgerRow
   return events
     .filter((e) => (filter.role === null || e.role === filter.role) && (filter.mission === null || e.mission === filter.mission))
     .toSorted((a, b) => b.at.localeCompare(a.at))
-    .map((e) => ({ id: e.id, time: timeOf(e.at), role: e.role, by: signedBy(e), sentence: e.sentence, prd: e.prd, link: e.link, linkLabel: linkLabel(e.kind, e.prd), state: stateWord(e.kind, e.sentence) }));
+    .map((e) => ({ id: e.id, time: timeOf(e.at), role: e.role, by: signedBy(e), sentence: e.sentence, prd: e.prd, link: e.link, linkLabel: linkLabel(e.kind, e.prd, e.link), state: stateWord(e.kind, e.sentence) }));
 }
 
 /** The room as the tab shows it. */
@@ -198,6 +211,8 @@ export interface RoomView {
   color: string | null;
   now: NowLine[];
   cleanUp: string;
+  /** The PRDs that stopped after repairs (PRD 2980): the block under the now lines. */
+  stopped: RepairLine[];
   ledger: LedgerRow[];
   missions: { id: string; title: string }[];
   filter: Filter;

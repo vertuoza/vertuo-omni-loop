@@ -24,6 +24,7 @@ import {
   type RoomRunner,
   type Run,
 } from './supervisor.ts';
+import { MISSION_REPAIRS, NO_REPAIRS, type RepairRow, type RepairView } from './repair.ts';
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
 const NOW = Date.parse('2027-01-22T09:00:00Z');
@@ -153,6 +154,31 @@ describe('outcome: the spec\'s table, a job\'s end to the mission\'s next step',
     expect(endOf(ended('j', null))).toBe('stopped');
     expect(endOf(attempt('j', { status: 'cancelled' }))).toBe('cancelled');
     expect(endOf(attempt('j', { status: 'failed', reason: 'runner lost' }))).toBe('failed');
+  });
+});
+
+describe('BR-PRODUCT-139: a failed PRD is sent again only when a repair allows it (PRD 2980)', () => {
+  const repairs = (over: Partial<RepairView> = {}): RepairView => ({ ...NO_REPAIRS, budget: MISSION_REPAIRS, ...over });
+  const spent = (n: number): RepairRow => ({ id: `row-${String(n)}`, prd: p(2), fingerprint: String(n % 10).repeat(64), round: 1, number: 1, failedJob: `f${String(n)}`, job: `r${String(n)}`, retro: null, fixPr: null, outcome: 'not fixed' });
+  const stateOf = (runs: Run[], view: RepairView) => prdStates([facts(1)], runs, undefined, undefined, undefined, view).get(p(1));
+
+  it('repairs a PRD that failed, was held twice or stopped mid-way twice, instead of stopping it', () => {
+    expect(stateOf([run(1, 1, attempt('a', { status: 'failed', reason: 'timeout' }))], repairs())).toEqual({ state: 'repairable', k: 1, failedJob: 'a' });
+    expect(stateOf([run(1, 1, ended('a', 'held')), run(1, 2, ended('b', 'held'))], repairs())).toEqual({ state: 'repairable', k: 1, failedJob: 'b' });
+    expect(stateOf([run(1, 1, ended('a', 'stopped')), run(1, 2, ended('b', 'stopped'))], repairs())).toEqual({ state: 'repairable', k: 1, failedJob: 'b' });
+  });
+
+  it('never sends a cancelled PRD again', () => {
+    expect(stateOf([run(1, 1, attempt('a', { status: 'cancelled' }))], repairs())).toEqual({ state: 'paused' });
+  });
+
+  it('stops a failed PRD for good once the mission spent its 9 repairs, saying why', () => {
+    const nine = Array.from({ length: 9 }, (_, n) => spent(n + 1));
+    expect(stateOf([run(1, 1, attempt('a', { status: 'failed', reason: 'timeout' }))], repairs({ rows: nine }))).toEqual({ state: 'stopped', why: 'its job failed: timeout, and the mission spent its 9 repairs' });
+  });
+
+  it('stops as before when repairs are off: the rollback', () => {
+    expect(stateOf([run(1, 1, attempt('a', { status: 'failed', reason: 'timeout' }))], NO_REPAIRS)).toEqual({ state: 'stopped', why: 'its job failed: timeout' });
   });
 });
 

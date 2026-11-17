@@ -153,7 +153,7 @@ begin
     raise exception 'FAIL: the heroes are not one per role in the drawer''s order';
   end if;
   if (select h.skills from public.virtual_heroes h where h.fleet = 'night-shift' and h.role = 'engineer')
-     <> array['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive'] then
+     <> array['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive', 'repair'] then
     raise exception 'FAIL: the Engineer does not list every skill of its role';
   end if;
   if (select (h.skills, h.agent, h.model, h.limits) from public.virtual_heroes h where h.fleet = 'night-shift' and h.role = 'designer')

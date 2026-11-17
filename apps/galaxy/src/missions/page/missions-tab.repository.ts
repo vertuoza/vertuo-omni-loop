@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { MissionLevelSchema, MissionStatusSchema } from '../missions.contract';
-import type { EventRow, MissionRow } from './missions-tab';
+import type { TabEvent, MissionRow } from './missions-tab';
 
 // The Missions tab's reads (PRD 2842 s7; ADR-0095), on the signed-in person's own client: row-level security
 // shows a mission and its events to the members of its workspace and to nobody else. Each answer is parsed
@@ -49,7 +49,7 @@ export function missionsTabRepository(db: MissionsTabDb) {
     },
 
     /** The PRD events of these missions (ready, merged, waiting, sent), newest first. */
-    async events(missions: readonly string[]): Promise<EventRow[]> {
+    async events(missions: readonly string[]): Promise<TabEvent[]> {
       if (missions.length === 0) return [];
       // A row the PM's cap left unwritten (PRD 2896 s12) names no PRD, and is read too.
       const read = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).or('prd.not.is.null,kind.eq.not-written').order('at', { ascending: false }).limit(EVENTS_MAX);

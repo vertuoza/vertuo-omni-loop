@@ -4,6 +4,14 @@
 // reads.
 import type { Boundary } from '../boundary.ts';
 import {
+  ACTOR,
+  ActorRowSchema,
+  BUG_REPORT,
+  BugReportRowSchema,
+  REPAIR,
+  RepairRowSchema,
+  REPOSITORY,
+  RepositoryRowSchema,
   APPROVAL,
   ApprovalRowSchema,
   CARE,
@@ -69,5 +77,9 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: workspaces', read: (db) => db.from('workspaces').select(WORKSPACE).limit(5), schema: WorkspaceRowSchema, shape: 'rows' },
   { name: 'missions/store: runners', read: (db) => db.from('runners').select(RUNNER).limit(5), schema: RunnerRowSchema, shape: 'rows' },
   { name: 'missions/store: room runners', read: (db) => db.from('runners').select(ROOM_RUNNER).limit(5), schema: RoomRunnerRowSchema, shape: 'rows' },
+  { name: 'missions/store: mission repairs', read: (db) => db.from('mission_repairs').select(REPAIR).limit(5), schema: RepairRowSchema, shape: 'rows' },
+  { name: 'missions/store: Omni Loop bug reports', read: (db) => db.from('omni_bug_reports').select(BUG_REPORT).limit(5), schema: BugReportRowSchema, shape: 'rows' },
+  { name: 'missions/store: repositories', read: (db) => db.from('repositories').select(REPOSITORY).limit(5), schema: RepositoryRowSchema, shape: 'rows' },
+  { name: 'missions/store: event actors', read: (db) => db.from('mission_events').select(ACTOR).neq('actor', 'agent').limit(5), schema: ActorRowSchema, shape: 'rows' },
   { name: 'missions/store: room jobs', read: (db) => db.from('runner_jobs').select(ROOM_JOB).in('status', ['claimed', 'running']).limit(5), schema: RoomJobRowSchema, shape: 'rows' },
 ];
