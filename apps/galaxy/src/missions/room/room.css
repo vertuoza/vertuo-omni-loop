@@ -5,7 +5,7 @@
 .room { display: grid; gap: 14px; margin-top: 14px; min-width: 0; }
 .room-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--ask-muted); }
 .room-nows { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
-.room-nows li[data-state='working'] { color: var(--ask-green); font-weight: 700; }
+.room-nows li[data-state='working'], .room-nows li[data-state='checking'] { color: var(--ask-green); font-weight: 700; }
 .room-hero { font-weight: 700; }
 .room-nows li[data-state='waiting'], .room-nows li[data-state='repairing'] { color: inherit; }
 .room-wait { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }

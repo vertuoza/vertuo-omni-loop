@@ -36,11 +36,11 @@ import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. The ultra skills (PRD 2873)
  * are sent from a product's plan repository only, which the service checks once it knows the repository. `review` is the Reviewer's
- * (PRD 2871), `committee` a mission's fleet's (PRD 2896), and the PM's four writing skills run on a job of a mission at `alone` only
+ * (PRD 2871), `qa` QA's (PRD 3001), `committee` a mission's fleet's (PRD 2896), and the PM's four writing skills run on a job of a mission at `alone` only
  * (PRD 2896 s12), which the service and the runner check. */
 export const RUNNER_SKILLS = [
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair', 'qa',
 ] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
@@ -325,8 +325,9 @@ export const JobUpdateSchema = z.object({
   prUrl: PrUrlSchema.nullable().optional(),
   exitCode: z.number().int().nullable().optional(),
   reason: z.string().max(200).nullable().optional(),
-  /** The tokens of the job's worktree and every folder below it (PRD 2102), stored in `runner_jobs.tokens`. */
-  tokens: TokenCountsSchema.optional(),
+  /** The tokens of the job's worktree and every folder below it (PRD 2102), stored in `runner_jobs.tokens`; absent, the last
+   * counts stay. The report that ends a job may carry null instead: its agent gave no count of its run, so none is kept (PRD 3001). */
+  tokens: TokenCountsSchema.nullable().optional(),
   /** The claims (sub-PR numbers) its runner released once it ended (PRD 2175), stored in `runner_jobs.released`. */
   released: z.array(z.number().int().positive()).max(RELEASED_MAX).optional(),
   /** Why the release failed, or null when nothing did (PRD 2175), stored in `runner_jobs.release_error`. */
@@ -349,6 +350,7 @@ export const JobUpdateSchema = z.object({
   limit: z.object({ resetsAt: z.iso.datetime(), guessed: z.boolean() }).strict().optional(),
 }).strict()
   .refine((report) => (report.from === undefined) === (report.lines === undefined), { message: 'from and lines come together' })
+  .refine((report) => report.tokens !== null || report.status !== 'running', { message: 'tokens are null only on the report that ends a job' })
   .refine((report) => (report.slicesMerged === undefined) === (report.slicesTotal === undefined), { message: 'slicesMerged and slicesTotal come together' })
   .refine((report) => report.slicesMerged === undefined || report.slicesTotal === undefined || report.slicesMerged <= report.slicesTotal, { message: 'slicesMerged is at most slicesTotal' });
 export type JobUpdate = z.infer<typeof JobUpdateSchema>;

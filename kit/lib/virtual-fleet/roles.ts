@@ -9,7 +9,8 @@
  *
  * `supabase/migrations/20270122121000_heroes_every_skill.sql` keeps the same defaults in
  * `virtual_hero_roles()`, which `create_virtual_fleet()` and `add_virtual_hero()` copy onto each hero
- * they make, and `20270122122000_reviewer.sql` gives the Reviewer its `review` skill and limits (PRD 2871);
+ * they make, and `20270122122000_reviewer.sql` gives the Reviewer its `review` skill and limits (PRD 2871),
+ * `20270125160000_qa_turn.sql` QA its `qa` skill and limits (PRD 3001);
  * the arcade's `virtual-fleets/roles-sql.test.ts` fails when the two differ.
  *
  * **Runs alone** is read from the runner's own list ({@link RUNNABLE_SKILLS}), never a list of its own:
@@ -46,6 +47,12 @@ export interface RoleDefaults {
  */
 const PM_APPROVES = 'It never approves a PRD it wrote, nor one outside a mission\'s committee.';
 
+/**
+ * What QA never does (PRD 3001): it checks a PRD on its preview and reports each bug to the Engineer, who fixes it; it writes no
+ * branch, files five bugs at most and checks two rounds at most. It said `It reports what it saw; a person decides.` before.
+ */
+const QA_NEVER: readonly string[] = ['It never writes the branch.', 'It reports bugs to the Engineer.', 'It reports five bugs at most.', 'It checks two rounds at most.'];
+
 /** What every hero never does, whatever its role (the mission's mandate). */
 const EVERY_HERO: readonly string[] = ['It never merges into the default branch.', 'It never answers for a person.'];
 
@@ -56,8 +63,8 @@ export const ROLES: readonly RoleDefaults[] = [
     agent: 'claude', model: 'sonnet', limits: [...EVERY_HERO, 'It waits for a person wherever one is needed.'],
   },
   {
-    role: 'qa', name: 'QA', skills: ['prove', 'bug-fix', 'validate-e2e'],
-    agent: 'claude', model: 'sonnet', limits: [...EVERY_HERO, 'It reports what it saw; a person decides.'],
+    role: 'qa', name: 'QA', skills: ['qa', 'prove', 'bug-fix', 'validate-e2e'],
+    agent: 'claude', model: 'sonnet', limits: [...EVERY_HERO, ...QA_NEVER],
   },
   {
     role: 'reviewer', name: 'Reviewer', skills: ['review', 'tech-review'],

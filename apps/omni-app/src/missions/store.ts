@@ -14,7 +14,8 @@
 //                it on after a lost runner (`runner_jobs.resumes`, PRD 2809), one chain per job, its step read
 //                from its key; for a Reviewer job's verdict, what its log's `omni review post` line says it
 //                posted (`runner_jobs.log_tail`, PRD 2871): its count of findings and its review's link, nothing
-//                else of the log
+//                else of the log; for a QA job that ended done, its verdict, read by the kit's `qaLine` from the same
+//                tail, or none when it reads none (PRD 3001)
 //   events       the events already recorded, in the order they happened, read back as keys, so nothing is
 //                recorded twice, and as the PRDs on the mission branch (PRD 2896)
 //   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
@@ -23,7 +24,8 @@
 //   planRepository whether the mission's repository is a live product's plan repository (`products.plan_repository`)
 //   send         the step's line queued (`/omni:yolo <n> --for-review`, `/omni:review <n>` or `/omni:yolo-fix
 //                <n> --for-review`, PRD 2871; the build `/omni:ultra-yolo <n>` for a PRD of a plan repository, PRD
-//                2873), sent by the app (`sent_by_app`, never a person's name, Never 10), to the fleet's runners or
+//                2873; QA's `/omni:qa <n>`, its `--round 2`, and the Engineer's `/omni:bug-fix #<issue> --base <feature
+//                branch>` between them, PRD 3001), sent by the app (`sent_by_app`, never a person's name, Never 10), to the fleet's runners or
 //                else to any runner of the workspace, under `mission_key`: a key already held (23505) inserts
 //                nothing and answers null
 //   care         a feature branch's care job (PRD 2896 s5: `/omni:pr-care <n> --once --base <mission branch>`, for a branch that
@@ -68,6 +70,8 @@ import { RepairRetroSchema } from 'omni-loop/kit/lib/repair/retro.ts';
 import { jobLedger, type NewJob } from '../jobs/ledger.ts';
 import { failedJobOf, repairKey, repairSkillLine, repairOfKey, type RepairJob, type RepairOutcome, type RepairRow } from './repair.ts';
 import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
+import { qaLine } from 'omni-loop/kit/lib/qa/verdict.ts';
+import { isQaStep, type Fix } from './qa.ts';
 import {
   approvalOf,
   baseOf,
@@ -118,8 +122,11 @@ export type Approve = { mission: MissionRecord; prd: PrdNumber; round: number; t
 /** The mission's PM job to send (PRD 2896 s12): the mission, its round, its line, and whether the fleet's runners take it. */
 export type PmSend = { mission: MissionRecord; round: number; line: string; toFleet: boolean };
 
-/** A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill. */
-export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill };
+/**
+ * A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill; for the
+ * Engineer's fix of a QA bug, the bug and the feature branch it is fixed into (PRD 3001).
+ */
+export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill; fix?: Fix };
 
 /**
  * A care job to send (PRD 2896 s5): its line, and since when one of it counts as sent, the mission branch's head's commit time,
@@ -328,6 +335,9 @@ const attemptOf = (row: JobRow): Attempt => ({
 /** A Reviewer job that ended on its verdict (PRD 2871): its log says what it posted. */
 const isVerdict = (step: Step, attempt: Attempt): boolean => step.startsWith('review:') && attempt.status === 'done' && (attempt.outcome === 'changes' || attempt.outcome === 'ready');
 
+/** A QA job that ended done (PRD 3001): its log's record line says its verdict, or that none reads. */
+const isChecked = (step: Step, attempt: Attempt): boolean => isQaStep(step) && attempt.status === 'done';
+
 /** The store, as the service role on `connection`. */
 export function missionStore(connection: Connection): MissionStore {
   const db = serviceDb(connection);
@@ -380,16 +390,21 @@ export function missionStore(connection: Connection): MissionStore {
     return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id), overturned: overturnedHere.has(dossier) }]));
   }
 
-  /** `runs`, each Reviewer verdict carrying what its log says it posted: one read of those jobs' log tails, none without one. */
+  /**
+   * `runs`, each Reviewer verdict carrying what its log says it posted, and each QA job that ended done its verdict, or null when
+   * none reads (PRD 3001): one read of those jobs' log tails, none without one. Only the verdict is kept, never a line of the log.
+   */
   async function withPosted(runs: Run[]): Promise<Run[]> {
-    const ids = runs.flatMap((one) => one.attempts.filter((attempt) => isVerdict(one.step, attempt)).map((attempt) => attempt.id));
+    const read = (step: Step, attempt: Attempt): boolean => isVerdict(step, attempt) || isChecked(step, attempt);
+    const ids = runs.flatMap((one) => one.attempts.filter((attempt) => read(one.step, attempt)).map((attempt) => attempt.id));
     if (ids.length === 0) return runs;
     const logs = new Map(rowsOf(JobLogRowSchema, await db.from('runner_jobs').select(JOB_LOG).in('id', ids)).map((row) => [row.id, row.log_tail]));
     return runs.map((one) => ({
       ...one,
       attempts: one.attempts.map((attempt) => {
-        const log = isVerdict(one.step, attempt) ? logs.get(attempt.id) : undefined;
-        return log === undefined ? attempt : { ...attempt, posted: postedOf(log) };
+        const log = logs.get(attempt.id);
+        if (isChecked(one.step, attempt)) return { ...attempt, checked: log === undefined ? null : qaLine(log) };
+        return log === undefined || !isVerdict(one.step, attempt) ? attempt : { ...attempt, posted: postedOf(log) };
       }),
     }));
   }
@@ -509,8 +524,8 @@ export function missionStore(connection: Connection): MissionStore {
       return workspace?.github_installation_id ?? null;
     },
 
-    send: ({ mission, prd, run, step, toFleet, skill }) =>
-      queue({ mission, toFleet, line: lineOf(prd, step, skill, baseOf(mission, skill === 'ultra-yolo')), key: missionKey(mission.id, prd, run, step) }),
+    send: ({ mission, prd, run, step, toFleet, skill, fix = null }) =>
+      queue({ mission, toFleet, line: lineOf(prd, step, skill, baseOf(mission, skill === 'ultra-yolo'), fix), key: missionKey(mission.id, prd, run, step) }),
 
     async care({ mission, line, since, toFleet }) {
       // The mission's runs happen one at a time (its lane): a read, then the insert, sends one.

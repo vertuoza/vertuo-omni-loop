@@ -335,8 +335,14 @@ describe('the tokens a report carries', () => {
     expect(JobUpdateSchema.safeParse({ status: 'running', tokens }).success).toBe(false);
   });
 
-  it('refuses a job report whose tokens are null', () => {
+  it('refuses a running report whose tokens are null', () => {
     expect(JobUpdateSchema.safeParse({ status: 'running', tokens: null }).success).toBe(false);
+  });
+
+  // PRD 3001 s2 (AC-8): the report that ends a job carries the run's tokens, or null when its agent gave none.
+  it.each(['done', 'failed', 'cancelled'] as const)('takes a %s report whose tokens are null: the agent gave none', (status) => {
+    expect(JobUpdateSchema.parse({ status, tokens: null })).toEqual({ status, tokens: null });
+    expect(JobUpdateSchema.parse({ status, tokens: counts })).toEqual({ status, tokens: counts });
   });
 
   it('takes a health report with the machine\'s tokens, a window it could not read as null, and none at all', () => {

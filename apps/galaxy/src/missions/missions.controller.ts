@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
-import { DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
+import { BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
 import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
@@ -8,6 +8,7 @@ import type { Caller, MissionsReader, MissionsService } from './missions.service
 //
 //   POST /api/missions/<id>/start | pause | resume   200 {mission: {id, status}}
 //   POST /api/missions/<id>/level {level}            200 {mission: {id, level}}   (PRD 2896)
+//   POST /api/missions/<id>/bugs {prd, pick}         200 {bugs: {mission, prd, pick}}   (PRD 3001, Decide the bugs)
 //
 // Signed out is 401 and nothing else runs; a person who is no member of the mission's workspace (it is
 // invisible to them) is 403; a move the mission's status does not allow is 409. The answer is checked
@@ -107,6 +108,21 @@ export async function levelMission(id: string, request: Request, deps: MissionsD
     const body = LevelBodySchema.safeParse(await request.json().catch(() => null));
     if (!body.success) return refuse('malformed', BAD_LEVEL);
     return answer(await got.service.setLevel(got.id, body.data.level, got.person.caller, got.person.reader), (value) => LeveledMissionSchema.parse(value), deps);
+  } catch (error) {
+    return failed(error, deps);
+  }
+}
+
+const BAD_BUGS = 'A pick on Decide the bugs names the PRD and either review (Send on to the Reviewer) or stop (Stop this PRD).';
+
+/** POST /api/missions/<id>/bugs: a member picks on `Decide the bugs` (PRD 3001): their own pick, recorded beside QA's verdict. */
+export async function pickBugs(id: string, request: Request, deps: MissionsDeps): Promise<Response> {
+  try {
+    const got = await ready(id, deps);
+    if (got instanceof Response) return got;
+    const body = BugsBodySchema.safeParse(await request.json().catch(() => null));
+    if (!body.success) return refuse('malformed', BAD_BUGS);
+    return answer(await got.service.pickBugs(got.id, body.data, got.person.caller, got.person.reader), (value) => PickedBugsSchema.parse(value), deps);
   } catch (error) {
     return failed(error, deps);
   }

@@ -53,7 +53,7 @@ const PullSchema = z.looseObject({
   merged: z.boolean().nullish(),
   merged_at: z.string().nullish(),
   base: z.looseObject({ ref: z.string(), repo: z.looseObject({ default_branch: z.string() }) }),
-  head: z.looseObject({ sha: z.string() }),
+  head: z.looseObject({ sha: z.string(), ref: z.string().nullish() }),
 });
 
 /** One page of `GET /repos/{owner}/{repo}/commits/{ref}/check-runs`. */
@@ -143,6 +143,7 @@ export function missionJoins({ octokitFor }: { octokitFor: (installation: number
         base: pull.base.ref,
         defaultBranch: pull.base.repo.default_branch,
         head: ref,
+        ...(pull.head.ref == null ? {} : { branch: pull.head.ref }),
         runs,
         statuses,
         reviews: reviews.map((one) => ({ body: one.body ?? null, commit: one.commit_id ?? null })),

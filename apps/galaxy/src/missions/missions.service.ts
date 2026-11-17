@@ -1,7 +1,7 @@
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from 'omni-loop/kit/lib/mission/overturn.ts';
-import { MOVES, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
+import { MOVES, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import { levelRefusal as planRefusal, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
@@ -106,6 +106,33 @@ function askWords(login: string, branch: string, set: { prd: PrdNumber; sharing:
   return `${login} asked to drop PRD ${String(set.prd)} from ${branch}${taking}.`;
 }
 
+/** Why `caller` cannot pick on `Decide the bugs` of `mission` at all (nothing seen, no login, not started), or null. */
+function bugsBlock(mission: { status: string } | null, caller: Caller): { ok: false; kind: MissionRefusal; error: string } | null {
+  if (mission === null) return { ok: false, kind: 'forbidden', error: NOT_YOURS };
+  if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
+  if (!['running', 'waiting'].includes(mission.status)) return { ok: false, kind: 'conflict', error: `Only a started mission has bugs to decide. This one is ${mission.status}.` };
+  return null;
+}
+
+/** Why a PRD has nothing to pick on at `Decide the bugs`: QA's round 2 named no bug, or a person picked already; null when it waits. */
+function bugsRefusal(prd: PrdNumber, waiting: { picked: { actor: string } | null } | null): string | null {
+  if (waiting === null) return `PRD ${String(prd)} has no bugs to decide.`;
+  return waiting.picked === null ? null : `${waiting.picked.actor} picked on PRD ${String(prd)}'s bugs already.`;
+}
+
+/** Records a person's pick on `Decide the bugs` as their own event naming QA's round-2 job, then wakes the mission. */
+async function recordPick(write: MissionsWriter, { mission, login, body, job, at }: { mission: { id: string; repo: string }; login: string; body: BugsBody; job: string; at: string }): Promise<Served<PickedBugs>> {
+  const review = body.pick === 'review';
+  const sentence = review ? `${login} sent PRD ${String(body.prd)} on to the Reviewer.` : `${login} stopped PRD ${String(body.prd)}.`;
+  await write.event(mission.id, { kind: review ? 'resumed' : 'stopped', actor: login, prd: body.prd, job, at, sentence });
+  try {
+    await write.refresh(missionJob(mission.id, mission.repo));
+  } catch (error) {
+    return { ok: false, kind: 'database', error: 'The pick is recorded, but the mission could not be woken: it is taken on its next run.', cause: error instanceof Error ? error.message : String(error) };
+  }
+  return { ok: true, value: { bugs: { mission: mission.id, prd: body.prd, pick: body.pick } } };
+}
+
 /** The person who acts: their id and their GitHub login (null when they have none). */
 export type Caller = { id: string; login: string | null };
 
@@ -201,6 +228,21 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
         return { ok: false, kind: 'database', error: 'The overturn is recorded, but the mission could not be woken: it is taken on its next run.', cause: error instanceof Error ? error.message : String(error) };
       }
       return { ok: true, value: { overturn: { mission: mission.id, branch: onBranch ? branchOf(mission) : null, decision: refOf(ref), prd: ref.prd, onBranch } } };
+    },
+
+    /**
+     * A member picks on `Decide the bugs` (PRD 3001): `Send on to the Reviewer` or `Stop this PRD`. The pick is recorded as their own
+     * event, a `resumed` or a `stopped` of the PRD naming QA's round-2 job, signed with their login; the mission's job is woken, and the
+     * supervisor reads the pick on its next run. Refused for a PRD with no bugs to decide, and for one a person picked on already.
+     */
+    async pickBugs(id: string, body: BugsBody, caller: Caller, reader: MissionsReader): Promise<Served<PickedBugs>> {
+      const mission = await reader.mission(id);
+      const blocked = bugsBlock(mission, caller);
+      if (blocked !== null || mission === null || caller.login === null) return blocked ?? { ok: false, kind: 'forbidden', error: NOT_YOURS };
+      const waiting = await reader.bugsToDecide(id, body.prd);
+      const nothing = bugsRefusal(body.prd, waiting);
+      if (nothing !== null || waiting === null) return { ok: false, kind: 'conflict', error: nothing ?? '' };
+      return recordPick(write, { mission, login: caller.login, body, job: waiting.job, at: iso() });
     },
 
     /** Wakes mission `id` at once (a job of it ended): its job is added or refreshed, due now. Nothing for a draft, delivered or stopped mission. */
