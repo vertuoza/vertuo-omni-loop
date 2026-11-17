@@ -16,7 +16,6 @@ import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import type { ChangedFile, LawIssue } from 'omni-loop/kit/lib/knowledge/write.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { ListSchema } from '../retro/github.schema.ts';
-import { topicOf } from '../retro/qualify.ts';
 import type { Config } from 'omni-loop/kit/lib/types.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import { ListedIssueSchema, OpenPullSchema, parsedOr, PullMergeSchema, RefSchema } from './schema.ts';
@@ -136,9 +135,9 @@ export function filesIn(root: string, dir = ''): string[] {
 }
 
 /**
- * The record numbers and register ids every other open knowledge branch already takes, so this run
- * numbers past them. A knowledge branch is an open pull request into the default branch whose head
- * matches `branches.knowledge`; `own` is this run's branch, left out so a replay numbers as it did.
+ * The record numbers and register ids every other open pull request into the default branch already
+ * takes, so this run numbers past them (PRD 3015): a knowledge branch's, and a feature branch's too,
+ * whatever its head is called. `own` is this run's branch, left out so a replay numbers as it did.
  */
 export async function takenElsewhere(
   octokit: RequestOctokit,
@@ -157,7 +156,7 @@ export async function takenElsewhere(
       .then(({ data }) => parsedOr(ListSchema, data, OPEN_PULLS_UNEXPECTED)),
   );
   const branches = [...new Set(parsedOr(OpenPullSchema.array(), pulls, OPEN_PULLS_UNEXPECTED).map((pull) => pull.head?.ref))]
-    .filter((ref): ref is string => typeof ref === 'string' && ref.length > 0 && ref !== own && topicOf(ref, config.branches.knowledge) !== null)
+    .filter((ref): ref is string => typeof ref === 'string' && ref.length > 0 && ref !== own)
     .sort();
 
   const records = new Set<string>();

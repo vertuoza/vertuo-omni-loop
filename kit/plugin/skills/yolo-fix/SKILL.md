@@ -101,7 +101,7 @@ ledger only grows, and the latest entry wins.
 **Write back what was just settled.** For every entry this run added as `agreed` or `drifted`
 (never one adopted before this run: nobody answered it), read the answer. When `laws.source` is
 `knowledge` and it states something true about the product, write or amend the entry under
-`paths.knowledge` (an amended entry keeps its id; `omni knowledge <id>` explains one), or an ADR under
+`paths.knowledge` (a new rule, invariant or principle takes the id `omni kb next-id <prefix>` prints, never one read off the branch; an amended entry keeps its id; `omni knowledge <id>` explains one), or an ADR under
 `paths.adr` when it is about how the repository builds, written as `omni kb show decisions` says
 (where records live, their format, the next free number). When it is a lesson about how to work
 here (how to test, verify or open a pull request…), write it into the playbook section it answers,
