@@ -1,7 +1,8 @@
 -- A Tech Approval before the product approval (PRD 2608 s1). The supabase workflow runs it on every
 -- pull request, after `supabase db start` has applied the migrations:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/tech_approval.sql
--- dossier_request_tech_approval() lets only a ◆ PRD's author name one other member, once: a non-member,
+-- dossier_request_tech_approval() lets any member of a ◆ PRD's workspace name one member other than its
+-- author, once (bug #2992; PRD 2608 let only the author ask): a non-member,
 -- a ◇ PRD, a product PRD and a roadmap are refused, and so are a second request, a withdrawal and a
 -- rename by the author; a workspace owner names another person only once the named one left. Only the
 -- named person gives it (dossier_approve(p, 'tech')); the product approval is refused while it is missing

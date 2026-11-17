@@ -1,5 +1,5 @@
 // The contract of `/omni:tech-review` (PRD 2608, s5), read as text, as rewind-skill.test.ts reads rewind's:
-// it refuses in one line (no plan, no open request, not the named person, a merged sub-PR, a runner),
+// it refuses in one line (no plan, an approved PRD, no readable login, a merged sub-PR, a runner; bug #2992),
 // reads before it asks, grills one question at a time with a recommended answer, changes only the coding
 // parts, records each settled question under `### Tech review`, sends product questions to the PRD's issue
 // naming the author, pushes with a signed commit and /omni:dossier-push, and has no way to approve.
@@ -27,9 +27,9 @@ describe('the tech-review skill', () => {
     expect(String(data.description)).toMatch(/Triggers on .*\/omni:tech-review/);
   });
 
-  it('refuses, in one line, a PRD with no plan, no open request, a merged sub-PR, anyone but the named person and a runner', () => {
+  it('refuses, in one line, a PRD with no plan, an approved PRD, a merged sub-PR, no readable login and a runner', () => {
     expect(FLAT).toContain('`tech-review: <why>`');
-    for (const why of ['`OMNI_UNATTENDED` is set', 'has no `plan.md`', 'no open tech request', 'is not the login `tech` names','a sub-PR of the PRD is already merged']) expect(FLAT, why).toContain(why);
+    for (const why of ['`OMNI_UNATTENDED` is set', 'has no `plan.md`', 'the plan is approved', 'no login can be read', 'a sub-PR of the PRD is already merged']) expect(FLAT, why).toContain(why);
     expect(at('## 1. Refuse')).toBeLessThan(at('## 2. Read before you ask'));
   });
 
@@ -41,10 +41,9 @@ describe('the tech-review skill', () => {
     expect(FLAT).not.toContain('only the named person reviews it');
   });
 
-  it('reads the person\'s GitHub login and compares it with the named one, asking nothing and never taking their word', () => {
+  it('reads the person\'s GitHub login, asking nothing and never taking their word', () => {
     expect(FLAT).toContain('`gh api user --jq .login`');
-    expect(FLAT).toContain('is not the login `tech` names, or no login can be read');
-    expect(FLAT).toContain('a mismatch refuses with no question asked');
+    expect(FLAT).toContain('the login is read from GitHub before anything is asked');
     expect(FLAT).toContain('never takes the person\'s word for who they are');
     expect(FLAT).not.toContain('asks the person whether they are that login');
   });
