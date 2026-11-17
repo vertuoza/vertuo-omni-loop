@@ -94,3 +94,40 @@ describe('pnpm lint --shard <i>/<n>, on fixtures', () => {
     expect(handed).toEqual([]);
   });
 });
+
+describe('pnpm lint, on stylesheets', () => {
+  const sources = ['kit/lib/narrow.ts', 'packages/ui/src/Button.css', 'packages/ui/src/Card.css', 'apps/galaxy/src/app.css'];
+
+  it('hands stylelint only the stylesheets under STYLELINT_PATHS, and ESLint none', async () => {
+    const { lint, handed } = fixture([]);
+    const styled = fixture([]);
+    const verdict = await lintRepository([], { tracked: () => sources, lint, lintStyles: styled.lint });
+    expect(handed).toEqual([['kit/lib/narrow.ts']]);
+    expect(styled.handed).toEqual([['packages/ui/src/Button.css', 'packages/ui/src/Card.css']]);
+    expect(verdict.report).toContain('pnpm lint: 0 findings in 3 files');
+  });
+
+  it('fails on a stylesheet finding, naming it', async () => {
+    const { lint } = fixture([]);
+    const styled = fixture([{ path: 'packages/ui/src/Button.css', line: 4, rule: 'declaration-property-value-allowed-list' }]);
+    const verdict = await lintRepository([], { tracked: () => sources, lint, lintStyles: styled.lint });
+    expect(verdict.exitCode).toBe(1);
+    expect(verdict.report).toContain('packages/ui/src/Button.css:4 declaration-property-value-allowed-list');
+    expect(verdict.report).toContain('pnpm lint: 1 findings in 3 files');
+  });
+
+  it('lints only the stylesheets under the prefixes it is given', async () => {
+    const styled = fixture([]);
+    await lintRepository(['packages/ui/src/Card'], { tracked: () => sources, lint: fixture([]).lint, lintStyles: styled.lint });
+    expect(styled.handed).toEqual([['packages/ui/src/Card.css']]);
+  });
+
+  it('lints the stylesheets in the first shard only', async () => {
+    const first = fixture([]);
+    const second = fixture([]);
+    await lintRepository(['--shard=1/2'], { tracked: () => sources, lint: fixture([]).lint, lintStyles: first.lint });
+    await lintRepository(['--shard=2/2'], { tracked: () => sources, lint: fixture([]).lint, lintStyles: second.lint });
+    expect(first.handed[0]).toHaveLength(2);
+    expect(second.handed).toEqual([[]]);
+  });
+});

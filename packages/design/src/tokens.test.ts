@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { INK, PALETTE } from './palette.ts';
-import { ASK, ASK_ANTI, ASK_TEXT_PAIRS, ASK_UI_PAIRS, COLOURS, contrast, cssName, tokensCss } from './tokens.ts';
-import type { AskTheme } from './tokens.ts';
+import {
+  ASK, ASK_ANTI, ASK_ROLES, ASK_TEXT_PAIRS, ASK_UI_PAIRS, COLOURS, ROLE_TEXT_PAIRS, ROLE_UI_PAIRS, SCALE, THEME_ROLES,
+  THEME_ROLES_ANTI, contrast, cssName, tokensCss,
+} from './tokens.ts';
+import type { AskTheme, AskToken, ColourRole, RolePair } from './tokens.ts';
 
 const committed = () => readFileSync(new URL('../tokens.css', import.meta.url), 'utf8');
 
@@ -73,6 +76,142 @@ describe('tokens.css', () => {
 
   it('is committed exactly as the generator writes it: run `pnpm --filter @omni/design tokens` after a change', () => {
     expect(committed()).toBe(tokensCss());
+  });
+
+  it('keeps the named colours in its first :root block, as they were, so the arcade reads them unchanged', () => {
+    const first = /^[^{]*:root\s*\{([^}]*)\}/.exec(committed())?.[1] ?? '';
+    expect(first.match(/--[\w-]+(?=:)/g)).toEqual(Object.keys(COLOURS).map((name) => `--${name}`));
+  });
+
+  it('declares the scale on :root, as --space-1 to --type-prose-line', () => {
+    for (const [name, value] of Object.entries(SCALE)) expect(committed(), name).toContain(`  --${name}: ${value};`);
+    expect(committed()).toContain('--space-1: 4px;');
+    expect(committed()).toContain('--type-prose-line: 1.6;');
+  });
+
+  it('declares each theme\'s roles as --color-<role> where the theme script marks the ask root, Omni by default', () => {
+    const css = committed();
+    const block = (selector: string) => {
+      const at = css.indexOf(`${selector} {`);
+      expect(at, selector).toBeGreaterThan(-1);
+      return css.slice(at, css.indexOf('}', at));
+    };
+    const marked = (theme: string, also = '') => `:is(html:has(.ask[data-ask-theme="${theme}"]${also}), .ask[data-ask-theme="${theme}"]${also})`;
+    const omni = block(`:root, .ask:not([data-ask-theme]), ${marked('omni')}`);
+    for (const [role, value] of Object.entries(THEME_ROLES.omni)) expect(omni, role).toContain(`--color-${role}: ${value};`);
+    for (const theme of ['light', 'dark'] as const) {
+      const rule = block(marked(theme));
+      for (const [role, value] of Object.entries(THEME_ROLES[theme])) expect(rule, `${theme} ${role}`).toContain(`--color-${role}: ${value};`);
+    }
+    for (const theme of themesOf()) {
+      const selector = theme === 'omni'
+        ? `.ask[data-ask-mode="anti"]:not([data-ask-theme]), ${marked('omni', '[data-ask-mode="anti"]')}`
+        : marked(theme, '[data-ask-mode="anti"]');
+      const rule = block(selector);
+      for (const [role, value] of Object.entries(THEME_ROLES_ANTI[theme])) expect(rule, `${theme} anti ${role}`).toContain(`--color-${role}: ${value};`);
+    }
+  });
+});
+
+/** The three themes, in their order. */
+const themesOf = (): AskTheme[] => ['omni', 'light', 'dark'];
+
+describe('the scale', () => {
+  const family = (prefix: string) => Object.fromEntries(Object.entries(SCALE).filter(([name]) => name.startsWith(prefix)));
+
+  it('spaces on the 4 px grid, from space-1 at 4 px to space-8 at 64 px', () => {
+    expect(family('space-')).toEqual({
+      'space-1': '4px', 'space-2': '8px', 'space-3': '12px', 'space-4': '16px',
+      'space-5': '24px', 'space-6': '32px', 'space-7': '48px', 'space-8': '64px',
+    });
+  });
+
+  it('rounds at 4 px, 8 px and full', () => {
+    expect(family('radius-')).toEqual({ 'radius-1': '4px', 'radius-2': '8px', 'radius-full': '9999px' });
+  });
+
+  it('sets seven UI steps from 12 to 32 px, and prose at 17 px on 1.6', () => {
+    const sizes = Object.entries(family('type-')).filter(([name]) => name.endsWith('-size')).map(([name, value]) => [name, value]);
+    expect(sizes).toEqual([
+      ['type-1-size', '12px'], ['type-2-size', '13px'], ['type-3-size', '14px'], ['type-4-size', '16px'],
+      ['type-5-size', '20px'], ['type-6-size', '24px'], ['type-7-size', '32px'], ['type-prose-size', '17px'],
+    ]);
+    expect(SCALE['type-prose-line']).toBe('1.6');
+    for (const step of ['1', '2', '3', '4', '5', '6', '7']) expect(Number(SCALE[`type-${step}-line`]), step).toBeGreaterThanOrEqual(1.2);
+  });
+
+  it('weighs 400, 500, 600 and 700', () => {
+    expect(family('weight-')).toEqual({ 'weight-regular': '400', 'weight-medium': '500', 'weight-semibold': '600', 'weight-bold': '700' });
+  });
+
+  it('lifts in three elevations, and moves in two durations and one ease-out', () => {
+    expect(Object.keys(family('elevation-'))).toEqual(['elevation-flat', 'elevation-raised', 'elevation-overlay']);
+    expect(family('motion-')).toEqual({
+      'motion-duration-fast': '120ms', 'motion-duration-slow': '240ms', 'motion-ease-out': 'cubic-bezier(0.2, 0, 0, 1)',
+    });
+  });
+});
+
+describe('the semantic roles', () => {
+  const roles: ColourRole[] = [
+    'canvas', 'surface', 'raised', 'sunken',
+    'text-primary', 'text-secondary', 'text-tertiary', 'text-on-accent', 'text-on-signal', 'text-on-highlight',
+    'border-subtle', 'border-strong', 'accent', 'accent-soft', 'signal', 'signal-soft', 'highlight',
+    'success', 'warning', 'danger', 'info',
+  ];
+  const anti = (theme: AskTheme): Readonly<Record<ColourRole, string>> => ({ ...THEME_ROLES[theme], ...THEME_ROLES_ANTI[theme] });
+  const below = (pairs: readonly RolePair[], floor: number, colours: (theme: AskTheme) => Readonly<Record<ColourRole, string>>) =>
+    themesOf().flatMap((theme) => pairs.flatMap(({ text, on, where }) => {
+      const ratio = contrast(colours(theme)[text], colours(theme)[on]);
+      return ratio < floor ? [`${theme}: ${text} on ${on} (${where}) is ${ratio.toFixed(2)}:1`] : [];
+    }));
+
+  it('are named by their job, the same in Omni, Light and Dark', () => {
+    for (const theme of themesOf()) {
+      expect(Object.keys(THEME_ROLES[theme]), theme).toEqual(roles);
+      for (const [role, value] of Object.entries(THEME_ROLES[theme])) expect(value, `${theme} ${role}`).toMatch(/^#[0-9a-f]{6}$/);
+    }
+  });
+
+  it('pass WCAG AA for every text pair, in all three themes and in the anti-loop mode', () => {
+    expect(below(ROLE_TEXT_PAIRS, 4.5, (theme) => THEME_ROLES[theme])).toEqual([]);
+    expect(below(ROLE_TEXT_PAIRS, 4.5, anti)).toEqual([]);
+  });
+
+  it('give the strong border, the accent and the signal 3:1 against what they sit on, in all three themes and in the anti-loop mode', () => {
+    expect(below(ROLE_UI_PAIRS, 3, (theme) => THEME_ROLES[theme])).toEqual([]);
+    expect(below(ROLE_UI_PAIRS, 3, anti)).toEqual([]);
+  });
+
+  it('test every text role on every surface it is read on', () => {
+    for (const text of ['text-primary', 'text-secondary', 'text-tertiary'] as const) {
+      for (const on of ['canvas', 'surface', 'raised', 'sunken'] as const) {
+        expect(ROLE_TEXT_PAIRS.some((p) => p.text === text && p.on === on), `${text} on ${on}`).toBe(true);
+      }
+    }
+    for (const on of ['canvas', 'surface', 'raised', 'sunken'] as const) {
+      expect(ROLE_UI_PAIRS.some((p) => p.text === 'border-strong' && p.on === on), on).toBe(true);
+    }
+  });
+
+  it('keep every ASK name as an alias of one role, at the same colour as before', () => {
+    expect(Object.keys(ASK_ROLES).sort()).toEqual(Object.keys(ASK.light).sort());
+    for (const theme of themesOf()) {
+      for (const [token, role] of Object.entries(ASK_ROLES) as [AskToken, ColourRole][]) {
+        expect(ASK[theme][token], `${theme} ${token}`).toBe(THEME_ROLES[theme][role]);
+      }
+      for (const [token, value] of Object.entries(ASK_ANTI[theme]) as [AskToken, string][]) {
+        expect(value, `${theme} anti ${token}`).toBe(THEME_ROLES_ANTI[theme][ASK_ROLES[token] as keyof typeof THEME_ROLES_ANTI[AskTheme]]);
+      }
+    }
+  });
+
+  it('remap in the anti-loop mode only the roles behind the seven ASK names it overrides', () => {
+    for (const theme of themesOf()) {
+      expect(Object.keys(THEME_ROLES_ANTI[theme]).sort(), theme).toEqual(
+        Object.keys(ASK_ANTI[theme]).map((token) => ASK_ROLES[token as AskToken]).sort(),
+      );
+    }
   });
 });
 

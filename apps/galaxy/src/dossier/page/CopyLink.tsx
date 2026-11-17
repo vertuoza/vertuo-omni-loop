@@ -1,4 +1,5 @@
 'use client';
+import { Button } from '@omni/ui';
 import { useEffect, useRef, useState } from 'react';
 import { copyLink } from '../../ask/page/share';
 
@@ -20,7 +21,7 @@ export function CopyLink({ path }: { path: string }) {
 
   return (
     <span className="dossier-copy">
-      <button type="button" className="ask-button" onClick={() => void copy()}>Copy link</button>
+      <Button variant="secondary" onClick={() => void copy()}>Copy link</Button>
       {state === 'copied' && <span className="ask-hint" role="status">Copied.</span>}
       {state === 'selected' && (
         <>

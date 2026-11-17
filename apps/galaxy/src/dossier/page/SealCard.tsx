@@ -1,3 +1,4 @@
+import { Card, Text } from '@omni/ui';
 import type { ApprovalSeal } from './approval';
 import { SealScroll } from './SealScroll';
 
@@ -9,6 +10,7 @@ export function SealCard({ seal, dossier }: { seal: Pick<ApprovalSeal, 'approver
   const hashes = seal.files.flatMap((file) => (file.hash ? [file.hash.slice(0, 4)] : [])).join(' ');
   return (
     <section id="approval" className="dossier-seal-card" aria-label="Approved">
+      <Card padding="5">
       <svg className="dossier-seal" viewBox="0 0 100 100" role="img" aria-label={`Seal of ${seal.name}: approved and pinned`}>
         <defs><path id="dossier-seal-ring" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0" /></defs>
         <circle cx="50" cy="50" r="47" className="dossier-seal-disc" />
@@ -17,12 +19,13 @@ export function SealCard({ seal, dossier }: { seal: Pick<ApprovalSeal, 'approver
         <text className="dossier-seal-ring"><textPath href="#dossier-seal-ring">{`APPROVED · PINNED · ${hashes} ·`}</textPath></text>
         <text x="50" y="59" textAnchor="middle" className="dossier-seal-number">{seal.mark}</text>
       </svg>
-      <p className="dossier-seal-who">Approved by {seal.approver}</p>
+      <Text size="heading" strong>Approved by {seal.approver}</Text>
       <p className="ask-hint">{seal.at} · {seal.files.length} {seal.files.length === 1 ? 'file' : 'files'} pinned</p>
       <ul className="dossier-seal-files">
         {seal.files.map((file) => <li key={file.path}><span>{file.path}</span><code>{file.hash ?? '—'}</code></li>)}
       </ul>
       <SealScroll dossier={dossier} />
+      </Card>
     </section>
   );
 }

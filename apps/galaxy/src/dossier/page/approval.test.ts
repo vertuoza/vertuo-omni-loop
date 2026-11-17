@@ -430,7 +430,7 @@ describe('the approve screen on the page', () => {
     const order = ['<h3>plan.md</h3>', '<h2>Problem</h2>', '<h2>Solution</h2>', '>Approve</button>'].map((s) => screen.indexOf(s));
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(/<div class="dossier-actions">[\s\S]*?<\/div>/.exec(html)?.[0]).not.toContain('Approve');
+    expect(/<div class="omni-page-header__action">[\s\S]*?<\/header>/.exec(html)?.[0]).not.toContain('Approve');
   });
 
   it('says when a changed file or the spec could not be read', () => {

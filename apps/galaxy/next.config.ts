@@ -23,7 +23,7 @@ const KNOWLEDGE_FILES = [
 const withMDX = createMDX();
 
 const config: NextConfig = {
-  transpilePackages: ['@omni/galaxy', '@omni/design', '@omni/github', 'omni-loop'],
+  transpilePackages: ['@omni/galaxy', '@omni/design', '@omni/github', '@omni/ui', 'omni-loop'],
   turbopack: { root },
   outputFileTracingRoot: root,
   outputFileTracingIncludes: { '/': KNOWLEDGE_FILES },

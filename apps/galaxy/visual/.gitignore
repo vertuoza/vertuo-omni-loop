@@ -1,0 +1,2 @@
+# The diff images of a failed run (CI attaches them to the run as an artifact) are never committed.
+/diff/

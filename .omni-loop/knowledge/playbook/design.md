@@ -69,11 +69,12 @@ form, or one section of it, at that page with a `See:` line.
 
 ## System
 <!-- slot: system · required · by: invade -->
-- **One package holds the look:** `@omni/design` (`packages/design/`, its README). Colours are
-  `:root` custom properties in `packages/design/tokens.css`, generated from
-  `packages/design/src/palette.ts` and `src/tokens.ts` (`pnpm --filter @omni/design tokens`). The
-  four font roles, their faces and the type scale (`display-xl`…`display-s`, `pixel-l`…`pixel-s`,
-  `body-l`…`body-s`, `mono`) are `packages/design/src/fonts.ts`, written to `fonts.css`, with the
+- **One package holds the look:** `@omni/design` (`packages/design/`, its README). Its tokens are
+  DTCG files in `packages/design/tokens/*.tokens.json` (every colour, space, radius, type, weight,
+  elevation and motion value, in Omni, Light and Dark); `tokens/build.ts` writes `tokens.css` and
+  `src/tokens.generated.ts` from them. Edit the JSON, never those. The four font roles, their faces
+  and the type scale (`display-xl`…`display-s`, `pixel-l`…`pixel-s`, `body-l`…`body-s`, `mono`) are
+  `packages/design/src/fonts.ts`, written to `fonts.css`, with the
   woff2 files in `packages/design/fonts/`. The crest is `src/logo.ts`, the product brand
   `src/brand.ts`, the sprites `src/sprites.ts` and the sprite forge `src/forge.ts`; planets, suns
   and starfields are drawn by `src/draw.ts`.
@@ -85,6 +86,9 @@ form, or one section of it, at that page with a `See:` line.
   the page by `apps/galaxy/src/ask/theme-tokens.ts`, picked by `apps/galaxy/src/ask/theme.ts`), with
   every text and edge pair tested for WCAG AA. `apps/galaxy/src/ask/ask.css` names no colour of its
   own.
+- **The parts:** `@omni/ui` (`packages/ui/`) holds ten parts on the tokens, each with a `meta.ts`:
+  PageHeader, Tabs, Button, Badge, ListRow, Notice, EmptyState, Stack, Text, Card. The PRD page
+  builds from all ten.
 - **Components live by area,** in `apps/galaxy/src/`: the arcade's scenes in `arcade/scenes/` (one
   `.tsx` and one `.css` each), HOME in `home/` (the poster in `home/poster/`, the spreads in
   `home/spreads/`), the app shell in `nav/`, the reading-surface parts in `ask/page/` (`Notice`,

@@ -15,7 +15,8 @@
     "typecheck:tsc": "fumadocs-mdx && tsc --noEmit",
     "artifact": "node artifact/build.ts",
     "seed": "node scripts/seed.ts",
-    "shots": "node scripts/shots.ts"
+    "shots": "node scripts/shots.ts",
+    "visual": "node scripts/visual.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
@@ -23,6 +24,7 @@
     "@omni/design": "workspace:*",
     "@omni/galaxy": "workspace:*",
     "@omni/github": "workspace:*",
+    "@omni/ui": "workspace:*",
     "@scalar/api-reference-react": "^0.9.80",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",

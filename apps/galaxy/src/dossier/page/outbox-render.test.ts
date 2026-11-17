@@ -84,9 +84,9 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '
 describe('the tab', () => {
   it('is Outbox, after Plan and the User voice, with n open in its label, and current; the other tabs are unchanged', () => {
     const html = tab();
-    expect(html).toMatch(/User voice<\/a><a class="dossier-tab" aria-current="page" href="\/prd\/[^"]+\?tab=outbox">Outbox<small>2 open<\/small><\/a>/);
-    expect(html).toContain('>Before/after<small>v1</small></a>');
-    expect(html).toContain('>Spec<small>v1</small></a>');
+    expect(html).toMatch(/User voice<\/span><\/a><a class="omni-tab omni-tab--current" href="\/prd\/[^"]+\?tab=outbox" aria-current="page"><span class="dossier-tab-label">Outbox<small>2 open<\/small><\/span><\/a>/);
+    expect(html).toContain('>Before/after<small>v1</small></span></a>');
+    expect(html).toContain('>Spec<small>v1</small></span></a>');
   });
 });
 
@@ -121,7 +121,7 @@ describe('the states', () => {
     for (const github of [null, summary({ outbox: UNREAD })]) {
       const html = tab({ github });
       expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
-      expect(html).toContain('>Before/after<small>v1</small></a>');
+      expect(html).toContain('>Before/after<small>v1</small></span></a>');
     }
   });
 

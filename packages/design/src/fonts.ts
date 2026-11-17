@@ -74,7 +74,11 @@ const faces: { family: string; slug: string; role: FontRole; cuts: { weight: num
   },
   {
     family: 'Atkinson Hyperlegible Next', slug: 'atkinson-hyperlegible-next', role: 'body',
-    cuts: [{ weight: 400, style: 'normal' }, { weight: 700, style: 'normal' }, { weight: 400, style: 'italic' }],
+    // 500 and 600 for controls, labels and headings on the reading pages (PRD omni-loop-10).
+    cuts: [
+      { weight: 400, style: 'normal' }, { weight: 500, style: 'normal' }, { weight: 600, style: 'normal' },
+      { weight: 700, style: 'normal' }, { weight: 400, style: 'italic' },
+    ],
     stack: "'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif",
   },
   {

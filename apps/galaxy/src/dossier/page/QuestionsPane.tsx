@@ -152,18 +152,12 @@ function Round({ round, supabase }: { round: RoundEntry; supabase: Supabase }) {
 /** The strip above the list: the questions answered out of asked, what is left, and a meter. */
 function Progress({ questions }: { questions: QuestionsView }) {
   const { alert } = questionsCount(questions);
-  const share = questions.asked ? Math.round((questions.answered / questions.asked) * 100) : 0;
   return (
     <div className="dossier-progress">
       <p className="dossier-progress-words">
         {questions.answered} of {questions.asked} answered{alert !== null && <> <span className="dossier-left">{alert}</span></>}
       </p>
-      <span
-        className="dossier-meter" role="meter" aria-label="Questions answered"
-        aria-valuemin={0} aria-valuemax={questions.asked} aria-valuenow={questions.answered}
-      >
-        <span style={{ width: `${share}%` }} />
-      </span>
+      <meter className="dossier-meter" aria-label="Questions answered" min={0} max={questions.asked} value={questions.answered} />
     </div>
   );
 }
