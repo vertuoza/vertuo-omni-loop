@@ -22,6 +22,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import type { Rule } from 'eslint';
 import { z } from 'zod';
 
 export const BASELINE = 'design/baseline.json';
@@ -188,22 +189,22 @@ export function eslintPages(read: (path: string) => string, replaced: readonly s
     // Loaded here, not at the top, so a run with nothing to read never loads ESLint.
     const { ESLint } = await import('eslint');
     const { default: tseslint } = await import('typescript-eslint');
-    const rules = {
+    const rules: Record<string, Rule.RuleModule> = {
       'inline-style': {
         meta: { type: 'problem', schema: [], messages: { style: 'an inline style prop: write the value as a token in a stylesheet' } },
-        create: (context: { report: (descriptor: { node: unknown; messageId: string }) => void }) => ({
-          JSXAttribute(node: { name: { name?: unknown } }) {
+        create: (context) => ({
+          JSXAttribute(node: Rule.Node & { name: { name?: unknown } }) {
             if (node.name.name === 'style') context.report({ node, messageId: 'style' });
           },
         }),
       },
       'raw-component': {
         meta: { type: 'problem', schema: [], messages: { raw: 'a raw element or a class a @omni/ui component replaces: use the component' } },
-        create: (context: { report: (descriptor: { node: unknown; messageId: string }) => void; sourceCode: { getText: (node: unknown) => string } }) => ({
-          JSXOpeningElement(node: { name: { type: string; name?: string } }) {
+        create: (context) => ({
+          JSXOpeningElement(node: Rule.Node & { name: { type: string; name?: string } }) {
             if (node.name.type === 'JSXIdentifier' && RAW_ELEMENTS.includes(node.name.name ?? '')) context.report({ node, messageId: 'raw' });
           },
-          JSXAttribute(node: { name: { name?: unknown }; value: unknown }) {
+          JSXAttribute(node: Rule.Node & { name: { name?: unknown }; value?: Rule.Node | null }) {
             if (node.name.name === 'className' && node.value && classPattern?.test(context.sourceCode.getText(node.value))) context.report({ node, messageId: 'raw' });
           },
         }),
@@ -217,7 +218,7 @@ export function eslintPages(read: (path: string) => string, replaced: readonly s
           files: ['**/*.tsx'],
           languageOptions: { parser: tseslint.parser, parserOptions: { ecmaFeatures: { jsx: true } } },
           linterOptions: { noInlineConfig: true },
-          plugins: { design: { rules } as never },
+          plugins: { design: { rules } },
           rules: { 'design/inline-style': 'error', 'design/raw-component': 'error' },
         },
       ],
