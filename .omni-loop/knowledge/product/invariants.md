@@ -65,3 +65,14 @@ Stated: 2026-11-14
 Decided: nobody — adopted when raised (medium), 2026-11-13
 Merged: @pierrederval, 2026-11-14, PR #2810
 Proposed: harvest 2026-11-14
+
+## N-PRODUCT-21
+
+The database's newest list of the loop's own runner skill names always equals the app's whole list of the loop's skills, so a repository skill can never take a loop skill's name that the database has not yet learned.
+
+Source: .omni-loop/delivery/shipped/2873-heroes-every-skill/outbox/settled.md, entry s1-04-skills-proof-later-names, PRD #2873
+Enforced by: apps/galaxy/src/runners/runners.ultra-skills.migration.test.ts
+Stated: 2026-11-15
+Decided: nobody — adopted when raised (medium), 2026-11-14
+Merged: @pierrederval, 2026-11-15, PR #2876
+Proposed: harvest 2026-11-15
