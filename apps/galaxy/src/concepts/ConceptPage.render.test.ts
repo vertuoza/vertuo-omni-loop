@@ -87,8 +87,8 @@ describe('a concept\'s page', () => {
     expect(areas.indexOf('server-approval')).toBeLessThan(areas.indexOf('approval-handshake'));
     expect(areas).toMatch(/^<li class="concept-area concept-wedge">.*?server-approval.*?<span class="dossier-kind">wedge<\/span>/);
     expect((areas.match(/wedge<\/span>/g) ?? []).length).toBe(1);
-    expect(html).toContain('<button class="omni-button omni-button--primary omni-button--md" type="button">Copy</button><code class="stage-command">/omni:brainstorm --concept 1269 server-approval</code>');
-    expect((html.match(/omni:brainstorm --concept/g) ?? []).length).toBe(1);
+    expect(html).toContain('<button class="omni-button omni-button--primary omni-button--md" type="button" title="/omni:brainstorm --concept 1269 server-approval" data-primary="">Copy</button><code class="stage-command">/omni:brainstorm --concept 1269 server-approval</code>');
+    expect((html.match(/omni:brainstorm --concept/g) ?? []).length).toBe(2);
   });
 
   describe('shipped by itself (PRD 2213)', () => {

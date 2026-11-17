@@ -4,7 +4,21 @@
    here names a colour. The whole content area (PRD 476): a before/after page and the question cards
    use the width, and the spec and the plan keep a 900 px reading measure inside it. */
 
-.dossier { width: 100%; min-width: 0; display: grid; gap: var(--space-4); }
+.dossier {
+  /* The head's pulls, against .ask-main's padding: 28 px on top (src/ask/ask.css) and the page gutter
+     (--ask-gutter) on each side; the tabs keep the gutter less a tab's own padding. The facts strip is
+     pulled left by one cell's padding and rule, and clipped by as much, so a row's first cell shows
+     its label whole and no rule (bug #3011). */
+  --dossier-top-pull: -28px;
+  --dossier-gutter: var(--ask-gutter, 16px);
+  --dossier-gutter-pull: calc(-1 * var(--dossier-gutter));
+  --dossier-tabs-pad: max(0px, calc(var(--dossier-gutter) - var(--space-3)));
+  --dossier-strip-pull: calc(-1 * (var(--space-4) + 1px));
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+}
 
 /* ── The header box (PRD 476): the title row with its actions, the facts strip, the tabs ── */
 
@@ -74,7 +88,7 @@
   gap: var(--space-2) 0;
   margin: 0 0 0 var(--dossier-strip-pull);
   min-width: 0;
-  clip-path: inset(-4px -4px -4px 19px);
+  clip-path: inset(-4px -4px -4px calc(-1 * var(--dossier-strip-pull)));
 }
 .dossier-fact {
   display: grid;

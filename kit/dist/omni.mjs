@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.663" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.665" };
   }
 });
 
@@ -32875,7 +32875,7 @@ function isStoredShape(change2, { ctx }) {
   return ctx.config.risk.storedShape.some((source2) => new RegExp(source2).test(change2.path));
 }
 function enforcedByPaths({ ctx }) {
-  return new Set(readRegisters({ ctx }).entries.flatMap(proofPathsOf));
+  return new Set(readRegisters({ ctx }).entries.filter((entry3) => entry3.proposed === null).flatMap(proofPathsOf));
 }
 function proofPathsOf(entry3) {
   if (!entry3.enforced) return [];
