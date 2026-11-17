@@ -34013,8 +34013,8 @@ function answeredOutcome(entry3) {
   return reworkedBy ? `reworked in #${reworkedBy}` : "to be reworked";
 }
 function quoteReply(text19) {
-  const oneLine8 = (text19 ?? "").replace(/\s+/g, " ").trim();
-  const truncated = oneLine8.length > 120 ? `${oneLine8.slice(0, 117)}\u2026` : oneLine8;
+  const oneLine9 = (text19 ?? "").replace(/\s+/g, " ").trim();
+  const truncated = oneLine9.length > 120 ? `${oneLine9.slice(0, 117)}\u2026` : oneLine9;
   return `"${truncated}"`;
 }
 var MONTH_NAMES = [
@@ -36101,14 +36101,14 @@ function restoreDrift(reading, tree) {
   let ok = true;
   const lines5 = reading.drift.map((drift) => {
     const pin = approval3.files.find((file2) => file2.kind === drift.kind && tree.fileOf(file2) === drift.file);
-    const refuse7 = (line3) => {
+    const refuse8 = (line3) => {
       ok = false;
       return line3;
     };
-    if (drift.how === "voided") return refuse7(`cannot restore ${drift.file} \xB7 the approval was voided \xB7 ${again}`);
-    if (pin?.content === void 0) return refuse7(`cannot restore ${drift.file} \xB7 the pinned version cannot be read \xB7 ${again}`);
+    if (drift.how === "voided") return refuse8(`cannot restore ${drift.file} \xB7 the approval was voided \xB7 ${again}`);
+    if (pin?.content === void 0) return refuse8(`cannot restore ${drift.file} \xB7 the pinned version cannot be read \xB7 ${again}`);
     if (sha2562(pin.content) !== pin.sha256) {
-      return refuse7(`refused ${drift.file} \xB7 the pinned version does not hash to ${pin.sha256.slice(0, 7)} \xB7 ${again}`);
+      return refuse8(`refused ${drift.file} \xB7 the pinned version does not hash to ${pin.sha256.slice(0, 7)} \xB7 ${again}`);
     }
     tree.write(drift.file, pin.content);
     return `restored ${drift.file} \xB7 ${drift.how} \xB7 sha256 ${pin.sha256.slice(0, 7)}`;
@@ -40117,33 +40117,33 @@ function writePage(args, { ctx, stdout, stderr }) {
   const { positional, flags } = parseArgs("before-after new", withServicesValue(args), { values: ["services"], booleans: ["force"] });
   if (positional.length !== 1) throw usageError(USAGE6);
   const prd2 = prdArg("before-after new", "<n>", positional[0]);
-  const refuse7 = (why3) => {
+  const refuse8 = (why3) => {
     println(stderr, `omni before-after new: ${why3}`);
     return 1;
   };
   const where = ctx.layout.whereIs(prd2);
   const path = where?.state === "inbox" ? ctx.layout.beforeAfterPath(prd2) : null;
-  if (path === null) return refuse7(`PRD ${prd2} has no inbox folder.`);
+  if (path === null) return refuse8(`PRD ${prd2} has no inbox folder.`);
   const named5 = parseServices(flags.services);
-  if ("refusal" in named5) return refuse7(named5.refusal);
-  if (existsSync33(join46(ctx.root, path)) && flags.force !== true) return refuse7(`${path} already exists: pass --force to replace it.`);
+  if ("refusal" in named5) return refuse8(named5.refusal);
+  if (existsSync33(join46(ctx.root, path)) && flags.force !== true) return refuse8(`${path} already exists: pass --force to replace it.`);
   writeFileSync21(join46(ctx.root, path), beforeAfterSkeleton({ template: kitTemplate(TEMPLATE), prd: prd2, services: named5.services }));
   println(stdout, `wrote ${path}`);
   return 0;
 }
 var INSTALL = "pnpm add -D playwright && pnpm exec playwright install chromium";
 async function renderPage(prd2, { ctx, stdout, stderr }, launch) {
-  const refuse7 = (why3) => {
+  const refuse8 = (why3) => {
     println(stderr, `omni before-after render: ${why3}`);
     return 1;
   };
   const where = ctx.layout.whereIs(prd2);
   const path = where?.state === "inbox" ? ctx.layout.beforeAfterPath(prd2) : null;
-  if (path === null) return refuse7(`PRD ${prd2} has no inbox folder.`);
-  if (!existsSync33(join46(ctx.root, path))) return refuse7(`${path} does not exist: write it with omni before-after new ${prd2}.`);
+  if (path === null) return refuse8(`PRD ${prd2} has no inbox folder.`);
+  if (!existsSync33(join46(ctx.root, path))) return refuse8(`${path} does not exist: write it with omni before-after new ${prd2}.`);
   const html = readFileSync37(join46(ctx.root, path), "utf8");
   const result2 = await renderDiagrams({ html, launch: launch ?? repositoryLaunch(ctx.root) });
-  if (result2.kind === "unavailable") return refuse7(`cannot render the diagrams: ${result2.why}. Install it: ${INSTALL}`);
+  if (result2.kind === "unavailable") return refuse8(`cannot render the diagrams: ${result2.why}. Install it: ${INSTALL}`);
   if (result2.html !== html) writeFileSync21(join46(ctx.root, path), result2.html);
   for (const place of result2.drawn) println(stdout, `rendered ${place}`);
   for (const { place, reason: reason2 } of result2.refused) println(stderr, `omni before-after render: ${place}: ${reason2}`);
@@ -52902,10 +52902,10 @@ var ENTRIES = deepFreeze([
     name: "kb",
     kind: "command",
     who: "you",
-    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb business-laws [--domain <key> | --spec <file>] [--json]", "omni kb init"],
+    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb search <query> [--kind <kind>] [--domain <key>] [--repo <repo>] [--json]", "omni kb get <id> [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb business-laws [--domain <key> | --spec <file>] [--json]", "omni kb init"],
     label: "omni kb show <form>",
     summary: "one form of the playbook",
-    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. business-laws prints the product's business laws (PRD 2632), the rules written in product/business-laws.md and domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain's, by its folder or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why it was taken, the glossary read from the local copy. A business law lives in the product's law home, its plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and changes no file that exists.`
+    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. business-laws prints the product's business laws (PRD 2632), the rules written in product/business-laws.md and domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain's, by its folder or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why it was taken, the glossary read from the local copy. A business law lives in the product's law home, its plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and changes no file that exists. search <query> and get <id> (PRD 3007) read the product's knowledge over its MCP route with your own sign-in (omni signin, or OMNI_TOKEN on a runner), for an agent with no MCP: search prints the hits, best first, each with its id, kind and repository (--kind, --domain and --repo narrow it), get one entry whole, --json the server's answer. A call that cannot answer prints one line and exits 1: not signed in, the product's knowledge off, this repository in no product, or the Omni page unreachable.`
   },
   {
     name: "knowledge",
@@ -56276,6 +56276,202 @@ async function pushKnowledgeGraph({ ctx, git: git9, client, now: now2 }) {
   return { ok: true, lines: [`pushed ${repo}@${commit.slice(0, 7)} \xB7 ${reply.nodes} nodes, ${reply.edges} edges`, ...where] };
 }
 
+// kit/lib/knowledge/product-mcp-client.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/product/import.ts
+init_define_OMNI_BUNDLE();
+var SLUG3 = /^[\w.-]+\/[\w.-]+$/;
+var ImportLinkSchema = ProductLinkSchema.extend({ role: external_exports.string().trim().min(1).max(40) });
+var ProductImportRequestSchema = external_exports.object({
+  repo: external_exports.string().regex(SLUG3).max(200),
+  product: external_exports.string().trim().min(1).max(200),
+  targets: external_exports.array(ImportLinkSchema).min(1).max(200)
+});
+var ProductImportSchema = external_exports.object({
+  product: external_exports.object({ name: external_exports.string().min(1) }),
+  added: external_exports.array(external_exports.string()),
+  changed: external_exports.array(external_exports.string()),
+  unchanged: external_exports.array(external_exports.string())
+});
+var ProductsWhichSchema = external_exports.object({
+  products: external_exports.array(external_exports.object({ name: external_exports.string().min(1) }))
+});
+var shortName9 = (slug) => slug.slice(slug.indexOf("/") + 1);
+function linksOfTargets(targets2) {
+  const slugOf5 = (name3) => targets2.find((target3) => shortName9(target3.repo) === name3)?.repo ?? name3;
+  return targets2.map(({ repo, role, knowledge: knowledge2, readAt, readOnly: readOnly2 = false, consumes = [] }) => ({
+    repo,
+    role,
+    knowledge: knowledge2,
+    readAt,
+    readOnly: readOnly2,
+    consumes: consumes.map(slugOf5)
+  }));
+}
+function importLines(reply, product2) {
+  const parsed2 = ProductImportSchema.safeParse(reply);
+  if (!parsed2.success) throw new Error(`the server answered no import for product ${product2}`);
+  const { product: { name: name3 }, added, changed, unchanged } = parsed2.data;
+  if (added.length === 0 && changed.length === 0) {
+    return [`product ${name3}: nothing changed, ${unchanged.length} ${unchanged.length === 1 ? "link" : "links"} already as plan.targets says`];
+  }
+  return [
+    `product ${name3}: ${added.length} added, ${changed.length} changed, ${unchanged.length} unchanged`,
+    ...added.map((repo) => `  added    ${repo}`),
+    ...changed.map((repo) => `  changed  ${repo}`)
+  ];
+}
+function whichLines(reply) {
+  const parsed2 = ProductsWhichSchema.safeParse(reply);
+  if (!parsed2.success) throw new Error("the server answered no products for this repository");
+  const names = parsed2.data.products.map((product2) => product2.name);
+  return names.length ? names : ["none"];
+}
+
+// kit/lib/knowledge/product-mcp-client.ts
+var NOT_SIGNED_IN = "Not signed in to the Omni page: run omni signin.";
+var KNOWLEDGE_OFF = "This product's knowledge is off: a workspace owner turns it on in Product settings.";
+var NO_PRODUCT = "This repository is in no product: its knowledge is in omni kb show.";
+var UNREACHABLE2 = "The Omni page is unreachable: carry on with omni kb show.";
+var refuse2 = (line3) => ({ ok: false, line: line3 });
+function keyOfName(name3) {
+  const key2 = name3.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return /^[a-z]/.test(key2) ? key2.slice(0, 40).replace(/-+$/, "") : null;
+}
+function lineOf2(error62) {
+  if (!(error62 instanceof AskCallError) || error62.status === null) return UNREACHABLE2;
+  if (error62.status === 401 || error62.status === 403) return error62.message.startsWith("OMNI_TOKEN") ? error62.message.split("\n")[0] ?? NOT_SIGNED_IN : NOT_SIGNED_IN;
+  return UNREACHABLE2;
+}
+var RpcSchema = external_exports.object({
+  result: external_exports.object({
+    content: external_exports.array(external_exports.object({ type: external_exports.string(), text: external_exports.string().optional() })).default([]),
+    isError: external_exports.boolean().optional()
+  }).optional(),
+  error: external_exports.object({ message: external_exports.string() }).optional()
+});
+function rpcOf(body) {
+  try {
+    return JSON.parse(body);
+  } catch {
+    const data = body.split("\n").filter((line3) => line3.startsWith("data:")).at(-1);
+    const event = data === void 0 ? null : JSON.parse(data.slice(5));
+    return event;
+  }
+}
+function replyOf3(body) {
+  let parsed2 = null;
+  try {
+    const checked5 = RpcSchema.safeParse(rpcOf(body));
+    parsed2 = checked5.success ? checked5.data : null;
+  } catch {
+    parsed2 = null;
+  }
+  if (parsed2?.result === void 0) return refuse2(UNREACHABLE2);
+  const text19 = parsed2.result.content.map((part) => part.text ?? "").join("\n");
+  return parsed2.result.isError === true ? refuse2(text19.replace(/\s+/g, " ").trim() || UNREACHABLE2) : { ok: true, text: text19 };
+}
+async function callKnowledge(io, call) {
+  const { askUrl: askUrl2, repo } = io;
+  if (!askUrl2) return refuse2(NOT_SIGNED_IN);
+  const host = credentialsHost(askUrl2);
+  const store = io.tokens ?? homeTokens({ home: io.home });
+  if (!store.read(host)) return refuse2(NOT_SIGNED_IN);
+  const fetch = io.fetch ?? globalThis.fetch;
+  const callMs = io.callMs ?? CALL_TIMEOUT_MS;
+  const client = askClient({ baseUrl: askUrl2, host, tokens: store, fetch, callMs });
+  const key2 = io.remembered ?? await productKey(repo, client);
+  if (typeof key2 !== "string") return key2;
+  const url2 = `${askUrl2.replace(/\/+$/, "")}/api/products/${encodeURIComponent(key2)}/mcp`;
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: call.tool, arguments: call.args } });
+  const post5 = async () => {
+    try {
+      return await fetch(url2, {
+        method: "POST",
+        headers: { accept: "application/json, text/event-stream", "content-type": "application/json", authorization: `Bearer ${store.read(host)?.access_token ?? ""}` },
+        body,
+        signal: AbortSignal.timeout(callMs)
+      });
+    } catch {
+      throw new AskCallError("POST mcp: unreachable");
+    }
+  };
+  return exchange(post5, client, () => store.read(host)?.access_token ?? "");
+}
+async function exchange(post5, client, token) {
+  try {
+    if (token() === "" && await client.renew() !== "renewed") return refuse2(NOT_SIGNED_IN);
+    let response = await post5();
+    if (response.status === 401) {
+      const renewed2 = await client.renew();
+      if (renewed2 !== "renewed") return refuse2(renewed2 === "refused" ? NOT_SIGNED_IN : UNREACHABLE2);
+      response = await post5();
+    }
+    return await answerOf2(response);
+  } catch (error62) {
+    return refuse2(lineOf2(error62));
+  }
+}
+async function answerOf2(response) {
+  if (response.status === 401) return refuse2(NOT_SIGNED_IN);
+  if (response.status === 404) return refuse2(KNOWLEDGE_OFF);
+  return response.ok ? replyOf3(await response.text()) : refuse2(UNREACHABLE2);
+}
+async function productKey(repo, client) {
+  if (!repo) return refuse2(NO_PRODUCT);
+  try {
+    const which = ProductsWhichSchema.safeParse(await client.readProductsOf(repo));
+    return (which.success ? keyOfName(which.data.products[0]?.name ?? "") : null) ?? refuse2(NO_PRODUCT);
+  } catch (error62) {
+    return refuse2(lineOf2(error62));
+  }
+}
+var SearchAnswerSchema = external_exports.object({
+  hits: external_exports.array(external_exports.object({ id: external_exports.string(), kind: external_exports.string(), title: external_exports.string(), repo: external_exports.string().nullable(), snippet: external_exports.string().optional() })),
+  total: external_exports.number().optional(),
+  repositories: external_exports.array(external_exports.object({ repo: external_exports.string(), pack: external_exports.unknown().nullable(), note: external_exports.string().optional() })).default([])
+});
+var GetAnswerSchema = external_exports.object({
+  entry: external_exports.object({
+    id: external_exports.string(),
+    kind: external_exports.string(),
+    title: external_exports.string(),
+    repo: external_exports.string().nullable(),
+    domain: external_exports.string().nullable().optional(),
+    body: external_exports.string(),
+    file: external_exports.string().nullable().optional(),
+    status: external_exports.string().nullable().optional()
+  })
+});
+function jsonOf(text19) {
+  try {
+    return JSON.parse(text19);
+  } catch {
+    return null;
+  }
+}
+var oneLine3 = (text19) => text19.replace(/\s+/g, " ").trim();
+var notesOf = (repositories) => repositories.flatMap(({ repo, pack: pack2, note }) => pack2 === null && note !== void 0 ? [`${repo}: ${oneLine3(note)}`] : []);
+function searchLines(text19) {
+  const parsed2 = SearchAnswerSchema.safeParse(jsonOf(text19));
+  if (!parsed2.success) return [UNREACHABLE2];
+  const { hits, total, repositories } = parsed2.data;
+  const lines5 = hits.length === 0 ? ["No hit: the product's knowledge holds no answer to this search."] : hits.flatMap((hit) => [
+    `${hit.id} \xB7 ${hit.kind} \xB7 ${hit.repo ?? "the product"} \u2014 ${oneLine3(hit.title)}`,
+    ...hit.snippet ? [`  ${oneLine3(hit.snippet)}`] : []
+  ]);
+  if (total !== void 0 && total > hits.length) lines5.push(`${hits.length} of ${total} hits shown: narrow the search with --kind, --domain or --repo.`);
+  return [...lines5, ...notesOf(repositories)];
+}
+function entryLines2(text19) {
+  const parsed2 = GetAnswerSchema.safeParse(jsonOf(text19));
+  if (!parsed2.success) return [UNREACHABLE2];
+  const { entry: entry3 } = parsed2.data;
+  const where = [entry3.repo ?? "the product", ...entry3.domain ? [`domain ${entry3.domain}`] : [], ...entry3.status ? [entry3.status] : []];
+  return [`${entry3.id} \xB7 ${entry3.kind} \xB7 ${where.join(" \xB7 ")} \u2014 ${oneLine3(entry3.title)}`, "", entry3.body];
+}
+
 // kit/lib/knowledge/product-graph-text.ts
 init_define_OMNI_BUNDLE();
 
@@ -56467,18 +56663,18 @@ function indexLines({ product: product2, glossary, legal, personas = [] }, synce
   };
 }
 var NO_CUT = { words: 0, legal: 0, personas: 0 };
-var oneLine3 = (state, why3) => [
+var oneLine4 = (state, why3) => [
   { state, product: null, words: [], legal: [], personas: [], syncedAt: null, cut: NO_CUT },
   [`no product knowledge: ${why3} ${CARRY_ON3}`]
 ];
 function printed2(read3, state, syncedAt, synced) {
   const { lines: lines5, shown: shown6, cut: cut7 } = indexLines(read3, synced);
-  if (lines5.length === 0) return oneLine3("none", `${read3.product} holds no words, laws or personas yet`);
+  if (lines5.length === 0) return oneLine4("none", `${read3.product} holds no words, laws or personas yet`);
   return [{ state, product: read3.product, ...shown6, syncedAt, cut: cut7 }, lines5];
 }
 function fallback3({ root, now: now2 }, state, why3) {
   const copy = readCachedKnowledge(root);
-  if (copy.state !== "cached") return oneLine3(state, why3);
+  if (copy.state !== "cached") return oneLine4(state, why3);
   return printed2(copy, "cached", copy.readAt, `synced ${ageOf2(copy.readAt, now2().getTime())}, ${why3}`);
 }
 function stopped4(error62) {
@@ -56506,7 +56702,7 @@ async function readIndex2(io) {
     const syncedAt = now2().toISOString();
     return printed2(read3, read3.from === "copy" ? "cached" : "ok", read3.from === "copy" ? read3.readAt : syncedAt, read3.from === "copy" ? `synced ${ageOf2(read3.readAt, now2().getTime())}, offline` : "synced just now");
   } catch (error62) {
-    if (error62 instanceof KnowledgeStop && (error62.state === "archived" || error62.state === "none")) return oneLine3(error62.state, error62.message);
+    if (error62 instanceof KnowledgeStop && (error62.state === "archived" || error62.state === "none")) return oneLine4(error62.state, error62.message);
     const { state, why: why3 } = stopped4(error62);
     return fallback3(io, state, why3);
   } finally {
@@ -56594,22 +56790,22 @@ function ghReader({ exec, env }) {
       } catch (error62) {
         throw new Unreachable(ghLine(error62));
       }
-      return answerOf2(GhRepositorySchema, answer, `repos/${repo}`);
+      return answerOf3(GhRepositorySchema, answer, `repos/${repo}`);
     },
     file: (repo, path, ref2) => call(["-H", "Accept: application/vnd.github.raw", contents(repo, path, ref2)]),
     dir(repo, path, ref2) {
       const out = call([contents(repo, path, ref2)]);
       if (out === null) return null;
       const listed4 = JSON.parse(out);
-      return Array.isArray(listed4) ? answerOf2(GhContentEntrySchema.array(), listed4, `${repo}:${path}`) : null;
+      return Array.isArray(listed4) ? answerOf3(GhContentEntrySchema.array(), listed4, `${repo}:${path}`) : null;
     },
     compare(repo, base, head) {
       const out = call([`repos/${repo}/compare/${base}...${encodeURIComponent(head)}`]);
-      return out === null ? null : answerOf2(GhCompareSchema, JSON.parse(out), `${repo} compare ${base}...${head}`);
+      return out === null ? null : answerOf3(GhCompareSchema, JSON.parse(out), `${repo} compare ${base}...${head}`);
     }
   };
 }
-function answerOf2(schema, answer, what) {
+function answerOf3(schema, answer, what) {
   const parsed2 = schema.safeParse(answer);
   if (!parsed2.success) throw new Unreachable(`gh answered ${what} without what it needs \u2014 ${firstIssue(parsed2.error)}`);
   return parsed2.data;
@@ -56838,7 +57034,7 @@ var PACK_USAGE = "usage: omni kb pack get <repo> [--read-at <commit>]";
 var GRAPH_USAGE = "usage: omni kb graph [<id> | --paths <file>[,<file>\u2026] [<file>\u2026]] [--depth <1-3>] [--json]";
 var GRAPH_PRODUCT_USAGE = "usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]";
 var GRAPH_PUSH_USAGE = "usage: omni kb graph push";
-var USAGE33 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb business-laws [--domain <key> | --spec <file>] [--json] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit \u2026] | omni kb glossary [add|edit \u2026] | omni kb domains [add|edit \u2026] | omni kb index [--json]`;
+var USAGE33 = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws [\u2026] | omni kb business-laws [--domain <key> | --spec <file>] [--json] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit \u2026] | omni kb glossary [add|edit \u2026] | omni kb domains [add|edit \u2026] | omni kb index [--json] | omni kb search <query> [--kind <kind>] [--domain <key>] [--repo <repo>] [--json] | omni kb get <id> [--json]`;
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -57188,12 +57384,12 @@ var PRODUCT_LINES = {
 var isProductVerb = (sub) => sub !== void 0 && Object.hasOwn(PRODUCT_LINES, sub);
 async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cwd) {
   if (positional.length > 0) throw usageError(`usage: omni kb ${verb2}`);
-  const refuse7 = (line3) => {
+  const refuse8 = (line3) => {
     println(stdout, line3);
     return 1;
   };
   const reach7 = reachOf(ctx, options);
-  if (typeof reach7 === "string") return refuse7(reach7);
+  if (typeof reach7 === "string") return refuse8(reach7);
   const { repo, client } = reach7;
   try {
     const read3 = await productKnowledge({
@@ -57206,7 +57402,7 @@ async function productVerb(verb2, positional, { ctx, stdout, exec }, options, cw
     for (const line3 of PRODUCT_LINES[verb2](read3)) println(stdout, line3);
     return 0;
   } catch (error62) {
-    return refuse7(messageOf(error62));
+    return refuse8(messageOf(error62));
   }
 }
 function productCommand(verb2, args, io, options) {
@@ -57250,6 +57446,44 @@ function indexIo(cwd, exec, options) {
       }
     }
   };
+}
+var SEARCH_USAGE = "usage: omni kb search <query> [--kind <kind>] [--domain <key>] [--repo <repo>] [--json]";
+var GET_USAGE = "usage: omni kb get <id> [--json]";
+function getCall(positional) {
+  const [id] = positional;
+  if (positional.length !== 1 || id === void 0) throw usageError(GET_USAGE);
+  return { tool: "get_knowledge", args: { id } };
+}
+function searchCall(positional, flags) {
+  const query = positional.join(" ").trim();
+  const filters = Object.entries({ kind: flags.kind, domain: flags.domain, repo: flags.repo }).filter(([, value]) => value !== void 0);
+  const args = { ...query === "" ? {} : { query }, ...Object.fromEntries(filters) };
+  if (Object.keys(args).length === 0) throw usageError(SEARCH_USAGE);
+  return { tool: "search_knowledge", args };
+}
+function knowledgeCall(verb2, args) {
+  const { positional, flags } = parseArgs(`kb ${verb2}`, args, { values: verb2 === "search" ? ["kind", "domain", "repo"] : [], booleans: ["json"] });
+  return { call: verb2 === "get" ? getCall(positional) : searchCall(positional, flags), json: flags.json === true };
+}
+async function productKnowledgeVerb(verb2, args, io, cwd) {
+  const { call, json: json4 } = knowledgeCall(verb2, args);
+  const { ctx, stdout, exec } = io;
+  const reply = await callKnowledge({
+    askUrl: ctx.config.ask.url,
+    repo: ctx.config.repo.slug,
+    remembered: rememberedProduct(mainCheckout(cwd, exec) ?? ctx.root)?.key ?? null,
+    tokens: io.tokens,
+    home: io.home,
+    fetch: io.fetch,
+    callMs: io.callMs
+  }, call);
+  if (!reply.ok) {
+    println(stdout, reply.line);
+    return 1;
+  }
+  const lines5 = json4 ? [reply.text] : verb2 === "search" ? searchLines(reply.text) : entryLines2(reply.text);
+  for (const line3 of lines5) println(stdout, line3);
+  return 0;
 }
 async function graphPush(args, io) {
   const { ctx, stdout, exec } = io;
@@ -57348,6 +57582,12 @@ var PLAIN = { init: init2, show: show3, status: status3, owners };
 function verbOf(table, name3) {
   return name3 !== void 0 && Object.hasOwn(table, name3) ? table[name3] : void 0;
 }
+var ASYNC = {
+  pack,
+  "business-laws": businessLaws,
+  search: (args, io, free) => productKnowledgeVerb("search", args, io, free.cwd),
+  get: (args, io, free) => productKnowledgeVerb("get", args, io, free.cwd)
+};
 var basic = synchronous((args, io) => {
   const ownFlags = verbOf(OWN_FLAGS, args[0]);
   if (ownFlags) return ownFlags(args.slice(1), io);
@@ -57364,8 +57604,8 @@ var kb2 = {
     const [sub, ...rest] = args;
     if (sub === "index") return index(rest, io);
     const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
-    if (sub === "pack") return pack(rest, full);
-    if (sub === "business-laws") return businessLaws(rest, full);
+    const asynchronous = verbOf(ASYNC, sub);
+    if (asynchronous) return asynchronous(rest, full, io);
     if (sub === "graph" && rest[0] === "push") return graphPush(rest.slice(1), full);
     if (sub === "graph" && rest.includes("--product")) return graphProduct(rest, full);
     if (isProductVerb(sub)) return productCommand(sub, rest, { ...full, vars: io.vars }, io);
@@ -57390,7 +57630,7 @@ var LINES = [
   ["stated", "Stated"],
   ["keptId", "Kept id"]
 ];
-function oneLine4(entry3) {
+function oneLine5(entry3) {
   return `  ${entry3.id} (${entry3.kind ?? "unknown kind"}, ${entry3.file}) \u2014 ${entry3.statement}`;
 }
 function fieldLines(entry3) {
@@ -57419,13 +57659,13 @@ function describeEntry(knowledge2, id) {
   ];
   if (entry3.serves) {
     const served = knowledge2.entries.find((candidate) => candidate.id === entry3.serves);
-    out.push("", "It serves:", served ? oneLine4(served) : `  ${entry3.serves} (claimed by nothing)`);
+    out.push("", "It serves:", served ? oneLine5(served) : `  ${entry3.serves} (claimed by nothing)`);
   }
   const serving = servedBy(knowledge2.entries, entry3.id);
   if (entry3.kind === "principle" || serving.length > 0) {
     out.push("", "Served by:");
     out.push(
-      ...serving.length > 0 ? serving.map(oneLine4) : ["  nothing yet \u2014 this principle is a wish"]
+      ...serving.length > 0 ? serving.map(oneLine5) : ["  nothing yet \u2014 this principle is a wish"]
     );
   }
   return out.join("\n");
@@ -57764,12 +58004,12 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var LINE_MAX = 300;
 var WHO_MAX = 100;
-function oneLine5(text19, max) {
+function oneLine6(text19, max) {
   return Array.from(text19.replace(/\s+/g, " ").trim()).slice(0, max).join("").trim();
 }
-var reasonOf3 = (plan2) => oneLine5(plan2.reason ?? "", LINE_MAX) || `plan v${plan2.version}`;
+var reasonOf3 = (plan2) => oneLine6(plan2.reason ?? "", LINE_MAX) || `plan v${plan2.version}`;
 function startBody({ repo, plan: plan2, takeOver }) {
-  const reason2 = oneLine5(plan2.reason ?? "", LINE_MAX);
+  const reason2 = oneLine6(plan2.reason ?? "", LINE_MAX);
   return { event: "start", repo, prds: [...plan2.prds], plan: plan2, ...reason2 ? { reason: reason2 } : {}, takeOver };
 }
 function tickBody({ loopId, step: step4, steps, prd: prd2, action, result: result2, link: link3 = null, merged = [], items = [], repos = [], nextWakeAt = null, replan: replan2 = null }) {
@@ -57780,7 +58020,7 @@ function tickBody({ loopId, step: step4, steps, prd: prd2, action, result: resul
     steps,
     prd: prd2,
     action,
-    result: oneLine5(result2, LINE_MAX),
+    result: oneLine6(result2, LINE_MAX),
     link: link3,
     merged: [...merged],
     items: [...items],
@@ -57790,7 +58030,7 @@ function tickBody({ loopId, step: step4, steps, prd: prd2, action, result: resul
   };
 }
 function parkBody({ loopId, prd: prd2, who: who2, what, link: link3 = null }) {
-  return { event: "park", loopId, prd: prd2, who: oneLine5(who2, WHO_MAX), what: oneLine5(what, LINE_MAX), link: link3 };
+  return { event: "park", loopId, prd: prd2, who: oneLine6(who2, WHO_MAX), what: oneLine6(what, LINE_MAX), link: link3 };
 }
 function stopBody(loopId) {
   return { event: "stop", loopId };
@@ -57926,7 +58166,7 @@ function skipLine3(error62) {
   return error62.reason ? `refused (${error62.status}): ${error62.reason}` : `refused (${error62.status})`;
 }
 function lineArg(name3, value, max) {
-  const line3 = oneLine5(value ?? "", max);
+  const line3 = oneLine6(value ?? "", max);
   if (!line3) throw usageError(`omni loop push: --${name3} needs a line of text.`);
   return line3;
 }
@@ -58030,7 +58270,7 @@ function standingLine(loop2, state) {
   const hint = state === "silent" ? "take it over with --take-over" : "stop it first (omni loop push stop)";
   return `${state}: ${loop2.loopId} on ${loop2.repo}, plan v${loop2.planVersion} \u2014 ${hint}`;
 }
-function answerOf3(reply) {
+function answerOf4(reply) {
   const loopId = field(reply, "loopId");
   const state = field(reply, "state");
   const planVersion = field(reply, "planVersion");
@@ -58038,7 +58278,7 @@ function answerOf3(reply) {
   if (state !== "running" && state !== "parked" && state !== "stopped") return null;
   return typeof planVersion === "number" && Number.isInteger(planVersion) ? { loopId, state, planVersion } : null;
 }
-function refuse2(stderr, line3) {
+function refuse3(stderr, line3) {
   println(stderr, line3);
   return 1;
 }
@@ -58062,7 +58302,7 @@ async function sendBody(client, body) {
   } catch (error62) {
     return skipLine3(error62);
   }
-  return answerOf3(reply) ?? "refused (no loop in the reply)";
+  return answerOf4(reply) ?? "refused (no loop in the reply)";
 }
 function sentVersionOf(plan2, kept2) {
   return plan2?.version ?? kept2?.planVersion ?? 1;
@@ -58096,9 +58336,9 @@ function pushedLine(body, answer, loop2) {
 }
 async function sendAndKeep(sending, io) {
   const client = signedInClient({ askUrl: sending.askUrl, tokens: io.tokens, home: io.home, fetch: io.fetch ?? globalThis.fetch, callMs: io.callMs });
-  if (!client) return refuse2(io.stderr, "no sign-in (omni signin)");
+  if (!client) return refuse3(io.stderr, "no sign-in (omni signin)");
   const answer = await sendBody(client, sending.body);
-  if (typeof answer === "string") return refuse2(io.stderr, answer);
+  if (typeof answer === "string") return refuse3(io.stderr, answer);
   const loop2 = loopAfter(sending, answer);
   writeLocalLoop(sending.root, loop2);
   println(io.stdout, pushedLine(sending.body, answer, loop2));
@@ -58116,11 +58356,11 @@ async function push3(args, io) {
   const at2 = io.now();
   const prepared = prepare2(event, rest, { repo, now: at2 });
   const askUrl2 = ctx.config.ask.url;
-  if (!askUrl2) return refuse2(io.stderr, "off");
+  if (!askUrl2) return refuse3(io.stderr, "off");
   const plan2 = readLoopPlans(ctx.root).at(-1) ?? null;
   const kept2 = readLocalLoop(ctx.root);
   const body = prepared.needsLoop ? loopBody(prepared.body, kept2, plan2) : startingBody(prepared, kept2, plan2, at2);
-  if (typeof body === "string") return refuse2(io.stderr, body);
+  if (typeof body === "string") return refuse3(io.stderr, body);
   const roadmap2 = body.event === "start" ? roadmapDriving(ctx, body.prds) : null;
   return sendAndKeep({ askUrl: askUrl2, root: ctx.root, repo, body, plan: plan2, kept: kept2, wake: prepared.wake, at: at2, roadmap: roadmap2 }, io);
 }
@@ -58418,7 +58658,7 @@ ${heading(question)}
 ${answer.trim()}
 `;
 }
-function answerOf4(body) {
+function answerOf5(body) {
   const marked = MARKER5.exec(body);
   if (!marked) return null;
   const question = marked[1] ?? "";
@@ -58430,7 +58670,7 @@ function answerOf4(body) {
 function readAnswers(comments) {
   const answers2 = /* @__PURE__ */ new Map();
   for (const comment2 of comments) {
-    const found2 = answerOf4(comment2.body ?? "");
+    const found2 = answerOf5(comment2.body ?? "");
     if (found2) answers2.set(found2.question, found2.answer);
   }
   return answers2;
@@ -59393,11 +59633,11 @@ async function beforeInbox(prd2, phase02, reader) {
 function standingsOf(own2, outbox, across, reader) {
   const questions2 = own2?.state === "OPEN" && own2.isDraft ? outbox.questions : 0;
   const targets2 = (across?.listed ?? []).map((listed4) => standingPr(listed4.repo, listed4.pr, 0));
-  return [...own2 === null ? [] : [standingPr(shortName9(reader.slug), own2, questions2)], ...targets2].filter((standing4) => standing4 !== null);
+  return [...own2 === null ? [] : [standingPr(shortName10(reader.slug), own2, questions2)], ...targets2].filter((standing4) => standing4 !== null);
 }
-var shortName9 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName10 = (slug) => slug.slice(slug.indexOf("/") + 1);
 function targetSlug(name3, reader) {
-  return (targetsOf(reader.ctx) ?? []).find((target3) => shortName9(target3.repo) === name3)?.repo ?? name3;
+  return (targetsOf(reader.ctx) ?? []).find((target3) => shortName10(target3.repo) === name3)?.repo ?? name3;
 }
 var reposOf2 = (slices) => [...new Set((slices ?? []).flatMap((slice) => slice.repo ? [slice.repo] : []))].sort();
 async function targetPr(branch, reader) {
@@ -59412,11 +59652,11 @@ async function targetPr(branch, reader) {
 async function acrossFacts(branch, slices, reader) {
   const targets2 = targetsOf(reader.ctx);
   if (targets2 === void 0) return void 0;
-  const repo = shortName9(reader.slug);
+  const repo = shortName10(reader.slug);
   const named5 = new Set(reposOf2(slices));
-  const landed = targets2.filter((target3) => named5.has(shortName9(target3.repo)) && shortName9(target3.repo) !== repo);
+  const landed = targets2.filter((target3) => named5.has(shortName10(target3.repo)) && shortName10(target3.repo) !== repo);
   const read3 = [];
-  for (const target3 of landed) read3.push({ repo: shortName9(target3.repo), ...await targetPr(branch, { ...reader, slug: target3.repo }) });
+  for (const target3 of landed) read3.push({ repo: shortName10(target3.repo), ...await targetPr(branch, { ...reader, slug: target3.repo }) });
   return {
     across: { repo, targets: read3.map(({ repo: name3, pr }) => ({ repo: name3, pr })) },
     listed: read3.flatMap(({ repo: name3, listed: listed4 }) => listed4 ? [{ repo: name3, pr: listed4 }] : [])
@@ -60071,7 +60311,7 @@ function releaseLockAt(path, owner) {
   const held3 = attempt9(() => readLock(path)?.owner, null);
   if (held3 === owner) rmSync16(path, { force: true });
 }
-var oneLine6 = (error62) => (String(prop2(error62, "message") ?? error62).split("\n")[0] ?? "").trim() || "the board could not be built";
+var oneLine7 = (error62) => (String(prop2(error62, "message") ?? error62).split("\n")[0] ?? "").trim() || "the board could not be built";
 function refreshBoard({ root, prd: prd2, now: now2, build }) {
   const owner = takeLock(root, prd2, now2);
   if (owner === null) return "held";
@@ -60081,7 +60321,7 @@ function refreshBoard({ root, prd: prd2, now: now2, build }) {
     try {
       entry3 = { at: at2, slices: build().map(({ id, wave, state, title }) => withName({ id, wave, state }, sliceName(title))) };
     } catch (error62) {
-      entry3 = { at: at2, error: oneLine6(error62) };
+      entry3 = { at: at2, error: oneLine7(error62) };
     }
     writeBoard(root, prd2, entry3);
   } finally {
@@ -60122,7 +60362,7 @@ function writeLinks(root, kind2, n, links2, now2) {
   ensureLinksDir(root);
   writeJsonAt(linksFile(root, kind2, n), { at: new Date(now2).toISOString(), links: links2 });
 }
-function oneLine7(error62) {
+function oneLine8(error62) {
   const message2 = error62 instanceof Error ? error62.message : String(error62);
   return (message2.split("\n")[0] ?? "").trim() || "the links could not be read";
 }
@@ -60137,7 +60377,7 @@ async function refreshLinks({ root, kind: kind2, n, now: now2, build }) {
     try {
       entry3 = { at: at2, links: await build() };
     } catch (error62) {
-      entry3 = { at: at2, error: oneLine7(error62) };
+      entry3 = { at: at2, error: oneLine8(error62) };
     }
     writeJsonAt(linksFile(root, kind2, n), entry3);
   } finally {
@@ -61406,7 +61646,7 @@ function withStatusOf(session2, answer) {
   const facts2 = statusFacts(session2, kept2, { at: kept2?.at ?? null, fetch: "not-asked" });
   return withStatus(answer, facts2 ? statusOf3(facts2) : null);
 }
-async function answerOf5(args, session2, io, folder, at2) {
+async function answerOf6(args, session2, io, folder, at2) {
   const read3 = session2?.answer ?? NOTHING2;
   if (!args.includes(JSON_FLAG)) return read3;
   return withRunnerRows(session2 ? withStatusOf(session2, read3) : read3, { folder, io, at: at2 });
@@ -61417,7 +61657,7 @@ var now = {
     const { cwd, stdout, exec, vars, stdin = process.stdin, now: clock4 = Date.now } = io;
     const input2 = await sessionInput(args, stdin);
     const session2 = readNowSession({ cwd, folder: input2?.currentDir ?? null, sessionId: sessionOf2(args, input2, { vars, folder: input2?.currentDir ?? cwd, exec }), exec, now: clock4() });
-    const text19 = args.includes(STATUS_FLAG) ? await statusText2(session2, args, io, clock4()) : rendered(args, await answerOf5(args, session2, io, input2?.currentDir ?? cwd, clock4()));
+    const text19 = args.includes(STATUS_FLAG) ? await statusText2(session2, args, io, clock4()) : rendered(args, await answerOf6(args, session2, io, input2?.currentDir ?? cwd, clock4()));
     try {
       stdout.write(text19);
     } catch {
@@ -61596,7 +61836,7 @@ import { join as join131 } from "node:path";
 // kit/lib/plan-repo/moved.ts
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync15 } from "node:child_process";
-var shortName10 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName11 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var pathsOf2 = (file2) => [file2.filename, file2.previous_filename].filter((path) => Boolean(path));
 function compareRow(gh3, { slug, readAt, slices }) {
   const branch = gh3.repository(slug).default_branch;
@@ -61621,8 +61861,8 @@ function planMoved({
   targets: targets2
 }, { exec = execFileSync15, env } = {}) {
   const gh3 = ghReader({ exec, env });
-  const slugOf5 = new Map(targets2.map((target3) => [shortName10(target3.repo), target3.repo]));
-  return repositories.filter((row) => row.repo !== shortName10(planSlug)).map((row) => {
+  const slugOf5 = new Map(targets2.map((target3) => [shortName11(target3.repo), target3.repo]));
+  return repositories.filter((row) => row.repo !== shortName11(planSlug)).map((row) => {
     const base = { repo: row.repo, state: "ok", files: [], slices: [], detail: null };
     const slug = slugOf5.get(row.repo);
     if (!slug) return { ...base, state: "unreachable", detail: "not a target of this plan repository" };
@@ -62052,7 +62292,7 @@ var PitchRunRefused = class extends Error {
     this.status = status5;
   }
 };
-var refuse3 = (message2, status5 = 400) => {
+var refuse4 = (message2, status5 = 400) => {
   throw new PitchRunRefused(status5, message2);
 };
 var isRecord6 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -62066,16 +62306,16 @@ function parsedOrNull(text19) {
 }
 function fileOf(dir, name3) {
   const path = join132(dir, name3);
-  if (!existsSync83(path) || !statSync24(path).isFile()) refuse3(`${name3}: not in the run folder`);
+  if (!existsSync83(path) || !statSync24(path).isFile()) refuse4(`${name3}: not in the run folder`);
   const { size } = statSync24(path);
-  if (size > PITCH_FILE_MAX_BYTES) refuse3(`${name3}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
+  if (size > PITCH_FILE_MAX_BYTES) refuse4(`${name3}: over ${PITCH_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name3, path, bytes: size, type: PITCH_FILES[name3] };
 }
 function wordsOf3(sent2) {
   const word2 = (key2) => {
     const value = sent2[key2];
     const max = WORD_MAX[key2];
-    if (typeof value !== "string" || !value.trim() || value.trim().length > max) return refuse3(`${PITCH_RUN_FILE}: ${key2} is 1 to ${max} characters`);
+    if (typeof value !== "string" || !value.trim() || value.trim().length > max) return refuse4(`${PITCH_RUN_FILE}: ${key2} is 1 to ${max} characters`);
     return value.trim();
   };
   return { hook: word2("hook"), benefit: word2("benefit"), kicker: word2("kicker"), closing: word2("closing") };
@@ -62084,12 +62324,12 @@ function readPitchRun(dir, prd2) {
   const file2 = join132(dir, PITCH_RUN_FILE);
   if (!existsSync83(file2)) return null;
   const sent2 = parsedOrNull(readFileSync104(file2, "utf8"));
-  if (!isRecord6(sent2)) return refuse3(`${PITCH_RUN_FILE} is not a JSON object`);
+  if (!isRecord6(sent2)) return refuse4(`${PITCH_RUN_FILE} is not a JSON object`);
   const { audience, look: look2, commit } = sent2;
-  if (sent2.prd !== void 0 && sent2.prd !== prd2) refuse3(`${PITCH_RUN_FILE} is for PRD ${shown5(sent2.prd)}, not ${prd2}`);
-  if (!isOneOf(AUDIENCES, audience)) return refuse3(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
-  if (!isOneOf(LOOKS, look2)) return refuse3(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look2)}`);
-  if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse3(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
+  if (sent2.prd !== void 0 && sent2.prd !== prd2) refuse4(`${PITCH_RUN_FILE} is for PRD ${shown5(sent2.prd)}, not ${prd2}`);
+  if (!isOneOf(AUDIENCES, audience)) return refuse4(`${PITCH_RUN_FILE}: audience is customers or inside, not ${String(audience)}`);
+  if (!isOneOf(LOOKS, look2)) return refuse4(`${PITCH_RUN_FILE}: look is arcade or keynote, not ${String(look2)}`);
+  if (typeof commit !== "string" || !COMMIT3.test(commit)) return refuse4(`${PITCH_RUN_FILE}: commit is the hash of the commit the pitch was made at`);
   const words4 = wordsOf3(sent2);
   const files = keysOf(PITCH_FILES).map((name3) => fileOf(dir, name3));
   return { audience, look: look2, commit, ...words4, files };
@@ -64026,7 +64266,7 @@ var ProofRunRefused = class extends Error {
     this.status = status5;
   }
 };
-var refuse4 = (message2, status5 = 400) => {
+var refuse5 = (message2, status5 = 400) => {
   throw new ProofRunRefused(status5, message2);
 };
 var isRecord9 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -64044,24 +64284,24 @@ var isBlank = (value) => value === void 0 || value === null;
 function textOf9(item2, at2) {
   const text19 = isRecord9(item2) ? item2.text : void 0;
   const valid = isRecord9(item2) && typeof text19 === "string" && text19.trim() && text19.length <= TEXT_MAX2;
-  if (!valid) return refuse4(`${at2}: its text is 1 to ${TEXT_MAX2} characters`);
+  if (!valid) return refuse5(`${at2}: its text is 1 to ${TEXT_MAX2} characters`);
   return { text: text19.trim(), sent: item2 };
 }
 function verdictOf4(item2, at2) {
   const { verdict: verdict2 } = item2;
-  if (!isVerdict2(verdict2)) return refuse4(`${at2}: a verdict is ${VERDICTS4.slice(0, -1).join(", ")} or ${VERDICTS4.at(-1)}, not ${String(item2.verdict)}`);
+  if (!isVerdict2(verdict2)) return refuse5(`${at2}: a verdict is ${VERDICTS4.slice(0, -1).join(", ")} or ${VERDICTS4.at(-1)}, not ${String(item2.verdict)}`);
   return verdict2;
 }
 function extrasOf2(item2, at2, criterion) {
   const { note } = item2;
   if (!isBlank(note)) {
-    if (typeof note !== "string" || note.length > NOTE_MAX2) return refuse4(`${at2}: its note is at most ${NOTE_MAX2} characters`);
+    if (typeof note !== "string" || note.length > NOTE_MAX2) return refuse5(`${at2}: its note is at most ${NOTE_MAX2} characters`);
     criterion.note = note;
   }
   for (const key2 of ["video", "script"]) {
     const name3 = item2[key2];
     if (isBlank(name3)) continue;
-    if (typeof name3 !== "string" || !FILE_NAME.test(name3)) return refuse4(`${at2}: its ${key2} is a file name in the run folder`);
+    if (typeof name3 !== "string" || !FILE_NAME.test(name3)) return refuse5(`${at2}: its ${key2} is a file name in the run folder`);
     criterion[key2] = name3;
   }
   return criterion;
@@ -64073,11 +64313,11 @@ function criterionOf(item2, index2) {
 }
 function fileOf2(dir, name3) {
   const path = join146(dir, name3);
-  if (!existsSync90(path) || !statSync26(path).isFile()) refuse4(`${name3}: not in the run folder`);
+  if (!existsSync90(path) || !statSync26(path).isFile()) refuse5(`${name3}: not in the run folder`);
   const type = TYPES2[name3.slice(name3.lastIndexOf(".") + 1).toLowerCase()];
-  if (!type) return refuse4(`${name3}: a proof takes .webm, .gif, .ts or .txt files`);
+  if (!type) return refuse5(`${name3}: a proof takes .webm, .gif, .ts or .txt files`);
   const { size } = statSync26(path);
-  if (size > PROOF_FILE_MAX_BYTES) refuse4(`${name3}: over ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
+  if (size > PROOF_FILE_MAX_BYTES) refuse5(`${name3}: over ${PROOF_FILE_MAX_BYTES / 1024 / 1024} MB`, 413);
   return { name: name3, path, bytes: size, type };
 }
 function readRun(dir) {
@@ -64089,17 +64329,17 @@ function readRun(dir) {
   } catch {
     sent2 = null;
   }
-  if (!isRecord9(sent2)) return refuse4(`${RUN_FILE} is not a JSON object`);
+  if (!isRecord9(sent2)) return refuse5(`${RUN_FILE} is not a JSON object`);
   const { commit, url: url2, criteria: given } = sent2;
-  if (typeof commit !== "string" || !COMMIT4.test(commit)) return refuse4(`${RUN_FILE}: commit is the hash of the commit the run proved`);
-  if (!isHttpUrl(url2)) return refuse4(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
+  if (typeof commit !== "string" || !COMMIT4.test(commit)) return refuse5(`${RUN_FILE}: commit is the hash of the commit the run proved`);
+  if (!isHttpUrl(url2)) return refuse5(`${RUN_FILE}: url is the http(s) address the run was recorded on`);
   if (!Array.isArray(given) || given.length === 0 || given.length > PROOF_CRITERIA_MAX) {
-    return refuse4(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
+    return refuse5(`${RUN_FILE}: criteria is a list of 1 to ${PROOF_CRITERIA_MAX} {text, verdict, note?, video?, script?}`);
   }
   const criteria = given.map(criterionOf);
   const names = [...new Set(criteria.flatMap((c) => [c.video, c.script]).filter((name3) => Boolean(name3)))];
   if (existsSync90(join146(dir, PROOF_GIF_NAME)) && !names.includes(PROOF_GIF_NAME)) names.push(PROOF_GIF_NAME);
-  if (names.length > PROOF_FILES_MAX) refuse4(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
+  if (names.length > PROOF_FILES_MAX) refuse5(`a run uploads ${PROOF_FILES_MAX} files at most: this one has ${names.length}`);
   const files = names.map((name3) => fileOf2(dir, name3));
   return { commit, url: url2, criteria, files };
 }
@@ -64961,7 +65201,7 @@ import { join as join148 } from "node:path";
 var Loose = external_exports.record(external_exports.string(), external_exports.unknown());
 var RunsSchema2 = external_exports.array(Loose);
 var KeyedSchema = external_exports.record(external_exports.string(), external_exports.unknown()).optional();
-var refuse5 = (reason2) => ({ ok: false, reason: reason2 });
+var refuse6 = (reason2) => ({ ok: false, reason: reason2 });
 function keptBy(runs3, finding) {
   return runs3.findLastIndex((run2) => {
     const issues = KeyedSchema.safeParse(run2.issues);
@@ -64986,23 +65226,23 @@ function withOutcomeLine(markdown, finding, line3) {
 }
 function recordOutcome({ ctx, prd: prd2, finding, outcome: outcome2 }) {
   const where = ctx.layout.whereIs(prd2);
-  if (where === null) return refuse5(`PRD ${String(prd2)} has no folder in ${ctx.layout.dirs.inbox} or ${ctx.layout.dirs.shipped}`);
+  if (where === null) return refuse6(`PRD ${String(prd2)} has no folder in ${ctx.layout.dirs.inbox} or ${ctx.layout.dirs.shipped}`);
   const json4 = `${where.dir}/retro.json`;
-  if (!existsSync92(join148(ctx.root, json4))) return refuse5(`${json4} is missing \u2014 PRD ${String(prd2)} has no retro`);
+  if (!existsSync92(join148(ctx.root, json4))) return refuse6(`${json4} is missing \u2014 PRD ${String(prd2)} has no retro`);
   let doc;
   try {
     doc = Loose.parse(JSON.parse(readFileSync113(join148(ctx.root, json4), "utf8")));
   } catch (error62) {
-    return refuse5(`${json4} is not a retro record \u2014 ${messageOf(error62)}`);
+    return refuse6(`${json4} is not a retro record \u2014 ${messageOf(error62)}`);
   }
   const parsedRuns = RunsSchema2.safeParse(doc.runs);
-  if (!parsedRuns.success) return refuse5(`${json4} is not a retro record \u2014 runs: ${parsedRuns.error.message}`);
+  if (!parsedRuns.success) return refuse6(`${json4} is not a retro record \u2014 runs: ${parsedRuns.error.message}`);
   const runs3 = parsedRuns.data;
   const run2 = keptBy(runs3, finding);
-  if (run2 === -1) return refuse5(`PRD ${String(prd2)} kept no lesson for \`${finding}\``);
-  if (hasOutcome(runs3, finding)) return refuse5(`PRD ${String(prd2)}, lesson \`${finding}\` already has an outcome \u2014 an outcome is never rewritten`);
+  if (run2 === -1) return refuse6(`PRD ${String(prd2)} kept no lesson for \`${finding}\``);
+  if (hasOutcome(runs3, finding)) return refuse6(`PRD ${String(prd2)}, lesson \`${finding}\` already has an outcome \u2014 an outcome is never rewritten`);
   const problem = outcomeProblem(outcome2, { ctx });
-  if (problem !== null) return refuse5(problem);
+  if (problem !== null) return refuse6(problem);
   const written = runs3.map((each, index2) => {
     if (index2 !== run2) return each;
     const outcomes2 = KeyedSchema.parse(each.outcomes) ?? {};
@@ -65363,7 +65603,7 @@ function readFacts5(args, { ctx, exec }) {
   if (positional.length !== 1 || flags.approve === true === (flags.item !== void 0)) throw usageError(USAGE45);
   const prd2 = prdArg("committee", "<prd>", positional[0]);
   const author = authorOf(flags.author);
-  const read3 = flags.item === void 0 ? approvalOf2(prd2, ctx, exec) : answerOf6(prd2, flags.item, boundOf2(flags.bound), ctx, exec);
+  const read3 = flags.item === void 0 ? approvalOf2(prd2, ctx, exec) : answerOf7(prd2, flags.item, boundOf2(flags.bound), ctx, exec);
   return { ...read3, author, json: flags.json === true, file: flags.file };
 }
 function approvalOf2(prd2, ctx, exec) {
@@ -65382,7 +65622,7 @@ ${text19("plan")}`, lockedLaws(ctx).map((law) => law.id));
   };
   return { prd: prd2, files: folder.artifacts.map(({ kind: kind2, path, sha256: hash2 }) => ({ kind: kind2, path, sha256: hash2 })), facts: facts2, item: null };
 }
-function answerOf6(prd2, item2, bound2, ctx, exec) {
+function answerOf7(prd2, item2, bound2, ctx, exec) {
   const open3 = openItems(prd2, { ctx }).find((one) => one.id === item2);
   if (open3 === void 0) throw usageError(`omni committee: PRD ${String(prd2)} has no open item ${item2} in this checkout: read it on its feature branch.`);
   const text19 = readRepoFile(ctx, open3.file);
@@ -66321,7 +66561,7 @@ function checkCommand2(rest, { ctx, stdout }) {
   const passed = graded.map((entry3) => report7(stdout, entry3));
   return passed.every(Boolean) ? 0 : 1;
 }
-function refuse6(stderr, line3) {
+function refuse7(stderr, line3) {
   println(stderr, line3);
   return 1;
 }
@@ -66390,7 +66630,7 @@ async function pushInputs(n, io, given) {
 function reportPush3(io, n, { askUrl: askUrl2, body }, reply) {
   const roadmapId = field(reply, "roadmapId");
   const { stdout, stderr } = io;
-  if (typeof roadmapId !== "string" || !roadmapId) return refuse6(stderr, "refused (no roadmap in the reply)");
+  if (typeof roadmapId !== "string" || !roadmapId) return refuse7(stderr, "refused (no roadmap in the reply)");
   const how = field(reply, "created") === true ? "created" : "updated";
   const page2 = `${askUrl2.replace(/\/+$/, "")}/roadmaps/${roadmapId}`;
   println(stdout, `roadmap ${n}: ${how}, ${body.prds.length} PRD(s) \u2014 ${page2}`);
@@ -66404,12 +66644,12 @@ async function pushCommand(rest, io) {
   if (positional.length !== 1) throw usageError(USAGE48);
   const n = issueArg("roadmap push", "<n>", positional[0]);
   const inputs = await pushInputs(n, io);
-  if (typeof inputs === "string") return refuse6(io.stderr, inputs);
+  if (typeof inputs === "string") return refuse7(io.stderr, inputs);
   let reply;
   try {
     reply = await inputs.client.pushRoadmap(inputs.body);
   } catch (error62) {
-    return refuse6(io.stderr, skipLine7(error62));
+    return refuse7(io.stderr, skipLine7(error62));
   }
   return reportPush3(io, n, inputs, reply);
 }
@@ -66432,13 +66672,13 @@ function answerCommand(rest, io) {
   const { n, question, answer } = answerArgs(rest);
   const { ctx } = repoContext2(io);
   const read3 = readRoadmap(ctx, roadmapFile(ctx, "answer", n));
-  if (typeof read3 === "string") return refuse6(io.stderr, read3);
+  if (typeof read3 === "string") return refuse7(io.stderr, read3);
   assertAsks(read3.roadmap, n, question);
   let url2;
   try {
     url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(answerComment(question, answer))?.html_url;
   } catch {
-    return refuse6(io.stderr, "github unreachable");
+    return refuse7(io.stderr, "github unreachable");
   }
   println(io.stdout, `roadmap ${n}: ${question} answered${url2 ? ` \u2014 ${url2}` : ""}`);
   return 0;
@@ -66514,7 +66754,7 @@ async function prereqsCommand(rest, io) {
   const n = issueArg("roadmap prereqs", "<n>", positional[0]);
   const { ctx, repo } = repoContext2(io);
   const read3 = readRoadmap(ctx, roadmapFile(ctx, "prereqs", n));
-  if (typeof read3 === "string") return refuse6(io.stderr, read3);
+  if (typeof read3 === "string") return refuse7(io.stderr, read3);
   const prerequisites = read3.roadmap.prerequisites ?? [];
   if (prerequisites.length === 0) {
     println(io.stdout, `roadmap ${n} \u2014 no prerequisites: nothing to check.`);
@@ -66544,13 +66784,13 @@ function tickCommand(rest, io) {
   const id = positional[1] ?? "";
   const { ctx } = repoContext2(io);
   const read3 = readRoadmap(ctx, roadmapFile(ctx, "tick", n));
-  if (typeof read3 === "string") return refuse6(io.stderr, read3);
+  if (typeof read3 === "string") return refuse7(io.stderr, read3);
   assertPersonRow(read3.roadmap, n, id);
   let url2;
   try {
     url2 = githubClientFor(ctx, { issue: n, exec: io.exec, env: io.env }).createComment(tickComment(id))?.html_url;
   } catch {
-    return refuse6(io.stderr, "github unreachable");
+    return refuse7(io.stderr, "github unreachable");
   }
   println(io.stdout, `roadmap ${n}: ${id} ticked${url2 ? ` \u2014 ${url2}` : ""}`);
   return 0;
@@ -66585,9 +66825,9 @@ function productClient(io) {
 async function prepareProduct(verb2, rest, io) {
   const args = productArgs2(verb2, rest);
   const document = readProductFile(io, args.file);
-  if (typeof document !== "string") return refuse6(io.stderr, document.line);
+  if (typeof document !== "string") return refuse7(io.stderr, document.line);
   const connected = productClient(io);
-  if (typeof connected === "string") return refuse6(io.stderr, connected);
+  if (typeof connected === "string") return refuse7(io.stderr, connected);
   const graded = await gradeProductFile({ key: args.key, repo: connected.repo, document, client: connected.client });
   return { args, document, connected, graded };
 }
@@ -66617,14 +66857,14 @@ async function pushProduct2(rest, io) {
   const prepared = await prepareProduct("push", rest, io);
   if (typeof prepared === "number") return prepared;
   const { args, document, connected, graded } = prepared;
-  if (!graded.ok) return refuse6(io.stderr, graded.lines.join("\n"));
+  if (!graded.ok) return refuse7(io.stderr, graded.lines.join("\n"));
   const target3 = pushTarget(args, graded.roadmap.productId ?? null);
   if ("error" in target3) throw usageError(`omni roadmap push: ${target3.error}`);
   if (graded.violations.length > 0) {
-    return refuse6(io.stderr, formatFailure(`omni roadmap push \u2014 ${args.file}: nothing was sent:`, graded.violations.map((line3) => `${args.file}: ${line3}`)));
+    return refuse7(io.stderr, formatFailure(`omni roadmap push \u2014 ${args.file}: nothing was sent:`, graded.violations.map((line3) => `${args.file}: ${line3}`)));
   }
   const sent2 = await pushProductFile({ key: args.key, seq: target3.seq, repo: connected.repo, roadmap: graded.roadmap, document, askUrl: connected.askUrl, client: connected.client });
-  if (!sent2.ok) return refuse6(io.stderr, sent2.line);
+  if (!sent2.ok) return refuse7(io.stderr, sent2.line);
   println(io.stdout, pushedLines(sent2.pushed));
   return 0;
 }
@@ -67574,7 +67814,7 @@ async function approve(fetch, origin, authorization, code) {
   if (given === null || back.searchParams.get("state") !== authorization.state) throw new T3Refused("T3 sent the sign-in back for another request");
   return given;
 }
-async function exchange(fetch, origin, form2) {
+async function exchange2(fetch, origin, form2) {
   const response = await reach6(fetch, origin, `${origin}/oauth/mcp/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -67608,7 +67848,7 @@ async function t3SignIn({ home, origin, exec, fetch, now: now2 = Date.now }) {
       resource
     };
     const code = await approve(fetch, origin, authorization, pairingCode(exec));
-    const { token, seconds: seconds4 } = await exchange(fetch, origin, { grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI, client_id: clientId, code_verifier: verifier, resource });
+    const { token, seconds: seconds4 } = await exchange2(fetch, origin, { grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI, client_id: clientId, code_verifier: verifier, resource });
     const at2 = now2();
     const expiresAt = new Date(at2 + seconds4 * 1e3).toISOString();
     keep2(home, { origin, token, expiresAt, signedInAt: new Date(at2).toISOString() });
@@ -67618,7 +67858,7 @@ async function t3SignIn({ home, origin, exec, fetch, now: now2 = Date.now }) {
     throw error62;
   }
 }
-function rpcOf(text19) {
+function rpcOf2(text19) {
   const data = text19.split("\n").filter((line3) => line3.startsWith("data:")).at(-1);
   try {
     const value = JSON.parse(data === void 0 ? text19 : data.slice("data:".length));
@@ -67640,7 +67880,7 @@ async function mcp(fetch, origin, token, session2, message2) {
   });
   if (response.status === 401 || response.status === 403) throw new T3Refused(`T3 refused the credential (${String(response.status)}): run omni runner t3-signin again`);
   if (!response.ok) throw new T3Refused(`T3 answered ${String(response.status)}`);
-  return { rpc: rpcOf(await response.text()), session: response.headers.get("mcp-session-id") ?? session2 };
+  return { rpc: rpcOf2(await response.text()), session: response.headers.get("mcp-session-id") ?? session2 };
 }
 function toolResult(rpc) {
   const result2 = field(rpc, "result");
@@ -70841,7 +71081,7 @@ var FOLLOW_MS = 5e3;
 var HELD_AFTER2 = 12;
 var BOARD_EVERY = 6;
 var SIGNED_OUT = "no sign-in (omni signin) \xB7 held";
-var UNREACHABLE2 = "server unreachable \xB7 held, not failed";
+var UNREACHABLE3 = "server unreachable \xB7 held, not failed";
 function placeOf7(io) {
   let ctx;
   try {
@@ -70994,7 +71234,7 @@ async function read2(run2) {
 function endOf2(error62, failures) {
   if (error62 instanceof RunnerRefused) return error62.message;
   if (!(error62 instanceof RunnerUnreachable)) throw error62;
-  return failures >= HELD_AFTER2 ? UNREACHABLE2 : null;
+  return failures >= HELD_AFTER2 ? UNREACHABLE3 : null;
 }
 async function follow2(run2, signal) {
   let failures = 0;
@@ -72002,7 +72242,7 @@ var session = {
 init_define_OMNI_BUNDLE();
 import { relative as relative9 } from "node:path";
 var USAGE52 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted] | omni settle <item-id> --prd <key>-<n> (--answer "<text>" | --answer-file <path>) [--verdict agreed|drifted]';
-function answerOf7(flags, text19) {
+function answerOf8(flags, text19) {
   return {
     text: text19 ?? "",
     approvedBy: flags.by ?? "",
@@ -72041,7 +72281,7 @@ function settleRequest(args, ctx) {
   if (positional.length !== 1 || path === void 0) throw usageError(USAGE52);
   const text19 = answerText2(flags, ctx);
   const product2 = productOf2(flags.prd);
-  return product2 === null ? { product: product2, file: relative9(ctx.root, inRoot(ctx, path)), answer: answerOf7(flags, text19) } : { product: product2, file: `${product2}/${path}`, answer: productAnswerOf(flags, text19) };
+  return product2 === null ? { product: product2, file: relative9(ctx.root, inRoot(ctx, path)), answer: answerOf8(flags, text19) } : { product: product2, file: `${product2}/${path}`, answer: productAnswerOf(flags, text19) };
 }
 var settle3 = {
   withoutContext: true,
@@ -72457,56 +72697,6 @@ var tier = {
 
 // kit/bin/commands/product.ts
 init_define_OMNI_BUNDLE();
-
-// kit/lib/product/import.ts
-init_define_OMNI_BUNDLE();
-var SLUG3 = /^[\w.-]+\/[\w.-]+$/;
-var ImportLinkSchema = ProductLinkSchema.extend({ role: external_exports.string().trim().min(1).max(40) });
-var ProductImportRequestSchema = external_exports.object({
-  repo: external_exports.string().regex(SLUG3).max(200),
-  product: external_exports.string().trim().min(1).max(200),
-  targets: external_exports.array(ImportLinkSchema).min(1).max(200)
-});
-var ProductImportSchema = external_exports.object({
-  product: external_exports.object({ name: external_exports.string().min(1) }),
-  added: external_exports.array(external_exports.string()),
-  changed: external_exports.array(external_exports.string()),
-  unchanged: external_exports.array(external_exports.string())
-});
-var ProductsWhichSchema = external_exports.object({
-  products: external_exports.array(external_exports.object({ name: external_exports.string().min(1) }))
-});
-var shortName11 = (slug) => slug.slice(slug.indexOf("/") + 1);
-function linksOfTargets(targets2) {
-  const slugOf5 = (name3) => targets2.find((target3) => shortName11(target3.repo) === name3)?.repo ?? name3;
-  return targets2.map(({ repo, role, knowledge: knowledge2, readAt, readOnly: readOnly2 = false, consumes = [] }) => ({
-    repo,
-    role,
-    knowledge: knowledge2,
-    readAt,
-    readOnly: readOnly2,
-    consumes: consumes.map(slugOf5)
-  }));
-}
-function importLines(reply, product2) {
-  const parsed2 = ProductImportSchema.safeParse(reply);
-  if (!parsed2.success) throw new Error(`the server answered no import for product ${product2}`);
-  const { product: { name: name3 }, added, changed, unchanged } = parsed2.data;
-  if (added.length === 0 && changed.length === 0) {
-    return [`product ${name3}: nothing changed, ${unchanged.length} ${unchanged.length === 1 ? "link" : "links"} already as plan.targets says`];
-  }
-  return [
-    `product ${name3}: ${added.length} added, ${changed.length} changed, ${unchanged.length} unchanged`,
-    ...added.map((repo) => `  added    ${repo}`),
-    ...changed.map((repo) => `  changed  ${repo}`)
-  ];
-}
-function whichLines(reply) {
-  const parsed2 = ProductsWhichSchema.safeParse(reply);
-  if (!parsed2.success) throw new Error("the server answered no products for this repository");
-  const names = parsed2.data.products.map((product2) => product2.name);
-  return names.length ? names : ["none"];
-}
 
 // kit/bin/commands/product-checkout.ts
 init_define_OMNI_BUNDLE();
