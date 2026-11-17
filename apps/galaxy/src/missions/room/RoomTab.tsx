@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { heroSvg } from '../../virtual-fleets/heroes/heroes';
 import { decorative } from '../../people/face';
 import { EVENT_ROLES, roleName, ROOM_WORDS, type EventRole, type RoomView } from './room';
+import { RepairDetail, StoppedBlock } from '../RepairParts';
 import './room.css';
 
 // The Operation room of a Virtual Fleet (PRD 2842 s8, the `fleet-room` screen): one now line per hero, the
@@ -37,6 +38,17 @@ function WaitingNow({ line, wait }: { line: RoomView['now'][number]; wait: NonNu
   );
 }
 
+/** A hero whose PRD repairs or waits on an Omni Loop bug (PRD 2980): who, the headline, its cause and link, and the state chip. */
+function RepairingNow({ line, repair }: { line: RoomView['now'][number]; repair: NonNullable<RoomView['now'][number]['repair']> }) {
+  return (
+    <span className="room-wait">
+      <span className="room-hero">{line.heading}</span>
+      <span className="room-doing">{repair.headline}<RepairDetail line={repair} /></span>
+      <span className="room-state">{repair.chip}</span>
+    </span>
+  );
+}
+
 export function RoomTab({ view, keep, refresh }: RoomTabProps) {
   const router = useRouter();
   const seen = useRef<Set<string> | null>(null);
@@ -56,10 +68,11 @@ export function RoomTab({ view, keep, refresh }: RoomTabProps) {
         <h2 className="room-title">{ROOM_WORDS.now}</h2>
         <ul className="room-nows">
           {view.now.map((line) => (
-            <li key={line.id} data-state={line.state}>{line.wait !== undefined ? <WaitingNow line={line} wait={line.wait} /> : line.state === 'working' ? line.words : <><span className="room-hero">{line.heading}</span>: {line.words}</>}</li>
+            <li key={line.id} data-state={line.state}>{line.repair !== undefined ? <RepairingNow line={line} repair={line.repair} /> : line.wait !== undefined ? <WaitingNow line={line} wait={line.wait} /> : line.state === 'working' ? line.words : <><span className="room-hero">{line.heading}</span>: {line.words}</>}</li>
           ))}
         </ul>
       </div>
+      {view.stopped.map((line) => <StoppedBlock key={`${line.mission}:${String(line.prd)}`} line={line} demo={false} />)}
       <p className="room-cleanup"><span className="room-title">{ROOM_WORDS.cleanUp}</span> {view.cleanUp}</p>
       <div className="room-ledger">
         <h2 className="room-title">{ROOM_WORDS.ledger}</h2>

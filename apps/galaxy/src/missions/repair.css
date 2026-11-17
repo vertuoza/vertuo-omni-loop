@@ -1,0 +1,18 @@
+/* A mission's repairs (PRD 2980 s6), as the `fleet-room` screen draws them: the sentence under a Repairing line, and the Stopped
+   block. Every colour is a token of src/ask/theme-tokens.ts. */
+
+.repair-detail { display: block; color: var(--ask-muted); font-size: 13px; }
+.repair-stopped { padding: 12px 14px; background: var(--ask-surface); border: 1px solid var(--ask-red); border-radius: 10px; min-width: 0; }
+.repair-stopped h3 { margin: 0 0 8px; font-size: 16px; }
+.repair-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; margin: 0; }
+.repair-facts dt { color: var(--ask-muted); font-size: 14px; }
+.repair-facts dd { margin: 0; overflow-wrap: anywhere; }
+.repair-mono { font-family: ui-monospace, monospace; font-size: 13px; }
+.repair-tried { margin: 0; padding-left: 18px; }
+.repair-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 10px; }
+.repair-note { margin: 6px 0 0; font-size: 13px; }
+.repair-problem { color: var(--ask-red); font-size: 14px; margin: 6px 0 0; }
+
+@media (max-width: 719px) {
+  .repair-facts { grid-template-columns: minmax(0, 1fr); }
+}
