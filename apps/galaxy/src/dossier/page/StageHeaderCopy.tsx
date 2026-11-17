@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Button } from '@omni/ui';
 import { SendToTerminal } from '../../runners/send/SendToTerminal';
 
 // Build it (PRD 426): the inbox stage's one button copies the command that builds the PRD, and says
@@ -30,7 +31,7 @@ export function StageHeaderCopy({ label, command }: { label: string; command: st
 
   return (
     <span className="stage-copy">
-      <button type="button" className="ask-button stage-action" onClick={() => void copy()} title={command}>{label}</button>
+      <Button variant="primary" onClick={() => void copy()}>{label}</Button>
       <code className="stage-command">{command}</code>
       <SendToTerminal line={command} />
       {state !== 'idle' && <span className="ask-hint" role="status">{COPY_WORDS[state]}</span>}

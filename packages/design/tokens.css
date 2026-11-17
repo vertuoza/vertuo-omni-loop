@@ -1,4 +1,4 @@
-/* Generated from @omni/design (src/tokens.ts): do not edit. Change a colour there and run
+/* Generated from packages/design/tokens/*.tokens.json: do not edit. Change a token there and run
    `pnpm --filter @omni/design tokens`. */
 :root {
   --void: #07061c;
@@ -41,4 +41,145 @@
   --body-pill-1: #3b2a86;
   --body-pill-2: #241a5a;
   --body-grille: #4a1fa6;
+}
+
+/* The scale: space, radius, type, weight, elevation and motion. */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --radius-full: 9999px;
+  --type-1-size: 12px;
+  --type-1-line: 1.5;
+  --type-2-size: 13px;
+  --type-2-line: 1.45;
+  --type-3-size: 14px;
+  --type-3-line: 1.45;
+  --type-4-size: 16px;
+  --type-4-line: 1.4;
+  --type-5-size: 20px;
+  --type-5-line: 1.3;
+  --type-6-size: 24px;
+  --type-6-line: 1.25;
+  --type-7-size: 32px;
+  --type-7-line: 1.2;
+  --type-prose-size: 17px;
+  --type-prose-line: 1.6;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --elevation-flat: 0px 0px 0px 0px rgb(0 0 0 / 0);
+  --elevation-raised: 0px 1px 3px 0px rgb(0 0 0 / 0.24);
+  --elevation-overlay: 0px 8px 24px 0px rgb(0 0 0 / 0.32);
+  --motion-duration-fast: 120ms;
+  --motion-duration-slow: 240ms;
+  --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* The semantic roles of each theme, Omni by default. */
+:root, .ask:not([data-ask-theme]), :is(html:has(.ask[data-ask-theme="omni"]), .ask[data-ask-theme="omni"]) {
+  --color-canvas: #07061c;
+  --color-surface: #120f3a;
+  --color-raised: #1a1749;
+  --color-sunken: #0e0d33;
+  --color-text-primary: #f2f4ff;
+  --color-text-secondary: #8a90d6;
+  --color-text-tertiary: #7c82c4;
+  --color-text-on-accent: #07061c;
+  --color-text-on-signal: #07061c;
+  --color-text-on-highlight: #07061c;
+  --color-border-subtle: #1a2170;
+  --color-border-strong: #5a60c4;
+  --color-accent: #8f9bff;
+  --color-accent-soft: #1e2160;
+  --color-signal: #ffd84a;
+  --color-signal-soft: #2a2350;
+  --color-highlight: #ff3ea5;
+  --color-success: #4ee08a;
+  --color-warning: #ff9b30;
+  --color-danger: #ff6b86;
+  --color-info: #6ff0ff;
+}
+:is(html:has(.ask[data-ask-theme="light"]), .ask[data-ask-theme="light"]) {
+  --color-canvas: #f5f4fc;
+  --color-surface: #ffffff;
+  --color-raised: #ffffff;
+  --color-sunken: #eceaf8;
+  --color-text-primary: #17153d;
+  --color-text-secondary: #4f5486;
+  --color-text-tertiary: #5f6494;
+  --color-text-on-accent: #ffffff;
+  --color-text-on-signal: #ffffff;
+  --color-text-on-highlight: #3a2c00;
+  --color-border-subtle: #d9d6ee;
+  --color-border-strong: #85819f;
+  --color-accent: #2f3fc4;
+  --color-accent-soft: #e6e8fb;
+  --color-signal: #6a2fd0;
+  --color-signal-soft: #efe7ff;
+  --color-highlight: #ffd84a;
+  --color-success: #15703f;
+  --color-warning: #8a4b00;
+  --color-danger: #b3122f;
+  --color-info: #0b6f86;
+}
+:is(html:has(.ask[data-ask-theme="dark"]), .ask[data-ask-theme="dark"]) {
+  --color-canvas: #0e0d33;
+  --color-surface: #16144a;
+  --color-raised: #221f62;
+  --color-sunken: #1d1a58;
+  --color-text-primary: #f2f4ff;
+  --color-text-secondary: #a9aee6;
+  --color-text-tertiary: #9499d6;
+  --color-text-on-accent: #0e0d33;
+  --color-text-on-signal: #0e0d33;
+  --color-text-on-highlight: #3a2c00;
+  --color-border-subtle: #2f2c78;
+  --color-border-strong: #6d6acc;
+  --color-accent: #9aa4ff;
+  --color-accent-soft: #272a7a;
+  --color-signal: #b37cff;
+  --color-signal-soft: #2a1d66;
+  --color-highlight: #ffd84a;
+  --color-success: #4ee08a;
+  --color-warning: #ffb357;
+  --color-danger: #ff6b86;
+  --color-info: #6ff0ff;
+}
+
+/* The anti-loop mode (data-ask-mode="anti"): the roles it remaps, after the theme's own. */
+.ask[data-ask-mode="anti"]:not([data-ask-theme]), :is(html:has(.ask[data-ask-theme="omni"][data-ask-mode="anti"]), .ask[data-ask-theme="omni"][data-ask-mode="anti"]) {
+  --color-border-subtle: #3a1458;
+  --color-border-strong: #b0489a;
+  --color-signal: #ff3ea5;
+  --color-signal-soft: #3a1238;
+  --color-text-on-signal: #07061c;
+  --color-highlight: #ffd84a;
+  --color-text-on-highlight: #07061c;
+}
+:is(html:has(.ask[data-ask-theme="light"][data-ask-mode="anti"]), .ask[data-ask-theme="light"][data-ask-mode="anti"]) {
+  --color-border-subtle: #ecd3e4;
+  --color-border-strong: #a0558f;
+  --color-signal: #b0127a;
+  --color-signal-soft: #fbe3f2;
+  --color-text-on-signal: #ffffff;
+  --color-highlight: #ffd84a;
+  --color-text-on-highlight: #3a2c00;
+}
+:is(html:has(.ask[data-ask-theme="dark"][data-ask-mode="anti"]), .ask[data-ask-theme="dark"][data-ask-mode="anti"]) {
+  --color-border-subtle: #4a1c66;
+  --color-border-strong: #c05aa8;
+  --color-signal: #ff5fb4;
+  --color-signal-soft: #3a1650;
+  --color-text-on-signal: #0e0d33;
+  --color-highlight: #ffd84a;
+  --color-text-on-highlight: #3a2c00;
 }

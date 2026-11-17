@@ -84,18 +84,18 @@ function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilte
   );
 }
 
-// The bar borrows the track's pill look (dossier.css, .stage-*); the two rules a link row needs beyond it
-// sit here, since that stylesheet belongs to the PRD page.
-const BAR_STYLE = { margin: '0 0 12px' } as const;
-const STOP_STYLE = { textDecoration: 'none' } as const;
+// The bar borrows the track's pill look (dossier.css, .stage-*). The two rules a link row needs beyond it,
+// its margin and no underline, sit in the same stylesheet under .dossier-history-stages: this page
+// draws no inline style (stylelint reads the stylesheet, page-parts.test.ts reads these components),
+// so nothing below carries a style attribute.
 
 function StageBar({ stages }: { stages: StageBarEntry[] }) {
   return (
-    <nav className="stage-track dossier-history-stages" aria-label="PRDs by stage" style={BAR_STYLE}>
+    <nav className="stage-track dossier-history-stages" aria-label="PRDs by stage">
       {stages.map((s) => (
         <Link
           key={s.id} className={`stage-stop stage-${s.selected ? 'current' : 'passed'}`} aria-current={s.selected ? 'page' : undefined}
-          href={s.href} style={STOP_STYLE}
+          href={s.href}
         >
           {s.label} <small>{s.count}</small>
         </Link>

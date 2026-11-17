@@ -16,6 +16,8 @@ import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 // through the stubbed client of ../store.fake.ts (the migration's access rules): a member reads the
 // dossier, anyone else — another workspace, signed out after signing in — gets not found.
 
+/** A repository chip of the facts strip. */
+const REPO_CHIP = (repo: string) => `<li class="dossier-repo"><span class="omni-badge omni-badge--neutral">${repo}</span></li>`;
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@example.com', name: 'ADA' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@example.com' };
 const OTHER = '00000000-0000-4000-8000-00000000aced';
@@ -175,7 +177,7 @@ describe('the page to share', () => {
     const page = await html(numbered);
     expect(page).toContain('<a class="dossier-number" href="https://github.com/acme/widgets/issues/7" target="_blank" rel="noopener noreferrer">PRD #7 ↗</a>');
     expect(page).toContain('Team inbox');
-    expect(page).toContain('<li class="dossier-repo">acme/widgets</li>');
+    expect(page).toContain(REPO_CHIP('acme/widgets'));
     expect(textOf(page)).toContain('opened by ADA · ');
     expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
     expect(page).toContain('sandbox="allow-scripts"');
@@ -202,7 +204,7 @@ describe('the page to share', () => {
     given.fake.seedPlanet({ planRepo: 'widgets', prd: parsePrd(7), regions: ['core', 'web'] });
     given.token = 'bob';
     expect(await html(numbered)).toContain(
-      '<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">acme/widgets</li><li class="dossier-repo">acme/core</li><li class="dossier-repo">acme/web</li></ul>',
+      `<ul class="dossier-repos" aria-label="Repositories">${REPO_CHIP('acme/widgets')}${REPO_CHIP('acme/core')}${REPO_CHIP('acme/web')}</ul>`,
     );
   });
 
@@ -223,7 +225,7 @@ describe('the page to share', () => {
     ]);
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
-    expect(page).toContain('Questions<small>1/2</small><span class="dossier-left">1 to answer</span>');
+    expect(page).toContain('Questions<small>1/2</small><span class="omni-badge omni-badge--warning">1 to answer</span>');
     expect([...page.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['delivery', 'delivery']);
     expect(textOf(page)).toContain('answered by ADA after 2 min 0 s, in the terminal');
     expect(page).toContain('not answered yet');
@@ -259,7 +261,7 @@ describe('the page to share', () => {
     given.token = 'bob';
     const page = await html(opened, { tab: 'questions' });
     expect(page).toContain('<span class="dossier-rule">brainstorm</span>');
-    expect(page).toContain('Questions<small>0/1</small><span class="dossier-left">1 to answer</span>');
+    expect(page).toContain('Questions<small>0/1</small><span class="omni-badge omni-badge--warning">1 to answer</span>');
     expect(await html(draft, { tab: 'questions' })).toContain('No question yet.');
   });
 
@@ -317,7 +319,7 @@ describe('the page to share', () => {
   it('offers the opener of a draft Delete draft, and nobody else', async () => {
     given.token = 'ada';
     const mine = await html(draft);
-    expect(mine).toContain('<span class="dossier-draft">DRAFT</span>');
+    expect(mine).toContain('<span class="omni-badge omni-badge--warning">DRAFT</span>');
     expect(mine).toContain('Delete draft');
     given.token = 'bob';
     expect(await html(draft)).not.toContain('Delete draft');
@@ -403,8 +405,8 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     const page = await html(numbered);
     expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
     expect(page).toContain('<strong>Stage: inbox</strong>');
-    expect(page).toContain('title="/omni:yolo 7">Build it</button>');
-    expect(page).toContain('>phase-0 #12</a> <span class="ask-hint">✓</span>');
+    expect(page).toContain('type="button">Build it</button>');
+    expect(page).toContain('>phase-0 #12</a></span></span><span class="omni-list-row__trailing"><span class="ask-hint">✓</span>');
   });
 
   it('puts Send to terminal beside Build it when the viewer has a runner to send to, and nowhere otherwise (PRD 1830 s4)', async () => {
@@ -415,7 +417,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     expect(given.sendAsked).toEqual([[BOB.id, FAKE_WORKSPACE, 'acme/widgets']]);
     given.send = { repo: 'acme/widgets', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
     const page = await html(numbered);
-    expect(page).toContain('title="/omni:yolo 7">Build it</button><code class="stage-command">/omni:yolo 7</code><span class="send-terminal"><button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
+    expect(page).toContain('type="button">Build it</button><code class="stage-command">/omni:yolo 7</code><span class="send-terminal"><button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
   });
 
   it('shows the stored stage when GitHub did not answer, and still shows the dossier', async () => {
@@ -823,7 +825,7 @@ describe('the stylesheet', () => {
     expect(declarations.length).toBeGreaterThan(10);
     for (const [, declaration, value] of declarations) {
       assertDefined(value, `the value of ${declaration ?? 'a declaration'}`);
-      expect(value.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
+      expect(value.trim(), declaration).toMatch(/var\(--(?:ask|color)-|\btransparent\b|^none$|^inherit$|^0$/);
     }
   });
   /** Every rule of the stylesheet, with the media query it sits in ('' at the top level). */
@@ -895,7 +897,7 @@ describe('the stylesheet', () => {
     expect(of('.dossier-left')).toMatch(/background:\s*var\(--ask-yellow\)/);
     expect(of('.dossier-left')).toMatch(/color:\s*var\(--ask-on-yellow\)/);
     expect(of('.dossier-meter')).toMatch(/background:\s*var\(--ask-sunk\)/);
-    expect(of('.dossier-meter > span')).toMatch(/background:\s*var\(--ask-green\)/);
+    expect(of('.dossier-meter::-moz-meter-bar')).toMatch(/background:\s*var\(--ask-green\)/);
     expect(of('.dossier-chosen')).not.toMatch(/background|border/);
     expect(of(".dossier-round[data-state='open'] .dossier-option")).toMatch(/border:\s*[^;]*var\(--ask-line-strong\)/);
     expect(of(".dossier-round[data-state='open'] .dossier-option")).not.toMatch(/background/);
@@ -906,15 +908,12 @@ describe('the stylesheet', () => {
       for (const [, value] of rule.body.matchAll(/opacity:\s*([\d.]+)/g)) expect(Number(value), rule.selectors.join(', ')).toBeGreaterThanOrEqual(1);
     }
     expect(of('.stage-ahead')).toMatch(/color:\s*var\(--ask-muted\)/);
-    expect(of('.ask a.dossier-tab')).toMatch(/color:\s*var\(--ask-ink\)/);
-    expect(of('.ask a.dossier-tab-empty')).toMatch(/color:\s*var\(--ask-muted\)/);
-    expect(of(".ask a.dossier-tab[aria-current='page']")).toMatch(/color:\s*var\(--ask-ink\)/);
-    expect(of(".ask a.dossier-tab[aria-current='page']")).toMatch(/border-bottom-color:\s*var\(--ask-plasma\)/);
+    expect(of('.dossier-tab-empty')).toMatch(/color:\s*var\(--color-text-tertiary\)/);
   });
 
   it('outlines chips, badges, cards, controls and the tab bar with --ask-line-strong, and keeps --ask-line for dividers (PRD 476)', () => {
     const outlined = [
-      '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-tabs', '.dossier-empty', '.dossier-frame iframe',
+      '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-empty', '.dossier-frame iframe',
       '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
       '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
       '.ask a.dossier-history-row', '.dossier-history-artifact',

@@ -87,8 +87,8 @@ describe('a concept\'s page', () => {
     expect(areas.indexOf('server-approval')).toBeLessThan(areas.indexOf('approval-handshake'));
     expect(areas).toMatch(/^<li class="concept-area concept-wedge">.*?server-approval.*?<span class="dossier-kind">wedge<\/span>/);
     expect((areas.match(/wedge<\/span>/g) ?? []).length).toBe(1);
-    expect(html).toContain('<button type="button" class="ask-button stage-action" title="/omni:brainstorm --concept 1269 server-approval">Copy</button>');
-    expect((html.match(/omni:brainstorm --concept/g) ?? []).length).toBe(2);
+    expect(html).toContain('<button class="omni-button omni-button--primary omni-button--md" type="button">Copy</button><code class="stage-command">/omni:brainstorm --concept 1269 server-approval</code>');
+    expect((html.match(/omni:brainstorm --concept/g) ?? []).length).toBe(1);
   });
 
   describe('shipped by itself (PRD 2213)', () => {
@@ -170,7 +170,7 @@ describe('a concept\'s page', () => {
     const html = render(read({ record, pages: new Map([[parsePrd(1300), 'd-1300']]) }), { tab: 'areas' });
     expect(html).toContain('<a href="/prd/d-1300">PRD #1300</a>');
     expect(html).toContain('<a href="https://github.com/acme/widgets/issues/1301" target="_blank" rel="noopener noreferrer">PRD #1301 ↗</a>');
-    expect(html).toContain('title="/omni:brainstorm --concept 1269 product-home"');
+    expect(html).toContain('<code class="stage-command">/omni:brainstorm --concept 1269 product-home</code>');
   });
 
   it('frames the vision tour from its sandboxed route, never inline', () => {

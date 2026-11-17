@@ -1,3 +1,4 @@
+import { EmptyState, Notice } from '@omni/ui';
 import type { ProofView } from './proof';
 import { VersionPicker } from './VersionPicker';
 
@@ -9,7 +10,7 @@ import { VersionPicker } from './VersionPicker';
 const VERDICT_WORDS = { pass: 'pass', fail: 'fail', unfilmable: 'not filmable' } as const;
 
 export function ProofPane({ proof, action }: { proof: ProofView | null; action: string }) {
-  if (!proof) return <p className="dossier-empty">No proof was recorded for this PRD.</p>;
+  if (!proof) return <EmptyState size="inline" title="No proof was recorded for this PRD." />;
   const { counts } = proof;
   return (
     <>
@@ -38,7 +39,7 @@ export function ProofPane({ proof, action }: { proof: ProofView | null; action: 
             {c.video && (
               <video className="proof-video" src={c.video} controls preload="metadata" playsInline aria-label={`Clip: ${c.text}`} />
             )}
-            {c.videoMissing && <p className="ask-problem" role="alert">The clip could not be loaded. Reload the page in a moment.</p>}
+            {c.videoMissing && <Notice tone="danger">The clip could not be loaded. Reload the page in a moment.</Notice>}
             {c.script && (
               <details className="proof-script">
                 <summary>Script <code>{c.script.name}</code></summary>
