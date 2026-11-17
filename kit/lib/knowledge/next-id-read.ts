@@ -15,14 +15,16 @@ export type PlacesRead = { sets: IdSet[]; base: string | null; pulls: string | n
 
 const PullsSchema = z.array(z.object({ number: z.number().int().positive() }));
 
-const QUIET = { encoding: 'utf8' as const, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'] };
-
 function idsOf(ctx: Where, source: KnowledgeSource | null): string[] {
   return source === null ? [] : readKnowledge({ ctx, source }).entries.map((entry) => entry.id);
 }
 
 function git(ctx: Where, args: readonly string[], exec: ExecText): string {
-  return exec('git', args, { cwd: ctx.root, ...QUIET });
+  return exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function gh(ctx: Where, args: readonly string[], exec: ExecText): string {
+  return exec('gh', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 /** The ids of the tree, of `<remote>/<default>`, and of each open pull request into the default branch. */
@@ -49,7 +51,7 @@ export function readPlaces({
   let pulls: string | null = null;
   try {
     const listed = PullsSchema.parse(
-      JSON.parse(exec('gh', ['pr', 'list', '--base', defaultBranch, '--state', 'open', '--json', 'number', '--limit', '200'], { cwd: ctx.root, ...QUIET })),
+      JSON.parse(gh(ctx, ['pr', 'list', '--base', defaultBranch, '--state', 'open', '--json', 'number', '--limit', '200'], exec)),
     );
     const failed: string[] = [];
     for (const { number } of listed) {
