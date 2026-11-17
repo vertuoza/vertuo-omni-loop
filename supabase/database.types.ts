@@ -2309,6 +2309,7 @@ export type Database = {
           query: string | null
           tool: string
           total: number
+          user_id: string | null
           workspace_id: string
         }
         Insert: {
@@ -2327,6 +2328,7 @@ export type Database = {
           query?: string | null
           tool: string
           total: number
+          user_id?: string | null
           workspace_id: string
         }
         Update: {
@@ -2345,6 +2347,7 @@ export type Database = {
           query?: string | null
           tool?: string
           total?: number
+          user_id?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -8193,6 +8196,10 @@ export type Database = {
       }
       product_mcp_for_key: {
         Args: { p_hash: string; p_key: string }
+        Returns: Json
+      }
+      product_mcp_for_member: {
+        Args: { p_key: string; p_user: string }
         Returns: Json
       }
       product_mcp_repository: {
