@@ -55,7 +55,7 @@ const toolText = (reply: { result?: Record<string, unknown> } | undefined): { te
 };
 
 describe('omni mcp', () => {
-  it('answers initialize with the instructions, and lists both tools, with no request to the Omni page (AC-6)', async () => {
+  it('AC-6: answers initialize with the instructions, and lists both tools, with no request to the Omni page', async () => {
     const run = await omni(rpc(1, 'initialize', { protocolVersion: '2025-06-18' }) + '{"jsonrpc":"2.0","method":"notifications/initialized"}\n' + rpc(2, 'tools/list'));
     expect(run.code).toBe(0);
     expect(run.replies).toHaveLength(2);
@@ -109,7 +109,7 @@ describe('omni mcp', () => {
     expect(toolText(run.replies[0])).toEqual({ text: NO_PRODUCT, isError: true });
   });
 
-  it('trades OMNI_TOKEN for an access token and is served (AC-4)', async () => {
+  it('AC-4: trades OMNI_TOKEN for an access token and is served', async () => {
     const kitToken = `omk_${'a'.repeat(43)}`;
     const route: Route = (seen) => (seen.url.startsWith('/api/products/') ? tool(SEARCH) : Response.json({ access_token: 'traded-1', refresh_token: 'r', expires_at: 4_000_000_000 }));
     const run = await omni(callOf(1, 'search_knowledge', { query: 'x' }), { route, tokens: {}, env: { OMNI_TOKEN: kitToken } });
@@ -133,7 +133,7 @@ describe('omni mcp', () => {
 describe('the omni-knowledge server in the omni plugin', () => {
   const file = fileURLToPath(new URL('../plugin/.mcp.json', import.meta.url));
 
-  it('is declared, running omni mcp (AC-7)', () => {
+  it('AC-7: is declared, running omni mcp', () => {
     const server = dig(JSON.parse(readFileSync(file, 'utf8')), 'mcpServers', 'omni-knowledge');
     expect(dig(server, 'command')).toBe('node');
     const args = dig(server, 'args');

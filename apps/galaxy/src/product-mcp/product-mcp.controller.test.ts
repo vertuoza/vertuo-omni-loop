@@ -726,7 +726,7 @@ describe('/api/products/<key>/mcp asks the database for a key\'s access once a m
 });
 
 describe('/api/products/<key>/mcp serves a member\'s kit sign-in as it serves an API key (PRD 3007 s1)', () => {
-  it('a member\'s sign-in lists the same tools and gets the same hits and entries a key of the workspace gets (AC-1)', async () => {
+  it('AC-1: a member\'s sign-in lists the same tools and gets the same hits and entries a key of the workspace gets', async () => {
     const w = await world();
     const client = await w.connect(MAX);
     expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual(['get_knowledge', 'search_knowledge']);
@@ -774,7 +774,7 @@ describe('/api/products/<key>/mcp serves a member\'s kit sign-in as it serves an
     expect((await w.post('acme-app', MAX, INITIALIZE)).status).toBe(404);
   });
 
-  it('once the person leaves the workspace, the very next call of a client already connected reads nothing (AC-2, BL-ACCESS-1)', async () => {
+  it('AC-2: once the person leaves the workspace, the very next call of a client already connected reads nothing (BL-ACCESS-1)', async () => {
     const w = await world();
     const client = await w.connect(MAX);
     expect((await w.ask(client, 'search_knowledge', { query: 'quote' })).isError).toBe(false);
@@ -802,7 +802,7 @@ describe('/api/products/<key>/mcp serves a member\'s kit sign-in as it serves an
     expect(w.logged.join('')).not.toContain(MAX);
   });
 
-  it('logs a member\'s search under the person and no key, and opens the search a get_knowledge follows for that person (AC-9)', async () => {
+  it('AC-9: logs a member\'s search under the person and no key, and opens the search a get_knowledge follows for that person', async () => {
     const w = await world();
     const { text } = await w.call(MAX, 'search_knowledge', { query: 'api key' });
     const answer = SearchAnswerSchema.parse(JSON.parse(text));

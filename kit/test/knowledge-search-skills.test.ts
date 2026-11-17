@@ -13,7 +13,7 @@ const flat = (text: string) => text.replace(/\s+/g, ' ');
 const SEVEN = ['do-work', 'wave', 'yolo', 'bug-fix', 'plan', 'brainstorm', 'pr-care'];
 
 describe('the knowledge search in the deciding skills (PRD 3007, s4)', () => {
-  it.each(SEVEN)('/omni:%s names the search, the fallback, the reads and the citation', (name) => {
+  it.each(SEVEN)('AC-10: /omni:%s names the search, the fallback, the reads and the citation', (name) => {
     const text = flat(skill(name));
     expect(text).toMatch(/search the product's knowledge/i);
     expect(text).toContain('`search_knowledge`');

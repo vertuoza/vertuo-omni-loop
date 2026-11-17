@@ -53,7 +53,7 @@ async function omni(args: string[], { route, tokens: stored = { 'omni.test': { a
 }
 
 describe('omni kb search', () => {
-  it('prints the hits best first, each with its id, kind and repository (AC-8)', async () => {
+  it('AC-8: prints the hits best first, each with its id, kind and repository', async () => {
     const run = await omni(['search', 'API', 'keys'], { route: () => tool(SEARCH) });
     expect(run.code).toBe(0);
     expect(run.out).toBe([
@@ -153,7 +153,7 @@ describe('the one-line failures', () => {
     return { code: run.code, out: run.out, calls: run.seen.length };
   };
 
-  it('no sign-in: says to sign in, calling nothing (AC-5)', async () => {
+  it('AC-5: no sign-in: says to sign in, calling nothing', async () => {
     expect(await line(['search', 'x'], { route: () => tool(SEARCH), tokens: {} })).toEqual({ code: 1, out: 'Not signed in to the Omni page: run omni signin.\n', calls: 0 });
   });
 
@@ -162,7 +162,7 @@ describe('the one-line failures', () => {
     expect(run).toMatchObject({ code: 1, out: 'Not signed in to the Omni page: run omni signin.\n' });
   });
 
-  it('knowledge off (a 404): says a workspace owner turns it on (AC-3)', async () => {
+  it('AC-3: knowledge off (a 404): says a workspace owner turns it on', async () => {
     expect(await line(['search', 'x'], { route: () => Response.json({ error: 'No MCP server here.' }, { status: 404 }) })).toMatchObject({
       code: 1, out: "This product's knowledge is off: a workspace owner turns it on in Product settings.\n",
     });
