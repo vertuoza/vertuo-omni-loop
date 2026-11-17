@@ -31,7 +31,7 @@ describe('POST /api/virtual-fleets', () => {
     const made = db.teams.get(NORTHWIND)?.find((t) => t.name === 'night-shift');
     expect(made?.kind).toBe('virtual');
     expect(made?.heroes.map((h) => [h.role, h.name])).toEqual([['qa', 'QA'], ['engineer', 'Engineer']]);
-    expect(made?.heroes.find((h) => h.role === 'engineer')?.skills).toEqual(['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive']);
+    expect(made?.heroes.find((h) => h.role === 'engineer')?.skills).toEqual(['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive', 'repair']);
   });
 
   it('refuses a name already used in the workspace under the Name field', async () => {

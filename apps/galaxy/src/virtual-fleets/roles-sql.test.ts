@@ -39,10 +39,7 @@ describe('what a new virtual fleet starts with', () => {
   it('copies the kit\'s roles onto its heroes, in the drawer\'s order', () => {
     const json = /\$json\$([\s\S]*?)\$json\$/.exec(body('virtual_hero_roles', newest('virtual_hero_roles')))?.[1];
     expect(json).toBeDefined();
-    // The Engineer's `repair` (PRD 2980) is the database's before it is the kit's: the slice that adds the skill (s3) lists it in
-    // ROLES, and this line then copies ROLES as they are again; until then, a skill added to one list alone still fails here.
-    const repairs = (r: (typeof ROLES)[number]) => (r.role === 'engineer' ? [...r.skills, 'repair'] : [...r.skills]);
-    expect(JSON.parse(json ?? 'null')).toEqual(ROLES.map((r) => ({ ...r, skills: repairs(r), limits: [...r.limits] })));
+    expect(JSON.parse(json ?? 'null')).toEqual(ROLES.map((r) => ({ ...r, skills: [...r.skills], limits: [...r.limits] })));
   });
 
   it('picks its colour from the Settings › Fleets swatches, in their order', () => {

@@ -41,11 +41,11 @@ describe('heroSvg', () => {
 describe('rowOf', () => {
   it('writes an Engineer as an agent with its count line, its skills as the kit names them, those that run alone first', () => {
     const row = rowOf(hero('engineer', [...roleOf('engineer').skills]));
-    expect(row).toMatchObject({ heading: 'Engineer · agent', preferred: 'claude · sonnet', alone: true, line: 'Runs 10 of 13 skills alone' });
+    expect(row).toMatchObject({ heading: 'Engineer · agent', preferred: 'claude · sonnet', alone: true, line: 'Runs 11 of 14 skills alone' });
     expect(row.skills.map((s) => `${s.name} ${s.words}`)).toEqual([
       '/omni:yolo runs alone', '/omni:yolo-fix runs alone', '/omni:wave runs alone', '/omni:do-work runs alone', '/omni:pr-care runs alone',
       '/omni:bug-fix runs alone', '/omni:mega-bug-fix runs alone', '/omni:ultra-yolo runs alone', '/omni:ultra-yolo-fix runs alone',
-      '/omni:ultra-wave runs alone', '/omni:mega-pr-care needs a person', '/omni:drive needs a person', '/omni:mega-drive needs a person',
+      '/omni:ultra-wave runs alone', '/omni:repair runs alone', '/omni:mega-pr-care needs a person', '/omni:drive needs a person', '/omni:mega-drive needs a person',
     ]);
   });
 

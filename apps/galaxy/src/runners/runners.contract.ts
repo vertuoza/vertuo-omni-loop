@@ -40,7 +40,7 @@ import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
  * (PRD 2896 s12), which the service and the runner check. */
 export const RUNNER_SKILLS = [
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair',
 ] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
