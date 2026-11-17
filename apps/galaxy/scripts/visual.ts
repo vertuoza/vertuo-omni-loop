@@ -10,6 +10,9 @@
 //   pnpm --filter @omni/galaxy-app visual --update        writes the baselines: the explicit command
 //   pnpm --filter @omni/galaxy-app visual --url http://localhost:3000/   uses a dev server already running
 //
+// The baselines are CI's shots (ubuntu-24.04): fonts render differently on a Mac, by about 5% of pixels,
+// so a local run compares only on Linux; take new ones from the `visual` workflow's artifact.
+//
 // Only golden screens have baselines (ADR-0108); review screenshots are never committed. It is no
 // vitest test: nothing here runs in `pnpm test`. Needs Playwright's Chromium, installed once:
 //   pnpm --filter @omni/galaxy-app exec playwright install chromium
