@@ -46,6 +46,8 @@ export type PullRead = {
   base: string;
   defaultBranch: string;
   head: string;
+  /** The head's branch (PRD 3001: the feature branch QA's fixes land on); absent when GitHub did not say. */
+  branch?: string;
   runs: readonly CheckRun[];
   statuses: readonly CommitStatus[];
   reviews: readonly ListedReview[];
