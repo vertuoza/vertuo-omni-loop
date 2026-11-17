@@ -54,6 +54,29 @@ describe('productMcpRepository', () => {
       .rejects.toThrow('product_mcp_for_key answered out of shape');
   });
 
+  it('asks product_mcp_for_member() with the person and the product\'s key, and reads its answer or none (PRD 3007 s1)', async () => {
+    const member = { product: ACCESS.product, user_id: 'u-max', repositories: ACCESS.repositories, law_home: ACCESS.law_home, knowledge: ACCESS.knowledge };
+    const { db, lines } = fakeDb([{ data: member, error: null }, { data: null, error: null }]);
+    const repository = productMcpRepository(db);
+    expect(await repository.memberAccess('u-max', 'acme-app')).toEqual(member);
+    expect(await repository.memberAccess('u-max', 'acme-app')).toBeNull();
+    expect(lines[0]).toBe('rpc("product_mcp_for_member",{"p_user":"u-max","p_key":"acme-app"})');
+    await expect(productMcpRepository(fakeDb([{ data: ACCESS, error: null }]).db).memberAccess('u-max', 'acme-app'))
+      .rejects.toThrow('product_mcp_for_member answered out of shape');
+    await expect(productMcpRepository(fakeDb([{ data: null, error: { message: 'down' } }]).db).memberAccess('u-max', 'acme-app'))
+      .rejects.toThrow('product_mcp_for_member: the database refused: down');
+  });
+
+  it('reads whether a person is a member of a workspace now (PRD 3007 s1)', async () => {
+    const { db, lines } = fakeDb([{ data: [{ user_id: 'u-max' }], error: null }, { data: [], error: null }]);
+    const repository = productMcpRepository(db);
+    expect(await repository.isMember('u-max', 'w-acme')).toBe(true);
+    expect(await repository.isMember('u-max', 'w-acme')).toBe(false);
+    expect(lines[0]).toBe('from("workspace_members").select("user_id").eq("workspace_id","w-acme").eq("user_id","u-max").limit(1)');
+    await expect(productMcpRepository(fakeDb([{ data: null, error: { message: 'down' } }]).db).isMember('u-max', 'w-acme'))
+      .rejects.toThrow('workspace_members: the database refused: down');
+  });
+
   it('reads whether a key is live from api_key_of()', async () => {
     const { db, lines } = fakeDb([{ data: { key_id: 'k' }, error: null }, { data: null, error: null }]);
     const repository = productMcpRepository(db);
@@ -146,16 +169,25 @@ describe('knowledgeVectorsRepository', () => {
 });
 
 describe('searchLogRepository (PRD omni-loop-6 s1)', () => {
-  const ROW = {
-    product_id: 'p-acme', workspace_id: 'w-acme', api_key_id: 'k-live', tool: 'search_knowledge' as const,
+  const CALL = {
+    product_id: 'p-acme', workspace_id: 'w-acme', tool: 'search_knowledge' as const,
     query: 'api key', filters: { kind: 'adr' }, mode: 'meaning' as const, total: 2, hit_ids: ['api/ADR-0012', 'widgets/ADR-0067'],
     nearest_distance: 0.125, asked_at: '2026-11-13T10:00:00.000Z',
   };
+  const ROW = { ...CALL, api_key_id: 'k-live' };
 
   it('adds one row to mcp_search_log, as it is given', async () => {
     const { db, lines } = fakeDb([{ data: null, error: null }]);
     await searchLogRepository(db).add(ROW);
     expect(lines).toEqual([`from("mcp_search_log").insert(${JSON.stringify(ROW)})`]);
+  });
+
+  it('adds a member\'s row with their id and no key (PRD 3007 s1)', async () => {
+    const member = { ...CALL, user_id: 'u-max' };
+    const { db, lines } = fakeDb([{ data: null, error: null }]);
+    await searchLogRepository(db).add(member);
+    expect(lines).toEqual([`from("mcp_search_log").insert(${JSON.stringify(member)})`]);
+    expect(lines[0]).not.toContain('api_key_id');
   });
 
   it('throws, naming the table, when the database refuses the row', async () => {
@@ -173,7 +205,7 @@ describe('searchLogRepository.open (PRD omni-loop-6 s2)', () => {
       { data: [search('s-2', ['x', 'y']), search('s-1', ['a', 'b', 'c'])], error: null },
       { data: null, error: null },
     ]);
-    await searchLogRepository(db).open('k-live', 'p-acme', 'c', ASKED);
+    await searchLogRepository(db).open({ api_key_id: 'k-live' }, 'p-acme', 'c', ASKED);
     expect(lines).toEqual([
       'from("mcp_search_log").select("id, hit_ids").eq("api_key_id","k-live").eq("product_id","p-acme").eq("tool","search_knowledge")'
         + '.is("opened_id",null).gte("asked_at","2026-11-13T10:20:00.000Z").lte("asked_at","2026-11-13T10:30:00.000Z")'
@@ -182,16 +214,24 @@ describe('searchLogRepository.open (PRD omni-loop-6 s2)', () => {
     ]);
   });
 
+  it('reads a member\'s searches by the person, never by a key (PRD 3007 s1)', async () => {
+    const { db, lines } = fakeDb([{ data: [search('s-1', ['a', 'b'])], error: null }, { data: null, error: null }]);
+    await searchLogRepository(db).open({ user_id: 'u-max' }, 'p-acme', 'b', ASKED);
+    expect(lines[0]).toMatch(/^from\("mcp_search_log"\)\.select\("id, hit_ids"\)\.eq\("user_id","u-max"\)\.eq\("product_id","p-acme"\)/);
+    expect(lines[0]).not.toContain('api_key_id');
+    expect(lines[1]).toBe('from("mcp_search_log").update({"opened_id":"b","opened_rank":2}).eq("id","s-1")');
+  });
+
   it('sets nothing when no search of the window returned the id', async () => {
     const { db, lines } = fakeDb([{ data: [search('s-1', ['a'])], error: null }]);
-    await searchLogRepository(db).open('k-live', 'p-acme', 'z', ASKED);
+    await searchLogRepository(db).open({ api_key_id: 'k-live' }, 'p-acme', 'z', ASKED);
     expect(lines).toHaveLength(1);
   });
 
   it('throws, naming the table, when the read or the update is refused', async () => {
-    await expect(searchLogRepository(fakeDb([{ data: null, error: { message: 'boom' } }]).db).open('k', 'p', 'a', ASKED))
+    await expect(searchLogRepository(fakeDb([{ data: null, error: { message: 'boom' } }]).db).open({ api_key_id: 'k' }, 'p', 'a', ASKED))
       .rejects.toThrow('mcp_search_log: the database refused: boom');
-    await expect(searchLogRepository(fakeDb([{ data: [search('s-1', ['a'])], error: null }, { data: null, error: { message: 'nope' } }]).db).open('k', 'p', 'a', ASKED))
+    await expect(searchLogRepository(fakeDb([{ data: [search('s-1', ['a'])], error: null }, { data: null, error: { message: 'nope' } }]).db).open({ api_key_id: 'k' }, 'p', 'a', ASKED))
       .rejects.toThrow('mcp_search_log: the database refused: nope');
   });
 });
