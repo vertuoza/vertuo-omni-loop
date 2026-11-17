@@ -2359,7 +2359,7 @@ var syncHours = z16.string({ error: HOURS_MESSAGE }).refine((value) => /^[1-9]\d
 var READY_SCOPES = Object.freeze(["off", "mission", "all"]);
 var READY_LOOSENING_GROUND = Object.freeze({
   floors: Object.freeze(["mutation/floor.json"]),
-  baselines: Object.freeze(["fallow/", "layering/"])
+  baselines: Object.freeze(["fallow/", "layering/", "design/"])
 });
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
 var ConfigSchema = z16.object({
