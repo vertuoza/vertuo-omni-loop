@@ -408,6 +408,19 @@ export function endOf({ status, outcome: word, checked }: Attempt): JobEnd | nul
 /** A step that stopped mid-way, in run `run`: sent again once, stopped the second time. */
 const stoppedAt = (run: number): Next => (run >= LAST_RUN ? { next: 'stops', why: 'it stopped mid-way twice' } : { next: 'again' });
 
+/**
+ * A hand-off for the Reviewer at its step (PRD 2871): a build ready for review goes to QA first (PRD 3001) unless `withQa` is
+ * false, a fix to round 2; changes in round 1 send the fix, in round 2 a person decides. Any other step stopped mid-way.
+ */
+function handedOff(end: 'review' | 'changes', { run, step, withQa }: { run: number; step: Step; withQa: boolean }): Next {
+  if (end === 'review') {
+    if (step === 'build') return { next: 'send', step: withQa ? 'qa:1' : 'review:1' };
+    return step === 'fix:1' ? { next: 'send', step: 'review:2' } : stoppedAt(run);
+  }
+  if (step === 'review:1') return { next: 'send', step: 'fix:1' };
+  return step === 'review:2' ? { next: 'waits', on: 'decide' } : stoppedAt(run);
+}
+
 /** How a job of the QA pair ended (PRD 3001): QA's verdict, or the Engineer's fix to land; any other end as any step's. */
 function pairOutcome(end: JobEnd, step: Step): Next | null {
   const done = end !== 'lost' && end !== 'limited' && end !== 'cancelled' && end !== 'failed';
@@ -430,11 +443,8 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null, 
     case 'human':
       return { next: 'waits', on: 'act' };
     case 'review':
-      if (step === 'build') return { next: 'send', step: withQa ? 'qa:1' : 'review:1' };
-      return step === 'fix:1' ? { next: 'send', step: 'review:2' } : stoppedAt(run);
     case 'changes':
-      if (step === 'review:1') return { next: 'send', step: 'fix:1' };
-      return step === 'review:2' ? { next: 'waits', on: 'decide' } : stoppedAt(run);
+      return handedOff(end, { run, step, withQa });
     case 'checked':
       return stoppedAt(run);
     case 'held':
@@ -537,11 +547,17 @@ function waitsAfter(on: Extract<Next, { next: 'waits' }>['on'], { fact, latest, 
 }
 
 /** Where a PRD is once its latest job ended: the table's next step, the next step of a run under the same run. */
-function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, around: Around): PrdState {
-  const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason, latest.step, !around.qa.skip);
+/** Where a PRD of the QA pair goes once its job ended (PRD 3001, ./qa.ts): QA's verdict decides, or the Engineer's fix lands first. */
+function pairAfter(next: Next, { fact, latest, last }: { fact: PrdFacts; latest: Run; last: Attempt }, around: Around): PrdState | null {
   const runs = around.runs ?? [];
   if (next.next === 'checked' && last.checked != null) return afterChecked(fact.prd, latest, last.checked, runs, around.qa);
-  if (next.next === 'land' && isFixStep(latest.step)) return afterFix(fact.prd, { ...latest, step: latest.step }, last, runs, around.qa);
+  return next.next === 'land' && isFixStep(latest.step) ? afterFix(fact.prd, { ...latest, step: latest.step }, last, runs, around.qa) : null;
+}
+
+function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, around: Around): PrdState {
+  const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason, latest.step, !around.qa.skip);
+  const pair = pairAfter(next, { fact, latest, last }, around);
+  if (pair !== null) return pair;
   if (next.next === 'waits') return waitsAfter(next.on, { fact, latest, last }, around);
   if (next.next === 'send') return { state: 'startable', run: latest.run, step: next.step };
   if (next.next === 'stops') return repaired(fact, latest, last, next.why, around);
@@ -660,6 +676,9 @@ export function featurePrOf(runs: readonly Run[], prd: PrdNumber): PrNumber | nu
 /** The states that hold a slot of `mandate.parallel`: a job at work, a repair of its step to send or at work (PRD 2980). */
 const AT_WORK: ReadonlySet<PrdState['state']> = new Set(['running', 'repairable', 'repairing']);
 
+/** A startable PRD as sent: its run and step, and the bug an Engineer's fix of QA's bug is for (PRD 3001). */
+const sendOf = (prd: PrdNumber, { run, step, fix }: Extract<PrdState, { state: 'startable' }>): Send => (fix === undefined ? { prd, run, step } : { prd, run, step, fix });
+
 /** The PRDs this run sends, in scope order. */
 export function pick({ mission, facts, states }: { mission: Mission; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState> }): Send[] {
   if (mission.status === 'draft' || mission.status === 'paused' || mission.status === 'delivered') return [];
@@ -672,7 +691,7 @@ export function pick({ mission, facts, states }: { mission: Mission; facts: read
     const state = states.get(fact.prd);
     if (sends.length >= slots) break;
     if (state?.state !== 'startable') continue;
-    const send: Send = state.fix === undefined ? { prd: fact.prd, run: state.run, step: state.step } : { prd: fact.prd, run: state.run, step: state.step, fix: state.fix };
+    const send = sendOf(fact.prd, state);
     if (fact.territory === null) {
       if (busy.length > 0) continue;
       sends.push(send);
@@ -900,6 +919,15 @@ function plainEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, { b
   return { prd, job: last.id, link: linkOf(last.prUrl), ...words, role, sentence };
 }
 
+/**
+ * The event of a QA pair's job that ended done (PRD 3001): QA's verdict, `checked`; the Engineer's fix once it landed or was marked,
+ * null while it waits. Undefined for any other end.
+ */
+function pairEndEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, { runs, qa }: { runs: readonly Run[]; qa: QaView }): NewEvent | null | undefined {
+  if (end === 'checked' && last.checked != null && isQaStep(one.step)) return checkedEvent(prd, last, last.checked);
+  return isFixStep(one.step) && pairOutcome(end, one.step)?.next === 'land' ? fixEvent(prd, one.step, last, runs, qa) : undefined;
+}
+
 /** What a job's end is read against: round 1's findings before a fix, the mission branch, repairs on, and the QA pair (PRD 3001). */
 type EndAt = { asked?: number | null; branch?: string | null; repairs?: boolean; runs?: readonly Run[]; qa?: QaView };
 
@@ -908,8 +936,8 @@ type EndAt = { asked?: number | null; branch?: string | null; repairs?: boolean;
  * review waits for it. The Engineer's fix of a QA bug says so once it landed or was marked; none before.
  */
 function endEvent(prd: PrdNumber, one: Run, last: Attempt, end: JobEnd, { asked = null, branch = null, repairs = false, runs = [], qa = NO_QA }: EndAt = {}): NewEvent | null {
-  if (end === 'checked' && last.checked != null && isQaStep(one.step)) return checkedEvent(prd, last, last.checked);
-  if (isFixStep(one.step) && pairOutcome(end, one.step)?.next === 'land') return fixEvent(prd, one.step, last, runs, qa);
+  const pair = pairEndEvent(prd, one, last, end, { runs, qa });
+  if (pair !== undefined) return pair;
   const round = roundOf(one.step);
   if (round !== null && (end === 'changes' || end === 'ready')) return verdictEvent(prd, round, last, end);
   return end === 'review' && round === null ? shippedEvent(prd, one, last, asked) : plainEndEvent(prd, one, last, end, { branch, repairs });

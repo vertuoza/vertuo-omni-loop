@@ -114,14 +114,14 @@ export const unreadableFingerprint = (prd: PrdNumber): string => createHash('sha
 
 /**
  * The mission's round of repairs, from its events in order: 1, and one more for each Resume that follows the mission stopping.
- * A Resume of a paused mission opens none.
+ * A Resume of a paused mission opens none, and neither does a person sending one PRD on after QA (PRD 3001: a `resumed` naming it).
  */
 export function roundOf(events: readonly RecordedEvent[]): number {
   let round = 1;
   let stopped = false;
   for (const { kind, prd } of events) {
     if (kind === 'stopped' && prd === null) stopped = true;
-    else if (kind === 'resumed' && stopped) {
+    else if (kind === 'resumed' && prd === null && stopped) {
       round += 1;
       stopped = false;
     }

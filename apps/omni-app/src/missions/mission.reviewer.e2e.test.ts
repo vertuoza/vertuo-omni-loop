@@ -2,9 +2,10 @@
 // against the ledger's in-memory store and runner ends the test hands out: no database, no runner, no model call,
 // no GitHub. Two PRDs named alone, on ground of their own: PRD 30 passes in round 1, PRD 31 goes changes, fix,
 // pass; a third, PRD 32, runs out of rounds and waits on a person. Beside `mission.e2e.test.ts`, which proves
-// BR-PRODUCT-139.
+// BR-PRODUCT-139. Since PRD 3001 QA checks each build first, and passes it here (`qa.e2e.test.ts` follows its bugs).
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { qaLine } from 'omni-loop/kit/lib/qa/verdict.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import { MISSION_KIND, missionHandler } from './job.ts';
 import { fakeMissionStore } from './store.fake.ts';
@@ -39,17 +40,26 @@ function reviewed(prds: number[]) {
   return { fake, tick, twice, linesOf };
 }
 
+/** QA passes PRD `n` in round 1 on its feature pull request `on` (PRD 3001): its job ends on the line `/omni:qa` prints. */
+function qaPasses(fake: ReturnType<typeof reviewed>['fake'], n: number, on: number) {
+  fake.end(prd(n), { status: 'done', prUrl: pr(on), checked: qaLine(`omni qa: posted round 1 (pass) on PR #${String(on)}: ${pr(on)}#issuecomment-1`) });
+}
+
 describe('a fake fleet hands each build to the Reviewer (PRD 2871 s5)', () => {
   it('PRD 30 passes in round 1; PRD 31 goes changes, fix, pass; nothing is sent twice', async () => {
     const { fake, tick, twice, linesOf } = reviewed([30, 31]);
     await tick();
     expect(fake.jobs().map((one) => one.line)).toEqual(['/omni:yolo 30 --for-review', '/omni:yolo 31 --for-review']);
 
-    // Both builds ship and leave their PR a draft: the Reviewer's round 1 goes for each, under its own key.
+    // Both builds ship and leave their PR a draft: QA checks each first (PRD 3001), then, on its pass, the Reviewer's round 1
+    // goes for each, under its own key.
     fake.end(prd(30), { status: 'done', outcome: 'review', prUrl: pr(70) });
     fake.end(prd(31), { status: 'done', outcome: 'review', prUrl: pr(71) });
     await tick();
-    expect(fake.jobs().slice(2).map((one) => [one.line, one.key])).toEqual([
+    qaPasses(fake, 30, 70);
+    qaPasses(fake, 31, 71);
+    await tick();
+    expect(fake.jobs().slice(4).map((one) => [one.line, one.key])).toEqual([
       ['/omni:review 30', `mission:${ID}:prd:30:run:1:review:1`],
       ['/omni:review 31', `mission:${ID}:prd:31:run:1:review:1`],
     ]);
@@ -64,19 +74,19 @@ describe('a fake fleet hands each build to the Reviewer (PRD 2871 s5)', () => {
     // A replay, and two runs at once, send nothing twice.
     await tick();
     await twice();
-    expect(fake.jobs()).toHaveLength(5);
+    expect(fake.jobs()).toHaveLength(7);
 
     // The fix ships for review: round 2 goes once, even from two runs at once, and passes.
     fake.end(prd(31), { status: 'done', outcome: 'review', prUrl: pr(71) });
     await twice();
     expect(fake.jobs().at(-1)).toMatchObject({ line: '/omni:review 31', key: `mission:${ID}:prd:31:run:1:review:2` });
-    expect(fake.jobs()).toHaveLength(6);
+    expect(fake.jobs()).toHaveLength(8);
     fake.end(prd(31), { status: 'done', outcome: 'ready', prUrl: pr(71), posted: { findings: 0, url: review(71, 3) } });
     await tick();
     expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'PRD 30: merge it · PRD 31: merge it' });
 
-    expect(linesOf(30)).toEqual(['/omni:yolo 30 --for-review', '/omni:review 30']);
-    expect(linesOf(31)).toEqual(['/omni:yolo 31 --for-review', '/omni:review 31', '/omni:yolo-fix 31 --for-review', '/omni:review 31']);
+    expect(linesOf(30)).toEqual(['/omni:yolo 30 --for-review', '/omni:qa 30', '/omni:review 30']);
+    expect(linesOf(31)).toEqual(['/omni:yolo 31 --for-review', '/omni:qa 31', '/omni:review 31', '/omni:yolo-fix 31 --for-review', '/omni:review 31']);
     // Each verdict is one reviewed row, the Reviewer's, as an agent, linking its review, in the order the jobs were sent.
     expect(fake.events().filter((event) => event.kind === 'reviewed').map(({ role, actor, prd: n, link, sentence }) => [role, actor, n, link, sentence])).toEqual([
       ['reviewer', 'agent', prd(30), review(70, 1), 'Passed, round 1 of 2: marked ready.'],
@@ -96,11 +106,12 @@ describe('a fake fleet hands each build to the Reviewer (PRD 2871 s5)', () => {
   it('waits on a person after round 2\'s changes, never sends round 3, and waits for the merge once the PR is ready', async () => {
     const { fake, tick, linesOf } = reviewed([32]);
     await tick();
-    for (const outcome of ['review', 'changes', 'review', 'changes'] as const) {
-      fake.end(prd(32), { status: 'done', outcome, prUrl: pr(2817) });
+    for (const outcome of ['review', 'qa', 'changes', 'review', 'changes'] as const) {
+      if (outcome === 'qa') qaPasses(fake, 32, 2817);
+      else fake.end(prd(32), { status: 'done', outcome, prUrl: pr(2817) });
       await tick();
     }
-    const sent = ['/omni:yolo 32 --for-review', '/omni:review 32', '/omni:yolo-fix 32 --for-review', '/omni:review 32'];
+    const sent = ['/omni:yolo 32 --for-review', '/omni:qa 32', '/omni:review 32', '/omni:yolo-fix 32 --for-review', '/omni:review 32'];
     expect(linesOf(32)).toEqual(sent);
     expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'PRD 32: decide the Reviewer\'s findings on PR #2817' });
     await tick();

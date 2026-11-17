@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { qaLine } from 'omni-loop/kit/lib/qa/verdict.ts';
 import { checkRunnerLine } from 'omni-loop/kit/lib/runner/line.ts';
-import { NO_REPAIRS } from './repair.ts';
+import { NO_REPAIRS, roundOf } from './repair.ts';
 import { bugsOf, checkedWords, featureOf, judgeBugFix, NO_QA, picksOf, withVerdicts, type QaView } from './qa.ts';
 import {
   conclude,
@@ -149,6 +149,12 @@ describe('build, QA, the fixes, QA again, then the Reviewer', () => {
     expect(sent(runs, view({ picks: stop }))).toEqual([]);
   });
 
+  it('a person\'s pick to send a PRD on opens no new round of repairs: only the mission\'s own resume does', () => {
+    const stopped = { kind: 'stopped', prd: null, job: null };
+    expect(roundOf([stopped, { kind: 'resumed', prd: p(1), job: 'e' }])).toBe(1);
+    expect(roundOf([stopped, { kind: 'resumed', prd: null, job: null }])).toBe(2);
+  });
+
   it('reads only a person\'s pick: the mission\'s own resume names no PRD, the supervisor\'s own stop no job', () => {
     expect(picksOf([{ kind: 'resumed', prd: null, job: null }, { kind: 'stopped', prd: p(1), job: null }])).toEqual(new Map());
     expect(picksOf([{ kind: 'stopped', prd: p(1), job: 'e' }, { kind: 'resumed', prd: p(1), job: 'e' }])).toEqual(new Map([['e', 'stop']]));
@@ -181,6 +187,11 @@ describe('build, QA, the fixes, QA again, then the Reviewer', () => {
     const row = { id: 'row', prd: p(1), fingerprint: 'f'.repeat(64), round: 1, number: 1, failedJob: 'c', job: 'r', retro, fixPr: null, outcome: null };
     const flake = { ...NO_REPAIRS, budget: 9, jobs: [{ prd: p(1), k: 1, job: 'r', failedJob: 'c', attempts: [done('r', null)] }], rows: [row] };
     expect(pick({ mission: team(), facts: [one(1)], states: prdStates([one(1)], withVerdicts(runs), NO_BRANCH, COMMITTEE, ROOM, flake, view()) }).map((s) => [s.run, s.step, s.fix])).toEqual([[2, 'qa-fix:1:1', { issue: 12, branch: FEATURE }]]);
+  });
+
+  it('fixes the bugs of the latest round 1 QA posted, when QA was sent again', () => {
+    const runs = withVerdicts([built, job(1, 1, 'qa:1', qa('b', bugs(1, 12))), job(1, 2, 'qa:1', qa('b2', bugs(1, 14, 15))), job(1, 1, 'qa:1', qa('b3', bugs(1, 16)))]);
+    expect(bugsOf(runs, p(1))).toEqual([14, 15]);
   });
 
   it('the feature pull request is QA\'s, never the Engineer\'s fix pull request', () => {

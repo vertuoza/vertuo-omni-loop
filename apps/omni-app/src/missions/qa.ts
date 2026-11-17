@@ -75,7 +75,7 @@ export type QaView = {
 export const NO_QA: QaView = { skip: false, features: new Map(), landings: new Map(), picks: new Map() };
 
 /** Why a QA job that ended done is read as failed (spec section 4, AC-6). */
-export const VERDICT_NOT_READ = 'verdict not read';
+const VERDICT_NOT_READ = 'verdict not read';
 
 /**
  * The runs as the supervisor reads them (AC-6): each QA job that ended done with no verdict of its own round, read from its log
@@ -97,17 +97,19 @@ export function withVerdicts(runs: readonly Run[]): Run[] {
 /** The latest of `runs` by run, then step order. */
 const latestOf = (runs: readonly Run[], after: (a: Run, b: Run) => boolean): Run | null => runs.reduce<Run | null>((last, one) => (last === null || after(one, last) ? one : last), null);
 
-/** QA's latest verdict of round `round` for PRD `prd`, with the job it ended; null when none reads. */
-export function verdictOf(runs: readonly Run[], prd: PrdNumber, round: 1 | 2): { run: Run; attempt: Attempt; posted: QaPosted } | null {
-  let best: { run: Run; attempt: Attempt; posted: QaPosted } | null = null;
-  for (const one of runs) {
-    const attempt = one.attempts.at(-1);
-    const posted = attempt?.checked;
-    if (one.prd !== prd || qaRoundOf(one.step) !== round || attempt === undefined || posted == null || attempt.status !== 'done') continue;
-    if (best === null || one.run > best.run) best = { run: one, attempt, posted };
-  }
-  return best;
+/** A QA job's verdict, by its run. */
+type Verdict = { run: number; posted: QaPosted };
+
+/** The verdict a QA job of round `round` ended done on; none for any other job. */
+function verdictsIn(one: Run, prd: PrdNumber, round: 1 | 2): Verdict[] {
+  const attempt = one.attempts.at(-1);
+  const posted = attempt?.status === 'done' ? attempt.checked : null;
+  return one.prd === prd && qaRoundOf(one.step) === round && posted != null ? [{ run: one.run, posted }] : [];
 }
+
+/** QA's latest verdict of round `round` for PRD `prd`, by its run; null when none reads. */
+const verdictOf = (runs: readonly Run[], prd: PrdNumber, round: 1 | 2): Verdict | null =>
+  runs.flatMap((one) => verdictsIn(one, prd, round)).reduce<Verdict | null>((best, one) => (best === null || one.run > best.run ? one : best), null);
 
 /** The bugs QA's round 1 found for PRD `prd`, in the order they are fixed; none when it passed or did not read. */
 export function bugsOf(runs: readonly Run[], prd: PrdNumber): readonly IssueNumber[] {
@@ -131,7 +133,7 @@ export function picksOf(events: readonly RecordedEvent[]): Map<string, BugsPick>
 }
 
 /** The fix pull request a fix job opened: its link, when its log said it opened one (`pr-opened`, PRD 2425). */
-export function fixPrOf(attempt: Attempt): { url: string; pr: PrNumber } | null {
+function fixPrOf(attempt: Attempt): { url: string; pr: PrNumber } | null {
   if (attempt.status !== 'done' || attempt.outcome !== 'pr-opened' || attempt.prUrl === null) return null;
   const pr = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)$/.exec(attempt.prUrl)?.[1]));
   return pr.success ? { url: attempt.prUrl, pr: pr.data } : null;
