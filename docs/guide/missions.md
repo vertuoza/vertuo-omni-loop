@@ -122,6 +122,29 @@ says `committee only: a person merges each target's pull request`. **Own branch*
   says `land or drop the <k> PRDs on <branch> first`. Land the mission pull request, or drop each
   PRD, and then lower the level.
 
+## Before the Reviewer: QA
+
+Once the Engineer has built a PRD, QA checks it before the Reviewer reads it. QA opens the feature
+pull request's preview, checks each acceptance criterion of the spec, then tries the edges the
+criteria do not name, inside the PRD's scope.
+
+- **Round 1.** QA files at most five bugs, the most serious first. Each is a GitHub issue labelled
+  `bug`, with numbered steps to reproduce on the preview. A round with no bug goes straight to the
+  Reviewer.
+- **The Engineer fixes each bug.** The fleet's Engineer runs `/omni:bug-fix` for each bug, one at a
+  time, into the PRD's feature branch. A fix that cannot land is marked on its bug, and the next bug
+  goes on.
+- **Round 2.** QA checks the criteria and round 1's bugs again. It checks two rounds at most, and
+  files no new bug from the edges in round 2. A pass sends the PRD to the Reviewer.
+- **Decide the bugs.** A bug still there after round 2 waits for you. The PRD reads `Waits for you ·
+  Decide the bugs`, listing each bug by its issue. Pick **Send on to the Reviewer** to carry on with
+  the bugs open, or **Stop this PRD**.
+
+QA never writes the branch: it commits nothing, pushes nothing and opens no pull request. Each round
+posts one comment on the feature pull request with its verdict and the bugs' links. Only the
+Engineer's fixes reach the feature branch, and only you merge into the default branch. A plan
+repository's PRD skips this pair, as it skips the Reviewer.
+
 ## When a step fails
 
 A failed step no longer stops its PRD at once. The mission sends a **repair** first: a runner job

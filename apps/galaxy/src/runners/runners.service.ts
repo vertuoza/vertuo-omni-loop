@@ -42,7 +42,8 @@
 //   health and its samples of the hour, oldest first. A report's machine tokens of the last 5 h are
 //   stored in the sample as the sum of their four counts (`tokens_5h`).
 // - A job's tokens (PRD 2102): a job report may carry the tokens of its worktree; they are stored in
-//   `runner_jobs.tokens` and the page reads them with the job.
+//   `runner_jobs.tokens`, a report without them keeps them, and the page reads them with the job. The report
+//   that ends a job may carry null (PRD 3001): its agent gave no count of its run, and the job keeps none.
 // - A job's parts (PRD 2537): a job report may carry one part per account the job ran on; they are
 //   stored in `runner_jobs.parts`, a report without them keeps them, and the page reads them with the job.
 // - A job's released claims (PRD 2175): its last report may carry the sub-PRs its runner released and

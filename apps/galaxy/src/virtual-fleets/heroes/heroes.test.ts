@@ -71,6 +71,12 @@ describe('rowOf', () => {
     expect(rowOf(hero('qa', ['prove'])).line).toBe('Runs 1 of 1 skill alone');
   });
 
+  it('writes QA with /omni:qa first among the three it runs alone, its validate-e2e a person\'s (PRD 3001)', () => {
+    const row = rowOf(hero('qa', [...roleOf('qa').skills]));
+    expect(row).toMatchObject({ heading: 'QA · agent', alone: true, line: 'Runs 3 of 4 skills alone' });
+    expect(row.skills.map((s) => `${s.name} ${s.words}`)).toEqual(['/omni:qa runs alone', '/omni:prove runs alone', '/omni:bug-fix runs alone', '/omni:validate-e2e needs a person']);
+  });
+
   it('writes the Designer\'s three skills, one of which runs alone', () => {
     expect(rowOf(hero('designer', [...roleOf('designer').skills]))).toMatchObject({ heading: 'Designer · agent', line: 'Runs 1 of 3 skills alone' });
   });

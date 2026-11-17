@@ -30,7 +30,7 @@ A runner takes only these lines: `/omni:yolo`, `/omni:yolo-fix`, `/omni:pr-care`
 `/omni:wave`, `/omni:bug-fix`, `/omni:mega-bug-fix`, `/omni:visual-fix`, `/omni:plan`, `/omni:pitch`,
 `/omni:prove`, `/omni:retro-apply`, `/omni:rewind`, `/omni:knowledge-add`, `/omni:rewind-apply`,
 `/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix`, `/omni:review`, `/omni:committee`,
-`/omni:brainstorm`, `/omni:roadmap`, `/omni:mega-brainstorm`, `/omni:mega-roadmap` and `/omni:repair`. The PM's four (`/omni:brainstorm`, `/omni:roadmap`,
+`/omni:brainstorm`, `/omni:roadmap`, `/omni:mega-brainstorm`, `/omni:mega-roadmap`, `/omni:repair` and `/omni:qa`. The PM's four (`/omni:brainstorm`, `/omni:roadmap`,
 `/omni:mega-brainstorm`, `/omni:mega-roadmap`) run only when a mission at Works alone sends them, and
 `/omni:repair` only when a mission sends it to repair a failed step; you cannot send them from here. Run them in your own terminal, where they ask you their questions.
 
@@ -44,7 +44,8 @@ The Runners page, under Dashboard in the sidebar (`/app/runners`), lists:
 - **Jobs:** queued and running first, then the last 50 that ended. Each shows its line, who sent it,
   where it went and its status: Queued, Running, Done with its pull request, Failed with its reason
   (`runner lost`, `timeout` or an exit code), Cancelled, or **Need human** when it stopped to ask
-  you something.
+  you something. A job keeps the tokens it spent, shown on its row as `· 41k tokens`, or
+  `tokens unknown` when its agent reported none.
 
 A mission hands a PRD's feature pull request to the Reviewer before it goes ready: it sends
 `/omni:review <n>` to a runner as a job of its own. Two endings belong to the Reviewer, and both read
