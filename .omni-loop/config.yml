@@ -14,6 +14,8 @@ commands:
   preflight: pnpm test
   preflightFull: pnpm test
   test: pnpm test
+  # PRD omni-loop-11: the design ratchet, then impeccable's detector (report only); the design review runs it.
+  design: pnpm design
   # Run after the preflight by every slice, every wave check and every finish: lint and typecheck
   # are CI checks too, and a slice that skipped them reached the finish red (PRD 1584).
   checks:

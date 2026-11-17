@@ -311,6 +311,45 @@ describe('runHook, with git and the tools faked', () => {
     expect(preCommit(root, [bin], fakeIO().io)).toBe(0);
   });
 
+  describe('the design ratchet on the staged files (PRD omni-loop-11)', () => {
+    const staged = 'diff --cached --name-only --diff-filter=d';
+    const setup = () => {
+      const root = repo();
+      const bin = join(root, 'node_modules/.bin');
+      stub(bin, 'fallow');
+      return { root, bin };
+    };
+
+    it('runs after the audit on the staged stylesheets and TSX the ratchet reads, and passes on exit 0', () => {
+      const { root, bin } = setup();
+      const files = ['apps/galaxy/src/ask/page.tsx', 'apps/galaxy/src/dossier/page/dossier.css'];
+      const { io, ran } = fakeIO({ refs: { [staged]: [...files, 'kit/lib/a.ts', 'apps/galaxy/src/arcade/a.css'].join('\n') } });
+      expect(preCommit(root, [bin], io)).toBe(0);
+      expect(ran).toEqual(['fallow audit', `node scripts/design-ratchet.ts ${files.join(' ')}`]);
+    });
+
+    it('refuses on its exit 1 in one line, and on another failure says it could not run', () => {
+      const { root, bin } = setup();
+      const refs = { [staged]: 'apps/galaxy/src/ask/page.tsx' };
+      const one = fakeIO({ refs, codes: { 'node scripts/design-ratchet.ts': 1 } });
+      expect(preCommit(root, [bin], one.io)).toBe(1);
+      expect(one.warned).toEqual(['pre-commit: refused: the design ratchet above found a breach design/baseline.json does not list\n']);
+      const two = fakeIO({ refs, codes: { 'node scripts/design-ratchet.ts': 2 } });
+      expect(preCommit(root, [bin], two.io)).toBe(1);
+      expect(two.warned.join('')).toContain('the design ratchet could not run (exit 2)');
+    });
+
+    it('runs nothing when no staged file is one it reads, and not at all after a refused audit', () => {
+      const { root, bin } = setup();
+      const none = fakeIO({ refs: { [staged]: 'kit/lib/a.ts\napps/galaxy/src/home/page.tsx' } });
+      expect(preCommit(root, [bin], none.io)).toBe(0);
+      expect(none.ran).toEqual(['fallow audit']);
+      const refused = fakeIO({ refs: { [staged]: 'apps/galaxy/src/ask/page.tsx' }, codes: { 'fallow audit': 1 } });
+      expect(preCommit(root, [bin], refused.io)).toBe(1);
+      expect(refused.ran).toEqual(['fallow audit']);
+    });
+  });
+
   it('pre-push asks for typecheck and lint alone, against the upstream when there is one', () => {
     const root = pushRepo();
     const bin = join(root, 'node_modules/.bin');

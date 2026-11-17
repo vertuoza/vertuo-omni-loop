@@ -46,18 +46,34 @@ function shared(path: string): boolean {
   );
 }
 
+/** The folders of apps/galaxy/src/ the design ratchet never reads: the arcade and HOME keep their own surface tokens. */
+const DESIGN_OUT = ['apps/galaxy/src/arcade/', 'apps/galaxy/src/play-dock/', 'apps/galaxy/src/home/'];
+
+/**
+ * Whether the design ratchet (scripts/design-ratchet.ts) reads this path or its verdict hangs on it: an app
+ * page's stylesheet or TSX, the baseline, the stylelint config, a component's `.meta.ts`, the ratchet itself.
+ */
+export function designRead(path: string): boolean {
+  if (path === 'design/baseline.json' || path === 'stylelint.config.ts' || path === 'scripts/design-ratchet.ts') return true;
+  if (/^packages\/ui\/src\/[^/]*\.meta\.ts$/.test(path)) return true;
+  return /\.(css|tsx)$/.test(path) && path.startsWith('apps/galaxy/src/') && !DESIGN_OUT.some((prefix) => path.startsWith(prefix));
+}
+
 /**
  * The steps `changes` call for, in order: the whole typecheck (a type change reaches beyond its file),
  * lint of the changed TypeScript files git tracks (`pnpm lint` lints only those: an untracked file is
  * linted once it is added), their related tests (or the whole suite when a shared file changed), and
- * the fallow audit against `base`. With no source and no shared file changed, the typecheck alone.
+ * the fallow audit against `base`, then the design ratchet against `base` when a changed path is one it
+ * reads (PRD omni-loop-11). With no source and no shared file changed, the typecheck alone (and the ratchet,
+ * when a stylesheet changed).
  */
 export function planChecks({ tracked, untracked }: Changes, base: string): Step[] {
   const typecheck: Step = { name: 'typecheck', command: 'pnpm', args: ['typecheck'] };
   const changed = [...new Set([...tracked, ...untracked])].sort();
   const sources = changed.filter((path) => SOURCE.test(path));
   const whole = changed.some(shared);
-  if (sources.length === 0 && !whole) return [typecheck];
+  const design: Step[] = changed.some(designRead) ? [{ name: 'design', command: 'node', args: ['scripts/design-ratchet.ts', '--base', base] }] : [];
+  if (sources.length === 0 && !whole) return [typecheck, ...design];
   const typescript = tracked.filter((path) => TYPESCRIPT.test(path));
   return [
     typecheck,
@@ -66,11 +82,12 @@ export function planChecks({ tracked, untracked }: Changes, base: string): Step[
       ? { name: 'tests', command: 'pnpm', args: ['test'] }
       : { name: 'tests', command: 'pnpm', args: ['exec', 'vitest', 'related', '--run', ...sources] },
     { name: 'fallow', command: 'pnpm', args: ['fallow:audit'], env: { FALLOW_AUDIT_BASE: base } },
+    ...design,
   ];
 }
 
 /** The names a step of `planChecks` can have, in the order it plans them. */
-const STEP_NAMES: readonly string[] = ['typecheck', 'lint', 'tests', 'fallow'];
+const STEP_NAMES: readonly string[] = ['typecheck', 'lint', 'tests', 'fallow', 'design'];
 
 /**
  * The step names `--only a,b` (or `--only=a,b`) asks for, or null when the flag is absent: every step

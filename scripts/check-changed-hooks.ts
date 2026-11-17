@@ -1,7 +1,8 @@
 // The git hooks' gate (PRD 1814): `.githooks/pre-commit` and `.githooks/pre-push` run
 // `node scripts/check-changed.ts --hook <hook>` from the root of the work tree git runs them in.
 //
-// - pre-commit: `fallow audit` from that root, so a commit in a worktree is audited against it.
+// - pre-commit: `fallow audit` from that root, so a commit in a worktree is audited against it, then the
+//   design ratchet (scripts/design-ratchet.ts) on the staged stylesheets and TSX files it reads.
 // - pre-push: check:changed's typecheck and lint steps (scripts/check-changed-steps.ts) of what changed
 //   since the merge-base with the branch's upstream, else origin/main. The tests run in CI. When the
 //   push touches supabase/migrations/ or supabase/database.types.ts, it also checks the committed types
@@ -15,7 +16,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { accessSync, constants } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { processEnv, withStepVariables } from '../kit/lib/env/read.ts';
-import { type Changes, changedFiles, pickSteps, planChecks, runChecks } from './check-changed-steps.ts';
+import { type Changes, changedFiles, designRead, pickSteps, planChecks, runChecks } from './check-changed-steps.ts';
 
 /** Runs `file` with `args` in `cwd`, its output on the terminal, and answers its exit code. */
 type Run = (file: string, args: readonly string[], cwd: string, env?: NodeJS.ProcessEnv) => number;
@@ -70,15 +71,25 @@ const refuse = (io: HookIO, hook: string, line: string): number => {
   return 1;
 };
 
-/** pre-commit: the fallow audit from `root`. A failing verdict (exit 1) or a runtime error refuses. */
+/** pre-commit: the fallow audit from `root`, then the design ratchet on the staged files it reads. A failing verdict (exit 1) or a runtime error refuses. */
 export function preCommit(root: string, dirs: readonly string[], io: HookIO): number {
   const fallow = findTool('fallow', dirs);
   if (!fallow) return refuse(io, 'pre-commit', 'fallow not found (in node_modules/.bin or on PATH): run pnpm install');
   const code = io.run(fallow, ['audit'], root);
+  if (code === 1) return refuse(io, 'pre-commit', 'refused: the fallow audit above found what the baselines do not allow');
+  if (code !== 0) return refuse(io, 'pre-commit', `fallow audit could not run (exit ${String(code)}): fix it, or commit with --no-verify and say why in the pull request`);
+  return designRatchet(root, io);
+}
+
+/** The design ratchet on the staged `.css` and `.tsx` files it reads; nothing staged it reads, nothing runs. */
+function designRatchet(root: string, io: HookIO): number {
+  const staged = (io.git(root, ['diff', '--cached', '--name-only', '--diff-filter=d']) ?? '').split('\n').filter((path) => /\.(css|tsx)$/.test(path) && designRead(path));
+  if (staged.length === 0) return 0;
+  const code = io.run(process.execPath, ['scripts/design-ratchet.ts', ...staged], root);
   if (code === 0) return 0;
   return code === 1
-    ? refuse(io, 'pre-commit', 'refused: the fallow audit above found what the baselines do not allow')
-    : refuse(io, 'pre-commit', `fallow audit could not run (exit ${String(code)}): fix it, or commit with --no-verify and say why in the pull request`);
+    ? refuse(io, 'pre-commit', 'refused: the design ratchet above found a breach design/baseline.json does not list')
+    : refuse(io, 'pre-commit', `the design ratchet could not run (exit ${String(code)}): fetch origin/main, or commit with --no-verify and say why in the pull request`);
 }
 
 /** pre-push: the typecheck and lint of what changed since the merge-base with the upstream, else origin/main. */
