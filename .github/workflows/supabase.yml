@@ -151,6 +151,13 @@ jobs:
         # their events, others nothing, nobody signed in writes them; an event is never changed or
         # deleted; a job's mission_key is unique (PRD 2842).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/missions.sql
+      - name: A mission's repairs, their budget, and the Omni Loop bugs it reported
+        # As the service role, a cause is repaired 3 times at most in a round and a mission 9 times in all, a lost repair
+        # spending nothing and a new round giving each cause 3 again; the number is the database's; a repair that ended
+        # never changes, and none is deleted but with its mission. A member reads their mission's repairs, a member of
+        # another workspace nothing; nobody signed in writes them, nor reads the Omni Loop bug reports, one per fingerprint.
+        # A repair's events and key are taken, and a runner claims a repair before an older fresh job (PRD 2980).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mission_repairs.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is
