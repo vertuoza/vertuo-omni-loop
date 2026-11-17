@@ -21993,7 +21993,8 @@ var RUNNABLE_SKILLS = Object.freeze([
   "roadmap",
   "mega-brainstorm",
   "mega-roadmap",
-  "repair"
+  "repair",
+  "qa"
 ]);
 var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
 var APP_SKILLS = Object.freeze(["acceptance"]);
