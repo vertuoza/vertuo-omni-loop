@@ -318,6 +318,7 @@ thread ended as: `#<pr.number>: merged. 4 fixed, 2 pushed back, 1 asked.`
 
 ## Guardrails
 
+- **Search the product's knowledge before deciding.** Before deciding anything the spec does not settle, search it (`search_knowledge` from the `omni-knowledge` server when the session has it, else `node .omni-loop/bin/omni.mjs kb search <query>`), read each entry it relies on whole (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox item that records the decision.
 - **Never push while a wave holds claims.** `report-only` pushes, replies and resolves nothing; it
   rewrites the status comment alone.
 - **Never merge,** and never mark the feature PR ready or back to draft: merging is a person's, ready

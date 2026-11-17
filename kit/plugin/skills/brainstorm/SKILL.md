@@ -990,6 +990,7 @@ written, with these differences.
 
 ## Guardrails
 
+- **Search the product's knowledge before deciding.** Before deciding anything the spec does not settle, search it (`search_knowledge` from the `omni-knowledge` server when the session has it, else `node .omni-loop/bin/omni.mjs kb search <query>`), read each entry it relies on whole (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox item that records the decision.
 - Nothing is built before the design is approved, and no source file enters the phase-0 PR.
 - Never lock a screen or a law, never edit a locked screen's file or mockup, and never write an
   amendment line: an approved "after" is a draft, and only a person locks, through
