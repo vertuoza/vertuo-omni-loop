@@ -84,8 +84,10 @@ function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilte
   );
 }
 
-// The bar borrows the track's pill look (dossier.css, .stage-*), and the two rules a link row needs beyond
-// it (its margin, no underline) are in the same stylesheet, under .dossier-history-stages.
+// The bar borrows the track's pill look (dossier.css, .stage-*). The two rules a link row needs beyond it,
+// its margin and no underline, sit in the same stylesheet under .dossier-history-stages: this page
+// draws no inline style (stylelint reads the stylesheet, page-parts.test.ts reads these components),
+// so nothing below carries a style attribute.
 
 function StageBar({ stages }: { stages: StageBarEntry[] }) {
   return (
