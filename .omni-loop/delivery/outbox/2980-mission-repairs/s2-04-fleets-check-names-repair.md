@@ -2,7 +2,7 @@
 id: s2-04-fleets-check-names-repair
 prd: 2980
 slice: s2
-rank: medium
+rank: high
 bears-on: none
 raised: 2026-11-17
 wave: 1
@@ -33,7 +33,7 @@ B. B. The Engineer does not start with repair, and the check stays as it was.
 ## What I had to decide
 
 Whether the one line of supabase/checks/virtual_fleets.sql that lists a new Engineer's skills may take repair. The file is named as proof of BR-GAME-1, BR-GAME-2 and BR-GAME-3; the line changed proves none of them, and their own lines are untouched.
-Decided by: Jev (hardToRevert 0.54) · agent said true
+Decided by: agent (hardToRevert true): a change to a law-proof file is raised high so a person answers it (Jev read 0.54)
 
 ## What I did meanwhile
 
