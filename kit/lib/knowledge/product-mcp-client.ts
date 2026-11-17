@@ -57,7 +57,8 @@ function rpcOf(body: string): unknown {
     return JSON.parse(body);
   } catch {
     const data = body.split('\n').filter((line) => line.startsWith('data:')).at(-1);
-    return data === undefined ? null : (JSON.parse(data.slice(5)) as unknown);
+    const event: unknown = data === undefined ? null : JSON.parse(data.slice(5));
+    return event;
   }
 }
 
