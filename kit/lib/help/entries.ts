@@ -835,6 +835,22 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'a product PRD cannot land in. Exit 0 when every one is on server, 1 otherwise.',
   },
   {
+    name: 'mcp',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni mcp'],
+    summary: "the product's knowledge, as an MCP server over stdio",
+    detail:
+      'Runs an MCP server on stdin and stdout, with the two tools of the product knowledge route: ' +
+      'search_knowledge and get_knowledge. The omni plugin declares it as omni-knowledge, so every ' +
+      "session with the plugin, and every runner job, reads the product's knowledge with its own " +
+      'sign-in (omni signin, or OMNI_TOKEN on a runner), with no API key to make. It says nothing to ' +
+      'the Omni page until the first call. A call that cannot be answered answers one line as the ' +
+      'tool result: not signed in, knowledge off, no product, or the Omni page unreachable. ' +
+      'Nothing is written: no key, no token, no file. From a terminal, omni kb search and omni kb ' +
+      'get make the same two calls.',
+  },
+  {
     name: 'whoami',
     kind: 'command',
     who: 'you',
