@@ -82,6 +82,11 @@
   --motion-duration-fast: 120ms;
   --motion-duration-slow: 240ms;
   --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --layer-base: 0;
+  --layer-sticky: 10;
+  --layer-overlay: 20;
+  --layer-dialog: 30;
+  --layer-toast: 40;
 }
 
 /* The semantic roles of each theme, Omni by default. */
