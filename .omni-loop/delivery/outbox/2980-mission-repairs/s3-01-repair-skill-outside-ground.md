@@ -33,6 +33,8 @@ B. B. Move each into a slice of its own and leave this slice with the skill fold
 
 May the slice keep these edits outside its ground: kit/lib/runner/line.ts, kit/lib/virtual-fleet/roles.ts and its test, kit/lib/help/entries.ts and its test, apps/galaxy/src/runners/runners.contract.ts, apps/galaxy/src/runners/runners.skills.migration.test.ts, apps/galaxy/src/runners/runners.ultra-skills.migration.test.ts, apps/galaxy/src/virtual-fleets/roles-sql.test.ts, apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts, kit/test/repair-skill.test.ts and docs/guide/runners.md.
 
+Raised to high by the wave: Two of these files prove rules: `runners.skills.migration.test.ts` (BR-PRODUCT-140) and `virtual-fleets.controller.test.ts` (BR-GAME-2). Each only adds `repair` to an expected list of skills; the rules' own assertions are unchanged. A change to a rule's proof is answered by a person.
+
 ## What I did meanwhile
 
 Each of these is one added word or one updated count, so the database and the app agree on repair and the tests that held them apart now hold them equal.
@@ -46,9 +48,3 @@ Undoing it removes repair from those lists again; the skill folder then fails th
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) the plan lists none of these paths in s3's territory, though the wave's note named them.
-
-## Raised to high by the wave
-
-Two of these files prove rules: `runners.skills.migration.test.ts` (BR-PRODUCT-140) and
-`virtual-fleets.controller.test.ts` (BR-GAME-2). Each only adds `repair` to an expected list of
-skills; the rules' own assertions are unchanged. A change to a rule's proof is answered by a person.
