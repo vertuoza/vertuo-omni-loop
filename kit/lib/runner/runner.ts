@@ -448,6 +448,12 @@ function withTokens(loop: Loop, update: JobUpdate, worktree: string): JobUpdate 
   return tokens === null ? update : { ...update, tokens };
 }
 
+/** `withTokens` for the report that ends a job: a run whose tokens cannot be read ends with `null`, so the app keeps none (PRD 3001, AC-8). */
+function withEndTokens(loop: Loop, update: JobUpdate, worktree: string): JobUpdate {
+  const counted = withTokens(loop, update, worktree);
+  return loop.tokensOk && counted.tokens === undefined ? { ...counted, tokens: null } : counted;
+}
+
 /**
  * Sends a running job's status, with the lines after the cursor: a cancel waiting comes back true, and so does a job the
  * app ended meanwhile, which is noted when the app says its runner lost it (PRD 2809). The cursor moves only once the app
@@ -1059,7 +1065,7 @@ async function slot(loop: Loop, runner: string): Promise<void> {
       const { last, live } = await runJob(loop, job);
       // A job whose session never started made no claim: it has nothing to release.
       const report = live === null ? last : await releasing(loop, job, last);
-      await finish(loop, job.id, withParts(loop, withTokens(loop, report, worktreeOf(loop, job)), job.id), live);
+      await finish(loop, job.id, withParts(loop, (live === null ? withTokens : withEndTokens)(loop, report, worktreeOf(loop, job)), job.id), live);
       loop.print(endLine(job, last));
     } finally {
       // Once its last report is sent: the log is masked with the file until then.
