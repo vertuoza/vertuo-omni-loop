@@ -98,3 +98,7 @@ Bug section are PRD 556's spec, carried whole.
   here`, an old pinned omni, or the line `omni bug film` or `omni proof push` exits 1 with
   (`kit/lib/bug/proof-body.ts`). Its tests are `kit/lib/bug/proof-body.test.ts` and
   `kit/test/bug-fix-proof.test.ts`.
+- **`--base <branch>`** (PRD 2980, slice s3): the fix branch is cut from the given branch and the PR
+  targets it (`<base>`, **The base**), in place of `repo.defaultBranch`; with no `--base`, nothing
+  changes. `/omni:repair` uses it to fix into a mission's branch. Its test is
+  `kit/test/repair-skill.test.ts`.

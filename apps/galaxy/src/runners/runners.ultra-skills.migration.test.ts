@@ -40,9 +40,7 @@ describe('the runners\' fixed skills, as the database holds them', () => {
 
   it('equal the app\'s list, the four the database lacked and the three ultra skills among them', () => {
     const fixed = fixedOf(body(NEWEST));
-    // `repair` (PRD 2980) is the database's before it is the app's: the slice that adds the skill (s3) lists it in RUNNER_SKILLS,
-    // and this line then reads `[...RUNNER_SKILLS]` again; until then, a skill added to one list alone still fails here.
-    expect(fixed).toEqual([...RUNNER_SKILLS, 'repair']);
+    expect(fixed).toEqual([...RUNNER_SKILLS]);
     for (const skill of ['retro-apply', 'rewind', 'knowledge-add', 'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']) expect(fixed, skill).toContain(skill);
   });
 

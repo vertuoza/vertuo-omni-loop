@@ -52,7 +52,7 @@ const EVERY_HERO: readonly string[] = ['It never merges into the default branch.
 export const ROLES: readonly RoleDefaults[] = [
   {
     role: 'engineer', name: 'Engineer',
-    skills: ['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive'],
+    skills: ['yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive', 'repair'],
     agent: 'claude', model: 'sonnet', limits: [...EVERY_HERO, 'It waits for a person wherever one is needed.'],
   },
   {

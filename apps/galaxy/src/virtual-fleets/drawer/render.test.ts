@@ -38,7 +38,7 @@ describe('the New virtual fleet drawer', () => {
 
   it('draws the six roles as switches, all on, each with its count line', () => {
     const t = text(view(opened()));
-    expect(t).toContain('Engineer Runs 10 of 13 skills alone QA Runs 2 of 3 skills alone Reviewer Runs 1 of 2 skills alone PM Runs 6 of 7 skills alone Architect Runs 1 of 2 skills alone Designer Runs 1 of 3 skills alone');
+    expect(t).toContain('Engineer Runs 11 of 14 skills alone QA Runs 2 of 3 skills alone Reviewer Runs 1 of 2 skills alone PM Runs 6 of 7 skills alone Architect Runs 1 of 2 skills alone Designer Runs 1 of 3 skills alone');
     const switches = [...view(opened()).matchAll(/role="switch"[^>]*aria-checked="(true|false)"/g)].map((m) => m[1]);
     expect(switches).toEqual(['true', 'true', 'true', 'true', 'true', 'true']);
   });
