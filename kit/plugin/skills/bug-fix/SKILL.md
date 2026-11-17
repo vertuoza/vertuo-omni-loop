@@ -48,6 +48,9 @@ rule, outside the job. With `OMNI_GITHUB_APP` unset, nothing here applies.
 | a description | `/omni:bug-fix 'saving twice duplicates the row'` | the bug, in the person's words; the skill opens its issue |
 | an issue | `/omni:bug-fix 612`, `/omni:bug-fix #612`, or `/omni:bug-fix https://github.com/<owner>/<repo>/issues/612` | an issue that already reports the bug; the skill uses it as it is |
 | `--answers <job>` | `/omni:bug-fix #612 --answers 4821` | a resume (PRD 2255): a person answered on the Omni page the questions job `<job>` asked at a stop for a decision; see **Resuming with answers** |
+| `--base <branch>` | `/omni:bug-fix #612 --base feat/mission-7` | the branch the fix is cut from and its PR targets, in place of `repo.defaultBranch` (PRD 2980: `/omni:repair` fixes into a mission branch); see **The base** |
+
+**The base.** `<base>` below is the branch given by `--base`, else `repo.defaultBranch`. A `--base` branch must exist on `<remote>` (`git ls-remote --exit-code --heads <remote> <branch>`), or the skill stops in one line saying so. With `--base`, steps 5, 7, the `bug-fix.review` and `bug-fix.proof` points and step 12 read `<base>` wherever they say `repo.defaultBranch`; the regression evidence of step 3 still reads the default branch. A fix PR never targets the default branch under `--base`: it targets the branch given.
 
 The three issue forms are all read as its number, `<n>`. An issue URL must name `repo.slug`: a URL
 of another repository stops the skill with one line saying which repository it belongs to, since
@@ -228,14 +231,14 @@ On a runner, with `OMNI_UNATTENDED` set, ask the person on the job before this c
 
 ## 5. Branch
 
-Cut a worktree on `branches.fix`, with `{topic}` = `<n>-<slug>`, from the default branch:
+Cut a worktree on `branches.fix`, with `{topic}` = `<n>-<slug>`, from `<base>` (**The base**):
 
 ```bash
 git fetch <remote>
-git worktree add -b <fix branch> <worktrees>/<n>-<slug> <remote>/<repo.defaultBranch>
+git worktree add -b <fix branch> <worktrees>/<n>-<slug> <remote>/<base>
 ```
 
-Every change below is made in this worktree. Never commit on `repo.defaultBranch`.
+Every change below is made in this worktree. Never commit on `repo.defaultBranch`, nor on `<base>`.
 
 Edit the triage comment in place, found by its marker `<!-- omni-bug:triage -->` (step 3's
 `gh api` lookup, then its `PATCH`): its `- **Branch:**` line becomes `- **Branch:** `<fix branch>``.
@@ -339,7 +342,7 @@ never level B's reason, and `omni bug <n>` refuses it as one.
    `Pending: the fix is not pushed yet.`, then the `omni sign footer` line (**Signing**). Open it
    through `/omni:pr`, as a standalone PR and as a **draft**, at point `pr.open` as `/omni:pr` says
    (its hooks see the reproduction alone) with `--issue <n>`, so its `pr.open` step can title it
-   from the issue's marker (PRD 2648): base `repo.defaultBranch`, label `labels.bug` (subject to
+   from the issue's marker (PRD 2648): base `<base>`, label `labels.bug` (subject to
    its **Labels** rules), title the fix's commit subject to come,
    `gh pr create --draft --body-file <file>`. Keep its number, `<pr>`. `/omni:pr`'s watch does not
    start here: it starts at step 12, once the fix is pushed.
@@ -433,7 +436,7 @@ The skill never edits CI: a repository's workflows are a person's to change.
 **Point `bug-fix.review`.** After the guard and before mutation, run
 `node .omni-loop/bin/omni.mjs flow show bug-fix.review --path <p>` (as above)
 and follow it (every `before` hook, the kit's step (empty), every `after` hook; `{issue}`, `{branch}`
-and `{base}` (`<repo.remote>/<repo.defaultBranch>`) filled by you), each ending in `node .omni-loop/bin/omni.mjs flow verdict bug-fix.review --from <file>`.
+and `{base}` (`<repo.remote>/<base>`) filled by you), each ending in `node .omni-loop/bin/omni.mjs flow verdict bug-fix.review --from <file>`.
 A hook may commit fixes, signed (**Signing**): run `commands.preflightFull` (or `commands.preflight`)
 again after it, and a red one counts as an attempt (stop rule 5), as a red fix does. A hook that
 fails never stops the fix: the PR's **Guard** section gets one line,
@@ -625,7 +628,7 @@ open step 7's draft on the reproduction alone first, and only then commit the fi
    `node .omni-loop/bin/omni.mjs flow show bug-fix.proof --path <p>` (as step 7 does) and follow it,
    every `before` hook, the kit's step (empty: only hooks run) or, when it prints `kitStep: replaced`,
    the `replace` hook, then every `after` hook, filled by you: `{issue}` `<n>`, `{base}`
-   `<repo.remote>/<repo.defaultBranch>`, `{head}` `<head>`, `{pr}` `<pr>`, `{targets}`
+   `<repo.remote>/<base>`, `{head}` `<head>`, `{pr}` `<pr>`, `{targets}`
    `<repo.slug>#<pr>`, `{reproduction}` the reproduction's path, `{out}` `<run folder>/preview/`. End
    each with `node .omni-loop/bin/omni.mjs flow verdict bug-fix.proof --from <file>`. Level A is
    reached when a hook ran, every verdict is `ok`, `{out}` holds a readable `before.*` and a readable

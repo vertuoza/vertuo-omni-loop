@@ -2490,6 +2490,62 @@ export type Database = {
           },
         ]
       }
+      mission_repairs: {
+        Row: {
+          ended_at: string | null
+          failed_job_id: string
+          fingerprint: string
+          fix_pr: string | null
+          id: string
+          job_id: string | null
+          mission_id: string
+          number: number
+          outcome: string | null
+          prd: number
+          retro: Json | null
+          round: number
+          started_at: string
+        }
+        Insert: {
+          ended_at?: string | null
+          failed_job_id: string
+          fingerprint: string
+          fix_pr?: string | null
+          id?: string
+          job_id?: string | null
+          mission_id: string
+          number?: number
+          outcome?: string | null
+          prd: number
+          retro?: Json | null
+          round?: number
+          started_at?: string
+        }
+        Update: {
+          ended_at?: string | null
+          failed_job_id?: string
+          fingerprint?: string
+          fix_pr?: string | null
+          id?: string
+          job_id?: string | null
+          mission_id?: string
+          number?: number
+          outcome?: string | null
+          prd?: number
+          retro?: Json | null
+          round?: number
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_repairs_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       missions: {
         Row: {
           created_at: string
@@ -2561,6 +2617,33 @@ export type Database = {
             referencedColumns: ["workspace_id", "name"]
           },
         ]
+      }
+      omni_bug_reports: {
+        Row: {
+          count: number
+          created_at: string
+          fingerprint: string
+          issue: number
+          repo: string
+          updated_at: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          fingerprint: string
+          issue: number
+          repo: string
+          updated_at?: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          fingerprint?: string
+          issue?: number
+          repo?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       outbox_items: {
         Row: {
@@ -7023,6 +7106,23 @@ export type Database = {
         }[]
       }
       my_workspaces: { Args: never; Returns: string[] }
+      omni_bug_report_seen: {
+        Args: { p_fingerprint: string }
+        Returns: {
+          count: number
+          created_at: string
+          fingerprint: string
+          issue: number
+          repo: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "omni_bug_reports"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       outbox_item_adopt: {
         Args: {
           p_bears_on: string

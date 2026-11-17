@@ -6,11 +6,16 @@
 //   roadmap 40   PRD 10 (apps/quotes/)     then PRD 11 (apps/invoices/), which waits on 10
 //   roadmap 41   PRD 20 (apps/quotes/pay/) shares ground with PRD 10; PRD 21 (apps/mail/) is free
 import { describe, expect, it } from 'vitest';
-import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parsePr, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { checkRunnerLine } from 'omni-loop/kit/lib/runner/line.ts';
+import { fingerprint } from 'omni-loop/kit/lib/repair/fingerprint.ts';
+import { repairRecordLine } from 'omni-loop/kit/lib/repair/line.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import type { JobResult } from '../jobs/worker.ts';
+import type { MissionBranches } from './branch.ts';
+import type { PullRead } from './gate.ts';
 import { MISSION_KIND, missionHandler } from './job.ts';
+import type { MissionJoins } from './join.ts';
 import { fakeMissionStore } from './store.fake.ts';
 import type { MissionRecord } from './store.ts';
 import { expandScope, type PrdFacts, type RoadmapRow } from './supervisor.ts';
@@ -209,5 +214,83 @@ describe('a fake fleet waits out a provider limit (PRD 2949, BR-PRODUCT-139)', (
     fake.runners([{ repos: ['acme/widgets'], slots: 1, used: 0, lastSeenAt: new Date(START + 2 * MINUTE).toISOString(), health: null }]);
     await run();
     expect(fake.mission().waitingOn).toBeNull();
+  });
+});
+
+describe('a fake fleet repairs a step that broke at 02:00 (PRD 2980, BR-PRODUCT-139)', () => {
+  const NIGHT = Date.parse('2027-01-23T02:00:00Z');
+  const BRANCH = 'mission/12-faster-quotes';
+
+  /** A pull request into the mission branch: the repair's fix, green, unless told otherwise. */
+  const pull = (number: number, over: Partial<PullRead> = {}): PullRead => ({
+    number,
+    url: `https://github.com/acme/widgets/pull/${String(number)}`,
+    title: `fix: #${String(number)}`,
+    state: 'open',
+    draft: false,
+    merged: false,
+    base: BRANCH,
+    defaultBranch: 'main',
+    head: 'f'.repeat(40),
+    runs: [{ id: 1, name: 'test', status: 'completed', conclusion: 'success', title: null }],
+    statuses: [],
+    reviews: [],
+    items: { ranks: [] },
+    ...over,
+  });
+
+  /** What `/omni:repair` ends on for PRD 10: a code cause, its fix #51 into the mission branch. */
+  function repaired(): string {
+    const cause = { class: 'code' as const, place: 'apps/quotes/total.ts', signature: 'AssertionError: expected 10.01 to be 10' };
+    const print = fingerprint(cause);
+    const retro = { cause: 'The quote total is not rounded.', ...cause, evidence: ['The test compares an unrounded total.'], proposedFix: 'Round the total before it is compared.', fingerprint: print };
+    return `02:20:00 ${repairRecordLine({ v: 1, mission: 12, prd: p(10), fingerprint: print, class: 'code', retro, fix: parsePr(51), report: null })}`;
+  }
+
+  it('sends a repair, lands its fix on the mission branch, sends the step again, and the PRD reaches ready', async () => {
+    const pulls: Record<number, PullRead> = { 51: pull(51), 91: pull(91, { reviews: [] }) };
+    const merges: number[] = [];
+    const joins: MissionJoins = {
+      read: (at) => Promise.resolve({ ...(pulls[at.pr] ?? pull(at.pr)) }),
+      merge: (at) => {
+        merges.push(at.pr);
+        const one = pulls[at.pr];
+        if (one) pulls[at.pr] = { ...one, merged: true, state: 'closed' };
+        return Promise.resolve({ ok: true });
+      },
+    };
+    const branches: MissionBranches = { prepare: () => Promise.resolve({ ok: true, cut: false }) };
+    const fake = fakeMissionStore({ mission: { ...mission, level: 'own-branch', status: 'running' }, facts });
+    const clock = { now: NIGHT - MINUTE };
+    const handler = missionHandler({ store: fake.store, branches, joins, refresh: () => Promise.resolve('again'), now: () => clock.now, log: () => undefined });
+    const run = (): Promise<JobResult> => {
+      clock.now += MINUTE;
+      return handler(claimed());
+    };
+
+    await run();
+    expect(fake.jobs().map((job) => job.line)).toEqual([`/omni:yolo 10 --for-review --base ${BRANCH}`, `/omni:yolo 21 --for-review --base ${BRANCH}`]);
+
+    // 02:00: PRD 10's test breaks and its job fails. The mission sends a repair first in line, not a stop.
+    fake.end(p(10), { status: 'failed', reason: 'exit code 1' });
+    await run();
+    expect(fake.repairJobs().map((job) => job.line)).toEqual(['/omni:repair --mission 12 --prd 10 --job job-1']);
+    expect(fake.mission()).toMatchObject({ status: 'running', waitingOn: 'PRD 10: repairing (1 of 3) · 8 left in this mission' });
+
+    // The repair finds the cause and opens its fix into the mission branch: green, it lands, and the step goes again.
+    fake.endRepairJob(p(10), { status: 'done' }, repaired());
+    await run();
+    expect(merges).toEqual([51]);
+    expect(fake.jobs().filter((job) => job.prd === p(10)).map((job) => job.key)).toEqual([`mission:${ID}:prd:10:run:1`, `mission:${ID}:prd:10:run:2`]);
+
+    // The step passes on the fixed branch: the repair ended fixed, and the PRD is ready.
+    fake.end(p(10), { status: 'done', outcome: 'ready', prUrl: 'https://github.com/acme/widgets/pull/91' });
+    await run();
+    expect(fake.repairRows().map((row) => [row.number, row.outcome, row.fixPr])).toEqual([[1, 'fixed', 'https://github.com/acme/widgets/pull/51']]);
+    expect(fake.events().map((event) => event.kind)).toEqual(expect.arrayContaining(['repair-started', 'retro', 'repair-ended', 'prd-ready']));
+    expect(fake.events().map((event) => event.kind)).not.toContain('stopped');
+    expect(fake.mission().status).toBe('running');
+    // Nothing reached the default branch: the fix merged into the mission branch only (N-PRODUCT-15).
+    expect(merges).not.toContain(91);
   });
 });

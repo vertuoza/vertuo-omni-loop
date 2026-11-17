@@ -2468,4 +2468,23 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       result: "the dossier's link and the versions it added",
     },
   },
+  {
+    name: 'repair',
+    kind: 'skill',
+    who: 'skills',
+    usage: ['/omni:repair --mission <m> --prd <n> --job <id>'],
+    summary: 'repair the step a mission\'s PRD failed on',
+    detail:
+      'Reads why the failed job failed, on a runner, and writes a retro: the cause in one sentence, its ' +
+      'class, where, the error\'s signature, the evidence and the proposed fix. A code cause is fixed ' +
+      'through /omni:bug-fix --base <mission branch>; an omni-loop cause writes a scrubbed report and ' +
+      'fixes nothing; a flake fixes nothing and the step is sent again; a person cause names the question. ' +
+      'A mission sends it on a runner; it asks nothing, never merges and ends on one omni repair: line.',
+    group: 'run-by-skills',
+    when: "Use it when a mission's PRD failed a step: the mission sends it, you never run it by hand.",
+    example: {
+      type: '/omni:repair --mission 12 --prd 2950 --job 4821',
+      result: 'a retro, then a bug fix into the mission branch, and the omni repair: record line',
+    },
+  },
 ]);

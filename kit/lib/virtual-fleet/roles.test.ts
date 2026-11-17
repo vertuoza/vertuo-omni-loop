@@ -14,7 +14,7 @@ describe('the roles of a Virtual Hero', () => {
 
   it('gives each role every skill of its role, as the spec\'s table lists them', () => {
     expect(roleOf('engineer').skills).toEqual([
-      'yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive',
+      'yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive', 'repair',
     ]);
     expect(roleOf('qa').skills).toEqual(['prove', 'bug-fix', 'validate-e2e']);
     expect(roleOf('reviewer').skills).toEqual(['review', 'tech-review']);
@@ -89,7 +89,7 @@ describe('skillMarks', () => {
 
 describe('the count line', () => {
   it('reads `Runs <k> of <n> skills alone` for each role with a skill that runs alone', () => {
-    expect(roleLine('engineer')).toEqual({ alone: true, line: 'Runs 10 of 13 skills alone' });
+    expect(roleLine('engineer')).toEqual({ alone: true, line: 'Runs 11 of 14 skills alone' });
     expect(roleLine('qa').line).toBe('Runs 2 of 3 skills alone');
     expect(roleLine('pm').line).toBe('Runs 6 of 7 skills alone');
     expect(roleOf('pm').limits).toContain('It never approves a PRD it wrote, nor one outside a mission\'s committee.');
