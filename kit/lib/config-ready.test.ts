@@ -75,8 +75,8 @@ describe('labels.readyCheck (PRD 2898)', () => {
 });
 
 describe('the ground a loosening is read on (PRD 2898)', () => {
-  it('names the mutation floor and the two baseline folders the spec lists', () => {
-    expect(READY_LOOSENING_GROUND).toEqual({ floors: ['mutation/floor.json'], baselines: ['fallow/', 'layering/'] });
+  it('names the mutation floor and the three baseline folders the spec lists', () => {
+    expect(READY_LOOSENING_GROUND).toEqual({ floors: ['mutation/floor.json'], baselines: ['fallow/', 'layering/', 'design/'] });
   });
 });
 
