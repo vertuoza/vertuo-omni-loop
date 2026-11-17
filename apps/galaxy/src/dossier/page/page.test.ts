@@ -8,6 +8,7 @@ import { fakeSnapshotStore } from '../snapshot/store.fake';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { signature } from './live';
 import { StoredSummary } from '../snapshot/schema';
+import { SCALE } from '@omni/design';
 import { LiveRefresh } from './live-refresh';
 import { SANDBOX_CSP } from './sandbox';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
@@ -862,8 +863,10 @@ describe('the stylesheet', () => {
     const pinned = of('.dossier-head', PINNED);
     expect(pinned).toMatch(/position:\s*sticky/);
     expect(pinned).toMatch(/top:\s*0/);
-    expect(pinned).toMatch(/z-index:\s*(\d+)/);
-    expect(Number(/z-index:\s*(\d+)/.exec(pinned)?.[1])).toBeLessThan(20);
+    const layer = /z-index:\s*var\(--(layer-[a-z]+)\)/.exec(pinned)?.[1] ?? '';
+    expect(layer).toBe('layer-sticky');
+    expect(Number(SCALE[layer])).toBeLessThan(Number(SCALE['layer-overlay']));
+    expect(of('.pitch-panel', '')).toMatch(/z-index:\s*var\(--layer-overlay\)/);
     for (const rule of rules.filter((r) => r.media !== PINNED)) expect(rule.body, rule.selectors.join(', ')).not.toMatch(/sticky/);
   });
 
