@@ -38,6 +38,9 @@ import { readBusinessLaws, selectBusinessLaws, type BusinessLaw } from '../../li
 import { businessLawsAt } from '../../lib/knowledge/business-laws-home.ts';
 import { businessLawsText, lawsOfDomain, selectionText } from '../../lib/knowledge/business-laws-text.ts';
 import { pushKnowledgeGraph } from '../../lib/knowledge/graph-push.ts';
+import { callKnowledge, entryLines, searchLines } from '../../lib/knowledge/product-mcp-client.ts';
+import type { KnowledgeCall } from '../../lib/knowledge/product-mcp-client.ts';
+import { rememberedProduct } from '../../lib/product/checkout.ts';
 import { readProductGraph } from '../../lib/knowledge/product-graph-text.ts';
 import { LEVELS } from '../../lib/knowledge-tree/levels.ts';
 import { copiesStatus } from '../../lib/knowledge/copies.ts';
@@ -90,7 +93,7 @@ const PACK_USAGE = 'usage: omni kb pack get <repo> [--read-at <commit>]';
 const GRAPH_USAGE = 'usage: omni kb graph [<id> | --paths <file>[,<file>…] [<file>…]] [--depth <1-3>] [--json]';
 const GRAPH_PRODUCT_USAGE = 'usage: omni kb graph --product <key> <id> [--depth <1-3>] [--json]';
 const GRAPH_PUSH_USAGE = 'usage: omni kb graph push';
-const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb business-laws [--domain <key> | --spec <file>] [--json] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb domains [add|edit …] | omni kb index [--json]`;
+const USAGE = `usage: omni kb init | omni kb show <form> [--json] [--all] | omni kb status [--json] | omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json] | omni kb graph --product <key> <id> [--depth <1-3>] [--json] | omni kb graph push | omni kb laws […] | omni kb business-laws [--domain <key> | --spec <file>] [--json] | omni kb owners [--json] | omni kb pack get <repo> [--read-at <commit>] | omni kb legal [add|edit …] | omni kb glossary [add|edit …] | omni kb domains [add|edit …] | omni kb index [--json] | omni kb search <query> [--kind <kind>] [--domain <key>] [--repo <repo>] [--json] | omni kb get <id> [--json]`;
 
 function init(positional: string[], flags: KbFlags, { ctx, stdout }: CommandIo): number {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -631,6 +634,56 @@ function indexIo(cwd: string, exec: Exec, options: PackOptions & { fetch: Fetch;
   };
 }
 
+const SEARCH_USAGE = 'usage: omni kb search <query> [--kind <kind>] [--domain <key>] [--repo <repo>] [--json]';
+const GET_USAGE = 'usage: omni kb get <id> [--json]';
+
+/** The `omni kb get` call, from its arguments. */
+function getCall(positional: string[]): KnowledgeCall {
+  const [id] = positional;
+  if (positional.length !== 1 || id === undefined) throw usageError(GET_USAGE);
+  return { tool: 'get_knowledge', args: { id } };
+}
+
+/** The `omni kb search` call, from its arguments: a query, filters, or both. */
+function searchCall(positional: string[], flags: Flags<'kind' | 'domain' | 'repo', 'json'>): KnowledgeCall {
+  const query = positional.join(' ').trim();
+  const filters = Object.entries({ kind: flags.kind, domain: flags.domain, repo: flags.repo }).filter(([, value]) => value !== undefined);
+  const args = { ...(query === '' ? {} : { query }), ...Object.fromEntries(filters) };
+  if (Object.keys(args).length === 0) throw usageError(SEARCH_USAGE);
+  return { tool: 'search_knowledge', args };
+}
+
+/** The call `omni kb search` or `omni kb get` makes, from its arguments; a usage error otherwise. */
+function knowledgeCall(verb: 'search' | 'get', args: string[]): { call: KnowledgeCall; json: boolean } {
+  const { positional, flags } = parseArgs(`kb ${verb}`, args, { values: verb === 'search' ? ['kind', 'domain', 'repo'] : [], booleans: ['json'] });
+  return { call: verb === 'get' ? getCall(positional) : searchCall(positional, flags), json: flags.json === true };
+}
+
+/**
+ * `omni kb search <query>` and `omni kb get <id>` (PRD 3007): the product's knowledge through its MCP route, with
+ * the kit's sign-in (see `../../lib/knowledge/product-mcp-client.ts`). A failure is one line on stdout and exit 1.
+ */
+async function productKnowledgeVerb(verb: 'search' | 'get', args: string[], io: CommandIo & PackOptions, cwd: string): Promise<number> {
+  const { call, json } = knowledgeCall(verb, args);
+  const { ctx, stdout, exec } = io;
+  const reply = await callKnowledge({
+    askUrl: ctx.config.ask.url,
+    repo: ctx.config.repo.slug,
+    remembered: rememberedProduct(mainCheckout(cwd, exec) ?? ctx.root)?.key ?? null,
+    tokens: io.tokens,
+    home: io.home,
+    fetch: io.fetch,
+    callMs: io.callMs,
+  }, call);
+  if (!reply.ok) {
+    println(stdout, reply.line);
+    return 1;
+  }
+  const lines = json ? [reply.text] : verb === 'search' ? searchLines(reply.text) : entryLines(reply.text);
+  for (const line of lines) println(stdout, line);
+  return 0;
+}
+
 /** `omni kb graph push` (PRD 1798, s2): see `../../lib/knowledge/graph-push.ts`. */
 async function graphPush(args: string[], io: CommandIo & PackOptions): Promise<number> {
   const { ctx, stdout, exec } = io;
@@ -761,6 +814,14 @@ function verbOf<T>(table: Readonly<Record<string, T>>, name: string | undefined)
   return name !== undefined && Object.hasOwn(table, name) ? table[name] : undefined;
 }
 
+/** The verbs that call the network and print their own lines, each handed what follows its name, the full io and the free io. */
+const ASYNC: Readonly<Record<string, (args: string[], io: CommandIo & PackOptions, free: FreeIo & PackOptions) => Promise<number>>> = {
+  pack,
+  'business-laws': businessLaws,
+  search: (args, io, free) => productKnowledgeVerb('search', args, io, free.cwd),
+  get: (args, io, free) => productKnowledgeVerb('get', args, io, free.cwd),
+};
+
 const basic = synchronous((args: string[], io: CommandIo): number => {
   const ownFlags = verbOf(OWN_FLAGS, args[0]);
   if (ownFlags) return ownFlags(args.slice(1), io);
@@ -778,8 +839,8 @@ export const kb: FreeCommand = {
     const [sub, ...rest] = args;
     if (sub === 'index') return index(rest, io);
     const full = { ...io, ctx: loadContext(io.cwd, { exec: io.exec }) };
-    if (sub === 'pack') return pack(rest, full);
-    if (sub === 'business-laws') return businessLaws(rest, full);
+    const asynchronous = verbOf(ASYNC, sub);
+    if (asynchronous) return asynchronous(rest, full, io);
     if (sub === 'graph' && rest[0] === 'push') return graphPush(rest.slice(1), full);
     if (sub === 'graph' && rest.includes('--product')) return graphProduct(rest, full);
     if (isProductVerb(sub)) return productCommand(sub, rest, { ...full, vars: io.vars }, io);

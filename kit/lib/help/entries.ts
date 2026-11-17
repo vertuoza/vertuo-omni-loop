@@ -336,7 +336,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb domains', 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', '  [--product <name>] [--json]', 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', '  [--product <name>] [--json]', 'omni kb business-laws [--domain <key> | --spec <file>] [--json]', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb search <query> [--kind <kind>] [--domain <key>] [--repo <repo>] [--json]', 'omni kb get <id> [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb domains', 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', '  [--product <name>] [--json]', 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', '  [--product <name>] [--json]', 'omni kb business-laws [--domain <key> | --spec <file>] [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -375,7 +375,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the ' +
       'law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is ' +
       "never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and " +
-      'changes no file that exists.',
+      'changes no file that exists. search <query> and get <id> (PRD 3007) read the product\'s knowledge over its MCP ' +
+      'route with your own sign-in (omni signin, or OMNI_TOKEN on a runner), for an agent with no MCP: search prints ' +
+      'the hits, best first, each with its id, kind and repository (--kind, --domain and --repo narrow it), get one ' +
+      'entry whole, --json the server\'s answer. A call that cannot answer prints one line and exits 1: not signed in, ' +
+      'the product\'s knowledge off, this repository in no product, or the Omni page unreachable.',
   },
   {
     name: 'knowledge',
