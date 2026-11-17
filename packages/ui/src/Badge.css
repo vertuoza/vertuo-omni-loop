@@ -1,0 +1,19 @@
+.omni-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--color-sunken);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--type-1-size);
+  line-height: var(--type-1-line);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.omni-badge--accent { color: var(--color-accent); background: var(--color-accent-soft); }
+.omni-badge--success { color: var(--color-success); }
+.omni-badge--warning { color: var(--color-warning); }
+.omni-badge--danger { color: var(--color-danger); }
+.omni-badge--info { color: var(--color-info); }

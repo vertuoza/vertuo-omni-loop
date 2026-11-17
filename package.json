@@ -15,8 +15,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsgo -p . && tsgo -p kit/pitch-engine && pnpm --filter @omni/galaxy-app typecheck",
-    "typecheck:tsc": "tsc -p . && tsc -p kit/pitch-engine && pnpm --filter @omni/galaxy-app typecheck:tsc",
+    "typecheck": "tsgo -p . && tsgo -p kit/pitch-engine && tsgo -p packages/ui && pnpm --filter @omni/galaxy-app typecheck",
+    "typecheck:tsc": "tsc -p . && tsc -p kit/pitch-engine && tsc -p packages/ui && pnpm --filter @omni/galaxy-app typecheck:tsc",
     "lint": "pnpm --filter @omni/galaxy-app exec fumadocs-mdx && node --max-old-space-size=8192 scripts/lint.ts",
     "eval:search": "node scripts/eval-search.ts",
     "fallow:audit": "fallow audit",
@@ -56,6 +56,7 @@
     "fallow": "3.30.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "stylelint": "^18.0.0",
     "supabase": "2.117.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.0",
