@@ -1,9 +1,9 @@
 ---
 name: tech-review
-description: Grills the coding side of a PRD's plan with the one person its Tech Approval names, then changes only the coding parts and records what was settled — refuses, in one line, a PRD with no plan, no open tech request, a merged sub-PR, a person who is not the named one, or a run under OMNI_UNATTENDED; reads the spec, the plan, the Technical tab, the playbook's architecture, testing, conventions and ci forms, the laws its files touch and the code before it asks; shows the choices already made; asks one question at a time, each with a recommended answer and why; applies the answers only to the spec's Conventions, Test seams and Risks and the technical side of Solution and Decisions, the before/after page's Technical tab, and the plan's slices, territories, blockers and waves, and grades the plan again with omni plan check; records each settled question under "### Tech review" in the spec's Decisions; sends a question only the PM can settle to the PRD's issue as a comment naming the author; pushes as one signed docs(prd) commit and /omni:dossier-push, and ends on the page's link. Gives no approval, merges nothing. Triggers on "tech review PRD 2608", "review the coding side of this plan", "/omni:tech-review 2608".
+description: Grills the coding side of a PRD's plan with any member, whether or not a Tech Approval was requested, as long as the plan is not approved, then changes only the coding parts and records what was settled — refuses, in one line, a PRD with no plan, an approved PRD or Tech Approval, a merged sub-PR, a person whose GitHub login cannot be read, or a run under OMNI_UNATTENDED; reads the spec, the plan, the Technical tab, the playbook's architecture, testing, conventions and ci forms, the laws its files touch and the code before it asks; shows the choices already made; asks one question at a time, each with a recommended answer and why; applies the answers only to the spec's Conventions, Test seams and Risks and the technical side of Solution and Decisions, the before/after page's Technical tab, and the plan's slices, territories, blockers and waves, and grades the plan again with omni plan check; records each settled question under "### Tech review" in the spec's Decisions; sends a question only the PM can settle to the PRD's issue as a comment naming the author; pushes as one signed docs(prd) commit and /omni:dossier-push, and ends on the page's link. Gives no approval, merges nothing. Triggers on "tech review PRD 2608", "review the coding side of this plan", "/omni:tech-review 2608".
 ---
 
-# Tech review: the coding side of a plan, grilled with the person who must approve it
+# Tech review: the coding side of a plan, grilled with an engineer before it is approved
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
@@ -17,13 +17,17 @@ person's name. A command that prints nothing means signing is off here: add noth
 A PM who finishes a brainstorm may ask one workspace member for a **Tech Approval**: a second
 approval, given before the product's approvers are asked. This skill is that member's side of it. It
 covers **coding only**; product decisions stay the PM's. It changes the plan and the technical parts
-of the spec with the person, and it has no way to give the approval: only the person presses
-**Give Tech Approval**, on the PRD's page.
+of the spec with the person, and it has no way to give the approval: only the person a request names
+presses **Give Tech Approval**, on the PRD's page.
+
+A tech review needs no request: any member may run it on a plan that is not approved yet, whoever a
+request names, or with none at all (bug #2992). A review is not an approval: with a request, the
+named person still gives it; with none, nobody waits on one.
 
 ## Never
 
 - **It never gives the Tech Approval,** and never runs a command that gives or withdraws one. It ends
-  on the page's link, where the named person presses the button.
+  on the page's link, where the person a request names presses the button.
 - **It changes only what the table in step 4 lists as changeable.** Everything else is the PM's.
 - **It never merges,** marks a pull request ready, or answers an outbox item.
 - **It asks nothing a file or the code already answers,** and never the same thing twice.
@@ -31,8 +35,8 @@ of the spec with the person, and it has no way to give the approval: only the pe
 
 ## Input
 
-`<n>`: the number of a ◆ PRD (its phase 0 is approved on the page) with an open tech request, run by
-the person the request names. With none, say that this skill takes one, and stop.
+`<n>`: the number of a PRD whose plan is not approved yet, run by any member, with or without a Tech
+Approval request. With none, say that this skill takes one, and stop.
 
 ## Step 0
 
@@ -53,12 +57,13 @@ Check each of these before anything is read or written. The first that holds pri
 |---|---|
 | `OMNI_UNATTENDED` is set | a grill needs a person: it asks nothing on a runner, and a runner never runs it |
 | the PRD has no `plan.md` (`omni prd <n>` lists its files) | there is no plan to review: run `/omni:plan <n>` first |
-| `omni approval <n> --json` has no `tech` field, or its `state` is `approved` | there is no open tech request to answer |
-| the login `gh api user --jq .login` prints is not the login `tech` names, or no login can be read | only the named person reviews it; the login is read from GitHub before anything is asked, a mismatch refuses with no question asked, and no readable login refuses too: the agent never takes the person's word for who they are |
+| the PRD is approved: `omni approval <n> --json` prints `"state":"approved"`, or its `tech` state is `approved` | the plan is approved: a tech review comes before it |
+| no login can be read from `gh api user --jq .login` | each settled question records who answered it; the login is read from GitHub before anything is asked, and the agent never takes the person's word for who they are |
 | a sub-PR of the PRD is already merged (`omni board <n>`) | the build has started; a tech review comes before it |
 
 Check the refusals in this order: the runner first, so that nothing is read on one. A `voided` state
-is an open request again: the named person reviews again.
+is not approved: the plan may be reviewed again. A request that names someone else refuses nothing:
+anyone may review, and the review tells the named person what was settled.
 
 ## 2. Read before you ask
 
@@ -107,7 +112,7 @@ For each answer that changes something, edit only the files in the table's left 
 1. Grade the plan again: `omni plan check <n>`. Fix until it is green.
 2. Record each settled question in the spec's **Decisions**, under a `### Tech review` heading
    (made on the first answer, kept below the existing decisions). One entry per question: the
-   question, the answer, what changed, and who answered it (the named person's login, written as
+   question, the answer, what changed, and who answered it (the reviewer's login, written as
    `answered by <login>, recorded by an agent`).
 
 A question the reviewer answers with "keep it as it is" is recorded too, with `what changed: nothing`.
@@ -116,8 +121,8 @@ A question the reviewer answers with "keep it as it is" is recorded too, with `w
 
 A question only the PM can settle becomes one comment on the PRD's issue, naming the PRD's author
 (`gh issue comment <issue> --body-file <file>`; the issue number is the PRD's). The comment says what
-was found, why only the author can settle it, and that it was written by an agent on the named
-person's tech review. Write the body to a scratch file outside the repository. Post it once per
+was found, why only the author can settle it, and that it was written by an agent on the reviewer's
+tech review. Write the body to a scratch file outside the repository. Post it once per
 question. The spec, the plan and the page stay as they are for it.
 
 ## 7. Push, never approve
@@ -127,7 +132,9 @@ question. The spec, the plan and the page stay as they are for it.
    feature branch, and push it to `<remote>`. Write the message to a scratch file and commit with
    `git commit -F <file>`.
 3. Run `/omni:dossier-push <n>`, so that each change reaches the PRD's page as a new version.
-4. End on the PRD's page: `omni dossier link <n>`. Say, in one line, that the **Give Tech Approval**
-   button there is theirs to press, and that a push after it voids it.
+4. End on the PRD's page: `omni dossier link <n>`. Say, in one line, who presses the **Give Tech
+   Approval** button there: the reviewer, when the request names them (a push after it voids it); the
+   person the request names, when it names someone else; and, with no request, that any member may
+   press **Request a Tech Approval** there to name one.
 
 Nothing was changed, and nothing to push: end on the link the same way.

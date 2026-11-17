@@ -1,7 +1,8 @@
 -- A Tech Approval before the product approval (PRD 2608 s1). The supabase workflow runs it on every
 -- pull request, after `supabase db start` has applied the migrations:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/tech_approval.sql
--- dossier_request_tech_approval() lets only a ◆ PRD's author name one other member, once: a non-member,
+-- dossier_request_tech_approval() lets any member of a ◆ PRD's workspace name one member other than its
+-- author, once (bug #2992; PRD 2608 let only the author ask): a non-member,
 -- a ◇ PRD, a product PRD and a roadmap are refused, and so are a second request, a withdrawal and a
 -- rename by the author; a workspace owner names another person only once the named one left. Only the
 -- named person gives it (dossier_approve(p, 'tech')); the product approval is refused while it is missing
@@ -118,9 +119,26 @@ select pg_temp.sign_in('00000000-0000-4000-8000-0000000e00c1', 'carl@ta-other.te
 select pg_temp.refused('a request by a non-member', '42501',
   $q$select public.dossier_request_tech_approval((select id from ids where name = 'p1'), 'bea-gh')$q$);
 
+-- Any member requests it, not only the author (bug #2992): Bea names herself on Ada's PRD 4, the request
+-- keeps Ada as its author and Bea as who asked, then it is undone so the rest of the run starts clean.
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000e00a3', 'bea@ta.test');
-select pg_temp.refused('a request by a member who is not the author', '42501',
+savepoint request_by_any_member;
+do $$
+declare
+  made jsonb := public.dossier_request_tech_approval((select id from ids where name = 'p4'), 'bea-gh');
+  row  public.approval_requests%rowtype;
+begin
+  select r.* into row from public.approval_requests r where r.id = (made ->> 'id')::uuid;
+  if row.approval_kind <> 'tech' or row.asked <> array['00000000-0000-4000-8000-0000000e00a3'::uuid]
+     or row.asked_by <> '00000000-0000-4000-8000-0000000e00a3' or made ->> 'author' <> 'ada@ta.test' then
+    raise exception 'FAIL: a request by a member who is not the author read % and answered %', to_jsonb(row), made;
+  end if;
+end $$;
+rollback to savepoint request_by_any_member;
+select pg_temp.refused('a member who is not the author naming the author', '22023',
   $q$select public.dossier_request_tech_approval((select id from ids where name = 'p1'), 'ada@ta.test')$q$);
+select pg_temp.refused('a request by a member who is not the author on a ◇ PRD', '22023',
+  $q$select public.dossier_request_tech_approval((select id from ids where name = 'p2'), 'dan@ta.test')$q$);
 
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000e00a2', 'ada@ta.test');
 select pg_temp.refused('the author naming themselves', '22023',

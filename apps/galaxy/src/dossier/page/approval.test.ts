@@ -134,11 +134,11 @@ const techRead = (tech: NonNullable<ApprovalFacts['tech']>, approval: DossierRea
   ({ ...read(born('server'), approval), members: [ADA, BOB, CAT], approvalFacts: { voids: [], asked: [], tech } });
 
 describe('the Tech Approval on the page (PRD 2608)', () => {
-  it('has no tech part, and offers the author the request, while nobody asked for one (BR-PRODUCT-127)', () => {
+  it('has no tech part, and offers any member the request, while nobody asked for one (BR-PRODUCT-127, bug #2992)', () => {
     const view = approvalView(read(born('server'), null), ADA.user_id);
     expect(view?.tech).toBeNull();
     expect(view?.canRequestTech).toBe(true);
-    expect(approvalView({ ...read(born('server'), null), members: [ADA, BOB] }, BOB.user_id)?.canRequestTech).toBe(false);
+    expect(approvalView({ ...read(born('server'), null), members: [ADA, BOB] }, BOB.user_id)?.canRequestTech).toBe(true);
     expect(approvalView(read(born('server'), APPROVED), ADA.user_id)?.canRequestTech).toBe(false);
   });
 

@@ -125,7 +125,7 @@ export type ApprovalView = {
   laws?: LawsView | null;
   /** The Tech Approval part (PRD 2608); null when nobody asked for one, so a PRD with no request renders as before. */
   tech: TechView | null;
-  /** Whether the viewer, the PRD's author, gets **Request a Tech Approval**: a ◆ PRD not yet approved, with no request. */
+  /** Whether the viewer, any member, gets **Request a Tech Approval**: a ◆ PRD not yet approved, with no request (bug #2992). */
   canRequestTech: boolean;
 };
 
@@ -344,7 +344,7 @@ function viewOf(
   return {
     state, words: wordsOf(state, tech), ...rest, canApprove,
     dossier: read.dossier.id, screen: canApprove ? approveScreenOf(read.approvalFacts) : null, tech,
-    canRequestTech: open && isAuthor(seat, read.dossier),
+    canRequestTech: open && mayRequestTech(seat),
     ...lawsPartOf(read.approvalFacts),
   };
 }
@@ -359,9 +359,9 @@ function approveScreenOf(facts: ApprovalFacts | undefined): ApproveScreen | null
   return facts?.screen ?? null;
 }
 
-/** Whether the viewer is the PRD's author, a member, with no Tech Approval requested or unread (PRD 2608). */
-function isAuthor(seat: Seat, dossier: Pick<DossierRow, 'opened_by'>): boolean {
-  return seat.member && seat.me === dossier.opened_by && !seat.tech && !seat.techUnread;
+/** Whether the viewer, any member, may request a Tech Approval: none requested, and none unread (bug #2992). */
+function mayRequestTech(seat: Seat): boolean {
+  return seat.member && !seat.tech && !seat.techUnread;
 }
 
 /** The words of an approval's state; while it waits on a Tech Approval someone else gives, they say who. */
