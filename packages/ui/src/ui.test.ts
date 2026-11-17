@@ -3,7 +3,7 @@
 // stylesheet reads is a token (or one the stylesheet defines itself).
 import { readFileSync, readdirSync } from 'node:fs';
 import { createElement } from 'react';
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { Badge, Button, Card, EmptyState, ListRow, Notice, PageHeader, Stack, Tabs, Text } from './index.ts';
@@ -152,6 +152,26 @@ describe('@omni/ui renders every variant', () => {
   it('turns a button with an href into a link, and a disabled one back into a button', () => {
     expect(renderToStaticMarkup(createElement(Button, { href: '/x' }, 'Go'))).toMatch(/^<a /);
     expect(renderToStaticMarkup(createElement(Button, { href: '/x', disabled: true }, 'Go'))).toMatch(/^<button /);
+  });
+
+  it('draws each tab with the link it is given, a plain anchor by default (bug #3011)', () => {
+    const link = ({ className, href, children }: { className: string; href: string; children?: ReactNode }) => createElement('a', { className, href, 'data-router': '' }, children);
+    const routed = renderToStaticMarkup(createElement(Tabs, { label: 'Sections', items: tabItems, current: 'plan', link }));
+    expect(routed.match(/<a [^>]*data-router=""/g)).toHaveLength(tabItems.length);
+    expect(renderToStaticMarkup(createElement(Tabs, { label: 'Sections', items: tabItems, current: 'plan' }))).not.toContain('data-router');
+  });
+
+  it('opens an external button link in a new window, says its title and whether its panel is open, and marks a primary (bug #3011)', () => {
+    const out = renderToStaticMarkup(createElement(Button, { href: 'https://example.com', external: true, title: 'Hint' }, 'Go'));
+    expect(out).toContain('target="_blank"');
+    expect(out).toContain('rel="noopener noreferrer"');
+    expect(out).toContain('title="Hint"');
+    expect(renderToStaticMarkup(createElement(Button, { href: '/x' }, 'Go'))).not.toContain('target=');
+    expect(renderToStaticMarkup(createElement(Button, { expanded: false }, 'Open'))).toContain('aria-expanded="false"');
+    expect(renderToStaticMarkup(createElement(Button, null, 'Open'))).not.toContain('aria-expanded');
+    expect(renderToStaticMarkup(createElement(Button, { variant: 'primary' }, 'Go'))).toContain('data-primary=""');
+    expect(renderToStaticMarkup(createElement(Button, { variant: 'quiet' }, 'Go'))).not.toContain('data-primary');
+    expect(renderToStaticMarkup(createElement(Badge, { title: 'PR care' }, 'CI'))).toContain('title="PR care"');
   });
 
   it('says alerts for warning and danger notices, status for the rest', () => {

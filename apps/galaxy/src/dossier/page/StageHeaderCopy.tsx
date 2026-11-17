@@ -31,7 +31,7 @@ export function StageHeaderCopy({ label, command }: { label: string; command: st
 
   return (
     <span className="stage-copy">
-      <Button variant="primary" onClick={() => void copy()}>{label}</Button>
+      <Button variant="primary" title={command} onClick={() => void copy()}>{label}</Button>
       <code className="stage-command">{command}</code>
       <SendToTerminal line={command} />
       {state !== 'idle' && <span className="ask-hint" role="status">{COPY_WORDS[state]}</span>}

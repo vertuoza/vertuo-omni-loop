@@ -1,3 +1,4 @@
+import { Button } from '@omni/ui';
 import type { ReadyView } from './ready';
 
 // The Ready panel of /prd/<id> (PRD 2898 s9, the library screen `ready-checks`): the latest verdict the Omni
@@ -52,7 +53,7 @@ export function ReadyPanel({ ready }: { ready?: ReadyView | null | undefined }) 
       </ol>
       <div className="ready-foot">
         <div>{ready.foot.lines.map((line, at) => <p key={at}>{ready.foot.strong && at === 0 ? <strong>{line}</strong> : line}</p>)}</div>
-        {ready.foot.action && <a className="ask-button stage-action" href={ready.foot.action.href} data-primary>{ready.foot.action.label}</a>}
+        {ready.foot.action && <Button variant="primary" href={ready.foot.action.href}>{ready.foot.action.label}</Button>}
       </div>
     </section>
   );

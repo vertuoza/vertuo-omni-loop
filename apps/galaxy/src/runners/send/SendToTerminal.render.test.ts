@@ -56,7 +56,7 @@ describe('Send to terminal', () => {
 
   it('shows the button alone while closed', () => {
     const html = view({ kind: 'closed' });
-    expect(html).toContain('<button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
+    expect(html).toContain('<button class="omni-button omni-button--quiet omni-button--md" type="button" aria-expanded="false">Send to terminal</button>');
     expect(html).not.toContain('role="group"');
   });
 
@@ -72,7 +72,7 @@ describe('Send to terminal', () => {
     expect(html).toContain('checked="" value="fleet:cyan"');
     expect(html).toContain('nimbus-agents <span class="send-state">Busy</span>');
     expect(html.match(/data-primary/g)).toHaveLength(1);
-    expect(html).toContain('<button type="button" class="ask-button stage-action" data-primary="true">Send</button>');
+    expect(html).toContain('<button class="omni-button omni-button--primary omni-button--md" type="button" data-primary="">Send</button>');
   });
 
   it('leaves out a group with no target', () => {
@@ -82,7 +82,7 @@ describe('Send to terminal', () => {
   });
 
   it('holds Send while it sends', () => {
-    expect(view({ kind: 'open', choice: 'any', sending: true })).toContain('data-primary="true" disabled="">Sending…</button>');
+    expect(view({ kind: 'open', choice: 'any', sending: true })).toContain('disabled="" data-primary="">Sending…</button>');
   });
 
   it('says where the job was queued, with a link to it, once sent', () => {

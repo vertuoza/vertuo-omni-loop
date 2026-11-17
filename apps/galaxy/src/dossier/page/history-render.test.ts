@@ -331,13 +331,13 @@ describe('client navigation (PRD 2401)', () => {
     const history = source('./DossierHistory.tsx');
     const page = source('./DossierPage.tsx');
     expect(history).toContain("import Link from 'next/link'");
-    expect(page).not.toContain("from 'next/link'");
+    expect(page).toContain("import Link from 'next/link'");
     for (const cls of ['dossier-history-who', 'dossier-history-clear', 'dossier-history-row', 'dossier-history-to-all']) {
       expect(history).toContain(`<Link className="${cls}"`);
     }
     expect(history).toMatch(/<Link\s+key=\{s\.id\}/);
     expect(history).not.toMatch(/<a\s+key=\{s\.id\}/);
-    expect(page).toContain('<Tabs'); // @omni/ui's Tabs draws plain links: a tab click is a full navigation (see the sub-PR's items)
+    expect(page).toMatch(/<Tabs [^\n]*link=\{Link\}/); // @omni/ui's Tabs drawn with next/link, never plain links (bug #3011)
   });
 
   it("has a loading.tsx for /prd/[id] that shows the PRD's skeleton", () => {

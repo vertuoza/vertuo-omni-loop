@@ -405,7 +405,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     const page = await html(numbered);
     expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
     expect(page).toContain('<strong>Stage: inbox</strong>');
-    expect(page).toContain('type="button">Build it</button>');
+    expect(page).toContain('type="button" title="/omni:yolo 7" data-primary="">Build it</button>');
     expect(page).toContain('>phase-0 #12</a></span></span><span class="omni-list-row__trailing"><span class="ask-hint">✓</span>');
   });
 
@@ -417,7 +417,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     expect(given.sendAsked).toEqual([[BOB.id, FAKE_WORKSPACE, 'acme/widgets']]);
     given.send = { repo: 'acme/widgets', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
     const page = await html(numbered);
-    expect(page).toContain('type="button">Build it</button><code class="stage-command">/omni:yolo 7</code><span class="send-terminal"><button type="button" class="ask-button quiet" aria-expanded="false">Send to terminal</button>');
+    expect(page).toContain('type="button" title="/omni:yolo 7" data-primary="">Build it</button><code class="stage-command">/omni:yolo 7</code><span class="send-terminal"><button class="omni-button omni-button--quiet omni-button--md" type="button" aria-expanded="false">Send to terminal</button>');
   });
 
   it('shows the stored stage when GitHub did not answer, and still shows the dossier', async () => {
