@@ -25,6 +25,8 @@ Heroes.)
 - **The count line:** `Runs <k> of <n> skills alone`, or `A person does this today` when none of its
   skills runs alone. The Reviewer runs `/omni:review` alone since PRD 2871 (`Runs 1 of 2 skills
   alone`); its `/omni:tech-review` needs a person.
+- **QA** (PRD 3001): `/omni:qa` runs alone (`Runs 3 of 4 skills alone`); its limits read `It never writes the branch.`,
+  `It reports bugs to the Engineer.`, `It reports five bugs at most.`, `It checks two rounds at most.`
 - **Six roles:** Engineer, QA, Reviewer, PM, Architect and Designer.
 - **Remove,** on each row, for an owner of the workspace; a fleet's last hero cannot be removed.
 - **The primary action:** `Add a hero`, for an owner, listing the roles the fleet lacks.
@@ -50,9 +52,6 @@ Heroes.)
 ## Open questions
 
 - Who may rename a hero or change its agent and model (recorded now, never routed).
-- Whether QA may write the branch: the person said QA may fix a bug itself; the F-E Developer and
-  B-E DEv personas want one writer per branch. The concept lets QA hold the branch while it fixes,
-  then hand it back.
 
 ## Source
 
@@ -60,3 +59,4 @@ Heroes.)
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2871: .omni-loop/delivery/shipped/2871-reviewer/before-after.html
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html
+/omni:brainstorm, PRD 3001: .omni-loop/delivery/shipped/3001-qa-turn/before-after.html (QA's row)

@@ -35,6 +35,9 @@ an agent is not a person.
 - **Filters:** by role and by mission, kept in the address.
 - **A Reviewer row, opened:** its verdict, `pass` or `changes`, its findings (at most five),
   and the round (`Round 1 of 2`).
+- **A QA row** (PRD 3001): signed `QA · agent`, its verdict, the round and the bugs' issues
+  (`2 bugs found · Round 1 of 2 · #3012 #3013`); the Engineer's fix rows `fixed #3012` or `not fixed #3013: <why>`.
+- **Tokens** (PRD 3001): every job row ends with what it spent, `· 41k tokens`, or `· tokens unknown`.
 - **A ready row:** `PR <n> ready for review · 5 of 5 checks`, opening `ready-checks`.
 
 ## States
@@ -49,6 +52,9 @@ an agent is not a person.
 - **Waiting for a limit:** a provider limit holds: `Provider limit reached until 09:00 · waiting until 09:00`,
   `(guessed)` when the provider gave no time, the account that ran out named and its job linked,
   `tokens spent waiting 0 · next try 09:00` (PRD 2949).
+- **Checking:** QA checks a PRD on its preview: `Checking PR <n> · round 1 of 2`, or `Waiting for the preview` (PRD 3001).
+- **Decide the bugs:** a bug still there after QA's round 2: `Waits for you · Decide the bugs`, the bugs listed by issue, with
+  `Send on to the Reviewer` or `Stop this PRD` (PRD 3001).
 - **Resumed:** a runner went silent; the work carried on elsewhere from its last save, the minutes
   redone; work that could only stay on the lost runner is named.
 - **Repairing** (PRD 2980): `Repairing (1 of 3) · 8 left`, the fix PR linked as the one action.
@@ -102,3 +108,4 @@ an agent is not a person.
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html (an idle hero with a skill that runs alone reads `Idle`; the Designer has a now line)
 /omni:brainstorm, PRD 2949: .omni-loop/delivery/shipped/2949-limit-waits/before-after.html (the two waiting lines)
 /omni:brainstorm, PRD 2980: .omni-loop/delivery/shipped/2980-mission-repairs/before-after.html (Repairing, Stopped after repairs, Waits on Omni Loop, the repair rows)
+/omni:brainstorm, PRD 3001: .omni-loop/delivery/shipped/3001-qa-turn/before-after.html (QA rows, Checking, Decide the bugs, tokens on every row)

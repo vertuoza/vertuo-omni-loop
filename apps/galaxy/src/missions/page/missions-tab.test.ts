@@ -58,11 +58,16 @@ describe('progressOf', () => {
 });
 
 describe('waitsOf', () => {
+  it('reads Decide the bugs with each bug linked to its issue (PRD 3001)', () => {
+    expect(waitsOf('PRD 3001: decide bugs #13 #14', 'acme/shop', [])[0]?.bugs).toEqual([{ issue: 13, href: 'https://github.com/acme/shop/issues/13' }, { issue: 14, href: 'https://github.com/acme/shop/issues/14' }]);
+    expect(waitsOf('PRD 3001: decide bug #13', 'acme/shop', [])[0]?.bugs).toEqual([{ issue: 13, href: 'https://github.com/acme/shop/issues/13' }]);
+  });
+
   it('reads each PRD and what it waits on, linked to its event or its issue', () => {
     const waits = waitsOf('PRD 2803: approve it · PRD 2804: merge it', 'acme/shop', [event('prd-ready', 2804, 'https://github.com/acme/shop/pull/9')]);
     expect(waits).toEqual([
-      { prd: parsePrd(2803), on: 'approve it', href: 'https://github.com/acme/shop/issues/2803' },
-      { prd: parsePrd(2804), on: 'merge it', href: 'https://github.com/acme/shop/pull/9' },
+      { prd: parsePrd(2803), on: 'approve it', href: 'https://github.com/acme/shop/issues/2803', bugs: null },
+      { prd: parsePrd(2804), on: 'merge it', href: 'https://github.com/acme/shop/pull/9', bugs: null },
     ]);
   });
 

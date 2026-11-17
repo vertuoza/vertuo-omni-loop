@@ -16,7 +16,7 @@ describe('the roles of a Virtual Hero', () => {
     expect(roleOf('engineer').skills).toEqual([
       'yolo', 'yolo-fix', 'wave', 'do-work', 'pr-care', 'bug-fix', 'mega-bug-fix', 'ultra-yolo', 'ultra-yolo-fix', 'ultra-wave', 'mega-pr-care', 'drive', 'mega-drive', 'repair',
     ]);
-    expect(roleOf('qa').skills).toEqual(['prove', 'bug-fix', 'validate-e2e']);
+    expect(roleOf('qa').skills).toEqual(['qa', 'prove', 'bug-fix', 'validate-e2e']);
     expect(roleOf('reviewer').skills).toEqual(['review', 'tech-review']);
     expect(roleOf('pm').skills).toEqual(['pitch', 'plan', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'mission']);
     expect(roleOf('architect').skills).toEqual(['plan', 'tech-review']);
@@ -33,6 +33,18 @@ describe('the roles of a Virtual Hero', () => {
       'It reviews two rounds at most.',
     ]);
     expect(roleOf('reviewer').model).toBe('opus');
+  });
+
+  it('gives QA its four limits after every hero\'s two, and drops "It reports what it saw" (PRD 3001)', () => {
+    expect(roleOf('qa').limits).toEqual([
+      'It never merges into the default branch.',
+      'It never answers for a person.',
+      'It never writes the branch.',
+      'It reports bugs to the Engineer.',
+      'It reports five bugs at most.',
+      'It checks two rounds at most.',
+    ]);
+    expect(roleOf('qa').limits).not.toContain('It reports what it saw; a person decides.');
   });
 
   it('puts no skill of no role on a hero', () => {
@@ -90,7 +102,8 @@ describe('skillMarks', () => {
 describe('the count line', () => {
   it('reads `Runs <k> of <n> skills alone` for each role with a skill that runs alone', () => {
     expect(roleLine('engineer')).toEqual({ alone: true, line: 'Runs 11 of 14 skills alone' });
-    expect(roleLine('qa').line).toBe('Runs 2 of 3 skills alone');
+    // PRD 3001: QA runs /omni:qa, /omni:prove and /omni:bug-fix alone; /omni:validate-e2e still needs a person.
+    expect(roleLine('qa')).toEqual({ alone: true, line: 'Runs 3 of 4 skills alone' });
     expect(roleLine('pm').line).toBe('Runs 6 of 7 skills alone');
     expect(roleOf('pm').limits).toContain('It never approves a PRD it wrote, nor one outside a mission\'s committee.');
     expect(roleLine('architect').line).toBe('Runs 1 of 2 skills alone');

@@ -39,6 +39,7 @@ export const missionJob = (id: string, repo: string): MissionJob =>
 
 const JoinRow = z.object({ kind: z.enum(['prd-joined', 'prd-dropped', 'landed', 'prd-merged']), prd: PrdNumberSchema });
 const DecisionRow = z.object({ kind: z.string(), prd: PrdNumberSchema.nullable(), sentence: z.string(), link: z.string().nullable(), actor: z.string() });
+const BugsRow = z.object({ kind: z.string(), job_id: z.uuid().nullable(), actor: z.string(), sentence: z.string() });
 const PageRow = z.object({ id: z.uuid(), prd: PrdNumberSchema.nullable() });
 const PlanRow = z.object({ content: z.string() });
 const ProductRow = z.object({ plan_repository: z.string().nullable() });
@@ -81,6 +82,20 @@ export function missionsReader(db: MissionsDb) {
       const { data, error } = await db.from('mission_events').select('kind, prd, sentence, link, actor').eq('mission_id', id).in('kind', ['decided', 'overturned']).order('at', { ascending: true });
       if (error) throw new Error(`Supabase: could not read the mission's decisions (${error.message})`);
       return orThrow(parseRows(DecisionRow, data, `${WHERE}: mission_events`));
+    },
+
+    /**
+     * What a PRD waits on at `Decide the bugs` (PRD 3001): QA's round-2 job whose verdict still named bugs, and the person's pick on it
+     * when one was made (a `resumed` or `stopped` event of the PRD naming that job). Null when QA's latest verdict of the PRD is no such round.
+     */
+    async bugsToDecide(id: string, prd: PrdNumber): Promise<{ job: string; picked: { pick: 'review' | 'stop'; actor: string } | null } | null> {
+      const { data, error } = await db.from('mission_events').select('kind, job_id, actor, sentence').eq('mission_id', id).eq('prd', prd).in('kind', ['checked', 'resumed', 'stopped']).not('job_id', 'is', null).order('at', { ascending: true });
+      if (error) throw new Error(`Supabase: could not read the mission's events (${error.message})`);
+      const rows = orThrow(parseRows(BugsRow, data, `${WHERE}: mission_events`));
+      const checked = rows.findLast((row) => row.kind === 'checked');
+      if (checked?.job_id == null || !/Round 2 of 2/.test(checked.sentence) || /^pass/.test(checked.sentence)) return null;
+      const pick = rows.find((row) => row.job_id === checked.job_id && row.kind !== 'checked');
+      return { job: checked.job_id, picked: pick === undefined ? null : { pick: pick.kind === 'resumed' ? 'review' : 'stop', actor: pick.actor } };
     },
 
     /** How many PRDs sit on the mission's branch. */
@@ -143,8 +158,8 @@ export function missionsWriter(db: MissionsDb) {
     },
 
     /** Records one event of the mission, signed with the member's login. */
-    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'drop-asked' | 'drop-asked-keep' | 'overturned'; actor: string; sentence: string; at: string; prd?: PrdNumber }): Promise<void> {
-      const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }) });
+    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'stopped' | 'drop-asked' | 'drop-asked-keep' | 'overturned'; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string }): Promise<void> {
+      const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }), ...(event.job === undefined ? {} : { job_id: event.job }) });
       if (error) throw new Error(`Supabase: could not record the mission's event (${error.message})`);
     },
 

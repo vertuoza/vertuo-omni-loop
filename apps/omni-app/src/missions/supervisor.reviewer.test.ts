@@ -1,8 +1,10 @@
 // The supervisor's Reviewer hand-offs (PRD 2871 s5): the build sent for review, the Reviewer's two rounds, the fix
 // between them, and a person after round 2. Beside `supervisor.test.ts`, which proves BR-PRODUCT-139 and is left as
-// it was but for the build's line.
+// it was but for the build's line. Since PRD 3001 a build ready for review meets QA first (`qa.test.ts`): the Reviewer's
+// round 1 follows QA's pass.
 import { describe, expect, it } from 'vitest';
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { qaLine } from 'omni-loop/kit/lib/qa/verdict.ts';
 import { conclude, endOf, eventsOf, lineOf, missionKey, outcome, pick, postedOf, prdStates, recordedKeys, runOfKey, type Attempt, type Mission, type PrdFacts, type Posted, type Run, type Step } from './supervisor.ts';
 
 const ID = '7a3e9c10-52b4-4f8d-a1e6-3b0c9d2f4e88';
@@ -34,6 +36,8 @@ function recordedNow({ all = [one(1)], runs, recorded = [] }: { all?: PrdFacts[]
 const seen = (...jobs: string[]) => jobs.flatMap((id) => [{ kind: 'dispatched', job: id }, { kind: 'job-ended', job: id }]);
 
 const built = job(1, 1, 'build', done('a', 'review', { prUrl: PR }));
+/** QA's pass of run `k` (PRD 3001): the Reviewer comes after it. */
+const qaPassed = (k: number): Run => job(1, k, 'qa:1', done(`q-${String(k)}`, null, { checked: qaLine(`omni qa: posted round 1 (pass) on PR #9: ${PR}#issuecomment-1`) }));
 
 describe('the keys and the lines of the Reviewer and the fix', () => {
   it('keys the Reviewer\'s rounds and the fix after round 1 under the run, and reads them back', () => {
@@ -71,8 +75,9 @@ describe('the table, step by step', () => {
   });
 
   it('maps each end at its step', () => {
-    // A build or a fix shipped for review: the Reviewer's round 1, then its round 2.
-    expect(outcome('review', 1, null, 'build')).toEqual({ next: 'send', step: 'review:1' });
+    // A build shipped for review goes to QA first (PRD 3001), a plan repository's straight to the Reviewer; a fix, to round 2.
+    expect(outcome('review', 1, null, 'build')).toEqual({ next: 'send', step: 'qa:1' });
+    expect(outcome('review', 1, null, 'build', false)).toEqual({ next: 'send', step: 'review:1' });
     expect(outcome('review', 1, null, 'fix:1')).toEqual({ next: 'send', step: 'review:2' });
     // Changes in round 1 send the fix; in round 2 a person decides.
     expect(outcome('changes', 1, null, 'review:1')).toEqual({ next: 'send', step: 'fix:1' });
@@ -94,8 +99,9 @@ describe('build, review, fix, review, then a person', () => {
     expect(sent(team(), [one(1)])).toEqual([[1, 1, 'build']]);
   });
 
-  it('a build shipped for review sends the Reviewer\'s round 1, under the same run', () => {
-    expect(sent(team(), [one(1)], [built])).toEqual([[1, 1, 'review:1']]);
+  it('a build shipped for review goes to QA (PRD 3001), and QA\'s pass sends the Reviewer\'s round 1, under the same run', () => {
+    expect(sent(team(), [one(1)], [built])).toEqual([[1, 1, 'qa:1']]);
+    expect(sent(team(), [one(1)], [built, qaPassed(1)])).toEqual([[1, 1, 'review:1']]);
   });
 
   it('changes in round 1 send the fix; the fix shipped for review sends round 2', () => {
@@ -149,13 +155,16 @@ describe('build, review, fix, review, then a person', () => {
     expect(sent(team(), [one(1)], [...base, job(1, 2, 'fix:1', done('d', 'review'))])).toEqual([[1, 2, 'review:2']]);
   });
 
-  it('a build sent again after a stop is reviewed under its own run', () => {
-    expect(sent(team(), [one(1)], [job(1, 1, 'build', done('a', 'stopped')), job(1, 2, 'build', done('b', 'review'))])).toEqual([[1, 2, 'review:1']]);
+  it('a build sent again after a stop is checked and reviewed under its own run', () => {
+    const again = [job(1, 1, 'build', done('a', 'stopped')), job(1, 2, 'build', done('b', 'review'))];
+    expect(sent(team(), [one(1)], again)).toEqual([[1, 2, 'qa:1']]);
+    expect(sent(team(), [one(1)], [...again, qaPassed(2)])).toEqual([[1, 2, 'review:1']]);
   });
 
   it('a step after the build never waits on the approval again; a build sent again still does', () => {
     const voided = one(1, { approval: 'voided' });
-    expect(sent(team(), [voided], [built])).toEqual([[1, 1, 'review:1']]);
+    expect(sent(team(), [voided], [built])).toEqual([[1, 1, 'qa:1']]);
+    expect(sent(team(), [voided], [built, qaPassed(1)])).toEqual([[1, 1, 'review:1']]);
     expect(sent(team(), [voided], [built, job(1, 1, 'review:1', done('b', 'stopped'))])).toEqual([[1, 2, 'review:1']]);
     expect(sent(team(), [voided], [job(1, 1, 'build', done('a', 'stopped'))])).toEqual([]);
   });

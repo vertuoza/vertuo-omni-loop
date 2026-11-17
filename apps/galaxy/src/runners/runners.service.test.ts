@@ -1007,6 +1007,23 @@ describe('a runner\'s tokens (PRD 2102 s4)', () => {
     expect(w.state.jobs[0]?.tokens).toEqual({ ...COUNTS, output: 500_000 });
   });
 
+  it('keeps the tokens the report that ends a job carries, as the agent counted them (PRD 3001, AC-8)', async () => {
+    const job = jobRow({ status: 'running', runner_id: SHARED, claimed_at: T0.toISOString(), running_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'done', tokens: { input: 41_000, output: 2_000, cacheRead: 0, cacheWrite: 0 } }));
+    expect(w.state.jobs[0]?.tokens).toEqual({ input: 41_000, output: 2_000, cacheRead: 0, cacheWrite: 0 });
+  });
+
+  it('keeps no tokens for a job whose end says its agent gave none, whatever an earlier report carried (PRD 3001, AC-8)', async () => {
+    const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
+    const w = world({ jobs: [job] });
+    value(await w.service.update(OLGA, job.id, { status: 'running', tokens: COUNTS }));
+    value(await w.service.update(OLGA, job.id, { status: 'done', tokens: null }));
+    expect(w.state.jobs[0]?.tokens).toBeNull();
+    const board = value(await w.service.board(MO, RUNNERS[0]?.workspace_id ?? ''));
+    expect(board.jobs.find((j) => j.id === job.id)?.tokens).toBeNull();
+  });
+
   it('shows a job whose runner never reported tokens with none', async () => {
     const job = jobRow({ status: 'claimed', runner_id: SHARED, claimed_at: T0.toISOString() });
     const w = world({ jobs: [job] });

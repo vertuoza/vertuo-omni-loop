@@ -315,6 +315,15 @@ describe('the tokens (PRD 2102, s4)', () => {
     expect(new Set(worktrees)).toEqual(new Set([join(home, 'wt', 'widgets-job-7')]));
   });
 
+  it('AC-8: ends a job with null tokens when its agent gave no count, and sends none before (PRD 3001)', async () => {
+    const { code, sent } = await withJob({ health: 'ok', tokens: counts(MACHINE, null) });
+    expect(code).toBe(0);
+    const last = sent.at(-1);
+    expect(last?.status).toBe('done');
+    expect(last).toHaveProperty('tokens', null);
+    for (const update of sent.slice(0, -1)) expect(update).not.toHaveProperty('tokens');
+  });
+
   it('sends no job tokens while the health route has not answered', async () => {
     const { sent } = await withJob({ health: 'fails', tokens: counts(MACHINE, JOB_TOKENS) });
     expect(sent.length).toBeGreaterThan(2);
@@ -349,6 +358,8 @@ async function jobEnding(line: string, log: string, exit: string, { over = {}, r
   const sent: JobUpdate[] = [];
   const api: RunnerApi = {
     ...base.api,
+    // These reports are about the outcome, not the tokens: the health route stays down, so none carries any.
+    health: (runner, report) => base.api.health(runner, report).then(() => Promise.reject(new RunnerUnreachable('down'))),
     update: (job, update) => {
       sent.push(update);
       return refusing(update) ? Promise.reject(new RunnerRefused('refused (400)')) : base.api.update(job, update);
@@ -471,6 +482,7 @@ describe('the outcome (PRD 2223)', () => {
     const sent: JobUpdate[] = [];
     const api: RunnerApi = {
       ...base.api,
+      health: (runner, report) => base.api.health(runner, report).then(() => Promise.reject(new RunnerUnreachable('down'))),
       update: (job, update) => {
         sent.push(update);
         return update.outcome === undefined ? base.api.update(job, update) : Promise.reject(new RunnerRefused('refused (400)'));

@@ -122,8 +122,8 @@ export type JobUpdate = {
   prUrl?: string | null;
   exitCode?: number | null;
   reason?: string | null;
-  /** The tokens the job's transcripts hold, sub-agents included (PRD 2102): numbers only. */
-  tokens?: TokenCounts;
+  /** The tokens the job's transcripts hold, sub-agents included (PRD 2102): numbers only. `null` on the report that ends a job whose agent gave no count (PRD 3001). */
+  tokens?: TokenCounts | null;
   /** The claims the runner released once the job ended (PRD 2175): their pull requests' numbers, at most 50. */
   released?: number[];
   /** Why releasing them failed, at most 200 characters, or `null` when nothing failed (PRD 2175). */

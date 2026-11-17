@@ -80,12 +80,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     room: () => Promise.resolve(runners.map((one) => ({ ...one }))),
     planRepository: () => Promise.resolve(planRepository),
     installation: () => Promise.resolve(installation),
-    send: ({ mission: sent, prd, run, step, toFleet, skill }) => {
+    send: ({ mission: sent, prd, run, step, toFleet, skill, fix = null }) => {
       const key = missionKey(sent.id, prd, run, step);
       if (jobs.some((job) => job.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      jobs.push({ id, line: lineOf(prd, step, skill, baseOf(sent, skill === 'ultra-yolo')), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+      jobs.push({ id, line: lineOf(prd, step, skill, baseOf(sent, skill === 'ultra-yolo'), fix), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
       return Promise.resolve(id);
     },
     care: ({ mission: sent, line, since, toFleet }) => {
@@ -298,6 +298,15 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     resume: (actor = 'ada') => {
       events.push({ kind: 'resumed', role: 'supervisor', prd: null, job: null, link: null, sentence: `${actor} resumed the mission.`, actor, at: new Date(NOW_OF_ASKS + events.length).toISOString() });
       record = { ...record, status: 'running' };
+    },
+    /**
+     * A person picks on `Decide the bugs` (PRD 3001), as the mission page records it: a `resumed` of the PRD (Send on to the
+     * Reviewer) or a `stopped` of it (Stop this PRD), naming QA's round-2 job, signed with their login.
+     */
+    pickBugs: (prd: PrdNumber, job: string, pick: 'review' | 'stop', actor = 'ada') => {
+      const kind = pick === 'review' ? 'resumed' : 'stopped';
+      const sentence = pick === 'review' ? `${actor} sent PRD ${String(prd)} on to the Reviewer.` : `${actor} stopped PRD ${String(prd)}.`;
+      events.push({ kind, role: 'supervisor', prd, job, link: null, sentence, actor, at: new Date(NOW_OF_ASKS + events.length).toISOString() });
     },
     /** The next `count` reads of the runs wait for one another, as two runs at once would read. */
     together: (count: number) => {

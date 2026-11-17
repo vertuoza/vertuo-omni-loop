@@ -1,4 +1,4 @@
-import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { isWaitWords, type WaitLine } from '../limit-wait';
@@ -29,6 +29,9 @@ export const WORDS = {
   noneOnBranch: 'no PRD on it yet',
   pull: 'Mission pull request',
   waitingOnYou: 'Waiting on you',
+  decideBugs: 'Waits for you · Decide the bugs',
+  sendOn: 'Send on to the Reviewer',
+  stopPrd: 'Stop this PRD',
   addedByFleet: 'added by the fleet',
 } as const;
 
@@ -90,6 +93,8 @@ export interface Waits {
   prd: PrdNumber;
   on: string;
   href: string;
+  /** A PRD on `Decide the bugs` (PRD 3001): QA's bugs still there, each linked to its issue; null for any other wait. */
+  bugs: { issue: IssueNumber; href: string }[] | null;
 }
 
 export interface MissionView {
@@ -198,6 +203,13 @@ export function branchOf(row: Pick<MissionRow, 'repo' | 'waitingOn' | 'status'>,
 }
 
 const WAIT = /PRD (\d+): ([^·]+)/g;
+const DECIDE_BUGS = /^decide bugs? ((?:#\d+ ?)+)$/;
+
+/** The bugs a wait's words name (`decide bugs #13 #14`), each with its issue's address; null when the wait is another. */
+function bugsOfWait(on: string, repo: string): Waits['bugs'] {
+  const named = DECIDE_BUGS.exec(on)?.[1];
+  return named === undefined ? null : [...named.matchAll(/#(\d+)/g)].map((one) => ({ issue: parseIssue(Number(one[1])), href: issueHref(repo, Number(one[1])) }));
+}
 
 /** The PRDs a mission waits a person on, read from what the supervisor wrote (`PRD 2803: approve it · PRD 2804: merge it`), each linked to its latest event's link, else to its issue. */
 export function waitsOf(waitingOn: string | null, repo: string, events: readonly TabEvent[]): Waits[] {
@@ -207,7 +219,7 @@ export function waitsOf(waitingOn: string | null, repo: string, events: readonly
     const on = (match[2] ?? '').trim();
     if (!prd.success || on === '') return [];
     const linked = events.find((e) => e.prd === prd.data && e.link !== null)?.link ?? null;
-    return [{ prd: prd.data, on, href: linked ?? issueHref(repo, prd.data) }];
+    return [{ prd: prd.data, on, href: linked ?? issueHref(repo, prd.data), bugs: bugsOfWait(on, repo) }];
   });
 }
 
