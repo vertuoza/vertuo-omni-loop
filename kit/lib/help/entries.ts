@@ -336,7 +336,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'kb',
     kind: 'command',
     who: 'you',
-    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb domains', 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', '  [--product <name>] [--json]', 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', '  [--product <name>] [--json]', 'omni kb business-laws [--domain <key> | --spec <file>] [--json]', 'omni kb init'],
+    usage: ['omni kb show <form> [--json] [--all]', 'omni kb status [--json]', 'omni kb graph [<id> | --paths <file>…] [--depth <1-3>] [--json]', 'omni kb graph --product <key> <id> [--depth <1-3>] [--json]', 'omni kb graph push', 'omni kb index [--json]', 'omni kb legal', 'omni kb glossary', 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', '  [--product <name>] [--json]', 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', '  [--product <name>] [--json]', 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', '  [--domain <a,b>] [--product <name>] [--json]', 'omni kb domains', 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', '  [--product <name>] [--json]', 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', '  [--product <name>] [--json]', 'omni kb business-laws [--domain <key> | --spec <file>] [--json]', 'omni kb next-id <prefix> [--json]', 'omni kb init'],
     label: 'omni kb show <form>',
     summary: 'one form of the playbook',
     detail:
@@ -374,7 +374,12 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "it was taken, the glossary read from the local copy. A business law lives in the product's law home, its " +
       'plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the ' +
       'law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is ' +
-      "never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and " +
+      "never a locked law; laws --paths lists the ones of the files' domains. next-id <prefix> (PRD 3015) " +
+      'prints the next free id of a register prefix (an id without its number, as BR-PIPELINE or N-PRODUCT): ' +
+      'one past the highest number in the working tree, on the default branch as last fetched and in the head ' +
+      'of every open pull request into it, read through gh; --json prints { id, past }, naming each place ' +
+      'that held the highest number. When the pull requests or the base cannot be read it still prints the id, ' +
+      'exit 0, and says so on one stderr line; a prefix that is not one exits 2. init lays down every missing form, blank, and ' +
       'changes no file that exists.',
   },
   {
