@@ -13,7 +13,7 @@
  * only on a job of a mission at `alone`. */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair',
 ]);
 
 /** The PM's writing skills (PRD 2896, spec "7. The PM's own PRDs"): a runner takes them for a mission's PM only, on a job of a

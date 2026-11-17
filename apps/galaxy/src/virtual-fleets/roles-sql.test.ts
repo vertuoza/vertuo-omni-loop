@@ -85,8 +85,8 @@ describe('what the PM never approves (PRD 2896 s12)', () => {
   const PM = read('20270124150000_mission_pm.sql');
   const flat = PM.replace(/\s+/g, ' ');
 
-  it('is the newest definition of the roles, and changes only the PM\'s limits', () => {
-    expect(newest('virtual_hero_roles')).toBe(PM);
+  it('is the last definition of the roles before a mission\'s repairs\' (PRD 2980), and changes only the PM\'s limits', () => {
+    expect(newest('virtual_hero_roles')).toBe(read('20270125140000_mission_repairs.sql'));
     const others = (roles: Role[]) => roles.filter((r) => r.role !== 'pm');
     expect(others(rolesIn(PM))).toEqual(others(rolesIn(REVIEWER)));
     const pm = (roles: Role[]) => roles.find((r) => r.role === 'pm');

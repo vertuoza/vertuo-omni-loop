@@ -2,6 +2,7 @@ import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { isWaitWords, type WaitLine } from '../limit-wait';
+import type { RepairLine } from '../repair';
 import type { MissionAction, MissionStatus } from '../missions.contract';
 
 // The Missions tab's rules (PRD 2842 s7, the `mission-start` screen), pure so each is tested without a
@@ -75,7 +76,7 @@ export interface MissionRow {
 }
 
 /** One of its events, as far as the tab reads: which PRD reached which point. */
-export interface EventRow {
+export interface TabEvent {
   mission: string;
   kind: string;
   prd: PrdNumber | null;
@@ -102,6 +103,8 @@ export interface MissionView {
   waits: Waits[];
   /** The PRDs that wait out a provider limit or for room (PRD 2949), as the room says them. */
   limitWaits: WaitLine[];
+  /** The PRDs that repair, wait on an Omni Loop bug, or stopped after repairs (PRD 2980), as the room says them. */
+  repairs: RepairLine[];
   /** Why a stopped mission stopped, and how to carry on. */
   stopped: string | null;
   briefHref: string;
@@ -153,7 +156,7 @@ export interface MissionsView {
 const issueHref = (repo: string, number: number) => `https://github.com/${repo}/issues/${String(number)}`;
 
 /** `2 of 4 merged · 1 ready`: the PRDs of the scope and those the mission has met, merged and ready counted once each. */
-export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly EventRow[], level: MissionLevel = 'with-you'): string {
+export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly TabEvent[], level: MissionLevel = 'with-you'): string {
   if (status === 'draft') return WORDS.notStarted;
   const merged = new Set(events.filter((e) => e.kind === 'prd-merged' && e.prd !== null).map((e) => e.prd));
   const ready = new Set(events.filter((e) => e.kind === 'prd-ready' && e.prd !== null && !merged.has(e.prd)).map((e) => e.prd));
@@ -166,7 +169,7 @@ export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], ev
 }
 
 /** The PRDs on the mission branch, in join order: joined, until dropped or on main. `events` are newest first. */
-export function onBranchOf(events: readonly EventRow[]): PrdNumber[] {
+export function onBranchOf(events: readonly TabEvent[]): PrdNumber[] {
   const on: PrdNumber[] = [];
   for (const event of events.toReversed()) {
     if (event.prd === null) continue;
@@ -183,7 +186,7 @@ const JOINED = /^PRD \d+ joined (\S+):/;
 const HOLD = /cannot follow|must follow|is red \(/;
 
 /** The Branch line: the PRDs on the branch, up to date or not, and the pull requests from it; the branch's name is read from the join that named it. */
-export function branchOf(row: Pick<MissionRow, 'repo' | 'waitingOn' | 'status'>, events: readonly EventRow[]): BranchLine {
+export function branchOf(row: Pick<MissionRow, 'repo' | 'waitingOn' | 'status'>, events: readonly TabEvent[]): BranchLine {
   const prds = onBranchOf(events);
   const named = events.map((event) => (event.kind === 'prd-joined' ? JOINED.exec(event.sentence)?.[1] : undefined)).find((name) => name !== undefined);
   const waiting = row.status === 'running' || row.status === 'waiting';
@@ -197,7 +200,7 @@ export function branchOf(row: Pick<MissionRow, 'repo' | 'waitingOn' | 'status'>,
 const WAIT = /PRD (\d+): ([^·]+)/g;
 
 /** The PRDs a mission waits a person on, read from what the supervisor wrote (`PRD 2803: approve it · PRD 2804: merge it`), each linked to its latest event's link, else to its issue. */
-export function waitsOf(waitingOn: string | null, repo: string, events: readonly EventRow[]): Waits[] {
+export function waitsOf(waitingOn: string | null, repo: string, events: readonly TabEvent[]): Waits[] {
   if (waitingOn === null) return [];
   return [...waitingOn.matchAll(WAIT)].flatMap((match) => {
     const prd = PrdNumberSchema.safeParse(Number(match[1]));
@@ -209,7 +212,7 @@ export function waitsOf(waitingOn: string | null, repo: string, events: readonly
 }
 
 /** What the fleet's PM added and left unwritten (PRD 2896 s12), oldest first; null when neither. `events` are newest first. */
-export function fleetPrdsOf(events: readonly EventRow[]): FleetPrds | null {
+export function fleetPrdsOf(events: readonly TabEvent[]): FleetPrds | null {
   const oldest = events.toReversed();
   const added: PrdNumber[] = [];
   for (const event of oldest) if (event.kind === 'prd-added' && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
@@ -220,7 +223,8 @@ export function fleetPrdsOf(events: readonly EventRow[]): FleetPrds | null {
 }
 
 /** One mission as the tab shows it; `events` are its own, newest first. */
-export function missionOf(row: MissionRow, events: readonly EventRow[], limitWaits: readonly WaitLine[] = []): MissionView {
+export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWaits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = []): MissionView {
+  const own = repairs.filter((line) => line.mission === row.id);
   const waiting = row.status === 'waiting' || row.status === 'running';
   return {
     id: row.id,
@@ -231,8 +235,10 @@ export function missionOf(row: MissionRow, events: readonly EventRow[], limitWai
     progress: progressOf(row.status, row.prds, events, row.level),
     waits: waiting ? waitsOf(row.waitingOn, row.repo, events).filter((wait) => !isWaitWords(wait.on)) : [],
     limitWaits: waiting ? limitWaits.filter((wait) => wait.mission === row.id) : [],
-    stopped: row.status === 'stopped' ? row.waitingOn : null,
+    repairs: own,
+    stopped: row.status === 'stopped' && !own.some((line) => line.kind === 'stopped') ? row.waitingOn : null,
     briefHref: issueHref(row.repo, row.number),
+    // A stopped mission with repairs has its Resume in the Stopped block (PRD 2980), not here.
     action: ACTION[row.status],
     level: row.level,
     levelWords: LEVEL_WORDS[row.level],

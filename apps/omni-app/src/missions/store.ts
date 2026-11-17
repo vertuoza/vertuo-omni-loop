@@ -39,6 +39,17 @@
 //   pmJobs       the PM jobs the mission sent (PRD 2896 s12): its jobs keyed `…:pm:<k>`, each with its line; their logs read
 //                through committeeLog, only for the PM's record line
 //   pm           the mission's PM job queued (`/omni:roadmap --mission <n> --cap <k>` or its kin), sent by the app, under its key
+//   repairs      the repairs the mission sent (PRD 2980): its jobs keyed `…:repair:<k>`, each with the job whose failure it repairs
+//                (read from its line) and the resumes that carry it on, and the `mission_repairs` rows the database kept
+//   repair       a repair's job queued (`/omni:repair --mission <m> --prd <n> --job <failed job>`), sent by the app under its key,
+//                which the runners claim first in line
+//   keepRepair   a repair's row, numbered by the database, which refuses a 4th repair of a cause in a round and a 10th in a
+//                mission (23514): the cap it refused it on is the answer, never a throw
+//   endRepair    a repair's outcome, set once
+//   bugIssue     the Omni Loop bug a fingerprint was filed as (`omni_bug_reports`), read only for its repository and issue
+//   addJob       a job added to the App's ledger: an Omni Loop bug report to file (../bug-reports/job.ts)
+//   names        what the mission's workspace is known by (its repositories' owners and names, the logins on its events), which
+//                a public report never holds
 //   record      the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
 //   update       the mission's status, what it waits on and its next wake, only while its status is still the
 //                one this run read: a Pause landing meanwhile is never overwritten
@@ -53,6 +64,9 @@ import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import { approveLine, committeeKey, committeeOfKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } from './answers.ts';
 import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
+import { RepairRetroSchema } from 'omni-loop/kit/lib/repair/retro.ts';
+import { jobLedger, type NewJob } from '../jobs/ledger.ts';
+import { failedJobOf, repairKey, repairSkillLine, repairOfKey, type RepairJob, type RepairOutcome, type RepairRow } from './repair.ts';
 import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
 import {
   approvalOf,
@@ -113,6 +127,15 @@ export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; st
  */
 export type Care = { mission: MissionRecord; line: string; since: string; toFleet: boolean };
 
+/** A repair to send (PRD 2980): the mission, the PRD, its number among the PRD's repairs, the job that failed, and where it goes. */
+export type RepairSend = { mission: MissionRecord; prd: PrdNumber; k: number; failedJob: string; toFleet: boolean };
+
+/** A repair's row to keep: what its record line found, in the mission's round. The database numbers it. */
+export type NewRepair = Pick<RepairRow, 'prd' | 'fingerprint' | 'round' | 'failedJob' | 'job' | 'retro' | 'fixPr'>;
+
+/** The row kept, or the cap the database refused it on. */
+export type Kept = RepairRow | { spent: 'cause' | 'mission' };
+
 export type MissionStore = {
   mission: (id: string) => Promise<MissionRecord | null>;
   facts: (mission: MissionRecord) => Promise<PrdFacts[]>;
@@ -146,6 +169,20 @@ export type MissionStore = {
   asks: (id: string) => Promise<Omit<ItemCommittee, 'decision'>[]>;
   /** An item's committee queued, with no mission key: its id, or null when one was sent for that item already. */
   ask: (job: Ask) => Promise<string | null>;
+  /** The repairs the mission sent (PRD 2980), with their resumes, and the rows the database kept of them. */
+  repairs: (id: string) => Promise<{ jobs: RepairJob[]; rows: RepairRow[] }>;
+  /** A repair's job queued under its key: its id, or null when the key was already held. */
+  repair: (job: RepairSend) => Promise<string | null>;
+  /** A repair's row kept, or the cap the database refused it on. */
+  keepRepair: (mission: MissionRecord, row: NewRepair) => Promise<Kept>;
+  /** A repair's outcome, set once. */
+  endRepair: (id: string, outcome: RepairOutcome) => Promise<void>;
+  /** The Omni Loop bug a fingerprint was filed as; null when none was. */
+  bugIssue: (fingerprint: string) => Promise<{ repo: string; issue: IssueNumber } | null>;
+  /** A job added to the App's ledger: whether it was added (a key already held adds none). */
+  addJob: (job: NewJob) => Promise<boolean>;
+  /** The names the mission's workspace is known by, which a public report never holds. */
+  names: (mission: MissionRecord) => Promise<string[]>;
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
   /** Whether the mission was still at `from`, and so was moved. */
   update: (id: string, from: MissionStatus, next: Concluded) => Promise<boolean>;
@@ -178,6 +215,10 @@ export const RUNNER = 'repos';
 export const ROOM_RUNNER = 'id, repos, slots, last_seen_at, health';
 export const ROOM_JOB = 'runner_id';
 export const PRODUCT = 'plan_repository';
+export const REPAIR = 'id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome';
+export const BUG_REPORT = 'repo, issue';
+export const REPOSITORY = 'full_name';
+export const ACTOR = 'actor';
 
 const text = z.string().min(1);
 
@@ -240,6 +281,38 @@ export const RoomJobRowSchema = z.object({ runner_id: z.string().nullable() });
 /** The most resumes one job's chain holds: three tries and six waits, the first job apart (PRD 2949). */
 const CHAIN_MAX = 9;
 export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
+export const RepairRowSchema = z.object({
+  id: text,
+  prd: PrdNumberSchema,
+  fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+  round: z.number().int().min(1),
+  number: z.number().int().min(1).max(3),
+  failed_job_id: text,
+  job_id: z.string().nullable(),
+  /** A retro that no longer reads as one is read as none: the repair counts, its words are not shown. */
+  retro: RepairRetroSchema.nullable().catch(null),
+  fix_pr: z.string().nullable(),
+  outcome: z.enum(['fixed', 'not fixed', 'stopped', 'lost']).nullable(),
+});
+export const BugReportRowSchema = z.object({ repo: text, issue: IssueNumberSchema });
+export const RepositoryRowSchema = z.object({ full_name: text });
+export const ActorRowSchema = z.object({ actor: z.string().nullable() });
+
+/** The database's answer to a repair over its budget, and the cap it names in its hint. */
+const OVER_BUDGET = '23514';
+
+const repairOf = (row: z.infer<typeof RepairRowSchema>): RepairRow => ({
+  id: row.id,
+  prd: row.prd,
+  fingerprint: row.fingerprint,
+  round: row.round,
+  number: row.number,
+  failedJob: row.failed_job_id,
+  job: row.job_id,
+  retro: row.retro,
+  fixPr: row.fix_pr,
+  outcome: row.outcome,
+});
 
 type JobRow = z.infer<typeof JobRowSchema>;
 
@@ -328,6 +401,25 @@ export function missionStore(connection: Connection): MissionStore {
     return plan?.content ?? null;
   }
 
+  /** Each job with the resumes that carry it on, in order, the job first (PRD 2809). */
+  async function chainsOf(jobs: readonly JobRow[]): Promise<Map<string, JobRow[]>> {
+    const chains = new Map(jobs.map((job) => [job.id, [job]]));
+    let frontier = new Map(jobs.map((job) => [job.id, job.id]));
+    // A chain is three tries and six waits at most (runner_jobs.attempt, runner_jobs.waits, PRD 2949): the whole chain is followed.
+    for (let round = 0; round < CHAIN_MAX && frontier.size > 0; round += 1) {
+      const resumes = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).in('resumes', [...frontier.keys()]));
+      const next = new Map<string, string>();
+      for (const resume of resumes) {
+        const head = resume.resumes === null ? undefined : frontier.get(resume.resumes);
+        if (head === undefined) continue;
+        chains.get(head)?.push(resume);
+        next.set(resume.id, head);
+      }
+      frontier = next;
+    }
+    return chains;
+  }
+
   /** A job of the mission queued under its key (none for a care or an item's committee), sent by the app: its id, or null when the key was already held. */
   async function queue({ mission, toFleet, line, key }: { mission: MissionRecord; toFleet: boolean; line: string; key: string | null }): Promise<string | null> {
     const answer = await db
@@ -372,20 +464,7 @@ export function missionStore(connection: Connection): MissionStore {
 
     async runs(id) {
       const jobs = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).eq('mission_id', id).order('queued_at'));
-      const chains = new Map(jobs.map((job) => [job.id, [job]]));
-      let frontier = new Map(jobs.map((job) => [job.id, job.id]));
-      // A chain is three tries and six waits at most (runner_jobs.attempt, runner_jobs.waits, PRD 2949): the whole chain is followed.
-      for (let round = 0; round < CHAIN_MAX && frontier.size > 0; round += 1) {
-        const resumes = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).in('resumes', [...frontier.keys()]));
-        const next = new Map<string, string>();
-        for (const resume of resumes) {
-          const head = resume.resumes === null ? undefined : frontier.get(resume.resumes);
-          if (head === undefined) continue;
-          chains.get(head)?.push(resume);
-          next.set(resume.id, head);
-        }
-        frontier = next;
-      }
+      const chains = await chainsOf(jobs);
       const runs = jobs.flatMap((job): Run[] => {
         const key = job.mission_key === null ? null : runOfKey(job.mission_key);
         return key === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
@@ -492,6 +571,49 @@ export function missionStore(connection: Connection): MissionStore {
       // The mission's runs happen one at a time (its lane): a read, then the insert, sends one per item, whatever its bound.
       const sent = rowsOf(CareRowSchema, await db.from('runner_jobs').select(CARE).eq('mission_id', mission.id).is('mission_key', null).like('line', `${askPrefix(prd, item)}%`).limit(1));
       return sent.length > 0 ? null : queue({ mission, toFleet, line: askLine(prd, item, mission.hardToRevert ?? DEFAULT_BOUND), key: null });
+    },
+
+    async repairs(id) {
+      const jobs = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).like('mission_key', `mission:${id}:prd:%:repair:%`).order('queued_at'));
+      const chains = jobs.length === 0 ? new Map<string, JobRow[]>() : await chainsOf(jobs);
+      const repairJobs = jobs.flatMap((job): RepairJob[] => {
+        const key = job.mission_key === null ? null : repairOfKey(job.mission_key);
+        const failedJob = failedJobOf(job.line);
+        return key === null || failedJob === null ? [] : [{ prd: key.prd, k: key.k, job: job.id, failedJob, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+      });
+      const rows = rowsOf(RepairRowSchema, await db.from('mission_repairs').select(REPAIR).eq('mission_id', id).order('started_at')).map(repairOf);
+      return { jobs: repairJobs, rows };
+    },
+
+    repair: ({ mission, prd, k, failedJob, toFleet }) => queue({ mission, toFleet, line: repairSkillLine(mission.number, prd, failedJob), key: repairKey(mission.id, prd, k) }),
+
+    async keepRepair(mission, { prd, fingerprint, round, failedJob, job, retro, fixPr }) {
+      const answer = await db
+        .from('mission_repairs')
+        .insert({ mission_id: mission.id, prd, fingerprint, round, failed_job_id: failedJob, job_id: job, retro, fix_pr: fixPr })
+        .select(REPAIR);
+      if (answer.error?.code === OVER_BUDGET) return { spent: answer.error.hint === 'mission' ? 'mission' : 'cause' };
+      const [kept] = rowsOf(RepairRowSchema, answer);
+      if (!kept) throw new Error('the database kept no repair and gave no reason');
+      return repairOf(kept);
+    },
+
+    async endRepair(id, outcome) {
+      rowsOf(z.unknown(), await db.from('mission_repairs').update({ outcome }).eq('id', id).is('outcome', null).select('id'));
+    },
+
+    async bugIssue(fingerprint) {
+      const [row] = rowsOf(BugReportRowSchema, await db.from('omni_bug_reports').select(BUG_REPORT).eq('fingerprint', fingerprint).limit(1));
+      return row ?? null;
+    },
+
+    addJob: (job) => jobLedger(connection).add(job),
+
+    async names(mission) {
+      const repositories = rowsOf(RepositoryRowSchema, await db.from('repositories').select(REPOSITORY).eq('workspace_id', mission.workspace));
+      const actors = rowsOf(ActorRowSchema, await db.from('mission_events').select(ACTOR).eq('mission_id', mission.id).neq('actor', 'agent'));
+      const names = [mission.repo, ...repositories.map((row) => row.full_name)].flatMap((full) => [full, ...full.split('/')]);
+      return [...new Set([...names, ...actors.flatMap((row) => (row.actor === null ? [] : [row.actor]))].filter((name) => name.length > 0))];
     },
 
     async record(id, events, at) {

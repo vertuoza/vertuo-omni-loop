@@ -28,6 +28,10 @@ an agent is not a person.
 - **A mission branch row** (PRD 2896): one row each, signed `Supervisor · agent`, for a PRD that joined the
   branch (`Joined`), a drop asked (`Drop asked`) and made (`Dropped`), and a landing (`Landed`), each linking its
   pull request. A rebase of the branch is a row of its own once the App records one.
+- **Repair rows** (PRD 2980): `Repair n of 3 started for PRD <n> · m left in this mission`
+  (`Supervisor · agent`), `Retro: <the cause> · Cause <fingerprint>, in the code` or `in Omni Loop`
+  (`Engineer · agent`), `Repair n of 3 ended: …` with its fix PR and `Fixed` or `Not fixed`, and
+  `Reported Omni Loop bug #<n>, scrubbed` (`Supervisor · agent`).
 - **Filters:** by role and by mission, kept in the address.
 - **A Reviewer row, opened:** its verdict, `pass` or `changes`, its findings (at most five),
   and the round (`Round 1 of 2`).
@@ -47,7 +51,13 @@ an agent is not a person.
   `tokens spent waiting 0 · next try 09:00` (PRD 2949).
 - **Resumed:** a runner went silent; the work carried on elsewhere from its last save, the minutes
   redone; work that could only stay on the lost runner is named.
-- **Stopped:** why, which limit was hit, how to resume.
+- **Repairing** (PRD 2980): `Repairing (1 of 3) · 8 left`, the fix PR linked as the one action.
+- **Stopped:** why, which limit was hit, how to resume. After repairs (PRD 2980), a block under
+  the now lines: the cause and its fingerprint, the repairs tried (each PR and its outcome), the
+  proposed fix, `6 of 9 in this mission` left, **Resume** (`Resume: 3 more for this cause`) as the
+  one action, and `Take it by hand`.
+- **Waits on Omni Loop** (PRD 2980): `Waits on Omni Loop bug #3012`, linked, and how many missions
+  met it; the issue holds none of the workspace's work.
 - **Idle:** nothing assigned.
 - **Not on this fleet:** no runner can run the seat, and why.
 - **Empty:** no mission has run yet; the page says so and points to Missions.
@@ -55,7 +65,9 @@ an agent is not a person.
 ## Words
 
 - `Reviewer · agent`, `Engineer · agent`, `QA · agent`, `Designer · agent`, `A person does this today`,
-  `Nothing to clean up`, `Round 1 of 2`, `Waiting for room`, `Waiting until 09:00`, `Ready for review`.
+  `Nothing to clean up`, `Round 1 of 2`, `Waiting for room`, `Waiting until 09:00`, `Ready for review`, `Repairing (1 of 3)`,
+  `8 left`, `Retro`, `Fixed`, `Not fixed`, `Waits on Omni Loop`, `Resume`, `Take it by hand`.
+- Never `post-mortem`: the glossary's word is **Retro**.
 
 ## Refusals
 
@@ -79,6 +91,8 @@ an agent is not a person.
   Whether a plain count line (`2 moved · 1 ready for review · 1 waits on you`) belongs here is
   undecided.
 - How long the ledger keeps rows, and what an older row links to.
+- `Supervisor · agent` has no 16 px mark in the library yet: PRD 2980's page draws a ring as a
+  stand-in.
 
 ## Source
 
@@ -87,3 +101,4 @@ an agent is not a person.
 /omni:brainstorm, PRD 2871: .omni-loop/delivery/shipped/2871-reviewer/before-after.html
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html (an idle hero with a skill that runs alone reads `Idle`; the Designer has a now line)
 /omni:brainstorm, PRD 2949: .omni-loop/delivery/shipped/2949-limit-waits/before-after.html (the two waiting lines)
+/omni:brainstorm, PRD 2980: .omni-loop/delivery/shipped/2980-mission-repairs/before-after.html (Repairing, Stopped after repairs, Waits on Omni Loop, the repair rows)

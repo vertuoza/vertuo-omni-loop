@@ -71,6 +71,9 @@ import { missionBranches } from '../missions/branch.ts';
 import { missionDrops } from '../missions/drop.ts';
 import { missionJoins } from '../missions/join.ts';
 import { MISSION_KIND, missionHandler } from '../missions/job.ts';
+import { bugIssues } from '../bug-reports/github.ts';
+import { BUG_REPORT_KIND, bugReportHandler } from '../bug-reports/job.ts';
+import { bugReportStore } from '../bug-reports/store.ts';
 import { missionKeepUps } from '../missions/keep-up.ts';
 import { missionAnswers } from '../missions/settle.ts';
 import { missionLandings } from '../missions/landing.ts';
@@ -199,8 +202,8 @@ export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'github
 /**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the knowledge
  * embed's, the five checks', the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet
- * board's, the canon buttons', the knowledge harvest's, the retro's, the main watch's, the server event's and the
- * mission's.
+ * board's, the canon buttons', the knowledge harvest's, the retro's, the main watch's, the server event's, the
+ * mission's and the Omni Loop bug report's (PRD 2980 s4, ../bug-reports/job.ts).
  */
 export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient & GraphqlOctokit>): Workers {
   const { supabase } = env;
@@ -242,6 +245,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
       [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
+      [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
