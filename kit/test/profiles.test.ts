@@ -111,6 +111,7 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
   it('checks clean, goes red on an item, settles, goes green, ships', async () => {
     const { root } = makeRepo({
       git: true,
+      fetched: true,
       files: {
         '.omni-loop/config.yml': config,
         [`${D}/inbox/0042-a/spec.md`]: SPEC_42,

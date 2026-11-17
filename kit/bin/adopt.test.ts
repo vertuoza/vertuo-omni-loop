@@ -30,6 +30,7 @@ describe('omni adopt', () => {
   it('removes the open item file it adopted, and appends the settled entry', async () => {
     const { root, read } = makeRepo({
       git: true,
+      fetched: true,
       files: {
         ...CONFIG,
         '.omni-loop/delivery/inbox/0042-a/spec.md': 'x',
