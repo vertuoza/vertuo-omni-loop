@@ -21,6 +21,7 @@
     "eval:search": "node scripts/eval-search.ts",
     "fallow:audit": "fallow audit",
     "check:changed": "node scripts/check-changed.ts",
+    "design": "sh -c 'node scripts/design-ratchet.ts \"$@\"; code=$?; node scripts/design-detect.ts; exit $code' design",
     "prepare": "node scripts/install-hooks.ts",
     "mutation": "stryker run stryker.config.ts",
     "mutation:changed": "node scripts/mutation-changed.ts",
