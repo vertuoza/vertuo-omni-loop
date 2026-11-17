@@ -59,4 +59,4 @@ Heroes.)
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2871: .omni-loop/delivery/shipped/2871-reviewer/before-after.html
 /omni:brainstorm, PRD 2873: .omni-loop/delivery/shipped/2873-heroes-every-skill/before-after.html
-/omni:brainstorm, PRD 3001: .omni-loop/delivery/inbox/3001-qa-turn/before-after.html (QA's row)
+/omni:brainstorm, PRD 3001: .omni-loop/delivery/shipped/3001-qa-turn/before-after.html (QA's row)
