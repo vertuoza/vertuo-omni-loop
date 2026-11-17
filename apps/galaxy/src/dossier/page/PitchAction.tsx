@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Button } from '@omni/ui';
 import { SendToTerminal } from '../../runners/send/SendToTerminal';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
@@ -44,7 +45,7 @@ export function PitchPanel({ prd, audience, disabled, copied, onChoose, onCopy }
       </fieldset>
       <span className="stage-copy">
         <code className="stage-command pitch-command">{command}</code>
-        <button type="button" className="ask-button" disabled={disabled} title={command} onClick={onCopy}>Copy</button>
+        <Button disabled={disabled} title={command} onClick={onCopy}>Copy</Button>
         {copied !== 'idle' && <span className="ask-hint" role="status">{COPY_WORDS[copied]}</span>}
         {!disabled && <SendToTerminal line={command} />}
       </span>
@@ -71,7 +72,7 @@ export function PitchAction({ prd, disabled }: { prd: PrdNumber; disabled: boole
 
   return (
     <span className="pitch-action" data-demo={disabled ? 'true' : undefined}>
-      <button type="button" className="ask-button stage-action" aria-expanded={open} onClick={() => { setOpen(!open); }}>Pitch</button>
+      <Button variant="primary" expanded={open} onClick={() => { setOpen(!open); }}>Pitch</Button>
       {open && <PitchPanel prd={prd} audience={audience} disabled={disabled} copied={copied} onChoose={choose} onCopy={() => void copy()} />}
     </span>
   );

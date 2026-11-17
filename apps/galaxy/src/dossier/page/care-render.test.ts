@@ -49,7 +49,7 @@ const page = (github: GithubSummary | null, tab: 'care' | null = 'care') => {
 describe('the PR care tab (PRD 790, s4)', () => {
   it('sits after Outbox, and is left out once GitHub says there is no feature PR', () => {
     const html = page(summary());
-    expect(html).toContain(`<a class="omni-tab omni-tab--current" href="/prd/${ID}?tab=care" aria-current="page"><span class="dossier-tab-label">PR care<small>2 open</small></span></a>`);
+    expect(html).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=care"><span class="dossier-tab-label">PR care<small>2 open</small></span></a>`);
     expect(html.indexOf('>Outbox')).toBeLessThan(html.indexOf('>PR care<'));
     expect(html.indexOf('>PR care<')).toBeLessThan(html.indexOf('>Retro'));
     expect(html).toContain('<section class="dossier-pane" aria-label="PR care">');
@@ -86,13 +86,13 @@ describe('the PR care tab (PRD 790, s4)', () => {
     for (const lastRound of ['2026-09-30T11:45:00Z', null]) {
       const nobody = page(summary({ care: { ...CARE, lastRound } }));
       expect(nobody).toContain('<p class="care-watcher"><span>Nobody is watching</span> <span class="stage-copy">');
-      expect(nobody).toContain('type="button">Copy</button><code class="stage-command">/omni:pr-care 216</code>');
+      expect(nobody).toContain('type="button" title="/omni:pr-care 216" data-primary="">Copy</button><code class="stage-command">/omni:pr-care 216</code>');
     }
   });
 
   it('says there is nothing to look after once merged, and when GitHub did not answer', () => {
     const merged = page(summary({ feature: { ...FEATURE, state: 'merged' }, care: null }));
-    expect(merged).toContain(`<a class="omni-tab omni-tab--current" href="/prd/${ID}?tab=care" aria-current="page"><span class="dossier-tab-label dossier-tab-empty">PR care</span></a>`);
+    expect(merged).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=care"><span class="dossier-tab-label dossier-tab-empty">PR care</span></a>`);
     expect(merged).toContain('<p class="dossier-empty">The feature PR is merged: nothing is left to look after.</p>');
     expect(merged).toContain(`<a class="ask-button" href="${FEATURE.url}" target="_blank" rel="noopener noreferrer">Open the feature PR</a>`);
     expect(merged).not.toContain('care-rows');

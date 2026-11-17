@@ -52,7 +52,7 @@ export function StageAction({ stage, demo = false }: { stage: StageView | null; 
   const action = stage?.action;
   if (action?.kind === 'pitch') return <PitchAction prd={action.prd} disabled={demo} />;
   if (action?.kind === 'link') {
-    return <Button variant="primary" href={action.href}>{action.label}</Button>;
+    return <Button variant="primary" href={action.href} external>{action.label}</Button>;
   }
   if (action?.kind === 'copy') {
     const copy = <StageHeaderCopy label={action.label} command={action.command} />;
@@ -104,7 +104,7 @@ export function StageLinks({ links }: { links: StageView['links'] }) {
             trailing={(
               <>
                 <span className="ask-hint">{link.done ? '✓' : 'open'}</span>
-                {link.chip && <Badge tone={link.chip.tone === 'red' ? 'danger' : link.chip.tone === 'grey' ? 'neutral' : 'success'}>{link.chip.label}</Badge>}
+                {link.chip && <Badge title="PR care" tone={link.chip.tone === 'red' ? 'danger' : link.chip.tone === 'grey' ? 'neutral' : 'success'}>{link.chip.label}</Badge>}
               </>
             )}
           />

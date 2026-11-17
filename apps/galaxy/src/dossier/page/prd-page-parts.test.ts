@@ -48,8 +48,9 @@ const github: GithubSummary = {
   repo: 'acme/widgets', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
   phase0: null, feature: FEATURE, mergedSlices: 1, outbox: null, outboxComment: null, care: CARE,
 };
+const OUTBOX = [{ stage: 'outbox' as const, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
 const page = () => {
-  const view = dossierView({ dossier, versions: [], members: [PIERRE], rounds: [], github }, PIERRE.user_id, readPick({}), Date.parse('2026-09-30T12:00:00Z'));
+  const view = dossierView({ dossier, versions: [], members: [PIERRE], rounds: [], github, stages: OUTBOX }, PIERRE.user_id, readPick({}), Date.parse('2026-09-30T12:00:00Z'));
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, supabase: null }));
 };
 const SETUP: SendSetup = { repo: 'acme/widgets', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
@@ -70,7 +71,7 @@ describe('the PRD page after its rebuild on @omni/ui (bug #3011)', () => {
   });
 
   it('opens the stage\'s GitHub link in a new window', () => {
-    const stage = stageView({ prd: parsePrd(216), rows: [{ stage: 'outbox', reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }], github });
+    const stage = stageView({ prd: parsePrd(216), rows: OUTBOX, github });
     expect(stage.action).toMatchObject({ kind: 'link', href: 'https://github.com/acme/widgets/pull/221' });
     const html = renderToStaticMarkup(createElement(StageAction, { stage }));
     expect(html).toContain('target="_blank"');
