@@ -17,7 +17,7 @@ const DISABLE = ['eslint', 'disable', 'next', 'line'].join('-');
 const IGNORE = ['@ts', 'ignore'].join('-');
 const EXPECT_ERROR = ['@ts', 'expect', 'error'].join('-');
 
-const GROUND = { floors: ['mutation/floor.json'], baselines: ['fallow/', 'layering/'] };
+const GROUND = { floors: ['mutation/floor.json'], baselines: ['fallow/', 'layering/', 'design/'] };
 
 const modified = (path: string, before: string, after: string): DiffFile => ({ path, status: 'modified', before, after });
 const added = (path: string, after: string): DiffFile => ({ path, status: 'added', before: null, after });
@@ -127,6 +127,15 @@ describe('loosenings: suppressions and floors (PRD 2898)', () => {
     const counts = (n: number) => JSON.stringify({ finding_counts: { 'a.ts': { crap_high: { count: n } } } });
     expect(findings([modified(health, counts(1), counts(2))])).toEqual([`suppressions ${health}: the baseline grew (finding_counts.a.ts.crap_high.count 1 → 2)`]);
     expect(findings([modified('fallow/README.md', 'a', 'b\nc')])).toEqual([]);
+  });
+
+  it('finds a design baseline grown, and passes one that shrank (PRD omni-loop-11)', () => {
+    const design = 'design/baseline.json';
+    const before = JSON.stringify({ breaches: ['apps/galaxy/src/a.css font-size'] });
+    expect(findings([modified(design, before, JSON.stringify({ breaches: ['apps/galaxy/src/a.css font-size', 'apps/galaxy/src/b.css z-index'] }))])).toEqual([
+      `suppressions ${design}: the baseline grew (breaches: "apps/galaxy/src/b.css z-index")`,
+    ]);
+    expect(findings([modified(design, before, JSON.stringify({ breaches: [] }))])).toEqual([]);
   });
 });
 
