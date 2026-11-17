@@ -315,3 +315,237 @@ Widening or narrowing one check constraint, or adding nullable columns later, in
 ```
 
 <!-- /omni-outbox-settled: s2-03-qa-keys-and-checked-event -->
+
+<!-- omni-outbox-settled: s4-01-bugs-pick-as-resumed-or-stopped -->
+
+## s4-01-bugs-pick-as-resumed-or-stopped — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-bugs-pick-as-resumed-or-stopped
+prd: 3001
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 2
+---
+
+## The question, in plain words
+
+When a bug survives QA's second check, a person picks between sending the work on to the reviewer and stopping it, and the database has no place made for that pick. Where should the pick be written so the mission can read it?
+
+## The decision, in plain words
+
+The pick is written as one more line in the mission's history, signed with the person's name: 'resumed' for the work, to send it on, or 'stopped' for it, to stop it, each naming QA's second check. The mission reads the first such line and acts on it.
+
+## The intro, for fun
+
+A person makes a call, and the database has no drawer to keep it in.
+
+## The punchline, for fun
+
+So it goes in the diary, signed, like every other call.
+
+## The options, in plain words
+
+A. Write the pick as a resumed or stopped row of the PRD, naming QA's second check and signed by the person.
+B. Add a new kind of row for the pick, in a migration of its own, and read that instead.
+C. Keep the pick on the mission itself, in a new column, and read it there.
+
+## What I had to decide
+
+How a person's pick on Decide the bugs is recorded, so that s4's supervisor reads it and s5's mission page writes it. Taken in apps/omni-app/src/missions/qa.ts (picksOf): a mission_events row of kind `resumed` (Send on to the Reviewer) or `stopped` (Stop this PRD), with prd set to the PRD, job_id set to QA's round-2 job, role supervisor and actor the person's login. The first such row for a job wins. The supervisor's own `stopped` rows name no job and the mission's own `resumed` rows name no PRD, so neither reads as a pick; repair.ts roundOf now opens a new repair round only on a `resumed` with no PRD. The person's `stopped` row also stands for the PRD's stop: its key `stopped:<prd>` keeps the supervisor from recording a second one. No migration: s2 was the only slice allowed one, and the kinds already exist.
+
+## What I did meanwhile
+
+Built and tested this way (qa.test.ts, qa.e2e.test.ts, with store.fake.ts's pickBugs recording the row as the page would). s5 writes the row with the service role as the page records a drop ask today.
+
+## What it costs to change later
+
+Reading the pick from another kind or a new column means one function (picksOf) and one test here, and the row s5 writes; a new kind would need a migration adding it to mission_events_kind_check.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether a person would rather see a pick of its own name in the Operation room's history than a resume or a stop of the PRD
+- (author) the PRD, the registers and the glossary do not say how a person's pick on a mission is stored
+
+```
+
+<!-- /omni-outbox-settled: s4-01-bugs-pick-as-resumed-or-stopped -->
+
+<!-- omni-outbox-settled: s4-02-verdict-not-read-is-read-as-failed -->
+
+## s4-02-verdict-not-read-is-read-as-failed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-verdict-not-read-is-read-as-failed
+prd: 3001
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 2
+---
+
+## The question, in plain words
+
+When QA's job finishes without a result the mission can read, the plan says the job ends failed. Should the mission rewrite the job's own record, or only treat it as failed when it decides what comes next?
+
+## The decision, in plain words
+
+The mission only treats such a job as failed when it decides what comes next: it writes 'failed: verdict not read' in its history and sends a repair, and the job's own record keeps the ending its runner gave it.
+
+## The intro, for fun
+
+QA came back from its round with a note nobody could read.
+
+## The punchline, for fun
+
+The mission files it under failed, and leaves QA's own diary alone.
+
+## The options, in plain words
+
+A. Treat the job as failed only in the mission's reading and history; leave the job's own record as its runner gave it.
+B. Also rewrite the job's own record to failed, with the reason, so every page shows it failed.
+
+## What I had to decide
+
+Spec section 4 and AC-6 say a QA job whose verdict line cannot be read, or names more than five bugs, ends `failed · verdict not read`. Taken in apps/omni-app/src/missions/qa.ts (withVerdicts), called by job.ts right after the store reads the runs: a QA job the runner reported done whose log tail reads no verdict of its own round is read, for that run, as failed with the reason `verdict not read`. The supervisor then sends a repair within PRD 2980's budget as for any failed step, and records `PRD <n>'s job failed: verdict not read.` signed qa. The runner_jobs row itself is not updated: it stays done as its runner reported it.
+
+## What I did meanwhile
+
+Built and tested this way (qa.test.ts AC-6, qa.e2e.test.ts AC-6). The repair job is sent with the QA job's id, and /omni:repair reads that job's log, which ends on no `omni qa:` line.
+
+## What it costs to change later
+
+Writing the failure on the job's own row later is one update in the store, as the service role, and one test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether the Runners page and the Operation room should show such a job as failed rather than done; s5 draws the room's rows
+- (author) whether /omni:repair reads a job its runner reported done as well as a failed one
+
+```
+
+<!-- /omni-outbox-settled: s4-02-verdict-not-read-is-read-as-failed -->
+
+<!-- omni-outbox-settled: s4-03-draft-fix-is-not-fixed -->
+
+## s4-03-draft-fix-is-not-fixed — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-draft-fix-is-not-fixed
+prd: 3001
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 2
+---
+
+## The question, in plain words
+
+When the engineer's fix for a bug is finished but its change is still left as a draft, should the mission wait for it or move on to the next bug?
+
+## The decision, in plain words
+
+The mission moves on: a fix still left as a draft once the engineer's job ended is marked 'not fixed', and QA's second check looks at that bug again.
+
+## The intro, for fun
+
+The engineer went home and left the fix half-wrapped on the desk.
+
+## The punchline, for fun
+
+QA will check the gift again on its second round.
+
+## The options, in plain words
+
+A. Mark a fix still left as a draft 'not fixed' and send the next bug.
+B. Wait for the draft to be marked ready before moving on, as a repair's fix does.
+
+## What I had to decide
+
+Spec section 4 lists a fix that cannot land as red, closed or refused by GitHub, and says nothing of a draft. Taken in apps/omni-app/src/missions/qa.ts (judgeBugFix): a fix pull request still a draft when its /omni:bug-fix job ended is refused, `#<n> is still a draft`, and the bug is marked `not fixed: #<n> is still a draft`; the next bug goes. A repair's fix (repair.ts judgeFix) waits on a draft instead, but no job is left to mark a QA fix ready, so waiting would hold the PRD with nothing at work. Checks still running on a ready fix are waited for, as a repair's are.
+
+## What I did meanwhile
+
+Built and tested this way (qa.test.ts, 'a fix lands on the feature branch only').
+
+## What it costs to change later
+
+Waiting on a draft instead is one line in judgeBugFix and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether /omni:bug-fix sent with --base ever ends with its fix pull request still a draft
+
+```
+
+<!-- /omni-outbox-settled: s4-03-draft-fix-is-not-fixed -->
