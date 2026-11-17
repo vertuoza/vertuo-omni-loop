@@ -219,7 +219,10 @@ export function resolveTokens(files: Readonly<Record<string, unknown>>): TokenSe
 /** Every *.tokens.json file of the folder, parsed, by its name. */
 export function readTokenFiles(dir: URL = DIR): Record<string, unknown> {
   return Object.fromEntries(readdirSync(dir).filter((name) => name.endsWith('.tokens.json')).sort()
-    .map((name) => [name, JSON.parse(readFileSync(new URL(name, dir), 'utf8')) as unknown]));
+    .map((name): [string, unknown] => {
+      const parsed: unknown = JSON.parse(readFileSync(new URL(name, dir), 'utf8'));
+      return [name, parsed];
+    }));
 }
 
 /** The token set of the folder's files. */

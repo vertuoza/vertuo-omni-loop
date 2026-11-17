@@ -49,6 +49,7 @@ export const THEME_ROLES_ANTI: Readonly<Record<AskTheme, Readonly<Record<AntiRol
 
 /** The theme an ask root shows when the theme script never marked it. */
 const DEFAULT_THEME: AskTheme = 'omni';
+const THEME_ORDER: readonly AskTheme[] = ['omni', 'light', 'dark'];
 
 /** The colours, the scale and each theme's roles, as the generator reads them from the DTCG files. */
 export interface TokenSet {
@@ -70,7 +71,7 @@ const declare = (values: Readonly<Record<string, string>>, prefix = ''): string[
  */
 export function tokensCss(set: TokenSet = COMMITTED): string {
   const marked = (theme: string, also = '') => `:is(html:has(.ask[data-ask-theme="${theme}"]${also}), .ask[data-ask-theme="${theme}"]${also})`;
-  const themes = Object.keys(set.themes) as AskTheme[];
+  const themes = THEME_ORDER;
   const rule = (selector: string, lines: readonly string[]) => [`${selector} {`, ...lines, '}'];
   return [
     '/* Generated from packages/design/tokens/*.tokens.json: do not edit. Change a token there and run',
@@ -126,8 +127,26 @@ export const ASK_ROLES: Readonly<Record<AskToken, ColourRole>> = Object.freeze({
   red: 'danger',
 });
 
-const askOf = (roles: Readonly<Record<ColourRole, string>>): Readonly<Record<AskToken, string>> =>
-  Object.freeze(Object.fromEntries(Object.entries(ASK_ROLES).map(([token, role]) => [token, roles[role]])) as Record<AskToken, string>);
+const askOf = (roles: Readonly<Record<ColourRole, string>>): Readonly<Record<AskToken, string>> => {
+  const of = (token: AskToken): string => roles[ASK_ROLES[token]];
+  return Object.freeze({
+    ground: of('ground'),
+    surface: of('surface'),
+    sunk: of('sunk'),
+    line: of('line'),
+    lineStrong: of('lineStrong'),
+    ink: of('ink'),
+    muted: of('muted'),
+    plasma: of('plasma'),
+    plasmaSoft: of('plasmaSoft'),
+    onPlasma: of('onPlasma'),
+    yellow: of('yellow'),
+    onYellow: of('onYellow'),
+    cyan: of('cyan'),
+    green: of('green'),
+    red: of('red'),
+  });
+};
 
 /** Ask's tokens: Omni, light and dark, each an alias of its theme's role. In Omni, `yellow` holds magenta. */
 export const ASK: Readonly<Record<AskTheme, Readonly<Record<AskToken, string>>>> = Object.freeze({
@@ -138,11 +157,19 @@ export const ASK: Readonly<Record<AskTheme, Readonly<Record<AskToken, string>>>>
 
 /** The tokens the anti-loop mode remaps; every other token stays Ask's. */
 export type AskAntiToken = 'line' | 'lineStrong' | 'plasma' | 'plasmaSoft' | 'onPlasma' | 'yellow' | 'onYellow';
-const ANTI_TOKENS: readonly AskAntiToken[] = ['line', 'lineStrong', 'plasma', 'plasmaSoft', 'onPlasma', 'yellow', 'onYellow'];
 
 const antiOf = (theme: AskTheme): Readonly<Record<AskAntiToken, string>> => {
   const roles: Readonly<Record<ColourRole, string>> = { ...THEME_ROLES[theme], ...THEME_ROLES_ANTI[theme] };
-  return Object.freeze(Object.fromEntries(ANTI_TOKENS.map((token) => [token, roles[ASK_ROLES[token]]])) as Record<AskAntiToken, string>);
+  const of = (token: AskAntiToken): string => roles[ASK_ROLES[token]];
+  return Object.freeze({
+    line: of('line'),
+    lineStrong: of('lineStrong'),
+    plasma: of('plasma'),
+    plasmaSoft: of('plasmaSoft'),
+    onPlasma: of('onPlasma'),
+    yellow: of('yellow'),
+    onYellow: of('onYellow'),
+  });
 };
 
 /**
