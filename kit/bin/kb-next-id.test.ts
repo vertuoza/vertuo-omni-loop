@@ -55,7 +55,7 @@ async function nextId(root: string, args: string[], { pulls, sha = '' }: { pulls
 }
 
 describe('omni kb next-id', () => {
-  it('numbers past an open pull request (AC-1)', async () => {
+  it('AC-1: numbers past an open pull request', async () => {
     const { root, sha } = repoWith({ base: ['BR-PIPELINE-46'], pull: ['BR-PIPELINE-46', 'BR-PIPELINE-47'] });
     const answer = await nextId(root, ['BR-PIPELINE'], { pulls: [51], sha });
     expect(answer).toMatchObject({ code: 0, out: 'BR-PIPELINE-48\n', err: '' });
@@ -74,7 +74,7 @@ describe('omni kb next-id', () => {
     expect(JSON.parse(answer.out)).toEqual({ id: 'BR-PIPELINE-48', past: [{ where: 'tree', id: 'BR-PIPELINE-47' }] });
   });
 
-  it('still answers when the pull requests cannot be read (AC-2)', async () => {
+  it('AC-2: still answers when the pull requests cannot be read', async () => {
     const { root } = repoWith({ base: ['BR-PIPELINE-46'] });
     const answer = await nextId(root, ['BR-PIPELINE'], { pulls: null });
     expect(answer.code).toBe(0);

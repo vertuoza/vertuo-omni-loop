@@ -74,7 +74,7 @@ describe('takenElsewhere — every open pull request into the default branch (PR
     expect(taken.branches).toEqual(['feat/other']);
   });
 
-  it('a harvest numbers its new rule past an open feature pull request (AC-5)', async () => {
+  it('AC-5: a harvest numbers its new rule past an open feature pull request', async () => {
     const double = github(['feat/other']);
     const octokit = {
       request: (route: string, params?: Record<string, unknown>) =>

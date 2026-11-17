@@ -76,7 +76,7 @@ async function check(root: string, args: string[] = ['knowledge']) {
 const R1: Rule = ['BR-PRODUCT-1', 'A widget is blue.'];
 
 describe('omni check knowledge — an id the base gave to another entry (PRD 3015)', () => {
-  it('is red on an id new on this branch that the base holds with other words, naming the id to renumber to (AC-3)', async () => {
+  it('AC-3: is red on an id new on this branch that the base holds with other words, naming the id to renumber to', async () => {
     const { root } = repoWith({
       start: [R1],
       theirs: [R1, ['BR-PRODUCT-2', 'A quote is signed once.']],
@@ -101,7 +101,7 @@ describe('omni check knowledge — an id the base gave to another entry (PRD 301
     expect(result.out).toContain('BR-PRODUCT-2 is taken on origin/main by another entry');
   });
 
-  it('keeps green an entry this branch reworded in place (AC-4)', async () => {
+  it('AC-4: keeps green an entry this branch reworded in place', async () => {
     const start: Rule[] = [R1, ['BR-PRODUCT-2', 'A quote is signed once.']];
     const { root } = repoWith({ start, theirs: start, ours: [R1, ['BR-PRODUCT-2', 'A quote is signed once, by its customer.']] });
     const result = await check(root, ['knowledge', '--base', 'origin/main']);
@@ -117,7 +117,7 @@ describe('omni check knowledge — an id the base gave to another entry (PRD 301
     expect(result.out).not.toContain('ids not compared');
   });
 
-  it('says ids were not compared with no base, and grades the rest as before (AC-6)', async () => {
+  it('AC-6: says ids were not compared with no base, and grades the rest as before', async () => {
     const { root } = repoWith({ start: [R1], ours: [R1, ['BR-PRODUCT-2', 'An order backlog is counted in months.']] });
     const result = await check(root);
     expect(result.code).toBe(0);
