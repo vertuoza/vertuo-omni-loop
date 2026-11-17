@@ -8,7 +8,7 @@ import { z } from 'zod';
 //
 //   POST /api/missions/<id>/start    a draft goes running
 //   POST /api/missions/<id>/pause    a running or waiting mission goes paused
-//   POST /api/missions/<id>/resume   a paused mission goes running
+//   POST /api/missions/<id>/resume   a paused mission goes running; so does a stopped one (PRD 2980: Resume opens a new round of repairs)
 //   POST /api/missions/<id>/level    {level}: Change for this mission (PRD 2896), the level it runs at
 
 export type MissionAction = 'start' | 'pause' | 'resume';
@@ -21,7 +21,7 @@ export type MissionStatus = z.infer<typeof MissionStatusSchema>;
 export const MOVES: Record<MissionAction, { from: readonly MissionStatus[]; to: MissionStatus; event: 'started' | 'paused' | 'resumed'; wakes: boolean }> = {
   start: { from: ['draft'], to: 'running', event: 'started', wakes: true },
   pause: { from: ['running', 'waiting'], to: 'paused', event: 'paused', wakes: false },
-  resume: { from: ['paused'], to: 'running', event: 'resumed', wakes: true },
+  resume: { from: ['paused', 'stopped'], to: 'running', event: 'resumed', wakes: true },
 };
 
 export const MovedMissionSchema = z.object({ mission: z.object({ id: z.uuid(), status: MissionStatusSchema }) });

@@ -3,13 +3,14 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { MissionsTab } from './MissionsTab';
-import { branchOf, fleetPrdsOf, missionOf, onBranchOf, progressOf, waitsOf, WORDS, type EventRow, type MissionRow } from './missions-tab';
+import { branchOf, fleetPrdsOf, missionOf, onBranchOf, progressOf, waitsOf, WORDS, type TabEvent, type MissionRow } from './missions-tab';
 import { limitWaitRepository } from '../limit-wait.repository';
+import { repairRepository } from '../repair.repository';
 import { missionsTabService } from './missions-tab.service';
 import { missionsTabRepository, type MissionsTabDb } from './missions-tab.repository';
 
 /** The tab's repository with the waits read beside it, as missions-tab.live.ts composes them. */
-const withWaits = (db: Parameters<typeof missionsTabRepository>[0]) => ({ ...missionsTabRepository(db), waits: (missions: readonly string[]) => limitWaitRepository(db).facts(missions) });
+const withWaits = (db: Parameters<typeof missionsTabRepository>[0]) => ({ ...missionsTabRepository(db), waits: (missions: readonly string[]) => limitWaitRepository(db).facts(missions), repairs: (missions: readonly string[]) => repairRepository(db).facts(missions) });
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, refresh: () => undefined }) }));
 
@@ -23,7 +24,7 @@ const WORKSPACE = '33333333-3333-4333-8333-333333333333';
 const row = (over: Partial<MissionRow> = {}): MissionRow => ({
   id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waitingOn: null, prds: [parsePrd(1), parsePrd(2), parsePrd(3), parsePrd(4)], level: 'with-you', inPlan: false, ...over,
 });
-const event = (kind: string, prd: number | null, link: string | null = null, mission = ID, sentence = ''): EventRow => ({ mission, kind, prd: prd === null ? null : parsePrd(prd), link, sentence });
+const event = (kind: string, prd: number | null, link: string | null = null, mission = ID, sentence = ''): TabEvent => ({ mission, kind, prd: prd === null ? null : parsePrd(prd), link, sentence });
 
 describe('a mission in a plan repository (PRD 2896 s14)', () => {
   it('says committee only at alone, offers no own-branch, and says nothing elsewhere', () => {
@@ -96,7 +97,7 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
     for (const name of ['select', 'eq', 'is', 'in', 'not', 'or', 'order', 'limit']) self[name] = () => self;
     return self;
   };
-  return { from: (table: string) => chain(table === 'missions' ? missions : table === 'products' ? products : table === 'runner_jobs' ? [] : events, failing === table) } as unknown as MissionsTabDb;
+  return { from: (table: string) => chain(table === 'missions' ? missions : table === 'products' ? products : table === 'runner_jobs' || table === 'mission_repairs' ? [] : events.map((one) => ({ job_id: null, at: '2026-11-17T00:00:00Z', ...(one as object) })), failing === table) } as unknown as MissionsTabDb;
 }
 
 const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waiting_on: 'PRD 2: merge it', scope: { prds: [1, 2], roadmaps: [] }, mandate: { parallel: 2 } };
