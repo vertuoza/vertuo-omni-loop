@@ -1,0 +1,51 @@
+{
+  "$description": "The anti-loop mode over omni (Rewind Light): magenta takes the signal, the highlight takes yellow; only the roles it remaps.",
+  "color": {
+    "$type": "color",
+    "border-subtle": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2275,
+          0.0784,
+          0.3451
+        ],
+        "hex": "#3a1458"
+      }
+    },
+    "border-strong": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.6902,
+          0.2824,
+          0.6039
+        ],
+        "hex": "#b0489a"
+      }
+    },
+    "signal": {
+      "$value": "{magenta}"
+    },
+    "signal-soft": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2275,
+          0.0706,
+          0.2196
+        ],
+        "hex": "#3a1238"
+      }
+    },
+    "text-on-signal": {
+      "$value": "{void}"
+    },
+    "highlight": {
+      "$value": "{yellow}"
+    },
+    "text-on-highlight": {
+      "$value": "{void}"
+    }
+  }
+}
