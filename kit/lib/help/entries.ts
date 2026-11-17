@@ -298,7 +298,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       "The repository's guards, each printing its violations or one line saying it passed: config " +
       '(the config file, its flow and every hook file the flow names, each refusal naming its key), inbox ' +
-      '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers and the business laws: with the Omni page it also refuses a law in a folder or an Also: key off the product domain list, one using a word the glossary says to avoid, and one outside the law home, each only a note while the page cannot be read), kb (the ' +
+      '(the PRDs waiting to be built, a spec\'s front matter included: e2e: validate is the only value of e2e), outbox (the open items), knowledge (the registers and the business laws: with the Omni page it also refuses a law in a folder or an Also: key off the product domain list, one using a word the glossary says to avoid, and one outside the law home, each only a note while the page cannot be read; against --base it refuses an id new on this branch that the base, as it is now, gave to another entry, naming the next free id, and says ids not compared when the base is missing), kb (the ' +
       "playbook's forms), releases (the release notes), retro (the outcome of each lesson a retro " +
       'kept: a became naming a filled playbook slot, a staysHere giving its reason; with --retro, ' +
       "the PRD a retro PR carries, every kept lesson of its retro has one), coverage (every risky change of a branch " +
