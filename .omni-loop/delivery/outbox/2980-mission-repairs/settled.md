@@ -475,3 +475,238 @@ A later slice adds the commands and the skill swaps its words for them.
 ```
 
 <!-- /omni-outbox-settled: s3-02-repair-skill-no-cli -->
+
+<!-- omni-outbox-settled: s5-02-repair-fix-landing-rules -->
+
+## s5-02-repair-fix-landing-rules — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-repair-fix-landing-rules
+prd: 2980
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 3
+---
+
+## The question, in plain words
+
+When a repair's fix cannot go onto the mission's branch, should the work stop or wait, and what should it say?
+
+## The decision, in plain words
+
+A fix whose checks failed, that was closed, or that the merge refused stops the work and says why in the words the merge gave; a fix still being checked, or still a draft, waits. The files in conflict are not listed, since the merge does not name them.
+
+## The intro, for fun
+
+The fix knocked on the branch's door, and the door had opinions.
+
+## The punchline, for fun
+
+Now it leaves a note saying which opinion it was.
+
+## The options, in plain words
+
+A. Red, closed or refused stops the PRD with the merge's reason; a draft or running checks wait.
+B. A conflicting fix is compared with the mission branch to name its files before the PRD stops.
+C. A red fix waits too, until a person or a later run makes it green.
+
+## What I had to decide
+
+How judgeFix (apps/omni-app/src/missions/repair.ts) and land (repair-run.ts) treat a code repair's fix pull request. Merged into the mission branch: landed, the step goes again. Green, open, not a draft, into the mission branch: squash-merged through the joins' merge, never into the default branch. A failed check, a closed pull request, another base, or a merge GitHub refuses: the PRD stops, saying why. A draft, a check still running or not judged, or no check at all: it waits, read again each run. A mission at with-you has no branch of its own, so its code fix stops the PRD. The spec asks that a conflict name its files, as a landing does; GitHub's merge refusal gives a reason, not files, so the PRD names that reason. The fix's reviews and outbox are not read: it is a bug fix, not a PRD.
+
+## What I did meanwhile
+
+Built as decided and tested (supervisor.repair.test.ts, repair.test.ts). A fix that waits is read again every run, so one a person repairs lands on its own.
+
+## What it costs to change later
+
+Each rule is one line of judgeFix; naming the files would read the fix's conflict through the keeping-up compare, a change in one function.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a conflicting fix stops the PRD and names its files, and the merge refusal names none.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-repair-fix-landing-rules -->
+
+<!-- omni-outbox-settled: s5-03-repair-budget-counting -->
+
+## s5-03-repair-budget-counting — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-repair-budget-counting
+prd: 2980
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 3
+---
+
+## The question, in plain words
+
+Three counting questions the spec left open: when does a new round of repairs start, how is a repair whose report cannot be read counted, and what happens to a repair of a cause that already used its three?
+
+## The decision, in plain words
+
+A new round starts each time a person resumes a mission that had stopped, and a repair that left no readable report counts against the PRD it repaired, so three of those stop it. A cause that already used its three is found out only once its retro runs, so that retro still runs and nothing it proposes is applied.
+
+## The intro, for fun
+
+Counting to three sounds easy until someone asks which three.
+
+## The punchline, for fun
+
+The abacus now has a rule for every bead.
+
+## The options, in plain words
+
+A. A round per Resume of a stopped mission, unreadable repairs counted per PRD, and a 4th retro that runs and applies nothing.
+B. The repair skill is told which causes are spent and stops after its retro, so no fix pull request is opened for them.
+C. Every Resume opens a round, a paused mission's included.
+
+## What I had to decide
+
+Three choices in apps/omni-app/src/missions/repair.ts and repair-run.ts. The round is roundOf(events): 1, and one more for each resumed event that follows the mission's own stopped event, since the database takes the round from the supervisor. A record line that cannot be read, a repair job that failed, or a record naming another mission or PRD is kept under one fingerprint per PRD (unreadableFingerprint), ends not fixed and spends one of the mission's 9; three such in a round stop that PRD. The supervisor cannot know a failure's fingerprint before its retro, so a 4th failure of a spent cause still sends a repair: its retro runs, the database refuses its row, and the PRD stops with the cause, what was tried, the proposed fix and how to resume; a fix pull request that repair opened is never landed.
+
+## What I did meanwhile
+
+Built as decided: the caps hold in the supervisor and in the database alike, and every count is tested on the fake fleet (repair.test.ts).
+
+## What it costs to change later
+
+Each is a constant or one function: the round rule, the fingerprint an unreadable record is kept under, or passing the spent fingerprints to the repair skill so it stops after its retro.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a 4th failure of a repaired cause sends no repair, but the cause is known only from the retro the repair writes, so the retro runs once more.
+- (author) The spec does not say whether a Resume after a pause opens a round.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-repair-budget-counting -->
+
+<!-- omni-outbox-settled: s5-04-repair-resume-and-report-names -->
+
+## s5-04-repair-resume-and-report-names — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-17
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-repair-resume-and-report-names
+prd: 2980
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-17
+wave: 3
+---
+
+## The question, in plain words
+
+After a person resumes a mission, what happens to work its repair stopped for a person or for an Omni Loop bug, and which names does the public bug report hide?
+
+## The decision, in plain words
+
+In the new round that work runs its step again, since the person has acted, and while a repair runs the mission's status line says so. The public report hides the owner and name of every repository of the workspace and every person named on the mission's history, on top of what the first scrub removes.
+
+## The intro, for fun
+
+A person said carry on, and the mission wondered how far back to rewind.
+
+## The punchline, for fun
+
+One step back, and the names stay home.
+
+## The options, in plain words
+
+A. The step again after a Resume, names from repositories and the mission's events, repairing shown in the status line.
+B. A new repair after a Resume, and every workspace member's login read for the scrub.
+
+## What I had to decide
+
+Three choices of apps/omni-app/src/missions/. In a newer round, a PRD whose repair ended stopped (a person's question, an Omni Loop bug, a code cause with no fix) is sent its step again rather than a new repair. scrub()'s known list is the mission's repository, every repository of the workspace (owner and name) and the logins on the mission's events (store.names), not every member of the workspace, which the App's mission store does not read. A repairing PRD is named in the mission's waiting_on, as a provider-limit wait is, so a waits event may say a PRD is repairing.
+
+## What I did meanwhile
+
+Built as decided and tested on the fake fleet (repair.test.ts, store.repair.test.ts).
+
+## What it costs to change later
+
+Each is a line: send a repair instead of the step after a Resume, read the workspace's members' logins too, or leave repairing out of waiting_on.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say what a Resume does to a PRD stopped by a person's question or an Omni Loop bug.
+- (author) The slice's notes ask for the workspace's login names, and the mission store reads no member list.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-repair-resume-and-report-names -->
