@@ -70147,6 +70147,10 @@ function withTokens(loop2, update2, worktree) {
   const tokens2 = loop2.counts.job(worktree);
   return tokens2 === null ? update2 : { ...update2, tokens: tokens2 };
 }
+function withEndTokens(loop2, update2, worktree) {
+  const counted5 = withTokens(loop2, update2, worktree);
+  return loop2.tokensOk && counted5.tokens === void 0 ? { ...counted5, tokens: null } : counted5;
+}
 async function tick2(loop2, job2, update2, live, log = "") {
   const lines5 = live ? reportBatch(linesAfter(log, live.cursor, { ended: false })) : [];
   try {
@@ -70594,7 +70598,7 @@ async function slot(loop2, runner2) {
       keepJobChain(loop2, job2);
       const { last, live } = await runJob(loop2, job2);
       const report8 = live === null ? last : await releasing(loop2, job2, last);
-      await finish(loop2, job2.id, withParts(loop2, withTokens(loop2, report8, worktreeOf(loop2, job2)), job2.id), live);
+      await finish(loop2, job2.id, withParts(loop2, (live === null ? withTokens : withEndTokens)(loop2, report8, worktreeOf(loop2, job2)), job2.id), live);
       loop2.print(endLine(job2, last));
     } finally {
       forgetJobToken(loop2, job2.id);
