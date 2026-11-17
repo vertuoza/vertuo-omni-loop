@@ -66,7 +66,7 @@ import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } fro
 import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
 import { RepairRetroSchema } from 'omni-loop/kit/lib/repair/retro.ts';
 import { jobLedger, type NewJob } from '../jobs/ledger.ts';
-import { failedJobOf, repairKey, repairLine, repairOfKey, type RepairJob, type RepairOutcome, type RepairRow } from './repair.ts';
+import { failedJobOf, repairKey, repairSkillLine, repairOfKey, type RepairJob, type RepairOutcome, type RepairRow } from './repair.ts';
 import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
 import {
   approvalOf,
@@ -585,7 +585,7 @@ export function missionStore(connection: Connection): MissionStore {
       return { jobs: repairJobs, rows };
     },
 
-    repair: ({ mission, prd, k, failedJob, toFleet }) => queue({ mission, toFleet, line: repairLine(mission.number, prd, failedJob), key: repairKey(mission.id, prd, k) }),
+    repair: ({ mission, prd, k, failedJob, toFleet }) => queue({ mission, toFleet, line: repairSkillLine(mission.number, prd, failedJob), key: repairKey(mission.id, prd, k) }),
 
     async keepRepair(mission, { prd, fingerprint, round, failedJob, job, retro, fixPr }) {
       const answer = await db

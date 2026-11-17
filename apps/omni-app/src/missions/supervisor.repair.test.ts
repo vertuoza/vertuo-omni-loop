@@ -8,7 +8,7 @@ import {
   MISSION_REPAIRS,
   NO_REPAIRS,
   repairKey,
-  repairLine,
+  repairSkillLine,
   failedJobOf,
   repairOfKey,
   roundOf,
@@ -55,7 +55,7 @@ describe('the repair job: its key and its line', () => {
   });
 
   it('is sent as /omni:repair, naming the mission by its number, the PRD and the failed job', () => {
-    expect(repairLine(12, p(7), 'job-9')).toBe('/omni:repair --mission 12 --prd 7 --job job-9');
+    expect(repairSkillLine(12, p(7), 'job-9')).toBe('/omni:repair --mission 12 --prd 7 --job job-9');
     expect(failedJobOf('/omni:repair --mission 12 --prd 7 --job job-9')).toBe('job-9');
     expect(failedJobOf('/omni:yolo 7')).toBeNull();
   });

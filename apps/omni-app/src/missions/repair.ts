@@ -101,7 +101,7 @@ export function repairOfKey(key: string): { prd: PrdNumber; k: number } | null {
 }
 
 /** The line a repair is sent as: the mission by its number, the PRD, and the job whose failure it repairs. */
-export const repairLine = (mission: number, prd: PrdNumber, failedJob: string): string => `/omni:repair --mission ${String(mission)} --prd ${String(prd)} --job ${failedJob}`;
+export const repairSkillLine = (mission: number, prd: PrdNumber, failedJob: string): string => `/omni:repair --mission ${String(mission)} --prd ${String(prd)} --job ${failedJob}`;
 
 /** The failed job a repair line names; null when it names none. */
 export const failedJobOf = (line: string): string | null => /^\/omni:repair .*--job (\S+)/.exec(line)?.[1] ?? null;
@@ -289,7 +289,7 @@ const startedEvent = (job: RepairJob, { where, mission }: Where): NewEvent => ({
   prd: job.prd,
   job: job.job,
   link: null,
-  sentence: `Sent ${repairLine(mission, job.prd, job.failedJob)} to ${where} (repair ${String(job.k)}).`,
+  sentence: `Sent ${repairSkillLine(mission, job.prd, job.failedJob)} to ${where} (repair ${String(job.k)}).`,
 });
 
 /** What a kept row says: its retro, once read, and its end. */

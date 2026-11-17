@@ -5,7 +5,7 @@
 // hold here too, 3 per cause in a round and 9 per mission. No database, no model call.
 import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
-import { repairKey, repairLine, type RepairJob, type RepairRow } from './repair.ts';
+import { repairKey, repairSkillLine, type RepairJob, type RepairRow } from './repair.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
@@ -146,7 +146,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (repairs.some((one) => one.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      repairs.push({ prd, k, job: id, failedJob, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }], key, line: repairLine(sent.number, prd, failedJob), toFleet: toFleet ? sent.fleet : null, log: null });
+      repairs.push({ prd, k, job: id, failedJob, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }], key, line: repairSkillLine(sent.number, prd, failedJob), toFleet: toFleet ? sent.fleet : null, log: null });
       return Promise.resolve(id);
     },
     keepRepair: (_mission, row) => {
