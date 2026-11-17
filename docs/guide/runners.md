@@ -97,6 +97,21 @@ run never starts over: it keeps the triage and the fix plan, picks each stuck ta
 branch with a fresh `limits.attempts`, marks its PR ready once green, then opens the record PR.
 A fix that ended, or stopped for a person to decide, reads **Done** as before.
 
+### When a repair runs
+
+A `/omni:repair` job is sent by a mission, never by hand, when one of its PRDs' steps fails. It
+reads why the step failed, writes the cause down, and takes one way by its class: a bug fix into the
+mission branch, a retry, a question for a person, or an Omni Loop bug report ([Missions › When a
+step fails](/docs/missions#when-a-step-fails)). Its row on the Runners page reads like any other job.
+
+An Omni Loop bug report is filed only for a failure caused by Omni Loop itself. It is one issue
+labelled `bug` on the Omni Loop repository, signed as the Omni App, and one issue per cause: a repeat
+of the same cause adds a `+1` comment with the kit version instead of a second issue. The report holds
+the kit version, the command or skill, the error's class and its message, and the cause's fingerprint.
+Every path, repository name, login, email, URL and token-shaped string is removed from the message
+first. A report that still holds one of them after that is refused, and nothing is filed. A report
+never holds a log, a line of code, a customer's record or a secret.
+
 ### When a job dies holding claims
 
 A job that builds a PRD claims each slice with a draft sub-PR labelled `omni:in-progress`, whose

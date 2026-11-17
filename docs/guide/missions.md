@@ -122,6 +122,36 @@ says `committee only: a person merges each target's pull request`. **Own branch*
   says `land or drop the <k> PRDs on <branch> first`. Land the mission pull request, or drop each
   PRD, and then lower the level.
 
+## When a step fails
+
+A failed step no longer stops its PRD at once. The mission sends a **repair** first: a runner job
+running `/omni:repair` on the job that failed. The repair reads why the step failed, writes down the
+cause, and takes one way by its class. While it runs, the PRD reads `Repairing (1 of 3) · 8 left in
+this mission`, and the room names the cause and the fix pull request.
+
+| class | what the repair does |
+|---|---|
+| `code` | a bug fix into the mission branch. When its fix is green it lands there, and the step runs again |
+| `flake` | a timeout, a lost network or a busy service: nothing is changed, and the step runs once more |
+| `person` | only a person can decide. The PRD stops with the question |
+| `omni-loop` | the kit, a skill or the runner is wrong. A scrubbed report goes to the Omni Loop repository, and the PRD waits on that bug |
+
+The budget has two caps:
+
+- **3 repairs per cause.** A cause is a fingerprint of its class, place and error, so the same cause
+  gives the same one whichever run met it. A cause repaired 3 times stops its PRD, with the cause,
+  each repair tried with its pull request and outcome, the proposed fix and how to resume.
+- **9 repairs per mission,** across all its PRDs and every round. The 10th would-be repair stops
+  its PRD and says the mission spent its 9.
+
+A repair whose fix landed and whose step then passes ends **fixed**. A repair whose step fails again
+ends **not fixed**, and the new failure is a new cause to look at. A repair job lost with its runner
+spends nothing; one whose record cannot be read spends one.
+
+**Resume** of a stopped mission opens a new round: each cause gets 3 repairs again, and the mission's
+9 stay counted. The room reads what is left, for example `6 of 9 left in this mission`. A job a
+person cancelled sends no repair: a person stopped it, so the PRD stays stopped.
+
 ## Start one
 
 You need a Virtual Fleet first: a member creates it from the Fleet section of the Omni page, with
