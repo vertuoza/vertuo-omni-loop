@@ -25,12 +25,19 @@ describe('the Heroes tab, every skill of each role', () => {
     const t = text(render(EVERY_ROLE));
     expect(t).toContain('Engineer · Engineer · agent Runs 11 of 14 skills alone /omni:yolo runs alone');
     expect(t).toContain('/omni:ultra-wave runs alone /omni:repair runs alone /omni:mega-pr-care needs a person /omni:drive needs a person /omni:mega-drive needs a person claude · sonnet');
-    expect(t).toContain('QA · QA · agent Runs 2 of 3 skills alone /omni:prove runs alone /omni:bug-fix runs alone /omni:validate-e2e needs a person');
+    expect(t).toContain('QA · QA · agent Runs 3 of 4 skills alone /omni:qa runs alone /omni:prove runs alone /omni:bug-fix runs alone /omni:validate-e2e needs a person');
     expect(t).toContain('Reviewer · Reviewer · agent Runs 1 of 2 skills alone /omni:review runs alone /omni:tech-review needs a person claude · opus');
     expect(t).toContain('PM · PM · agent Runs 6 of 7 skills alone /omni:pitch runs alone /omni:plan runs alone /omni:brainstorm runs alone /omni:roadmap runs alone /omni:mega-brainstorm runs alone /omni:mega-roadmap runs alone /omni:mission needs a person');
     expect(t).toContain('Architect · Architect · agent Runs 1 of 2 skills alone /omni:plan runs alone /omni:tech-review needs a person');
     expect(t).toContain('Designer · Designer · agent Runs 1 of 3 skills alone /omni:visual-fix runs alone /omni:pixel-perfect needs a person /omni:think-big needs a person');
     expect(t).toContain('It never locks a screen: a person does.');
+  });
+
+  it('says what QA does and never does: three of its four skills alone, and its four limits (PRD 3001, AC-10)', () => {
+    const t = text(render(EVERY_ROLE));
+    expect(t).toContain('QA · QA · agent Runs 3 of 4 skills alone');
+    expect(t).toContain('It never writes the branch. It reports bugs to the Engineer. It reports five bugs at most. It checks two rounds at most.');
+    expect(t).not.toContain('It reports what it saw; a person decides.');
   });
 
   it('marks each skill for the eye too, and says no third thing', () => {

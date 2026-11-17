@@ -65,7 +65,7 @@ describe('the New virtual fleet drawer', () => {
 
   it('gives each role its count line, by its role\'s name', () => {
     expect(roleSwitch('engineer')).toEqual({ role: 'engineer', name: 'Engineer', line: 'Runs 11 of 14 skills alone' });
-    expect(roleSwitch('qa').line).toBe('Runs 2 of 3 skills alone');
+    expect(roleSwitch('qa').line).toBe('Runs 3 of 4 skills alone');
     expect(roleSwitch('reviewer').line).toBe('Runs 1 of 2 skills alone');
     expect(roleSwitch('designer')).toEqual({ role: 'designer', name: 'Designer', line: 'Runs 1 of 3 skills alone' });
   });

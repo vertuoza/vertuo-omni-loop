@@ -8,12 +8,12 @@
 // repository allowed (its `allowedSkills`, read when the job was claimed), never a fixed skill's name,
 // so `/yolo` never means `/omni:yolo`. The same length and the same argument characters.
 
-/** The skills a runner runs: they run without a person typing, and end on their own. `committee` is the fleet's (PRD 2896). The ultra skills (PRD 2873) build a PRD
+/** The skills a runner runs: they run without a person typing, and end on their own. `committee` is the fleet's (PRD 2896), `qa` QA's (PRD 3001). The ultra skills (PRD 2873) build a PRD
  * across a product's repositories, sent from its plan repository. The PM's four writing skills ({@link PM_SKILLS}, PRD 2896) run
  * only on a job of a mission at `alone`. */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair', 'qa',
 ]);
 
 /** The PM's writing skills (PRD 2896, spec "7. The PM's own PRDs"): a runner takes them for a mission's PM only, on a job of a
