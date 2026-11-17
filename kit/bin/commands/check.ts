@@ -5,6 +5,8 @@
 // `all` only while `budgets.context.enabled` is true. `agents` (PRD 1890) grades the skill copies for
 // the non-Claude agents against their manifest. `retro` (PRD 2338) grades the outcomes of the retros'
 // kept lessons and, with `--retro <prd>`, that every kept lesson of that PRD's retro has one.
+// `knowledge` (PRD 3015) refuses an id new on this branch that `--base`, as it is now, gave to another
+// entry; with no base it says the ids were not compared.
 // Ported from nimbus-brain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from nimbus-brain@c4a210122:scripts/check-outbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from nimbus-brain@c4a210122:scripts/check-registers.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
@@ -17,6 +19,7 @@ import { findInboxViolations, inboxAvoidWarnings } from '../../lib/inbox/check-i
 import { gradeKnowledge } from '../../lib/knowledge/check-knowledge.ts';
 import { verifyServedLegal, type LegalReach } from '../../lib/knowledge/check-knowledge-legal.ts';
 import { COPIES_DIR, gradeCopies } from '../../lib/knowledge/copies.ts';
+import { compareIdsWithBase } from '../../lib/knowledge/id-clash-read.ts';
 import { readKnowledge } from '../../lib/knowledge/registers.ts';
 import { readBusinessLaws } from '../../lib/knowledge/business-laws.ts';
 import { findOutboxViolations } from '../../lib/outbox/check-outbox.ts';
@@ -92,7 +95,10 @@ function checkOutbox({ ctx, stdout }: CommandIo): boolean {
 }
 
 // PRD 1795: a rule that serves an `L-` id is verified against the product, never blocking on the network.
-async function checkKnowledge({ ctx, stdout, stderr, exec }: CommandIo, { cwd, reach }: { cwd: string; reach: LegalReach }): Promise<boolean> {
+// PRD 3015: an id new on this branch that the base, as it is now, gave to another entry is refused.
+async function checkKnowledge(io: CommandIo, { know, base, baseKnown }: Pick<Range, 'know' | 'base' | 'baseKnown'>): Promise<boolean> {
+  const { ctx, stdout, stderr, exec } = io;
+  const { cwd, reach } = know;
   const root = ctx.layout.knowledgeRoot;
   const title = 'check knowledge — the knowledge folder does not hold what it claims:';
   if (!existsSync(join(ctx.root, root))) {
@@ -110,6 +116,8 @@ async function checkKnowledge({ ctx, stdout, stderr, exec }: CommandIo, { cwd, r
   const knowledge = readKnowledge({ ctx });
   const legal = await verifyServedLegal({ ctx, entries: knowledge.entries, cwd, exec, reach });
   for (const note of legal.notes) println(stdout, note);
+  const ids = compareIdsWithBase({ ctx, tree: knowledge.entries, base, baseKnown, exec });
+  if (ids.note !== null) println(stdout, ids.note);
   const count = (kind: string) => knowledge.entries.filter((entry) => entry.kind === kind).length;
   // PRD 2632: the business laws, graded with the rest, are counted only where there are some.
   const lawCount = readBusinessLaws({ ctx }).length;
@@ -117,7 +125,7 @@ async function checkKnowledge({ ctx, stdout, stderr, exec }: CommandIo, { cwd, r
   return report(
     stdout,
     title,
-    [...violations, ...legal.violations],
+    [...violations, ...legal.violations, ...ids.violations],
     `check knowledge — ${count('principle')} principle(s), ${count('rule')} rule(s), ${count('invariant')} invariant(s), ${count('contract')} contract(s) ` +
       `across ${knowledge.domains.length} domain(s) and ${knowledge.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed${business}.`,
   );
@@ -431,7 +439,7 @@ async function allGuards(io: CommandIo, range: Range): Promise<boolean> {
     checkConfig(io),
     checkInbox(io),
     checkOutbox(io),
-    await checkKnowledge(io, range.know),
+    await checkKnowledge(io, range),
     checkKb(io),
     checkReleases(io),
     checkAgents(io),
@@ -447,7 +455,7 @@ async function allGuards(io: CommandIo, range: Range): Promise<boolean> {
 /** Runs the guard named; `true` when it is green. */
 async function runGuard(guard: string, io: CommandIo, range: Range): Promise<boolean> {
   const single = SINGLE_GUARDS[guard];
-  if (guard === 'knowledge') return checkKnowledge(io, range.know);
+  if (guard === 'knowledge') return checkKnowledge(io, range);
   if (single) return single(io);
   if (guard === 'design') return checkDesign(io, range);
   if (guard === 'retro') return checkRetro(io, range.retro);
