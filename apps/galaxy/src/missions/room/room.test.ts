@@ -7,6 +7,7 @@ import { RoomTab } from './RoomTab';
 import { cleanUpLine, filterOf, ledgerOf, nowLines, roomHref, type EventRow, type HeroLine, type RoomView } from './room';
 import { roomRepository, type RoomDb } from './room.repository';
 import { roomService } from './room.service';
+import { qaJobOf } from './qa';
 import { limitWaitRepository } from '../limit-wait.repository';
 import { limitWaitsOf, type WaitFacts } from '../limit-wait';
 
@@ -134,12 +135,25 @@ describe('roomService', () => {
       missions: () => Promise.resolve([{ id: M1, title: 'Pay online' }]),
       events: () => Promise.resolve([event({})]),
       kept: () => Promise.resolve([]),
+      tokens: () => Promise.resolve(new Map([[JOB, null]])),
+      qaJobs: () => Promise.resolve([]),
       waits: () => Promise.resolve({ queued: [], limited: [], waitingOn: new Map() }),
       repairs: () => Promise.resolve({ rows: [], events: [], statuses: new Map() }),
     };
     const view = await roomService(repository).view('w', 'night', null, { role: 'engineer' }, new Date());
     expect(view).toMatchObject({ empty: false, cleanUp: 'Nothing to clean up', stopped: [], filter: { role: 'engineer', mission: null } });
     expect(view.ledger).toHaveLength(1);
+  });
+
+  it('adds each job\'s tokens to the rows that end it, and `tokens unknown` when it has none (AC-8)', async () => {
+    const repository = {
+      heroes: () => Promise.resolve(HEROES), missions: () => Promise.resolve([{ id: M1, title: 'Pay online' }]),
+      events: () => Promise.resolve([event({ kind: 'job-ended', sentence: 'Ended.' }), event({ kind: 'dispatched', sentence: 'Sent.' })]),
+      kept: () => Promise.resolve([]), tokens: () => Promise.resolve(new Map()), qaJobs: () => Promise.resolve([]),
+      waits: () => Promise.resolve({ queued: [], limited: [], waitingOn: new Map() }), repairs: () => Promise.resolve({ rows: [], events: [], statuses: new Map() }),
+    };
+    const view = await roomService(repository).view('w', 'night', null, {}, new Date());
+    expect(view.ledger.map((r) => r.sentence).toSorted()).toEqual(['Ended. · tokens unknown', 'Sent.']);
   });
 });
 
@@ -222,5 +236,47 @@ describe('roomRepository waits', () => {
     const db = { from: (table: string) => { const self: Record<string, unknown> = { then: (done: (v: unknown) => void) => { done({ data: answers[table], error: null }); } }; for (const n of ['select', 'in', 'eq']) self[n] = () => self; return self; } } as unknown as RoomDb;
     expect(await limitWaitRepository(db).facts([M1])).toMatchObject({ queued: [{ id: JOB, mission: M1 }], limited: [] });
     expect(await limitWaitRepository(db).facts([])).toMatchObject({ queued: [] });
+  });
+});
+
+describe('the QA rows and now line (PRD 3001, AC-9)', () => {
+  const QA = hero('qa', [...roleOf('qa').skills]);
+  const checked = event({ role: 'qa', kind: 'checked', sentence: '2 bugs found · Round 1 of 2 · #12 #13', link: 'https://github.com/o/r/pull/2817#issuecomment-5', tokens: { input: 39000, output: 1000, cacheRead: 500, cacheWrite: 500 } });
+
+  it('reads a verdict row as QA · agent · 2 bugs found · Round 1 of 2 · #12 #13 · 41k tokens, with its state and its comment', () => {
+    const [row] = ledgerOf([checked], { role: null, mission: null });
+    expect(row).toMatchObject({ by: 'QA · agent', sentence: '2 bugs found · Round 1 of 2 · #12 #13 · 41k tokens', state: 'Bugs', linkLabel: 'QA comment' });
+    expect(ledgerOf([event({ role: 'qa', kind: 'checked', sentence: 'pass · Round 2 of 2', tokens: null })], { role: null, mission: null })[0]).toMatchObject({ sentence: 'pass · Round 2 of 2 · tokens unknown', state: 'Passed' });
+  });
+
+  it('reads the Engineer\'s fix rows with their tokens', () => {
+    const rows = ledgerOf([event({ kind: 'job-ended', sentence: 'fixed #12 · PR #15', tokens: { input: 1200, output: 300, cacheRead: 0, cacheWrite: 0 } }), event({ kind: 'job-ended', at: '2026-11-14T09:13:00Z', sentence: 'not fixed #13: it is not a bug', tokens: null })], { role: null, mission: null });
+    expect(rows.map((r) => r.sentence)).toEqual(['not fixed #13: it is not a bug · tokens unknown', 'fixed #12 · PR #15 · 1.5k tokens']);
+  });
+
+  it('says what QA checks, what it waits for, and Idle', () => {
+    const job = { mission: M1, prd: parsePrd(2803), round: 1 as const, previewWait: false };
+    expect(nowLines([QA], [checked, event({})], [], [], [job])[0]).toMatchObject({ words: 'Checking PR 2817 · round 1 of 2', state: 'checking' });
+    expect(nowLines([QA], [], [], [], [{ ...job, round: 2 }])[0]?.words).toBe('Checking PRD 2803 · round 2 of 2');
+    expect(nowLines([QA], [], [], [], [{ ...job, previewWait: true }])[0]?.words).toBe('Waiting for the preview');
+    expect(nowLines([QA], [])[0]?.words).toBe('Idle');
+  });
+
+  it('reads a running QA job from its key and the end of its log', () => {
+    const key = `mission:${M1}:prd:2803:run:1:qa:2`;
+    expect(qaJobOf({ mission: M1, key, logTail: 'a\nWaiting for the preview\n' })).toMatchObject({ round: 2, previewWait: true });
+    expect(qaJobOf({ mission: M1, key, logTail: 'Waiting for the preview\nChecking AC-1' })?.previewWait).toBe(false);
+    expect(qaJobOf({ mission: M1, key: `mission:${M1}:prd:2803:run:1:review:1`, logTail: '' })).toBeNull();
+    expect(qaJobOf({ mission: M1, key: null, logTail: '' })).toBeNull();
+  });
+
+  it('reads tokens and QA jobs from the database', async () => {
+    const answers: Record<string, unknown[]> = { runner_jobs: [{ id: JOB, tokens: { input: 1, output: 2, cacheRead: 0, cacheWrite: 0 }, mission_id: M1, mission_key: `mission:${M1}:prd:2803:run:1:qa:1`, log_tail: null }, { id: M2, tokens: { input: -1 }, mission_id: M1, mission_key: null, log_tail: 'x' }] };
+    const db = { from: (table: string) => { const self: Record<string, unknown> = { then: (done: (v: unknown) => void) => { done({ data: answers[table], error: null }); } }; for (const n of ['select', 'in', 'eq', 'like']) self[n] = () => self; return self; } } as unknown as RoomDb;
+    const repository = roomRepository(db);
+    expect(await repository.tokens([JOB, M2])).toEqual(new Map([[JOB, { input: 1, output: 2, cacheRead: 0, cacheWrite: 0 }], [M2, null]]));
+    expect(await repository.tokens([])).toEqual(new Map());
+    expect(await repository.qaJobs([M1])).toEqual([{ mission: M1, prd: 2803, round: 1, previewWait: false }]);
+    expect(await repository.qaJobs([])).toEqual([]);
   });
 });
