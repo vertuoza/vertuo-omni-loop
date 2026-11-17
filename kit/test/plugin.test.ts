@@ -305,6 +305,24 @@ describe('the omni-hud plugin in this repository', () => {
   });
 });
 
+// PRD 3007 (AC-7): the plugin declares the product's knowledge server, running `omni mcp` from the session's
+// repository, and the command it runs is one the CLI has.
+describe('the omni-knowledge server in the omni plugin', () => {
+  const declared = () => dig(JSON.parse(readFileSync(join(repoRoot, PLUGIN_DIR, '.mcp.json'), 'utf8')), 'mcpServers', 'omni-knowledge');
+
+  it('is declared, running omni mcp (AC-7)', () => {
+    const server = declared();
+    expect(dig(server, 'command')).toBe('node');
+    const args = dig(server, 'args');
+    expect(Array.isArray(args) ? args.map(String) : args).toEqual([expect.stringMatching(/\/\.omni-loop\/bin\/omni\.mjs$/), 'mcp']);
+    expect(Object.keys(COMMAND_TABLE)).toContain('mcp');
+  });
+
+  it('holds no key and no token', () => {
+    expect(readFileSync(join(repoRoot, PLUGIN_DIR, '.mcp.json'), 'utf8')).not.toMatch(/oma_|omk_|Bearer|authorization/i);
+  });
+});
+
 // PRD 216: two small skills each wrap one verb of `omni dossier`, and the brainstorm and the plan
 // follow them at the steps the spec names, each after what it must come after.
 describe('the dossier skills in this repository', () => {

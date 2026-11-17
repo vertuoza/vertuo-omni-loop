@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "omni-knowledge": {
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/.omni-loop/bin/omni.mjs", "mcp"]
+    }
+  }
+}
