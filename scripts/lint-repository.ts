@@ -19,7 +19,7 @@ export type Linter = (files: readonly string[]) => Promise<{ findings: Finding[]
  * shadow or colour in them): the design parts' own. PRD omni-loop-10 starts with them and the PRD
  * page; the ratchet across the app is a later PRD's.
  */
-const STYLELINT_PATHS: readonly string[] = ['packages/ui/'];
+const STYLELINT_PATHS: readonly string[] = ['packages/ui/', 'apps/galaxy/src/dossier/page/'];
 
 /** Lints the stylesheets (paths from the root) with stylelint. */
 export type StyleLinter = Linter;

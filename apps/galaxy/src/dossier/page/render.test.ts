@@ -91,6 +91,10 @@ function page({
 }
 /** The Pitch button of a shipped or retro PRD (PRD 859), closed as the server renders it. */
 const PITCH_BUTTON = '<button type="button" class="ask-button stage-action" aria-expanded="false">Pitch</button>';
+/** A repository chip of the facts strip. */
+const REPO_CHIP = (repo: string) => `<li class="dossier-repo"><span class="omni-badge omni-badge--neutral">${repo}</span></li>`;
+/** The primary button of the header (@omni/ui's Button), as a button that copies. */
+const PRIMARY = (label: string) => `<button class="omni-button omni-button--primary omni-button--md" type="button">${label}</button>`;
 const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name, version: v ?? null });
 /** What the markup reads as text, its tags taken out (PRD 652: a face now sits before a name). */
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
@@ -102,8 +106,8 @@ const at = (stage: StageRow['stage']): StageRow[] => [{ stage, reached_at: '2026
 describe('the header', () => {
   it('shows PRD #n, the title, the repository chips, who opened it and when, and Copy link', () => {
     const html = page();
-    expect(html).toMatch(/<h1 class="dossier-title"><a class="dossier-number" href="https:\/\/github.com\/vertuoza\/vertuo-omni-loop\/issues\/216" target="_blank" rel="noopener noreferrer">PRD #216 ↗<\/a> ?<span>PRD dossiers<\/span><\/h1>/);
-    expect(html).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
+    expect(html).toMatch(/<h1 class="omni-page-header__title">PRD dossiers<\/h1>.*<a class="dossier-number" href="https:\/\/github.com\/vertuoza\/vertuo-omni-loop\/issues\/216" target="_blank" rel="noopener noreferrer">PRD #216 ↗<\/a>/);
+    expect(html).toContain(REPO_CHIP('vertuoza/vertuo-omni-loop'));
     expect(textOf(html)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
     expect(html).toMatch(chip('Pierre'));
     expect(html).toContain('>Copy link</button>');
@@ -111,7 +115,7 @@ describe('the header', () => {
 
   it('shows DRAFT for a draft', () => {
     const html = page({ dossier: draft, pick: tab('before-after') });
-    expect(html).toContain('<span class="dossier-draft">DRAFT</span>');
+    expect(html).toContain('<span class="omni-badge omni-badge--warning">DRAFT</span>');
     expect(html).toContain('Offline quotes on the site app');
     expect(html).not.toContain('PRD #');
     expect(html).not.toContain('/issues/');
@@ -131,8 +135,8 @@ describe('the stage header (PRD 426, PRD 587)', () => {
   });
   const track = (html: string) => [...html.matchAll(/<li class="stage-stop stage-(\w+)"[^>]*>([^<]+)<\/li>/g)]
     .map((m) => `${m[2]}:${m[1]}`);
-  const button = (html: string) => /<a class="ask-button stage-action" href="([^"]+)"[^>]*>([^<]+)<\/a>/.exec(html)?.slice(1) ?? null;
-  const links = (html: string) => [...html.matchAll(/<li><a href="[^"]+" target="_blank" rel="noopener noreferrer">([^<]+)<\/a> <span class="ask-hint">([^<]+)<\/span><\/li>/g)]
+  const button = (html: string) => /<a class="omni-button omni-button--primary omni-button--md" href="([^"]+)">([^<]+)<\/a>/.exec(html)?.slice(1) ?? null;
+  const links = (html: string) => [...html.matchAll(/<li><div class="omni-list-row omni-list-row--compact"><span class="omni-list-row__main"><span class="omni-list-row__title"><a href="[^"]+" target="_blank" rel="noopener noreferrer">([^<]+)<\/a><\/span><\/span><span class="omni-list-row__trailing"><span class="ask-hint">([^<]+)<\/span>/g)]
     .map((m) => `${m[1]} ${m[2]}`);
 
   it('shows no track when the stages were not asked for', () => {
@@ -154,7 +158,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
   it('in the inbox stage, Build it is a button carrying the command to copy', () => {
     const html = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at('inbox') });
     expect(html).toContain('<strong>Stage: inbox</strong>');
-    expect(html).toContain('<button type="button" class="ask-button stage-action" title="/omni:yolo 216">Build it</button>');
+    expect(html).toContain(PRIMARY('Build it'));
     expect(html).toContain('<code class="stage-command">/omni:yolo 216</code>');
     expect(links(html)).toEqual(['issue #216 open', 'phase-0 #220 ✓']);
   });
@@ -203,7 +207,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
 
     const answered = render({ numbering, pending: [answer(1, 'a'), answer(4, 'b')] });
     expect(answered).toContain('<span class="ask-hint"> · 3/3 slices · answered</span>');
-    expect(answered).toContain('title="/omni:yolo-fix 216">Fix with answers</button>');
+    expect(answered).toContain('type="button">Fix with answers</button>');
     expect(answered).toContain('<a class="stage-fixes ask-hint" href="?tab=outbox">Fixes with 1: B · 4: B</a>');
 
     const unread = render(UNREAD);
@@ -266,20 +270,20 @@ describe('the stage header (PRD 426, PRD 587)', () => {
       expect(button(html)).toBeNull();
       expect(html).toContain(PITCH_BUTTON);
       expect(html).toContain('PRD #216 ↗');
-      expect(html).toContain('<nav class="dossier-tabs"');
+      expect(html).toContain('<div class="dossier-tabs">');
     }
   });
 
   it('shows the health chip beside the open feature PR\'s link, in its three looks, and none without a read care state (PRD 790, s2)', () => {
     const care = { ci: 'green' as const, failedUrl: null, conflict: false, base: 'main', threads: [], watchingSince: null, lastRound: null };
     const open = summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2, care });
-    const featureLink = '<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/221" target="_blank" rel="noopener noreferrer">feature #221</a> <span class="ask-hint">open</span>';
+    const featureLink = '<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/221" target="_blank" rel="noopener noreferrer">feature #221</a></span></span><span class="omni-list-row__trailing"><span class="ask-hint">open</span>';
     expect(page({ github: open, stages: at('outbox') }))
-      .toContain(`${featureLink} <span class="care-chip care-ok" title="PR care">CI ✓ · no conflict · 0 open</span></li>`);
-    expect(page({ github: { ...open, care: { ...care, ci: 'red' } }, stages: at('outbox') })).toContain('<span class="care-chip care-red" title="PR care">CI red · no conflict · 0 open</span>');
-    expect(page({ github: { ...open, care: { ...care, ci: 'running' } }, stages: at('outbox') })).toContain('<span class="care-chip care-grey" title="PR care">CI running · no conflict · 0 open</span>');
+      .toContain(`${featureLink}<span class="omni-badge omni-badge--success">CI ✓ · no conflict · 0 open</span></span></div></li>`);
+    expect(page({ github: { ...open, care: { ...care, ci: 'red' } }, stages: at('outbox') })).toContain('<span class="omni-badge omni-badge--danger">CI red · no conflict · 0 open</span>');
+    expect(page({ github: { ...open, care: { ...care, ci: 'running' } }, stages: at('outbox') })).toContain('<span class="omni-badge omni-badge--neutral">CI running · no conflict · 0 open</span>');
     for (const github of [{ ...open, care: UNREAD }, { ...open, care: null }, { ...open, feature: pr(221, 'merged') }, summary()]) {
-      expect(page({ github, stages: at('outbox') })).not.toContain('care-chip');
+      expect(page({ github, stages: at('outbox') })).not.toMatch(/omni-badge[^>]*>CI /);
     }
   });
 });
@@ -296,17 +300,17 @@ describe('the header box (PRD 476)', () => {
   const box = (html: string) => {
     const start = html.indexOf('<header class="dossier-head">');
     expect(start, 'one header box').toBeGreaterThanOrEqual(0);
-    expect(html.indexOf('<header', start + 1), 'only one header').toBe(-1);
-    return html.slice(start, html.indexOf('</header>', start) + '</header>'.length);
+    expect(html.indexOf('<header', start + 1), 'the page header is the only one inside').toBe(html.indexOf('<header class="omni-page-header">', start));
+    return html.slice(start, html.indexOf('</nav></div></header>', start) + '</nav></div></header>'.length);
   };
   /** The title row: the title, then its actions. */
   const titleRow = (html: string) => {
     const head = box(html);
-    return head.slice(head.indexOf('<div class="dossier-head-top">'), head.indexOf('<dl class="dossier-facts"'));
+    return head.slice(head.indexOf('<header class="omni-page-header">'), head.indexOf('<dl class="dossier-facts"'));
   };
   const cells = (html: string) => [...box(html).matchAll(/<dt>([^<]+)<\/dt>/g)].map((m) => m[1]);
   /** The label of each action in the title row, in order. */
-  const actions = (html: string) => [...titleRow(html).matchAll(/<(?:a|button)[^>]*class="ask-button[^"]*"[^>]*>([^<]+)<\/(?:a|button)>/g)].map((m) => m[1]);
+  const actions = (html: string) => [...titleRow(html).matchAll(/<(?:a|button)[^>]*class="omni-button[^"]*"[^>]*>([^<]+)<\/(?:a|button)>/g)].map((m) => m[1]);
   const cell = (html: string, label: string) => {
     const head = box(html);
     const at = head.indexOf(`<dt>${label}</dt>`);
@@ -316,13 +320,13 @@ describe('the header box (PRD 476)', () => {
   it('holds the title row, the facts strip and the tabs, in that order, with the pane after it', () => {
     const html = page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') });
     const head = box(html);
-    const top = head.indexOf('<div class="dossier-head-top"><h1 class="dossier-title">');
+    const top = head.indexOf('<header class="omni-page-header"><div class="omni-page-header__text"><div class="omni-page-header__line"><h1 class="omni-page-header__title">');
     const facts = head.indexOf('<dl class="dossier-facts">');
-    const tabs = head.indexOf('<nav class="dossier-tabs" aria-label="Artifacts">');
+    const tabs = head.indexOf('<nav class="omni-tabs omni-tabs--md" aria-label="Artifacts">');
     expect(top).toBeGreaterThan(0);
     expect(facts).toBeGreaterThan(top);
     expect(tabs).toBeGreaterThan(facts);
-    expect(html.indexOf('<section class="dossier-pane"')).toBeGreaterThan(html.indexOf('</header>'));
+    expect(html.indexOf('<section class="dossier-pane"')).toBeGreaterThan(html.indexOf('</nav></div></header>'));
   });
 
   it('puts the actions in the title row: the stage\'s button, then Copy link', () => {
@@ -355,7 +359,7 @@ describe('the header box (PRD 476)', () => {
       expect(cell(html, 'Stage')).toContain('<ol class="stage-track" aria-label="Stages" title="last synced 29 Sep 2026, 09:15 UTC">');
       expect(cell(html, 'Stage')).toContain(`<strong>${words}</strong>`);
       expect(cell(html, 'On GitHub')).toContain('<ul class="stage-links" aria-label="On GitHub">');
-      expect(cell(html, 'Repo')).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
+      expect(cell(html, 'Repo')).toContain(REPO_CHIP('vertuoza/vertuo-omni-loop'));
       const opened = cell(html, 'Opened');
       assertDefined(opened, 'the Opened cell');
       expect(textOf(opened)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
@@ -365,13 +369,13 @@ describe('the header box (PRD 476)', () => {
   it('says Repos for more than one repository, each a chip', () => {
     const html = page({ repos: ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-web'] });
     expect(cells(html)).toEqual(['Repos', 'Opened']);
-    expect(cell(html, 'Repos')).toContain('<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">vertuoza/vertuo-omni-loop</li><li class="dossier-repo">demo-org/nimbus-web</li></ul>');
+    expect(cell(html, 'Repos')).toContain(`<ul class="dossier-repos" aria-label="Repositories">${REPO_CHIP('vertuoza/vertuo-omni-loop')}${REPO_CHIP('demo-org/nimbus-web')}</ul>`);
   });
 
   it('shows a draft its idea stage, with no On GitHub cell', () => {
     const html = page({ dossier: draft, me: PIERRE.user_id });
     expect(cells(html)).toEqual(['Stage', 'Repo', 'Opened']);
-    expect(titleRow(html)).toContain('<span class="dossier-draft">DRAFT</span>');
+    expect(titleRow(html)).toContain('<span class="omni-badge omni-badge--warning">DRAFT</span>');
   });
 
   it('shows no Stage cell where the stages were not asked for', () => {
@@ -405,8 +409,8 @@ describe('Delete', () => {
 });
 
 describe('the tabs', () => {
-  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?"( aria-current="page")? href="([^"]+)">([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="dossier-left">([^<]+)<\/span>)?<\/a>/g)]
-    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[3]?.replaceAll('&amp;', '&'), Boolean(m[2]), ...(m[1] ? ['dimmed'] : [])]);
+  const tabsOf = (html: string) => [...html.matchAll(/<a class="omni-tab( omni-tab--current)?" href="([^"]+)"( aria-current="page")?><span class="dossier-tab-label( dossier-tab-empty)?">([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="omni-badge omni-badge--warning">([^<]+)<\/span>)?<\/span><\/a>/g)]
+    .map((m) => [m[5], m[7] ? `${m[6]} · ${m[7]}` : m[6] ?? null, m[2]?.replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[4] ? ['dimmed'] : [])]);
 
   it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
     expect(tabsOf(page())).toEqual([
@@ -488,7 +492,7 @@ describe('the Outbox tab (PRD 426)', () => {
 
   it('is dimmed and says why while empty, and says when GitHub did not answer', () => {
     const empty = outbox(outboxSummary(null));
-    expect(empty).toContain('<a class="dossier-tab dossier-tab-empty" aria-current="page" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox">Outbox</a>');
+    expect(empty).toContain('<a class="omni-tab omni-tab--current" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox" aria-current="page"><span class="dossier-tab-label dossier-tab-empty">Outbox</span></a>');
     expect(empty).toContain('<p class="dossier-empty">No decision yet: the outbox fills while the PRD is built.</p>');
     for (const html of [outbox(null), outbox(outboxSummary(UNREAD))]) {
       expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
@@ -514,17 +518,17 @@ describe('the Retro tab (PRD 426, s3)', () => {
     expect(html).toContain(`<a class="ask-button" href="${RETRO_URL}" target="_blank" rel="noopener noreferrer">Open the retro PR</a>`);
     expect(html).toContain('<article class="dossier-md"><h1>How PRD 216 went</h1>');
     expect(html).not.toContain('<script>');
-    expect(html).toContain(`<a class="dossier-tab" aria-current="page" href="/prd/${ID}?tab=retro">Retro<small>open PR</small></a>`);
+    expect(html).toContain(`<a class="omni-tab omni-tab--current" href="/prd/${ID}?tab=retro" aria-current="page"><span class="dossier-tab-label">Retro<small>open PR</small></span></a>`);
     expect(html.indexOf('>Outbox')).toBeLessThan(html.indexOf('>Retro<'));
   });
 
   it('is badged merged once the retro PR is merged', () => {
-    expect(retro(retroSummary(pr('merged'), RETRO))).toContain('Retro<small>merged</small></a>');
+    expect(retro(retroSummary(pr('merged'), RETRO))).toContain('Retro<small>merged</small></span></a>');
   });
 
   it('is dimmed and says why while there is no retro, and says when GitHub did not answer', () => {
     const empty = retro(retroSummary(null, null));
-    expect(empty).toContain(`<a class="dossier-tab dossier-tab-empty" aria-current="page" href="/prd/${ID}?tab=retro">Retro</a>`);
+    expect(empty).toContain(`<a class="omni-tab omni-tab--current" href="/prd/${ID}?tab=retro" aria-current="page"><span class="dossier-tab-label dossier-tab-empty">Retro</span></a>`);
     expect(empty).toContain('<p class="dossier-empty">The retro is written when the feature PR merges.</p>');
     expect(empty).not.toContain('Open the retro PR');
     for (const html of [retro(null), retro(retroSummary(pr('open'), UNREAD))]) {
@@ -631,7 +635,7 @@ describe('the Questions tab', () => {
     const open = asked('r3', 'brainstorm', '2026-09-28T09:00:00Z', { questions: [SHAPE, { ...SHAPE, question: 'Why?' }] });
     const html = questions({ questions: [...rounds, open] });
     expect(html).toContain('<div class="dossier-progress"><p class="dossier-progress-words">1 of 4 answered <span class="dossier-left">2 to answer</span></p>'
-      + '<span class="dossier-meter" role="meter" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="4" aria-valuenow="1"><span style="width:25%"></span></span></div>');
+      + '<meter class="dossier-meter" aria-label="Questions answered" min="0" max="4" value="1"></meter></div>');
     expect(html.indexOf('dossier-progress')).toBeLessThan(html.indexOf('dossier-rounds'));
     expect(questions()).toContain('<p class="dossier-progress-words">1 of 2 answered</p>');
   });
@@ -811,7 +815,7 @@ describe('an artifact with no version yet', () => {
 describe('the pieces the browser takes over', () => {
   it('Copy link is one button until it is pressed', () => {
     expect(renderToStaticMarkup(createElement(CopyLink, { path: `/prd/${ID}` }))).toBe(
-      '<span class="dossier-copy"><button type="button" class="ask-button">Copy link</button></span>',
+      '<span class="dossier-copy"><button class="omni-button omni-button--secondary omni-button--md" type="button">Copy link</button></span>',
     );
   });
 
@@ -825,7 +829,7 @@ describe('the pieces the browser takes over', () => {
 
   it('Delete draft is one quiet button', () => {
     expect(renderToStaticMarkup(createElement(DeleteDraft, { supabase: SUPABASE, id: ID }))).toBe(
-      '<span class="dossier-delete"><button type="button" class="ask-button quiet">Delete draft</button></span>',
+      '<span class="dossier-delete"><button class="omni-button omni-button--quiet omni-button--md" type="button">Delete draft</button></span>',
     );
   });
 
@@ -924,7 +928,7 @@ describe('the Pitch panel (PRD 859)', () => {
     expect(html(createElement(StageAction, { stage: shipped, demo: true }))).toContain('<span class="pitch-action" data-demo="true">');
     expect(html(createElement(StageAction, { stage: shipped }))).toContain('<span class="pitch-action">');
     const inbox = stageView({ prd: parsePrd(216), rows: at('inbox') });
-    expect(html(createElement(StageAction, { stage: inbox, demo: true }))).toContain('<button type="button" class="ask-button stage-action" title="/omni:yolo 216">Build it</button>');
+    expect(html(createElement(StageAction, { stage: inbox, demo: true }))).toContain(PRIMARY('Build it'));
   });
 
   it('a demo page at shipped draws its Pitch action disabled', () => {

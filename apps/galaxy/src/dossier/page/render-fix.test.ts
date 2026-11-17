@@ -41,14 +41,14 @@ const VISUAL = [version('r1', 'variations', '2026-09-29T09:10:00Z'), version('r2
 describe('a visual fix\'s page', () => {
   it('is headed #n ↗ to its issue with a Visual badge, and shows no stage', () => {
     const html = render('visual', VISUAL);
-    expect(html).toContain('<span class="dossier-kind">Visual</span> <a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/548" target="_blank" rel="noopener noreferrer">#548 ↗</a>');
+    expect(html).toContain('<span class="omni-badge omni-badge--neutral">Visual</span><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/548" target="_blank" rel="noopener noreferrer">#548 ↗</a>');
     expect(html).not.toContain('stage-track');
     expect(html).not.toContain('Delete draft');
   });
 
   it('lists Timeline, Before/after, Variations and Questions, and nothing of a PRD', () => {
     const html = render('visual', VISUAL);
-    const labels = [...html.matchAll(/class="dossier-tab[^"]*"[^>]*href="[^"]*"[^>]*>([^<]+)/g)].map((m) => m[1]);
+    const labels = [...html.matchAll(/class="omni-tab[^"]*"[^>]*href="[^"]*"[^>]*><span[^>]*>([^<]+)/g)].map((m) => m[1]);
     expect(labels).toEqual(['Timeline', 'Before/after', 'Variations', 'Questions']);
   });
 
@@ -67,7 +67,7 @@ describe('a visual fix\'s page', () => {
 describe('a bug fix\'s page', () => {
   it('is headed #n ↗ with a Bug badge, and renders its record from markdown', () => {
     const html = render('bug', [version('g1', 'bug-record', '2026-09-29T10:00:00Z')], { tab: 'bug-record' }, '# The bug\n\nIt <b>broke</b>.\n');
-    expect(html).toContain('<span class="dossier-kind">Bug</span> <a class="dossier-number"');
+    expect(html).toContain('<span class="omni-badge omni-badge--neutral">Bug</span><a class="dossier-number"');
     expect(html).toContain('<h1>The bug</h1>');
     expect(html).toContain('<span class="ask-hint">Version</span>');
   });

@@ -308,9 +308,9 @@ describe('the lists\' frame (PRD 691)', () => {
 
 describe('a fix\'s page', () => {
   it('opens a visual fix on /visual/<id>, and a bug fix on /bugs/<id>', async () => {
-    expect(await page(VisualPage, visual)).toContain('<span class="dossier-kind">Visual</span>');
+    expect(await page(VisualPage, visual)).toContain('<span class="omni-badge omni-badge--neutral">Visual</span>');
     const record = await page(BugPage, bug);
-    expect(record).toContain('<span class="dossier-kind">Bug</span>');
+    expect(record).toContain('<span class="omni-badge omni-badge--neutral">Bug</span>');
     expect(await page(BugPage, bug, { tab: 'bug-record' })).toContain('<h1>Crash</h1>');
   });
 

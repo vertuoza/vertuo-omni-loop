@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
+import { Badge, Card, EmptyState, Notice, PageHeader, Stack, Tabs, Text } from '@omni/ui';
 import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import { PrdTimelinePane } from '../../timeline/TimelineView';
@@ -31,7 +31,7 @@ import { PinnedHead } from './PinnedHead';
 import { PitchPane } from './PitchPane';
 import { ProductPicker } from './ProductPicker';
 import { ProofPane } from './ProofPane';
-import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
+import { DossierMarks, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
 import { isArtifactTab, TAB_LABELS, type DossierView } from './view';
 import { VOICE_EMPTY, type VoiceView } from './voice';
@@ -112,7 +112,7 @@ type Shown = NonNullable<DossierView['shown']>;
 /** The User voice tab (PRD 822): its picker and the shown version drawn, or the spec's empty line. */
 function VoiceTab({ view, voice = null }: PaneProps) {
   const { shown } = view;
-  if (!shown) return <p className="dossier-empty">{VOICE_EMPTY}.</p>;
+  if (!shown) return <EmptyState size="inline" title={`${VOICE_EMPTY}.`} />;
   return (
     <>
       <VersionPicker action={view.link} tab="voice" versions={view.versions} shown={shown.number} noun="Version" />
@@ -143,11 +143,7 @@ function Pane(props: PaneProps) {
   if (own) return own(props);
   if (!isArtifactTab(tab)) return null;
   if (!shown) {
-    return (
-      <p className="dossier-empty">
-        {EMPTY[tab]} It shows here once it is pushed, or once the page reads it from the repository.
-      </p>
-    );
+    return <EmptyState size="inline" title={`${EMPTY[tab]} It shows here once it is pushed, or once the page reads it from the repository.`} />;
   }
   return <ArtifactPane view={view} tab={tab} shown={shown} markdown={markdown} />;
 }
@@ -179,7 +175,7 @@ function ArtifactPane({ view, tab, shown, markdown }: { view: DossierView; tab: 
 }
 
 function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
-  if (!markdown) return <p className="ask-problem" role="alert">This version could not be read. Reload the page in a moment.</p>;
+  if (!markdown) return <Notice tone="danger">This version could not be read. Reload the page in a moment.</Notice>;
   return (
     <>
       {markdown.front && <p className="dossier-front">{markdown.front}</p>}
@@ -194,8 +190,8 @@ function ApprovalFact({ approval }: { approval: ApprovalView }) {
     <div className={`dossier-fact dossier-approval dossier-approval-${approval.state}`}>
       <dt>Approval</dt>
       <dd>
-        {approval.state === 'unread' ? <p className="ask-problem" role="alert">{approval.words}</p> : <strong>{approval.words}</strong>}
-        {approval.detail && <p className="ask-hint">{approval.detail}</p>}
+        {approval.state === 'unread' ? <Notice tone="danger">{approval.words}</Notice> : <strong>{approval.words}</strong>}
+        {approval.detail && <Text size="small" tone="secondary">{approval.detail}</Text>}
       </dd>
     </div>
   );
@@ -209,7 +205,7 @@ function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
     <div className="dossier-approve-diff">
       <h3>{diff.path}</h3>
       {diff.rows === null
-        ? <p className="ask-problem" role="alert">This file’s change could not be read. Reload the page in a moment.</p>
+        ? <Notice tone="danger">This file’s change could not be read. Reload the page in a moment.</Notice>
         : (
           <pre className="dossier-diff" aria-label={`Changes to ${diff.path}`}>
             {diff.rows.map((row, at) => (
@@ -227,6 +223,7 @@ function ChangedFile({ diff }: { diff: ApproveScreen['diffs'][number] }) {
 function ApproveScreenSection({ screen, laws, button }: { screen: ApproveScreen | null; laws: ApprovalView['laws']; button: React.ReactNode }) {
   return (
     <section className="dossier-approve-screen" id="approve" aria-label="Approve">
+      <Card padding="4">
       {screen && screen.diffs.length > 0 && (
         <div className="dossier-approve-changed">
           <h2>What changed since it was approved</h2>
@@ -239,9 +236,10 @@ function ApproveScreenSection({ screen, laws, button }: { screen: ApproveScreen 
           <article className="dossier-md" dangerouslySetInnerHTML={{ __html: section.html }} />
         </div>
       ))}
-      {screen?.spec === 'unread' && <p className="ask-problem" role="alert">The spec could not be read. Reload the page in a moment.</p>}
+      {screen?.spec === 'unread' && <Notice tone="danger">The spec could not be read. Reload the page in a moment.</Notice>}
       <BusinessLawsVerdict laws={laws} />
       {button}
+      </Card>
     </section>
   );
 }
@@ -306,75 +304,132 @@ function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
   return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
 }
 
+/** The title row of the head: the title with its marks, and the actions, the stage's button the only primary one. */
+function HeadTitle({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
+  return (
+    <PageHeader
+      title={view.title}
+      status={<DossierMarks heading={view.heading} draft={view.draft} issueUrl={view.issueUrl} badge={view.badge} />}
+      action={(
+        <Stack direction="row" gap="2" align="center" wrap>
+          <StageAction stage={view.stage} demo={view.demo ?? false} />
+          <CopyLink path={view.link} />
+          {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
+        </Stack>
+      )}
+    />
+  );
+}
+
+/** The Repo or Repos cell: each repository a chip. */
+function RepoFact({ repos }: { repos: DossierView['repos'] }) {
+  return (
+    <div className="dossier-fact">
+      <dt>{repos.length > 1 ? 'Repos' : 'Repo'}</dt>
+      <dd>
+        <ul className="dossier-repos" aria-label="Repositories">
+          {repos.map((repo) => <li key={repo} className="dossier-repo"><Badge tone="neutral">{repo}</Badge></li>)}
+        </ul>
+      </dd>
+    </div>
+  );
+}
+
+/** A fix's State cell, and its On GitHub cell when it has links. */
+function FixFacts({ fix }: { fix: NonNullable<DossierView['fix']> }) {
+  return (
+    <>
+      <div className="dossier-fact">
+        <dt>State</dt>
+        <dd><FixStatePill fix={fix} /></dd>
+      </div>
+      {fix.links.length > 0 && (
+        <div className="dossier-fact">
+          <dt>On GitHub</dt>
+          <dd><StageLinks links={fix.links} /></dd>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** A PRD's On GitHub cell: its issue and pull requests, and when GitHub was last read. */
+function GithubFact({ view }: { view: DossierView }) {
+  const { stage } = view;
+  if (!stage || (stage.links.length === 0 && !view.githubAsOf)) return null;
+  return (
+    <div className="dossier-fact">
+      <dt>On GitHub</dt>
+      <dd>
+        {stage.links.length > 0 && <StageLinks links={stage.links} />}
+        {view.githubAsOf && (
+          <p className="ask-hint github-as-of">
+            {view.githubAsOf}{view.githubResumes && <> · <strong>{view.githubResumes}</strong></>}
+          </p>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+/** The Opened cell: who opened it, and when. */
+function OpenedFact({ view }: { view: DossierView }) {
+  return (
+    <div className="dossier-fact">
+      <dt>Opened</dt>
+      <dd className="ask-hint">
+        {view.openedBy ? <>opened by <PersonChip person={view.openedBy} size="inline" /> · {view.openedAt}</> : view.opened}
+      </dd>
+    </div>
+  );
+}
+
+/** The facts strip of the head: labelled cells, each left out when it has nothing to show. */
+function HeadFacts({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
+  const { fix, approval } = view;
+  return (
+    <dl className="dossier-facts">
+      <StageFact view={view} />
+      {approval && <ApprovalFact approval={approval} />}
+      <MainFact view={view} />
+      <ProductFact view={view} supabase={supabase} />
+      <RepoFact repos={view.repos} />
+      {fix && <FixFacts fix={fix} />}
+      <GithubFact view={view} />
+      <OpenedFact view={view} />
+    </dl>
+  );
+}
+
+/** The tabs of the head, on @omni/ui's Tabs: a count and a badge ride in each label, an empty tab reads muted. */
+function HeadTabs({ view }: { view: DossierView }) {
+  const items = view.tabs.map((t) => ({
+    id: t.kind,
+    href: t.href,
+    label: (
+      <span className={t.empty ? 'dossier-tab-label dossier-tab-empty' : 'dossier-tab-label'}>
+        {t.label}
+        {t.badge !== null && <small>{t.badge}</small>}
+        {t.alert !== null && <Badge tone="warning">{t.alert}</Badge>}
+      </span>
+    ),
+  }));
+  return (
+    <div className="dossier-tabs">
+      <Tabs label="Artifacts" current={view.tabs.find((t) => t.current)?.kind ?? view.tab} items={items} />
+    </div>
+  );
+}
+
 export function DossierPage({ view, markdown, supabase, live, voice, attestation, productOutbox, ready }: Props) {
-  const { stage, fix, approval } = view;
   return (
     <div className="dossier">
       <PinnedHead>
-        <div className="dossier-head-top">
-          <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
-          <div className="dossier-actions">
-            <StageAction stage={stage} demo={view.demo ?? false} />
-            <CopyLink path={view.link} />
-            {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
-          </div>
-        </div>
-        <dl className="dossier-facts">
-          <StageFact view={view} />
-          {approval && <ApprovalFact approval={approval} />}
-          <MainFact view={view} />
-          <ProductFact view={view} supabase={supabase} />
-          <div className="dossier-fact">
-            <dt>{view.repos.length > 1 ? 'Repos' : 'Repo'}</dt>
-            <dd>
-              <ul className="dossier-repos" aria-label="Repositories">
-                {view.repos.map((repo) => <li key={repo} className="dossier-repo">{repo}</li>)}
-              </ul>
-            </dd>
-          </div>
-          {fix && (
-            <div className="dossier-fact">
-              <dt>State</dt>
-              <dd><FixStatePill fix={fix} /></dd>
-            </div>
-          )}
-          {fix && fix.links.length > 0 && (
-            <div className="dossier-fact">
-              <dt>On GitHub</dt>
-              <dd><StageLinks links={fix.links} /></dd>
-            </div>
-          )}
-          {stage && (stage.links.length > 0 || view.githubAsOf) && (
-            <div className="dossier-fact">
-              <dt>On GitHub</dt>
-              <dd>
-                {stage.links.length > 0 && <StageLinks links={stage.links} />}
-                {view.githubAsOf && (
-                  <p className="ask-hint github-as-of">
-                    {view.githubAsOf}{view.githubResumes && <> · <strong>{view.githubResumes}</strong></>}
-                  </p>
-                )}
-              </dd>
-            </div>
-          )}
-          <div className="dossier-fact">
-            <dt>Opened</dt>
-            <dd className="ask-hint">
-              {view.openedBy ? <>opened by <PersonChip person={view.openedBy} size="inline" /> · {view.openedAt}</> : view.opened}
-            </dd>
-          </div>
-        </dl>
-        <nav className="dossier-tabs" aria-label="Artifacts">
-          {view.tabs.map((t) => (
-            <Link key={t.kind} className={t.empty ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>
-              {t.label}
-              {t.badge !== null && <small>{t.badge}</small>}
-              {t.alert !== null && <span className="dossier-left">{t.alert}</span>}
-            </Link>
-          ))}
-        </nav>
+        <HeadTitle view={view} supabase={supabase} />
+        <HeadFacts view={view} supabase={supabase} />
+        <HeadTabs view={view} />
       </PinnedHead>
-      <UnderHead approval={approval} attestation={attestation} />
+      <UnderHead approval={view.approval} attestation={attestation} />
       <ReadyPanel ready={ready} />
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
