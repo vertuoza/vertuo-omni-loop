@@ -84,7 +84,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '
 describe('the tab', () => {
   it('is Outbox, after Plan and the User voice, with n open in its label, and current; the other tabs are unchanged', () => {
     const html = tab();
-    expect(html).toMatch(/User voice<\/span><\/a><a class="omni-tab omni-tab--current" href="\/prd\/[^"]+\?tab=outbox" aria-current="page"><span class="dossier-tab-label">Outbox<small>2 open<\/small><\/span><\/a>/);
+    expect(html).toMatch(/User voice<\/span><\/a><a class="omni-tab omni-tab--current" aria-current="page" href="\/prd\/[^"]+\?tab=outbox"><span class="dossier-tab-label">Outbox<small>2 open<\/small><\/span><\/a>/);
     expect(html).toContain('>Before/after<small>v1</small></span></a>');
     expect(html).toContain('>Spec<small>v1</small></span></a>');
   });

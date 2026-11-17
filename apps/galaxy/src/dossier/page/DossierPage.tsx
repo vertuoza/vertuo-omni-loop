@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { Badge, Card, EmptyState, Notice, PageHeader, Stack, Tabs, Text } from '@omni/ui';
 import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
@@ -401,7 +402,8 @@ function HeadFacts({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
   );
 }
 
-/** The tabs of the head, on @omni/ui's Tabs: a count and a badge ride in each label, an empty tab reads muted. */
+/** The tabs of the head, on @omni/ui's Tabs: a count and a badge ride in each label, an empty tab reads muted.
+ * Each is a next/link, so a tab switches in the app, prefetched, never a full page load (PRD 2401). */
 function HeadTabs({ view }: { view: DossierView }) {
   const items = view.tabs.map((t) => ({
     id: t.kind,
@@ -416,7 +418,7 @@ function HeadTabs({ view }: { view: DossierView }) {
   }));
   return (
     <div className="dossier-tabs">
-      <Tabs label="Artifacts" current={view.tabs.find((t) => t.current)?.kind ?? view.tab} items={items} />
+      <Tabs label="Artifacts" current={view.tabs.find((t) => t.current)?.kind ?? view.tab} items={items} link={Link} />
     </div>
   );
 }

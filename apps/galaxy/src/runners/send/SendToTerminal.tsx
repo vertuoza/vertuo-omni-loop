@@ -1,4 +1,5 @@
 'use client';
+import { Button } from '@omni/ui';
 import { createContext, useContext, useId, useState, type ReactNode } from 'react';
 import { sendToRunner } from '../runners.client';
 import { jobHref, queuedWords, sendable, type SendOption, type SendSetup } from './targets';
@@ -59,7 +60,7 @@ export function SendToTerminalView({ line, setup, state, name, onToggle, onChoos
   const open = state.kind === 'open' ? state : null;
   return (
     <span className="send-terminal">
-      <button type="button" className="ask-button quiet" aria-expanded={open !== null} onClick={onToggle}>Send to terminal</button>
+      <Button variant="quiet" expanded={open !== null} onClick={onToggle}>Send to terminal</Button>
       {open && (
         <div className="send-pick" role="group" aria-label="Send to terminal">
           {GROUPS.map(({ group, heading }) => {
@@ -72,9 +73,9 @@ export function SendToTerminalView({ line, setup, state, name, onToggle, onChoos
               </fieldset>
             );
           })}
-          <button type="button" className="ask-button stage-action" data-primary="true" disabled={open.sending} onClick={onSend}>
+          <Button variant="primary" disabled={open.sending} onClick={onSend}>
             {open.sending ? 'Sending…' : 'Send'}
-          </button>
+          </Button>
         </div>
       )}
       {state.kind === 'queued' && <span className="ask-hint" role="status">{state.words} · <a href={state.href}>View job</a></span>}
