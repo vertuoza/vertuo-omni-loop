@@ -15746,7 +15746,7 @@ async function takenElsewhere(octokit, { owner, repo, config, own }) {
       page
     }).then(({ data }) => parsedOr2(ListSchema, data, OPEN_PULLS_UNEXPECTED))
   );
-  const branches = [...new Set(parsedOr2(OpenPullSchema.array(), pulls, OPEN_PULLS_UNEXPECTED).map((pull) => pull.head?.ref))].filter((ref) => typeof ref === "string" && ref.length > 0 && ref !== own && topicOf2(ref, config.branches.knowledge) !== null).sort();
+  const branches = [...new Set(parsedOr2(OpenPullSchema.array(), pulls, OPEN_PULLS_UNEXPECTED).map((pull) => pull.head?.ref))].filter((ref) => typeof ref === "string" && ref.length > 0 && ref !== own).sort();
   const records = /* @__PURE__ */ new Set();
   const ids = /* @__PURE__ */ new Set();
   const paths = [config.paths.knowledge, config.paths.adr].filter((path) => Boolean(path));

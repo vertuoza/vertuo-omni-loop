@@ -30203,11 +30203,11 @@ function findRoot(cwd, exec) {
   return realpathSync3(root);
 }
 function readRepo(root, { exec, remote }) {
-  const gh3 = attempt2(() => GhRepoSchema.parse(JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET3 }))));
-  const slug = gh3?.nameWithOwner || attempt2(() => slugFromRemote(exec("git", ["remote", "get-url", remote], { cwd: root, ...QUIET3 })));
+  const gh4 = attempt2(() => GhRepoSchema.parse(JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET3 }))));
+  const slug = gh4?.nameWithOwner || attempt2(() => slugFromRemote(exec("git", ["remote", "get-url", remote], { cwd: root, ...QUIET3 })));
   const head = attempt2(() => exec("git", ["symbolic-ref", `refs/remotes/${remote}/HEAD`], { cwd: root, ...QUIET3 }).trim());
   const prefix = `refs/remotes/${remote}/`;
-  const defaultBranch2 = gh3?.defaultBranchRef?.name || (head?.startsWith(prefix) ? head.slice(prefix.length) : null);
+  const defaultBranch2 = gh4?.defaultBranchRef?.name || (head?.startsWith(prefix) ? head.slice(prefix.length) : null);
   return { slug: slug || null, defaultBranch: defaultBranch2 || null };
 }
 
@@ -31381,14 +31381,14 @@ function syncAgents({ worktree, agents, version: version3, skills }) {
 }
 function applyUpdate({ root, bundle, version: version3, from, home, exec, println: println2, skills }) {
   const quiet2 = (cwd) => ({ cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  const git9 = (args, cwd = root) => {
+  const git10 = (args, cwd = root) => {
     try {
       return exec("git", args, quiet2(cwd));
     } catch (error62) {
       throw new UpdateError(`omni update: git ${args[0]} failed: ${why(error62)}`);
     }
   };
-  const gh3 = (args) => {
+  const gh4 = (args) => {
     try {
       return exec("gh", args, quiet2(root));
     } catch (error62) {
@@ -31400,16 +31400,16 @@ function applyUpdate({ root, bundle, version: version3, from, home, exec, printl
   const slug = config3.repo.slug ?? readRepo(root, { exec, remote }).slug;
   const repoFlag = slug ? ["--repo", slug] : [];
   const branch = updateBranch(config3.branches.update, version3);
-  const open3 = gh3(["pr", "list", ...repoFlag, "--head", branch, "--state", "open", "--json", "url", "--jq", '.[0].url // ""']).trim();
+  const open3 = gh4(["pr", "list", ...repoFlag, "--head", branch, "--state", "open", "--json", "url", "--jq", '.[0].url // ""']).trim();
   if (open3) {
     println2(`PR already open for v${version3}: ${open3}`);
     return 0;
   }
-  git9(["fetch", "-q", remote, defaultBranch2]);
+  git10(["fetch", "-q", remote, defaultBranch2]);
   const worktree = join18(root, config3.worktrees, branch.replace(/[^\w.-]+/g, "-"));
-  if (existsSync12(worktree)) git9(["worktree", "remove", "--force", worktree]);
+  if (existsSync12(worktree)) git10(["worktree", "remove", "--force", worktree]);
   mkdirSync6(dirname6(worktree), { recursive: true });
-  git9(["worktree", "add", "-q", "-B", branch, worktree, `${remote}/${defaultBranch2}`]);
+  git10(["worktree", "add", "-q", "-B", branch, worktree, `${remote}/${defaultBranch2}`]);
   try {
     const bin = join18(worktree, BIN_FILE);
     mkdirSync6(dirname6(bin), { recursive: true });
@@ -31422,7 +31422,7 @@ function applyUpdate({ root, bundle, version: version3, from, home, exec, printl
     const agents = syncAgents({ worktree, agents: branchConfig.agents, version: version3, skills });
     const labels2 = reconcileLabels(root, { exec, labels: branchConfig.labels });
     const lines5 = [...reportLines({ from, to: version3, forms: { created, outside, dir: ctx.layout.frontDoor }, labels: labels2 }), ...agentsLine(agents.changes)];
-    git9(["add", "-A", "--", LOOP_DIR, ...agents.folders], worktree);
+    git10(["add", "-A", "--", LOOP_DIR, ...agents.folders], worktree);
     let changed = true;
     try {
       exec("git", ["diff", "--cached", "--quiet"], { cwd: worktree, encoding: "utf8", stdio: "ignore" });
@@ -31436,12 +31436,12 @@ function applyUpdate({ root, bundle, version: version3, from, home, exec, printl
       return 0;
     }
     const trailer = trailerLine(branchConfig.signature);
-    git9(["commit", "-q", "-m", trailer ? `${updateTitle(version3)}
+    git10(["commit", "-q", "-m", trailer ? `${updateTitle(version3)}
 
 ${trailer}` : updateTitle(version3)], worktree);
-    git9(["push", "-q", "-u", remote, branch], worktree);
+    git10(["push", "-q", "-u", remote, branch], worktree);
     const body = updateBody({ lines: lines5, home, from, to: version3, footer: footerLine(branchConfig.signature), agents: agents.changes });
-    const url2 = gh3(["pr", "create", ...repoFlag, "--base", defaultBranch2, "--head", branch, "--title", updateTitle(version3), "--body", body]).trim();
+    const url2 = gh4(["pr", "create", ...repoFlag, "--base", defaultBranch2, "--head", branch, "--title", updateTitle(version3), "--body", body]).trim();
     println2(`PR: ${url2}`);
     return 0;
   } finally {
@@ -41395,8 +41395,8 @@ function scopeOf(prd2, flag, { ctx, exec, env }) {
   const branch = featureBranchFor(prd2, ctx);
   const target3 = targetOf(ctx, flag);
   if (target3 === null) return { repo, defaultBranch: ctx.config.repo.defaultBranch, branch, target: null };
-  const gh3 = { exec, env: githubEnv(ctx, { exec, env }) };
-  const defaultBranch2 = ghText(["repo", "view", target3.slug, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], gh3).trim();
+  const gh4 = { exec, env: githubEnv(ctx, { exec, env }) };
+  const defaultBranch2 = ghText(["repo", "view", target3.slug, "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"], gh4).trim();
   return { repo, defaultBranch: defaultBranch2, branch, target: { ...target3, defaultBranch: defaultBranch2 } };
 }
 async function readCare(prd2, number5, { scope, ctx, reads: reads2 }) {
@@ -41564,9 +41564,9 @@ async function runReply(args, io, free) {
   if (flags.verdict === "later") return postLater({ thread: flags.thread, body, prdFlag: flags.prd, repo: flags.repo }, { ...io, reads: loopReadsFor(ctx, free) });
   return postReply({ thread: flags.thread, verdict: flags.verdict ?? "", body }, io);
 }
-function post3({ thread, body, resolve: resolve25 }, gh3) {
-  const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, gh3));
-  if (resolve25) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, gh3);
+function post3({ thread, body, resolve: resolve25 }, gh4) {
+  const posted = GhReplyMutationSchema.parse(graphql({ query: REPLY_MUTATION, variables: { thread, body } }, gh4));
+  if (resolve25) graphql({ query: RESOLVE_MUTATION, variables: { thread } }, gh4);
   return posted.data?.addPullRequestReviewThreadReply?.comment?.url ?? null;
 }
 function refused(error62, stderr) {
@@ -42796,21 +42796,21 @@ async function featurePr(slug, branch, { reads: reads2 }) {
   const prs = (await reads2.changes({ repo: slug, head: branch, state: "all" })).map(featurePrOf);
   return prs.find((pr) => pr.state === "OPEN") ?? [...prs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
 }
-function openItemsOn(ref2, dir, git9) {
+function openItemsOn(ref2, dir, git10) {
   let listed4;
   try {
-    listed4 = git9(["ls-tree", "-r", "--name-only", ref2, "--", dir]);
+    listed4 = git10(["ls-tree", "-r", "--name-only", ref2, "--", dir]);
   } catch {
     return null;
   }
   const files = listed4.split("\n").map((line3) => line3.trim()).filter((file2) => file2.endsWith(".md") && !file2.endsWith("/settled.md") && !file2.slice(dir.length).includes("/accounts/"));
   return files.flatMap((file2) => {
-    const parsed2 = parseOutboxItem(git9(["show", `${ref2}:${file2}`]), { file: file2 });
+    const parsed2 = parseOutboxItem(git10(["show", `${ref2}:${file2}`]), { file: file2 });
     return parsed2.ok ? [parsed2.item] : [];
   });
 }
-function questionsOn(ref2, dir, { git: git9 }) {
-  return (openItemsOn(ref2, dir, git9) ?? []).filter((item2) => ASKED_RANKS.has(item2.rank)).length;
+function questionsOn(ref2, dir, { git: git10 }) {
+  return (openItemsOn(ref2, dir, git10) ?? []).filter((item2) => ASKED_RANKS.has(item2.rank)).length;
 }
 function draftQuestions(ctx, row, branch, readers) {
   const dir = ctx.layout.outboxDir(row.prd);
@@ -42860,12 +42860,12 @@ async function issueComments(slug, n, { reads: reads2 }) {
     createdAt: comment2.createdAt
   }));
 }
-function planCommittedAt(ctx, row, branch, { git: git9 }) {
+function planCommittedAt(ctx, row, branch, { git: git10 }) {
   const plan2 = ctx.layout.planPath(row.prd);
   if (plan2 === null) return null;
   const times = [`${ctx.config.repo.remote}/${branch}`, "HEAD"].flatMap((ref2) => {
     try {
-      const at2 = git9(["log", "-1", "--format=%cI", ref2, "--", plan2]).trim();
+      const at2 = git10(["log", "-1", "--format=%cI", ref2, "--", plan2]).trim();
       return at2 ? [new Date(at2).toISOString()] : [];
     } catch {
       return [];
@@ -42873,11 +42873,11 @@ function planCommittedAt(ctx, row, branch, { git: git9 }) {
   });
   return bound(times, "last");
 }
-function sliceRepos(ctx, row, ref2, { git: git9 }) {
+function sliceRepos(ctx, row, ref2, { git: git10 }) {
   const plan2 = ctx.layout.planPath(row.prd);
   if (plan2 === null) return /* @__PURE__ */ new Map();
   try {
-    return new Map(parsePlanSlices(git9(["show", `${ref2}:${plan2}`])).flatMap((slice) => slice.repo ? [[String(slice.id), slice.repo]] : []));
+    return new Map(parsePlanSlices(git10(["show", `${ref2}:${plan2}`])).flatMap((slice) => slice.repo ? [[String(slice.id), slice.repo]] : []));
   } catch {
     return /* @__PURE__ */ new Map();
   }
@@ -46761,16 +46761,16 @@ function headSnapshot({ root, dir, formFile }) {
   return { screens: screens2, form: read3(join76(root, formFile)) };
 }
 function snapshotAt({ root, ref: ref2, dir, formFile, exec }) {
-  const git9 = (args) => exec("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  const git10 = (args) => exec("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   const show5 = (path) => {
     try {
-      return git9(["show", `${ref2}:${path}`]);
+      return git10(["show", `${ref2}:${path}`]);
     } catch {
       return null;
     }
   };
   const folder = dir.replace(/\/*$/, "/");
-  const names = git9(["ls-tree", "-z", "--name-only", ref2, "--", folder]).split("\0").filter((path) => path.endsWith(".md") && path.startsWith(folder) && !path.slice(folder.length).includes("/"));
+  const names = git10(["ls-tree", "-z", "--name-only", ref2, "--", folder]).split("\0").filter((path) => path.endsWith(".md") && path.startsWith(folder) && !path.slice(folder.length).includes("/"));
   const screens2 = {};
   for (const path of names) {
     const text19 = show5(path);
@@ -47208,17 +47208,17 @@ function sameTerritory(left, right) {
   const b = new Set(right);
   return a.size === b.size && [...a].every((prefix) => b.has(prefix));
 }
-function checkClaim(input2, git9) {
-  const now2 = rowIn(git9.fileAt(input2.featureRef, input2.planPath), input2.slice);
+function checkClaim(input2, git10) {
+  const now2 = rowIn(git10.fileAt(input2.featureRef, input2.planPath), input2.slice);
   if (now2 === null) return rebuild("slice not in the plan");
   const subject = `chore(${input2.slice}): claim`;
-  const claim4 = git9.ownCommits().find((commit) => commit.subject === subject);
+  const claim4 = git10.ownCommits().find((commit) => commit.subject === subject);
   if (claim4 === void 0) return rebuild("no claim commit");
-  const then = rowIn(git9.fileAt(claim4.sha, input2.planPath), input2.slice) ?? { title: "", territory: [] };
+  const then = rowIn(git10.fileAt(claim4.sha, input2.planPath), input2.slice) ?? { title: "", territory: [] };
   if (!sameTerritory(then.territory, now2.territory)) return rebuild("plan row changed: territory");
   if (then.title.trim() !== now2.title.trim()) return rebuild("plan row changed: title");
   const owned = input2.outboxDir === null ? now2.territory : [...now2.territory, `${input2.outboxDir}/`];
-  const [outside] = breaches(git9.changedFiles(), owned, input2.generated);
+  const [outside] = breaches(git10.changedFiles(), owned, input2.generated);
   if (outside !== void 0) return rebuild(`outside territory: ${outside}`);
   return { reuse: true, line: "reuse" };
 }
@@ -48238,7 +48238,7 @@ function readCredits({ owner, repo, since, labels: labels2, signature, exec = ex
     maxBuffer: MAX_BUFFER,
     ...env ? { env } : {}
   };
-  const gh3 = (args) => {
+  const gh4 = (args) => {
     try {
       return String(exec("gh", args, options));
     } catch (error62) {
@@ -48250,7 +48250,7 @@ function readCredits({ owner, repo, since, labels: labels2, signature, exec = ex
   const from = since ? `>=${since}-01` : null;
   const search = (query, fields, keyword = null) => {
     const tail = keyword === null ? [] : ["--", keyword];
-    const text19 = gh3([...query, "--limit", String(SEARCH_CAP), "--json", fields, ...tail]).trim();
+    const text19 = gh4([...query, "--limit", String(SEARCH_CAP), "--json", fields, ...tail]).trim();
     const rows2 = text19 ? JSON.parse(text19) : [];
     if (Array.isArray(rows2) && rows2.length >= SEARCH_CAP) {
       warnings.push(`gh ${[...query, ...tail].map(shown3).join(" ")} hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.`);
@@ -48290,7 +48290,7 @@ function readCredits({ owner, repo, since, labels: labels2, signature, exec = ex
     if (number5 === null || prs.has(`${commit.repo}#${number5}`)) continue;
     let text19;
     try {
-      text19 = gh3(["pr", "view", String(number5), "--repo", commit.repo, "--json", VIEW_FIELDS]);
+      text19 = gh4(["pr", "view", String(number5), "--repo", commit.repo, "--json", VIEW_FIELDS]);
     } catch (error62) {
       if (!(error62 instanceof GitHubUnreadable) || error62.reason !== "failed") throw error62;
       warnings.push(`${commit.repo}#${number5}, named by a signed commit, could not be read: ${error62.message.replace(/^gh failed: /, "")}`);
@@ -52902,10 +52902,10 @@ var ENTRIES = deepFreeze([
     name: "kb",
     kind: "command",
     who: "you",
-    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb business-laws [--domain <key> | --spec <file>] [--json]", "omni kb init"],
+    usage: ["omni kb show <form> [--json] [--all]", "omni kb status [--json]", "omni kb graph [<id> | --paths <file>\u2026] [--depth <1-3>] [--json]", "omni kb graph --product <key> <id> [--depth <1-3>] [--json]", "omni kb graph push", "omni kb index [--json]", "omni kb legal", "omni kb glossary", 'omni kb legal add --code <CODE> --statement "<text>" --source "<law>"', "  [--product <name>] [--json]", 'omni kb legal edit <id> [--statement "<text>"] [--source "<law>"]', "  [--product <name>] [--json]", 'omni kb glossary add --term "<term>" --meaning "<text>" [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", 'omni kb glossary edit "<term>" [--meaning "<text>"] [--avoid <a,b>]', "  [--domain <a,b>] [--product <name>] [--json]", "omni kb domains", 'omni kb domains add --key <key> --name "<name>" --meaning "<text>"', "  [--product <name>] [--json]", 'omni kb domains edit <key> [--name "<name>"] [--meaning "<text>"]', "  [--product <name>] [--json]", "omni kb business-laws [--domain <key> | --spec <file>] [--json]", "omni kb next-id <prefix> [--json]", "omni kb init"],
     label: "omni kb show <form>",
     summary: "one form of the playbook",
-    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. business-laws prints the product's business laws (PRD 2632), the rules written in product/business-laws.md and domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain's, by its folder or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why it was taken, the glossary read from the local copy. A business law lives in the product's law home, its plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is never a locked law; laws --paths lists the ones of the files' domains. init lays down every missing form, blank, and changes no file that exists.`
+    detail: `The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default; show decisions lists the latest 20 decision records, and --all every one. status prints the map of every form and register and every open question; graph the knowledge registers as one graph, or with an <id> the neighbourhood of one entry (--paths <file>\u2026 for every entry that governs the files, --depth 2 or 3 to walk further, --json for the versioned neighbourhood document); graph push sends the whole repository graph, at HEAD, to the Omni page (a clean knowledge folder and a sign-in needed); index prints the capped block a session starts with (PRD 2299): the product's words with the ones to avoid, its Legal entries, its personas, at most 3 KB, from the Omni page or the last copy with its age, one line with neither, and always exit 0 within 3 seconds, --json for the state and the lists; legal and glossary print the product's active Legal entries and its glossary terms, one line each, read from the Omni page and kept as a local copy, which they print, saying so, when the page is unreachable; legal add and edit, glossary add and edit add or change one entry or term as you, signed in with omni signin or OMNI_TOKEN: an edit changes only the fields given and names its item by the id or term the reads print, and --product names the product when the repository is in several. They print added <id>, edited <id> or proposed (a member who does not own the section proposes, and waits for its owner) with the item's link; --json prints the page's answer, a refusal exits 1 and wrong usage 2. Nothing is removed or retired from the terminal. domains prints the product's active list of domains (PRD 2583), one line each (key, name, meaning), read like legal and glossary, and domains add and edit add or change one as they do (an edit names the key, which never changes); glossary add and edit take --domain <a,b> to name the term's domains, and on edit --domain '' clears them, and glossary prints each term's domains on its line. graph marks each domains/ folder the product does not list, "not on the product's list", from the local copy and never the network, marks nothing with no copy, and prints "the product lists no domains yet" for an empty list; no exit code changes. business-laws prints the product's business laws (PRD 2632), the rules written in product/business-laws.md and domains/<key>/business-laws.md, each with its Why and its domains; --domain keeps one domain's, by its folder or its Also: line, and --spec <file> prints the laws that spec is judged against: the domains of its areas:, the domains of each glossary term its text uses as a whole word, and every product/ law, each domain with why it was taken, the glossary read from the local copy. A business law lives in the product's law home, its plan repository when set, else its only repository: anywhere else business-laws reads the newest pack of the law home (omni kb pack get) and says so, and says when that pack is the last one fetched. A business law is never a locked law; laws --paths lists the ones of the files' domains. next-id <prefix> (PRD 3015) prints the next free id of a register prefix (an id without its number, as BR-PIPELINE or N-PRODUCT): one past the highest number in the working tree, on the default branch as last fetched and in the head of every open pull request into it, read through gh; --json prints { id, past }, naming each place that held the highest number. When the pull requests or the base cannot be read it still prints the id, exit 0, and says so on one stderr line; a prefix that is not one exits 2. init lays down every missing form, blank, and changes no file that exists.`
   },
   {
     name: "knowledge",
@@ -55755,6 +55755,82 @@ function selectionText(selection, { spec, glossaryRead }) {
   ].join("\n");
 }
 
+// kit/lib/knowledge/next-id.ts
+init_define_OMNI_BUNDLE();
+function prefixOf2(id) {
+  const parts = idParts(id);
+  if (parts === null) return null;
+  return { prefix: [parts.type, ...parts.codes].join("-"), n: Number(parts.n) };
+}
+function nextFreeId(prefix, sets) {
+  const own2 = prefixOf2(`${prefix}-1`);
+  if (own2?.prefix !== prefix) throw new Error(`${JSON.stringify(prefix)} is not a register prefix (an id without its number, as BR-PIPELINE or N-PRODUCT)`);
+  const held3 = [];
+  for (const { where, ids: ids2 } of sets) {
+    for (const id of ids2) {
+      const read3 = prefixOf2(id);
+      if (read3?.prefix === prefix) held3.push({ where, id, n: read3.n });
+    }
+  }
+  const highest = Math.max(0, ...held3.map(({ n }) => n));
+  const seen = /* @__PURE__ */ new Set();
+  const past3 = [];
+  for (const { where, id, n } of held3) {
+    if (n !== highest || seen.has(where)) continue;
+    seen.add(where);
+    past3.push({ where, id });
+  }
+  return { id: `${prefix}-${highest + 1}`, past: past3 };
+}
+
+// kit/lib/knowledge/next-id-read.ts
+init_define_OMNI_BUNDLE();
+var PullsSchema = external_exports.array(external_exports.object({ number: external_exports.number().int().positive() }));
+function idsOf(ctx, source2) {
+  return source2 === null ? [] : readKnowledge({ ctx, source: source2 }).entries.map((entry3) => entry3.id);
+}
+function git6(ctx, args, exec) {
+  return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+function gh2(ctx, args, exec) {
+  return exec("gh", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+function readPlaces({
+  ctx,
+  tree,
+  remote,
+  defaultBranch: defaultBranch2,
+  exec
+}) {
+  const sets = [{ where: "tree", ids: tree }];
+  let base = null;
+  try {
+    sets.push({ where: "base", ids: idsOf(ctx, knowledgeAt({ ctx, ref: `${remote}/${defaultBranch2}`, exec })) });
+  } catch (error62) {
+    base = messageOf(error62).split("\n")[0] ?? "unreadable";
+  }
+  let pulls = null;
+  try {
+    const listed4 = PullsSchema.parse(
+      JSON.parse(gh2(ctx, ["pr", "list", "--base", defaultBranch2, "--state", "open", "--json", "number", "--limit", "200"], exec))
+    );
+    const failed5 = [];
+    for (const { number: number5 } of listed4) {
+      try {
+        git6(ctx, ["fetch", "--quiet", remote, `pull/${number5}/head`], exec);
+        const ref2 = git6(ctx, ["rev-parse", "FETCH_HEAD"], exec).trim();
+        sets.push({ where: `#${number5}`, ids: idsOf(ctx, knowledgeAt({ ctx, ref: ref2, exec })) });
+      } catch (error62) {
+        failed5.push(`#${number5}: ${(messageOf(error62).split("\n")[0] ?? "unreadable").trim()}`);
+      }
+    }
+    if (failed5.length > 0) pulls = failed5.join("; ");
+  } catch (error62) {
+    pulls = (messageOf(error62).split("\n")[0] ?? "unreadable").trim();
+  }
+  return { sets, base, pulls };
+}
+
 // kit/lib/knowledge/graph-push.ts
 init_define_OMNI_BUNDLE();
 import { join as join110 } from "node:path";
@@ -56240,17 +56316,17 @@ function refusal2(error62) {
   if (error62.status === null) return FAIL("kb graph push: the server is unreachable");
   return FAIL(`kb graph push: the server refused (${error62.status}): ${error62.reason ?? error62.message}`);
 }
-async function pushKnowledgeGraph({ ctx, git: git9, client, now: now2 }) {
+async function pushKnowledgeGraph({ ctx, git: git10, client, now: now2 }) {
   const askUrl2 = ctx.config.ask.url;
   const repo = ctx.config.repo.slug;
   if (!askUrl2) return FAIL("kb graph push: ask.url is not set, so there is no Omni page to push to");
   if (!repo) return FAIL("kb graph push: no repository slug \u2014 set repo.slug in the config");
   if (client === null) return FAIL("kb graph push: no sign-in for the Omni page (omni signin)");
   const folder = ctx.config.paths.knowledge;
-  if (git9(["status", "--porcelain", "--", folder]).trim() !== "") {
+  if (git10(["status", "--porcelain", "--", folder]).trim() !== "") {
     return FAIL(`kb graph push: ${folder} has uncommitted changes \u2014 commit them first, the graph is pushed at a commit`);
   }
-  const commit = git9(["rev-parse", "HEAD"]).trim();
+  const commit = git10(["rev-parse", "HEAD"]).trim();
   try {
     await productKnowledge({ repo, root: ctx.root, now: now2, fetchBusiness: () => client.readBusiness(repo) });
   } catch {
@@ -56614,13 +56690,13 @@ function answerOf2(schema, answer, what) {
   if (!parsed2.success) throw new Unreachable(`gh answered ${what} without what it needs \u2014 ${firstIssue(parsed2.error)}`);
   return parsed2.data;
 }
-function hasFilledForm(gh3, repo, playbook, ref2) {
-  const listed4 = gh3.dir(repo, playbook, ref2) ?? [];
-  return listed4.filter((entry3) => entry3.type === "file" && entry3.name.endsWith(".md")).some((entry3) => isFilled(gh3.file(repo, entry3.path, ref2)));
+function hasFilledForm(gh4, repo, playbook, ref2) {
+  const listed4 = gh4.dir(repo, playbook, ref2) ?? [];
+  return listed4.filter((entry3) => entry3.type === "file" && entry3.name.endsWith(".md")).some((entry3) => isFilled(gh4.file(repo, entry3.path, ref2)));
 }
 var plural5 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-function staleness3(gh3, { repo, readAt }, branch, evidence) {
-  const compared = gh3.compare(repo, readAt, branch);
+function staleness3(gh4, { repo, readAt }, branch, evidence) {
+  const compared = gh4.compare(repo, readAt, branch);
   if (compared === null) return `readAt ${readAt.slice(0, 7)} cannot be compared with the default branch`;
   const ahead = compared.ahead_by ?? 0;
   if (ahead === 0) return null;
@@ -56642,53 +56718,53 @@ function sectionMoved(target3, copied) {
   if (!hasFlow(target3)) return "the target has no flow any more";
   return "its flow section differs from the copy";
 }
-function hooksMoved(gh3, repo, branch, target3, copy) {
-  const changed = hookPaths(target3).filter((path) => gh3.file(repo, path, branch) !== (copy?.readHook(path) ?? null));
+function hooksMoved(gh4, repo, branch, target3, copy) {
+  const changed = hookPaths(target3).filter((path) => gh4.file(repo, path, branch) !== (copy?.readHook(path) ?? null));
   if (changed.length === 0) return null;
   const one = changed.length === 1;
   return `${one ? "hook" : "hooks"} ${changed.join(", ")} ${one ? "differs" : "differ"} from the copy`;
 }
 var readWhere = (readAt) => readAt === null ? "its copy" : readAt.slice(0, 7);
-function flowMoved(gh3, { repo, readAt }, branch, config3, copy) {
+function flowMoved(gh4, { repo, readAt }, branch, config3, copy) {
   const moved2 = (why4) => `flow moved since read at ${readWhere(readAt)}: ${why4}`;
   if (copy !== null && "error" in copy) return moved2(`the copy's flow cannot be read \u2014 ${copy.error}`);
   const target3 = targetFlow(repo, config3);
   if ("error" in target3) return moved2(`the target's flow cannot be read \u2014 ${target3.error}`);
-  const why3 = sectionMoved(target3, copy?.config ?? NO_FLOW) ?? hooksMoved(gh3, repo, branch, target3, copy);
+  const why3 = sectionMoved(target3, copy?.config ?? NO_FLOW) ?? hooksMoved(gh4, repo, branch, target3, copy);
   return why3 === null ? null : moved2(why3);
 }
-function loopFacts(gh3, repo, branch, config3) {
+function loopFacts(gh4, repo, branch, config3) {
   if (config3 === null) return { installed: false, loop: "not installed", filled: false };
-  const version3 = bundleVersion(gh3.file(repo, BIN_PATH, branch) ?? "");
-  return { installed: true, loop: version3 ? `v${version3}` : "installed", filled: hasFilledForm(gh3, repo, playbookOf(config3), branch) };
+  const version3 = bundleVersion(gh4.file(repo, BIN_PATH, branch) ?? "");
+  return { installed: true, loop: version3 ? `v${version3}` : "installed", filled: hasFilledForm(gh4, repo, playbookOf(config3), branch) };
 }
 function ownJudged({ installed: installed3, filled: filled2 }) {
   if (!installed3) return ["drifted", "the config says own, but the loop is not installed"];
   if (!filled2) return ["drifted", "the config says own, but no form is filled"];
   return ["ok", null];
 }
-function importedStale(gh3, target3, { branch, config: config3, evidence, copyFlow }) {
+function importedStale(gh4, target3, { branch, config: config3, evidence, copyFlow }) {
   const { repo } = target3;
   const read3 = { repo, readAt: defined(target3.readAt, `the readAt of ${repo}`) };
-  const stale2 = [staleness3(gh3, read3, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh3, read3, branch, config3, copyFlow)].filter(
+  const stale2 = [staleness3(gh4, read3, branch, evidence), copyFlow === void 0 ? null : flowMoved(gh4, read3, branch, config3, copyFlow)].filter(
     (why3) => why3 !== null
   );
   return stale2.length > 0 ? stale2.join("; ") : null;
 }
-function otherStale(gh3, { repo }, { branch, config: config3, copyFlow }) {
+function otherStale(gh4, { repo }, { branch, config: config3, copyFlow }) {
   if (copyFlow === void 0) return null;
   if (copyFlow === null && commitsFlow(repo, config3)) return "flow not copied: the target commits a planning config the plan repository holds no copy of";
-  return flowMoved(gh3, { repo, readAt: null }, branch, config3, copyFlow);
+  return flowMoved(gh4, { repo, readAt: null }, branch, config3, copyFlow);
 }
 function commitsFlow(repo, config3) {
   const target3 = targetFlow(repo, config3);
   return !("error" in target3) && hasFlow(target3);
 }
-function judged3(gh3, target3, facts2, read3) {
+function judged3(gh4, target3, facts2, read3) {
   const { knowledge: knowledge2 } = target3;
   const drifted = knowledge2 === "own" ? ownJudged(facts2) : facts2.installed && facts2.filled ? ["drifted", `the config says ${knowledge2}, but it has the loop and a filled form`] : ["ok", null];
   if (drifted[0] !== "ok") return drifted;
-  const stale2 = knowledge2 === "imported" ? importedStale(gh3, target3, read3) : otherStale(gh3, target3, read3);
+  const stale2 = knowledge2 === "imported" ? importedStale(gh4, target3, read3) : otherStale(gh4, target3, read3);
   return stale2 === null ? ["ok", null] : ["stale", stale2];
 }
 function readTarget2(target3, {
@@ -56699,12 +56775,12 @@ function readTarget2(target3, {
 } = {}) {
   const { repo, role, knowledge: knowledge2 } = target3;
   const row = (loop2, state, detail = null) => ({ repo, role, knowledge: knowledge2, loop: loop2, state, detail });
-  const gh3 = ghReader({ exec, env });
+  const gh4 = ghReader({ exec, env });
   try {
-    const branch = gh3.repository(repo).default_branch;
-    const config3 = gh3.file(repo, CONFIG_PATH, branch);
-    const facts2 = loopFacts(gh3, repo, branch, config3);
-    const [state, detail] = judged3(gh3, target3, facts2, { branch, config: config3, evidence, copyFlow });
+    const branch = gh4.repository(repo).default_branch;
+    const config3 = gh4.file(repo, CONFIG_PATH, branch);
+    const facts2 = loopFacts(gh4, repo, branch, config3);
+    const [state, detail] = judged3(gh4, target3, facts2, { branch, config: config3, evidence, copyFlow });
     return row(facts2.loop, state, detail);
   } catch (error62) {
     if (error62 instanceof Unreachable) return row("\u2014", "unreachable", error62.message);
@@ -57343,7 +57419,29 @@ function specLaws(all, spec, json4, { ctx, exec }) {
   const selection = selectBusinessLaws({ spec: readFileSync87(path, "utf8"), laws: all, glossary });
   return json4 ? JSON.stringify(selection, null, 2) : selectionText(selection, { spec, glossaryRead: cache.state === "cached" });
 }
-var OWN_FLAGS = { laws, graph };
+var NEXT_ID_USAGE = "usage: omni kb next-id <prefix> [--json]  (a prefix is an id without its number, as BR-PIPELINE)";
+function nextId(args, { ctx, exec, stdout, stderr }) {
+  const { positional, flags } = parseArgs("kb next-id", args, { booleans: ["json"] });
+  const [prefix, ...extra] = positional;
+  if (prefix === void 0 || extra.length > 0) throw usageError(NEXT_ID_USAGE);
+  const { remote } = ctx.config.repo;
+  const base = `${remote}/${ctx.config.repo.defaultBranch}`;
+  const read3 = readPlaces({ ctx, tree: readKnowledge({ ctx }).entries.map((entry3) => entry3.id), remote, defaultBranch: ctx.config.repo.defaultBranch, exec });
+  let found2;
+  try {
+    found2 = nextFreeId(prefix, read3.sets);
+  } catch (error62) {
+    throw usageError(`omni kb next-id: ${messageOf(error62)}. ${NEXT_ID_USAGE}`);
+  }
+  const unread = [
+    ...read3.pulls === null ? [] : [`open pull requests not read: ${read3.pulls}`],
+    ...read3.base === null ? [] : [`${base} not read: ${read3.base}`]
+  ];
+  if (unread.length > 0) println(stderr, `${unread.join("; ")}; the id may still be taken by one`);
+  println(stdout, flags.json ? JSON.stringify(found2, null, 2) : found2.id);
+  return 0;
+}
+var OWN_FLAGS = { laws, graph, "next-id": nextId };
 var PLAIN = { init: init2, show: show3, status: status3, owners };
 function verbOf(table, name3) {
   return name3 !== void 0 && Object.hasOwn(table, name3) ? table[name3] : void 0;
@@ -59226,7 +59324,7 @@ function listedOf(change2) {
   return { number: number5, url: url2, state: GH_STATES2[state], isDraft: state === "draft", updatedAt, body, author, labels: labels2 };
 }
 var ASKED_RANKS2 = /* @__PURE__ */ new Set(["human-action", "high"]);
-function git6(args, { ctx, exec }) {
+function git7(args, { ctx, exec }) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 async function listPrs(query, reader) {
@@ -59272,10 +59370,10 @@ function openItems2(prd2, branch, reader) {
   if (dir === null) return [];
   const remote = ctx.config.repo.remote;
   try {
-    git6(["fetch", "--quiet", remote, branch], reader);
+    git7(["fetch", "--quiet", remote, branch], reader);
   } catch {
   }
-  return openItemsOn(`${remote}/${branch}`, dir, (args) => git6(args, reader)) ?? openItemsForPrd(prd2, { ctx });
+  return openItemsOn(`${remote}/${branch}`, dir, (args) => git7(args, reader)) ?? openItemsForPrd(prd2, { ctx });
 }
 function replyCommentOf(comment2) {
   const { id, body, createdAt, author } = comment2;
@@ -60241,7 +60339,7 @@ function attempt10(fn, fallback5) {
     return fallback5;
   }
 }
-var git7 = (exec, cwd, args) => exec("git", args, { cwd, ...QUIET12 });
+var git8 = (exec, cwd, args) => exec("git", args, { cwd, ...QUIET12 });
 var entries3 = (text19) => text19.split("\0").filter(Boolean);
 function checkoutContext(folder, exec) {
   try {
@@ -60260,11 +60358,11 @@ function askModeOn(projectDir) {
   }
 }
 function branchOf(folder, exec) {
-  return attempt10(() => git7(exec, folder, ["rev-parse", "--abbrev-ref", "HEAD"]).trim(), null);
+  return attempt10(() => git8(exec, folder, ["rev-parse", "--abbrev-ref", "HEAD"]).trim(), null);
 }
 function refExists4(ctx, ref2, exec) {
   return attempt10(() => {
-    git7(exec, ctx.root, ["rev-parse", "--verify", "--quiet", `${ref2}^{commit}`]);
+    git8(exec, ctx.root, ["rev-parse", "--verify", "--quiet", `${ref2}^{commit}`]);
     return true;
   }, false);
 }
@@ -60274,10 +60372,10 @@ function baseRef(ctx, exec) {
   return refs2.find((ref2) => refExists4(ctx, ref2, exec)) ?? null;
 }
 function treeFolders(ctx, ref2, dir, exec) {
-  return attempt10(() => entries3(git7(exec, ctx.root, ["ls-tree", "-z", "-d", "--name-only", `${ref2}:${dir}`])), []);
+  return attempt10(() => entries3(git8(exec, ctx.root, ["ls-tree", "-z", "-d", "--name-only", `${ref2}:${dir}`])), []);
 }
 function treeFiles(ctx, ref2, dir, exec) {
-  return attempt10(() => entries3(git7(exec, ctx.root, ["ls-tree", "-z", "-r", "--name-only", `${ref2}:${dir}`])), []);
+  return attempt10(() => entries3(git8(exec, ctx.root, ["ls-tree", "-z", "-r", "--name-only", `${ref2}:${dir}`])), []);
 }
 function checkoutFolders(ctx, dir) {
   return attempt10(
@@ -60287,7 +60385,7 @@ function checkoutFolders(ctx, dir) {
 }
 function changedPaths2(ctx, { from, to, sinceFork }, exec) {
   const range2 = sinceFork ? [`${from}...${to}`] : [from, to];
-  return attempt10(() => entries3(git7(exec, ctx.root, ["diff", "--name-only", "-z", "--no-renames", ...range2, "--"])), []);
+  return attempt10(() => entries3(git8(exec, ctx.root, ["diff", "--name-only", "-z", "--no-renames", ...range2, "--"])), []);
 }
 function featureFacts2(ctx, { base, topic, folder }, exec) {
   const { remote } = ctx.config.repo;
@@ -61538,11 +61636,11 @@ function phase0Reason({ ok, docsOnly, offending, missing: missing2, trailer, uns
 
 // kit/bin/commands/phase0.ts
 var USAGE37 = "usage: omni phase0 <prd> [--base <ref>]";
-function git8(args, cwd, exec) {
+function git9(args, cwd, exec) {
   return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 function changedPaths3(ctx, base, exec) {
-  return git8(["diff", "--name-only", "--no-renames", `${base}...HEAD`], ctx.root, exec).split("\n").map((line3) => line3.trim()).filter(Boolean);
+  return git9(["diff", "--name-only", "--no-renames", `${base}...HEAD`], ctx.root, exec).split("\n").map((line3) => line3.trim()).filter(Boolean);
 }
 function signedLine(signed) {
   if (signed === null) return "signed: off (signature: null)";
@@ -61598,9 +61696,9 @@ init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync15 } from "node:child_process";
 var shortName10 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var pathsOf2 = (file2) => [file2.filename, file2.previous_filename].filter((path) => Boolean(path));
-function compareRow(gh3, { slug, readAt, slices }) {
-  const branch = gh3.repository(slug).default_branch;
-  const compared = gh3.compare(slug, readAt, branch);
+function compareRow(gh4, { slug, readAt, slices }) {
+  const branch = gh4.repository(slug).default_branch;
+  const compared = gh4.compare(slug, readAt, branch);
   if (compared === null) return { state: "unreachable", detail: `read at ${readAt.slice(0, 7)} cannot be compared with ${branch}` };
   if ((compared.ahead_by ?? 0) === 0) return { state: "ok" };
   const files = [];
@@ -61620,14 +61718,14 @@ function planMoved({
   planSlug,
   targets: targets2
 }, { exec = execFileSync15, env } = {}) {
-  const gh3 = ghReader({ exec, env });
+  const gh4 = ghReader({ exec, env });
   const slugOf5 = new Map(targets2.map((target3) => [shortName10(target3.repo), target3.repo]));
   return repositories.filter((row) => row.repo !== shortName10(planSlug)).map((row) => {
     const base = { repo: row.repo, state: "ok", files: [], slices: [], detail: null };
     const slug = slugOf5.get(row.repo);
     if (!slug) return { ...base, state: "unreachable", detail: "not a target of this plan repository" };
     try {
-      const found2 = compareRow(gh3, { slug, readAt: row.readAt, slices: slices.filter((slice) => slice.repo === row.repo) });
+      const found2 = compareRow(gh4, { slug, readAt: row.readAt, slices: slices.filter((slice) => slice.repo === row.repo) });
       return { ...base, ...found2 };
     } catch (error62) {
       if (error62 instanceof Unreachable) return { ...base, state: "unreachable", detail: error62.message };
@@ -64726,9 +64824,9 @@ function failure5(error62) {
 }
 var isNotFound3 = (why3) => /\bHTTP 404\b|Not Found/.test(why3);
 var PrListSchema = external_exports.array(external_exports.object({ number: external_exports.number().int().positive(), headRefOid: external_exports.string().min(7), isDraft: external_exports.boolean() }));
-function findFeaturePr(gh3, repo, branch) {
+function findFeaturePr(gh4, repo, branch) {
   try {
-    const read3 = PrListSchema.parse(JSON.parse(gh3(["pr", "list", "--repo", repo, "--head", branch, "--state", "open", "--json", "number,headRefOid,isDraft"])));
+    const read3 = PrListSchema.parse(JSON.parse(gh4(["pr", "list", "--repo", repo, "--head", branch, "--state", "open", "--json", "number,headRefOid,isDraft"])));
     const [first] = read3;
     if (first === void 0) return { ok: false, why: `no open pull request from ${branch}` };
     return { ok: true, value: { number: first.number, head: first.headRefOid, draft: first.isDraft } };
@@ -65629,19 +65727,19 @@ function featureBranch(prd2, ctx) {
   if (!parsed2) throw usageError(`omni review: PRD ${String(prd2)} has no inbox or shipped folder; pass --pr <n>.`);
   return fillBranch(ctx.config.branches.feature, { topic: parsed2.topic });
 }
-function pullRequest2(prd2, pr, { ctx, gh: gh3 }) {
-  if (pr !== null) return ghJson(["api", `repos/${gh3.repo}/pulls/${String(pr)}`], GhPullSchema, gh3, { what: `the pull request #${String(pr)}` });
+function pullRequest2(prd2, pr, { ctx, gh: gh4 }) {
+  if (pr !== null) return ghJson(["api", `repos/${gh4.repo}/pulls/${String(pr)}`], GhPullSchema, gh4, { what: `the pull request #${String(pr)}` });
   const branch = featureBranch(prd2, ctx);
-  const [owner = ""] = gh3.repo.split("/");
-  const pulls = ghJson(["api", "-X", "GET", `repos/${gh3.repo}/pulls`, "-f", "state=open", "-f", `head=${owner}:${branch}`], external_exports.array(GhPullSchema), gh3, {
+  const [owner = ""] = gh4.repo.split("/");
+  const pulls = ghJson(["api", "-X", "GET", `repos/${gh4.repo}/pulls`, "-f", "state=open", "-f", `head=${owner}:${branch}`], external_exports.array(GhPullSchema), gh4, {
     what: `the pull requests of ${branch}`
   });
   const [open3] = pulls;
-  if (!open3) throw new GitHubRefusal(`${branch} has no open pull request in ${gh3.repo}.`);
+  if (!open3) throw new GitHubRefusal(`${branch} has no open pull request in ${gh4.repo}.`);
   return open3;
 }
-function reviewsOf(pr, gh3) {
-  return ghJson(["api", `repos/${gh3.repo}/pulls/${String(pr)}/reviews`, "--paginate"], external_exports.array(GhReviewSchema), gh3, { what: `the reviews of #${String(pr)}` });
+function reviewsOf(pr, gh4) {
+  return ghJson(["api", `repos/${gh4.repo}/pulls/${String(pr)}/reviews`, "--paginate"], external_exports.array(GhReviewSchema), gh4, { what: `the reviews of #${String(pr)}` });
 }
 function readVerdict2(path, ctx) {
   const text19 = readUserFile("review", ctx, path);
@@ -65681,17 +65779,17 @@ function latestLine(latest, pull) {
 }
 function readLatest(args, io) {
   const { ctx, stdout, stderr } = io;
-  const { prd: prd2, pr, gh: gh3, json: json4 } = targetOf4(args, io);
+  const { prd: prd2, pr, gh: gh4, json: json4 } = targetOf4(args, io);
   return onGitHub(stderr, () => {
-    const pull = pullRequest2(prd2, pr, { ctx, gh: gh3 });
-    const latest = latestReview(reviewsOf(pull.number, gh3));
+    const pull = pullRequest2(prd2, pr, { ctx, gh: gh4 });
+    const latest = latestReview(reviewsOf(pull.number, gh4));
     println(stdout, json4 ? JSON.stringify({ pr: pull.number, ...latest ?? NO_REVIEW }) : latestLine(latest, pull));
     return 0;
   });
 }
 function postVerdict(args, io) {
   const { ctx, stderr } = io;
-  const { prd: prd2, pr, gh: gh3, json: json4, file: file2 } = targetOf4(args, io);
+  const { prd: prd2, pr, gh: gh4, json: json4, file: file2 } = targetOf4(args, io);
   if (file2 === void 0) throw usageError(USAGE46);
   const verdict2 = readVerdict2(file2, ctx);
   if (!verdict2.ok) {
@@ -65699,14 +65797,14 @@ function postVerdict(args, io) {
     return 1;
   }
   return onGitHub(stderr, () => {
-    const pull = pullRequest2(prd2, pr, { ctx, gh: gh3 });
-    return post4(verdict2.verdict, { pull, reviews: reviewsOf(pull.number, gh3), gh: gh3, ctx, stdout: io.stdout, json: json4 });
+    const pull = pullRequest2(prd2, pr, { ctx, gh: gh4 });
+    return post4(verdict2.verdict, { pull, reviews: reviewsOf(pull.number, gh4), gh: gh4, ctx, stdout: io.stdout, json: json4 });
   });
 }
 function printPost(stdout, json4, { line: line3, ...outcome2 }) {
   println(stdout, json4 ? JSON.stringify(outcome2) : line3);
 }
-function post4(verdict2, { pull, reviews, gh: gh3, ctx, stdout, json: json4 }) {
+function post4(verdict2, { pull, reviews, gh: gh4, ctx, stdout, json: json4 }) {
   const pr = pull.number;
   const already = postedRound(reviews, verdict2.round);
   if (already) {
@@ -65717,7 +65815,7 @@ function post4(verdict2, { pull, reviews, gh: gh3, ctx, stdout, json: json4 }) {
   }
   const { body, comments } = renderReview(verdict2, { footer: footerLine(ctx.config.signature) });
   const payload = JSON.stringify({ commit_id: pull.head.sha, event: "COMMENT", body, comments });
-  const written = ghJson(["api", `repos/${gh3.repo}/pulls/${String(pr)}/reviews`, "--input", "-"], GhPostedSchema, gh3, { what: "the review", input: payload });
+  const written = ghJson(["api", `repos/${gh4.repo}/pulls/${String(pr)}/reviews`, "--input", "-"], GhPostedSchema, gh4, { what: "the review", input: payload });
   const url2 = written.html_url ?? pull.html_url;
   const count11 = verdict2.findings.length;
   const what = verdict2.verdict === "pass" ? "pass" : `changes, ${String(count11)} finding${count11 === 1 ? "" : "s"}`;
@@ -66352,9 +66450,9 @@ function loopReadsOf(ctx, { reads: reads2, tokens: tokens2, home, fetch }) {
 var readLine = (error62) => error62 instanceof LoopReadError ? error62.line : "github unreachable";
 async function readLoop(ctx, repo, roadmap2, io) {
   const reads2 = loopReadsOf(ctx, io);
-  const git9 = (args) => io.exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const git10 = (args) => io.exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   try {
-    const { standings, prdWork: prdWork2 } = await readRoadmapPrds(ctx, roadmap2, { reads: reads2, git: git9 });
+    const { standings, prdWork: prdWork2 } = await readRoadmapPrds(ctx, roadmap2, { reads: reads2, git: git10 });
     const comments = await reads2.comments(repo, roadmap2.roadmap);
     return { standings, prdWork: prdWork2, answers: readAnswers(comments) };
   } catch (error62) {
@@ -68801,17 +68899,17 @@ var section6 = (title, text19) => `## ${title}
 
 ${text19 === null ? "(could not be read)" : text19.trim() === "" ? "(none)" : text19.trimEnd()}
 `;
-function runnerNote({ line: line3, log, start: start4, git: git9 }) {
+function runnerNote({ line: line3, log, start: start4, git: git10 }) {
   const steps = log.split("\n").filter((entry3) => entry3.trim() !== "").slice(-NOTE_STEP_LINES).join("\n");
-  const commits = git9(["log", "--oneline", ...start4 === null ? ["-20"] : [`${start4}..HEAD`]]);
+  const commits = git10(["log", "--oneline", ...start4 === null ? ["-20"] : [`${start4}..HEAD`]]);
   return [
     "# Handoff note, written by the runner",
     "",
     section6("The job", line3),
     section6(`The last ${String(NOTE_STEP_LINES)} steps`, steps),
-    section6("git status --short", git9(["status", "--short"])),
+    section6("git status --short", git10(["status", "--short"])),
     section6("git log --oneline since the job started", commits),
-    section6("git worktree list", git9(["worktree", "list"])),
+    section6("git worktree list", git10(["worktree", "list"])),
     section6("Pull requests the log named", pullRequestsOf(log).join("\n"))
   ].join("\n");
 }
@@ -69457,8 +69555,8 @@ var cut6 = (text19, max) => text19.length <= max ? text19 : `${text19.slice(0, m
 function notReleased(why3) {
   return { released: [], releaseError: cut6(why3, MAX_RELEASE_ERROR) };
 }
-function candidates(repo, gh3) {
-  const out = gh3(["pr", "list", "--repo", repo.slug, "--state", "open", "--label", repo.inProgress, "--limit", "100", "--json", "number,labels"]);
+function candidates(repo, gh4) {
+  const out = gh4(["pr", "list", "--repo", repo.slug, "--state", "open", "--label", repo.inProgress, "--limit", "100", "--json", "number,labels"]);
   let listed4;
   try {
     listed4 = ListedSchema.parse(JSON.parse(out));
@@ -69467,30 +69565,30 @@ function candidates(repo, gh3) {
   }
   return listed4.filter((pr) => pr.labels.some((label2) => label2.name === repo.inProgress)).map((pr) => pr.number);
 }
-function heldBy(repo, number5, job2, gh3) {
-  const out = gh3(["api", `repos/${repo.slug}/issues/${String(number5)}/comments`, "--paginate", "--jq", "[.[].body]"]);
+function heldBy(repo, number5, job2, gh4) {
+  const out = gh4(["api", `repos/${repo.slug}/issues/${String(number5)}/comments`, "--paginate", "--jq", "[.[].body]"]);
   const bodies = out.split("\n").filter((line3) => line3.trim() !== "").flatMap((line3) => BodiesSchema.parse(JSON.parse(line3)));
   return bodies.some((body) => body.includes(repo.statusMarker) && namesJob(body, job2));
 }
-function swap(repo, number5, gh3) {
+function swap(repo, number5, gh4) {
   const edit = ["pr", "edit", String(number5), "--repo", repo.slug, "--remove-label", repo.inProgress];
   try {
-    gh3([...edit, "--add-label", repo.released]);
+    gh4([...edit, "--add-label", repo.released]);
     return { off: true, problem: null };
   } catch (error62) {
     const added = why2(error62);
     try {
-      gh3(edit);
+      gh4(edit);
       return { off: true, problem: `${repo.released} could not be added (${added})` };
     } catch (again) {
       return { off: false, problem: why2(again) };
     }
   }
 }
-function release(job2, repo, reason2, gh3) {
+function release(job2, repo, reason2, gh4) {
   let numbers4;
   try {
-    numbers4 = candidates(repo, gh3);
+    numbers4 = candidates(repo, gh4);
   } catch (error62) {
     return { released: [], releaseError: cut6(why2(error62), MAX_RELEASE_ERROR) };
   }
@@ -69498,17 +69596,17 @@ function release(job2, repo, reason2, gh3) {
   const problems = [];
   for (const number5 of numbers4) {
     try {
-      if (!heldBy(repo, number5, job2.id, gh3)) continue;
+      if (!heldBy(repo, number5, job2.id, gh4)) continue;
     } catch (error62) {
       problems.push(`#${String(number5)}: ${why2(error62)}`);
       continue;
     }
-    const swapped = swap(repo, number5, gh3);
+    const swapped = swap(repo, number5, gh4);
     if (swapped.problem !== null) problems.push(`#${String(number5)}: ${swapped.problem}`);
     if (!swapped.off) continue;
     released.push(number5);
     try {
-      gh3(["pr", "comment", String(number5), "--repo", repo.slug, "--body", alarmText(job2, reason2)]);
+      gh4(["pr", "comment", String(number5), "--repo", repo.slug, "--body", alarmText(job2, reason2)]);
     } catch (error62) {
       problems.push(`#${String(number5)}: the alarm could not be posted (${why2(error62)})`);
     }
@@ -69521,7 +69619,7 @@ function releaser({ exec, checkouts, env = {} }) {
   return (ended2) => {
     const token = ended2.ghToken ?? null;
     const options = token === null ? QUIET15 : { ...QUIET15, env: { ...env, GH_TOKEN: token } };
-    const gh3 = (args) => exec("gh", args, options);
+    const gh4 = (args) => exec("gh", args, options);
     const checkout = checkouts.get(ended2.repo);
     if (checkout === void 0 || !existsSync100(join163(checkout, CONFIG_FILE))) return { ...NOTHING3 };
     let repo;
@@ -69531,7 +69629,7 @@ function releaser({ exec, checkouts, env = {} }) {
     } catch {
       return { released: [], releaseError: `the config of ${ended2.repo} could not be read` };
     }
-    return release(ended2, repo, ended2.reason, gh3);
+    return release(ended2, repo, ended2.reason, gh4);
   };
 }
 
@@ -72356,14 +72454,14 @@ function formatLink(format, ref2) {
 var USAGE56 = 'usage: omni ref <issue> --title "<title>" [--repo <owner/name>] [--json]';
 var CONFIG = ".omni-loop/config.yml";
 var IssueBodySchema = external_exports.object({ body: external_exports.string().nullable() });
-function gh2(args, { ctx, exec, env }) {
+function gh3(args, { ctx, exec, env }) {
   const ghEnv = githubEnv(ctx, { exec, env });
   return exec("gh", args, { encoding: "utf8", ...ghEnv ? { env: ghEnv } : {} });
 }
 function issueBody(issue2, io) {
   try {
     const slug = io.ctx.config.repo.slug;
-    const raw = gh2(["issue", "view", String(issue2), ...slug === null ? [] : ["--repo", slug], "--json", "body"], io);
+    const raw = gh3(["issue", "view", String(issue2), ...slug === null ? [] : ["--repo", slug], "--json", "body"], io);
     return IssueBodySchema.parse(JSON.parse(raw)).body ?? "";
   } catch {
     return null;
@@ -72379,7 +72477,7 @@ function formatOf(target3, io) {
 function targetFormat(repo, io) {
   let text19;
   try {
-    text19 = gh2(["api", "-H", "Accept: application/vnd.github.raw", `repos/${repo}/contents/${CONFIG}`], io);
+    text19 = gh3(["api", "-H", "Accept: application/vnd.github.raw", `repos/${repo}/contents/${CONFIG}`], io);
   } catch (error62) {
     if (notFound(error62)) return { format: null };
     return { error: `omni ref: ${repo}'s ${CONFIG} cannot be read through gh.` };
@@ -74104,26 +74202,26 @@ function processCwds(platform2, exec) {
   return null;
 }
 function gitHost({ root, remote, exec, cwds }) {
-  const git9 = (args, cwd = root) => exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const git10 = (args, cwd = root) => exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   const attempt12 = (args) => {
     try {
-      git9(args);
+      git10(args);
       return null;
     } catch (error62) {
       return refusal4(error62);
     }
   };
   return {
-    list: () => git9(["worktree", "list", "--porcelain"]),
+    list: () => git10(["worktree", "list", "--porcelain"]),
     fetch() {
       try {
-        git9(["fetch", "--quiet", remote]);
+        git10(["fetch", "--quiet", remote]);
       } catch {
       }
     },
     unpushed(heads) {
       try {
-        const out = git9(["rev-list", ...heads, "--not", `--remotes=${remote}`]);
+        const out = git10(["rev-list", ...heads, "--not", `--remotes=${remote}`]);
         const unreached = new Set(out.split("\n").filter(Boolean));
         return new Set(heads.filter((head) => unreached.has(head)));
       } catch {
