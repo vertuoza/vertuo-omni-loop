@@ -48,6 +48,21 @@ describe('fonts', () => {
     expect(shipped.sort()).toEqual([...declared].sort());
   });
 
+  it('ships the reading face in 400, 500, 600 and 700, and its 400 italic, each in both subsets', () => {
+    const body = FACES.find((f) => f.family === 'Atkinson Hyperlegible Next');
+    assertDefined(body, 'the reading face');
+    expect(body.cuts).toEqual([
+      { weight: 400, style: 'normal' }, { weight: 500, style: 'normal' }, { weight: 600, style: 'normal' },
+      { weight: 700, style: 'normal' }, { weight: 400, style: 'italic' },
+    ]);
+    const declared = declaredFaces(committed).filter((f) => f.family === body.family).map((f) => f.url);
+    for (const weight of [500, 600]) {
+      for (const subset of ['latin', 'latin-ext']) {
+        expect(declared, `${weight} ${subset}`).toContain(`./fonts/atkinson-hyperlegible-next-${subset}-${weight}-normal.woff2`);
+      }
+    }
+  });
+
   it('ships the licence of every face beside its files', () => {
     for (const face of FACES) {
       const licence = readFileSync(join(pkg, 'fonts', `OFL-${face.slug}.txt`), 'utf8');
