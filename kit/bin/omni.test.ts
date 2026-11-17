@@ -55,7 +55,7 @@ describe('omni', () => {
   });
 
   it('status is 0 with nothing open and 1 with an open item', async () => {
-    const { root, write } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const { root, write } = makeRepo({ git: true, fetched: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     expect(await main(['status', '42'], { cwd: root, ...io() })).toBe(0);
     write('.omni-loop/delivery/outbox/0042-a/s1-01-x.md', 'open');
     expect(await main(['status', '42'], { cwd: root, ...io() })).toBe(1);
@@ -63,7 +63,7 @@ describe('omni', () => {
 
   it('status writes open_items and unreworked to GITHUB_OUTPUT', async () => {
     const settled = ['<!-- omni-outbox-settled: s1-01-x -->', '## s1-01-x — drifted', '- Verdict: drifted', '- Closed: no — x', '<!-- /omni-outbox-settled: s1-01-x -->', ''].join('\n');
-    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', '.omni-loop/delivery/outbox/0042-a/settled.md': settled } });
+    const { root } = makeRepo({ git: true, fetched: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', '.omni-loop/delivery/outbox/0042-a/settled.md': settled } });
     const out = join(root, 'gh-output');
     expect(await main(['status', '42'], { cwd: root, ...io(), env: { GITHUB_OUTPUT: out } })).toBe(1);
     expect(readFileSync(out, 'utf8')).toBe('open_items=false\nunreworked=true\nunaccounted=false\n');
@@ -121,6 +121,7 @@ describe('omni — flags, lookups and guards', () => {
   it('status with --labels carrying the override label is green', async () => {
     const { root } = makeRepo({
       git: true,
+      fetched: true,
       files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', '.omni-loop/delivery/outbox/0042-a/s1-01-x.md': 'open' },
     });
     expect(await main(['status', '42', '--labels', 'a,omni:outbox-go'], { cwd: root, ...io() })).toBe(0);

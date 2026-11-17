@@ -71,7 +71,8 @@ function isStoredShape(change: NameStatus, { ctx }: { ctx: CoverageContext }): b
 }
 
 /**
- * Every path named by an `Enforced by:` line anywhere under `ctx.layout.knowledgeRoot`, read
+ * Every path named by the `Enforced by:` line of a confirmed entry (none with a `Proposed:` line)
+ * anywhere under `ctx.layout.knowledgeRoot`, read
  * fresh through `readRegisters({ ctx })` — never memoized past the call it is computed in. A line
  * may hold several comma-separated paths (one register entry names three) and may be the literal
  * `unenforced`, which names no path.
@@ -80,7 +81,9 @@ function isStoredShape(change: NameStatus, { ctx }: { ctx: CoverageContext }): b
  * @returns {Set<string>}
  */
 export function enforcedByPaths({ ctx }: { ctx: CoverageContext }): Set<string> {
-  return new Set(readRegisters({ ctx }).entries.flatMap(proofPathsOf));
+  // A proposed entry is no law yet (P-PRODUCT-81, #3005): its proof asks no person, as the item a
+  // slice raises on it is ranked medium. A path a confirmed entry names as well still fires.
+  return new Set(readRegisters({ ctx }).entries.filter((entry) => entry.proposed === null).flatMap(proofPathsOf));
 }
 
 /** The paths one entry's `Enforced by:` line names; none for `unenforced` or `pending #<n>` (PRD 1342). */
