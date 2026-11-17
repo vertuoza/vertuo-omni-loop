@@ -47,11 +47,22 @@ export function targetsOf(argv: string[], entries: string[]): string[] {
     .map((name) => `${ROOT}/${name}`);
 }
 
+/** Whether a parsed value is one finding: a rule, a file and a line. */
+function isFinding(value: unknown): value is Finding {
+  if (typeof value !== 'object' || value === null) return false;
+  const fields = new Map<string, unknown>(Object.entries(value));
+  return (
+    typeof fields.get('antipattern') === 'string' &&
+    typeof fields.get('file') === 'string' &&
+    typeof fields.get('line') === 'number'
+  );
+}
+
 /** The findings of `impeccable detect --json`, or null when its output is not a list of them. */
 function parseFindings(stdout: string): Finding[] | null {
   try {
     const parsed: unknown = JSON.parse(stdout);
-    return Array.isArray(parsed) ? (parsed as Finding[]) : null;
+    return Array.isArray(parsed) && parsed.every(isFinding) ? parsed : null;
   } catch {
     return null;
   }
