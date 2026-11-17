@@ -78,6 +78,9 @@ async function answers(base: string): Promise<boolean> {
 async function open(page: Page, base: string): Promise<void> {
   await page.goto(new URL(ROUTE, base).href, { waitUntil: 'load', timeout: 120_000 });
   await page.addStyleTag({ content: STILL });
+  // The page loads the PRD in the browser ("Loading the PRD…"): a cold dev server compiles that
+  // first, so wait for the PRD itself, up to two minutes.
+  await page.getByText(HEADING).first().waitFor({ timeout: 120_000 }).catch(() => undefined);
   await page.evaluate(() => document.fonts.ready.then(() => true));
   const text = await page.evaluate(() => document.body.innerText);
   if (!text.includes(HEADING)) {
