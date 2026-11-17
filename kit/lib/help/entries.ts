@@ -90,7 +90,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'delivered against in progress, and the PRDs that are yours, each with where it stands. It ' +
       'reads {remote}/{defaultBranch} as last fetched; --fetch fetches it first. With a PRD number, ' +
       'the outbox gate the loop runs before a feature PR merges: exit 0 when its outbox lets it ' +
-      'through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for.',
+      'through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for. ' +
+      'It grades the changes since --base, or since {remote}/{defaultBranch} when none is given, and ' +
+      'exits 2 when that base cannot be read.',
   },
   {
     name: 'dashboard',

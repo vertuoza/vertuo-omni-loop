@@ -87,6 +87,7 @@ async function settle(root: string, file: string, answer: string, extra: Record<
 async function driftedRepo() {
   const { root, read, write } = makeRepo({
     git: true,
+    fetched: true,
     files: { ...baseFiles(), [`${OUTBOX}/s1-01-default-country.md`]: ITEM_TEXT, [`${OUTBOX}/s1-02-civility-label.md`]: AGREED_ITEM_TEXT },
   });
   expect(await settle(root, `${OUTBOX}/s1-01-default-country.md`, "No — use the contact's own country instead.")).toBe(0);

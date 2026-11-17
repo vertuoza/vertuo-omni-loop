@@ -1,6 +1,8 @@
 // `omni status [--fetch]` — the repository's overview, read from git: exit 0, or 2 when the default
 // branch cannot be read (`kit/lib/status/`).
 // `omni status <prd> [--labels a,b] [--base <ref> | --changes]` — the outbox gate: exit 0 green, 1 red.
+// A repository PRD's gate always grades the range, against `<repo.remote>/<repo.defaultBranch>` when no
+// --base is given (#2999).
 // Ported from nimbus-brain@c4a210122:scripts/outbox-status.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 //
 // PRD 1299, slice s5: the overview places each ◆ PRD the checkout's inbox holds through `prdState()`
@@ -20,6 +22,7 @@ import { gateApproval } from '../../lib/delivery/prd.ts';
 import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { FOLLOW_UPS_DIR, readFollowUps } from '../../lib/follow-ups/follow-ups.ts';
 import { baseKnowledge, rangeChanges } from '../../lib/git.ts';
+import { isProductPrdId } from '../../lib/ids.ts';
 import { formatReport } from '../../lib/outbox/status.ts';
 import { serverFailure } from '../../lib/outbox/server-store.ts';
 import { outboxStore } from '../../lib/outbox/stores.ts';
@@ -57,16 +60,20 @@ async function outboxGate({ number, labels: named, base }: { number: string | un
   const prd = prdIdArg('status', '<prd>', number);
   const labels = list(named);
 
+  // A product PRD's gate is read from its rows on the Omni page, which grade no local range: only
+  // an explicit --base reads one there. Every other gate grades the range, against the default
+  // branch when no --base is given (#2999).
+  const graded = base ?? (isProductPrdId(prd) ? null : `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`);
   let changes = null;
   let knowledge = null;
-  if (base !== null) {
+  if (graded !== null) {
     try {
-      changes = rangeChanges({ ctx, base, exec });
+      changes = rangeChanges({ ctx, base: graded, exec });
     } catch (error) {
       throw usageError(errorMessage(error).split('\n')[0] ?? '');
     }
     // The knowledge folder at the range's base grades law-demoted (PRD 1342).
-    knowledge = baseKnowledge({ ctx, base, exec });
+    knowledge = baseKnowledge({ ctx, base: graded, exec });
   }
   const result = await outboxStore(ctx, prd, gate).gate(prd, { labels, changes, base: knowledge }).catch((error: unknown) => serverFailure('status', error, stderr));
   if (typeof result === 'number') return result;
@@ -96,6 +103,7 @@ export const status = {
     const ctx = loadContext(cwd, { exec });
     if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true, gate: { tokens, home, fetch, callMs } });
     if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE);
+    // `--changes` names the default branch, which the gate now grades against with no --base (#2999).
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
     return outboxGate({ number: positional[0], labels: flags.labels, base }, { ctx, stdout, stderr, exec, vars, gate: { tokens, home, fetch, callMs, now } });
   },
