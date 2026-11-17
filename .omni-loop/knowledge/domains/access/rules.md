@@ -189,7 +189,7 @@ Decided: @pierrederval — answered A on PR #2876, 2026-11-15
 A product's knowledge server refuses a kit sign-in that is no longer valid as unauthorised, so the terminal renews it once by itself, and answers service unavailable when the sign-in service cannot be reached; a valid sign-in of a person who is not a member of the product's workspace now, or a product that is off, archived or unknown, gets the same "No MCP server here." answer a working key of another workspace gets, so no one learns whether a product exists.
 
 Serves: P-ACCESS-5
-Source: .omni-loop/delivery/outbox/3007-kit-knowledge-mcp/settled.md, entry s1-01-sign-in-refusals, PRD #3007
+Source: .omni-loop/delivery/shipped/3007-kit-knowledge-mcp/outbox/settled.md, entry s1-01-sign-in-refusals, PRD #3007
 Enforced by: apps/galaxy/src/product-mcp/product-mcp.controller.test.ts
 Stated: 2026-11-17
 Decided: @pierrederval — answered A on PR #3008, 2026-11-17
