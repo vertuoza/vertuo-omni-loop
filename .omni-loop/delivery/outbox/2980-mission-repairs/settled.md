@@ -864,3 +864,248 @@ Adding it later is a read of a count the App would copy onto the bug-reported ev
 ```
 
 <!-- /omni-outbox-settled: s6-02-waits-on-omni-loop-without-met-by-count -->
+
+<!-- omni-outbox-settled: s2-04-fleets-check-names-repair -->
+
+## s2-04-fleets-check-names-repair — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-17T10:20:02Z
+- Channel: feature pull request #2981
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2981#issuecomment-6945226980
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s2
+- Wave: 1
+- Stays here: agrees the fleets check only lists repair among a new Engineer's skills; BR-GAME-1 to 3 did not change
+
+### The answer, as it was given
+
+```text
+A. A. The check's list of a new Engineer's skills ends with repair, its three rules untouched: the option built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-04-fleets-check-names-repair
+prd: 2980
+slice: s2
+rank: high
+bears-on: none
+raised: 2026-11-17
+wave: 1
+excuses: [supabase/checks/virtual_fleets.sql]
+---
+
+## The question, in plain words
+
+A database check that proves three rules about virtual fleets also lists the skills a new Engineer starts with. Now that an Engineer starts with repair too, may that list in the check change?
+
+## The decision, in plain words
+
+The list of a new Engineer's skills in that check now ends with repair, and nothing else in the check changed. The three rules it proves, about who may join, name and change a virtual fleet, are checked exactly as before.
+
+## The intro, for fun
+
+The class photo got one more face, and the caption had to be retyped.
+
+## The punchline, for fun
+
+Nobody else in the picture moved an inch.
+
+## The options, in plain words
+
+A. A. The check's list of a new Engineer's skills ends with repair, its three rules untouched: the option built.
+B. B. The Engineer does not start with repair, and the check stays as it was.
+
+## What I had to decide
+
+Whether the one line of supabase/checks/virtual_fleets.sql that lists a new Engineer's skills may take repair. The file is named as proof of BR-GAME-1, BR-GAME-2 and BR-GAME-3; the line changed proves none of them, and their own lines are untouched.
+Decided by: agent (hardToRevert true): a change to a law-proof file is raised high so a person answers it (Jev read 0.54)
+
+## What I did meanwhile
+
+The Engineer's default skills, as the database gives them, end with repair (20270125140000_mission_repairs.sql), so the check's expected list of a new Engineer's skills ends with repair. Without it, the check fails in the supabase workflow.
+
+## What it costs to change later
+
+One line: dropping repair from the Engineer's defaults drops it from the check again.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the plan named the law-proof files of this PRD but not this one, which the Engineer's new skill reaches
+
+```
+
+<!-- /omni-outbox-settled: s2-04-fleets-check-names-repair -->
+
+<!-- omni-outbox-settled: s3-01-repair-skill-outside-ground -->
+
+## s3-01-repair-skill-outside-ground — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-17T10:20:02Z
+- Channel: feature pull request #2981
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2981#issuecomment-6945226980
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-11-17
+- Slice: s3
+- Wave: 2
+- Stays here: agrees the skill lists outside the slice name repair; BR-PRODUCT-140 and BR-GAME-2 did not change
+
+### The answer, as it was given
+
+```text
+A. A. Keep the edits outside the slice's ground, as built.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-repair-skill-outside-ground
+prd: 2980
+slice: s3
+rank: high
+bears-on: none
+raised: 2026-11-17
+wave: 2
+---
+
+## The question, in plain words
+
+Adding the repair skill means a few lists and tests outside this slice's own ground must name it too. May this slice change them?
+
+## The decision, in plain words
+
+The slice added repair to the list of skills a runner may run, in both the app and the kit, to the Engineer's starting skills in the kit, to the help table, to the tests that hold those lists equal to the database, and to the guide's Runners page. Nothing else in those files changed.
+
+## The intro, for fun
+
+A new name on the guest list means every doorman needs the updated sheet.
+
+## The punchline, for fun
+
+Nobody noticed until the bouncers disagreed.
+
+## The options, in plain words
+
+A. A. Keep the edits outside the slice's ground, as built.
+B. B. Move each into a slice of its own and leave this slice with the skill folder only.
+
+## What I had to decide
+
+May the slice keep these edits outside its ground: kit/lib/runner/line.ts, kit/lib/virtual-fleet/roles.ts and its test, kit/lib/help/entries.ts and its test, apps/galaxy/src/runners/runners.contract.ts, apps/galaxy/src/runners/runners.skills.migration.test.ts, apps/galaxy/src/runners/runners.ultra-skills.migration.test.ts, apps/galaxy/src/virtual-fleets/roles-sql.test.ts, apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts, kit/test/repair-skill.test.ts and docs/guide/runners.md.
+
+Raised to high by the wave: Two of these files prove rules: `runners.skills.migration.test.ts` (BR-PRODUCT-140) and `virtual-fleets.controller.test.ts` (BR-GAME-2). Each only adds `repair` to an expected list of skills; the rules' own assertions are unchanged. A change to a rule's proof is answered by a person.
+
+## What I did meanwhile
+
+Each of these is one added word or one updated count, so the database and the app agree on repair and the tests that held them apart now hold them equal.
+
+## What it costs to change later
+
+Undoing it removes repair from those lists again; the skill folder then fails the help table test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) the plan lists none of these paths in s3's territory, though the wave's note named them.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-repair-skill-outside-ground -->
+
+<!-- omni-outbox-settled: s5-01-rule-on-sending-failed-prds-again-changes -->
+
+## s5-01-rule-on-sending-failed-prds-again-changes — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-17T10:20:02Z
+- Channel: feature pull request #2981
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/2981#issuecomment-6945226980
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-139
+- Raised: 2026-11-17
+- Slice: s5
+- Wave: 3
+- Became: BR-PRODUCT-139
+
+### The answer, as it was given
+
+```text
+A. The rule and its two proof files change together, to the repairs built here.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-rule-on-sending-failed-prds-again-changes
+prd: 2980
+slice: s5
+rank: high
+bears-on: BR-PRODUCT-139
+raised: 2026-11-17
+wave: 3
+excuses: [apps/omni-app/src/missions/supervisor.test.ts, apps/omni-app/src/missions/mission.e2e.test.ts]
+---
+
+## The question, in plain words
+
+The rule on when a mission sends a failed PRD again said never, and now a mission repairs it first: may the rule's words and the two tests that prove it change to say so?
+
+## The decision, in plain words
+
+The rule now says a failed PRD is sent again only when a repair allows it, and stops for good once its cause's three or the mission's nine repairs are spent, on a cancel, or when its repair needs a person or met an Omni Loop bug. Its two proof files keep every earlier case and add the new ones.
+
+## The intro, for fun
+
+The rule used to read never, and someone just wrote unless underneath it.
+
+## The punchline, for fun
+
+The tests signed the change too, but they want a person to countersign.
+
+## The options, in plain words
+
+A. The rule and its two proof files change together, to the repairs built here.
+B. The rule and its proof files stay as they were, and a failed PRD keeps stopping at once.
+
+## What I had to decide
+
+Whether BR-PRODUCT-139's text in the product rules, and its two proof files (apps/omni-app/src/missions/supervisor.test.ts and apps/omni-app/src/missions/mission.e2e.test.ts), change with PRD 2980. The spec's Decisions name this change. supervisor.test.ts gains one describe, BR-PRODUCT-139 under PRD 2980: a failed, twice-held or twice-stopped PRD is repaired, a cancel never sends it again, the mission's 9 spent stops it, and repairs off stops it as before; its earlier tests are untouched and still pass, since the pure supervisor stops as before when no repairs are given. mission.e2e.test.ts gains one scenario: a step broken at 02:00 is repaired, its fix lands on the mission branch, the step runs again and the PRD reaches ready; its earlier scenarios are untouched.
+
+## What I did meanwhile
+
+Built as the spec asks: the rule's new text is in the product rules, the two proof files prove it, and the detailed repair tests live in files of their own (supervisor.repair.test.ts, repair.test.ts), so the law's files carry only its proof.
+
+## What it costs to change later
+
+Reverting is the rule's old sentence and the two added test blocks, together with setting the mission's repair budget to 0: a failure then stops its PRD as before.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The rule is a proposed entry with no locked owner, so the person who answers this item is the one who confirms the new wording.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-rule-on-sending-failed-prds-again-changes -->
