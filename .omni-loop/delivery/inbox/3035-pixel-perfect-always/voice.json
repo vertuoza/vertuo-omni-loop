@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-17",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "Every PRD that changes a screen now shows it; I approve what I see, with no setup for my teams.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 5,
+          "reaction": "The release note is one line I understand, and the after shows only the change my customer asked for.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The same page whatever a team configured keeps reviews consistent, and nothing else of design craft turns on.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Shipped as promised: no library, no word pass, no review turned on in my repository.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A redraw from the real markup with the guesses said is honest; I still read the picture against the code.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:B-E DEv ✓ · persona:F-E Developer ~"
     }
   ]
 }
