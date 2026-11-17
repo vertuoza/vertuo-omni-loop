@@ -49025,15 +49025,16 @@ async function overview({ ctx, stdout, exec, fetch, gate }) {
 async function outboxGate({ number: number5, labels: named5, base }, { ctx, stdout, stderr, exec, vars, gate }) {
   const prd2 = prdIdArg("status", "<prd>", number5);
   const labels2 = list(named5);
+  const graded = base ?? (isProductPrdId(prd2) ? null : `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`);
   let changes = null;
   let knowledge2 = null;
-  if (base !== null) {
+  if (graded !== null) {
     try {
-      changes = rangeChanges({ ctx, base, exec });
+      changes = rangeChanges({ ctx, base: graded, exec });
     } catch (error62) {
       throw usageError(errorMessage(error62).split("\n")[0] ?? "");
     }
-    knowledge2 = baseKnowledge({ ctx, base, exec });
+    knowledge2 = baseKnowledge({ ctx, base: graded, exec });
   }
   const result2 = await outboxStore(ctx, prd2, gate).gate(prd2, { labels: labels2, changes, base: knowledge2 }).catch((error62) => serverFailure("status", error62, stderr));
   if (typeof result2 === "number") return result2;
@@ -52767,7 +52768,7 @@ var ENTRIES = deepFreeze([
     label: "omni status",
     summary: "your PRDs, the inbox, the outbox, what has shipped",
     also: [["omni status <n>", "the outbox gate for PRD n (exit 0 green, 1 red)"], ["omni status <key>-<n>", "a product PRD's gate, read from the Omni page"]],
-    detail: "With no PRD number, the overview of this repository, read from git only: how many PRDs sit at each stage of the loop (PRD, inbox, building, outbox, shipped, retro; an idea is a draft on the Omni app), a bar of delivered against in progress, and the PRDs that are yours, each with where it stands. It reads {remote}/{defaultBranch} as last fetched; --fetch fetches it first. With a PRD number, the outbox gate the loop runs before a feature PR merges: exit 0 when its outbox lets it through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for."
+    detail: "With no PRD number, the overview of this repository, read from git only: how many PRDs sit at each stage of the loop (PRD, inbox, building, outbox, shipped, retro; an idea is a draft on the Omni app), a bar of delivered against in progress, and the PRDs that are yours, each with where it stands. It reads {remote}/{defaultBranch} as last fetched; --fetch fetches it first. With a PRD number, the outbox gate the loop runs before a feature PR merges: exit 0 when its outbox lets it through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for. It grades the changes since --base, or since {remote}/{defaultBranch} when none is given, and exits 2 when that base cannot be read."
   },
   {
     name: "dashboard",

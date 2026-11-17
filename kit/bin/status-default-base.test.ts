@@ -39,4 +39,18 @@ describe('the omni status gate with no --base', () => {
     expect(await main(['status', '7'], { cwd: root, ...s })).toBe(1);
     expect(s.out.join('')).toContain(`${PROOF} (law-proof)`);
   });
+
+  it('refuses, naming the base, when the default branch cannot be read, never a green on no range', async () => {
+    const { root } = lawProofChanged();
+    const s = io();
+    expect(await main(['status', '7'], { cwd: root, ...s })).toBe(2);
+    expect(s.out.join('')).toContain('Cannot read origin/main');
+  });
+
+  it('is green on the same branch once the default branch is the branch itself', async () => {
+    const { root } = lawProofChanged();
+    execFileSync('git', ['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: root });
+    const s = io();
+    expect(await main(['status', '7'], { cwd: root, ...s })).toBe(0);
+  });
 });
