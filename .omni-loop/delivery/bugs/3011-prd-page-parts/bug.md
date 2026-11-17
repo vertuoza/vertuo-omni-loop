@@ -14,11 +14,11 @@
 
 ## Fix
 
-`@omni/ui` Tabs takes the link it draws each tab with, and the PRD page hands it `next/link`, so a tab switches in the app again. `dossier.css` declares the five `--dossier-*` properties it reads on `.dossier`, the facts strip pulled left by exactly what its clip cuts. Button gains `external`, `title` and `expanded` and marks a primary with `data-primary`; Badge gains `title`. With them the stage link opens GitHub in a new window, the PR care chip and every copy button keep their titles, and Pitch, its Copy, Send to terminal, Send and the Ready panel's action are `@omni/ui` Buttons.
+`@omni/ui` Tabs takes the link it draws each tab with, and the PRD page hands it `next/link`, so a tab switches in the app again. `dossier.css` declares the five `--dossier-*` properties it reads on `.dossier`, the facts strip pulled left by exactly what its clip cuts. Button gains `external`, `title` and `expanded` and marks a primary with `data-primary`; Badge gains `title`. With them the stage link opens GitHub in a new window, the PR care chip and every copy button keep their titles, and Pitch, its Copy, Send to terminal, Send and the Ready panel's action are `@omni/ui` Buttons. `ask.css`'s link colour now leaves an `@omni/ui` Button drawn as a link alone, so a primary link (Answer the outbox, Review & merge, Review PR) is no longer cyan on its accent, the job `.ask a.ask-button` did for the old buttons.
 
 ## Guard
 
-The reproduction's stylesheet case fails whenever `dossier.css` reads a `--dossier-*` property it does not declare, and PRD 2401's source check in `history-render.test.ts`, which #2987 loosened to let plain tab links through, again requires `next/link` for the PRD tabs.
+The reproduction's link-colour case fails whenever a colour rule of `.ask a` reaches an `@omni/ui` Button. The reproduction's stylesheet case fails whenever `dossier.css` reads a `--dossier-*` property it does not declare, and PRD 2401's source check in `history-render.test.ts`, which #2987 loosened to let plain tab links through, again requires `next/link` for the PRD tabs.
 
 ## Mutation
 

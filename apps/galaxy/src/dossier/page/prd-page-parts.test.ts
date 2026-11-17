@@ -70,6 +70,14 @@ describe('the PRD page after its rebuild on @omni/ui (bug #3011)', () => {
     expect([...read].filter((name) => !declared.has(name))).toEqual([]);
   });
 
+  it('never paints an @omni/ui Button drawn as a link with the app\'s link colour', () => {
+    const css = readFileSync(new URL('../../ask/ask.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const linkRules = [...css.matchAll(/(?:^|\})\s*([^{}]*\.ask a(?![-\w.])[^{}]*)\{([^}]*)\}/g)]
+      .filter(([, selector, body]) => /(^|,)\s*\.ask a(\s|$|,|:where)/.test(selector ?? '') && /(^|;)\s*color:/.test(body ?? ''));
+    expect(linkRules.length).toBeGreaterThan(0);
+    for (const [, selector] of linkRules) expect(selector).toContain(':not(.omni-button)');
+  });
+
   it('opens the stage\'s GitHub link in a new window', () => {
     const stage = stageView({ prd: parsePrd(216), rows: OUTBOX, github });
     expect(stage.action).toMatchObject({ kind: 'link', href: 'https://github.com/acme/widgets/pull/221' });

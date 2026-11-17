@@ -48,7 +48,9 @@ html:has(.ask[data-ask-theme]) body {
 .ask *,
 .ask *::before,
 .ask *::after { box-sizing: border-box; }
-.ask a { color: var(--ask-cyan); text-underline-offset: 3px; }
+/* An @omni/ui Button drawn as a link keeps its own colour: `:where` leaves this rule's weight as it
+   was, so `.ask a` never paints a primary one cyan on its accent (bug #3011). */
+.ask a:where(:not(.omni-button)) { color: var(--ask-cyan); text-underline-offset: 3px; }
 .ask code { font-family: var(--ask-mono); font-size: 0.9em; }
 .ask :focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
 .ask button:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
