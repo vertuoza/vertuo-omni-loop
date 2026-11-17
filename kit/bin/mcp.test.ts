@@ -1,9 +1,13 @@
 // `omni mcp` (PRD 3007, s3), seen from the outside: through `main()` on a fixture repository, a fake stdin and a
 // fake `fetch` that answers the product's MCP route. No network, no GitHub.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../lib/ask/schema.ts';
 import { makeRepo } from '../test/fixture.ts';
 import { KNOWLEDGE_OFF, NO_PRODUCT, NOT_SIGNED_IN, UNREACHABLE } from '../lib/knowledge/product-mcp-client.ts';
+import { COMMAND_TABLE } from './commands/index.ts';
+import { dig } from './dig.ts';
 import { main } from './omni.ts';
 
 const URL_BASE = 'https://omni.test';
@@ -122,5 +126,22 @@ describe('omni mcp', () => {
     expect(run.replies[2]?.error?.code).toBe(-32601);
     expect(run.replies[3]?.error?.code).toBe(-32700);
     expect(run.seen).toEqual([]);
+  });
+});
+
+// AC-7: the plugin declares the server, running `omni mcp` from the session's repository.
+describe('the omni-knowledge server in the omni plugin', () => {
+  const file = fileURLToPath(new URL('../plugin/.mcp.json', import.meta.url));
+
+  it('is declared, running omni mcp (AC-7)', () => {
+    const server = dig(JSON.parse(readFileSync(file, 'utf8')), 'mcpServers', 'omni-knowledge');
+    expect(dig(server, 'command')).toBe('node');
+    const args = dig(server, 'args');
+    expect(Array.isArray(args) ? args.map(String) : args).toEqual([expect.stringMatching(/\/\.omni-loop\/bin\/omni\.mjs$/) as unknown, 'mcp']);
+    expect(Object.keys(COMMAND_TABLE)).toContain('mcp');
+  });
+
+  it('holds no key and no token', () => {
+    expect(readFileSync(file, 'utf8')).not.toMatch(/oma_|omk_|Bearer|authorization/i);
   });
 });
