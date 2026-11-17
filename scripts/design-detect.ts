@@ -11,6 +11,7 @@ import { readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { withStepVariables } from '../kit/lib/env/read.ts';
 
 export const HEADING = 'design detector (report only)';
 const ROOT = 'apps/galaxy/src';
@@ -104,7 +105,7 @@ function realDeps(): Deps {
       const run = spawnSync(process.execPath, [bin, 'detect', '--json', '--no-config', ...targets], {
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
-        env: { ...process.env, IMPECCABLE_NO_TELEMETRY: '1', DO_NOT_TRACK: '1' },
+        env: withStepVariables({ IMPECCABLE_NO_TELEMETRY: '1', DO_NOT_TRACK: '1' }),
       });
       // Exit 2 is "primary findings found": a report, not a failure; 0 is a clean scan.
       if (run.error) return { status: null, stdout: '', error: run.error.message };
