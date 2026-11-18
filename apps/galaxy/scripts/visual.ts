@@ -29,6 +29,9 @@ import type { Browser, Page } from 'playwright';
 import { BOX, baselineName } from './catalogue.ts';
 import type { Box } from './catalogue.ts';
 
+/** One part's article on /design: its heading, usage, do and don't, and its themed boxes. */
+const PART = 'article.ds-part';
+
 /** The demo world's PRD (src/dossier/page/demo.ts, PRD 71) and the heading its page must show. */
 const ROUTE = 'prd/71';
 const HEADING = 'Ask mode';
@@ -233,17 +236,17 @@ async function runDesign(browser: Browser, base: string): Promise<string[]> {
     const boxes = page.locator(BOX);
     const count = await boxes.count();
     if (count === 0) failures.push('/design: no part to shoot');
-    // A part added above a box moves it down by a height that need not be a whole pixel, and text
-    // drawn at another fraction of a pixel differs by a few percent: each box is shifted onto whole
-    // pixels of the page first, so its shot depends on its own content only, never on the parts above.
-    await boxes.evaluateAll((els) => {
-      for (const el of els) {
-        if (!(el instanceof HTMLElement)) continue;
-        const r = el.getBoundingClientRect();
-        const top = r.top + window.scrollY;
-        const left = r.left + window.scrollX;
-        el.style.translate = `${String(Math.round(left) - left)}px ${String(Math.round(top) - top)}px`;
-      }
+    // A part's article is a fraction of a pixel tall (its lines are), so a part added above a box
+    // moved it down by a fraction too, and its text drew a few percent differently. Every article is
+    // set to its height rounded up to a whole pixel first: a part added above then moves each box by
+    // whole pixels only, and a box's shot depends on its own part alone.
+    await page.locator(PART).evaluateAll((els) => {
+      const heights = els.map((el) => Math.ceil(el.getBoundingClientRect().height));
+      els.forEach((el, i) => {
+        if (!(el instanceof HTMLElement)) return;
+        el.style.boxSizing = 'border-box';
+        el.style.height = `${String(heights[i] ?? 0)}px`;
+      });
     });
     for (let i = 0; i < count; i++) {
       const box = boxes.nth(i);
