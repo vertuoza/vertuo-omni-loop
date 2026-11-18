@@ -209,6 +209,9 @@ async function openDesign(browser: Browser, base: string): Promise<{ page: Page;
   const page = await context.newPage();
   await page.goto(new URL('design', base).href, { waitUntil: 'load', timeout: 120_000 });
   await page.addStyleTag({ content: STILL });
+  // The page's ground (a glow sized to the page's height and a 6 px dot grid) shows through a box's
+  // rounded corners, and moves under it whenever a part is added above: the shots see a flat ground.
+  await page.addStyleTag({ content: 'body { background: var(--void) !important; }' });
   await page.locator(BOX).first().waitFor({ timeout: 120_000 });
   await page.evaluate(() => document.fonts.ready.then(() => true));
   await sleep(500);
