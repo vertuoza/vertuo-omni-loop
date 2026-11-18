@@ -939,3 +939,27 @@ Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s
 Enforced by: apps/galaxy/src/missions/missions.controller.test.ts, apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts
 Stated: 2026-11-18
 Decided: @pierrederval, 2026-11-18
+
+## BR-PRODUCT-167
+
+When a mission reaches its own token cap and its fleet's at once, the fleet's cap is named, so one stop pauses the whole fleet. A paused mission works again once every cap has room, answered or not; a raise that still leaves no room asks again.
+
+Serves: P-PRODUCT-129
+Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s1-01-budget-edge-rules, PRD #3040
+Enforced by: apps/omni-app/src/missions/budget.test.ts, kit/lib/mission/budget.test.ts
+Stated: 2026-11-18
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-18, PR #3042
+Proposed: harvest 2026-11-18
+
+## BR-PRODUCT-168
+
+A mission the token budget paused stays paused until a person answers its question, even once back under every cap. A fleet's stop names only its missions that run or wait; a mission a person paused, or a stopped one, is never asked about a cap.
+
+Serves: P-PRODUCT-113
+Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s3-02-waiting-question-holds-the-mission, PRD #3040
+Enforced by: apps/omni-app/src/missions/budget.test.ts, apps/omni-app/src/missions/store.budget.test.ts, apps/omni-app/src/missions/job.budget.test.ts
+Stated: 2026-11-18
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-18, PR #3042
+Proposed: harvest 2026-11-18
