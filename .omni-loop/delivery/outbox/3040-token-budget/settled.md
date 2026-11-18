@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 3040
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-budget-edge-rules -->
+
+## s1-01-budget-edge-rules — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-18
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-18
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-budget-edge-rules
 prd: 3040
@@ -49,3 +79,7 @@ Low: one pure function, no stored data depends on the order.
 - (author) The spec does not say which cap a stop names when both are reached at the same run.
 - (author) The spec does not say what happens to an unanswered stop once a pushed brief raises the budget; the mission resumes, and the stop stays unanswered for the next slice to show or close.
 - (author) A Resume tomorrow with no known oldest job waits a whole 24 hours from now, and never wakes before now.
+
+```
+
+<!-- /omni-outbox-settled: s1-01-budget-edge-rules -->
