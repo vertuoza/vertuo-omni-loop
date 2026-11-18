@@ -73,7 +73,7 @@ describe("missionStore — a mission's token budget (PRD 3040)", () => {
       fleetCap: 5_000_000,
       oldestEnd: '2027-01-25T14:30:00Z',
       named: { id: 'stop-1', cap: 'mission', capTokens: 2_000_000, spent: 2_100_000, missions: [ID], answer: null, raisedTo: null, createdAt: '2027-01-26T08:00:00Z', answeredAt: null },
-      open: expect.objectContaining({ id: 'stop-2', cap: 'fleet', missions: [ID, 'm-2'] }),
+      open: { id: 'stop-2', cap: 'fleet', capTokens: 3_000_000, spent: 3_200_000, missions: [ID, 'm-2'], answer: null, raisedTo: null, createdAt: '2027-01-26T08:00:00Z', answeredAt: null },
       personPausedAt: '2027-01-25T10:00:00Z',
       personResumedAt: '2027-01-26T08:20:00Z',
       agentPausedAt: '2027-01-26T08:30:00Z',

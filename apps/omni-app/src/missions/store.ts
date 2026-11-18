@@ -533,7 +533,7 @@ export function missionStore(connection: Connection): MissionStore {
   async function missionSpent(mission: MissionRecord): Promise<number> {
     const spent = await db.rpc('mission_tokens', { p_mission: mission.id });
     if (spent.error) throw new Error(`the database refused the mission's tokens: ${spent.error.message}`);
-    return CountSchema.parse(spent.data ?? 0);
+    return CountSchema.parse(spent.data);
   }
 
   /** The latest stop naming the mission, and its fleet's stop still waiting for an answer. */
