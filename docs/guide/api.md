@@ -31,6 +31,11 @@ A product can serve its knowledge to agents through its own MCP server: its busi
 decisions behind its architecture (ADRs), its rules, its Legal entries, its terms and its Never
 lines, across all its repositories. Any agent that speaks MCP can search and read it with an API key.
 
+An agent with the omni plugin needs no key: the plugin starts the `omni-knowledge` server
+(`omni mcp`), which sends each search with the sign-in the kit already holds (`omni signin` on a
+laptop). A runner's agents read with the job's `OMNI_TOKEN`, the same way. Without MCP, the terminal
+reads the same knowledge with `omni kb search <query>` and `omni kb get <id>`.
+
 1. **Turn it on.** A workspace owner opens the product's settings (**Product settings**, the
    knowledge section) and chooses **Turn on** on the **MCP server** card. Off is the default. Every
    API key of the workspace then reads the product's knowledge, so turn it on only when that is what

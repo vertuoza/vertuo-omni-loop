@@ -132,8 +132,40 @@ describe('a subset of the steps (`--only`, PRD 1814: the pre-push hook)', () => 
   });
 
   it('refuses a step name it does not know', () => {
-    expect(() => onlySteps(['--only', 'typecheck,tset'])).toThrow(/unknown step "tset".*typecheck, lint, tests, fallow/);
+    expect(() => onlySteps(['--only', 'typecheck,tset'])).toThrow(/unknown step "tset".*typecheck, lint, tests, fallow, design/);
     expect(() => onlySteps(['--only'])).toThrow(/--only needs/);
+    expect(onlySteps(['--only', 'design'])).toEqual(['design']);
+  });
+});
+
+describe('the design step (PRD omni-loop-11)', () => {
+  const ratchet = (base: string): Step => ({ name: 'design', command: 'node', args: ['scripts/design-ratchet.ts', '--base', base] });
+
+  it('a changed app-page stylesheet or TSX plans the ratchet against the base, last', () => {
+    const steps = planChecks(tracked('apps/galaxy/src/dossier/page/dossier.css', 'apps/galaxy/src/ask/page.tsx'), 'abc');
+    expect(names(steps)).toEqual(['typecheck', 'lint', 'tests', 'fallow', 'design']);
+    expect(step(steps, 'design')).toEqual(ratchet('abc'));
+  });
+
+  it('a stylesheet alone gives the typecheck and the ratchet', () => {
+    expect(planChecks(tracked('apps/galaxy/src/dossier/page/dossier.css'), 'abc')).toEqual([{ name: 'typecheck', command: 'pnpm', args: ['typecheck'] }, ratchet('abc')]);
+  });
+
+  it('the baseline, the stylelint config and a component’s meta file plan it too', () => {
+    for (const path of ['design/baseline.json', 'stylelint.config.ts', 'packages/ui/src/button.meta.ts']) {
+      expect(names(planChecks(tracked(path), 'abc'))).toContain('design');
+    }
+  });
+
+  it('a path the ratchet never reads plans none: the arcade, HOME, other code, a stylesheet elsewhere', () => {
+    for (const path of ['apps/galaxy/src/arcade/a.css', 'apps/galaxy/src/home/page.tsx', 'kit/lib/a.ts', 'packages/ui/src/button.css']) {
+      expect(names(planChecks(tracked(path), 'abc'))).not.toContain('design');
+    }
+  });
+
+  it('`--only design` picks it alone', () => {
+    const steps = planChecks(tracked('apps/galaxy/src/ask/page.tsx'), 'abc');
+    expect(names(pickSteps(steps, ['design']))).toEqual(['design']);
   });
 });
 

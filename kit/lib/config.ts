@@ -315,7 +315,7 @@ const READY_SCOPES = Object.freeze(['off', 'mission', 'all'] as const);
  */
 export const READY_LOOSENING_GROUND = Object.freeze({
   floors: Object.freeze(['mutation/floor.json']),
-  baselines: Object.freeze(['fallow/', 'layering/']),
+  baselines: Object.freeze(['fallow/', 'layering/', 'design/']),
 });
 
 /** Where the context budget's ceilings live when `budgets.context.file` does not say (PRD 1679). */

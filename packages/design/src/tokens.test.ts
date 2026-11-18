@@ -144,6 +144,10 @@ describe('the scale', () => {
     expect(family('weight-')).toEqual({ 'weight-regular': '400', 'weight-medium': '500', 'weight-semibold': '600', 'weight-bold': '700' });
   });
 
+  it('stacks in five named layers, from base 0 to toast 40', () => {
+    expect(family('layer-')).toEqual({ 'layer-base': '0', 'layer-sticky': '10', 'layer-overlay': '20', 'layer-dialog': '30', 'layer-toast': '40' });
+  });
+
   it('lifts in three elevations, and moves in two durations and one ease-out', () => {
     expect(Object.keys(family('elevation-'))).toEqual(['elevation-flat', 'elevation-raised', 'elevation-overlay']);
     expect(family('motion-')).toEqual({

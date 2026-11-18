@@ -117,6 +117,17 @@ describe('the concurrency group', () => {
   });
 });
 
+// PRD omni-loop-11: the design ratchet runs on every pull request, with the history it compares against.
+describe('the design check', () => {
+  it('runs pnpm design against the base ref, behind settle, on a checkout holding the whole history', () => {
+    const design = job('design');
+    expect(needs(design)).toEqual(['settle']);
+    expect(design.if).toBe("needs.settle.outputs.stale == 'false'");
+    expect(runs(design)).toContain('pnpm design --base "origin/$GITHUB_BASE_REF"');
+    expect((design.steps ?? []).find((step) => step.uses?.startsWith('actions/checkout'))?.with).toEqual({ 'fetch-depth': 0 });
+  });
+});
+
 describe('the unsharded checks', () => {
   it('keeps typecheck and fallow as single jobs behind settle', () => {
     for (const name of ['typecheck', 'fallow']) {
@@ -148,7 +159,7 @@ describe('a docs-only pull request', () => {
 // PRD 2898: a gated skill adds `omni:ready-check` to a draft before `omni ready`, so its latest
 // commit gets the full checks, the e2e job and the acceptance report; a push to it gets them again.
 describe('a draft labelled omni:ready-check', () => {
-  const GRADED = ['settle', 'test-shard', 'test', 'typecheck', 'lint-shard', 'lint', 'fallow', 'e2e', 'acceptance-report'];
+  const GRADED = ['settle', 'test-shard', 'test', 'typecheck', 'lint-shard', 'lint', 'fallow', 'design', 'e2e', 'acceptance-report'];
   const labelled = { draft: true, labels: [READY_CHECK] };
 
   it('listens for a label being added, beside the events it already had', () => {

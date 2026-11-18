@@ -1,6 +1,8 @@
 // `/api/products/<key>/mcp` (PRD 2707 s3; ADR-0095): a product's knowledge over MCP, for any agent holding a
-// workspace API key (`Authorization: Bearer oma_…`). Stateless Streamable HTTP with JSON answers, a fresh
-// server per request, as `/api/mcp` is built (src/agent-connect/mcp/server.ts). Read-only, two tools:
+// workspace API key (`Authorization: Bearer oma_…`), or a member's kit sign-in (`Authorization: Bearer <access
+// token>`, the one `omni signin` keeps or `OMNI_TOKEN` is traded for: PRD 3007 s1). Stateless Streamable HTTP
+// with JSON answers, a fresh server per request, as `/api/mcp` is built (src/agent-connect/mcp/server.ts).
+// Read-only, two tools:
 //
 //   search_knowledge {query?, kind?, domain?, repo?}  the hits, the best first, at most 20, `total`, and with a
 //                                                     query its `mode`: by meaning, or by words (PRD 2728 s5)
@@ -17,8 +19,21 @@
 // after a merge reads its pack. The workspace's vectors are read only after the
 // key check served the request, and only that workspace's (search-meaning.ts).
 //
+// A bearer of an access token's shape (a JWT: header.payload.signature, which no key is) is a kit sign-in
+// (PRD 3007 s1). The Auth server checks it on every request, as every other kit call is checked
+// (src/ask/auth.ts), before the database is asked anything; then it is served as a key is:
+//   a token the Auth server refuses                 401 {error}, so the kit renews its sign-in once
+//   the Auth server unreachable                     503 {error}
+//   a person who is not a member of the product's
+//   workspace now, a product off, unknown or
+//   archived                                        404 {error: "No MCP server here."}, as a working key's
+// A member's access is kept a minute too, by the person, and their membership is checked on every request.
+// Any other bearer (an API key, a malformed one, a business link, none) is checked as a key, as before: it
+// never reaches the Auth server.
+//
 // Every call the key check served and the knowledge answered adds one row to the search log (PRD omni-loop-6
-// s1): the product, its workspace, the key's id (never the key), the tool, the query or the id asked, the
+// s1): the product, its workspace, the key's id (never the key) or the member's id (never the token, PRD 3007
+// s1), the tool, the query or the id asked, the
 // filters, the mode, the total, the hits' ids in rank order, and a search by meaning's nearest distance (PRD
 // omni-loop-9 s2; none in words mode, for a listing or a get_knowledge). The row is written after the answer
 // is sent (`later`: Next's after() in production), so the log never slows or changes an answer; a write that
@@ -26,15 +41,16 @@
 // read, adds no row.
 //
 // A get_knowledge that found its entry then marks the search it follows (PRD omni-loop-6 s2): the latest
-// search_knowledge of the same key and product, asked within the 10 minutes before it, that returned that id and
+// search_knowledge of the same caller and product, asked within the 10 minutes before it, that returned that id and
 // has no opened rank yet, gets the id as its `opened_id` and the id's rank among its hits as `opened_rank`. It is
 // done in the same after-the-answer task; a failing update is one error line and changes no answer.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
+import { authenticate, type TokenCheck } from '../ask/auth';
 import { hashApiKey, isApiKeyShaped } from '../public-api/keys/secret';
 import {
-  KEY_REFUSED, KNOWLEDGE_KINDS, NO_DATABASE, NOT_HERE, NOT_READ, noEntryLine, GetAnswerSchema, SearchAnswerSchema, type SearchLogRow,
+  KEY_REFUSED, KNOWLEDGE_KINDS, NO_DATABASE, NOT_HERE, NOT_READ, noEntryLine, GetAnswerSchema, SearchAnswerSchema, type SearchLogBy, type SearchLogRow,
 } from './product-mcp.contract';
 import type { KnowledgeRead, ProductMcpService, Resolution } from './product-mcp.service';
 import { searchByMeaning, type Meaning } from './search-meaning';
@@ -42,15 +58,17 @@ import { searchByMeaning, type Meaning } from './search-meaning';
 export type ProductMcpDeps = {
   /** The rules over the service role's client, or null when this deployment has no database. */
   service: ProductMcpService | null;
-  /** One line for a failure: never a key, never a row. */
+  /** A client that asks the Auth server about a kit sign-in's token (PRD 3007 s1), or null when this deployment has no database. */
+  signIn: ((token: string) => TokenCheck) | null;
+  /** One line for a failure: never a key, never a token, never a row. */
   log: (message: string) => void;
   /** The model and the workspace's vectors, or null when this deployment has none: every search is then by words. */
   meaning?: Meaning | null;
   /** Where each answered call is logged (PRD omni-loop-6 s1), or null when this deployment keeps no log. */
   searchLog?: {
     add: (row: SearchLogRow) => Promise<void>;
-    /** Marks the search `id` was a hit of, from the same key and product within 10 minutes (PRD omni-loop-6 s2). */
-    open: (keyId: string, productId: string, id: string, askedAt: string) => Promise<void>;
+    /** Marks the search `id` was a hit of, from the same caller and product within 10 minutes (PRD omni-loop-6 s2). */
+    open: (by: SearchLogBy, productId: string, id: string, askedAt: string) => Promise<void>;
   } | null;
   /** Runs `task` once the answer is sent (Next's after()); by default, at once, unawaited. */
   later?: (task: () => Promise<void>) => void;
@@ -67,10 +85,14 @@ const INSTRUCTIONS = [
 
 const BEARER = /^Bearer[ \t]+(\S+)[ \t]*$/i;
 
-/** The key's SHA-256, or null when the header carries no key of an API key's shape. */
-async function hashOf(header: string | null): Promise<string | null> {
-  const key = BEARER.exec(header ?? '')?.[1];
-  return key !== undefined && isApiKeyShaped(key) ? hashApiKey(key) : null;
+/** An access token of the kit's sign-in: a JWT, header.payload.signature in base64url, which no API key is. */
+const SIGN_IN_SHAPE = /^[\w-]+\.[\w-]+\.[\w-]+$/;
+
+/** What the header carries: an access token of the kit's sign-in, or the key's SHA-256 (null: no key of an API key's shape). */
+async function bearerOf(header: string | null): Promise<{ kind: 'sign-in' } | { kind: 'key'; hash: string | null }> {
+  const bearer = BEARER.exec(header ?? '')?.[1];
+  if (bearer !== undefined && SIGN_IN_SHAPE.test(bearer)) return { kind: 'sign-in' };
+  return { kind: 'key', hash: bearer !== undefined && isApiKeyShaped(bearer) ? await hashApiKey(bearer) : null };
 }
 
 const json = (status: number, error: string): Response => Response.json({ error }, { status });
@@ -80,8 +102,8 @@ const text = (body: string, isError = false) => ({ content: [{ type: 'text' as c
 function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: ProductMcpDeps & { service: ProductMcpService }): McpServer {
   const mcp = new McpServer({ name: 'omni-product-knowledge', version: '1.0.0' }, { instructions: INSTRUCTIONS });
 
-  /** Logs the answered call once the answer is sent; a failure is one line, never a changed answer. */
-  const record = (row: SearchLogRow): void => {
+  /** Logs the answered call of `by` once the answer is sent; a failure is one line, never a changed answer. */
+  const record = (row: SearchLogRow, by: SearchLogBy): void => {
     const log = deps.searchLog;
     if (log === undefined || log === null) return;
     const later = deps.later ?? ((task) => { void task(); });
@@ -93,7 +115,7 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
       // line and never changes an answer already sent.
       const [opened] = row.tool === 'get_knowledge' ? row.hit_ids : [];
       if (opened === undefined) return;
-      await log.open(row.api_key_id, row.product_id, opened, row.asked_at).catch((error: unknown) => {
+      await log.open(by, row.product_id, opened, row.asked_at).catch((error: unknown) => {
         deps.log(`product mcp: opened rank not written: ${error instanceof Error ? error.message : String(error)}`);
       });
     });
@@ -110,9 +132,9 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
       deps.log(`product mcp: ${error instanceof Error ? error.message : String(error)}`);
       return text(NOT_READ, true);
     }
-    const { product, key_id: keyId } = resolution.access;
+    const { access: { product }, by } = resolution;
     const { body, isError = false, logged } = await work(read, product.workspace_id);
-    record({ product_id: product.id, workspace_id: product.workspace_id, api_key_id: keyId, ...logged, asked_at: askedAt });
+    record({ product_id: product.id, workspace_id: product.workspace_id, ...by, ...logged, asked_at: askedAt }, by);
     return text(body, isError);
   };
 
@@ -169,13 +191,26 @@ function server(resolution: Exclude<Resolution, { kind: 'not-here' }>, deps: Pro
   return mcp;
 }
 
+/** Who the request is for the product `key`, or the Response that refuses a kit sign-in before the database is asked. */
+async function resolutionOf(request: Request, key: string, service: ProductMcpService, signIn: ProductMcpDeps['signIn']): Promise<Resolution | Response> {
+  const header = request.headers.get('authorization');
+  const bearer = await bearerOf(header);
+  if (bearer.kind === 'key') return service.resolve(bearer.hash, key);
+  if (signIn === null) return json(503, NO_DATABASE);
+  const auth = await authenticate(header, signIn);
+  if (!auth.ok) return json(auth.status, auth.error);
+  return service.resolveMember(auth.caller.id, key);
+}
+
 /** One request to the product `key`'s MCP server. */
 export async function handleProductMcp(request: Request, key: string, deps: ProductMcpDeps): Promise<Response> {
   const { service } = deps;
   if (service === null) return json(503, NO_DATABASE);
   let resolution: Resolution;
   try {
-    resolution = await service.resolve(await hashOf(request.headers.get('authorization')), key);
+    const resolved = await resolutionOf(request, key, service, deps.signIn);
+    if (resolved instanceof Response) return resolved;
+    resolution = resolved;
   } catch (error) {
     deps.log(`product mcp: ${error instanceof Error ? error.message : String(error)}`);
     return json(500, NOT_READ);

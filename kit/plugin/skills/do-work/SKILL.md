@@ -172,6 +172,12 @@ building, commit and push work in progress at least every half of
 
 When the PRD, the spec, the context files and the knowledge the slice read do not settle something:
 
+0. **Search the product's knowledge first.** Before deciding anything the spec does not settle, search
+   the product's knowledge (`search_knowledge` from the `omni-knowledge` server when the session has
+   it, else `node .omni-loop/bin/omni.mjs kb search <query>`), read each entry it relies on whole
+   (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox
+   item that records the decision. A one-line failure from either is carried on past, named in the
+   item's `gaps`.
 1. **Take the most reversible option** — the one a different answer undoes for the price of a
    constant, not a migration — and carry on.
 2. **Record it** with `omni item new`. Write the JSON to a scratch file (never in the repository):

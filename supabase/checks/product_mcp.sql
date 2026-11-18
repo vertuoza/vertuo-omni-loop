@@ -11,6 +11,13 @@
 -- link or a malformed value. A key's allow-list naming none of the product's repositories reads nothing,
 -- one naming some reads only those, and an empty one reads them all; each repository answers its newest
 -- pack, or none yet. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+--
+-- A member's kit sign-in (PRD 3007 s1, 20270126090000_product_mcp_member.sql): product_mcp_for_member() runs
+-- for the service role only, and answers a person exactly what a key of the workspace with no allow-list
+-- reads, while they are a member of the product's workspace now and the product is on and not archived:
+-- nothing for a non-member, a person who left (on the very next call), a product off or archived, or a
+-- malformed value. Of two products of one key the person reaches, the oldest that is on answers. A search
+-- log row names a person or a key, never both, and a deleted account's id is set to null (L-GDPR-3).
 
 begin;
 
@@ -398,6 +405,155 @@ begin
   end if;
 end $$;
 reset role;
+
+-- ── A member's kit sign-in (PRD 3007 s1) ──
+-- What a signed-in person reads of a product, as the route asks once the Auth server accepted their token.
+create function pg_temp.member_reads(person text, product text) returns jsonb language sql as $$
+  select public.product_mcp_for_member(person::uuid, product);
+$$;
+grant execute on function pg_temp.member_reads(text, text) to service_role;
+
+do $$
+begin
+  if has_function_privilege('anon', 'public.product_mcp_for_member(uuid, text)', 'execute')
+     or has_function_privilege('authenticated', 'public.product_mcp_for_member(uuid, text)', 'execute')
+     or not has_function_privilege('service_role', 'public.product_mcp_for_member(uuid, text)', 'execute') then
+    raise exception 'FAIL: product_mcp_for_member() is not the service role''s alone';
+  end if;
+end $$;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000027070b1');
+select pg_temp.refused($q$select public.product_mcp_for_member('00000000-0000-4000-8000-0000027070b1', 'lamp')$q$, '42501', 'a member signed in');
+reset role;
+
+-- Lamp is off since the section above: a member's sign-in reads nothing either (AC-3).
+set local role service_role;
+do $$
+begin
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'lamp') is not null then
+    raise exception 'FAIL: a product turned off answers a member''s sign-in';
+  end if;
+end $$;
+reset role;
+
+-- Lia turns Lamp on again: Max, a member, reads what a key of the workspace with no allow-list reads (AC-1).
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000027070a1');
+select public.product_mcp_set('00000000-0000-4000-8000-0000027071f1', true);
+reset role;
+set local role service_role;
+do $$
+declare
+  got jsonb := pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'lamp');
+  key jsonb := pg_temp.reads('oma_lantern_every_0001', 'lamp');
+begin
+  if got is null then raise exception 'FAIL: a member''s sign-in read nothing'; end if;
+  if got->>'user_id' is distinct from '00000000-0000-4000-8000-0000027070b1' then
+    raise exception 'FAIL: the answer names % as the person served', got->>'user_id';
+  end if;
+  if got ? 'key_id' then raise exception 'FAIL: a member''s answer names a key'; end if;
+  if got - 'user_id' <> key - 'key_id' then
+    raise exception 'FAIL: a member reads % where a key of the workspace reads %', got - 'user_id', key - 'key_id';
+  end if;
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', ' LAMP ')->'product'->>'key' is distinct from 'lamp' then
+    raise exception 'FAIL: the product''s key in capitals answered nothing';
+  end if;
+  -- An owner reads it as a member does.
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070a1', 'lamp') - 'user_id' <> got - 'user_id' then
+    raise exception 'FAIL: an owner reads otherwise than a member';
+  end if;
+end $$;
+reset role;
+
+-- A non-member's sign-in reads nothing; the person who left reads nothing; an archived product, an unknown
+-- one and malformed values read nothing.
+set local role service_role;
+do $$
+begin
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070c1', 'lamp') is not null then
+    raise exception 'FAIL: Hal, of another workspace, read Lamp';
+  end if;
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070c1', 'dock')->'product'->>'key' is distinct from 'dock' then
+    raise exception 'FAIL: Hal does not read his own Dock';
+  end if;
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'dock') is not null then
+    raise exception 'FAIL: Max, of Lantern, read Harbor''s Dock';
+  end if;
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070a2', 'lamp') is not null then
+    raise exception 'FAIL: Ned, who left Lantern, still reads Lamp';
+  end if;
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'wick') is not null then
+    raise exception 'FAIL: an archived product answers a member''s sign-in';
+  end if;
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'nope') is not null
+     or pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'Not a key!') is not null
+     or pg_temp.member_reads(gen_random_uuid()::text, 'lamp') is not null
+     or public.product_mcp_for_member(null, 'lamp') is not null
+     or public.product_mcp_for_member('00000000-0000-4000-8000-0000027070b1', null) is not null then
+    raise exception 'FAIL: an unknown product, an unknown person or a malformed value answered';
+  end if;
+end $$;
+reset role;
+
+-- Of two products of one key the person reaches, the oldest that is on answers: Hal joins Lantern, and
+-- Harbor gets an older Lamp of its own.
+insert into public.workspace_members (workspace_id, user_id, role) values
+  ('00000000-0000-4000-8000-000002707100', '00000000-0000-4000-8000-0000027070c1', 'member');
+insert into public.products (id, workspace_id, business_id, name, key, created_at, mcp_enabled)
+select '00000000-0000-4000-8000-0000027072f2', b.workspace_id, b.id, 'Harbor Lamp', 'lamp', now() - interval '1 day', true
+  from public.businesses b where b.workspace_id = '00000000-0000-4000-8000-000002707200';
+set local role service_role;
+do $$
+begin
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070c1', 'lamp')->'product'->>'id' is distinct from '00000000-0000-4000-8000-0000027072f2' then
+    raise exception 'FAIL: of two Lamps, Hal does not read the oldest';
+  end if;
+  -- Max is in Lantern alone: Harbor's Lamp never answers him.
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'lamp')->'product'->>'id' is distinct from '00000000-0000-4000-8000-0000027071f1' then
+    raise exception 'FAIL: Max reads a Lamp of a workspace he is not in';
+  end if;
+end $$;
+reset role;
+update public.products set mcp_enabled = false where id = '00000000-0000-4000-8000-0000027072f2';
+set local role service_role;
+do $$
+begin
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070c1', 'lamp')->'product'->>'id' is distinct from '00000000-0000-4000-8000-0000027071f1' then
+    raise exception 'FAIL: with Harbor''s Lamp off, Hal does not read Lantern''s';
+  end if;
+end $$;
+reset role;
+
+-- The search log: a member's row names the person and no key; a row naming both is refused.
+set local role service_role;
+insert into public.mcp_search_log (product_id, workspace_id, user_id, tool, query, total)
+values ('00000000-0000-4000-8000-0000027071f1', '00000000-0000-4000-8000-000002707100',
+        '00000000-0000-4000-8000-0000027070b1', 'search_knowledge', 'api key', 0);
+reset role;
+select pg_temp.refused(format($q$insert into public.mcp_search_log (product_id, workspace_id, api_key_id, user_id, tool, total)
+  values ('00000000-0000-4000-8000-0000027071f1', '00000000-0000-4000-8000-000002707100', %L,
+          '00000000-0000-4000-8000-0000027070b1', 'search_knowledge', 0)$q$,
+  (select id from public.agent_tokens where token_hash = pg_temp.hash('oma_lantern_every_0001'))), '23514', 'a row naming a key and a person');
+
+-- Max leaves: his sign-in reads nothing on the very next call (BR-PRODUCT-64, BL-ACCESS-1). His account is
+-- deleted: his log row stays, naming nobody (L-GDPR-3).
+delete from public.workspace_members
+ where workspace_id = '00000000-0000-4000-8000-000002707100' and user_id = '00000000-0000-4000-8000-0000027070b1';
+set local role service_role;
+do $$
+begin
+  if pg_temp.member_reads('00000000-0000-4000-8000-0000027070b1', 'lamp') is not null then
+    raise exception 'FAIL: a person who left still reads through their sign-in';
+  end if;
+end $$;
+reset role;
+delete from auth.users where id = '00000000-0000-4000-8000-0000027070b1';
+do $$
+begin
+  if (select count(*) from public.mcp_search_log where query = 'api key' and user_id is null and api_key_id is null) <> 1 then
+    raise exception 'FAIL: a deleted account''s search log row is not kept naming nobody';
+  end if;
+end $$;
 
 select 'product_mcp: every check passed' as result;
 
