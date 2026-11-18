@@ -2,6 +2,9 @@
 // part's X.tsx, X.css, X.meta.ts and X.specimen.tsx there and run `pnpm --filter @omni/ui parts`.
 
 import type { Part } from '../meta.ts';
+import { Avatar } from '../Avatar.tsx';
+import { avatarMeta } from '../Avatar.meta.ts';
+import { avatarSpecimen } from '../Avatar.specimen.tsx';
 import { Badge } from '../Badge.tsx';
 import { badgeMeta } from '../Badge.meta.ts';
 import { badgeSpecimen } from '../Badge.specimen.tsx';
@@ -20,6 +23,9 @@ import { codeSpecimen } from '../Code.specimen.tsx';
 import { Combobox } from '../Combobox.tsx';
 import { comboboxMeta } from '../Combobox.meta.ts';
 import { comboboxSpecimen } from '../Combobox.specimen.tsx';
+import { DataList } from '../DataList.tsx';
+import { dataListMeta } from '../DataList.meta.ts';
+import { dataListSpecimen } from '../DataList.specimen.tsx';
 import { Dialog } from '../Dialog.tsx';
 import { dialogMeta } from '../Dialog.meta.ts';
 import { dialogSpecimen } from '../Dialog.specimen.tsx';
@@ -71,12 +77,18 @@ import { pageHeaderSpecimen } from '../PageHeader.specimen.tsx';
 import { Popover } from '../Popover.tsx';
 import { popoverMeta } from '../Popover.meta.ts';
 import { popoverSpecimen } from '../Popover.specimen.tsx';
+import { Progress } from '../Progress.tsx';
+import { progressMeta } from '../Progress.meta.ts';
+import { progressSpecimen } from '../Progress.specimen.tsx';
 import { Prose } from '../Prose.tsx';
 import { proseMeta } from '../Prose.meta.ts';
 import { proseSpecimen } from '../Prose.specimen.tsx';
 import { Radio } from '../Radio.tsx';
 import { radioMeta } from '../Radio.meta.ts';
 import { radioSpecimen } from '../Radio.specimen.tsx';
+import { Section } from '../Section.tsx';
+import { sectionMeta } from '../Section.meta.ts';
+import { sectionSpecimen } from '../Section.specimen.tsx';
 import { SegmentedControl } from '../SegmentedControl.tsx';
 import { segmentedControlMeta } from '../SegmentedControl.meta.ts';
 import { segmentedControlSpecimen } from '../SegmentedControl.specimen.tsx';
@@ -86,33 +98,47 @@ import { selectSpecimen } from '../Select.specimen.tsx';
 import { Stack } from '../Stack.tsx';
 import { stackMeta } from '../Stack.meta.ts';
 import { stackSpecimen } from '../Stack.specimen.tsx';
+import { Stat } from '../Stat.tsx';
+import { statMeta } from '../Stat.meta.ts';
+import { statSpecimen } from '../Stat.specimen.tsx';
 import { Switch } from '../Switch.tsx';
 import { switchMeta } from '../Switch.meta.ts';
 import { switchSpecimen } from '../Switch.specimen.tsx';
+import { Table } from '../Table.tsx';
+import { tableMeta } from '../Table.meta.ts';
+import { tableSpecimen } from '../Table.specimen.tsx';
 import { Tabs } from '../Tabs.tsx';
 import { tabsMeta } from '../Tabs.meta.ts';
 import { tabsSpecimen } from '../Tabs.specimen.tsx';
+import { Tag } from '../Tag.tsx';
+import { tagMeta } from '../Tag.meta.ts';
+import { tagSpecimen } from '../Tag.specimen.tsx';
 import { Text } from '../Text.tsx';
 import { textMeta } from '../Text.meta.ts';
 import { textSpecimen } from '../Text.specimen.tsx';
 import { Textarea } from '../Textarea.tsx';
 import { textareaMeta } from '../Textarea.meta.ts';
 import { textareaSpecimen } from '../Textarea.specimen.tsx';
+import { Timeline } from '../Timeline.tsx';
+import { timelineMeta } from '../Timeline.meta.ts';
+import { timelineSpecimen } from '../Timeline.specimen.tsx';
 import { Tooltip } from '../Tooltip.tsx';
 import { tooltipMeta } from '../Tooltip.meta.ts';
 import { tooltipSpecimen } from '../Tooltip.specimen.tsx';
 
 /** Every part's component, by its name. */
-export const COMPONENTS = { Badge, Button, Card, Checkbox, Code, Combobox, Dialog, Drawer, EmptyState, Field, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, PageHeader, Popover, Prose, Radio, SegmentedControl, Select, Stack, Switch, Tabs, Text, Textarea, Tooltip } as const;
+export const COMPONENTS = { Avatar, Badge, Button, Card, Checkbox, Code, Combobox, DataList, Dialog, Drawer, EmptyState, Field, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, PageHeader, Popover, Progress, Prose, Radio, Section, SegmentedControl, Select, Stack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Tooltip } as const;
 
 /** Every part: its meta (variants, usage, do, don't, contrast) and its specimen. */
 export const PARTS: readonly Part[] = [
+  { meta: avatarMeta, specimen: avatarSpecimen },
   { meta: badgeMeta, specimen: badgeSpecimen },
   { meta: buttonMeta, specimen: buttonSpecimen },
   { meta: cardMeta, specimen: cardSpecimen },
   { meta: checkboxMeta, specimen: checkboxSpecimen },
   { meta: codeMeta, specimen: codeSpecimen },
   { meta: comboboxMeta, specimen: comboboxSpecimen },
+  { meta: dataListMeta, specimen: dataListSpecimen },
   { meta: dialogMeta, specimen: dialogSpecimen },
   { meta: drawerMeta, specimen: drawerSpecimen },
   { meta: emptyStateMeta, specimen: emptyStateSpecimen },
@@ -130,14 +156,20 @@ export const PARTS: readonly Part[] = [
   { meta: noticeMeta, specimen: noticeSpecimen },
   { meta: pageHeaderMeta, specimen: pageHeaderSpecimen },
   { meta: popoverMeta, specimen: popoverSpecimen },
+  { meta: progressMeta, specimen: progressSpecimen },
   { meta: proseMeta, specimen: proseSpecimen },
   { meta: radioMeta, specimen: radioSpecimen },
+  { meta: sectionMeta, specimen: sectionSpecimen },
   { meta: segmentedControlMeta, specimen: segmentedControlSpecimen },
   { meta: selectMeta, specimen: selectSpecimen },
   { meta: stackMeta, specimen: stackSpecimen },
+  { meta: statMeta, specimen: statSpecimen },
   { meta: switchMeta, specimen: switchSpecimen },
+  { meta: tableMeta, specimen: tableSpecimen },
   { meta: tabsMeta, specimen: tabsSpecimen },
+  { meta: tagMeta, specimen: tagSpecimen },
   { meta: textMeta, specimen: textSpecimen },
   { meta: textareaMeta, specimen: textareaSpecimen },
+  { meta: timelineMeta, specimen: timelineSpecimen },
   { meta: tooltipMeta, specimen: tooltipSpecimen },
 ];

@@ -1,12 +1,14 @@
 // Generated from the parts of packages/ui/src by packages/ui/build/parts.ts: do not edit. Add a
 // part's X.tsx, X.css, X.meta.ts and X.specimen.tsx there and run `pnpm --filter @omni/ui parts`.
 
+export * from '../Avatar.tsx';
 export * from '../Badge.tsx';
 export * from '../Button.tsx';
 export * from '../Card.tsx';
 export * from '../Checkbox.tsx';
 export * from '../Code.tsx';
 export * from '../Combobox.tsx';
+export * from '../DataList.tsx';
 export * from '../Dialog.tsx';
 export * from '../Drawer.tsx';
 export * from '../EmptyState.tsx';
@@ -24,13 +26,19 @@ export * from '../Menu.tsx';
 export * from '../Notice.tsx';
 export * from '../PageHeader.tsx';
 export * from '../Popover.tsx';
+export * from '../Progress.tsx';
 export * from '../Prose.tsx';
 export * from '../Radio.tsx';
+export * from '../Section.tsx';
 export * from '../SegmentedControl.tsx';
 export * from '../Select.tsx';
 export * from '../Stack.tsx';
+export * from '../Stat.tsx';
 export * from '../Switch.tsx';
+export * from '../Table.tsx';
 export * from '../Tabs.tsx';
+export * from '../Tag.tsx';
 export * from '../Text.tsx';
 export * from '../Textarea.tsx';
+export * from '../Timeline.tsx';
 export * from '../Tooltip.tsx';
