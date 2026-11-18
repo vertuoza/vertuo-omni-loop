@@ -1,0 +1,17 @@
+.omni-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-inline-start: 4px solid var(--color-danger);
+  border-radius: var(--radius-2);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--type-3-size);
+  line-height: var(--type-3-line);
+}
+.omni-error-state--page { padding: var(--space-6) var(--space-5); }
+.omni-error-state--inline { padding: var(--space-3) var(--space-4); }
+.omni-error-state__title { margin: 0; color: var(--color-text-primary); font-size: var(--type-4-size); line-height: var(--type-4-line); font-weight: var(--weight-semibold); }
+.omni-error-state__action { margin-top: var(--space-2); }
