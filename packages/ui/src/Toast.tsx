@@ -14,19 +14,19 @@ export type ToastProps = {
   /** The words on each toast's close button. */
   closeLabel?: string;
   /** How long a toast stays, in milliseconds; 0 keeps it until it is dismissed. */
-  timeout?: number;
+  timeout?: number | undefined;
   /** How many show at once. */
-  limit?: number;
+  limit?: number | undefined;
   children?: ReactNode;
 };
 
 /** What a toast says: a title, a line of detail at most, and its tone. */
 export type ToastMessage = {
   title: string;
-  description?: string;
+  description?: string | undefined;
   tone?: ToastTone;
   /** Overrides the timeout of the Toast that holds it. */
-  timeout?: number;
+  timeout?: number | undefined;
 };
 
 type ToastData = { tone: ToastTone };
@@ -71,7 +71,7 @@ export function useToast(): { show: (message: ToastMessage) => string; close: (i
 }
 
 /** A button that raises one toast: what the catalogue's specimen shows live (a function prop cannot cross from the server page). */
-export function ToastTrigger({ label, title, description, tone }: { label: string; title: string; description?: string; tone: ToastTone }) {
+export function ToastTrigger({ label, title, description, tone }: { label: string; title: string; description?: string | undefined; tone: ToastTone }) {
   const toast = useToast();
   return (
     <button

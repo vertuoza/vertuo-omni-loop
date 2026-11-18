@@ -14,7 +14,7 @@ import { Toast, useToast } from './Toast.tsx';
 
 afterEach(cleanup);
 
-function Raise({ timeout }: { timeout?: number }) {
+function Raise({ timeout }: { timeout?: number | undefined }) {
   const toast = useToast();
   return createElement('button', {
     type: 'button',
@@ -22,7 +22,7 @@ function Raise({ timeout }: { timeout?: number }) {
   }, 'Save');
 }
 
-function page(timeout?: number) {
+function page(timeout?: number | undefined) {
   return render(createElement(Toast, { timeout }, createElement(Raise, { timeout })));
 }
 
