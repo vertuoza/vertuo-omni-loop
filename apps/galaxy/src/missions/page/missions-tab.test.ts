@@ -246,7 +246,7 @@ describe('the token caps on the Missions tab (PRD 3040)', () => {
   const STOP = '44444444-4444-4444-8444-444444444444';
   const view = (mission: unknown, caps: Caps) => missionsTabService(withWaits(fakeDb([mission], [], null, [], caps))).view(WORKSPACE, 'night-shift');
 
-  it('says 412k of 2M tokens for a mission with a budget, and No token budget for one without (AC-10)', async () => {
+  it('AC-10: says 412k of 2M tokens for a mission with a budget, and No token budget for one without', async () => {
     const budgeted = await view({ ...MISSION_ROW, mandate: { parallel: 2, tokens: 2_000_000 } }, { spent: { [ID]: 412_000 } });
     expect(budgeted.missions[0]?.budget).toEqual({ words: '412k of 2M tokens', tokens: 2_000_000, canChange: false });
     const none = await view(MISSION_ROW, { spent: { [ID]: 412_000 } });

@@ -87,7 +87,7 @@ describe("a mission reaching its budget (PRD 3040 AC-2, AC-8)", () => {
 });
 
 describe("a fleet reaching its daily cap (PRD 3040 AC-3)", () => {
-  it('pauses every mission of the fleet that runs or waits, in one stop that names them', async () => {
+  it('AC-3: pauses every mission of the fleet that runs or waits, in one stop that names them', async () => {
     const { fake, run, kinds } = setup();
     fake.fleetCap(1000);
     fake.spend({ fleet: 1200 });
@@ -105,7 +105,7 @@ describe("a fleet reaching its daily cap (PRD 3040 AC-3)", () => {
 });
 
 describe('a cap cancels no running job (PRD 3040 AC-4)', () => {
-  it('leaves the running job to end, sends nothing new, and watches the mission while it runs', async () => {
+  it('AC-4: leaves the running job to end, sends nothing new, and watches the mission while it runs', async () => {
     const { fake, run, clock } = setup(record({ tokens: 1000, parallel: 1 }));
     await run();
     fake.end(p(1), { status: 'running' });

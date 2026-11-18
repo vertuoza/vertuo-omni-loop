@@ -38,11 +38,11 @@ const stop = (over: Partial<StopRow> = {}): StopRow => ({
 const act = (state: BudgetRead, status: MissionStatus = 'running') => budgetAct(state, { id: ID, status }, NOW);
 
 describe('a mission run and its token budget (PRD 3040 s3)', () => {
-  it('changes nothing with no cap set (AC-1)', () => {
+  it('AC-1: changes nothing with no cap set', () => {
     expect(act(read({ missionSpent: 9_000_000, fleetSpent24h: 9_000_000 }))).toEqual({ act: 'none' });
   });
 
-  it('records a stop of its own budget and pauses, once what it spent reaches it (AC-2)', () => {
+  it('AC-2: records a stop of its own budget and pauses, once what it spent reaches it', () => {
     // 600 input + 300 output + 200 cache writes: 1100 counted, the 5000 cache reads left out by the store's count.
     expect(act(read({ missionSpent: 1100, missionCap: 1000 }))).toEqual({
       act: 'pause',
@@ -61,7 +61,7 @@ describe('a mission run and its token budget (PRD 3040 s3)', () => {
     });
   });
 
-  it('records no second stop while its stop waits for an answer, and stays paused (AC-8)', () => {
+  it('AC-8: records no second stop while its stop waits for an answer, and stays paused', () => {
     expect(act(read({ missionSpent: 1100, missionCap: 1000, named: stop() }), 'paused')).toEqual({
       act: 'hold',
       words: "Paused: budget reached · 1.1k of 1k tokens · this mission's budget",
@@ -79,7 +79,7 @@ describe('a mission run and its token budget (PRD 3040 s3)', () => {
     expect(act(read({ fleetSpent24h: 1200, fleetCap: 1000, open }), 'running')).toMatchObject({ act: 'hold', event: { kind: 'paused' } });
   });
 
-  it('resumes a mission its budget paused once a person raised the cap, under every cap (AC-5)', () => {
+  it('AC-5: resumes a mission its budget paused once a person raised the cap, under every cap', () => {
     const raised = stop({ answer: 'raised', raisedTo: 5000, answeredAt: at(-1) });
     expect(act(read({ missionSpent: 1100, missionCap: 5000, named: raised }), 'paused')).toEqual({
       act: 'resume',
@@ -92,7 +92,7 @@ describe('a mission run and its token budget (PRD 3040 s3)', () => {
     expect(act(read({ missionSpent: 1100, missionCap: 1050, named: raised }), 'paused')).toMatchObject({ act: 'pause', stop: { cap: 'mission', capTokens: 1050, spent: 1100 } });
   });
 
-  it("wakes at the time the oldest counted job leaves the fleet's 24 hours, for Resume tomorrow (AC-6)", () => {
+  it("AC-6: wakes at the time the oldest counted job leaves the fleet's 24 hours, for Resume tomorrow", () => {
     const tomorrow = stop({ cap: 'fleet', answer: 'tomorrow', answeredAt: at(-1) });
     expect(act(read({ fleetSpent24h: 1200, fleetCap: 1000, oldestEnd: '2027-01-25T14:30:00Z', named: tomorrow }), 'paused')).toEqual({
       act: 'wake',
@@ -110,7 +110,7 @@ describe('a mission run and its token budget (PRD 3040 s3)', () => {
     });
   });
 
-  it('ends the mission stopped, saying the budget stopped it (AC-7)', () => {
+  it('AC-7: ends the mission stopped, saying the budget stopped it', () => {
     const stopped = stop({ answer: 'stopped', answeredAt: at(-1) });
     expect(act(read({ missionSpent: 1100, missionCap: 1000, named: stopped }), 'paused')).toEqual({
       act: 'stop',

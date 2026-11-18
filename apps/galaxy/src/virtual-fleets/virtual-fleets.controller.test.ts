@@ -173,7 +173,7 @@ describe('POST /api/virtual-fleets/tokens', () => {
     expect(await cleared.json()).toEqual({ fleet: { name: 'night-shift', dailyTokens: null } });
   });
 
-  it('refuses a member who is no owner, and keeps the cap as it was', async () => {
+  it('AC-9: refuses a member who is no owner, and keeps the cap as it was', async () => {
     const db = made();
     const res = await postFleetTokens(cap(1000), deps(BEN, db).deps);
     expect(res.status).toBe(403);
