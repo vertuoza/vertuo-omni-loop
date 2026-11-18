@@ -2,12 +2,18 @@
 // part's X.tsx, X.css, X.meta.ts and X.specimen.tsx there and run `pnpm --filter @omni/ui parts`.
 
 import type { Part } from '../meta.ts';
+import { AppShell } from '../AppShell.tsx';
+import { appShellMeta } from '../AppShell.meta.ts';
+import { appShellSpecimen } from '../AppShell.specimen.tsx';
 import { Avatar } from '../Avatar.tsx';
 import { avatarMeta } from '../Avatar.meta.ts';
 import { avatarSpecimen } from '../Avatar.specimen.tsx';
 import { Badge } from '../Badge.tsx';
 import { badgeMeta } from '../Badge.meta.ts';
 import { badgeSpecimen } from '../Badge.specimen.tsx';
+import { Breadcrumb } from '../Breadcrumb.tsx';
+import { breadcrumbMeta } from '../Breadcrumb.meta.ts';
+import { breadcrumbSpecimen } from '../Breadcrumb.specimen.tsx';
 import { Button } from '../Button.tsx';
 import { buttonMeta } from '../Button.meta.ts';
 import { buttonSpecimen } from '../Button.specimen.tsx';
@@ -35,9 +41,15 @@ import { drawerSpecimen } from '../Drawer.specimen.tsx';
 import { EmptyState } from '../EmptyState.tsx';
 import { emptyStateMeta } from '../EmptyState.meta.ts';
 import { emptyStateSpecimen } from '../EmptyState.specimen.tsx';
+import { ErrorState } from '../ErrorState.tsx';
+import { errorStateMeta } from '../ErrorState.meta.ts';
+import { errorStateSpecimen } from '../ErrorState.specimen.tsx';
 import { Field } from '../Field.tsx';
 import { fieldMeta } from '../Field.meta.ts';
 import { fieldSpecimen } from '../Field.specimen.tsx';
+import { FilterBar } from '../FilterBar.tsx';
+import { filterBarMeta } from '../FilterBar.meta.ts';
+import { filterBarSpecimen } from '../FilterBar.specimen.tsx';
 import { Grid } from '../Grid.tsx';
 import { gridMeta } from '../Grid.meta.ts';
 import { gridSpecimen } from '../Grid.specimen.tsx';
@@ -95,6 +107,9 @@ import { segmentedControlSpecimen } from '../SegmentedControl.specimen.tsx';
 import { Select } from '../Select.tsx';
 import { selectMeta } from '../Select.meta.ts';
 import { selectSpecimen } from '../Select.specimen.tsx';
+import { Skeleton } from '../Skeleton.tsx';
+import { skeletonMeta } from '../Skeleton.meta.ts';
+import { skeletonSpecimen } from '../Skeleton.specimen.tsx';
 import { Stack } from '../Stack.tsx';
 import { stackMeta } from '../Stack.meta.ts';
 import { stackSpecimen } from '../Stack.specimen.tsx';
@@ -122,17 +137,22 @@ import { textareaSpecimen } from '../Textarea.specimen.tsx';
 import { Timeline } from '../Timeline.tsx';
 import { timelineMeta } from '../Timeline.meta.ts';
 import { timelineSpecimen } from '../Timeline.specimen.tsx';
+import { Toast } from '../Toast.tsx';
+import { toastMeta } from '../Toast.meta.ts';
+import { toastSpecimen } from '../Toast.specimen.tsx';
 import { Tooltip } from '../Tooltip.tsx';
 import { tooltipMeta } from '../Tooltip.meta.ts';
 import { tooltipSpecimen } from '../Tooltip.specimen.tsx';
 
 /** Every part's component, by its name. */
-export const COMPONENTS = { Avatar, Badge, Button, Card, Checkbox, Code, Combobox, DataList, Dialog, Drawer, EmptyState, Field, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, PageHeader, Popover, Progress, Prose, Radio, Section, SegmentedControl, Select, Stack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Tooltip } as const;
+export const COMPONENTS = { AppShell, Avatar, Badge, Breadcrumb, Button, Card, Checkbox, Code, Combobox, DataList, Dialog, Drawer, EmptyState, ErrorState, Field, FilterBar, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, PageHeader, Popover, Progress, Prose, Radio, Section, SegmentedControl, Select, Skeleton, Stack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Toast, Tooltip } as const;
 
 /** Every part: its meta (variants, usage, do, don't, contrast) and its specimen. */
 export const PARTS: readonly Part[] = [
+  { meta: appShellMeta, specimen: appShellSpecimen },
   { meta: avatarMeta, specimen: avatarSpecimen },
   { meta: badgeMeta, specimen: badgeSpecimen },
+  { meta: breadcrumbMeta, specimen: breadcrumbSpecimen },
   { meta: buttonMeta, specimen: buttonSpecimen },
   { meta: cardMeta, specimen: cardSpecimen },
   { meta: checkboxMeta, specimen: checkboxSpecimen },
@@ -142,7 +162,9 @@ export const PARTS: readonly Part[] = [
   { meta: dialogMeta, specimen: dialogSpecimen },
   { meta: drawerMeta, specimen: drawerSpecimen },
   { meta: emptyStateMeta, specimen: emptyStateSpecimen },
+  { meta: errorStateMeta, specimen: errorStateSpecimen },
   { meta: fieldMeta, specimen: fieldSpecimen },
+  { meta: filterBarMeta, specimen: filterBarSpecimen },
   { meta: gridMeta, specimen: gridSpecimen },
   { meta: headingMeta, specimen: headingSpecimen },
   { meta: iconMeta, specimen: iconSpecimen },
@@ -162,6 +184,7 @@ export const PARTS: readonly Part[] = [
   { meta: sectionMeta, specimen: sectionSpecimen },
   { meta: segmentedControlMeta, specimen: segmentedControlSpecimen },
   { meta: selectMeta, specimen: selectSpecimen },
+  { meta: skeletonMeta, specimen: skeletonSpecimen },
   { meta: stackMeta, specimen: stackSpecimen },
   { meta: statMeta, specimen: statSpecimen },
   { meta: switchMeta, specimen: switchSpecimen },
@@ -171,5 +194,6 @@ export const PARTS: readonly Part[] = [
   { meta: textMeta, specimen: textSpecimen },
   { meta: textareaMeta, specimen: textareaSpecimen },
   { meta: timelineMeta, specimen: timelineSpecimen },
+  { meta: toastMeta, specimen: toastSpecimen },
   { meta: tooltipMeta, specimen: tooltipSpecimen },
 ];
