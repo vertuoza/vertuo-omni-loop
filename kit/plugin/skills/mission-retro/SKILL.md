@@ -8,7 +8,7 @@ description: Writes a mission's retro at a milestone, on a runner and never by h
 A mission's supervisor sends this skill on a runner when a roadmap of the mission's scope is delivered
 (every PRD of it merged or on the mission branch), and once more when the mission is delivered (PRD
 3065). It writes the retro, keeps it, and ends on **one record line** the App reads back from the
-job's log, as it reads `omni repair:`. It never asks a person, never merges, never touches the
+job's log, as it reads a repair's record line. It never asks a person, never merges, never touches the
 default branch, and **never pauses anything or sends a repair**.
 
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
@@ -16,8 +16,10 @@ branch shape or command you can read with `omni config <key>`.
 
 **Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
 adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
-prints as the message's last line, with no blank line between them. Comments are never signed. A
-command that prints nothing means signing is off here: add nothing.
+prints as the message's last line, with no blank line between them. Every pull request or issue it
+opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+your session's own attribution lines. Comments are never signed. A command that prints nothing means
+signing is off here: add nothing.
 
 ## Input
 
