@@ -1,0 +1,5 @@
+.omni-breadcrumb { font-family: var(--font-body); font-size: var(--type-3-size); }
+.omni-breadcrumb__list { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.omni-breadcrumb__item { display: flex; align-items: center; gap: var(--space-2); }
+.omni-breadcrumb__sep { color: var(--color-text-secondary); }
+.omni-breadcrumb__current { color: var(--color-text-primary); font-weight: var(--weight-medium); }
