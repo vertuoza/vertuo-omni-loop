@@ -5,7 +5,7 @@ import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
-import { MissionLevelSchema, MissionStatusSchema, type MissionStatus } from './missions.contract';
+import { MissionLevelSchema, MissionStatusSchema, StopAnswerSchema, type MissionStatus, type StopAnswer } from './missions.contract';
 
 // The missions' reads and writes (PRD 2842 s5), on the clients they are given. A signed-in person reads
 // through their own session, so row-level security shows a mission to the members of its workspace and to
@@ -22,8 +22,13 @@ const MissionRow = z.object({
   id: z.uuid(), workspace_id: z.uuid(), repo: z.string().min(1), status: MissionStatusSchema,
   number: z.number().int().positive(), title: z.string(),
   // A mission made before PRD 2896 holds no level: it reads `with-you`.
-  mandate: z.object({ level: MissionLevelSchema.optional() }).loose(),
+  mandate: z.object({ level: MissionLevelSchema.optional(), tokens: z.number().int().positive().optional() }).loose(),
 });
+const StopRow = z.object({
+  id: z.uuid(), answer: StopAnswerSchema, raised_to: z.number().int().positive().nullable(), mission_id: z.uuid().nullable(), missions: z.array(z.uuid()),
+});
+/** A budget stop as its answer left it: who it paused, and what the answer was (PRD 3040). */
+type AnsweredStopRow = { id: string; answer: StopAnswer; raisedTo: number | null; mission: string | null; missions: string[] };
 /** A mission as the repository reads it: its workspace, its repository, where it stands and the level it runs at. */
 export type MissionRecord = { id: string; workspace: string; repo: string; status: MissionStatus; number: number; title: string; level: MissionLevel };
 
@@ -125,6 +130,22 @@ export function missionsReader(db: MissionsDb) {
       return found;
     },
 
+    /** Sets the mission's token budget (null: none) as the signed-in person, so the database decides who may: the budget, or its refusal in its words (PRD 3040). */
+    async setTokens(id: string, tokens: number | null): Promise<{ ok: true; tokens: number | null } | { ok: false; code: string | null; error: string }> {
+      const answer: { data: unknown; error: { message: string; code?: string } | null } = await db.rpc('set_mission_tokens', { p_mission: id, p_tokens: tokens });
+      if (answer.error) return { ok: false, code: answer.error.code ?? null, error: answer.error.message };
+      const done = orThrow(parseRow(MissionRow, answer.data, `${WHERE}: set_mission_tokens`));
+      return { ok: true, tokens: done.mandate.tokens ?? null };
+    },
+
+    /** Answers a budget stop as the signed-in person, once: the stop as answered, or the database's refusal in its words (PRD 3040). */
+    async answerStop(stop: string, answer: StopAnswer, tokens: number | null): Promise<{ ok: true; stop: AnsweredStopRow } | { ok: false; code: string | null; error: string }> {
+      const made: { data: unknown; error: { message: string; code?: string } | null } = await db.rpc('answer_mission_budget_stop', { p_stop: stop, p_answer: answer, p_tokens: tokens });
+      if (made.error) return { ok: false, code: made.error.code ?? null, error: made.error.message };
+      const row = orThrow(parseRow(StopRow, made.data, `${WHERE}: answer_mission_budget_stop`));
+      return { ok: true, stop: { id: row.id, answer: row.answer, raisedTo: row.raised_to, mission: row.mission_id, missions: row.missions } };
+    },
+
     /** Sets the mission's level as the signed-in person, so the database decides who may raise it: the level, or the database's refusal in its words. */
     async setLevel(id: string, level: MissionLevel): Promise<{ ok: true; level: MissionLevel } | { ok: false; forbidden: boolean; error: string }> {
       const answer: { data: unknown; error: { message: string; code?: string } | null } = await db.rpc('set_mission_level', { p_mission: id, p_level: level });
@@ -158,7 +179,7 @@ export function missionsWriter(db: MissionsDb) {
     },
 
     /** Records one event of the mission, signed with the member's login. */
-    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'stopped' | 'drop-asked' | 'drop-asked-keep' | 'overturned'; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string }): Promise<void> {
+    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'stopped' | 'drop-asked' | 'drop-asked-keep' | 'overturned' | 'budget-answer'; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string }): Promise<void> {
       const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }), ...(event.job === undefined ? {} : { job_id: event.job }) });
       if (error) throw new Error(`Supabase: could not record the mission's event (${error.message})`);
     },

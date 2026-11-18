@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
-import { VirtualFleetSchema, type CreateVirtualFleetRequest, type VirtualFleet } from './virtual-fleets.contract';
+import { VirtualFleetSchema, type CreateVirtualFleetRequest, type DailyTokensBody, type VirtualFleet } from './virtual-fleets.contract';
 
 // The Virtual Fleets' reads and writes (PRD 2842 s1; ADR-0095), on the client they are given: the
 // signed-in person's own, so create_virtual_fleet() of supabase/migrations/20270122090000_virtual_fleets.sql
@@ -16,6 +16,7 @@ export type Written<T> = { ok: true; value: T } | { ok: false; code: string | nu
 
 const WHERE = 'virtual-fleets/virtual-fleets.repository';
 const FleetName = z.object({ name: z.string().min(1) });
+const CappedRow = z.object({ name: z.string().min(1), daily_tokens: z.number().int().positive().nullable() });
 
 type Answer = { data: unknown; error: { code?: string; hint?: string; message: string } | null };
 
@@ -28,6 +29,14 @@ export function virtualFleetsRepository(db: VirtualFleetsDb) {
       });
       if (answer.error) return { ok: false, code: answer.error.code || null, hint: answer.error.hint || null, message: answer.error.message };
       return { ok: true, value: orThrow(parseRow(VirtualFleetSchema, answer.data, `${WHERE}: create_virtual_fleet`)) };
+    },
+
+    /** Sets the fleet's daily token cap (set_fleet_daily_tokens(), an owner alone; null: none): the fleet as capped (PRD 3040). */
+    async setDailyTokens(request: DailyTokensBody): Promise<Written<{ name: string; dailyTokens: number | null }>> {
+      const answer: Answer = await db.rpc('set_fleet_daily_tokens', { p_workspace: request.workspace, p_fleet: request.fleet, p_tokens: request.tokens });
+      if (answer.error) return { ok: false, code: answer.error.code || null, hint: answer.error.hint || null, message: answer.error.message };
+      const row = orThrow(parseRow(CappedRow, answer.data, `${WHERE}: set_fleet_daily_tokens`));
+      return { ok: true, value: { name: row.name, dailyTokens: row.daily_tokens } };
     },
 
     /** The keys of the workspace's virtual fleets, retired ones included. */

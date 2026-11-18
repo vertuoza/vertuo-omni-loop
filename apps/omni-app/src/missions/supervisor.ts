@@ -242,7 +242,9 @@ export type Concluded = { status: MissionStatus; waitingOn: string | null; nextW
 
 export type EventKind =
   | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated'
-  | 'prd-added' | 'not-written' | 'repair-started' | 'retro' | 'repair-ended' | 'bug-reported' | 'checked';
+  | 'prd-added' | 'not-written' | 'repair-started' | 'retro' | 'repair-ended' | 'bug-reported' | 'checked'
+  /** PRD 3040: the supervisor recorded a budget stop, paused the mission again by it, or resumed it once it was answered. */
+  | 'budget-stop' | 'paused' | 'resumed';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa';
 
 /** An event to record, signed by its role and `agent`. */

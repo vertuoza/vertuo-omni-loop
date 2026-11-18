@@ -13,6 +13,7 @@ export const DRAFT = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 export const RUNNING = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 export const PAUSED = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 export const DELIVERED = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+export const STOP = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 export const ELSEWHERE = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 
 export const ADA = { id: '00000000-0000-4000-8000-00000000ada0', login: 'ada' };
@@ -20,6 +21,15 @@ export const BEN = { id: '00000000-0000-4000-8000-0000000000be', login: 'ben' };
 export const DAN = { id: '00000000-0000-4000-8000-0000000000da', login: 'dan' };
 
 type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string };
+
+/** The database's refusal of an answer to a stop (supabase/checks/token_budget.sql), or null: answered once, tomorrow for a fleet's cap, a raise an owner's and above the cap reached. */
+function answerRefusal(stop: { cap: string; capTokens: number; answer: string | null }, answer: string, tokens: number | null, owner: boolean): { code: string; error: string } | null {
+  if (stop.answer !== null) return { code: '22023', error: `Answer: this stop was answered already (${stop.answer}).` };
+  if (answer === 'tomorrow' && stop.cap !== 'fleet') return { code: '22023', error: 'Answer: Resume tomorrow is for a fleet\'s daily cap.' };
+  if (answer !== 'raised') return null;
+  if (!owner) return { code: '42501', error: 'Only an owner of the workspace raises a cap.' };
+  return tokens === null || tokens <= stop.capTokens ? { code: '22023', error: `Tokens: a whole number above the cap reached (${String(stop.capTokens)}).` } : null;
+}
 
 export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel; territories?: Record<number, string[]>; planRepos?: readonly string[] } = {}) {
   const missions = new Map<string, MissionRecord & { startedBy: string | null; nextWakeAt: string | null }>();
@@ -31,6 +41,10 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   add(DELIVERED, 'delivered');
   add(ELSEWHERE, 'running', OTHER, 'other/repo');
   const events: Event[] = [];
+  // The budget stops, as mission_budget_stops holds them: one fleet stop that paused PAUSED and RUNNING, waiting for its answer.
+  const stops = new Map<string, { id: string; workspace: string; cap: 'mission' | 'fleet'; capTokens: number; mission: string | null; missions: string[]; answer: string | null }>([
+    [STOP, { id: STOP, workspace: NORTHWIND, cap: 'fleet', capTokens: 1000, mission: null, missions: [PAUSED, RUNNING], answer: null }],
+  ]);
   const jobs: MissionJob[] = [];
   const onBranchOf = (id: string): Promise<PrdNumber[]> => {
     const on = new Set<PrdNumber>();
@@ -66,6 +80,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   };
   return {
     missions,
+    stops,
     events,
     jobs,
     writer,
@@ -91,6 +106,23 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
           return Promise.resolve(row && sees(row.id) ? record(row) : null);
         },
         territories: (_mission, prds) => Promise.resolve(new Map(prds.map((prd) => [prd, options.territories?.[prd] ?? null]))),
+        // The database's rules, as supabase/checks/token_budget.sql proves them: any member sets a draft's budget, an owner alone one that
+        // started; a stop is answered once, and an owner alone raises its cap, above the one reached.
+        setTokens: (id, tokens) => {
+          const row = missions.get(id);
+          if (!row || !sees(id)) return Promise.resolve({ ok: false, code: '42501', error: 'Only a member of the mission\'s workspace sets its token budget.' });
+          if (tokens !== null && (tokens < 1 || tokens > 1_000_000_000)) return Promise.resolve({ ok: false, code: '22023', error: 'Token budget: a whole number from 1 to 1000000000, or none for no budget.' });
+          if (row.status !== 'draft' && !(options.owners ?? []).includes(person.id)) return Promise.resolve({ ok: false, code: '42501', error: 'Only an owner of the workspace changes the token budget of a mission that started.' });
+          return Promise.resolve({ ok: true, tokens });
+        },
+        answerStop: (id, answer, tokens) => {
+          const stop = stops.get(id);
+          if (!stop || members.get(person.id)?.includes(stop.workspace) !== true) return Promise.resolve({ ok: false, code: '42501', error: 'Only a member of the workspace answers its budget stops.' });
+          const refusal = answerRefusal(stop, answer, tokens, (options.owners ?? []).includes(person.id));
+          if (refusal !== null) return Promise.resolve({ ok: false, ...refusal });
+          stops.set(id, { ...stop, answer });
+          return Promise.resolve({ ok: true, stop: { id, answer, raisedTo: answer === 'raised' ? tokens : null, mission: stop.mission, missions: stop.missions } });
+        },
         // The database's rule, as supabase/checks/missions.sql proves it: only an owner takes a mission above its fleet's level.
         setLevel: (id, level) => {
           const row = missions.get(id);

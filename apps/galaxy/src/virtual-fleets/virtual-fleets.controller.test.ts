@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { postVirtualFleet, type VirtualFleetsDeps } from './virtual-fleets.controller';
+import { postFleetTokens, postVirtualFleet, type VirtualFleetsDeps } from './virtual-fleets.controller';
 import { ADA, BEN, DAN, fakeVirtualFleetsDb, NORTHWIND } from './virtual-fleets.fake';
 import { FAILED, ONLY_MEMBERS, ONLY_OWNERS, virtualFleetsService } from './virtual-fleets.service';
 
@@ -85,6 +85,7 @@ describe('POST /api/virtual-fleets', () => {
       service: () => Promise.resolve(virtualFleetsService({
         create: () => Promise.resolve({ ok: false, code: '23505', hint: null, message: 'duplicate key' }),
         names: () => Promise.resolve([]),
+        setDailyTokens: () => Promise.reject(new Error('not used')),
       })),
       log: (line) => { lines.push(line); },
     };
@@ -102,6 +103,7 @@ describe('POST /api/virtual-fleets', () => {
     const service = virtualFleetsService({
       create: () => Promise.resolve({ ok: false, code: '22023', hint: 'fleets', message: 'Fleets: at most 12 active. Retire one first.' }),
       names: () => Promise.resolve([]),
+      setDailyTokens: () => Promise.reject(new Error('not used')),
     });
     const res = await postVirtualFleet(create(), { service: () => Promise.resolve(service), log: () => undefined });
     expect(res.status).toBe(422);
@@ -148,5 +150,46 @@ describe('POST /api/virtual-fleets, a fleet\'s level (PRD 2896 s1)', () => {
     const res = await postVirtualFleet(create({ level: 'sometimes' }), deps(ADA).deps);
     expect(res.status).toBe(422);
     expect(await res.json()).toMatchObject({ field: 'level' });
+  });
+});
+
+// POST /api/virtual-fleets/tokens (PRD 3040, AC-9): an owner alone sets the fleet's daily cap, above 0; none clears it.
+describe('POST /api/virtual-fleets/tokens', () => {
+  const made = () => {
+    const db = fakeVirtualFleetsDb();
+    db.teams.get(NORTHWIND)?.push({ name: 'night-shift', label: 'Night Shift', color: '#b07cff', mascot: 'robot', kind: 'virtual', heroes: [] });
+    return db;
+  };
+  const cap = (tokens: unknown) => new Request('http://local/api/virtual-fleets/tokens', { method: 'POST', body: JSON.stringify({ workspace: NORTHWIND, fleet: 'night-shift', tokens }) });
+
+  it('lets an owner set the cap and clear it', async () => {
+    const db = made();
+    const { deps: given } = deps(ADA, db);
+    const set = await postFleetTokens(cap(2_000_000), given);
+    expect(set.status).toBe(200);
+    expect(await set.json()).toEqual({ fleet: { name: 'night-shift', dailyTokens: 2_000_000 } });
+    expect(db.teams.get(NORTHWIND)?.find((t) => t.name === 'night-shift')?.dailyTokens).toBe(2_000_000);
+    const cleared = await postFleetTokens(cap(null), given);
+    expect(await cleared.json()).toEqual({ fleet: { name: 'night-shift', dailyTokens: null } });
+  });
+
+  it('AC-9: refuses a member who is no owner, and keeps the cap as it was', async () => {
+    const db = made();
+    const res = await postFleetTokens(cap(1000), deps(BEN, db).deps);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'Only an owner of the workspace sets a fleet’s daily cap.', field: 'form' });
+    expect(db.teams.get(NORTHWIND)?.find((t) => t.name === 'night-shift')?.dailyTokens).toBeUndefined();
+  });
+
+  it('refuses 0, a negative number and a fraction before the database is asked', async () => {
+    const { deps: given } = deps(ADA, made());
+    for (const tokens of [0, -5, 1.5, 'lots']) expect((await postFleetTokens(cap(tokens), given)).status).toBe(422);
+  });
+
+  it('answers 401 signed out, 503 with no database and 422 for a fleet that is none', async () => {
+    expect((await postFleetTokens(cap(1000), deps(null, made()).deps)).status).toBe(401);
+    expect((await postFleetTokens(cap(1000), { service: null, log: () => undefined })).status).toBe(503);
+    const none = new Request('http://local/x', { method: 'POST', body: JSON.stringify({ workspace: NORTHWIND, fleet: 'ghost', tokens: 5 }) });
+    expect((await postFleetTokens(none, deps(ADA, made()).deps)).status).toBe(422);
   });
 });

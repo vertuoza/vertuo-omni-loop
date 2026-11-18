@@ -122,6 +122,35 @@ says `committee only: a person merges each target's pull request`. **Own branch*
   says `land or drop the <k> PRDs on <branch> first`. Land the mission pull request, or drop each
   PRD, and then lower the level.
 
+## Token budgets
+
+A mission can be bounded by the tokens it spends. There are two caps, and **both are off by
+default**: no number ships, so nothing pauses until you set one.
+
+- **The fleet's daily cap** (`Tokens per day`, on the virtual fleet's settings) covers every mission
+  of the fleet over the last 24 hours. Only a workspace owner sets it. Empty means no cap.
+- **A mission's budget** (`Token budget for this mission`) covers every job that mission has sent,
+  on top of the fleet's cap. Set it on the mission's page while it is a draft. Empty means no cap.
+
+**What counts:** a job counts once it has ended, as its input, output and cache-write tokens. Cache
+reads are left out, so a long session that re-reads its context does not fill a cap. A job with no
+recorded tokens counts as 0, and its row says so. A running job counts nothing until it ends.
+
+**At a cap,** the mission sends nothing new and pauses, marked `Paused: budget reached`, with the cap
+and what was spent. Running jobs finish; none is cancelled. A fleet's cap pauses every running
+mission of that fleet together, in one stop. The question is asked once, on the mission's page and in
+your bell, with three answers:
+
+- **Raise the cap:** enter a new number. Each mission the stop paused runs again once it is under
+  every cap.
+- **Resume tomorrow** (the fleet's cap only): each paused mission wakes by itself once the fleet's
+  last 24 hours are back under the cap.
+- **Stop the mission:** it ends `stopped`, and its page says the budget stopped it.
+
+Only your answer, or the wake of **Resume tomorrow**, ends a budget pause. Your own **Pause** and
+**Resume** work as before. A mission you resume by hand while it is still over a cap is paused again
+at its next run.
+
 ## Before the Reviewer: QA
 
 Once the Engineer has built a PRD, QA checks it before the Reviewer reads it. QA opens the feature
