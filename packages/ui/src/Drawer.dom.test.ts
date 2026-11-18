@@ -5,12 +5,19 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { createElement } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Button } from './Button.tsx';
 import { Drawer } from './Drawer.tsx';
 import { drawerSpecimen } from './Drawer.specimen.tsx';
 
 afterEach(cleanup);
+
+/** What the drawer printed as an error while this file ran. */
+const errors: string[] = [];
+beforeAll(() => {
+  vi.spyOn(console, 'error').mockImplementation((message: unknown) => { errors.push(String(message)); });
+});
+afterAll(() => { vi.restoreAllMocks(); });
 
 /** The class names of `el` and of every element under it, in document order. */
 function shape(el: Element): string[] {
@@ -70,5 +77,10 @@ describe('Drawer', () => {
     await user.click(screen.getByRole('button', { name: 'Filters' }));
     const live = await screen.findByRole('dialog');
     expect(shape(live)).toEqual(shape(still ?? live));
+  });
+
+  // Base UI says each missing part once per run, so every error since the file began is read here, last.
+  it('opens with every part Base UI expects, so swipe and touch scroll locking work', () => {
+    expect(errors).toEqual([]);
   });
 });

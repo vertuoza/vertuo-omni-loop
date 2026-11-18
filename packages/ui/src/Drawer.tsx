@@ -41,6 +41,7 @@ export function Drawer({ trigger, title, description, side = 'end', closeLabel =
       <Base.Trigger className="omni-button omni-button--secondary omni-button--md">{trigger}</Base.Trigger>
       <Base.Portal>
         <Base.Backdrop className="omni-drawer-scrim" />
+        <Base.Viewport className={`omni-drawer-viewport omni-drawer-viewport--${side}`}>
         <Base.Popup className={`omni-drawer omni-drawer--${side}`}>
           <div className="omni-drawer__head">
             <Base.Title className="omni-drawer__title">{title}</Base.Title>
@@ -52,6 +53,7 @@ export function Drawer({ trigger, title, description, side = 'end', closeLabel =
           {children === undefined ? null : <div className="omni-drawer__body">{children}</div>}
           {actions === undefined ? null : <div className="omni-drawer__actions">{actions}</div>}
         </Base.Popup>
+        </Base.Viewport>
       </Base.Portal>
     </Base.Root>
   );

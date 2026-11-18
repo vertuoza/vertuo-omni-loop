@@ -48,9 +48,11 @@
 .omni-dialog-specimen { display: grid; gap: var(--space-3); justify-items: start; inline-size: 100%; }
 .omni-dialog-still {
   box-sizing: border-box;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
   inline-size: 100%;
+  /* Its width is its holder's, never the panel's: a wide size shrinks to fit the still. */
+  contain: inline-size;
   padding: var(--space-5) var(--space-3);
   border-radius: var(--radius-2);
   background: var(--color-scrim);
