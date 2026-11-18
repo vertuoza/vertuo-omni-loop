@@ -69,9 +69,9 @@ phase-0 PR and step 10 hands off to the PRD's page. Everything else runs as writ
 
 **The design flag.** Read it once: `node .omni-loop/bin/omni.mjs config design.enabled`, and keep
 what it prints for step 5 (and **Rework**, which writes the page the same way). Anything but `true`
-(or a failure) means design craft is off here: step 5 reads no design form, and the page is drawn
-as it always has been. Off, the design memory is off too: step 5 reads no screen library, marks no
-screen, runs no word pass and writes no draft screen, and steps 7 and 9 carry none.
+(or a failure) means design craft is off here: step 5 reads no design form, but the page still
+draws every changed screen, as a best effort. Off, the design memory is off too: step 5 reads no
+screen library, runs no word pass and writes no draft screen, and steps 7 and 9 carry none.
 
 With `--concept`, read the concept next, as **From a concept** says. Each of its three stops ends
 the skill there, before the dossier opens and before any question.
@@ -461,8 +461,7 @@ CLI, never from a blank file, in this order:
     screens included (`screens: quote-list · app-shell`), is the line review and the word pass
     read. A PRD that changes no screen says the one line `Pixel perfect: no screen changes` in it:
     no slice runs pixel-perfect work for it, and the feature PR's **Pixel perfect** line
-    (`/omni:pr`) is `none`. With the design flag off, the section is `na`,
-    `N/A — design craft is off here`. The tab is always there.
+    (`/omni:pr`) is `none`, whatever the flag. The tab is always there.
 - **A change is breaking** when it removes an element, changes the type of an output, an argument or
   an input field, changes an output's nullability, or adds a required argument or input field. A
   deprecation never is. The repository's conventions pages may make the rule stricter, never
@@ -476,7 +475,9 @@ CLI, never from a blank file, in this order:
   graded on its size alone. This step writes version 3 and never writes either of them.
 
 - **The Pixel perfect section:** a change with a **screen** is every screen drawn whole, in the
-  third tab, today beside after. A screen is written at its real width, which it declares
+  third tab, today beside after, with the design flag on or off, `design.paths` set or empty, a
+  library or none, and with the marks below. A screen changes when the approved design changes what
+  a person sees on it, or when it changes a file `design.paths` lists by glob. A screen is written at its real width, which it declares
   (`data-viewport="1280"`, a phone screen `390`), and inside the shared screens the library says
   it appears in (its app shell, its navigation): read `omni design screens`, and a page whose
   route a shared screen lists is drawn inside that shared screen. It is built from the library
@@ -494,6 +495,9 @@ CLI, never from a blank file, in this order:
   product does on purpose holds on the "after" too, over any rule of craft. A `[hole]` is filled
   from what the "today" screen and its neighbours already use, never invented; say under the
   mockup which section was a hole. The "after" changes only what the approved design changes.
+- **Design flag off:** read "today" from the page's own markup, styles and words, at the width the
+  app lays it out for; "after" is it with only what the approved design changes. Use no design form,
+  library, word pass or draft screen; say in one line under the screen what was guessed.
 - **The design memory,** with the design flag on, for a change with a screen. Read the form's
   `language` laws with the rest of it, then run `node .omni-loop/bin/omni.mjs design screens` and
   read each library screen the design draws (its `implements` or `routes` meet what the design
@@ -502,7 +506,7 @@ CLI, never from a blank file, in this order:
   redesigned; a change the approved design makes to it is named in the spec's **Decisions**: the
   screen, the change and who locked it (its `locked-by` and `locked-on`), for the slice that builds
   it to raise as the high item its owner answers. A **draft** is a starting point.
-- **The marks and the word pass,** with the design flag on. Each side of each screen, "today" and
+- **The marks and the word pass,** the marks flag on or off, the word pass with the flag on. Each side of each screen, "today" and
   "after", is one element carrying these marks, its markup inside it in a `<template>` child:
   `data-screen` (the screen's library name; every state of a screen carries the same one),
   `data-ref` (`<number>.<letter>`, as `2.C`), `data-when` (`today` or `after`) and

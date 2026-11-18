@@ -416,17 +416,24 @@ and the review's critique runs it too. A finding is fixed in the screen, never s
 
 ## The before/after: three tabs
 
-With design craft on, the before/after page `/omni:brainstorm` writes for a PRD has three tabs, in
-this order:
+The before/after page `/omni:brainstorm` writes for a PRD has three tabs, in this order, whether or
+not design craft is on:
 
 - **Functional:** what the change does, today beside after, in product words: the flow, the data,
   the exchange. It opens first. Every PRD has it.
 - **Technical:** the flow, the deploy order and, per service, the database, the API and the
   behaviour.
-- **Pixel perfect:** only when the change changes a screen. The marked screens, drawn whole at the
+- **Pixel perfect:** only when the change changes a screen. The changed screens, drawn whole at the
   width each declares, today beside after, with an index of every reference. Its tab label counts
   the screens (`Pixel perfect · 3`), and the address `#pixel-perfect` opens it. It is the part the
-  review and the word pass read, and the one a reviewer looks at closely.
+  review and the word pass read, and the one a reviewer looks at closely. It draws a changed screen
+  whether or not design craft is on. With design craft on, each screen is the library's, with its
+  mockup. With it off, nothing is configured, so the page draws a best effort from the app's own
+  code: **today** is the screen as the app shows it now, its markup, styles and real words read from
+  the page's code and the stylesheets it uses, at the width the app lays it out for; **after** is
+  that same screen with only what the approved design changes. No design form, screen library, word
+  pass or draft screen is used. A screen whose code cannot be read well enough is still drawn from
+  what can be read, and the page says under it, in one line, what was guessed.
 
 A screen has a **reference**: a number for the screen and a letter for its state. `2` is the second
 screen of the page, `2.C` its third state (an error, a confirm step, an empty list). A reference
