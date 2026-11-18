@@ -8,6 +8,7 @@
 .omni-segment {
   padding: var(--space-2) var(--space-4);
   border: 0;
+  border-block-end: 3px solid transparent;
   border-inline-start: 1px solid var(--color-border-strong);
   background: transparent;
   color: var(--color-text-secondary);
@@ -20,5 +21,5 @@
 .omni-segment:first-child { border-inline-start: 0; }
 .omni-segmented--sm .omni-segment { padding: var(--space-1) var(--space-3); font-size: var(--type-2-size); line-height: var(--type-2-line); }
 .omni-segment:hover { background: var(--color-sunken); color: var(--color-text-primary); }
-.omni-segment--chosen { background: var(--color-raised); color: var(--color-text-primary); font-weight: var(--weight-bold); box-shadow: inset 0 -3px 0 var(--color-text-primary); }
+.omni-segment--chosen { background: var(--color-raised); color: var(--color-text-primary); font-weight: var(--weight-bold); border-block-end-color: var(--color-text-primary); }
 .omni-segment:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }

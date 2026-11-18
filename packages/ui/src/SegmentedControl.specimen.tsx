@@ -15,5 +15,5 @@ let drawn = 0;
 /** A SegmentedControl at each size, the second option chosen. */
 export const segmentedControlSpecimen: Specimen = (_prop, value) => {
   drawn += 1;
-  return <SegmentedControl label={`Show ${String(drawn)}`} options={options} value="open" onChange={() => undefined} size={one(SEGMENTED_SIZES, value)} />;
+  return <SegmentedControl label={`Show ${String(drawn)}`} options={options} defaultValue="open" size={one(SEGMENTED_SIZES, value)} />;
 };
