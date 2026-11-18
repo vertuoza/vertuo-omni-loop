@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
-import { AnsweredStopSchema, BudgetedMissionSchema, StopAnswerBodySchema, TokensBodySchema, BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
+import { AnsweredItemSchema, ItemAnswerBodySchema, AnsweredStopSchema, BudgetedMissionSchema, StopAnswerBodySchema, TokensBodySchema, BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MovedMission, type MissionAction, type MissionRefusal } from './missions.contract';
 import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
@@ -10,6 +10,8 @@ import type { Caller, MissionsReader, MissionsService } from './missions.service
 //   POST /api/missions/<id>/level {level}            200 {mission: {id, level}}   (PRD 2896)
 //   POST /api/missions/<id>/tokens {tokens}          200 {mission: {id, tokens}}   (PRD 3040)
 //   POST /api/missions/stops/<stop> {answer, tokens?} 200 {stop: {id, answer, raisedTo}}   (PRD 3040)
+//   POST /api/missions/<id>/stop                     200 {mission: {id, status}}   (PRD 3065, a mission paused by stuck)
+//   POST /api/missions/items/<item> {answer, note?}  200 {item: {id, answer}}   (PRD 3065, Adopt or Decline)
 //   POST /api/missions/<id>/bugs {prd, pick}         200 {bugs: {mission, prd, pick}}   (PRD 3001, Decide the bugs)
 //
 // Signed out is 401 and nothing else runs; a person who is no member of the mission's workspace (it is
@@ -43,8 +45,11 @@ async function ready(id: string, deps: MissionsDeps, bad: string = BAD_ID): Prom
   return { id: mission.data, person, service: deps.service };
 }
 
+type Served<T> = { ok: true; value: T } | { ok: false; kind: MissionRefusal; error: string; cause?: string };
+type Ready = Exclude<Awaited<ReturnType<typeof ready>>, Response>;
+
 /** What a route answers once its move is served: the contract's body, or the refusal in its words (a cause is logged). */
-function answer<T>(served: { ok: true; value: T } | { ok: false; kind: MissionRefusal; error: string; cause?: string }, parse: (value: T) => unknown, deps: MissionsDeps): Response {
+function answer<T>(served: Served<T>, parse: (value: T) => unknown, deps: MissionsDeps): Response {
   if (served.ok) return reply(200, parse(served.value));
   if (served.cause) deps.log(`missions: ${served.cause}`);
   return refuse(served.kind, served.error);
@@ -55,15 +60,20 @@ function failed(error: unknown, deps: MissionsDeps): Response {
   return refuse('database', FAILED);
 }
 
-/** POST /api/missions/<id>/<action>: a member moves their workspace's mission. */
-export async function moveMission(action: MissionAction, id: string, deps: MissionsDeps): Promise<Response> {
+/** A route that moves mission `id` as a member of its workspace: the service's answer served as the contract says. */
+async function viaMission(id: string, deps: MissionsDeps, serve: (got: Ready) => Promise<Served<MovedMission>>): Promise<Response> {
   try {
     const got = await ready(id, deps);
     if (got instanceof Response) return got;
-    return answer(await got.service.move(action, got.id, got.person.caller, got.person.reader), (value) => MovedMissionSchema.parse(value), deps);
+    return answer(await serve(got), (value) => MovedMissionSchema.parse(value), deps);
   } catch (error) {
     return failed(error, deps);
   }
+}
+
+/** POST /api/missions/<id>/<action>: a member moves their workspace's mission. */
+export function moveMission(action: MissionAction, id: string, deps: MissionsDeps): Promise<Response> {
+  return viaMission(id, deps, (got) => got.service.move(action, got.id, got.person.caller, got.person.reader));
 }
 
 const BAD_DROP = 'A drop names the repository as owner/name, the mission\'s number and the PRD\'s.';
@@ -145,7 +155,28 @@ export async function budgetMission(id: string, request: Request, deps: Missions
   }
 }
 
-const BAD_STOP = 'A budget stop\'s id is the one its page gives.';
+/** POST /api/missions/<id>/stop: a member stops a mission paused by stuck, saying it was stuck (PRD 3065). */
+export function stopStuckMission(id: string, deps: MissionsDeps): Promise<Response> {
+  return viaMission(id, deps, (got) => got.service.stopStuck(got.id, got.person.caller, got.person.reader));
+}
+
+const BAD_ITEM = 'A question\'s id is the one its page gives.';
+const BAD_ITEM_ANSWER = 'An answer to a question is adopted or declined, with a note of 500 characters at most.';
+
+/** POST /api/missions/items/<item>: a member adopts or declines a mission item, once, as themselves (PRD 3065). */
+export async function answerMissionItem(item: string, request: Request, deps: MissionsDeps): Promise<Response> {
+  try {
+    const got = await ready(item, deps, BAD_ITEM);
+    if (got instanceof Response) return got;
+    const body = ItemAnswerBodySchema.safeParse(await request.json().catch(() => null));
+    if (!body.success) return refuse('malformed', BAD_ITEM_ANSWER);
+    return answer(await got.service.answerItem(got.id, body.data, got.person.caller, got.person.reader), (value) => AnsweredItemSchema.parse(value), deps);
+  } catch (error) {
+    return failed(error, deps);
+  }
+}
+
+const BAD_STOP ='A budget stop\'s id is the one its page gives.';
 const BAD_ANSWER = 'An answer is raised (with the new cap in tokens), tomorrow or stopped.';
 
 /** POST /api/missions/stops/<stop>: a member answers a budget stop, once, as themselves (PRD 3040). */

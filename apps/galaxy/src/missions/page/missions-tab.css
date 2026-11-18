@@ -39,6 +39,18 @@
 .mission-stop { display: grid; gap: 6px; justify-items: start; padding: 8px 10px; border: 1.5px solid var(--ask-plasma); border-radius: 8px; font-size: 15px; }
 .mission-fleet-stop { margin: 0; }
 
+/* Stuck, retros and the mission's own outbox (PRD 3065 s7, the `mission-start` screen's 1.A to 1.E). */
+.mission-stuck { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 15px; }
+.mission-stuck small { flex-basis: 100%; }
+.mission-stuck-paused p { margin: 0; }
+.mission-stuck-tried { margin: 0; padding-left: 18px; }
+.mission-retros, .mission-questions { display: grid; gap: 8px; }
+.mission-retros h4, .mission-questions h4 { margin: 0; font-size: 15px; }
+.mission-retro, .mission-question { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--ask-line); border-radius: 8px; font-size: 15px; justify-items: start; }
+.mission-retro h5, .mission-question h5 { margin: 0; font-size: 15px; }
+.mission-retro-side { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.mission-question ul { margin: 0; padding-left: 18px; }
+
 @media (max-width: 719px) {
   .mission { grid-template-columns: minmax(0, 1fr); }
   .mission-action { justify-self: start; }

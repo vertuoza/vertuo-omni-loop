@@ -17,7 +17,8 @@ const EVENTS_MAX = 1000;
 
 const RowSchema = z.object({
   mission_id: z.string(),
-  prd: PrdNumberSchema,
+  prd: PrdNumberSchema.nullable(),
+  trigger: z.enum(['failure', 'stuck']),
   fingerprint: z.string(),
   round: z.number(),
   number: z.number(),
@@ -36,7 +37,7 @@ export function repairRepository(db: RepairDb) {
     async facts(missions: readonly string[]): Promise<RepairFacts> {
       if (missions.length === 0) return { rows: [], events: [], statuses: new Map() };
       const ids = [...missions];
-      const rows = await db.from('mission_repairs').select('mission_id, prd, fingerprint, round, number, job_id, fix_pr, outcome, started_at, retro').in('mission_id', ids);
+      const rows = await db.from('mission_repairs').select('mission_id, prd, trigger, fingerprint, round, number, job_id, fix_pr, outcome, started_at, retro').in('mission_id', ids);
       if (rows.error) throw new Error(`Supabase: could not read the missions' repairs (${rows.error.message})`);
       const events = await db.from('mission_events').select('mission_id, kind, prd, job_id, link, at').in('mission_id', ids).in('kind', KINDS).order('at', { ascending: false }).limit(EVENTS_MAX);
       if (events.error) throw new Error(`Supabase: could not read the missions' repair events (${events.error.message})`);
@@ -44,7 +45,7 @@ export function repairRepository(db: RepairDb) {
       if (status.error) throw new Error(`Supabase: could not read the missions' status (${status.error.message})`);
       return {
         rows: orThrow(parseRows(RowSchema, rows.data, `${WHERE}: mission_repairs`)).map((row): RepairRow => ({
-          mission: row.mission_id, prd: row.prd, fingerprint: row.fingerprint, round: row.round, number: row.number, job: row.job_id, fixPr: row.fix_pr, outcome: row.outcome, startedAt: row.started_at, retro: row.retro,
+          mission: row.mission_id, prd: row.prd, trigger: row.trigger, fingerprint: row.fingerprint, round: row.round, number: row.number, job: row.job_id, fixPr: row.fix_pr, outcome: row.outcome, startedAt: row.started_at, retro: row.retro,
         })),
         events: orThrow(parseRows(EventSchema, events.data, `${WHERE}: mission_events`)).map((row): RepairEvent => ({ mission: row.mission_id, kind: row.kind, prd: row.prd, job: row.job_id, link: row.link, at: row.at })),
         statuses: new Map(orThrow(parseRows(StatusSchema, status.data, `${WHERE}: missions`)).map((row) => [row.id, row.status])),
