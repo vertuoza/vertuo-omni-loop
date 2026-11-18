@@ -27,8 +27,11 @@ import { paginate, PER_PAGE } from '../retro/github.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
 import type { CheckRun, CommitStatus, OpenItems, PullRead } from './gate.ts';
 
-/** Where a pull request is: the installation, the repository (`owner/name`), the PRD and its pull request. */
-export type PullAt = { installation: number; repo: string; prd: PrdNumber; pr: PrNumber };
+/**
+ * Where a pull request is: the installation, the repository (`owner/name`), the PRD and its pull request. A stuck repair's fix whose
+ * cause is the mission's own names no PRD (PRD 3065): no outbox is read for it.
+ */
+export type PullAt = { installation: number; repo: string; prd: PrdNumber | null; pr: PrNumber };
 
 /** What a merge did: merged, or why GitHub refused it. */
 export type Merged = { ok: true } | { ok: false; why: string };
@@ -147,8 +150,8 @@ export function missionJoins({ octokitFor }: { octokitFor: (installation: number
         runs,
         statuses,
         reviews: reviews.map((one) => ({ body: one.body ?? null, commit: one.commit_id ?? null })),
-        // A merged or closed pull request merges nothing: its outbox is not read.
-        items: merged || pull.state !== 'open' ? { ranks: [] } : await openItemsAt(octokit, { owner, repo, ref, prd }),
+        // A merged or closed pull request merges nothing, and a fix of no PRD has no outbox: neither is read.
+        items: merged || pull.state !== 'open' || prd === null ? { ranks: [] } : await openItemsAt(octokit, { owner, repo, ref, prd }),
       };
     },
 

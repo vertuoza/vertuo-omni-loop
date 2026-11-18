@@ -21,6 +21,9 @@
 //   a new round   a PRD stopped by its repair in an earlier round is sent its step again: a person resumed it
 //   the events    repair-started, retro, repair-ended and bug-reported: one sentence and one link each, never a log, naming the
 //                 cause by its fingerprint's first 8 characters
+//   stuck         a stuck repair (PRD 3065, ./stuck.ts) is a row of the same table, `trigger` stuck, its PRD the one its cause sits in or
+//                 none: it counts toward the same 3 and 9, and a stuck repair at work spends one as a PRD's does. A PRD's repair never
+//                 reads a stuck row as its own
 import { createHash } from 'node:crypto';
 import { PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RepairRetro } from 'omni-loop/kit/lib/repair/retro.ts';
@@ -35,10 +38,17 @@ export const MISSION_REPAIRS = 9;
 /** How a repair ended (mission_repairs.outcome): null while it runs. */
 export type RepairOutcome = 'fixed' | 'not fixed' | 'stopped' | 'lost';
 
-/** A repair the database kept (a mission_repairs row). `retro` is null when its record line could not be read. */
+/** What sent a repair (mission_repairs.trigger): a step that failed (PRD 2980), or a mission stuck (PRD 3065). */
+export type RepairTrigger = 'failure' | 'stuck';
+
+/**
+ * A repair the database kept (a mission_repairs row). `retro` is null when its record line could not be read. `trigger` absent reads
+ * `failure`; only a stuck repair may name no PRD.
+ */
 export type RepairRow = {
   id: string;
-  prd: PrdNumber;
+  prd: PrdNumber | null;
+  trigger?: RepairTrigger;
   fingerprint: string;
   round: number;
   number: number;
@@ -51,6 +61,12 @@ export type RepairRow = {
 
 /** A repair job the mission sent: its key's PRD and number, the job whose failure it repairs, and its attempts, the job's first. */
 export type RepairJob = { prd: PrdNumber; k: number; job: string; failedJob: string; attempts: Attempt[] };
+
+/** A stuck repair the mission sent (PRD 3065): its key's number, the five jobs its line names, the fifth last, and its attempts. */
+export type StuckJob = { k: number; job: string; jobs: readonly string[]; attempts: Attempt[] };
+
+/** Whether a kept row is a stuck repair's (PRD 3065), never a PRD's own. */
+export const isStuckRow = (row: RepairRow): boolean => row.trigger === 'stuck';
 
 /** A code repair's fix on its way to the mission branch: landed, waiting on what it lacks, or refused, with why. */
 export type FixLanding = { state: 'landed' } | { state: 'waits'; lacks: readonly string[] } | { state: 'refused'; why: string };
@@ -68,7 +84,10 @@ export type RepairView = {
   /** The mission's round of repairs: 1, and one more for each Resume of the stopped mission. */
   round: number;
   jobs: readonly RepairJob[];
+  /** Every row the mission kept, a stuck repair's too (PRD 3065): the 9 count them all. */
   rows: readonly RepairRow[];
+  /** The stuck repairs the mission sent (PRD 3065): one at work and with no row yet spends one, as a PRD's does. */
+  stuck: readonly StuckJob[];
   /** By repair job: its row refused by the budget. */
   refused: ReadonlyMap<string, Refused>;
   /** By repair job: its fix's landing on the mission branch. */
@@ -78,7 +97,7 @@ export type RepairView = {
 };
 
 /** No repairs: a failure stops its PRD, as before PRD 2980. */
-export const NO_REPAIRS: RepairView = { budget: 0, round: 1, jobs: [], rows: [], refused: new Map(), landings: new Map(), reports: new Map() };
+export const NO_REPAIRS: RepairView = { budget: 0, round: 1, jobs: [], rows: [], stuck: [], refused: new Map(), landings: new Map(), reports: new Map() };
 
 /** Where a PRD goes once its step failed: a repair to send, one at work, its step again, stopped, or paused by a cancel. */
 export type RepairNext =
@@ -112,15 +131,20 @@ export const failedJobOf = (line: string): string | null => /^\/omni:repair .*--
  */
 export const unreadableFingerprint = (prd: PrdNumber): string => createHash('sha256').update(`omni repair: unreadable\n${String(prd)}`, 'utf8').digest('hex');
 
+/** Whether an event is the supervisor pausing the mission by stuck (PRD 3065): a `stuck` of the mission naming no job. */
+export const isStuckPause = ({ kind, prd, job }: RecordedEvent): boolean => kind === 'stuck' && prd === null && job === null;
+
 /**
- * The mission's round of repairs, from its events in order: 1, and one more for each Resume that follows the mission stopping.
- * A Resume of a paused mission opens none, and neither does a person sending one PRD on after QA (PRD 3001: a `resumed` naming it).
+ * The mission's round of repairs, from its events in order: 1, and one more for each Resume that follows the mission stopping, or
+ * the supervisor pausing it by stuck (PRD 3065). A Resume of a mission a person or a budget paused opens none, and neither does a
+ * person sending one PRD on after QA (PRD 3001: a `resumed` naming it).
  */
 export function roundOf(events: readonly RecordedEvent[]): number {
   let round = 1;
   let stopped = false;
-  for (const { kind, prd } of events) {
-    if (kind === 'stopped' && prd === null) stopped = true;
+  for (const event of events) {
+    const { kind, prd } = event;
+    if ((kind === 'stopped' && prd === null) || isStuckPause(event)) stopped = true;
     else if (kind === 'resumed' && prd === null && stopped) {
       round += 1;
       stopped = false;
@@ -129,17 +153,17 @@ export function roundOf(events: readonly RecordedEvent[]): number {
   return round;
 }
 
-const ended = (job: RepairJob): boolean => {
+const ended = (job: { attempts: readonly Attempt[] }): boolean => {
   const status = job.attempts.at(-1)?.status;
   return status === 'done' || status === 'failed' || status === 'cancelled';
 };
 
 const rowOf = (view: RepairView, job: string): RepairRow | undefined => view.rows.find((row) => row.job === job);
 
-/** The repairs the mission spent: every row not lost, and every repair job at work that has none yet. */
+/** The repairs the mission spent: every row not lost, and every repair job at work that has none yet, a stuck one's too. */
 function spentOf(view: RepairView): number {
   const kept = view.rows.filter((row) => row.outcome !== 'lost').length;
-  const atWork = view.jobs.filter((job) => !ended(job) && rowOf(view, job.job) === undefined).length;
+  const atWork = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf(view, job.job) === undefined).length;
   return kept + atWork;
 }
 
@@ -147,10 +171,10 @@ function spentOf(view: RepairView): number {
 export const leftOf = (view: RepairView): number => Math.max(0, view.budget - spentOf(view));
 
 /** `abcd1234`: a cause as the pages name it. */
-const short = (fingerprint: string): string => fingerprint.slice(0, 8);
+export const short = (fingerprint: string): string => fingerprint.slice(0, 8);
 
 /** `#12`, the pull request a link names; null when none. */
-const prWords = (url: string | null): string | null => {
+export const prWords = (url: string | null): string | null => {
   const number = /\/pull\/(\d+)$/.exec(url ?? '')?.[1];
   return number === undefined ? null : `#${number}`;
 };
@@ -159,10 +183,10 @@ const prWords = (url: string | null): string | null => {
 const resumeWords = (view: RepairView): string => `Resume gives each cause ${String(CAUSE_REPAIRS)} more (${String(leftOf(view))} of ${String(view.budget)} left in this mission)`;
 
 /** A sentence without its final stop, for the end of a why, which the mission's stopped line ends. */
-const bare = (text: string): string => text.replace(/[.!?]+$/, '');
+export const bare = (text: string): string => text.replace(/[.!?]+$/, '');
 
 /** What a repair tried and how it ended: `#12 not fixed`, `retry fixed`. */
-function triedWords(row: RepairRow): string {
+export function triedWords(row: RepairRow): string {
   const what = prWords(row.fixPr) ?? (row.retro?.class === 'flake' ? 'retry' : row.retro === null ? 'unreadable' : 'no fix');
   return `${what} ${row.outcome ?? 'running'}`;
 }
@@ -191,7 +215,7 @@ function sendOrStop(view: RepairView, prd: PrdNumber, failedJob: string, failure
  */
 function numberOf(view: RepairView, prd: PrdNumber, row: RepairRow | undefined): number {
   if (row !== undefined) return row.number;
-  const last = view.rows.filter((one) => one.prd === prd && one.round === view.round).at(-1);
+  const last = view.rows.filter((one) => one.prd === prd && one.round === view.round && !isStuckRow(one)).at(-1);
   return last?.outcome === 'not fixed' ? Math.min(CAUSE_REPAIRS, last.number + 1) : 1;
 }
 
@@ -277,7 +301,7 @@ export function judgeFix(pull: PullRead, branch: string): FixLanding | { state: 
 // ── The events ──────────────────────────────────────────────────────────────────
 
 /** A link an event may carry: a web address of at most 500 characters, else none. */
-const linkOf = (url: string | null): string | null => (url !== null && /^https:\/\//.test(url) && url.length <= 500 ? url : null);
+export const linkOf = (url: string | null): string | null => (url !== null && /^https:\/\//.test(url) && url.length <= 500 ? url : null);
 
 /** `the night-shift fleet's runners`, or any runner of the workspace. */
 type Where = { where: string; mission: number };
@@ -303,14 +327,15 @@ function rowEvents(row: RepairRow): NewEvent[] {
   return [...retro, said('repair-ended', 'supervisor', `${n}'s repair${row.retro === null ? '' : ` ${cause}`} ended ${how}`)];
 }
 
-/** What a filed report says, linking its issue. */
-function reportEvent(row: RepairRow, report: BugReport | undefined): NewEvent[] {
+/** What a filed report says, linking its issue: `who` met it, the PRD by default, the mission for a stuck repair (./stuck.ts). */
+export function reportEvent(row: RepairRow, report: BugReport | undefined, who = `PRD ${String(row.prd)}`): NewEvent[] {
   if (report?.state !== 'filed') return [];
   const link = linkOf(`https://github.com/${report.repo}/issues/${String(report.issue)}`);
-  return [{ kind: 'bug-reported', role: 'supervisor', prd: row.prd, job: row.job, link, sentence: `PRD ${String(row.prd)} met an Omni Loop bug [${short(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
+  return [{ kind: 'bug-reported', role: 'supervisor', prd: row.prd, job: row.job, link, sentence: `${who} met an Omni Loop bug [${short(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
 }
 
-/** Every repair event a run may record, in order: each dispatch, then each row's retro, end and report. */
+/** Every repair event a run may record, in order: each dispatch, then each PRD's row's retro, end and report (a stuck one's are ./stuck.ts's). */
 export function repairEvents(view: RepairView, where: Where): NewEvent[] {
-  return [...view.jobs.map((job) => startedEvent(job, where)), ...view.rows.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ''))])];
+  const own = view.rows.filter((row) => !isStuckRow(row));
+  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ''))])];
 }
