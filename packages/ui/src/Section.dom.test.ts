@@ -17,11 +17,12 @@ import { Timeline } from './Timeline.tsx';
 afterEach(cleanup);
 
 describe('Section', () => {
-  it('is a landmark named by its heading, at the level it is given', () => {
-    render(createElement(Section, { title: 'Open questions', level: '3', description: 'Answer these.' }, 'Nothing open.'));
-    const region = screen.getByRole('region', { name: 'Open questions' });
-    expect(within(region).getByRole('heading', { level: 3, name: 'Open questions' })).toBeTruthy();
-    expect(within(region).getByText('Answer these.')).toBeTruthy();
+  it('holds its heading, at the level it is given, and no landmark of its own', () => {
+    const { container } = render(createElement(Section, { title: 'Open questions', level: '3', description: 'Answer these.' }, 'Nothing open.'));
+    expect(screen.getByRole('heading', { level: 3, name: 'Open questions' })).toBeTruthy();
+    expect(screen.getByText('Answer these.')).toBeTruthy();
+    expect(screen.queryByRole('region')).toBeNull();
+    expect(container.querySelector('section')).not.toBeNull();
   });
 
   it('keeps its actions in the header', () => {
