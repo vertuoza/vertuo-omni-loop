@@ -1,0 +1,17 @@
+.omni-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--type-1-size);
+  line-height: var(--type-1-line);
+  white-space: nowrap;
+}
+.omni-tag--info { border-color: var(--color-info); }
+.omni-tag--success { border-color: var(--color-success); }
+.omni-tag--warning { border-color: var(--color-warning); }
+.omni-tag--danger { border-color: var(--color-danger); }
