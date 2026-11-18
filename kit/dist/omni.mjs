@@ -32920,14 +32920,29 @@ function demotedFiles({ ctx, base }) {
   }
   return [...files];
 }
+function draftsOnlyChanged({ ctx, base }) {
+  let sides = null;
+  return (path) => {
+    sides ??= { before: readKnowledge({ ctx, source: base }).entries, after: readRegisters({ ctx }).entries };
+    const before2 = new Map(sides.before.filter((entry3) => entry3.file === path).map((entry3) => [entry3.id, entry3]));
+    const after2 = new Map(sides.after.filter((entry3) => entry3.file === path).map((entry3) => [entry3.id, entry3]));
+    const differing = [.../* @__PURE__ */ new Set([...before2.keys(), ...after2.keys()])].filter((id) => {
+      const was = before2.get(id);
+      const now2 = after2.get(id);
+      return was === void 0 || now2 === void 0 || entryText(was) !== entryText(now2);
+    });
+    const isDraft = (entry3) => entry3 === void 0 || entry3.proposed !== null;
+    return differing.length > 0 && differing.every((id) => isDraft(before2.get(id)) && isDraft(after2.get(id)));
+  };
+}
 function riskyChanges(changes, { ctx, base = null }) {
   const risky = [];
   const briefing = briefingFiles({ ctx });
+  const draftsOnly = base === null ? () => false : draftsOnlyChanged({ ctx, base });
+  const fires = (rule, change2) => rule.matches(change2, { ctx }) && !(rule.id === "law-text" && draftsOnly(change2.path));
   for (const change2 of changes) {
-    for (const rule of RULES) {
-      if (rule.matches(change2, { ctx })) {
-        risky.push({ path: change2.path, status: change2.status, rule: rule.id });
-      }
+    for (const rule of RULES.filter((candidate) => fires(candidate, change2))) {
+      risky.push({ path: change2.path, status: change2.status, rule: rule.id });
     }
     if (isBriefingFile(change2.path, briefing)) risky.push({ path: change2.path, status: change2.status, rule: BRIEFING_TEXT });
   }
@@ -32937,6 +32952,9 @@ function riskyChanges(changes, { ctx, base = null }) {
     risky.push({ path, status: statuses.get(path) ?? "M", rule: LAW_DEMOTED });
   }
   return risky;
+}
+function entryText(entry3) {
+  return JSON.stringify(entry3);
 }
 
 // kit/lib/outbox/account.ts
