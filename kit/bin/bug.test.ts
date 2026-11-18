@@ -1125,6 +1125,24 @@ describe('omni bug ci — level B reads the red and the green from CI (PRD 2578)
     expect(stderr).toBe('the runs did not finish within 2 minutes');
   });
 
+  // #3052: `gh run list --commit` matches a full sha only, so a short one found no run and waited out --wait.
+  it('reads the runs of short commit ids as of the full ones they name', async () => {
+    const { root, write } = setup(SLUG);
+    write(REPRO, "it('saves once', () => {});\n");
+    const red = commit(root, 'test(app): reproduce (#12)');
+    write('src/save.ts', 'export const once = true;\n');
+    const fix = commit(root, 'fix(app): saving twice keeps one row (#12)');
+    const full = (sha: string) => execFileSync('git', ['rev-parse', sha], { cwd: root, encoding: 'utf8' }).trim();
+    const s = io();
+    const { exec } = fake({ [full(red)]: RED_COMMIT, [full(fix)]: FIX_COMMIT });
+    const code = await main(
+      ['bug', 'ci', '12', '--pr', '34', '--reproduction', red, '--fix', fix, '--test', TEST_NAME, '--out', join(root, 'o'), '--wait', '0'],
+      { cwd: root, exec, ...s },
+    );
+    expect(s.err.join('').trim()).toBe('');
+    expect(code).toBe(0);
+  });
+
   it('says gh failed, with its last line, and exits 1', async () => {
     const { root } = setup(SLUG);
     const s = io();
