@@ -804,6 +804,19 @@ describe('riskyChanges — law-text on proposed entries (#3041)', () => {
     expect(fired(draft('Old words.'), confirmed)).toEqual(['law-text']);
   });
 
+  it('reads only the changed file: a confirmed change in another register does not count', () => {
+    const RULES_PATH = 'docs/knowledge/product/rules.md';
+    const rule = (statement: string) => ['## BR-PRODUCT-1', '', statement, '', 'Serves: P-PRODUCT-1', 'Enforced by: unenforced', ''].join('\n');
+    seed(RULES_PATH, rule('Changed rule.'));
+    expect(fired(draft('Old.'), draft('New.'))).toEqual([]);
+    expect(riskyChanges([change(RULES_PATH)], { ctx, base: memorySource({ [RULES_PATH]: rule('A rule.') }) }).map((entry) => entry.rule)).toEqual(['law-text']);
+  });
+
+  it('spares law-text only: another rule on the same file still fires', () => {
+    ctx = flatCtx(root, { risk: { storedShape: [], sharedContract: ['docs/knowledge/'] } });
+    expect(fired(draft('Old.'), draft('New.'))).toEqual(['shared-contract']);
+  });
+
   it('still fires when no base is given, or no entry differs', () => {
     seed(INVARIANTS, draft('Words.').join('\n'));
     expect(rulesFiredOn(INVARIANTS)).toEqual(['law-text']);
