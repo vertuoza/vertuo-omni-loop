@@ -65,3 +65,14 @@ Stated: 2026-11-14
 Decided: nobody — adopted when raised (medium), 2026-11-13
 Merged: @pierrederval, 2026-11-14, PR #2810
 Proposed: harvest 2026-11-14
+
+## N-PRODUCT-23
+
+A stored mission always has a level: when its brief names none, the database fills in its fleet's level as the mission is stored, and a level the brief does name is kept as given.
+
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s2-01-level-inherited-by-the-database, PRD #2896
+Enforced by: supabase/checks/missions.sql, supabase/migrations/20270124100000_mission_level.sql
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16

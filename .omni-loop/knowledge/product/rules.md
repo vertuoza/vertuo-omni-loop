@@ -929,3 +929,123 @@ Enforced by: kit/lib/mission/overturn.test.ts
 Stated: 2026-11-16
 Decided: @pierrederval, 2026-11-16
 Proposed: yolo-fix 2026-11-16
+
+## BR-PRODUCT-147
+
+A mission joins a ready PRD to its mission branch only once every check on its pull request is green; while a check is red, the PRD stays off the branch and the mission names that failing check as what it waits on.
+
+Serves: P-PRODUCT-65
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s4-02-red-check-waits-named, PRD #2896
+Enforced by: apps/omni-app/src/missions/join.test.ts, apps/omni-app/src/missions/gate.test.ts, apps/omni-app/src/missions/job.join.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-148
+
+While a mission branch cannot follow the default branch (a conflict, a merge commit on it, or a move meanwhile), no PRD joins it; each waits, saying it must follow first. The app writes the rebased branch only if its head is still the one it rebased.
+
+Serves: P-PRODUCT-118
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s5-05-joins-held-while-behind, PRD #2896
+Enforced by: apps/omni-app/src/missions/job.join.test.ts, apps/omni-app/src/missions/keep-up.test.ts, apps/omni-app/src/missions/join.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-149
+
+When a mission pull request is opened, its body ends with one closing line per PRD on the branch, written in the main branch's configured feature link form. A repository with no closing line configured gets no closing lines.
+
+Serves: P-PRODUCT-119
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s6-06-landing-closes-prd-issues, PRD #2896
+Enforced by: apps/omni-app/src/missions/landing.test.ts, apps/omni-app/src/missions/job.landing.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-150
+
+A PRD whose latest mission event is prd-dropped reads as dropped: it is never merged into the mission branch, and the mission waits naming it, until a later event joins it again.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s7-01-dropped-prd-waits-for-a-person, PRD #2896
+Enforced by: apps/omni-app/src/missions/drop.test.ts, apps/omni-app/src/missions/job.drop.test.ts, kit/lib/mission/drop.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-151
+
+When the mission branch's head checks are red, the mission names the PRD that joined last as the one to drop and holds every further join until the checks are green or a PRD is dropped; a person may drop another PRD instead.
+
+Serves: P-PRODUCT-120
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s7-02-red-branch-names-the-last-joined-prd, PRD #2896
+Enforced by: apps/omni-app/src/missions/join.test.ts, apps/omni-app/src/missions/job.join.test.ts, apps/omni-app/src/missions/drop.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-15
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-152
+
+A fleet's committee settles a question only by agreeing with the option that was built, with three yes votes. Any other answer, including a member preferring another option, sends the question to a person with every verdict.
+
+Serves: P-PRODUCT-121
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s10-02-fleet-settles-with-the-built-option-only, PRD #2896
+Enforced by: kit/lib/committee/vote.test.ts, apps/omni-app/src/missions/committee.test.ts, kit/lib/committee/escalation.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-153
+
+A question that names a business law, in its front matter or its words, always goes to a person before any fleet member votes; the fleet never settles it, whether or not the law is judged broken.
+
+Serves: P-PRODUCT-3
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s10-04-item-on-a-business-law-goes-to-a-person, PRD #2896
+Enforced by: kit/lib/committee/escalation.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-154
+
+Once no high question of a feature is open, the mission sends its build again under the next run, once; it then ships and goes to review as any build. If that second run also ends on questions, the feature waits for a person once they are answered.
+
+Serves: P-PRODUCT-122
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s10-07-build-sent-again-once-questions-answered, PRD #2896
+Enforced by: apps/omni-app/src/missions/supervisor.test.ts, apps/omni-app/src/missions/job.answers.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-155
+
+A mission sends its PM at most once, even on a replay. It asks for a brainstorm when one PRD is left under its cap and a roadmap when several are; a PM job that failed or wrote nothing adds nothing, and the mission carries on with the PRDs it has.
+
+Serves: P-PRODUCT-123
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s12-01-one-pm-job-per-mission, PRD #2896
+Enforced by: apps/omni-app/src/missions/pm.test.ts, apps/omni-app/src/missions/job.pm.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-156
+
+A runner line that belongs to no mission never starts one of the PM's four writing skills: the terminal refuses it before calling the app, as the app and the runner also do.
+
+Serves: P-PRODUCT-124
+Source: .omni-loop/delivery/shipped/2896-fleet-alone/outbox/settled.md, entry s12-08-terminal-send-refuses-pm-skills, PRD #2896
+Enforced by: kit/bin/commands/runner.test.ts, apps/galaxy/src/runners/runners.pm.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2897
+Proposed: harvest 2026-11-16
