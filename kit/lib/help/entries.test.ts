@@ -108,11 +108,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 74 commands and the 45 skills', () => {
+  it('holds the 74 commands and the 46 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(74);
-    expect(skillFolders()).toHaveLength(45);
+    expect(skillFolders()).toHaveLength(46);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(74);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(45);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(46);
   });
 
   it('lists /omni:enforce for you under Every day, after /omni:prove, with when and an example (PRD 1342)', () => {
@@ -426,7 +426,7 @@ describe('the help table in this repository', () => {
       setup: ['invade'],
       'multi-repo': ['mega-brainstorm', 'mega-bug-fix', 'mega-drive', 'mega-invade', 'mega-pr-care', 'mega-roadmap', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'dashboard', 'enforce', 'help', 'knowledge-add', 'pitch', 'pixel-perfect', 'prove', 'retro-apply', 'rewind', 'rewind-apply', 'status', 'tech-review', 'validate-e2e'],
-      'run-by-skills': ['committee', 'dossier-open', 'dossier-push', 'qa', 'repair'],
+      'run-by-skills': ['committee', 'dossier-open', 'dossier-push', 'mission-retro', 'qa', 'repair'],
     });
   });
 
@@ -438,7 +438,7 @@ describe('the help table in this repository', () => {
     for (const phrase of [/omni rewind facts/, /seven checks/, /omni rewind push/, /writes nothing to the repository/, /never merges/]) expect(words, String(phrase)).toMatch(phrase);
     const runner = ENTRIES.find((e) => e.name === 'runner' && e.kind === 'command');
     assertDefined(runner, 'runner');
-    expect(runner.detail.replace(/\s+/g, ' ')).toMatch(/prove, retro-apply, rewind, knowledge-add and rewind-apply run\./);
+    expect(runner.detail.replace(/\s+/g, ' ')).toMatch(/prove, retro-apply, rewind, knowledge-add, rewind-apply and mission-retro run\./);
   });
 
   it('explains /omni:tech-review, which gives no approval and no runner runs (PRD 2608)', () => {
