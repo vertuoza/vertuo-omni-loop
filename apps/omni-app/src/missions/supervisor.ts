@@ -237,8 +237,8 @@ export type Joined = { prd: PrdNumber; pr: PrNumber; url: string };
 /** A PRD to send: the run it is, and its step; for an Engineer's fix of QA's bug, the bug and its feature branch (PRD 3001). */
 export type Send = { prd: PrdNumber; run: number; step: Step; fix?: Fix };
 
-/** What a run sets on the mission. */
-export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null };
+/** What a run sets on the mission; `pausedBy` stuck when the run pauses it by stuck (PRD 3065). */
+export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null; pausedBy?: 'stuck' };
 
 export type EventKind =
   | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated'
@@ -758,7 +758,7 @@ function fitted(parts: readonly string[], glue: string, max = WORDS_MAX): string
 }
 
 /** `text`, cut to `max` characters. */
-const cut = (text: string, max = WORDS_MAX): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
+export const cut = (text: string, max = WORDS_MAX): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 
 /** What the mission waits on, PRD by PRD, then the PRDs on its branch waiting to land (PRD 2896); null when nothing. */
 function waitsOf(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdState>, branch: string | null): string | null {
@@ -1053,6 +1053,9 @@ function newWait(mission: Mission, next: Concluded): string | null {
   return next.waitingOn !== mission.waitingOn ? next.waitingOn : null;
 }
 
+/** Where the mission's jobs go, in words: its fleet's runners when one holds its repository, else any runner of the workspace. */
+export const whereOf = (mission: Pick<Mission, 'fleet'>, toFleet: boolean): string => (toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace');
+
 /** The events this run records, in the order they happened, none already recorded. */
 export function eventsOf({
   mission,
@@ -1092,7 +1095,7 @@ export function eventsOf({
   qa?: QaView;
 }): NewEvent[] {
   const keys = new Set(recorded);
-  const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
+  const where = whereOf(mission, toFleet);
   const base = baseOf(mission, skill === 'ultra-yolo');
   const all = [
     ...committeeEvents(committees, where),
@@ -1104,10 +1107,15 @@ export function eventsOf({
     ...prdEvents(facts, states),
     ...missionEvents(mission, next),
   ];
-  return all.flatMap((event) => {
+  return unrecorded(all, keys);
+}
+
+/** `events`, each whose keys none of `recorded` holds, in order, its sentence cut to what the database keeps; `recorded` gains their keys. */
+export function unrecorded(events: readonly NewEvent[], recorded: Set<string>): NewEvent[] {
+  return events.flatMap((event) => {
     const own = keysOf(event);
-    if (own.some((key) => keys.has(key))) return [];
-    for (const key of own) keys.add(key);
+    if (own.some((key) => recorded.has(key))) return [];
+    for (const key of own) recorded.add(key);
     return [{ ...event, sentence: cut(event.sentence) }];
   });
 }

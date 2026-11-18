@@ -61,6 +61,13 @@ describe('the stuck repair job: its key and its line', () => {
     expect(stuckJobsOf('/omni:repair --mission 12 --prd 7 --job a')).toBeNull();
   });
 
+  it('names each job by its first 8 characters, so five fit in a runner\'s 200', () => {
+    const jobs = Array.from({ length: 5 }, (_, n) => `${String(n)}b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11`);
+    const line = stuckSkillLine(123456, jobs);
+    expect(line).toBe('/omni:repair --mission 123456 --stuck --jobs 0b7c1f6e,1b7c1f6e,2b7c1f6e,3b7c1f6e,4b7c1f6e');
+    expect(line.length).toBeLessThanOrEqual(200);
+  });
+
   it('keeps an unreadable stuck record under one fingerprint of its own', () => {
     expect(unreadableStuck()).toMatch(/^[0-9a-f]{64}$/);
     expect(unreadableStuck()).toBe(unreadableStuck());

@@ -35,7 +35,7 @@ import {
   type RepairView,
 } from './repair.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
-import { after, endOf, outcome, type RecordedEvent, type Run } from './supervisor.ts';
+import { after, endOf, outcome, type Attempt, type RecordedEvent, type Run } from './supervisor.ts';
 
 /** What a run reads its repairs with. */
 export type RepairRunAt = {
@@ -52,16 +52,20 @@ export type RepairRunAt = {
 };
 
 /** Whether a repair job ended in a way that spends: done or failed. A cancelled one spends nothing; a lost one is carried by its resume. */
-const spends = (job: RepairJob): boolean => {
+export const spends = (job: { attempts: readonly Attempt[] }): boolean => {
   const status = job.attempts.at(-1)?.status;
   return status === 'done' || status === 'failed';
 };
 
-/** The record a repair job's log ends on, when it reads whole and names this mission and PRD; null otherwise. */
-function recordOf(log: string | null, mission: MissionRecord, prd: PrdNumber): RepairRecord | null {
-  if (log === null) return null;
-  const read = readRepairLine(log);
-  return read.readable && read.record.mission === mission.number && read.record.prd === prd ? read.record : null;
+/**
+ * The record a repair job's last attempt ended on, when it reads whole, names this mission and `fits` the job (its PRD, or a stuck
+ * repair's trigger): read from its log when it is done, none when it failed.
+ */
+export async function recordOfJob(at: RepairRunAt, attempts: readonly Attempt[], fits: (record: RepairRecord) => boolean): Promise<RepairRecord | null> {
+  const last = attempts.at(-1);
+  const log = last?.status === 'done' ? await at.store.committeeLog(last.id) : null;
+  const read = log === null ? null : readRepairLine(log);
+  return read?.readable === true && read.record.mission === at.mission.number && fits(read.record) ? read.record : null;
 }
 
 /** The outcome a kept row ends on at once: `not fixed` when unread, `stopped` for a person, an Omni Loop bug or a code repair with no fix. */
@@ -71,11 +75,8 @@ function endsAt(row: RepairRow): RepairOutcome | null {
   return row.retro.class === 'code' && row.fixPr === null ? 'stopped' : null;
 }
 
-/** The record a repair job's last attempt ended on: read from its log when it is done, none when it failed. */
-async function jobRecord(at: RepairRunAt, job: RepairJob): Promise<RepairRecord | null> {
-  const last = job.attempts.at(-1);
-  return last?.status === 'done' ? recordOf(await at.store.committeeLog(last.id), at.mission, job.prd) : null;
-}
+/** The record a PRD's repair job's last attempt ended on, naming its PRD. */
+const jobRecord = (at: RepairRunAt, job: RepairJob): Promise<RepairRecord | null> => recordOfJob(at, job.attempts, (record) => record.prd === job.prd);
 
 /** The cap a new repair of `fingerprint` would pass in round `round`: the mission's, the cause's, or none. */
 function overBudget(rows: readonly RepairRow[], { budget, round, fingerprint }: { budget: number; round: number; fingerprint: string }): Refused['spent'] | null {
@@ -95,15 +96,26 @@ async function endedAtOnce(at: RepairRunAt, kept: RepairRow): Promise<RepairRow>
   return { ...kept, outcome: ends };
 }
 
-/** A repair job's row, kept in round `round`, or the cap that refused it. */
-async function keep(at: RepairRunAt, job: RepairJob, { round, rows }: { round: number; rows: readonly RepairRow[] }): Promise<RepairRow | Refused> {
-  const record = await jobRecord(at, job);
-  const fingerprint = record?.fingerprint ?? unreadableFingerprint(job.prd);
-  const retro = record?.retro ?? null;
+/**
+ * What a repair job that ended leaves to keep: its record (null when unread), the PRD it names, the job whose failure (or, for a
+ * stuck repair, whose end) it repairs, its own job, the fingerprint an unread record is kept under, and a stuck repair's trigger.
+ */
+export type ToKeep = { record: RepairRecord | null; prd: PrdNumber | null; failedJob: string; job: string; unreadable: string; trigger?: 'stuck' };
+
+/** A repair's row, kept in round `round` as its record says (a stuck repair's too, PRD 3065), or the cap that refused it. */
+export async function keepRow(at: RepairRunAt, one: ToKeep, { round, rows }: { round: number; rows: readonly RepairRow[] }): Promise<RepairRow | Refused> {
+  const fingerprint = one.record?.fingerprint ?? one.unreadable;
+  const retro = one.record?.retro ?? null;
   const spent = overBudget(rows, { budget: at.budget, round, fingerprint });
   if (spent !== null) return { spent, fingerprint, retro };
-  const kept = await at.store.keepRepair(at.mission, { prd: job.prd, fingerprint, round, failedJob: job.failedJob, job: job.job, retro, fixPr: fixUrlOf(at, record) });
+  const trigger = one.trigger === undefined ? {} : { trigger: one.trigger };
+  const kept = await at.store.keepRepair(at.mission, { prd: one.prd, fingerprint, round, failedJob: one.failedJob, job: one.job, retro, fixPr: fixUrlOf(at, one.record), ...trigger });
   return 'spent' in kept ? { spent: kept.spent, fingerprint, retro } : endedAtOnce(at, kept);
+}
+
+/** A repair job's row, kept in round `round`, or the cap that refused it. */
+async function keep(at: RepairRunAt, job: RepairJob, held: { round: number; rows: readonly RepairRow[] }): Promise<RepairRow | Refused> {
+  return keepRow(at, { record: await jobRecord(at, job), prd: job.prd, failedJob: job.failedJob, job: job.job, unreadable: unreadableFingerprint(job.prd) }, held);
 }
 
 /** The run of the PRD a repair's failed job belongs to; undefined when the mission sent none. */
@@ -124,7 +136,7 @@ const prOf = (url: string): PrNumber | null => {
 };
 
 /** A code repair's fix, on its way to the mission branch: read, judged, and squash-merged once green. */
-async function land(at: RepairRunAt, fixPr: string, prd: RepairRow['prd']): Promise<FixLanding> {
+export async function land(at: RepairRunAt, fixPr: string, prd: RepairRow['prd']): Promise<FixLanding> {
   const pr = prOf(fixPr);
   if (at.branch === null) return { state: 'refused', why: 'the mission has no branch of its own to land it on' };
   if (pr === null) return { state: 'refused', why: 'its link names no pull request' };
@@ -167,11 +179,14 @@ async function settleAll(at: RepairRunAt, rows: RepairRow[]): Promise<void> {
   }
 }
 
-/** One omni-loop repair's report: the bug its fingerprint was filed as, else its report scrubbed again and submitted once, or why none was sent. */
-async function reportOne(at: RepairRunAt, row: RepairRow & { job: string }, job: RepairJob | undefined): Promise<BugReport> {
+/**
+ * One omni-loop repair's report: the bug its fingerprint was filed as, else its report (read by `read`, only then) scrubbed again and
+ * submitted once, or why none was sent. A stuck repair's too (PRD 3065).
+ */
+export async function reportOne(at: RepairRunAt, row: RepairRow & { job: string }, read: () => Promise<RepairRecord | null>): Promise<BugReport> {
   const filed = await at.store.bugIssue(row.fingerprint);
   if (filed !== null) return { state: 'filed', ...filed };
-  const report = job === undefined ? null : ((await jobRecord(at, job))?.report ?? null);
+  const report = (await read())?.report ?? null;
   if (report === null) return { state: 'refused', why: 'its repair could not make one it could prove clean' };
   const known = await at.store.names(at.mission);
   const input = { kitVersion: report.kitVersion, command: report.command, class: report.class, message: report.message, fingerprint: row.fingerprint, known };
@@ -185,7 +200,8 @@ async function reportAll(at: RepairRunAt, rows: readonly RepairRow[], jobs: read
   for (const row of rows) {
     const id = row.job;
     if (id === null || row.round !== round || row.retro?.class !== 'omni-loop') continue;
-    reports.set(id, await reportOne(at, { ...row, job: id }, jobs.find((one) => one.job === id)));
+    const job = jobs.find((one) => one.job === id);
+    reports.set(id, await reportOne(at, { ...row, job: id }, () => (job === undefined ? Promise.resolve(null) : jobRecord(at, job))));
   }
   return reports;
 }

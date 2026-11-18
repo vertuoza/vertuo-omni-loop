@@ -52,8 +52,11 @@ export function stuckOfKey(key: string): number | null {
   return match ? Number(match[2]) : null;
 }
 
+/** A job as a stuck repair's line names it: its first 8 characters, so five fit in the 200 a runner's line takes. */
+const NAMED = 8;
+
 /** The line a stuck repair is sent as: the mission by its number, and the jobs that ended with nothing moved, the fifth last. */
-export const stuckSkillLine = (mission: number, jobs: readonly string[]): string => `/omni:repair --mission ${String(mission)} --stuck --jobs ${jobs.join(',')}`;
+export const stuckSkillLine = (mission: number, jobs: readonly string[]): string => `/omni:repair --mission ${String(mission)} --stuck --jobs ${jobs.map((job) => job.slice(0, NAMED)).join(',')}`;
 
 /** The jobs a stuck repair's line names; null when it is no stuck repair's. */
 export function stuckJobsOf(line: string): string[] | null {
