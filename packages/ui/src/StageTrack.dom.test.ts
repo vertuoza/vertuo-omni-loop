@@ -28,11 +28,11 @@ describe('PrdRef, RepoRef and PersonRef', () => {
   it('are links with their name as text', () => {
     render(createElement('div', null,
       createElement(PrdRef, { number: 12, title: 'Parts', href: '/prd/12' }),
-      createElement(RepoRef, { owner: 'vertuoza', name: 'omni' }),
+      createElement(RepoRef, { owner: 'demo-org', name: 'omni' }),
       createElement(PersonRef, { name: 'Ada Lovelace', href: '/people/ada' })));
     expect(screen.getByRole('link', { name: 'PRD 12 Parts' }).getAttribute('href')).toBe('/prd/12');
-    const repo = screen.getByRole('link', { name: 'vertuoza/omni' });
-    expect(repo.getAttribute('href')).toBe('https://github.com/vertuoza/omni');
+    const repo = screen.getByRole('link', { name: 'demo-org/omni' });
+    expect(repo.getAttribute('href')).toBe('https://github.com/demo-org/omni');
     expect(repo.getAttribute('rel')).toBe('noopener noreferrer');
     expect(screen.getByRole('link', { name: 'Ada Lovelace' }).getAttribute('href')).toBe('/people/ada');
   });
