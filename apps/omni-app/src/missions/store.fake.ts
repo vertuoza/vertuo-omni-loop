@@ -56,7 +56,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const bugs = new Map<string, { repo: string; issue: IssueNumber }>();
   const added: NewJob[] = [];
   /** The token budget (PRD 3040): what the mission and its fleet spent, the fleet's cap, its other missions and the stops. */
-  const spent = { mission: 0, fleet: 0, oldestEnd: null as string | null };
+  const spent: { mission: number; fleet: number; oldestEnd: string | null } = { mission: 0, fleet: 0, oldestEnd: null };
   let fleetCap: number | null = null;
   let fleet: { id: string; status: MissionStatus; waitingOn: string | null }[] = [];
   const stops: StopRow[] = [];
