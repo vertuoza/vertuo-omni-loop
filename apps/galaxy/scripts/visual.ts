@@ -230,6 +230,18 @@ async function runDesign(browser: Browser, base: string): Promise<string[]> {
     const boxes = page.locator(BOX);
     const count = await boxes.count();
     if (count === 0) failures.push('/design: no part to shoot');
+    // A part added above a box moves it down by a height that need not be a whole pixel, and text
+    // drawn at another fraction of a pixel differs by a few percent: each box is shifted onto whole
+    // pixels of the page first, so its shot depends on its own content only, never on the parts above.
+    await boxes.evaluateAll((els) => {
+      for (const el of els) {
+        if (!(el instanceof HTMLElement)) continue;
+        const r = el.getBoundingClientRect();
+        const top = r.top + window.scrollY;
+        const left = r.left + window.scrollX;
+        el.style.translate = `${String(Math.round(left) - left)}px ${String(Math.round(top) - top)}px`;
+      }
+    });
     for (let i = 0; i < count; i++) {
       const box = boxes.nth(i);
       // BOX only matches an element that carries the four attributes, so none is missing.
