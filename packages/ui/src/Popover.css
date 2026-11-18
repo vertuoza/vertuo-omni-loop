@@ -1,0 +1,30 @@
+.omni-popover-positioner { z-index: var(--layer-overlay); }
+.omni-popover {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-2);
+  inline-size: max-content;
+  max-inline-size: min(320px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-2);
+  background: var(--color-raised);
+  box-shadow: var(--elevation-overlay);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--type-3-size);
+  line-height: var(--type-3-line);
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+.omni-popover[data-starting-style], .omni-popover[data-ending-style] { opacity: 0; }
+.omni-popover:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.omni-popover__title { margin: 0; font-size: var(--type-3-size); line-height: var(--type-3-line); font-weight: var(--weight-bold); }
+.omni-popover__body { color: var(--color-text-secondary); }
+.omni-popover__body a { color: var(--color-text-primary); }
+.omni-popover__body a:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+
+/* The catalogue's still: the open panel drawn in place beside its button, for /design and its screenshot. */
+.omni-popover-specimen { display: grid; gap: var(--space-2); justify-items: start; }
+.omni-popover-still { display: flex; }
+.omni-popover-specimen--top .omni-popover-still { order: -1; }
+.omni-popover-still .omni-popover { transition: none; }

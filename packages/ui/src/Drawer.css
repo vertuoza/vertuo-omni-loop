@@ -1,0 +1,68 @@
+.omni-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-dialog);
+  background: var(--color-scrim);
+  transition: opacity var(--motion-duration-slow) var(--motion-ease-out);
+}
+.omni-drawer-scrim[data-starting-style], .omni-drawer-scrim[data-ending-style] { opacity: 0; }
+.omni-drawer-viewport {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-dialog);
+  display: flex;
+  justify-content: flex-end;
+}
+.omni-drawer-viewport--start { justify-content: flex-start; }
+.omni-drawer {
+  box-sizing: border-box;
+  block-size: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  inline-size: 360px;
+  max-inline-size: calc(100vw - var(--space-7));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-5);
+  background: var(--color-raised);
+  box-shadow: var(--elevation-overlay);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  /* Base UI sets how far a swipe has moved the panel; the panel follows it, at rest at 0. */
+  --drawer-swipe-movement-x: 0px;
+  translate: var(--drawer-swipe-movement-x) 0;
+  transition: translate var(--motion-duration-slow) var(--motion-ease-out);
+}
+.omni-drawer:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+.omni-drawer--end { border-inline-start: 1px solid var(--color-border-subtle); }
+.omni-drawer--start { border-inline-end: 1px solid var(--color-border-subtle); }
+.omni-drawer--end[data-starting-style], .omni-drawer--end[data-ending-style] { translate: 100% 0; }
+.omni-drawer--start[data-starting-style], .omni-drawer--start[data-ending-style] { translate: -100% 0; }
+.omni-drawer[data-swiping] { transition: none; }
+.omni-drawer__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.omni-drawer__title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--type-5-size);
+  line-height: var(--type-5-line);
+  font-weight: var(--weight-bold);
+}
+.omni-drawer__description { margin: 0; color: var(--color-text-secondary); font-size: var(--type-3-size); line-height: var(--type-3-line); }
+.omni-drawer__body { flex: 1; font-size: var(--type-4-size); line-height: var(--type-4-line); }
+.omni-drawer__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+
+/* The catalogue's still: the open panel drawn in place against its edge, on its scrim, for /design and its screenshot. */
+.omni-drawer-specimen { display: grid; gap: var(--space-3); justify-items: start; inline-size: 100%; }
+.omni-drawer-still {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: flex-end;
+  inline-size: 100%;
+  block-size: 280px;
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  background: var(--color-scrim);
+}
+.omni-drawer-still--start { justify-content: flex-start; }
+.omni-drawer-still .omni-drawer { translate: none; inline-size: 75%; max-inline-size: none; transition: none; }
