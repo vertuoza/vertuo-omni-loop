@@ -935,7 +935,7 @@ Proposed: yolo-fix 2026-11-16
 A mission paused by a token cap is answered once, by a person: any member of the workspace may stop it or, for a fleet's daily cap, resume it tomorrow, while only an owner may raise a cap, and only above the one reached. Once a mission has started, only an owner changes its token budget; a draft's budget any member may set.
 
 Serves: P-PRODUCT-114
-Source: .omni-loop/delivery/outbox/3040-token-budget/settled.md, entry s2-01-budget-answer-and-raise, PRD #3040
+Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s2-01-budget-answer-and-raise, PRD #3040
 Enforced by: apps/galaxy/src/missions/missions.controller.test.ts, apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts
 Stated: 2026-11-18
 Decided: @pierrederval, 2026-11-18
