@@ -1,0 +1,17 @@
+.omni-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-2);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--motion-duration-fast) var(--motion-ease-out);
+}
+.omni-icon-button:hover { background: var(--color-raised); }
+.omni-icon-button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.omni-icon-button--quiet { background: transparent; border-color: transparent; color: var(--color-text-secondary); }
+.omni-icon-button--quiet:hover { background: var(--color-sunken); color: var(--color-text-primary); }
+.omni-icon-button:disabled { cursor: not-allowed; opacity: 0.5; }
