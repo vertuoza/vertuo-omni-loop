@@ -773,3 +773,39 @@ describe('lawsAwaitingOwners — a file no person owns falls back to the law own
     ]);
   });
 });
+
+// #3041: a proposed entry is no law yet (P-PRODUCT-81), so rewording only proposed entries in a
+// register asks no person; #3006 closed the same gap for law-proof.
+describe('riskyChanges — law-text on proposed entries (#3041)', () => {
+  const draft = (statement: string) => ['## N1', '', statement, '', 'Enforced by: unenforced', 'Proposed: harvest 2026-10-01', ''];
+  const law = (statement: string) => ['## N2', '', statement, '', 'Enforced by: unenforced', ''];
+  const fired = (baseLines: string[], headLines: string[]) => {
+    seed(INVARIANTS, headLines.join('\n'));
+    const base = memorySource({ [INVARIANTS]: baseLines.join('\n') });
+    return riskyChanges([change(INVARIANTS)], { ctx, base }).map((entry) => entry.rule);
+  };
+
+  it('does not fire when only a proposed entry is reworded', () => {
+    expect(fired([...draft('Old words.'), ...law('A law.')], [...draft('New words.'), ...law('A law.')])).toEqual([]);
+  });
+
+  it('does not fire when a proposed entry is added or removed', () => {
+    expect(fired(law('A law.'), [...draft('A draft.'), ...law('A law.')])).toEqual([]);
+    expect(fired([...draft('A draft.'), ...law('A law.')], law('A law.'))).toEqual([]);
+  });
+
+  it('still fires when a confirmed entry changes beside a proposed one', () => {
+    expect(fired([...draft('Old.'), ...law('A law.')], [...draft('New.'), ...law('A changed law.')])).toEqual(['law-text']);
+  });
+
+  it('still fires when a proposed entry is confirmed', () => {
+    const confirmed = ['## N1', '', 'Old words.', '', 'Enforced by: unenforced', ''];
+    expect(fired(draft('Old words.'), confirmed)).toEqual(['law-text']);
+  });
+
+  it('still fires when no base is given, or no entry differs', () => {
+    seed(INVARIANTS, draft('Words.').join('\n'));
+    expect(rulesFiredOn(INVARIANTS)).toEqual(['law-text']);
+    expect(fired(['# Invariants', '', ...draft('Words.')], ['# The invariants', '', ...draft('Words.')])).toEqual(['law-text']);
+  });
+});
