@@ -63,6 +63,16 @@ describe('Dialog', () => {
     await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull(); });
   });
 
+  it('opens when its caller says so, and tells the caller when the person closes it', async () => {
+    const user = userEvent.setup();
+    const asked: boolean[] = [];
+    render(createElement(Dialog, { trigger: 'Rename', title: 'Rename the runner', open: true, onOpenChange: (next: boolean) => { asked.push(next); } }));
+    await screen.findByRole('dialog', { name: 'Rename the runner' });
+    await user.keyboard('{Escape}');
+    expect(asked).toEqual([false]);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
   it('draws in its catalogue still the panel the open dialog draws', async () => {
     const user = userEvent.setup();
     const { container } = render(dialogSpecimen('size', 'md'));

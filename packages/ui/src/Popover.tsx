@@ -25,9 +25,9 @@ export type PopoverProps = {
 export function Popover({ trigger, title, side = 'bottom', open, defaultOpen, onOpenChange, children }: PopoverProps) {
   return (
     <Base.Root
-      {...(open === undefined ? {} : { open })}
-      {...(defaultOpen === undefined ? {} : { defaultOpen })}
-      {...(onOpenChange === undefined ? {} : { onOpenChange: (next: boolean) => { onOpenChange(next); } })}
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange}
     >
       <Base.Trigger className="omni-button omni-button--secondary omni-button--md">{trigger}</Base.Trigger>
       <Base.Portal>

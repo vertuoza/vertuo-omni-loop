@@ -32,9 +32,9 @@ export type DialogProps = {
 export function Dialog({ trigger, title, description, size = 'md', closeLabel = 'Close', actions, open, defaultOpen, onOpenChange, children }: DialogProps) {
   return (
     <Base.Root
-      {...(open === undefined ? {} : { open })}
-      {...(defaultOpen === undefined ? {} : { defaultOpen })}
-      {...(onOpenChange === undefined ? {} : { onOpenChange: (next: boolean) => { onOpenChange(next); } })}
+      open={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange}
     >
       <Base.Trigger className="omni-button omni-button--secondary omni-button--md">{trigger}</Base.Trigger>
       <Base.Portal>
