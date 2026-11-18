@@ -1,0 +1,19 @@
+/* The look is Input's (the select also carries `omni-input`); this adds the chevron and its room. */
+.omni-select { position: relative; display: block; }
+.omni-select::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: var(--space-3);
+  inset-block-start: 50%;
+  width: 0.5em;
+  height: 0.5em;
+  border-inline-end: 2px solid var(--color-text-primary);
+  border-block-end: 2px solid var(--color-text-primary);
+  transform: translateY(-75%) rotate(45deg);
+  pointer-events: none;
+}
+.omni-select__control {
+  appearance: none;
+  padding-inline-end: var(--space-6);
+  cursor: pointer;
+}

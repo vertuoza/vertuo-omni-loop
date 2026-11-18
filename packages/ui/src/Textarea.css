@@ -1,0 +1,5 @@
+/* The look is Input's (the element also carries `omni-input`); this adds what several lines need. */
+.omni-textarea {
+  min-height: 4lh;
+  resize: vertical;
+}
