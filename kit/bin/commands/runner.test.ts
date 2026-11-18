@@ -60,6 +60,8 @@ function fixture({ pin }: { pin?: string } = {}) {
       'line=$(cat)',
       'echo "claude read: $line"',
       'case "$line" in *sleep-*) sleep "${line##*sleep-}" ;; esac',
+      // A job held until a file appears: the test, not the clock, says when it ends.
+      'case "$line" in *hold-*) until [ -e "${line##*hold-}" ]; do sleep 0.05; done ;; esac',
       'case "$line" in *lines-*) seq -f "line %g" 1 "${line##*lines-}" ;; esac',
       'echo "see https://github.com/acme/other/pull/9"',
       `echo '${JSON.stringify({ type: 'result', subtype: 'success', num_turns: 1, total_cost_usd: 0, duration_ms: 1000, result: 'opened https://github.com/acme/widgets/pull/42' })}'`,
@@ -425,14 +427,21 @@ describe('omni runner', () => {
 
   it('sends the log tail every tick while the job runs', async () => {
     const f = fixture();
-    const app = fakeApp({ jobs: [{ id: 8, line: '/omni:yolo sleep-1', repo: 'acme/widgets', sentBy: 'ada' }] });
+    // The job runs until four ticks were sent, one with its first line: a job of a fixed second fits
+    // fewer ticks under load.
+    const go = join(f.root, 'go');
+    const line = `/omni:yolo hold-${go}`;
+    const app = fakeApp({ jobs: [{ id: 8, line, repo: 'acme/widgets', sentBy: 'ada' }] });
+    const ticks = () => app.updates().filter((update) => update.status === 'running');
+    const tailed = () => ticks().some((update) => String(update.logTail).includes(`claude read: ${line}`));
     const run = startRunner(f, app);
+    await until(() => ticks().length > 3 && tailed(), 'four ticks of the running job, one with its log tail');
+    writeFileSync(go, '');
     await until(ended(app), 'the job to end');
     run.stop.abort();
     await run.done;
-    const ticks = app.updates().filter((update) => update.status === 'running');
-    expect(ticks.length).toBeGreaterThan(3);
-    expect(ticks.some((update) => String(update.logTail).includes('claude read: /omni:yolo sleep-1'))).toBe(true);
+    expect(ticks().length).toBeGreaterThan(3);
+    expect(tailed()).toBe(true);
   });
 
   it('reports a run that fails with its exit code', async () => {
