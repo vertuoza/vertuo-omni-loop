@@ -1,0 +1,36 @@
+.omni-radio-group { display: flex; gap: var(--space-2) var(--space-5); font-family: var(--font-body); }
+.omni-radio-group--vertical { flex-direction: column; }
+.omni-radio-group--horizontal { flex-direction: row; flex-wrap: wrap; }
+.omni-radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-primary);
+  font-size: var(--type-3-size);
+  line-height: round(calc(var(--type-3-size) * var(--type-3-line)), 1px);
+  cursor: pointer;
+}
+.omni-radio {
+  appearance: none;
+  box-sizing: border-box;
+  position: relative;
+  flex: none;
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.omni-radio:checked { background: var(--color-accent); border-color: var(--color-accent); }
+.omni-radio:checked::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--color-text-on-accent);
+  border-radius: 50%;
+}
+.omni-radio:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.omni-radio[aria-invalid="true"] { border-color: var(--color-danger); border-width: 2px; }
+.omni-radio:disabled { cursor: not-allowed; opacity: 0.5; }
