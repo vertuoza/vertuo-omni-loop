@@ -4733,14 +4733,29 @@ function demotedFiles({ ctx, base }) {
   }
   return [...files];
 }
+function draftsOnlyChanged({ ctx, base }) {
+  let sides = null;
+  return (path) => {
+    sides ??= { before: readKnowledge({ ctx, source: base }).entries, after: readRegisters({ ctx }).entries };
+    const before2 = new Map(sides.before.filter((entry) => entry.file === path).map((entry) => [entry.id, entry]));
+    const after2 = new Map(sides.after.filter((entry) => entry.file === path).map((entry) => [entry.id, entry]));
+    const differing = [.../* @__PURE__ */ new Set([...before2.keys(), ...after2.keys()])].filter((id) => {
+      const was = before2.get(id);
+      const now = after2.get(id);
+      return was === void 0 || now === void 0 || entryText(was) !== entryText(now);
+    });
+    const isDraft = (entry) => entry === void 0 || entry.proposed !== null;
+    return differing.length > 0 && differing.every((id) => isDraft(before2.get(id)) && isDraft(after2.get(id)));
+  };
+}
 function riskyChanges(changes, { ctx, base = null }) {
   const risky = [];
   const briefing = briefingFiles({ ctx });
+  const draftsOnly = base === null ? () => false : draftsOnlyChanged({ ctx, base });
+  const fires = (rule, change2) => rule.matches(change2, { ctx }) && !(rule.id === "law-text" && draftsOnly(change2.path));
   for (const change2 of changes) {
-    for (const rule of RULES) {
-      if (rule.matches(change2, { ctx })) {
-        risky.push({ path: change2.path, status: change2.status, rule: rule.id });
-      }
+    for (const rule of RULES.filter((candidate) => fires(candidate, change2))) {
+      risky.push({ path: change2.path, status: change2.status, rule: rule.id });
     }
     if (isBriefingFile(change2.path, briefing)) risky.push({ path: change2.path, status: change2.status, rule: BRIEFING_TEXT });
   }
