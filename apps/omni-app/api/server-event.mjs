@@ -22145,17 +22145,19 @@ var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
 var RepairRecordSchema = z93.object({
   v: z93.literal(1),
   mission: z93.number().int().positive(),
-  prd: PrdNumberSchema,
+  trigger: z93.enum(["failure", "stuck"]).optional(),
+  prd: PrdNumberSchema.nullable(),
   fingerprint: FingerprintSchema,
   class: RepairClassSchema,
   retro: RepairRetroSchema,
   fix: PrNumberSchema.nullable(),
   report: PublicReportSchema.nullable()
-}).refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
+}).refine((record) => record.prd !== null || record.trigger === "stuck", "only a stuck repair may name no PRD").refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
 function withOwnFingerprint(record) {
   const own = fingerprint(record.retro);
   return {
     ...record,
+    trigger: record.trigger ?? "failure",
     fingerprint: own,
     retro: { ...record.retro, fingerprint: own },
     report: record.report === null ? null : { ...record.report, fingerprint: own }
