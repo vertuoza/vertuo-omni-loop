@@ -2,12 +2,14 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
-  INK, LOGO_DRAWINGS, OMNI_LOOP, OMNI_POSES, POSTER_MAX_SCALE, SPRITE_DEFS, TYPE_SCALE, contrast,
+  ICON_NAMES, INK, LOGO_DRAWINGS, OMNI_LOOP, OMNI_POSES, POSTER_MAX_SCALE, SPRITE_DEFS, TYPE_SCALE, contrast,
 } from '@omni/design';
 import { DEMO_PROJECTS } from '@omni/galaxy';
 import { sure } from '../arcade/test/sure';
 import { DesignScreen } from './DesignScreen';
-import { ICONS, LOGO_SCALES, POSTER_SCALE } from './catalogue';
+import { PARTS } from '@omni/ui/catalogue';
+import { BIT_ICONS, ICONS, LOGO_SCALES, POSTER_SCALE, THEMES } from './catalogue';
+import { BOX, baselineName } from '../../scripts/catalogue';
 
 // /design as the server renders it: everything on it is drawn from @omni/design, so a module that
 // grows shows up here, and a test finds each piece by its name.
@@ -32,7 +34,7 @@ describe('the /design page', () => {
   });
 
   it('links a contents entry to every section', () => {
-    for (const id of ['logo', 'colours', 'type', 'sprites', 'heroes', 'poses', 'icons']) {
+    for (const id of ['logo', 'colours', 'type', 'sprites', 'heroes', 'poses', 'icons', 'components']) {
       expect(html).toContain(`href="#${id}"`);
       section(id);
     }
@@ -131,6 +133,56 @@ describe('the /design page', () => {
         expect([Number(svg[1]), Number(svg[2])]).toEqual([32 * POSTER_SCALE, 48 * POSTER_SCALE]);
       }
     }
+  });
+
+  describe('the components', () => {
+    const components = section('components');
+    const text = (markup: string) => markup.replaceAll('&#x27;', "'").replaceAll('&amp;', '&').replaceAll('&quot;', '"');
+
+    it('lists every registered part under its own anchor, with its usage, do and don\'t', () => {
+      expect(PARTS.length).toBeGreaterThanOrEqual(10);
+      for (const { meta } of PARTS) {
+        expect(components, meta.name).toContain(`<article id="${meta.name}"`);
+        expect(html).toContain(`href="#${meta.name}"`);
+        const at = components.indexOf(`<article id="${meta.name}"`);
+        const card = text(components.slice(at, components.indexOf('</article>', at)));
+        expect(card).toContain(meta.usage);
+        for (const line of [...meta.do, ...meta.dont]) expect(card, line).toContain(line);
+      }
+    });
+
+    it('shows every variant of every part in the Omni, Light and Dark themes (AC-1)', () => {
+      expect(THEMES).toEqual(['omni', 'light', 'dark']);
+      for (const { meta } of PARTS) {
+        for (const [prop, values] of Object.entries(meta.variants)) {
+          for (const value of values) {
+            for (const theme of THEMES) {
+              expect(components, `${meta.name} ${prop}=${value} ${theme}`)
+                .toContain(`data-part="${meta.name}" data-prop="${prop}" data-value="${value}" data-theme="${theme}"`);
+            }
+          }
+        }
+      }
+    });
+
+    it('names each shot box once, so each baseline has one owner', () => {
+      expect(BOX).toBe('[data-part][data-prop][data-value][data-theme]');
+      const boxes = [...components.matchAll(/data-part="([^"]+)" data-prop="([^"]+)" data-value="([^"]+)" data-theme="(\w+)"/g)];
+      const names = boxes.map(([, part, prop, value, theme]) => baselineName({ part: part ?? '', prop: prop ?? '', value: value ?? '', theme: theme ?? '' }));
+      expect(names.length).toBeGreaterThan(100);
+      expect(new Set(names).size).toBe(names.length);
+    });
+
+    it('sets each box\'s theme on a .ask root, which is where the tokens of a theme apply', () => {
+      for (const theme of THEMES) expect(components).toContain(`class="ask ds-theme" data-ask-theme="${theme}"`);
+    });
+  });
+
+  it('shows the 1-bit icons beside the sprites, each in one ink', () => {
+    const icons = section('icons');
+    expect([...BIT_ICONS]).toEqual([...ICON_NAMES]);
+    expect(new Set(values(icons, 'data-icon'))).toEqual(new Set(ICON_NAMES));
+    expect(icons).toContain('fill="currentColor"');
   });
 
   it('draws every pixel crisp: no SVG on the page is smoothed', () => {
