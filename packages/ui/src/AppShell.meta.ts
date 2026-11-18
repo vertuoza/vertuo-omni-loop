@@ -18,6 +18,6 @@ export const appShellMeta = {
     'The icons are decoration: each entry is read by its text label.',
     'With `contained` the main region is a plain block, not a second main landmark, for a preview inside a page that has its own.',
   ],
-  replaces: ['app-shell', 'sidebar', 'skip-link'],
+  replaces: ['page-frame', 'skip-link'],
   example: '<AppShell navigation={[{ id: "home", label: "Home", href: "/", icon: "home" }]} current="home">The page</AppShell>',
 } satisfies ComponentMeta;
