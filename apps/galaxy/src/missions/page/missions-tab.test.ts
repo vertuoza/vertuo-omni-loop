@@ -95,14 +95,24 @@ describe('missionOf', () => {
   });
 });
 
-function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null, products: unknown[] = []): MissionsTabDb {
+/** What the token caps read (PRD 3040): the person's role, the fleet's cap and spending, each mission's spending, the stops that wait. */
+type Caps = { owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[] };
+
+function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null, products: unknown[] = [], caps: Caps = {}): MissionsTabDb {
   const chain = (data: unknown[], fails: boolean) => {
     const answer = Promise.resolve(fails ? { data: null, error: { message: 'boom' } } : { data, error: null });
-    const self: Record<string, unknown> = { then: answer.then.bind(answer) };
+    const self: Record<string, unknown> = { then: answer.then.bind(answer), maybeSingle: () => Promise.resolve({ data: data[0] ?? null, error: null }) };
     for (const name of ['select', 'eq', 'is', 'in', 'not', 'or', 'order', 'limit']) self[name] = () => self;
     return self;
   };
-  return { from: (table: string) => chain(table === 'missions' ? missions : table === 'products' ? products : table === 'runner_jobs' || table === 'mission_repairs' ? [] : events.map((one) => ({ job_id: null, at: '2026-11-17T00:00:00Z', ...(one as object) })), failing === table) } as unknown as MissionsTabDb;
+  const tables: Record<string, unknown[]> = {
+    missions, products, runner_jobs: [], mission_repairs: [], teams: [{ daily_tokens: caps.daily ?? null }], mission_budget_stops: caps.stops ?? [],
+  };
+  const rpc = (name: string, args: { p_mission?: string }) => Promise.resolve({
+    data: name === 'is_owner' ? caps.owner === true : name === 'fleet_tokens_24h' ? [{ tokens: caps.fleet ?? 0, oldest_end: null }] : (caps.spent?.[args.p_mission ?? ''] ?? 0),
+    error: null,
+  });
+  return { rpc, from: (table: string) => chain(tables[table] ?? events.map((one) => ({ job_id: null, at: '2026-11-17T00:00:00Z', ...(one as object) })), failing === table) } as unknown as MissionsTabDb;
 }
 
 const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waiting_on: 'PRD 2: merge it', scope: { prds: [1, 2], roadmaps: [] }, mandate: { parallel: 2 } };
@@ -228,5 +238,51 @@ describe("a mission's waits (PRD 2949 s5)", () => {
     const out = renderToStaticMarkup(createElement(MissionsTab, { view: { workspace: null, fleet: 'f', missions: [mission] } }));
     expect(out).toContain('PRD 2: Provider limit reached until 09:00 · waiting until 09:00 (guessed).');
     expect(out).toContain('claude-1 ran out · <a href="/app/runners#job-abc">job abc</a> · tokens spent waiting 0 · next try 09:00');
+  });
+});
+
+// The token caps (PRD 3040 s4, AC-10): the fleet's cap line, each mission's budget line and the stop that paused it.
+describe('the token caps on the Missions tab (PRD 3040)', () => {
+  const STOP = '44444444-4444-4444-8444-444444444444';
+  const view = (mission: unknown, caps: Caps) => missionsTabService(withWaits(fakeDb([mission], [], null, [], caps))).view(WORKSPACE, 'night-shift');
+
+  it('says 412k of 2M tokens for a mission with a budget, and No token budget for one without (AC-10)', async () => {
+    const budgeted = await view({ ...MISSION_ROW, mandate: { parallel: 2, tokens: 2_000_000 } }, { spent: { [ID]: 412_000 } });
+    expect(budgeted.missions[0]?.budget).toEqual({ words: '412k of 2M tokens', tokens: 2_000_000, canChange: false });
+    const none = await view(MISSION_ROW, { spent: { [ID]: 412_000 } });
+    expect(none.missions[0]?.budget.words).toBe('No token budget');
+  });
+
+  it('lets a draft\'s budget be changed for that mission alone', async () => {
+    expect((await view({ ...MISSION_ROW, status: 'draft' }, {})).missions[0]?.budget.canChange).toBe(true);
+    expect((await view(MISSION_ROW, {})).missions[0]?.budget.canChange).toBe(false);
+  });
+
+  it('reads No daily cap, or 1.3M of 2M with Change for an owner only', async () => {
+    expect((await view(MISSION_ROW, {})).daily).toMatchObject({ words: 'No daily cap', canChange: false, notice: null });
+    const capped = (await view(MISSION_ROW, { daily: 2_000_000, fleet: 1_300_000, owner: true })).daily;
+    expect(capped).toMatchObject({ words: '1.3M of 2M', window: 'in the last 24 hours', cap: 2_000_000, canChange: true });
+    expect((await view(MISSION_ROW, { daily: 2_000_000, owner: false })).daily?.canChange).toBe(false);
+  });
+
+  it('shows Paused: budget reached with whose cap and what was spent on a mission its own cap paused, with its two actions', async () => {
+    const stop = { id: STOP, cap: 'mission', cap_tokens: 2_000_000, spent: 2_000_000, missions: [ID] };
+    const paused = (await view({ ...MISSION_ROW, status: 'paused' }, { stops: [stop], owner: true })).missions[0]?.stop;
+    expect(paused).toEqual({ id: STOP, headline: 'Paused: budget reached', detail: '2.0M of 2M tokens · this mission\'s budget', actions: ['raised', 'stopped'], canRaise: true });
+    expect((await view({ ...MISSION_ROW, status: 'paused' }, { stops: [stop], owner: false })).missions[0]?.stop?.canRaise).toBe(false);
+    expect((await view(MISSION_ROW, { stops: [stop] })).missions[0]?.stop).toBeNull();
+  });
+
+  it('asks a fleet\'s cap once, above the list, and gives each mission it paused no action of its own', async () => {
+    const stop = { id: STOP, cap: 'fleet', cap_tokens: 2_000_000, spent: 2_100_000, missions: [ID, OTHER] };
+    const out = await view({ ...MISSION_ROW, status: 'paused' }, { stops: [stop], owner: true, daily: 2_000_000, fleet: 2_100_000 });
+    expect(out.daily?.notice).toEqual({ id: STOP, headline: 'Paused: this fleet\'s daily cap reached (2M)', detail: '2.1M of 2M tokens in the last 24 hours · this fleet\'s daily cap', missions: 2, canRaise: true });
+    expect(out.missions[0]?.stop?.actions).toEqual([]);
+  });
+
+  it('throws when a cap cannot be read', async () => {
+    const db = fakeDb([MISSION_ROW], []);
+    const broken = { ...db, rpc: () => Promise.resolve({ data: null, error: { message: 'boom' } }) } as unknown as MissionsTabDb;
+    await expect(missionsTabService(withWaits(broken)).view(WORKSPACE, 'f')).rejects.toThrow('could not read your role');
   });
 });

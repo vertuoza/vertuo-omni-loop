@@ -1,8 +1,9 @@
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from 'omni-loop/kit/lib/mission/overturn.ts';
-import { MOVES, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
+import { MOVES, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import { levelRefusal as planRefusal, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
+import { capWords } from './token-words';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
 /** The reader a route hands the service: the controller names it through the service, never the repository (ADR-0095). */
@@ -133,6 +134,37 @@ async function recordPick(write: MissionsWriter, { mission, login, body, job, at
   return { ok: true, value: { bugs: { mission: mission.id, prd: body.prd, pick: body.pick } } };
 }
 
+const FAILED_TOKENS = 'The token budget could not be changed. Try again.';
+const FAILED_ANSWER = 'The answer could not be recorded. Try again.';
+const NO_TOKENS_AFTER = 'A delivered or stopped mission keeps the token budget it had.';
+
+/** The database's refusal of a budget or of an answer, in its words: 42501 forbidden, 22023 a conflict, anything else a failure whose cause is logged (PRD 3040). */
+function budgetRefusal(set: { code: string | null; error: string }, failed: string): { ok: false; kind: MissionRefusal; error: string; cause?: string } {
+  if (set.code === '42501') return { ok: false, kind: 'forbidden', error: set.error };
+  if (set.code === '22023') return { ok: false, kind: 'conflict', error: set.error };
+  return { ok: false, kind: 'database', error: failed, cause: set.error };
+}
+
+/** What a person's answer says on the room's row: signed with their login, and whose missions it concerns. */
+function answerWords(login: string, body: StopAnswerBody, many: boolean): string {
+  if (body.answer === 'raised') return `${login} raised the cap to ${capWords(body.tokens ?? 0)}.`;
+  if (body.answer === 'tomorrow') return `${login} chose Resume tomorrow: each mission wakes once the fleet's last 24 hours are under the cap.`;
+  return `${login} stopped ${many ? 'the missions' : 'the mission'}: the budget stopped ${many ? 'them' : 'it'}.`;
+}
+
+/** Wakes each of `ids` once its stop is answered; null when all were, else the refusal that says the answer is recorded all the same. */
+async function wakeAll(write: MissionsWriter, ids: readonly string[]): Promise<{ ok: false; kind: MissionRefusal; error: string; cause: string } | null> {
+  try {
+    for (const id of ids) {
+      const mission = await write.mission(id);
+      if (mission !== null) await write.refresh(missionJob(id, mission.repo));
+    }
+    return null;
+  } catch (error) {
+    return { ok: false, kind: 'database', error: 'The answer is recorded, but the missions could not be woken: they are taken on their next run.', cause: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 /** The person who acts: their id and their GitHub login (null when they have none). */
 export type Caller = { id: string; login: string | null };
 
@@ -179,6 +211,35 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       if (refused !== null) return { ok: false, kind: 'conflict', error: refused };
       const set = await reader.setLevel(id, level);
       return set.ok ? { ok: true, value: { mission: { id, level: set.level } } } : levelRefusal(set);
+    },
+
+    /**
+     * Sets mission `id`'s token budget as `caller` (PRD 3040), null for none: any member on a draft, an owner alone once it started, the
+     * database says so. A delivered or stopped mission keeps the one it had.
+     */
+    async setTokens(id: string, tokens: number | null, caller: Caller, reader: MissionsReader): Promise<Served<BudgetedMission>> {
+      const mission = await reader.mission(id);
+      if (mission === null) return { ok: false, kind: 'forbidden', error: NOT_YOURS };
+      if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
+      if (mission.status === 'delivered' || mission.status === 'stopped') return { ok: false, kind: 'conflict', error: NO_TOKENS_AFTER };
+      const set = await reader.setTokens(id, tokens);
+      return set.ok ? { ok: true, value: { mission: { id, tokens: set.tokens } } } : budgetRefusal(set, FAILED_TOKENS);
+    },
+
+    /**
+     * A member answers a budget stop once, as themselves (PRD 3040): the database refuses who may not (an owner alone raises a cap) and a
+     * second answer. Their answer is then recorded as their own event, `budget-answer`, on the stop's mission, and every mission the stop
+     * paused is woken, so its supervisor run acts on the answer.
+     */
+    async answerStop(stop: string, body: StopAnswerBody, caller: Caller, reader: MissionsReader): Promise<Served<AnsweredStop>> {
+      if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
+      const set = await reader.answerStop(stop, body.answer, body.tokens ?? null);
+      if (!set.ok) return budgetRefusal(set, FAILED_ANSWER);
+      const done = set.stop;
+      const on = done.mission ?? done.missions[0];
+      if (on !== undefined) await write.event(on, { kind: 'budget-answer', actor: caller.login, sentence: answerWords(caller.login, body, done.missions.length > 1), at: iso() });
+      const woken = await wakeAll(write, done.missions);
+      return woken === null ? { ok: true, value: { stop: { id: done.id, answer: done.answer, raisedTo: done.raisedTo } } } : woken;
     },
 
     /**

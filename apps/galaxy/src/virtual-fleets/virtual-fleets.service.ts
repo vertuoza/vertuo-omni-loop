@@ -1,4 +1,4 @@
-import type { CreatedVirtualFleet, CreateVirtualFleetRequest, RefusalField, VirtualFleetRefusal } from './virtual-fleets.contract';
+import type { CappedFleet, CreatedVirtualFleet, CreateVirtualFleetRequest, DailyTokensBody, RefusalField, VirtualFleetRefusal } from './virtual-fleets.contract';
 import type { VirtualFleetsRepository, Written } from './virtual-fleets.repository';
 
 // The Virtual Fleets' rules (PRD 2842 s1; ADR-0095), over the repository as the signed-in person. Who
@@ -27,7 +27,10 @@ function refusal(written: Refused): Served<never> {
   return { ok: false, kind: 'database', error: FAILED, field: 'form', cause: `${written.code ?? 'no code'}: ${written.message}` };
 }
 
-type Port = Pick<VirtualFleetsRepository, 'create' | 'names'>;
+const ONLY_OWNERS_CAP = 'Only an owner of the workspace sets a fleet’s daily cap.';
+const FAILED_CAP = 'The daily cap could not be changed. Try again.';
+
+type Port = Pick<VirtualFleetsRepository, 'create' | 'names' | 'setDailyTokens'>;
 
 export function virtualFleetsService(repository: Port) {
   return {
@@ -35,6 +38,15 @@ export function virtualFleetsService(repository: Port) {
     async create(request: CreateVirtualFleetRequest): Promise<Served<CreatedVirtualFleet>> {
       const written = await repository.create(request);
       return written.ok ? { ok: true, value: { fleet: written.value } } : refusal(written);
+    },
+
+    /** Sets a fleet's daily token cap, null for none (PRD 3040): an owner's alone, which the database decides. */
+    async setDailyTokens(request: DailyTokensBody): Promise<Served<CappedFleet>> {
+      const written = await repository.setDailyTokens(request);
+      if (written.ok) return { ok: true, value: { fleet: written.value } };
+      if (written.code === '42501') return { ok: false, kind: 'forbidden', error: ONLY_OWNERS_CAP, field: 'form' };
+      if (written.code === '22023' && written.message) return { ok: false, kind: 'invalid', error: written.message, field: 'form' };
+      return { ok: false, kind: 'database', error: FAILED_CAP, field: 'form', cause: `${written.code ?? 'no code'}: ${written.message}` };
     },
 
     /** The keys of the workspace's virtual fleets: the Fleet section marks their chips. */

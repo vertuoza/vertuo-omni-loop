@@ -1,11 +1,12 @@
 import { reply } from '../business-api/reply';
-import { CreatedVirtualFleetSchema, CreateVirtualFleetRequestSchema, VIRTUAL_FLEET_REFUSALS, type RefusalField, type VirtualFleetRefusal } from './virtual-fleets.contract';
+import { CappedFleetSchema, DailyTokensBodySchema, CreatedVirtualFleetSchema, CreateVirtualFleetRequestSchema, VIRTUAL_FLEET_REFUSALS, type RefusalField, type VirtualFleetRefusal } from './virtual-fleets.contract';
 import type { VirtualFleetsService } from './virtual-fleets.service';
 
 // The Virtual Fleets' route (PRD 2842 s1; ADR-0095), as a plain function of a Request, so it is tested
 // with the real service on a fake repository and the route stays one line:
 //
 //   POST /api/virtual-fleets {workspace, name, mascot, roles, level?}   201 {fleet}: the fleet as made
+//   POST /api/virtual-fleets/tokens {workspace, fleet, tokens}          200 {fleet: {name, dailyTokens}}: an owner sets the daily cap (PRD 3040)
 //
 // The caller is checked first: signed out, 401, and nothing else runs. The service then acts as the
 // signed-in person, so the database decides who may (any member). The answer is checked against the
@@ -44,25 +45,49 @@ function fieldOf(path: PropertyKey | undefined): RefusalField {
   return path === 'roles' ? 'heroes' : 'form';
 }
 
-/** POST /api/virtual-fleets: a member makes a Virtual Fleet with its heroes. */
-export async function postVirtualFleet(request: Request, deps: VirtualFleetsDeps): Promise<Response> {
+/** Runs `run` for the signed-in person's service: the refusals of no database and no sign-in, and a failure logged as a 500. */
+async function asPerson(deps: VirtualFleetsDeps, failed: string, run: (service: VirtualFleetsService) => Promise<Response>): Promise<Response> {
   if (!deps.service) return refuse('unavailable', NO_DATABASE);
   try {
     const service = await deps.service();
-    if (!service) return refuse('signed-out', SIGNED_OUT);
-    const text = await request.text();
-    const json = text.length > MAX_BODY_CHARS ? undefined : jsonOf(text);
+    return service ? await run(service) : refuse('signed-out', SIGNED_OUT);
+  } catch (error) {
+    deps.log(`virtual-fleets: ${error instanceof Error ? error.message : String(error)}`);
+    return refuse('database', failed);
+  }
+}
+
+/** A refused service answer in its words, its cause logged, or the answer's value as `status` and `parse` say. */
+function served<T>(answer: { ok: true; value: T } | { ok: false; kind: VirtualFleetRefusal; error: string; field: RefusalField; cause?: string }, status: number, parse: (value: T) => unknown, deps: VirtualFleetsDeps): Response {
+  if (answer.ok) return reply(status, parse(answer.value));
+  if (answer.cause) deps.log(`virtual-fleets: ${answer.cause}`);
+  return refuse(answer.kind, answer.error, answer.field);
+}
+
+/** The request's body as JSON, or undefined when it is too long or none. */
+async function bodyOf(request: Request): Promise<unknown> {
+  const text = await request.text();
+  return text.length > MAX_BODY_CHARS ? undefined : jsonOf(text);
+}
+
+/** POST /api/virtual-fleets: a member makes a Virtual Fleet with its heroes. */
+export function postVirtualFleet(request: Request, deps: VirtualFleetsDeps): Promise<Response> {
+  return asPerson(deps, FAILED, async (service) => {
+    const json = await bodyOf(request);
     if (json === null || typeof json !== 'object' || Array.isArray(json)) return refuse('malformed', BAD_CREATE);
     const read = CreateVirtualFleetRequestSchema.safeParse(json);
     if (!read.success) return refuse('invalid', BAD_CREATE, fieldOf(read.error.issues[0]?.path[0]));
-    const served = await service.create(read.data);
-    if (!served.ok) {
-      if (served.cause) deps.log(`virtual-fleets: ${served.cause}`);
-      return refuse(served.kind, served.error, served.field);
-    }
-    return reply(201, CreatedVirtualFleetSchema.parse(served.value));
-  } catch (error) {
-    deps.log(`virtual-fleets: ${error instanceof Error ? error.message : String(error)}`);
-    return refuse('database', FAILED);
-  }
+    return served(await service.create(read.data), 201, (value) => CreatedVirtualFleetSchema.parse(value), deps);
+  });
+}
+
+const BAD_TOKENS = 'The body must be {"workspace": "<id>", "fleet": "<the fleet\'s key>", "tokens": <a whole number above 0, or null for no cap>}.';
+
+/** POST /api/virtual-fleets/tokens: an owner of the workspace sets a Virtual Fleet's daily token cap (PRD 3040); the database decides who may. */
+export function postFleetTokens(request: Request, deps: VirtualFleetsDeps): Promise<Response> {
+  return asPerson(deps, 'The daily cap could not be changed. Try again.', async (service) => {
+    const read = DailyTokensBodySchema.safeParse(await bodyOf(request));
+    if (!read.success) return refuse('invalid', BAD_TOKENS);
+    return served(await service.setDailyTokens(read.data), 200, (value) => CappedFleetSchema.parse(value), deps);
+  });
 }

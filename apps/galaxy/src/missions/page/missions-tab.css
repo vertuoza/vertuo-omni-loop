@@ -33,6 +33,12 @@
 .mission-not-written { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; }
 .mission-problem { color: var(--ask-red); font-size: 14px; line-height: 1.4; }
 
+.mission-budget, .mission-daily { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 15px; }
+.mission-cap-editor { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mission-cap-editor input { width: 12ch; }
+.mission-stop { display: grid; gap: 6px; justify-items: start; padding: 8px 10px; border: 1.5px solid var(--ask-plasma); border-radius: 8px; font-size: 15px; }
+.mission-fleet-stop { margin: 0; }
+
 @media (max-width: 719px) {
   .mission { grid-template-columns: minmax(0, 1fr); }
   .mission-action { justify-self: start; }

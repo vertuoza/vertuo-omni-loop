@@ -280,3 +280,15 @@ describe('the QA rows and now line (PRD 3001, AC-9)', () => {
     expect(await repository.qaJobs([])).toEqual([]);
   });
 });
+
+describe('a budget stop in the ledger (PRD 3040, `fleet-room` 2.A)', () => {
+  it('reads Supervisor · agent, the stop\'s sentence and Paused, then the person\'s answer under their login', () => {
+    const stop = event({ id: 'stop', at: '2026-11-18T01:00:00Z', role: 'supervisor', actor: 'agent', kind: 'budget-stop', prd: null, job: null, sentence: 'Paused: this fleet\'s daily cap reached (2M)' });
+    const answer = event({ id: 'answer', at: '2026-11-18T02:00:00Z', role: 'supervisor', actor: 'ada', kind: 'budget-answer', prd: null, job: null, sentence: 'ada chose Resume tomorrow.' });
+    const rows = ledgerOf([stop, answer], { role: null, mission: null });
+    expect(rows.map((r) => [r.by, r.sentence, r.state])).toEqual([
+      ['ada', 'ada chose Resume tomorrow.', 'Answered'],
+      ['Supervisor · agent', 'Paused: this fleet\'s daily cap reached (2M)', 'Paused'],
+    ]);
+  });
+});

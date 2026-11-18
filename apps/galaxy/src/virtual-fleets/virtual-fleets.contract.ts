@@ -8,6 +8,7 @@ import { HERO_ROLES, HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/role
 // shown under (`name`, `mascot`, `heroes`), or `form` for the drawer's foot.
 //
 //   POST /api/virtual-fleets {workspace, name, mascot, roles, level?}   201 {fleet}
+//   POST /api/virtual-fleets/tokens {workspace, fleet, tokens}          200 {fleet: {name, dailyTokens}}   (PRD 3040)
 //
 // PRD 2896 s1: a fleet has a level, `with-you` unless a workspace owner raised it. The request names it
 // (absent, `with-you`); the database refuses a raise by a member who is not an owner, and `alone` for a
@@ -41,6 +42,16 @@ export type VirtualFleet = z.infer<typeof VirtualFleetSchema>;
 
 export const CreatedVirtualFleetSchema = z.object({ fleet: VirtualFleetSchema });
 export type CreatedVirtualFleet = z.infer<typeof CreatedVirtualFleetSchema>;
+
+/** A fleet's daily token cap (PRD 3040): a workspace owner sets it, null for none. */
+export const DailyTokensBodySchema = z.object({
+  workspace: z.uuid(),
+  fleet: z.string().trim().min(1).max(64),
+  tokens: z.number().int().positive().nullable(),
+});
+export type DailyTokensBody = z.infer<typeof DailyTokensBodySchema>;
+export const CappedFleetSchema = z.object({ fleet: z.object({ name: z.string().min(1), dailyTokens: z.number().int().positive().nullable() }) });
+export type CappedFleet = z.infer<typeof CappedFleetSchema>;
 
 /** Where the drawer shows a refusal: under one of its fields, or in its foot. */
 const REFUSAL_FIELDS = ['name', 'mascot', 'heroes', 'level', 'form'] as const;

@@ -4,6 +4,7 @@ import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { isWaitWords, type WaitLine } from '../limit-wait';
 import type { RepairLine } from '../repair';
 import type { MissionAction, MissionStatus } from '../missions.contract';
+import { capWords, spentWords } from '../token-words';
 
 // The Missions tab's rules (PRD 2842 s7, the `mission-start` screen), pure so each is tested without a
 // browser: a mission's status in words, its progress (`2 of 4 merged · 1 ready`), each PRD it waits a person
@@ -33,7 +34,25 @@ export const WORDS = {
   sendOn: 'Send on to the Reviewer',
   stopPrd: 'Stop this PRD',
   addedByFleet: 'added by the fleet',
+  // The token caps (PRD 3040)
+  dailyCap: 'Tokens per day',
+  noDailyCap: 'No daily cap',
+  lastDay: 'in the last 24 hours',
+  noBudget: 'No token budget',
+  change: 'Change',
+  save: 'Save',
+  cancel: 'Cancel',
+  budgetFor: 'Token budget for this mission',
+  budgetReached: 'Paused: budget reached',
+  raise: 'Raise the cap',
+  raiseTo: 'New cap, in tokens',
+  tomorrow: 'Resume tomorrow',
+  stopMission: 'Stop the mission',
+  stopMissions: 'Stop the missions',
 } as const;
+
+/** Whose cap, as the mission's page says it (the supervisor's own words, apps/omni-app/src/missions/budget.ts). */
+const WHOSE = { mission: "this mission's budget", fleet: "this fleet's daily cap" } as const;
 
 /** A level in the words the fleet's drawer and this tab use (PRD 2896). */
 export const LEVEL_WORDS: Readonly<Record<MissionLevel, string>> = {
@@ -76,6 +95,8 @@ export interface MissionRow {
   level: MissionLevel;
   /** Whether its repository is a product's plan repository (PRD 2896 s14): no mission branch, no `own-branch`. */
   inPlan: boolean;
+  /** Its token budget (PRD 3040), the brief's mandate `tokens`; null or absent, none. */
+  tokens?: number | null;
 }
 
 /** One of its events, as far as the tab reads: which PRD reached which point. */
@@ -95,6 +116,62 @@ export interface Waits {
   href: string;
   /** A PRD on `Decide the bugs` (PRD 3001): QA's bugs still there, each linked to its issue; null for any other wait. */
   bugs: { issue: IssueNumber; href: string }[] | null;
+}
+
+/** A budget stop still waiting for its answer (PRD 3040): whose cap, its value, what was spent and the missions it paused. */
+export interface OpenStop {
+  id: string;
+  cap: 'mission' | 'fleet';
+  capTokens: number;
+  spent: number;
+  missions: readonly string[];
+}
+
+/** What the tab reads of the token caps (PRD 3040): who the person is, the fleet's cap and spending, each mission's spending, the open stops. */
+export interface BudgetRead {
+  owner: boolean;
+  dailyCap: number | null;
+  fleetSpent: number;
+  spent: ReadonlyMap<string, number>;
+  stops: readonly OpenStop[];
+}
+
+export const NO_BUDGET: BudgetRead = { owner: false, dailyCap: null, fleetSpent: 0, spent: new Map(), stops: [] };
+
+/** A mission's budget line: `412k of 2M tokens`, or `No token budget` (PRD 3040, AC-10). */
+export interface BudgetLine {
+  words: string;
+  tokens: number | null;
+  /** A draft's budget is set for this mission alone, by any member. */
+  canChange: boolean;
+}
+
+/** `Paused: budget reached` and what it was: the spending and whose cap; its actions when this stop is the mission's own. */
+export interface StopView {
+  id: string;
+  headline: string;
+  detail: string;
+  /** The answers the mission's own row offers: its own stop only (a fleet's cap is answered once, above the list). */
+  actions: ('raised' | 'stopped')[];
+  canRaise: boolean;
+}
+
+/** The fleet's daily cap (PRD 3040): `Tokens per day: No daily cap`, or `1.3M of 2M in the last 24 hours`, and the one notice a stop of it asks. */
+export interface DailyView {
+  words: string;
+  window: string | null;
+  cap: number | null;
+  /** An owner of the workspace alone changes it. */
+  canChange: boolean;
+  notice: FleetNotice | null;
+}
+
+export interface FleetNotice {
+  id: string;
+  headline: string;
+  detail: string;
+  missions: number;
+  canRaise: boolean;
 }
 
 export interface MissionView {
@@ -128,6 +205,10 @@ export interface MissionView {
   trust: string | null;
   /** The PRDs the fleet's PM wrote (PRD 2896 s12), and the rows its cap left unwritten; null when it wrote none and left none. */
   fleetPrds: FleetPrds | null;
+  /** The token budget line (PRD 3040). */
+  budget: BudgetLine;
+  /** The budget stop that paused it and waits for an answer (PRD 3040); null when none. */
+  stop: StopView | null;
 }
 
 /** What the fleet's PM added to the mission (PRD 2896 s12): `PRD 50, PRD 51 added by the fleet`, then each row the cap left. */
@@ -156,6 +237,8 @@ export interface MissionsView {
   workspace: string | null;
   fleet: string;
   missions: MissionView[];
+  /** The fleet's daily token cap (PRD 3040); absent in the demo, which has none. */
+  daily?: DailyView;
 }
 
 const issueHref = (repo: string, number: number) => `https://github.com/${repo}/issues/${String(number)}`;
@@ -234,8 +317,43 @@ export function fleetPrdsOf(events: readonly TabEvent[]): FleetPrds | null {
   return { added, words, notWritten };
 }
 
+/** The budget line of a mission that spent `spent` (PRD 3040). */
+function budgetOf(row: Pick<MissionRow, 'status' | 'tokens'>, spent: number): BudgetLine {
+  const tokens = row.tokens ?? null;
+  return { tokens, canChange: row.status === 'draft', words: tokens === null ? WORDS.noBudget : `${spentWords(spent)} of ${capWords(tokens)} tokens` };
+}
+
+/** What a stop says: `2.0M of 2M tokens · this mission's budget`, the fleet's adding its window. */
+const stopDetail = (stop: OpenStop): string => `${spentWords(stop.spent)} of ${capWords(stop.capTokens)} tokens${stop.cap === 'fleet' ? ` ${WORDS.lastDay}` : ''} · ${WHOSE[stop.cap]}`;
+
+/** The stop that paused a mission, as its row says it; a fleet's carries no action there (PRD 3040). */
+function stopOf(missionId: string, read: BudgetRead): StopView | null {
+  const stop = read.stops.find((one) => one.missions.includes(missionId));
+  if (stop === undefined) return null;
+  return { id: stop.id, headline: WORDS.budgetReached, detail: stopDetail(stop), actions: stop.cap === 'mission' ? ['raised', 'stopped'] : [], canRaise: read.owner };
+}
+
+/** The fleet's daily cap line, and the one notice a stop of it asks, above the list (PRD 3040). */
+export function dailyOf(read: BudgetRead): DailyView {
+  const stop = read.stops.find((one) => one.cap === 'fleet');
+  const notice = stop === undefined ? null : {
+    id: stop.id,
+    headline: `Paused: ${WHOSE.fleet} reached (${capWords(stop.capTokens)})`,
+    detail: stopDetail(stop),
+    missions: stop.missions.length,
+    canRaise: read.owner,
+  };
+  return {
+    words: read.dailyCap === null ? WORDS.noDailyCap : `${spentWords(read.fleetSpent)} of ${capWords(read.dailyCap)}`,
+    window: read.dailyCap === null ? null : WORDS.lastDay,
+    cap: read.dailyCap,
+    canChange: read.owner,
+    notice,
+  };
+}
+
 /** One mission as the tab shows it; `events` are its own, newest first. */
-export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWaits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = []): MissionView {
+export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWaits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = [], budget: BudgetRead = NO_BUDGET): MissionView {
   const own = repairs.filter((line) => line.mission === row.id);
   const waiting = row.status === 'waiting' || row.status === 'running';
   return {
@@ -260,6 +378,8 @@ export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWai
     branch: row.level === 'with-you' || row.status === 'draft' ? null : branchOf(row, events),
     trust: row.level === 'alone' && row.status !== 'draft' ? trustLine(decisionsOf(events.toReversed())) : null,
     fleetPrds: fleetPrdsOf(events),
+    budget: budgetOf(row, budget.spent.get(row.id) ?? 0),
+    stop: row.status === 'paused' ? stopOf(row.id, budget) : null,
   };
 }
 
