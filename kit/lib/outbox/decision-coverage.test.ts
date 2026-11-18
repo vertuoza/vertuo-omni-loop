@@ -495,7 +495,8 @@ describe('riskyChanges — law-demoted (PRD 1342)', () => {
     const base = memorySource({
       [INVARIANTS]: ['## N1', '', 'Not yet a law.', '', `Enforced by: ${PROOF}`, 'Proposed: harvest 2026-10-01', ''].join('\n'),
     });
-    expect(demotedOver(base).map((entry) => entry.rule)).toEqual(['law-text']);
+    // Neither law-demoted nor, since #3041, law-text: a proposed entry is no law.
+    expect(demotedOver(base).map((entry) => entry.rule)).toEqual([]);
   });
 
   it('counts a law removed whatever its Enforced by: said', () => {

@@ -171,6 +171,30 @@ function demotedFiles({ ctx, base }: { ctx: CoverageContext; base: KnowledgeSour
 }
 
 /**
+ * Whether a register file's change, between `base` and the head (`ctx.root`), touches proposed
+ * entries alone (#3041): at least one entry differs, and every one that does carries a `Proposed:`
+ * line on each side that holds it. A proposed entry is no law yet (P-PRODUCT-81), so rewording,
+ * adding or removing one asks no person; confirming one (its `Proposed:` line removed) still does.
+ * A file where no entry differs (an ADR, a register's header) is never drafts-only. Each side is
+ * read once, on the first call.
+ */
+function draftsOnlyChanged({ ctx, base }: { ctx: CoverageContext; base: KnowledgeSource }): (path: string) => boolean {
+  let sides: { before: KnowledgeEntry[]; after: KnowledgeEntry[] } | null = null;
+  return (path) => {
+    sides ??= { before: readKnowledge({ ctx, source: base }).entries, after: readRegisters({ ctx }).entries };
+    const before = new Map(sides.before.filter((entry) => entry.file === path).map((entry) => [entry.id, entry]));
+    const after = new Map(sides.after.filter((entry) => entry.file === path).map((entry) => [entry.id, entry]));
+    const differing = [...new Set([...before.keys(), ...after.keys()])].filter((id) => {
+      const was = before.get(id);
+      const now = after.get(id);
+      return was === undefined || now === undefined || entryText(was) !== entryText(now);
+    });
+    const isDraft = (entry: KnowledgeEntry | undefined) => entry === undefined || entry.proposed !== null;
+    return differing.length > 0 && differing.every((id) => isDraft(before.get(id)) && isDraft(after.get(id)));
+  };
+}
+
+/**
  * Grades a range's changes against the five rules, then `briefing-text`. Returns every `{ path,
  * status, rule }` a rule fired on — a change matching two rules produces two entries, in `RULE_IDS`
  * order, and neither shadows the other.
@@ -189,11 +213,12 @@ export function riskyChanges(
 ): RiskyChange[] {
   const risky: RiskyChange[] = [];
   const briefing = briefingFiles({ ctx });
+  const draftsOnly = base === null ? () => false : draftsOnlyChanged({ ctx, base });
+  const fires = (rule: (typeof RULES)[number], change: NameStatus) =>
+    rule.matches(change, { ctx }) && !(rule.id === 'law-text' && draftsOnly(change.path));
   for (const change of changes) {
-    for (const rule of RULES) {
-      if (rule.matches(change, { ctx })) {
-        risky.push({ path: change.path, status: change.status, rule: rule.id });
-      }
+    for (const rule of RULES.filter((candidate) => fires(candidate, change))) {
+      risky.push({ path: change.path, status: change.status, rule: rule.id });
     }
     if (isBriefingFile(change.path, briefing)) risky.push({ path: change.path, status: change.status, rule: BRIEFING_TEXT });
   }
