@@ -218,7 +218,7 @@ async function openDesign(browser: Browser, base: string): Promise<{ page: Page;
 /** Axe on /design: one failure line per violated rule. */
 async function runAxe(page: Page): Promise<string[]> {
   await page.evaluate(axe.source);
-  const { violations } = await page.evaluate(() => (globalThis as unknown as { axe: { run: () => Promise<axe.AxeResults> } }).axe.run());
+  const { violations } = await page.evaluate<axe.AxeResults>('axe.run()');
   return violations.map((v) => `/design: axe ${v.id} (${v.impact ?? 'unrated'}) on ${String(v.nodes.length)} node(s): ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
 }
 
