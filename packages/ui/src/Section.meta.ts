@@ -12,7 +12,7 @@ export const sectionMeta = {
   dont: ['Put a Card inside a Card to group: use a Section.', 'Skip a heading level to get a smaller look.'],
   contrast: { base: [...onSurfaces('text-primary'), ...onSurfaces('text-secondary')] },
   accessibility: [
-    'A section element holding a heading: it adds no landmark of its own (a page of many groups would repeat landmark names), so the groups are found in the heading outline.',
+    'A plain div holding a heading: it adds no landmark of its own (a page of many groups would repeat landmark names), so the groups are found in the heading outline.',
     'The heading level is set by `level`, so the outline never skips one.',
   ],
   replaces: ['dossier-section', 'section-header'],

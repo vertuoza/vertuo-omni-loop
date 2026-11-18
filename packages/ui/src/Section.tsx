@@ -20,7 +20,7 @@ export type SectionProps = {
 /** A titled group of the page: the one way to group things, where a Card would nest. */
 export function Section({ title, level = '2', description, actions, rule = 'true', children }: SectionProps) {
   return (
-    <section className={`omni-section omni-section--rule-${rule}`}>
+    <div className={`omni-section omni-section--rule-${rule}`}>
       <header className="omni-section__header">
         <div className="omni-section__heading">
           <Heading level={level} size={level === '2' ? 'section' : 'subsection'}>
@@ -31,6 +31,6 @@ export function Section({ title, level = '2', description, actions, rule = 'true
         {actions === undefined ? null : <div className="omni-section__actions">{actions}</div>}
       </header>
       <div className="omni-section__body">{children}</div>
-    </section>
+    </div>
   );
 }

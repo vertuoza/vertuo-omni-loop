@@ -22,7 +22,7 @@ describe('Section', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Open questions' })).toBeTruthy();
     expect(screen.getByText('Answer these.')).toBeTruthy();
     expect(screen.queryByRole('region')).toBeNull();
-    expect(container.querySelector('section')).not.toBeNull();
+    expect(container.querySelector('.omni-section')).not.toBeNull();
   });
 
   it('keeps its actions in the header', () => {
