@@ -1,0 +1,36 @@
+/* The input is Input's look and Select's chevron (it carries `omni-input` and sits in `omni-select`); this draws its list. */
+.omni-combobox__input { cursor: text; }
+.omni-combobox-positioner { z-index: var(--layer-overlay); }
+.omni-combobox {
+  box-sizing: border-box;
+  min-inline-size: 200px;
+  max-inline-size: min(320px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-2);
+  background: var(--color-raised);
+  box-shadow: var(--elevation-overlay);
+  font-family: var(--font-body);
+  font-size: var(--type-3-size);
+  line-height: var(--type-3-line);
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+.omni-combobox[data-starting-style], .omni-combobox[data-ending-style] { opacity: 0; }
+.omni-combobox__list { max-block-size: 320px; overflow-y: auto; outline: none; }
+.omni-combobox__list[data-empty] { display: none; }
+.omni-combobox__item {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  color: var(--color-text-primary);
+  cursor: default;
+  user-select: none;
+}
+.omni-combobox__item[data-highlighted] { background: var(--color-accent-soft); }
+.omni-combobox__item[data-selected] { font-weight: var(--weight-bold); }
+.omni-combobox__empty:empty { display: none; }
+.omni-combobox__empty { padding: var(--space-2) var(--space-3); color: var(--color-text-secondary); }
+
+/* The catalogue's still: the open list drawn in place under its input, for /design and its screenshot. */
+.omni-combobox-specimen { display: grid; gap: var(--space-1); inline-size: 240px; }
+.omni-combobox-still .omni-combobox { transition: none; }
