@@ -204,6 +204,58 @@ spends nothing; one whose record cannot be read spends one.
 9 stay counted. The room reads what is left, for example `6 of 9 left in this mission`. A job a
 person cancelled sends no repair: a person stopped it, so the PRD stays stopped.
 
+## Retros
+
+A mission writes a **retro** on a runner in two cases: when it gets **stuck**, and when it reaches a
+**milestone**. A retro says what went well and what to change, in one to five sentences each. Every
+sentence cites an event, a PRD, a pull request or a repair, and a retro never holds a log excerpt, a
+credential or a person's words.
+
+| trigger | when it fires | what it writes |
+|---|---|---|
+| **Stuck** | five jobs in a row end and nothing moves | a stuck repair: `/omni:repair` reads the five jobs and takes one of the four ways above, with the same retro and fingerprint as a failed step |
+| **Milestone** | a roadmap in the mission's scope is delivered (every one of its PRDs is merged or on the mission branch), and once more when the whole mission is delivered | a milestone retro, `/omni:mission-retro`: what went well and what to change, for that milestone only |
+
+**What counts as stuck.** The mission counts the jobs that end. Something **moved** when, after a job
+ended, a PRD reached its next step, read ready, joined the mission branch, was merged or was
+unblocked. A job sent again (a hold, a stop mid-way, a resume, a provider limit, a flake retried) is
+not a new step, and a retro job counts toward nothing. Time spent waiting on you adds nothing. At 5
+ended jobs with nothing moved, the mission is stuck: one stuck repair is sent first in line, the
+counter starts again, and no second one is sent while it runs.
+
+**The budget.** A stuck repair is a repair: it spends one of the mission's 9, and one of the 3 for its
+cause. So a mission that gets stuck again and again cannot retro for free. A milestone retro is not a
+repair: it never pauses the mission and never sends a repair.
+
+**Tokens.** A retro is a job, so it counts toward the fleet's daily cap and the mission's budget like
+any other. Over a cap, the mission sends no retro. A milestone retro that a cap held back is sent once
+the mission is under every cap again. A delivered mission that is over a cap reads
+`Retro skipped: budget reached`.
+
+**Paused by stuck.** The mission pauses by stuck, and asks you once, when the stuck repair's cause
+needs a person, or when its cause's 3 repairs or the mission's 9 are spent. The question names the
+cause, what was tried, and the proposed fix. **Resume** opens a new round: each cause gets 3 repairs
+again and the stuck counter starts from 0. **Stop the mission** ends it as `stopped`, saying it was
+stuck.
+
+**Where a retro goes.** On the mission page, under **Retros**, each milestone retro is one card, reading
+`Roadmap #<n> delivered` or `Mission delivered`, with *Went well* and *To change*, and a link to its
+file. Above `with-you`, the file is `retros/<k>-<roadmap n | mission>.md` on the mission branch, and the
+mission's pull request carries it into the default branch for you to merge. At `with-you` there is no
+mission branch, so the retro is kept on the mission page only, and its card says so.
+
+**Where a proposed rule change goes.** A retro never edits a rule, a law or a playbook form. When a
+stuck repair or a milestone retro finds one of them wrong, it proposes the change as a mission item,
+always high. The item names what it would change, the wording it proposes and the evidence, citing the
+retro. Above `with-you`, each item is a file in `outbox/` on the mission branch, beside the retro that
+raised it. Under **Questions** on the mission page, each item is a card with **Adopt** or **Decline** and
+an optional note. Your answer is written once and never changed.
+
+**Adopt applies nothing.** The card then shows the one line that applies the change. For a law, it is
+`/omni:knowledge-add amend <id>`, and only its owner approves it. For a rule or a playbook form, it is
+a docs pull request that you open and merge. An open item never pauses the mission and never holds its
+pull request.
+
 ## Start one
 
 You need a Virtual Fleet first: a member creates it from the Fleet section of the Omni page, with
