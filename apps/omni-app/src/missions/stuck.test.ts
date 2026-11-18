@@ -112,6 +112,7 @@ describe('where a stuck mission goes (spec sections 2 and 4)', () => {
 
   it('AC-1: sends one stuck repair at 5 ended jobs, naming the last five', () => {
     expect(stuckNext(view(), five.slice(0, 4), MISSION_REPAIRS)).toEqual({ next: 'none' });
+    expect(stuckNext(view(), five, MISSION_REPAIRS, 0)).toEqual({ next: 'none' });
     expect(stuckNext(view(), five.slice(0, 5), MISSION_REPAIRS)).toEqual({ next: 'send', k: 1, jobs: ['j1', 'j2', 'j3', 'j4', 'j5'] });
     expect(stuckNext(view({ jobs: [stuckJob(1, attempt('s1', { status: 'done' }))], rows: [row({ outcome: 'not fixed' })] }), five, MISSION_REPAIRS)).toMatchObject({ next: 'send', k: 2, jobs: ['j2', 'j3', 'j4', 'j5', 'j6'] });
   });
@@ -190,7 +191,7 @@ describe('the stuck events: one sentence each, never a log', () => {
     expect(pausedEvent('the cause.')).toEqual({ kind: 'stuck', role: 'supervisor', prd: null, job: null, link: null, sentence: 'Paused: stuck: the cause.' });
     expect(pausedWords('the cause.')).toBe('Paused: stuck · the cause.');
     expect(isStuckRow(row())).toBe(true);
-    expect(isStuckRow(row({ trigger: undefined }))).toBe(false);
+    expect(isStuckRow(row({ trigger: 'failure' }))).toBe(false);
   });
 });
 

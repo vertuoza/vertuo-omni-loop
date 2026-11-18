@@ -38,7 +38,7 @@ import {
 } from './repair.ts';
 import { endOf, stepRank, type NewEvent, type RecordedEvent, type Run } from './supervisor.ts';
 
-/** The jobs in a row that end with nothing moved before a mission is stuck. 0 turns the stuck count off. */
+/** The jobs in a row that end with nothing moved before a mission is stuck: `stuckNext`'s count, which 0 turns off. */
 export const STUCK_JOBS = 5;
 
 const KEY = /^mission:([0-9a-f-]{36}):stuck:([1-9][0-9]*)$/;
@@ -204,17 +204,19 @@ function afterStuck(view: StuckView, job: StuckJob, left: number): StuckNext | n
  * Where the mission goes, by its stuck repairs and its beats (this run's included), `left` the repairs it has left: its latest stuck
  * repair since the last pause by stuck first, at work or ended; then the count.
  */
-export function stuckNext(view: StuckView, beats: readonly Beat[], left: number): StuckNext {
-  if (STUCK_JOBS === 0) return { next: 'none' };
+export function stuckNext(view: StuckView, beats: readonly Beat[], left: number, count: number = STUCK_JOBS): StuckNext {
+  if (count < 1) return { next: 'none' };
   const past = pastOf(beats);
   const last = view.jobs.filter((job) => !past.has(job.job)).sort((a, b) => a.k - b.k).at(-1);
   if (last !== undefined && !ended(last)) return { next: 'repairing', number: view.rows.find((row) => row.job === last.job)?.number ?? 1, left, why: null };
-  const after = last === undefined ? null : afterStuck(view, last, left);
-  if (after !== null) return after;
-  const since = stuckSince(beats);
-  if (since.length < STUCK_JOBS) return { next: 'none' };
-  if (left === 0) return { next: 'pause', why: `${String(STUCK_JOBS)} jobs ended and nothing moved, and the mission spent its ${String(MISSION_REPAIRS)} repairs` };
-  return { next: 'send', k: Math.max(0, ...view.jobs.map((job) => job.k)) + 1, jobs: since.slice(-STUCK_JOBS) };
+  return (last === undefined ? null : afterStuck(view, last, left)) ?? countNext(view, stuckSince(beats), left, count);
+}
+
+/** At `count` jobs ended with nothing moved, a stuck repair naming the last of them, or, with the 9 spent, a pause; nothing before. */
+function countNext(view: StuckView, since: readonly string[], left: number, count: number): StuckNext {
+  if (since.length < count) return { next: 'none' };
+  if (left === 0) return { next: 'pause', why: `${String(count)} jobs ended and nothing moved, and the mission spent its ${String(MISSION_REPAIRS)} repairs` };
+  return { next: 'send', k: Math.max(0, ...view.jobs.map((job) => job.k)) + 1, jobs: since.slice(-count) };
 }
 
 /** What the mission says while its stuck repair works: `Stuck: 5 jobs, nothing moved · repairing (1 of 3) · 7 left in this mission`. */

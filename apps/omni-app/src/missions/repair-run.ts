@@ -21,6 +21,7 @@ import { submitBugReport } from '../bug-reports/job.ts';
 import type { MissionJoins } from './join.ts';
 import {
   CAUSE_REPAIRS,
+  isStuckRow,
   judgeFix,
   NO_REPAIRS,
   roundOf,
@@ -202,8 +203,11 @@ export async function readRepairs(at: RepairRunAt): Promise<RepairView> {
     if ('spent' in kept) refused.set(job.job, kept);
     else rows.push(kept);
   }
-  const landings = await landAll(at, rows);
-  await settleAll(at, rows);
-  const reports = await reportAll(at, rows, read.jobs, round);
-  return { budget: at.budget, round, jobs: read.jobs, rows, refused, landings, reports };
+  // A stuck repair's row (PRD 3065) counts toward the budget here; its fix, its end and its report are ./stuck-run.ts's.
+  const own = rows.filter((row) => !isStuckRow(row));
+  const landings = await landAll(at, own);
+  await settleAll(at, own);
+  const reports = await reportAll(at, own, read.jobs, round);
+  const settled = rows.map((row) => own.find((one) => one.id === row.id) ?? row);
+  return { budget: at.budget, round, jobs: read.jobs, rows: settled, stuck: [], refused, landings, reports };
 }
