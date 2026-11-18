@@ -1,5 +1,5 @@
 // The mission store's reads (./store.ts), for `pnpm schemas:verify` (PRD 1030): the mission, its roadmaps and their
-// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs and their logs (PRD 2871), its events and its fleet's runners, each parsed
+// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs and their logs (PRD 2871), its events and its fleet's runners, its token budget's caps, stops and pauses (PRD 3040), each parsed
 // with the schema the store parses it with. Its send, record and update are not here: they write, and the check only
 // reads.
 import type { Boundary } from '../boundary.ts';
@@ -54,6 +54,14 @@ import {
   WORKSPACE,
   WorkspaceRowSchema,
   VoidRowSchema,
+  FLEET_CAP,
+  FleetCapRowSchema,
+  STOP,
+  StopRowSchema,
+  PAUSE_EVENT,
+  PauseEventRowSchema,
+  FLEET_MISSION,
+  FleetMissionRowSchema,
 } from './store.ts';
 
 export const boundaries: Boundary[] = [
@@ -81,5 +89,9 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: Omni Loop bug reports', read: (db) => db.from('omni_bug_reports').select(BUG_REPORT).limit(5), schema: BugReportRowSchema, shape: 'rows' },
   { name: 'missions/store: repositories', read: (db) => db.from('repositories').select(REPOSITORY).limit(5), schema: RepositoryRowSchema, shape: 'rows' },
   { name: 'missions/store: event actors', read: (db) => db.from('mission_events').select(ACTOR).neq('actor', 'agent').limit(5), schema: ActorRowSchema, shape: 'rows' },
+  { name: 'missions/store: fleet daily caps', read: (db) => db.from('teams').select(FLEET_CAP).limit(5), schema: FleetCapRowSchema, shape: 'rows' },
+  { name: 'missions/store: budget stops', read: (db) => db.from('mission_budget_stops').select(STOP).limit(5), schema: StopRowSchema, shape: 'rows' },
+  { name: 'missions/store: pauses and resumes', read: (db) => db.from('mission_events').select(PAUSE_EVENT).in('kind', ['paused', 'resumed']).is('prd', null).limit(5), schema: PauseEventRowSchema, shape: 'rows' },
+  { name: 'missions/store: fleet missions', read: (db) => db.from('missions').select(FLEET_MISSION).limit(5), schema: FleetMissionRowSchema, shape: 'rows' },
   { name: 'missions/store: room jobs', read: (db) => db.from('runner_jobs').select(ROOM_JOB).in('status', ['claimed', 'running']).limit(5), schema: RoomJobRowSchema, shape: 'rows' },
 ];

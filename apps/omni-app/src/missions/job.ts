@@ -57,8 +57,14 @@
 //                  when the repository is a product's plan repository (PRD 2873), else `/omni:yolo --for-review`; or
 //                  the Reviewer and the fix after it, PRD 2871), record each decision as an event, and set the
 //                  status, what it waits on and the next wake
+//   the budget     before anything is sent (PRD 3040, ./budget-run.ts): what the mission and its fleet spent, read against its
+//                  budget and its fleet's daily cap. Over one, it records one stop, pauses (a fleet's cap every mission of the
+//                  fleet that runs or waits) and sends nothing new; a running job is never cancelled. Once a person answers,
+//                  it resumes (raised, under every cap), wakes by itself when the fleet's window frees room (tomorrow) or
+//                  ends stopped, saying the budget stopped it
 //   how it ends    `later`, a minute on, while the mission runs or waits, or while it is paused with a job of it
-//                  still running (its end is recorded); `done` otherwise. Paused sends nothing new
+//                  still running (its end is recorded); at its wake, paused by the budget until tomorrow; `done`
+//                  otherwise. Paused sends nothing new
 //   the cap        the ledger fails a job's 21st `later` in a row: before that, a run refreshes its own job (it is
 //                  running, so the refresh marks it `again`), and its finish queues it at once with its count reset.
 //                  The extra run reads the same state and records nothing twice
@@ -88,6 +94,7 @@ import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type Landi
 import type { MissionRecord, MissionStore } from './store.ts';
 import { readRepairs } from './repair-run.ts';
 import { readQa } from './qa-run.ts';
+import { runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
 import { leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } from './repair.ts';
 import {
@@ -173,7 +180,11 @@ type GitHubDeps = {
 
 /** One run of a running, waiting, paused or stopped mission: check, land, keep up, join, write the mission pull request, pick, send, record, set. */
 async function supervise(store: MissionStore, sought: MissionRecord, now: number, github: GitHubDeps): Promise<Supervised> {
-  const { mission, read, runs, recorded, toFleet, inPlan, decided, pm, fleet } = await readRun(store, sought, now);
+  const first = await readRun(store, sought, now);
+  const { read, runs, recorded, toFleet, inPlan, decided, pm, fleet } = first;
+  // The token budget first (PRD 3040): over a cap the mission reads as paused for the rest of the run, so nothing new is sent.
+  const budget = await runBudget(store, first.mission, now);
+  const mission = budget.mission;
   const skill = inPlan ? 'ultra-yolo' : 'yolo';
   // Above `with-you` the PRDs are built on the mission's branch: with it not cut, nothing is sent and the mission says why.
   const ready = await branchReady(store, mission, inPlan, github.branches);
@@ -202,10 +213,10 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const fresh = sent.length + approved.length + asked.length + repaired.length;
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
-  const next: Concluded = unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
-  await store.record(mission.id, [...pmSent, ...events], new Date(now));
-  const moved = await store.update(mission.id, mission.status, next);
+  const next: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
+  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
+  await store.record(mission.id, [...pmSent, ...budget.events, ...events], new Date(now));
+  const moved = await store.update(mission.id, budget.from, next);
   return { next, running: [...states.values()].some((state) => state.state === 'running' || state.state === 'repairing'), moved, sent: sent.length + repaired.length, events: events.length };
 }
 
@@ -829,7 +840,7 @@ export function missionHandler({
     const run = await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
     log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
     // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
-    if (!watched(run) && run.moved) return { outcome: 'done' };
+    if (!watched(run) && run.moved) return wakeOf(run) === null ? { outcome: 'done' } : laterOf({ job, refresh, mission, at, until: wakeOf(run) });
     return laterOf({ job, refresh, mission, at });
   };
 }
@@ -843,10 +854,17 @@ async function runnable(store: MissionStore | null, id: string): Promise<(Missio
   return mission.status === 'delivered' ? { outcome: 'done' } : { ...mission, store };
 }
 
-/** A minute on, counting the `later`s in a row; the job refreshed, and its count reset, before the ledger's cap. */
-async function laterOf({ job, refresh, mission, at }: { job: ClaimedJob; refresh: MissionDeps['refresh']; mission: MissionRecord; at: number }): Promise<JobResult> {
+/**
+ * When a paused mission wakes by itself (PRD 3040: `Resume tomorrow`, its fleet's last 24 hours back under the cap): its next wake;
+ * null for any other mission, which a person or a job wakes.
+ */
+const wakeOf = ({ next }: Supervised): number | null => (next.status === 'paused' && next.nextWakeAt !== null ? Date.parse(next.nextWakeAt) : null);
+
+/** A minute on, or at `until`, counting the `later`s in a row; the job refreshed, and its count reset, before the ledger's cap. */
+async function laterOf({ job, refresh, mission, at, until = null }: { job: ClaimedJob; refresh: MissionDeps['refresh']; mission: MissionRecord; at: number; until?: number | null }): Promise<JobResult> {
+  const due = new Date(until ?? at + WAKE_MS);
   const laters = (ProgressSchema.parse(job.progress ?? {}).laters ?? 0) + 1;
-  if (laters < LATERS_BEFORE_RENEW) return { outcome: 'later', at: new Date(at + WAKE_MS), progress: { laters } };
+  if (laters < LATERS_BEFORE_RENEW) return { outcome: 'later', at: due, progress: { laters } };
   await refresh(missionJob(mission.id, mission.repo));
-  return { outcome: 'later', at: new Date(at + WAKE_MS), progress: { laters: 0 } };
+  return { outcome: 'later', at: due, progress: { laters: 0 } };
 }
