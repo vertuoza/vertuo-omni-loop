@@ -163,6 +163,12 @@ jobs:
         # may be QA's round 1 or 2 or the Engineer's fix of one of five bugs, each once; a repository's own skill is never
         # named qa; a QA lists qa first and its four limits, and one made before takes them while still its default (PRD 3001).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/qa_turn.sql
+      - name: A mission's token budget, its fleet's daily cap and a budget stop's answer
+        # An owner alone sets a fleet's daily cap, above 0; a mandate's tokens is 1 to 10^9, a draft's set by a member, a
+        # started mission's by an owner alone; input + output + cache writes of ended jobs count, a fleet's over 24 hours.
+        # One open stop per cap, recorded by the service role; a member answers it once as themselves, an owner alone
+        # raises the cap, and an answer is never rewritten (PRD 3040).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/token_budget.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is
