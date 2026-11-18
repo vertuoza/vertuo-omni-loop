@@ -4,6 +4,7 @@ import { Combobox as Base } from '@base-ui/react/combobox';
 import { useFieldControl } from './Field.tsx';
 import './Input.css';
 import './Select.css';
+import './Menu.css';
 import './Combobox.css';
 
 export type ComboboxOption = {
@@ -67,11 +68,11 @@ export function Combobox({ label, options, name, value, defaultValue, onValueCha
       </span>
       <Base.Portal>
         <Base.Positioner className="omni-combobox-positioner" align="start" sideOffset={4}>
-          <Base.Popup className="omni-combobox">
+          <Base.Popup className="omni-menu omni-combobox">
             <Base.Empty className="omni-combobox__empty">{emptyText}</Base.Empty>
             <Base.List className="omni-combobox__list">
               {(option: ComboboxOption) => (
-                <Base.Item key={option.value} value={option} className="omni-combobox__item">{option.label}</Base.Item>
+                <Base.Item key={option.value} value={option} className="omni-menu__item omni-menu__item--neutral omni-combobox__item">{option.label}</Base.Item>
               )}
             </Base.List>
           </Base.Popup>

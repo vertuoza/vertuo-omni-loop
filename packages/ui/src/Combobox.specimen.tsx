@@ -25,11 +25,11 @@ export const comboboxSpecimen: Specimen = (prop, value) => {
       </Field>
       {disabled ? null : (
         <div className="omni-combobox-still" inert>
-          <div className="omni-combobox">
+          <div className="omni-menu omni-combobox">
             <div className="omni-combobox__empty" />
             <div className="omni-combobox__list">
               {options.map((option, index) => (
-                <div key={option.value} className="omni-combobox__item" {...(index === 0 ? { 'data-highlighted': '' } : {})}>{option.label}</div>
+                <div key={option.value} className="omni-menu__item omni-menu__item--neutral omni-combobox__item" {...(index === 0 ? { 'data-highlighted': '' } : {})}>{option.label}</div>
               ))}
             </div>
           </div>
