@@ -22,7 +22,7 @@ function Raise({ timeout }: { timeout?: number | undefined }) {
   }, 'Save');
 }
 
-function page(timeout?: number | undefined) {
+function page(timeout?: number) {
   return render(createElement(Toast, { timeout }, createElement(Raise, { timeout })));
 }
 
