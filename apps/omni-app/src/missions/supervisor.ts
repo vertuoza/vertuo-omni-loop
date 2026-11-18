@@ -244,7 +244,9 @@ export type EventKind =
   | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated'
   | 'prd-added' | 'not-written' | 'repair-started' | 'retro' | 'repair-ended' | 'bug-reported' | 'checked'
   /** PRD 3040: the supervisor recorded a budget stop, paused the mission again by it, or resumed it once it was answered. */
-  | 'budget-stop' | 'paused' | 'resumed';
+  | 'budget-stop' | 'paused' | 'resumed'
+  /** PRD 3065: a stuck repair sent or a pause by stuck, a milestone retro recorded or skipped, a change a retro proposed. */
+  | 'stuck' | 'milestone-retro' | 'item-proposed';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa';
 
 /** An event to record, signed by its role and `agent`. */
@@ -468,8 +470,11 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null, 
 /** A run's latest attempt: the resume that carries it, or the job itself. */
 const lastOf = (run: Run): Attempt | undefined => run.attempts.at(-1);
 
+/** A step's place in a run, the build's 0: a later step is further on (PRD 3065: reaching one is moving). */
+export const stepRank = (step: Step): number => STEPS.indexOf(step);
+
 /** Whether job `a` comes after job `b`: a later run, or a later step of the same run. */
-export const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step));
+export const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && stepRank(a.step) > stepRank(b.step));
 
 /**
  * Where each PRD of the scope is, by PRD. On a mission branch (PRD 2896), a PRD on it is `joined` and unblocks the PRDs
@@ -843,6 +848,7 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   retro: (_prdKey, job) => jobKey('retro', job),
   'repair-ended': (_prdKey, job) => jobKey('repair-ended', job),
   'bug-reported': (_prdKey, job) => jobKey('bug', job),
+  stuck: (_prdKey, job) => jobKey('stuck', job),
 };
 
 /** The keys an event recorded stands for; none for a kind recorded on every change (waits, Start, Pause). */
