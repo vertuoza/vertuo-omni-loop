@@ -58,6 +58,9 @@ an agent is not a person.
 - **Resumed:** a runner went silent; the work carried on elsewhere from its last save, the minutes
   redone; work that could only stay on the lost runner is named.
 - **Repairing** (PRD 2980): `Repairing (1 of 3) · 8 left`, the fix PR linked as the one action.
+- **Stuck** (PRD 3065): a Supervisor row `Stuck: 5 jobs, nothing moved. Repairing (1 of 3) · 7 left in this mission.`, the fix PR
+  linked; a milestone retro's row `Retro: roadmap #<n> delivered.` linking its file; a proposed change's row
+  `Proposes a change to <id>.` reading `Waiting for you`, and the answer's row signed by the person.
 - **Stopped:** why, which limit was hit, how to resume. After repairs (PRD 2980), a block under
   the now lines: the cause and its fingerprint, the repairs tried (each PR and its outcome), the
   proposed fix, `6 of 9 in this mission` left, **Resume** (`Resume: 3 more for this cause`) as the
@@ -110,3 +113,4 @@ an agent is not a person.
 /omni:brainstorm, PRD 2980: .omni-loop/delivery/shipped/2980-mission-repairs/before-after.html (Repairing, Stopped after repairs, Waits on Omni Loop, the repair rows)
 /omni:brainstorm, PRD 3001: .omni-loop/delivery/shipped/3001-qa-turn/before-after.html (QA rows, Checking, Decide the bugs, tokens on every row)
 /omni:brainstorm, PRD 3040: .omni-loop/delivery/shipped/3040-token-budget/before-after.html (the budget stop row)
+/omni:brainstorm, PRD 3065: .omni-loop/delivery/inbox/3065-mission-retros/before-after.html (the stuck, milestone-retro and proposed-change rows)
