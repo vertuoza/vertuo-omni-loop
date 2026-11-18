@@ -1,0 +1,11 @@
+.omni-link {
+  color: var(--color-text-primary);
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.omni-link:hover { text-decoration-thickness: 2px; }
+.omni-link:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; border-radius: var(--radius-1); }
+.omni-link--quiet { color: var(--color-text-secondary); }
+.omni-link--quiet:hover { color: var(--color-text-primary); }
