@@ -3,15 +3,30 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The Omni Loop components: ten parts with closed APIs (variants, no className, no style), their CSS written on the tokens of @omni/design only, and a meta file each.",
+  "description": "The Omni Loop components: parts with closed APIs (variants, no className, no style), their CSS written on the tokens of @omni/design only, a meta file and a specimen each, registered by build/parts.ts.",
+  "scripts": {
+    "parts": "node build/parts.ts"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./catalogue": {
+      "types": "./src/generated/catalogue.ts",
+      "default": "./src/generated/catalogue.ts"
+    },
     "./*.css": "./src/*.css"
   },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@omni/design": "workspace:*"
+  },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.12",
+    "happy-dom": "^21.0.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

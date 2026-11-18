@@ -212,7 +212,7 @@ describe('omni check config', () => {
     it("passes this repository's own config", async () => {
       const s = io();
       const code = await main(['check', 'config'], { cwd: fileURLToPath(new URL('../..', import.meta.url)), ...s });
-      expect(s.out.join('')).toMatch(/generated: 2 output\(s\)/);
+      expect(s.out.join('')).toMatch(/generated: 3 output\(s\)/);
       expect(code).toBe(0);
     });
   });

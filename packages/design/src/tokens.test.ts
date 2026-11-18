@@ -161,8 +161,10 @@ describe('the semantic roles', () => {
     'canvas', 'surface', 'raised', 'sunken',
     'text-primary', 'text-secondary', 'text-tertiary', 'text-on-accent', 'text-on-signal', 'text-on-highlight',
     'border-subtle', 'border-strong', 'accent', 'accent-soft', 'signal', 'signal-soft', 'highlight',
-    'success', 'warning', 'danger', 'info',
+    'success', 'warning', 'danger', 'info', 'focus-ring', 'scrim',
   ];
+  /** The one see-through role: the cover behind a dialog or a drawer, drawn over the page, never read as text. */
+  const SEE_THROUGH: ReadonlySet<string> = new Set(['scrim']);
   const anti = (theme: AskTheme): Readonly<Record<ColourRole, string>> => ({ ...THEME_ROLES[theme], ...THEME_ROLES_ANTI[theme] });
   const below = (pairs: readonly RolePair[], floor: number, colours: (theme: AskTheme) => Readonly<Record<ColourRole, string>>) =>
     themesOf().flatMap((theme) => pairs.flatMap(({ text, on, where }) => {
@@ -173,8 +175,17 @@ describe('the semantic roles', () => {
   it('are named by their job, the same in Omni, Light and Dark', () => {
     for (const theme of themesOf()) {
       expect(Object.keys(THEME_ROLES[theme]), theme).toEqual(roles);
-      for (const [role, value] of Object.entries(THEME_ROLES[theme])) expect(value, `${theme} ${role}`).toMatch(/^#[0-9a-f]{6}$/);
+      for (const [role, value] of Object.entries(THEME_ROLES[theme])) {
+        expect(value, `${theme} ${role}`).toMatch(SEE_THROUGH.has(role) ? /^rgb\(\d+ \d+ \d+ \/ 0\.\d+\)$/ : /^#[0-9a-f]{6}$/);
+      }
     }
+  });
+
+  it('give the focus ring 3:1 on every surface, and keep the scrim see-through, in all three themes', () => {
+    for (const on of ['canvas', 'surface', 'raised', 'sunken'] as const) {
+      expect(ROLE_UI_PAIRS.some((p) => p.text === 'focus-ring' && p.on === on), on).toBe(true);
+    }
+    for (const theme of themesOf()) expect(THEME_ROLES[theme].scrim, theme).not.toMatch(/\/ 1\)$/);
   });
 
   it('pass WCAG AA for every text pair, in all three themes and in the anti-loop mode', () => {

@@ -1,141 +1,39 @@
-// @omni/ui: ten components with closed APIs. Each variant of each closed prop renders through
-// react-dom/server, no props type accepts a className or a style, and every custom property a
-// stylesheet reads is a token (or one the stylesheet defines itself).
+// @omni/ui: every registered part (src/generated/catalogue.ts, written by build/parts.ts). Each variant
+// of each closed prop renders through react-dom/server, no props type accepts a className or a style,
+// every colour pair a part's meta names passes WCAG AA in Omni, Light and Dark, and every custom
+// property a stylesheet reads is a token (or one the stylesheet defines itself). A part added later is
+// covered here with no edit to this file.
 import { readFileSync, readdirSync } from 'node:fs';
+import { THEME_ROLES, contrast } from '@omni/design';
+import type { AskTheme } from '@omni/design';
 import { createElement } from 'react';
-import type { ComponentProps, ReactElement, ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { Badge, Button, Card, EmptyState, ListRow, Notice, PageHeader, Stack, Tabs, Text } from './index.ts';
-import { badgeMeta } from './Badge.meta.ts';
-import { buttonMeta } from './Button.meta.ts';
-import { cardMeta } from './Card.meta.ts';
-import { emptyStateMeta } from './EmptyState.meta.ts';
-import { listRowMeta } from './ListRow.meta.ts';
-import { noticeMeta } from './Notice.meta.ts';
-import { pageHeaderMeta } from './PageHeader.meta.ts';
-import { stackMeta } from './Stack.meta.ts';
-import { tabsMeta } from './Tabs.meta.ts';
-import { textMeta } from './Text.meta.ts';
-import type { ComponentMeta } from './meta.ts';
-
-type Case = { meta: ComponentMeta; render: (prop: string, value: string) => ReactElement };
-
-/** The one of the closed values that is `value`: a test names a variant that exists, or fails. */
-function one<T extends string>(values: readonly T[], value: string): T {
-  const found = values.find((v) => v === value);
-  if (found === undefined) throw new Error(`${value} is not one of ${values.join(', ')}`);
-  return found;
-}
+import { COMPONENTS, PARTS } from './generated/catalogue.ts';
+import { Badge, Button, Notice, Tabs } from './index.ts';
 
 const tabItems = [
   { id: 'spec', label: 'Spec', href: '#spec' },
   { id: 'plan', label: 'Plan', href: '#plan' },
 ];
 
-/** One render per closed prop value: the closed props are strings, so the table narrows each to its union. */
-const cases: Case[] = [
-  {
-    meta: badgeMeta,
-    render: (_prop, value) => createElement(Badge, { tone: one(badgeMeta.variants.tone, value) }, 'Draft'),
-  },
-  {
-    meta: buttonMeta,
-    render: (prop, value) =>
-      createElement(
-        Button,
-        {
-          ...(prop === 'variant' ? { variant: one(buttonMeta.variants.variant, value) } : {}),
-          ...(prop === 'size' ? { size: one(buttonMeta.variants.size, value) } : {}),
-          disabled: prop === 'disabled' && value === 'true',
-        },
-        'Approve',
-      ),
-  },
-  {
-    meta: cardMeta,
-    render: (prop, value) =>
-      createElement(
-        Card,
-        {
-          ...(prop === 'surface' ? { surface: one(cardMeta.variants.surface, value) } : {}),
-          ...(prop === 'padding' ? { padding: one(cardMeta.variants.padding, value) } : {}),
-        },
-        'Body',
-      ),
-  },
-  {
-    meta: emptyStateMeta,
-    render: (_prop, value) => createElement(EmptyState, { title: 'Nothing yet', size: one(emptyStateMeta.variants.size, value) }, 'Why'),
-  },
-  {
-    meta: listRowMeta,
-    render: (prop, value) =>
-      createElement(ListRow, {
-        title: 'Row',
-        detail: 'detail',
-        trailing: 'end',
-        ...(prop === 'link' && value === 'true' ? { href: '#row' } : {}),
-        ...(prop === 'density' ? { density: one(listRowMeta.variants.density, value) } : {}),
-      }),
-  },
-  {
-    meta: noticeMeta,
-    render: (_prop, value) => createElement(Notice, { title: 'Heads up', tone: one(noticeMeta.variants.tone, value) }, 'Body'),
-  },
-  {
-    meta: pageHeaderMeta,
-    render: (_prop, value) =>
-      createElement(PageHeader, {
-        title: 'Checkout rewrite',
-        eyebrow: 'PRD 12',
-        lede: 'One line',
-        status: createElement(Badge, null, 'Building'),
-        action: createElement(Button, { variant: 'primary' }, 'Approve'),
-        level: one(pageHeaderMeta.variants.level, value),
-      }),
-  },
-  {
-    meta: stackMeta,
-    render: (prop, value) =>
-      createElement(
-        Stack,
-        {
-          ...(prop === 'direction' ? { direction: one(stackMeta.variants.direction, value) } : {}),
-          ...(prop === 'gap' ? { gap: one(stackMeta.variants.gap, value) } : {}),
-          ...(prop === 'align' ? { align: one(stackMeta.variants.align, value) } : {}),
-          wrap: prop === 'wrap' && value === 'true',
-        },
-        'a',
-        'b',
-      ),
-  },
-  {
-    meta: tabsMeta,
-    render: (_prop, value) => createElement(Tabs, { label: 'Sections', items: tabItems, current: 'plan', size: one(tabsMeta.variants.size, value) }),
-  },
-  {
-    meta: textMeta,
-    render: (prop, value) =>
-      createElement(
-        Text,
-        {
-          ...(prop === 'size' ? { size: one(textMeta.variants.size, value) } : {}),
-          ...(prop === 'tone' ? { tone: one(textMeta.variants.tone, value) } : {}),
-          ...(prop === 'as' ? { as: one(textMeta.variants.as, value) } : {}),
-          strong: prop === 'strong' && value === 'true',
-        },
-        'Words',
-      ),
-  },
-];
+describe('@omni/ui registers every part', () => {
+  it('lists each part whose X.tsx is in the folder, once, with its own meta', () => {
+    const dir = new URL('./', import.meta.url);
+    const present = readdirSync(dir).flatMap((file) => /^([A-Z][A-Za-z0-9]*)\.tsx$/.exec(file)?.[1] ?? []).sort();
+    expect(PARTS.map(({ meta }) => meta.name)).toEqual(present);
+    expect(Object.keys(COMPONENTS)).toEqual(present);
+    expect(present.length).toBeGreaterThanOrEqual(10);
+  });
+});
 
 describe('@omni/ui renders every variant', () => {
-  for (const { meta, render } of cases) {
+  for (const { meta, specimen } of PARTS) {
     for (const [prop, values] of Object.entries(meta.variants)) {
       for (const value of values) {
         it(`${meta.name} ${prop}=${value}`, () => {
-          const html = renderToStaticMarkup(render(prop, value));
+          const html = renderToStaticMarkup(specimen(prop, value));
           expect(html).toMatch(/class="omni-/);
         });
       }
@@ -180,28 +78,15 @@ describe('@omni/ui renders every variant', () => {
   });
 });
 
+/** The registered parts whose props accept `key`: none, when every API is closed. */
+type Accepting<Key extends string> = {
+  [Name in keyof typeof COMPONENTS]: Key extends keyof ComponentProps<(typeof COMPONENTS)[Name]> ? Name : never;
+}[keyof typeof COMPONENTS];
+
 describe('@omni/ui closes its APIs', () => {
-  it('accepts no className and no style on any component', () => {
-    expectTypeOf<ComponentProps<typeof Badge>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof Button>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof Card>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof EmptyState>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof ListRow>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof Notice>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof PageHeader>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof Stack>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof Tabs>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof Text>>().not.toHaveProperty('className');
-    expectTypeOf<ComponentProps<typeof Badge>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof Button>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof Card>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof EmptyState>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof ListRow>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof Notice>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof PageHeader>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof Stack>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof Tabs>>().not.toHaveProperty('style');
-    expectTypeOf<ComponentProps<typeof Text>>().not.toHaveProperty('style');
+  it('accepts no className and no style on any registered part', () => {
+    expectTypeOf<Accepting<'className'>>().toEqualTypeOf<never>();
+    expectTypeOf<Accepting<'style'>>().toEqualTypeOf<never>();
   });
 
   it('never writes a className or a style prop in a component source', () => {
@@ -225,7 +110,7 @@ describe('@omni/ui keeps to the tokens', () => {
 
   it('reads only custom properties that a token file or the stylesheet itself defines', () => {
     const sheets = readdirSync(dir).filter((name) => name.endsWith('.css'));
-    expect(sheets).toHaveLength(10);
+    expect(sheets.map((sheet) => sheet.replace(/\.css$/, '')).sort()).toEqual(PARTS.map(({ meta }) => meta.name));
     for (const sheet of sheets) {
       const css = readFileSync(new URL(sheet, dir), 'utf8');
       const own = new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1] ?? ''));
@@ -237,13 +122,50 @@ describe('@omni/ui keeps to the tokens', () => {
   });
 });
 
-describe('@omni/ui describes each component', () => {
-  for (const { meta } of cases) {
-    it(`${meta.name} names its variants, its accessibility notes, what it replaces and one example`, () => {
+describe('@omni/ui passes contrast in every theme', () => {
+  const themes: readonly AskTheme[] = ['omni', 'light', 'dark'];
+
+  for (const { meta } of PARTS) {
+    it(`${meta.name}: every colour pair of every variant reaches WCAG AA in Omni, Light and Dark`, () => {
+      const variants = new Set(Object.entries(meta.variants).flatMap(([prop, values]) => values.map((value) => `${prop}=${value}`)));
+      const failures: string[] = [];
+      for (const [variant, pairs] of Object.entries(meta.contrast)) {
+        expect(variant === 'base' || variants.has(variant), `${meta.name} names ${variant}, no variant of its own`).toBe(true);
+        for (const { text, on, edge } of pairs) {
+          const floor = edge === true ? 3 : 4.5;
+          for (const theme of themes) {
+            const ratio = contrast(THEME_ROLES[theme][text], THEME_ROLES[theme][on]);
+            if (ratio < floor) failures.push(`${theme}: ${variant} ${text} on ${on} is ${ratio.toFixed(2)}:1, under ${String(floor)}:1`);
+          }
+        }
+      }
+      expect(failures).toEqual([]);
+    });
+  }
+});
+
+describe('@omni/ui describes each part', () => {
+  for (const { meta } of PARTS) {
+    it(`${meta.name} names its variants, its usage, do and don't, its accessibility notes, what it replaces and one example`, () => {
       expect(Object.keys(meta.variants).length).toBeGreaterThan(0);
+      expect(meta.usage.length).toBeGreaterThan(0);
+      expect(meta.do.length).toBeGreaterThan(0);
+      expect(meta.dont.length).toBeGreaterThan(0);
       expect(meta.accessibility.length).toBeGreaterThan(0);
       expect(meta.replaces.length).toBeGreaterThan(0);
       expect(meta.example).toContain(`<${meta.name}`);
     });
   }
+});
+
+describe('@omni/ui keeps its behaviour libraries to itself', () => {
+  it('leaves Base UI, Testing Library and the DOM environment out of the kit', () => {
+    const kit = new URL('../../../kit/', import.meta.url);
+    const sources = readdirSync(kit, { recursive: true, encoding: 'utf8' })
+      .filter((file) => /\.(ts|tsx|mjs)$/.test(file) && !file.includes('node_modules') && !file.startsWith('dist'));
+    for (const file of sources) {
+      const source = readFileSync(new URL(file, kit), 'utf8');
+      expect(source, file).not.toMatch(/from ['"](@base-ui\/react|@testing-library\/[a-z-]+|happy-dom)['"/]/);
+    }
+  });
 });

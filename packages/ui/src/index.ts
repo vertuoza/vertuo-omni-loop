@@ -1,21 +1,4 @@
-export { Badge } from './Badge.tsx';
-export type { BadgeProps } from './Badge.tsx';
-export { Button } from './Button.tsx';
-export type { ButtonProps } from './Button.tsx';
-export { Card } from './Card.tsx';
-export type { CardProps } from './Card.tsx';
-export { EmptyState } from './EmptyState.tsx';
-export type { EmptyStateProps } from './EmptyState.tsx';
-export { ListRow } from './ListRow.tsx';
-export type { ListRowProps } from './ListRow.tsx';
-export { Notice } from './Notice.tsx';
-export type { NoticeProps } from './Notice.tsx';
-export { PageHeader } from './PageHeader.tsx';
-export type { PageHeaderProps } from './PageHeader.tsx';
-export { Stack } from './Stack.tsx';
-export type { StackProps } from './Stack.tsx';
-export { Tabs } from './Tabs.tsx';
-export type { TabItem, TabsProps } from './Tabs.tsx';
-export { Text } from './Text.tsx';
-export type { TextProps } from './Text.tsx';
-export type { ComponentMeta } from './meta.ts';
+// Every part registers itself: src/generated/parts.ts exports each one present, written by
+// `pnpm --filter @omni/ui parts` (build/parts.ts). The catalogue's list is `@omni/ui/catalogue`.
+export * from './generated/parts.ts';
+export type { ComponentMeta, ContrastPair, Part, Specimen } from './meta.ts';

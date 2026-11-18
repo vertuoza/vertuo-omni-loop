@@ -207,6 +207,7 @@ export const ROLE_TEXT_PAIRS: readonly RolePair[] = Object.freeze<RolePair[]>([
 /** Edges that tell a control's state (WCAG 1.4.11): 3:1 against what they sit on. */
 export const ROLE_UI_PAIRS: readonly RolePair[] = Object.freeze<RolePair[]>([
   ...onSurfaces('border-strong', 'a control\'s edge'),
+  ...onSurfaces('focus-ring', 'the focus ring'),
   { text: 'accent', on: 'canvas', where: 'the focus ring' },
   { text: 'accent', on: 'surface', where: 'the focus ring on a card' },
   { text: 'accent', on: 'accent-soft', where: 'a selected row\'s edge' },
