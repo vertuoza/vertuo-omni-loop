@@ -87,6 +87,9 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   'repair-started': 'Repairing',
   retro: 'Retro',
   'bug-reported': 'Reported',
+  // A mission reached a token cap, and a person answered it (PRD 3040).
+  'budget-stop': 'Paused',
+  'budget-answer': 'Answered',
 };
 
 /** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); any other kind has its fixed word. */

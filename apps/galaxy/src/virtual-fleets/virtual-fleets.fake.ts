@@ -1,5 +1,5 @@
 import { roleOf, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
-import type { CreateVirtualFleetRequest, FleetLevel, VirtualFleet } from './virtual-fleets.contract';
+import type { CreateVirtualFleetRequest, DailyTokensBody, FleetLevel, VirtualFleet } from './virtual-fleets.contract';
 import type { VirtualFleetsRepository, Written } from './virtual-fleets.repository';
 
 // The Virtual Fleets' database in memory (PRD 2842 s1), for the service's and the controller's tests: the
@@ -16,7 +16,7 @@ export const DAN = 'dan';
 const SWATCHES = ['#d08a4a', '#b07cff', '#ffd84a', '#9aa3c8', '#2fc6a4', '#4fb0ff', '#ff6b8a', '#8bd450'];
 const MASCOTS = ['beaver', 'octopod', 'robot'];
 
-type Team = VirtualFleet & { kind: 'crew' | 'virtual'; level?: FleetLevel; heroes: { role: HeroRole; name: string; skills: readonly string[] }[] };
+type Team = VirtualFleet & { kind: 'crew' | 'virtual'; level?: FleetLevel; dailyTokens?: number | null; heroes: { role: HeroRole; name: string; skills: readonly string[] }[] };
 
 const refused = (code: string, message: string, hint: string | null = null) => ({ ok: false as const, code, hint, message });
 
@@ -48,7 +48,7 @@ export function fakeVirtualFleetsDb() {
   return {
     teams,
     /** The repository as `person` reads and writes it. */
-    as(person: string): Pick<VirtualFleetsRepository, 'create' | 'names'> {
+    as(person: string): Pick<VirtualFleetsRepository, 'create' | 'names' | 'setDailyTokens'> {
       return {
         create(request: CreateVirtualFleetRequest): Promise<Written<VirtualFleet>> {
           if (!members.get(request.workspace)?.has(person)) return Promise.resolve(refused('42501', 'Only a member of the workspace creates its virtual fleets.'));
@@ -59,6 +59,14 @@ export function fakeVirtualFleetsDb() {
           const heroes = [...new Set(request.roles)].map((role) => ({ role, name: roleOf(role).name, skills: roleOf(role).skills }));
           teams.set(request.workspace, [...held, { ...fleet, kind: 'virtual', level: request.level, heroes }]);
           return Promise.resolve({ ok: true, value: fleet });
+        },
+        // The database's rule, as supabase/checks/token_budget.sql proves it: an owner alone sets the daily cap, above 0.
+        setDailyTokens(request: DailyTokensBody): Promise<Written<{ name: string; dailyTokens: number | null }>> {
+          if (owners.get(request.workspace)?.has(person) !== true) return Promise.resolve(refused('42501', 'Only an owner of the workspace sets a fleet\'s daily cap.'));
+          const team = (teams.get(request.workspace) ?? []).find((t) => t.name === request.fleet && t.kind === 'virtual');
+          if (!team) return Promise.resolve(refused('22023', 'Fleet: no virtual fleet of that name.', 'fleet'));
+          team.dailyTokens = request.tokens;
+          return Promise.resolve({ ok: true, value: { name: team.name, dailyTokens: request.tokens } });
         },
         names(workspace: string): Promise<string[]> {
           if (!members.get(workspace)?.has(person)) return Promise.resolve([]);

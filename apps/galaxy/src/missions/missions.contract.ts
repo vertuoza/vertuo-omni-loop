@@ -10,6 +10,8 @@ import { z } from 'zod';
 //   POST /api/missions/<id>/pause    a running or waiting mission goes paused
 //   POST /api/missions/<id>/resume   a paused mission goes running; so does a stopped one (PRD 2980: Resume opens a new round of repairs)
 //   POST /api/missions/<id>/level    {level}: Change for this mission (PRD 2896), the level it runs at
+//   POST /api/missions/<id>/tokens   {tokens}: the mission's token budget, or null for none (PRD 3040)
+//   POST /api/missions/stops/<stop>  {answer, tokens?}: a budget stop answered once (PRD 3040)
 //   POST /api/missions/<id>/bugs     {prd, pick}: a person's pick on Decide the bugs (PRD 3001), send the PRD on to the Reviewer or stop it
 
 export type MissionAction = 'start' | 'pause' | 'resume';
@@ -33,6 +35,21 @@ export const MissionLevelSchema = z.enum(MISSION_LEVELS);
 export const LevelBodySchema = z.object({ level: MissionLevelSchema });
 export const LeveledMissionSchema = z.object({ mission: z.object({ id: z.uuid(), level: MissionLevelSchema }) });
 export type LeveledMission = z.infer<typeof LeveledMissionSchema>;
+
+/** A mission's token budget (PRD 3040): a whole number from 1 to 10⁹, or null for none. */
+const TOKENS_MAX = 1_000_000_000;
+export const TokensBodySchema = z.object({ tokens: z.number().int().min(1).max(TOKENS_MAX).nullable() });
+export const BudgetedMissionSchema = z.object({ mission: z.object({ id: z.uuid(), tokens: z.number().int().positive().nullable() }) });
+export type BudgetedMission = z.infer<typeof BudgetedMissionSchema>;
+
+/** A person's answer to a budget stop (PRD 3040): raise the cap (to `tokens`), resume tomorrow (a fleet's cap) or stop the mission. */
+const STOP_ANSWERS = ['raised', 'tomorrow', 'stopped'] as const;
+export const StopAnswerSchema = z.enum(STOP_ANSWERS);
+export type StopAnswer = z.infer<typeof StopAnswerSchema>;
+export const StopAnswerBodySchema = z.object({ answer: StopAnswerSchema, tokens: z.number().int().positive().optional() });
+export type StopAnswerBody = z.infer<typeof StopAnswerBodySchema>;
+export const AnsweredStopSchema = z.object({ stop: z.object({ id: z.uuid(), answer: StopAnswerSchema, raisedTo: z.number().int().positive().nullable() }) });
+export type AnsweredStop = z.infer<typeof AnsweredStopSchema>;
 
 /** A person's pick on `Decide the bugs` (PRD 3001): send the PRD on to the Reviewer with its bugs open, or stop it. */
 const BugsPickSchema = z.enum(['review', 'stop']);

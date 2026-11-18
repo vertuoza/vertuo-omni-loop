@@ -75,12 +75,16 @@ export const KEY_REFUSED = 'This API key does not work here. Make one on Setting
 export const noEntryLine = (id: string, product: string): string =>
   `No knowledge entry ${id} in ${product}. Search for it with search_knowledge.`;
 
+/**
+ * Who a served call is, as its mcp_search_log row names them: the served key's id, never the key nor its hash
+ * (L-GDPR-2), or the signed-in member's id, never their token (PRD 3007 s1). A row names one, never both.
+ */
+export type SearchLogBy = { api_key_id: string } | { user_id: string };
+
 /** One row of mcp_search_log, as the route writes it once its answer is sent (PRD omni-loop-6 s1). */
-export type SearchLogRow = {
+export type SearchLogRow = SearchLogBy & {
   product_id: string;
   workspace_id: string;
-  /** The served key's id, never the key nor its hash (L-GDPR-2). */
-  api_key_id: string;
   tool: 'search_knowledge' | 'get_knowledge';
   /** The search's `query` (null for a listing), or the `id` a get_knowledge asked. */
   query: string | null;

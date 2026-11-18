@@ -6,8 +6,9 @@ import { embedText } from 'omni-loop/kit/lib/knowledge/entries.ts';
 import { describe, expect, it } from 'vitest';
 import { hashApiKey } from '../public-api/keys/secret';
 import { handleProductMcp, type ProductMcpDeps } from './product-mcp.controller';
-import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema, type SearchLogRow } from './product-mcp.contract';
-import type { AccessRow, ProductMcpRepository } from './product-mcp.repository';
+import type { TokenCheck } from '../ask/auth';
+import { GetAnswerSchema, KEY_REFUSED, NO_PACK_LINE, SearchAnswerSchema, type SearchLogBy, type SearchLogRow } from './product-mcp.contract';
+import type { AccessRow, MemberAccessRow, ProductMcpRepository } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
 import { MAX_DISTANCE } from './search';
 import { MEANING_BUDGET_MS, type Meaning } from './search-meaning';
@@ -34,6 +35,14 @@ const LIVE = 'oma_' + 'A'.repeat(43);
 const NARROW = 'oma_' + 'N'.repeat(43);
 const OTHER = 'oma_' + 'O'.repeat(43);
 const REVOKED = 'oma_' + 'R'.repeat(43);
+// Kit sign-ins (PRD 3007 s1): access tokens of the shape the Auth server signs, header.payload.signature, built
+// here so no file holds one whole. Max is a member of Acme; Hal is signed in, a member of no workspace Acme App
+// is in; a stale one the Auth server refuses; a token it cannot judge while it is down.
+const signInToken = (who: string): string => ['sign-in', who, 'sig'].join('.');
+const MAX = signInToken('max');
+const HAL = signInToken('hal');
+const STALE = signInToken('stale');
+const AUTH_DOWN = signInToken('down');
 
 const CONFIG = 'kit: 1\nlaws:\n  owners: [anna]\n';
 const lawsFile = (statement: string) => `## BL-QUOTES-1\n${statement}\nWhy: A customer who receives an empty quote stops trusting the contractor.\n`;
@@ -61,8 +70,12 @@ async function world({ database = true, failing = false, logFails = false, openF
     apiPack: true,
     // The id of acme/widgets' newest pack: a merge keeps a new one (bug #2954).
     widgetsPack: 'pack-widgets',
+    // Whether Max is still a member of Acme's workspace (PRD 3007 s1).
+    maxIsMember: true,
   };
   const calls: string[] = [];
+  // Each token the Auth server was asked about (PRD 3007 s1).
+  const authAsked: string[] = [];
   // The id of the key each live hash names, as api_key_of() answers it.
   const keyIdOf = (hash: string): string => (hash === hashes.narrow ? 'k-narrow' : 'k-live');
   const ref = (repo: string, packId: string | null) => ({ repo, pack_id: packId, sha: packId ? SHA : null, committed_at: packId ? '2026-11-09T10:00:00Z' : null });
@@ -82,6 +95,25 @@ async function world({ database = true, failing = false, logFails = false, openF
         knowledge: KNOWLEDGE,
       };
       return Promise.resolve(access);
+    },
+    // product_mcp_for_member() as 20270126090000_product_mcp_member.sql writes it: what product_mcp_for_key()
+    // answers a key with no allow-list, for a person who is a member of the product's workspace now.
+    memberAccess: (userId, key) => {
+      calls.push(`member ${key}`);
+      if (failing) return Promise.reject(new Error('product_mcp_for_member: the database refused: boom'));
+      if (userId !== 'u-max' || !state.maxIsMember || key !== 'acme-app' || !state.on) return Promise.resolve(null);
+      const access: MemberAccessRow = {
+        product: { id: 'p-acme', key: 'acme-app', name: 'Acme App', workspace_id: 'w-acme' },
+        user_id: 'u-max',
+        repositories: [ref('acme/api', state.apiPack ? 'pack-api' : null), ref('acme/widgets', state.widgetsPack)],
+        law_home: ref('acme/widgets', state.widgetsPack),
+        knowledge: KNOWLEDGE,
+      };
+      return Promise.resolve(access);
+    },
+    isMember: (userId, workspace) => {
+      calls.push('isMember');
+      return Promise.resolve(userId === 'u-max' && workspace === 'w-acme' && state.maxIsMember);
     },
     keyLive: (hash) => {
       calls.push('keyLive');
@@ -109,9 +141,23 @@ async function world({ database = true, failing = false, logFails = false, openF
   const rows: SearchLogRow[] = [];
   const pending: (() => Promise<void>)[] = [];
   // The searches an opened rank can mark, as the table holds them, and what the log was asked to open.
-  const opened: { keyId: string; productId: string; id: string; askedAt: string }[] = [];
+  const opened: { by: SearchLogBy; productId: string; id: string; askedAt: string }[] = [];
+  // The Auth server's verdict on a kit sign-in's access token, as auth.getUser() answers it (src/ask/auth.ts).
+  const signIn = (token: string): TokenCheck => ({
+    auth: {
+      getUser: (jwt) => {
+        authAsked.push(jwt);
+        if (jwt !== token) throw new Error('the client was built for another token');
+        if (jwt === MAX) return Promise.resolve({ data: { user: { id: 'u-max', email: null } }, error: null });
+        if (jwt === HAL) return Promise.resolve({ data: { user: { id: 'u-hal', email: null } }, error: null });
+        if (jwt === AUTH_DOWN) return Promise.resolve({ data: { user: null }, error: { status: 503, message: 'down' } });
+        return Promise.resolve({ data: { user: null }, error: { status: 401, message: 'invalid JWT' } });
+      },
+    },
+  });
   const deps: ProductMcpDeps = {
     service: database ? productMcpService(repository) : null,
+    signIn: database ? signIn : null,
     log: (line) => { logged.push(line); },
     searchLog: {
       add: (row) => {
@@ -119,9 +165,9 @@ async function world({ database = true, failing = false, logFails = false, openF
         rows.push(row);
         return Promise.resolve();
       },
-      open: (keyId, productId, id, askedAt) => {
+      open: (by, productId, id, askedAt) => {
         if (openFails) return Promise.reject(new Error('mcp_search_log: the database refused: no update'));
-        opened.push({ keyId, productId, id, askedAt });
+        opened.push({ by, productId, id, askedAt });
         return Promise.resolve();
       },
     },
@@ -169,8 +215,11 @@ async function world({ database = true, failing = false, logFails = false, openF
     return (await productMcpService(repository).read(access)).entries;
   };
 
-  return { state, calls, logged, deps, post, connect, ask, call, entries, rows, opened, pending, flush, hashes };
+  return { state, calls, authAsked, logged, deps, post, connect, ask, call, entries, rows, opened, pending, flush, hashes };
 }
+
+/** Who a logged row names: the key's id, or the signed-in person's (PRD 3007 s1). */
+const callerOf = (row: SearchLogRow): string => ('user_id' in row ? `user ${row.user_id}` : `key ${row.api_key_id}`);
 
 const INITIALIZE = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'probe', version: '1' } } };
 
@@ -262,6 +311,7 @@ describe('/api/products/<key>/mcp', () => {
       await client.close();
     }
     expect(w.calls).toEqual([]);
+    expect(w.authAsked).toEqual([]);
   });
 
   it('a revoked key connects and answers the one line on each call', async () => {
@@ -569,7 +619,7 @@ describe('/api/products/<key>/mcp opens the search a get_knowledge follows (PRD 
     expect(text).toContain('BL-QUOTES-1');
     expect(w.opened).toEqual([]);
     await w.flush();
-    expect(w.opened).toEqual([{ keyId: 'k-live', productId: 'p-acme', id: 'BL-QUOTES-1', askedAt: w.rows[0]?.asked_at }]);
+    expect(w.opened).toEqual([{ by: { api_key_id: 'k-live' }, productId: 'p-acme', id: 'BL-QUOTES-1', askedAt: w.rows[0]?.asked_at }]);
   });
 
   it('a search, a listing, or a get_knowledge the product does not hold opens nothing', async () => {
@@ -630,8 +680,8 @@ describe('/api/products/<key>/mcp asks the database for a key\'s access once a m
     await w.ask(client, 'search_knowledge', {});
     await client.close();
     await w.flush();
-    expect(w.rows.map((row) => [row.tool, row.api_key_id])).toEqual([
-      ['search_knowledge', 'k-live'], ['get_knowledge', 'k-live'], ['search_knowledge', 'k-live'],
+    expect(w.rows.map((row) => [row.tool, callerOf(row)])).toEqual([
+      ['search_knowledge', 'key k-live'], ['get_knowledge', 'key k-live'], ['search_knowledge', 'key k-live'],
     ]);
   });
 
@@ -672,5 +722,142 @@ describe('/api/products/<key>/mcp asks the database for a key\'s access once a m
     expect((await w.call(LIVE, 'search_knowledge', { kind: 'business-law' })).isError).toBe(false);
     const narrow = SearchAnswerSchema.parse(JSON.parse((await w.call(NARROW, 'search_knowledge', { query: 'api key' })).text));
     expect(narrow.repositories.map((r) => r.repo)).toEqual(['acme/api']);
+  });
+});
+
+describe('/api/products/<key>/mcp serves a member\'s kit sign-in as it serves an API key (PRD 3007 s1)', () => {
+  it('AC-1: a member\'s sign-in lists the same tools and gets the same hits and entries a key of the workspace gets', async () => {
+    const w = await world();
+    const client = await w.connect(MAX);
+    expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual(['get_knowledge', 'search_knowledge']);
+    await client.close();
+    for (const [tool, args] of [['search_knowledge', { query: 'api key' }], ['search_knowledge', { kind: 'business-law' }], ['get_knowledge', { id: 'BL-QUOTES-1' }]] as const) {
+      const member = await w.call(MAX, tool, args);
+      expect(member.isError).toBe(false);
+      expect(member).toEqual(await w.call(LIVE, tool, args));
+    }
+  });
+
+  it('checks the token at the Auth server, and never asks it about an API key', async () => {
+    const w = await world();
+    await w.call(LIVE, 'search_knowledge', {});
+    expect(w.authAsked).toEqual([]);
+    await w.call(MAX, 'search_knowledge', {});
+    expect(w.authAsked.length).toBeGreaterThan(0);
+    expect(new Set(w.authAsked)).toEqual(new Set([MAX]));
+  });
+
+  it('a sign-in the Auth server refuses answers 401, so the kit renews it, and never reaches the database (AC-2)', async () => {
+    const w = await world();
+    const stale = await w.post('acme-app', STALE, INITIALIZE);
+    expect(stale.status).toBe(401);
+    expect(await stale.json()).toEqual({ error: 'This sign-in is not valid any more. Sign in again.' });
+    expect(w.calls).toEqual([]);
+  });
+
+  it('a sign-in the Auth server cannot judge answers 503, never reaching the database', async () => {
+    const w = await world();
+    const down = await w.post('acme-app', AUTH_DOWN, INITIALIZE);
+    expect(down.status).toBe(503);
+    expect(await down.json()).toEqual({ error: 'The sign-in service could not be reached. Try again.' });
+    expect(w.calls).toEqual([]);
+  });
+
+  it('a person of no workspace the product is in, a product off, archived or unknown answers 404, as a working key\'s cases do (AC-2)', async () => {
+    const w = await world();
+    for (const [key, token] of [['acme-app', HAL], ['nope', MAX]] as const) {
+      const refused = await w.post(key, token, INITIALIZE);
+      expect(refused.status).toBe(404);
+      expect(await refused.json()).toEqual({ error: 'No MCP server here.' });
+    }
+    w.state.on = false;
+    expect((await w.post('acme-app', MAX, INITIALIZE)).status).toBe(404);
+  });
+
+  it('AC-2: once the person leaves the workspace, the very next call of a client already connected reads nothing (BL-ACCESS-1)', async () => {
+    const w = await world();
+    const client = await w.connect(MAX);
+    expect((await w.ask(client, 'search_knowledge', { query: 'quote' })).isError).toBe(false);
+    w.state.maxIsMember = false;
+    await expect(w.ask(client, 'search_knowledge', { query: 'quote' })).rejects.toThrow(/No MCP server here\./);
+    await client.close();
+    expect((await w.post('acme-app', MAX, INITIALIZE)).status).toBe(404);
+  });
+
+  it('turned off, the next call of a member\'s client already connected answers 404', async () => {
+    const w = await world();
+    const client = await w.connect(MAX);
+    expect((await w.ask(client, 'search_knowledge', {})).isError).toBe(false);
+    w.state.on = false;
+    await expect(w.ask(client, 'search_knowledge', {})).rejects.toThrow(/No MCP server here\./);
+    await client.close();
+  });
+
+  it('answers 503 with no database, and 500 when the database fails, logged without the token', async () => {
+    expect((await (await world({ database: false })).post('acme-app', MAX, INITIALIZE)).status).toBe(503);
+    const w = await world({ failing: true });
+    const failed = await w.post('acme-app', MAX, INITIALIZE);
+    expect(failed.status).toBe(500);
+    expect(w.logged).toEqual(['product mcp: product_mcp_for_member: the database refused: boom']);
+    expect(w.logged.join('')).not.toContain(MAX);
+  });
+
+  it('AC-9: logs a member\'s search under the person and no key, and opens the search a get_knowledge follows for that person', async () => {
+    const w = await world();
+    const { text } = await w.call(MAX, 'search_knowledge', { query: 'api key' });
+    const answer = SearchAnswerSchema.parse(JSON.parse(text));
+    await w.call(MAX, 'get_knowledge', { id: 'BL-QUOTES-1' });
+    await w.flush();
+    expect(w.rows).toHaveLength(2);
+    const [search, get] = w.rows;
+    const { asked_at: askedAt, ...row } = search ?? { asked_at: '' };
+    expect(row).toEqual({
+      product_id: 'p-acme', workspace_id: 'w-acme', user_id: 'u-max', tool: 'search_knowledge',
+      query: 'api key', filters: {}, mode: 'words', total: answer.total, hit_ids: answer.hits.map((hit) => hit.id), nearest_distance: null,
+    });
+    expect(Date.parse(askedAt)).not.toBeNaN();
+    expect(get).not.toHaveProperty('api_key_id');
+    expect(JSON.stringify(w.rows)).not.toContain(MAX);
+    expect(w.opened).toEqual([{ by: { user_id: 'u-max' }, productId: 'p-acme', id: 'BL-QUOTES-1', askedAt: get?.asked_at }]);
+  });
+
+  it('a key\'s row is unchanged: its key\'s id and no person', async () => {
+    const w = await world();
+    await w.call(LIVE, 'search_knowledge', { query: 'quote' });
+    await w.flush();
+    expect(w.rows[0]).toHaveProperty('api_key_id', 'k-live');
+    expect(w.rows[0]).not.toHaveProperty('user_id');
+  });
+
+  it('a call refused at the sign-in or by membership adds no row', async () => {
+    const w = await world();
+    await w.post('acme-app', STALE, INITIALIZE);
+    await w.post('acme-app', HAL, INITIALIZE);
+    w.state.maxIsMember = false;
+    await w.post('acme-app', MAX, INITIALIZE);
+    await w.flush();
+    expect(w.rows).toEqual([]);
+  });
+
+  it('keeps a member\'s access a minute by the person, and asks on every call whether they are still a member, the switch and the newest packs (#2954)', async () => {
+    const w = await world();
+    const client = await w.connect(MAX);
+    const before = w.calls.length;
+    expect((await w.ask(client, 'search_knowledge', { query: 'quote' })).isError).toBe(false);
+    expect((await w.ask(client, 'get_knowledge', { id: 'BL-QUOTES-1' })).isError).toBe(false);
+    await client.close();
+    expect(w.calls.filter((call) => call === 'member acme-app')).toHaveLength(1);
+    const asked = w.calls.slice(before);
+    expect(asked.length).toBeGreaterThanOrEqual(6);
+    expect(asked.length % 3).toBe(0);
+    for (let at = 0; at < asked.length; at += 3) expect(asked.slice(at, at + 3)).toEqual(['isMember', 'productOpen', 'newestPacks']);
+  });
+
+  it('a member\'s kept access is never a key\'s: a key and a sign-in of the same product each ask the database once', async () => {
+    const w = await world();
+    await w.call(LIVE, 'search_knowledge', {});
+    await w.call(MAX, 'search_knowledge', {});
+    expect(w.calls.filter((call) => call === 'access acme-app')).toHaveLength(1);
+    expect(w.calls.filter((call) => call === 'member acme-app')).toHaveLength(1);
   });
 });

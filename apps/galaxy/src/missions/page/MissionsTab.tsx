@@ -3,9 +3,10 @@ import { useMemo, useState } from 'react';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { MissionLevelSchema, type BugsPick, type MissionAction } from '../missions.contract';
+import { MissionLevelSchema, type BugsPick, type MissionAction, type StopAnswer } from '../missions.contract';
+import { tokensOf } from '../token-words';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
-import { ACTION_WORDS, LEVEL_WORDS, WORDS, type FleetPrds, type MissionsView } from './missions-tab';
+import { ACTION_WORDS, LEVEL_WORDS, WORDS, type DailyView, type FleetPrds, type MissionsView, type StopView } from './missions-tab';
 import { RepairDetail, StoppedBlock } from '../RepairParts';
 import './missions-tab.css';
 
@@ -13,6 +14,9 @@ import './missions-tab.css';
 // status, its progress (`2 of 4 merged · 1 ready`), each PRD that waits for a person with what it waits on and
 // its link, its brief linked; `Start` on a draft, `Pause` on a running or waiting mission, `Resume` on a paused
 // one. The rules live in ./missions-tab.ts; this file draws them and makes the calls.
+
+/** The busy and problem key of the fleet's own line, which belongs to no mission. */
+const FLEET = 'fleet';
 
 export interface MissionsTabProps {
   view: MissionsView;
@@ -40,6 +44,82 @@ function LevelLine({ words, level, levels, disabled, onChange }: { words: string
           </select>
         </label>
       )}
+    </p>
+  );
+}
+
+/** A number field with its Save and Cancel, for a cap or a budget (PRD 3040): empty means none. */
+function CapEditor({ label, initial, busy, onSave, onCancel }: { label: string; initial: number | null; busy: boolean; onSave: (tokens: number | null) => void; onCancel: () => void }) {
+  const [text, setText] = useState(initial === null ? '' : String(initial));
+  const parsed = tokensOf(text);
+  return (
+    <span className="mission-cap-editor">
+      <label>{label}{' '}<input type="text" inputMode="numeric" value={text} disabled={busy} onChange={(event) => { setText(event.target.value); }} /></label>
+      <button type="button" className="ask-button mission-action" data-primary="" disabled={busy || parsed === undefined} onClick={() => { if (parsed !== undefined) onSave(parsed); }}>{WORDS.save}</button>
+      <button type="button" className="ask-button quiet mission-action" disabled={busy} onClick={onCancel}>{WORDS.cancel}</button>
+    </span>
+  );
+}
+
+/** `Tokens per day: No daily cap`, or `1.3M of 2M in the last 24 hours`, with `Change` for an owner (PRD 3040, `mission-start` 1.A). */
+function DailyLine({ daily, busy, onSave }: { daily: DailyView; busy: boolean; onSave: (tokens: number | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <p className="mission-daily">
+      <span>{WORDS.dailyCap}: {daily.words}{daily.window === null ? '' : ` ${daily.window}`}</span>
+      {daily.canChange && !editing && <button type="button" className="ask-button quiet mission-action" disabled={busy} onClick={() => { setEditing(true); }}>{WORDS.change}</button>}
+      {editing && <CapEditor label={WORDS.dailyCap} initial={daily.cap} busy={busy} onSave={(tokens) => { setEditing(false); onSave(tokens); }} onCancel={() => { setEditing(false); }} />}
+    </p>
+  );
+}
+
+/** `Raise the cap`, with the new number asked in place; an owner's alone (PRD 3040). */
+function RaiseButton({ busy, onRaise }: { busy: boolean; onRaise: (tokens: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+  const parsed = tokensOf(text);
+  if (!editing) return <button type="button" className="ask-button mission-action" data-primary="" disabled={busy} onClick={() => { setEditing(true); }}>{WORDS.raise}</button>;
+  return (
+    <span className="mission-cap-editor">
+      <label>{WORDS.raiseTo}{' '}<input type="text" inputMode="numeric" value={text} disabled={busy} onChange={(event) => { setText(event.target.value); }} /></label>
+      <button type="button" className="ask-button mission-action" data-primary="" disabled={busy || parsed === undefined || parsed === null} onClick={() => { if (parsed !== undefined && parsed !== null) onRaise(parsed); }}>{WORDS.save}</button>
+    </span>
+  );
+}
+
+/** `Paused: budget reached`, what was spent and whose cap, and the actions of the mission's own stop (PRD 3040, `mission-start` 1.B). */
+function StopBlock({ stop, busy, onAnswer }: { stop: StopView; busy: boolean; onAnswer: (answer: StopAnswer, tokens?: number) => void }) {
+  return (
+    <div className="mission-stop" role="group" aria-label={stop.headline}>
+      <strong>{stop.headline}</strong>
+      <span className="ask-muted">{stop.detail}</span>
+      {stop.actions.includes('raised') && stop.canRaise && <RaiseButton busy={busy} onRaise={(tokens) => { onAnswer('raised', tokens); }} />}
+      {stop.actions.includes('stopped') && <button type="button" className="ask-button quiet mission-action" disabled={busy} onClick={() => { onAnswer('stopped'); }}>{WORDS.stopMission}</button>}
+    </div>
+  );
+}
+
+/** The fleet's cap reached, one notice above the list: `Resume tomorrow`, `Raise the cap` and `Stop the missions`, asked once (PRD 3040, `mission-start` 1.C). */
+function FleetNotice({ notice, busy, onAnswer }: { notice: NonNullable<DailyView['notice']>; busy: boolean; onAnswer: (answer: StopAnswer, tokens?: number) => void }) {
+  return (
+    <div className="mission-stop mission-fleet-stop" role="group" aria-label={notice.headline}>
+      <strong>{notice.headline}</strong>
+      <span className="ask-muted">{notice.detail}</span>
+      <button type="button" className="ask-button mission-action" data-primary="" disabled={busy} onClick={() => { onAnswer('tomorrow'); }}>{WORDS.tomorrow}</button>
+      {notice.canRaise && <RaiseButton busy={busy} onRaise={(tokens) => { onAnswer('raised', tokens); }} />}
+      <button type="button" className="ask-button quiet mission-action" disabled={busy} onClick={() => { onAnswer('stopped'); }}>{WORDS.stopMissions}</button>
+    </div>
+  );
+}
+
+/** `412k of 2M tokens`, or `No token budget`; on a draft, set for this mission alone (PRD 3040, AC-10). */
+function BudgetLine({ budget, busy, onSave }: { budget: NonNullable<MissionsView['missions'][number]['budget']>; busy: boolean; onSave: (tokens: number | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <p className="mission-budget">
+      <span>{budget.words}</span>
+      {budget.canChange && !editing && <button type="button" className="ask-button quiet mission-action" disabled={busy} onClick={() => { setEditing(true); }}>{WORDS.change}<span className="ask-sr"> {WORDS.budgetFor}</span></button>}
+      {editing && <CapEditor label={WORDS.budgetFor} initial={budget.tokens} busy={busy} onSave={(tokens) => { setEditing(false); onSave(tokens); }} onCancel={() => { setEditing(false); }} />}
     </p>
   );
 }
@@ -144,8 +224,19 @@ function ActionButton({ action, title, busy, disabled, onMove }: { action: Missi
   );
 }
 
+/** A mission's budget line, and the stop that paused it with its actions (PRD 3040). */
+function BudgetParts({ mission, busy, onBudget, onAnswer }: { mission: MissionsView['missions'][number]; busy: boolean; onBudget: (tokens: number | null) => void; onAnswer: (stop: string, answer: StopAnswer, tokens?: number) => void }) {
+  const stop = mission.stop;
+  return (
+    <>
+      <BudgetLine budget={mission.budget} busy={busy} onSave={onBudget} />
+      {stop !== null && <StopBlock stop={stop} busy={busy} onAnswer={(answer, tokens) => { onAnswer(stop.id, answer, tokens); }} />}
+    </>
+  );
+}
+
 /** One mission's row: its words at the left, its one button at the right. */
-function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick }: {
+function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, onBudget, onAnswer }: {
   demo: boolean;
   mission: MissionsView['missions'][number];
   busy: string | null;
@@ -153,6 +244,8 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick }: 
   onMove: (action: MissionAction) => void;
   onLevel: (level: MissionLevel) => void;
   onPick: (prd: PrdNumber, pick: BugsPick) => void;
+  onBudget: (tokens: number | null) => void;
+  onAnswer: (stop: string, answer: StopAnswer, tokens?: number) => void;
 }) {
   const action = mission.action;
   return (
@@ -171,6 +264,7 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick }: 
             disabled={busy !== null}
             onChange={onLevel}
           />
+          <BudgetParts mission={mission} busy={busy !== null} onBudget={onBudget} onAnswer={onAnswer} />
           {mission.committeeOnly !== null && <p className="mission-committee-only ask-muted">{mission.committeeOnly}</p>}
           {mission.branch !== null && <BranchLine branch={mission.branch} />}
           {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
@@ -228,8 +322,48 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
     router.refresh();
   }
 
+  async function budget(mission: string, tokens: number | null) {
+    setBusy(mission);
+    setProblem(null);
+    const done = await calls.setBudget(mission, tokens);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
+  async function answer(mission: string, stop: string, choice: StopAnswer, tokens?: number) {
+    setBusy(mission);
+    setProblem(null);
+    const done = await calls.answerStop(stop, choice, tokens);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
+  async function dailyCap(tokens: number | null) {
+    if (view.workspace === null) return;
+    setBusy(FLEET);
+    setProblem(null);
+    const done = await calls.setDailyCap(view.workspace, view.fleet, tokens);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission: FLEET, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
   return (
     <section className="missions" data-screen="mission-start" aria-label={WORDS.tab}>
+      {view.daily !== undefined && <DailyLine daily={view.daily} busy={busy !== null} onSave={(tokens) => { void dailyCap(tokens); }} />}
+      {view.daily?.notice != null && <FleetNotice notice={view.daily.notice} busy={busy !== null} onAnswer={(choice, tokens) => { void answer(FLEET, view.daily?.notice?.id ?? '', choice, tokens); }} />}
+      {problem?.mission === FLEET && <p className="mission-problem" role="alert">{problem.message}</p>}
       {view.missions.length === 0 && <p className="ask-muted missions-empty">{WORDS.empty}</p>}
       <ul className="missions-list">
         {view.missions.map((mission) => (
@@ -242,6 +376,8 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
             onMove={(action) => { void move(mission.id, action); }}
             onLevel={(level) => { void changeLevel(mission.id, level); }}
             onPick={(prd, choice) => { void pick(mission.id, prd, choice); }}
+            onBudget={(tokens) => { void budget(mission.id, tokens); }}
+            onAnswer={(stop, choice, tokens) => { void answer(mission.id, stop, choice, tokens); }}
           />
         ))}
       </ul>

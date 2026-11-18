@@ -151,6 +151,11 @@ building, commit and push work in progress at least every half of
   (**Flow points**). The kit's step is the test command the testing form names; a `replace` hook
   runs the tests its own way and ends on the verdict line, and `flow verdict` reads red or green
   from it. The preflight of step 5 is a guard, not this step: it runs whatever the hook says.
+- **A criterion's test is titled `AC-<n>: …`** (PRD 2898). When the slice proves an acceptance
+  criterion of kind `test` (the spec's `### AC-<n> · test`), its test's own title starts with
+  `AC-<n>:`, the criterion's number, then what it proves: `it('AC-2: refuses a second save', …)`.
+  The acceptance report reads only that start: `… (AC-2)`, or the number in a `describe`, proves
+  nothing, and the feature PR's acceptance check counts the criterion unproven.
 - **Tracer bullets, not layer piles.** Prove the smallest vertical path, then widen.
 - **Territory only.** A change outside the row's territory is a decision (below), not a fix you
   just make.
@@ -172,6 +177,12 @@ building, commit and push work in progress at least every half of
 
 When the PRD, the spec, the context files and the knowledge the slice read do not settle something:
 
+0. **Search the product's knowledge first.** Before deciding anything the spec does not settle, search
+   the product's knowledge (`search_knowledge` from the `omni-knowledge` server when the session has
+   it, else `node .omni-loop/bin/omni.mjs kb search <query>`), read each entry it relies on whole
+   (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox
+   item that records the decision. A one-line failure from either is carried on past, named in the
+   item's `gaps`.
 1. **Take the most reversible option** — the one a different answer undoes for the price of a
    constant, not a migration — and carry on.
 2. **Record it** with `omni item new`. Write the JSON to a scratch file (never in the repository):

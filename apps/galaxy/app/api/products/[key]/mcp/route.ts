@@ -2,7 +2,8 @@ import { handleProductMcp } from '../../../../../src/product-mcp/product-mcp.con
 import { productMcpDeps } from '../../../../../src/product-mcp/product-mcp.live';
 
 // /api/products/<key>/mcp: a product's knowledge over MCP, for an agent holding a workspace API key (PRD 2707
-// s3), stateless Streamable HTTP with JSON answers (src/product-mcp/product-mcp.controller.ts). POST carries
+// s3) or a member's kit sign-in (PRD 3007 s1), stateless Streamable HTTP with JSON answers
+// (src/product-mcp/product-mcp.controller.ts). POST carries
 // every call; GET and DELETE answer what a stateless server answers to them. It sits beside `knowledge`.
 export const maxDuration = 60;
 

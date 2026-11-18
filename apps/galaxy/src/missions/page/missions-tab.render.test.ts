@@ -6,7 +6,7 @@ import { fleetOf } from '../../dashboard/fleet/load';
 import { FleetScreen } from '../../dashboard/fleet/FleetScreen';
 import type { VirtualOf } from '../../dashboard/fleet/fleet';
 import { MissionsTab } from './MissionsTab';
-import { missionOf, type MissionRow, type MissionsView } from './missions-tab';
+import { dailyOf, missionOf, NO_BUDGET, type BudgetRead, type MissionRow, type MissionsView } from './missions-tab';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, refresh: () => undefined }) }));
@@ -120,5 +120,42 @@ describe('Decide the bugs (PRD 3001, `fleet-room` 1.A and 1.B)', () => {
     const out = html(view(row({ status: 'waiting', waitingOn: 'PRD 3001: approve it' })));
     expect(text(out)).toContain('approve it');
     expect(out).not.toContain('Stop this PRD');
+  });
+});
+
+// The token caps as the server renders them (PRD 3040, `mission-start` 1.A, 1.B and 1.C).
+describe('the token caps (PRD 3040)', () => {
+  const STOP = '44444444-4444-4444-8444-444444444444';
+  const reads = (over: Partial<BudgetRead>): BudgetRead => ({ ...NO_BUDGET, ...over });
+  const shown = (missions: MissionRow[], read: BudgetRead) => html({ workspace: WORKSPACE, fleet: 'night-shift', daily: dailyOf(read), missions: missions.map((m) => missionOf(m, [], [], [], read)) });
+
+  it('draws the fleet\'s cap with Change for an owner only (1.A)', () => {
+    const owner = text(shown([row({})], reads({ owner: true, dailyCap: 2_000_000, fleetSpent: 1_300_000 })));
+    expect(owner).toContain('Tokens per day: 1.3M of 2M in the last 24 hours Change');
+    expect(text(shown([row({})], reads({ owner: false })))).toContain('Tokens per day: No daily cap');
+    expect(text(shown([row({ status: 'running' })], reads({ owner: false })))).not.toContain('Change');
+  });
+
+  it('draws each mission\'s budget line (AC-10), with Change on a draft only', () => {
+    const budgeted = shown([row({ status: 'running', tokens: 2_000_000 })], reads({ spent: new Map([[row({}).id, 412_000]]) }));
+    expect(text(budgeted)).toContain('412k of 2M tokens');
+    expect(budgeted).not.toContain('Token budget for this mission');
+    expect(text(shown([row({ status: 'draft' })], reads({})))).toContain('No token budget Change Token budget for this mission');
+  });
+
+  it('draws Paused: budget reached with Raise the cap and Stop the mission on the mission\'s own stop (1.B)', () => {
+    const stop = { id: STOP, cap: 'mission' as const, capTokens: 2_000_000, spent: 2_000_000, missions: [row({}).id] };
+    const out = shown([row({ status: 'paused', tokens: 2_000_000 })], reads({ owner: true, stops: [stop] }));
+    expect(text(out)).toContain('Paused: budget reached 2.0M of 2M tokens · this mission&#x27;s budget Raise the cap Stop the mission');
+    expect(text(shown([row({ status: 'paused', tokens: 2_000_000 })], reads({ owner: false, stops: [stop] })))).not.toContain('Raise the cap');
+  });
+
+  it('draws the fleet\'s cap once above the list with Resume tomorrow, Raise the cap and Stop the missions (1.C)', () => {
+    const stop = { id: STOP, cap: 'fleet' as const, capTokens: 2_000_000, spent: 2_100_000, missions: [row({}).id] };
+    const out = shown([row({ status: 'paused' })], reads({ owner: true, dailyCap: 2_000_000, fleetSpent: 2_100_000, stops: [stop] }));
+    expect(text(out)).toContain('Paused: this fleet&#x27;s daily cap reached (2M) 2.1M of 2M tokens in the last 24 hours · this fleet&#x27;s daily cap Resume tomorrow Raise the cap Stop the missions');
+    expect(out.match(/Resume tomorrow/g)).toHaveLength(1);
+    expect(out).not.toContain('>Stop the mission<');
+    expect(text(shown([row({ status: 'paused' })], reads({ owner: false, stops: [stop] })))).not.toContain('Raise the cap');
   });
 });

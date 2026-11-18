@@ -495,7 +495,8 @@ describe('riskyChanges — law-demoted (PRD 1342)', () => {
     const base = memorySource({
       [INVARIANTS]: ['## N1', '', 'Not yet a law.', '', `Enforced by: ${PROOF}`, 'Proposed: harvest 2026-10-01', ''].join('\n'),
     });
-    expect(demotedOver(base).map((entry) => entry.rule)).toEqual(['law-text']);
+    // Neither law-demoted nor, since #3041, law-text: a proposed entry is no law.
+    expect(demotedOver(base).map((entry) => entry.rule)).toEqual([]);
   });
 
   it('counts a law removed whatever its Enforced by: said', () => {
@@ -771,5 +772,54 @@ describe('lawsAwaitingOwners — a file no person owns falls back to the law own
     expect(lawsAwaitingOwners(moved, { ownersOf, approvers: ['ann'], lawOwners: [] }).awaiting).toEqual([
       { law: 'BR-1', reason: 'no-codeowner', paths: ['domains/ask/rules.md'], owners: ['@ann'] },
     ]);
+  });
+});
+
+// #3041: a proposed entry is no law yet (P-PRODUCT-81), so rewording only proposed entries in a
+// register asks no person; #3006 closed the same gap for law-proof.
+describe('riskyChanges — law-text on proposed entries (#3041)', () => {
+  const draft = (statement: string) => ['## N1', '', statement, '', 'Enforced by: unenforced', 'Proposed: harvest 2026-10-01', ''];
+  const law = (statement: string) => ['## N2', '', statement, '', 'Enforced by: unenforced', ''];
+  const fired = (baseLines: string[], headLines: string[]) => {
+    seed(INVARIANTS, headLines.join('\n'));
+    const base = memorySource({ [INVARIANTS]: baseLines.join('\n') });
+    return riskyChanges([change(INVARIANTS)], { ctx, base }).map((entry) => entry.rule);
+  };
+
+  it('does not fire when only a proposed entry is reworded', () => {
+    expect(fired([...draft('Old words.'), ...law('A law.')], [...draft('New words.'), ...law('A law.')])).toEqual([]);
+  });
+
+  it('does not fire when a proposed entry is added or removed', () => {
+    expect(fired(law('A law.'), [...draft('A draft.'), ...law('A law.')])).toEqual([]);
+    expect(fired([...draft('A draft.'), ...law('A law.')], law('A law.'))).toEqual([]);
+  });
+
+  it('still fires when a confirmed entry changes beside a proposed one', () => {
+    expect(fired([...draft('Old.'), ...law('A law.')], [...draft('New.'), ...law('A changed law.')])).toEqual(['law-text']);
+  });
+
+  it('still fires when a proposed entry is confirmed', () => {
+    const confirmed = ['## N1', '', 'Old words.', '', 'Enforced by: unenforced', ''];
+    expect(fired(draft('Old words.'), confirmed)).toEqual(['law-text']);
+  });
+
+  it('reads only the changed file: a confirmed change in another register does not count', () => {
+    const RULES_PATH = 'docs/knowledge/product/rules.md';
+    const rule = (statement: string) => ['## BR-PRODUCT-1', '', statement, '', 'Serves: P-PRODUCT-1', 'Enforced by: unenforced', ''].join('\n');
+    seed(RULES_PATH, rule('Changed rule.'));
+    expect(fired(draft('Old.'), draft('New.'))).toEqual([]);
+    expect(riskyChanges([change(RULES_PATH)], { ctx, base: memorySource({ [RULES_PATH]: rule('A rule.') }) }).map((entry) => entry.rule)).toEqual(['law-text']);
+  });
+
+  it('spares law-text only: another rule on the same file still fires', () => {
+    ctx = flatCtx(root, { risk: { storedShape: [], sharedContract: ['docs/knowledge/'] } });
+    expect(fired(draft('Old.'), draft('New.'))).toEqual(['shared-contract']);
+  });
+
+  it('still fires when no base is given, or no entry differs', () => {
+    seed(INVARIANTS, draft('Words.').join('\n'));
+    expect(rulesFiredOn(INVARIANTS)).toEqual(['law-text']);
+    expect(fired(['# Invariants', '', ...draft('Words.')], ['# The invariants', '', ...draft('Words.')])).toEqual(['law-text']);
   });
 });

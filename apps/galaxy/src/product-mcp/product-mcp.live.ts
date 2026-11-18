@@ -2,16 +2,17 @@ import 'server-only';
 import { after } from 'next/server';
 import { log } from 'omni-loop/kit/lib/log/log.ts';
 import { serviceDb } from '../data/sign-in-live';
-import { supabaseEnv } from '../data/supabase-server';
+import { supabaseAs, supabaseEnv } from '../data/supabase-server';
 import { serverEnv } from '../env';
 import { queryEmbedClient } from './embed/client';
 import type { ProductMcpDeps } from './product-mcp.controller';
-import { knowledgeVectorsRepository, productMcpRepository, searchLogRepository } from './product-mcp.repository';
+import { knowledgeVectorsRepository, productMcpRepository, searchLogRepository, type MemberAccessRow } from './product-mcp.repository';
 import { productMcpService } from './product-mcp.service';
 import { accessCache } from './access-cache';
 
-/** The accesses this server keeps, shared by every request it answers. */
+/** The accesses this server keeps, shared by every request it answers: the keys', and the members' (PRD 3007 s1). */
 const kept = accessCache();
+const members = accessCache<MemberAccessRow>();
 
 // A product's MCP server's real dependencies (PRD 2707 s3), for /api/products/<key>/mcp: the rules over the
 // service role's client (SUPABASE_SERVICE_ROLE_KEY, server only), since an API key is no person's session and
@@ -27,15 +28,19 @@ const kept = accessCache();
 //
 // Each answered call is logged to mcp_search_log on the same client, through Next's after(): once the answer
 // is sent (PRD omni-loop-6 s1).
+//
+// A member's kit sign-in (PRD 3007 s1) is checked at the Auth server by a client acting as its token, as every
+// kit call is (src/ask/auth.ts); what they read is then asked on the service role's client, as a key's is.
 export function productMcpDeps(): ProductMcpDeps {
   const supabase = supabaseEnv();
   const serviceRole = serverEnv().serviceRole;
   if (supabase === null || serviceRole === null) {
-    return { service: null, log: (message) => { log.error({ event: 'product-mcp', outcome: 'failed', message }); } };
+    return { service: null, signIn: null, log: (message) => { log.error({ event: 'product-mcp', outcome: 'failed', message }); } };
   }
   const db = serviceDb();
   return {
-    service: productMcpService(productMcpRepository(db), kept),
+    service: productMcpService(productMcpRepository(db), kept, members),
+    signIn: (token) => ({ auth: supabaseAs(token).auth }),
     log: (message) => { log.error({ event: 'product-mcp', outcome: 'failed', message }); },
     meaning: { embedder: queryEmbedClient({ url: supabase.url, serviceRoleKey: serviceRole.key }), vectors: knowledgeVectorsRepository(db) },
     searchLog: searchLogRepository(db),

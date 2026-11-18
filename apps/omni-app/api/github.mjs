@@ -546,8 +546,8 @@ function worthWriting(known, reported, at4) {
 function refusal(budget, priority, now2) {
   if (!budget) return null;
   if (budget.pausedUntil !== null && budget.pausedUntil > now2) return new GithubPaused(budget.pausedUntil);
-  const held = budget.resetAt > now2 && belowFloor(budget.remaining, budget.limit);
-  return priority === "background" && held ? new GithubDeferred(budget.resetAt) : null;
+  const held2 = budget.resetAt > now2 && belowFloor(budget.remaining, budget.limit);
+  return priority === "background" && held2 ? new GithubDeferred(budget.resetAt) : null;
 }
 var GIT_OBJECT = /\/git\/(?:blobs|trees)\/[0-9a-f]{40}$/i;
 var isGitObject = (url) => GIT_OBJECT.test(new URL(url).pathname);
@@ -958,7 +958,7 @@ function jobSteps({
   log: log2 = () => void 0
 }) {
   const name = `job ${job.id}`;
-  const held = leaseSeconds === void 0 ? job : { ...job, leaseSeconds };
+  const held2 = leaseSeconds === void 0 ? job : { ...job, leaseSeconds };
   let saved = null;
   const read2 = async (id) => {
     const steps = await ledger.stepsOf(job);
@@ -967,7 +967,7 @@ function jobSteps({
   };
   const renewing = async (id, fn) => {
     const timer = setInterval(() => {
-      void ledger.renew(held).then(
+      void ledger.renew(held2).then(
         (answer) => {
           if (answer === "stale") log2(`${name}: its claim was taken over while the step "${id}" ran`);
         },
@@ -990,7 +990,7 @@ function jobSteps({
       const value = asSaved(await renewing(id, fn));
       if (await ledger.save({ ...job, step: id, value }) === "stale") throw new Error(`${name}: its claim was taken over before the step "${id}" was saved`);
       steps.set(id, value);
-      if (await ledger.renew(held) === "stale") throw new Error(`${name}: its claim was taken over after the step "${id}" was saved`);
+      if (await ledger.renew(held2) === "stale") throw new Error(`${name}: its claim was taken over after the step "${id}" was saved`);
       return value;
     }
   };
@@ -1088,8 +1088,8 @@ function messageOf2(error) {
   return messageField(error) ?? error;
 }
 function firstLine2(reason2) {
-  const said = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
-  return said.split("\n")[0] || "unknown error";
+  const said2 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
+  return said2.split("\n")[0] || "unknown error";
 }
 var printed = (value) => String(value);
 
@@ -1132,8 +1132,8 @@ async function snapshot(octokit, {
   for (const segments of segmentsOf) {
     for (const file of await filesUnder(tree, ref, segments)) files.set(file.path, file);
   }
-  const listed3 = [...files.values()];
-  const list2 = listed3.filter((file) => fetchIf(file.path));
+  const listed4 = [...files.values()];
+  const list2 = listed4.filter((file) => fetchIf(file.path));
   if (list2.length > MAX_FILES) {
     throw new SnapshotBoundError(
       `The snapshot holds ${list2.length.toLocaleString("en-US")} files, over the bound of ${MAX_FILES.toLocaleString("en-US")} files.`
@@ -1146,7 +1146,7 @@ async function snapshot(octokit, {
     );
   }
   const folder = dest ?? mkdtempSync(join(tmpdir(), "omni-snapshot-"));
-  for (const file of listed3) {
+  for (const file of listed4) {
     if (fetchIf(file.path)) continue;
     const target2 = join(folder, ...repositoryPath(file.path));
     mkdirSync(dirname(target2), { recursive: true });
@@ -3198,15 +3198,15 @@ function withFile2(file, message) {
   return file ? `${file}: ${message}` : message;
 }
 function stripQuotes(value) {
-  const trimmed3 = value.trim();
-  if (trimmed3.length >= 2) {
-    const first = trimmed3[0];
-    const last = trimmed3[trimmed3.length - 1];
+  const trimmed4 = value.trim();
+  if (trimmed4.length >= 2) {
+    const first = trimmed4[0];
+    const last = trimmed4[trimmed4.length - 1];
     if (first === '"' && last === '"' || first === "'" && last === "'") {
-      return trimmed3.slice(1, -1);
+      return trimmed4.slice(1, -1);
     }
   }
-  return trimmed3;
+  return trimmed4;
 }
 function parseFrontMatterLines(rawFrontMatter) {
   const data = {};
@@ -3551,9 +3551,9 @@ var CAMEL_CASE_WORD = /\b[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*\b/g;
 var SCREAMING_CASE_WORD = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 var BACKTICK_SPAN = /`[^`\n]+`/g;
 function countSentences(text19) {
-  const trimmed3 = (text19 ?? "").trim();
-  if (!trimmed3) return 0;
-  const matches = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
+  const trimmed4 = (text19 ?? "").trim();
+  if (!trimmed4) return 0;
+  const matches = trimmed4.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
   return matches.filter((sentence2) => sentence2.trim().length > 0).length;
 }
 function uniqueMatches(text19, pattern) {
@@ -4088,8 +4088,8 @@ function isOwnedBy(owners, login) {
 var OWNERS_BEGIN = "# BEGIN omni kb owners";
 var OWNERS_END = "# END omni kb owners";
 function ownerHandle(owner) {
-  const trimmed3 = owner.trim();
-  return trimmed3.includes("@") ? trimmed3 : `@${trimmed3}`;
+  const trimmed4 = owner.trim();
+  return trimmed4.includes("@") ? trimmed4 : `@${trimmed4}`;
 }
 function exactPattern(path) {
   return `/${path.replace(/^\/+/, "").replace(/[\\\s#*?[\]!]/g, (char) => `\\${char}`)}`;
@@ -4297,14 +4297,29 @@ function demotedFiles({ ctx, base }) {
   }
   return [...files];
 }
+function draftsOnlyChanged({ ctx, base }) {
+  let sides = null;
+  return (path) => {
+    sides ??= { before: readKnowledge({ ctx, source: base }).entries, after: readRegisters({ ctx }).entries };
+    const before2 = new Map(sides.before.filter((entry) => entry.file === path).map((entry) => [entry.id, entry]));
+    const after2 = new Map(sides.after.filter((entry) => entry.file === path).map((entry) => [entry.id, entry]));
+    const differing = [.../* @__PURE__ */ new Set([...before2.keys(), ...after2.keys()])].filter((id) => {
+      const was = before2.get(id);
+      const now2 = after2.get(id);
+      return was === void 0 || now2 === void 0 || entryText(was) !== entryText(now2);
+    });
+    const isDraft = (entry) => entry === void 0 || entry.proposed !== null;
+    return differing.length > 0 && differing.every((id) => isDraft(before2.get(id)) && isDraft(after2.get(id)));
+  };
+}
 function riskyChanges(changes, { ctx, base = null }) {
   const risky = [];
   const briefing = briefingFiles({ ctx });
+  const draftsOnly = base === null ? () => false : draftsOnlyChanged({ ctx, base });
+  const fires = (rule, change2) => rule.matches(change2, { ctx }) && !(rule.id === "law-text" && draftsOnly(change2.path));
   for (const change2 of changes) {
-    for (const rule of RULES) {
-      if (rule.matches(change2, { ctx })) {
-        risky.push({ path: change2.path, status: change2.status, rule: rule.id });
-      }
+    for (const rule of RULES.filter((candidate) => fires(candidate, change2))) {
+      risky.push({ path: change2.path, status: change2.status, rule: rule.id });
     }
     if (isBriefingFile(change2.path, briefing)) risky.push({ path: change2.path, status: change2.status, rule: BRIEFING_TEXT });
   }
@@ -4369,8 +4384,8 @@ function lawPaths(before2, after2, { compared }) {
 function lawsAwaitingOwners(fired, { ownersOf: ownersOf2, approvers, lawOwners = [] }) {
   const fallback = lawOwners.map((login) => `@${login.replace(/^@/, "")}`).filter(isPersonOwner);
   const files = fired.map(({ law, path }) => {
-    const listed3 = ownersOf2(path).filter(isPersonOwner);
-    const persons = listed3.length > 0 ? listed3 : fallback;
+    const listed4 = ownersOf2(path).filter(isPersonOwner);
+    const persons = listed4.length > 0 ? listed4 : fallback;
     return { law, path, persons, approved: approvers.filter((login) => isOwnedBy(persons, login)) };
   });
   const awaiting = [];
@@ -4895,9 +4910,9 @@ function adoptedEntriesForPrd(prd, { ctx }) {
   return readSettledEntries(prd, { ctx }).filter((entry) => entry.verdict === ADOPTED_VERDICT);
 }
 function firstSentence(text19) {
-  const trimmed3 = (text19 ?? "").trim();
-  const match2 = trimmed3.match(/[^.!?]+(?:[.!?]+|$)/);
-  return (match2 ? match2[0] : trimmed3).trim();
+  const trimmed4 = (text19 ?? "").trim();
+  const match2 = trimmed4.match(/[^.!?]+(?:[.!?]+|$)/);
+  return (match2 ? match2[0] : trimmed4).trim();
 }
 function answeredQuestionText(entry) {
   const parsed3 = parseOutboxItem(entry.itemText, { file: null });
@@ -5675,10 +5690,10 @@ function sectionViolations(read2) {
   else if (own.length > 1) found.push(`${own.length} ${quote(PIXEL_PERFECT)} sections, not one for the page`);
   for (const { section: section4, index } of own) {
     if (section4.tab !== PIXEL_PERFECT) found.push(`${placeOf(section4)} sits outside the ${quote(PIXEL_PERFECT)} tab`);
-    const held = read2.screens.filter((screen) => screen.section === index);
-    if (section4.state === "filled" && held.length === 0) found.push(`${placeOf(section4)} is filled but holds no marked screen (data-screen)`);
+    const held2 = read2.screens.filter((screen) => screen.section === index);
+    if (section4.state === "filled" && held2.length === 0) found.push(`${placeOf(section4)} is filled but holds no marked screen (data-screen)`);
     const named = namedScreens(section4.text);
-    for (const name of new Set(held.map((screen) => screen.name))) {
+    for (const name of new Set(held2.map((screen) => screen.name))) {
       if (!named.has(name)) found.push(`${placeOf(section4)}: its screens: line does not name screen ${quote(name)}`);
     }
   }
@@ -6707,8 +6722,8 @@ function pinsTable(approval, latest) {
   const rows = approval.files.map((pin) => {
     const now2 = latest.find((version) => version.kind === pin.kind);
     const today2 = now2 ? now2.sha256.slice(0, 12) : "\u2014";
-    const same = now2?.sha256 === pin.sha256 ? "\u2713" : "\u2260";
-    return `| ${basename5(pin.path)} | \`${pin.sha256.slice(0, 12)}\` | \`${today2}\` | ${same} |`;
+    const same2 = now2?.sha256 === pin.sha256 ? "\u2713" : "\u2260";
+    return `| ${basename5(pin.path)} | \`${pin.sha256.slice(0, 12)}\` | \`${today2}\` | ${same2} |`;
   });
   return ["| file | approved | today | |", "|---|---|---|---|", ...rows];
 }
@@ -8344,8 +8359,8 @@ var FILES = "GET /repos/{owner}/{repo}/pulls/{pull_number}/files";
 var UNREADABLE = /* @__PURE__ */ new Set([403, 404, 410]);
 function within2(window, at4) {
   if (!at4) return false;
-  const time2 = Date.parse(at4);
-  return time2 >= Date.parse(window.from) && time2 <= Date.parse(window.to);
+  const time3 = Date.parse(at4);
+  return time3 >= Date.parse(window.from) && time3 <= Date.parse(window.to);
 }
 async function listFiles(octokit, { owner, repo, number }) {
   const files = await paginate(
@@ -8772,8 +8787,8 @@ function runnerQueue(connection) {
     const repo = repository.toLowerCase();
     const [workspace] = rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1));
     if (!workspace) return { job: null, created: false, reason: `no workspace holds the installation ${String(installationId)}` };
-    const [listed3] = rowsOf(RemovedRowSchema, await db.from("repositories").select("removed_at").eq("workspace_id", workspace.id).eq("full_name", repo).limit(1));
-    if (listed3 && listed3.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
+    const [listed4] = rowsOf(RemovedRowSchema, await db.from("repositories").select("removed_at").eq("workspace_id", workspace.id).eq("full_name", repo).limit(1));
+    if (listed4 && listed4.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
     const [found] = rowsOf(
       IdRowSchema,
       await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line3).order("queued_at").limit(1)
@@ -9645,7 +9660,7 @@ function repoApprovedVerdict(prd, reading, head) {
   const dossierId = dossierOf(reading.url);
   const verdict = (state, conclusion, title, lines2, drift = []) => ({ state, conclusion, title, summary: [...lines2, "", `Read against ${head}.`].join("\n"), dossierId, drift });
   const { approval } = reading;
-  const held = () => verdict("held", "neutral", `held \xB7 ${UNREACHABLE}`, reading.lines);
+  const held2 = () => verdict("held", "neutral", `held \xB7 ${UNREACHABLE}`, reading.lines);
   switch (reading.state) {
     case "approved": {
       const pinned = approval?.files.length ?? 0;
@@ -9660,9 +9675,9 @@ function repoApprovedVerdict(prd, reading, head) {
       return verdict("drifted", "failure", `drifted \xB7 ${lines2[0] ?? ""}`, [...lines2, "", restore], drift);
     }
     case "refused":
-      return approval && !approval.approver.member ? verdict("refused", "failure", `refused \xB7 approver ${approval.approver.login} is not a workspace member`, reading.lines) : held();
+      return approval && !approval.approver.member ? verdict("refused", "failure", `refused \xB7 approver ${approval.approver.login} is not a workspace member`, reading.lines) : held2();
     case "unreachable":
-      return held();
+      return held2();
   }
 }
 
@@ -9729,15 +9744,15 @@ async function judgedAt(octokit, target2, ask3) {
   return reading ? { reading, head: target2.source.ref } : null;
 }
 async function readingOf(readRecord2, repository, prd, now2, log2) {
-  const held = (why) => {
+  const held2 = (why) => {
     log2(`approved check of ${repository} for ${prd.id} is held: ${why}`);
     return { reachable: false, since: now2().toISOString() };
   };
-  if (!readRecord2) return held("the App cannot read the server here");
+  if (!readRecord2) return held2("the App cannot read the server here");
   try {
     return { reachable: true, record: await readRecord2(repository, prd) };
   } catch (error) {
-    return held(error instanceof Error ? error.message : String(error));
+    return held2(error instanceof Error ? error.message : String(error));
   }
 }
 function attestationUrl(galaxyUrl, dossierId, anchor = "attestation") {
@@ -10254,14 +10269,14 @@ function readDecisions({
   for (const record of records) byNumber.set(record.number, [...byNumber.get(record.number) ?? [], record.file]);
   const shared = [...byNumber].filter(([, files]) => files.length > 1).map(([number, files]) => ({ number, files }));
   const highest = records.reduce((max, record) => Math.max(max, Number(record.number)), 0);
-  const held = new Set(records.map((record) => record.number));
+  const held2 = new Set(records.map((record) => record.number));
   const inherited = [];
   if (ctx.config) {
     for (const copy2 of levelCopies({ ctx: { root: ctx.root, config: ctx.config } })) {
       const own = readFolder(ctx.root, copy2.ctx.layout.adrDir.replace(/\/+$/, ""), copy2.level);
-      const taken = new Set(held);
+      const taken = new Set(held2);
       for (const record of own) if (!taken.has(record.number)) inherited.push(record);
-      for (const record of own) held.add(record.number);
+      for (const record of own) held2.add(record.number);
     }
   }
   return { dir, records: [...records, ...inherited], shared, next: String(highest + 1).padStart(4, "0") };
@@ -11091,15 +11106,15 @@ function interpretAnswer({
   text: text19,
   options
 }) {
-  const trimmed3 = plainText(text19).trim();
-  if (RECOMMENDATION_RE.test(trimmed3)) {
+  const trimmed4 = plainText(text19).trim();
+  if (RECOMMENDATION_RE.test(trimmed4)) {
     return { statedVerdict: "agreed", recorded: RECOMMENDATION_TEXT };
   }
-  const match2 = trimmed3.match(LETTER_ANSWER);
-  if (!match2) return { statedVerdict: null, recorded: trimmed3 };
+  const match2 = trimmed4.match(LETTER_ANSWER);
+  if (!match2) return { statedVerdict: null, recorded: trimmed4 };
   const letter = (match2[1] ?? "").toUpperCase();
   const option = (options ?? []).find((candidate) => candidate.letter === letter);
-  if (!option) return { undetermined: true, recorded: trimmed3 };
+  if (!option) return { undetermined: true, recorded: trimmed4 };
   const reason2 = (match2[2] ?? "").trim();
   return {
     statedVerdict: letter === "A" ? "agreed" : "drifted",
@@ -11178,7 +11193,7 @@ function planFor({ comments: all, items, adopted, markers }) {
   const { numbered, approved } = rawAnswers(all, markers, byNumber, open);
   const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
   const settle2 = [];
-  const held = [];
+  const held2 = [];
   for (const { number, item, adoptedEntry } of questions) {
     const raw = numbered.get(number) ?? approved.get(number);
     if (!raw) continue;
@@ -11186,13 +11201,13 @@ function planFor({ comments: all, items, adopted, markers }) {
     if (judgement.verdict === null) {
       const lastRound = reaskedAt.get(number);
       const due = lastRound === void 0 || time(answer.approvedAt) > lastRound;
-      held.push({ number, item, answer, due });
+      held2.push({ number, item, answer, due });
       continue;
     }
     if (adoptedEntry && judgement.verdict !== "drifted") continue;
     settle2.push({ number, item, answer, judgement, adoptedEntry });
   }
-  return { settle: settle2, held, round: roundOf(held, highestRound) };
+  return { settle: settle2, held: held2, round: roundOf(held2, highestRound) };
 }
 function rawAnswers(all, markers, byNumber, open) {
   const numbered = /* @__PURE__ */ new Map();
@@ -11236,8 +11251,8 @@ function readAnswer(raw, item) {
   });
   return { answer, judgement };
 }
-function roundOf(held, highestRound) {
-  const dueQuestions = held.filter((question) => question.due);
+function roundOf(held2, highestRound) {
+  const dueQuestions = held2.filter((question) => question.due);
   if (dueQuestions.length === 0) return null;
   return {
     number: Math.max(highestRound, 1) + 1,
@@ -11309,7 +11324,7 @@ function readReplies({ ctx, prd, pr, post: post2 = false }, client) {
   const items = openItemsForPrd(prd, { ctx });
   const adopted = adoptedEntriesForPrd(prd, { ctx });
   const plan = planFor({ comments: countWriters(replyComments(comments), ctx.markers, client.canWrite), items, adopted, markers: ctx.markers });
-  const settled = [];
+  const settled2 = [];
   const failed3 = [];
   for (const { number, item, answer, judgement, adoptedEntry } of plan.settle) {
     const given = {
@@ -11325,7 +11340,7 @@ function readReplies({ ctx, prd, pr, post: post2 = false }, client) {
     };
     const result = adoptedEntry ? appendObjection({ ctx, prd, adoptedEntry, item, answer: given, judgement }) : settleItem({ ctx, file: defined(item.file, "the file of an open item"), answer: given });
     if (result.ok) {
-      settled.push({
+      settled2.push({
         number,
         id: item.id,
         verdict: result.verdict ?? judgement.verdict,
@@ -11349,7 +11364,7 @@ function readReplies({ ctx, prd, pr, post: post2 = false }, client) {
     round = { number: plan.round.number, body, posted: posted ?? null };
   }
   return {
-    settled,
+    settled: settled2,
     failed: failed3,
     held: plan.held.map(({ number, item, answer, due }) => ({
       number,
@@ -12120,12 +12135,12 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
       if (verdict.gate) return verdict.gate;
       if (constituents.length === 0) return judged2({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
-      if (!said.ok) {
-        return neutral(said.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said.reason})` : `judge error: ${said.reason}`);
+      const said2 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      if (!said2.ok) {
+        return neutral(said2.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said2.reason})` : `judge error: ${said2.reason}`);
       }
-      const findings = counted2(verdict.findings, said.answer === "true");
-      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said.decidedBy, confidence: said.confidence } });
+      const findings = counted2(verdict.findings, said2.answer === "true");
+      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said2.decidedBy, confidence: said2.confidence } });
     }
   };
 }
@@ -12162,8 +12177,8 @@ function constituentJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE
     const reply2 = await response.json().catch(() => null);
     if (!response.ok) {
       const refusal4 = RefusalSchema.safeParse(reply2);
-      const said = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
-      return failed("judge", `galaxy answered ${response.status}${said}`);
+      const said2 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
+      return failed("judge", `galaxy answered ${response.status}${said2}`);
     }
     const verdict = VerdictSchema2.safeParse(reply2);
     if (!verdict.success) return failed("judge", "galaxy answered no verdict");
@@ -12269,17 +12284,17 @@ function stepAt(first, now2, workingDays) {
   return { step: 2, nextDue: null };
 }
 var previous = (step) => step === 2 ? 1 : 0;
-function decideOne(held, now2, settings) {
-  const base = { thing: held.thing, kind: held.kind, firstHeld: held.firstHeld };
-  const { step, nextDue } = stepAt(parseInstant(held.firstHeld), now2, settings.workingDays);
-  if (held.answered) return { ...base, step, asked: [], newlyAsked: [], nextDue: null };
+function decideOne(held2, now2, settings) {
+  const base = { thing: held2.thing, kind: held2.kind, firstHeld: held2.firstHeld };
+  const { step, nextDue } = stepAt(parseInstant(held2.firstHeld), now2, settings.workingDays);
+  if (held2.answered) return { ...base, step, asked: [], newlyAsked: [], nextDue: null };
   if (!escalates(settings)) return { ...base, step: 0, asked: [], newlyAsked: [], nextDue: null };
-  const asked = askedAt(held.kind, step, settings);
-  const before2 = new Set(askedAt(held.kind, previous(step), settings).map((login) => login.toLowerCase()));
+  const asked = askedAt(held2.kind, step, settings);
+  const before2 = new Set(askedAt(held2.kind, previous(step), settings).map((login) => login.toLowerCase()));
   return { ...base, step, asked, newlyAsked: asked.filter((login) => !before2.has(login.toLowerCase())), nextDue };
 }
-function decide(held, now2, settings) {
-  return held.map((one) => decideOne(one, now2, settings));
+function decide(held2, now2, settings) {
+  return held2.map((one) => decideOne(one, now2, settings));
 }
 
 // kit/lib/escalation/comments.ts
@@ -12294,12 +12309,12 @@ function renderLine(one) {
   const next = one.nextDue === null ? LAST : `next step due ${one.nextDue}`;
   return `- ${one.kind} \`${one.thing}\` \xB7 held since ${one.firstHeld} \xB7 step ${String(one.step)} \xB7 asked ${asked} \xB7 ${next}`;
 }
-function renderRecord(held) {
+function renderRecord(held2) {
   return [
     RECORD_MARKER,
     "**Waiting on a person.** When nobody answers, the loop asks more people, in working days (Monday to Friday, UTC). It never approves or adopts anything: only a person ends the wait.",
     "",
-    ...held.length > 0 ? held.map(renderLine) : ["Nothing waits on a person."]
+    ...held2.length > 0 ? held2.map(renderLine) : ["Nothing waits on a person."]
   ].join("\n");
 }
 var asStep = (digit) => digit === "2" ? 2 : digit === "1" ? 1 : 0;
@@ -12744,9 +12759,9 @@ function fleetBoardHandler({ octokitFor, store, now: now2 = () => /* @__PURE__ *
     }
     const outcomes2 = [];
     for (const workspace of workspaces) outcomes2.push(await addCard({ octokitFor, store, now: now2, data, workspace, fleet: fleets.get(workspace) ?? null }));
-    const said = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
-    log2(`fleet board: ${said}`);
-    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said };
+    const said2 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
+    log2(`fleet board: ${said2}`);
+    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said2 };
   };
 }
 async function addCard({
@@ -14322,7 +14337,7 @@ function answerText(option, answer) {
     `${option.letter}. ${option.text}`,
     "",
     `Answered by fleet ${answer.fleet} for ${answer.branch}: every member who sat answered yes.`,
-    ...answer.verdicts.map(({ role, answer: said, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said} \u2014 ${sentence2}`)
+    ...answer.verdicts.map(({ role, answer: said2, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said2} \u2014 ${sentence2}`)
   ].join("\n");
 }
 function openItem(ctx, prd, item) {
@@ -14448,16 +14463,16 @@ async function lawGateAt(octokit, {
   const codeowners = readCodeowners((file) => existsSync42(join59(base, file)) ? readFileSync39(join59(base, file), "utf8") : null);
   const approvers = await approversAt(octokit, { owner, repo, prNumber, headSha });
   const lawOwners = config.laws.owners.map((entry) => lawOwnerParts(entry).owner);
-  const held = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
-  return { fired, ...held, codeowners: codeowners.file };
+  const held2 = lawsAwaitingOwners(fired, { ownersOf: (path) => ownersOf(codeowners, path), approvers, lawOwners });
+  return { fired, ...held2, codeowners: codeowners.file };
 }
-function heldLine2(held, codeowners) {
-  const files = held.paths.map((path) => `\`${path}\``).join(", ");
-  if (held.reason === "no-codeowner") {
+function heldLine2(held2, codeowners) {
+  const files = held2.paths.map((path) => `\`${path}\``).join(", ");
+  if (held2.reason === "no-codeowner") {
     const where = codeowners === null ? "no CODEOWNERS file" : `no person in \`${codeowners}\``;
-    return `  - ${held.law}: ${where} owns ${files} on the base branch, so nothing can clear it \u2014 add its owner there first.`;
+    return `  - ${held2.law}: ${where} owns ${files} on the base branch, so nothing can clear it \u2014 add its owner there first.`;
   }
-  return `  - ${held.law}: waiting for an approving review of the head commit from ${held.owners.join(" or ")}, who own ${files}.`;
+  return `  - ${held2.law}: waiting for an approving review of the head commit from ${held2.owners.join(" or ")}, who own ${files}.`;
 }
 function withLawGate(verdict, gate2) {
   if (gate2 === null) return verdict;
@@ -14468,11 +14483,11 @@ function withLawGate(verdict, gate2) {
 
 Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
   }
-  const heldLaws2 = gate2.awaiting.map((held) => held.law).join(", ");
+  const heldLaws2 = gate2.awaiting.map((held2) => held2.law).join(", ");
   const title = `Locked law changed without its CODEOWNER's approval \u2014 ${heldLaws2}`;
   const summary2 = [
     `This pull request changes a locked law. Only an approving review on GitHub from a CODEOWNER of each file it changed clears it: no outbox item, label or trailer does.`,
-    ...gate2.awaiting.map((held) => heldLine2(held, gate2.codeowners)),
+    ...gate2.awaiting.map((held2) => heldLine2(held2, gate2.codeowners)),
     "",
     verdict.summary
   ].join("\n");
@@ -14553,8 +14568,8 @@ function freshLine(one, now2, settings) {
   const { thing, kind, firstHeld, step, asked, nextDue } = decision;
   return { thing, kind, firstHeld, step, asked, nextDue };
 }
-function recordLines2(previous2, { settings, held }, now2) {
-  return held.map((one) => previous2.find((line3) => line3.thing === one.thing && line3.kind === one.kind) ?? freshLine(one, now2, settings));
+function recordLines2(previous2, { settings, held: held2 }, now2) {
+  return held2.map((one) => previous2.find((line3) => line3.thing === one.thing && line3.kind === one.kind) ?? freshLine(one, now2, settings));
 }
 async function keepRecord(octokit, { owner, repo, prNumber, now: now2, ...holding }) {
   if (!escalates(holding.settings)) return "none";
@@ -14610,15 +14625,15 @@ async function runOutboxCheck({ octokitFor, readProductOutbox = null, galaxyUrl 
   return { checkRunId: published.checkRunId, name: started.name, conclusion: verdict.conclusion, comment: published.comment, escalation };
 }
 async function outboxReadingOf(read2, repository, prd, now2, log2) {
-  const held = (why) => {
+  const held2 = (why) => {
     log2(`outbox check of ${repository} for ${prd.id} is held: ${why}`);
     return { reachable: false, since: now2().toISOString() };
   };
-  if (!read2) return held("the App cannot read the server here");
+  if (!read2) return held2("the App cannot read the server here");
   try {
     return { reachable: true, outbox: await read2(repository, prd) };
   } catch (error) {
-    return held(error instanceof Error ? error.message : String(error));
+    return held2(error instanceof Error ? error.message : String(error));
   }
 }
 async function recordSafely(holding, { octokitFor, installationId, owner, repo, prNumber, now: now2, log: log2 }) {
@@ -14667,8 +14682,8 @@ async function evaluateAt2(octokit, { owner, repo, prNumber, headSha }) {
     if (!config || changes === null) return verdict;
     if (verdict.conclusion === "skipped" && businessLawFiles(changes, { ctx: createContext(head, config) }).length === 0) return verdict;
     const gate2 = await lawGateAt(octokit, { owner, repo, prNumber, baseSha: pr.baseSha, headSha, config, base, head, changes });
-    const held = heldAt({ config, head, pr, gate: gate2 });
-    return held === null ? withLawGate(verdict, gate2) : { ...withLawGate(verdict, gate2), held };
+    const held2 = heldAt({ config, head, pr, gate: gate2 });
+    return held2 === null ? withLawGate(verdict, gate2) : { ...withLawGate(verdict, gate2), held: held2 };
   } finally {
     rmSync14(base, { recursive: true, force: true });
     rmSync14(head, { recursive: true, force: true });
@@ -14954,8 +14969,8 @@ async function readPullRecords(octokit, budget, { workspaceId, fullName, numbers
     const pull = data.repository[`p${number}`];
     return pull ? [recordOf(parseAnswer(PullDetailSchema, pull, `PullDetails, pull request ${number}`), { workspaceId, fullName })] : [];
   });
-  const held = records.filter(({ row }) => canHoldRun(row)).map(({ row }) => row.number);
-  const states = await readStatusStates(octokit, budget, { owner, repo, numbers: held });
+  const held2 = records.filter(({ row }) => canHoldRun(row)).map(({ row }) => row.number);
+  const states = await readStatusStates(octokit, budget, { owner, repo, numbers: held2 });
   for (const { row } of records) row.status_state = states.get(row.number) ?? null;
   return records;
 }
@@ -15087,13 +15102,13 @@ function outcomeOf(out, n) {
 async function collectBatch({ store, octokitFor, repository, cursor, nowIso, budget: before2 }) {
   const { workspaceId, fullName, installationId } = repository;
   const [owner, repo] = fullName.split("/");
-  let reached = cursor;
+  let reached2 = cursor;
   let saved = 0;
   const budget = { ...before2 };
   try {
     const octokit = await octokitFor(installationId);
-    const listed3 = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
-    const taken = batchOf(listed3);
+    const listed4 = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
+    const taken = batchOf(listed4);
     const records = await readPullRecords(octokit, budget, { workspaceId, fullName, numbers: taken.map((item) => item.number) });
     const byNumber = new Map(records.map((record) => [record.row.number, record]));
     for (const [index, item] of taken.entries()) {
@@ -15102,40 +15117,40 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
         await store.savePull(record.row, record.reviews);
         saved += 1;
       }
-      if (taken[index + 1]?.updatedAt !== item.updatedAt) reached = item.updatedAt;
+      if (taken[index + 1]?.updatedAt !== item.updatedAt) reached2 = item.updatedAt;
     }
-    const more = listed3.length > taken.length;
+    const more = listed4.length > taken.length;
     await store.updateRepository(
       workspaceId,
       fullName,
-      more ? { collected_until: reached } : { collected_at: nowIso, collected_until: reached, collect_error: null }
+      more ? { collected_until: reached2 } : { collected_at: nowIso, collected_until: reached2, collect_error: null }
     );
-    return { saved, cursor: reached, more, budget };
+    return { saved, cursor: reached2, more, budget };
   } catch (error) {
     if (refusalIn(error)) {
-      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
+      await store.updateRepository(workspaceId, fullName, { collected_until: reached2 });
       throw error;
     }
     if (error instanceof BudgetLow) {
-      await store.updateRepository(workspaceId, fullName, { collected_until: reached });
-      return { saved, cursor: reached, more: false, paused: true, budget };
+      await store.updateRepository(workspaceId, fullName, { collected_until: reached2 });
+      return { saved, cursor: reached2, more: false, paused: true, budget };
     }
     const reason2 = describe2(error);
-    await store.updateRepository(workspaceId, fullName, { collected_until: reached, collect_error: reason2 });
-    return { saved, cursor: reached, more: false, error: reason2, budget };
+    await store.updateRepository(workspaceId, fullName, { collected_until: reached2, collect_error: reason2 });
+    return { saved, cursor: reached2, more: false, error: reason2, budget };
   }
 }
-function batchOf(listed3) {
-  let end = Math.min(BATCH, listed3.length);
-  while (end < listed3.length && listed3[end]?.updatedAt === listed3[end - 1]?.updatedAt) end += 1;
-  return listed3.slice(0, end);
+function batchOf(listed4) {
+  let end = Math.min(BATCH, listed4.length);
+  while (end < listed4.length && listed4[end]?.updatedAt === listed4[end - 1]?.updatedAt) end += 1;
+  return listed4.slice(0, end);
 }
 function describe2(error) {
   const failure2 = FailureSchema2.safeParse(error);
-  const { errors, message: said, status } = failure2.success ? failure2.data : {};
+  const { errors, message: said2, status } = failure2.success ? failure2.data : {};
   const graphqlError = errors?.[0];
   if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
-  const message = printed3(said ?? error ?? "unknown error").split("\n")[0] ?? "";
+  const message = printed3(said2 ?? error ?? "unknown error").split("\n")[0] ?? "";
   return status ? `HTTP ${printed3(status)}: ${message}` : message;
 }
 var printed3 = (value) => String(value);
@@ -15342,10 +15357,10 @@ var FORBIDDEN = [
 ];
 var characters = (text19) => Array.from(text19).length;
 function unquote(value) {
-  const trimmed3 = value.trim();
-  const first = trimmed3[0];
-  if (trimmed3.length >= 2 && (first === '"' || first === "'") && trimmed3.at(-1) === first) return trimmed3.slice(1, -1);
-  return trimmed3;
+  const trimmed4 = value.trim();
+  const first = trimmed4[0];
+  if (trimmed4.length >= 2 && (first === '"' || first === "'") && trimmed4.at(-1) === first) return trimmed4.slice(1, -1);
+  return trimmed4;
 }
 function readFields2(raw) {
   const fields = {};
@@ -15463,7 +15478,7 @@ function releaseNoteReasons(ctx, prd, dir, read2) {
   if (!existsSync44(join62(ctx.root, file))) return [`no release note: ${file}`];
   return gradeReleaseNote(read2(file), { prd }).map((rule) => `release note: ${rule}`);
 }
-function planShip(ctx, prd, { files, read: read2, held = [] }) {
+function planShip(ctx, prd, { files, read: read2, held: held2 = [] }) {
   const where = ctx.layout.whereIs(prd);
   if (where?.state !== "inbox") {
     return { ok: false, reasons: [`PRD ${Number(prd)} is not in the inbox (${where ? where.state : "nowhere"})`] };
@@ -15472,7 +15487,7 @@ function planShip(ctx, prd, { files, read: read2, held = [] }) {
     ...openItemFiles(prd, { ctx }).map((file) => `open outbox item: ${file}`),
     ...unreworkedDrift(prd, { ctx }).map((entry) => `drifted, not reworked: ${entry.id}`),
     ...releaseNoteReasons(ctx, prd, where.dir, read2),
-    ...held
+    ...held2
   ];
   if (reasons.length) return { ok: false, reasons };
   const { dirs } = ctx.layout;
@@ -15581,17 +15596,17 @@ function settleAtMerge({
   }
   if (errors.length > 0) return { ok: false, errors };
   const drifted = existing === null ? [] : parseSettledEntries(existing, ctx.markers);
-  for (const settled of drifted) {
-    if (settled.verdict !== "drifted" || settled.closed) continue;
+  for (const settled2 of drifted) {
+    if (settled2.verdict !== "drifted" || settled2.closed) continue;
     const entry = renderSettledEntry({
-      item: itemFromEntry(settled),
-      itemText: settled.itemText,
+      item: itemFromEntry(settled2),
+      itemText: settled2.itemText,
       answer,
       judgement: JUDGEMENT,
       markers: ctx.markers,
       closed: `yes \u2014 merged without rework, by @${facts.by}`
     });
-    entries.push({ id: settled.id, from: "drift", entry });
+    entries.push({ id: settled2.id, from: "drift", entry });
   }
   if (entries.length === 0) {
     return { ok: true, settledFile, entries, append: "", text: null, deletes };
@@ -15716,8 +15731,8 @@ function findOwningLibraryViolations(ctx, knowledge) {
     if (!existsSync47(join65(ctx.root, readme))) continue;
     const section4 = readFileSync43(join65(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
-    const listed3 = section4.split(/^## /m)[0] ?? "";
-    for (const match2 of listed3.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
+    const listed4 = section4.split(/^## /m)[0] ?? "";
+    for (const match2 of listed4.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = (match2[1] ?? "").replace(/\/$/, "");
       if (!existsSync47(join65(ctx.root, path))) {
         violations.push(
@@ -17480,10 +17495,10 @@ async function takenElsewhere(octokit, { owner, repo, config, own }) {
 }
 var LAW_ISSUES_UNEXPECTED = "GitHub answered the open law issues unexpectedly";
 async function openLawIssue(octokit, { owner, repo, label: label2, issue }) {
-  const listed3 = await paginate(
+  const listed4 = await paginate(
     (page) => octokit.request("GET /repos/{owner}/{repo}/issues", { owner, repo, labels: label2, state: "open", per_page: PER_PAGE, page }).then(({ data: data2 }) => parsedOr2(ListSchema, data2, LAW_ISSUES_UNEXPECTED))
   );
-  const open = parsedOr2(ListedIssueSchema.array(), listed3, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
+  const open = parsedOr2(ListedIssueSchema.array(), listed4, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
   if (open) return { number: open.number, created: false };
   const { data } = await octokit.request("POST /repos/{owner}/{repo}/issues", { owner, repo, title: issue.title, body: issue.body, labels: [label2] });
   return { number: parsedOr2(ListedIssueSchema, data, "GitHub answered the new law issue unexpectedly").number, created: true };
@@ -17623,11 +17638,11 @@ function missionLandings({ octokitFor }) {
     async landings(at4) {
       const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, at4);
       const { branch } = at4;
-      const listed3 = PullsSchema3.parse(
+      const listed4 = PullsSchema3.parse(
         (await octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, head: `${owner}:${branch}`, base: defaultBranch, state: "all", per_page: PULLS_READ, page: 1 })).data
       ).sort((a, b) => b.number - a.number);
       const pulls = [];
-      for (const one of listed3) {
+      for (const one of listed4) {
         const merged = (one.merged_at ?? null) !== null;
         const commits = merged ? await paginate(async (page) => CommitsSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/commits", { owner, repo, pull_number: one.number, per_page: PER_PAGE, page })).data)) : [];
         const carried2 = commits.flatMap(({ commit }) => {
@@ -17825,7 +17840,7 @@ function underDelivery(path, delivery2) {
   const prefix = `${delivery2.replace(/\/+$/, "")}/`;
   return path.startsWith(prefix) ? path.slice(prefix.length) : path;
 }
-function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks, delivery: delivery2 }) {
+function knowledgeBody({ prd, merge, settled: settled2, shipped, placed, notPlaced, checks, delivery: delivery2 }) {
   const by = `@${bare2(merge.by)}`;
   const lines2 = [`Refs #${prd.number} \xB7 Knowledge from #${merge.pr}, merged by ${by} on ${day2(merge.at)}`, ""];
   const principles = placed.filter((entry) => entry.kind === "rule" && entry.landedAs.length > 1);
@@ -17848,9 +17863,9 @@ function knowledgeBody({ prd, merge, settled, shipped, placed, notPlaced, checks
     lines2.push("");
   }
   const facts = [];
-  if (settled.length > 0) {
-    const open = settled.filter((entry) => entry.from === "open").length;
-    const drift = settled.length - open;
+  if (settled2.length > 0) {
+    const open = settled2.filter((entry) => entry.from === "open").length;
+    const drift = settled2.length - open;
     const parts = [`${open} open item${open === 1 ? "" : "s"}`];
     if (drift > 0) parts.push(`${drift} drift${drift === 1 ? "" : "s"} never reworked`);
     facts.push(`Settled at merge: ${parts.join(", ")}, adopted by ${by} (merged over a red outbox)`);
@@ -18001,7 +18016,7 @@ async function harvest({ octokitFor, openrouter, lawJudge: lawJudge2 = null, fet
 async function harvestPrd(run, { prd, pr, branch, fetched, prefix, prior, tip: tipAt }) {
   const { step, github, owner, repo, config, merge, openrouter, lawJudge: lawJudge2, fetch: fetch2, now: now2 } = run;
   const base = config.repo.defaultBranch;
-  const settled = await savedStep(step, `${prefix}settle`, SettledSchema, async () => {
+  const settled2 = await savedStep(step, `${prefix}settle`, SettledSchema, async () => {
     const octokit = await github();
     const changed = await pullFiles(octokit, { owner, repo, prNumber: pr });
     const tip2 = await tipAt();
@@ -18011,7 +18026,7 @@ async function harvestPrd(run, { prd, pr, branch, fetched, prefix, prior, tip: t
     }
     return { tip: tip2, prepared: prepared2 };
   });
-  const { tip, prepared } = settled;
+  const { tip, prepared } = settled2;
   const classified = [];
   for (const candidate of prepared.candidates) {
     classified.push(
@@ -18313,8 +18328,8 @@ async function gatherMega(octokit, scope) {
   return { bugs, mega: { plan, bugs: bugs.map((bug) => bug.number), planned, targets, unread: unread2 } };
 }
 async function megaIssues(octokit, scope, unread2) {
-  const { owner, repo, config, window, prd, listed: listed3, label: label2 } = scope;
-  const found = new Map(listed3.map((issue) => [issue.number, issue]));
+  const { owner, repo, config, window, prd, listed: listed4, label: label2 } = scope;
+  const found = new Map(listed4.map((issue) => [issue.number, issue]));
   if (config.labels.bug !== label2) {
     const more = await readOrRefused(
       () => paginate(
@@ -18410,15 +18425,15 @@ var afterMerge = Object.freeze({
     if (!mergedAt || !mergeSha || !prd?.number || !config) return null;
     const window = { from: new Date(mergedAt).toISOString(), to: followUpAt(mergedAt) };
     const unread2 = [];
-    const listed3 = await readOrRefused(
+    const listed4 = await readOrRefused(
       () => paginate(
         (page) => octokit.request(ISSUES3, { owner, repo, labels: BUG_LABEL, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
       )
     );
-    if (listed3.status) unread2.push({ read: "bugs", status: listed3.status });
-    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed3.value ?? [], label: BUG_LABEL };
+    if (listed4.status) unread2.push({ read: "bugs", status: listed4.status });
+    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed4.value ?? [], label: BUG_LABEL };
     const mega = await gatherMega(octokit, megaScope);
-    const bugs = withMegaBugs(bugsNaming(listed3.value ?? [], { window, names: namesPrd2(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
+    const bugs = withMegaBugs(bugsNaming(listed4.value ?? [], { window, names: namesPrd2(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
     const fixes = await closingFixes(octokit, { owner, repo, base: config.repo.defaultBranch, window, featurePr: pr?.number, bugs, unread: unread2 });
     const checks = await mergeJobs(octokit, { owner, repo, mergeSha, unread: unread2 });
     const churnAtMerge = parseOrThrow(ChurnAtMergeSchema, atMerge?.kinds.churn, "The merge run's churn facts are of an unexpected shape");
@@ -18477,8 +18492,8 @@ var afterMerge = Object.freeze({
     return lines2;
   }
 });
-function bugsNaming(listed3, { window, names }) {
-  return listed3.filter((issue) => !issue.pull_request && within2(window, issue.created_at) && names(`${issue.title ?? ""}
+function bugsNaming(listed4, { window, names }) {
+  return listed4.filter((issue) => !issue.pull_request && within2(window, issue.created_at) && names(`${issue.title ?? ""}
 ${issue.body ?? ""}`)).map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null })).sort((a, b) => a.number - b.number);
 }
 function withMegaBugs(bugs, mega) {
@@ -18771,14 +18786,14 @@ var churn = Object.freeze({
     const seen = /* @__PURE__ */ new Set();
     const read2 = [];
     for (const pull of merged) {
-      const listed3 = await unlessMissing([404], () => listPullCommits(octokit, { owner, repo, number: pull.number }));
+      const listed4 = await unlessMissing([404], () => listPullCommits(octokit, { owner, repo, number: pull.number }));
       const commits = [];
-      for (const item of listed3 ?? []) {
+      for (const item of listed4 ?? []) {
         if ((item.parents?.length ?? 0) > 1 || seen.has(item.sha)) continue;
         seen.add(item.sha);
         commits.push(await readCommit(octokit, { owner, repo, sha: item.sha }));
       }
-      read2.push({ number: pull.number, url: pull.url, headRef: pull.headRef, mergedAt: pull.mergedAt, commits: listed3 ? commits : null });
+      read2.push({ number: pull.number, url: pull.url, headRef: pull.headRef, mergedAt: pull.mergedAt, commits: listed4 ? commits : null });
     }
     return { gitattributes, final, pulls: read2 };
   },
@@ -19083,14 +19098,14 @@ var playwright = {
   id: "playwright",
   detects: (lines2) => lines2.some((line3) => /^Running \d+ tests? using \d+ workers?/.test(line3.trim()) || PLAYWRIGHT_HEADER.test(line3)),
   read(lines2) {
-    const { counts, listed: listed3 } = playwrightSummary(lines2);
-    const failed3 = Object.keys(counts).length > 0 ? listed3 : present(lines2.map((line3) => PLAYWRIGHT_HEADER.exec(line3)?.[1]));
+    const { counts, listed: listed4 } = playwrightSummary(lines2);
+    const failed3 = Object.keys(counts).length > 0 ? listed4 : present(lines2.map((line3) => PLAYWRIGHT_HEADER.exec(line3)?.[1]));
     return { tests: failed3.map(playwrightName), counts: Object.keys(counts).length > 0 ? counts : null };
   }
 };
 function playwrightSummary(lines2) {
   const counts = {};
-  const listed3 = [];
+  const listed4 = [];
   let section4 = null;
   for (const line3 of lines2) {
     const count4 = PLAYWRIGHT_COUNT.exec(line3);
@@ -19099,10 +19114,10 @@ function playwrightSummary(lines2) {
       continue;
     }
     const entry = /^\s{2,}(\S.*? › .+?)\s*[─═=-]*\s*$/.exec(line3);
-    if (section4 === "failed" && entry?.[1] !== void 0) listed3.push(entry[1]);
+    if (section4 === "failed" && entry?.[1] !== void 0) listed4.push(entry[1]);
     else if (line3.trim() !== "") section4 = null;
   }
-  return { counts, listed: listed3 };
+  return { counts, listed: listed4 };
 }
 function keptCount(counts, count4) {
   const section4 = count4[2] ?? null;
@@ -20514,9 +20529,9 @@ function outcomesOf(runs) {
   return outcomes2;
 }
 function unsettledLessons(runs) {
-  const settled = outcomesOf(runs);
+  const settled2 = outcomesOf(runs);
   const kept3 = new Set(runs.flatMap((run) => Object.keys(run.issues ?? {})));
-  return [...kept3].filter((finding) => !(finding in settled));
+  return [...kept3].filter((finding) => !(finding in settled2));
 }
 
 // apps/omni-app/src/retro/render.ts
@@ -20535,8 +20550,8 @@ function mergeRuns(existing, record) {
     doc = null;
   }
   const runs = parseOrThrow(z78.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
-  const same = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
-  const index = runs.findIndex(same);
+  const same2 = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
+  const index = runs.findIndex(same2);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? withOutcomes(record, run) : run);
   return { prd: record.prd.number, runs: next };
 }
@@ -20724,7 +20739,7 @@ function rulesSection2(rules) {
   ];
 }
 function prBody(latest, { findings, prose, issues, outcomes: outcomes2 }, apply) {
-  const settled = Object.keys(outcomes2).flatMap((finding) => {
+  const settled2 = Object.keys(outcomes2).flatMap((finding) => {
     const issue = issues[finding];
     return issue ? [issue.number] : [];
   });
@@ -20743,10 +20758,10 @@ function prBody(latest, { findings, prose, issues, outcomes: outcomes2 }, apply)
     ...findings.length === 0 ? ["None: nothing crossed a threshold of the rules."] : findings.flatMap(findingLines),
     "",
     ...apply ? applySection(apply) : [],
-    ...settled.length === 0 ? ["Merging keeps this retro as history and changes nothing else."] : [
+    ...settled2.length === 0 ? ["Merging keeps this retro as history and changes nothing else."] : [
       "Merging keeps this retro as history, applies each lesson\u2019s outcome above and closes the issue of each lesson settled.",
       "",
-      ...settled.map((issue) => `Closes #${String(issue)}`)
+      ...settled2.map((issue) => `Closes #${String(issue)}`)
     ]
   ];
   return `${lines2.join("\n")}
@@ -21702,6 +21717,7 @@ function levelRefusal(level, inPlan) {
 }
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
+var MAX_MISSION_TOKENS = 1e9;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var text17 = (max) => z85.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
 var distinct = (list2) => new Set(list2).size === list2.length;
@@ -21713,15 +21729,17 @@ var ScopeSchema = z85.object(
   },
   { message: "must be {prds, roadmaps}" }
 ).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
+var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
 var MandateSchema = z85.object(
   {
     parallel: z85.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
     level: z85.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
     hardToRevert: z85.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z85.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
+    ownPrds: z85.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
+    tokens: z85.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
   },
-  { message: "must be {parallel, level, hardToRevert, ownPrds}" }
-).strict();
+  { message: "must be {parallel, level, hardToRevert, ownPrds, tokens}" }
+).strict().transform(({ tokens, ...mandate }) => tokens == null ? mandate : { ...mandate, tokens });
 var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
 var BriefSchema = z85.object({
   mission: IssueNumberSchema,
@@ -22045,8 +22063,8 @@ function pmRecordOf(log2, mission) {
   }
   return null;
 }
-function keptOf2(record, cap, held) {
-  const fresh = [...new Set(record.prds)].filter((prd) => !held.has(prd));
+function keptOf2(record, cap, held2) {
+  const fresh = [...new Set(record.prds)].filter((prd) => !held2.has(prd));
   const { written, unwritten } = fitCap(fresh, Math.min(cap, record.cap));
   return { added: written, unwritten: [...unwritten.map((prd) => `PRD ${String(prd)}`), ...record.unwritten] };
 }
@@ -22077,7 +22095,7 @@ var skillWords = (line3) => {
   const skill = /^\/omni:([a-z-]+)/.exec(line3)?.[1] ?? "";
   return isPmSkill(skill) ? `/omni:${skill}` : "the PM's job";
 };
-function pmEvents(mission, one, log2, held, recorded) {
+function pmEvents(mission, one, log2, held2, recorded) {
   if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== "dispatched")) return [];
   const record = one.attempt.status === "done" && log2 !== null ? pmRecordOf(log2, mission.number) : null;
   const cap = capOf(one.line);
@@ -22085,7 +22103,7 @@ function pmEvents(mission, one, log2, held, recorded) {
     const why = one.attempt.status === "done" ? "ended with no record" : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
     return [{ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
   }
-  const { added, unwritten } = keptOf2(record, cap, held);
+  const { added, unwritten } = keptOf2(record, cap, held2);
   const events = added.map((prd) => ({ kind: "prd-added", role: "pm", prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
   for (const title of unwritten) events.push({ kind: "not-written", role: "pm", prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
   if (events.length === 0) events.push({ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
@@ -22102,9 +22120,9 @@ var pmDispatched = (job, next) => ({
 function withAdded(scope, added) {
   return [...scope, ...added.filter((prd) => !scope.includes(prd))];
 }
-function withPm(next, writing, wakeAt) {
+function withPm(next, writing, wakeAt2) {
   if (!writing || next.status === "paused" || next.status === "draft" || next.status === "running") return next;
-  return { status: "running", waitingOn: next.status === "waiting" ? next.waitingOn : null, nextWakeAt: wakeAt };
+  return { status: "running", waitingOn: next.status === "waiting" ? next.waitingOn : null, nextWakeAt: wakeAt2 };
 }
 
 // kit/lib/review/verdict.ts
@@ -22302,8 +22320,8 @@ var LINE_MAX2 = 400;
 var EVIDENCE_MAX = 8;
 var NEXT_SENTENCE = /[.!?]["')\]]?\s+[A-Z0-9`"'(]/;
 function isOneSentence(text19) {
-  const trimmed3 = text19.trim();
-  return trimmed3.length > 0 && trimmed3.length <= SENTENCE_MAX3 && !/[\r\n]/.test(trimmed3) && !NEXT_SENTENCE.test(trimmed3);
+  const trimmed4 = text19.trim();
+  return trimmed4.length > 0 && trimmed4.length <= SENTENCE_MAX3 && !/[\r\n]/.test(trimmed4) && !NEXT_SENTENCE.test(trimmed4);
 }
 var NO_TOKEN = "a retro never holds a credential in clear";
 var SentenceSchema = z91.string().refine(isOneSentence, `one sentence, on one line, at most ${String(SENTENCE_MAX3)} characters`).refine((text19) => !holdsToken(text19), NO_TOKEN);
@@ -22490,12 +22508,12 @@ var unreadableFingerprint = (prd) => createHash6("sha256").update(`omni repair: 
 ${String(prd)}`, "utf8").digest("hex");
 function roundOf2(events) {
   let round = 1;
-  let stopped = false;
+  let stopped2 = false;
   for (const { kind, prd } of events) {
-    if (kind === "stopped" && prd === null) stopped = true;
-    else if (kind === "resumed" && prd === null && stopped) {
+    if (kind === "stopped" && prd === null) stopped2 = true;
+    else if (kind === "resumed" && prd === null && stopped2) {
       round += 1;
-      stopped = false;
+      stopped2 = false;
     }
   }
   return round;
@@ -22611,11 +22629,11 @@ var startedEvent = (job, { where, mission }) => ({
 function rowEvents(row) {
   const n = `PRD ${String(row.prd)}`;
   const cause = `[${short2(row.fingerprint)}]`;
-  const said = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said2 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said2("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "not fixed: its record line could not be read." : `${row.outcome}.`;
-  return [...retro2, said("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
+  return [...retro2, said2("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
 }
 function reportEvent(row, report) {
   if (report?.state !== "filed") return [];
@@ -22757,9 +22775,9 @@ function fixEvent(prd, step, last, runs, view) {
   const landing = view.landings.get(last.id);
   if (fix !== null && (landing === void 0 || landing.state === "waits")) return null;
   const bug = issue === void 0 ? "its bug" : `#${String(issue)}`;
-  const said = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
-  if (fix === null) return said(`not fixed ${bug}: ${noFixWhy(last)}`);
-  return landing?.state === "landed" ? said(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
+  const said2 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
+  if (fix === null) return said2(`not fixed ${bug}: ${noFixWhy(last)}`);
+  return landing?.state === "landed" ? said2(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said2(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
 }
 function sentPairWords(one, where, runs, view) {
   const round = qaRoundOf(one.step);
@@ -23236,11 +23254,11 @@ function prdEvents(facts, states) {
   return facts.flatMap((fact) => {
     const n = `PRD ${String(fact.prd)}`;
     const state = states.get(fact.prd);
-    const said = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
+    const said2 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
     return [
-      ...fact.stage === "merged" ? [said("prd-merged", `${n} is merged: delivered.`)] : [],
-      ...fact.stage === "ready" ? [said("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
-      ...state?.state === "stopped" ? [said("stopped", `${n} stops: ${state.why}.`)] : []
+      ...fact.stage === "merged" ? [said2("prd-merged", `${n} is merged: delivered.`)] : [],
+      ...fact.stage === "ready" ? [said2("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
+      ...state?.state === "stopped" ? [said2("stopped", `${n} stops: ${state.why}.`)] : []
     ];
   });
 }
@@ -23270,11 +23288,11 @@ function committeeEvents(committees, where) {
   });
 }
 function missionEvents(mission, next) {
-  const said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
-  if (next.status === "delivered") return [said("delivered", "Every PRD of the mission is merged: delivered.")];
-  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
+  const said2 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+  if (next.status === "delivered") return [said2("delivered", "Every PRD of the mission is merged: delivered.")];
+  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said2("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
   const waits = newWait(mission, next);
-  return waits === null ? [] : [said("waits", `Waits on a person: ${waits}`)];
+  return waits === null ? [] : [said2("waits", `Waits on a person: ${waits}`)];
 }
 function newWait(mission, next) {
   if (next.status !== "running" && next.status !== "waiting") return null;
@@ -23398,10 +23416,10 @@ function settledOf(runs, row) {
 async function settleAll(at4, rows) {
   for (const [n, row] of rows.entries()) {
     if (row.outcome !== null || row.retro?.class !== "code" && row.retro?.class !== "flake") continue;
-    const settled = settledOf(at4.runs, row);
-    if (settled === null) continue;
-    await at4.store.endRepair(row.id, settled);
-    rows[n] = { ...row, outcome: settled };
+    const settled2 = settledOf(at4.runs, row);
+    if (settled2 === null) continue;
+    await at4.store.endRepair(row.id, settled2);
+    rows[n] = { ...row, outcome: settled2 };
   }
 }
 async function reportOne(at4, row, job) {
@@ -23478,6 +23496,150 @@ async function readQa(at4) {
   return { skip: false, features, landings, picks };
 }
 
+// kit/lib/mission/budget.ts
+var BUDGET_WINDOW_MS = 24 * 60 * 60 * 1e3;
+function reached(state) {
+  const caps = [];
+  if (state.fleetCap !== null && state.fleetSpent24h >= state.fleetCap) caps.push({ cap: "fleet", limit: state.fleetCap, spent: state.fleetSpent24h });
+  if (state.missionCap !== null && state.missionSpent >= state.missionCap) caps.push({ cap: "mission", limit: state.missionCap, spent: state.missionSpent });
+  return caps;
+}
+function wakeAt(now2, oldestEnd) {
+  const oldest = oldestEnd === null ? Number.NaN : Date.parse(oldestEnd);
+  const at4 = Number.isNaN(oldest) ? now2 + BUDGET_WINDOW_MS : Math.max(oldest + BUDGET_WINDOW_MS, now2);
+  return new Date(at4).toISOString();
+}
+function budgetNext(state) {
+  const { stop, answer } = state;
+  if (stop !== null && answer === "stopped") return { next: "stop", cap: stop };
+  const caps = reached(state);
+  if (stop === "fleet" && answer === "tomorrow" && caps.some(({ cap }) => cap === "fleet")) return { next: "wake-at", at: wakeAt(state.now, state.oldestEnd) };
+  if (stop !== null && answer === null && caps.some(({ cap }) => cap === stop)) return { next: "hold", cap: stop };
+  const first = caps[0];
+  return first === void 0 ? { next: "send" } : { next: "pause", ...first };
+}
+
+// apps/omni-app/src/missions/budget.ts
+var trimmed2 = (n) => n.toFixed(1).replace(/\.0$/, "");
+var spentWords2 = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${trimmed2(n / 1e3)}k` : String(n);
+var capWords = (n) => n >= 1e6 ? `${trimmed2(n / 1e6)}M` : n >= 1e3 ? `${trimmed2(n / 1e3)}k` : String(n);
+var WHOSE = { mission: "this mission's budget", fleet: "this fleet's daily cap" };
+function pausedWords(cap, limit, spent) {
+  const window = cap === "fleet" ? " in the last 24 hours" : "";
+  return `Paused: budget reached \xB7 ${spentWords2(spent)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
+}
+var clockOf2 = (iso2) => new Date(iso2).toISOString().slice(11, 16);
+var said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+var time2 = (iso2) => iso2 === null ? Number.NEGATIVE_INFINITY : Date.parse(iso2);
+function stopOf(read2) {
+  const { named, open } = read2;
+  const latest = open !== null && (named === null || time2(open.createdAt) >= time2(named.createdAt)) ? open : named;
+  if (latest?.answer === "stopped" && time2(read2.personResumedAt) > time2(latest.answeredAt)) return null;
+  return latest;
+}
+function pausedByBudget(read2, status) {
+  if (status !== "paused") return false;
+  const budgetAt = Math.max(time2(read2.named?.createdAt ?? null), time2(read2.agentPausedAt));
+  return budgetAt > Number.NEGATIVE_INFINITY && budgetAt > time2(read2.personPausedAt);
+}
+function resumeWords2(stop, read2) {
+  if (stop?.answer === "raised" && stop.raisedTo !== null) return `Resumed: ${WHOSE[stop.cap]} was raised to ${capWords(stop.raisedTo)}.`;
+  if (stop?.answer === "tomorrow" && read2.fleetCap !== null) return `Resumed: this fleet's last 24 hours are back under its daily cap (${capWords(read2.fleetCap)}).`;
+  return "Resumed: no cap is reached any more.";
+}
+var against = (cap, read2) => cap === "fleet" ? { limit: read2.fleetCap ?? 0, spent: read2.fleetSpent24h } : { limit: read2.missionCap ?? 0, spent: read2.missionSpent };
+function sendAct(stop, read2, byBudget) {
+  if (!byBudget) return { act: "none" };
+  return stop !== null && stop.answer === null ? { act: "quiet" } : { act: "resume", event: said("resumed", resumeWords2(stop, read2)) };
+}
+var pauseAct = ({ cap, limit, spent }) => ({
+  act: "pause",
+  stop: { cap, capTokens: limit, spent },
+  words: pausedWords(cap, limit, spent),
+  event: said("budget-stop", `Paused: ${WHOSE[cap]} reached (${capWords(limit)})`)
+});
+function holdAct(cap, read2, moving) {
+  const { limit, spent } = against(cap, read2);
+  const again2 = moving ? said("paused", `Paused again: ${WHOSE[cap]} is still reached (${capWords(limit)}); its question waits for an answer.`) : null;
+  return { act: "hold", words: pausedWords(cap, limit, spent), event: again2 };
+}
+function wakeAct(at4, moving) {
+  const words = `Paused: budget reached \xB7 ${WHOSE.fleet} \xB7 resumes by itself at ${clockOf2(at4)} UTC`;
+  const again2 = moving ? said("paused", `Paused again: this fleet's daily cap is still reached; it resumes by itself at ${clockOf2(at4)} UTC.`) : null;
+  return { act: "wake", at: at4, words, event: again2 };
+}
+function stopAct(cap, stop, status) {
+  if (status === "stopped") return { act: "quiet" };
+  const why = `${WHOSE[cap]} reached (${capWords(stop?.capTokens ?? 0)}), and a person chose Stop the mission.`;
+  return { act: "stop", words: `Stopped by the budget: ${why}`, event: said("stopped", `The budget stopped the mission: ${why}`) };
+}
+function budgetAct(read2, mission, now2) {
+  const stop = stopOf(read2);
+  const byBudget = pausedByBudget(read2, mission.status);
+  const moving = mission.status === "running" || mission.status === "waiting";
+  const next = budgetNext({ ...read2, stop: stop?.cap ?? null, answer: stop?.answer ?? null, now: now2 });
+  if (next.next === "send") return sendAct(stop, read2, byBudget);
+  if (next.next === "stop") return stopAct(next.cap, stop, mission.status);
+  if (!moving && !byBudget) return { act: "quiet" };
+  if (next.next === "pause") return pauseAct(next);
+  return next.next === "hold" ? holdAct(next.cap, read2, moving) : wakeAct(next.at, moving);
+}
+
+// apps/omni-app/src/missions/budget-run.ts
+var same = (next) => next;
+function held(mission, words, events, wakeAt2) {
+  return {
+    mission: { ...mission, status: "paused", waitingOn: words },
+    from: mission.status,
+    said: mission.status,
+    events,
+    finish: (next) => next.status === "delivered" ? next : { status: "paused", waitingOn: words, nextWakeAt: wakeAt2 }
+  };
+}
+async function recordStop(store, mission, act) {
+  const missions = act.stop.cap === "fleet" ? await store.fleetMissions(mission) : [mission.id];
+  const made = await store.stop(mission, { ...act.stop, missions });
+  if (made === null) return false;
+  await store.pause(missions.filter((one) => one !== mission.id), act.words);
+  return true;
+}
+var listed2 = (event) => event === null ? [] : [event];
+var stopped = (mission, words, event) => ({
+  ...held(mission, words, [event], null),
+  said: "stopped",
+  finish: (next) => next.status === "delivered" ? next : { status: "stopped", waitingOn: words, nextWakeAt: null }
+});
+var quiet2 = (mission) => ({
+  mission: { ...mission, status: "paused" },
+  from: mission.status,
+  said: mission.status,
+  events: [],
+  finish: (next) => next.status === "delivered" ? next : { status: mission.status, waitingOn: mission.waitingOn, nextWakeAt: null }
+});
+function settled(mission, act, recorded) {
+  switch (act.act) {
+    case "none":
+      return { mission, from: mission.status, said: mission.status, events: [], finish: same };
+    case "resume":
+      return { mission: { ...mission, status: "running", waitingOn: null }, from: mission.status, said: mission.status, events: [act.event], finish: same };
+    case "pause":
+      return held(mission, act.words, recorded ? [act.event] : [], null);
+    case "hold":
+      return held(mission, act.words, listed2(act.event), null);
+    case "wake":
+      return held(mission, act.words, listed2(act.event), act.at);
+    case "stop":
+      return stopped(mission, act.words, act.event);
+    case "quiet":
+      return quiet2(mission);
+  }
+}
+async function runBudget(store, mission, now2) {
+  const read2 = await store.budget(mission, new Date(now2));
+  const act = budgetAct(read2, mission, now2);
+  return settled(mission, act, act.act === "pause" && await recordStop(store, mission, act));
+}
+
 // apps/omni-app/src/missions/job.ts
 var MISSION_KIND = "mission";
 var LATERS_BEFORE_RENEW = 15;
@@ -23487,7 +23649,10 @@ function missionJob(id, repo) {
 }
 var ProgressSchema3 = z95.looseObject({ laters: z95.number().int().min(0).optional() });
 async function supervise(store, sought, now2, github) {
-  const { mission, read: read2, runs, recorded, toFleet, inPlan, decided, pm, fleet } = await readRun(store, sought, now2);
+  const first = await readRun(store, sought, now2);
+  const { read: read2, runs, recorded, toFleet, inPlan, decided, pm, fleet } = first;
+  const budget = await runBudget(store, first.mission, now2);
+  const mission = budget.mission;
   const skill = inPlan ? "ultra-yolo" : "yolo";
   const ready = await branchReady(store, mission, inPlan, github.branches);
   const unready = ready.waits;
@@ -23497,8 +23662,8 @@ async function supervise(store, sought, now2, github) {
   const { facts, joined: joined2 } = afterLanding(read2, dropped.recorded, landing.landed);
   const off = droppedOf(dropped.recorded);
   const kept3 = await keepUp({ store, mission, inPlan, facts, runs, joined: joined2, off, toFleet, installation: ready.installation, keepUps: github.keepUps });
-  const held = holdOf(kept3, await redBranch({ mission, at: at4, joined: joined2, joins: github.joins }));
-  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, off, installation: ready.installation, joins: github.joins, hold: held.hold });
+  const held2 = holdOf(kept3, await redBranch({ mission, at: at4, joined: joined2, joins: github.joins }));
+  const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, off, installation: ready.installation, joins: github.joins, hold: held2.hold });
   if (kept3.hold === null) await missionPull({ store, at: at4, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now: now2, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered };
@@ -23513,12 +23678,12 @@ async function supervise(store, sought, now2, github) {
   const all = [...runs, ...sent];
   const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa);
   const fresh = sent.length + approved.length + asked.length + repaired2.length;
-  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now: now2, branch: branch.branch }), [...dropped.waits, ...held.waits]);
+  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now: now2, branch: branch.branch }), [...dropped.waits, ...held2.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now2 + WAKE_MS).toISOString());
-  const next = unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready };
-  const events = eventsOf({ mission, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
-  await store.record(mission.id, [...pmSent, ...events], new Date(now2));
-  const moved = await store.update(mission.id, mission.status, next);
+  const next = budget.finish(unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready });
+  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
+  await store.record(mission.id, [...pmSent, ...budget.events, ...events], new Date(now2));
+  const moved = await store.update(mission.id, budget.from, next);
   return { next, running: [...states.values()].some((state) => state.state === "running" || state.state === "repairing"), moved, sent: sent.length + repaired2.length, events: events.length };
 }
 async function readRun(store, sought, now2) {
@@ -23543,9 +23708,9 @@ async function pmRead(store, mission, events, jobs, now2) {
   if (mission.level === "alone") {
     for (const one of jobs) {
       const known = [...events, ...fresh.map(asRecorded)];
-      const held = /* @__PURE__ */ new Set([...mission.scope.prds, ...addedOf(known)]);
+      const held2 = /* @__PURE__ */ new Set([...mission.scope.prds, ...addedOf(known)]);
       const log2 = pmWorking(one) ? null : await store.committeeLog(one.job);
-      fresh.push(...pmEvents(mission, one, log2, held, events));
+      fresh.push(...pmEvents(mission, one, log2, held2, events));
     }
     if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now2 - 1e3));
   }
@@ -23639,8 +23804,8 @@ async function openAtHeads({ mission, facts, runs, branch, installation, github 
   const first = prdStates(facts, runs, branch, { alone: true, committees: [], answers: { open, committees } });
   for (const { prd } of facts.filter((fact) => waitsOnAnswers(first.get(fact.prd)))) {
     const pr = featurePrOf(runs, prd);
-    const listed3 = pr === null ? void 0 : listedOf((await joins.read({ installation, repo: mission.repo, prd, pr })).items);
-    if (listed3 !== void 0) open.set(prd, listed3);
+    const listed4 = pr === null ? void 0 : listedOf((await joins.read({ installation, repo: mission.repo, prd, pr })).items);
+    if (listed4 !== void 0) open.set(prd, listed4);
   }
   return open;
 }
@@ -23654,8 +23819,8 @@ async function decideAsk({ store, mission, runs, branch, installation, now: now2
   const answers = github.answers;
   if (pr === null || installation === null || answers === null || branch.branch === null) return { outcome: "escalated", why: ["the App cannot settle it here: no feature pull request or no GitHub access"] };
   const answer = { fleet: mission.fleet, option: "A", branch: branch.branch, at: new Date(now2).toISOString(), verdicts };
-  const settled = await answers.settle({ installation, repo: mission.repo, prd: one.prd, pr, item: one.item, answer });
-  return settled.ok ? { ...decision, verdicts } : { outcome: "escalated", why: [settled.why] };
+  const settled2 = await answers.settle({ installation, repo: mission.repo, prd: one.prd, pr, item: one.item, answer });
+  return settled2.ok ? { ...decision, verdicts } : { outcome: "escalated", why: [settled2.why] };
 }
 async function askAll({ store, mission, facts, states, toFleet }) {
   if (!sendsCommittees(mission.status)) return [];
@@ -23897,7 +24062,7 @@ function missionHandler({
     const at4 = now2();
     const run = await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
     log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
-    if (!watched(run) && run.moved) return { outcome: "done" };
+    if (!watched(run) && run.moved) return wakeOf(run) === null ? { outcome: "done" } : laterOf({ job, refresh, mission, at: at4, until: wakeOf(run) });
     return laterOf({ job, refresh, mission, at: at4 });
   };
 }
@@ -23908,11 +24073,13 @@ async function runnable(store, id) {
   if (mission.status === "draft") return { outcome: "skipped", reason: "the mission is a draft: nothing runs before Start" };
   return mission.status === "delivered" ? { outcome: "done" } : { ...mission, store };
 }
-async function laterOf({ job, refresh, mission, at: at4 }) {
+var wakeOf = ({ next }) => next.status === "paused" && next.nextWakeAt !== null ? Date.parse(next.nextWakeAt) : null;
+async function laterOf({ job, refresh, mission, at: at4, until = null }) {
+  const due = new Date(until ?? at4 + WAKE_MS);
   const laters = (ProgressSchema3.parse(job.progress ?? {}).laters ?? 0) + 1;
-  if (laters < LATERS_BEFORE_RENEW) return { outcome: "later", at: new Date(at4 + WAKE_MS), progress: { laters } };
+  if (laters < LATERS_BEFORE_RENEW) return { outcome: "later", at: due, progress: { laters } };
   await refresh(missionJob(mission.id, mission.repo));
-  return { outcome: "later", at: new Date(at4 + WAKE_MS), progress: { laters: 0 } };
+  return { outcome: "later", at: due, progress: { laters: 0 } };
 }
 
 // apps/omni-app/src/bug-reports/github.ts
@@ -23995,8 +24162,8 @@ function missionAnswers({ octokitFor }) {
         const ref = pull.head.sha;
         const read2 = await prdOutboxAt(octokit, { owner, repo, ref, prd, folder });
         if ("notRead" in read2) return { ok: false, why: `the head of #${String(pr)}: ${read2.notRead}` };
-        const settled = settleByFleet({ ctx: read2.ctx, prd, item, answer: { ...answer, pr, url: pull.html_url } });
-        if (!settled.ok) return settled.gone === true ? { ok: true, settled: false } : { ok: false, why: settled.errors.join("; ") };
+        const settled2 = settleByFleet({ ctx: read2.ctx, prd, item, answer: { ...answer, pr, url: pull.html_url } });
+        if (!settled2.ok) return settled2.gone === true ? { ok: true, settled: false } : { ok: false, why: settled2.errors.join("; ") };
         await addCommit(octokit, {
           owner,
           repo,
@@ -24004,8 +24171,8 @@ function missionAnswers({ octokitFor }) {
           parent: ref,
           message: messageOf5(item, prd, answer.fleet),
           defaultBranch,
-          files: [{ path: settled.settledFile, content: settled.text }],
-          deletes: settled.deletes
+          files: [{ path: settled2.settledFile, content: settled2.text }],
+          deletes: settled2.deletes
         });
         return { ok: true, settled: true };
       } finally {
@@ -24075,6 +24242,10 @@ var REPAIR = "id, prd, fingerprint, round, number, failed_job_id, job_id, retro,
 var BUG_REPORT = "repo, issue";
 var REPOSITORY = "full_name";
 var ACTOR = "actor";
+var FLEET_CAP = "daily_tokens";
+var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at";
+var PAUSE_EVENT = "kind, actor, at";
+var FLEET_MISSION = "id";
 var text18 = z100.string().min(1);
 var MissionRowSchema = z100.object({
   id: text18,
@@ -24089,7 +24260,8 @@ var MissionRowSchema = z100.object({
     parallel: z100.number().int().min(1).max(4),
     level: z100.enum(MISSION_LEVELS).default("with-you"),
     hardToRevert: z100.number().min(0).max(1).default(DEFAULT_BOUND),
-    ownPrds: z100.number().int().min(0).max(10).default(0)
+    ownPrds: z100.number().int().min(0).max(10).default(0),
+    tokens: z100.number().int().min(1).nullable().default(null)
   }),
   scope: z100.object({ prds: z100.array(PrdNumberSchema), roadmaps: z100.array(IssueNumberSchema) })
 });
@@ -24149,6 +24321,45 @@ var RepairRowSchema = z100.object({
 var BugReportRowSchema = z100.object({ repo: text18, issue: IssueNumberSchema });
 var RepositoryRowSchema2 = z100.object({ full_name: text18 });
 var ActorRowSchema = z100.object({ actor: z100.string().nullable() });
+var FleetCapRowSchema = z100.object({ daily_tokens: z100.number().int().positive().nullable() });
+var StopRowSchema = z100.object({
+  id: text18,
+  cap: z100.enum(["mission", "fleet"]),
+  cap_tokens: z100.number().int().positive(),
+  spent: z100.number().int().min(0),
+  missions: z100.array(text18),
+  answer: z100.enum(["raised", "tomorrow", "stopped"]).nullable(),
+  raised_to: z100.number().int().positive().nullable(),
+  created_at: text18,
+  answered_at: z100.string().nullable()
+});
+var PauseEventRowSchema = z100.object({ kind: z100.enum(["paused", "resumed"]), actor: z100.string().nullable(), at: text18 });
+var FleetMissionRowSchema = z100.object({ id: text18 });
+var CountSchema = z100.coerce.number().int().min(0);
+var FleetTokensRowSchema = z100.object({ tokens: CountSchema, oldest_end: z100.string().nullable() });
+var stopOf2 = (row) => ({
+  id: row.id,
+  cap: row.cap,
+  capTokens: row.cap_tokens,
+  spent: row.spent,
+  missions: row.missions,
+  answer: row.answer,
+  raisedTo: row.raised_to,
+  createdAt: row.created_at,
+  answeredAt: row.answered_at
+});
+function pausesOf(rows) {
+  const first = (kind, byAgent) => rows.find((row) => row.kind === kind && row.actor === "agent" === byAgent)?.at ?? null;
+  return { personPausedAt: first("paused", false), personResumedAt: first("resumed", false), agentPausedAt: first("paused", true) };
+}
+var STOP_MISSIONS = 100;
+var PAUSES_READ = 50;
+function madeOf(answer, none) {
+  if (answer.error?.code === TAKEN) return null;
+  const [made] = rowsOf(z100.object({ id: text18 }), answer);
+  if (!made) throw new Error(`the database ${none} and gave no reason`);
+  return made.id;
+}
 var OVER_BUDGET2 = "23514";
 var repairOf = (row) => ({
   id: row.id,
@@ -24249,16 +24460,32 @@ function missionStore(connection) {
   }
   async function queue({ mission, toFleet, line: line3, key }) {
     const answer = await db.from("runner_jobs").insert({ workspace_id: mission.workspace, repo: mission.repo, line: line3, sent_by_app: APP_SENDER2, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: key }).select("id");
-    if (answer.error?.code === TAKEN) return null;
-    const [made] = rowsOf(z100.object({ id: text18 }), answer);
-    if (!made) throw new Error("the database queued no job and gave no reason");
-    return made.id;
+    return madeOf(answer, "queued no job");
+  }
+  async function fleetSpent(mission, at4) {
+    const [fleet] = rowsOf(FleetTokensRowSchema, await db.rpc("fleet_tokens_24h", { p_workspace: mission.workspace, p_fleet: mission.fleet, p_at: at4.toISOString() }));
+    return { fleetSpent24h: fleet?.tokens ?? 0, oldestEnd: fleet?.oldest_end ?? null };
+  }
+  async function fleetCapOf(mission) {
+    const [team] = rowsOf(FleetCapRowSchema, await db.from("teams").select(FLEET_CAP).eq("workspace_id", mission.workspace).eq("name", mission.fleet).limit(1));
+    return team?.daily_tokens ?? null;
+  }
+  async function missionSpent(mission) {
+    const spent = await db.rpc("mission_tokens", { p_mission: mission.id });
+    if (spent.error) throw new Error(`the database refused the mission's tokens: ${spent.error.message}`);
+    return CountSchema.parse(spent.data);
+  }
+  async function stopsOf(mission) {
+    const stops = () => db.from("mission_budget_stops").select(STOP).eq("workspace_id", mission.workspace);
+    const named = rowsOf(StopRowSchema, await stops().contains("missions", [mission.id]).order("created_at", { ascending: false }).limit(1)).map(stopOf2);
+    const open = rowsOf(StopRowSchema, await stops().eq("fleet", mission.fleet).eq("cap", "fleet").is("answer", null).limit(1)).map(stopOf2);
+    return { named: named[0] ?? null, open: open[0] ?? null };
   }
   return {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds, ...row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens } };
     },
     async facts(mission) {
       const scope = expandScope(mission.scope.prds, await roadmapRows(mission));
@@ -24305,11 +24532,11 @@ function missionStore(connection) {
       const query = db.from("runners").select(ROOM_RUNNER).eq("workspace_id", mission.workspace);
       const runners = rowsOf(RoomRunnerRowSchema, await (toFleet ? query.eq("fleet", mission.fleet) : query.is("fleet", null)));
       if (runners.length === 0) return [];
-      const held = rowsOf(RoomJobRowSchema, await db.from("runner_jobs").select(ROOM_JOB).in("runner_id", runners.map((runner) => runner.id)).in("status", ["claimed", "running"]));
+      const held2 = rowsOf(RoomJobRowSchema, await db.from("runner_jobs").select(ROOM_JOB).in("runner_id", runners.map((runner) => runner.id)).in("status", ["claimed", "running"]));
       return runners.map((runner) => ({
         repos: runner.repos,
         slots: runner.slots,
-        used: held.filter((job) => job.runner_id === runner.id).length,
+        used: held2.filter((job) => job.runner_id === runner.id).length,
         lastSeenAt: runner.last_seen_at,
         health: runner.health
       }));
@@ -24427,6 +24654,29 @@ function missionStore(connection) {
         await db.from("missions").update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
+    },
+    async budget(mission, at4) {
+      const fleetCap = await fleetCapOf(mission);
+      const spent = await missionSpent(mission);
+      const fleet = await fleetSpent(mission, at4);
+      const stops = await stopsOf(mission);
+      const pauses = rowsOf(PauseEventRowSchema, await db.from("mission_events").select(PAUSE_EVENT).eq("mission_id", mission.id).in("kind", ["paused", "resumed"]).is("prd", null).order("at", { ascending: false }).limit(PAUSES_READ));
+      return { missionSpent: spent, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
+    },
+    async fleetMissions(mission) {
+      const rows = rowsOf(FleetMissionRowSchema, await db.from("missions").select(FLEET_MISSION).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet).in("status", ["running", "waiting"]).order("created_at").limit(STOP_MISSIONS));
+      return [mission.id, ...rows.map((row) => row.id).filter((id) => id !== mission.id)].slice(0, STOP_MISSIONS);
+    },
+    async stop(mission, { cap, capTokens, spent, missions }) {
+      const answer = await db.from("mission_budget_stops").insert({ workspace_id: mission.workspace, fleet: mission.fleet, cap, mission_id: cap === "mission" ? mission.id : null, cap_tokens: capTokens, spent, missions: [...missions] }).select("id");
+      return madeOf(answer, "recorded no budget stop");
+    },
+    async pause(ids, waitingOn) {
+      if (ids.length === 0) return;
+      rowsOf(
+        z100.unknown(),
+        await db.from("missions").update({ status: "paused", waiting_on: waitingOn, next_wake_at: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", [...ids]).in("status", ["running", "waiting"]).select("id")
+      );
     }
   };
 }
@@ -24475,7 +24725,7 @@ import { z as z102 } from "zod";
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
 var DEFAULT_KNOWLEDGE_ROOT = ".omni-loop/knowledge";
-var trimmed2 = (path) => path.replace(/^\.\/+/, "").replace(/\/+$/, "");
+var trimmed3 = (path) => path.replace(/^\.\/+/, "").replace(/\/+$/, "");
 function configOf(files) {
   const file = files.find((f) => f.path === CONFIG_FILE);
   if (file === void 0) return DEFAULTS;
@@ -24504,7 +24754,7 @@ var shortName5 = (repo) => repo.slice(repo.indexOf("/") + 1);
 var lines = (...parts) => parts.filter((part) => typeof part === "string" && part !== "").join("\n");
 function decisionEntries(repo, files, adrDir) {
   if (adrDir === null || adrDir === "") return [];
-  const prefix = `${trimmed2(adrDir)}/`;
+  const prefix = `${trimmed3(adrDir)}/`;
   const records = files.flatMap((file) => {
     const rest = file.path.startsWith(prefix) ? file.path.slice(prefix.length) : "";
     if (rest === "" || rest.includes("/")) return [];
@@ -24553,7 +24803,7 @@ function registerEntries(repo, files, knowledgeRoot) {
 function lawEntries(home) {
   const config = configOf(home.files);
   const owners = config.laws.owners.map((owner) => lawOwnerParts(owner).owner);
-  return lawsOfPackFiles(home.files, trimmed2(config.paths.knowledge)).map((law) => ({
+  return lawsOfPackFiles(home.files, trimmed3(config.paths.knowledge)).map((law) => ({
     id: law.id,
     kind: "business-law",
     title: law.statement,
@@ -24573,7 +24823,7 @@ function knowledgeEntries(sources) {
   const fromRepositories = sources.repositories.flatMap(({ repo, files }) => {
     if (files === null) return [];
     const config = configOf(files);
-    return [...decisionEntries(repo, files, config.paths.adr), ...registerEntries(repo, files, trimmed2(config.paths.knowledge))];
+    return [...decisionEntries(repo, files, config.paths.adr), ...registerEntries(repo, files, trimmed3(config.paths.knowledge))];
   });
   const legal = sources.legal.map((row) => ({
     id: row.id,
@@ -24949,8 +25199,8 @@ function packPaths(config) {
   return { folders, files };
 }
 function touchesPack(changed, { folders, files }) {
-  const held = (path) => files.includes(path) || folders.some((folder) => within3(path, folder));
-  return changed.some(({ path, previous: previous2 }) => held(path) || typeof previous2 === "string" && held(previous2));
+  const held2 = (path) => files.includes(path) || folders.some((folder) => within3(path, folder));
+  return changed.some(({ path, previous: previous2 }) => held2(path) || typeof previous2 === "string" && held2(previous2));
 }
 
 // apps/omni-app/src/jobs/pack.ts
@@ -25281,9 +25531,9 @@ function searchEvalStore(connection) {
       const withQuestions = await liveQuestionProducts();
       if (!filter || withQuestions.length === 0 || filter.workspaces.length === 0) return filter ? [] : withQuestions;
       const holders = await paged2(HolderRowSchema5, (from, to) => db.from("product_repositories").select("product_id").eq("repository", filter.repository).in("workspace_id", [...filter.workspaces]).order("product_id").range(from, to));
-      const held = withQuestions.filter((id) => holders.some((holder) => holder.product_id === id));
+      const held2 = withQuestions.filter((id) => holders.some((holder) => holder.product_id === id));
       const live = [];
-      for (const ids of chunks(held, CHUNK)) live.push(...rowsOf(LiveProductSchema, await db.from("products").select("id").in("id", ids).is("archived_at", null)).map((row) => row.id));
+      for (const ids of chunks(held2, CHUNK)) live.push(...rowsOf(LiveProductSchema, await db.from("products").select("id").in("id", ids).is("archived_at", null)).map((row) => row.id));
       return live;
     },
     questions: async (productId) => {
@@ -25452,9 +25702,9 @@ var ACCEPTANCE_MARK = "omni-acceptance:";
 function acceptanceOfLog(log2) {
   const line3 = log2.split("\n").reverse().find((each) => each.includes(ACCEPTANCE_MARK));
   if (line3 === void 0) return null;
-  const said = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
-  if (!said.startsWith("{")) return { ok: false, why: said.replace(/^failed — /, "") || "the run said nothing" };
-  const read2 = parseAcceptanceReport(said);
+  const said2 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
+  if (!said2.startsWith("{")) return { ok: false, why: said2.replace(/^failed — /, "") || "the run said nothing" };
+  const read2 = parseAcceptanceReport(said2);
   return read2.ok ? { ok: true, report: read2.report } : { ok: false, why: read2.why };
 }
 var READY_JOB_KIND = "pr-ready";
@@ -25476,9 +25726,9 @@ var EXCUSING_VERDICTS = {
   loosening: ["agreed"],
   area: ["agreed", ADOPTED_VERDICT]
 };
-function excuseItems({ settled, open }) {
-  const fromLedger = settled.map((entry) => ({ item: entry.id, verdict: entry.verdict?.trim() ?? null, excuses: itemExcuses(entry.itemText) }));
-  const settledIds2 = new Set(settled.map((entry) => entry.id));
+function excuseItems({ settled: settled2, open }) {
+  const fromLedger = settled2.map((entry) => ({ item: entry.id, verdict: entry.verdict?.trim() ?? null, excuses: itemExcuses(entry.itemText) }));
+  const settledIds2 = new Set(settled2.map((entry) => entry.id));
   const stillOpen = open.filter((item) => !settledIds2.has(item.id)).map((item) => ({ item: item.id, verdict: null, excuses: itemExcuses(item.text) }));
   return [...fromLedger, ...stillOpen];
 }
@@ -25709,7 +25959,7 @@ var fail = (why) => ({ state: "fail", why });
 var waiting = (why) => ({ state: "not finished", why });
 var unjudged = (why) => ({ state: "not judged", why });
 var LISTED = 3;
-function listed2(items, separator) {
+function listed3(items, separator) {
   const more = items.length - LISTED;
   return [...items.slice(0, LISTED), ...more > 0 ? [`and ${String(more)} more`] : []].join(separator);
 }
@@ -25764,15 +26014,15 @@ function proofsCheck(criteria, report) {
   const proofs = criteria.map((criterion) => proofOf2(criterion, report));
   const failing = proofs.flatMap((proof) => proof.state === "failing" ? [proof.why] : []);
   const pending = proofs.flatMap((proof) => proof.state === "waiting" ? [proof.why] : []);
-  if (failing.length > 0) return fail(listed2([...failing, ...pending], "; "));
-  if (pending.length > 0) return waiting(listed2(pending, "; "));
+  if (failing.length > 0) return fail(listed3([...failing, ...pending], "; "));
+  if (pending.length > 0) return waiting(listed3(pending, "; "));
   const count4 = String(criteria.length);
   return pass(`${count4} of ${count4} ${criteria.length === 1 ? "criterion" : "criteria"} proven`);
 }
 function acceptanceCheck(facts) {
   const { criteria, report } = facts;
   if (!criteria.ok) return unjudged(criteria.why);
-  if (criteria.value.problems.length > 0) return fail(`the spec's criteria are malformed: ${listed2(criteria.value.problems.map(({ problem }) => problem), "; ")}`);
+  if (criteria.value.problems.length > 0) return fail(`the spec's criteria are malformed: ${listed3(criteria.value.problems.map(({ problem }) => problem), "; ")}`);
   if (criteria.value.criteria.length === 0) return fail("the spec has no criterion written ### AC-<n> \xB7 <kind>");
   if (!report.ok) return unjudged(report.why);
   if (report.value === null) return noReport(facts.runs);
@@ -25793,7 +26043,7 @@ function excuseAll(found, ledger, check) {
   }
   return { open, excused };
 }
-var excusedText = (excused) => listed2(excused.map(({ path, item }) => `${path} excused by ${item}`), "; ");
+var excusedText = (excused) => listed3(excused.map(({ path, item }) => `${path} excused by ${item}`), "; ");
 function looseningOptions(facts) {
   const ends = facts.criteria.ok && facts.baseCriteria.ok ? { base: facts.baseCriteria.value, head: facts.criteria.value.criteria } : null;
   return { ground: facts.ground ?? READY_LOOSENING_GROUND, criteria: ends, generated: facts.area.ok ? facts.area.value.generated : [] };
@@ -25803,8 +26053,8 @@ function looseningCheck(facts) {
   const read2 = loosenings(facts.diff.value, looseningOptions(facts));
   const judged4 = excuseAll(read2.findings.map(({ path, what }) => ({ path, text: `${path}: ${what}` })), facts.ledger, "loosening");
   if ("state" in judged4) return judged4;
-  if (judged4.open.length > 0) return fail(listed2(judged4.open, "; "));
-  if (read2.unjudged.length > 0) return unjudged(listed2(read2.unjudged, "; "));
+  if (judged4.open.length > 0) return fail(listed3(judged4.open, "; "));
+  if (read2.unjudged.length > 0) return unjudged(listed3(read2.unjudged, "; "));
   return pass(judged4.excused.length === 0 ? "no test was loosened" : excusedText(judged4.excused), judged4.excused);
 }
 function areaCheck(facts) {
@@ -25815,7 +26065,7 @@ function areaCheck(facts) {
   const outside = breaches(paths, [...territories, ...prdFolders, ...generated]);
   const judged4 = excuseAll(outside.map((path) => ({ path, text: path })), facts.ledger, "area");
   if ("state" in judged4) return judged4;
-  if (judged4.open.length > 0) return fail(`outside every territory: ${listed2(judged4.open, ", ")}`);
+  if (judged4.open.length > 0) return fail(`outside every territory: ${listed3(judged4.open, ", ")}`);
   const inArea = "every file sits in its area";
   return pass(judged4.excused.length === 0 ? inArea : `${inArea}; ${excusedText(judged4.excused)}`, judged4.excused);
 }
@@ -25949,13 +26199,13 @@ function ledgerOf3({ prd, ctx }) {
   const dir = ctx.layout.outboxDir(prd);
   if (dir === null) return [];
   const settledText = textAt(ctx.root, `${dir}/${SETTLED_FILE}`);
-  const settled = settledText === null ? [] : parseSettledEntries(settledText, ctx.markers);
+  const settled2 = settledText === null ? [] : parseSettledEntries(settledText, ctx.markers);
   const open = outboxItemFiles({ ctx }).filter((file) => file.startsWith(`${dir}/`)).flatMap((file) => {
     const text19 = readFileSync49(join77(ctx.root, file), "utf8");
     const parsed3 = parseOutboxItem(text19, { file });
     return parsed3.ok ? [{ id: parsed3.item.id, text: text19 }] : [];
   });
-  return excuseItems({ settled, open });
+  return excuseItems({ settled: settled2, open });
 }
 function areaOf2({ prd, ctx }) {
   const planPath = ctx.layout.planPath(prd);
@@ -26111,16 +26361,16 @@ async function keptReport(octokit, { owner, repo, headSha }) {
 }
 var ended3 = (job) => job !== null && ["done", "failed", "cancelled"].includes(job.status);
 function noResult(job) {
-  const said = acceptanceOfLog(job.logTail);
-  const how = said !== null && !said.ok ? said.why : job.reason ?? `it ended ${job.status} with no result`;
+  const said2 = acceptanceOfLog(job.logTail);
+  const how = said2 !== null && !said2.ok ? said2.why : job.reason ?? `it ended ${job.status} with no result`;
   return `the runner's e2e run gave no result (${how}); a new commit runs it again`;
 }
 function standingReport(kept3, criteria, job) {
   if (!ended3(job)) return kept3;
   const e2e = new Set(criteria.filter((criterion) => criterion.kind === "e2e").map((criterion) => criterion.number));
   const others = kept3.results.filter((result) => result.kind !== "e2e" || !e2e.has(result.ac));
-  const said = acceptanceOfLog(job.logTail);
-  const ran = said?.ok === true && said.report.commit === kept3.commit ? said.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
+  const said2 = acceptanceOfLog(job.logTail);
+  const ran = said2?.ok === true && said2.report.commit === kept3.commit ? said2.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
   return { ...kept3, results: [...others, ...ran].sort((a, b) => a.ac - b.ac) };
 }
 function standing(criterion, report) {
@@ -26566,15 +26816,15 @@ async function runDue({
 }
 async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt: endsAt2, log: log2, summary: summary2 }) {
   const settling = settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
-  const settled = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
+  const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
-  const kept3 = await keep2(ledger, job, settled, log2);
-  const ended4 = settled.outcome === "later" && kept3 === "failed" ? { ...settled, outcome: "failed", reason: TOO_MANY_LATERS } : settled;
+  const kept3 = await keep2(ledger, job, settled2, log2);
+  const ended4 = settled2.outcome === "later" && kept3 === "failed" ? { ...settled2, outcome: "failed", reason: TOO_MANY_LATERS } : settled2;
   if (kept3 === "stale") summary2.stale += 1;
   else if (kept3 !== null) summary2[ended4.outcome] += 1;
-  if (ended4 !== settled) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
+  if (ended4 !== settled2) log2(`job ${job.kind} ${job.key}: failed: ${TOO_MANY_LATERS}`);
   if (kept3 === "failed") await failed2(job, ended4.reason, failures[job.kind], log2);
-  return settled.reason === CUT_SHORT ? "cut short" : "ran";
+  return settled2.reason === CUT_SHORT ? "cut short" : "ran";
 }
 var cutShort = (clock) => ({ outcome: "waiting", reason: CUT_SHORT, retryAt: later(clock, CUT_SHORT_WAIT_MINUTES) });
 async function within4(settling, ms2) {
@@ -26622,18 +26872,18 @@ function settledOf2(result) {
   if (result.outcome === "later") return { outcome: "later", reason: null, retryAt: result.at.toISOString(), progress: result.progress };
   return { outcome: "skipped", reason: firstLine4(result.reason), retryAt: null };
 }
-async function keep2(ledger, job, settled, log2) {
+async function keep2(ledger, job, settled2, log2) {
   const name = `job ${job.kind} ${job.key}`;
   let answer;
   try {
-    answer = await ledger.finish({ id: job.id, claim: job.claim, ...settled });
+    answer = await ledger.finish({ id: job.id, claim: job.claim, ...settled2 });
   } catch (error) {
-    log2(`${name}: its ${settled.outcome} was not kept: ${firstLine4(error instanceof Error ? error.message : String(error))}`);
+    log2(`${name}: its ${settled2.outcome} was not kept: ${firstLine4(error instanceof Error ? error.message : String(error))}`);
     return null;
   }
-  if (answer === "stale") log2(`${name}: its claim was taken over, so its ${settled.outcome} was not kept`);
-  else if (settled.outcome === "skipped") log2(`${name}: skipped: ${settled.reason ?? ""}`);
-  else if (settled.outcome !== "done" && settled.outcome !== "later") log2(`${name}: ${settled.outcome} on try ${String(job.tries)}: ${settled.reason ?? ""}`);
+  if (answer === "stale") log2(`${name}: its claim was taken over, so its ${settled2.outcome} was not kept`);
+  else if (settled2.outcome === "skipped") log2(`${name}: skipped: ${settled2.reason ?? ""}`);
+  else if (settled2.outcome !== "done" && settled2.outcome !== "later") log2(`${name}: ${settled2.outcome} on try ${String(job.tries)}: ${settled2.reason ?? ""}`);
   return answer;
 }
 function budgetRefusal2(error) {

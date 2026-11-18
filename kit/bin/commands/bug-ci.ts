@@ -66,6 +66,18 @@ function gh(exec: Exec, cwd: string, args: string[]): string {
   }
 }
 
+/**
+ * The full sha `sha` names in this checkout, or `sha` as given when git cannot name it (a commit not
+ * fetched here). `gh run list --commit` matches a full sha only, so a short one found no run (#3052).
+ */
+function fullSha(exec: Exec, cwd: string, sha: string): string {
+  try {
+    return exec('git', ['rev-parse', '--verify', '--quiet', `${sha}^{commit}`], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || sha;
+  } catch {
+    return sha;
+  }
+}
+
 type IdJob = CiJob & { id: number };
 
 /** The jobs of every run of `sha`, without their logs. */
@@ -105,7 +117,8 @@ async function finishedSides(exec: Exec, cwd: string, ask: Ask, { sleep = wait, 
 /** Runs `omni bug ci`; the exit code. */
 export async function ci(args: string[], io: FreeIo & CiOptions): Promise<number> {
   const { cwd, stdout, stderr, exec } = io;
-  const ask = askOf(args);
+  const given = askOf(args);
+  const ask = { ...given, reproduction: fullSha(exec, cwd, given.reproduction), fix: fullSha(exec, cwd, given.fix) };
   try {
     const sides = await finishedSides(exec, cwd, ask, io);
     if (sides === null) {
