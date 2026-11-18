@@ -208,6 +208,23 @@
         ],
         "hex": "#0b6f86"
       }
+    },
+    "focus-ring": {
+      "$description": "The ring a focused control wears: 3:1 against every surface.",
+      "$value": "{color.accent}"
+    },
+    "scrim": {
+      "$description": "The see-through cover behind a dialog or a drawer.",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.0902,
+          0.0824,
+          0.2392
+        ],
+        "hex": "#17153d",
+        "alpha": 0.48
+      }
     }
   }
 }
