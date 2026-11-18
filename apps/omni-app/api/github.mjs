@@ -21702,6 +21702,7 @@ function levelRefusal(level, inPlan) {
 }
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
+var MAX_MISSION_TOKENS = 1e9;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var text17 = (max) => z85.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
 var distinct = (list2) => new Set(list2).size === list2.length;
@@ -21713,15 +21714,17 @@ var ScopeSchema = z85.object(
   },
   { message: "must be {prds, roadmaps}" }
 ).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
+var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
 var MandateSchema = z85.object(
   {
     parallel: z85.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
     level: z85.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
     hardToRevert: z85.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z85.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS)
+    ownPrds: z85.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
+    tokens: z85.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
   },
-  { message: "must be {parallel, level, hardToRevert, ownPrds}" }
-).strict();
+  { message: "must be {parallel, level, hardToRevert, ownPrds, tokens}" }
+).strict().transform(({ tokens, ...mandate }) => tokens == null ? mandate : { ...mandate, tokens });
 var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
 var BriefSchema = z85.object({
   mission: IssueNumberSchema,
