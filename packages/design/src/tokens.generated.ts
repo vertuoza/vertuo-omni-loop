@@ -84,6 +84,11 @@ export const TOKEN_SCALE = Object.freeze({
   'motion-duration-fast': '120ms',
   'motion-duration-slow': '240ms',
   'motion-ease-out': 'cubic-bezier(0.2, 0, 0, 1)',
+  'layer-base': '0',
+  'layer-sticky': '10',
+  'layer-overlay': '20',
+  'layer-dialog': '30',
+  'layer-toast': '40',
 } as const);
 
 /** Each theme's semantic roles (<theme>.tokens.json), by their name: `--color-<role>` in CSS. */

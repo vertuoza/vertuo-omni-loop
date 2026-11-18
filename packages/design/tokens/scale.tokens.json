@@ -322,5 +322,29 @@
       ],
       "$description": "Everything that moves arrives with it."
     }
+  },
+  "layer": {
+    "$type": "number",
+    "$description": "The stacking order of what sits over the page, by job: never a raw z-index.",
+    "base": {
+      "$value": 0,
+      "$description": "On the page, in its flow."
+    },
+    "sticky": {
+      "$value": 10,
+      "$description": "A pinned header: over the content, under every overlay."
+    },
+    "overlay": {
+      "$value": 20,
+      "$description": "A menu or a popover over the page."
+    },
+    "dialog": {
+      "$value": 30,
+      "$description": "A dialog and its scrim."
+    },
+    "toast": {
+      "$value": 40,
+      "$description": "A notice over everything."
+    }
   }
 }

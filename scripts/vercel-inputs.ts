@@ -39,6 +39,7 @@ export const GALAXY_NEVER: readonly Rule[] = [
   'mutation/',
   'fallow/',
   'layering/',
+  'design/',
   'docs/superpowers/',
   'scripts/',
   'README.md',

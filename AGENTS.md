@@ -61,6 +61,7 @@ command exited 0 there.
 | `pnpm lint` | typescript-eslint `strictTypeChecked` over every tracked TS file; any finding fails | ~80s | install |
 | `pnpm lint <path>...` | the same lint, only the files under those paths | ~5s for one file | install |
 | `pnpm typecheck` | `tsgo` over the root project and the pitch engine, then the arcade's typecheck | ~5s | install |
+| `pnpm design` | the design ratchet over the app pages' stylesheets and TSX, against `design/baseline.json` (fails on a new breach or a grown baseline), then impeccable's detector as a report | ~12s | install, the base fetched for `--base` |
 | `pnpm check:changed --base origin/<branch>` | while iterating: typecheck, lint, related tests, fallow audit of the files changed since the merge-base | ~10s for a docs-only change; ~2 min when `package.json` or the lockfile changes (the whole test run) | install, the base fetched |
 | `pnpm mutation:changed --base origin/<branch>` | Stryker on the delivery-core files changed; says so and exits when there are none | ~3s with none; minutes per core file | install |
 | `pnpm kit:build` | rebuilds `kit/dist/omni.mjs` | ~1s | install |

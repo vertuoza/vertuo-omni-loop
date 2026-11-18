@@ -170,6 +170,23 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm fallow:audit
 
+  # The design ratchet (PRD omni-loop-11): a new raw value, inline style or raw component, a baseline
+  # line whose breach is gone, or a design/baseline.json grown against the base fails it. It compares
+  # with the base's baseline through the merge-base with origin/<base>, so the whole history is fetched.
+  design:
+    needs: settle
+    if: needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm design --base "origin/$GITHUB_BASE_REF"
+
   # The PRD's `e2e` scenarios on the pull request's preview (PRD 2898). The job always runs behind
   # settle, so its check is never a skipped one; its plan step decides whether there is anything to
   # run: a pull request that is no PRD's feature PR, a PRD with no `e2e` criterion, `e2e.ci` false,

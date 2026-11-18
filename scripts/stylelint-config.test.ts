@@ -25,6 +25,8 @@ describe('stylelint.config.ts', () => {
     'color: #fff',
     'background: rgb(1 2 3)',
     'border-color: red',
+    'z-index: 10',
+    'z-index: 9999',
   ])('refuses %s', async (declaration) => {
     expect((await warnings(`.a { ${declaration}; }`)).length).toBeGreaterThan(0);
   });
@@ -39,6 +41,9 @@ describe('stylelint.config.ts', () => {
     'border-radius: 50%',
     'box-shadow: var(--elevation-raised)',
     'box-shadow: none',
+    'z-index: var(--layer-sticky)',
+    'z-index: auto',
+    'z-index: 0',
     'color: var(--color-text-primary)',
     'background: transparent',
     'border: 1px solid var(--color-border-subtle)',
