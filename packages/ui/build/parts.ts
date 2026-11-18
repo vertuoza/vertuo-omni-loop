@@ -5,6 +5,7 @@
 // edited by hand, so two slices adding parts never touch the same file. parts.test.ts fails while
 // a committed output differs from what the files present generate.
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 const SRC = new URL('../src/', import.meta.url);
 /** A part's component file: a PascalCase name, `.tsx`, and nothing between. */
@@ -87,3 +88,6 @@ export function writeParts(src: URL = SRC): void {
   mkdirSync(out, { recursive: true });
   for (const [name, text] of Object.entries(generatedFiles(src))) writeFileSync(new URL(name, out), text);
 }
+
+// Run as `node packages/ui/build/parts.ts` (the config's `generated` build) or `pnpm --filter @omni/ui parts`.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) writeParts();
