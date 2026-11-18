@@ -14,9 +14,18 @@ import { cardSpecimen } from '../Card.specimen.tsx';
 import { Code } from '../Code.tsx';
 import { codeMeta } from '../Code.meta.ts';
 import { codeSpecimen } from '../Code.specimen.tsx';
+import { Dialog } from '../Dialog.tsx';
+import { dialogMeta } from '../Dialog.meta.ts';
+import { dialogSpecimen } from '../Dialog.specimen.tsx';
+import { Drawer } from '../Drawer.tsx';
+import { drawerMeta } from '../Drawer.meta.ts';
+import { drawerSpecimen } from '../Drawer.specimen.tsx';
 import { EmptyState } from '../EmptyState.tsx';
 import { emptyStateMeta } from '../EmptyState.meta.ts';
 import { emptyStateSpecimen } from '../EmptyState.specimen.tsx';
+import { Field } from '../Field.tsx';
+import { fieldMeta } from '../Field.meta.ts';
+import { fieldSpecimen } from '../Field.specimen.tsx';
 import { Grid } from '../Grid.tsx';
 import { gridMeta } from '../Grid.meta.ts';
 import { gridSpecimen } from '../Grid.specimen.tsx';
@@ -32,6 +41,9 @@ import { iconButtonSpecimen } from '../IconButton.specimen.tsx';
 import { Inline } from '../Inline.tsx';
 import { inlineMeta } from '../Inline.meta.ts';
 import { inlineSpecimen } from '../Inline.specimen.tsx';
+import { Input } from '../Input.tsx';
+import { inputMeta } from '../Input.meta.ts';
+import { inputSpecimen } from '../Input.specimen.tsx';
 import { Kbd } from '../Kbd.tsx';
 import { kbdMeta } from '../Kbd.meta.ts';
 import { kbdSpecimen } from '../Kbd.specimen.tsx';
@@ -47,12 +59,18 @@ import { noticeSpecimen } from '../Notice.specimen.tsx';
 import { PageHeader } from '../PageHeader.tsx';
 import { pageHeaderMeta } from '../PageHeader.meta.ts';
 import { pageHeaderSpecimen } from '../PageHeader.specimen.tsx';
+import { Popover } from '../Popover.tsx';
+import { popoverMeta } from '../Popover.meta.ts';
+import { popoverSpecimen } from '../Popover.specimen.tsx';
 import { Prose } from '../Prose.tsx';
 import { proseMeta } from '../Prose.meta.ts';
 import { proseSpecimen } from '../Prose.specimen.tsx';
 import { SegmentedControl } from '../SegmentedControl.tsx';
 import { segmentedControlMeta } from '../SegmentedControl.meta.ts';
 import { segmentedControlSpecimen } from '../SegmentedControl.specimen.tsx';
+import { Select } from '../Select.tsx';
+import { selectMeta } from '../Select.meta.ts';
+import { selectSpecimen } from '../Select.specimen.tsx';
 import { Stack } from '../Stack.tsx';
 import { stackMeta } from '../Stack.meta.ts';
 import { stackSpecimen } from '../Stack.specimen.tsx';
@@ -62,9 +80,12 @@ import { tabsSpecimen } from '../Tabs.specimen.tsx';
 import { Text } from '../Text.tsx';
 import { textMeta } from '../Text.meta.ts';
 import { textSpecimen } from '../Text.specimen.tsx';
+import { Textarea } from '../Textarea.tsx';
+import { textareaMeta } from '../Textarea.meta.ts';
+import { textareaSpecimen } from '../Textarea.specimen.tsx';
 
 /** Every part's component, by its name. */
-export const COMPONENTS = { Badge, Button, Card, Code, EmptyState, Grid, Heading, Icon, IconButton, Inline, Kbd, Link, ListRow, Notice, PageHeader, Prose, SegmentedControl, Stack, Tabs, Text } as const;
+export const COMPONENTS = { Badge, Button, Card, Code, Dialog, Drawer, EmptyState, Field, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Notice, PageHeader, Popover, Prose, SegmentedControl, Select, Stack, Tabs, Text, Textarea } as const;
 
 /** Every part: its meta (variants, usage, do, don't, contrast) and its specimen. */
 export const PARTS: readonly Part[] = [
@@ -72,20 +93,27 @@ export const PARTS: readonly Part[] = [
   { meta: buttonMeta, specimen: buttonSpecimen },
   { meta: cardMeta, specimen: cardSpecimen },
   { meta: codeMeta, specimen: codeSpecimen },
+  { meta: dialogMeta, specimen: dialogSpecimen },
+  { meta: drawerMeta, specimen: drawerSpecimen },
   { meta: emptyStateMeta, specimen: emptyStateSpecimen },
+  { meta: fieldMeta, specimen: fieldSpecimen },
   { meta: gridMeta, specimen: gridSpecimen },
   { meta: headingMeta, specimen: headingSpecimen },
   { meta: iconMeta, specimen: iconSpecimen },
   { meta: iconButtonMeta, specimen: iconButtonSpecimen },
   { meta: inlineMeta, specimen: inlineSpecimen },
+  { meta: inputMeta, specimen: inputSpecimen },
   { meta: kbdMeta, specimen: kbdSpecimen },
   { meta: linkMeta, specimen: linkSpecimen },
   { meta: listRowMeta, specimen: listRowSpecimen },
   { meta: noticeMeta, specimen: noticeSpecimen },
   { meta: pageHeaderMeta, specimen: pageHeaderSpecimen },
+  { meta: popoverMeta, specimen: popoverSpecimen },
   { meta: proseMeta, specimen: proseSpecimen },
   { meta: segmentedControlMeta, specimen: segmentedControlSpecimen },
+  { meta: selectMeta, specimen: selectSpecimen },
   { meta: stackMeta, specimen: stackSpecimen },
   { meta: tabsMeta, specimen: tabsSpecimen },
   { meta: textMeta, specimen: textSpecimen },
+  { meta: textareaMeta, specimen: textareaSpecimen },
 ];
