@@ -2,7 +2,9 @@
 // facts of its PRDs, the runner jobs it sent (their keys unique, as `runner_jobs.mission_key` is) with their
 // attempts, and its events. Test helpers move what a real fleet would: a job's end, a lost runner and its resume, a
 // PRD's facts, a person's Pause. Its repairs (PRD 2980) are kept as `mission_repairs` keeps them: the database's caps
-// hold here too, 3 per cause in a round and 9 per mission. No database, no model call.
+// hold here too, 3 per cause in a round and 9 per mission. Its token budget (PRD 3040): what the mission and its fleet spent,
+// the fleet's daily cap, the other missions of the fleet and the budget stops, one open per cap as the database keeps them, each
+// answered once, a raise saved with its answer. No database, no model call.
 import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { repairKey, repairSkillLine, type RepairJob, type RepairRow } from './repair.ts';
@@ -10,6 +12,8 @@ import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
+import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
+import type { StopRow } from './budget.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type RoomRunner, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
@@ -21,10 +25,12 @@ type FakeEvent = Omit<NewEvent, 'kind'> & { kind: string; actor: string; at: str
 const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
-export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [] }: {
+export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [], now = Date.now }: {
   mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null;
   /** PRDs with a page that are in no scope yet (PRD 2896 s12): read as facts once the mission's scope names them, as a PRD its PM wrote. */
   pages?: PrdFacts[];
+  /** The database's clock: when a budget stop is recorded and answered (PRD 3040). */
+  now?: () => number;
 }) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
@@ -49,6 +55,11 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   /** The Omni Loop bugs `omni_bug_reports` holds, by fingerprint, and the jobs added to the App's ledger. */
   const bugs = new Map<string, { repo: string; issue: IssueNumber }>();
   const added: NewJob[] = [];
+  /** The token budget (PRD 3040): what the mission and its fleet spent, the fleet's cap, its other missions and the stops. */
+  const spent = { mission: 0, fleet: 0, oldestEnd: null as string | null };
+  let fleetCap: number | null = null;
+  let fleet: { id: string; status: MissionStatus; waitingOn: string | null }[] = [];
+  const stops: StopRow[] = [];
   let made = 0;
   /** Reads of the runs held until this many are waiting: two runs at once read the same state. */
   let together = 0;
@@ -180,6 +191,35 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       record = { ...record, status: next.status, waitingOn: next.waitingOn, nextWakeAt: next.nextWakeAt };
       return Promise.resolve(true);
     },
+    budget: (read) => {
+      // A mission's own Pause and Resume, newest first: a person's, or the supervisor's (`agent`).
+      const own = events.filter((event) => event.prd === null && (event.kind === 'paused' || event.kind === 'resumed')).sort((a, b) => b.at.localeCompare(a.at));
+      const first = (kind: string, byAgent: boolean): string | null => own.find((event) => event.kind === kind && (event.actor === 'agent') === byAgent)?.at ?? null;
+      return Promise.resolve({
+        missionSpent: spent.mission,
+        missionCap: read.tokens ?? null,
+        fleetSpent24h: spent.fleet,
+        fleetCap,
+        oldestEnd: spent.oldestEnd,
+        named: stops.filter((one) => one.missions.includes(read.id)).at(-1) ?? null,
+        open: stops.filter((one) => one.cap === 'fleet' && one.answer === null).at(-1) ?? null,
+        personPausedAt: first('paused', false),
+        personResumedAt: first('resumed', false),
+        agentPausedAt: first('paused', true),
+      });
+    },
+    fleetMissions: (read) => Promise.resolve([read.id, ...fleet.filter((one) => one.status === 'running' || one.status === 'waiting').map((one) => one.id)]),
+    stop: (read, { cap, capTokens, spent: used, missions }) => {
+      // One open stop per mission's cap and per fleet's cap (mission_budget_stops_open_mission, _open_fleet).
+      if (stops.some((one) => one.answer === null && one.cap === cap && (cap === 'fleet' || one.missions.includes(read.id)))) return Promise.resolve(null);
+      const id = `stop-${String(stops.length + 1)}`;
+      stops.push({ id, cap, capTokens, spent: used, missions: [...missions], answer: null, raisedTo: null, createdAt: new Date(now()).toISOString(), answeredAt: null });
+      return Promise.resolve(id);
+    },
+    pause: (ids, waitingOn) => {
+      fleet = fleet.map((one) => (ids.includes(one.id) && (one.status === 'running' || one.status === 'waiting') ? { ...one, status: 'paused', waitingOn } : one));
+      return Promise.resolve();
+    },
   };
 
   /** The latest attempt of the PRD's latest run. */
@@ -190,8 +230,43 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     return attempt;
   };
 
+  /** A person's own move of the mission at `at`, as the route records it: their event, and the mission moved. */
+  const byHand = (kind: 'paused' | 'resumed', at: number, actor = 'ada') => {
+    events.push({ kind, role: 'supervisor', prd: null, job: null, link: null, sentence: `${actor} ${kind} the mission.`, actor, at: new Date(at).toISOString() });
+    record = { ...record, status: kind === 'paused' ? 'paused' : 'running' };
+  };
+
   return {
     store,
+    /** What the mission spent, and its fleet over the last 24 hours, the oldest counted job's end with it (PRD 3040). */
+    spend: (counted: { mission?: number; fleet?: number; oldestEnd?: string | null }) => {
+      Object.assign(spent, counted);
+    },
+    /** The fleet's daily cap from now on, null for none (PRD 3040). */
+    fleetCap: (cap: number | null) => {
+      fleetCap = cap;
+    },
+    /** The other missions of the fleet (PRD 3040), as they stand. */
+    fleet: (others?: { id: string; status: MissionStatus }[]) => {
+      if (others !== undefined) fleet = others.map((one) => ({ ...one, waitingOn: null }));
+      return fleet.map((one) => ({ ...one }));
+    },
+    /** The budget stops recorded, in order (PRD 3040). */
+    stops: () => stops.map((one) => ({ ...one, missions: [...one.missions] })),
+    /**
+     * A person answers the latest stop, once, as answer_mission_budget_stop() does: a raise saved with it (the mission's budget or the
+     * fleet's cap), their own `budget-answer` event recorded on the mission.
+     */
+    answer: (answer: BudgetAnswer, raisedTo: number | null = null, actor = 'ada') => {
+      const one = stops.at(-1);
+      if (!one || one.answer !== null) throw new Error('no stop waits for an answer');
+      Object.assign(one, { answer, raisedTo, answeredAt: new Date(now()).toISOString() });
+      if (answer === 'raised' && one.cap === 'mission') record = { ...record, tokens: raisedTo };
+      if (answer === 'raised' && one.cap === 'fleet') fleetCap = raisedTo;
+      events.push({ kind: 'budget-answer', role: 'supervisor', prd: null, job: null, link: null, sentence: `${actor} answered the budget stop: ${answer}.`, actor, at: new Date(now()).toISOString() });
+    },
+    /** A person pauses or resumes the mission at `at` (PRD 3040's tests: dated, unlike `resume`). */
+    byHand,
     /** The committees queued (PRD 2896 s9), in order, with what the database recorded for each. */
     committees: () => committees.map((one) => ({ ...one })),
     /** The PRD's latest committee job ends as `change` says, its log `log`. */

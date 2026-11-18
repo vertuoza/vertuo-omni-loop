@@ -55,6 +55,15 @@
 //   record      the run's events, signed `agent`, a millisecond apart so the ledger keeps their order
 //   update       the mission's status, what it waits on and its next wake, only while its status is still the
 //                one this run read: a Pause landing meanwhile is never overwritten
+//   budget       what a run reads of the mission's token budget (PRD 3040): what the mission and its fleet spent
+//                (mission_tokens(), fleet_tokens_24h() up to the run's time), the fleet's daily cap (`teams.daily_tokens`;
+//                the mission's own is its mandate's `tokens`), the latest stop naming the mission and the fleet's stop still
+//                waiting (`mission_budget_stops`), and the mission's own `paused` and `resumed` events, a person's or the
+//                supervisor's. Counts and times only: never a job's log
+//   fleetMissions the missions of the fleet that run or wait, the mission first: the ones a fleet's stop pauses
+//   stop         a budget stop recorded as the service role, unanswered: a stop of the same cap still waiting (23505) records
+//                none and answers null
+//   pause        the other missions a fleet's stop paused, each only while it still runs or waits
 //
 // Throws when the database refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
@@ -72,6 +81,7 @@ import { failedJobOf, repairKey, repairSkillLine, repairOfKey, type RepairJob, t
 import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
 import { qaLine } from 'omni-loop/kit/lib/qa/verdict.ts';
 import { isQaStep, type Fix } from './qa.ts';
+import type { BudgetRead, NewStop, StopRow } from './budget.ts';
 import {
   approvalOf,
   baseOf,
@@ -105,6 +115,8 @@ export type MissionRecord = Mission & {
   hardToRevert?: number;
   /** `mandate.ownPrds` (PRD 2896 s12): how many PRDs the fleet's PM may add at `alone`; 0, none, when absent. */
   ownPrds?: number;
+  /** `mandate.tokens` (PRD 3040): the mission's token budget over every job it sent; null or absent, none. */
+  tokens?: number | null;
 };
 
 /** An item's committee to send (PRD 2896 s10): the mission, the PRD, the item, and whether the fleet's runners take it. */
@@ -193,6 +205,14 @@ export type MissionStore = {
   record: (id: string, events: readonly NewEvent[], at: Date) => Promise<void>;
   /** Whether the mission was still at `from`, and so was moved. */
   update: (id: string, from: MissionStatus, next: Concluded) => Promise<boolean>;
+  /** What the run reads of the mission's token budget at `at` (PRD 3040). */
+  budget: (mission: MissionRecord, at: Date) => Promise<BudgetRead>;
+  /** The missions of the mission's fleet that run or wait, the mission first: what a fleet's stop pauses. */
+  fleetMissions: (mission: MissionRecord) => Promise<string[]>;
+  /** A budget stop recorded: its id, or null when a stop of the same cap still waits for its answer. */
+  stop: (mission: MissionRecord, stop: NewStop & { missions: readonly string[] }) => Promise<string | null>;
+  /** The missions a fleet's stop paused, set paused and saying why, each only while it still runs or waits. */
+  pause: (ids: readonly string[], waitingOn: string) => Promise<void>;
 };
 
 /** Who the job is sent by: the app, never a person (`runner_jobs.sent_by_app`). */
@@ -226,6 +246,10 @@ export const REPAIR = 'id, prd, fingerprint, round, number, failed_job_id, job_i
 export const BUG_REPORT = 'repo, issue';
 export const REPOSITORY = 'full_name';
 export const ACTOR = 'actor';
+export const FLEET_CAP = 'daily_tokens';
+export const STOP = 'id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at';
+export const PAUSE_EVENT = 'kind, actor, at';
+export const FLEET_MISSION = 'id';
 
 const text = z.string().min(1);
 
@@ -243,6 +267,7 @@ export const MissionRowSchema = z.object({
     level: z.enum(MISSION_LEVELS).default('with-you'),
     hardToRevert: z.number().min(0).max(1).default(DEFAULT_BOUND),
     ownPrds: z.number().int().min(0).max(10).default(0),
+    tokens: z.number().int().min(1).nullable().default(null),
   }),
   scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
 });
@@ -304,6 +329,54 @@ export const RepairRowSchema = z.object({
 export const BugReportRowSchema = z.object({ repo: text, issue: IssueNumberSchema });
 export const RepositoryRowSchema = z.object({ full_name: text });
 export const ActorRowSchema = z.object({ actor: z.string().nullable() });
+export const FleetCapRowSchema = z.object({ daily_tokens: z.number().int().positive().nullable() });
+export const StopRowSchema = z.object({
+  id: text,
+  cap: z.enum(['mission', 'fleet']),
+  cap_tokens: z.number().int().positive(),
+  spent: z.number().int().min(0),
+  missions: z.array(text),
+  answer: z.enum(['raised', 'tomorrow', 'stopped']).nullable(),
+  raised_to: z.number().int().positive().nullable(),
+  created_at: text,
+  answered_at: z.string().nullable(),
+});
+export const PauseEventRowSchema = z.object({ kind: z.enum(['paused', 'resumed']), actor: z.string().nullable(), at: text });
+export const FleetMissionRowSchema = z.object({ id: text });
+/** What mission_tokens() answers, and each row of fleet_tokens_24h(): a bigint, which PostgREST may give as a number or its text. */
+const CountSchema = z.coerce.number().int().min(0);
+const FleetTokensRowSchema = z.object({ tokens: CountSchema, oldest_end: z.string().nullable() });
+
+const stopOf = (row: z.infer<typeof StopRowSchema>): StopRow => ({
+  id: row.id,
+  cap: row.cap,
+  capTokens: row.cap_tokens,
+  spent: row.spent,
+  missions: row.missions,
+  answer: row.answer,
+  raisedTo: row.raised_to,
+  createdAt: row.created_at,
+  answeredAt: row.answered_at,
+});
+
+/** The latest time of each of a mission's own `paused` and `resumed` events, newest first: a person's, or the supervisor's (`agent`). */
+function pausesOf(rows: readonly z.infer<typeof PauseEventRowSchema>[]): Pick<BudgetRead, 'personPausedAt' | 'personResumedAt' | 'agentPausedAt'> {
+  const first = (kind: 'paused' | 'resumed', byAgent: boolean): string | null => rows.find((row) => row.kind === kind && (row.actor === 'agent') === byAgent)?.at ?? null;
+  return { personPausedAt: first('paused', false), personResumedAt: first('resumed', false), agentPausedAt: first('paused', true) };
+}
+
+/** The most missions one budget stop names (`mission_budget_stops.missions`). */
+const STOP_MISSIONS = 100;
+/** The newest of a mission's own pauses and resumes a run reads (PRD 3040): the latest of each kind is among them. */
+const PAUSES_READ = 50;
+
+/** The id of a row inserted, or null when a unique key refused it (23505); any other refusal throws. */
+function madeOf(answer: { data: unknown; error: { message: string; code?: string } | null }, none: string): string | null {
+  if (answer.error?.code === TAKEN) return null;
+  const [made] = rowsOf(z.object({ id: text }), answer);
+  if (!made) throw new Error(`the database ${none} and gave no reason`);
+  return made.id;
+}
 
 /** The database's answer to a repair over its budget, and the cap it names in its hint. */
 const OVER_BUDGET = '23514';
@@ -441,17 +514,41 @@ export function missionStore(connection: Connection): MissionStore {
       .from('runner_jobs')
       .insert({ workspace_id: mission.workspace, repo: mission.repo, line, sent_by_app: APP_SENDER, to_fleet: toFleet ? mission.fleet : null, mission_id: mission.id, mission_key: key })
       .select('id');
-    if (answer.error?.code === TAKEN) return null;
-    const [made] = rowsOf(z.object({ id: text }), answer);
-    if (!made) throw new Error('the database queued no job and gave no reason');
-    return made.id;
+    return madeOf(answer, 'queued no job');
+  }
+
+  /** What the run reads of the fleet's last 24 hours up to `at`: what its jobs counted, and when the oldest of them ended. */
+  async function fleetSpent(mission: MissionRecord, at: Date): Promise<Pick<BudgetRead, 'fleetSpent24h' | 'oldestEnd'>> {
+    const [fleet] = rowsOf(FleetTokensRowSchema, await db.rpc('fleet_tokens_24h', { p_workspace: mission.workspace, p_fleet: mission.fleet, p_at: at.toISOString() }));
+    return { fleetSpent24h: fleet?.tokens ?? 0, oldestEnd: fleet?.oldest_end ?? null };
+  }
+
+  /** The fleet's daily cap; null for none. */
+  async function fleetCapOf(mission: MissionRecord): Promise<number | null> {
+    const [team] = rowsOf(FleetCapRowSchema, await db.from('teams').select(FLEET_CAP).eq('workspace_id', mission.workspace).eq('name', mission.fleet).limit(1));
+    return team?.daily_tokens ?? null;
+  }
+
+  /** What every ended job of the mission counted. */
+  async function missionSpent(mission: MissionRecord): Promise<number> {
+    const spent = await db.rpc('mission_tokens', { p_mission: mission.id });
+    if (spent.error) throw new Error(`the database refused the mission's tokens: ${spent.error.message}`);
+    return CountSchema.parse(spent.data ?? 0);
+  }
+
+  /** The latest stop naming the mission, and its fleet's stop still waiting for an answer. */
+  async function stopsOf(mission: MissionRecord): Promise<Pick<BudgetRead, 'named' | 'open'>> {
+    const stops = () => db.from('mission_budget_stops').select(STOP).eq('workspace_id', mission.workspace);
+    const named = rowsOf(StopRowSchema, await stops().contains('missions', [mission.id]).order('created_at', { ascending: false }).limit(1)).map(stopOf);
+    const open = rowsOf(StopRowSchema, await stops().eq('fleet', mission.fleet).eq('cap', 'fleet').is('answer', null).limit(1)).map(stopOf);
+    return { named: named[0] ?? null, open: open[0] ?? null };
   }
 
   return {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds };
+      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds, ...(row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens }) };
     },
 
     async facts(mission) {
@@ -653,6 +750,36 @@ export function missionStore(connection: Connection): MissionStore {
         await db.from('missions').update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: new Date().toISOString() }).eq('id', id).eq('status', from).select('id'),
       );
       return moved.length > 0;
+    },
+
+    async budget(mission, at) {
+      const fleetCap = await fleetCapOf(mission);
+      const spent = await missionSpent(mission);
+      const fleet = await fleetSpent(mission, at);
+      const stops = await stopsOf(mission);
+      const pauses = rowsOf(PauseEventRowSchema, await db.from('mission_events').select(PAUSE_EVENT).eq('mission_id', mission.id).in('kind', ['paused', 'resumed']).is('prd', null).order('at', { ascending: false }).limit(PAUSES_READ));
+      return { missionSpent: spent, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
+    },
+
+    async fleetMissions(mission) {
+      const rows = rowsOf(FleetMissionRowSchema, await db.from('missions').select(FLEET_MISSION).eq('workspace_id', mission.workspace).eq('fleet', mission.fleet).in('status', ['running', 'waiting']).order('created_at').limit(STOP_MISSIONS));
+      return [mission.id, ...rows.map((row) => row.id).filter((id) => id !== mission.id)].slice(0, STOP_MISSIONS);
+    },
+
+    async stop(mission, { cap, capTokens, spent, missions }) {
+      const answer = await db
+        .from('mission_budget_stops')
+        .insert({ workspace_id: mission.workspace, fleet: mission.fleet, cap, mission_id: cap === 'mission' ? mission.id : null, cap_tokens: capTokens, spent, missions: [...missions] })
+        .select('id');
+      return madeOf(answer, 'recorded no budget stop');
+    },
+
+    async pause(ids, waitingOn) {
+      if (ids.length === 0) return;
+      rowsOf(
+        z.unknown(),
+        await db.from('missions').update({ status: 'paused', waiting_on: waitingOn, next_wake_at: null, updated_at: new Date().toISOString() }).in('id', [...ids]).in('status', ['running', 'waiting']).select('id'),
+      );
     },
   };
 }
