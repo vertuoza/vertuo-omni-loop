@@ -9,3 +9,4 @@ export * from './fonts.ts';
 export * from './logo.ts';
 export * from './brand.ts';
 export * from './personas.ts';
+export * from './icons/icons.ts';
