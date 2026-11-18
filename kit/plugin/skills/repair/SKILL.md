@@ -1,6 +1,6 @@
 ---
 name: repair
-description: Repairs the step a mission's PRD failed on, on a runner and never by hand — reads why it failed from the failed job's log and saved work, writes a retro (the cause in one sentence, its class, where, the error's signature, the evidence as sentences, the proposed fix and the fingerprint) checked by the kit, then takes one way by its class. code follows /omni:bug-fix --base <mission branch> (/omni:mega-bug-fix when the PRD spans repositories); omni-loop writes the scrubbed public report into its record line and fixes nothing; flake fixes nothing, the step is sent again; person names the question. Asks nobody, merges nothing, and ends on one record line, omni repair. Triggers on "/omni:repair --mission <m> --prd <n> --job <job>" sent by a mission.
+description: Repairs the step a mission's PRD failed on, on a runner and never by hand — reads why it failed from the failed job's log and saved work (or, with --stuck --jobs, from the last five jobs of a mission that stopped moving), writes a retro (the cause in one sentence, its class, where, the error's signature, the evidence as sentences, the proposed fix and the fingerprint) checked by the kit, then takes one way by its class. code follows /omni:bug-fix --base <mission branch> (/omni:mega-bug-fix when the PRD spans repositories); omni-loop writes the scrubbed public report into its record line and fixes nothing; flake fixes nothing, the step is sent again; person names the question. Asks nobody, merges nothing, and ends on one record line, omni repair. Triggers on "/omni:repair --mission <m> --prd <n> --job <job>" and "/omni:repair --mission <m> --stuck --jobs <j1>,…,<j5>" sent by a mission.
 ---
 
 # Repair: a failed step, a retro, one way
@@ -28,8 +28,12 @@ signing is off here: add nothing.
 | `--prd <n>` | `--prd 2950` | the PRD whose step failed |
 | `--job <id>` | `--job 4821` | the runner job that failed: its log and saved work are what you read |
 
-All three are required: with one missing, print `repair needs --mission, --prd and --job` and stop,
-with no record line. Run by a person in a terminal (`OMNI_UNATTENDED` unset), say that a mission
+| `--stuck --jobs <j1>,…,<j5>` | `--mission 12 --stuck --jobs 4801,4802,4803,4804,4805` | a **stuck repair** (PRD 3065), in place of `--prd` and `--job`: the mission's last 5 ended jobs, in which nothing moved, whose logs, saved work and steps are what you read |
+
+A failure repair (`--prd`, `--job`) needs all three of `--mission`, `--prd` and `--job`; a stuck repair
+needs `--mission`, `--stuck` and exactly 5 job ids in `--jobs`. With the input of neither, or a mix of
+both, print `repair needs --mission, --prd and --job, or --mission, --stuck and --jobs` and stop,
+with no record line. Without `--stuck`, everything below is as it was. Run by a person in a terminal (`OMNI_UNATTENDED` unset), say that a mission
 sends this skill on a runner, and stop.
 
 ## Step 0
@@ -39,7 +43,9 @@ is not installed in this repository. Keep the JSON; later steps read `repo.*`, `
 `commands.*` from it. Then print the briefing, `node .omni-loop/bin/omni.mjs session start`: its rules
 bind every step below. The mission branch is the `--base <branch>` the failed job's line carries (a mission
 sends its steps as `/omni:yolo <n> --base <mission branch>`): read it from the failed job, and use it as `<mission branch>`
-below. A failed job that carries no `--base` has no mission branch: take the `person` way, naming that.
+below. A failed job that carries no `--base` has no mission branch: take the `person` way, naming that. A
+stuck repair reads the `--base` from the jobs it reads (any one that carries it); none carries it:
+take the `person` way, naming that.
 
 ## 1. The retro
 
@@ -71,6 +77,16 @@ path of a customer's, a credential or a person's words. The class is one of four
 
 In the repository that holds the Omni Loop kit's own source (the one the bug report would be filed on), read `omni-loop` as
 `code`: the fix is a bug fix like any other.
+
+**A stuck repair.** Nothing failed: five jobs ended and no PRD moved to a new step, to ready, onto
+the mission branch, to merged or out of its blockers. Read the five jobs (`omni runner log <job>` for
+each, their saved work, the PRD and the step each was on) and find why nothing moved: a step sent
+again and again, a hold nobody released, a skill that ends without its result. Write the same retro
+(the cause in one sentence, its class, and the rest), so the same four classes, the same fingerprint
+(step 2) and the same ways (step 3) apply. The cause sits in one PRD, or in the mission's own scope,
+brief or branch. When it sits in a rule, a law or a playbook form, change nothing: the class is
+`person`, and the retro's proposed fix names the change. A stuck repair spends one of the mission's
+repairs whatever it finds.
 
 ## 2. The fingerprint
 
@@ -110,6 +126,10 @@ The last output of the skill is one line, with no text after it:
 ```
 omni repair: {"v":1,"mission":<m>,"prd":<n>,"fingerprint":"<hex>","class":"<class>","retro":{…},"fix":<pr|null>,"report":{…}|null}
 ```
+
+A stuck repair's line adds `"trigger":"stuck"` and names in `"prd"` the PRD the cause sits in, or
+`null` when the cause is the mission's own (its scope, its brief, its branch); a failure repair's line
+has no `trigger` and always names its PRD.
 
 `fix` is the bug fix's PR number for `code`, else `null`. `report` is the scrubbed report for
 `omni-loop`, else `null`. `retro` is the retro of step 1 with its fingerprint. Print the JSON on one line. A line the App cannot read counts as
