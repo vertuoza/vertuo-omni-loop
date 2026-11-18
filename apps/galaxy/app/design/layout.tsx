@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: `The ${OMNI_LOOP.name} design system: the logo, the colours, the type and every sprite, drawn from @omni/design.`,
 };
 
-export const viewport: Viewport = { themeColor: OMNI_LOOP.themeColor, colorScheme: 'dark' };
+export const viewport: Viewport = { themeColor: OMNI_LOOP.themeColor, colorScheme: 'dark', maximumScale: 5, userScalable: true };
 
 export default function DesignLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
