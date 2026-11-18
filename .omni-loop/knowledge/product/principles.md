@@ -988,3 +988,21 @@ Why: Re-sending failed or cancelled work automatically would spend runs on a gue
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-125
+
+An interruption never resets the bounds on a job's retries and waits; the whole chain of a job stays within the same limits.
+
+Why: Otherwise a job that keeps losing machines could wait and retry without end, spending capacity and never settling.
+Source: .omni-loop/delivery/shipped/2949-limit-waits/outbox/settled.md, entry s1-02-lost-resume-keeps-waits, PRD #2949
+Merged: @pierrederval, 2026-11-16, PR #2950
+Proposed: harvest 2026-11-16
+
+## P-PRODUCT-126
+
+A runner is held back from work only on a clear, fresh report that it cannot work; an odd or unreadable report never counts against it.
+
+Why: Holding work back on a guess would leave machines idle and jobs waiting for no confirmed reason.
+Source: .omni-loop/delivery/shipped/2949-limit-waits/outbox/settled.md, entry s3-02-claim-all-out-edges, PRD #2949
+Merged: @pierrederval, 2026-11-16, PR #2950
+Proposed: harvest 2026-11-16

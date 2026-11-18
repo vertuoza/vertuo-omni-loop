@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-16
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-157, P-PRODUCT-125
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ A constant in one database function: a follow-up migration changes it.
 - Raised: 2026-11-16
 - Slice: s2
 - Wave: 2
+- Stays here: A deferred, local wording choice with a known small inaccuracy; no lasting guarantee to keep, and it may change when a resume reason field is added.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Medium: it needs a field on the resume claim (server, contract, runner) and its 
 - Raised: 2026-11-16
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-158, P-PRODUCT-126
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ Low: one condition in the claim and a line of the check.
 - Raised: 2026-11-16
 - Slice: s3
 - Wave: 2
+- Stays here: A local scoping choice to leave two helpers outside the slice as they are; nothing lasting to record, and low cost to change later.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ Low: a small change to each, with its tests.
 - Raised: 2026-11-16
 - Slice: s5
 - Wave: 3
+- Became: ADR-0164
 
 ### The answer, as it was given
 

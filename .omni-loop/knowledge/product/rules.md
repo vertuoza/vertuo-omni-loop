@@ -929,3 +929,27 @@ Enforced by: kit/lib/mission/overturn.test.ts
 Stated: 2026-11-16
 Decided: @pierrederval, 2026-11-16
 Proposed: yolo-fix 2026-11-16
+
+## BR-PRODUCT-157
+
+When a job that already waited out provider limits is lost by its machine, its retry carries on the job's waits count and the loss spends one of its three tries, so a job waits at most six times in all, however it was interrupted.
+
+Serves: P-PRODUCT-125
+Source: .omni-loop/delivery/shipped/2949-limit-waits/outbox/settled.md, entry s1-02-lost-resume-keeps-waits, PRD #2949
+Enforced by: supabase/checks/runner_resume.sql, apps/galaxy/src/runners/runners.resume.migration.test.ts
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2950
+Proposed: harvest 2026-11-16
+
+## BR-PRODUCT-158
+
+The job queue skips a runner only when its account report is under two minutes old, lists at least one account, and every account is out until a future time. A report with no accounts, an account with no reset time, or an unreadable reset time leaves the runner judged by its own pause.
+
+Serves: P-PRODUCT-126
+Source: .omni-loop/delivery/shipped/2949-limit-waits/outbox/settled.md, entry s3-02-claim-all-out-edges, PRD #2949
+Enforced by: supabase/checks/runner_resume.sql, supabase/migrations/20270125120000_runner_limit_waits.sql
+Stated: 2026-11-16
+Decided: nobody — adopted when raised (medium), 2026-11-16
+Merged: @pierrederval, 2026-11-16, PR #2950
+Proposed: harvest 2026-11-16
