@@ -63,3 +63,35 @@ describe('the missions client', () => {
     expect((await demoMissionsPort.setLevel(ID, 'alone')).ok).toBe(false);
   });
 });
+
+// The token caps' calls (PRD 3040 s4).
+describe('the token calls', () => {
+  const sentTo = () => {
+    const sent: { url: string; body: unknown }[] = [];
+    const fetch: typeof globalThis.fetch = (url, init) => {
+      sent.push({ url: typeof url === 'string' ? url : url instanceof URL ? url.href : url.url, body: JSON.parse(typeof init?.body === 'string' ? init.body : 'null') });
+      return Promise.resolve(new Response(JSON.stringify(sent.length === 1 ? { mission: { id: ID, tokens: 5 } } : sent.length === 2 ? { stop: { id: ID, answer: 'raised', raisedTo: 9 } } : { fleet: { name: 'night-shift', dailyTokens: null } }), { status: 200 }));
+    };
+    return { fetch, sent };
+  };
+
+  it('posts a mission\'s budget, a stop\'s answer and the fleet\'s cap to their routes', async () => {
+    const { fetch, sent } = sentTo();
+    const port = httpMissionsPort(fetch);
+    expect(await port.setBudget(ID, 5)).toEqual({ ok: true });
+    expect(await port.answerStop(ID, 'raised', 9)).toEqual({ ok: true });
+    expect(await port.setDailyCap(ID, 'night-shift', null)).toEqual({ ok: true });
+    expect(sent).toEqual([
+      { url: `/api/missions/${ID}/tokens`, body: { tokens: 5 } },
+      { url: `/api/missions/stops/${ID}`, body: { answer: 'raised', tokens: 9 } },
+      { url: '/api/virtual-fleets/tokens', body: { workspace: ID, fleet: 'night-shift', tokens: null } },
+    ]);
+  });
+
+  it('sends a plain answer with no number, and the demo moves nothing', async () => {
+    const { fetch, sent } = sentTo();
+    await httpMissionsPort(fetch).answerStop(ID, 'stopped');
+    expect(sent[0]?.body).toEqual({ answer: 'stopped' });
+    for (const call of [demoMissionsPort.setBudget(ID, 1), demoMissionsPort.answerStop(ID, 'stopped'), demoMissionsPort.setDailyCap(ID, 'f', 1)]) expect(await call).toMatchObject({ ok: false });
+  });
+});

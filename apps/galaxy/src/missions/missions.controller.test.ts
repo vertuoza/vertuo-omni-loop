@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { levelMission, moveMission, type MissionsDeps } from './missions.controller';
-import { ADA, DAN, DRAFT, fakeMissionsDb, RUNNING } from './missions.fake';
+import { answerBudgetStop, budgetMission, levelMission, moveMission, type MissionsDeps } from './missions.controller';
+import { ADA, BEN, DAN, DELIVERED, DRAFT, fakeMissionsDb, PAUSED, RUNNING, STOP } from './missions.fake';
 import { missionsService } from './missions.service';
 
 // POST /api/missions/<id>/start|pause|resume (PRD 2842 s5), with the real service on the database in memory.
@@ -82,5 +82,72 @@ describe('levelMission', () => {
 
   it('answers 503 with no database', async () => {
     expect((await levelMission(DRAFT, post({ level: 'alone' }), { session: null, service: null, log: () => undefined })).status).toBe(503);
+  });
+});
+
+const post = (body: unknown) => new Request('http://local/x', { method: 'POST', body: JSON.stringify(body) });
+
+// POST /api/missions/<id>/tokens (PRD 3040 s4): a draft's budget is any member's, a started mission's an owner's.
+describe('budgetMission', () => {
+  it('sets a draft mission\'s budget for any member, and clears it with null', async () => {
+    const { deps: given } = deps(BEN);
+    const res = await budgetMission(DRAFT, post({ tokens: 2_000_000 }), given);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ mission: { id: DRAFT, tokens: 2_000_000 } });
+    expect(await (await budgetMission(DRAFT, post({ tokens: null }), given)).json()).toEqual({ mission: { id: DRAFT, tokens: null } });
+  });
+
+  it('leaves a started mission\'s budget to an owner', async () => {
+    expect((await budgetMission(RUNNING, post({ tokens: 5000 }), deps(BEN).deps)).status).toBe(403);
+    expect((await budgetMission(RUNNING, post({ tokens: 5000 }), deps(ADA, { owners: [ADA.id] }).deps)).status).toBe(200);
+  });
+
+  it('refuses 0, a fraction, a body that is none, a stranger and a mission that ended', async () => {
+    const { deps: given } = deps(ADA, { owners: [ADA.id] });
+    for (const tokens of [0, 1.5, 1_000_000_001]) expect((await budgetMission(DRAFT, post({ tokens }), given)).status).toBe(400);
+    expect((await budgetMission(DRAFT, post('nope'), given)).status).toBe(400);
+    expect((await budgetMission(DRAFT, post({ tokens: 5 }), deps(DAN).deps)).status).toBe(403);
+    expect((await budgetMission(DELIVERED, post({ tokens: 5 }), given)).status).toBe(409);
+    expect((await budgetMission(DRAFT, post({ tokens: 5 }), deps(null).deps)).status).toBe(401);
+  });
+});
+
+// POST /api/missions/stops/<stop> (PRD 3040 s4, AC-5 to AC-7): one answer, as the person; an owner alone raises.
+describe('answerBudgetStop', () => {
+  it('lets a member resume tomorrow, records their event once and wakes the missions the stop paused', async () => {
+    const { deps: given, db } = deps(BEN);
+    const res = await answerBudgetStop(STOP, post({ answer: 'tomorrow' }), given);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ stop: { id: STOP, answer: 'tomorrow', raisedTo: null } });
+    expect(db.events.filter((e) => e.kind === 'budget-answer').map((e) => e.actor)).toEqual(['ben']);
+    expect(db.jobs.map((j) => j.payload.mission).sort()).toEqual([PAUSED, RUNNING].sort());
+    const again = await answerBudgetStop(STOP, post({ answer: 'stopped' }), given);
+    expect(again.status).toBe(409);
+    expect(db.events.filter((e) => e.kind === 'budget-answer')).toHaveLength(1);
+  });
+
+  it('lets an owner raise the cap above the one reached, and not a member', async () => {
+    expect((await answerBudgetStop(STOP, post({ answer: 'raised', tokens: 5000 }), deps(BEN).deps)).status).toBe(403);
+    const owner = deps(ADA, { owners: [ADA.id] });
+    expect((await answerBudgetStop(STOP, post({ answer: 'raised', tokens: 1000 }), owner.deps)).status).toBe(409);
+    const res = await answerBudgetStop(STOP, post({ answer: 'raised', tokens: 5000 }), owner.deps);
+    expect(await res.json()).toEqual({ stop: { id: STOP, answer: 'raised', raisedTo: 5000 } });
+    expect(owner.db.events.find((e) => e.kind === 'budget-answer')?.sentence).toBe('ada raised the cap to 5k.');
+  });
+
+  it('lets a member stop the missions, saying the budget stopped them', async () => {
+    const { deps: given, db } = deps(ADA);
+    expect((await answerBudgetStop(STOP, post({ answer: 'stopped' }), given)).status).toBe(200);
+    expect(db.events.find((e) => e.kind === 'budget-answer')?.sentence).toBe('ada stopped the missions: the budget stopped them.');
+  });
+
+  it('refuses a raise with no number, a number with no raise, a stranger, a bad id and signed out', async () => {
+    const { deps: given } = deps(ADA, { owners: [ADA.id] });
+    expect((await answerBudgetStop(STOP, post({ answer: 'raised' }), given)).status).toBe(400);
+    expect((await answerBudgetStop(STOP, post({ answer: 'tomorrow', tokens: 5 }), given)).status).toBe(400);
+    expect((await answerBudgetStop(STOP, post({ answer: 'maybe' }), given)).status).toBe(400);
+    expect((await answerBudgetStop('nope', post({ answer: 'stopped' }), given)).status).toBe(400);
+    expect((await answerBudgetStop(STOP, post({ answer: 'stopped' }), deps(DAN).deps)).status).toBe(403);
+    expect((await answerBudgetStop(STOP, post({ answer: 'stopped' }), deps(null).deps)).status).toBe(401);
   });
 });

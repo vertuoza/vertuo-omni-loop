@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
-import { BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
+import { AnsweredStopSchema, BudgetedMissionSchema, StopAnswerBodySchema, TokensBodySchema, BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MissionAction, type MissionRefusal } from './missions.contract';
 import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
@@ -8,6 +8,8 @@ import type { Caller, MissionsReader, MissionsService } from './missions.service
 //
 //   POST /api/missions/<id>/start | pause | resume   200 {mission: {id, status}}
 //   POST /api/missions/<id>/level {level}            200 {mission: {id, level}}   (PRD 2896)
+//   POST /api/missions/<id>/tokens {tokens}          200 {mission: {id, tokens}}   (PRD 3040)
+//   POST /api/missions/stops/<stop> {answer, tokens?} 200 {stop: {id, answer, raisedTo}}   (PRD 3040)
 //   POST /api/missions/<id>/bugs {prd, pick}         200 {bugs: {mission, prd, pick}}   (PRD 3001, Decide the bugs)
 //
 // Signed out is 401 and nothing else runs; a person who is no member of the mission's workspace (it is
@@ -32,12 +34,12 @@ const FAILED = 'The mission could not be moved. Try again.';
 const refuse = (kind: MissionRefusal, error: string) => reply(MISSION_REFUSALS[kind], { error });
 
 /** The mission's id, the person and the service a route needs, or the refusal that ends it (signed out, a bad id, no database). */
-async function ready(id: string, deps: MissionsDeps): Promise<{ id: string; person: NonNullable<Awaited<ReturnType<NonNullable<MissionsDeps['session']>>>>; service: MissionsService } | Response> {
+async function ready(id: string, deps: MissionsDeps, bad: string = BAD_ID): Promise<{ id: string; person: NonNullable<Awaited<ReturnType<NonNullable<MissionsDeps['session']>>>>; service: MissionsService } | Response> {
   if (!deps.session || !deps.service) return refuse('unavailable', NO_DATABASE);
   const mission = z.uuid().safeParse(id);
   const person = await deps.session();
   if (!person) return refuse('signed-out', SIGNED_OUT);
-  if (!mission.success) return refuse('malformed', BAD_ID);
+  if (!mission.success) return refuse('malformed', bad);
   return { id: mission.data, person, service: deps.service };
 }
 
@@ -123,6 +125,37 @@ export async function pickBugs(id: string, request: Request, deps: MissionsDeps)
     const body = BugsBodySchema.safeParse(await request.json().catch(() => null));
     if (!body.success) return refuse('malformed', BAD_BUGS);
     return answer(await got.service.pickBugs(got.id, body.data, got.person.caller, got.person.reader), (value) => PickedBugsSchema.parse(value), deps);
+  } catch (error) {
+    return failed(error, deps);
+  }
+}
+
+const BAD_TOKENS = 'A token budget is a whole number from 1 to 1000000000, or null for none.';
+
+/** POST /api/missions/<id>/tokens: a member sets their workspace's mission's token budget; the database decides who may (PRD 3040). */
+export async function budgetMission(id: string, request: Request, deps: MissionsDeps): Promise<Response> {
+  try {
+    const got = await ready(id, deps);
+    if (got instanceof Response) return got;
+    const body = TokensBodySchema.safeParse(await request.json().catch(() => null));
+    if (!body.success) return refuse('malformed', BAD_TOKENS);
+    return answer(await got.service.setTokens(got.id, body.data.tokens, got.person.caller, got.person.reader), (value) => BudgetedMissionSchema.parse(value), deps);
+  } catch (error) {
+    return failed(error, deps);
+  }
+}
+
+const BAD_STOP = 'A budget stop\'s id is the one its page gives.';
+const BAD_ANSWER = 'An answer is raised (with the new cap in tokens), tomorrow or stopped.';
+
+/** POST /api/missions/stops/<stop>: a member answers a budget stop, once, as themselves (PRD 3040). */
+export async function answerBudgetStop(stop: string, request: Request, deps: MissionsDeps): Promise<Response> {
+  try {
+    const got = await ready(stop, deps, BAD_STOP);
+    if (got instanceof Response) return got;
+    const body = StopAnswerBodySchema.safeParse(await request.json().catch(() => null));
+    if (!body.success || (body.data.answer === 'raised') !== (body.data.tokens !== undefined)) return refuse('malformed', BAD_ANSWER);
+    return answer(await got.service.answerStop(got.id, body.data, got.person.caller, got.person.reader), (value) => AnsweredStopSchema.parse(value), deps);
   } catch (error) {
     return failed(error, deps);
   }
