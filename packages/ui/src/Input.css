@@ -3,7 +3,7 @@
   width: 100%;
   font-family: var(--font-body);
   font-size: var(--type-3-size);
-  line-height: var(--type-3-line);
+  line-height: round(calc(var(--type-3-size) * var(--type-3-line)), 1px);
   color: var(--color-text-primary);
   background: var(--color-surface);
   padding: var(--space-2) var(--space-3);

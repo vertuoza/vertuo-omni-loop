@@ -7,7 +7,7 @@
 .omni-field__label {
   color: var(--color-text-primary);
   font-size: var(--type-3-size);
-  line-height: var(--type-3-line);
+  line-height: round(calc(var(--type-3-size) * var(--type-3-line)), 1px);
   font-weight: var(--weight-medium);
 }
 .omni-field__required { color: var(--color-text-secondary); font-weight: var(--weight-regular); }
@@ -15,7 +15,7 @@
 .omni-field__error {
   margin: 0;
   font-size: var(--type-2-size);
-  line-height: var(--type-2-line);
+  line-height: round(calc(var(--type-2-size) * var(--type-2-line)), 1px);
 }
 .omni-field__hint { color: var(--color-text-secondary); }
 .omni-field__error { color: var(--color-danger); font-weight: var(--weight-medium); }
