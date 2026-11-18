@@ -364,6 +364,12 @@ A slice that is not merged holds only what depends on it; the rest of the wave g
 Slices that each passed alone can fail together. Work in a detached worktree of the feature branch:
 run `git fetch <remote>`, then `git worktree add --detach <path> <remote>/<feature branch>`.
 
+0. **Search before you decide.** Where the wave itself must decide something the spec does not settle
+   (a conflict between two slices, a check that fails only together), search the product's knowledge
+   first: `search_knowledge` from the `omni-knowledge` server when the session has it, else
+   `node .omni-loop/bin/omni.mjs kb search <query>`. Read each entry it relies on whole
+   (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox
+   item that records the decision. A one-line failure is carried on past, named in the report.
 1. **Adopt.** Under `--in-wave` (and `--inline`), do-work leaves medium items open so the slices do
    not race on the ledger. For every item a merged (or, inline, built) slice returned with rank
    `medium`, run the command below. A slice that was awaiting merge returned nothing this run, so

@@ -946,6 +946,7 @@ comment on the issue with the PR's link.
 
 ## Never
 
+- **Search the product's knowledge before deciding.** Before deciding anything the spec does not settle, search it (`search_knowledge` from the `omni-knowledge` server when the session has it, else `node .omni-loop/bin/omni.mjs kb search <query>`), read each entry it relies on whole (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox item that records the decision.
 - **Never merge.** A person merges the PR; the skill stops at the hand-off.
 - **Never fix before red.** The reproduction runs, and fails, before any fix, or says it could not
   run.

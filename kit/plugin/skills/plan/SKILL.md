@@ -498,6 +498,7 @@ person approves it on its page before `/omni:yolo` runs.
 
 ## Guardrails
 
+- **Search the product's knowledge before deciding.** Before deciding anything the spec does not settle, search it (`search_knowledge` from the `omni-knowledge` server when the session has it, else `node .omni-loop/bin/omni.mjs kb search <query>`), read each entry it relies on whole (`get_knowledge`, else `node .omni-loop/bin/omni.mjs kb get <id>`), and cite the ids in the outbox item that records the decision.
 - One PRD, one feature branch, one feature PR, or, for a plan of more than one landing, one branch
   and one draft PR per landing, stacked in order. Related small asks belong in one PRD when it is
   written, not in one plan afterwards.

@@ -20,9 +20,15 @@
 // The search log (PRD omni-loop-6 s1) is one insert into mcp_search_log
 // (supabase/migrations/20270119090000_mcp_search_log.sql), which only the service role may write: a row holds
 // the API key's id, which product_mcp_for_key() answers as `key_id`, never the key.
+//
+// A member's kit sign-in (PRD 3007 s1), once the Auth server has checked its token in the controller, reads
+// through product_mcp_for_member() (supabase/migrations/20270126090000_product_mcp_member.sql), the service
+// role's alone, which checks the person's membership of the product's workspace, the product's switch and its
+// archive on every call. A kept member's access is checked with the person's membership row instead of
+// api_key_of(). The person's search log row holds their id (`user_id`) and no key.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SearchLogRow } from './product-mcp.contract';
-import { AccessRow } from './access-row';
+import type { SearchLogBy, SearchLogRow } from './product-mcp.contract';
+import { AccessRow, MemberAccessRow } from './access-row';
 import { z } from 'zod';
 
 /** What the reads need: the tables and the functions. */
@@ -31,7 +37,7 @@ export type ProductMcpDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 /** PostgREST answers at most this many rows at once. */
 const PAGE = 1000;
 
-export type { AccessRow } from './access-row';
+export type { AccessRow, MemberAccessRow, ProductAccess } from './access-row';
 
 const FileRow = z.object({ path: z.string(), content: z.string() });
 const NeverRow = z.object({ seq: z.number().int(), body: z.string() });
@@ -54,6 +60,15 @@ export function productMcpRepository(db: ProductMcpDb) {
     /** What the key whose SHA-256 is `hash` reads of the product `key`, or null (product_mcp_for_key()). */
     access: (hash: string, key: string): Promise<AccessRow | null> =>
       read(db.rpc('product_mcp_for_key', { p_hash: hash, p_key: key }), AccessRow.nullable(), 'product_mcp_for_key'),
+
+    /** What the member `userId` reads of the product `key`, or null (product_mcp_for_member(), PRD 3007 s1). */
+    memberAccess: (userId: string, key: string): Promise<MemberAccessRow | null> =>
+      read(db.rpc('product_mcp_for_member', { p_user: userId, p_key: key }), MemberAccessRow.nullable(), 'product_mcp_for_member'),
+
+    /** Whether `userId` is a member of the workspace `workspace` now (PRD 3007 s1). */
+    isMember: async (userId: string, workspace: string): Promise<boolean> =>
+      (await read(db.from('workspace_members').select('user_id').eq('workspace_id', workspace).eq('user_id', userId).limit(1),
+        z.array(z.object({ user_id: z.string() })), 'workspace_members')).length > 0,
 
     /** Whether `hash` names a live API key whose maker is still a member (api_key_of()). */
     keyLive: async (hash: string): Promise<boolean> =>
@@ -139,18 +154,22 @@ export function searchLogRepository(db: ProductMcpDb) {
   return {
     /** Adds one row; a refusal throws, naming the table. */
     async add(row: SearchLogRow): Promise<void> {
-      await read(db.from('mcp_search_log').insert(row), z.unknown(), 'mcp_search_log');
+      // A key's row or a member's, as one set of columns: the client's insert takes no union of rows.
+      const values: Record<string, unknown> = row;
+      await read(db.from('mcp_search_log').insert(values), z.unknown(), 'mcp_search_log');
     },
 
     /**
-     * PRD omni-loop-6 s2: a get_knowledge of `id` from `keyId` on `productId`, asked at `askedAt`, marks the latest
-     * search of that key and product within the 10 minutes before it that returned `id` and has no opened rank yet:
-     * its opened id, and the 1-based rank of `id` among its hits. Sets nothing when no search qualifies.
+     * PRD omni-loop-6 s2: a get_knowledge of `id` from the caller `by` (a key, or a member: PRD 3007 s1) on
+     * `productId`, asked at `askedAt`, marks the latest search of that caller and product within the 10 minutes
+     * before it that returned `id` and has no opened rank yet: its opened id, and the 1-based rank of `id` among
+     * its hits. Sets nothing when no search qualifies.
      */
-    async open(keyId: string, productId: string, id: string, askedAt: string): Promise<void> {
+    async open(by: SearchLogBy, productId: string, id: string, askedAt: string): Promise<void> {
       const since = new Date(Date.parse(askedAt) - OPEN_WINDOW_MS).toISOString();
+      const [column, caller] = 'user_id' in by ? ['user_id', by.user_id] : ['api_key_id', by.api_key_id];
       const searches = await read(
-        db.from('mcp_search_log').select('id, hit_ids').eq('api_key_id', keyId).eq('product_id', productId)
+        db.from('mcp_search_log').select('id, hit_ids').eq(column, caller).eq('product_id', productId)
           .eq('tool', 'search_knowledge').is('opened_id', null).gte('asked_at', since).lte('asked_at', askedAt)
           .order('asked_at', { ascending: false }).limit(50),
         z.array(z.object({ id: z.string(), hit_ids: z.array(z.string()) })),
