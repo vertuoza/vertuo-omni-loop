@@ -18,6 +18,7 @@ runners while the laptop is closed.
 ## Regions
 
 - **The fleet's level,** above the list: `Level: Works alone`, with `Change`.
+- **The fleet's daily cap** (PRD 3040), under the level: `Tokens per day: No daily cap`, or `1.3M of 2M`, with `Change` for an owner.
 - **One row per mission:** its goal, its status (`Draft`, `Running`, `Waiting on you`, `Paused`,
   `Delivered`, `Stopped`), its progress (`2 of 4 merged · 1 ready`) and a link to its brief.
 - **What waits on a person:** each PRD that waits, with what it waits on (approve, answer, merge) and its link.
@@ -29,6 +30,7 @@ runners while the laptop is closed.
   date with the default branch (`up to date`, or `behind the default branch` with what the supervisor
   said, or the PRD to drop when the branch is red), and the mission pull request's link. The progress then
   reads `2 of 4 on main · 1 joined`. A mission at Reviews with you, and a draft, show no branch line.
+- **The budget line** (PRD 3040), on each row: `412k of 2M tokens`, or `No token budget`; on a draft, set for this mission.
 - **The trust line,** at Works alone: `14 decisions by the fleet · 1 overturned`.
 - **The primary action:** `Start`, on a draft. `Pause` on a running or waiting mission, `Resume` on a
   paused one.
@@ -42,6 +44,7 @@ runners while the laptop is closed.
   files, or the PRD to drop.
 - **Running, Waiting on you:** the progress and each PRD waiting, with `Pause`.
 - **Paused:** with `Resume`.
+- **Paused: budget reached** (PRD 3040): what was spent and whose cap (`this mission's budget`, `this fleet's daily cap`), with `Raise the cap` and `Stop the mission`; the fleet's cap adds one notice above the list with `Resume tomorrow` and `Raise the cap`, asked once for the fleet.
 - **Stopped:** why, and how to carry on, with no button.
 - **Delivered:** every PRD merged; no button.
 - **Refused or failed:** the refusal's words under the mission.
@@ -72,3 +75,4 @@ runners while the laptop is closed.
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2896: .omni-loop/delivery/shipped/2896-fleet-alone/before-after.html
+/omni:brainstorm, PRD 3040: .omni-loop/delivery/inbox/3040-token-budget/before-after.html (the caps, the budget line, Paused: budget reached)
