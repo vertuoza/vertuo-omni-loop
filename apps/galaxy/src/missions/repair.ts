@@ -7,8 +7,8 @@ import type { MissionStatus } from './missions.contract';
 // Omni Loop bug a PRD waits on is read from its `bug-reported` event's link, since the bug table is the App's alone.
 
 /** A cause is repaired 3 times in a round, a mission 9 times in all (the database holds both). */
-const CAUSE_REPAIRS = 3;
-const MISSION_REPAIRS = 9;
+export const CAUSE_REPAIRS = 3;
+export const MISSION_REPAIRS = 9;
 
 export const REPAIR_WORDS = {
   repairing: 'Repairing',
@@ -25,7 +25,10 @@ export const REPAIR_WORDS = {
 /** A repair the database kept, as far as the lines read it. */
 export interface RepairRow {
   mission: string;
-  prd: PrdNumber;
+  /** The PRD whose step failed; for a stuck repair the PRD its cause sits in, or null when the cause is the mission's own (PRD 3065). */
+  prd: PrdNumber | null;
+  /** What sent it: a failed step, or a mission stuck for 5 jobs (PRD 3065). Both spend from the same 3 and 9. */
+  trigger: 'failure' | 'stuck';
   fingerprint: string;
   round: number;
   number: number;
@@ -91,7 +94,7 @@ export interface RepairLine {
 }
 
 const short = (fingerprint: string): string => fingerprint.slice(0, 8);
-const pullOf = (url: string | null): Linked | null => {
+export const pullOf = (url: string | null): Linked | null => {
   const n = /\/pull\/(\d+)$/.exec(url ?? '')?.[1];
   return url === null || n === undefined ? null : { href: url, label: `PR ${n}` };
 };
@@ -101,7 +104,7 @@ const issueOf = (url: string | null): Linked | null => {
 };
 
 /** What a repair of a stopped PRD did, as a word. */
-const OUTCOME_WORDS: Readonly<Record<NonNullable<RepairRow['outcome']>, string>> = { fixed: 'Fixed', 'not fixed': 'Not fixed', stopped: 'Stopped', lost: 'Lost' };
+export const OUTCOME_WORDS: Readonly<Record<NonNullable<RepairRow['outcome']>, string>> = { fixed: 'Fixed', 'not fixed': 'Not fixed', stopped: 'Stopped', lost: 'Lost' };
 
 const newest = (events: readonly RepairEvent[], prd: PrdNumber, ...kinds: string[]): RepairEvent | undefined => events.find((e) => e.prd === prd && kinds.includes(e.kind));
 
@@ -209,7 +212,7 @@ export function repairLinesOf(facts: RepairFacts): RepairLine[] {
   return [...missions].flatMap((mission) => {
     const rows = facts.rows.filter((row) => row.mission === mission);
     const events = facts.events.filter((e) => e.mission === mission);
-    const prds = new Set([...rows.map((row) => row.prd), ...events.flatMap((e) => (e.prd === null ? [] : [e.prd]))]);
+    const prds = new Set([...rows.filter((row) => row.trigger === 'failure').flatMap((row) => (row.prd === null ? [] : [row.prd])), ...events.flatMap((e) => (e.prd === null ? [] : [e.prd]))]);
     return [...prds].flatMap((prd) => lineOf(mission, prd, rows, events, facts.statuses.get(mission)) ?? []);
   });
 }

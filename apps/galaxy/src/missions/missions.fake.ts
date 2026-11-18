@@ -14,6 +14,8 @@ export const RUNNING = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 export const PAUSED = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 export const DELIVERED = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 export const STOP = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+export const STUCK = '99999999-9999-4999-8999-999999999999';
+export const ITEM = '88888888-8888-4888-8888-888888888888';
 export const ELSEWHERE = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 
 export const ADA = { id: '00000000-0000-4000-8000-00000000ada0', login: 'ada' };
@@ -31,19 +33,25 @@ function answerRefusal(stop: { cap: string; capTokens: number; answer: string | 
   return tokens === null || tokens <= stop.capTokens ? { code: '22023', error: `Tokens: a whole number above the cap reached (${String(stop.capTokens)}).` } : null;
 }
 
-export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel; territories?: Record<number, string[]>; planRepos?: readonly string[] } = {}) {
-  const missions = new Map<string, MissionRecord & { startedBy: string | null; nextWakeAt: string | null }>();
+export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: readonly string[]; fleetLevel?: MissionLevel; territories?: Record<number, string[]>; planRepos?: readonly string[]; stuck?: boolean } = {}) {
+  const missions = new Map<string, MissionRecord & { startedBy: string | null; nextWakeAt: string | null; waitingOn: string | null }>();
   let numbered = 40;
-  const add = (id: string, status: MissionStatus, workspace = NORTHWIND, repo = 'acme/shop') => missions.set(id, { id, workspace, repo, status, number: (numbered += 1), title: 'Pay online', level: 'with-you', startedBy: null, nextWakeAt: null });
+  const add = (id: string, status: MissionStatus, workspace = NORTHWIND, repo = 'acme/shop', pausedBy: 'stuck' | null = null) => missions.set(id, { id, workspace, repo, status, number: (numbered += 1), title: 'Pay online', level: 'with-you', pausedBy, startedBy: null, nextWakeAt: null, waitingOn: null });
   add(DRAFT, 'draft');
   add(RUNNING, 'running');
   add(PAUSED, 'paused');
   add(DELIVERED, 'delivered');
   add(ELSEWHERE, 'running', OTHER, 'other/repo');
+  // A mission the supervisor paused by stuck, with one open question of its own outbox (PRD 3065): only when asked, so the other tests keep their missions.
+  if (options.stuck) add(STUCK, 'paused', NORTHWIND, 'acme/stuck', 'stuck');
   const events: Event[] = [];
   // The budget stops, as mission_budget_stops holds them: one fleet stop that paused PAUSED and RUNNING, waiting for its answer.
   const stops = new Map<string, { id: string; workspace: string; cap: 'mission' | 'fleet'; capTokens: number; mission: string | null; missions: string[]; answer: string | null }>([
     [STOP, { id: STOP, workspace: NORTHWIND, cap: 'fleet', capTokens: 1000, mission: null, missions: [PAUSED, RUNNING], answer: null }],
+  ]);
+  // The mission items, as mission_items holds them: one question of the stuck mission, open.
+  const items = new Map<string, { id: string; mission: string; target: string; answer: 'adopted' | 'declined' | null; note: string | null }>([
+    [ITEM, { id: ITEM, mission: STUCK, target: 'the Roadmap form: Prerequisites', answer: null, note: null }],
   ]);
   const jobs: MissionJob[] = [];
   const onBranchOf = (id: string): Promise<PrdNumber[]> => {
@@ -58,14 +66,14 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   const members = new Map([[ADA.id, [NORTHWIND]], [BEN.id, [NORTHWIND]], [DAN.id, [OTHER]]]);
 
   const record = (row: (typeof missions extends Map<string, infer R> ? R : never) | undefined): MissionRecord | null =>
-    (row ? { id: row.id, workspace: row.workspace, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.level } : null);
+    (row ? { id: row.id, workspace: row.workspace, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.level, pausedBy: row.status === 'paused' ? row.pausedBy : null } : null);
   const writer: MissionsWriter = {
     mission: (id) => Promise.resolve(record(missions.get(id))),
     watching: (repo) => Promise.resolve([...missions.values()].filter((m) => m.repo === repo && ['running', 'waiting', 'paused'].includes(m.status)).map((m) => record(m)).filter((m): m is MissionRecord => m !== null)),
     move: (id, from, to, change) => {
       const row = missions.get(id);
       if (!row || !from.includes(row.status)) return Promise.resolve(false);
-      missions.set(id, { ...row, status: to, nextWakeAt: change.at, startedBy: change.startedBy ?? row.startedBy });
+      missions.set(id, { ...row, status: to, nextWakeAt: change.at, startedBy: change.startedBy ?? row.startedBy, waitingOn: change.waitingOn ?? row.waitingOn });
       return Promise.resolve(true);
     },
     event: (id, event) => {
@@ -81,6 +89,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   return {
     missions,
     stops,
+    items,
     events,
     jobs,
     writer,
@@ -122,6 +131,14 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
           if (refusal !== null) return Promise.resolve({ ok: false, ...refusal });
           stops.set(id, { ...stop, answer });
           return Promise.resolve({ ok: true, stop: { id, answer, raisedTo: answer === 'raised' ? tokens : null, mission: stop.mission, missions: stop.missions } });
+        },
+        // The database's rules, as supabase/checks/mission_retros.sql proves them: a member of the workspace answers an item, once.
+        answerItem: (id, answer, note) => {
+          const item = items.get(id);
+          if (!item || !sees(item.mission)) return Promise.resolve({ ok: false, code: '42501', error: 'Only a member of the mission\'s workspace answers its questions.' });
+          if (item.answer !== null) return Promise.resolve({ ok: false, code: '22023', error: `Answer: this question was answered already (${item.answer}).` });
+          items.set(id, { ...item, answer, note });
+          return Promise.resolve({ ok: true, item: { id, mission: item.mission, target: item.target, answer } });
         },
         // The database's rule, as supabase/checks/missions.sql proves it: only an owner takes a mission above its fleet's level.
         setLevel: (id, level) => {

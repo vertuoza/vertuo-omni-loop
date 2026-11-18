@@ -6,9 +6,10 @@ import { dailyOf, missionOf, type BudgetRead, type MissionsView } from './missio
 import type { MissionsTabRepository } from './missions-tab.repository';
 
 // The Missions tab's rules (PRD 2842 s7; ADR-0095), over the repository as the signed-in person: a virtual
-// fleet's missions with each one's progress, what it waits a person on and the move its status allows.
+// fleet's missions with each one's progress, what it waits a person on and the move its status allows, and, since
+// PRD 3065, its stuck state, its milestone retros and the questions of its own outbox.
 
-type Port = Pick<MissionsTabRepository, 'missions' | 'events' | 'owner' | 'dailyCap' | 'fleetSpent' | 'spent' | 'openStops'> & { waits: LimitWaitRepository['facts']; repairs: RepairRepository['facts'] };
+type Port = Pick<MissionsTabRepository, 'missions' | 'events' | 'owner' | 'dailyCap' | 'fleetSpent' | 'spent' | 'openStops' | 'retros' | 'items'> & { waits: LimitWaitRepository['facts']; repairs: RepairRepository['facts'] };
 
 export function missionsTabService(repository: Port) {
   return {
@@ -17,7 +18,8 @@ export function missionsTabService(repository: Port) {
       const rows = await repository.missions(workspace, fleet);
       const events = await repository.events(rows.map((row) => row.id));
       const waits = limitWaitsOf(await repository.waits(rows.map((row) => row.id)), now);
-      const repairs = repairLinesOf(await repository.repairs(rows.map((row) => row.id)));
+      const repairFacts = await repository.repairs(rows.map((row) => row.id));
+      const repairs = repairLinesOf(repairFacts);
       const ids = rows.map((row) => row.id);
       const budget: BudgetRead = {
         owner: await repository.owner(workspace),
@@ -26,7 +28,8 @@ export function missionsTabService(repository: Port) {
         spent: await repository.spent(ids),
         stops: await repository.openStops(workspace, fleet),
       };
-      return { workspace, fleet, daily: dailyOf(budget), missions: rows.map((row) => missionOf(row, events.filter((event) => event.mission === row.id), waits, repairs, budget)) };
+      const retro = { repairs: repairFacts.rows, retros: await repository.retros(ids), items: await repository.items(ids) };
+      return { workspace, fleet, daily: dailyOf(budget), missions: rows.map((row) => missionOf(row, events.filter((event) => event.mission === row.id), waits, repairs, budget, retro)) };
     },
   };
 }
