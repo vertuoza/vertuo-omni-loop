@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.671" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.673" };
   }
 });
 
@@ -44645,6 +44645,13 @@ function gh(exec, cwd, args) {
     throw Object.assign(new Error(`gh failed: ${ghReason(error62)}`), { name: GH_ERROR });
   }
 }
+function fullSha(exec, cwd, sha) {
+  try {
+    return exec("git", ["rev-parse", "--verify", "--quiet", `${sha}^{commit}`], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || sha;
+  } catch {
+    return sha;
+  }
+}
 function jobsOf(exec, cwd, sha) {
   const runs3 = RunsSchema.parse(JSON.parse(gh(exec, cwd, ["run", "list", "--commit", sha, "--json", "databaseId", "--limit", "50"])));
   return runs3.flatMap(
@@ -44674,7 +44681,8 @@ async function finishedSides(exec, cwd, ask6, { sleep: sleep3 = wait4, now: now2
 }
 async function ci(args, io) {
   const { cwd, stdout, stderr, exec } = io;
-  const ask6 = askOf2(args);
+  const given = askOf2(args);
+  const ask6 = { ...given, reproduction: fullSha(exec, cwd, given.reproduction), fix: fullSha(exec, cwd, given.fix) };
   try {
     const sides = await finishedSides(exec, cwd, ask6, io);
     if (sides === null) {
