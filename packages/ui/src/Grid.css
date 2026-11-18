@@ -1,0 +1,15 @@
+.omni-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.omni-grid--gap-2 { gap: var(--space-2); }
+.omni-grid--gap-3 { gap: var(--space-3); }
+.omni-grid--gap-4 { gap: var(--space-4); }
+.omni-grid--gap-5 { gap: var(--space-5); }
+.omni-grid--gap-6 { gap: var(--space-6); }
+@media (min-width: 40rem) {
+  .omni-grid--columns-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .omni-grid--columns-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .omni-grid--columns-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
