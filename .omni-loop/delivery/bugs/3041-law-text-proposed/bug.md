@@ -23,3 +23,7 @@ The five `riskyChanges — law-text on proposed entries (#3041)` unit tests: dra
 ## Mutation
 
 mutation: 182 killed, 5 survived in kit/lib/outbox/decision-coverage.ts (after one strengthening; in the fix's lines, the base-side file filter at line 185 survives because each test base holds one file, and `() => false` → `() => undefined` at line 216 is equivalent; lines 348 and 350 predate it)
+
+## Still open
+
+- omni bug ci given short commit ids finds no run (gh run list --commit needs the full sha), waits its whole --wait and says "the runs did not finish", though both runs had finished.
