@@ -83,3 +83,160 @@ Low: one pure function, no stored data depends on the order.
 ```
 
 <!-- /omni-outbox-settled: s1-01-budget-edge-rules -->
+
+<!-- omni-outbox-settled: s3-01-budget-answer-wakes-the-missions -->
+
+## s3-01-budget-answer-wakes-the-missions — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-18
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-18
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-budget-answer-wakes-the-missions
+prd: 3040
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-18
+wave: 2
+---
+
+## The question, in plain words
+
+Once a person answers a paused mission's budget question, something must wake the missions it paused and write the person's answer in the room. The plan does not say which part does it.
+
+## The decision, in plain words
+
+The supervisor acts on the answer at each mission's next check: it resumes, sleeps until tomorrow or stops, and says so in the room. The person's own answer row, and waking the missions at once, are left to the Missions tab's answer, as its Pause and Resume do today.
+
+## The intro, for fun
+
+The question was answered, but the mission is still asleep.
+
+## The punchline, for fun
+
+Someone has to knock on the door after saying yes.
+
+## The options, in plain words
+
+A. A. The Missions tab's answer records the person's row and wakes every mission of the stop, and for a fleet's stop every paused mission of the fleet; the supervisor acts on it (built).
+B. B. The supervisor also wakes the fleet's other paused missions when it reads an answer to a fleet's stop.
+C. C. The database wakes the missions itself when an answer is written.
+
+## What I had to decide
+
+Keep A, so the Missions tab's answer records the person's row and wakes every mission of the stop, or pick another part to do it.
+
+## What I did meanwhile
+
+The supervisor reads the answer at the mission's next check and records only what it does about it: resumed, paused until a time, or stopped by the budget.
+
+## What it costs to change later
+
+Low: waking from the answer is one call per mission in the answer's route, as Resume makes today.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's s4 owns the routes that answer a stop, so this slice could not write the person's answer row nor wake the missions from it.
+- (author) A mission a fleet's stop did not name (a person had paused it), then resumed and held by that stop, wakes only if the answer wakes every paused mission of the fleet.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-budget-answer-wakes-the-missions -->
+
+<!-- omni-outbox-settled: s3-02-waiting-question-holds-the-mission -->
+
+## s3-02-waiting-question-holds-the-mission — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-18
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-18
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-waiting-question-holds-the-mission
+prd: 3040
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-18
+wave: 2
+---
+
+## The question, in plain words
+
+Some cases are not settled by the spec: a paused mission back under its cap before anyone answers, a mission a person had paused when its fleet's cap was reached, and a stopped mission over a cap.
+
+## The decision, in plain words
+
+A mission the budget paused stays paused until its question is answered, even once back under the cap, and a fleet's stop names only the missions that run or wait. A mission a person paused, or a stopped one, is never asked about and sends nothing over a cap.
+
+## The intro, for fun
+
+The jar refilled overnight, but nobody said the word.
+
+## The punchline, for fun
+
+One question, one answer, and nobody resumes behind your back.
+
+## The options, in plain words
+
+A. A. A waiting question holds the mission until answered; a fleet's stop names the missions that run or wait; a paused or stopped mission is never asked (built).
+B. B. A mission back under every cap resumes by itself, its question left open.
+C. C. A fleet's stop also names the missions a person paused, so they read as paused by the budget.
+
+## What I had to decide
+
+Keep A, or let a paused mission resume by itself once it is back under every cap without an answer.
+
+## What I did meanwhile
+
+The supervisor tells a pause of its own from a person's by the order of the stop, its own pauses and the person's Pause, and never resumes a mission a person paused.
+
+## What it costs to change later
+
+Low: each case is one line of the run's budget rules and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's section 3 says a person picks Resume tomorrow to wake by itself, but not what happens when the window frees room with no answer.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-waiting-question-holds-the-mission -->
