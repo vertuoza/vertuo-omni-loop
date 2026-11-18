@@ -83,12 +83,21 @@ import { menuSpecimen } from '../Menu.specimen.tsx';
 import { Notice } from '../Notice.tsx';
 import { noticeMeta } from '../Notice.meta.ts';
 import { noticeSpecimen } from '../Notice.specimen.tsx';
+import { OutboxItem } from '../OutboxItem.tsx';
+import { outboxItemMeta } from '../OutboxItem.meta.ts';
+import { outboxItemSpecimen } from '../OutboxItem.specimen.tsx';
 import { PageHeader } from '../PageHeader.tsx';
 import { pageHeaderMeta } from '../PageHeader.meta.ts';
 import { pageHeaderSpecimen } from '../PageHeader.specimen.tsx';
+import { PersonRef } from '../PersonRef.tsx';
+import { personRefMeta } from '../PersonRef.meta.ts';
+import { personRefSpecimen } from '../PersonRef.specimen.tsx';
 import { Popover } from '../Popover.tsx';
 import { popoverMeta } from '../Popover.meta.ts';
 import { popoverSpecimen } from '../Popover.specimen.tsx';
+import { PrdRef } from '../PrdRef.tsx';
+import { prdRefMeta } from '../PrdRef.meta.ts';
+import { prdRefSpecimen } from '../PrdRef.specimen.tsx';
 import { Progress } from '../Progress.tsx';
 import { progressMeta } from '../Progress.meta.ts';
 import { progressSpecimen } from '../Progress.specimen.tsx';
@@ -98,6 +107,9 @@ import { proseSpecimen } from '../Prose.specimen.tsx';
 import { Radio } from '../Radio.tsx';
 import { radioMeta } from '../Radio.meta.ts';
 import { radioSpecimen } from '../Radio.specimen.tsx';
+import { RepoRef } from '../RepoRef.tsx';
+import { repoRefMeta } from '../RepoRef.meta.ts';
+import { repoRefSpecimen } from '../RepoRef.specimen.tsx';
 import { Section } from '../Section.tsx';
 import { sectionMeta } from '../Section.meta.ts';
 import { sectionSpecimen } from '../Section.specimen.tsx';
@@ -113,6 +125,9 @@ import { skeletonSpecimen } from '../Skeleton.specimen.tsx';
 import { Stack } from '../Stack.tsx';
 import { stackMeta } from '../Stack.meta.ts';
 import { stackSpecimen } from '../Stack.specimen.tsx';
+import { StageTrack } from '../StageTrack.tsx';
+import { stageTrackMeta } from '../StageTrack.meta.ts';
+import { stageTrackSpecimen } from '../StageTrack.specimen.tsx';
 import { Stat } from '../Stat.tsx';
 import { statMeta } from '../Stat.meta.ts';
 import { statSpecimen } from '../Stat.specimen.tsx';
@@ -145,7 +160,7 @@ import { tooltipMeta } from '../Tooltip.meta.ts';
 import { tooltipSpecimen } from '../Tooltip.specimen.tsx';
 
 /** Every part's component, by its name. */
-export const COMPONENTS = { AppShell, Avatar, Badge, Breadcrumb, Button, Card, Checkbox, Code, Combobox, DataList, Dialog, Drawer, EmptyState, ErrorState, Field, FilterBar, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, PageHeader, Popover, Progress, Prose, Radio, Section, SegmentedControl, Select, Skeleton, Stack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Toast, Tooltip } as const;
+export const COMPONENTS = { AppShell, Avatar, Badge, Breadcrumb, Button, Card, Checkbox, Code, Combobox, DataList, Dialog, Drawer, EmptyState, ErrorState, Field, FilterBar, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, OutboxItem, PageHeader, PersonRef, Popover, PrdRef, Progress, Prose, Radio, RepoRef, Section, SegmentedControl, Select, Skeleton, Stack, StageTrack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Toast, Tooltip } as const;
 
 /** Every part: its meta (variants, usage, do, don't, contrast) and its specimen. */
 export const PARTS: readonly Part[] = [
@@ -176,16 +191,21 @@ export const PARTS: readonly Part[] = [
   { meta: listRowMeta, specimen: listRowSpecimen },
   { meta: menuMeta, specimen: menuSpecimen },
   { meta: noticeMeta, specimen: noticeSpecimen },
+  { meta: outboxItemMeta, specimen: outboxItemSpecimen },
   { meta: pageHeaderMeta, specimen: pageHeaderSpecimen },
+  { meta: personRefMeta, specimen: personRefSpecimen },
   { meta: popoverMeta, specimen: popoverSpecimen },
+  { meta: prdRefMeta, specimen: prdRefSpecimen },
   { meta: progressMeta, specimen: progressSpecimen },
   { meta: proseMeta, specimen: proseSpecimen },
   { meta: radioMeta, specimen: radioSpecimen },
+  { meta: repoRefMeta, specimen: repoRefSpecimen },
   { meta: sectionMeta, specimen: sectionSpecimen },
   { meta: segmentedControlMeta, specimen: segmentedControlSpecimen },
   { meta: selectMeta, specimen: selectSpecimen },
   { meta: skeletonMeta, specimen: skeletonSpecimen },
   { meta: stackMeta, specimen: stackSpecimen },
+  { meta: stageTrackMeta, specimen: stageTrackSpecimen },
   { meta: statMeta, specimen: statSpecimen },
   { meta: switchMeta, specimen: switchSpecimen },
   { meta: tableMeta, specimen: tableSpecimen },
