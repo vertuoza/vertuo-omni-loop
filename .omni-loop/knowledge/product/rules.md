@@ -889,11 +889,11 @@ Proposed: harvest 2026-11-14
 
 ## BR-PRODUCT-139
 
-A mission sends a PRD again after it failed, was held twice or stopped mid-way twice only when a repair allows it: while the mission has repairs left (3 per cause in a round, 9 per mission), it sends a repair, and the step goes again once the repair's fix landed on the mission branch or its cause was a flake. The PRD stops for good when its cause's 3 or the mission's 9 are spent, its job was cancelled, or its repair needs a person or met an Omni Loop bug; it comes back when a person resumes the mission, which opens a new round, or takes it to ready for review, and the mission then waits for its merge. A mission with nothing able to move reads stopped.
+A mission sends a PRD again after it failed, was held twice or stopped mid-way twice only when a repair allows it: while the mission has repairs left (3 per cause in a round, 9 per mission), it sends a repair, and the step goes again once the repair's fix landed on the mission branch or its cause was a flake. The PRD stops for good when its cause's 3 or the mission's 9 are spent, its job was cancelled, or its repair needs a person or met an Omni Loop bug; it comes back when a person resumes the mission, which opens a new round, or takes it to ready for review, and the mission then waits for its merge. A PRD stopped on an Omni Loop bug also comes back, spending no repair, once that bug's fix is released and the kit its repository pins is at that release or later; with an older kit it waits for the kit to be updated, a paused or stopped mission waits for its own Resume first, and a bug closed as not planned leaves it stopped, even after a Resume. A mission with nothing able to move reads stopped.
 
 Serves: P-PRODUCT-114
-Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-01-rule-on-sending-failed-prds-again-changes, PRD #2980
-Enforced by: apps/omni-app/src/missions/supervisor.test.ts, apps/omni-app/src/missions/mission.e2e.test.ts
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-01-rule-on-sending-failed-prds-again-changes, PRD #2980; .omni-loop/delivery/inbox/3088-omni-bug-team/spec.md, section 6, PRD #3088
+Enforced by: apps/omni-app/src/missions/supervisor.test.ts, apps/omni-app/src/missions/mission.e2e.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts, apps/omni-app/src/missions/repair.bug-fixed.test.ts
 Stated: 2026-11-17
 Decided: @pierrederval, 2026-11-17
 
