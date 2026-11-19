@@ -95,11 +95,14 @@ describe('omni design pattern', () => {
 
 describe('the committed manifest', () => {
   const path = join(dirname(fileURLToPath(import.meta.url)), '../../packages/design/design-system.json');
-  const read = parseManifest(JSON.parse(readFileSync(path, 'utf8')));
+  const read = parseManifest(JSON.parse(readFileSync(path, 'utf8')) as unknown);
 
   it('passes the kit schema, surfaces as { include, exclude } included', () => {
     expect(read.kind).toBe('ok');
-    if (read.kind === 'ok') expect(read.manifest.surfaces).toMatchObject({ include: expect.any(Array) });
+    if (read.kind !== 'ok') return;
+    const { surfaces } = read.manifest;
+    expect(Array.isArray(surfaces)).toBe(false);
+    expect('include' in surfaces && surfaces.include.length > 0).toBe(true);
   });
 
   it('keeps the index within 1536 bytes and every card within 800 bytes', () => {
