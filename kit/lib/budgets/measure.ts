@@ -7,6 +7,7 @@
 // | `form:<name>`    | each other playbook form as `omni kb show <name>` prints it, pointers expanded |
 // | `context:<path>` | each file `paths.context` names                                             |
 // | `session`        | `briefing` plus every `context:` target: what a session loads before its first step |
+// | `design:components` | what `omni design components` prints, when `design.manifest` is set (PRD omni-loop-13) |
 //
 // Bytes, never tokens (D2): the same number on every machine and model. Skills, ADRs and registers
 // are not measured (D10). A target that cannot be measured (a context file missing, a pointer that
@@ -15,6 +16,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Context } from '../context.ts';
+import { formatComponents, readManifest } from '../design/manifest.ts';
 import { briefingLaws } from '../knowledge/briefing-laws.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../playbook/forms.ts';
 import { levelOf, readDecisions } from '../playbook/decisions.ts';
@@ -25,6 +27,8 @@ import { formTemplate } from '../playbook/templates.ts';
 
 /** The form every session loads first, measured as its own target. */
 export const BRIEFING = 'briefing';
+/** The components index, as `omni design components` prints it: measured only when `design.manifest` is set. */
+const DESIGN_COMPONENTS = 'design:components';
 /** The target that sums what a session loads before its first step. */
 export const SESSION = 'session';
 
@@ -107,6 +111,14 @@ function measureContext(ctx: Ctx, path: string): Measure {
   return { target, bytes: readFileSync(file).byteLength };
 }
 
+/** The components index as `omni design components` prints it, its newline counted; `null` when no manifest is named. */
+function measureComponents(ctx: Ctx): Measure | null {
+  const read = readManifest(ctx.root, ctx.config.design.manifest);
+  if (read.kind === 'none') return null;
+  if (read.kind === 'refused') return { target: DESIGN_COMPONENTS, error: read.refusals.join('; ') };
+  return { target: DESIGN_COMPONENTS, bytes: Buffer.byteLength(`${formatComponents(read.manifest).join('\n')}\n`, 'utf8') };
+}
+
 /** `briefing` plus every `context:` target, or an error naming each part that could not be measured. */
 function measureSession(parts: readonly Measure[]): Measure {
   const failed = parts.filter((part) => 'error' in part).map(({ target }) => target);
@@ -116,11 +128,13 @@ function measureSession(parts: readonly Measure[]): Measure {
 
 /**
  * Every target of the repository at `ctx`, in a fixed order: `briefing`, each other form in the kit's
- * order, each context file in the config's order, then `session`.
+ * order, each context file in the config's order, the components index when a manifest is named, then
+ * `session` (which does not count the index: a session reads it only before UI work).
  */
 export function measureContextBudget({ ctx }: { ctx: Ctx }): Measure[] {
   const briefing = measureForm(ctx, BRIEFING);
   const forms = FORM_IDS.filter((form) => form !== BRIEFING).map((form) => measureForm(ctx, form));
   const contexts = ctx.config.paths.context.map((path) => measureContext(ctx, path));
-  return [briefing, ...forms, ...contexts, measureSession([briefing, ...contexts])];
+  const components = measureComponents(ctx);
+  return [briefing, ...forms, ...contexts, ...(components === null ? [] : [components]), measureSession([briefing, ...contexts])];
 }

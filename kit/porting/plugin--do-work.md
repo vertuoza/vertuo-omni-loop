@@ -291,3 +291,7 @@ before/after page beside its section (a version 2 page keeps the section in each
 the `Pixel perfect: no screen changes` line is found in either shape; the reference picture of the
 review is the screen's reference in the tab (`2.C`, after). Tested in
 `kit/test/before-after-skills.test.ts`.
+
+## PRD omni-loop-13, slice s6 — the design manifest
+
+Not a re-port: kit-local prose. Step 1's design memory runs `omni design components` before the form's `system` prose, and `omni design component <name>` for each part the slice uses; a repository with no design manifest reads the `system` section as before. Tested in `kit/test/design-manifest-skills.test.ts`.

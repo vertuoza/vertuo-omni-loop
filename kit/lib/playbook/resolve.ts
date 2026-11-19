@@ -5,7 +5,7 @@
  * | the repository section is…        | it resolves to…                                   | label                            |
  * |-----------------------------------|---------------------------------------------------|----------------------------------|
  * | filled                            | the repository text                               | `[repo]`, `[repo · by human]`, `[repo · verified <date>]` |
- * | a `See: <path>` line              | the page it names                                 | `[→ <path>]`                     |
+ * | a `See: <path>` line              | the page it names; the design manifest's components index when it names `design.manifest` | `[→ <path>]` |
  * | empty                             | the kit default for that slot                     | `[kit default]`                  |
  * | holding `TODO(human)` lines       | the kit default, then each open question          | `[hole]`                         |
  * | in a form with `state: pointer`   | the whole target: a file's text; a folder's `index`, else its Markdown file list | `[→ <path>]` |
@@ -41,8 +41,9 @@
  * with no copy resolves exactly as it did before the tree.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, normalize } from 'node:path';
 import type { Context } from '../context.ts';
+import { formatComponents, readManifest } from '../design/manifest.ts';
 import { levelCopies } from '../knowledge-tree/levels.ts';
 import type { CopyLevel, LevelCopy } from '../knowledge-tree/levels.ts';
 import { defined } from '../narrow.ts';
@@ -169,24 +170,47 @@ function sectionOf(text: string, anchor: string): string | null {
   return lines.slice(start.index, end?.index).join('\n').trim();
 }
 
-/** A `See: <path>[#anchor]` slot: the page it names, or only the section its anchor names. */
-function resolvePointer(
-  base: { slot: string; heading: string },
-  see: { path: string; anchor: string | null },
-  { ctx, heading, file, problems }: { ctx: Ctx; heading: string; file: string; problems: string[] },
-): Section {
+/** Whether `path` names the file `design.manifest` names (PRD omni-loop-13), `./` and the like aside. */
+function namesManifest(path: string, ctx: Ctx): boolean {
+  const manifest = ctx.config.design.manifest;
+  return typeof manifest === 'string' && normalize(path) === normalize(manifest);
+}
+
+/** What resolving a `See:` reads, and where it reports. */
+type PointerIo = { ctx: Ctx; heading: string; file: string; problems: string[] };
+
+/** The design manifest's components index, as `omni design components` prints it; each refusal reported. */
+function manifestIndex(path: string, { ctx, heading, file, problems }: PointerIo): string {
+  const read = readManifest(ctx.root, path);
+  if (read.kind === 'ok') return formatComponents(read.manifest).join('\n');
+  if (read.kind === 'refused') problems.push(...read.refusals.map((refusal) => `${file}: "## ${heading}" See: ${path}: ${refusal}`));
+  return '';
+}
+
+/** The text a live `See:` shows: the section its anchor names, the design manifest's index, or the whole page. */
+function pointerText(see: { path: string; anchor: string | null }, page: string, io: PointerIo): string {
   const { path, anchor } = see;
-  const target = readTarget(path, null, { ctx });
-  const pointer = anchor ? `${path}#${anchor}` : path;
-  const label = `[→ ${pointer}]`;
+  if (anchor) {
+    const section = sectionOf(page, anchor);
+    if (section === null) io.problems.push(`${io.file}: "## ${io.heading}" See: ${path}#${anchor} names no heading of ${path}`);
+    return section ?? '';
+  }
+  return namesManifest(path, io.ctx) ? manifestIndex(path, io) : page;
+}
+
+/**
+ * A `See: <path>[#anchor]` slot: the page it names, or only the section its anchor names. A `See:`
+ * naming the design manifest shows its components index, as `omni design components` prints it.
+ */
+function resolvePointer(base: { slot: string; heading: string }, see: { path: string; anchor: string | null }, io: PointerIo): Section {
+  const { path, anchor } = see;
+  const target = readTarget(path, null, { ctx: io.ctx });
+  const label = `[→ ${anchor ? `${path}#${anchor}` : path}]`;
   if (target.missing) {
-    problems.push(`${file}: "## ${heading}" See: ${path} does not exist`);
+    io.problems.push(`${io.file}: "## ${io.heading}" See: ${path} does not exist`);
     return { ...base, source: 'pointer', label, text: '', questions: [] };
   }
-  if (!anchor) return { ...base, source: 'pointer', label, text: target.text, questions: [] };
-  const section = sectionOf(target.text, anchor);
-  if (section === null) problems.push(`${file}: "## ${heading}" See: ${pointer} names no heading of ${path}`);
-  return { ...base, source: 'pointer', label, text: section ?? '', questions: [] };
+  return { ...base, source: 'pointer', label, text: pointerText(see, target.text, io), questions: [] };
 }
 
 /** `[repo]`, `[repo · by human]`, `[repo · verified <date>]`, or both. */

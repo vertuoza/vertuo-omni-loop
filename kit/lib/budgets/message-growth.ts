@@ -33,6 +33,7 @@ function targetFiles(ctx: Ctx, target: string): string[] {
   if (target === SESSION) return [...formFiles(ctx, BRIEFING), ...ctx.config.paths.context];
   if (target.startsWith('form:')) return formFiles(ctx, target.slice('form:'.length));
   if (target.startsWith('context:')) return [target.slice('context:'.length)];
+  if (target === 'design:components') return ctx.config.design.manifest ? [ctx.config.design.manifest] : [];
   return [];
 }
 

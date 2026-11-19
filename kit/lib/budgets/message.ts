@@ -38,6 +38,7 @@ export function targetLabel(target: string): string {
   if (target === 'session') return 'what every session loads before its first step (`session`)';
   if (target.startsWith('form:')) return `the \`${target.slice('form:'.length)}\` playbook form`;
   if (target.startsWith('context:')) return `the context file \`${target.slice('context:'.length)}\``;
+  if (target === 'design:components') return 'the design components index (`omni design components`)';
   return `\`${target}\``;
 }
 

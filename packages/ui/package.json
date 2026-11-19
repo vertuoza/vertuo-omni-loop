@@ -5,7 +5,8 @@
   "type": "module",
   "description": "The Omni Loop components: parts with closed APIs (variants, no className, no style), their CSS written on the tokens of @omni/design only, a meta file and a specimen each, registered by build/parts.ts.",
   "scripts": {
-    "parts": "node build/parts.ts"
+    "parts": "node build/parts.ts",
+    "manifest": "node build/manifest.ts"
   },
   "exports": {
     ".": {

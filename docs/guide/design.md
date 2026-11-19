@@ -585,6 +585,31 @@ block. The review names the screen it sits on and suggests filing it as a bug of
 picked. A visual fix has no outbox, so what it left is listed in its pull request's **Design
 review** section.
 
+## The design manifest
+
+The manifest is one generated file, `packages/design/design-system.json`, versioned `"omni-design": 1`.
+It holds the tokens (each name, its role and its value in Omni, Light and Dark), the components (each
+part's import, variants, the classes it replaces, do and don't, and one example), the locked screens of
+the library by their names, and the surfaces where the component rule applies. It is built from the
+DTCG tokens and each part's `meta.ts` by `node packages/ui/build/manifest.ts` (or
+`pnpm --filter @omni/ui manifest`), and a test fails while the committed file differs from a fresh
+build. Edit the sources, never the file.
+
+A repository names its manifest with `design.manifest` in `.omni-loop/config.yml`. The loop then
+reads it through four commands, each printing a short answer:
+
+- `omni design components`: one line per component, with its import, at most 1.5 KB.
+- `omni design component <name>`: one component's variants, do and don't, and one example, at most 800 B.
+- `omni design tokens [group]`: the token groups and their counts, or one group's tokens with their
+  value in each theme.
+- `omni design pattern <name>`: one locked screen's card (its routes, its mockup, what it holds); with
+  no pattern it says the library has no locked screen yet.
+
+`/omni:do-work`, `/omni:visual-fix` and `/omni:pixel-perfect` run `omni design components` before UI
+work and `omni design component <name>` for each part they use, in place of the form's `system`
+prose. A repository with no `design.manifest` sees each command print one line saying so, and its
+skills read the form's `system` section as before.
+
 ## Turn it off
 
 Set `design.enabled: false`, or remove the `design:` block. The form, its laws and the screen

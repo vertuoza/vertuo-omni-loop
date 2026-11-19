@@ -121,6 +121,13 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ndesign:\n  screens: [a]\n')).toThrow(/design\.screens/);
   });
 
+  it('reads design.manifest as a path, and none when it is unset (PRD omni-loop-13)', () => {
+    expect(parseConfig('kit: 1\n').design.manifest).toBeUndefined();
+    expect(parseConfig('kit: 1\ndesign:\n  manifest: packages/design/design-system.json\n').design.manifest).toBe('packages/design/design-system.json');
+    expect(parseConfig('kit: 1\ndesign:\n  manifest: null\n').design.manifest).toBeNull();
+    expect(() => parseConfig('kit: 1\ndesign:\n  manifest: [a]\n')).toThrow(/design\.manifest/);
+  });
+
   it("tunes the word pass from design.words, defaults as the plan says, and refuses a selector it cannot read (PRD 1407)", () => {
     expect(parseConfig('kit: 1\ndesign:\n  words:\n    sentence: 5\n    screen: "section.screen, [role=dialog]"\n    primary: .btn-primary\n    avoid: [utilize, click here]\n').design.words).toEqual({
       sentence: 5,
