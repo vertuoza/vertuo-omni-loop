@@ -1,0 +1,124 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-19",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "A mission that stopped on the tool's bug carries on by itself once the fix is out: I lose a night, not a week.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "I never see the team; I only read that my blocked PRD resumed, and why.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One pull request per bug, most-reported first, a person merges: I can keep the kit cohesive.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 2,
+          "reaction": "Fixes written from a short report, by a bot, shipped to everyone in the next release: that is how slop reaches production.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "States in a table I can query and three tries per bug; still, a resume gated on a version string is one more thing to debug.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A bot fixing the tool's own bugs from a three-line report, the most-reported first, will rush out a patch that hides the symptom, and a release ships it to every repository that runs Omni Loop.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-19",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "'Fixed in v0.0.N: update the kit to resume' tells me exactly the one thing to do.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The waiting PRD's line reads plainly, and it never re-runs on a kit that still has the bug.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Only bugs the App filed, never a hand-opened issue, and a bug a person is on is left alone.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Red before green, a guard test and a person's merge before any release: better, though I will read those fixes closely.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "A database-held cap of three attempts, the fleet's daily cap, and a sweep that catches a missed webhook.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A bot fixing the tool's own bugs from a three-line report, the most-reported first, will rush out a patch that hides the symptom, and a release ships it to every repository that runs Omni Loop.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ✓"
+    }
+  ]
+}
