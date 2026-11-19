@@ -31,11 +31,33 @@ export type PageHeaderProps = {
   level?: (typeof PAGE_HEADER_LEVELS)[number];
 };
 
+/** The facts under the subtitle: a list of at most five, nothing when there are none. */
+function MetaRow({ meta }: { meta: PageHeaderMeta | undefined }) {
+  const facts = (meta ?? []).filter((fact): fact is string => fact !== undefined).slice(0, PAGE_HEADER_META_MAX);
+  if (facts.length === 0) return null;
+  return (
+    <ul className="omni-page-header__meta">
+      {facts.map((fact, index) => <li className="omni-page-header__fact" key={`${String(index)}-${fact}`}>{fact}</li>)}
+    </ul>
+  );
+}
+
+/** The actions, right of the title: the Actions menu, the secondary actions, then the one primary. */
+function ActionRow({ action, secondary, actions, onAction }: { action: ReactNode; secondary: ReactNode; actions: readonly MenuItem[] | undefined; onAction: ((id: string) => void) | undefined }) {
+  const items = actions ?? [];
+  if (items.length === 0 && secondary === undefined && action === undefined) return null;
+  return (
+    <div className="omni-page-header__action">
+      {items.length === 0 ? null : <Menu trigger="Actions" items={items} {...(onAction === undefined ? {} : { onSelect: onAction })} />}
+      {secondary}
+      {action}
+    </div>
+  );
+}
+
 /** The head of a page: what it is, where it stands, and the one thing to do next. */
 export function PageHeader({ title, eyebrow, lede, status, meta, action, secondary, actions, onAction, level = '1' }: PageHeaderProps) {
   const heading = level === '1' ? <h1 className="omni-page-header__title">{title}</h1> : <h2 className="omni-page-header__title">{title}</h2>;
-  const facts = (meta ?? []).filter((fact): fact is string => fact !== undefined).slice(0, PAGE_HEADER_META_MAX);
-  const menu = actions !== undefined && actions.length > 0 ? <Menu trigger="Actions" items={actions} onSelect={(id) => onAction?.(id)} /> : null;
   return (
     <header className="omni-page-header">
       <div className="omni-page-header__text">
@@ -45,23 +67,9 @@ export function PageHeader({ title, eyebrow, lede, status, meta, action, seconda
           {status}
         </div>
         {lede === undefined ? null : <p className="omni-page-header__lede">{lede}</p>}
-        {facts.length === 0
-          ? null
-          : (
-            <ul className="omni-page-header__meta">
-              {facts.map((fact, index) => <li className="omni-page-header__fact" key={`${String(index)}-${fact}`}>{fact}</li>)}
-            </ul>
-          )}
+        <MetaRow meta={meta} />
       </div>
-      {menu === null && secondary === undefined && action === undefined
-        ? null
-        : (
-          <div className="omni-page-header__action">
-            {menu}
-            {secondary}
-            {action}
-          </div>
-        )}
+      <ActionRow action={action} secondary={secondary} actions={actions} onAction={onAction} />
     </header>
   );
 }
