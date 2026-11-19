@@ -87,3 +87,33 @@ html:has(.ds) body {
 .ds-grid-icons { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
 .ds-card { display: grid; gap: 8px; justify-items: start; padding: 12px; background: var(--deep); border-radius: 4px; min-width: 0; }
 .ds-frames { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+
+/* The Components section: each variant of a part in the three themes. A theme box is a `.ask` with
+   its theme set, so the tokens of that theme apply inside it (tokens.css); it draws its own ground. */
+.ds-part { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding-top: 24px; scroll-margin-top: 16px; }
+.ds-part + .ds-part { border-top: 1px solid var(--deep); }
+.ds-dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.ds-do ul, .ds-dont ul { margin: 4px 0 0; padding-left: 20px; }
+.ds-example { margin: 0; padding: 12px; overflow-x: auto; background: var(--void); box-shadow: inset 0 0 0 1px var(--deep); border-radius: 4px; }
+.ds-variant { display: grid; gap: 4px; }
+.ds-themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
+.ds-theme {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  align-content: start;
+  padding: 28px 12px 12px;
+  min-width: 0;
+  border-radius: 4px;
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+}
+.ds-theme-name { position: absolute; top: 6px; left: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.4; color: var(--color-text-secondary); }
+.ds-theme a:where(:not(.omni-button)) { color: var(--color-accent); }
+.ds-grid-bits { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+.ds-bits { color: var(--white); align-items: center; }
+.ds-example:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
