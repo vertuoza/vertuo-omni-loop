@@ -939,3 +939,135 @@ Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s
 Enforced by: apps/galaxy/src/missions/missions.controller.test.ts, apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts
 Stated: 2026-11-18
 Decided: @pierrederval, 2026-11-18
+
+## BR-PRODUCT-167
+
+When a mission reaches its own token cap and its fleet's at once, the fleet's cap is named, so one stop pauses the whole fleet. A paused mission works again once every cap has room, answered or not; a raise that still leaves no room asks again.
+
+Serves: P-PRODUCT-129
+Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s1-01-budget-edge-rules, PRD #3040
+Enforced by: apps/omni-app/src/missions/budget.test.ts, kit/lib/mission/budget.test.ts
+Stated: 2026-11-18
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-18, PR #3042
+Proposed: harvest 2026-11-18
+
+## BR-PRODUCT-168
+
+A mission the token budget paused stays paused until a person answers its question, even once back under every cap. A fleet's stop names only its missions that run or wait; a mission a person paused, or a stopped one, is never asked about a cap.
+
+Serves: P-PRODUCT-113
+Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s3-02-waiting-question-holds-the-mission, PRD #3040
+Enforced by: apps/omni-app/src/missions/budget.test.ts, apps/omni-app/src/missions/store.budget.test.ts, apps/omni-app/src/missions/job.budget.test.ts
+Stated: 2026-11-18
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-18, PR #3042
+Proposed: harvest 2026-11-18
+
+## BR-PRODUCT-159
+
+A public bug report's message keeps only the leading command without its arguments, cut to 300 characters, with paths, file names, repository and workspace names, logins, emails, links and commit hashes removed; any leftover one refuses the report.
+
+Serves: P-PRODUCT-127
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s1-02-public-report-scrubs-wide-and-strict-record, PRD #2980
+Enforced by: kit/lib/repair/scrub.test.ts, kit/lib/repair/line.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-160
+
+A mission repair ends fixed, not fixed, stopped (handed to a person or reported an Omni Loop bug) or lost, and its ending never changes once set. A lost repair gives its turn back to the next repair of the same cause; the other three count against the 3 per cause and 9 per mission.
+
+Serves: P-PRODUCT-63
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s2-03-how-a-repair-ends, PRD #2980
+Enforced by: supabase/checks/mission_repairs.sql, apps/omni-app/src/missions/store.repair.test.ts, apps/galaxy/src/runners/runners.repair.migration.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-161
+
+A repair's fix whose checks failed, that was closed, that targets another base or whose merge is refused stops the PRD, naming the merge's reason. A fix still a draft or with checks running or absent waits, read again each run.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-02-repair-fix-landing-rules, PRD #2980
+Enforced by: apps/omni-app/src/missions/repair.test.ts, apps/omni-app/src/missions/supervisor.repair.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-162
+
+A mission repair that leaves no readable report counts against the PRD it repaired as one cause, so three such in a round stop that PRD. A repair of a cause that already spent its three still runs its retro, but nothing it proposes is applied and the PRD stops.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-03-repair-budget-counting, PRD #2980
+Enforced by: apps/omni-app/src/missions/repair.test.ts, apps/omni-app/src/missions/supervisor.repair.test.ts, supabase/checks/mission_repairs.sql
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-163
+
+A public Omni Loop bug report from a mission's repair never carries the owner or name of any repository of the workspace, nor the login of anyone named on the mission's history, beyond what the first scrub already removes.
+
+Serves: P-PRODUCT-38
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-04-repair-resume-and-report-names, PRD #2980
+Enforced by: kit/lib/repair/scrub.test.ts, apps/omni-app/src/missions/store.repair.test.ts, apps/omni-app/src/missions/repair.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-164
+
+A job report with no tokens field keeps the job's last stored count. An ending report (done, failed or cancelled) may say tokens is null, and then the job keeps no count; a running report saying null is refused.
+
+Serves: P-PRODUCT-36
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s2-02-job-end-tokens-null, PRD #3001
+Enforced by: apps/galaxy/src/runners/runners.service.test.ts, apps/galaxy/src/runners/runners.contract.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #3002
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-165
+
+When a QA bug fix's pull request is still a draft once its bug-fix job has ended, the bug is marked not fixed, naming the draft, and the mission moves on to the next bug; QA's second check looks at that bug again. Checks still running on a ready fix are waited for.
+
+Serves: P-PRODUCT-128
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s4-03-draft-fix-is-not-fixed, PRD #3001
+Enforced by: apps/omni-app/src/missions/qa.test.ts, apps/omni-app/src/missions/qa.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #3002
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-169
+
+Only a PRD's step jobs (build, QA, a QA fix, the Reviewer, the fix after it) whose last attempt ended count toward a stuck mission, never a committee, planner, repair or retro. A mission with nothing able to move stops; a stuck repair counts as fixed once something moves after it.
+
+Serves: P-PRODUCT-130
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-02-what-the-stuck-count-counts, PRD #3065
+Enforced by: apps/omni-app/src/missions/stuck.test.ts, apps/omni-app/src/missions/supervisor.stuck.test.ts
+Stated: 2026-11-19
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19
+
+## BR-PRODUCT-170
+
+A delivered mission keeps being watched until every retro it sent is recorded, running one retro at a time per mission. A mission over its token budget records each milestone retro it never sent as skipped, with the budget as the reason.
+
+Serves: P-PRODUCT-131
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-03-milestone-retros-run-and-shape, PRD #3065
+Enforced by: apps/omni-app/src/missions/job.milestone.test.ts, apps/omni-app/src/missions/milestone.test.ts
+Stated: 2026-11-19
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19
