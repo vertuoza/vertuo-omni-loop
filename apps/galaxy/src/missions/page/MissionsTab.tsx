@@ -3,11 +3,12 @@ import { useMemo, useState } from 'react';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { MissionLevelSchema, type BugsPick, type MissionAction, type StopAnswer } from '../missions.contract';
+import { MissionLevelSchema, type BugsPick, type ItemAnswer, type MissionAction, type StopAnswer } from '../missions.contract';
 import { tokensOf } from '../token-words';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
 import { ACTION_WORDS, LEVEL_WORDS, WORDS, type DailyView, type FleetPrds, type MissionsView, type StopView } from './missions-tab';
 import { RepairDetail, StoppedBlock } from '../RepairParts';
+import { RetroSection, StuckLine } from './RetroParts';
 import './missions-tab.css';
 
 // The Missions tab of a Virtual Fleet (PRD 2842 s7, the `mission-start` screen): each mission's goal, its
@@ -236,7 +237,7 @@ function BudgetParts({ mission, busy, onBudget, onAnswer }: { mission: MissionsV
 }
 
 /** One mission's row: its words at the left, its one button at the right. */
-function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, onBudget, onAnswer }: {
+function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, onBudget, onAnswer, onStop, onItem }: {
   demo: boolean;
   mission: MissionsView['missions'][number];
   busy: string | null;
@@ -246,6 +247,8 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, on
   onPick: (prd: PrdNumber, pick: BugsPick) => void;
   onBudget: (tokens: number | null) => void;
   onAnswer: (stop: string, answer: StopAnswer, tokens?: number) => void;
+  onStop: () => void;
+  onItem: (item: string, answer: ItemAnswer) => void;
 }) {
   const action = mission.action;
   return (
@@ -264,6 +267,7 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, on
             disabled={busy !== null}
             onChange={onLevel}
           />
+          <StuckLine stuck={mission.stuck} />
           <BudgetParts mission={mission} busy={busy !== null} onBudget={onBudget} onAnswer={onAnswer} />
           {mission.committeeOnly !== null && <p className="mission-committee-only ask-muted">{mission.committeeOnly}</p>}
           {mission.branch !== null && <BranchLine branch={mission.branch} />}
@@ -272,6 +276,7 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, on
           <WaitList waits={mission.waits} titled={mission.level === 'alone'} busy={busy !== null} onPick={onPick} />
           <LimitWaits waits={mission.limitWaits} />
           <Repairs lines={mission.repairs} demo={demo} />
+          <RetroSection mission={mission} busy={busy !== null} onResume={() => { onMove('resume'); }} onStop={onStop} onItem={onItem} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
           {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
         </div>
@@ -346,6 +351,30 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
     router.refresh();
   }
 
+  async function stopStuck(mission: string) {
+    setBusy(mission);
+    setProblem(null);
+    const done = await calls.stopStuck(mission);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
+  async function answerItem(mission: string, item: string, choice: ItemAnswer) {
+    setBusy(mission);
+    setProblem(null);
+    const done = await calls.answerItem(item, choice);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
   async function dailyCap(tokens: number | null) {
     if (view.workspace === null) return;
     setBusy(FLEET);
@@ -378,6 +407,8 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
             onPick={(prd, choice) => { void pick(mission.id, prd, choice); }}
             onBudget={(tokens) => { void budget(mission.id, tokens); }}
             onAnswer={(stop, choice, tokens) => { void answer(mission.id, stop, choice, tokens); }}
+            onStop={() => { void stopStuck(mission.id); }}
+            onItem={(item, choice) => { void answerItem(mission.id, item, choice); }}
           />
         ))}
       </ul>

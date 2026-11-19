@@ -90,22 +90,36 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   // A mission reached a token cap, and a person answered it (PRD 3040).
   'budget-stop': 'Paused',
   'budget-answer': 'Answered',
+  // A mission stuck, a milestone retro, a question of its own outbox and the answers to them (PRD 3065).
+  stuck: 'Stuck',
+  'stuck-answer': 'Answered',
+  'milestone-retro': 'Written',
+  'item-proposed': 'Proposed',
+  'item-answered': 'Answered',
 };
 
-/** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); any other kind has its fixed word. */
-const stateWord = (kind: string, sentence: string): string => {
+/** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); QA's (PRD 3001) reads `Passed` on a pass, `Bugs` when it found some; null for any other kind. */
+function verdictWord(kind: string, sentence: string): string | null {
   if (kind === 'reviewed') return sentence.startsWith('Passed') ? 'Passed' : 'Changes';
-  // QA's verdict (PRD 3001) reads `Passed` on a pass, `Bugs` when it found some.
-  if (kind === 'checked') return sentence.startsWith('pass') ? 'Passed' : 'Bugs';
-  // A PRD a mission pull request put on the default branch is a landing (PRD 2896); any other merge is as before.
-  if (kind === 'prd-merged' && sentence.includes('landed on the default branch')) return 'Landed';
-  return repairStateWord(kind, sentence) ?? STATE_WORDS[kind] ?? kind;
-};
+  return kind === 'checked' ? (sentence.startsWith('pass') ? 'Passed' : 'Bugs') : null;
+}
+
+/** The kinds whose word turns on their sentence: a PRD a mission pull request put on the default branch is a landing (PRD 2896); a retro that was not written and the pause by stuck read as what they are, never as done (PRD 3065, BL-GATE-1). Null for any other row. */
+function sentenceWord(kind: string, sentence: string): string | null {
+  if (kind === 'prd-merged') return sentence.includes('landed on the default branch') ? 'Landed' : null;
+  if (kind === 'milestone-retro') return sentence.startsWith('Retro skipped') ? 'Skipped' : null;
+  return kind === 'stuck' && sentence.startsWith('Paused') ? 'Paused' : null;
+}
+
+/** The word a ledger row carries: a verdict's, the one its sentence gives, a repair's end, or the kind's fixed word. */
+const stateWord = (kind: string, sentence: string): string => verdictWord(kind, sentence) ?? sentenceWord(kind, sentence) ?? repairStateWord(kind, sentence) ?? STATE_WORDS[kind] ?? kind;
 
 /** What a ledger link is called: a Reviewer's verdict links its GitHub review, any other row its PRD or `Open`. */
 const linkLabel = (kind: string, prd: PrdNumber | null, link: string | null = null): string => {
   if (kind === 'reviewed') return 'Review';
   if (kind === 'checked') return 'QA comment';
+  // A milestone retro's link is its file on the mission branch: its path under `retros/` (PRD 3065).
+  if (kind === 'milestone-retro' && link !== null) return link.slice(Math.max(0, link.lastIndexOf('retros/')));
   return repairLinkLabel(kind, link) ?? (prd === null ? 'Open' : `PRD ${String(prd)}`);
 };
 

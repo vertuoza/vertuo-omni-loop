@@ -64,6 +64,11 @@
 //   stop         a budget stop recorded as the service role, unanswered: a stop of the same cap still waiting (23505) records
 //                none and answers null
 //   pause        the other missions a fleet's stop paused, each only while it still runs or waits
+//   retros       PRD 3065: the roadmaps of the scope with their PRDs; the stuck repairs the mission sent (`…:stuck:<k>`, the jobs
+//                their line names) and one queued, claimed first in line; the milestone retros it sent (`…:retro:<milestone>`) and
+//                the `mission_retros` rows kept, one queued; a retro kept once per milestone (23505 keeps none) and the changes
+//                it proposed as `mission_items`, each once. A stuck repair's row is a `mission_repairs` row, `trigger` stuck, and
+//                `update` writes `paused_by` stuck when a run pauses the mission by stuck
 //
 // Throws when the database refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
@@ -77,7 +82,9 @@ import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } fro
 import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
 import { RepairRetroSchema } from 'omni-loop/kit/lib/repair/retro.ts';
 import { jobLedger, type NewJob } from '../jobs/ledger.ts';
-import { failedJobOf, repairKey, repairSkillLine, repairOfKey, type RepairJob, type RepairOutcome, type RepairRow } from './repair.ts';
+import { failedJobOf, repairKey, repairSkillLine, repairOfKey, type RepairJob, type RepairOutcome, type RepairRow, type StuckJob } from './repair.ts';
+import { retroKey, retroOfKey, retroSkillLine, type ItemRow, type Milestone, type MissionRetro, type RetroJob, type RetroRow, type RoadmapScope } from './milestone.ts';
+import { stuckJobsOf, stuckKey, stuckOfKey, stuckSkillLine } from './stuck.ts';
 import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
 import { qaLine } from 'omni-loop/kit/lib/qa/verdict.ts';
 import { isQaStep, type Fix } from './qa.ts';
@@ -117,6 +124,38 @@ export type MissionRecord = Mission & {
   ownPrds?: number;
   /** `mandate.tokens` (PRD 3040): the mission's token budget over every job it sent; null or absent, none. */
   tokens?: number | null;
+  /** `paused_by` (PRD 3065): `stuck` while the supervisor holds it paused by stuck; absent otherwise. */
+  pausedBy?: 'stuck';
+};
+
+/** A stuck repair to send (PRD 3065): the mission, its number among the mission's stuck repairs, the five jobs, and where it goes. */
+export type StuckSend = { mission: MissionRecord; k: number; jobs: readonly string[]; toFleet: boolean };
+
+/** A milestone retro to send (PRD 3065): the mission, its milestone, and where it goes. */
+export type RetroSend = { mission: MissionRecord; milestone: Milestone; toFleet: boolean };
+
+/** A milestone's retro to keep (PRD 3065): its job (none when skipped before one was sent), and its retro and file, or why it was skipped. */
+export type NewRetro = { milestone: Milestone; job: string | null } & ({ retro: MissionRetro; file: string | null } | { skipped: string });
+
+/**
+ * The mission's stuck repairs and milestone retros (PRD 3065), as the service role. A store without them (a test's) runs no stuck
+ * count and no milestone retro.
+ */
+export type MissionRetros = {
+  /** The roadmaps of the mission's scope, in the scope's order, each with its PRDs. */
+  milestones: (mission: MissionRecord) => Promise<RoadmapScope[]>;
+  /** The stuck repairs the mission sent: its jobs keyed `…:stuck:<k>`, each with the jobs its line names and its resumes. */
+  stucks: (id: string) => Promise<StuckJob[]>;
+  /** A stuck repair's job queued under its key, claimed first in line: its id, or null when the key was already held. */
+  stuck: (job: StuckSend) => Promise<string | null>;
+  /** The milestone retros the mission sent (`…:retro:<milestone>`), with their resumes, and the rows the database kept. */
+  retros: (id: string) => Promise<{ jobs: RetroJob[]; rows: RetroRow[] }>;
+  /** A milestone retro's job queued under its key: its id, or null when the key was already held. */
+  retro: (job: RetroSend) => Promise<string | null>;
+  /** A milestone's retro kept: its id, or null when one was kept for that milestone already. */
+  keepRetro: (mission: MissionRecord, row: NewRetro) => Promise<string | null>;
+  /** The changes a retro proposed, kept as the mission's own outbox: the numbers kept, none already kept twice. */
+  keepItems: (mission: MissionRecord, retro: string, items: readonly ItemRow[]) => Promise<number[]>;
 };
 
 /** An item's committee to send (PRD 2896 s10): the mission, the PRD, the item, and whether the fleet's runners take it. */
@@ -149,8 +188,8 @@ export type Care = { mission: MissionRecord; line: string; since: string; toFlee
 /** A repair to send (PRD 2980): the mission, the PRD, its number among the PRD's repairs, the job that failed, and where it goes. */
 export type RepairSend = { mission: MissionRecord; prd: PrdNumber; k: number; failedJob: string; toFleet: boolean };
 
-/** A repair's row to keep: what its record line found, in the mission's round. The database numbers it. */
-export type NewRepair = Pick<RepairRow, 'prd' | 'fingerprint' | 'round' | 'failedJob' | 'job' | 'retro' | 'fixPr'>;
+/** A repair's row to keep: what its record line found, in the mission's round, and, for a stuck repair, its trigger. The database numbers it. */
+export type NewRepair = Pick<RepairRow, 'prd' | 'fingerprint' | 'round' | 'failedJob' | 'job' | 'retro' | 'fixPr' | 'trigger'>;
 
 /** The row kept, or the cap the database refused it on. */
 export type Kept = RepairRow | { spent: 'cause' | 'mission' };
@@ -213,6 +252,8 @@ export type MissionStore = {
   stop: (mission: MissionRecord, stop: NewStop & { missions: readonly string[] }) => Promise<string | null>;
   /** The missions a fleet's stop paused, set paused and saying why, each only while it still runs or waits. */
   pause: (ids: readonly string[], waitingOn: string) => Promise<void>;
+  /** Its stuck repairs and milestone retros (PRD 3065); absent, none is read or sent. */
+  retros?: MissionRetros;
 };
 
 /** Who the job is sent by: the app, never a person (`runner_jobs.sent_by_app`). */
@@ -222,7 +263,7 @@ const APP_SENDER = 'omni-app';
 const TAKEN = '23505';
 
 /** The columns each read selects, shared with ./store.boundary.ts. */
-export const MISSION = 'id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope';
+export const MISSION = 'id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by';
 export const WORKSPACE = 'github_installation_id';
 export const ROADMAP = 'id, number';
 export const ROADMAP_PRD = 'roadmap_id, position, row_id, prd, blockers';
@@ -242,7 +283,8 @@ export const RUNNER = 'repos';
 export const ROOM_RUNNER = 'id, repos, slots, last_seen_at, health';
 export const ROOM_JOB = 'runner_id';
 export const PRODUCT = 'plan_repository';
-export const REPAIR = 'id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome';
+export const REPAIR = 'id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger';
+export const RETRO = 'id, milestone, job_id, skipped, file';
 export const BUG_REPORT = 'repo, issue';
 export const REPOSITORY = 'full_name';
 export const ACTOR = 'actor';
@@ -270,6 +312,8 @@ export const MissionRowSchema = z.object({
     tokens: z.number().int().min(1).nullable().default(null),
   }),
   scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
+  /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
+  paused_by: z.enum(['stuck']).nullable().default(null),
 });
 export const WorkspaceRowSchema = z.object({ github_installation_id: z.number().int().positive().nullable() });
 export const RoadmapRowSchema = z.object({ id: text, number: IssueNumberSchema.nullable() });
@@ -315,7 +359,9 @@ const CHAIN_MAX = 9;
 export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
 export const RepairRowSchema = z.object({
   id: text,
-  prd: PrdNumberSchema,
+  /** None only for a stuck repair whose cause is the mission's own (PRD 3065). */
+  prd: PrdNumberSchema.nullable(),
+  trigger: z.enum(['failure', 'stuck']).default('failure'),
   fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
   round: z.number().int().min(1),
   number: z.number().int().min(1).max(3),
@@ -327,6 +373,7 @@ export const RepairRowSchema = z.object({
   outcome: z.enum(['fixed', 'not fixed', 'stopped', 'lost']).nullable(),
 });
 export const BugReportRowSchema = z.object({ repo: text, issue: IssueNumberSchema });
+export const RetroRowSchema = z.object({ id: text, milestone: text, job_id: z.string().nullable(), skipped: z.string().nullable(), file: z.string().nullable() });
 export const RepositoryRowSchema = z.object({ full_name: text });
 export const ActorRowSchema = z.object({ actor: z.string().nullable() });
 export const FleetCapRowSchema = z.object({ daily_tokens: z.number().int().positive().nullable() });
@@ -384,6 +431,7 @@ const OVER_BUDGET = '23514';
 const repairOf = (row: z.infer<typeof RepairRowSchema>): RepairRow => ({
   id: row.id,
   prd: row.prd,
+  ...(row.trigger === 'stuck' ? { trigger: 'stuck' as const } : {}),
   fingerprint: row.fingerprint,
   round: row.round,
   number: row.number,
@@ -415,16 +463,28 @@ const isChecked = (step: Step, attempt: Attempt): boolean => isQaStep(step) && a
 export function missionStore(connection: Connection): MissionStore {
   const db = serviceDb(connection);
 
-  /** Each roadmap's rows, in the order the scope names the roadmaps. */
-  async function roadmapRows(mission: MissionRecord): Promise<RoadmapRow[][]> {
+  /** Each roadmap of the scope, by its number, with its rows, in the order the scope names the roadmaps. */
+  async function roadmapsOf(mission: MissionRecord): Promise<{ number: IssueNumber; rows: z.infer<typeof RoadmapPrdRowSchema>[] }[]> {
     if (mission.scope.roadmaps.length === 0) return [];
     const roadmaps = rowsOf(RoadmapRowSchema, await db.from('roadmaps').select(ROADMAP).eq('workspace_id', mission.workspace).eq('repo', mission.repo).in('number', mission.scope.roadmaps));
     if (roadmaps.length === 0) return [];
     const rows = rowsOf(RoadmapPrdRowSchema, await db.from('roadmap_prds').select(ROADMAP_PRD).in('roadmap_id', roadmaps.map(({ id }) => id)).order('position'));
     return mission.scope.roadmaps.flatMap((number) => {
       const roadmap = roadmaps.find((one) => one.number === number);
-      return roadmap ? [rows.filter((row) => row.roadmap_id === roadmap.id).map((row) => ({ prd: row.prd, rowId: row.row_id, blockers: row.blockers }))] : [];
+      return roadmap ? [{ number, rows: rows.filter((row) => row.roadmap_id === roadmap.id) }] : [];
     });
+  }
+
+  /** Each roadmap's rows, in the order the scope names the roadmaps. */
+  async function roadmapRows(mission: MissionRecord): Promise<RoadmapRow[][]> {
+    return (await roadmapsOf(mission)).map(({ rows }) => rows.map((row) => ({ prd: row.prd, rowId: row.row_id, blockers: row.blockers })));
+  }
+
+  /** The mission's jobs whose key is like `like`, each with the resumes that carry it on, its line read with it. */
+  async function keyedJobs(id: string, like: string): Promise<{ row: z.infer<typeof AskRowSchema>; attempts: Attempt[] }[]> {
+    const jobs = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).like('mission_key', like).order('queued_at'));
+    const chains = jobs.length === 0 ? new Map<string, JobRow[]>() : await chainsOf(jobs);
+    return jobs.map((row) => ({ row, attempts: (chains.get(row.id) ?? [row]).map(attemptOf) }));
   }
 
   /** The pages whose fleet approval (`given`, this mission's) a person overturned after it was given (PRD 2896 s11); no read when none was given. */
@@ -536,6 +596,49 @@ export function missionStore(connection: Connection): MissionStore {
     return CountSchema.parse(spent.data);
   }
 
+  /** The mission's stuck repairs and milestone retros (PRD 3065). */
+  const retros: MissionRetros = {
+    async milestones(mission) {
+      return (await roadmapsOf(mission)).map(({ number, rows }) => ({ roadmap: number, prds: rows.flatMap((row) => (row.prd === null ? [] : [row.prd])) }));
+    },
+
+    async stucks(id) {
+      return (await keyedJobs(id, `mission:${id}:stuck:%`)).flatMap(({ row, attempts }): StuckJob[] => {
+        const k = row.mission_key === null ? null : stuckOfKey(row.mission_key);
+        const jobs = stuckJobsOf(row.line);
+        return k === null || jobs === null ? [] : [{ k, job: row.id, jobs, attempts }];
+      });
+    },
+
+    stuck: ({ mission, k, jobs, toFleet }) => queue({ mission, toFleet, line: stuckSkillLine(mission.number, jobs), key: stuckKey(mission.id, k) }),
+
+    async retros(id) {
+      const jobs = (await keyedJobs(id, `mission:${id}:retro:%`)).flatMap(({ row, attempts }): RetroJob[] => {
+        const milestone = row.mission_key === null ? null : retroOfKey(row.mission_key);
+        return milestone === null ? [] : [{ milestone, job: row.id, attempts }];
+      });
+      const rows = rowsOf(RetroRowSchema, await db.from('mission_retros').select(RETRO).eq('mission_id', id).order('created_at'));
+      return { jobs, rows: rows.map((row): RetroRow => ({ id: row.id, milestone: row.milestone, job: row.job_id, skipped: row.skipped, file: row.file })) };
+    },
+
+    retro: ({ mission, milestone, toFleet }) => queue({ mission, toFleet, line: retroSkillLine(mission.number, milestone), key: retroKey(mission.id, milestone) }),
+
+    async keepRetro(mission, row) {
+      const written = 'retro' in row ? { retro: row.retro, file: row.file } : { skipped: row.skipped };
+      return madeOf(await db.from('mission_retros').insert({ mission_id: mission.id, milestone: row.milestone, job_id: row.job, ...written }).select('id'), 'kept no retro');
+    },
+
+    async keepItems(mission, retro, items) {
+      const kept: number[] = [];
+      // One at a time: an item a replayed run kept already (23505) is skipped, and the others are kept.
+      for (const { number, target, wording, evidence } of items) {
+        const made = madeOf(await db.from('mission_items').insert({ mission_id: mission.id, retro_id: retro, number, target, wording, evidence }).select('id'), 'kept no item');
+        if (made !== null) kept.push(number);
+      }
+      return kept;
+    },
+  };
+
   /** The latest stop naming the mission, and its fleet's stop still waiting for an answer. */
   async function stopsOf(mission: MissionRecord): Promise<Pick<BudgetRead, 'named' | 'open'>> {
     const stops = () => db.from('mission_budget_stops').select(STOP).eq('workspace_id', mission.workspace);
@@ -545,10 +648,16 @@ export function missionStore(connection: Connection): MissionStore {
   }
 
   return {
+    retros,
+
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
       if (!row) return null;
-      return { id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds, ...(row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens }) };
+      return {
+        id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds,
+        ...(row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens }),
+        ...(row.paused_by === 'stuck' ? { pausedBy: 'stuck' as const } : {}),
+      };
     },
 
     async facts(mission) {
@@ -686,12 +795,10 @@ export function missionStore(connection: Connection): MissionStore {
     },
 
     async repairs(id) {
-      const jobs = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).like('mission_key', `mission:${id}:prd:%:repair:%`).order('queued_at'));
-      const chains = jobs.length === 0 ? new Map<string, JobRow[]>() : await chainsOf(jobs);
-      const repairJobs = jobs.flatMap((job): RepairJob[] => {
+      const repairJobs = (await keyedJobs(id, `mission:${id}:prd:%:repair:%`)).flatMap(({ row: job, attempts }): RepairJob[] => {
         const key = job.mission_key === null ? null : repairOfKey(job.mission_key);
         const failedJob = failedJobOf(job.line);
-        return key === null || failedJob === null ? [] : [{ prd: key.prd, k: key.k, job: job.id, failedJob, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+        return key === null || failedJob === null ? [] : [{ prd: key.prd, k: key.k, job: job.id, failedJob, attempts }];
       });
       const rows = rowsOf(RepairRowSchema, await db.from('mission_repairs').select(REPAIR).eq('mission_id', id).order('started_at')).map(repairOf);
       return { jobs: repairJobs, rows };
@@ -699,10 +806,10 @@ export function missionStore(connection: Connection): MissionStore {
 
     repair: ({ mission, prd, k, failedJob, toFleet }) => queue({ mission, toFleet, line: repairSkillLine(mission.number, prd, failedJob), key: repairKey(mission.id, prd, k) }),
 
-    async keepRepair(mission, { prd, fingerprint, round, failedJob, job, retro, fixPr }) {
+    async keepRepair(mission, { prd, fingerprint, round, failedJob, job, retro, fixPr, trigger }) {
       const answer = await db
         .from('mission_repairs')
-        .insert({ mission_id: mission.id, prd, fingerprint, round, failed_job_id: failedJob, job_id: job, retro, fix_pr: fixPr })
+        .insert({ mission_id: mission.id, prd, fingerprint, round, failed_job_id: failedJob, job_id: job, retro, fix_pr: fixPr, ...(trigger === 'stuck' ? { trigger } : {}) })
         .select(REPAIR);
       if (answer.error?.code === OVER_BUDGET) return { spent: answer.error.hint === 'mission' ? 'mission' : 'cause' };
       const [kept] = rowsOf(RepairRowSchema, answer);
@@ -744,10 +851,12 @@ export function missionStore(connection: Connection): MissionStore {
       rowsOf(z.unknown(), await db.from('mission_events').insert(rows).select('id'));
     },
 
-    async update(id, from, { status, waitingOn, nextWakeAt }) {
+    async update(id, from, { status, waitingOn, nextWakeAt, pausedBy }) {
+      // Paused by stuck (PRD 3065) says so; the database clears it whenever the mission leaves `paused`.
+      const by = pausedBy === 'stuck' ? { paused_by: pausedBy } : {};
       const moved = rowsOf(
         z.object({ id: text }),
-        await db.from('missions').update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: new Date().toISOString() }).eq('id', id).eq('status', from).select('id'),
+        await db.from('missions').update({ status, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: new Date().toISOString(), ...by }).eq('id', id).eq('status', from).select('id'),
       );
       return moved.length > 0;
     },

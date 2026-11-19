@@ -1,9 +1,10 @@
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from 'omni-loop/kit/lib/mission/overturn.ts';
-import { MOVES, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
+import { MOVES, type AnsweredItem, type ItemAnswerBody, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import { levelRefusal as planRefusal, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { capWords } from './token-words';
+import { missionBranch } from './mission-branch';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
 /** The reader a route hands the service: the controller names it through the service, never the repository (ADR-0095). */
@@ -35,11 +36,7 @@ const SENTENCE: Record<MissionAction, (login: string) => string> = {
   resume: (login) => `${login} resumed the mission.`,
 };
 
-/** The branch a mission's PRDs sit on, as `branches.mission` shapes it: `mission/<number>-<topic>`, the topic its title's words. */
-function branchOf(mission: { number: number; title: string }): string {
-  const topic = mission.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, 40).replace(/-+$/, '');
-  return `mission/${String(mission.number)}-${topic}`;
-}
+const branchOf = missionBranch;
 
 /** Why a mission with `joined` PRDs on its branch cannot go back to with-you, or null when none sits there. */
 const landFirst = (mission: { number: number; title: string }, joined: number): string | null =>
@@ -121,6 +118,12 @@ function bugsRefusal(prd: PrdNumber, waiting: { picked: { actor: string } | null
   return waiting.picked === null ? null : `${waiting.picked.actor} picked on PRD ${String(prd)}'s bugs already.`;
 }
 
+/** A Resume of a mission paused by stuck is a person's answer to it (PRD 3065): its own event beside the `resumed` that opens a new round. */
+async function answerStuckPause(write: MissionsWriter, { id, mission, action, login, at }: { id: string; mission: { pausedBy: 'stuck' | null }; action: MissionAction; login: string; at: string }): Promise<void> {
+  if (action !== 'resume' || mission.pausedBy !== 'stuck') return;
+  await write.event(id, { kind: 'stuck-answer', actor: login, sentence: `${login} resumed the stuck mission: each cause gets 3 more.`, at: new Date(Date.parse(at) + 1).toISOString() });
+}
+
 /** Records a person's pick on `Decide the bugs` as their own event naming QA's round-2 job, then wakes the mission. */
 async function recordPick(write: MissionsWriter, { mission, login, body, job, at }: { mission: { id: string; repo: string }; login: string; body: BugsBody; job: string; at: string }): Promise<Served<PickedBugs>> {
   const review = body.pick === 'review';
@@ -136,6 +139,8 @@ async function recordPick(write: MissionsWriter, { mission, login, body, job, at
 
 const FAILED_TOKENS = 'The token budget could not be changed. Try again.';
 const FAILED_ANSWER = 'The answer could not be recorded. Try again.';
+const FAILED_ITEM = 'The answer to the question could not be recorded. Try again.';
+const STOPPED_STUCK = 'Stopped: the mission was stuck.';
 const NO_TOKENS_AFTER = 'A delivered or stopped mission keeps the token budget it had.';
 
 /** The database's refusal of a budget or of an answer, in its words: 42501 forbidden, 22023 a conflict, anything else a failure whose cause is logged (PRD 3040). */
@@ -184,6 +189,7 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       const moved = await write.move(id, move.from, move.to, { at, startedBy: action === 'start' ? caller.id : null });
       if (!moved) return { ok: false, kind: 'conflict', error: `${CANNOT[action]} It has just moved: look again.` };
       await write.event(id, { kind: move.event, actor: caller.login, sentence: SENTENCE[action](caller.login), at });
+      await answerStuckPause(write, { id, mission, action, login: caller.login, at });
       if (move.wakes) {
         try {
           await write.refresh(missionJob(id, mission.repo));
@@ -240,6 +246,36 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       if (on !== undefined) await write.event(on, { kind: 'budget-answer', actor: caller.login, sentence: answerWords(caller.login, body, done.missions.length > 1), at: iso() });
       const woken = await wakeAll(write, done.missions);
       return woken === null ? { ok: true, value: { stop: { id: done.id, answer: done.answer, raisedTo: done.raisedTo } } } : woken;
+    },
+
+    /**
+     * A member stops a mission the supervisor paused by stuck (PRD 3065, `Stop the mission`): it ends `stopped`, saying it was stuck, and
+     * their answer is their own event, `stuck-answer`. Refused for a mission that is not paused by stuck.
+     */
+    async stopStuck(id: string, caller: Caller, reader: MissionsReader): Promise<Served<MovedMission>> {
+      const mission = await reader.mission(id);
+      if (mission === null) return { ok: false, kind: 'forbidden', error: NOT_YOURS };
+      if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
+      if (mission.status !== 'paused' || mission.pausedBy !== 'stuck') return { ok: false, kind: 'conflict', error: `Only a mission paused by stuck is stopped here. This one is ${mission.status}.` };
+      const at = iso();
+      const moved = await write.move(id, ['paused'], 'stopped', { at, startedBy: null, waitingOn: STOPPED_STUCK });
+      if (!moved) return { ok: false, kind: 'conflict', error: 'Only a mission paused by stuck is stopped here. It has just moved: look again.' };
+      await write.event(id, { kind: 'stuck-answer', actor: caller.login, sentence: `${caller.login} stopped the mission: it was stuck.`, at });
+      return { ok: true, value: { mission: { id, status: 'stopped' } } };
+    },
+
+    /**
+     * A member answers a mission item once, as themselves (PRD 3065): Adopt or Decline, with an optional note. The database refuses a
+     * second answer and anyone outside the workspace; the answer is then their own event, `item-answered`, on the item's mission. Adopt
+     * applies nothing: a person applies the change.
+     */
+    async answerItem(item: string, body: ItemAnswerBody, caller: Caller, reader: MissionsReader): Promise<Served<AnsweredItem>> {
+      if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
+      const set = await reader.answerItem(item, body.answer, body.note ?? null);
+      if (!set.ok) return budgetRefusal(set, FAILED_ITEM);
+      const done = set.item;
+      await write.event(done.mission, { kind: 'item-answered', actor: caller.login, sentence: `${body.answer === 'adopted' ? 'Adopted' : 'Declined'} the change to ${done.target}.`, at: iso() });
+      return { ok: true, value: { item: { id: done.id, answer: done.answer } } };
     },
 
     /**

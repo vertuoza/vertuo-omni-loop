@@ -5,6 +5,9 @@
  *
  *   omni repair: {"v":1,"mission":12,"prd":2950,"fingerprint":"<hex>","class":"code","retro":{…},"fix":3001,"report":null}
  *
+ * PRD 3065: a stuck repair (`"trigger":"stuck"`) names the PRD the cause sits in, or `null` when the cause is the mission's own; a line
+ * with no `trigger` reads as `failure`, which always names its PRD.
+ *
  * The last such line wins; a log with none, or whose last one does not read whole, is unreadable, and the mission counts that
  * repair as spent. A record agrees with its retro (its class and its fingerprint), carries a fix only for `code` and a report only
  * for `omni-loop`, and its report is clean. The App never takes the fingerprint on trust: it is computed again from the retro's
@@ -28,14 +31,16 @@ const RepairRecordSchema = z
   .object({
     v: z.literal(1),
     mission: z.number().int().positive(),
-    prd: PrdNumberSchema,
+    trigger: z.enum(['failure', 'stuck']).optional(),
+    prd: PrdNumberSchema.nullable(),
     fingerprint: FingerprintSchema,
     class: RepairClassSchema,
     retro: RepairRetroSchema,
     fix: PrNumberSchema.nullable(),
     report: PublicReportSchema.nullable(),
   })
-  .refine((record) => record.class === record.retro.class, 'the record\'s class is its retro\'s')
+  .refine((record) => record.prd !== null || record.trigger === 'stuck', 'only a stuck repair may name no PRD')
+  .refine((record) => record.class === record.retro.class,'the record\'s class is its retro\'s')
   .refine((record) => record.fingerprint === record.retro.fingerprint, 'the record\'s fingerprint is its retro\'s')
   .refine((record) => record.fix === null || record.class === 'code', 'only a code repair has a fix')
   .refine((record) => record.report === null || record.class === 'omni-loop', 'only an omni-loop repair has a report')
@@ -55,6 +60,7 @@ function withOwnFingerprint(record: RepairRecord): RepairRecord {
   const own = fingerprint(record.retro);
   return {
     ...record,
+    trigger: record.trigger ?? 'failure',
     fingerprint: own,
     retro: { ...record.retro, fingerprint: own },
     report: record.report === null ? null : { ...record.report, fingerprint: own },

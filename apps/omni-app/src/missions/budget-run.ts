@@ -10,7 +10,7 @@
 //            where they answer it
 //   the run  held (pause, hold, wake, stop, quiet), the mission reads as paused for the rest of the run, so nothing new is sent,
 //            and no running job is touched: their ends are recorded as ever. Resumed, it runs as it would have
-import { budgetAct, type BudgetAct } from './budget.ts';
+import { budgetAct, capReached, type BudgetAct } from './budget.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
 import type { Concluded, MissionStatus, NewEvent } from './supervisor.ts';
 
@@ -86,9 +86,12 @@ function settled(mission: MissionRecord, act: BudgetAct, recorded: boolean): Bud
   }
 }
 
-/** The mission's token budget at `now`, before the run sends anything. */
-export async function runBudget(store: MissionStore, mission: MissionRecord, now: number): Promise<BudgetRun> {
+/** The mission's token budget at `now`, before the run sends anything; `over` whether a cap is reached (PRD 3065: a retro waits). */
+export async function runBudget(store: MissionStore, mission: MissionRecord, now: number): Promise<BudgetRun & { over: boolean }> {
   const read = await store.budget(mission, new Date(now));
   const act = budgetAct(read, mission, now);
-  return settled(mission, act, act.act === 'pause' && (await recordStop(store, mission, act)));
+  return { ...settled(mission, act, act.act === 'pause' && (await recordStop(store, mission, act))), over: capReached(read, now) };
 }
+
+/** Whether a cap of the mission or its fleet is reached at `now`: a delivered mission's retro is then skipped (PRD 3065). */
+export const overCap = async (store: MissionStore, mission: MissionRecord, now: number): Promise<boolean> => capReached(await store.budget(mission, new Date(now)), now);

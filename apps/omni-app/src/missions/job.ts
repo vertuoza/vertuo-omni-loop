@@ -91,12 +91,15 @@ import { checksOf, judge, type OpenItems } from './gate.ts';
 import type { MissionJoins } from './join.ts';
 import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
 import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
-import type { MissionRecord, MissionStore } from './store.ts';
-import { readRepairs } from './repair-run.ts';
+import type { MissionRecord, MissionRetros, MissionStore } from './store.ts';
+import { readRepairs, type RepairRunAt } from './repair-run.ts';
 import { readQa } from './qa-run.ts';
-import { runBudget } from './budget-run.ts';
+import { overCap, runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
-import { leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } from './repair.ts';
+import { isStuckRow, leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } from './repair.ts';
+import { readStuck, stuckStep } from './stuck-run.ts';
+import { NO_STUCK, type StuckView } from './stuck.ts';
+import { milestoneStep } from './milestone-run.ts';
 import {
   baseOf,
   conclude,
@@ -112,6 +115,7 @@ import {
   roomOn,
   WAKE_MS,
   waitsForMerge,
+  whereOf,
   withLanded,
   withWaits,
   type AnswersView,
@@ -200,11 +204,11 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
-  const repairRead = await readRepairs({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS });
+  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
-  const before = prdStates(facts, runs, branch, view, fleet, repairRead, qa);
-  const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added, left: leftOf(repairRead) }) : NOTHING_SENT;
-  const repairs: RepairView = { ...repairRead, jobs: [...repairRead.jobs, ...repaired] };
+  const before = prdStates(facts, runs, branch, view, fleet, repairView, qa);
+  const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added, left: leftOf(repairView) }) : NOTHING_SENT;
+  const repairs: RepairView = { ...repairView, jobs: [...repairView.jobs, ...repaired] };
   const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
@@ -213,11 +217,73 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const fresh = sent.length + approved.length + asked.length + repaired.length;
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
-  const next: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
-  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
-  await store.record(mission.id, [...pmSent, ...budget.events, ...events], new Date(now));
+  const finished: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
+  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
+  const retro = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
+  const next = retro.next;
+  await store.record(mission.id, [...pmSent, ...budget.events, ...events, ...retro.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
-  return { next, running: [...states.values()].some((state) => state.state === 'running' || state.state === 'repairing'), moved, sent: sent.length + repaired.length, events: events.length };
+  return { next, running: atWork(states, retro.running), moved, sent: sent.length + repaired.length, events: events.length + retro.events.length };
+}
+
+/** Whether a PRD's job or its repair is at work, or a stuck repair or a milestone retro (`retros`, PRD 3065). */
+const atWork = (states: ReadonlyMap<PrdNumber, PrdState>, retros: boolean): boolean => retros || [...states.values()].some((state) => state.state === 'running' || state.state === 'repairing');
+
+/**
+ * The mission's repairs, as a run reads them (PRD 2980), with its stuck repairs (PRD 3065): a stuck repair is a repair of the same 3
+ * and 9, so its rows and its jobs at work count before anything is sent. A store without them reads none.
+ */
+async function repairsOf(at: RepairRunAt): Promise<{ repairView: RepairView; stuck: StuckView }> {
+  const read = await readRepairs(at);
+  const stuck = at.store.retros === undefined ? NO_STUCK : await readStuck({ ...at, retros: at.store.retros, rows: read.rows });
+  return { repairView: { ...read, rows: [...read.rows.filter((row) => !isStuckRow(row)), ...stuck.rows], stuck: stuck.jobs }, stuck };
+}
+
+/** What the run's retro steps work from (PRD 3065), once its events are known. */
+type RetrosAt = {
+  store: MissionStore;
+  mission: MissionRecord;
+  next: Concluded;
+  states: ReadonlyMap<PrdNumber, PrdState>;
+  runs: readonly Run[];
+  recorded: readonly RecordedEvent[];
+  events: readonly NewEvent[];
+  stuck: StuckView;
+  left: number;
+  toFleet: boolean;
+  inPlan: boolean;
+  /** Whether the run may send at all: its PRDs can be built (the mission branch ready). */
+  sends: boolean;
+  /** Whether a token cap is reached (PRD 3040): no retro is sent. */
+  over: boolean;
+};
+
+/**
+ * The run's stuck count and milestone retros (PRD 3065, ./stuck-run.ts, ./milestone-run.ts), once its events are known: a stuck repair
+ * sent or at work, or the mission paused by stuck; each milestone retro that ended recorded, the next sent. A store without them
+ * (a test's) leaves the run as it concluded. `running` while a stuck repair or a milestone retro works: the job keeps watching.
+ */
+async function retrosOf(at: RetrosAt): Promise<{ next: Concluded; events: NewEvent[]; running: boolean }> {
+  const retros = at.store.retros;
+  if (retros === undefined) return { next: at.next, events: [], running: false };
+  const where = whereOf(at.mission, at.toFleet);
+  const stuck = await stuckStep({ ...at, retros, where });
+  const done = (prd: PrdNumber): boolean => ['merged', 'joined'].includes(at.states.get(prd)?.state ?? '');
+  const sends = at.sends && (stuck.next.status === 'running' || stuck.next.status === 'waiting' || stuck.next.status === 'delivered');
+  const milestones = await milestoneStep({ store: at.store, retros, mission: at.mission, branch: baseOf(at.mission, at.inPlan), toFleet: at.toFleet, where, done, delivered: stuck.next.status === 'delivered', over: at.over, sends });
+  return { next: stuck.next, events: [...stuck.events, ...milestones.events], running: stuck.running || milestones.watching };
+}
+
+/**
+ * A delivered mission's run (PRD 3065): its milestone retros only, each that ended recorded, the next sent while every cap allows it,
+ * else skipped, budget reached. Whether one still works: the job keeps watching it until it is recorded.
+ */
+async function deliveredRun(store: MissionStore, retros: MissionRetros, mission: MissionRecord, now: number): Promise<boolean> {
+  const [toFleet, inPlan, over] = await Promise.all([store.fleetRunners(mission), store.planRepository(mission), overCap(store, mission, now)]);
+  const at = { store, retros, mission, branch: baseOf(mission, inPlan), toFleet, where: whereOf(mission, toFleet) };
+  const step = await milestoneStep({ ...at, done: () => true, delivered: true, over, sends: true });
+  await store.record(mission.id, step.events, new Date(now));
+  return step.watching;
 }
 
 /**
@@ -815,8 +881,11 @@ async function joinAll({
   return { branch: { branch: base, joined: new Set([...joined, ...made.map(({ prd }) => prd)]), lacks, dropped: off }, joins: made };
 }
 
-/** Whether the mission is still watched: it runs or waits, or it is paused with a job of it still running. */
-const watched = ({ next, running }: Supervised): boolean => next.status === 'running' || next.status === 'waiting' || (next.status === 'paused' && running);
+/**
+ * Whether the mission is still watched: it runs or waits, or it is paused with a job of it still running, or delivered with a
+ * milestone retro still to record (PRD 3065).
+ */
+const watched = ({ next, running }: Supervised): boolean => next.status === 'running' || next.status === 'waiting' || ((next.status === 'paused' || next.status === 'delivered') && running);
 
 /** The handler of the `mission` kind. */
 export function missionHandler({
@@ -837,6 +906,11 @@ export function missionHandler({
     const mission = await runnable(store, id);
     if (!('id' in mission)) return mission;
     const at = now();
+    // Delivered (PRD 3065): only its milestone retros run, watched until each that was sent is recorded.
+    if (mission.status === 'delivered') {
+      const retros = mission.store.retros;
+      return retros !== undefined && (await deliveredRun(mission.store, retros, mission, at)) ? laterOf({ job, refresh, mission, at }) : { outcome: 'done' };
+    }
     const run = await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
     log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
     // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
@@ -845,13 +919,13 @@ export function missionHandler({
   };
 }
 
-/** The mission to run, with its store; or how the run ends without one: no database, no mission, a draft, delivered. */
+/** The mission to run, with its store; or how the run ends without one: no database, no mission, a draft. */
 async function runnable(store: MissionStore | null, id: string): Promise<(MissionRecord & { store: MissionStore }) | JobResult> {
   if (!store) return { outcome: 'skipped', reason: 'no database to read the mission from' };
   const mission = await store.mission(id);
   if (!mission) return { outcome: 'skipped', reason: `no mission ${id}` };
   if (mission.status === 'draft') return { outcome: 'skipped', reason: 'the mission is a draft: nothing runs before Start' };
-  return mission.status === 'delivered' ? { outcome: 'done' } : { ...mission, store };
+  return { ...mission, store };
 }
 
 /**

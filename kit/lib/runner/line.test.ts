@@ -39,8 +39,13 @@ describe('checkRunnerLine', () => {
       .toEqual({ ok: true, kind: 'omni', skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
 
-  it('takes QA\'s /omni:qa, round 1 and round 2, last in the list (PRD 3001)', () => {
-    expect(RUNNABLE_SKILLS.at(-1)).toBe('qa');
+  it('takes the mission\'s /omni:mission-retro, last in the list (PRD 3065)', () => {
+    expect(RUNNABLE_SKILLS.at(-1)).toBe('mission-retro');
+    expect(checkRunnerLine('/omni:mission-retro --mission 12 --milestone 2950')).toEqual({ ok: true, kind: 'omni', skill: 'mission-retro', args: '--mission 12 --milestone 2950' });
+    expect(checkRunnerLine('/omni:mission-retro --mission 12 --milestone mission')).toEqual({ ok: true, kind: 'omni', skill: 'mission-retro', args: '--mission 12 --milestone mission' });
+  });
+
+  it('takes QA\'s /omni:qa, round 1 and round 2 (PRD 3001)', () => {
     expect(checkRunnerLine('/omni:qa 3001')).toEqual({ ok: true, kind: 'omni', skill: 'qa', args: '3001' });
     expect(checkRunnerLine('/omni:qa 3001 --round 2')).toEqual({ ok: true, kind: 'omni', skill: 'qa', args: '3001 --round 2' });
     expect(checkRunnerLine('/qa 3001', ['qa'])).toEqual({ ok: false, reason: '/qa is the loop\'s own skill: send /omni:qa' });

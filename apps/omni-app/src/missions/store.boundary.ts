@@ -10,6 +10,8 @@ import {
   BugReportRowSchema,
   REPAIR,
   RepairRowSchema,
+  RETRO,
+  RetroRowSchema,
   REPOSITORY,
   RepositoryRowSchema,
   APPROVAL,
@@ -94,4 +96,5 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: pauses and resumes', read: (db) => db.from('mission_events').select(PAUSE_EVENT).in('kind', ['paused', 'resumed']).is('prd', null).limit(5), schema: PauseEventRowSchema, shape: 'rows' },
   { name: 'missions/store: fleet missions', read: (db) => db.from('missions').select(FLEET_MISSION).limit(5), schema: FleetMissionRowSchema, shape: 'rows' },
   { name: 'missions/store: room jobs', read: (db) => db.from('runner_jobs').select(ROOM_JOB).in('status', ['claimed', 'running']).limit(5), schema: RoomJobRowSchema, shape: 'rows' },
+  { name: 'missions/store: milestone retros', read: (db) => db.from('mission_retros').select(RETRO).limit(5), schema: RetroRowSchema, shape: 'rows' },
 ];

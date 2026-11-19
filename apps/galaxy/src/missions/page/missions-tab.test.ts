@@ -96,7 +96,7 @@ describe('missionOf', () => {
 });
 
 /** What the token caps read (PRD 3040): the person's role, the fleet's cap and spending, each mission's spending, the stops that wait. */
-type Caps = { owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[] };
+type Caps = { owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[]; retros?: unknown[]; items?: unknown[]; players?: unknown[] };
 
 function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null, products: unknown[] = [], caps: Caps = {}): MissionsTabDb {
   const chain = (data: unknown[], fails: boolean) => {
@@ -106,7 +106,7 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
     return self;
   };
   const tables: Record<string, unknown[]> = {
-    missions, products, runner_jobs: [], mission_repairs: [], teams: [{ daily_tokens: caps.daily ?? null }], mission_budget_stops: caps.stops ?? [],
+    missions, products, runner_jobs: [], mission_repairs: [], teams: [{ daily_tokens: caps.daily ?? null }], mission_budget_stops: caps.stops ?? [], mission_retros: caps.retros ?? [], mission_items: caps.items ?? [], players: caps.players ?? [],
   };
   const rpc = (name: string, args: { p_mission?: string }) => Promise.resolve({
     data: name === 'is_owner' ? caps.owner === true : name === 'fleet_tokens_24h' ? [{ tokens: caps.fleet ?? 0, oldest_end: null }] : (caps.spent?.[args.p_mission ?? ''] ?? 0),
@@ -116,6 +116,34 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
 }
 
 const MISSION_ROW = { id: ID, repo: 'acme/shop', number: 40, title: 'Pay online', goal: 'Every quote can be paid online.', status: 'running', waiting_on: 'PRD 2: merge it', scope: { prds: [1, 2], roadmaps: [] }, mandate: { parallel: 2 } };
+
+// PRD 3065 s5: what the tab reads of a mission's stuck state, its retros and its own outbox.
+describe('the retros and the questions, read (PRD 3065)', () => {
+  const USER = '44444444-4444-4444-8444-444444444444';
+  const RETRO = { id: '55555555-5555-4555-8555-555555555555', mission_id: ID, milestone: '2790', file: 'm/retros/1-roadmap-2790.md', skipped: null, created_at: '2027-01-26T09:00:00Z', retro: { wentWell: [{ text: 'It went.', cites: [{ kind: 'prd', ref: 2803 }] }], toChange: [{ text: 'Change it.', cites: [{ kind: 'repair', ref: 4 }] }] } };
+  const ITEM = { id: '66666666-6666-4666-8666-666666666666', mission_id: ID, target: 'law BR-PRODUCT-12', wording: 'Reword it.', evidence: ['One sentence.'], answer: 'adopted', note: null, answered_by: USER, created_at: '2027-01-26T09:01:00Z' };
+
+  it('gives each mission its retros and its questions, an answered one with the name of who answered', async () => {
+    const db = fakeDb([MISSION_ROW, { ...MISSION_ROW, id: OTHER, number: 41 }], [], null, [], { retros: [RETRO], items: [ITEM], players: [{ user_id: USER, display_name: 'Irisa' }] });
+    const view = await missionsTabService(withWaits(db)).view(WORKSPACE, 'night-shift');
+    expect(view.missions[0]?.retros.map((card) => [card.headline, card.wentWell[0]?.text, card.file?.path])).toEqual([['Roadmap #2790 delivered', 'It went.', 'retros/1-roadmap-2790.md']]);
+    expect(view.missions[0]?.questions[0]).toMatchObject({ title: 'Change law BR-PRODUCT-12', answered: { by: 'Irisa', words: 'Adopted', apply: '/omni:knowledge-add amend BR-PRODUCT-12 (only its owner approves).' } });
+    expect(view.missions[1]).toMatchObject({ retros: [], questions: [] });
+  });
+
+  it('reads a retro it cannot read whole as not written, and a name it cannot read as a member', async () => {
+    const db = fakeDb([MISSION_ROW], [], null, [], { retros: [{ ...RETRO, retro: { wentWell: 'x' } }], items: [ITEM] });
+    const view = await missionsTabService(withWaits(db)).view(WORKSPACE, 'night-shift');
+    expect(view.missions[0]?.retros[0]).toMatchObject({ wentWell: [], toChange: [], keptHere: null, skipped: 'Retro skipped: it could not be read' });
+    expect(view.missions[0]?.questions[0]?.answered?.by).toBe('a member');
+  });
+
+  it('reads a mission paused by stuck from its row, and no other pause', async () => {
+    const paused = { ...MISSION_ROW, status: 'paused', paused_by: 'stuck' };
+    const view = await missionsTabService(withWaits(fakeDb([paused, { ...paused, id: OTHER, paused_by: null }], []))).view(WORKSPACE, 'night-shift');
+    expect(view.missions.map((m) => [m.statusWords, m.action, m.stuckPaused !== null])).toEqual([['Paused: stuck', null, true], ['Paused', 'resume', false]]);
+  });
+});
 
 describe('a mission\'s level (PRD 2896)', () => {
   it('reads with-you for a mandate without one, the level it names otherwise, and allows the change on a draft alone', async () => {

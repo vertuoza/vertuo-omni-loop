@@ -84,6 +84,31 @@ describe('repairLine', () => {
   });
 });
 
+describe('repairLine trigger (PRD 3065)', () => {
+  it('reads a line with no trigger as a failure', () => {
+    expect(repairLine(line(record()))).toMatchObject({ readable: true, record: { trigger: 'failure', prd: 2950 } });
+  });
+
+  it('reads a stuck repair, with a PRD or with a null one', () => {
+    expect(repairLine(line(record({ trigger: 'stuck' })))).toMatchObject({ readable: true, record: { trigger: 'stuck', prd: 2950 } });
+    expect(repairLine(line(record({ trigger: 'stuck', prd: null })))).toMatchObject({ readable: true, record: { trigger: 'stuck', prd: null } });
+  });
+
+  it('refuses a failure with a null PRD and an unknown trigger', () => {
+    expect(repairLine(line(record({ prd: null })))).toEqual({ readable: false, reason: 'malformed' });
+    expect(repairLine(line(record({ trigger: 'failure', prd: null })))).toEqual({ readable: false, reason: 'malformed' });
+    expect(repairLine(line(record({ trigger: 'milestone' })))).toEqual({ readable: false, reason: 'malformed' });
+  });
+
+  it('writes the stuck line it reads', () => {
+    const read = repairLine(line(record({ trigger: 'stuck', prd: null })));
+    expect(read.readable).toBe(true);
+    if (!read.readable) return;
+    expect(repairRecordLine(read.record)).toContain('"trigger":"stuck"');
+    expect(repairLine(repairRecordLine(read.record))).toEqual(read);
+  });
+});
+
 describe('repairRecordLine', () => {
   it('writes the line repairLine reads', () => {
     const read = repairLine(line(record()));
