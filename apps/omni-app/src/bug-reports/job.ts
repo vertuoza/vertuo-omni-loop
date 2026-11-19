@@ -13,6 +13,7 @@ import { checkPayloadOf } from '../jobs/payloads.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import { fileBugReport, OMNI_LOOP_REPOSITORY, type BugIssues, type BugReportStore, type Filed } from './file.ts';
+import { BUG_FOLLOW_KIND, BugFollowDataSchema, followBugEvent, type BugGithub, type BugTeamStore } from './follow.ts';
 
 export const BUG_REPORT_KIND = 'bug-report';
 /** One report is filed at a time. */
@@ -64,6 +65,30 @@ export function bugReportHandler({
     const filed = await fileBugReport({ report, repo, store, issues });
     log(line(filed));
     await onFiled?.(filed, report);
+    return { outcome: 'done' };
+  };
+}
+
+/**
+ * The handler of the `bug-follow` kind (PRD 3088 s4): one delivery's event moves the bug it names. A database or GitHub
+ * that refuses throws, and the worker's tries are the retry; running it twice moves nothing twice (a state only moves from
+ * the one it was read in).
+ */
+export function bugFollowHandler({
+  store,
+  github,
+  repo = OMNI_LOOP_REPOSITORY,
+  log = noteTo('bug-follow'),
+}: {
+  store: BugTeamStore;
+  github: BugGithub;
+  repo?: string;
+  log?: (line: string) => void;
+}): JobHandler {
+  return async (job): Promise<JobResult> => {
+    const { event } = checkPayloadOf(BugFollowDataSchema, BUG_FOLLOW_KIND, job.payload);
+    const { moved } = await followBugEvent({ event, repo, store, github });
+    log(`bug follow: ${event.kind} moved ${String(moved)} bug${moved === 1 ? '' : 's'}`);
     return { outcome: 'done' };
   };
 }

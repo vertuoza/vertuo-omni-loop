@@ -921,3 +921,31 @@ describe('webhook — the fleet board (PRD 2530)', () => {
     expect(toQueuedJobs('pull_request', loopPull('opened', { body: 'by hand' }), 'd-1')).toEqual([]);
   });
 });
+
+describe('the Omni Loop bug team follows its bugs (PRD 3088 s4)', () => {
+  const repository = { full_name: 'vertuoza/vertuo-omni-loop', name: 'vertuo-omni-loop', owner: { login: 'vertuoza' } };
+  const installation = { id: 5 };
+
+  it('handles a published release, which the manifest subscribes to', () => {
+    expect(HANDLED.release).toEqual(['published']);
+  });
+
+  it('queues a bug-follow job for a published release, a merged fix and an issue closed as not planned', async () => {
+    const release = { action: 'published', release: { tag_name: 'v0.0.680' }, repository, installation };
+    const body = JSON.stringify(release);
+    const queueJobs = vi.fn<(jobs: unknown[]) => Promise<unknown>>(() => Promise.resolve());
+    const headers = { 'x-github-event': 'release', 'x-github-delivery': 'd-9', 'x-hub-signature-256': sign(body) };
+    expect(await receiveWebhook({ body, headers, secret: SECRET, queueJobs, forward: forwarding() })).toEqual({ status: 200, body: 'sent 0 · 1 jobs' });
+    expect(queueJobs.mock.calls[0]?.[0][0]).toMatchObject({ kind: 'bug-follow', key: 'bug-follow:d-9:released:v0.0.680', lane: 'bug-follow' });
+
+    const merged = { action: 'closed', pull_request: { number: 40, merged: true, body: 'Closes #12' }, repository, installation };
+    expect(toQueuedJobs('pull_request', merged, 'd-1').filter((job) => job.kind === 'bug-follow').map(({ key }) => key)).toEqual(['bug-follow:d-1:merged:12:40']);
+    const notPlanned = { action: 'closed', issue: { number: 12, state_reason: 'not_planned' }, repository, installation };
+    expect(toQueuedJobs('issues', notPlanned, 'd-2').map(({ key }) => key)).toEqual(['bug-follow:d-2:not-planned:12']);
+  });
+
+  it('queues nothing for a release of another repository', () => {
+    const other = { action: 'published', release: { tag_name: 'v1.0.0' }, repository: { ...repository, full_name: 'acme/shop' }, installation };
+    expect(toQueuedJobs('release', other, 'd-3')).toEqual([]);
+  });
+});

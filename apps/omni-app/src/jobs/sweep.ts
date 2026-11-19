@@ -20,6 +20,9 @@ import { githubClient } from '@omni/github';
 import { z } from 'zod';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
+import { sweepBugs, type BugSweep } from '../bug-reports/follow.ts';
+import { bugGithub } from '../bug-reports/github.ts';
+import { bugTeamStore } from '../bug-reports/store.ts';
 import { appOctokitFor, githubStoreOf, installationOctokitFor } from '../octokit-for.ts';
 import { loggedHandler, noteTo } from '../run-log/run-log.ts';
 import { delayedStore, postDelayed, type DelayedSummary } from './delayed.ts';
@@ -42,6 +45,8 @@ export type SweepJobs = {
   gaps: () => Promise<GapsSummary>;
   replay: (id: string) => Promise<Replayed>;
   forget: () => Promise<number>;
+  /** Reads each Omni Loop bug's issue, fix pull request and the releases, and reaches the states a missed delivery left (PRD 3088 s4). */
+  bugs?: () => Promise<BugSweep>;
 };
 
 /** How long Vercel lets `/api/jobs-sweep` run, its `maxDuration` in ../../vercel.json (bug #2756): the jobs run within it. */
@@ -63,6 +68,7 @@ function liveJobs(env: SweepEnv, logger: Logger): SweepJobs | null {
     gaps: () => compareGaps({ store: gapsStore(supabase), ledger, appOctokit: appOctokitFor(env.githubApp ?? null), octokitFor }),
     replay: (id) => ledger.replay(id),
     forget: () => ledger.forget(),
+    bugs: () => sweepBugs({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), log: noteTo('bug-follow', logger) }),
   };
 }
 
@@ -93,9 +99,11 @@ export function jobsSweepRoute(
 
   return {
     GET: guarded(async (request, ledger, endsAt) => {
-      const body: { delayed?: DelayedSummary; scheduled?: ScheduleSummary; run?: RunSummary; gaps?: GapsSummary; forgotten?: number } = {};
+      const body: { delayed?: DelayedSummary; scheduled?: ScheduleSummary; run?: RunSummary; gaps?: GapsSummary; forgotten?: number; bugs?: BugSweep | { failed: true } } = {};
       if (new URL(request.url).searchParams.get('gaps') === '1') {
         body.gaps = await ledger.gaps();
+        // The Omni Loop bugs the webhooks missed: a failed reading is counted, never thrown, so the jobs due still run.
+        if (ledger.bugs) body.bugs = await ledger.bugs().catch(() => ({ failed: true as const }));
         if (new Date(clock()).getUTCHours() === FORGET_HOUR_UTC) body.forgotten = await ledger.forget();
       }
       body.delayed = await ledger.delayed();
