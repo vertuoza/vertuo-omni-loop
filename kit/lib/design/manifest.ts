@@ -21,15 +21,22 @@ const component = z.object({
   example: text,
 });
 
-const token = z.object({ name: text, role: text, themes });
+const token = z.object({ name: text, role: text, group: z.string().optional(), themes });
+
+const pattern = z.object({ name: text, routes: z.array(z.string()).default([]), mock: z.string().default('') });
+
+/** The globs where the component rule applies: the generator writes `{ include, exclude }`; a plain list is read as the includes. */
+const surfaces = z
+  .union([z.array(z.string()), z.object({ include: z.array(z.string()).default([]), exclude: z.array(z.string()).default([]) })])
+  .default([]);
 
 /** The manifest, version 1. Fields a later slice reads (patterns, surfaces) are checked loosely. */
 const manifestSchema = z.object({
   'omni-design': z.literal(1),
   tokens: z.array(token).default([]),
   components: z.array(component).default([]),
-  patterns: z.array(z.record(z.string(), z.unknown())).default([]),
-  surfaces: z.array(z.string()).default([]),
+  patterns: z.array(pattern).default([]),
+  surfaces,
 });
 
 export type DesignManifest = z.infer<typeof manifestSchema>;
@@ -118,4 +125,37 @@ export function formatComponent(manifest: DesignManifest, name: string): string[
   // The example is what an agent needs most: it is kept, and the cap cuts the lines before it.
   const tail = ['example:', `  ${c.example}`];
   return [...within(head, CARD_CAP - size(tail)), ...tail];
+}
+
+const groupOf = (t: DesignManifest['tokens'][number]): string => t.group ?? t.role;
+
+/** The token groups and their counts, one line each. */
+export function formatTokenGroups(manifest: DesignManifest): string[] {
+  const counts = new Map<string, number>();
+  for (const t of manifest.tokens) counts.set(groupOf(t), (counts.get(groupOf(t)) ?? 0) + 1);
+  return [...counts].map(([group, n]) => `${group}  ${n}`);
+}
+
+/** The token group names, in order. */
+export function tokenGroupNames(manifest: DesignManifest): string[] {
+  return [...new Set(manifest.tokens.map(groupOf))];
+}
+
+/** One group's tokens with their value in each theme; null for an unknown group. */
+export function formatTokens(manifest: DesignManifest, group: string): string[] | null {
+  const hit = manifest.tokens.filter((t) => groupOf(t) === group);
+  if (hit.length === 0) return null;
+  return hit.map((t) => `${t.name}  omni ${t.themes.omni}  light ${t.themes.light}  dark ${t.themes.dark}`);
+}
+
+/** A locked screen's card: its routes and its mockup, within `CARD_CAP` bytes; null for an unknown name. */
+export function formatPattern(manifest: DesignManifest, name: string): string[] | null {
+  const p = manifest.patterns.find((item) => item.name === name) ?? manifest.patterns.find((item) => item.name.toLowerCase() === name.toLowerCase());
+  if (!p) return null;
+  return within([p.name, `routes: ${p.routes.join(', ')}`, `mockup: ${p.mock}`], CARD_CAP);
+}
+
+/** The locked screens' names. */
+export function patternNames(manifest: DesignManifest): string[] {
+  return manifest.patterns.map((p) => p.name);
 }

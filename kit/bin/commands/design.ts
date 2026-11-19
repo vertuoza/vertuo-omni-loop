@@ -27,6 +27,11 @@
 // line and exit 0; a manifest that fails its schema prints its refusals and exits 1, as does an
 // unknown name (one line naming the closest).
 //
+// `omni design tokens [<group>]` and `omni design pattern <name>` (PRD omni-loop-13): the manifest's
+// token groups with their counts (or one group's tokens, with their value in each theme) and one locked
+// screen's card (routes, mockup). With no locked screen, `pattern` says so and exits 0; the no-manifest
+// line and the refusals are the same as above.
+//
 // `omni design gallery [--out <file>]` (PRD 1550): one self-contained HTML page of the whole library
 // (`kit/lib/design/gallery/`), written by default to a fresh folder under the system's temporary
 // folder, or to `--out` (read from the repository root), and its path printed. Generated each time,
@@ -40,7 +45,7 @@ import { defaultDesignBase } from '../../lib/design/base.ts';
 import { galleryPage } from '../../lib/design/gallery/page.ts';
 import { designIgnore, dropIgnored } from '../../lib/design/ignore.ts';
 import type { DesignManifest } from '../../lib/design/manifest.ts';
-import { closestNames, formatComponent, formatComponents, NO_MANIFEST, readManifest } from '../../lib/design/manifest.ts';
+import { closestNames, formatComponent, formatComponents, formatPattern, formatTokenGroups, formatTokens, NO_MANIFEST, patternNames, readManifest, tokenGroupNames } from '../../lib/design/manifest.ts';
 import { formatScreens, readScreens } from '../../lib/design/screens.ts';
 import { avoidedWords } from '../../lib/design/words/avoid.ts';
 import { productAvoids } from '../../lib/design/words/product.ts';
@@ -55,7 +60,7 @@ import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
-const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>] | omni design components | omni design component <name>';
+const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>] | omni design components | omni design component <name> | omni design tokens [<group>] | omni design pattern <name>';
 
 /** The checked-out branch, or null on a detached head or when git cannot say. */
 function currentBranch({ ctx, exec }: CommandIo): string | null {
@@ -132,6 +137,24 @@ function componentCard(io: CommandIo, name: string): Answer {
   });
 }
 
+/** The token groups with their counts, or one group's tokens; an unknown group is one line naming the groups, exit 1. */
+function tokensAnswer(io: CommandIo, group: string | undefined): Answer {
+  return fromManifest(io, (manifest) => {
+    if (group === undefined) return plain(formatTokenGroups(manifest));
+    const lines = formatTokens(manifest, group);
+    return lines ? plain(lines) : { lines: [`no token group named ${group}; groups: ${tokenGroupNames(manifest).join(', ')}`], code: 1 };
+  });
+}
+
+/** One locked screen's card; with none locked, one line saying so (exit 0); an unknown name exits 1. */
+function patternCard(io: CommandIo, name: string): Answer {
+  return fromManifest(io, (manifest) => {
+    if (manifest.patterns.length === 0) return plain(['the library has no locked screen yet']);
+    const card = formatPattern(manifest, name);
+    return card ? plain(card) : { lines: [`no pattern named ${name}; patterns: ${patternNames(manifest).join(', ')}`], code: 1 };
+  });
+}
+
 /** A selector the config has already checked. */
 function checked(source: string): Selector {
   const selector = parseSelector(source);
@@ -194,6 +217,8 @@ const VERBS: Readonly<Record<string, (io: CommandIo, operands: readonly string[]
   gallery: (io, operands, out) => (operands.length > 0 ? null : plain(gallery(io, out))),
   components: (io, operands) => (operands.length > 0 ? null : fromManifest(io, (manifest) => plain(formatComponents(manifest)))),
   component: (io, operands) => (operands.length !== 1 ? null : componentCard(io, operands[0] ?? '')),
+  tokens: (io, operands) => (operands.length > 1 ? null : tokensAnswer(io, operands[0])),
+  pattern: (io, operands) => (operands.length !== 1 ? null : patternCard(io, operands[0] ?? '')),
 };
 
 export const design: Command = {
