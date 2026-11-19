@@ -1828,8 +1828,8 @@ function messageOf3(error) {
   return messageField(error) ?? error;
 }
 function firstLine(reason2) {
-  const said2 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
-  return said2.split("\n")[0] || "unknown error";
+  const said3 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
+  return said3.split("\n")[0] || "unknown error";
 }
 var printed = (value) => String(value);
 
@@ -9256,7 +9256,7 @@ function planFor({ comments: all, items, adopted, markers }) {
   const open = questions.filter((question) => question.adoptedEntry === null);
   const { numbered, approved } = rawAnswers(all, markers, byNumber, open);
   const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
-  const settle2 = [];
+  const settle3 = [];
   const held2 = [];
   for (const { number, item, adoptedEntry } of questions) {
     const raw = numbered.get(number) ?? approved.get(number);
@@ -9269,9 +9269,9 @@ function planFor({ comments: all, items, adopted, markers }) {
       continue;
     }
     if (adoptedEntry && judgement.verdict !== "drifted") continue;
-    settle2.push({ number, item, answer, judgement, adoptedEntry });
+    settle3.push({ number, item, answer, judgement, adoptedEntry });
   }
-  return { settle: settle2, held: held2, round: roundOf(held2, highestRound) };
+  return { settle: settle3, held: held2, round: roundOf(held2, highestRound) };
 }
 function rawAnswers(all, markers, byNumber, open) {
   const numbered = /* @__PURE__ */ new Map();
@@ -10199,12 +10199,12 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
       if (verdict.gate) return verdict.gate;
       if (constituents.length === 0) return judged2({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said2 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
-      if (!said2.ok) {
-        return neutral(said2.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said2.reason})` : `judge error: ${said2.reason}`);
+      const said3 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      if (!said3.ok) {
+        return neutral(said3.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said3.reason})` : `judge error: ${said3.reason}`);
       }
-      const findings = counted2(verdict.findings, said2.answer === "true");
-      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said2.decidedBy, confidence: said2.confidence } });
+      const findings = counted2(verdict.findings, said3.answer === "true");
+      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said3.decidedBy, confidence: said3.confidence } });
     }
   };
 }
@@ -10241,8 +10241,8 @@ function constituentJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE
     const reply = await response.json().catch(() => null);
     if (!response.ok) {
       const refusal4 = RefusalSchema.safeParse(reply);
-      const said2 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
-      return failed("judge", `galaxy answered ${response.status}${said2}`);
+      const said3 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
+      return failed("judge", `galaxy answered ${response.status}${said3}`);
     }
     const verdict = VerdictSchema.safeParse(reply);
     if (!verdict.success) return failed("judge", "galaxy answered no verdict");
@@ -10854,9 +10854,9 @@ function fleetBoardHandler({ octokitFor, store, now = () => /* @__PURE__ */ new 
     }
     const outcomes2 = [];
     for (const workspace of workspaces) outcomes2.push(await addCard({ octokitFor, store, now, data, workspace, fleet: fleets.get(workspace) ?? null }));
-    const said2 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine).join("; ") : "no workspace tracks it on this installation"}`;
-    log2(`fleet board: ${said2}`);
-    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said2 };
+    const said3 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine).join("; ") : "no workspace tracks it on this installation"}`;
+    log2(`fleet board: ${said3}`);
+    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said3 };
   };
 }
 async function addCard({
@@ -11112,17 +11112,17 @@ function blocksAllViolations(graded, area2) {
   }).map((slice) => `flow: ${slice.id} is blocked by no slice of area ${area2} (${ids}), directly or through another \u2014 ${area2}: blocks all.`);
 }
 function aloneSplit(slice, flow) {
-  const split2 = { alone: [], other: [], areas: [] };
+  const split3 = { alone: [], other: [], areas: [] };
   for (const path of slice.territory) {
     const area2 = areaOf(flow, path);
     if (!landsAlone(area2.rules)) {
-      split2.other.push(path);
+      split3.other.push(path);
       continue;
     }
-    split2.alone.push(path);
-    if (!split2.areas.includes(area2.name)) split2.areas.push(area2.name);
+    split3.alone.push(path);
+    if (!split3.areas.includes(area2.name)) split3.areas.push(area2.name);
   }
-  return split2;
+  return split3;
 }
 var landsAlone = (rules) => rules.plan.landingAlone;
 function areaNote(areas) {
@@ -11132,10 +11132,10 @@ function areaNote(areas) {
 }
 function landingAloneViolations(slices, flow) {
   if (![flow.defaultArea, ...flow.areas].some(({ rules }) => landsAlone(rules))) return [];
-  const split2 = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, flow)]));
+  const split3 = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, flow)]));
   const violations = [];
   for (const slice of slices) {
-    const { alone, other, areas } = split2.get(slice.id) ?? { alone: [], other: [], areas: [] };
+    const { alone, other, areas } = split3.get(slice.id) ?? { alone: [], other: [], areas: [] };
     if (alone.length > 0 && other.length > 0) {
       violations.push(
         `landing: ${slice.id} (landing ${slice.landing}) touches ${alone.join(", ")}, which lands alone${areaNote(areas)}, and also ${other.join(", ")} \u2014 a slice touching a land-alone path touches nothing else.`
@@ -11144,8 +11144,8 @@ function landingAloneViolations(slices, flow) {
   }
   for (const landing of new Set(slices.map((slice) => slice.landing))) {
     const members2 = slices.filter((slice) => slice.landing === landing);
-    const lone = members2.filter((slice) => split2.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
-    const rest = members2.filter((slice) => split2.get(slice.id)?.alone.length === 0);
+    const lone = members2.filter((slice) => split3.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
+    const rest = members2.filter((slice) => split3.get(slice.id)?.alone.length === 0);
     if (lone.length > 0 && rest.length > 0) {
       violations.push(
         `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(", ")}, which land alone, and ${rest.map((slice) => slice.id).join(", ")}, which do not \u2014 a landing holding a land-alone slice holds only land-alone slices.`
@@ -12602,7 +12602,7 @@ function answerText(option, answer) {
     `${option.letter}. ${option.text}`,
     "",
     `Answered by fleet ${answer.fleet} for ${answer.branch}: every member who sat answered yes.`,
-    ...answer.verdicts.map(({ role, answer: said2, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said2} \u2014 ${sentence2}`)
+    ...answer.verdicts.map(({ role, answer: said3, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said3} \u2014 ${sentence2}`)
   ].join("\n");
 }
 function openItem(ctx, prd, item) {
@@ -13412,10 +13412,10 @@ function batchOf(listed4) {
 }
 function describe2(error) {
   const failure2 = FailureSchema2.safeParse(error);
-  const { errors, message: said2, status: status2 } = failure2.success ? failure2.data : {};
+  const { errors, message: said3, status: status2 } = failure2.success ? failure2.data : {};
   const graphqlError = errors?.[0];
   if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
-  const message = printed2(said2 ?? error ?? "unknown error").split("\n")[0] ?? "";
+  const message = printed2(said3 ?? error ?? "unknown error").split("\n")[0] ?? "";
   return status2 ? `HTTP ${printed2(status2)}: ${message}` : message;
 }
 var printed2 = (value) => String(value);
@@ -15205,12 +15205,12 @@ function prepareHarvest({
   const n = prd;
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch) => {
-    const settle2 = settleAtMerge({ ctx: scratch, prd: n, merge });
-    if (!settle2.ok) return { ok: false, errors: settle2.errors };
+    const settle3 = settleAtMerge({ ctx: scratch, prd: n, merge });
+    if (!settle3.ok) return { ok: false, errors: settle3.errors };
     const settleEdits = {
-      deletes: settle2.deletes,
+      deletes: settle3.deletes,
       moves: [],
-      writes: settle2.text === null ? [] : [{ path: settle2.settledFile, text: settle2.text }]
+      writes: settle3.text === null ? [] : [{ path: settle3.settledFile, text: settle3.text }]
     };
     applyHarvestEdits({ root: scratch.root, edits: settleEdits });
     let moves = [];
@@ -15232,7 +15232,7 @@ function prepareHarvest({
       ok: true,
       prd: n,
       edits,
-      settled: settle2.entries.map(({ id, from }) => ({ id, from })),
+      settled: settle3.entries.map(({ id, from }) => ({ id, from })),
       shipped: moves,
       candidates: harvestCandidates({ ctx: scratch, prd: n }),
       summary: knowledgeSummary({ ctx: scratch }),
@@ -21545,7 +21545,7 @@ function missionJoins({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/job.ts
-import { z as z99 } from "zod";
+import { z as z100 } from "zod";
 
 // kit/lib/mission/brief.ts
 import { parse as parse4 } from "yaml";
@@ -21557,6 +21557,8 @@ var PLAN_OWN_BRANCH_REFUSAL = "a mission branch holds one repository: use with-y
 function levelRefusal(level, inPlan) {
   return inPlan && level === "own-branch" ? PLAN_OWN_BRANCH_REFUSAL : null;
 }
+var MISSION_KINDS = ["prds", "omni-bugs"];
+var DEFAULT_KIND = "prds";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
 var MAX_MISSION_TOKENS = 1e9;
@@ -21570,7 +21572,8 @@ var ScopeSchema = z86.object(
     roadmaps: z86.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
-).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
+).strict();
+var NO_SCOPE = { prds: [], roadmaps: [] };
 var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
 var MandateSchema = z86.object(
   {
@@ -21589,9 +21592,20 @@ var BriefSchema = z86.object({
   fleet: text18(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
   goal: text18(500),
   measures: z86.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
-  scope: ScopeSchema,
+  kind: z86.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
+  scope: ScopeSchema.optional(),
   mandate: MandateSchema.default(DEFAULT_MANDATE)
-}).strict();
+}).strict().transform(({ scope, ...rest }, ctx) => {
+  const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
+  if (rest.kind === "omni-bugs") {
+    if (named > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
+  } else if (scope === void 0) {
+    ctx.addIssue({ code: "invalid_type", expected: "object", input: void 0, path: ["scope"], message: "missing" });
+  } else if (named === 0) {
+    ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
+  }
+  return { ...rest, scope: scope ?? NO_SCOPE };
+});
 
 // kit/lib/mission/drop.ts
 function territoryOf(plan) {
@@ -22253,7 +22267,7 @@ function repairLine(log2) {
 }
 
 // apps/omni-app/src/bug-reports/job.ts
-import { z as z95 } from "zod";
+import { z as z96 } from "zod";
 
 // apps/omni-app/src/bug-reports/file.ts
 var OMNI_LOOP_REPOSITORY = "vertuoza/vertuo-omni-loop";
@@ -22301,10 +22315,86 @@ async function again(known, report, store, issues) {
   return { kind: "repeat", repo: known.repo, issue: known.issue, fingerprint: report.fingerprint };
 }
 
+// apps/omni-app/src/bug-reports/follow.ts
+import { z as z95 } from "zod";
+var BUG_STATES = ["open", "fixing", "pr-opened", "asked", "merged", "fixed", "wont-fix"];
+var BUG_FOLLOW_KIND = "bug-follow";
+var BugEventSchema = z95.discriminatedUnion("kind", [
+  z95.object({ kind: z95.literal("merged"), issue: IssueNumberSchema, pr: PrNumberSchema }),
+  z95.object({ kind: z95.literal("pr-closed"), pr: PrNumberSchema }),
+  z95.object({ kind: z95.literal("not-planned"), issue: IssueNumberSchema }),
+  z95.object({ kind: z95.literal("reopened"), issue: IssueNumberSchema }),
+  z95.object({ kind: z95.literal("released"), tag: z95.string().min(1) })
+]);
+var BugFollowDataSchema = z95.object({ event: BugEventSchema, delivery: z95.string().min(1) });
+var DeliverySchema = z95.looseObject({
+  action: z95.string().nullish(),
+  repository: z95.looseObject({ full_name: z95.string().nullish() }).nullish(),
+  issue: z95.looseObject({ number: IssueNumberSchema, state_reason: z95.string().nullish(), pull_request: z95.unknown().optional() }).nullish(),
+  pull_request: z95.looseObject({ number: PrNumberSchema, merged: z95.boolean().nullish(), body: z95.string().nullish() }).nullish(),
+  release: z95.looseObject({ tag_name: z95.string().nullish(), draft: z95.boolean().nullish(), prerelease: z95.boolean().nullish() }).nullish()
+});
+function versionOf2(tag) {
+  const found = /^v((?:0|[1-9]\d{0,5})\.(?:0|[1-9]\d{0,5})\.(?:0|[1-9]\d{0,5}))$/.exec(tag);
+  return found?.[1] ?? null;
+}
+function compareVersions(a, b) {
+  const [x, y] = [a, b].map((version) => version.split(".").map(Number));
+  for (let i = 0; i < 3; i += 1) {
+    const diff = (x?.[i] ?? 0) - (y?.[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+var TERMINAL2 = /* @__PURE__ */ new Set(["fixed", "wont-fix"]);
+var REOPENABLE = /* @__PURE__ */ new Set(["merged", "fixed", "wont-fix"]);
+var mergedPatch = (bug, pr) => TERMINAL2.has(bug.state) ? null : { state: "merged", fixPr: pr };
+var prClosedPatch = (bug, pr) => bug.state === "pr-opened" && bug.fixPr === pr ? { state: "open", fixPr: null } : null;
+var notPlannedPatch = (bug) => TERMINAL2.has(bug.state) ? null : { state: "wont-fix" };
+var reopenedPatch = (bug) => REOPENABLE.has(bug.state) ? { state: "open", fixPr: null, fixedIn: null } : null;
+function patchFor(bug, event) {
+  switch (event.kind) {
+    case "merged":
+      return mergedPatch(bug, event.pr);
+    case "pr-closed":
+      return prClosedPatch(bug, event.pr);
+    case "not-planned":
+      return notPlannedPatch(bug);
+    case "reopened":
+      return reopenedPatch(bug);
+  }
+}
+async function firstReleaseHolding({ github, repo, mergeCommit, tags }) {
+  const versions = tags.flatMap((tag) => {
+    const version = versionOf2(tag);
+    return version ? [{ tag, version }] : [];
+  });
+  versions.sort((a, b) => compareVersions(a.version, b.version));
+  for (const { tag, version } of versions) if (await github.holds(repo, mergeCommit, tag)) return version;
+  return null;
+}
+async function release({ bug, tags, store, github }) {
+  if (bug.state !== "merged" || bug.fixPr === null) return false;
+  const { mergeCommit } = await github.pull(bug.repo, bug.fixPr);
+  if (!mergeCommit) return false;
+  const fixedIn = await firstReleaseHolding({ github, repo: bug.repo, mergeCommit, tags });
+  return fixedIn === null ? false : store.move(bug, { state: "fixed", fixedIn });
+}
+async function followBugEvent({ event, repo = OMNI_LOOP_REPOSITORY, store, github }) {
+  if (event.kind === "released") {
+    let moved = 0;
+    for (const bug2 of await store.inStates(["merged"])) if (await release({ bug: bug2, tags: [event.tag], store, github })) moved += 1;
+    return { moved };
+  }
+  const bug = event.kind === "pr-closed" ? await store.byFixPr(repo, event.pr) : await store.byIssue(repo, event.issue);
+  const patch = bug ? patchFor(bug, event) : null;
+  return { moved: bug && patch && await store.move(bug, patch) ? 1 : 0 };
+}
+
 // apps/omni-app/src/bug-reports/job.ts
 var BUG_REPORT_KIND = "bug-report";
 var BUG_REPORT_LANE = "bug-report";
-var BugReportJobDataSchema = z95.object({ report: PublicReportSchema });
+var BugReportJobDataSchema = z96.object({ report: PublicReportSchema });
 async function submitBugReport({ input, attempt: attempt3, add }) {
   const scrubbed = scrub(input);
   if (!scrubbed.ok) return { ok: false, reason: scrubbed.reason };
@@ -22334,12 +22424,49 @@ function bugReportHandler({
     return { outcome: "done" };
   };
 }
+function bugFollowHandler({
+  store,
+  github,
+  repo = OMNI_LOOP_REPOSITORY,
+  log: log2 = noteTo("bug-follow")
+}) {
+  return async (job) => {
+    const { event } = checkPayloadOf(BugFollowDataSchema, BUG_FOLLOW_KIND, job.payload);
+    const { moved } = await followBugEvent({ event, repo, store, github });
+    log2(`bug follow: ${event.kind} moved ${String(moved)} bug${moved === 1 ? "" : "s"}`);
+    return { outcome: "done" };
+  };
+}
 
 // apps/omni-app/src/missions/repair.ts
 import { createHash as createHash6 } from "node:crypto";
+
+// kit/lib/version/version.ts
+var VERSION2 = /^v?(\d+)\.(\d+)\.(\d+)$/;
+function parseVersion(text20) {
+  const match = VERSION2.exec(plainText(text20).trim());
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : null;
+}
+function compareVersions2(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i += 1) {
+    const x = pa[i] ?? Number.NaN;
+    const y = pb[i] ?? Number.NaN;
+    if (x !== y) return x - y;
+  }
+  return 0;
+}
+
+// apps/omni-app/src/missions/repair.ts
 var CAUSE_REPAIRS = 3;
 var MISSION_REPAIRS = 9;
 var isStuckRow = (row) => row.trigger === "stuck";
+function bugFixOf(state, fixedIn) {
+  const version = parseVersion(fixedIn);
+  if (state === "fixed" && version !== null) return { state: "fixed", version };
+  return state === "wont-fix" ? { state: "wont-fix" } : { state: "open" };
+}
 var NO_REPAIRS = { budget: 0, round: 1, jobs: [], rows: [], stuck: [], refused: /* @__PURE__ */ new Map(), landings: /* @__PURE__ */ new Map(), reports: /* @__PURE__ */ new Map() };
 var KEY3 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
 var repairKey = (mission, prd, k) => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
@@ -22373,8 +22500,8 @@ var ended = (job) => {
 var rowOf2 = (view, job) => view.rows.find((row) => row.job === job);
 function spentOf(view) {
   const kept3 = view.rows.filter((row) => row.outcome !== "lost").length;
-  const atWork2 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
-  return kept3 + atWork2;
+  const atWork3 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
+  return kept3 + atWork3;
 }
 var leftOf = (view) => Math.max(0, view.budget - spentOf(view));
 var short2 = (fingerprint2) => fingerprint2.slice(0, 8);
@@ -22412,9 +22539,29 @@ function reportWords(view, row) {
   if (report?.state === "refused") return `its Omni Loop bug report [${short2(row.fingerprint)}] was not sent: ${report.why}`;
   return `its Omni Loop bug report [${short2(row.fingerprint)}] is being filed`;
 }
+function filedOf(view, row) {
+  const report = view.reports.get(row.job ?? "");
+  return report?.state === "filed" ? { issue: report.issue, repo: report.repo, fix: report.fix ?? { state: "open" } } : null;
+}
+var runsFix = (kit, version) => {
+  const pinned = parseVersion(kit);
+  return pinned !== null && compareVersions2(pinned, version) >= 0;
+};
+var updateKitWords = (version) => `Fixed in v${version}: update the kit to resume (omni update)`;
+var wontFixWords = (issue) => `Omni Loop bug #${String(issue)} won't be fixed: take this PRD by hand`;
+function wayBack(view, row) {
+  const moved = movedOf(view, row);
+  if (moved === null) return null;
+  if (moved.fix.state === "wont-fix") return { next: "stops", why: wontFixWords(moved.issue) };
+  const { version } = moved.fix;
+  if (view.held === true) return { next: "stops", why: `Omni Loop bug #${String(moved.issue)} is fixed in v${version}: resume the mission to carry on` };
+  return runsFix(view.kit, version) ? { next: "again" } : { next: "kit", why: updateKitWords(version) };
+}
 function afterRow(view, prd, row, failure2) {
   const retro2 = row.retro;
   if (retro2 === null) return sendOrStop(view, prd, row.failedJob, failure2);
+  const back = wayBack(view, row);
+  if (back !== null) return back;
   if (row.round < view.round && row.outcome === "stopped") return { next: "again" };
   const cause = `[${short2(row.fingerprint)}]`;
   switch (retro2.class) {
@@ -22477,20 +22624,52 @@ var startedEvent = (job, { where, mission }) => ({
 function rowEvents(row) {
   const n = `PRD ${String(row.prd)}`;
   const cause = `[${short2(row.fingerprint)}]`;
-  const said2 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said2("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said3 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said3("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "not fixed: its record line could not be read." : `${row.outcome}.`;
-  return [...retro2, said2("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
+  return [...retro2, said3("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
 }
 function reportEvent(row, report, who = `PRD ${String(row.prd)}`) {
   if (report?.state !== "filed") return [];
   const link = linkOf(`https://github.com/${report.repo}/issues/${String(report.issue)}`);
   return [{ kind: "bug-reported", role: "supervisor", prd: row.prd, job: row.job, link, sentence: `${who} met an Omni Loop bug [${short2(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
 }
-function repairEvents(view, where) {
+function repairEvents(view, where, sentAfter = () => null) {
   const own = view.rows.filter((row) => !isStuckRow(row));
-  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))])];
+  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))]), ...bugFixedEvents(view, sentAfter)];
+}
+function toldWords(view, issue, fix) {
+  if (fix.state === "wont-fix") return `${wontFixWords(issue)}.`;
+  const fixed = `Omni Loop bug #${String(issue)} is fixed in v${fix.version}.`;
+  return view.held === true || runsFix(view.kit, fix.version) ? fixed : `${fixed} ${updateKitWords(fix.version)}.`;
+}
+function movedOf(view, row) {
+  const job = row.job;
+  if (job === null || isStuckRow(row) || row.retro?.class !== "omni-loop") return null;
+  const filed = filedOf(view, row);
+  return filed === null || filed.fix.state === "open" ? null : { ...filed, row: { ...row, job }, fix: filed.fix };
+}
+function resumedEvent(view, moved, sentAfter, said3) {
+  if (moved.fix.state !== "fixed" || view.held === true || !runsFix(view.kit, moved.fix.version)) return [];
+  const job = sentAfter(moved.row);
+  return job === null ? [] : [said3(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
+}
+function bugFixedEvents(view, sentAfter) {
+  const told = /* @__PURE__ */ new Set();
+  return view.rows.flatMap((row) => {
+    const moved = movedOf(view, row);
+    if (moved === null) return [];
+    const link = linkOf(`https://github.com/${moved.repo}/issues/${String(moved.issue)}`);
+    const said3 = (job, sentence2) => ({ kind: "bug-fixed", role: "supervisor", prd: row.prd, job, link, sentence: sentence2 });
+    const first = told.has(row.fingerprint) ? [] : [said3(moved.row.job, toldWords(view, moved.issue, moved.fix))];
+    told.add(row.fingerprint);
+    return [...first, ...resumedEvent(view, moved, sentAfter, said3)];
+  });
+}
+function untold(rows, told) {
+  const heard = new Set(rows.filter((one) => told.has(one.job)).map((one) => `${one.mission} ${one.fingerprint}`));
+  return [...new Set(rows.filter((one) => !heard.has(`${one.mission} ${one.fingerprint}`)).map((one) => one.mission))];
 }
 
 // apps/omni-app/src/missions/qa.ts
@@ -22624,9 +22803,9 @@ function fixEvent(prd, step, last, runs, view) {
   const landing = view.landings.get(last.id);
   if (fix !== null && (landing === void 0 || landing.state === "waits")) return null;
   const bug = issue === void 0 ? "its bug" : `#${String(issue)}`;
-  const said2 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
-  if (fix === null) return said2(`not fixed ${bug}: ${noFixWhy(last)}`);
-  return landing?.state === "landed" ? said2(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said2(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
+  const said3 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
+  if (fix === null) return said3(`not fixed ${bug}: ${noFixWhy(last)}`);
+  return landing?.state === "landed" ? said3(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said3(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
 }
 function sentPairWords(one, where, runs, view) {
   const round = qaRoundOf(one.step);
@@ -22846,6 +23025,7 @@ function afterEnd(fact, latest, last, around) {
 function repaired(fact, latest, last, why, around) {
   const next = repairNext(around.repairs, fact.prd, last.id, why);
   if (next === null || next.next === "stops") return { state: "stopped", why: next?.why ?? why };
+  if (next.next === "kit") return { state: "waits", on: "kit", why: next.why };
   if (next.next === "repair") return { state: "repairable", k: next.k, failedJob: next.failedJob };
   if (next.next === "repairing") return { state: "repairing", number: next.number, left: next.left, why: next.why };
   if (next.next === "paused") return { state: "paused" };
@@ -22935,11 +23115,13 @@ var WAITS_WORDS = {
   "approve-again": "approve it again",
   answer: "answer its questions",
   merge: "merge it",
-  act: "act on its runner job"
+  act: "act on its runner job",
+  kit: "update the kit"
 };
 function waitWords(state, branch) {
   if (state.on === "join") return `joins ${branch ?? "the mission branch"} once: ${state.lacks.join("; ")}`;
   if (state.on === "decide-bugs") return decideWords(state.issues);
+  if (state.on === "kit") return state.why ?? WAITS_WORDS.kit;
   if (state.on !== "decide") return state.why == null ? WAITS_WORDS[state.on] : `${WAITS_WORDS[state.on]} (${state.why})`;
   return `decide the Reviewer's findings on ${state.pr === null ? "its feature PR" : `PR #${String(state.pr)}`}`;
 }
@@ -23022,13 +23204,22 @@ var KEYS = {
   retro: (_prdKey, job) => jobKey2("retro", job),
   "repair-ended": (_prdKey, job) => jobKey2("repair-ended", job),
   "bug-reported": (_prdKey, job) => jobKey2("bug", job),
-  stuck: (_prdKey, job) => jobKey2("stuck", job)
+  stuck: (_prdKey, job) => jobKey2("stuck", job),
+  "bug-taken": (_prdKey, job) => jobKey2("bug-taken", job),
+  "bug-asked": (_prdKey, job) => jobKey2("bug-asked", job),
+  "bug-fixed": (_prdKey, job) => jobKey2("bug-fixed", job)
 };
 var keysOf3 = ({ kind, prd, job }) => KEYS[kind]?.(prd === null ? null : String(prd), job) ?? [];
 var recordedKeys = (events) => new Set(events.flatMap(keysOf3));
 var linkOf3 = (url) => url !== null && /^https?:\/\//.test(url) && url.length <= 500 ? url : null;
 var againWords = (n, what, run) => run >= LAST_RUN ? `${n} ${what} a second time${STOPS_HERE}` : `${n} ${what}: the mission sends it again, once.`;
 var STOPS_HERE = ": it stops here.";
+var sentAfterOf = (runs) => (row) => {
+  const failed3 = runs.find((one) => one.prd === row.prd && one.attempts.some((attempt3) => attempt3.id === row.failedJob));
+  if (failed3 === void 0) return null;
+  const later2 = runs.filter((one) => one.prd === row.prd && after(one, failed3));
+  return later2.reduce((first, one) => first === null || after(first, one) ? one : first, null)?.job ?? null;
+};
 var REPAIRS_HERE = ": the mission sends a repair, while it has one left.";
 var END_WORDS = {
   ready: (n, _run, _reason, branch) => ({
@@ -23105,11 +23296,11 @@ function prdEvents(facts, states) {
   return facts.flatMap((fact) => {
     const n = `PRD ${String(fact.prd)}`;
     const state = states.get(fact.prd);
-    const said2 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
+    const said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
     return [
-      ...fact.stage === "merged" ? [said2("prd-merged", `${n} is merged: delivered.`)] : [],
-      ...fact.stage === "ready" ? [said2("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
-      ...state?.state === "stopped" ? [said2("stopped", `${n} stops: ${state.why}.`)] : []
+      ...fact.stage === "merged" ? [said3("prd-merged", `${n} is merged: delivered.`)] : [],
+      ...fact.stage === "ready" ? [said3("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
+      ...state?.state === "stopped" ? [said3("stopped", `${n} stops: ${state.why}.`)] : []
     ];
   });
 }
@@ -23139,11 +23330,11 @@ function committeeEvents(committees, where) {
   });
 }
 function missionEvents(mission, next) {
-  const said2 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
-  if (next.status === "delivered") return [said2("delivered", "Every PRD of the mission is merged: delivered.")];
-  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said2("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
+  const said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+  if (next.status === "delivered") return [said3("delivered", "Every PRD of the mission is merged: delivered.")];
+  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said3("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
   const waits = newWait(mission, next);
-  return waits === null ? [] : [said2("waits", `Waits on a person: ${waits}`)];
+  return waits === null ? [] : [said3("waits", `Waits on a person: ${waits}`)];
 }
 function newWait(mission, next) {
   if (next.status !== "running" && next.status !== "waiting") return null;
@@ -23173,7 +23364,7 @@ function eventsOf({
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
     ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa }),
-    ...repairEvents(repairs, { where, mission: mission.number }),
+    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
     ...joinEvents(joins, base),
     ...landEvents(landings),
     ...prdEvents(facts, states),
@@ -23222,8 +23413,8 @@ async function endedAtOnce(at4, kept3) {
 async function keepRow(at4, one, { round, rows }) {
   const fingerprint2 = one.record?.fingerprint ?? one.unreadable;
   const retro2 = one.record?.retro ?? null;
-  const spent = overBudget(rows, { budget: at4.budget, round, fingerprint: fingerprint2 });
-  if (spent !== null) return { spent, fingerprint: fingerprint2, retro: retro2 };
+  const spent2 = overBudget(rows, { budget: at4.budget, round, fingerprint: fingerprint2 });
+  if (spent2 !== null) return { spent: spent2, fingerprint: fingerprint2, retro: retro2 };
   const trigger = one.trigger === void 0 ? {} : { trigger: one.trigger };
   const kept3 = await at4.store.keepRepair(at4.mission, { prd: one.prd, fingerprint: fingerprint2, round, failedJob: one.failedJob, job: one.job, retro: retro2, fixPr: fixUrlOf(at4, one.record), ...trigger });
   return "spent" in kept3 ? { spent: kept3.spent, fingerprint: fingerprint2, retro: retro2 } : endedAtOnce(at4, kept3);
@@ -23292,7 +23483,12 @@ async function reportAll(at4, rows, jobs, round) {
   const reports = /* @__PURE__ */ new Map();
   for (const row of rows) {
     const id = row.job;
-    if (id === null || row.round !== round || row.retro?.class !== "omni-loop") continue;
+    if (id === null || row.retro?.class !== "omni-loop") continue;
+    if (row.round !== round) {
+      const filed = await at4.store.bugIssue(row.fingerprint);
+      if (filed !== null) reports.set(id, { state: "filed", ...filed });
+      continue;
+    }
     const job = jobs.find((one) => one.job === id);
     reports.set(id, await reportOne(at4, { ...row, job: id }, () => job === void 0 ? Promise.resolve(null) : jobRecord2(at4, job)));
   }
@@ -23315,7 +23511,22 @@ async function readRepairs(at4) {
   await settleAll(at4, own);
   const reports = await reportAll(at4, own, read2.jobs, round);
   const settled2 = rows.map((row) => own.find((one) => one.id === row.id) ?? row);
-  return { budget: at4.budget, round, jobs: read2.jobs, rows: settled2, stuck: [], refused: refused10, landings, reports };
+  return { budget: at4.budget, round, jobs: read2.jobs, rows: settled2, stuck: [], refused: refused10, landings, reports, ...await wayBackOf(at4, own, reports) };
+}
+async function wayBackOf(at4, rows, reports) {
+  const held2 = at4.mission.status === "paused" || at4.mission.status === "stopped";
+  if (held2 || !waitsOnFix(at4.runs, rows, reports)) return { held: held2 };
+  return { held: held2, kit: await pinnedKit(at4) };
+}
+function waitsOnFix(runs, rows, reports) {
+  return rows.some((row) => {
+    const report = reports.get(row.job ?? "");
+    return row.retro?.class === "omni-loop" && report?.state === "filed" && report.fix?.state === "fixed" && stepAfter(runs, row) === null;
+  });
+}
+async function pinnedKit(at4) {
+  if (at4.kits == null || at4.installation === null) return null;
+  return at4.kits.pinned({ installation: at4.installation, repo: at4.mission.repo, ref: at4.branch });
 }
 
 // apps/omni-app/src/missions/qa-run.ts
@@ -23383,9 +23594,9 @@ var trimmed2 = (n) => n.toFixed(1).replace(/\.0$/, "");
 var spentWords2 = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${trimmed2(n / 1e3)}k` : String(n);
 var capWords = (n) => n >= 1e6 ? `${trimmed2(n / 1e6)}M` : n >= 1e3 ? `${trimmed2(n / 1e3)}k` : String(n);
 var WHOSE = { mission: "this mission's budget", fleet: "this fleet's daily cap" };
-function pausedWords(cap, limit, spent) {
+function pausedWords(cap, limit, spent2) {
   const window = cap === "fleet" ? " in the last 24 hours" : "";
-  return `Paused: budget reached \xB7 ${spentWords2(spent)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
+  return `Paused: budget reached \xB7 ${spentWords2(spent2)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
 }
 var clockOf2 = (iso2) => new Date(iso2).toISOString().slice(11, 16);
 var said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
@@ -23411,16 +23622,16 @@ function sendAct(stop, read2, byBudget) {
   if (!byBudget) return { act: "none" };
   return stop !== null && stop.answer === null ? { act: "quiet" } : { act: "resume", event: said("resumed", resumeWords2(stop, read2)) };
 }
-var pauseAct = ({ cap, limit, spent }) => ({
+var pauseAct = ({ cap, limit, spent: spent2 }) => ({
   act: "pause",
-  stop: { cap, capTokens: limit, spent },
-  words: pausedWords(cap, limit, spent),
+  stop: { cap, capTokens: limit, spent: spent2 },
+  words: pausedWords(cap, limit, spent2),
   event: said("budget-stop", `Paused: ${WHOSE[cap]} reached (${capWords(limit)})`)
 });
 function holdAct(cap, read2, moving2) {
-  const { limit, spent } = against(cap, read2);
+  const { limit, spent: spent2 } = against(cap, read2);
   const again2 = moving2 ? said("paused", `Paused again: ${WHOSE[cap]} is still reached (${capWords(limit)}); its question waits for an answer.`) : null;
-  return { act: "hold", words: pausedWords(cap, limit, spent), event: again2 };
+  return { act: "hold", words: pausedWords(cap, limit, spent2), event: again2 };
 }
 function wakeAct(at4, moving2) {
   const words = `Paused: budget reached \xB7 ${WHOSE.fleet} \xB7 resumes by itself at ${clockOf2(at4)} UTC`;
@@ -23574,12 +23785,12 @@ function pastOf(beats) {
   return past2;
 }
 var resumeWords3 = (left) => `Resume gives each cause ${String(CAUSE_REPAIRS)} more (${String(left)} of ${String(MISSION_REPAIRS)} left in this mission)`;
-function pauseWords(view, { fingerprint: fingerprint2, retro: retro2 }, left, spent) {
+function pauseWords(view, { fingerprint: fingerprint2, retro: retro2 }, left, spent2) {
   const cause = retro2 === null ? "its stuck repairs left no record that could be read." : retro2.cause;
   const fix = retro2 === null ? "" : ` Proposed fix: ${retro2.proposedFix}`;
-  if (spent === "mission") return bare3(`the mission spent its ${String(MISSION_REPAIRS)} repairs [${short2(fingerprint2)}]: ${cause}${fix}`);
+  if (spent2 === "mission") return bare3(`the mission spent its ${String(MISSION_REPAIRS)} repairs [${short2(fingerprint2)}]: ${cause}${fix}`);
   const tried = view.rows.filter((row) => row.round === view.round && row.fingerprint === fingerprint2).sort((a, b) => a.number - b.number);
-  const head = spent === "cause" ? `its cause [${short2(fingerprint2)}] was repaired ${String(CAUSE_REPAIRS)} times: ${cause}` : cause;
+  const head = spent2 === "cause" ? `its cause [${short2(fingerprint2)}] was repaired ${String(CAUSE_REPAIRS)} times: ${cause}` : cause;
   return `${head} Tried: ${tried.length === 0 ? "nothing" : tried.map(triedWords).join(", ")}.${fix} ${resumeWords3(left)}`;
 }
 function fixOnItsWay(view, row, left) {
@@ -23642,11 +23853,11 @@ var sentEvent = (job, { where, mission }) => ({
 });
 function rowEvents2(row) {
   const cause = `[${short2(row.fingerprint)}]`;
-  const said2 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said2("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said3 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said3("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "ended not fixed: its record line could not be read." : `${cause} ended ${row.outcome}.`;
-  return [...retro2, said2("repair-ended", "supervisor", `The stuck repair ${how}`)];
+  return [...retro2, said3("repair-ended", "supervisor", `The stuck repair ${how}`)];
 }
 function stuckEvents(view, where) {
   return [...view.jobs.map((job) => sentEvent(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission")])];
@@ -23734,61 +23945,61 @@ async function stuckStep(at4) {
 }
 
 // kit/lib/mission/retro.ts
-import { z as z98 } from "zod";
+import { z as z99 } from "zod";
 
 // kit/lib/mission/item.ts
-import { z as z97 } from "zod";
+import { z as z98 } from "zod";
 
 // kit/lib/mission/retro-cited.ts
-import { z as z96 } from "zod";
+import { z as z97 } from "zod";
 var CITE_KINDS = ["event", "prd", "pr", "repair"];
 var SENTENCES_MAX = 5;
 var LOG_STAMP = /^\d{2}:\d{2}:\d{2}\b/;
-var CiteSchema = z96.strictObject({
-  kind: z96.enum(CITE_KINDS),
-  ref: z96.number().int().positive()
+var CiteSchema = z97.strictObject({
+  kind: z97.enum(CITE_KINDS),
+  ref: z97.number().int().positive()
 });
-var CitedSentenceSchema = z96.strictObject({
-  text: z96.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
-  cites: z96.array(CiteSchema)
+var CitedSentenceSchema = z97.strictObject({
+  text: z97.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
+  cites: z97.array(CiteSchema)
 }).superRefine((sentence2, ctx) => {
   if (sentence2.cites.length === 0) {
     ctx.addIssue({ code: "custom", message: `the sentence "${sentence2.text}" cites no event, PRD, pull request or repair`, path: ["cites"] });
   }
 });
-var CitedSentencesSchema = z96.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
+var CitedSentencesSchema = z97.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
 
 // kit/lib/mission/item.ts
 var WORDING_MAX = 1200;
-var IdSchema = z97.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
-var NameSchema = z97.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
-var MissionItemTargetSchema = z97.discriminatedUnion("kind", [
-  z97.strictObject({ kind: z97.literal("rule"), id: IdSchema }),
-  z97.strictObject({ kind: z97.literal("law"), id: IdSchema }),
-  z97.strictObject({ kind: z97.literal("form"), form: NameSchema, section: NameSchema })
+var IdSchema = z98.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
+var NameSchema = z98.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
+var MissionItemTargetSchema = z98.discriminatedUnion("kind", [
+  z98.strictObject({ kind: z98.literal("rule"), id: IdSchema }),
+  z98.strictObject({ kind: z98.literal("law"), id: IdSchema }),
+  z98.strictObject({ kind: z98.literal("form"), form: NameSchema, section: NameSchema })
 ]);
-var MissionItemSchema = z97.strictObject({
+var MissionItemSchema = z98.strictObject({
   target: MissionItemTargetSchema,
-  wording: z97.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
+  wording: z98.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
   evidence: CitedSentencesSchema
 });
 
 // kit/lib/mission/retro.ts
 var RETRO_LINE = "omni retro: ";
 var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
-var MissionRetroSchema = z98.strictObject({
+var MissionRetroSchema = z99.strictObject({
   wentWell: CitedSentencesSchema,
   toChange: CitedSentencesSchema
 });
-var MilestoneSchema = z98.union([z98.literal("mission"), z98.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
-var FileSchema2 = z98.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
-var RetroRecordSchema = z98.strictObject({
-  v: z98.literal(1),
-  mission: z98.number().int().positive(),
+var MilestoneSchema = z99.union([z99.literal("mission"), z99.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
+var FileSchema2 = z99.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
+var RetroRecordSchema = z99.strictObject({
+  v: z99.literal(1),
+  mission: z99.number().int().positive(),
   milestone: MilestoneSchema,
   retro: MissionRetroSchema,
   file: FileSchema2.nullable(),
-  items: z98.array(MissionItemSchema)
+  items: z99.array(MissionItemSchema)
 });
 function retroLine(log2) {
   const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP4, "")).findLast((line3) => line3.startsWith(RETRO_LINE));
@@ -23818,11 +24029,11 @@ var ended3 = (job) => ["done", "failed", "cancelled"].includes(job.attempts.at(-
 function milestoneNext(view, { done, delivered, held: held2 }) {
   const kept3 = new Set(view.rows.map((row) => row.milestone));
   const sent = new Set(view.jobs.map((job) => job.milestone));
-  const atWork2 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended3(job));
+  const atWork3 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended3(job));
   const pending = reachedOf(view.roadmaps, done, delivered).filter((milestone) => !kept3.has(milestone) && !sent.has(milestone));
-  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork2 };
-  if (held2 !== null || atWork2) return { send: null, skip: [], atWork: atWork2 };
-  return { send: pending[0] ?? null, skip: [], atWork: atWork2 };
+  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork3 };
+  if (held2 !== null || atWork3) return { send: null, skip: [], atWork: atWork3 };
+  return { send: pending[0] ?? null, skip: [], atWork: atWork3 };
 }
 var FILE = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*\.md$/;
 function fileOf(path) {
@@ -23848,11 +24059,11 @@ function fileLink(file, { repo, branch }) {
   return link.length <= 500 ? link : null;
 }
 function retroEvents(one, at4) {
-  const said2 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
+  const said3 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
   const words = milestoneWords(one.milestone);
-  if (one.skipped !== null) return [said2("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
-  const retro2 = said2("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
-  return [retro2, ...one.targets.map((target2) => said2("item-proposed", `Proposes a change to ${target2}.`))];
+  if (one.skipped !== null) return [said3("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
+  const retro2 = said3("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
+  return [retro2, ...one.targets.map((target2) => said3("item-proposed", `Proposes a change to ${target2}.`))];
 }
 var sentEvent2 = (job, { where, mission }) => ({
   kind: "dispatched",
@@ -23932,6 +24143,193 @@ async function milestoneStep(at4) {
   return { events: [...read2.events, ...acted.events], watching: retroAtWork(acted.view) };
 }
 
+// apps/omni-app/src/missions/bug-team.ts
+var BUG_TRIES = 3;
+var BUG_STATES2 = ["open", "fixing", "pr-opened", "asked", "merged", "fixed", "wont-fix"];
+var bugKey = (mission, issue, k) => `mission:${mission}:bug:${String(issue)}:run:${String(k)}`;
+var KEY7 = /^mission:[0-9a-f-]{36}:bug:([1-9][0-9]*):run:([1-9][0-9]*)$/;
+function bugOfKey(key) {
+  const match = KEY7.exec(key);
+  const issue = IssueNumberSchema.safeParse(Number(match?.[1]));
+  return match && issue.success ? { issue: issue.data, k: Number(match[2]) } : null;
+}
+var bugFixLine = (issue) => `/omni:bug-fix #${String(issue)}`;
+var issueLink2 = (repo, issue) => `https://github.com/${repo}/issues/${String(issue)}`;
+var LOST = /* @__PURE__ */ new Set(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
+var lastOf2 = (job) => job.attempts.at(-1);
+var atWork = (job) => ["queued", "claimed", "running"].includes(lastOf2(job)?.status ?? "done");
+var latestOf3 = (jobs, issue) => jobs.filter((one) => one.issue === issue).reduce((last, one) => last === void 0 || one.k > last.k ? one : last, void 0);
+var nextK2 = (jobs, issue) => (latestOf3(jobs, issue)?.k ?? 0) + 1;
+function prOf2(url) {
+  const pr = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)(?:[/#?].*)?$/.exec(url ?? "")?.[1]));
+  return pr.success ? pr.data : null;
+}
+var ASKED = { human: "need-human", "need-human": "need-human", "needs-brainstorm": "needs-brainstorm", "not-a-bug": "not-a-bug" };
+function bugEndOf(attempt3) {
+  if (attempt3.status === "failed" && (attempt3.limitedUntil != null || LOST.has(attempt3.reason ?? ""))) return { end: "lost" };
+  if (attempt3.status === "cancelled") return { end: "asked", word: "cancelled" };
+  if (attempt3.status !== "done") return { end: "spent", word: "failed" };
+  const word = attempt3.outcome ?? "";
+  if (word === "pr-opened") return { end: "pr-opened", pr: prOf2(attempt3.prUrl) };
+  if (word === "already-fixed") return { end: "already-fixed", pr: prOf2(attempt3.prUrl) };
+  const asked = ASKED[word];
+  if (asked !== void 0) return { end: "asked", word: asked };
+  return { end: "spent", word: word === "stuck" || word === "blocked" ? word : "unreadable" };
+}
+var byCount = (a, b) => b.count - a.count || a.createdAt.localeCompare(b.createdAt) || a.issue - b.issue;
+function candidatesOf(bugs, jobs) {
+  return bugs.filter((bug) => bug.state === "open" && !jobs.some((one) => one.issue === bug.issue && atWork(one))).sort(byCount);
+}
+var runningOf = (bugs, jobs) => bugs.filter((bug) => bug.state === "fixing" || jobs.some((one) => one.issue === bug.issue && atWork(one))).length;
+function pickBugs({ bugs, jobs, issues, parallel }) {
+  const slots = parallel - runningOf(bugs, jobs);
+  if (slots <= 0) return [];
+  return candidatesOf(bugs, jobs).filter((bug) => {
+    const read2 = issues.get(bug.issue);
+    return read2 !== void 0 && read2.open && read2.openFix === null;
+  }).slice(0, slots);
+}
+var countWords = (count4) => `reported ${String(count4)}\xD7`;
+var bugWords = (bug) => `Omni Loop bug #${String(bug.issue)} (${countWords(bug.count)})`;
+var ASKED_WHY = {
+  "need-human": "its bug fix needs a person, and its question waits for a person",
+  "needs-brainstorm": "it needs a product decision, and its question waits for a person",
+  "not-a-bug": "its bug fix says it may not be a bug, and its question waits for a person",
+  cancelled: "its bug fix was cancelled, and a person decides what comes next"
+};
+function triedOf(jobs, issue) {
+  return jobs.filter((one) => one.issue === issue && !atWork(one)).sort((a, b) => a.k - b.k).flatMap((one) => {
+    const last = lastOf2(one);
+    const read2 = last === void 0 ? null : bugEndOf(last);
+    return read2?.end === "spent" ? [read2.word] : [];
+  });
+}
+var moveOf = (bug, change2) => ({ state: bug.state, attempts: bug.attempts, fixPr: bug.fixPr, askedJob: bug.askedJob, ...change2 });
+var said2 = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
+var pullLink = (repo, pr) => `https://github.com/${repo}/pull/${String(pr)}`;
+function spent(bug, job, word, { repo, jobs }) {
+  const attempts = Math.min(BUG_TRIES, bug.attempts + 1);
+  const link = issueLink2(repo, bug.issue);
+  if (attempts < BUG_TRIES) {
+    const left = `${String(attempts)} of ${String(BUG_TRIES)} tries spent`;
+    return { move: moveOf(bug, { state: "open", attempts }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix ended ${word}, ${left}; it goes back in line.`) };
+  }
+  const tried = triedOf(jobs, bug.issue).slice(-BUG_TRIES);
+  const words = tried.length > 0 ? tried.join(", ") : word;
+  return { move: moveOf(bug, { state: "asked", attempts, askedJob: job.job }), event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside after ${String(BUG_TRIES)} tries (${words}): it waits for a person.`) };
+}
+function bugAfter(bug, { repo, jobs }) {
+  const job = latestOf3(jobs, bug.issue);
+  if (job === void 0) return { move: moveOf(bug, { state: "open" }), event: null };
+  const last = lastOf2(job);
+  if (last === void 0 || atWork(job)) return null;
+  const read2 = bugEndOf(last);
+  const link = issueLink2(repo, bug.issue);
+  switch (read2.end) {
+    case "pr-opened":
+      return {
+        move: moveOf(bug, { state: "pr-opened", fixPr: read2.pr }),
+        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)}: ${read2.pr === null ? "its fix pull request" : `fix PR #${String(read2.pr)}`} is open; it waits for a person's merge.`)
+      };
+    case "already-fixed":
+      return {
+        move: moveOf(bug, { state: "merged", fixPr: read2.pr ?? bug.fixPr }),
+        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)} is already fixed${read2.pr === null ? "" : ` by PR #${String(read2.pr)}`}: it waits for its release.`)
+      };
+    case "asked":
+      return {
+        move: moveOf(bug, { state: "asked", askedJob: job.job }),
+        event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read2.word]}.`)
+      };
+    case "lost":
+      return { move: moveOf(bug, { state: "open" }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix's runner was lost; it goes back in line, no try spent.`) };
+    case "spent":
+      return spent(bug, job, read2.word, { repo, jobs });
+  }
+}
+var takenEvent = (bug, job, repo) => said2("bug-taken", "supervisor", job, issueLink2(repo, bug.issue), `Took ${bugWords(bug)}: sent ${bugFixLine(bug.issue)}, try ${String(bug.attempts + 1)} of ${String(BUG_TRIES)}.`);
+function askedWords(bugs) {
+  return bugs.filter((bug) => bug.state === "asked").sort(byCount).map((bug) => `Omni Loop bug #${String(bug.issue)}: answer its question`);
+}
+
+// apps/omni-app/src/missions/bug-team-run.ts
+var NO_TEAM = {
+  bugs: () => Promise.resolve([]),
+  jobs: () => Promise.resolve([]),
+  send: () => Promise.resolve(null),
+  move: () => Promise.resolve(false)
+};
+async function settleOne(team, mission, bug, jobs) {
+  const latest = latestOf3(jobs, bug.issue);
+  if (bug.state === "open" && latest !== void 0 && atWork(latest)) {
+    const moved = await team.move(bug, { ...bug, state: "fixing" });
+    return moved ? { bug: { ...bug, state: "fixing" }, event: takenEvent(bug, latest.job, mission.repo) } : { bug, event: null };
+  }
+  const after2 = bug.state === "fixing" ? bugAfter(bug, { repo: mission.repo, jobs }) : null;
+  if (after2 === null || !await team.move(bug, after2.move)) return { bug, event: null };
+  return { bug: { ...bug, ...after2.move }, event: after2.event };
+}
+async function settle(team, mission, read2, jobs) {
+  const bugs = [];
+  const events = [];
+  for (const one of read2) {
+    const settled2 = await settleOne(team, mission, one, jobs);
+    bugs.push(settled2.bug);
+    if (settled2.event !== null) events.push(settled2.event);
+  }
+  return { bugs, events };
+}
+async function readIssues(at4, candidates) {
+  const none = /* @__PURE__ */ new Map();
+  if (at4.issues === null) return { issues: none, why: "the app cannot read the Omni Loop bugs' issues here: it has no GitHub access" };
+  const installation = await at4.store.installation(at4.mission);
+  if (installation === null) return { issues: none, why: "the Omni Loop bugs' issues cannot be read: the workspace has not installed the Omni GitHub App" };
+  return { issues: await at4.issues.read({ installation, repo: at4.mission.repo, issues: candidates.map((bug) => bug.issue) }), why: null };
+}
+async function take(at4, team, mission, state) {
+  const candidates = candidatesOf(state.bugs, state.jobs);
+  if (candidates.length === 0 || runningOf(state.bugs, state.jobs) >= mission.parallel) return { sent: 0, events: [], why: null };
+  const read2 = await readIssues({ ...at4, mission }, candidates);
+  const picks = pickBugs({ bugs: state.bugs, jobs: state.jobs, issues: read2.issues, parallel: mission.parallel });
+  if (picks.length === 0) return { sent: 0, events: [], why: read2.why };
+  const toFleet = await at4.store.fleetRunners(mission);
+  const events = [];
+  let sent = 0;
+  for (const bug of picks) {
+    const k = nextK2(state.jobs, bug.issue);
+    const job = await team.send({ mission, issue: bug.issue, k, toFleet });
+    if (job === null) continue;
+    sent += 1;
+    state.jobs.push({ issue: bug.issue, k, job, attempts: [{ id: job, status: "queued", outcome: null, reason: null, prUrl: null }] });
+    if (await team.move(bug, { ...bug, state: "fixing" })) state.bugs = state.bugs.map((one) => one.issue === bug.issue ? { ...one, state: "fixing" } : one);
+    events.push(takenEvent(bug, job, mission.repo));
+  }
+  return { sent, events, why: read2.why };
+}
+function teamNext(mission, { running, waits, now }) {
+  if (mission.status !== "running" && mission.status !== "waiting") return { status: mission.status, waitingOn: mission.waitingOn, nextWakeAt: null };
+  const waitingOn = waits.length > 0 ? cut4(waits.join(" \xB7 ")) : null;
+  return { status: running ? "running" : "waiting", waitingOn, nextWakeAt: new Date(now + WAKE_MS).toISOString() };
+}
+async function bugTeamRun(at4) {
+  const { store, now } = at4;
+  const budget = await runBudget(store, at4.mission, now);
+  const mission = budget.mission;
+  const team = store.bugTeam ?? NO_TEAM;
+  const [read2, jobs, recorded] = await Promise.all([team.bugs(mission.repo), team.jobs(mission.id), store.events(mission.id)]);
+  const settled2 = await settle(team, mission, read2, jobs);
+  const state = { bugs: settled2.bugs, jobs: [...jobs] };
+  const moving2 = mission.status === "running" || mission.status === "waiting";
+  const taken = moving2 ? await take(at4, team, mission, state) : { sent: 0, events: [], why: null };
+  const running = state.jobs.some(atWork);
+  const waits = [...taken.why === null ? [] : [taken.why], ...askedWords(state.bugs)];
+  const next = budget.finish(teamNext(mission, { running: running || taken.sent > 0, waits, now }));
+  const events = unrecorded([...settled2.events, ...taken.events], recordedKeys(recorded));
+  await store.record(mission.id, [...budget.events, ...events], new Date(now));
+  const moved = await store.update(mission.id, budget.from, next);
+  return { next, running, moved, sent: taken.sent, events: events.length };
+}
+
 // apps/omni-app/src/missions/job.ts
 var MISSION_KIND = "mission";
 var LATERS_BEFORE_RENEW = 15;
@@ -23939,7 +24337,7 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z99.looseObject({ laters: z99.number().int().min(0).optional() });
+var ProgressSchema3 = z100.looseObject({ laters: z100.number().int().min(0).optional() });
 async function supervise(store, sought, now, github) {
   const first = await readRun(store, sought, now);
   const { read: read2, runs, recorded, toFleet, inPlan, decided, pm, fleet } = first;
@@ -23959,7 +24357,7 @@ async function supervise(store, sought, now, github) {
   if (kept3.hold === null) await missionPull({ store, at: at4, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS });
+  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const before2 = prdStates(facts, runs, branch, view, fleet, repairView, qa);
   const { sent, approved, asked, repaired: repaired2 } = unready === null ? await sendEvery({ store, mission, facts, states: before2, toFleet, skill, added: pm.added, left: leftOf(repairView) }) : NOTHING_SENT;
@@ -23978,9 +24376,9 @@ async function supervise(store, sought, now, github) {
   const next = retro2.next;
   await store.record(mission.id, [...pmSent, ...budget.events, ...events, ...retro2.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
-  return { next, running: atWork(states, retro2.running), moved, sent: sent.length + repaired2.length, events: events.length + retro2.events.length };
+  return { next, running: atWork2(states, retro2.running), moved, sent: sent.length + repaired2.length, events: events.length + retro2.events.length };
 }
-var atWork = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
+var atWork2 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
 async function repairsOf(at4) {
   const read2 = await readRepairs(at4);
   const stuck = at4.store.retros === void 0 ? NO_STUCK : await readStuck({ ...at4, retros: at4.store.retros, rows: read2.rows });
@@ -24368,6 +24766,8 @@ function missionHandler({
   landings = null,
   drops = null,
   answers = null,
+  bugIssues: bugIssues2 = null,
+  kits = null,
   galaxyUrl = DEFAULT_GALAXY_URL,
   now = Date.now,
   log: log2 = noteTo("missions")
@@ -24377,15 +24777,25 @@ function missionHandler({
     const mission = await runnable(store, id);
     if (!("id" in mission)) return mission;
     const at4 = now();
-    if (mission.status === "delivered") {
+    if (mission.status === "delivered" && mission.kind !== "omni-bugs") {
       const retros = mission.store.retros;
       return retros !== void 0 && await deliveredRun(mission.store, retros, mission, at4) ? laterOf({ job, refresh, mission, at: at4 }) : { outcome: "done" };
     }
-    const run = await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
-    log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
-    if (!watched(run) && run.moved) return wakeOf(run) === null ? { outcome: "done" } : laterOf({ job, refresh, mission, at: at4, until: wakeOf(run) });
-    return laterOf({ job, refresh, mission, at: at4 });
+    const team = mission.kind === "omni-bugs";
+    const run = team ? await teamRun({ store: mission.store, mission, now: at4, issues: bugIssues2 }, refresh) : await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, drops, answers, kits, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
+    log2(`mission ${id}: ${team ? "the bug team " : ""}${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
+    return afterRun(run, { job, refresh, mission, at: at4 });
   };
+}
+async function teamRun(at4, refresh) {
+  const run = await bugTeamRun(at4);
+  const holders = await at4.store.bugTeam?.holders?.() ?? [];
+  for (const one of holders) await refresh(missionJob(one.id, one.repo));
+  return run;
+}
+function afterRun(run, at4) {
+  if (!watched(run) && run.moved) return wakeOf(run) === null ? Promise.resolve({ outcome: "done" }) : laterOf({ ...at4, until: wakeOf(run) });
+  return laterOf(at4);
 }
 async function runnable(store, id) {
   if (!store) return { outcome: "skipped", reason: "no database to read the mission from" };
@@ -24403,21 +24813,130 @@ async function laterOf({ job, refresh, mission, at: at4, until = null }) {
   return { outcome: "later", at: due, progress: { laters: 0 } };
 }
 
-// apps/omni-app/src/bug-reports/github.ts
-import { z as z100 } from "zod";
-var InstallationSchema2 = z100.looseObject({ id: z100.number().int().positive() });
-var IssueCreatedSchema = z100.looseObject({ number: IssueNumberSchema });
+// apps/omni-app/src/missions/bug-team.github.ts
+import { z as z101 } from "zod";
+var ISSUES_READ = 20;
+var LINKED = 10;
+var IssueSchema4 = z101.looseObject({
+  state: z101.enum(["OPEN", "CLOSED"]),
+  closedByPullRequestsReferences: z101.looseObject({ nodes: z101.array(z101.looseObject({ number: PrNumberSchema, state: z101.string() }).nullable()) }).nullable()
+});
+var AnswerSchema3 = z101.looseObject({
+  data: z101.looseObject({ repository: z101.record(z101.string(), IssueSchema4.nullable()).nullable() }).nullable()
+});
+function issuesQuery(issues) {
+  const fields = issues.map((issue) => `i${String(issue)}: issue(number: ${String(issue)}) { state closedByPullRequestsReferences(first: ${String(LINKED)}, includeClosedPrs: false) { nodes { number state } } }`).join(" ");
+  return `query BugIssues($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { ${fields} } }`;
+}
+function issuesOf(issues, data) {
+  const repository = AnswerSchema3.parse(data).data?.repository ?? {};
+  const read2 = /* @__PURE__ */ new Map();
+  for (const issue of issues) {
+    const one = repository[`i${String(issue)}`];
+    if (one == null) continue;
+    const fix = one.closedByPullRequestsReferences?.nodes.find((node) => node?.state === "OPEN") ?? null;
+    read2.set(issue, { open: one.state === "OPEN", openFix: fix?.number ?? null });
+  }
+  return read2;
+}
 var split = (repo) => {
+  const [owner, name, ...rest] = repo.split("/");
+  if (!owner || !name || rest.length > 0) throw new Error(`the repository "${repo}" is not owner/name`);
+  return { owner, name };
+};
+function missionBugIssues({ octokitFor }) {
+  return {
+    async read({ installation, repo, issues }) {
+      const asked = issues.slice(0, ISSUES_READ);
+      if (asked.length === 0) return /* @__PURE__ */ new Map();
+      const octokit = await octokitFor(installation);
+      const { data } = await octokit.request("POST /graphql", { query: issuesQuery(asked), variables: split(repo) });
+      return issuesOf(asked, data);
+    }
+  };
+}
+
+// apps/omni-app/src/missions/repair.github.ts
+import { z as z102 } from "zod";
+var STAMP5 = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
+var stampOf = (text20) => parseVersion(STAMP5.exec(text20)?.[1]);
+var BIN = ".omni-loop/bin/omni.mjs";
+var HEAD_BYTES = 65535;
+var CONTENTS2 = "GET /repos/{owner}/{repo}/contents/{path}";
+var PackageSchema = z102.looseObject({ version: z102.unknown() });
+function ownerAndName(full) {
+  const match = /^([^/\s]+)\/([^/\s]+)$/.exec(full);
+  const owner = match?.[1];
+  const repo = match?.[2];
+  if (owner === void 0 || repo === void 0) throw new Error(`the repository "${full}" is not owner/name`);
+  return { owner, repo };
+}
+async function rawText(octokit, { owner, repo, ref, path, bytes }) {
+  try {
+    const { data } = await octokit.request(CONTENTS2, {
+      owner,
+      repo,
+      path,
+      ...ref === null ? {} : { ref },
+      mediaType: { format: "raw" },
+      ...bytes === void 0 ? {} : { headers: { range: `bytes=0-${String(bytes)}` } }
+    });
+    if (typeof data === "string") return data;
+    return data instanceof ArrayBuffer ? new TextDecoder().decode(data) : null;
+  } catch (error) {
+    if (statusOf(error) === 404) return null;
+    throw error;
+  }
+}
+var isShim = (bin) => /['"]\.\.\/\.\.\/kit\/bin\/omni\.ts['"]/.test(bin);
+function packageVersion(text20) {
+  if (text20 === null) return null;
+  try {
+    const parsed3 = PackageSchema.safeParse(JSON.parse(text20));
+    return parsed3.success ? parseVersion(parsed3.data.version) : null;
+  } catch {
+    return null;
+  }
+}
+function missionKits({ octokitFor }) {
+  return {
+    async pinned({ installation, repo, ref }) {
+      try {
+        const octokit = await octokitFor(installation);
+        const at4 = { ...ownerAndName(repo), ref };
+        const bin = await rawText(octokit, { ...at4, path: BIN, bytes: HEAD_BYTES });
+        if (bin === null) return null;
+        const stamped = stampOf(bin);
+        if (stamped !== null || !isShim(bin)) return stamped;
+        return packageVersion(await rawText(octokit, { ...at4, path: "package.json" }));
+      } catch {
+        return null;
+      }
+    }
+  };
+}
+
+// apps/omni-app/src/bug-reports/github.ts
+import { z as z103 } from "zod";
+var InstallationSchema2 = z103.looseObject({ id: z103.number().int().positive() });
+var IssueCreatedSchema = z103.looseObject({ number: IssueNumberSchema });
+var IssueReadSchema = z103.looseObject({ state: z103.string(), state_reason: z103.string().nullish() });
+var PullReadSchema = z103.looseObject({ state: z103.string(), merged: z103.boolean().nullish(), merge_commit_sha: z103.string().nullish() });
+var ReleasesSchema = z103.array(z103.looseObject({ tag_name: z103.string(), draft: z103.boolean().nullish(), prerelease: z103.boolean().nullish() }));
+var CompareSchema4 = z103.looseObject({ status: z103.string() });
+var RELEASES_READ = 50;
+var split2 = (repo) => {
   const [owner, name, ...rest] = repo.split("/");
   if (!owner || !name || rest.length > 0) throw new Error(`the repository "${repo}" is not owner/name`);
   return { owner, repo: name };
 };
-function bugIssues({ octokitFor, app }) {
-  const clientFor = async (repo) => {
-    const at4 = split(repo);
-    const { data } = await (await app()).request("GET /repos/{owner}/{repo}/installation", at4);
-    return { at: at4, octokit: await octokitFor(InstallationSchema2.parse(data).id) };
-  };
+var repoClientOf = ({ octokitFor, app }) => async (repo) => {
+  const at4 = split2(repo);
+  const { data } = await (await app()).request("GET /repos/{owner}/{repo}/installation", at4);
+  return { at: at4, octokit: await octokitFor(InstallationSchema2.parse(data).id) };
+};
+function bugIssues(deps) {
+  const clientFor = repoClientOf(deps);
   return {
     create: async ({ repo, title, body, labels }) => {
       const { at: at4, octokit } = await clientFor(repo);
@@ -24430,15 +24949,57 @@ function bugIssues({ octokitFor, app }) {
     }
   };
 }
+function bugGithub(deps) {
+  const clientFor = repoClientOf(deps);
+  return {
+    issue: async (repo, issue) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = IssueReadSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/issues/{issue_number}", { ...at4, issue_number: issue })).data);
+      return { open: read2.state === "open", notPlanned: read2.state_reason === "not_planned" };
+    },
+    pull: async (repo, pr) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = PullReadSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { ...at4, pull_number: pr })).data);
+      return { merged: read2.merged === true, open: read2.state === "open", mergeCommit: read2.merge_commit_sha ?? null };
+    },
+    releases: async (repo) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = ReleasesSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/releases", { ...at4, per_page: RELEASES_READ })).data);
+      return read2.filter((one) => one.draft !== true && one.prerelease !== true).map((one) => one.tag_name);
+    },
+    holds: async (repo, sha, tag) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = CompareSchema4.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { ...at4, basehead: `${sha}...${tag}` })).data);
+      return read2.status === "ahead" || read2.status === "identical";
+    }
+  };
+}
 
 // apps/omni-app/src/bug-reports/store.ts
-import { z as z101 } from "zod";
+import { z as z104 } from "zod";
 var REPORT_COLUMNS = "fingerprint, repo, issue, count";
-var ReportRowSchema = z101.object({
-  fingerprint: z101.string().regex(/^[0-9a-f]{64}$/),
-  repo: z101.string().min(1),
+var ReportRowSchema = z104.object({
+  fingerprint: z104.string().regex(/^[0-9a-f]{64}$/),
+  repo: z104.string().min(1),
   issue: IssueNumberSchema,
-  count: z101.number().int().positive()
+  count: z104.number().int().positive()
+});
+var TEAM_COLUMNS = "fingerprint, repo, issue, state, fix_pr, fixed_in";
+var TeamRowSchema2 = z104.object({
+  fingerprint: z104.string().regex(/^[0-9a-f]{64}$/),
+  repo: z104.string().min(1),
+  issue: IssueNumberSchema,
+  state: z104.enum(BUG_STATES),
+  fix_pr: PrNumberSchema.nullable(),
+  fixed_in: z104.string().nullable()
+});
+var teamBug = (row) => ({
+  fingerprint: row.fingerprint,
+  repo: row.repo,
+  issue: row.issue,
+  state: row.state,
+  fixPr: row.fix_pr,
+  fixedIn: row.fixed_in
 });
 var UNIQUE_VIOLATION = "23505";
 function bugReportStore(connection) {
@@ -24454,17 +25015,36 @@ function bugReportStore(connection) {
     seen: async (fingerprint2) => rowsOf(ReportRowSchema, await db.rpc("omni_bug_report_seen", { p_fingerprint: fingerprint2 }))[0] ?? null
   };
 }
+function bugTeamStore(connection) {
+  const db = serviceDb(connection);
+  const one = async (query) => rowsOf(TeamRowSchema2, await query).map(teamBug)[0] ?? null;
+  return {
+    byIssue: (repo, issue) => one(db.from("omni_bug_reports").select(TEAM_COLUMNS).eq("repo", repo).eq("issue", issue)),
+    byFixPr: (repo, pr) => one(db.from("omni_bug_reports").select(TEAM_COLUMNS).eq("repo", repo).eq("fix_pr", pr)),
+    inStates: async (states) => rowsOf(TeamRowSchema2, await db.from("omni_bug_reports").select(TEAM_COLUMNS).in("state", [...states])).map(teamBug),
+    move: async (bug, patch) => {
+      const set = {
+        state: patch.state,
+        ...patch.fixPr === void 0 ? {} : { fix_pr: patch.fixPr },
+        ...patch.fixedIn === void 0 ? {} : { fixed_in: patch.fixedIn }
+      };
+      const { data, error } = await db.from("omni_bug_reports").update(set).eq("fingerprint", bug.fingerprint).eq("state", bug.state).select("fingerprint");
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return Array.isArray(data) && data.length > 0;
+    }
+  };
+}
 
 // apps/omni-app/src/missions/settle.ts
 import { mkdtempSync as mkdtempSync16, rmSync as rmSync20 } from "node:fs";
 import { tmpdir as tmpdir16 } from "node:os";
 import { join as join75 } from "node:path";
-import { z as z102 } from "zod";
-var PullSchema7 = z102.looseObject({
-  html_url: z102.string(),
-  state: z102.string(),
-  base: z102.looseObject({ ref: z102.string(), repo: z102.looseObject({ default_branch: z102.string() }) }),
-  head: z102.looseObject({ ref: z102.string(), sha: z102.string() })
+import { z as z105 } from "zod";
+var PullSchema7 = z105.looseObject({
+  html_url: z105.string(),
+  state: z105.string(),
+  base: z105.looseObject({ ref: z105.string(), repo: z105.looseObject({ default_branch: z105.string() }) }),
+  head: z105.looseObject({ ref: z105.string(), sha: z105.string() })
 });
 var messageOf5 = (item, prd, fleet) => `docs(outbox): ${item} answered by fleet ${fleet}
 
@@ -24504,19 +25084,19 @@ function missionAnswers({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z104 } from "zod";
+import { z as z107 } from "zod";
 
 // kit/lib/qa/verdict.ts
-import { z as z103 } from "zod";
+import { z as z106 } from "zod";
 var MAX_BUGS = 5;
-var QaRoundSchema = z103.union([z103.literal(1), z103.literal(2)]);
-var QaBugSchema = z103.strictObject({ issue: IssueNumberSchema });
-var QaVerdictSchema = z103.discriminatedUnion("verdict", [
-  z103.strictObject({ round: QaRoundSchema, verdict: z103.literal("pass") }),
-  z103.strictObject({
+var QaRoundSchema = z106.union([z106.literal(1), z106.literal(2)]);
+var QaBugSchema = z106.strictObject({ issue: IssueNumberSchema });
+var QaVerdictSchema = z106.discriminatedUnion("verdict", [
+  z106.strictObject({ round: QaRoundSchema, verdict: z106.literal("pass") }),
+  z106.strictObject({
     round: QaRoundSchema,
-    verdict: z103.literal("bugs"),
-    bugs: z103.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
+    verdict: z106.literal("bugs"),
+    bugs: z106.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
   })
 ]);
 var POSTED_PREFIX = "omni qa: posted ";
@@ -24539,7 +25119,7 @@ var commentUrl = (url) => url !== void 0 && COMMENT_URL.test(url) ? url : null;
 // apps/omni-app/src/missions/store.ts
 var APP_SENDER2 = "omni-app";
 var TAKEN = "23505";
-var MISSION = "id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by";
+var MISSION = "id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by, kind";
 var WORKSPACE2 = "github_installation_id";
 var ROADMAP = "id, number";
 var ROADMAP_PRD = "roadmap_id, position, row_id, prd, blockers";
@@ -24561,109 +25141,134 @@ var ROOM_JOB = "runner_id";
 var PRODUCT = "plan_repository";
 var REPAIR = "id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger";
 var RETRO = "id, milestone, job_id, skipped, file";
-var BUG_REPORT = "repo, issue";
+var BUG_REPORT = "repo, issue, state, fixed_in";
+var TEAM_BUG = "fingerprint, issue, count, created_at, state, attempts, fix_pr, fixed_in, asked_job";
+var MOVED_BUG = "fingerprint";
+var HOLDER_REPAIR = "mission_id, job_id, fingerprint";
+var TOLD = "job_id";
+var HOLDER_MISSION = "id, repo";
 var REPOSITORY = "full_name";
 var ACTOR = "actor";
 var FLEET_CAP = "daily_tokens";
 var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at";
 var PAUSE_EVENT = "kind, actor, at";
 var FLEET_MISSION = "id";
-var text19 = z104.string().min(1);
-var MissionRowSchema = z104.object({
+var text19 = z107.string().min(1);
+var MissionRowSchema = z107.object({
   id: text19,
   workspace_id: text19,
   repo: text19,
   fleet: text19,
   number: IssueNumberSchema,
   title: text19,
-  status: z104.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z104.string().nullable(),
-  mandate: z104.object({
-    parallel: z104.number().int().min(1).max(4),
-    level: z104.enum(MISSION_LEVELS).default("with-you"),
-    hardToRevert: z104.number().min(0).max(1).default(DEFAULT_BOUND),
-    ownPrds: z104.number().int().min(0).max(10).default(0),
-    tokens: z104.number().int().min(1).nullable().default(null)
+  status: z107.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z107.string().nullable(),
+  mandate: z107.object({
+    parallel: z107.number().int().min(1).max(4),
+    level: z107.enum(MISSION_LEVELS).default("with-you"),
+    hardToRevert: z107.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z107.number().int().min(0).max(10).default(0),
+    tokens: z107.number().int().min(1).nullable().default(null)
   }),
-  scope: z104.object({ prds: z104.array(PrdNumberSchema), roadmaps: z104.array(IssueNumberSchema) }),
+  scope: z107.object({ prds: z107.array(PrdNumberSchema), roadmaps: z107.array(IssueNumberSchema) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
-  paused_by: z104.enum(["stuck"]).nullable().default(null)
+  paused_by: z107.enum(["stuck"]).nullable().default(null),
+  /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
+  kind: z107.enum(["prds", "omni-bugs"]).default("prds")
 });
-var WorkspaceRowSchema2 = z104.object({ github_installation_id: z104.number().int().positive().nullable() });
-var RoadmapRowSchema = z104.object({ id: text19, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z104.object({ roadmap_id: text19, position: z104.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z104.array(z104.string()) });
-var StageRowSchema = z104.object({ prd: PrdNumberSchema, stage: text19 });
-var DossierRowSchema5 = z104.object({ id: text19, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z104.object({ id: text19, dossier_id: text19, mission_id: z104.string().nullable(), approved_at: text19 });
-var FleetEventRowSchema = z104.object({ kind: text19, prd: PrdNumberSchema.nullable(), sentence: text19, link: z104.string().nullable(), actor: z104.string().nullable() });
-var OverturnRowSchema = z104.object({ prd: PrdNumberSchema.nullable(), at: text19 });
-var VoidRowSchema2 = z104.object({ approval_id: text19 });
-var PlanRowSchema = z104.object({ content: z104.string() });
-var JobRowSchema2 = z104.object({
+var WorkspaceRowSchema2 = z107.object({ github_installation_id: z107.number().int().positive().nullable() });
+var RoadmapRowSchema = z107.object({ id: text19, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z107.object({ roadmap_id: text19, position: z107.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z107.array(z107.string()) });
+var StageRowSchema = z107.object({ prd: PrdNumberSchema, stage: text19 });
+var DossierRowSchema5 = z107.object({ id: text19, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z107.object({ id: text19, dossier_id: text19, mission_id: z107.string().nullable(), approved_at: text19 });
+var FleetEventRowSchema = z107.object({ kind: text19, prd: PrdNumberSchema.nullable(), sentence: text19, link: z107.string().nullable(), actor: z107.string().nullable() });
+var OverturnRowSchema = z107.object({ prd: PrdNumberSchema.nullable(), at: text19 });
+var VoidRowSchema2 = z107.object({ approval_id: text19 });
+var PlanRowSchema = z107.object({ content: z107.string() });
+var JobRowSchema2 = z107.object({
   id: text19,
-  mission_key: z104.string().nullable(),
-  resumes: z104.string().nullable(),
-  status: z104.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z104.string().nullable(),
-  reason: z104.string().nullable(),
-  pr_url: z104.string().nullable(),
-  limited_until: z104.string().nullable().default(null),
+  mission_key: z107.string().nullable(),
+  resumes: z107.string().nullable(),
+  status: z107.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z107.string().nullable(),
+  reason: z107.string().nullable(),
+  pr_url: z107.string().nullable(),
+  limited_until: z107.string().nullable().default(null),
   /** The job's parts, read only for whether the runner guessed the reset (PRD 2949). */
-  parts: z104.array(z104.looseObject({ guessed: z104.boolean().optional() })).nullable().default(null)
+  parts: z107.array(z107.looseObject({ guessed: z107.boolean().optional() })).nullable().default(null)
 });
-var JobLogRowSchema = z104.object({ id: text19, log_tail: z104.string() });
+var JobLogRowSchema = z107.object({ id: text19, log_tail: z107.string() });
 var ASK2 = `${JOB2}, line`;
-var AskRowSchema = JobRowSchema2.extend({ line: z104.string() });
-var CareRowSchema = z104.object({ id: text19 });
-var EventRowSchema = z104.object({ kind: text19, prd: PrdNumberSchema.nullable(), job_id: z104.string().nullable() });
-var DecisionRowSchema = z104.object({ job_id: text19, outcome: z104.enum(["carried", "escalated"]), why: z104.array(z104.string()) });
-var DecidedSchema = z104.object({ outcome: z104.enum(["carried", "escalated"]), why: z104.array(z104.string()) });
-var RunnerRowSchema = z104.object({ repos: z104.array(z104.string()) });
-var RoomRunnerRowSchema = z104.object({
+var AskRowSchema = JobRowSchema2.extend({ line: z107.string() });
+var CareRowSchema = z107.object({ id: text19 });
+var EventRowSchema = z107.object({ kind: text19, prd: PrdNumberSchema.nullable(), job_id: z107.string().nullable() });
+var DecisionRowSchema = z107.object({ job_id: text19, outcome: z107.enum(["carried", "escalated"]), why: z107.array(z107.string()) });
+var DecidedSchema = z107.object({ outcome: z107.enum(["carried", "escalated"]), why: z107.array(z107.string()) });
+var RunnerRowSchema = z107.object({ repos: z107.array(z107.string()) });
+var RoomRunnerRowSchema = z107.object({
   id: text19,
-  repos: z104.array(z104.string()),
-  slots: z104.number().int(),
+  repos: z107.array(z107.string()),
+  slots: z107.number().int(),
   last_seen_at: text19,
-  health: z104.looseObject({ at: text19, paused: z104.string().nullable().optional(), accounts: z104.array(z104.looseObject({ state: z104.string(), resetsAt: z104.string().optional() })).optional() }).nullable()
+  health: z107.looseObject({ at: text19, paused: z107.string().nullable().optional(), accounts: z107.array(z107.looseObject({ state: z107.string(), resetsAt: z107.string().optional() })).optional() }).nullable()
 });
-var RoomJobRowSchema = z104.object({ runner_id: z104.string().nullable() });
+var RoomJobRowSchema = z107.object({ runner_id: z107.string().nullable() });
 var CHAIN_MAX = 9;
-var ProductRowSchema3 = z104.object({ plan_repository: z104.string().nullable() });
-var RepairRowSchema = z104.object({
+var ProductRowSchema3 = z107.object({ plan_repository: z107.string().nullable() });
+var RepairRowSchema = z107.object({
   id: text19,
   /** None only for a stuck repair whose cause is the mission's own (PRD 3065). */
   prd: PrdNumberSchema.nullable(),
-  trigger: z104.enum(["failure", "stuck"]).default("failure"),
-  fingerprint: z104.string().regex(/^[0-9a-f]{64}$/),
-  round: z104.number().int().min(1),
-  number: z104.number().int().min(1).max(3),
+  trigger: z107.enum(["failure", "stuck"]).default("failure"),
+  fingerprint: z107.string().regex(/^[0-9a-f]{64}$/),
+  round: z107.number().int().min(1),
+  number: z107.number().int().min(1).max(3),
   failed_job_id: text19,
-  job_id: z104.string().nullable(),
+  job_id: z107.string().nullable(),
   /** A retro that no longer reads as one is read as none: the repair counts, its words are not shown. */
   retro: RepairRetroSchema.nullable().catch(null),
-  fix_pr: z104.string().nullable(),
-  outcome: z104.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
+  fix_pr: z107.string().nullable(),
+  outcome: z107.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
 });
-var BugReportRowSchema = z104.object({ repo: text19, issue: IssueNumberSchema });
-var RetroRowSchema = z104.object({ id: text19, milestone: text19, job_id: z104.string().nullable(), skipped: z104.string().nullable(), file: z104.string().nullable() });
-var RepositoryRowSchema2 = z104.object({ full_name: text19 });
-var ActorRowSchema = z104.object({ actor: z104.string().nullable() });
-var FleetCapRowSchema = z104.object({ daily_tokens: z104.number().int().positive().nullable() });
-var StopRowSchema = z104.object({
-  id: text19,
-  cap: z104.enum(["mission", "fleet"]),
-  cap_tokens: z104.number().int().positive(),
-  spent: z104.number().int().min(0),
-  missions: z104.array(text19),
-  answer: z104.enum(["raised", "tomorrow", "stopped"]).nullable(),
-  raised_to: z104.number().int().positive().nullable(),
+var BugReportRowSchema = z107.object({ repo: text19, issue: IssueNumberSchema, state: z107.enum(BUG_STATES2).default("open"), fixed_in: z107.string().nullable().default(null) });
+var TeamBugRowSchema = z107.object({
+  fingerprint: z107.string().regex(/^[0-9a-f]{64}$/),
+  issue: IssueNumberSchema,
+  count: z107.number().int().min(1),
   created_at: text19,
-  answered_at: z104.string().nullable()
+  state: z107.enum(BUG_STATES2),
+  attempts: z107.number().int().min(0).max(BUG_TRIES),
+  fix_pr: PrNumberSchema.nullable(),
+  fixed_in: z107.string().nullable(),
+  asked_job: z107.string().nullable()
 });
-var PauseEventRowSchema = z104.object({ kind: z104.enum(["paused", "resumed"]), actor: z104.string().nullable(), at: text19 });
-var FleetMissionRowSchema = z104.object({ id: text19 });
-var CountSchema = z104.coerce.number().int().min(0);
-var FleetTokensRowSchema = z104.object({ tokens: CountSchema, oldest_end: z104.string().nullable() });
+var TEAM_STATES = ["open", "fixing", "asked"];
+var MovedBugRowSchema = z107.object({ fingerprint: z107.string().regex(/^[0-9a-f]{64}$/) });
+var HolderRepairRowSchema = z107.object({ mission_id: text19, job_id: text19, fingerprint: z107.string().regex(/^[0-9a-f]{64}$/) });
+var ToldRowSchema = z107.object({ job_id: z107.string().nullable() });
+var HolderMissionRowSchema = z107.object({ id: text19, repo: text19 });
+var MOVED_STATES = ["fixed", "wont-fix"];
+var HELD_STATUSES = ["paused", "stopped"];
+var RetroRowSchema = z107.object({ id: text19, milestone: text19, job_id: z107.string().nullable(), skipped: z107.string().nullable(), file: z107.string().nullable() });
+var RepositoryRowSchema2 = z107.object({ full_name: text19 });
+var ActorRowSchema = z107.object({ actor: z107.string().nullable() });
+var FleetCapRowSchema = z107.object({ daily_tokens: z107.number().int().positive().nullable() });
+var StopRowSchema = z107.object({
+  id: text19,
+  cap: z107.enum(["mission", "fleet"]),
+  cap_tokens: z107.number().int().positive(),
+  spent: z107.number().int().min(0),
+  missions: z107.array(text19),
+  answer: z107.enum(["raised", "tomorrow", "stopped"]).nullable(),
+  raised_to: z107.number().int().positive().nullable(),
+  created_at: text19,
+  answered_at: z107.string().nullable()
+});
+var PauseEventRowSchema = z107.object({ kind: z107.enum(["paused", "resumed"]), actor: z107.string().nullable(), at: text19 });
+var FleetMissionRowSchema = z107.object({ id: text19 });
+var CountSchema = z107.coerce.number().int().min(0);
+var FleetTokensRowSchema = z107.object({ tokens: CountSchema, oldest_end: z107.string().nullable() });
 var stopOf2 = (row) => ({
   id: row.id,
   cap: row.cap,
@@ -24683,7 +25288,7 @@ var STOP_MISSIONS = 100;
 var PAUSES_READ = 50;
 function madeOf(answer, none) {
   if (answer.error?.code === TAKEN) return null;
-  const [made] = rowsOf(z104.object({ id: text19 }), answer);
+  const [made] = rowsOf(z107.object({ id: text19 }), answer);
   if (!made) throw new Error(`the database ${none} and gave no reason`);
   return made.id;
 }
@@ -24807,9 +25412,9 @@ function missionStore(connection) {
     return team?.daily_tokens ?? null;
   }
   async function missionSpent(mission) {
-    const spent = await db.rpc("mission_tokens", { p_mission: mission.id });
-    if (spent.error) throw new Error(`the database refused the mission's tokens: ${spent.error.message}`);
-    return CountSchema.parse(spent.data);
+    const spent2 = await db.rpc("mission_tokens", { p_mission: mission.id });
+    if (spent2.error) throw new Error(`the database refused the mission's tokens: ${spent2.error.message}`);
+    return CountSchema.parse(spent2.data);
   }
   const retros = {
     async milestones(mission) {
@@ -24851,8 +25456,52 @@ function missionStore(connection) {
     const open = rowsOf(StopRowSchema, await stops().eq("fleet", mission.fleet).eq("cap", "fleet").is("answer", null).limit(1)).map(stopOf2);
     return { named: named[0] ?? null, open: open[0] ?? null };
   }
+  const bugTeam = {
+    async bugs(repo) {
+      const rows = rowsOf(TeamBugRowSchema, await db.from("omni_bug_reports").select(TEAM_BUG).eq("repo", repo.toLowerCase()).in("state", [...TEAM_STATES]).order("created_at"));
+      return rows.map((row) => ({
+        fingerprint: row.fingerprint,
+        issue: row.issue,
+        count: row.count,
+        createdAt: row.created_at,
+        state: row.state,
+        attempts: row.attempts,
+        fixPr: row.fix_pr,
+        fixedIn: row.fixed_in,
+        askedJob: row.asked_job
+      }));
+    },
+    async jobs(id) {
+      return (await keyedJobs(id, `mission:${id}:bug:%`)).flatMap(({ row, attempts }) => {
+        const key = row.mission_key === null ? null : bugOfKey(row.mission_key);
+        return key === null ? [] : [{ issue: key.issue, k: key.k, job: row.id, attempts }];
+      });
+    },
+    send: ({ mission, issue, k, toFleet }) => queue({ mission, toFleet, line: bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
+    async move(bug, { state, attempts, fixPr, askedJob }) {
+      const moved = rowsOf(
+        z107.object({ fingerprint: text19 }),
+        await db.from("omni_bug_reports").update({ state, attempts, fix_pr: fixPr, asked_job: askedJob, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("fingerprint", bug.fingerprint).eq("state", bug.state).eq("attempts", bug.attempts).select("fingerprint")
+      );
+      return moved.length > 0;
+    },
+    async holders() {
+      const moved = rowsOf(MovedBugRowSchema, await db.from("omni_bug_reports").select(MOVED_BUG).in("state", [...MOVED_STATES])).map((row) => row.fingerprint);
+      if (moved.length === 0) return [];
+      const repairs = rowsOf(
+        HolderRepairRowSchema,
+        await db.from("mission_repairs").select(HOLDER_REPAIR).in("fingerprint", moved).eq("outcome", "stopped").eq("trigger", "failure").eq("retro->>class", "omni-loop").not("job_id", "is", null)
+      );
+      if (repairs.length === 0) return [];
+      const told = rowsOf(ToldRowSchema, await db.from("mission_events").select(TOLD).eq("kind", "bug-fixed").in("job_id", repairs.map((row) => row.job_id)));
+      const ids = untold(repairs.map((row) => ({ mission: row.mission_id, job: row.job_id, fingerprint: row.fingerprint })), new Set(told.flatMap((row) => row.job_id === null ? [] : [row.job_id])));
+      if (ids.length === 0) return [];
+      return rowsOf(HolderMissionRowSchema, await db.from("missions").select(HOLDER_MISSION).in("id", ids).in("status", [...HELD_STATUSES]));
+    }
+  };
   return {
     retros,
+    bugTeam,
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
       if (!row) return null;
@@ -24871,7 +25520,8 @@ function missionStore(connection) {
         hardToRevert: row.mandate.hardToRevert,
         ownPrds: row.mandate.ownPrds,
         ...row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens },
-        ...row.paused_by === "stuck" ? { pausedBy: "stuck" } : {}
+        ...row.paused_by === "stuck" ? { pausedBy: "stuck" } : {},
+        ...row.kind === "omni-bugs" ? { kind: row.kind } : {}
       };
     },
     async facts(mission) {
@@ -25005,11 +25655,11 @@ function missionStore(connection) {
       return repairOf(kept3);
     },
     async endRepair(id, outcome3) {
-      rowsOf(z104.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
+      rowsOf(z107.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
     },
     async bugIssue(fingerprint2) {
       const [row] = rowsOf(BugReportRowSchema, await db.from("omni_bug_reports").select(BUG_REPORT).eq("fingerprint", fingerprint2).limit(1));
-      return row ?? null;
+      return row === void 0 ? null : { repo: row.repo, issue: row.issue, fix: bugFixOf(row.state, row.fixed_in) };
     },
     addJob: (job) => jobLedger(connection).add(job),
     async names(mission) {
@@ -25031,36 +25681,36 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z104.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z107.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status: status2, waitingOn, nextWakeAt, pausedBy }) {
       const by = pausedBy === "stuck" ? { paused_by: pausedBy } : {};
       const moved = rowsOf(
-        z104.object({ id: text19 }),
+        z107.object({ id: text19 }),
         await db.from("missions").update({ status: status2, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString(), ...by }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
     },
     async budget(mission, at4) {
       const fleetCap = await fleetCapOf(mission);
-      const spent = await missionSpent(mission);
+      const spent2 = await missionSpent(mission);
       const fleet = await fleetSpent(mission, at4);
       const stops = await stopsOf(mission);
       const pauses = rowsOf(PauseEventRowSchema, await db.from("mission_events").select(PAUSE_EVENT).eq("mission_id", mission.id).in("kind", ["paused", "resumed"]).is("prd", null).order("at", { ascending: false }).limit(PAUSES_READ));
-      return { missionSpent: spent, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
+      return { missionSpent: spent2, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
     },
     async fleetMissions(mission) {
       const rows = rowsOf(FleetMissionRowSchema, await db.from("missions").select(FLEET_MISSION).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet).in("status", ["running", "waiting"]).order("created_at").limit(STOP_MISSIONS));
       return [mission.id, ...rows.map((row) => row.id).filter((id) => id !== mission.id)].slice(0, STOP_MISSIONS);
     },
-    async stop(mission, { cap, capTokens, spent, missions }) {
-      const answer = await db.from("mission_budget_stops").insert({ workspace_id: mission.workspace, fleet: mission.fleet, cap, mission_id: cap === "mission" ? mission.id : null, cap_tokens: capTokens, spent, missions: [...missions] }).select("id");
+    async stop(mission, { cap, capTokens, spent: spent2, missions }) {
+      const answer = await db.from("mission_budget_stops").insert({ workspace_id: mission.workspace, fleet: mission.fleet, cap, mission_id: cap === "mission" ? mission.id : null, cap_tokens: capTokens, spent: spent2, missions: [...missions] }).select("id");
       return madeOf(answer, "recorded no budget stop");
     },
     async pause(ids, waitingOn) {
       if (ids.length === 0) return;
       rowsOf(
-        z104.unknown(),
+        z107.unknown(),
         await db.from("missions").update({ status: "paused", waiting_on: waitingOn, next_wake_at: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", [...ids]).in("status", ["running", "waiting"]).select("id")
       );
     }
@@ -25106,7 +25756,7 @@ function checkpointsForgetHandler({
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash8 } from "node:crypto";
-import { z as z106 } from "zod";
+import { z as z109 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -25246,7 +25896,7 @@ function knowledgeEntries(sources) {
 }
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z105 } from "zod";
+import { z as z108 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -25299,7 +25949,7 @@ var AGAIN_MS = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema2 = z105.object({ slot: z105.string().min(1).max(80), productId: z105.string().min(1).optional() });
+var PayloadSchema2 = z108.object({ slot: z108.string().min(1).max(80), productId: z108.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -25383,9 +26033,9 @@ function payloadOf2(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS2 = 6e4;
-var EmbedPayloadSchema = z106.object({
-  repository: z106.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z106.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z109.object({
+  repository: z109.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z109.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -25471,7 +26121,7 @@ function payloadOf3(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z108 } from "zod";
+import { z as z111 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash9 } from "node:crypto";
@@ -25506,12 +26156,12 @@ function packFiles(read2) {
 import { mkdtempSync as mkdtempSync17, readdirSync as readdirSync23, readFileSync as readFileSync49, rmSync as rmSync21, statSync as statSync16 } from "node:fs";
 import { tmpdir as tmpdir17 } from "node:os";
 import { join as join76 } from "node:path";
-import { z as z107 } from "zod";
-var PullFileSchema = z107.looseObject({ filename: z107.string().min(1), previous_filename: z107.string().nullish() });
+import { z as z110 } from "zod";
+var PullFileSchema = z110.looseObject({ filename: z110.string().min(1), previous_filename: z110.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z107.array(PullFileSchema).parse(data);
+    return z110.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -25591,12 +26241,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z108.object({
-  installationId: z108.number(),
-  owner: z108.string().min(1),
-  repo: z108.string().min(1),
-  sha: z108.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z108.string().min(1),
+var PackPayloadSchema = z111.object({
+  installationId: z111.number(),
+  owner: z111.string().min(1),
+  repo: z111.string().min(1),
+  sha: z111.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z111.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packHandler({
@@ -25738,9 +26388,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z109 } from "zod";
+import { z as z112 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z109.looseObject({ category: z109.string().nullable() });
+var ReplySchema2 = z112.looseObject({ category: z112.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -25763,10 +26413,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z110 } from "zod";
-var UngroupedRowSchema = z110.object({ id: z110.string().min(1), product_id: z110.string().min(1), workspace_id: z110.string().min(1), query: z110.string().min(1) });
-var NearestRowSchema = z110.object({ group_id: z110.string().min(1), cosine: z110.number() });
-var GroupIdSchema = z110.object({ id: z110.string().min(1) });
+import { z as z113 } from "zod";
+var UngroupedRowSchema = z113.object({ id: z113.string().min(1), product_id: z113.string().min(1), workspace_id: z113.string().min(1), query: z113.string().min(1) });
+var NearestRowSchema = z113.object({ group_id: z113.string().min(1), cosine: z113.number() });
+var GroupIdSchema = z113.object({ id: z113.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -25784,7 +26434,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z110.array(NearestRowSchema).parse(data);
+      const [row] = z113.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -25804,13 +26454,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z111 } from "zod";
+import { z as z114 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z111.looseObject({
-  verdicts: z111.array(z111.looseObject({ entryId: z111.string().min(1), relevant: z111.boolean().nullable(), confidence: z111.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z114.looseObject({
+  verdicts: z114.array(z114.looseObject({ entryId: z114.string().min(1), relevant: z114.boolean().nullable(), confidence: z114.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z111.looseObject({ ids: z111.array(z111.string().min(1)) });
+var SearchSchema2 = z114.looseObject({ ids: z114.array(z114.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -25846,19 +26496,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z112 } from "zod";
+import { z as z115 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z112.object({ group_id: z112.string().min(1), product_id: z112.string().min(1), workspace_id: z112.string().min(1), category: z112.string().nullable() });
-var GroupRowSchema = z112.object({ group_id: z112.string().min(1) });
-var QuestionTextSchema = z112.object({ question: z112.string() });
-var OpenedRowSchema = z112.object({ opened_id: z112.string().min(1) });
-var ProductRowSchema4 = z112.object({ product_id: z112.string().min(1) });
-var HolderRowSchema5 = z112.object({ product_id: z112.string().min(1) });
-var LiveProductSchema = z112.object({ id: z112.string().min(1) });
-var QuestionRowSchema = z112.object({ id: z112.string().min(1), product_id: z112.string().min(1), workspace_id: z112.string().min(1), question: z112.string(), category: z112.string().nullable() });
-var AnswerRowSchema = z112.object({ question_id: z112.string().min(1), entry_id: z112.string().min(1) });
-var RunRowSchema = z112.object({ id: z112.string().min(1) });
+var LogRowSchema = z115.object({ group_id: z115.string().min(1), product_id: z115.string().min(1), workspace_id: z115.string().min(1), category: z115.string().nullable() });
+var GroupRowSchema = z115.object({ group_id: z115.string().min(1) });
+var QuestionTextSchema = z115.object({ question: z115.string() });
+var OpenedRowSchema = z115.object({ opened_id: z115.string().min(1) });
+var ProductRowSchema4 = z115.object({ product_id: z115.string().min(1) });
+var HolderRowSchema5 = z115.object({ product_id: z115.string().min(1) });
+var LiveProductSchema = z115.object({ id: z115.string().min(1) });
+var QuestionRowSchema = z115.object({ id: z115.string().min(1), product_id: z115.string().min(1), workspace_id: z115.string().min(1), question: z115.string(), category: z115.string().nullable() });
+var AnswerRowSchema = z115.object({ question_id: z115.string().min(1), entry_id: z115.string().min(1) });
+var RunRowSchema = z115.object({ id: z115.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -25893,7 +26543,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z112.string().min(1).nullable().parse(data);
+      return z115.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -25906,7 +26556,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant: relevant2, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant2, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z112.boolean().parse(data);
+      return z115.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -25939,7 +26589,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z112.string().min(1).nullable().parse(data);
+      return z115.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -26030,19 +26680,19 @@ function searchEvalPromoteHandler({
 }
 
 // kit/lib/ready/report.ts
-import { z as z113 } from "zod";
+import { z as z116 } from "zod";
 var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
 var ACCEPTANCE_CHECK_NAME = "acceptance";
 var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z113.object({
-  ac: z113.number().int().positive(),
-  kind: z113.enum(AC_KINDS),
-  state: z113.enum(RESULT_STATES),
+var ResultSchema = z116.object({
+  ac: z116.number().int().positive(),
+  kind: z116.enum(AC_KINDS),
+  state: z116.enum(RESULT_STATES),
   /** The test's title, `AC-<n>: …`. */
-  title: z113.string().min(1),
+  title: z116.string().min(1),
   /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z113.string().min(1).nullable().default(null),
-  why: z113.string().min(1).optional()
+  proof: z116.string().min(1).nullable().default(null),
+  why: z116.string().min(1).optional()
 }).strict().superRefine((result, issues) => {
   const proves = acNumberOfTitle(result.title);
   if (proves !== result.ac) {
@@ -26050,10 +26700,10 @@ var ResultSchema = z113.object({
     issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
   }
 });
-var ReportSchema = z113.object({
-  format: z113.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z113.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z113.array(ResultSchema)
+var ReportSchema = z116.object({
+  format: z116.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z116.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z116.array(ResultSchema)
 }).strict();
 function parseAcceptanceReport(text20) {
   let raw;
@@ -26083,9 +26733,9 @@ var ACCEPTANCE_MARK = "omni-acceptance:";
 function acceptanceOfLog(log2) {
   const line3 = log2.split("\n").reverse().find((each) => each.includes(ACCEPTANCE_MARK));
   if (line3 === void 0) return null;
-  const said2 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
-  if (!said2.startsWith("{")) return { ok: false, why: said2.replace(/^failed — /, "") || "the run said nothing" };
-  const read2 = parseAcceptanceReport(said2);
+  const said3 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
+  if (!said3.startsWith("{")) return { ok: false, why: said3.replace(/^failed — /, "") || "the run said nothing" };
+  const read2 = parseAcceptanceReport(said3);
   return read2.ok ? { ok: true, report: read2.report } : { ok: false, why: read2.why };
 }
 var READY_JOB_KIND = "pr-ready";
@@ -26477,25 +27127,25 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z116 } from "zod";
+import { z as z119 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
 import { existsSync as existsSync52, readFileSync as readFileSync50 } from "node:fs";
 import { join as join78 } from "node:path";
-import { z as z114 } from "zod";
+import { z as z117 } from "zod";
 var read = (value) => ({ ok: true, value });
 var unread = (why) => ({ ok: false, why });
-var RunSchema3 = z114.looseObject({
-  name: z114.string(),
-  status: z114.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
-  conclusion: z114.string().nullish(),
-  html_url: z114.string().nullish(),
-  output: z114.looseObject({ title: z114.string().nullish(), summary: z114.string().nullish(), text: z114.string().nullish() }).nullish()
+var RunSchema3 = z117.looseObject({
+  name: z117.string(),
+  status: z117.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
+  conclusion: z117.string().nullish(),
+  html_url: z117.string().nullish(),
+  output: z117.looseObject({ title: z117.string().nullish(), summary: z117.string().nullish(), text: z117.string().nullish() }).nullish()
 });
-var RunsPageSchema2 = z114.looseObject({ check_runs: z114.array(RunSchema3) });
-var ComparePageSchema2 = z114.looseObject({
-  merge_base_commit: z114.looseObject({ sha: z114.string() }).nullish(),
-  files: z114.array(z114.looseObject({ filename: z114.string(), status: z114.string(), previous_filename: z114.string().nullish() })).nullish()
+var RunsPageSchema2 = z117.looseObject({ check_runs: z117.array(RunSchema3) });
+var ComparePageSchema2 = z117.looseObject({
+  merge_base_commit: z117.looseObject({ sha: z117.string() }).nullish(),
+  files: z117.array(z117.looseObject({ filename: z117.string(), status: z117.string(), previous_filename: z117.string().nullish() })).nullish()
 });
 var STATUS2 = Object.freeze({
   added: "added",
@@ -26663,7 +27313,7 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
 }
 
 // apps/omni-app/src/ready-check/runner-fallback.ts
-import { z as z115 } from "zod";
+import { z as z118 } from "zod";
 
 // apps/omni-app/src/ready-check/zip.ts
 import { inflateRawSync } from "node:zlib";
@@ -26721,11 +27371,11 @@ function unzipText(zip, name) {
 var KEPT_ARTIFACT = "acceptance-report";
 var KEPT_FILE = "report.json";
 var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
-var ArtifactsSchema = z115.looseObject({
-  artifacts: z115.array(z115.looseObject({ id: z115.number(), expired: z115.boolean().nullish(), workflow_run: z115.looseObject({ head_sha: z115.string().nullish() }).nullish() }))
+var ArtifactsSchema = z118.looseObject({
+  artifacts: z118.array(z118.looseObject({ id: z118.number(), expired: z118.boolean().nullish(), workflow_run: z118.looseObject({ head_sha: z118.string().nullish() }).nullish() }))
 });
-var RunSchema4 = z115.looseObject({ id: z115.number(), status: z115.string().nullish(), conclusion: z115.string().nullish(), output: z115.looseObject({ title: z115.string().nullish(), summary: z115.string().nullish(), text: z115.string().nullish() }).nullish() });
-var RunsSchema = z115.looseObject({ check_runs: z115.array(RunSchema4).nullish() });
+var RunSchema4 = z118.looseObject({ id: z118.number(), status: z118.string().nullish(), conclusion: z118.string().nullish(), output: z118.looseObject({ title: z118.string().nullish(), summary: z118.string().nullish(), text: z118.string().nullish() }).nullish() });
+var RunsSchema = z118.looseObject({ check_runs: z118.array(RunSchema4).nullish() });
 async function keptReport(octokit, { owner, repo, headSha }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
   const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
@@ -26742,16 +27392,16 @@ async function keptReport(octokit, { owner, repo, headSha }) {
 }
 var ended6 = (job) => job !== null && ["done", "failed", "cancelled"].includes(job.status);
 function noResult(job) {
-  const said2 = acceptanceOfLog(job.logTail);
-  const how = said2 !== null && !said2.ok ? said2.why : job.reason ?? `it ended ${job.status} with no result`;
+  const said3 = acceptanceOfLog(job.logTail);
+  const how = said3 !== null && !said3.ok ? said3.why : job.reason ?? `it ended ${job.status} with no result`;
   return `the runner's e2e run gave no result (${how}); a new commit runs it again`;
 }
 function standingReport(kept3, criteria, job) {
   if (!ended6(job)) return kept3;
   const e2e = new Set(criteria.filter((criterion) => criterion.kind === "e2e").map((criterion) => criterion.number));
   const others = kept3.results.filter((result) => result.kind !== "e2e" || !e2e.has(result.ac));
-  const said2 = acceptanceOfLog(job.logTail);
-  const ran = said2?.ok === true && said2.report.commit === kept3.commit ? said2.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
+  const said3 = acceptanceOfLog(job.logTail);
+  const ran = said3?.ok === true && said3.report.commit === kept3.commit ? said3.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
   return { ...kept3, results: [...others, ...ran].sort((a, b) => a.ac - b.ac) };
 }
 function standing(criterion, report) {
@@ -26877,9 +27527,9 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema5 = z116.looseObject({ id: z116.number(), status: z116.string().nullish(), conclusion: z116.string().nullish(), html_url: z116.string().nullish(), output: z116.looseObject({ title: z116.string().nullish(), summary: z116.string().nullish() }).nullish() });
-var RunsSchema2 = z116.looseObject({ check_runs: z116.array(RunSchema5).nullish() });
-var WrittenSchema2 = z116.looseObject({ id: z116.number(), html_url: z116.string().nullish() });
+var RunSchema5 = z119.looseObject({ id: z119.number(), status: z119.string().nullish(), conclusion: z119.string().nullish(), html_url: z119.string().nullish(), output: z119.looseObject({ title: z119.string().nullish(), summary: z119.string().nullish() }).nullish() });
+var RunsSchema2 = z119.looseObject({ check_runs: z119.array(RunSchema5).nullish() });
+var WrittenSchema2 = z119.looseObject({ id: z119.number(), html_url: z119.string().nullish() });
 var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
@@ -26973,15 +27623,15 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z117 } from "zod";
+import { z as z120 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var AppJobRowSchema = z117.object({
-  status: z117.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  log_tail: z117.string(),
-  reason: z117.string().nullable()
+var AppJobRowSchema = z120.object({
+  status: z120.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z120.string(),
+  reason: z120.string().nullable()
 });
-var MissionScopeRowSchema = z117.object({ scope: z117.object({ prds: z117.array(PrdNumberSchema), roadmaps: z117.array(z117.number().int().positive()) }) });
-var RoadmapRowOfSchema = z117.object({ roadmap_id: z117.string().min(1) });
+var MissionScopeRowSchema = z120.object({ scope: z120.object({ prds: z120.array(PrdNumberSchema), roadmaps: z120.array(z120.number().int().positive()) }) });
+var RoadmapRowOfSchema = z120.object({ roadmap_id: z120.string().min(1) });
 function readyStore(connection) {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
@@ -27111,8 +27761,9 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), bugIssues: missionBugIssues({ octokitFor }), kits: missionKits({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
+      [BUG_FOLLOW_KIND]: bugFollowHandler({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
@@ -27175,7 +27826,7 @@ async function runDue({
   return summary2;
 }
 async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt: endsAt2, log: log2, summary: summary2 }) {
-  const settling = settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
+  const settling = settle2(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
   const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
   const kept3 = await keep2(ledger, job, settled2, log2);
@@ -27214,7 +27865,7 @@ function stepsOf(ledger, job, leaseSeconds, log2) {
   if (!save || !read2 || !renew) return memorySteps();
   return jobSteps({ ledger: { save, stepsOf: read2, renew }, job: { id: job.id, claim: job.claim }, leaseSeconds, log: log2 });
 }
-async function settle(job, handler, run, clock) {
+async function settle2(job, handler, run, clock) {
   try {
     if (!handler) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
     return settledOf2(await handler(job, run));

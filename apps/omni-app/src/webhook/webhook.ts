@@ -75,6 +75,7 @@ import { PrNumberSchema, PrdNumberSchema, type PrNumber } from 'omni-loop/kit/li
 import { INBOX_EXTERNAL_ID, RETRO_EVENT, type CanonActionRequestData, type RetroRequest } from '../jobs/payloads.ts';
 import { isSignedBody } from 'omni-loop/kit/lib/signature.ts';
 import { FIX_STAMP_EVENT, fixedRecordOf, fixStampId, type FixStampKind, type FixStampRequest } from '../fix-rows/fix-stamp.ts';
+import { toBugJobs } from '../bug-reports/follow.ts';
 import { fixRowStampJob } from '../fix-rows/job.ts';
 import { FLEET_BOARD_EVENT, fleetBoardId, type FleetBoardRequest } from '../fleet-board/events.ts';
 import { fleetBoardJob } from '../fleet-board/job.ts';
@@ -165,6 +166,8 @@ export const HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
   pull_request_review: CHECK_ACTIONS.pull_request_review,
   check_run: Object.freeze([...CHECK_ACTIONS.check_run, ...CANON_ACTIONS.check_run]),
+  // The Omni Loop bug team's fix is released (PRD 3088 s4); its merged pull request and its issue's closing ride the events above.
+  release: Object.freeze(['published']),
 });
 
 /** Every event the app subscribes to: the ones it acts on, and the ones a touch is read from. */
@@ -485,6 +488,7 @@ export function toQueuedJobs(event: string, delivery: unknown, deliveryId: strin
     ...toHarvestJobs(event, delivery),
     ...toRetroJobs(event, delivery),
     ...toMainWatchJobs(event, delivery),
+    ...toBugJobs(event, delivery, deliveryId),
     ...clicks,
   ];
 }

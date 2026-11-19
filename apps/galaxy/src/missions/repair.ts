@@ -47,6 +47,8 @@ export interface RepairEvent {
   job: string | null;
   link: string | null;
   at: string;
+  /** Only the `bug-fixed` events carry it (PRD 3088): what they say is read from it. */
+  sentence?: string;
 }
 
 /** What the repository read. */
@@ -69,6 +71,9 @@ export interface TriedRepair {
   words: string;
 }
 
+/** Where an Omni Loop bug a PRD waited on stands once the team moved it (PRD 3088). */
+export type BugMove = 'fixed' | 'update-kit' | 'resumed' | 'wont-fix';
+
 /** One PRD's repair state, in the words a line shows. */
 export interface RepairLine {
   mission: string;
@@ -78,6 +83,8 @@ export interface RepairLine {
   headline: string;
   /** The state chip. */
   chip: string;
+  /** A PRD waiting on an Omni Loop bug the team moved (PRD 3088): fixed and waiting for the kit, resumed, or never to be fixed; absent while the bug is still open. */
+  bug?: BugMove;
   /** The cause in one sentence, with its first 8 characters' name; null when no retro was read yet. */
   cause: string | null;
   fingerprint: string | null;
@@ -149,6 +156,8 @@ export function repairStateWord(kind: string, sentence: string): string | null {
 /** What a repair row's ledger link is called: its fix pull request, or the Omni Loop issue it was reported as; null for any other row. */
 export function repairLinkLabel(kind: string, link: string | null): string | null {
   if (kind === 'bug-reported') return issueOf(link)?.label.replace('bug ', '') ?? null;
+  // The bug team's three kinds (PRD 3088) link the public issue: `#3102`.
+  if (kind === 'bug-taken' || kind === 'bug-asked' || kind === 'bug-fixed') return /#\d+$/.exec(issueOf(link)?.label ?? '')?.[0] ?? null;
   return kind === 'retro' || kind === 'repair-ended' ? (pullOf(link)?.label ?? null) : null;
 }
 
@@ -171,11 +180,38 @@ function stoppedLine(base: ReturnType<typeof baseLine>, rows: readonly RepairRow
   };
 }
 
-/** A PRD that waits on the Omni Loop bug its repair was reported as, since its repair began. */
+/** What a `bug-fixed` event of a PRD says happened (PRD 3088), read from its sentence: the event carries no other field for it. */
+export function bugMoveOf(sentence: string): { move: BugMove; version: string | null } {
+  const version = /v(0\.0\.\d+)/.exec(sentence)?.[1] ?? null;
+  if (sentence.includes("won't be fixed")) return { move: 'wont-fix', version };
+  if (sentence.includes(' resumed: ')) return { move: 'resumed', version };
+  return { move: sentence.includes('update the kit') ? 'update-kit' : 'fixed', version };
+}
+
+/** The line of a PRD whose Omni Loop bug moved: `PRD 412 · fixed in v0.0.690 · update kit`, `PRD 412 · resumed · bug #3102 fixed`, `PRD 412 · bug #3102 won't be fixed` (seven words or fewer: the full sentence is in the ledger). */
+function movedLine(base: ReturnType<typeof baseLine>, issue: Linked, move: BugMove, version: string | null): RepairLine {
+  const n = /#\d+$/.exec(issue.label)?.[0] ?? issue.label;
+  const prd = `PRD ${String(base.prd)}`;
+  const v = version === null ? 'fixed' : `fixed in v${version}`;
+  switch (move) {
+    case 'update-kit': return { ...base, kind: 'waits', bug: move, headline: `${prd} · ${v} · update kit`, chip: 'Waiting for you', link: issue };
+    case 'resumed': return { ...base, kind: 'waits', bug: move, headline: `${prd} · resumed · bug ${n} fixed`, chip: 'Building', link: issue };
+    case 'wont-fix': return { ...base, kind: 'waits', bug: move, headline: `${prd} · bug ${n} won't be fixed`, chip: REPAIR_WORDS.stopped, link: issue };
+    case 'fixed': return { ...base, kind: 'waits', bug: move, headline: `${prd} · ${v} · waits for its next step`, chip: 'Fixed', link: issue };
+  }
+}
+
+/** A PRD that waits on the Omni Loop bug its repair was reported as, since its repair began; once the team moved the bug, what it did. */
 function waitsLine(base: ReturnType<typeof baseLine>, events: readonly RepairEvent[], started: RepairEvent): RepairLine | null {
   const bug = newest(events, base.prd, 'bug-reported');
   const issue = bug !== undefined && bug.at >= started.at ? issueOf(bug.link) : null;
-  return issue === null ? null : { ...base, kind: 'waits', headline: `Waits on ${issue.label}`, chip: REPAIR_WORDS.waitsOn, link: issue };
+  if (bug === undefined || issue === null) return null;
+  const moved = newest(events, base.prd, 'bug-fixed');
+  if (moved?.sentence !== undefined && moved.at >= bug.at) {
+    const { move, version } = bugMoveOf(moved.sentence);
+    return movedLine(base, issue, move, version);
+  }
+  return { ...base, kind: 'waits', headline: `Waits on ${issue.label}`, chip: REPAIR_WORDS.waitsOn, link: issue };
 }
 
 /** A PRD whose repair is at work: its number for the cause and what is left of the mission's. */

@@ -175,6 +175,13 @@ jobs:
         # member answers it once as themselves, nobody else; paused by stuck only while paused; the five event kinds, the
         # two job keys, and a stuck repair claimed first (PRD 3065).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mission_retros.sql
+      - name: The Omni Loop bug team's mission, a bug's state and its attempts
+        # A mission is prds unless it says omni-bugs, whose scope is empty; one omni-bugs mission is live at most, whichever
+        # workspace holds it; a push reads the brief's kind and never changes it. A bug report reads open with no attempt,
+        # takes one of seven states, 3 attempts at most, and reads fixed only with its release; nobody signed in reads it,
+        # and a member of another workspace reads none of the team's mission. A bug's job key and the three event kinds
+        # (PRD 3088).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/omni_bug_team.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is

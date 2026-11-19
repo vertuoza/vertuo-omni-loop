@@ -65,6 +65,12 @@
 //   how it ends    `later`, a minute on, while the mission runs or waits, or while it is paused with a job of it
 //                  still running (its end is recorded); at its wake, paused by the budget until tomorrow; `done`
 //                  otherwise. Paused sends nothing new
+//   the bug team   an `omni-bugs` mission (PRD 3088) runs ./bug-team-run.ts instead: no PRD, no branch, never delivered; its budget,
+//                  each bug's ended job read, the next bugs taken (`/omni:bug-fix #<issue>`), watched a minute on while it runs or waits;
+//                  then it wakes each paused or stopped mission that waited on a bug fixed or not planned and was not told yet
+//   the way back   a PRD stopped on an Omni Loop bug (PRD 3088 s5, ./repair.ts): once the bug is fixed and the kit the repository
+//                  pins (./repair.github.ts) is at its version, its step is sent again, spending no repair; older, it waits on the
+//                  kit; paused or stopped, the mission waits for its own Resume; a bug not planned leaves it stopped
 //   the cap        the ledger fails a job's 21st `later` in a row: before that, a run refreshes its own job (it is
 //                  running, so the refresh marks it `again`), and its finish queues it at once with its count reset.
 //                  The extra run reads the same state and records nothing twice
@@ -100,6 +106,9 @@ import { isStuckRow, leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } 
 import { readStuck, stuckStep } from './stuck-run.ts';
 import { NO_STUCK, type StuckView } from './stuck.ts';
 import { milestoneStep } from './milestone-run.ts';
+import { bugTeamRun } from './bug-team-run.ts';
+import type { MissionBugIssues } from './bug-team.github.ts';
+import type { MissionKits } from './repair.github.ts';
 import {
   baseOf,
   conclude,
@@ -160,6 +169,10 @@ export type MissionDeps = {
   landings?: MissionLandings | null;
   /** A high item the fleet's committee answered, settled on its PRD's feature branch (PRD 2896 s10); null (no GitHub): it goes to a person. */
   answers?: MissionAnswers | null;
+  /** The Omni Loop bug team's read of its bugs' issues (PRD 3088); null (no GitHub): an `omni-bugs` mission takes no bug, saying why. */
+  bugIssues?: MissionBugIssues | null;
+  /** The kit a mission's repository pins (PRD 3088 s5); null (no GitHub): a PRD whose Omni Loop bug was fixed waits to update the kit. */
+  kits?: MissionKits | null;
   /** The Omni page's host, which each PRD's page in the mission pull request is linked on. */
   galaxyUrl?: string;
   /** Refreshes a job on the ledger: how a run resets its count of `later`s. */
@@ -179,6 +192,7 @@ type GitHubDeps = {
   landings: MissionLandings | null;
   drops: MissionDrops | null;
   answers: MissionAnswers | null;
+  kits: MissionKits | null;
   galaxyUrl: string;
 };
 
@@ -204,7 +218,7 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS });
+  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const before = prdStates(facts, runs, branch, view, fleet, repairView, qa);
   const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added, left: leftOf(repairView) }) : NOTHING_SENT;
@@ -897,6 +911,8 @@ export function missionHandler({
   landings = null,
   drops = null,
   answers = null,
+  bugIssues = null,
+  kits = null,
   galaxyUrl = DEFAULT_GALAXY_URL,
   now = Date.now,
   log = noteTo('missions'),
@@ -907,16 +923,36 @@ export function missionHandler({
     if (!('id' in mission)) return mission;
     const at = now();
     // Delivered (PRD 3065): only its milestone retros run, watched until each that was sent is recorded.
-    if (mission.status === 'delivered') {
+    if (mission.status === 'delivered' && mission.kind !== 'omni-bugs') {
       const retros = mission.store.retros;
       return retros !== undefined && (await deliveredRun(mission.store, retros, mission, at)) ? laterOf({ job, refresh, mission, at }) : { outcome: 'done' };
     }
-    const run = await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
-    log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
-    // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
-    if (!watched(run) && run.moved) return wakeOf(run) === null ? { outcome: 'done' } : laterOf({ job, refresh, mission, at, until: wakeOf(run) });
-    return laterOf({ job, refresh, mission, at });
+    // The Omni Loop bug team (PRD 3088): its own run, never delivered.
+    const team = mission.kind === 'omni-bugs';
+    const run = team
+      ? await teamRun({ store: mission.store, mission, now: at, issues: bugIssues }, refresh)
+      : await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, kits, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
+    log(`mission ${id}: ${team ? 'the bug team ' : ''}${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
+    return afterRun(run, { job, refresh, mission, at });
   };
+}
+
+/**
+ * The bug team's run (PRD 3088, ./bug-team-run.ts), then the paused or stopped missions that waited on a bug that was fixed or will not
+ * be (s5), each woken by its own job so that its run records the bug's move once, in its own room: the team writes nothing into another
+ * workspace's mission itself. One that runs or waits wakes by itself, a minute on.
+ */
+async function teamRun(at: Parameters<typeof bugTeamRun>[0], refresh: MissionDeps['refresh']): Promise<Supervised> {
+  const run = await bugTeamRun(at);
+  const holders = (await at.store.bugTeam?.holders?.()) ?? [];
+  for (const one of holders) await refresh(missionJob(one.id, one.repo));
+  return run;
+}
+
+/** How a run ends: a status changed meanwhile (a Pause) is read again on the next run, a minute on; a mission no longer watched is done, or wakes by itself. */
+function afterRun(run: Supervised, at: { job: ClaimedJob; refresh: MissionDeps['refresh']; mission: MissionRecord; at: number }): Promise<JobResult> {
+  if (!watched(run) && run.moved) return wakeOf(run) === null ? Promise.resolve({ outcome: 'done' }) : laterOf({ ...at, until: wakeOf(run) });
+  return laterOf(at);
 }
 
 /** The mission to run, with its store; or how the run ends without one: no database, no mission, a draft. */

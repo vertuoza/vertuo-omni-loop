@@ -4,16 +4,18 @@
 // PRD's facts, a person's Pause. Its repairs (PRD 2980) are kept as `mission_repairs` keeps them: the database's caps
 // hold here too, 3 per cause in a round and 9 per mission. Its token budget (PRD 3040): what the mission and its fleet spent,
 // the fleet's daily cap, the other missions of the fleet and the budget stops, one open per cap as the database keeps them, each
-// answered once, a raise saved with its answer. No database, no model call.
+// answered once, a raise saved with its answer. The Omni Loop bug team's bugs and bug-fix jobs (PRD 3088), the database's cap of 3
+// tries held. No database, no model call.
 import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
-import { repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
+import { bugFixOf, repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
 import { retroKey, retroSkillLine, type ItemRow, type MissionRetro, type RetroJob, type RetroRow, type RoadmapScope } from './milestone.ts';
 import { stuckJobsOf, stuckKey, stuckSkillLine } from './stuck.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
-import type { MissionRecord, MissionRetros, MissionStore } from './store.ts';
+import type { MissionBugTeam, MissionRecord, MissionRetros, MissionStore } from './store.ts';
+import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team.ts';
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type RoomRunner, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
@@ -27,7 +29,7 @@ type FakeEvent = Omit<NewEvent, 'kind'> & { kind: string; actor: string; at: str
 const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
-export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [], now = Date.now, retros: milestones }: {
+export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [], now = Date.now, retros: milestones, team }: {
   mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null;
   /** PRDs with a page that are in no scope yet (PRD 2896 s12): read as facts once the mission's scope names them, as a PRD its PM wrote. */
   pages?: PrdFacts[];
@@ -38,6 +40,11 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
    * supervisor runs no stuck count and no milestone retro, as before.
    */
   retros?: { roadmaps: RoadmapScope[] };
+  /**
+   * PRD 3088: the store keeps the Omni Loop bug team's bugs, these, and its bug-fix jobs; `holders`, the paused or stopped missions the
+   * team is to tell that a bug moved (s5). Absent, it has none.
+   */
+  team?: { bugs: Bug[]; holders?: { id: string; repo: string }[] };
 }) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
@@ -59,8 +66,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const repairs: (RepairJob & { key: string; line: string; toFleet: string | null; log: string | null })[] = [];
   /** The rows `mission_repairs` kept. */
   const rows: RepairRow[] = [];
-  /** The Omni Loop bugs `omni_bug_reports` holds, by fingerprint, and the jobs added to the App's ledger. */
-  const bugs = new Map<string, { repo: string; issue: IssueNumber }>();
+  /** The Omni Loop bugs `omni_bug_reports` holds, by fingerprint, where each stands (PRD 3088), and the jobs added to the App's ledger. */
+  const bugs = new Map<string, { repo: string; issue: IssueNumber; state: string; fixedIn: string | null }>();
   const added: NewJob[] = [];
   /** The token budget (PRD 3040): what the mission and its fleet spent, the fleet's cap, its other missions and the stops. */
   const spent: { mission: number; fleet: number; oldestEnd: string | null } = { mission: 0, fleet: 0, oldestEnd: null };
@@ -130,8 +137,34 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     },
   };
 
+  /** PRD 3088: the bugs `omni_bug_reports` holds, and the bug-fix jobs the team queued, their key, line and target. */
+  let teamBugs: Bug[] = (team?.bugs ?? []).map((one) => ({ ...one }));
+  const bugJobs: (BugJob & { key: string; line: string; toFleet: string | null })[] = [];
+  const bugTeam: MissionBugTeam = {
+    bugs: () => Promise.resolve(teamBugs.filter((one) => ['open', 'fixing', 'asked'].includes(one.state)).map((one) => ({ ...one }))),
+    jobs: () => Promise.resolve(bugJobs.map(({ issue, k, job, attempts }) => ({ issue, k, job, attempts: attempts.map((one) => ({ ...one })) }))),
+    send: ({ mission: sent, issue, k, toFleet }) => {
+      const key = bugKey(sent.id, issue, k);
+      if (bugJobs.some((one) => one.key === key)) return Promise.resolve(null);
+      made += 1;
+      const id = `job-${String(made)}`;
+      bugJobs.push({ issue, k, job: id, attempts: [queued(id)], key, line: bugFixLine(issue), toFleet: toFleet ? sent.fleet : null });
+      return Promise.resolve(id);
+    },
+    move: (bug, to) => {
+      // omni_bug_reports_attempts: a 4th try is refused (23514), and the run fails.
+      if (to.attempts > BUG_TRIES) return Promise.reject(new Error('omni_bug_reports_attempts: a 4th try is refused'));
+      const held = teamBugs.find((one) => one.fingerprint === bug.fingerprint);
+      if (held?.state !== bug.state || held.attempts !== bug.attempts) return Promise.resolve(false);
+      Object.assign(held, { state: to.state, attempts: to.attempts, fixPr: to.fixPr, askedJob: to.askedJob });
+      return Promise.resolve(true);
+    },
+    holders: () => Promise.resolve((team?.holders ?? []).map((one) => ({ ...one }))),
+  };
+
   const store: MissionStore = {
     ...(milestones === undefined ? {} : { retros }),
+    ...(team === undefined ? {} : { bugTeam }),
     mission: (id) => Promise.resolve(id === record.id ? { ...record } : null),
     facts: (read) => Promise.resolve([...current, ...pages.filter((page) => read.scope.prds.includes(page.prd) && !current.some((fact) => fact.prd === page.prd))].map((fact) => ({ ...fact }))),
     runs: () => {
@@ -232,7 +265,10 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (one?.outcome === null) one.outcome = outcome;
       return Promise.resolve();
     },
-    bugIssue: (fingerprint) => Promise.resolve(bugs.get(fingerprint) ?? null),
+    bugIssue: (fingerprint) => {
+      const filed = bugs.get(fingerprint);
+      return Promise.resolve(filed === undefined ? null : { repo: filed.repo, issue: filed.issue, fix: bugFixOf(filed.state, filed.fixedIn) });
+    },
     addJob: (job) => {
       if (added.some((one) => one.kind === job.kind && one.key === job.key)) return Promise.resolve(false);
       added.push(job);
@@ -418,10 +454,39 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     items: () => items.map((one) => ({ ...one, evidence: [...one.evidence] })),
     /** The App's bug-report job filed the fingerprint as `issue` (PRD 2980 s4). */
     fileBug: (fingerprint: string, filed: number, repo = 'vertuoza/vertuo-omni-loop') => {
-      bugs.set(fingerprint, { repo, issue: parseIssue(filed) });
+      bugs.set(fingerprint, { repo, issue: parseIssue(filed), state: 'open', fixedIn: null });
+    },
+    /** PRD 3088 s5: the filed bug moves, as the App's following of its issue and release moves it: fixed in `fixedIn`, or won't fix. */
+    moveBug: (fingerprint: string, state: 'open' | 'merged' | 'fixed' | 'wont-fix', fixedIn: string | null = null) => {
+      const filed = bugs.get(fingerprint);
+      if (filed === undefined) throw new Error(`no bug was filed for ${fingerprint}`);
+      bugs.set(fingerprint, { ...filed, state, fixedIn });
     },
     /** The jobs added to the App's ledger, in order. */
     added: () => added.map((one) => ({ ...one })),
+    /** PRD 3088: the bugs as `omni_bug_reports` holds them now, every state. */
+    bugs: () => teamBugs.map((one) => ({ ...one })),
+    /** PRD 3088: a bug's row changes, as a webhook or a person would move it. */
+    setBug: (filed: number, change: Partial<Bug>) => {
+      teamBugs = teamBugs.map((one) => (one.issue === filed ? { ...one, ...change } : one));
+    },
+    /** PRD 3088: the bug-fix jobs the team queued, in order. */
+    bugJobs: () => bugJobs.map((one) => ({ ...one, attempts: one.attempts.map((each) => ({ ...each })) })),
+    /** PRD 3088: the bug's latest bug-fix job ends (or runs) as `change` says. */
+    endBug: (filed: number, change: Partial<Attempt>) => {
+      const attempt = bugJobs.filter((one) => one.issue === filed).at(-1)?.attempts.at(-1);
+      if (!attempt) throw new Error(`no bug fix of #${String(filed)} was sent`);
+      Object.assign(attempt, change);
+    },
+    /** PRD 3088: the bug's latest bug-fix job's runner is lost: it fails `runner lost` and a resume of it is queued (PRD 2809). */
+    loseBug: (filed: number) => {
+      const one = bugJobs.filter((each) => each.issue === filed).at(-1);
+      const attempt = one?.attempts.at(-1);
+      if (!one || !attempt) throw new Error(`no bug fix of #${String(filed)} was sent`);
+      Object.assign(attempt, { status: 'failed', reason: 'runner lost' });
+      made += 1;
+      one.attempts.push(queued(`job-${String(made)}`));
+    },
     /** The care jobs queued, in order (PRD 2896 s5). */
     cares: () => cares.map((one) => ({ ...one })),
     /** The events recorded, in order. */

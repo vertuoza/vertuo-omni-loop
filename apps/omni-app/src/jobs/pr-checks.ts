@@ -71,9 +71,12 @@ import { missionBranches } from '../missions/branch.ts';
 import { missionDrops } from '../missions/drop.ts';
 import { missionJoins } from '../missions/join.ts';
 import { MISSION_KIND, missionHandler } from '../missions/job.ts';
-import { bugIssues } from '../bug-reports/github.ts';
-import { BUG_REPORT_KIND, bugReportHandler } from '../bug-reports/job.ts';
-import { bugReportStore } from '../bug-reports/store.ts';
+import { missionBugIssues } from '../missions/bug-team.github.ts';
+import { missionKits } from '../missions/repair.github.ts';
+import { BUG_FOLLOW_KIND } from '../bug-reports/follow.ts';
+import { bugGithub, bugIssues } from '../bug-reports/github.ts';
+import { BUG_REPORT_KIND, bugFollowHandler, bugReportHandler } from '../bug-reports/job.ts';
+import { bugReportStore, bugTeamStore } from '../bug-reports/store.ts';
 import { missionKeepUps } from '../missions/keep-up.ts';
 import { missionAnswers } from '../missions/settle.ts';
 import { missionLandings } from '../missions/landing.ts';
@@ -244,8 +247,9 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), bugIssues: missionBugIssues({ octokitFor }), kits: missionKits({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
+      [BUG_FOLLOW_KIND]: bugFollowHandler({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),

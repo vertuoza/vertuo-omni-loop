@@ -56,7 +56,7 @@ import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import { approvalNext, approveLine, verdictWords, type Committee } from './committee.ts';
 import { answerEvents, answersNext, itemsOpen, type ItemCommittee, type OpenAt } from './answers.ts';
-import { NO_REPAIRS, repairEvents, repairingWords, repairNext, type RepairView } from './repair.ts';
+import { NO_REPAIRS, repairEvents, repairingWords, repairNext, type RepairView, type SentAfter } from './repair.ts';
 import type { QaPosted } from 'omni-loop/kit/lib/qa/verdict.ts';
 import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
@@ -160,8 +160,11 @@ export type Run = { prd: PrdNumber; run: number; step: Step; job: string; attemp
 /** How a runner job ended, as the table reads it. */
 export type JobEnd = 'ready' | 'answers' | 'human' | 'held' | 'stopped' | 'review' | 'changes' | 'checked' | 'lost' | 'limited' | 'cancelled' | 'failed';
 
-/** What a person must do for a PRD to carry on: `decide` the Reviewer's findings after round 2 (PRD 2871), `decide-bugs` QA's (PRD 3001). */
-export type WaitsOn = 'approve' | 'approve-again' | 'answer' | 'merge' | 'act' | 'decide' | 'decide-bugs';
+/**
+ * What a person must do for a PRD to carry on: `decide` the Reviewer's findings after round 2 (PRD 2871), `decide-bugs` QA's (PRD 3001),
+ * `kit` update the kit to the one that fixed the Omni Loop bug it stopped on (PRD 3088).
+ */
+export type WaitsOn = 'approve' | 'approve-again' | 'answer' | 'merge' | 'act' | 'decide' | 'decide-bugs' | 'kit';
 
 /**
  * A job's end, as the PRD's next step: `send` the run's next step (PRD 2871); `checked`, QA's verdict decides it, and `land`, the
@@ -246,7 +249,12 @@ export type EventKind =
   /** PRD 3040: the supervisor recorded a budget stop, paused the mission again by it, or resumed it once it was answered. */
   | 'budget-stop' | 'paused' | 'resumed'
   /** PRD 3065: a stuck repair sent or a pause by stuck, a milestone retro recorded or skipped, a change a retro proposed. */
-  | 'stuck' | 'milestone-retro' | 'item-proposed';
+  | 'stuck' | 'milestone-retro' | 'item-proposed'
+  /**
+   * PRD 3088: the Omni Loop bug team sent a bug-fix job, or set a bug aside on its question or its third try; a bug a PRD of the mission
+   * stopped on is fixed (or will not be), or that PRD went again on a kit that runs the fix.
+   */
+  | 'bug-taken' | 'bug-asked' | 'bug-fixed';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa';
 
 /** An event to record, signed by its role and `agent`. */
@@ -580,6 +588,7 @@ function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, around: Around): P
 function repaired(fact: PrdFacts, latest: Run, last: Attempt, why: string, around: Around): PrdState {
   const next = repairNext(around.repairs, fact.prd, last.id, why);
   if (next === null || next.next === 'stops') return { state: 'stopped', why: next?.why ?? why };
+  if (next.next === 'kit') return { state: 'waits', on: 'kit', why: next.why };
   if (next.next === 'repair') return { state: 'repairable', k: next.k, failedJob: next.failedJob };
   if (next.next === 'repairing') return { state: 'repairing', number: next.number, left: next.left, why: next.why };
   if (next.next === 'paused') return { state: 'paused' };
@@ -720,6 +729,7 @@ const WAITS_WORDS: Readonly<Record<Exclude<WaitsOn, 'decide' | 'decide-bugs'>, s
   answer: 'answer its questions',
   merge: 'merge it',
   act: 'act on its runner job',
+  kit: 'update the kit',
 };
 
 /**
@@ -729,6 +739,8 @@ const WAITS_WORDS: Readonly<Record<Exclude<WaitsOn, 'decide' | 'decide-bugs'>, s
 function waitWords(state: Extract<PrdState, { state: 'waits' }>, branch: string | null): string {
   if (state.on === 'join') return `joins ${branch ?? 'the mission branch'} once: ${state.lacks.join('; ')}`;
   if (state.on === 'decide-bugs') return decideWords(state.issues);
+  // PRD 3088: `Fixed in v0.0.N: update the kit to resume (omni update)`, whole.
+  if (state.on === 'kit') return state.why ?? WAITS_WORDS.kit;
   if (state.on !== 'decide') return state.why == null ? WAITS_WORDS[state.on] : `${WAITS_WORDS[state.on]} (${state.why})`;
   return `decide the Reviewer's findings on ${state.pr === null ? 'its feature PR' : `PR #${String(state.pr)}`}`;
 }
@@ -849,6 +861,9 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   'repair-ended': (_prdKey, job) => jobKey('repair-ended', job),
   'bug-reported': (_prdKey, job) => jobKey('bug', job),
   stuck: (_prdKey, job) => jobKey('stuck', job),
+  'bug-taken': (_prdKey, job) => jobKey('bug-taken', job),
+  'bug-asked': (_prdKey, job) => jobKey('bug-asked', job),
+  'bug-fixed': (_prdKey, job) => jobKey('bug-fixed', job),
 };
 
 /** The keys an event recorded stands for; none for a kind recorded on every change (waits, Start, Pause). */
@@ -865,6 +880,17 @@ const againWords = (n: string, what: string, run: number): string =>
   run >= LAST_RUN ? `${n} ${what} a second time${STOPS_HERE}` : `${n} ${what}: the mission sends it again, once.`;
 
 const STOPS_HERE = ': it stops here.';
+/**
+ * The job of the first run of a repair's PRD sent after the run its failed job belongs to (PRD 3088): its step sent again; null when
+ * none was.
+ */
+const sentAfterOf = (runs: readonly Run[]): SentAfter => (row) => {
+  const failed = runs.find((one) => one.prd === row.prd && one.attempts.some((attempt) => attempt.id === row.failedJob));
+  if (failed === undefined) return null;
+  const later = runs.filter((one) => one.prd === row.prd && after(one, failed));
+  return later.reduce<Run | null>((first, one) => (first === null || after(first, one) ? one : first), null)?.job ?? null;
+};
+
 /** Where the table stops a PRD and the mission repairs (PRD 2980): a repair goes first, while the mission has one left. */
 const REPAIRS_HERE = ': the mission sends a repair, while it has one left.';
 
@@ -1101,7 +1127,7 @@ export function eventsOf({
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
     ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa }),
-    ...repairEvents(repairs, { where, mission: mission.number }),
+    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
     ...joinEvents(joins, base),
     ...landEvents(landings),
     ...prdEvents(facts, states),

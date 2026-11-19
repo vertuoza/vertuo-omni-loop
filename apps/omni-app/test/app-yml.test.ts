@@ -55,7 +55,7 @@ describe('app.yml — the GitHub App manifest', () => {
   });
 
   it('subscribes to exactly the spec’s events: the checks’ two, and the five a touch is read from (PRD 902)', () => {
-    expect([...manifest.default_events].sort()).toEqual(['check_run', 'check_suite', 'issue_comment', 'issues', 'pull_request', 'pull_request_review', 'push']);
+    expect([...manifest.default_events].sort()).toEqual(['check_run', 'check_suite', 'issue_comment', 'issues', 'pull_request', 'pull_request_review', 'push', 'release']);
   });
 
   it('subscribes to exactly the events the webhook handles or reads a touch from', () => {
@@ -67,6 +67,7 @@ describe('app.yml — the GitHub App manifest', () => {
       pull_request: ['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited', 'closed'],
       pull_request_review: ['submitted', 'dismissed'],
       check_run: ['rerequested', 'requested_action'],
+      release: ['published'],
     });
   });
 

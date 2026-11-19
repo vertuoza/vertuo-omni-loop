@@ -53,3 +53,4 @@ default_events:
   - push
   - check_suite
   - pull_request_review
+  - release

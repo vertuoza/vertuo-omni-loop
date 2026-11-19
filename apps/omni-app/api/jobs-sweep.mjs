@@ -774,7 +774,7 @@ function supabaseGithubStore(db) {
 }
 
 // apps/omni-app/src/jobs/sweep.ts
-import { z as z120 } from "zod";
+import { z as z123 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -880,9 +880,367 @@ function createLogger({ sink = stdout, clock = Date.now } = {}) {
 }
 var log = createLogger();
 
+// kit/lib/ids.ts
+import { z as z5 } from "zod";
+
+// kit/lib/schema/parse-or-throw.ts
+function parseOrThrow(schema, value, shape) {
+  const parsed3 = schema.safeParse(value, { error: KIT_MESSAGES });
+  if (parsed3.success) return parsed3.data;
+  const issue = parsed3.error.issues[0];
+  const field4 = issue && issue.path.length ? `${issue.path.join(".")}: ` : "";
+  throw new Error(`${shape}: ${field4}${issue?.message ?? "invalid"}`);
+}
+
+// kit/lib/ids.ts
+var IssueNumberSchema = z5.number().int().positive().brand();
+var PrdNumberSchema = IssueNumberSchema.brand();
+var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
+var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
+var ProductPrdIdSchema = z5.string().regex(PRODUCT_PRD).refine((id) => {
+  const cut5 = id.lastIndexOf("-");
+  return cut5 <= 40 && Number(id.slice(cut5 + 1)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
+var ProductRoadmapIdSchema = z5.string().regex(PRODUCT_ROADMAP).refine((id) => {
+  const cut5 = id.lastIndexOf("-R");
+  return cut5 <= 40 && Number(id.slice(cut5 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
+var ProductBugIdSchema = z5.string().regex(PRODUCT_BUG).refine((id) => {
+  const cut5 = id.lastIndexOf("-B");
+  return cut5 <= 40 && Number(id.slice(cut5 + 2)) <= PRODUCT_SEQ_MAX;
+}).brand();
+var PrNumberSchema = z5.number().int().positive().brand();
+var CommentIdSchema = z5.number().int().positive().brand();
+var WorkSliceIdSchema = z5.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var SliceIdSchema = z5.string().regex(/^s\d+$/).brand().brand();
+var OutboxItemIdSchema = z5.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var DIGITS = /^\d+$/;
+function numeric(value) {
+  return typeof value === "string" && DIGITS.test(value) ? Number(value) : value;
+}
+function parseId(schema, value, what, given) {
+  return parseOrThrow(schema, value, `${what} ${JSON.stringify(given)}`);
+}
+function parseIssue(value) {
+  return parseId(IssueNumberSchema, numeric(value), "issue number", value);
+}
+function parsePrd(value) {
+  return parseId(PrdNumberSchema, numeric(value), "PRD number", value);
+}
+function parseProductPrdId(value) {
+  return parseId(ProductPrdIdSchema, value, "product PRD", value);
+}
+var isProductPrdId = (id) => typeof id === "string";
+function productPrdParts(id) {
+  const cut5 = id.lastIndexOf("-");
+  return { key: id.slice(0, cut5), seq: Number(id.slice(cut5 + 1)) };
+}
+function parsePr(value) {
+  return parseId(PrNumberSchema, numeric(value), "pull request number", value);
+}
+
+// apps/omni-app/src/bug-reports/follow.ts
+import { z as z6 } from "zod";
+
+// apps/omni-app/src/bug-reports/file.ts
+var OMNI_LOOP_REPOSITORY = "vertuoza/vertuo-omni-loop";
+var BUG_LABEL = "bug";
+var SIGNATURE = "Filed by the Omni App from a mission that met this bug. No customer work is in this report.";
+function issueTitle(report) {
+  const message = report.message.length <= 80 ? report.message : `${report.message.slice(0, 79).trimEnd()}\u2026`;
+  return `${report.command}: ${message} [${report.fingerprint.slice(0, 8)}]`;
+}
+function issueBody(report) {
+  return [
+    `**Kit version:** ${report.kitVersion}`,
+    `**Command:** \`${report.command}\``,
+    `**Class:** ${report.class}`,
+    `**Fingerprint:** \`${report.fingerprint}\``,
+    "",
+    report.message,
+    "",
+    `_${SIGNATURE}_`
+  ].join("\n");
+}
+function repeatComment(report) {
+  return `+1 \xB7 kit ${report.kitVersion}
+
+_${SIGNATURE}_`;
+}
+async function fileBugReport({
+  report,
+  repo = OMNI_LOOP_REPOSITORY,
+  store,
+  issues
+}) {
+  const { fingerprint: fingerprint2 } = report;
+  const known = await store.find(fingerprint2);
+  if (known) return again(known, report, store, issues);
+  const issue = await issues.create({ repo, title: issueTitle(report), body: issueBody(report), labels: [BUG_LABEL] });
+  if (await store.record({ fingerprint: fingerprint2, repo, issue })) return { kind: "filed", repo, issue, fingerprint: fingerprint2 };
+  const raced = await store.find(fingerprint2);
+  if (!raced) throw new Error("the report row was refused and is not there");
+  return again(raced, report, store, issues);
+}
+async function again(known, report, store, issues) {
+  await issues.comment({ repo: known.repo, issue: known.issue, body: repeatComment(report) });
+  await store.seen(report.fingerprint);
+  return { kind: "repeat", repo: known.repo, issue: known.issue, fingerprint: report.fingerprint };
+}
+
+// apps/omni-app/src/bug-reports/follow.ts
+var BUG_STATES = ["open", "fixing", "pr-opened", "asked", "merged", "fixed", "wont-fix"];
+var BUG_FOLLOW_KIND = "bug-follow";
+var BugEventSchema = z6.discriminatedUnion("kind", [
+  z6.object({ kind: z6.literal("merged"), issue: IssueNumberSchema, pr: PrNumberSchema }),
+  z6.object({ kind: z6.literal("pr-closed"), pr: PrNumberSchema }),
+  z6.object({ kind: z6.literal("not-planned"), issue: IssueNumberSchema }),
+  z6.object({ kind: z6.literal("reopened"), issue: IssueNumberSchema }),
+  z6.object({ kind: z6.literal("released"), tag: z6.string().min(1) })
+]);
+var BugFollowDataSchema = z6.object({ event: BugEventSchema, delivery: z6.string().min(1) });
+var DeliverySchema = z6.looseObject({
+  action: z6.string().nullish(),
+  repository: z6.looseObject({ full_name: z6.string().nullish() }).nullish(),
+  issue: z6.looseObject({ number: IssueNumberSchema, state_reason: z6.string().nullish(), pull_request: z6.unknown().optional() }).nullish(),
+  pull_request: z6.looseObject({ number: PrNumberSchema, merged: z6.boolean().nullish(), body: z6.string().nullish() }).nullish(),
+  release: z6.looseObject({ tag_name: z6.string().nullish(), draft: z6.boolean().nullish(), prerelease: z6.boolean().nullish() }).nullish()
+});
+function versionOf(tag) {
+  const found = /^v((?:0|[1-9]\d{0,5})\.(?:0|[1-9]\d{0,5})\.(?:0|[1-9]\d{0,5}))$/.exec(tag);
+  return found?.[1] ?? null;
+}
+function compareVersions(a, b) {
+  const [x, y] = [a, b].map((version) => version.split(".").map(Number));
+  for (let i = 0; i < 3; i += 1) {
+    const diff = (x?.[i] ?? 0) - (y?.[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+var TERMINAL = /* @__PURE__ */ new Set(["fixed", "wont-fix"]);
+var REOPENABLE = /* @__PURE__ */ new Set(["merged", "fixed", "wont-fix"]);
+var mergedPatch = (bug, pr) => TERMINAL.has(bug.state) ? null : { state: "merged", fixPr: pr };
+var prClosedPatch = (bug, pr) => bug.state === "pr-opened" && bug.fixPr === pr ? { state: "open", fixPr: null } : null;
+var notPlannedPatch = (bug) => TERMINAL.has(bug.state) ? null : { state: "wont-fix" };
+var reopenedPatch = (bug) => REOPENABLE.has(bug.state) ? { state: "open", fixPr: null, fixedIn: null } : null;
+function patchFor(bug, event) {
+  switch (event.kind) {
+    case "merged":
+      return mergedPatch(bug, event.pr);
+    case "pr-closed":
+      return prClosedPatch(bug, event.pr);
+    case "not-planned":
+      return notPlannedPatch(bug);
+    case "reopened":
+      return reopenedPatch(bug);
+  }
+}
+async function firstReleaseHolding({ github, repo, mergeCommit, tags }) {
+  const versions = tags.flatMap((tag) => {
+    const version = versionOf(tag);
+    return version ? [{ tag, version }] : [];
+  });
+  versions.sort((a, b) => compareVersions(a.version, b.version));
+  for (const { tag, version } of versions) if (await github.holds(repo, mergeCommit, tag)) return version;
+  return null;
+}
+async function release({ bug, tags, store, github }) {
+  if (bug.state !== "merged" || bug.fixPr === null) return false;
+  const { mergeCommit } = await github.pull(bug.repo, bug.fixPr);
+  if (!mergeCommit) return false;
+  const fixedIn = await firstReleaseHolding({ github, repo: bug.repo, mergeCommit, tags });
+  return fixedIn === null ? false : store.move(bug, { state: "fixed", fixedIn });
+}
+async function followBugEvent({ event, repo = OMNI_LOOP_REPOSITORY, store, github }) {
+  if (event.kind === "released") {
+    let moved = 0;
+    for (const bug2 of await store.inStates(["merged"])) if (await release({ bug: bug2, tags: [event.tag], store, github })) moved += 1;
+    return { moved };
+  }
+  const bug = event.kind === "pr-closed" ? await store.byFixPr(repo, event.pr) : await store.byIssue(repo, event.issue);
+  const patch = bug ? patchFor(bug, event) : null;
+  return { moved: bug && patch && await store.move(bug, patch) ? 1 : 0 };
+}
+var SWEPT = ["fixing", "pr-opened", "asked", "merged", "wont-fix"];
+function pullPatch(bug, issue, pull) {
+  if (!pull || bug.fixPr === null) return null;
+  if (pull.merged) return issue.open ? null : { state: "merged", fixPr: bug.fixPr };
+  return pull.open ? null : { state: "open", fixPr: null };
+}
+function sweepPatch(bug, issue, pull) {
+  if (bug.state === "wont-fix") return issue.open ? { state: "open", fixPr: null, fixedIn: null } : null;
+  return !issue.open && issue.notPlanned ? { state: "wont-fix" } : pullPatch(bug, issue, pull);
+}
+async function sweepOne({ bug, store, github, tagsOf: tagsOf2 }) {
+  const issue = await github.issue(bug.repo, bug.issue);
+  const pull = bug.state === "pr-opened" && bug.fixPr !== null ? await github.pull(bug.repo, bug.fixPr) : null;
+  const patch = sweepPatch(bug, issue, pull);
+  let current = bug;
+  let moved = 0;
+  if (patch) {
+    if (!await store.move(bug, patch)) return 0;
+    moved = 1;
+    current = { ...bug, ...patch, fixPr: patch.fixPr === void 0 ? bug.fixPr : patch.fixPr };
+  }
+  if (current.state !== "merged") return moved;
+  return moved + (await release({ bug: current, tags: await tagsOf2(), store, github }) ? 1 : 0);
+}
+async function sweepBugs({ store, github, repo = OMNI_LOOP_REPOSITORY, log: log2 = () => void 0 }) {
+  const bugs = (await store.inStates(SWEPT)).filter((bug) => bug.repo === repo);
+  let tags = null;
+  const tagsOf2 = () => tags ??= github.releases(repo);
+  let moved = 0;
+  for (const bug of bugs) {
+    try {
+      moved += await sweepOne({ bug, store, github, tagsOf: tagsOf2 });
+    } catch (error) {
+      log2(`bug sweep: #${String(bug.issue)} left as it is \u2014 ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return { read: bugs.length, moved };
+}
+
+// apps/omni-app/src/bug-reports/github.ts
+import { z as z7 } from "zod";
+var InstallationSchema = z7.looseObject({ id: z7.number().int().positive() });
+var IssueCreatedSchema = z7.looseObject({ number: IssueNumberSchema });
+var IssueReadSchema = z7.looseObject({ state: z7.string(), state_reason: z7.string().nullish() });
+var PullReadSchema = z7.looseObject({ state: z7.string(), merged: z7.boolean().nullish(), merge_commit_sha: z7.string().nullish() });
+var ReleasesSchema = z7.array(z7.looseObject({ tag_name: z7.string(), draft: z7.boolean().nullish(), prerelease: z7.boolean().nullish() }));
+var CompareSchema = z7.looseObject({ status: z7.string() });
+var RELEASES_READ = 50;
+var split = (repo) => {
+  const [owner, name, ...rest] = repo.split("/");
+  if (!owner || !name || rest.length > 0) throw new Error(`the repository "${repo}" is not owner/name`);
+  return { owner, repo: name };
+};
+var repoClientOf = ({ octokitFor, app }) => async (repo) => {
+  const at4 = split(repo);
+  const { data } = await (await app()).request("GET /repos/{owner}/{repo}/installation", at4);
+  return { at: at4, octokit: await octokitFor(InstallationSchema.parse(data).id) };
+};
+function bugIssues(deps) {
+  const clientFor = repoClientOf(deps);
+  return {
+    create: async ({ repo, title, body, labels }) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const { data } = await octokit.request("POST /repos/{owner}/{repo}/issues", { ...at4, title, body, labels: [...labels] });
+      return IssueCreatedSchema.parse(data).number;
+    },
+    comment: async ({ repo, issue, body }) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { ...at4, issue_number: issue, body });
+    }
+  };
+}
+function bugGithub(deps) {
+  const clientFor = repoClientOf(deps);
+  return {
+    issue: async (repo, issue) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = IssueReadSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/issues/{issue_number}", { ...at4, issue_number: issue })).data);
+      return { open: read2.state === "open", notPlanned: read2.state_reason === "not_planned" };
+    },
+    pull: async (repo, pr) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = PullReadSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { ...at4, pull_number: pr })).data);
+      return { merged: read2.merged === true, open: read2.state === "open", mergeCommit: read2.merge_commit_sha ?? null };
+    },
+    releases: async (repo) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = ReleasesSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/releases", { ...at4, per_page: RELEASES_READ })).data);
+      return read2.filter((one) => one.draft !== true && one.prerelease !== true).map((one) => one.tag_name);
+    },
+    holds: async (repo, sha, tag) => {
+      const { at: at4, octokit } = await clientFor(repo);
+      const read2 = CompareSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { ...at4, basehead: `${sha}...${tag}` })).data);
+      return read2.status === "ahead" || read2.status === "identical";
+    }
+  };
+}
+
+// apps/omni-app/src/bug-reports/store.ts
+import { z as z9 } from "zod";
+
+// apps/omni-app/src/server-event/service-db.ts
+import { createClient } from "@supabase/supabase-js";
+import { z as z8 } from "zod";
+function serviceDb({ url, key, fetch: fetch2 }) {
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...fetch2 ? { global: { fetch: fetch2 } } : {}
+  });
+}
+function rowsOf(schema, answer) {
+  if (answer.error) throw new Error(`the database refused: ${answer.error.message}${answer.error.code ? ` (${answer.error.code})` : ""}`);
+  return z8.array(schema).parse(answer.data ?? []);
+}
+
+// apps/omni-app/src/bug-reports/store.ts
+var REPORT_COLUMNS = "fingerprint, repo, issue, count";
+var ReportRowSchema = z9.object({
+  fingerprint: z9.string().regex(/^[0-9a-f]{64}$/),
+  repo: z9.string().min(1),
+  issue: IssueNumberSchema,
+  count: z9.number().int().positive()
+});
+var TEAM_COLUMNS = "fingerprint, repo, issue, state, fix_pr, fixed_in";
+var TeamRowSchema = z9.object({
+  fingerprint: z9.string().regex(/^[0-9a-f]{64}$/),
+  repo: z9.string().min(1),
+  issue: IssueNumberSchema,
+  state: z9.enum(BUG_STATES),
+  fix_pr: PrNumberSchema.nullable(),
+  fixed_in: z9.string().nullable()
+});
+var teamBug = (row) => ({
+  fingerprint: row.fingerprint,
+  repo: row.repo,
+  issue: row.issue,
+  state: row.state,
+  fixPr: row.fix_pr,
+  fixedIn: row.fixed_in
+});
+var UNIQUE_VIOLATION = "23505";
+function bugReportStore(connection) {
+  const db = serviceDb(connection);
+  return {
+    find: async (fingerprint2) => rowsOf(ReportRowSchema, await db.from("omni_bug_reports").select(REPORT_COLUMNS).eq("fingerprint", fingerprint2))[0] ?? null,
+    record: async (row) => {
+      const { error } = await db.from("omni_bug_reports").insert(row);
+      if (error?.code === UNIQUE_VIOLATION) return false;
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return true;
+    },
+    seen: async (fingerprint2) => rowsOf(ReportRowSchema, await db.rpc("omni_bug_report_seen", { p_fingerprint: fingerprint2 }))[0] ?? null
+  };
+}
+function bugTeamStore(connection) {
+  const db = serviceDb(connection);
+  const one = async (query) => rowsOf(TeamRowSchema, await query).map(teamBug)[0] ?? null;
+  return {
+    byIssue: (repo, issue) => one(db.from("omni_bug_reports").select(TEAM_COLUMNS).eq("repo", repo).eq("issue", issue)),
+    byFixPr: (repo, pr) => one(db.from("omni_bug_reports").select(TEAM_COLUMNS).eq("repo", repo).eq("fix_pr", pr)),
+    inStates: async (states) => rowsOf(TeamRowSchema, await db.from("omni_bug_reports").select(TEAM_COLUMNS).in("state", [...states])).map(teamBug),
+    move: async (bug, patch) => {
+      const set = {
+        state: patch.state,
+        ...patch.fixPr === void 0 ? {} : { fix_pr: patch.fixPr },
+        ...patch.fixedIn === void 0 ? {} : { fixed_in: patch.fixedIn }
+      };
+      const { data, error } = await db.from("omni_bug_reports").update(set).eq("fingerprint", bug.fingerprint).eq("state", bug.state).select("fingerprint");
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return Array.isArray(data) && data.length > 0;
+    }
+  };
+}
+
 // apps/omni-app/src/octokit-for.ts
 import { App } from "@octokit/app";
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createClient2 } from "@supabase/supabase-js";
 var APP_CALL = /^(\/api\/v3)?\/app(\/|$)/;
 function installationOctokitFor(githubApp, github) {
   let app;
@@ -909,7 +1267,7 @@ function appOctokitFor(githubApp) {
 var etags = etagMemory();
 function githubStoreOf(supabase) {
   if (!supabase) return null;
-  const db = createClient(supabase.url, supabase.key, {
+  const db = createClient2(supabase.url, supabase.key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
   });
   return rememberingGithubStore(supabaseGithubStore({ etags: () => db.from("github_etags"), budget: () => db.from("github_budget") }), etags);
@@ -990,13 +1348,13 @@ function noteTo(fn, logger = log) {
 }
 
 // apps/omni-app/src/jobs/delayed.ts
-import { z as z8 } from "zod";
+import { z as z12 } from "zod";
 
 // kit/lib/config.ts
 import { existsSync as existsSync2, readFileSync } from "node:fs";
 import { join as join2 } from "node:path";
 import { parse } from "yaml";
-import { z as z6 } from "zod";
+import { z as z11 } from "zod";
 
 // kit/lib/narrow.ts
 function isOneOf(values, value) {
@@ -1056,7 +1414,7 @@ function parseSelector(source) {
 // kit/lib/flow/schema.ts
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { z as z5 } from "zod";
+import { z as z10 } from "zod";
 
 // kit/lib/flow/points.ts
 var HOOK_MODES = Object.freeze(["before", "after", "replace"]);
@@ -1104,8 +1462,8 @@ function flowPoint(name) {
 // kit/lib/flow/schema.ts
 var CLAUDE_ALIAS = "claude";
 var DEFAULT_AREA = "default";
-var text = z5.string().min(1);
-var regexSource = z5.string().refine((source) => {
+var text = z10.string().min(1);
+var regexSource = z10.string().refine((source) => {
   try {
     new RegExp(source);
     return true;
@@ -1113,11 +1471,11 @@ var regexSource = z5.string().refine((source) => {
     return false;
   }
 }, "not a valid regular expression");
-var hookRef = z5.union([text, z5.object({ path: text, alias: z5.literal(CLAUDE_ALIAS) }).strict()]);
-var hookRefs = z5.union([hookRef, z5.array(hookRef).min(1)]);
-var pointHooks = z5.union([
+var hookRef = z10.union([text, z10.object({ path: text, alias: z10.literal(CLAUDE_ALIAS) }).strict()]);
+var hookRefs = z10.union([hookRef, z10.array(hookRef).min(1)]);
+var pointHooks = z10.union([
   hookRef,
-  z5.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict()
+  z10.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict()
 ]);
 function hookRefProblem(ref) {
   const path = typeof ref === "string" ? ref : ref.path;
@@ -1147,7 +1505,7 @@ function eachHook(point, value) {
   ];
 }
 var KNOWN_POINTS = FLOW_POINTS.map(({ point }) => point).join(", ");
-var hooksSection = z5.record(z5.string(), pointHooks).superRefine((hooks, issues) => {
+var hooksSection = z10.record(z10.string(), pointHooks).superRefine((hooks, issues) => {
   for (const [name, value] of Object.entries(hooks)) {
     const point = flowPoint(name);
     if (!point) {
@@ -1165,35 +1523,35 @@ var hooksSection = z5.record(z5.string(), pointHooks).superRefine((hooks, issues
     }
   }
 });
-var planRule = z5.union([
-  z5.object({ slice: z5.object({ alone: z5.boolean().optional(), maxFiles: z5.number().int().positive().optional() }).strict() }).strict(),
-  z5.object({ wave: z5.literal("first") }).strict(),
-  z5.object({ blocks: z5.literal("all") }).strict(),
-  z5.object({ landing: z5.literal("alone") }).strict()
+var planRule = z10.union([
+  z10.object({ slice: z10.object({ alone: z10.boolean().optional(), maxFiles: z10.number().int().positive().optional() }).strict() }).strict(),
+  z10.object({ wave: z10.literal("first") }).strict(),
+  z10.object({ blocks: z10.literal("all") }).strict(),
+  z10.object({ landing: z10.literal("alone") }).strict()
 ]);
 var MERGE_METHODS = Object.freeze(["squash", "merge", "rebase"]);
-var subPrRules = z5.object({
-  merge: z5.enum(MERGE_METHODS).optional(),
-  requireChecks: z5.array(text).optional(),
-  approval: z5.literal("person").optional(),
-  territory: z5.enum(["report", "block"]).optional(),
-  maxOpen: z5.number().int().positive().optional()
+var subPrRules = z10.object({
+  merge: z10.enum(MERGE_METHODS).optional(),
+  requireChecks: z10.array(text).optional(),
+  approval: z10.literal("person").optional(),
+  territory: z10.enum(["report", "block"]).optional(),
+  maxOpen: z10.number().int().positive().optional()
 }).strict();
-var rulesSection = z5.object({ plan: z5.array(planRule).optional(), subPr: subPrRules.optional() }).strict();
-var area = z5.object({
-  paths: z5.array(regexSource).min(1, "at least one path pattern"),
+var rulesSection = z10.object({ plan: z10.array(planRule).optional(), subPr: subPrRules.optional() }).strict();
+var area = z10.object({
+  paths: z10.array(regexSource).min(1, "at least one path pattern"),
   knowledge: text.optional(),
-  inherit: z5.boolean().optional(),
+  inherit: z10.boolean().optional(),
   rules: rulesSection.optional(),
   hooks: hooksSection.optional()
 }).strict();
 var AREA_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-var FlowSchema = z5.object({
+var FlowSchema = z10.object({
   rules: rulesSection.optional(),
   hooks: hooksSection.optional(),
-  areas: z5.record(z5.string(), area).optional(),
+  areas: z10.record(z10.string(), area).optional(),
   // Reserved for events, which a later PRD defines: refused until then, never read.
-  on: z5.unknown().optional()
+  on: z10.unknown().optional()
 }).strict().superRefine((flow, issues) => {
   if (flow.on !== void 0) {
     issues.addIssue({ code: "custom", path: ["on"], message: "reserved for events, which a later PRD defines \u2014 remove it" });
@@ -1388,13 +1746,13 @@ var ConfigError = class extends Error {
     this.invalid = invalid;
   }
 };
-var text2 = z6.string().min(1);
+var text2 = z11.string().min(1);
 var nullableText = text2.nullable();
-var branchTemplate = z6.string().min(1);
-var labelName = z6.string().min(1);
-var section = (shape) => z6.preprocess((value) => value === void 0 ? {} : value, z6.object(shape).strict());
+var branchTemplate = z11.string().min(1);
+var labelName = z11.string().min(1);
+var section = (shape) => z11.preprocess((value) => value === void 0 ? {} : value, z11.object(shape).strict());
 var trailerPart = text2.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
-var askUrl = z6.string().refine((value) => {
+var askUrl = z11.string().refine((value) => {
   let url;
   try {
     url = new URL(value);
@@ -1403,7 +1761,7 @@ var askUrl = z6.string().refine((value) => {
   }
   return url.protocol === "https:" || url.protocol === "http:" && url.hostname === "127.0.0.1";
 }, "an https URL, or http on 127.0.0.1");
-var httpsUrl = z6.string().refine((value) => {
+var httpsUrl = z11.string().refine((value) => {
   if (/\s/.test(value)) return false;
   try {
     return new URL(value).protocol === "https:";
@@ -1412,7 +1770,7 @@ var httpsUrl = z6.string().refine((value) => {
   }
 }, "an absolute https URL");
 var PROOF_GITHUB_DEPLOYMENT = "github-deployment";
-var proofUrl = z6.string().refine((value) => {
+var proofUrl = z11.string().refine((value) => {
   if (value === PROOF_GITHUB_DEPLOYMENT) return true;
   if (/\s/.test(value)) return false;
   try {
@@ -1421,28 +1779,28 @@ var proofUrl = z6.string().refine((value) => {
     return false;
   }
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
-var envName = z6.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
+var envName = z11.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
-var lawOwner = z6.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
-var personLogin = z6.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
-var ownerWithDelegate = z6.preprocess(
+var lawOwner = z11.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var personLogin = z11.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
+var ownerWithDelegate = z11.preprocess(
   (value) => isRecord(value) ? { login: "", delegate: "", ...value } : value,
-  z6.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+  z11.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
     message: "a delegate other than its own owner",
     path: ["delegate"]
   })
 );
-var lawOwnerEntry = z6.union([lawOwner, ownerWithDelegate]);
+var lawOwnerEntry = z11.union([lawOwner, ownerWithDelegate]);
 function lawOwnerParts(entry) {
   return typeof entry === "string" ? { owner: entry, delegate: null } : { owner: entry.login, delegate: entry.delegate };
 }
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
-var contractKind = z6.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
-var contractKinds = z6.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
+var contractKind = z11.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
+var contractKinds = z11.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
   const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
 });
-var layersSection = z6.record(z6.string(), z6.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
+var layersSection = z11.record(z11.string(), z11.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
   for (const key of Object.keys(layers)) {
     if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
       issues.addIssue({ code: "custom", path: [key], message: `${key} is not a layer (${layerList()})` });
@@ -1450,24 +1808,24 @@ var layersSection = z6.record(z6.string(), z6.array(regexSource).min(1, "at leas
   }
 });
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
-var target = z6.object({
-  repo: z6.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
-  role: z6.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
-  knowledge: z6.enum(TARGET_KNOWLEDGE),
-  readAt: z6.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
+var target = z11.object({
+  repo: z11.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
+  role: z11.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
+  knowledge: z11.enum(TARGET_KNOWLEDGE),
+  readAt: z11.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
   // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
   // and imported.
-  readOnly: z6.boolean().optional(),
+  readOnly: z11.boolean().optional(),
   // PRD 1162: the short names of the targets whose default-branch packages this one installs.
-  consumes: z6.array(z6.string()).optional()
+  consumes: z11.array(z11.string()).optional()
 }).strict();
 function targetShortName(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
-var planSection = z6.object({
+var planSection = z11.object({
   guide: nullableText.default(null),
-  targets: z6.array(target).min(1, "at least one target").optional(),
-  product: z6.string().trim().min(1).optional()
+  targets: z11.array(target).min(1, "at least one target").optional(),
+  product: z11.string().trim().min(1).optional()
 }).strict().superRefine(({ targets, product }, issues) => {
   if (targets !== void 0 && product !== void 0) {
     issues.addIssue({
@@ -1502,24 +1860,24 @@ function checkTargets(targets, issues) {
     }
   });
 }
-var generatedEntry = z6.object({
+var generatedEntry = z11.object({
   path: text2,
-  from: z6.array(text2).min(1, "at least one source prefix"),
-  build: z6.string().trim().min(1)
+  from: z11.array(text2).min(1, "at least one source prefix"),
+  build: z11.string().trim().min(1)
 }).strict();
 var AGENTS = Object.freeze(["claude", "codex", "cursor", "gemini"]);
-var agentList = z6.array(z6.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for \u2014 one of ${AGENTS.join(", ")}` })).min(1, "at least one agent").superRefine((agents, issues) => {
+var agentList = z11.array(z11.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for \u2014 one of ${AGENTS.join(", ")}` })).min(1, "at least one agent").superRefine((agents, issues) => {
   agents.forEach((agent, index) => {
     if (agents.indexOf(agent) !== index) issues.addIssue({ code: "custom", path: [index], message: `${agent} is listed twice` });
   });
 }).default(["claude"]);
 var TIERS = Object.freeze(["deep", "build", "light"]);
 var EFFORTS = Object.freeze(["low", "medium", "high", "xhigh", "max"]);
-var tierEntry = z6.object({
+var tierEntry = z11.object({
   model: text2,
-  effort: z6.enum(EFFORTS, { error: (issue) => `${String(issue.input)} is no effort \u2014 one of ${EFFORTS.join(", ")}` }).optional()
+  effort: z11.enum(EFFORTS, { error: (issue) => `${String(issue.input)} is no effort \u2014 one of ${EFFORTS.join(", ")}` }).optional()
 }).strict();
-var tierRow = z6.record(z6.string(), tierEntry).superRefine((row, issues) => {
+var tierRow = z11.record(z11.string(), tierEntry).superRefine((row, issues) => {
   for (const tier of Object.keys(row)) {
     if (!isOneOf(TIERS, tier)) {
       issues.addIssue({ code: "custom", path: [tier], message: `${tier} is no tier \u2014 one of ${TIERS.join(", ")}` });
@@ -1529,9 +1887,9 @@ var tierRow = z6.record(z6.string(), tierEntry).superRefine((row, issues) => {
 var SYNC_CHECKS = Object.freeze(["main", "kit", "knowledge", "page"]);
 var SYNC_LEVELS = Object.freeze(["red", "orange", "off"]);
 var SYNC_MAX_HOURS = 720;
-var syncCheck = z6.enum(SYNC_CHECKS, { error: (issue) => `${String(issue.input)} is no check \u2014 one of ${SYNC_CHECKS.join(", ")}` });
-var syncLevel = z6.enum(SYNC_LEVELS, { error: (issue) => `${String(issue.input)} is no level \u2014 one of ${SYNC_LEVELS.join(", ")}` });
-var syncOrder = z6.array(syncCheck).superRefine((order, issues) => {
+var syncCheck = z11.enum(SYNC_CHECKS, { error: (issue) => `${String(issue.input)} is no check \u2014 one of ${SYNC_CHECKS.join(", ")}` });
+var syncLevel = z11.enum(SYNC_LEVELS, { error: (issue) => `${String(issue.input)} is no level \u2014 one of ${SYNC_LEVELS.join(", ")}` });
+var syncOrder = z11.array(syncCheck).superRefine((order, issues) => {
   const twice = order.find((check, index) => order.indexOf(check) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `${twice} is listed twice` });
   for (const check of SYNC_CHECKS) {
@@ -1539,17 +1897,17 @@ var syncOrder = z6.array(syncCheck).superRefine((order, issues) => {
   }
 });
 var HOURS_MESSAGE = `a whole number of hours, written <n>h from 1h to ${SYNC_MAX_HOURS}h, such as 24h`;
-var syncHours = z6.string({ error: HOURS_MESSAGE }).refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
+var syncHours = z11.string({ error: HOURS_MESSAGE }).refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
 var READY_SCOPES = Object.freeze(["off", "mission", "all"]);
 var READY_LOOSENING_GROUND = Object.freeze({
   floors: Object.freeze(["mutation/floor.json"]),
   baselines: Object.freeze(["fallow/", "layering/", "design/"])
 });
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
-var ConfigSchema = z6.object({
-  kit: z6.literal(CONFIG_VERSION),
+var ConfigSchema = z11.object({
+  kit: z11.literal(CONFIG_VERSION),
   repo: section({
-    slug: z6.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
+    slug: z11.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
     remote: text2.default("origin"),
     defaultBranch: text2.default("main")
   }),
@@ -1585,14 +1943,14 @@ var ConfigSchema = z6.object({
   agents: agentList,
   // PRD 1934: the model and effort each tier runs on, one row per agent `agents` lists. Optional:
   // a config without it parses with no `tiers` key, and every slice runs on the terminal's model.
-  tiers: z6.record(z6.string(), tierRow).optional(),
+  tiers: z11.record(z11.string(), tierRow).optional(),
   paths: section({
     delivery: text2.default(".omni-loop/delivery"),
     knowledge: text2.default(".omni-loop/knowledge"),
     adr: text2.default(".omni-loop/knowledge/adr"),
     playbook: text2.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z6.array(text2).default(["AGENTS.md", "CLAUDE.md"])
+    context: z11.array(text2).default(["AGENTS.md", "CLAUDE.md"])
   }),
   labels: section({
     prd: labelName.default("omni:prd"),
@@ -1629,7 +1987,7 @@ var ConfigSchema = z6.object({
     // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
     // exactly as before (so `omni init` does not create it: a person does).
     released: labelName.optional(),
-    autoCreate: z6.boolean().default(false)
+    autoCreate: z11.boolean().default(false)
   }),
   prLinks: section({
     feature: text2.default("Closes #{prd}"),
@@ -1644,13 +2002,13 @@ var ConfigSchema = z6.object({
   // is an `https://` URL holding `{ref}` or null. `null` changes nothing.
   pr: section({
     openWith: nullableText.default(null),
-    ref: z6.object({
+    ref: z11.object({
       title: text2.refine((value) => value.includes("{ref}") && value.includes("{title}"), "a title with {ref} and {title}"),
       none: text2.refine((value) => value.includes("{title}"), "a title with {title}").nullable().default(null),
       link: text2.refine((value) => value.startsWith("https://") && !/\s/.test(value) && value.includes("{ref}"), "an https:// URL with {ref}").nullable().default(null)
     }).strict().nullable().optional()
   }),
-  board: section({ matchBy: z6.enum(["base", "label"]).default("base") }),
+  board: section({ matchBy: z11.enum(["base", "label"]).default("base") }),
   ci: section({
     outboxContext: text2.default("outbox"),
     // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
@@ -1660,7 +2018,7 @@ var ConfigSchema = z6.object({
     // is what was approved; `null` posts none.
     approvedContext: nullableText.default("omni/approved"),
     aggregateCheck: nullableText.default(null),
-    branchProtection: z6.boolean().default(false),
+    branchProtection: z11.boolean().default(false),
     runner: text2.default("ubuntu-latest")
   }),
   commands: section({
@@ -1669,7 +2027,7 @@ var ConfigSchema = z6.object({
     setup: nullableText.default(null),
     preflight: nullableText.default(null),
     preflightFull: nullableText.default(null),
-    checks: z6.array(text2).default([]),
+    checks: z11.array(text2).default([]),
     test: nullableText.default(null),
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
     mutation: nullableText.default(null),
@@ -1679,19 +2037,19 @@ var ConfigSchema = z6.object({
     // built output; only the bug-fix skills run it, when a passing reproduction cannot see the bug.
     smoke: nullableText.default(null)
   }),
-  acceptance: z6.object({
-    enabled: z6.boolean().default(false),
+  acceptance: z11.object({
+    enabled: z11.boolean().default(false),
     dir: nullableText.default(null),
     pendingSuffix: nullableText.default(null),
     run: nullableText.default(null),
     // PRD 2898: the kind a new spec's `### AC-<n> · <kind>` criteria take when its author names none.
-    kind: z6.enum(AC_KINDS, { error: (issue) => `${String(issue.input)} is no kind \u2014 one of ${AC_KINDS.join(", ")}` }).default("test")
+    kind: z11.enum(AC_KINDS, { error: (issue) => `${String(issue.input)} is no kind \u2014 one of ${AC_KINDS.join(", ")}` }).default("test")
   }).strict().refine((a) => !a.enabled || a.dir !== null, {
     message: "acceptance.dir is required when acceptance.enabled is true",
     path: ["dir"]
   }).prefault({}),
   laws: section({
-    source: z6.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    source: z11.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
     // The heading under which the context files (`paths.context`, in order) list the ADRs that are
     // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
     // read (PRD 1739), so every config that sets them still reads.
@@ -1699,25 +2057,25 @@ var ConfigSchema = z6.object({
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
     // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
-    requireProof: z6.boolean().default(false),
+    requireProof: z11.boolean().default(false),
     // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
-    max: z6.number().int().positive().default(20),
+    max: z11.number().int().positive().default(20),
     // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
     // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
     // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
-    owners: z6.array(lawOwnerEntry).default([]),
+    owners: z11.array(lawOwnerEntry).default([]),
     // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
     // Never written into CODEOWNERS, so its approval never clears a law.
-    leadership: z6.array(personLogin).default([])
+    leadership: z11.array(personLogin).default([])
   }),
   risk: section({
-    storedShape: z6.array(regexSource).default([]),
-    sharedContract: z6.array(text2).default([])
+    storedShape: z11.array(regexSource).default([]),
+    sharedContract: z11.array(text2).default([])
   }),
   // Landings: the paths that must reach the default branch in a landing of their own (a
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
-  landings: section({ alone: z6.array(regexSource).default([]) }),
+  landings: section({ alone: z11.array(regexSource).default([]) }),
   // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
   // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
   // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
@@ -1727,56 +2085,56 @@ var ConfigSchema = z6.object({
   // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
   // it names none; `omni plan check` refuses a word outside them.
   contracts: section({
-    declare: z6.boolean().default(false),
+    declare: z11.boolean().default(false),
     kinds: contractKinds.default(() => [...DEFAULT_CONTRACT_KINDS])
   }),
   notify: section({
-    slack: z6.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
+    slack: z11.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
   limits: section({
-    stallDays: z6.number().int().positive().default(5),
-    attempts: z6.number().int().positive().default(3),
-    claimStaleMinutes: z6.number().int().positive().default(60),
+    stallDays: z11.number().int().positive().default(5),
+    attempts: z11.number().int().positive().default(3),
+    claimStaleMinutes: z11.number().int().positive().default(60),
     // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
     // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
     // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
-    claimDeadMinutes: z6.number().int().positive().optional(),
-    beforeAfterMaxBytes: z6.number().int().positive().default(512e3),
+    claimDeadMinutes: z11.number().int().positive().optional(),
+    beforeAfterMaxBytes: z11.number().int().positive().default(512e3),
     // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
     // was before, one step at a time.
-    parallelSteps: z6.number().int().min(1).max(6).default(3),
+    parallelSteps: z11.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
-    hookMaxBytes: z6.number().int().positive().optional(),
+    hookMaxBytes: z11.number().int().positive().optional(),
     // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
     // next people are asked. Its own setting: `stallDays` is unchanged.
-    escalationWorkingDays: z6.number().int().min(1).max(10).default(2)
+    escalationWorkingDays: z11.number().int().min(1).max(10).default(2)
   }),
   // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
   // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
   // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
-  wave: section({ inlineBelow: z6.number().int().min(0).default(0) }),
+  wave: section({ inlineBelow: z11.number().int().min(0).default(0) }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
-  dossier: section({ enabled: z6.boolean().default(false) }),
+  dossier: section({ enabled: z11.boolean().default(false) }),
   // PRD 262: whether a PRD ships with a release note (`<folder>/release.md`, `kit/lib/releases/`).
   // Off by default: a repository opts in. When it is on, `omni ship` refuses a PRD whose folder has
   // no note, or whose note `omni check releases` would fail.
-  releaseNotes: section({ enabled: z6.boolean().default(false) }),
+  releaseNotes: section({ enabled: z11.boolean().default(false) }),
   // PRD 251: whether an outbox may be answered outside the pull request — at the end of
   // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
   // opts out. The pull request takes replies either way.
-  answers: section({ enabled: z6.boolean().default(true) }),
+  answers: section({ enabled: z11.boolean().default(true) }),
   // PRD 2338: whether `/omni:retro-apply` writes the guard test a kept lesson is worth, proved red
   // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
   // lesson worth a guard names it for a person to take up. A repository opts in.
-  retro: section({ guards: z6.boolean().default(false) }),
+  retro: section({ guards: z11.boolean().default(false) }),
   // PRD 2410: whether the GitHub App watches main for seven days after a feature PR merges, marking
   // the PRD broke on a red job on the merge commit, a revert or a traced regression, and queueing
   // `/omni:rewind` on the first break. On by default; read at the merge commit, so `false` there
   // opens no watch and queues no rewind.
-  mainWatch: section({ enabled: z6.boolean().default(true) }),
+  mainWatch: section({ enabled: z11.boolean().default(true) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
@@ -1786,13 +2144,13 @@ var ConfigSchema = z6.object({
     deployment: nullableText.default(null),
     setup: nullableText.default(null),
     bypassEnv: envName.nullable().default(null),
-    maxSeconds: z6.number().int().positive().default(60)
+    maxSeconds: z11.number().int().positive().default(60)
   }),
   // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
   // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
   // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
   e2e: section({
-    enabled: z6.boolean().default(false),
+    enabled: z11.boolean().default(false),
     url: proofUrl.nullable().default(null),
     deployment: nullableText.default(null),
     setup: nullableText.default(null),
@@ -1801,17 +2159,17 @@ var ConfigSchema = z6.object({
     model: text2.default("anthropic/claude-sonnet-5.5"),
     // PRD 2898: whether CI runs a PRD's `e2e` criteria against its preview (with the model key in a CI
     // secret); false, a runner of the workspace runs them and the App writes the `acceptance` check.
-    ci: z6.boolean().default(false),
+    ci: z11.boolean().default(false),
     // PRD 2898: the repository that holds the e2e tests, `owner/name`; null, this one, in `dir`.
-    repo: z6.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null)
+    repo: z11.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null)
   }),
   // PRD 2898: the ready checks — the five a feature PR must pass before a gated skill marks it ready
   // (`kit/lib/ready/`). `checks` says which PRs are gated: `off` none (the default), `mission` the
   // feature PR of a PRD in a running or paused mission, `all` every feature PR. `full` names the CI
   // jobs that run the whole suite, never only the changed files: check 2 passes when each succeeded.
   ready: section({
-    checks: z6.enum(READY_SCOPES, { error: (issue) => `${String(issue.input)} is no scope \u2014 one of ${READY_SCOPES.join(", ")}` }).default("off"),
-    full: z6.array(text2).superRefine((jobs, issues) => {
+    checks: z11.enum(READY_SCOPES, { error: (issue) => `${String(issue.input)} is no scope \u2014 one of ${READY_SCOPES.join(", ")}` }).default("off"),
+    full: z11.array(text2).superRefine((jobs, issues) => {
       const twice = jobs.find((job, index) => jobs.indexOf(job) !== index);
       if (twice !== void 0) issues.addIssue({ code: "custom", message: `${twice} is listed twice` });
     }).default([])
@@ -1830,26 +2188,26 @@ var ConfigSchema = z6.object({
   // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
   // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
   design: section({
-    enabled: z6.boolean().default(false),
-    paths: z6.array(text2).default([]),
-    ignore: z6.array(text2).optional(),
+    enabled: z11.boolean().default(false),
+    paths: z11.array(text2).default([]),
+    ignore: z11.array(text2).optional(),
     screens: nullableText.default(null),
     // PRD omni-loop-13: the generated design manifest (`kit/lib/design/manifest.ts`), a path or none.
     manifest: nullableText.optional(),
     words: section({
-      sentence: z6.number().int().positive().default(7),
+      sentence: z11.number().int().positive().default(7),
       screen: wordSelector.default("[data-screen]"),
       primary: wordSelector.default("[data-primary]"),
       content: wordSelector.optional(),
-      avoid: z6.array(text2).default([])
+      avoid: z11.array(text2).default([])
     })
   }),
-  markers: section({ prefix: z6.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
+  markers: section({ prefix: z11.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
   // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
   // as written. `home` defaults to the Omni Loop home page (ADR-0047, ADR-0055).
-  signature: z6.object({
+  signature: z11.object({
     name: trailerPart.default("Omni-man"),
     email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
     home: httpsUrl.default("https://www.omni-loop.xyz"),
@@ -1861,12 +2219,12 @@ var ConfigSchema = z6.object({
   flow: FlowSchema.optional(),
   // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
   // it has none, and parses with no `generated` key.
-  generated: z6.array(generatedEntry).optional(),
+  generated: z11.array(generatedEntry).optional(),
   // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
   // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
   // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
   // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
-  budgets: z6.object({ context: section({ enabled: z6.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
+  budgets: z11.object({ context: section({ enabled: z11.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
   // PRD 1990: how `omni sync` weighs its checks. `order` decides the headline (the heaviest check
   // first), `levels` the highest colour each check may show (`off` gathers nothing), `mainRedAfter`
   // how old a missing commit of the default branch may be before the main check is red.
@@ -1975,20 +2333,6 @@ function loadConfig(root) {
   return parseConfig(readFileSync(file, "utf8"), CONFIG_FILE);
 }
 
-// apps/omni-app/src/server-event/service-db.ts
-import { createClient as createClient2 } from "@supabase/supabase-js";
-import { z as z7 } from "zod";
-function serviceDb({ url, key, fetch: fetch2 }) {
-  return createClient2(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    ...fetch2 ? { global: { fetch: fetch2 } } : {}
-  });
-}
-function rowsOf(schema, answer) {
-  if (answer.error) throw new Error(`the database refused: ${answer.error.message}${answer.error.code ? ` (${answer.error.code})` : ""}`);
-  return z7.array(schema).parse(answer.data ?? []);
-}
-
 // apps/omni-app/src/jobs/delayed.ts
 var DELAYED_AFTER_MINUTES = 10;
 var DELAYED_SUMMARY = "Delayed: Omni is retrying this check";
@@ -1999,7 +2343,7 @@ var DELAYED_CHECKS = {
   "pr-approved": DEFAULTS.approvedContext ?? "omni/approved",
   "pr-budgets": "omni / budgets"
 };
-var DueRowSchema = z8.object({ kind: z8.string().min(1), key: z8.string().min(1), payload: z8.record(z8.string(), z8.unknown()) });
+var DueRowSchema = z12.object({ kind: z12.string().min(1), key: z12.string().min(1), payload: z12.record(z12.string(), z12.unknown()) });
 function delayedStore(connection) {
   const db = serviceDb(connection);
   return {
@@ -2009,11 +2353,11 @@ function delayedStore(connection) {
     )
   };
 }
-var TargetSchema = z8.object({
-  installationId: z8.number(),
-  owner: z8.string().min(1),
-  repo: z8.string().min(1),
-  headSha: z8.string().regex(/^[0-9a-f]{40}$/)
+var TargetSchema = z12.object({
+  installationId: z12.number(),
+  owner: z12.string().min(1),
+  repo: z12.string().min(1),
+  headSha: z12.string().regex(/^[0-9a-f]{40}$/)
 });
 var budgetRefused = (error) => error instanceof GithubDeferred || error instanceof GithubPaused || error instanceof Error && budgetRefused(error.cause);
 var firstLine = (error) => (error instanceof Error ? error.message : String(error)).split("\n")[0] ?? "";
@@ -2060,13 +2404,13 @@ async function postDelayed({
 }
 
 // apps/omni-app/src/jobs/gaps.ts
-import { z as z42 } from "zod";
+import { z as z45 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/github.ts
 import { mkdtempSync as mkdtempSync3, readdirSync, readFileSync as readFileSync3, rmSync as rmSync2, statSync as statSync2 } from "node:fs";
 import { tmpdir as tmpdir3 } from "node:os";
 import { join as join5 } from "node:path";
-import { z as z12 } from "zod";
+import { z as z15 } from "zod";
 
 // apps/omni-app/src/retro/github.ts
 import { mkdtempSync as mkdtempSync2, readFileSync as readFileSync2, rmSync } from "node:fs";
@@ -2079,125 +2423,62 @@ import { tmpdir } from "node:os";
 import { dirname, join as join3 } from "node:path";
 
 // apps/omni-app/src/outbox-check/github-schema.ts
-import { z as z10 } from "zod";
-
-// kit/lib/ids.ts
-import { z as z9 } from "zod";
-
-// kit/lib/schema/parse-or-throw.ts
-function parseOrThrow(schema, value, shape) {
-  const parsed3 = schema.safeParse(value, { error: KIT_MESSAGES });
-  if (parsed3.success) return parsed3.data;
-  const issue = parsed3.error.issues[0];
-  const field4 = issue && issue.path.length ? `${issue.path.join(".")}: ` : "";
-  throw new Error(`${shape}: ${field4}${issue?.message ?? "invalid"}`);
-}
-
-// kit/lib/ids.ts
-var IssueNumberSchema = z9.number().int().positive().brand();
-var PrdNumberSchema = IssueNumberSchema.brand();
-var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
-var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
-var ProductPrdIdSchema = z9.string().regex(PRODUCT_PRD).refine((id) => {
-  const cut5 = id.lastIndexOf("-");
-  return cut5 <= 40 && Number(id.slice(cut5 + 1)) <= PRODUCT_SEQ_MAX;
-}).brand();
-var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
-var ProductRoadmapIdSchema = z9.string().regex(PRODUCT_ROADMAP).refine((id) => {
-  const cut5 = id.lastIndexOf("-R");
-  return cut5 <= 40 && Number(id.slice(cut5 + 2)) <= PRODUCT_SEQ_MAX;
-}).brand();
-var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
-var ProductBugIdSchema = z9.string().regex(PRODUCT_BUG).refine((id) => {
-  const cut5 = id.lastIndexOf("-B");
-  return cut5 <= 40 && Number(id.slice(cut5 + 2)) <= PRODUCT_SEQ_MAX;
-}).brand();
-var PrNumberSchema = z9.number().int().positive().brand();
-var CommentIdSchema = z9.number().int().positive().brand();
-var WorkSliceIdSchema = z9.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
-var SliceIdSchema = z9.string().regex(/^s\d+$/).brand().brand();
-var OutboxItemIdSchema = z9.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
-var DIGITS = /^\d+$/;
-function numeric(value) {
-  return typeof value === "string" && DIGITS.test(value) ? Number(value) : value;
-}
-function parseId(schema, value, what, given) {
-  return parseOrThrow(schema, value, `${what} ${JSON.stringify(given)}`);
-}
-function parseIssue(value) {
-  return parseId(IssueNumberSchema, numeric(value), "issue number", value);
-}
-function parsePrd(value) {
-  return parseId(PrdNumberSchema, numeric(value), "PRD number", value);
-}
-function parseProductPrdId(value) {
-  return parseId(ProductPrdIdSchema, value, "product PRD", value);
-}
-var isProductPrdId = (id) => typeof id === "string";
-function productPrdParts(id) {
-  const cut5 = id.lastIndexOf("-");
-  return { key: id.slice(0, cut5), seq: Number(id.slice(cut5 + 1)) };
-}
-function parsePr(value) {
-  return parseId(PrNumberSchema, numeric(value), "pull request number", value);
-}
-
-// apps/omni-app/src/outbox-check/github-schema.ts
-var Label = z10.union([z10.string(), z10.looseObject({ name: z10.string().nullish() })]);
+import { z as z13 } from "zod";
+var Label = z13.union([z13.string(), z13.looseObject({ name: z13.string().nullish() })]);
 var labelName2 = (label2) => typeof label2 === "string" ? label2 : label2.name ?? void 0;
-var PullSchema = z10.looseObject({
-  base: z10.looseObject({ ref: z10.string(), sha: z10.string() }),
-  head: z10.looseObject({ ref: z10.string(), sha: z10.string() }),
-  labels: z10.array(Label).nullish(),
-  body: z10.string().nullish()
+var PullSchema = z13.looseObject({
+  base: z13.looseObject({ ref: z13.string(), sha: z13.string() }),
+  head: z13.looseObject({ ref: z13.string(), sha: z13.string() }),
+  labels: z13.array(Label).nullish(),
+  body: z13.string().nullish()
 });
-var PullsPageSchema = z10.array(z10.looseObject({ number: z10.number(), body: z10.string().nullish() }));
-var PullHeadSchema = z10.looseObject({ head: z10.looseObject({ sha: z10.string() }) });
-var IssueSchema = z10.looseObject({
-  state: z10.string(),
-  labels: z10.array(Label).nullish(),
-  pull_request: z10.unknown().optional()
+var PullsPageSchema = z13.array(z13.looseObject({ number: z13.number(), body: z13.string().nullish() }));
+var PullHeadSchema = z13.looseObject({ head: z13.looseObject({ sha: z13.string() }) });
+var IssueSchema = z13.looseObject({
+  state: z13.string(),
+  labels: z13.array(Label).nullish(),
+  pull_request: z13.unknown().optional()
 });
-var CreatedSchema = z10.looseObject({ id: z10.number() });
-var CommentWrittenSchema = z10.looseObject({ id: CommentIdSchema });
-var CommentsPageSchema = z10.array(z10.looseObject({ id: CommentIdSchema, body: z10.string().nullish() }));
-var ComparePageSchema = z10.looseObject({
-  files: z10.array(z10.looseObject({ filename: z10.string(), status: z10.string() })).nullish(),
-  commits: z10.array(z10.looseObject({ sha: z10.string(), commit: z10.looseObject({ message: z10.string().nullish() }).nullish() })).nullish()
+var CreatedSchema = z13.looseObject({ id: z13.number() });
+var CommentWrittenSchema = z13.looseObject({ id: CommentIdSchema });
+var CommentsPageSchema = z13.array(z13.looseObject({ id: CommentIdSchema, body: z13.string().nullish() }));
+var ComparePageSchema = z13.looseObject({
+  files: z13.array(z13.looseObject({ filename: z13.string(), status: z13.string() })).nullish(),
+  commits: z13.array(z13.looseObject({ sha: z13.string(), commit: z13.looseObject({ message: z13.string().nullish() }).nullish() })).nullish()
 });
-var ReviewsPageSchema = z10.array(
-  z10.looseObject({
-    user: z10.looseObject({ login: z10.string() }).nullish(),
-    state: z10.string(),
-    commit_id: z10.string().nullish()
+var ReviewsPageSchema = z13.array(
+  z13.looseObject({
+    user: z13.looseObject({ login: z13.string() }).nullish(),
+    state: z13.string(),
+    commit_id: z13.string().nullish()
   })
 );
-var CheckRunsSchema = z10.looseObject({
-  check_runs: z10.array(z10.looseObject({ id: z10.number(), status: z10.string().nullish() })).nullish()
+var CheckRunsSchema = z13.looseObject({
+  check_runs: z13.array(z13.looseObject({ id: z13.number(), status: z13.string().nullish() })).nullish()
 });
-var TreeEntrySchema = z10.looseObject({
-  path: z10.string(),
-  mode: z10.string(),
-  type: z10.string(),
-  sha: z10.string(),
-  size: z10.number().nullish()
+var TreeEntrySchema = z13.looseObject({
+  path: z13.string(),
+  mode: z13.string(),
+  type: z13.string(),
+  sha: z13.string(),
+  size: z13.number().nullish()
 });
-var TreeSchema = z10.looseObject({ truncated: z10.boolean().nullish(), tree: z10.array(TreeEntrySchema) });
-var BlobSchema = z10.looseObject({ content: z10.string(), encoding: z10.string().nullish() });
-var RefSchema = z10.looseObject({ object: z10.looseObject({ sha: z10.string() }) });
-var GitCommitSchema = z10.looseObject({ tree: z10.looseObject({ sha: z10.string() }) });
-var ShaSchema = z10.looseObject({ sha: z10.string() });
-var PullWrittenSchema = z10.looseObject({ number: PrNumberSchema, html_url: z10.string() });
-var PullsSchema = z10.array(
-  z10.looseObject({
+var TreeSchema = z13.looseObject({ truncated: z13.boolean().nullish(), tree: z13.array(TreeEntrySchema) });
+var BlobSchema = z13.looseObject({ content: z13.string(), encoding: z13.string().nullish() });
+var RefSchema = z13.looseObject({ object: z13.looseObject({ sha: z13.string() }) });
+var GitCommitSchema = z13.looseObject({ tree: z13.looseObject({ sha: z13.string() }) });
+var ShaSchema = z13.looseObject({ sha: z13.string() });
+var PullWrittenSchema = z13.looseObject({ number: PrNumberSchema, html_url: z13.string() });
+var PullsSchema = z13.array(
+  z13.looseObject({
     number: PrNumberSchema,
-    html_url: z10.string(),
-    state: z10.string(),
-    merged_at: z10.string().nullish(),
-    head: z10.looseObject({ sha: z10.string().nullish() }).nullish()
+    html_url: z13.string(),
+    state: z13.string(),
+    merged_at: z13.string().nullish(),
+    head: z13.looseObject({ sha: z13.string().nullish() }).nullish()
   })
 );
-var FailureSchema = z10.looseObject({ status: z10.unknown(), message: z10.unknown() }).partial();
+var FailureSchema = z13.looseObject({ status: z13.unknown(), message: z13.unknown() }).partial();
 function statusOf(error) {
   const read2 = FailureSchema.safeParse(error);
   return read2.success ? read2.data.status : void 0;
@@ -2210,8 +2491,8 @@ function messageOf3(error) {
   return messageField(error) ?? error;
 }
 function firstLine2(reason2) {
-  const said2 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
-  return said2.split("\n")[0] || "unknown error";
+  const said3 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
+  return said3.split("\n")[0] || "unknown error";
 }
 var printed = (value) => String(value);
 
@@ -2315,50 +2596,50 @@ async function filesUnder(tree, ref, segments) {
 var isRegular = (entry) => entry.mode === "100644" || entry.mode === "100755";
 
 // apps/omni-app/src/retro/github.schema.ts
-import { z as z11 } from "zod";
-var label = z11.union([z11.string(), z11.object({ name: z11.string() })]);
-var PullSchema2 = z11.object({
+import { z as z14 } from "zod";
+var label = z14.union([z14.string(), z14.object({ name: z14.string() })]);
+var PullSchema2 = z14.object({
   number: PrNumberSchema,
-  title: z11.string().nullish(),
-  html_url: z11.string().nullish(),
-  state: z11.string().nullish(),
-  draft: z11.boolean().nullish(),
-  merged: z11.boolean().nullish(),
-  base: z11.object({ ref: z11.string() }),
-  head: z11.object({ ref: z11.string(), sha: z11.string() }),
-  created_at: z11.string().nullish(),
-  closed_at: z11.string().nullish(),
-  merged_at: z11.string().nullish(),
-  merge_commit_sha: z11.string().nullish(),
-  labels: z11.array(label).nullish()
+  title: z14.string().nullish(),
+  html_url: z14.string().nullish(),
+  state: z14.string().nullish(),
+  draft: z14.boolean().nullish(),
+  merged: z14.boolean().nullish(),
+  base: z14.object({ ref: z14.string() }),
+  head: z14.object({ ref: z14.string(), sha: z14.string() }),
+  created_at: z14.string().nullish(),
+  closed_at: z14.string().nullish(),
+  merged_at: z14.string().nullish(),
+  merge_commit_sha: z14.string().nullish(),
+  labels: z14.array(label).nullish()
 });
-var ListSchema = z11.array(z11.unknown());
-var PullsSchema2 = z11.array(PullSchema2.extend({ state: z11.string(), created_at: z11.string() }));
-var RetroPullsSchema = z11.array(z11.object({ number: PrNumberSchema, state: z11.string(), html_url: z11.string() }));
-var InstallationSchema = z11.object({ id: z11.number() });
-var TreeSchema2 = z11.object({
-  tree: z11.array(z11.object({ path: z11.string(), type: z11.string(), sha: z11.string() }))
+var ListSchema = z14.array(z14.unknown());
+var PullsSchema2 = z14.array(PullSchema2.extend({ state: z14.string(), created_at: z14.string() }));
+var RetroPullsSchema = z14.array(z14.object({ number: PrNumberSchema, state: z14.string(), html_url: z14.string() }));
+var InstallationSchema2 = z14.object({ id: z14.number() });
+var TreeSchema2 = z14.object({
+  tree: z14.array(z14.object({ path: z14.string(), type: z14.string(), sha: z14.string() }))
 });
-var ContentSchema = z11.union([
-  z11.array(z11.unknown()),
-  z11.object({ type: z11.string(), content: z11.string().nullish(), encoding: z11.string().nullish() })
+var ContentSchema = z14.union([
+  z14.array(z14.unknown()),
+  z14.object({ type: z14.string(), content: z14.string().nullish(), encoding: z14.string().nullish() })
 ]);
-var BlobSchema2 = z11.object({ content: z11.string().nullish(), encoding: z11.string().nullish() });
-var RefSchema2 = z11.object({ object: z11.object({ sha: z11.string() }) });
-var IssuesSchema = z11.array(
-  z11.object({
+var BlobSchema2 = z14.object({ content: z14.string().nullish(), encoding: z14.string().nullish() });
+var RefSchema2 = z14.object({ object: z14.object({ sha: z14.string() }) });
+var IssuesSchema = z14.array(
+  z14.object({
     number: IssueNumberSchema,
-    html_url: z11.string(),
-    state: z11.string(),
-    title: z11.string(),
-    body: z11.string().nullish(),
-    pull_request: z11.unknown().optional()
+    html_url: z14.string(),
+    state: z14.string(),
+    title: z14.string(),
+    body: z14.string().nullish(),
+    pull_request: z14.unknown().optional()
   })
 );
-var CreatedIssueSchema = z11.object({ number: IssueNumberSchema, html_url: z11.string() });
-var CreatedCommentSchema = z11.object({ id: CommentIdSchema });
-var RetroDocSchema = z11.object({ runs: z11.array(z11.unknown()).catch([]) }).catch({ runs: [] });
-var RetroLessonsSchema = z11.object({ lessons: z11.array(z11.object({ text: z11.unknown() }).catch({ text: null })).catch([]) }).catch({ lessons: [] });
+var CreatedIssueSchema = z14.object({ number: IssueNumberSchema, html_url: z14.string() });
+var CreatedCommentSchema = z14.object({ id: CommentIdSchema });
+var RetroDocSchema = z14.object({ runs: z14.array(z14.unknown()).catch([]) }).catch({ runs: [] });
+var RetroLessonsSchema = z14.object({ lessons: z14.array(z14.object({ text: z14.unknown() }).catch({ text: null })).catch([]) }).catch({ lessons: [] });
 function parseGitHub(schema, value, route) {
   return parseOrThrow(schema, value, `${route} answered an unexpected shape`);
 }
@@ -2476,11 +2757,11 @@ function labelNames(labels) {
 }
 
 // apps/omni-app/src/knowledge-pack/github.ts
-var PullFileSchema = z12.looseObject({ filename: z12.string().min(1), previous_filename: z12.string().nullish() });
+var PullFileSchema = z15.looseObject({ filename: z15.string().min(1), previous_filename: z15.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z12.array(PullFileSchema).parse(data);
+    return z15.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -2785,7 +3066,7 @@ import { join as join7, posix } from "node:path";
 import { existsSync as existsSync3, readFileSync as readFileSync4 } from "node:fs";
 import { join as join6 } from "node:path";
 import { parse as parse2 } from "yaml";
-import { z as z13 } from "zod";
+import { z as z16 } from "zod";
 var req = (id) => Object.freeze({ id, required: true });
 var opt = (id) => Object.freeze({ id, required: false });
 var form = (id, kind, slots, { pointerOnly = false } = {}) => Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
@@ -2813,15 +3094,15 @@ var OLD_DATE_KEY = "terraformed";
 var OLD_BY = "terraform";
 var DATE = /^\d{4}-\d{2}-\d{2}$/;
 var EVIDENCE = /^(.+)@([0-9a-f]{7,40})$/;
-var FrontMatterSchema = z13.object({
-  form: z13.enum(FORM_IDS),
-  "form-version": z13.number().int().positive(),
-  state: z13.enum(FORM_STATES),
-  "points-to": z13.string().min(1).nullable(),
-  evidence: z13.array(z13.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
-  invaded: z13.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  [OLD_DATE_KEY]: z13.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  index: z13.string().min(1).optional()
+var FrontMatterSchema = z16.object({
+  form: z16.enum(FORM_IDS),
+  "form-version": z16.number().int().positive(),
+  state: z16.enum(FORM_STATES),
+  "points-to": z16.string().min(1).nullable(),
+  evidence: z16.array(z16.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
+  invaded: z16.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  [OLD_DATE_KEY]: z16.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  index: z16.string().min(1).optional()
 }).strict().superRefine((fm, context) => {
   if (fm.invaded === void 0 && fm[OLD_DATE_KEY] === void 0) {
     context.addIssue({ code: "custom", path: ["invaded"], message: "missing \u2014 a YYYY-MM-DD date, or null" });
@@ -3519,7 +3800,7 @@ function servedBy(entries, id) {
 
 // kit/lib/outbox/comment.ts
 import { existsSync as existsSync13, readFileSync as readFileSync11, writeFileSync as writeFileSync4 } from "node:fs";
-import { z as z16 } from "zod";
+import { z as z19 } from "zod";
 
 // kit/lib/check-report.ts
 import { execFileSync as execFileSync2 } from "node:child_process";
@@ -3664,7 +3945,7 @@ function parseFrontMatterLines(rawFrontMatter) {
 }
 
 // kit/lib/schema/front-matter.ts
-import { z as z14 } from "zod";
+import { z as z17 } from "zod";
 var SPEC_VALUES = ["file", "issue"];
 var PROOF_VALUES = ["video"];
 var E2E_VALUES = ["validate"];
@@ -3674,17 +3955,17 @@ var BLOCKED_BY_MESSAGE = 'blocked-by must be "none" or a bracketed list of PRD n
 var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 var BRACKET_LIST = /^\[([\s\S]*)\]$/;
 var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
-var PrdField = z14.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
-var ItemPrdField = z14.string().transform((raw, refinement) => {
+var PrdField = z17.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
+var ItemPrdField = z17.string().transform((raw, refinement) => {
   const product = ProductPrdIdSchema.safeParse(raw);
   if (product.success) return product.data;
   const prd = PrdField.safeParse(raw);
   if (prd.success) return prd.data;
   refinement.addIssue({ code: "custom", message: "prd must be a number, or a product PRD like mobile-12" });
-  return z14.NEVER;
+  return z17.NEVER;
 });
-var SliceField = z14.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
-var BlockedBySchema = z14.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
+var SliceField = z17.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
+var BlockedBySchema = z17.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
   if (raw === "none") return "none";
   const match = raw.match(BLOCKED_BY_LIST);
   if (!match) {
@@ -3692,25 +3973,25 @@ var BlockedBySchema = z14.string().trim().min(1, "blocked-by is required").trans
       code: "custom",
       message: BLOCKED_BY_MESSAGE
     });
-    return z14.NEVER;
+    return z17.NEVER;
   }
   const inner = (match[1] ?? "").trim();
   const prds = inner.length === 0 ? [] : inner.split(",").map((token2) => PrdNumberSchema.safeParse(Number(token2.trim())));
   const read2 = prds.flatMap((prd) => prd.success ? [prd.data] : []);
   if (read2.length !== prds.length) {
     ctx.addIssue({ code: "custom", message: BLOCKED_BY_MESSAGE });
-    return z14.NEVER;
+    return z17.NEVER;
   }
   return read2;
 });
-var AreasSchema = z14.string().trim().transform((raw, ctx) => {
+var AreasSchema = z17.string().trim().transform((raw, ctx) => {
   const match = raw.match(BRACKET_LIST);
   if (!match) {
     ctx.addIssue({
       code: "custom",
       message: "areas must be a bracketed list of domain folder names, e.g. [credits]"
     });
-    return z14.NEVER;
+    return z17.NEVER;
   }
   const inner = (match[1] ?? "").trim();
   return inner.length === 0 ? [] : inner.split(",").map((token2) => token2.trim());
@@ -3725,12 +4006,12 @@ function excusePathProblem(path) {
   }
   return null;
 }
-var ExcusesSchema = z14.string().trim().transform((raw, ctx) => {
+var ExcusesSchema = z17.string().trim().transform((raw, ctx) => {
   const match = raw.match(BRACKET_LIST);
   const paths = match ? (match[1] ?? "").split(",").map((token2) => token2.trim()).filter(Boolean) : [];
   if (!match || paths.length === 0) {
     ctx.addIssue({ code: "custom", message: "excuses must be a bracketed list of exact paths, e.g. [kit/lib/init/labels.ts]" });
-    return z14.NEVER;
+    return z17.NEVER;
   }
   const problems = paths.flatMap((path, index) => {
     const problem = excusePathProblem(path);
@@ -3739,41 +4020,41 @@ var ExcusesSchema = z14.string().trim().transform((raw, ctx) => {
   });
   if (problems.length > 0) {
     ctx.addIssue({ code: "custom", message: `excuses: ${problems.join("; ")}` });
-    return z14.NEVER;
+    return z17.NEVER;
   }
   return paths;
 }).optional();
-var SpecFrontMatterSchema = z14.object({
+var SpecFrontMatterSchema = z17.object({
   prd: PrdField,
-  title: z14.string().trim().min(1, "title is required"),
+  title: z17.string().trim().min(1, "title is required"),
   "blocked-by": BlockedBySchema,
-  spec: z14.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
+  spec: z17.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
   areas: AreasSchema,
   // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
-  proof: z14.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
+  proof: z17.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
   // PRD 1275: `e2e: validate` asks `/omni:yolo` to follow `/omni:validate-e2e` once the feature PR is ready.
-  e2e: z14.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(" or ")}, or left out` }).optional(),
+  e2e: z17.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(" or ")}, or left out` }).optional(),
   // PRD 1299: `phase0: server` says the PRD is approved on its PRD page, not by a phase-0 PR.
-  phase0: z14.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
+  phase0: z17.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
 }).strict();
-var OutboxItemFrontMatterSchema = z14.object({
-  id: z14.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
+var OutboxItemFrontMatterSchema = z17.object({
+  id: z17.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
   prd: ItemPrdField,
   slice: SliceField,
-  rank: z14.enum(RANK_VALUES, {
+  rank: z17.enum(RANK_VALUES, {
     message: `rank must be one of: ${RANK_VALUES.join(", ")}`
   }),
-  "bears-on": z14.string().trim().min(1, "bears-on is required"),
-  raised: z14.string().regex(DATE2, "raised must be a YYYY-MM-DD date"),
-  wave: z14.coerce.number({ message: "wave must be a number" }).int().positive(),
+  "bears-on": z17.string().trim().min(1, "bears-on is required"),
+  raised: z17.string().regex(DATE2, "raised must be a YYYY-MM-DD date"),
+  wave: z17.coerce.number({ message: "wave must be a number" }).int().positive(),
   // PRD 2898: the exact paths whose finding of the ready checks 4 and 5 this item excuses, once a
   // person agreed (or, for check 5, once it was adopted). Left out, the item excuses nothing.
   excuses: ExcusesSchema
 }).strict();
-var AccountFrontMatterSchema = z14.object({
+var AccountFrontMatterSchema = z17.object({
   prd: PrdField,
   slice: SliceField,
-  graded: z14.string().regex(DATE2, "graded must be a YYYY-MM-DD date")
+  graded: z17.string().regex(DATE2, "graded must be a YYYY-MM-DD date")
 }).strict();
 
 // kit/lib/outbox/outbox.ts
@@ -4085,7 +4366,7 @@ function outboxItemFiles({ ctx }) {
 // kit/lib/outbox/settle.ts
 import { existsSync as existsSync9, mkdirSync as mkdirSync3, readFileSync as readFileSync9, rmSync as rmSync3, writeFileSync as writeFileSync3 } from "node:fs";
 import { dirname as dirname2, isAbsolute as isAbsolute2, join as join15, relative } from "node:path";
-import { z as z15 } from "zod";
+import { z as z18 } from "zod";
 function parseItem(text20, file) {
   return parseOutboxItem(text20, { file });
 }
@@ -4097,22 +4378,22 @@ var CHANNEL_LABEL = {
   "prd-issue": "PRD issue",
   "feature-pull-request": "feature pull request"
 };
-var AnswerChannelSchema = z15.object({
-  kind: z15.enum(CHANNEL_KINDS, {
+var AnswerChannelSchema = z18.object({
+  kind: z18.enum(CHANNEL_KINDS, {
     message: `channel.kind must be one of: ${CHANNEL_KINDS.join(", ")}`
   }),
-  number: z15.coerce.number({ message: "channel.number must be a number" }).int().positive(),
-  url: z15.string().trim().min(1).optional()
+  number: z18.coerce.number({ message: "channel.number must be a number" }).int().positive(),
+  url: z18.string().trim().min(1).optional()
 }).strict();
-var AnswerSchema = z15.object({
-  text: z15.string().trim().min(1, "the answer text is required"),
-  approvedBy: z15.string().trim().min(1, "approvedBy is required \u2014 who approved it"),
-  approvedAt: z15.string().regex(
+var AnswerSchema = z18.object({
+  text: z18.string().trim().min(1, "the answer text is required"),
+  approvedBy: z18.string().trim().min(1, "approvedBy is required \u2014 who approved it"),
+  approvedAt: z18.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "approvedAt must be an ISO date or date-time"
   ),
   channel: AnswerChannelSchema,
-  statedVerdict: z15.enum(VERDICTS).optional()
+  statedVerdict: z18.enum(VERDICTS).optional()
 }).strict();
 function answerErrors(error) {
   return error.issues.map((issue) => `${issue.path.join(".") || "(answer)"}: ${issue.message}`);
@@ -5667,9 +5948,9 @@ function countsByRank(items) {
   }
   return counts;
 }
-var PrCommentResultSchema = z16.object({
-  htmlUrl: z16.string().nullish(),
-  newAdoptedCount: z16.number().optional()
+var PrCommentResultSchema = z19.object({
+  htmlUrl: z19.string().nullish(),
+  newAdoptedCount: z19.number().optional()
 }).loose();
 function upsertOutboxComment({
   prd,
@@ -5747,44 +6028,44 @@ import { basename as basename4, dirname as dirname5, join as join22 } from "node
 // kit/lib/design/words/product.ts
 import { readFileSync as readFileSync14 } from "node:fs";
 import { join as join19 } from "node:path";
-import { z as z19 } from "zod";
+import { z as z22 } from "zod";
 
 // kit/lib/product/knowledge.ts
 import { readFileSync as readFileSync13, writeFileSync as writeFileSync6 } from "node:fs";
 import { join as join18 } from "node:path";
-import { z as z18 } from "zod";
+import { z as z21 } from "zod";
 
 // kit/lib/ask/schema.ts
-import { z as z17 } from "zod";
-var text3 = z17.string().min(1);
-var JsonObjectSchema = z17.record(z17.string(), z17.unknown());
-var ModeFileSchema = z17.object({
+import { z as z20 } from "zod";
+var text3 = z20.string().min(1);
+var JsonObjectSchema = z20.record(z20.string(), z20.unknown());
+var ModeFileSchema = z20.object({
   host: text3,
   sessionId: text3.nullable().catch(null)
 });
-var TerminalFileSchema = z17.object({ sessionId: text3, host: text3 });
+var TerminalFileSchema = z20.object({ sessionId: text3, host: text3 });
 var ROUND_STATUSES = ["open", "answered", "abandoned"];
-var RoundFileSchema = z17.object({
+var RoundFileSchema = z20.object({
   roundId: text3,
-  status: z17.enum(ROUND_STATUSES).catch("open")
+  status: z20.enum(ROUND_STATUSES).catch("open")
 });
-var HeartbeatWindowSchema = z17.object({ sentAt: z17.number() });
-var TokensSchema = z17.looseObject({ access_token: text3 });
-var TokenReplySchema = z17.object({ access_token: text3, refresh_token: text3 });
-var QuestionOptionSchema = z17.strictObject({ label: text3, description: z17.string() });
-var QuestionSchema = z17.strictObject({
+var HeartbeatWindowSchema = z20.object({ sentAt: z20.number() });
+var TokensSchema = z20.looseObject({ access_token: text3 });
+var TokenReplySchema = z20.object({ access_token: text3, refresh_token: text3 });
+var QuestionOptionSchema = z20.strictObject({ label: text3, description: z20.string() });
+var QuestionSchema = z20.strictObject({
   question: text3,
-  header: z17.string(),
-  options: z17.array(QuestionOptionSchema),
-  multiSelect: z17.boolean()
+  header: z20.string(),
+  options: z20.array(QuestionOptionSchema),
+  multiSelect: z20.boolean()
 });
-var QuestionContextSchema = z17.strictObject({
-  skill: z17.string().nullable().optional(),
-  model: z17.string().nullable().optional()
+var QuestionContextSchema = z20.strictObject({
+  skill: z20.string().nullable().optional(),
+  model: z20.string().nullable().optional()
 });
-var QuestionFileSchema = z17.strictObject({
-  questions: z17.array(QuestionSchema).min(1),
-  lead: z17.string().optional(),
+var QuestionFileSchema = z20.strictObject({
+  questions: z20.array(QuestionSchema).min(1),
+  lead: z20.string().optional(),
   context: QuestionContextSchema.optional()
 });
 
@@ -5813,37 +6094,37 @@ var SHOTS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 
 // kit/lib/product/knowledge.ts
 var PRODUCT_KNOWLEDGE_FILE = join18(LOCAL_DIR, "product-knowledge.json");
-var LegalSchema = z18.object({ id: z18.string().min(1), statement: z18.string(), source: z18.string(), owner: z18.string() });
-var TermSchema = z18.object({ term: z18.string().min(1), meaning: z18.string(), avoid: z18.array(z18.string()) }).extend({ domains: z18.array(z18.string()).optional() });
-var DomainSchema = z18.object({ key: z18.string().min(1), name: z18.string(), meaning: z18.string() });
-var PersonaSchema = z18.object({ name: z18.string().min(1), stance: z18.string() });
-var ReplySchema = z18.object({
-  state: z18.string().optional(),
-  product: z18.object({ name: z18.string().min(1) }).nullable().optional(),
-  legal: z18.array(LegalSchema).optional(),
-  glossary: z18.array(TermSchema).optional(),
+var LegalSchema = z21.object({ id: z21.string().min(1), statement: z21.string(), source: z21.string(), owner: z21.string() });
+var TermSchema = z21.object({ term: z21.string().min(1), meaning: z21.string(), avoid: z21.array(z21.string()) }).extend({ domains: z21.array(z21.string()).optional() });
+var DomainSchema = z21.object({ key: z21.string().min(1), name: z21.string(), meaning: z21.string() });
+var PersonaSchema = z21.object({ name: z21.string().min(1), stance: z21.string() });
+var ReplySchema = z21.object({
+  state: z21.string().optional(),
+  product: z21.object({ name: z21.string().min(1) }).nullable().optional(),
+  legal: z21.array(LegalSchema).optional(),
+  glossary: z21.array(TermSchema).optional(),
   // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
-  personas: z18.array(z18.unknown()).optional(),
+  personas: z21.array(z21.unknown()).optional(),
   // Like a persona, a domain out of shape is left out, never a refusal.
-  domains: z18.array(z18.unknown()).optional(),
+  domains: z21.array(z21.unknown()).optional(),
   // The law home (PRD 2632): a reply out of shape here reads as none, never a refusal.
-  lawHome: z18.unknown().optional()
+  lawHome: z21.unknown().optional()
 });
-var CopySchema = z18.object({
-  product: z18.string(),
-  readAt: z18.iso.datetime(),
-  legal: z18.array(LegalSchema),
-  glossary: z18.array(TermSchema),
+var CopySchema = z21.object({
+  product: z21.string(),
+  readAt: z21.iso.datetime(),
+  legal: z21.array(LegalSchema),
+  glossary: z21.array(TermSchema),
   // A copy from before PRD 2299 has none: it still reads, with no persona.
-  personas: z18.array(PersonaSchema).default([]),
+  personas: z21.array(PersonaSchema).default([]),
   // A copy from before PRD 2583 has none: it still reads, with no domains.
-  domains: z18.array(DomainSchema).optional(),
+  domains: z21.array(DomainSchema).optional(),
   // A copy from before PRD 2632 has none: it reads as no law home.
-  lawHome: z18.string().nullable().optional()
+  lawHome: z21.string().nullable().optional()
 });
 
 // kit/lib/design/words/product.ts
-var CopySchema2 = z19.object({ glossary: z19.array(z19.object({ term: z19.string().min(1), avoid: z19.array(z19.string()) })) });
+var CopySchema2 = z22.object({ glossary: z22.array(z22.object({ term: z22.string().min(1), avoid: z22.array(z22.string()) })) });
 
 // kit/lib/design/words/html.ts
 var VOID = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
@@ -6221,7 +6502,7 @@ function parseSpec(text20, { file = null } = {}) {
 }
 
 // kit/lib/roadmap/parse.ts
-import { z as z20 } from "zod";
+import { z as z23 } from "zod";
 
 // kit/lib/markdown-body.ts
 var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
@@ -6277,21 +6558,21 @@ var PRD_CELL = /^#([1-9]\d*)$/;
 var WAVE_CELL = /^[1-9]\d*$/;
 var NONE_CELL = /^(?:|-|–|—|none)$/i;
 var ID_CELL = /^[^\s,|]+$/;
-var optionalText = z20.string().trim().min(1).optional();
-var ProductFrontMatterSchema = z20.object({
-  roadmap: z20.string().optional(),
-  title: z20.string().trim().min(1),
-  milestone: z20.string().trim().min(1),
+var optionalText = z23.string().trim().min(1).optional();
+var ProductFrontMatterSchema = z23.object({
+  roadmap: z23.string().optional(),
+  title: z23.string().trim().min(1),
+  milestone: z23.string().trim().min(1),
   product: optionalText,
-  target: z20.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  target: z23.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
-var FrontMatterSchema2 = z20.object({
-  roadmap: z20.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
-  title: z20.string().trim().min(1),
-  milestone: z20.string().trim().min(1),
+var FrontMatterSchema2 = z23.object({
+  roadmap: z23.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
+  title: z23.string().trim().min(1),
+  milestone: z23.string().trim().min(1),
   product: optionalText,
-  target: z20.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  target: z23.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
 function frontMatter(raw, schema) {
@@ -6710,7 +6991,7 @@ function gradeRoadmaps(ctx) {
 }
 
 // kit/lib/voice/voice.ts
-import { z as z21 } from "zod";
+import { z as z24 } from "zod";
 var VOICE_FILE = "voice.json";
 var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
 var STAGES_SAID = "design, spec, rework-<k>, shipped";
@@ -6724,22 +7005,22 @@ var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$
 var MAX_SENTENCES = 2;
 var TOP_FIELDS = ["rounds"];
 var ROUND_FIELDS = ["stage", "date", "personas", "objection", "fit"];
-var VoicePersonaSchema = z21.looseObject({
-  name: z21.string(),
-  stance: z21.enum(READ_STANCES),
-  score: z21.number(),
-  reaction: z21.string(),
-  citations: z21.array(z21.string())
+var VoicePersonaSchema = z24.looseObject({
+  name: z24.string(),
+  stance: z24.enum(READ_STANCES),
+  score: z24.number(),
+  reaction: z24.string(),
+  citations: z24.array(z24.string())
 });
-var VoiceObjectionSchema = z21.looseObject({ persona: z21.string(), text: z21.string(), citations: z21.array(z21.string()), settled: z21.enum(SETTLED) });
-var VoiceRoundSchema = z21.object({
-  stage: z21.string(),
-  date: z21.string(),
-  personas: z21.array(VoicePersonaSchema),
+var VoiceObjectionSchema = z24.looseObject({ persona: z24.string(), text: z24.string(), citations: z24.array(z24.string()), settled: z24.enum(SETTLED) });
+var VoiceRoundSchema = z24.object({
+  stage: z24.string(),
+  date: z24.string(),
+  personas: z24.array(VoicePersonaSchema),
   objection: VoiceObjectionSchema.nullish(),
-  fit: z21.string().nullish()
+  fit: z24.string().nullish()
 });
-var VoiceSchema = z21.object({ rounds: z21.array(VoiceRoundSchema) });
+var VoiceSchema = z24.object({ rounds: z24.array(VoiceRoundSchema) });
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
 function countSentences2(text20) {
@@ -7544,7 +7825,7 @@ function section2(markdown, name) {
 }
 
 // apps/omni-app/src/main-watch/main-watch.ts
-import { z as z29 } from "zod";
+import { z as z32 } from "zod";
 
 // apps/omni-app/src/saved-step.ts
 var RENEW_EVERY_MS = 6e4;
@@ -7617,12 +7898,12 @@ function firstLine3(error) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z24 } from "zod";
+import { z as z27 } from "zod";
 
 // kit/lib/retro/outcome.ts
-import { z as z22 } from "zod";
-var LessonOutcomeSchema = z22.union([z22.object({ became: z22.string() }).strict(), z22.object({ staysHere: z22.string() }).strict()]);
-var LessonOutcomesSchema = z22.record(z22.string(), LessonOutcomeSchema);
+import { z as z25 } from "zod";
+var LessonOutcomeSchema = z25.union([z25.object({ became: z25.string() }).strict(), z25.object({ staysHere: z25.string() }).strict()]);
+var LessonOutcomesSchema = z25.record(z25.string(), LessonOutcomeSchema);
 function outcomeLine(outcome3) {
   if ("became" in outcome3) return `- **Became:** \`${outcome3.became}\``;
   return `- **Stays here:** ${outcome3.staysHere.trim().split(/\s+/).join(" ")}`;
@@ -7632,19 +7913,19 @@ function outcomeLine(outcome3) {
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z23 } from "zod";
-var ReplyFindingSchema = z23.object({
-  title: z23.string().exactOptional(),
-  whyItMatters: z23.string().exactOptional(),
-  lesson: z23.string().exactOptional(),
-  keep: z23.boolean().exactOptional(),
-  why: z23.string().exactOptional()
+import { z as z26 } from "zod";
+var ReplyFindingSchema = z26.object({
+  title: z26.string().exactOptional(),
+  whyItMatters: z26.string().exactOptional(),
+  lesson: z26.string().exactOptional(),
+  keep: z26.boolean().exactOptional(),
+  why: z26.string().exactOptional()
 });
-var ModelReplySchema = z23.object({
-  summary: z23.string(),
-  findings: z23.record(z23.string(), ReplyFindingSchema),
-  lessons: z23.array(z23.object({ text: z23.string(), findings: z23.array(z23.string()) })),
-  verdict: z23.object({ worthIt: z23.boolean(), reason: z23.string() }).nullable()
+var ModelReplySchema = z26.object({
+  summary: z26.string(),
+  findings: z26.record(z26.string(), ReplyFindingSchema),
+  lessons: z26.array(z26.object({ text: z26.string(), findings: z26.array(z26.string()) })),
+  verdict: z26.object({ worthIt: z26.boolean(), reason: z26.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -7845,171 +8126,171 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text4 = z24.string();
-var maybeText = z24.string().nullable();
-var RunSchema = z24.enum(["merge", "day-14"]);
+var text4 = z27.string();
+var maybeText = z27.string().nullable();
+var RunSchema = z27.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
   title: text4,
   url: maybeText,
-  merged: z24.boolean(),
+  merged: z27.boolean(),
   baseRef: text4,
   headRef: text4,
   headSha: text4,
   openedAt: maybeText,
   mergedAt: maybeText,
   mergeSha: maybeText,
-  labels: z24.array(text4)
+  labels: z27.array(text4)
 };
-var PullSchema3 = z24.object(pullFields);
-var FeaturePullSchema = z24.object({ ...pullFields, mergeSha: text4 });
-var PullIntoSchema = z24.object({
+var PullSchema3 = z27.object(pullFields);
+var FeaturePullSchema = z27.object({ ...pullFields, mergeSha: text4 });
+var PullIntoSchema = z27.object({
   number: PrNumberSchema,
   title: text4,
   url: maybeText,
   state: text4,
-  draft: z24.boolean(),
+  draft: z27.boolean(),
   headRef: text4,
   headSha: text4,
   openedAt: text4,
   closedAt: maybeText,
   mergedAt: maybeText,
-  labels: z24.array(text4)
+  labels: z27.array(text4)
 });
-var PrdFactsSchema = z24.object({
+var PrdFactsSchema = z27.object({
   number: PrdNumberSchema,
   topic: text4,
   title: text4,
   problem: text4,
-  state: z24.enum(["shipped", "inbox"]),
+  state: z27.enum(["shipped", "inbox"]),
   folder: text4,
   plan: maybeText,
   settled: maybeText
 });
-var QualifiedSchema = z24.union([
-  z24.object({ skip: z24.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z24.object({ skip: text4, pr: PullSchema3.exactOptional() })
+var QualifiedSchema = z27.union([
+  z27.object({ skip: z27.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z27.object({ skip: text4, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z24.array(PullIntoSchema);
-var EvidenceSchema = z24.object({ label: text4, url: maybeText, excerpt: text4.exactOptional() });
-var FindingSchema = z24.object({ id: text4, kind: text4, title: text4, happened: text4, evidence: z24.array(EvidenceSchema) });
-var SheetFindingSchema = z24.object({ ...FindingSchema.shape, source: text4, ref: text4, repo: text4.exactOptional() });
-var TargetReadSchema = z24.discriminatedUnion("read", [
-  z24.object({
+var PullsIntoSchema = z27.array(PullIntoSchema);
+var EvidenceSchema = z27.object({ label: text4, url: maybeText, excerpt: text4.exactOptional() });
+var FindingSchema = z27.object({ id: text4, kind: text4, title: text4, happened: text4, evidence: z27.array(EvidenceSchema) });
+var SheetFindingSchema = z27.object({ ...FindingSchema.shape, source: text4, ref: text4, repo: text4.exactOptional() });
+var TargetReadSchema = z27.discriminatedUnion("read", [
+  z27.object({
     name: text4,
     repo: text4,
-    read: z24.literal(true),
-    installationId: z24.number(),
-    featurePrs: z24.array(FeaturePullSchema).min(1),
-    pulls: z24.array(PullIntoSchema)
+    read: z27.literal(true),
+    installationId: z27.number(),
+    featurePrs: z27.array(FeaturePullSchema).min(1),
+    pulls: z27.array(PullIntoSchema)
   }),
-  z24.object({ name: text4, repo: text4, read: z24.literal(false), reason: text4 })
+  z27.object({ name: text4, repo: text4, read: z27.literal(false), reason: text4 })
 ]);
-var RepositoryFactsSchema = z24.object({
+var RepositoryFactsSchema = z27.object({
   repo: text4,
   name: text4,
-  plan: z24.boolean(),
-  read: z24.boolean(),
+  plan: z27.boolean(),
+  read: z27.boolean(),
   reason: text4.exactOptional(),
-  featurePrs: z24.array(z24.object({ number: PrNumberSchema, url: maybeText })),
-  kinds: z24.record(z24.string(), z24.unknown()).exactOptional()
+  featurePrs: z27.array(z27.object({ number: PrNumberSchema, url: maybeText })),
+  kinds: z27.record(z27.string(), z27.unknown()).exactOptional()
 });
-var RulesSheetSchema = z24.object({
-  version: z24.number(),
-  findingOrder: z24.array(z24.array(text4)),
-  issuesPerRun: z24.number(),
-  thresholds: z24.object({
-    slowSliceFactor: z24.number(),
-    repeatedRedCommits: z24.number(),
-    repeatedRedSlices: z24.number(),
-    failingTestRuns: z24.number(),
-    churnRangeCommits: z24.number(),
-    churnFilePercent: z24.number(),
-    churnFileLines: z24.number(),
-    afterMergeDays: z24.number()
+var RulesSheetSchema = z27.object({
+  version: z27.number(),
+  findingOrder: z27.array(z27.array(text4)),
+  issuesPerRun: z27.number(),
+  thresholds: z27.object({
+    slowSliceFactor: z27.number(),
+    repeatedRedCommits: z27.number(),
+    repeatedRedSlices: z27.number(),
+    failingTestRuns: z27.number(),
+    churnRangeCommits: z27.number(),
+    churnFilePercent: z27.number(),
+    churnFileLines: z27.number(),
+    afterMergeDays: z27.number()
   }),
-  limits: z24.object({ logTailLines: z24.number(), modelInputTokens: z24.number() }),
-  fieldCaps: z24.object({
-    summary: z24.number(),
-    title: z24.number(),
-    whyItMatters: z24.number(),
-    lesson: z24.number(),
-    reason: z24.number(),
-    why: z24.number()
+  limits: z27.object({ logTailLines: z27.number(), modelInputTokens: z27.number() }),
+  fieldCaps: z27.object({
+    summary: z27.number(),
+    title: z27.number(),
+    whyItMatters: z27.number(),
+    lesson: z27.number(),
+    reason: z27.number(),
+    why: z27.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z24.object({ number: PrdNumberSchema, title: text4, topic: text4, state: text4, folder: text4 }),
-  featurePr: z24.object({ number: PrNumberSchema, title: text4, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text4 }),
+  prd: z27.object({ number: PrdNumberSchema, title: text4, topic: text4, state: text4, folder: text4 }),
+  featurePr: z27.object({ number: PrNumberSchema, title: text4, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text4 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z24.record(z24.string(), z24.unknown()),
-  findings: z24.array(SheetFindingSchema),
+  kinds: z27.record(z27.string(), z27.unknown()),
+  findings: z27.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z24.array(RepositoryFactsSchema).exactOptional()
+  repositories: z27.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z24.object(factSheetFields);
-var DroppedSchema = z24.object({ dropped: text4 });
-var ProseFieldSchema = z24.union([text4, DroppedSchema]);
-var ProseFindingSchema = z24.object({
+var FactSheetSchema = z27.object(factSheetFields);
+var DroppedSchema = z27.object({ dropped: text4 });
+var ProseFieldSchema = z27.union([text4, DroppedSchema]);
+var ProseFindingSchema = z27.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z24.boolean().exactOptional(),
+  keep: z27.boolean().exactOptional(),
   why: text4.exactOptional()
 });
-var LessonSchema = z24.object({ text: text4, findings: z24.array(text4) });
-var VerdictSchema = z24.union([z24.object({ worthIt: z24.boolean(), reason: text4 }), DroppedSchema]);
-var ProseSchema = z24.object({
+var LessonSchema = z27.object({ text: text4, findings: z27.array(text4) });
+var VerdictSchema = z27.union([z27.object({ worthIt: z27.boolean(), reason: text4 }), DroppedSchema]);
+var ProseSchema = z27.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z24.record(z24.string(), ProseFindingSchema),
-  lessons: z24.array(LessonSchema),
+  findings: z27.record(z27.string(), ProseFindingSchema),
+  lessons: z27.array(LessonSchema),
   verdict: VerdictSchema.optional()
 });
-var DroppedFieldSchema = z24.object({ field: text4, reason: text4 });
-var GuardedSchema = z24.object({ prose: ProseSchema.nullable(), dropped: z24.array(DroppedFieldSchema) });
-var NarratedSchema = z24.object({ model: maybeText, reply: ModelReplySchema.nullable(), reason: maybeText });
-var NarrationSchema = z24.object({ model: maybeText, reason: maybeText, dropped: z24.array(DroppedFieldSchema) });
-var IssueLinkSchema = z24.object({ number: IssueNumberSchema, url: text4, state: z24.enum(["open", "closed"]) });
-var IssueLinksSchema = z24.record(z24.string(), IssueLinkSchema);
-var RunRecordSchema = z24.object({
+var DroppedFieldSchema = z27.object({ field: text4, reason: text4 });
+var GuardedSchema = z27.object({ prose: ProseSchema.nullable(), dropped: z27.array(DroppedFieldSchema) });
+var NarratedSchema = z27.object({ model: maybeText, reply: ModelReplySchema.nullable(), reason: maybeText });
+var NarrationSchema = z27.object({ model: maybeText, reason: maybeText, dropped: z27.array(DroppedFieldSchema) });
+var IssueLinkSchema = z27.object({ number: IssueNumberSchema, url: text4, state: z27.enum(["open", "closed"]) });
+var IssueLinksSchema = z27.record(z27.string(), IssueLinkSchema);
+var RunRecordSchema = z27.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema.nullable().exactOptional(),
-  lessons: z24.array(LessonSchema).exactOptional(),
+  lessons: z27.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional(),
   outcomes: LessonOutcomesSchema.exactOptional()
 });
-var KnownSchema = z24.object({
-  knowledge: z24.object({
-    principles: z24.array(z24.unknown()),
-    laws: z24.array(z24.unknown()),
-    decisions: z24.array(z24.unknown()),
-    playbook: z24.array(z24.object({ id: text4, line: text4 })).exactOptional()
+var KnownSchema = z27.object({
+  knowledge: z27.object({
+    principles: z27.array(z27.unknown()),
+    laws: z27.array(z27.unknown()),
+    decisions: z27.array(z27.unknown()),
+    playbook: z27.array(z27.object({ id: text4, line: text4 })).exactOptional()
   }),
-  lessons: z24.array(text4)
+  lessons: z27.array(text4)
 });
-var PublishedSchema = z24.object({
+var PublishedSchema = z27.object({
   branch: text4,
-  committed: z24.boolean(),
+  committed: z27.boolean(),
   commit: text4,
-  pr: z24.object({ number: PrNumberSchema, url: text4, created: z24.boolean() }).nullable(),
+  pr: z27.object({ number: PrNumberSchema, url: text4, created: z27.boolean() }).nullable(),
   apply: text4.nullable().exactOptional()
 });
-var QueuedSchema = z24.object({ job: text4.nullable(), created: z24.boolean(), reason: maybeText });
-var CommentedSchema = z24.object({ commentId: CommentIdSchema, created: z24.boolean() });
-var PublishedBeforeSchema = z24.object({
-  pr: z24.object({ branch: text4, commit: text4, number: PrNumberSchema, url: text4 }).nullable(),
-  comment: z24.object({ commentId: CommentIdSchema }).nullable()
+var QueuedSchema = z27.object({ job: text4.nullable(), created: z27.boolean(), reason: maybeText });
+var CommentedSchema = z27.object({ commentId: CommentIdSchema, created: z27.boolean() });
+var PublishedBeforeSchema = z27.object({
+  pr: z27.object({ branch: text4, commit: text4, number: PrNumberSchema, url: text4 }).nullable(),
+  comment: z27.object({ commentId: CommentIdSchema }).nullable()
 });
 
 // apps/omni-app/src/saved-parts.ts
 import { createHash } from "node:crypto";
-import { z as z25 } from "zod";
+import { z as z28 } from "zod";
 var PART_BYTES = 524288;
 var PARTS = "omni:parts";
-var HeadSchema = z25.strictObject({ [PARTS]: z25.strictObject({ hash: z25.string().min(1), count: z25.number().int().positive() }) });
+var HeadSchema = z28.strictObject({ [PARTS]: z28.strictObject({ hash: z28.string().min(1), count: z28.number().int().positive() }) });
 async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const saved = await step.run(id, async () => {
     const text20 = JSON.stringify(asSaved(await fn()));
@@ -8396,7 +8677,7 @@ async function readTarget({ appOctokit, octokitFor }, target2) {
   if ("status" in installation) {
     return notRead(target2, installation.status === 404 ? "the App is not installed there" : `GitHub refused the App's lookup (${installation.status})`);
   }
-  const installationId = parseGitHub(InstallationSchema, installation.value.data, INSTALLATION).id;
+  const installationId = parseGitHub(InstallationSchema2, installation.value.data, INSTALLATION).id;
   const pulls = await refusedAs(async () => featurePulls(await octokitFor(installationId), { owner, repo, branches: target2.branches }));
   if ("status" in pulls) return notRead(target2, `GitHub refused the read (${pulls.status})`);
   if (pulls.value.featurePrs.length === 0) return notRead(target2, `no pull request from \`${target2.branches.join("`, `")}\``);
@@ -8444,24 +8725,24 @@ async function gatherTarget({ step, octokitFor, kinds, scope }, target2) {
 }
 
 // apps/omni-app/src/main-watch/main-watch.schema.ts
-import { z as z26 } from "zod";
-var text5 = z26.string().min(1);
-var BreakSchema = z26.object({
-  kind: z26.enum(["ci-red", "revert", "regression"]),
+import { z as z29 } from "zod";
+var text5 = z29.string().min(1);
+var BreakSchema = z29.object({
+  kind: z29.enum(["ci-red", "revert", "regression"]),
   source: text5,
   url: text5,
   title: text5,
-  parent: z26.enum(["green", "red", "unknown"]).nullable(),
+  parent: z29.enum(["green", "red", "unknown"]).nullable(),
   at: text5
 });
-var ReadSchema = z26.object({ breaks: z26.array(BreakSchema), unread: z26.array(z26.enum(["ci", "reverts", "regressions"])) });
-var OpenedSchema = z26.object({ workspace: text5.nullable(), reason: text5.nullable(), opened: z26.number().int().min(0) });
-var RecordedSchema = z26.object({ added: z26.number().int().min(0) });
-var ClosedSchema = z26.object({ closed: z26.boolean() });
-var ProgressSchema = z26.object({ turn: z26.number().int().min(0), done: z26.array(text5), broke: z26.array(text5) });
+var ReadSchema = z29.object({ breaks: z29.array(BreakSchema), unread: z29.array(z29.enum(["ci", "reverts", "regressions"])) });
+var OpenedSchema = z29.object({ workspace: text5.nullable(), reason: text5.nullable(), opened: z29.number().int().min(0) });
+var RecordedSchema = z29.object({ added: z29.number().int().min(0) });
+var ClosedSchema = z29.object({ closed: z29.boolean() });
+var ProgressSchema = z29.object({ turn: z29.number().int().min(0), done: z29.array(text5), broke: z29.array(text5) });
 
 // apps/omni-app/src/main-watch/signals.ts
-import { z as z28 } from "zod";
+import { z as z31 } from "zod";
 
 // apps/omni-app/src/retro/kinds/churn-lines.ts
 var HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
@@ -8553,100 +8834,100 @@ function unique(values) {
 }
 
 // apps/omni-app/src/retro/kinds/schema.ts
-import { z as z27 } from "zod";
-var IssueEventSchema = z27.looseObject({
-  event: z27.string(),
-  created_at: z27.string(),
-  label: z27.looseObject({ name: z27.string().nullish() }).nullish()
+import { z as z30 } from "zod";
+var IssueEventSchema = z30.looseObject({
+  event: z30.string(),
+  created_at: z30.string(),
+  label: z30.looseObject({ name: z30.string().nullish() }).nullish()
 });
-var WorkflowRunSchema = z27.looseObject({
-  id: z27.number(),
-  name: z27.string().nullish(),
-  head_sha: z27.string().nullish()
+var WorkflowRunSchema = z30.looseObject({
+  id: z30.number(),
+  name: z30.string().nullish(),
+  head_sha: z30.string().nullish()
 });
-var WorkflowRunsPageSchema = z27.looseObject({ workflow_runs: z27.array(WorkflowRunSchema).nullish() });
-var JobSchema = z27.looseObject({
-  id: z27.number(),
-  run_id: z27.number().nullish(),
-  workflow_name: z27.string().nullish(),
-  name: z27.string(),
-  head_sha: z27.string().nullish(),
-  run_attempt: z27.number().nullish(),
-  status: z27.string().nullish(),
-  conclusion: z27.string().nullish(),
-  html_url: z27.string().nullish(),
-  completed_at: z27.string().nullish()
+var WorkflowRunsPageSchema = z30.looseObject({ workflow_runs: z30.array(WorkflowRunSchema).nullish() });
+var JobSchema = z30.looseObject({
+  id: z30.number(),
+  run_id: z30.number().nullish(),
+  workflow_name: z30.string().nullish(),
+  name: z30.string(),
+  head_sha: z30.string().nullish(),
+  run_attempt: z30.number().nullish(),
+  status: z30.string().nullish(),
+  conclusion: z30.string().nullish(),
+  html_url: z30.string().nullish(),
+  completed_at: z30.string().nullish()
 });
-var JobsPageSchema = z27.looseObject({ jobs: z27.array(JobSchema).nullish() });
-var IssueSchema2 = z27.looseObject({
+var JobsPageSchema = z30.looseObject({ jobs: z30.array(JobSchema).nullish() });
+var IssueSchema2 = z30.looseObject({
   number: IssueNumberSchema,
-  title: z27.string().nullish(),
-  body: z27.string().nullish(),
-  html_url: z27.string(),
-  created_at: z27.string(),
-  closed_at: z27.string().nullish(),
-  pull_request: z27.unknown().optional()
+  title: z30.string().nullish(),
+  body: z30.string().nullish(),
+  html_url: z30.string(),
+  created_at: z30.string(),
+  closed_at: z30.string().nullish(),
+  pull_request: z30.unknown().optional()
 });
-var ClosedPullSchema = z27.looseObject({
+var ClosedPullSchema = z30.looseObject({
   number: PrNumberSchema,
-  title: z27.string().nullish(),
-  body: z27.string().nullish(),
-  html_url: z27.string(),
-  merged_at: z27.string().nullish(),
-  updated_at: z27.string().nullish(),
-  closed_at: z27.string().nullish()
+  title: z30.string().nullish(),
+  body: z30.string().nullish(),
+  html_url: z30.string(),
+  merged_at: z30.string().nullish(),
+  updated_at: z30.string().nullish(),
+  closed_at: z30.string().nullish()
 });
-var ChangedFileSchema = z27.looseObject({
-  filename: z27.string(),
-  previous_filename: z27.string().nullish(),
-  status: z27.string().nullish(),
-  additions: z27.number().nullish(),
-  deletions: z27.number().nullish(),
-  patch: z27.string().nullish()
+var ChangedFileSchema = z30.looseObject({
+  filename: z30.string(),
+  previous_filename: z30.string().nullish(),
+  status: z30.string().nullish(),
+  additions: z30.number().nullish(),
+  deletions: z30.number().nullish(),
+  patch: z30.string().nullish()
 });
-var PullCommitSchema = z27.looseObject({
-  sha: z27.string(),
-  parents: z27.array(z27.unknown()).nullish()
+var PullCommitSchema = z30.looseObject({
+  sha: z30.string(),
+  parents: z30.array(z30.unknown()).nullish()
 });
-var CommitPageSchema = z27.looseObject({
-  html_url: z27.string().nullish(),
-  files: z27.array(ChangedFileSchema).nullish()
+var CommitPageSchema = z30.looseObject({
+  html_url: z30.string().nullish(),
+  files: z30.array(ChangedFileSchema).nullish()
 });
-var IssueCommentSchema = z27.looseObject({
-  body: z27.string().nullish(),
-  html_url: z27.string().nullish(),
-  created_at: z27.string().nullish()
+var IssueCommentSchema = z30.looseObject({
+  body: z30.string().nullish(),
+  html_url: z30.string().nullish(),
+  created_at: z30.string().nullish()
 });
-var UserSchema = z27.looseObject({ login: z27.string().nullish(), type: z27.string().nullish() });
-var ReviewSchema = z27.looseObject({
-  html_url: z27.string().nullish(),
+var UserSchema = z30.looseObject({ login: z30.string().nullish(), type: z30.string().nullish() });
+var ReviewSchema = z30.looseObject({
+  html_url: z30.string().nullish(),
   user: UserSchema.nullish(),
-  state: z27.string().nullish(),
-  body: z27.string().nullish()
+  state: z30.string().nullish(),
+  body: z30.string().nullish()
 });
-var ThreadCommentSchema = z27.looseObject({
-  url: z27.string().nullish(),
-  body: z27.string().nullish(),
-  author: z27.looseObject({ login: z27.string().nullish(), __typename: z27.string().nullish() }).nullish()
+var ThreadCommentSchema = z30.looseObject({
+  url: z30.string().nullish(),
+  body: z30.string().nullish(),
+  author: z30.looseObject({ login: z30.string().nullish(), __typename: z30.string().nullish() }).nullish()
 });
-var ReviewThreadSchema = z27.looseObject({
-  isResolved: z27.boolean().nullish(),
-  isOutdated: z27.boolean().nullish(),
-  path: z27.string().nullish(),
-  comments: z27.looseObject({ nodes: z27.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
+var ReviewThreadSchema = z30.looseObject({
+  isResolved: z30.boolean().nullish(),
+  isOutdated: z30.boolean().nullish(),
+  path: z30.string().nullish(),
+  comments: z30.looseObject({ nodes: z30.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
 });
-var ReviewThreadsAnswerSchema = z27.looseObject({
-  data: z27.looseObject({
-    repository: z27.looseObject({
-      pullRequest: z27.looseObject({
-        reviewThreads: z27.looseObject({
-          pageInfo: z27.looseObject({ hasNextPage: z27.boolean().nullish(), endCursor: z27.string().nullish() }).nullish(),
-          nodes: z27.array(ReviewThreadSchema).nullish()
+var ReviewThreadsAnswerSchema = z30.looseObject({
+  data: z30.looseObject({
+    repository: z30.looseObject({
+      pullRequest: z30.looseObject({
+        reviewThreads: z30.looseObject({
+          pageInfo: z30.looseObject({ hasNextPage: z30.boolean().nullish(), endCursor: z30.string().nullish() }).nullish(),
+          nodes: z30.array(ReviewThreadSchema).nullish()
         }).nullish()
       }).nullish()
     }).nullish()
   }).nullish(),
-  errors: z27.array(z27.looseObject({ type: z27.string().nullish(), message: z27.string().nullish() })).nullish()
+  errors: z30.array(z30.looseObject({ type: z30.string().nullish(), message: z30.string().nullish() })).nullish()
 }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.reads.ts
@@ -8697,36 +8978,36 @@ var COMMENTS = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
 var GREEN = /* @__PURE__ */ new Set(["success"]);
 var RED = /* @__PURE__ */ new Set(["failure", "timed_out", "startup_failure"]);
 var TRIAGE_MARKER = "<!-- omni-bug:triage -->";
-var RunSchema2 = z28.looseObject({
-  id: z28.number(),
-  name: z28.string().nullish(),
-  html_url: z28.string().nullish(),
-  created_at: z28.string().nullish(),
-  updated_at: z28.string().nullish()
+var RunSchema2 = z31.looseObject({
+  id: z31.number(),
+  name: z31.string().nullish(),
+  html_url: z31.string().nullish(),
+  created_at: z31.string().nullish(),
+  updated_at: z31.string().nullish()
 });
-var RunsPageSchema = z28.looseObject({ workflow_runs: z28.array(RunSchema2).nullish() });
-var ParentsSchema = z28.looseObject({ parents: z28.array(z28.looseObject({ sha: z28.string() })).nullish() });
-var CommitSchema = z28.looseObject({
-  sha: z28.string(),
-  html_url: z28.string(),
-  commit: z28.looseObject({
-    message: z28.string(),
-    committer: z28.looseObject({ date: z28.string().nullish() }).nullish(),
-    author: z28.looseObject({ date: z28.string().nullish() }).nullish()
+var RunsPageSchema = z31.looseObject({ workflow_runs: z31.array(RunSchema2).nullish() });
+var ParentsSchema = z31.looseObject({ parents: z31.array(z31.looseObject({ sha: z31.string() })).nullish() });
+var CommitSchema = z31.looseObject({
+  sha: z31.string(),
+  html_url: z31.string(),
+  commit: z31.looseObject({
+    message: z31.string(),
+    committer: z31.looseObject({ date: z31.string().nullish() }).nullish(),
+    author: z31.looseObject({ date: z31.string().nullish() }).nullish()
   })
 });
-var LabelSchema = z28.union([z28.string(), z28.looseObject({ name: z28.string() })]);
-var IssueSchema3 = z28.looseObject({
-  number: z28.number(),
-  title: z28.string().nullish(),
-  body: z28.string().nullish(),
-  html_url: z28.string(),
-  created_at: z28.string(),
-  pull_request: z28.unknown().optional(),
-  user: z28.looseObject({ type: z28.string().nullish() }).nullish(),
-  labels: z28.array(LabelSchema).nullish()
+var LabelSchema = z31.union([z31.string(), z31.looseObject({ name: z31.string() })]);
+var IssueSchema3 = z31.looseObject({
+  number: z31.number(),
+  title: z31.string().nullish(),
+  body: z31.string().nullish(),
+  html_url: z31.string(),
+  created_at: z31.string(),
+  pull_request: z31.unknown().optional(),
+  user: z31.looseObject({ type: z31.string().nullish() }).nullish(),
+  labels: z31.array(LabelSchema).nullish()
 });
-var CommentSchema = z28.looseObject({ body: z28.string().nullish() });
+var CommentSchema = z31.looseObject({ body: z31.string().nullish() });
 async function readSignals(octokit, lane2, scope) {
   const unread2 = [];
   const breaks = [...await ciBreaks(octokit, lane2, unread2), ...await revertBreaks(octokit, lane2, unread2), ...await regressionBreaks(octokit, lane2, scope, unread2)];
@@ -8795,7 +9076,7 @@ async function revertBreaks(octokit, lane2, unread2) {
   const { owner, repo, base, mergedAt, watchUntil } = lane2;
   const commits = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z28.array(CommitSchema), data, COMMITS))
+      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z31.array(CommitSchema), data, COMMITS))
     )
   );
   if (commits.status !== null) {
@@ -8835,7 +9116,7 @@ async function regressionBreaks(octokit, lane2, scope, unread2) {
   const { owner, repo, mergedAt, watchUntil } = lane2;
   const issues = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(ISSUES, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z28.array(IssueSchema3), data, ISSUES))
+      (page) => octokit.request(ISSUES, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z31.array(IssueSchema3), data, ISSUES))
     )
   );
   if (issues.status !== null) {
@@ -8877,7 +9158,7 @@ function labelled(issue, label2) {
 async function triageOf(octokit, { owner, repo }, issue) {
   const comments = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMENTS, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z28.array(CommentSchema), data, COMMENTS))
+      (page) => octokit.request(COMMENTS, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z31.array(CommentSchema), data, COMMENTS))
     )
   );
   if (comments.status !== null) return void 0;
@@ -8915,13 +9196,13 @@ var WATCH_DAYS = 7;
 var REWIND_STEP = "queue-rewind";
 var MAX_LOOKS = 18;
 var MAX_TRIES = 4;
-var MainWatchPayloadSchema = z29.looseObject({
-  installationId: z29.number(),
-  owner: z29.string().min(1),
-  repo: z29.string().min(1),
+var MainWatchPayloadSchema = z32.looseObject({
+  installationId: z32.number(),
+  owner: z32.string().min(1),
+  repo: z32.string().min(1),
   prNumber: PrNumberSchema,
-  mergeSha: z29.string().min(1),
-  mergedAt: z29.string().nullish()
+  mergeSha: z32.string().min(1),
+  mergedAt: z32.string().nullish()
 });
 function mainWatchJob({ installationId, owner, repo, prNumber, mergeSha, mergedAt }) {
   const subject = `${owner}/${repo}`.toLowerCase();
@@ -9053,7 +9334,7 @@ async function finish(watch, broke, one, read2) {
 }
 
 // apps/omni-app/src/retro/retro.ts
-import { z as z38 } from "zod";
+import { z as z41 } from "zod";
 
 // apps/omni-app/src/git-write/git-write.ts
 var FILE_MODE = "100644";
@@ -9179,104 +9460,104 @@ async function upsertPull(octokit, { owner, repo, branch, base, head, title, bod
 }
 
 // apps/omni-app/src/retro/kinds/records.ts
-import { z as z30 } from "zod";
-var text6 = z30.string();
-var maybeText2 = z30.string().nullable();
-var BlockSchema = z30.tuple([z30.number(), z30.number(), z30.number(), z30.number()]);
-var TimelineRecordsSchema = z30.object({ readyAt: maybeText2 });
-var StuckCommentSchema = z30.object({ url: maybeText2, at: maybeText2, attempts: z30.number(), text: z30.string().nullish() });
-var ReviewRecordSchema = z30.object({
+import { z as z33 } from "zod";
+var text6 = z33.string();
+var maybeText2 = z33.string().nullable();
+var BlockSchema = z33.tuple([z33.number(), z33.number(), z33.number(), z33.number()]);
+var TimelineRecordsSchema = z33.object({ readyAt: maybeText2 });
+var StuckCommentSchema = z33.object({ url: maybeText2, at: maybeText2, attempts: z33.number(), text: z33.string().nullish() });
+var ReviewRecordSchema = z33.object({
   url: maybeText2,
   author: maybeText2,
-  bot: z30.boolean(),
+  bot: z33.boolean(),
   state: maybeText2,
-  red: z30.boolean(),
-  text: z30.string().nullish()
+  red: z33.boolean(),
+  text: z33.string().nullish()
 });
-var ThreadRecordSchema = z30.object({
+var ThreadRecordSchema = z33.object({
   url: maybeText2,
   author: maybeText2,
-  bot: z30.boolean(),
+  bot: z33.boolean(),
   path: maybeText2,
-  resolved: z30.boolean(),
-  outdated: z30.boolean(),
-  red: z30.boolean(),
+  resolved: z33.boolean(),
+  outdated: z33.boolean(),
+  red: z33.boolean(),
   text: maybeText2
 });
-var PullReadsSchema = z30.object({
-  files: z30.array(text6).nullable().exactOptional(),
-  stuck: z30.array(StuckCommentSchema).nullable().exactOptional(),
-  needsFix: z30.array(text6).nullable().exactOptional(),
-  reviews: z30.array(ReviewRecordSchema).nullable().exactOptional(),
-  threads: z30.array(ThreadRecordSchema).nullable().exactOptional()
+var PullReadsSchema = z33.object({
+  files: z33.array(text6).nullable().exactOptional(),
+  stuck: z33.array(StuckCommentSchema).nullable().exactOptional(),
+  needsFix: z33.array(text6).nullable().exactOptional(),
+  reviews: z33.array(ReviewRecordSchema).nullable().exactOptional(),
+  threads: z33.array(ThreadRecordSchema).nullable().exactOptional()
 });
-var DeliveryRecordsSchema = z30.object({ pulls: z30.record(z30.string(), PullReadsSchema.optional()) });
-var JobRecordSchema = z30.object({
-  id: z30.number(),
-  run: z30.number(),
+var DeliveryRecordsSchema = z33.object({ pulls: z33.record(z33.string(), PullReadsSchema.optional()) });
+var JobRecordSchema = z33.object({
+  id: z33.number(),
+  run: z33.number(),
   workflow: maybeText2,
   check: text6,
   slice: SliceIdSchema,
-  sha: z30.string().nullish(),
-  attempt: z30.number(),
-  status: z30.string().nullish(),
+  sha: z33.string().nullish(),
+  attempt: z33.number(),
+  status: z33.string().nullish(),
   conclusion: maybeText2,
   url: maybeText2,
   completedAt: maybeText2
 });
-var CiRecordsSchema = z30.object({
-  slices: z30.array(SliceIdSchema),
-  unread: z30.array(z30.object({ slice: SliceIdSchema, run: z30.number().exactOptional(), status: z30.number() })),
-  jobs: z30.array(JobRecordSchema),
-  logs: z30.record(z30.string(), z30.object({ tail: maybeText2, status: z30.number().exactOptional() }).optional())
+var CiRecordsSchema = z33.object({
+  slices: z33.array(SliceIdSchema),
+  unread: z33.array(z33.object({ slice: SliceIdSchema, run: z33.number().exactOptional(), status: z33.number() })),
+  jobs: z33.array(JobRecordSchema),
+  logs: z33.record(z33.string(), z33.object({ tail: maybeText2, status: z33.number().exactOptional() }).optional())
 });
-var CommitFileSchema = z30.object({
+var CommitFileSchema = z33.object({
   path: text6,
   previous: maybeText2,
-  status: z30.string().nullish(),
-  additions: z30.number(),
-  deletions: z30.number(),
-  blocks: z30.array(BlockSchema).nullable()
+  status: z33.string().nullish(),
+  additions: z33.number(),
+  deletions: z33.number(),
+  blocks: z33.array(BlockSchema).nullable()
 });
-var PullRecordSchema = z30.object({
+var PullRecordSchema = z33.object({
   number: PrNumberSchema,
   url: maybeText2,
   headRef: text6,
   mergedAt: maybeText2,
-  commits: z30.array(z30.object({ sha: text6, url: maybeText2, files: z30.array(CommitFileSchema).nullable() })).nullable()
+  commits: z33.array(z33.object({ sha: text6, url: maybeText2, files: z33.array(CommitFileSchema).nullable() })).nullable()
 });
-var ChurnRecordsSchema = z30.object({
+var ChurnRecordsSchema = z33.object({
   gitattributes: maybeText2,
-  final: z30.array(z30.object({ path: text6, additions: z30.number().nullish(), deletions: z30.number().nullish() })).nullable(),
-  pulls: z30.array(PullRecordSchema)
+  final: z33.array(z33.object({ path: text6, additions: z33.number().nullish(), deletions: z33.number().nullish() })).nullable(),
+  pulls: z33.array(PullRecordSchema)
 });
-var RangeSchema = z30.object({ path: text6, from: z30.number(), to: z30.number() });
-var AfterMergeRecordsSchema = z30.object({
-  window: z30.object({ from: text6, to: text6 }),
-  bugs: z30.array(z30.object({ number: IssueNumberSchema, url: text6, createdAt: text6, closedAt: maybeText2 })),
-  fixes: z30.array(
-    z30.object({
+var RangeSchema = z33.object({ path: text6, from: z33.number(), to: z33.number() });
+var AfterMergeRecordsSchema = z33.object({
+  window: z33.object({ from: text6, to: text6 }),
+  bugs: z33.array(z33.object({ number: IssueNumberSchema, url: text6, createdAt: text6, closedAt: maybeText2 })),
+  fixes: z33.array(
+    z33.object({
       number: PrNumberSchema,
       url: text6,
       mergedAt: text6,
-      closes: z30.array(IssueNumberSchema),
-      files: z30.array(z30.object({ path: text6, previous: maybeText2, blocks: z30.array(BlockSchema).nullable() })).nullable()
+      closes: z33.array(IssueNumberSchema),
+      files: z33.array(z33.object({ path: text6, previous: maybeText2, blocks: z33.array(BlockSchema).nullable() })).nullable()
     })
   ),
-  checks: z30.object({
+  checks: z33.object({
     commit: text6,
-    status: z30.number().nullable(),
-    jobs: z30.array(z30.object({ name: text6, workflow: maybeText2, conclusion: maybeText2, url: maybeText2 }))
+    status: z33.number().nullable(),
+    jobs: z33.array(z33.object({ name: text6, workflow: maybeText2, conclusion: maybeText2, url: maybeText2 }))
   }),
-  ranges: z30.array(RangeSchema),
-  unread: z30.array(
-    z30.object({ read: z30.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z30.number().exactOptional(), status: z30.number() })
+  ranges: z33.array(RangeSchema),
+  unread: z33.array(
+    z33.object({ read: z33.enum(["bugs", "fixes", "files", "jobs"]), pr: PrNumberSchema.exactOptional(), run: z33.number().exactOptional(), status: z33.number() })
   )
 });
-var ChurnAtMergeSchema = z30.object({ ranges: z30.array(RangeSchema).exactOptional() }).nullish();
+var ChurnAtMergeSchema = z33.object({ ranges: z33.array(RangeSchema).exactOptional() }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-import { z as z31 } from "zod";
+import { z as z34 } from "zod";
 
 // kit/lib/care/list.ts
 var FIX_PLAN_MARKER = "<!-- omni-bug:fix-plan -->";
@@ -9302,29 +9583,29 @@ function fixPlanRows(body) {
 }
 
 // apps/omni-app/src/retro/kinds/after-merge.mega.ts
-var text7 = z31.string();
-var BlockSchema2 = z31.tuple([z31.number(), z31.number(), z31.number(), z31.number()]);
-var RangeSchema2 = z31.object({ path: text7, from: z31.number(), to: z31.number() });
-var PlannedSchema = z31.object({
+var text7 = z34.string();
+var BlockSchema2 = z34.tuple([z34.number(), z34.number(), z34.number(), z34.number()]);
+var RangeSchema2 = z34.object({ path: text7, from: z34.number(), to: z34.number() });
+var PlannedSchema = z34.object({
   bug: IssueNumberSchema,
   repo: text7,
   number: PrNumberSchema,
   url: text7,
-  mergedAt: z31.string().nullable(),
-  files: z31.array(z31.object({ path: text7, previous: z31.string().nullable(), blocks: z31.array(BlockSchema2).nullable() })).nullable()
+  mergedAt: z34.string().nullable(),
+  files: z34.array(z34.object({ path: text7, previous: z34.string().nullable(), blocks: z34.array(BlockSchema2).nullable() })).nullable()
 });
-var MegaUnreadSchema = z31.object({
-  read: z31.enum(["bugs", "fix-plan", "fix", "files"]),
+var MegaUnreadSchema = z34.object({
+  read: z34.enum(["bugs", "fix-plan", "fix", "files"]),
   repo: text7,
-  number: z31.number().exactOptional(),
-  status: z31.number()
+  number: z34.number().exactOptional(),
+  status: z34.number()
 });
-var MegaRecordsSchema = z31.object({
+var MegaRecordsSchema = z34.object({
   plan: text7,
-  bugs: z31.array(IssueNumberSchema),
-  planned: z31.array(PlannedSchema),
-  targets: z31.array(z31.object({ repo: text7, name: text7, ranges: z31.array(RangeSchema2) })),
-  unread: z31.array(MegaUnreadSchema)
+  bugs: z34.array(IssueNumberSchema),
+  planned: z34.array(PlannedSchema),
+  targets: z34.array(z34.object({ repo: text7, name: text7, ranges: z34.array(RangeSchema2) })),
+  unread: z34.array(MegaUnreadSchema)
 });
 var ISSUES2 = "GET /repos/{owner}/{repo}/issues";
 var COMMENTS2 = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
@@ -9417,7 +9698,7 @@ function megaUnreadLines(unread2) {
 
 // apps/omni-app/src/retro/kinds/after-merge.ts
 var RecordsSchema = AfterMergeRecordsSchema.extend({ mega: MegaRecordsSchema.exactOptional() });
-var BUG_LABEL = "bug";
+var BUG_LABEL2 = "bug";
 var ISSUES3 = "GET /repos/{owner}/{repo}/issues";
 var PULLS2 = "GET /repos/{owner}/{repo}/pulls";
 var RUNS2 = "GET /repos/{owner}/{repo}/actions/runs";
@@ -9440,11 +9721,11 @@ var afterMerge = Object.freeze({
     const unread2 = [];
     const listed4 = await readOrRefused(
       () => paginate(
-        (page) => octokit.request(ISSUES3, { owner, repo, labels: BUG_LABEL, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
+        (page) => octokit.request(ISSUES3, { owner, repo, labels: BUG_LABEL2, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
       )
     );
     if (listed4.status) unread2.push({ read: "bugs", status: listed4.status });
-    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed4.value ?? [], label: BUG_LABEL };
+    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed4.value ?? [], label: BUG_LABEL2 };
     const mega = await gatherMega(octokit, megaScope);
     const bugs = withMegaBugs(bugsNaming(listed4.value ?? [], { window, names: namesPrd2(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
     const fixes = await closingFixes(octokit, { owner, repo, base: config.repo.defaultBranch, window, featurePr: pr?.number, bugs, unread: unread2 });
@@ -9562,9 +9843,9 @@ function checkFacts(checks) {
   };
 }
 function bugLines(facts, bugsUnread) {
-  if (bugsUnread) return [`- The \`${BUG_LABEL}\` issues were not read (GitHub answered ${bugsUnread.status}).`];
-  if (facts.total === 0) return [`- No \`${BUG_LABEL}\` issue naming #${facts.prd} was opened within ${facts.days} days of the merge.`];
-  const issues = facts.total === 1 ? `1 \`${BUG_LABEL}\` issue naming #${facts.prd} was` : `${facts.total} \`${BUG_LABEL}\` issues naming #${facts.prd} were`;
+  if (bugsUnread) return [`- The \`${BUG_LABEL2}\` issues were not read (GitHub answered ${bugsUnread.status}).`];
+  if (facts.total === 0) return [`- No \`${BUG_LABEL2}\` issue naming #${facts.prd} was opened within ${facts.days} days of the merge.`];
+  const issues = facts.total === 1 ? `1 \`${BUG_LABEL2}\` issue naming #${facts.prd} was` : `${facts.total} \`${BUG_LABEL2}\` issues naming #${facts.prd} were`;
   return [`- ${issues} opened within ${facts.days} days of the merge: ${facts.fixed} fixed within those days, ${facts.linked} linked to churn.`];
 }
 function megaLine(facts) {
@@ -9596,7 +9877,7 @@ function checkLines(checks) {
 function happened(bug, facts) {
   const opened = `was opened ${daysText(bug.daysAfterMerge)} after the merge.`;
   const sentences = [
-    bug.planned ? `Issue #${bug.number} carries \`For PRD #${facts.prd}\` and ${opened}` : `Issue #${bug.number}, labelled \`${BUG_LABEL}\`, names #${facts.prd} and ${opened}`
+    bug.planned ? `Issue #${bug.number} carries \`For PRD #${facts.prd}\` and ${opened}` : `Issue #${bug.number}, labelled \`${BUG_LABEL2}\`, names #${facts.prd} and ${opened}`
   ];
   const state = bug.closed ? `It was closed within ${facts.days} days of the merge` : `It was still open ${facts.days} days after the merge`;
   const fixed = [...bug.fixes.map((n) => `#${n}`), ...(bug.planned ?? []).map(refOf)];
@@ -11210,7 +11491,7 @@ function isObject2(value) {
 // kit/lib/knowledge/classify.ts
 import { existsSync as existsSync22, readFileSync as readFileSync19 } from "node:fs";
 import { join as join29 } from "node:path";
-import { z as z32 } from "zod";
+import { z as z35 } from "zod";
 
 // kit/lib/playbook/decisions.ts
 import { existsSync as existsSync21, readdirSync as readdirSync12, readFileSync as readFileSync18 } from "node:fs";
@@ -11330,36 +11611,36 @@ var NEW_PRINCIPLE = "new";
 var CAPS = Object.freeze({ statement: 300, principle: 300, reason: 200 });
 var RECORD_ID = /^ADR-(\d{4})$/;
 function capped(field4, max) {
-  return z32.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
+  return z35.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`).max(max, `${field4} is over its cap of ${max} characters`);
 }
-var text8 = (field4) => z32.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
+var text8 = (field4) => z35.string({ error: (issue) => issue.input === void 0 ? `${field4} is required` : `${field4} must be text` }).trim().min(1, `${field4} is required`);
 var statement = capped("statement", CAPS.statement);
 var reason = capped("reason", CAPS.reason);
 var MAX_ENFORCED_BY = 3;
-var enforcedBy = z32.array(text8("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
-var worthALaw = z32.boolean({ error: "worthALaw must be true or false" }).optional();
-var ClassificationSchema = z32.discriminatedUnion(
+var enforcedBy = z35.array(text8("enforcedBy path"), { error: "enforcedBy must be a list of paths" }).min(1, "enforcedBy names at least one path, or is left out").max(MAX_ENFORCED_BY, `enforcedBy names at most ${MAX_ENFORCED_BY} paths`).optional();
+var worthALaw = z35.boolean({ error: "worthALaw must be true or false" }).optional();
+var ClassificationSchema = z35.discriminatedUnion(
   "kind",
   [
-    z32.object({
-      kind: z32.literal("adr"),
+    z35.object({
+      kind: z35.literal("adr"),
       title: text8("title").refine((value) => !value.includes("\n"), "title must be one line"),
       statement,
       reason
     }).strict(),
-    z32.object({ kind: z32.literal("invariant"), place: text8("place"), statement, enforcedBy, worthALaw, reason }).strict(),
-    z32.object({
-      kind: z32.literal("rule"),
+    z35.object({ kind: z35.literal("invariant"), place: text8("place"), statement, enforcedBy, worthALaw, reason }).strict(),
+    z35.object({
+      kind: z35.literal("rule"),
       place: text8("place"),
       statement,
       serves: text8("serves"),
-      principle: z32.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
+      principle: z35.object({ statement: capped("principle.statement", CAPS.principle), why: capped("principle.why", CAPS.principle) }).strict().optional(),
       enforcedBy,
       worthALaw,
       reason
     }).strict(),
-    z32.object({ kind: z32.literal("covered"), covers: text8("covers"), reason }).strict(),
-    z32.object({ kind: z32.literal("stays-here"), statement, reason }).strict()
+    z35.object({ kind: z35.literal("covered"), covers: text8("covers"), reason }).strict(),
+    z35.object({ kind: z35.literal("stays-here"), statement, reason }).strict()
   ],
   { error: () => `kind must be one of: ${CLASSIFICATION_KINDS.join(", ")}` }
 ).superRefine((reply, context) => {
@@ -11606,7 +11887,7 @@ import {
 } from "node:fs";
 import { tmpdir as tmpdir6 } from "node:os";
 import { dirname as dirname10, join as join40 } from "node:path";
-import { z as z34 } from "zod";
+import { z as z37 } from "zod";
 
 // kit/lib/delivery/ship.ts
 import { execFileSync as execFileSync4 } from "node:child_process";
@@ -11984,18 +12265,18 @@ function findOutboxViolations({ ctx }) {
 // kit/lib/outbox/settle-merge.ts
 import { existsSync as existsSync27 } from "node:fs";
 import { join as join34 } from "node:path";
-import { z as z33 } from "zod";
+import { z as z36 } from "zod";
 var MERGED_OVER_RED_BASIS = "merged-over-red";
 var MERGED_OVER_RED_REASON = "the feature pull request merged while this item was open; merging adopts what was built";
-var PrField = z33.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
-var MergeSchema = z33.object({
-  by: z33.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z33.string().min(1, "merge.by is required \u2014 who merged")),
-  at: z33.string().regex(
+var PrField = z36.coerce.number({ message: "merge.pr must be a number" }).int().positive().pipe(PrNumberSchema);
+var MergeSchema = z36.object({
+  by: z36.string().trim().transform((login) => login.replace(/^@/, "")).pipe(z36.string().min(1, "merge.by is required \u2014 who merged")),
+  at: z36.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "merge.at must be an ISO date or date-time"
   ),
   pr: PrField,
-  url: z33.string().trim().min(1).optional()
+  url: z36.string().trim().min(1).optional()
 }).strict();
 function mergeAnswer(merge) {
   return {
@@ -13344,7 +13625,7 @@ function landLaw({
 var REFUSED_TWICE = "the model's reply was refused twice";
 var NO_PLACE = "this repository has no knowledge folder and no decision-record folder";
 var CLASSIFY_SYSTEM = "You place settled decisions of a software delivery loop into its knowledge base. You never invent an id, a file or a place. Reply with one JSON object.";
-var PullFilesSchema = z34.array(z34.looseObject({ filename: z34.string().min(1), status: z34.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
+var PullFilesSchema = z37.array(z37.looseObject({ filename: z37.string().min(1), status: z37.string() })).transform((files) => files.map((file) => ({ path: file.filename, status: file.status })));
 function keptPaths(changed) {
   return changed.filter((file) => KEPT_STATUSES.includes(file.status)).map((file) => file.path);
 }
@@ -13415,12 +13696,12 @@ function prepareHarvest({
   const n = prd;
   if (ctx.layout.whereIs(n) === null) return { ok: false, errors: [`PRD ${n} has no inbox or shipped folder`] };
   return inScratch(ctx, (scratch) => {
-    const settle2 = settleAtMerge({ ctx: scratch, prd: n, merge });
-    if (!settle2.ok) return { ok: false, errors: settle2.errors };
+    const settle3 = settleAtMerge({ ctx: scratch, prd: n, merge });
+    if (!settle3.ok) return { ok: false, errors: settle3.errors };
     const settleEdits = {
-      deletes: settle2.deletes,
+      deletes: settle3.deletes,
       moves: [],
-      writes: settle2.text === null ? [] : [{ path: settle2.settledFile, text: settle2.text }]
+      writes: settle3.text === null ? [] : [{ path: settle3.settledFile, text: settle3.text }]
     };
     applyHarvestEdits({ root: scratch.root, edits: settleEdits });
     let moves = [];
@@ -13442,7 +13723,7 @@ function prepareHarvest({
       ok: true,
       prd: n,
       edits,
-      settled: settle2.entries.map(({ id, from }) => ({ id, from })),
+      settled: settle3.entries.map(({ id, from }) => ({ id, from })),
       shipped: moves,
       candidates: harvestCandidates({ ctx: scratch, prd: n }),
       summary: knowledgeSummary({ ctx: scratch }),
@@ -13579,23 +13860,23 @@ function noEdits(edits) {
 }
 
 // apps/omni-app/src/knowledge-harvest/schema.ts
-import { z as z35 } from "zod";
-var HarvestEventSchema = z35.looseObject({
-  installationId: z35.number(),
-  owner: z35.string(),
-  repo: z35.string(),
+import { z as z38 } from "zod";
+var HarvestEventSchema = z38.looseObject({
+  installationId: z38.number(),
+  owner: z38.string(),
+  repo: z38.string(),
   prNumber: PrNumberSchema
 });
-var PullMergeSchema = z35.looseObject({
-  merged: z35.boolean().nullish(),
-  merged_at: z35.string().nullish(),
-  merged_by: z35.looseObject({ login: z35.string().nullish() }).nullish(),
-  merge_commit_sha: z35.string().nullish(),
-  html_url: z35.string().nullish()
+var PullMergeSchema = z38.looseObject({
+  merged: z38.boolean().nullish(),
+  merged_at: z38.string().nullish(),
+  merged_by: z38.looseObject({ login: z38.string().nullish() }).nullish(),
+  merge_commit_sha: z38.string().nullish(),
+  html_url: z38.string().nullish()
 });
-var RefSchema3 = z35.looseObject({ object: z35.looseObject({ sha: z35.string() }) });
-var OpenPullSchema = z35.looseObject({ head: z35.looseObject({ ref: z35.string().nullish() }).nullish() });
-var CommitSchema2 = z35.looseObject({ message: z35.string().nullish() });
+var RefSchema3 = z38.looseObject({ object: z38.looseObject({ sha: z38.string() }) });
+var OpenPullSchema = z38.looseObject({ head: z38.looseObject({ ref: z38.string().nullish() }).nullish() });
+var CommitSchema2 = z38.looseObject({ message: z38.string().nullish() });
 function parsedOr(schema, value, context) {
   const parsed3 = schema.safeParse(value);
   if (parsed3.success) return parsed3.data;
@@ -13603,131 +13884,131 @@ function parsedOr(schema, value, context) {
   const field4 = issue && issue.path.length > 0 ? issue.path.join(".") : "(answer)";
   throw new Error(`${context}: ${field4}: ${issue?.message ?? parsed3.error.message}`);
 }
-var MergeSchema2 = z35.object({ by: z35.string(), at: z35.string(), pr: PrNumberSchema, url: z35.string().exactOptional() });
-var QualifiedSchema2 = z35.union([
-  z35.object({ skip: z35.string() }),
-  z35.object({
-    skip: z35.null(),
+var MergeSchema2 = z38.object({ by: z38.string(), at: z38.string(), pr: PrNumberSchema, url: z38.string().exactOptional() });
+var QualifiedSchema2 = z38.union([
+  z38.object({ skip: z38.string() }),
+  z38.object({
+    skip: z38.null(),
     config: ConfigSchema,
-    prd: z35.object({ number: PrdNumberSchema, topic: z35.string(), title: z35.string() }),
+    prd: z38.object({ number: PrdNumberSchema, topic: z38.string(), title: z38.string() }),
     merge: MergeSchema2
   }),
-  z35.object({
-    skip: z35.null(),
+  z38.object({
+    skip: z38.null(),
     config: ConfigSchema,
-    landing: z35.object({ branch: z35.string(), prds: z35.array(z35.object({ number: PrdNumberSchema, topic: z35.string(), title: z35.string(), pr: PrNumberSchema })).min(1) }),
+    landing: z38.object({ branch: z38.string(), prds: z38.array(z38.object({ number: PrdNumberSchema, topic: z38.string(), title: z38.string(), pr: PrNumberSchema })).min(1) }),
     merge: MergeSchema2
   })
 ]);
-var TipSchema = z35.string().min(1);
-var MoveSchema = z35.object({ from: z35.string(), to: z35.string() });
-var EditsSchema = z35.object({
-  deletes: z35.array(z35.string()),
-  moves: z35.array(MoveSchema),
-  writes: z35.array(z35.object({ path: z35.string(), text: z35.string() }))
+var TipSchema = z38.string().min(1);
+var MoveSchema = z38.object({ from: z38.string(), to: z38.string() });
+var EditsSchema = z38.object({
+  deletes: z38.array(z38.string()),
+  moves: z38.array(MoveSchema),
+  writes: z38.array(z38.object({ path: z38.string(), text: z38.string() }))
 });
-var ItemSectionsSchema = z35.object({
-  questionPlain: z35.string().nullable().exactOptional(),
-  decisionPlain: z35.string().nullable().exactOptional(),
-  options: z35.array(z35.object({ letter: z35.string(), text: z35.string() })).nullable().exactOptional(),
-  personSteps: z35.string().nullable().exactOptional(),
-  whatIHadToDecide: z35.string().nullable().exactOptional(),
-  whatIDidMeanwhile: z35.string().nullable().exactOptional(),
-  whatItCostsToChangeLater: z35.string().nullable().exactOptional()
+var ItemSectionsSchema = z38.object({
+  questionPlain: z38.string().nullable().exactOptional(),
+  decisionPlain: z38.string().nullable().exactOptional(),
+  options: z38.array(z38.object({ letter: z38.string(), text: z38.string() })).nullable().exactOptional(),
+  personSteps: z38.string().nullable().exactOptional(),
+  whatIHadToDecide: z38.string().nullable().exactOptional(),
+  whatIDidMeanwhile: z38.string().nullable().exactOptional(),
+  whatItCostsToChangeLater: z38.string().nullable().exactOptional()
 });
-var CandidateSchema = z35.object({
-  id: z35.string(),
-  verdict: z35.string().nullable(),
-  answer: z35.string(),
-  itemText: z35.string(),
-  item: z35.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
+var CandidateSchema = z38.object({
+  id: z38.string(),
+  verdict: z38.string().nullable(),
+  answer: z38.string(),
+  itemText: z38.string(),
+  item: z38.object({ sections: ItemSectionsSchema.nullable().exactOptional() }).nullable()
 });
-var SummarySchema = z35.object({
-  places: z35.object({ adr: z35.boolean(), knowledge: z35.boolean() }),
-  domains: z35.array(z35.object({ name: z35.string(), firstLine: z35.string().nullable() })),
-  principles: z35.array(z35.object({ id: z35.string(), place: z35.string(), statement: z35.string() })),
-  decisions: z35.array(z35.object({ number: z35.string(), title: z35.string().nullable() })),
-  laws: z35.array(
-    z35.object({ id: z35.string(), kind: z35.enum(["principle", "rule", "invariant"]).nullable(), place: z35.string(), statement: z35.string() })
+var SummarySchema = z38.object({
+  places: z38.object({ adr: z38.boolean(), knowledge: z38.boolean() }),
+  domains: z38.array(z38.object({ name: z38.string(), firstLine: z38.string().nullable() })),
+  principles: z38.array(z38.object({ id: z38.string(), place: z38.string(), statement: z38.string() })),
+  decisions: z38.array(z38.object({ number: z38.string(), title: z38.string().nullable() })),
+  laws: z38.array(
+    z38.object({ id: z38.string(), kind: z38.enum(["principle", "rule", "invariant"]).nullable(), place: z38.string(), statement: z38.string() })
   )
 });
-var SettledSchema = z35.object({
-  tip: z35.string(),
-  prepared: z35.object({
-    ok: z35.literal(true),
+var SettledSchema = z38.object({
+  tip: z38.string(),
+  prepared: z38.object({
+    ok: z38.literal(true),
     prd: PrdNumberSchema,
     edits: EditsSchema,
-    settled: z35.array(z35.object({ id: z35.string(), from: z35.enum(["open", "drift"]) })),
-    shipped: z35.array(MoveSchema),
-    candidates: z35.array(CandidateSchema),
+    settled: z38.array(z38.object({ id: z38.string(), from: z38.enum(["open", "drift"]) })),
+    shipped: z38.array(MoveSchema),
+    candidates: z38.array(CandidateSchema),
     summary: SummarySchema,
-    changed: z35.array(z35.object({ path: z35.string(), status: z35.string() }))
+    changed: z38.array(z38.object({ path: z38.string(), status: z38.string() }))
   })
 });
-var ClassificationOutSchema = z35.object({
-  id: z35.string(),
+var ClassificationOutSchema = z38.object({
+  id: z38.string(),
   reply: ClassificationSchema.nullable(),
-  reason: z35.string().nullable(),
-  error: z35.string().nullable()
+  reason: z38.string().nullable(),
+  error: z38.string().nullable()
 });
-var PlacedSchema = z35.object({
-  id: z35.string(),
-  kind: z35.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
-  landedAs: z35.array(z35.string()),
-  files: z35.array(z35.string()),
-  ledgerFile: z35.string(),
-  ledgerLine: z35.string(),
-  decided: z35.string(),
-  status: z35.string().nullable(),
-  proposed: z35.boolean(),
-  reason: z35.string(),
-  enforcedBy: z35.array(z35.string()).exactOptional(),
-  dropped: z35.array(z35.object({ path: z35.string(), reason: z35.string() })).exactOptional(),
-  law: z35.object({ worth: z35.boolean(), decidedBy: z35.string(), confidence: z35.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
+var PlacedSchema = z38.object({
+  id: z38.string(),
+  kind: z38.enum(["adr", "invariant", "rule", "covered", "stays-here"]),
+  landedAs: z38.array(z38.string()),
+  files: z38.array(z38.string()),
+  ledgerFile: z38.string(),
+  ledgerLine: z38.string(),
+  decided: z38.string(),
+  status: z38.string().nullable(),
+  proposed: z38.boolean(),
+  reason: z38.string(),
+  enforcedBy: z38.array(z38.string()).exactOptional(),
+  dropped: z38.array(z38.object({ path: z38.string(), reason: z38.string() })).exactOptional(),
+  law: z38.object({ worth: z38.boolean(), decidedBy: z38.string(), confidence: z38.number().nullable(), issue: IssueNumberSchema.nullable() }).exactOptional()
 });
-var LawIssueSchema = z35.object({
-  id: z35.string(),
-  entry: z35.string(),
-  register: z35.string(),
-  statement: z35.string(),
-  source: z35.string(),
-  title: z35.string(),
-  body: z35.string()
+var LawIssueSchema = z38.object({
+  id: z38.string(),
+  entry: z38.string(),
+  register: z38.string(),
+  statement: z38.string(),
+  source: z38.string(),
+  title: z38.string(),
+  body: z38.string()
 });
-var WrittenSchema = z35.object({
+var WrittenSchema = z38.object({
   edits: EditsSchema,
-  placed: z35.array(PlacedSchema),
-  notPlaced: z35.array(z35.object({ id: z35.string(), reason: z35.string() })),
-  checks: z35.object({ knowledge: z35.array(z35.string()), outbox: z35.array(z35.string()) }),
-  commit: z35.object({
-    files: z35.array(z35.object({ path: z35.string(), content: z35.string() })),
-    moves: z35.array(MoveSchema),
-    deletes: z35.array(z35.string())
+  placed: z38.array(PlacedSchema),
+  notPlaced: z38.array(z38.object({ id: z38.string(), reason: z38.string() })),
+  checks: z38.object({ knowledge: z38.array(z38.string()), outbox: z38.array(z38.string()) }),
+  commit: z38.object({
+    files: z38.array(z38.object({ path: z38.string(), content: z38.string() })),
+    moves: z38.array(MoveSchema),
+    deletes: z38.array(z38.string())
   }),
-  taken: z35.array(z35.string()),
-  lawIssues: z35.array(LawIssueSchema)
+  taken: z38.array(z38.string()),
+  lawIssues: z38.array(LawIssueSchema)
 });
-var LawWorthStateSchema = z35.object({
-  statement: z35.string(),
-  why: z35.string().nullable(),
-  principle: z35.string().nullable(),
-  domain: z35.string().nullable(),
-  prdTitle: z35.string().nullable()
+var LawWorthStateSchema = z38.object({
+  statement: z38.string(),
+  why: z38.string().nullable(),
+  principle: z38.string().nullable(),
+  domain: z38.string().nullable(),
+  prdTitle: z38.string().nullable()
 });
-var LawQuestionsSchema = z35.array(z35.object({ id: z35.string(), state: LawWorthStateSchema, old: z35.boolean() }));
-var LawJudgementSchema = z35.object({
-  worth: z35.object({ worth: z35.boolean(), decidedBy: z35.string(), confidence: z35.number().nullable() }).nullable(),
-  reason: z35.string().nullable()
+var LawQuestionsSchema = z38.array(z38.object({ id: z38.string(), state: LawWorthStateSchema, old: z38.boolean() }));
+var LawJudgementSchema = z38.object({
+  worth: z38.object({ worth: z38.boolean(), decidedBy: z38.string(), confidence: z38.number().nullable() }).nullable(),
+  reason: z38.string().nullable()
 });
-var LawIssueOpenedSchema = z35.object({ number: IssueNumberSchema, created: z35.boolean() });
-var ListedIssueSchema = z35.looseObject({ number: IssueNumberSchema, title: z35.string().nullish(), pull_request: z35.unknown().optional() });
-var PublishedSchema2 = z35.object({
-  branch: z35.string(),
-  commit: z35.string(),
-  committed: z35.boolean(),
-  pr: z35.object({ number: PrNumberSchema, url: z35.string(), created: z35.boolean() })
+var LawIssueOpenedSchema = z38.object({ number: IssueNumberSchema, created: z38.boolean() });
+var ListedIssueSchema = z38.looseObject({ number: IssueNumberSchema, title: z38.string().nullish(), pull_request: z38.unknown().optional() });
+var PublishedSchema2 = z38.object({
+  branch: z38.string(),
+  commit: z38.string(),
+  committed: z38.boolean(),
+  pr: z38.object({ number: PrNumberSchema, url: z38.string(), created: z38.boolean() })
 }).nullable();
-var CommentedSchema2 = z35.object({ commentId: CommentIdSchema, created: z35.boolean() });
+var CommentedSchema2 = z38.object({ commentId: CommentIdSchema, created: z38.boolean() });
 
 // apps/omni-app/src/knowledge-harvest/github.ts
 var OPEN_PULLS_UNEXPECTED = "GitHub answered the open pull requests unexpectedly";
@@ -14168,12 +14449,12 @@ function unsettledLessons(runs) {
 }
 
 // apps/omni-app/src/retro/render.ts
-import { z as z36 } from "zod";
+import { z as z39 } from "zod";
 var keptFacts = (run, id) => run.kinds?.[id];
-var TimelineFactsSchema = z36.object({
-  featurePr: z36.object({ minutes: z36.number().nullish() }).nullish(),
-  sliceCount: z36.number().exactOptional(),
-  waves: z36.object({ merged: z36.number(), planned: z36.number().nullable() })
+var TimelineFactsSchema = z39.object({
+  featurePr: z39.object({ minutes: z39.number().nullish() }).nullish(),
+  sliceCount: z39.number().exactOptional(),
+  waves: z39.object({ merged: z39.number(), planned: z39.number().nullable() })
 }).nullable();
 function mergeRuns(existing, record) {
   let doc = null;
@@ -14182,7 +14463,7 @@ function mergeRuns(existing, record) {
   } catch {
     doc = null;
   }
-  const runs = parseOrThrow(z36.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
+  const runs = parseOrThrow(z39.array(RunRecordSchema), RetroDocSchema.parse(doc).runs, "The retro.json on the retro branch keeps a run of an unexpected shape");
   const same2 = (run) => run.featurePr.number === record.featurePr.number && run.run === record.run;
   const index = runs.findIndex(same2);
   const next = index === -1 ? [...runs, record] : runs.map((run, i) => i === index ? withOutcomes(record, run) : run);
@@ -14555,11 +14836,11 @@ function ranked(findings) {
 }
 
 // apps/omni-app/src/retro/target-comment.ts
-import { z as z37 } from "zod";
+import { z as z40 } from "zod";
 var targetMarker = (prefix) => `<!-- ${prefix}-retro-target -->`;
-var TargetCommentedSchema = z37.union([
-  z37.object({ comments: z37.array(z37.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z37.boolean() })) }),
-  z37.object({ refused: z37.number() })
+var TargetCommentedSchema = z40.union([
+  z40.object({ comments: z40.array(z40.object({ prNumber: PrNumberSchema, commentId: CommentIdSchema, created: z40.boolean() })) }),
+  z40.object({ refused: z40.number() })
 ]);
 function targetComment({
   prd,
@@ -14629,14 +14910,14 @@ var verdictMarker = (prefix) => `<!-- ${prefix}-retro-verdict -->`;
 var VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
 var NO_NEW_LESSON = "no new lesson";
 var NOT_JUDGED = "not judged";
-var RetroPayloadSchema = z38.object({
-  installationId: z38.number(),
-  owner: z38.string(),
-  repo: z38.string(),
+var RetroPayloadSchema = z41.object({
+  installationId: z41.number(),
+  owner: z41.string(),
+  repo: z41.string(),
   prNumber: PrNumberSchema,
-  mergeSha: z38.string(),
-  mergedAt: z38.string().nullish(),
-  owed: z38.boolean().optional()
+  mergeSha: z41.string(),
+  mergedAt: z41.string().nullish(),
+  owed: z41.boolean().optional()
 });
 function retroJob({ installationId, owner, repo, prNumber, mergeSha, mergedAt, owed = false }) {
   const subject = `${owner}/${repo}`.toLowerCase();
@@ -14890,7 +15171,7 @@ function retroFailureHook({ octokitFor }) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z41 } from "zod";
+import { z as z44 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
 import { createHash as createHash2 } from "node:crypto";
@@ -14923,7 +15204,7 @@ function packFiles(read2) {
 
 // apps/omni-app/src/jobs/embed.ts
 import { createHash as createHash3 } from "node:crypto";
-import { z as z40 } from "zod";
+import { z as z43 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS2 = parseConfig("kit: 1\n");
@@ -15068,7 +15349,7 @@ var EMBED_DIMENSIONS = 384;
 var EMBED_BATCH = 8;
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z39 } from "zod";
+import { z as z42 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -15121,7 +15402,7 @@ var AGAIN_MS = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema = z39.object({ slot: z39.string().min(1).max(80), productId: z39.string().min(1).optional() });
+var PayloadSchema = z42.object({ slot: z42.string().min(1).max(80), productId: z42.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -15205,9 +15486,9 @@ function payloadOf(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS2 = 6e4;
-var EmbedPayloadSchema = z40.object({
-  repository: z40.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z40.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z43.object({
+  repository: z43.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z43.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
@@ -15294,12 +15575,12 @@ function payloadOf2(raw) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z41.object({
-  installationId: z41.number(),
-  owner: z41.string().min(1),
-  repo: z41.string().min(1),
-  sha: z41.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z41.string().min(1),
+var PackPayloadSchema = z44.object({
+  installationId: z44.number(),
+  owner: z44.string().min(1),
+  repo: z44.string().min(1),
+  sha: z44.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z44.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -15381,9 +15662,9 @@ function packLines(what, sha, packed) {
 }
 
 // apps/omni-app/src/jobs/gaps.ts
-var WatchingRowSchema = z42.object({ repository: z42.string().min(1), lane: z42.string().min(1), merge_sha: z42.string().min(1), merged_at: z42.string().min(1), watch_until: z42.string().min(1) });
-var HeldRowSchema = z42.object({ repository: z42.string().min(1) });
-var PackRowSchema = z42.object({ repository: z42.string().min(1), sha: z42.string().min(1), committed_at: z42.string().min(1) });
+var WatchingRowSchema = z45.object({ repository: z45.string().min(1), lane: z45.string().min(1), merge_sha: z45.string().min(1), merged_at: z45.string().min(1), watch_until: z45.string().min(1) });
+var HeldRowSchema = z45.object({ repository: z45.string().min(1) });
+var PackRowSchema = z45.object({ repository: z45.string().min(1), sha: z45.string().min(1), committed_at: z45.string().min(1) });
 function gapsStore(connection) {
   const db = serviceDb(connection);
   return {
@@ -15400,9 +15681,9 @@ function gapsStore(connection) {
     watching: async () => rowsOf(WatchingRowSchema, await db.from("prd_main_watch").select("repository, lane, merge_sha, merged_at, watch_until").eq("status", "watching")).filter((row) => row.lane === row.repository).map((row) => ({ repository: row.repository, mergeSha: row.merge_sha, mergedAt: row.merged_at, watchUntil: row.watch_until }))
   };
 }
-var InstallationSchema2 = z42.looseObject({ id: z42.number().int().positive() });
-var RepositorySchema = z42.looseObject({ default_branch: z42.string().min(1) });
-var CommitsSchema = z42.array(z42.looseObject({ sha: z42.string().regex(/^[0-9a-f]{40}$/), commit: z42.looseObject({ committer: z42.looseObject({ date: z42.string().min(1) }).nullish() }) }));
+var InstallationSchema3 = z45.looseObject({ id: z45.number().int().positive() });
+var RepositorySchema = z45.looseObject({ default_branch: z45.string().min(1) });
+var CommitsSchema = z45.array(z45.looseObject({ sha: z45.string().regex(/^[0-9a-f]{40}$/), commit: z45.looseObject({ committer: z45.looseObject({ date: z45.string().min(1) }).nullish() }) }));
 var INSTALLATION2 = "GET /repos/{owner}/{repo}/installation";
 var statusOf10 = (error) => {
   if (typeof error !== "object" || error === null || !("status" in error)) return null;
@@ -15427,7 +15708,7 @@ async function latestCommit(octokit, { owner, repo, branch, paths }) {
 async function installationOf(appOctokit, owner, repo) {
   try {
     const { data } = await (await appOctokit()).request(INSTALLATION2, { owner, repo });
-    return InstallationSchema2.parse(data).id;
+    return InstallationSchema3.parse(data).id;
   } catch (error) {
     if (statusOf10(error) === 404) return null;
     throw error;
@@ -15475,16 +15756,16 @@ function stoppedBy(summary2, log2) {
   return { ...summary2, stopped: true };
 }
 var firstLine5 = (error) => (error instanceof Error ? error.message : String(error)).split("\n")[0] ?? "";
-var InstallationsSchema = z42.array(z42.looseObject({ id: z42.number().int().positive() }));
-var InstalledSchema = z42.looseObject({
-  repositories: z42.array(z42.looseObject({ name: z42.string().min(1), owner: z42.looseObject({ login: z42.string().min(1) }), default_branch: z42.string().min(1) }))
+var InstallationsSchema = z45.array(z45.looseObject({ id: z45.number().int().positive() }));
+var InstalledSchema = z45.looseObject({
+  repositories: z45.array(z45.looseObject({ name: z45.string().min(1), owner: z45.looseObject({ login: z45.string().min(1) }), default_branch: z45.string().min(1) }))
 });
-var ClosedPullsSchema = z42.array(
-  z42.looseObject({
+var ClosedPullsSchema = z45.array(
+  z45.looseObject({
     number: PrNumberSchema,
-    merged_at: z42.string().nullish(),
-    merge_commit_sha: z42.string().nullish(),
-    head: z42.looseObject({ ref: z42.string() })
+    merged_at: z45.string().nullish(),
+    merge_commit_sha: z45.string().nullish(),
+    head: z45.looseObject({ ref: z45.string() })
   })
 );
 var PER_PAGE2 = 100;
@@ -15559,7 +15840,7 @@ async function compareOne({ repository, pack: pack2 }, { ledger, appOctokit, oct
   const added = await ledger.add(packJob({ installationId, owner, repo, sha: latest.sha, committedAt: latest.committedAt }));
   return added ? "added" : "same";
 }
-var PullsOfCommitSchema = z42.array(z42.looseObject({ number: PrNumberSchema, merged_at: z42.string().nullish(), merge_commit_sha: z42.string().nullish() }));
+var PullsOfCommitSchema = z45.array(z45.looseObject({ number: PrNumberSchema, merged_at: z45.string().nullish(), merge_commit_sha: z45.string().nullish() }));
 async function addOwedWatches(summary2, { store, ledger, appOctokit, octokitFor, now, log: log2 }) {
   const lanes = await store.watching?.() ?? [];
   for (const watching of lanes.filter(({ watchUntil }) => Date.parse(watchUntil) > now())) {
@@ -15585,7 +15866,7 @@ async function owedWatch({ repository, mergeSha, mergedAt }, { ledger, appOctoki
 }
 
 // apps/omni-app/src/jobs/ledger.ts
-import { z as z43 } from "zod";
+import { z as z46 } from "zod";
 
 // apps/omni-app/src/jobs/schedule.ts
 var SCHEDULES = Object.freeze([
@@ -15621,37 +15902,37 @@ async function addScheduled({
 
 // apps/omni-app/src/jobs/ledger.ts
 var REFRESH_DELAY_SECONDS = 5;
-var RefreshedSchema = z43.enum(["added", "updated", "again", "requeued"]);
-var PayloadSchema2 = z43.record(z43.string(), z43.unknown());
-var ClaimedRowSchema = z43.object({
-  id: z43.string().min(1),
-  kind: z43.string().min(1),
-  key: z43.string().min(1),
-  subject: z43.string().min(1),
+var RefreshedSchema = z46.enum(["added", "updated", "again", "requeued"]);
+var PayloadSchema2 = z46.record(z46.string(), z46.unknown());
+var ClaimedRowSchema = z46.object({
+  id: z46.string().min(1),
+  kind: z46.string().min(1),
+  key: z46.string().min(1),
+  subject: z46.string().min(1),
   payload: PayloadSchema2,
   progress: PayloadSchema2.default({}),
-  lane: z43.string().min(1).nullable().default(null),
-  tries: z43.number().int().min(1).max(5),
-  max_tries: z43.number().int().min(1).max(5).default(5),
-  claim: z43.string().min(1),
-  claimed_until: z43.string().min(1)
+  lane: z46.string().min(1).nullable().default(null),
+  tries: z46.number().int().min(1).max(5),
+  max_tries: z46.number().int().min(1).max(5).default(5),
+  claim: z46.string().min(1),
+  claimed_until: z46.string().min(1)
 });
-var JobStateSchema = z43.enum(["queued", "done", "skipped", "failed"]);
-var ReplayedRowSchema = z43.object({
-  id: z43.string().min(1),
-  kind: z43.string().min(1),
-  key: z43.string().min(1),
-  state: z43.literal("queued"),
-  tries: z43.literal(0)
+var JobStateSchema = z46.enum(["queued", "done", "skipped", "failed"]);
+var ReplayedRowSchema = z46.object({
+  id: z46.string().min(1),
+  kind: z46.string().min(1),
+  key: z46.string().min(1),
+  state: z46.literal("queued"),
+  tries: z46.literal(0)
 });
-var HealthSchema = z43.object({
-  state: z43.enum(["ok", "late"]),
-  late: z43.number().int().nonnegative(),
-  failed: z43.number().int().nonnegative(),
+var HealthSchema = z46.object({
+  state: z46.enum(["ok", "late"]),
+  late: z46.number().int().nonnegative(),
+  failed: z46.number().int().nonnegative(),
   /** The schedules whose kind has had no done job for three periods; absent before PRD omni-loop-3's migration. */
-  scheduled: z43.number().int().nonnegative().optional()
+  scheduled: z46.number().int().nonnegative().optional()
 });
-var StepRowSchema = z43.object({ step: z43.string().min(1), value: z43.unknown(), saved_at: z43.string().min(1) });
+var StepRowSchema = z46.object({ step: z46.string().min(1), value: z46.unknown(), saved_at: z46.string().min(1) });
 var STALE = "55000";
 var refused2 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function dataOf({ data, error }) {
@@ -15668,7 +15949,7 @@ function healthArgs(schedules) {
 function jobLedger(connection) {
   const db = serviceDb(connection);
   return {
-    add: async ({ kind, key, subject, payload, lane: lane2, maxTries }) => z43.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane2, maxTries) }))),
+    add: async ({ kind, key, subject, payload, lane: lane2, maxTries }) => z46.boolean().parse(dataOf(await db.rpc("background_job_add", { p_kind: kind, p_key: key, p_subject: subject, p_payload: payload, ...paced(lane2, maxTries) }))),
     refresh: async ({ kind, key, subject, payload, delaySeconds, lane: lane2, maxTries }) => RefreshedSchema.parse(dataOf(await db.rpc("background_job_refresh", {
       p_kind: kind,
       p_key: key,
@@ -15678,7 +15959,7 @@ function jobLedger(connection) {
       ...paced(lane2, maxTries)
     }))),
     claim: async ({ limit, leaseSeconds }) => {
-      const rows = z43.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
+      const rows = z46.array(ClaimedRowSchema).parse(dataOf(await db.rpc("background_job_claim", { p_limit: limit, p_lease_seconds: leaseSeconds })));
       return rows.map(({ claimed_until, max_tries, ...row }) => ({ ...row, claimedUntil: claimed_until, maxTries: max_tries }));
     },
     finish: async ({ id, claim, outcome: outcome3, reason: reason2, retryAt, progress }) => {
@@ -15700,9 +15981,9 @@ function jobLedger(connection) {
       return { replayed: true, ...job };
     },
     health: async (schedules = SCHEDULES) => HealthSchema.parse(dataOf(await db.rpc("background_jobs_health", healthArgs(schedules), { get: true }))),
-    forget: async () => z43.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget"))),
+    forget: async () => z46.number().int().nonnegative().parse(dataOf(await db.rpc("background_jobs_forget"))),
     save: async ({ id, claim, step, value }) => {
-      const answer = await db.rpc("background_job_save", { p_id: id, p_claim: claim, p_step: step, p_value: z43.json().parse(value) });
+      const answer = await db.rpc("background_job_save", { p_id: id, p_claim: claim, p_step: step, p_value: z46.json().parse(value) });
       if (answer.error?.code === STALE) return "stale";
       dataOf(answer);
       return "saved";
@@ -15710,15 +15991,15 @@ function jobLedger(connection) {
     stepsOf: async ({ id, claim }) => {
       const answer = await db.rpc("background_job_steps_of", { p_id: id, p_claim: claim });
       if (answer.error?.code === STALE) return "stale";
-      const rows = z43.array(StepRowSchema).parse(dataOf(answer));
+      const rows = z46.array(StepRowSchema).parse(dataOf(answer));
       return new Map(rows.map(({ step, value }) => [step, value]));
     },
     renew: async ({ id, claim, leaseSeconds }) => {
       const answer = await db.rpc("background_job_renew", { p_id: id, p_claim: claim, ...leaseSeconds === void 0 ? {} : { p_lease_seconds: leaseSeconds } });
       if (answer.error?.code === STALE) return "stale";
-      return { until: z43.string().min(1).parse(dataOf(answer)) };
+      return { until: z46.string().min(1).parse(dataOf(answer)) };
     },
-    wake: async ({ kind, key }) => z43.boolean().parse(dataOf(await db.rpc("background_job_wake", { p_kind: kind, p_key: key })))
+    wake: async ({ kind, key }) => z46.boolean().parse(dataOf(await db.rpc("background_job_wake", { p_kind: kind, p_key: key })))
   };
 }
 
@@ -15728,7 +16009,7 @@ import { createHmac as createHmac2 } from "node:crypto";
 // kit/lib/approval/approval.ts
 import { existsSync as existsSync35, readFileSync as readFileSync30 } from "node:fs";
 import { basename as basename7, join as join43 } from "node:path";
-import { z as z46 } from "zod";
+import { z as z49 } from "zod";
 
 // kit/lib/dossier/folder.ts
 import { createHash as createHash4 } from "node:crypto";
@@ -15736,14 +16017,14 @@ import { existsSync as existsSync34, readdirSync as readdirSync16, readFileSync 
 import { join as join42 } from "node:path";
 
 // kit/lib/concept/parse.ts
-import { z as z44 } from "zod";
+import { z as z47 } from "zod";
 var CONCEPT_KINDS = ["product", "identity", "platform"];
 var CONCEPT_SCALES = ["vast", "lite"];
-var FrontMatterSchema3 = z44.object({
-  concept: z44.string().regex(/^[1-9]\d*$/).transform(Number),
-  title: z44.string().trim().min(1),
-  kind: z44.enum(CONCEPT_KINDS),
-  scale: z44.enum(CONCEPT_SCALES)
+var FrontMatterSchema3 = z47.object({
+  concept: z47.string().regex(/^[1-9]\d*$/).transform(Number),
+  title: z47.string().trim().min(1),
+  kind: z47.enum(CONCEPT_KINDS),
+  scale: z47.enum(CONCEPT_SCALES)
 }).strict();
 
 // kit/lib/dossier/folder.ts
@@ -15759,12 +16040,12 @@ var sha256 = (content) => createHash4("sha256").update(content, "utf8").digest("
 var FIX_ROOTS = Object.freeze({ visual: "visual", bug: "bugs" });
 
 // kit/lib/approval/laws.ts
-import { z as z45 } from "zod";
-var text9 = z45.string().min(1);
-var FindingSchema2 = z45.object({ law: text9, statement: z45.string().optional(), quote: text9, broken: z45.string().optional() });
-var LawsSchema = z45.union([
-  z45.object({ state: z45.literal("pending") }),
-  z45.object({ state: z45.enum(["green", "red", "neutral"]), reason: text9, judgedAt: z45.string().optional(), findings: z45.array(FindingSchema2).catch([]) })
+import { z as z48 } from "zod";
+var text9 = z48.string().min(1);
+var FindingSchema2 = z48.object({ law: text9, statement: z48.string().optional(), quote: text9, broken: z48.string().optional() });
+var LawsSchema = z48.union([
+  z48.object({ state: z48.literal("pending") }),
+  z48.object({ state: z48.enum(["green", "red", "neutral"]), reason: text9, judgedAt: z48.string().optional(), findings: z48.array(FindingSchema2).catch([]) })
 ]);
 function parseLaws(value) {
   const parsed3 = LawsSchema.safeParse(value);
@@ -15772,17 +16053,17 @@ function parseLaws(value) {
 }
 
 // kit/lib/approval/approval.ts
-var text10 = z46.string().min(1);
-var PinnedFileSchema = z46.object({ kind: text10, path: text10, sha256: text10, versionId: text10, content: z46.string().optional() });
-var VoidSchema = z46.object({ pusher: text10, kind: text10, from: text10, to: text10, voidedAt: text10 });
-var ApprovalSchema = z46.object({
-  approver: z46.object({ login: text10, member: z46.boolean() }),
+var text10 = z49.string().min(1);
+var PinnedFileSchema = z49.object({ kind: text10, path: text10, sha256: text10, versionId: text10, content: z49.string().optional() });
+var VoidSchema = z49.object({ pusher: text10, kind: text10, from: text10, to: text10, voidedAt: text10 });
+var ApprovalSchema = z49.object({
+  approver: z49.object({ login: text10, member: z49.boolean() }),
   approvedAt: text10,
-  files: z46.array(PinnedFileSchema),
-  voids: z46.array(VoidSchema).optional()
+  files: z49.array(PinnedFileSchema),
+  voids: z49.array(VoidSchema).optional()
 });
-var TechSchema = z46.object({ login: text10, state: z46.enum(["asked", "approved", "voided"]) });
-var ApprovalReplySchema = z46.object({ url: text10, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(void 0), laws: z46.unknown().optional() });
+var TechSchema = z49.object({ login: text10, state: z49.enum(["asked", "approved", "voided"]) });
+var ApprovalReplySchema = z49.object({ url: text10, approval: ApprovalSchema.nullable(), tech: TechSchema.optional().catch(void 0), laws: z49.unknown().optional() });
 var techWaitsOn = (tech) => tech && tech.state !== "approved" ? tech.login : null;
 var waitingForTech = (login) => `waiting for ${login}'s tech approval`;
 var UNREACHABLE_LINE = "server unreachable \xB7 held, not failed";
@@ -15839,30 +16120,30 @@ function judgeApproval(ctx, prd, reply) {
 
 // apps/omni-app/src/stage-forward/stage-forward.ts
 import { createHmac } from "node:crypto";
-import { z as z47 } from "zod";
+import { z as z50 } from "zod";
 var STAGE_SIGNATURE_HEADER = "x-omni-signature-256";
 var DEFAULT_SHAPES = (() => {
   const { branches, prLinks, labels } = parseConfig("kit: 1");
   return Object.freeze({ branches, prLinks, approved: labels.approved });
 })();
-var PullEventSchema = z47.looseObject({
-  action: z47.unknown(),
-  repository: z47.looseObject({ full_name: z47.string().min(1), default_branch: z47.string().nullish() }),
-  pull_request: z47.looseObject({
-    head: z47.looseObject({ ref: z47.string() }),
-    base: z47.looseObject({ ref: z47.string() }),
-    merged: z47.unknown(),
-    merged_at: z47.string().nullish(),
-    created_at: z47.string().nullish(),
-    updated_at: z47.string().nullish(),
-    body: z47.unknown()
+var PullEventSchema = z50.looseObject({
+  action: z50.unknown(),
+  repository: z50.looseObject({ full_name: z50.string().min(1), default_branch: z50.string().nullish() }),
+  pull_request: z50.looseObject({
+    head: z50.looseObject({ ref: z50.string() }),
+    base: z50.looseObject({ ref: z50.string() }),
+    merged: z50.unknown(),
+    merged_at: z50.string().nullish(),
+    created_at: z50.string().nullish(),
+    updated_at: z50.string().nullish(),
+    body: z50.unknown()
   })
 });
-var LabeledEventSchema = z47.looseObject({
-  action: z47.literal("labeled"),
-  repository: z47.looseObject({ full_name: z47.string().min(1) }),
-  label: z47.looseObject({ name: z47.string() }),
-  issue: z47.looseObject({ number: PrdNumberSchema, updated_at: z47.string().min(1), pull_request: z47.unknown().optional() })
+var LabeledEventSchema = z50.looseObject({
+  action: z50.literal("labeled"),
+  repository: z50.looseObject({ full_name: z50.string().min(1) }),
+  label: z50.looseObject({ name: z50.string() }),
+  issue: z50.looseObject({ number: PrdNumberSchema, updated_at: z50.string().min(1), pull_request: z50.unknown().optional() })
 });
 function signStageEvent(secret, body) {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
@@ -15906,27 +16187,27 @@ async function askJudge(repo, prd, { galaxyUrl, secret, fetch: get = fetch, time
 }
 
 // apps/omni-app/src/jobs/payloads.ts
-import { z as z48 } from "zod";
+import { z as z51 } from "zod";
 var INBOX_EXTERNAL_ID = "omni-loop/inbox";
 var APPROVED_EXTERNAL_ID = "omni-loop/approved";
 var BUDGETS_EXTERNAL_ID = "omni-loop/budgets";
-var SourceSchema = z48.looseObject({
-  installationId: z48.number(),
-  owner: z48.string(),
-  repo: z48.string(),
-  repository: z48.string()
+var SourceSchema = z51.looseObject({
+  installationId: z51.number(),
+  owner: z51.string(),
+  repo: z51.string(),
+  repository: z51.string()
 });
 var CheckRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
-  headSha: z48.string(),
-  trigger: z48.string().optional()
+  headSha: z51.string(),
+  trigger: z51.string().optional()
 });
-var PullAtSchema = z48.object({
-  installationId: z48.number(),
-  owner: z48.string().min(1),
-  repo: z48.string().min(1),
+var PullAtSchema = z51.object({
+  installationId: z51.number(),
+  owner: z51.string().min(1),
+  repo: z51.string().min(1),
   prNumber: PrNumberSchema,
-  headSha: z48.string().min(1)
+  headSha: z51.string().min(1)
 });
 function checkPayloadOf(schema, kind, raw) {
   const parsed3 = schema.safeParse(raw);
@@ -15934,25 +16215,25 @@ function checkPayloadOf(schema, kind, raw) {
   const [issue] = parsed3.error.issues;
   throw new Error(`The ${kind} job is malformed: ${issue?.path.join(".") || "(payload)"}: ${issue?.message ?? parsed3.error.message}`);
 }
-var CanonFactsSchema = z48.object({
+var CanonFactsSchema = z51.object({
   prd: PrdNumberSchema,
-  persona: z48.string().nullable(),
-  claims: z48.array(z48.string())
+  persona: z51.string().nullable(),
+  claims: z51.array(z51.string())
 });
 var CanonActionRequestDataSchema = SourceSchema.extend({
   prNumber: PrNumberSchema,
-  headSha: z48.string().optional(),
-  checkRunId: z48.number().optional(),
-  action: z48.string(),
+  headSha: z51.string().optional(),
+  checkRunId: z51.number().optional(),
+  action: z51.string(),
   facts: CanonFactsSchema
 });
-var MissionJobDataSchema = z48.object({ mission: z48.uuid() });
+var MissionJobDataSchema = z51.object({ mission: z51.uuid() });
 
 // apps/omni-app/src/approved-check/github.ts
 import { mkdtempSync as mkdtempSync8, rmSync as rmSync9 } from "node:fs";
 import { tmpdir as tmpdir8 } from "node:os";
 import { join as join44 } from "node:path";
-import { z as z49 } from "zod";
+import { z as z52 } from "zod";
 
 // apps/omni-app/src/approved-check/subject.ts
 function partOf(body, slug) {
@@ -16021,8 +16302,8 @@ async function featurePullOf(octokit, { slug, prd }) {
   }
   return { held: `${slug} has no open feature PR for PRD ${Number(prd)}` };
 }
-var SearchSchema = z49.looseObject({
-  items: z49.array(z49.looseObject({ number: z49.number(), body: z49.string().nullish(), repository_url: z49.string(), pull_request: z49.unknown().optional() }))
+var SearchSchema = z52.looseObject({
+  items: z52.array(z52.looseObject({ number: z52.number(), body: z52.string().nullish(), repository_url: z52.string(), pull_request: z52.unknown().optional() }))
 });
 
 // apps/omni-app/src/approved-check/repo-reading.ts
@@ -16040,62 +16321,62 @@ import { homedir } from "node:os";
 import { dirname as dirname11, join as join45 } from "node:path";
 
 // kit/lib/env/read.ts
-import { z as z50 } from "zod";
+import { z as z53 } from "zod";
 var OMNI_SESSION = envGroup({
   label: "the agent session",
-  schema: z50.object({ id: z50.string() }),
+  schema: z53.object({ id: z53.string() }),
   variables: { id: "OMNI_SESSION_ID" }
 });
 var CLAUDE_SESSION = envGroup({
   label: "the Claude session",
-  schema: z50.object({ id: z50.string() }),
+  schema: z53.object({ id: z53.string() }),
   variables: { id: "CLAUDE_CODE_SESSION_ID" }
 });
 var OPENROUTER2 = envGroup({
   label: "OpenRouter",
-  schema: z50.object({ key: z50.string(), model: z50.string().optional() }),
+  schema: z53.object({ key: z53.string(), model: z53.string().optional() }),
   variables: { key: "OPENROUTER_API_KEY", model: "OPENROUTER_MODEL" }
 });
 var PROOF = envGroup({
   label: "the proof",
-  schema: z50.object({ url: z50.url().optional(), storageState: z50.string().optional() }),
+  schema: z53.object({ url: z53.url().optional(), storageState: z53.string().optional() }),
   variables: { url: "PROOF_URL", storageState: "PROOF_STORAGE_STATE" }
 });
-var TERMINAL = envGroup({
+var TERMINAL2 = envGroup({
   label: "the terminal",
-  schema: z50.object({ columns: z50.string().optional(), noColor: z50.string().optional() }),
+  schema: z53.object({ columns: z53.string().optional(), noColor: z53.string().optional() }),
   variables: { columns: "COLUMNS", noColor: "NO_COLOR" }
 });
 var GITHUB_ACTIONS = envGroup({
   label: "the GitHub Actions step",
-  schema: z50.object({ output: z50.string().optional(), summary: z50.string().optional() }),
+  schema: z53.object({ output: z53.string().optional(), summary: z53.string().optional() }),
   variables: { output: "GITHUB_OUTPUT", summary: "GITHUB_STEP_SUMMARY" }
 });
 var WORKSPACE = envGroup({
   label: "the workspace",
-  schema: z50.object({ slug: z50.string().trim().min(1, "a workspace slug") }),
+  schema: z53.object({ slug: z53.string().trim().min(1, "a workspace slug") }),
   variables: { slug: "OMNI_LOOP_WORKSPACE" }
 });
 var SUPABASE2 = envGroup({
   label: "the Supabase pair",
-  schema: z50.object({ url: z50.url(), key: z50.string() }),
+  schema: z53.object({ url: z53.url(), key: z53.string() }),
   variables: { url: ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"], key: "SUPABASE_SERVICE_ROLE_KEY" }
 });
 var OMNI_TOKEN_PATTERN = /^omk_[A-Za-z0-9_-]{43}$/;
 var OMNI_TOKEN = envGroup({
   label: "the kit token",
-  schema: z50.object({ token: z50.string().regex(OMNI_TOKEN_PATTERN, "it is not a kit token: make one with omni setup-token") }),
+  schema: z53.object({ token: z53.string().regex(OMNI_TOKEN_PATTERN, "it is not a kit token: make one with omni setup-token") }),
   variables: { token: "OMNI_TOKEN" }
 });
 var SESSION = envGroup({
   label: "the session",
-  schema: z50.object({
-    claudeCodeRemote: z50.string().optional(),
-    sshConnection: z50.string().optional(),
-    sshTty: z50.string().optional(),
-    codespaces: z50.string().optional(),
-    display: z50.string().optional(),
-    waylandDisplay: z50.string().optional()
+  schema: z53.object({
+    claudeCodeRemote: z53.string().optional(),
+    sshConnection: z53.string().optional(),
+    sshTty: z53.string().optional(),
+    codespaces: z53.string().optional(),
+    display: z53.string().optional(),
+    waylandDisplay: z53.string().optional()
   }),
   variables: {
     claudeCodeRemote: "CLAUDE_CODE_REMOTE",
@@ -16108,52 +16389,52 @@ var SESSION = envGroup({
 });
 var RUNNER_SENDER = envGroup({
   label: "the runner job's sender",
-  schema: z50.object({ sentBy: z50.string().optional(), sentByKey: z50.string().optional(), runner: z50.string().optional() }),
+  schema: z53.object({ sentBy: z53.string().optional(), sentByKey: z53.string().optional(), runner: z53.string().optional() }),
   variables: { sentBy: "OMNI_SENT_BY", sentByKey: "OMNI_SENT_BY_KEY", runner: "OMNI_RUNNER" }
 });
 var GITHUB_APP2 = envGroup({
   label: "the GitHub App a job runs as",
-  schema: z50.object({ login: z50.string() }),
+  schema: z53.object({ login: z53.string() }),
   variables: { login: "OMNI_GITHUB_APP" }
 });
 var CLAUDE_TOKEN = envGroup({
   label: "the Claude token",
-  schema: z50.object({ token: z50.string() }),
+  schema: z53.object({ token: z53.string() }),
   variables: { token: "CLAUDE_CODE_OAUTH_TOKEN" }
 });
 var HEARTBEAT = envGroup({
   label: "the heartbeat",
-  schema: z50.object({ switch: z50.enum(["on", "off"], "on or off") }),
+  schema: z53.object({ switch: z53.enum(["on", "off"], "on or off") }),
   variables: { switch: "OMNI_HEARTBEAT" }
 });
 var ASK = envGroup({
   label: "ask mode",
-  schema: z50.object({ switch: z50.enum(["on", "off"], "on or off") }),
+  schema: z53.object({ switch: z53.enum(["on", "off"], "on or off") }),
   variables: { switch: "OMNI_ASK" }
 });
 var UNATTENDED = envGroup({
   label: "an unattended run",
-  schema: z50.object({ flag: z50.string() }),
+  schema: z53.object({ flag: z53.string() }),
   variables: { flag: "OMNI_UNATTENDED" }
 });
 var RUNNER_JOB = envGroup({
   label: "the runner job",
-  schema: z50.object({ job: z50.string() }),
+  schema: z53.object({ job: z53.string() }),
   variables: { job: "OMNI_JOB" }
 });
 var TEST_RUNNER = envGroup({
   label: "the test runner",
-  schema: z50.object({ vitest: z50.string() }),
+  schema: z53.object({ vitest: z53.string() }),
   variables: { vitest: "VITEST" }
 });
 var PACKAGE_MANAGER = envGroup({
   label: "the package manager",
-  schema: z50.object({ execPath: z50.string() }),
+  schema: z53.object({ execPath: z53.string() }),
   variables: { execPath: "npm_execpath" }
 });
 var VARIABLES2 = variablesOf([OPENROUTER2, PROOF, WORKSPACE, SUPABASE2, OMNI_TOKEN, OMNI_SESSION, HEARTBEAT, ASK]);
 var GAME_VARIABLES = variablesOf([WORKSPACE, SUPABASE2]);
-var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, GITHUB_APP2, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
+var PLATFORM_VARIABLES2 = variablesOf([CLAUDE_SESSION, TERMINAL2, GITHUB_ACTIONS, PACKAGE_MANAGER, SESSION, TEST_RUNNER, RUNNER_SENDER, GITHUB_APP2, CLAUDE_TOKEN, UNATTENDED, RUNNER_JOB]);
 
 // kit/lib/ask/credentials.ts
 import { chmodSync as chmodSync2, readFileSync as readFileSync32, rmSync as rmSync10, writeFileSync as writeFileSync12 } from "node:fs";
@@ -16368,21 +16649,21 @@ var requestOf = (raw) => checkPayloadOf(CheckRequestDataSchema, APPROVED_KIND, r
 
 // apps/omni-app/src/approved-check/record.ts
 import { createClient as createClient3 } from "@supabase/supabase-js";
-import { z as z51 } from "zod";
-var text11 = z51.string().min(1);
-var at2 = z51.string().refine((value) => !Number.isNaN(Date.parse(value)));
-var HolderRowSchema = z51.object({ product_id: text11, workspace_id: text11 });
-var DossierRowSchema = z51.object({ id: text11 });
-var ApprovalRowSchema = z51.object({
+import { z as z54 } from "zod";
+var text11 = z54.string().min(1);
+var at2 = z54.string().refine((value) => !Number.isNaN(Date.parse(value)));
+var HolderRowSchema = z54.object({ product_id: text11, workspace_id: text11 });
+var DossierRowSchema = z54.object({ id: text11 });
+var ApprovalRowSchema = z54.object({
   id: text11,
   approved_by: text11,
   approver_login: text11,
   approved_at: at2,
-  files: z51.array(z51.object({ kind: text11, path: text11, sha256: text11, version_id: text11 }))
+  files: z54.array(z54.object({ kind: text11, path: text11, sha256: text11, version_id: text11 }))
 });
-var VoidRowSchema = z51.object({ kind: text11, from_sha256: text11, to_sha256: text11, pusher_login: text11, voided_at: at2 });
-var VersionRowSchema = z51.object({ id: text11, kind: text11, sha256: text11, commit_sha: z51.string().nullable(), created_at: at2 });
-var ContentRowSchema = z51.object({ id: text11, content: z51.string() });
+var VoidRowSchema = z54.object({ kind: text11, from_sha256: text11, to_sha256: text11, pusher_login: text11, voided_at: at2 });
+var VersionRowSchema = z54.object({ id: text11, kind: text11, sha256: text11, commit_sha: z54.string().nullable(), created_at: at2 });
+var ContentRowSchema = z54.object({ id: text11, content: z54.string() });
 var HOLDER = "product_id, workspace_id, products!inner(key)";
 var APPROVAL = "id, approved_by, approver_login, approved_at, files";
 var VOID2 = "kind, from_sha256, to_sha256, pusher_login, voided_at";
@@ -16390,7 +16671,7 @@ var VERSION = "id, kind, sha256, commit_sha, created_at";
 var refused3 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function rowsOf2(schema, answer) {
   if (answer.error) throw refused3(answer.error);
-  return z51.array(schema).parse(answer.data ?? []);
+  return z54.array(schema).parse(answer.data ?? []);
 }
 function latestByKind(rows) {
   const seen = /* @__PURE__ */ new Map();
@@ -16413,7 +16694,7 @@ function recordReader({ url, key, fetch: fetch2 }) {
     const [approved] = rowsOf2(ApprovalRowSchema, await db.from("approvals").select(APPROVAL).eq("dossier_id", dossier.id).order("approved_at", { ascending: false }).order("id", { ascending: false }).limit(1));
     const latestWithout = versions.map((row) => ({ kind: row.kind, sha256: row.sha256, versionId: row.id, commitSha: row.commit_sha, content: null }));
     if (!approved) return { dossierId: dossier.id, approval: null, latest: latestWithout };
-    const members2 = rowsOf2(z51.object({ user_id: text11 }), await db.from("workspace_members").select("user_id").eq("workspace_id", holder.workspace_id).eq("user_id", approved.approved_by).limit(1));
+    const members2 = rowsOf2(z54.object({ user_id: text11 }), await db.from("workspace_members").select("user_id").eq("workspace_id", holder.workspace_id).eq("user_id", approved.approved_by).limit(1));
     const voids = rowsOf2(VoidRowSchema, await db.from("approval_voids").select(VOID2).eq("approval_id", approved.id).order("voided_at", { ascending: true }));
     const pinnedSha = new Map(approved.files.map((file) => [file.kind, file.sha256]));
     const differing = versions.filter((row) => pinnedSha.has(row.kind) && pinnedSha.get(row.kind) !== row.sha256).map((row) => row.id);
@@ -16440,8 +16721,8 @@ import { join as join61 } from "node:path";
 // kit/lib/budgets/ceilings.ts
 import { existsSync as existsSync37, mkdirSync as mkdirSync10, readFileSync as readFileSync34, writeFileSync as writeFileSync13 } from "node:fs";
 import { dirname as dirname12, join as join49 } from "node:path";
-import { z as z52 } from "zod";
-var CeilingsSchema = z52.record(z52.string().min(1), z52.number().int().nonnegative());
+import { z as z55 } from "zod";
+var CeilingsSchema = z55.record(z55.string().min(1), z55.number().int().nonnegative());
 function parseCeilings(text20, file) {
   let raw;
   try {
@@ -16468,27 +16749,27 @@ import { join as join53 } from "node:path";
 // kit/lib/design/manifest.ts
 import { readFileSync as readFileSync35 } from "node:fs";
 import { join as join50 } from "node:path";
-import { z as z53 } from "zod";
-var text12 = z53.string().min(1);
-var themes = z53.object({ omni: text12, light: text12, dark: text12 }).strict();
-var component = z53.object({
+import { z as z56 } from "zod";
+var text12 = z56.string().min(1);
+var themes = z56.object({ omni: text12, light: text12, dark: text12 }).strict();
+var component = z56.object({
   name: text12,
   import: text12,
-  variants: z53.record(z53.string(), z53.array(z53.string())).default({}),
-  usage: z53.string().optional(),
-  do: z53.array(z53.string()).default([]),
-  dont: z53.array(z53.string()).default([]),
-  replaces: z53.array(z53.string()).default([]),
+  variants: z56.record(z56.string(), z56.array(z56.string())).default({}),
+  usage: z56.string().optional(),
+  do: z56.array(z56.string()).default([]),
+  dont: z56.array(z56.string()).default([]),
+  replaces: z56.array(z56.string()).default([]),
   example: text12
 });
-var token = z53.object({ name: text12, role: text12, group: z53.string().optional(), themes });
-var pattern = z53.object({ name: text12, routes: z53.array(z53.string()).default([]), mock: z53.string().default("") });
-var surfaces = z53.union([z53.array(z53.string()), z53.object({ include: z53.array(z53.string()).default([]), exclude: z53.array(z53.string()).default([]) })]).default([]);
-var manifestSchema = z53.object({
-  "omni-design": z53.literal(1),
-  tokens: z53.array(token).default([]),
-  components: z53.array(component).default([]),
-  patterns: z53.array(pattern).default([]),
+var token = z56.object({ name: text12, role: text12, group: z56.string().optional(), themes });
+var pattern = z56.object({ name: text12, routes: z56.array(z56.string()).default([]), mock: z56.string().default("") });
+var surfaces = z56.union([z56.array(z56.string()), z56.object({ include: z56.array(z56.string()).default([]), exclude: z56.array(z56.string()).default([]) })]).default([]);
+var manifestSchema = z56.object({
+  "omni-design": z56.literal(1),
+  tokens: z56.array(token).default([]),
+  components: z56.array(component).default([]),
+  patterns: z56.array(pattern).default([]),
   surfaces
 });
 function refusals(error) {
@@ -16703,8 +16984,8 @@ ${kit.errors.join("\n")}`);
 import { readdirSync as readdirSync18, readFileSync as readFileSync37 } from "node:fs";
 import { join as join52, posix as posix3 } from "node:path";
 import { fileURLToPath } from "node:url";
-import { z as z54 } from "zod";
-var BundledTemplatesSchema = z54.record(z54.string(), z54.string());
+import { z as z57 } from "zod";
+var BundledTemplatesSchema = z57.record(z57.string(), z57.string());
 var BUNDLED = false ? null : BundledTemplatesSchema.parse(JSON.parse("{\"README.md\":\"<!-- Ported from nimbus-brain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person's\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). A fourth kind, the\\n  domain contract, says in one line how an entity is shaped or moves, and points at the schema or\\n  type file that enforces it, in an optional `contracts.md`. Decisions about how it is built are\\n  decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; what a screen of this product looks like; the\\n  rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form's file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository's section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile. Some\\nsections have no kit default, because only this repository can answer them, such as who the\\nproduct is for and where its design system lives: until a person fills one, it shows the kit's own\\nquestion.\\n`omni kb status` lists every form, its state, and its open questions.\\n\",\"before-after/page.html\":\"<!doctype html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<meta name=\\\"omni-before-after\\\" content=\\\"3\\\">\\n<title>PRD {{prd}}: before and after</title>\\n<style>\\n:root {\\n  color-scheme: light dark;\\n  --bg: #ffffff; --fg: #1b1f24; --muted: #6a737d; --line: #d8dee4; --panel: #f6f8fa;\\n  --accent: #0b5fff; --add-bg: #e6f6ea; --add-fg: #116329; --del-bg: #fdebec; --del-fg: #a40e26;\\n  --warn-bg: #fff4d6; --warn-fg: #7a4b00; --info-bg: #e7efff; --info-fg: #0b3fa8;\\n}\\n@media (prefers-color-scheme: dark) {\\n  :root {\\n    --bg: #0f1216; --fg: #e6e9ed; --muted: #9aa4af; --line: #2c333b; --panel: #171b21;\\n    --accent: #6ea1ff; --add-bg: #12301b; --add-fg: #7ee2a0; --del-bg: #3a1a1e; --del-fg: #ff9aa6;\\n    --warn-bg: #3a2c0a; --warn-fg: #ffd37a; --info-bg: #14264d; --info-fg: #a9c6ff;\\n  }\\n}\\n* { box-sizing: border-box; }\\nbody { margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, \\\"Segoe UI\\\", sans-serif; }\\nh1, .tabs { max-width: 1040px; margin-left: auto; margin-right: auto; }\\nh1 { font-size: 22px; margin-top: 0; margin-bottom: 16px; }\\nh3 { font-size: 16px; margin: 16px 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }\\n.tab-input { position: absolute; opacity: 0; pointer-events: none; }\\n.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }\\n.tabs label { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }\\n.tabs label small { font-weight: 600; color: var(--muted); }\\n#tab-functional:checked ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:checked ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:checked ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }\\n#tab-functional:focus-visible ~ .tabs label[for=\\\"tab-functional\\\"],\\n#tab-technical:focus-visible ~ .tabs label[for=\\\"tab-technical\\\"],\\n#tab-pixel-perfect:focus-visible ~ .tabs label[for=\\\"tab-pixel-perfect\\\"] { outline: 2px solid var(--accent); }\\n[data-tab] { display: none; max-width: 1040px; margin: 0 auto; }\\n#tab-functional:checked ~ [data-tab=\\\"functional\\\"],\\n#tab-technical:checked ~ [data-tab=\\\"technical\\\"],\\n#tab-pixel-perfect:checked ~ [data-tab=\\\"pixel-perfect\\\"] { display: block; }\\n[data-tab=\\\"pixel-perfect\\\"] { max-width: none; }\\n[data-service] { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 16px; margin: 16px 0; }\\n[data-section] { margin: 12px 0; }\\n[data-section] > h4 { font-size: 13px; margin: 0 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n[data-state=\\\"na\\\"] { color: var(--muted); }\\n[data-state=\\\"gap\\\"] > h4::after { content: \\\" \xB7 to settle\\\"; color: var(--warn-fg); }\\n.badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info-fg); text-transform: uppercase; }\\n.badge.breaking { background: var(--del-bg); color: var(--del-fg); }\\n.badge.deploy { background: var(--warn-bg); color: var(--warn-fg); }\\n.badge.added { background: var(--add-bg); color: var(--add-fg); }\\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\\n@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }\\n.compare > div > .label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }\\npre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }\\npre { margin: 0; padding: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow-x: auto; }\\npre .line { display: block; padding: 0 12px; white-space: pre; }\\n.add { background: var(--add-bg); color: var(--add-fg); }\\n.del { background: var(--del-bg); color: var(--del-fg); text-decoration: line-through; }\\n.ctx { color: var(--muted); }\\ntable { width: 100%; border-collapse: collapse; margin: 8px 0; }\\nth, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }\\nth { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\\n.no-change { color: var(--muted); font-style: italic; }\\n.diagram svg { max-width: 100%; height: auto; }\\ndetails > summary { cursor: pointer; color: var(--muted); }\\n.index { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--muted); }\\n.index[hidden] { display: none; }\\n.ref { font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; text-decoration: none; cursor: pointer; }\\n.ref[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.pair { --vw: 1280; display: grid; gap: 16px; margin: 10px 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--vw) * 0.5px)), 1fr)); align-items: start; scroll-margin-top: 48px; }\\n.shot { margin: 0; min-width: 0; }\\n.shot figcaption { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }\\n.when { font-weight: 700; padding: 1px 8px; border: 1px solid transparent; border-radius: 999px; }\\n.when.today { background: var(--panel); color: var(--fg); border-color: var(--line); }\\n.when.after { background: var(--add-bg); color: var(--add-fg); }\\n.zoom { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; }\\n.zoom[aria-pressed=\\\"true\\\"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }\\n.fit { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }\\n.fit.full { overflow: auto; }\\n.fit > [data-screen] { transform-origin: 0 0; }\\n.absent { margin: 0; padding: 28px 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 14px; }\\n</style>\\n</head>\\n<body>\\n<h1>PRD {{prd}}: before and after</h1>\\n<!-- Every section carries data-state: filled (the design covers it), na (\\\"N/A \u2014 one-line reason\\\") or gap (\\\"To settle \u2014 what is missing\\\"). -->\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-functional\\\" class=\\\"tab-input\\\" checked>\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-technical\\\" class=\\\"tab-input\\\">\\n<input type=\\\"radio\\\" name=\\\"tab\\\" id=\\\"tab-pixel-perfect\\\" class=\\\"tab-input\\\">\\n<div class=\\\"tabs\\\"><label for=\\\"tab-functional\\\">Functional</label><label for=\\\"tab-technical\\\">Technical</label><label for=\\\"tab-pixel-perfect\\\">Pixel perfect<small data-count></small></label></div>\\n<section data-tab=\\\"functional\\\">\\n{{functional}}\\n</section>\\n<section data-tab=\\\"technical\\\">\\n<div data-section=\\\"flow\\\" data-state=\\\"gap\\\">\\n<h4>Flow</h4>\\n<!-- FILL -->\\n</div>\\n<div data-section=\\\"deploy\\\" data-state=\\\"gap\\\">\\n<h4>Deploy order</h4>\\n<!-- FILL -->\\n</div>\\n{{technical}}\\n</section>\\n<section data-tab=\\\"pixel-perfect\\\">\\n<nav class=\\\"index\\\" aria-label=\\\"References\\\" data-index hidden></nav>\\n<!-- Pixel perfect, once for the page. Filled: the screens: line, then every state of every screen whole, each side of it one element\\n     carrying data-screen (its library name), data-ref (2.C: the screen's number, the state's letter, never renumbered),\\n     data-when (today or after) and data-viewport (its width in CSS pixels), its markup in a template element inside it,\\n     written at that width; a heading or a note may sit before a reference's screens. The page frames them: today beside after, scaled to fit, the reference opening a frame at 100 %,\\n     and the index. The screens' styles go once, in the screen-css template below; their fonts in this page's own style. -->\\n<div data-section=\\\"pixel-perfect\\\" data-state=\\\"gap\\\">\\n<h4>Pixel perfect</h4>\\n<!-- FILL -->\\n</div>\\n</section>\\n<template id=\\\"screen-css\\\"><style>\\n/* The screens' one stylesheet, written once for the page: the design system's tokens and the library mockups' rules.\\n   It reaches every marked screen and nothing else; the page's own rules never reach inside one. */\\n</style></template>\\n<script>\\n(function () {\\n  var BASE = ':host { all: initial; display: block; }';\\n  var tab = document.querySelector('[data-tab=\\\"pixel-perfect\\\"]');\\n  var sheet = document.getElementById('screen-css');\\n  var screens = tab ? Array.prototype.slice.call(tab.querySelectorAll('[data-screen]')) : [];\\n  var fits = [];\\n  function make(tag, cls, text) {\\n    var node = document.createElement(tag);\\n    if (cls) node.className = cls;\\n    if (text) node.textContent = text;\\n    return node;\\n  }\\n  function widthOf(screen) {\\n    var width = Number(screen.getAttribute('data-viewport'));\\n    return width >= 320 && width <= 2560 ? Math.round(width) : 0;\\n  }\\n  function isolate(screen) {\\n    if (!screen.attachShadow || screen.shadowRoot) return;\\n    var body = null;\\n    for (var i = 0; i < screen.children.length; i += 1) if (screen.children[i].tagName === 'TEMPLATE') body = screen.children[i];\\n    var root = screen.attachShadow({ mode: 'open' });\\n    root.appendChild(make('style', '', BASE));\\n    if (sheet && sheet.content) root.appendChild(sheet.content.cloneNode(true));\\n    if (body) root.appendChild(body.content.cloneNode(true));\\n    else while (screen.firstChild) root.appendChild(screen.firstChild);\\n    if (widthOf(screen)) screen.style.width = widthOf(screen) + 'px';\\n  }\\n  function size(fit) {\\n    var screen = fit.querySelector('[data-screen]'), width = screen ? widthOf(screen) : 0;\\n    if (!width) return;\\n    if (fit.classList.contains('full')) { screen.style.transform = 'none'; fit.style.height = ''; return; }\\n    var k = Math.min(1, fit.clientWidth / width);\\n    if (!k) return;\\n    screen.style.transform = k === 1 ? 'none' : 'scale(' + k + ')';\\n    fit.style.height = Math.ceil(screen.offsetHeight * k) + 'px';\\n  }\\n  function zoom(figure) {\\n    var fit = figure.querySelector('.fit'), on = fit.classList.toggle('full');\\n    figure.querySelectorAll('[data-zoom]').forEach(function (button) { button.setAttribute('aria-pressed', String(on)); });\\n    figure.querySelector('.zoom').textContent = on ? 'Fit' : '100 %';\\n    size(fit);\\n  }\\n  function frame(screen, ref) {\\n    var figure = make('figure', 'shot'), caption = make('figcaption'), fit = make('div', 'fit');\\n    var when = screen.getAttribute('data-when') || '', width = widthOf(screen);\\n    var button = make('button', 'ref', ref || '?'), full = make('button', 'zoom', '100 %');\\n    button.type = 'button'; full.type = 'button';\\n    button.title = 'Open at 100 %';\\n    [button, full].forEach(function (each) {\\n      each.setAttribute('data-zoom', '');\\n      each.setAttribute('aria-pressed', 'false');\\n      each.addEventListener('click', function () { zoom(figure); });\\n    });\\n    var parts = [button, make('span', '', screen.getAttribute('data-screen') || ''), make('span', 'when ' + when, when === 'today' ? 'Today' : when === 'after' ? 'After' : when), make('span', '', width ? String(width) : '')];\\n    parts.forEach(function (part, i) {\\n      if (i > 0) caption.appendChild(document.createTextNode(' \xB7 '));\\n      caption.appendChild(part);\\n    });\\n    caption.appendChild(full);\\n    if (width) fit.style.maxWidth = width + 2 + 'px';\\n    fit.appendChild(screen);\\n    figure.appendChild(caption);\\n    figure.appendChild(fit);\\n    fits.push(fit);\\n    return figure;\\n  }\\n  function absent(ref) {\\n    var figure = make('figure', 'shot none'), caption = make('figcaption');\\n    caption.appendChild(make('span', 'ref', ref));\\n    caption.appendChild(document.createTextNode(' \xB7 '));\\n    caption.appendChild(make('span', 'when today', 'Today'));\\n    figure.appendChild(caption);\\n    figure.appendChild(make('p', 'absent', 'This state does not exist today.'));\\n    return figure;\\n  }\\n  var groups = [], byRef = {};\\n  screens.forEach(function (screen) {\\n    isolate(screen);\\n    var ref = screen.getAttribute('data-ref') || '';\\n    if (!Object.prototype.hasOwnProperty.call(byRef, ref)) { byRef[ref] = { ref: ref, screens: [] }; groups.push(byRef[ref]); }\\n    byRef[ref].screens.push(screen);\\n  });\\n  var rank = function (screen) { var when = screen.getAttribute('data-when'); return when === 'today' ? 0 : when === 'after' ? 1 : 2; };\\n  groups.forEach(function (group) {\\n    var pair = make('div', 'pair'), id = group.ref ? 's-' + group.ref.replace('.', '-') : '';\\n    if (id && !document.getElementById(id)) pair.id = id;\\n    pair.style.setProperty('--vw', String(Math.max.apply(null, group.screens.map(widthOf).concat([320]))));\\n    group.screens[0].parentNode.insertBefore(pair, group.screens[0]);\\n    var ordered = group.screens.slice().sort(function (a, b) { return rank(a) - rank(b); });\\n    if (rank(ordered[0]) !== 0) pair.appendChild(absent(group.ref));\\n    ordered.forEach(function (screen) { pair.appendChild(frame(screen, group.ref)); });\\n  });\\n  var index = tab && tab.querySelector('[data-index]'), numbers = [];\\n  groups.forEach(function (group) {\\n    if (!group.ref || !index) return;\\n    if (index.hidden) { index.hidden = false; index.appendChild(make('span', '', 'References')); }\\n    var link = make('a', 'ref', group.ref);\\n    link.href = '#s-' + group.ref.replace('.', '-');\\n    link.title = group.screens[0].getAttribute('data-screen') || '';\\n    index.appendChild(link);\\n    var number = group.ref.split('.')[0];\\n    if (numbers.indexOf(number) === -1) numbers.push(number);\\n  });\\n  var count = document.querySelector('[data-count]');\\n  if (count && numbers.length > 0) count.textContent = ' \xB7 ' + numbers.length;\\n  if (typeof ResizeObserver === 'function') {\\n    var watch = new ResizeObserver(function (entries) {\\n      entries.forEach(function (entry) { size(entry.target.classList.contains('fit') ? entry.target : entry.target.parentElement); });\\n    });\\n    fits.forEach(function (fit) { watch.observe(fit); watch.observe(fit.firstElementChild); });\\n  }\\n  function open() {\\n    var hash = location.hash;\\n    if (hash === '#technical') document.getElementById('tab-technical').checked = true;\\n    if (hash === '#pixel-perfect' || hash.indexOf('#s-') === 0) {\\n      document.getElementById('tab-pixel-perfect').checked = true;\\n      fits.forEach(size);\\n      var target = hash.indexOf('#s-') === 0 && document.getElementById(hash.slice(1));\\n      if (target) target.scrollIntoView();\\n    }\\n  }\\n  fits.forEach(size);\\n  window.addEventListener('hashchange', open);\\n  open();\\n})();\\n</script>\\n</body>\\n</html>\\n\",\"omni-settings/playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no bug-fixing page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it: run `commands.smoke` with the case added. No smoke to run: stop, keep the\\n   reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`.\\nA regression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"omni-settings/playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n<!-- The workspace's tech default for every repository that writes no definition of done of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The change does what its spec or issue asks, and nothing it did not ask.\\n- The changed behaviour is proven by a test that failed before the change, or, where no test can\\n  reach it, by the narrowest evidence that was actually run.\\n- The repository's full preflight (`omni config commands.preflightFull` names it, else\\n  `commands.preflight`) is green on the last commit pushed; the pull request names any step it\\n  skipped, and why.\\n- The hand-off names every check that ran, and every check skipped with its reason. Nothing is\\n  reported as proven that was not run.\\n- Every decision taken without asking a person is written down for a person to answer.\\n- The pull request body says what changed, how it was verified, its risk, how to roll it back, and\\n  where a reviewer should look closest.\\n- The pull request is green and mergeable, or a comment on it says exactly what is stuck.\\n- No key, token, password or personal data is in a commit, a fixture, a log or the body.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- The playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape, with no unrelated formatting.\\nPrefer a few meaningful commits over one mixed commit that hides unrelated work.\\n\",\"omni-settings/playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person; and when you review one, for what to look for.\\n\\n<!-- The workspace's tech default for every repository that writes no review page of its own. The\\n`owner:` line names who approves a change to this page; null means the law owners of the settings\\nrepository's config. -->\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names a bug, a security or data-loss\\nproblem, duplicated code, a missing or weak test, a broken convention or law, or a misleading name.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste, or style no linter enforces;\\n- work outside the pull request's scope;\\n- a rewrite to another pattern, with no defect named;\\n- what the spec already settles: quote it.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision,\\ncontradicts the spec, or asks for a change that is hard to undo. A reviewer who replies again after\\na fix or a push-back has the last word: the thread goes to a person, never back into the argument.\\n\\n## Look for\\n<!-- slot: look-for \xB7 optional -->\\nThe kit's six come first, in order of harm: correctness, security and data, tests that prove it,\\nscope, laws and conventions, design and complexity. Add a list item here for what every repository\\nof this workspace also looks for: `omni review look-for` prints the six, then each item added.\\n\",\"omni-settings/playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: filled\\npoints-to: null\\nevidence: []\\ninvaded: null\\nowner: null\\n---\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n<!-- The workspace's tech default for every repository that writes no verification page of its own.\\nThe `owner:` line names who approves a change to this page; null means the law owners of the\\nsettings repository's config. -->\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\nThe preflight is the command `omni config commands.preflight` prints, read from the config, never\\ntyped from memory. It is green before a pull request is opened. It runs the half of the gate a\\nlaptop can run, stops at the first failure, and says what to fix; what only CI can run, it names and\\nleaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun the full preflight (`omni config commands.preflightFull`, else `commands.preflight`) before\\nevery push to an open pull request. A pull request no CI runs on, such as a sub-pull request into a\\nfeature branch, has this as its only grade.\\n\\nA commit hook runs only the checks that need no build, so a green commit is not a green branch: run\\nthe rest yourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- A red CI job is reproduced locally, under its own name, before it is fixed.\\n- A ratchet (a check graded against a recorded baseline: coverage or mutation floors, a suppression\\n  budget, a formatting baseline) only holds or improves. Never lower a floor, skip a test or add a\\n  suppression to turn a check green; raising a budget is its own reviewed change.\\n- A check that only skipped or was cancelled is never green.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\",\"playbook/architecture.md\":\"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package's name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other's domain code; they meet in exactly one place, the\\n  app's composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file's name says its role.\\n\",\"playbook/briefing.md\":\"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Links\\n<!-- slot: links \xB7 optional -->\\nAny answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\\nprint the link beside the number. When it prints `none` or cannot reach the app, say that the\\nPRD has no page yet and give its GitHub issue instead.\\n\\n## Any agent\\n<!-- slot: agents \xB7 optional -->\\n- **Skills.** `/omni:<name>` is a kit skill: run it as your agent does.\\n- **Asking.** With a tool for asking, use it (in Claude: `AskUserQuestion`). Else write the\\n  questions to a file and run `omni ask question --file <file>`: exit 0 prints the answers; exit 4\\n  prints `round <id>`: resume with `omni ask wait <id>`; exit 3: ask in your chat, then run\\n  `omni ask answer <round> --file <file>` when a round is named. Under `OMNI_UNATTENDED`, ask\\n  nothing: a decision is a high outbox item.\\n- **Parallel agents.** None? Build slices or steps one after another, in board order, each in its\\n  own worktree and sub-PR.\\n- **Models.** No model per subagent? Every slice runs on your terminal's model.\\n- **Background.** No background? Run in the foreground within your shell's limit, again until done.\\n- **Fresh session.** Clear your context (in Claude: `/clear`) or open a new terminal: the\\n  repository holds it all.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n\",\"playbook/bug-fixing.md\":\"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain's own words, and\\n   run it before any fix: it must fail. If it passes, it misses the bug, the bug is gone, or this\\n   level cannot see it (only the build changes it): run `commands.smoke` with the case added. No\\n   smoke to run: stop, keep the reproduction.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test; for a bug proven red by\\n`commands.smoke`, that case, run by CI. Otherwise the pull request says `Guard: none \u2014 <reason>`. A\\nregression test that lets small mutations of the fixed lines pass is not guarding the fix.\\n\",\"playbook/ci.md\":\"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n\\n## Budgets\\n<!-- slot: budgets \xB7 optional -->\\nWhat every agent session reads (the briefing, each form as `omni kb show` prints it, the context\\nfiles) has a ceiling per target, in bytes, in the file `budgets.context.file` names, while\\n`budgets.context.enabled` is on. `omni check context` and the `omni / budgets` check say which\\ntarget grew past its ceiling. Trim it first, without losing a rule: move detail into a linked file.\\nOnly when it needs the room, raise its ceiling in the same pull request and file a high outbox item\\nthat says why; a person's answer turns it green. A pull request with no PRD cannot raise one.\\n\",\"playbook/conventions.md\":\"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product's own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n\",\"playbook/decisions.md\":\"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one's status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with the latest 20\\nrecords' numbers and titles, read from the folder each time: nobody keeps that list by hand;\\n`omni kb show decisions --all` prints every record. Before writing a new record, look the decision\\nup there, or search the folder: it may be settled already. A number belongs to one record; two\\nrecords sharing one is a mistake to fix, never a precedent.\\n\",\"playbook/definition-of-done.md\":\"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request's outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n\",\"playbook/design.md\":\"---\\nform: design\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Design\\n\\nUse this page when you build or review a screen. The product wins over the craft floor and the refuse list.\\n\\nWhat this page says the product is, how its design system is laid out and what it does on purpose\\noverrides any general rule of craft: a rule of the craft floor or of the refuse list that this page\\nsets aside is set aside here. A repository whose design system is already written down points this\\nform, or one section of it, at that page with a `See:` line.\\n\\n## Product\\n<!-- slot: product \xB7 required -->\\nTODO(human): Who uses this product, where, on what screens and under what light? What is its voice, and which words does it use and avoid?\\n\\n## System\\n<!-- slot: system \xB7 required -->\\nTODO(human): Where do the design tokens, the type scale, the spacing, the colours and the components live, by path?\\n\\n## Deliberate\\n<!-- slot: deliberate \xB7 optional -->\\n<!-- What the product does on purpose, including any rule of the craft floor or the refuse list it\\nsets aside, and why. -->\\n\\n## Review\\n<!-- slot: review \xB7 optional -->\\n<!-- How to look at a screen here: the routes, the widths (390 and 1440 when this says nothing),\\nand how to sign in. -->\\n\\n## Language\\n<!-- slot: language \xB7 optional -->\\n<!-- The product's screen grammar: its laws, which win over the craft floor as the rest of this\\npage does. Each law is a heading, then its lock line, then the law, then any amendments below it:\\n\\n  ### <the law>\\n  \u{1F512} <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\n  <the law, in a sentence or two>\\n\\n  #### Amended <YYYY-MM-DD> \xB7 @<login> \xB7 \\\"<their words>\\\"\\n\\nA law is changed only by a dated amendment below it, never by rewriting it.\\nOnly a person locks a law, in their own words: no agent writes one on its own. -->\\n\\n\",\"playbook/glossary.md\":\"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n\",\"playbook/pull-requests.md\":\"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository's pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary's words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\\"revert this pull request\\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n\",\"playbook/releasing.md\":\"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n\\n## Release notes\\n<!-- slot: notes \xB7 optional -->\\nWhen `releaseNotes.enabled` is on in the config, every PRD ships with a release note: `release.md`\\nin its folder, beside `spec.md`. It is written at ship, from the spec and from what the branch\\nactually built, never from the plan, and whoever merges the pull request approves its words.\\n`omni check releases` grades every note, and ship refuses a PRD without one that passes.\\n\\n- **Front matter:** `prd`, the folder's number, and `title`. Only the initial release's notes add\\n  `version: 0.0.1`; a note written at ship never carries a version. Nothing else.\\n- **Title:** what the change is worth to the people who use it, catchy, in sentence case. One line,\\n  60 characters at most, no final full stop. No PRD or pull request number, no code, no delivery\\n  jargon; product names are fine.\\n- **Description:** the body, one paragraph of one to three sentences, 280 characters at most.\\n  Neutral and factual, in the present tense: what changed, and for whom. No superlatives, no links,\\n  no issue references, no code, no file paths, no people's names.\\n\\n```markdown\\n---\\nprd: 12\\ntitle: Share a report with anyone, no account needed\\n---\\nEvery report has a public link that opens without signing in. The owner can switch the link off\\nat any time, and a report opened from it cannot be edited.\\n```\\n\\n```markdown\\n---\\nprd: 31\\ntitle: Invoices in your customer's language\\n---\\nInvoices and their reminders are sent in the language set on the customer's record. Invoices sent\\nbefore keep the language they were sent in.\\n```\\n\\n```markdown\\n---\\nprd: 57\\ntitle: Find any project as you type\\n---\\nA search box at the top of every page finds projects, clients and documents by name while you\\ntype, the most recently opened first.\\n```\\n\",\"playbook/review.md\":\"---\\nform: review\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n# Review\\n\\nUse this page when a reviewer's comment on a pull request needs an answer: fix it, push back, or ask\\na person; and when you review one, for what to look for.\\n\\n## Fix\\n<!-- slot: fix \xB7 required -->\\nFix the comment, commit, and reply with the commit, when it names:\\n- a bug, a security problem, data loss;\\n- duplicated code;\\n- a missing or weak test;\\n- a broken repository convention or law;\\n- a name the reviewer shows is misleading.\\n\\n## Push back\\n<!-- slot: push-back \xB7 required -->\\nReply with a reason that names the line below it falls under, and change nothing, when it asks for:\\n- naming taste;\\n- style no linter enforces;\\n- \\\"while you\u2019re here\\\" changes outside the pull request's scope;\\n- a rewrite to the reviewer's preferred pattern with no defect named;\\n- an answer to a question the spec already answers.\\n\\n## Ask\\n<!-- slot: ask \xB7 required -->\\nLeave the thread open for a person, and say why, when the comment needs a product decision, or\\ncontradicts the spec. A reviewer who replies again after a fix or a push-back has the last word:\\nthe thread goes to a person, never back into the argument.\\n\\n## Look for\\n<!-- slot: look-for \xB7 optional -->\\nWhat a reviewer looks for in a pull request, in order of harm. A repository's own section adds items\\nto these six and never removes one: `omni review look-for` prints the six, then each item it adds.\\n\\n1. **Correctness:** the diff does what the spec says; edge cases, error paths, concurrency, data\\n   loss.\\n2. **Security and data:** a secret, personal data, an authorisation check, injection, row-level\\n   security on a new table.\\n3. **Tests that prove it:** every acceptance criterion has a test that would fail if the code broke;\\n   no test loosened, skipped or deleted to go green; no suppression added; no floor lowered.\\n4. **Scope:** a file outside the plan's territories, or work the spec does not ask for.\\n5. **Laws and conventions:** what a law, a rule or a playbook line says, cited by its id or its form\\n   and section.\\n6. **Design and complexity:** duplicated code, needless generality, a misleading name; only as a\\n   defect, never as taste.\\n\",\"playbook/setup.md\":\"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n\",\"playbook/testing.md\":\"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n\",\"playbook/verification.md\":\"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from nimbus-brain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n\"}"));
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -16916,7 +17197,7 @@ function prdOfBranch(branch, { branches, folders }) {
 }
 
 // apps/omni-app/src/budgets-check/measure-pull.ts
-import { z as z58 } from "zod";
+import { z as z61 } from "zod";
 
 // kit/lib/budgets/message.ts
 var KIB = 1024;
@@ -17144,23 +17425,23 @@ function relayFolder({
 // kit/lib/outbox/replies.ts
 import { existsSync as existsSync43, readFileSync as readFileSync41, writeFileSync as writeFileSync16 } from "node:fs";
 import { join as join58 } from "node:path";
-import { z as z55 } from "zod";
-var ReplyCommentSchema = z55.object({
+import { z as z58 } from "zod";
+var ReplyCommentSchema = z58.object({
   id: CommentIdSchema,
-  body: z55.string().nullish(),
-  created_at: z55.string().optional(),
-  user: z55.object({ login: z55.string().optional(), type: z55.string().optional() }).nullish(),
-  author_association: z55.string().optional(),
-  html_url: z55.string().optional()
+  body: z58.string().nullish(),
+  created_at: z58.string().optional(),
+  user: z58.object({ login: z58.string().optional(), type: z58.string().optional() }).nullish(),
+  author_association: z58.string().optional(),
+  html_url: z58.string().optional()
 });
-var RepliedItemSchema = z55.looseObject({
+var RepliedItemSchema = z58.looseObject({
   id: OutboxItemIdSchema,
-  rank: z55.enum(RANK_VALUES),
-  sections: z55.looseObject({
-    options: z55.array(z55.object({ letter: z55.string(), text: z55.string() })).optional(),
-    questionPlain: z55.string().optional(),
-    whatIHadToDecide: z55.string().optional(),
-    whatIDidMeanwhile: z55.string().optional()
+  rank: z58.enum(RANK_VALUES),
+  sections: z58.looseObject({
+    options: z58.array(z58.object({ letter: z58.string(), text: z58.string() })).optional(),
+    questionPlain: z58.string().optional(),
+    whatIHadToDecide: z58.string().optional(),
+    whatIDidMeanwhile: z58.string().optional()
   })
 });
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
@@ -17267,7 +17548,7 @@ function answerableQuestions(numbering, items, adopted) {
   return questions.sort((a, b) => a.number - b.number);
 }
 function replyComments(comments) {
-  return Array.isArray(comments) ? z55.array(ReplyCommentSchema).parse(comments) : [];
+  return Array.isArray(comments) ? z58.array(ReplyCommentSchema).parse(comments) : [];
 }
 function planFor({ comments: all, items, adopted, markers }) {
   const prComment = findPrMarkerComment(all, markers);
@@ -17277,7 +17558,7 @@ function planFor({ comments: all, items, adopted, markers }) {
   const open = questions.filter((question) => question.adoptedEntry === null);
   const { numbered, approved } = rawAnswers(all, markers, byNumber, open);
   const { at: reaskedAt, highestRound } = lastReaskedAt(all, markers);
-  const settle2 = [];
+  const settle3 = [];
   const held2 = [];
   for (const { number, item, adoptedEntry } of questions) {
     const raw = numbered.get(number) ?? approved.get(number);
@@ -17290,9 +17571,9 @@ function planFor({ comments: all, items, adopted, markers }) {
       continue;
     }
     if (adoptedEntry && judgement.verdict !== "drifted") continue;
-    settle2.push({ number, item, answer, judgement, adoptedEntry });
+    settle3.push({ number, item, answer, judgement, adoptedEntry });
   }
-  return { settle: settle2, held: held2, round: roundOf(held2, highestRound) };
+  return { settle: settle3, held: held2, round: roundOf(held2, highestRound) };
 }
 function rawAnswers(all, markers, byNumber, open) {
   const numbered = /* @__PURE__ */ new Map();
@@ -17535,7 +17816,7 @@ function gitOutboxStore(ctx) {
 // kit/lib/outbox/server-store.ts
 import { readFileSync as readFileSync43, unlinkSync as unlinkSync2 } from "node:fs";
 import { join as join60 } from "node:path";
-import { z as z56 } from "zod";
+import { z as z59 } from "zod";
 var OutboxServerError = class extends Error {
   status;
   constructor(message, status2) {
@@ -17546,18 +17827,18 @@ var OutboxServerError = class extends Error {
 };
 var heldLine = (at4) => `held \xB7 server unreachable since ${at4} \xB7 held, not failed`;
 var ANSWERED_REFUSALS = /* @__PURE__ */ new Set([400, 409, 422]);
-var SettlementSchema = z56.object({
-  verdict: z56.enum(["agreed", "drifted", ADOPTED_VERDICT]),
-  basis: z56.string(),
-  settledAt: z56.string()
+var SettlementSchema = z59.object({
+  verdict: z59.enum(["agreed", "drifted", ADOPTED_VERDICT]),
+  basis: z59.string(),
+  settledAt: z59.string()
 });
-var RowSchema = z56.object({
+var RowSchema = z59.object({
   item: OutboxItemIdSchema,
-  rank: z56.enum(RANK_VALUES),
-  body: z56.string(),
+  rank: z59.enum(RANK_VALUES),
+  body: z59.string(),
   settlement: SettlementSchema.nullable()
 });
-var ItemsReplySchema = z56.object({ prdId: ProductPrdIdSchema, items: z56.array(RowSchema) });
+var ItemsReplySchema = z59.object({ prdId: ProductPrdIdSchema, items: z59.array(RowSchema) });
 var ServerAnswerSchema = AnswerSchema.partial({ approvedBy: true, approvedAt: true, channel: true });
 var refOf2 = (prd, id) => `${prd}/${id}`;
 var ledgerOf2 = (prd) => `PRD ${prd}'s ledger on the Omni page`;
@@ -17731,12 +18012,12 @@ function serverOutboxStore({ ctx, connect, now }) {
 }
 
 // apps/omni-app/src/budgets-check/raises.ts
-import { z as z57 } from "zod";
-var text13 = z57.string().min(1);
-var HolderRowSchema2 = z57.object({ product_id: text13 });
-var DossierRowSchema2 = z57.object({ id: text13 });
-var SettlementRowSchema = z57.object({ verdict: text13, basis: z57.string(), settled_at: text13 });
-var ItemRowSchema = z57.object({ item: text13, rank: text13, body: z57.string(), outbox_settlements: z57.array(SettlementRowSchema) });
+import { z as z60 } from "zod";
+var text13 = z60.string().min(1);
+var HolderRowSchema2 = z60.object({ product_id: text13 });
+var DossierRowSchema2 = z60.object({ id: text13 });
+var SettlementRowSchema = z60.object({ verdict: text13, basis: z60.string(), settled_at: text13 });
+var ItemRowSchema = z60.object({ item: text13, rank: text13, body: z60.string(), outbox_settlements: z60.array(SettlementRowSchema) });
 function latestSettlement(settlements) {
   const [latest] = [...settlements].sort((a, b) => b.settled_at.localeCompare(a.settled_at));
   return latest ? { verdict: latest.verdict, basis: latest.basis, settledAt: latest.settled_at } : null;
@@ -17783,8 +18064,8 @@ async function raisesFor({
 
 // apps/omni-app/src/budgets-check/measure-pull.ts
 var MAX_COMMITS2 = 10;
-var CompareSchema = ComparePageSchema.extend({ merge_base_commit: z58.looseObject({ sha: z58.string() }).nullish() });
-var CommitsSchema2 = z58.array(z58.looseObject({ sha: z58.string() }));
+var CompareSchema2 = ComparePageSchema.extend({ merge_base_commit: z61.looseObject({ sha: z61.string() }).nullish() });
+var CommitsSchema2 = z61.array(z61.looseObject({ sha: z61.string() }));
 var unique4 = (paths) => [...new Set(paths.filter((path) => path !== null && path !== ""))];
 function sessionPaths(ctx, ceilingsFile) {
   const { layout, config } = ctx;
@@ -17825,7 +18106,7 @@ async function prdOfPull(octokit, ctx, { owner, repo, pr }) {
 }
 async function rangeOf(octokit, { owner, repo, pr }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${pr.baseSha}...${pr.headSha}`, per_page: 100, page: 1 });
-  const compare2 = CompareSchema.parse(data);
+  const compare2 = CompareSchema2.parse(data);
   const commits = (compare2.commits ?? []).map(({ sha, commit }) => ({ sha, subject: (commit?.message ?? "").split("\n")[0] ?? "" }));
   return { base: compare2.merge_base_commit?.sha ?? pr.baseSha, commits: commits.reverse() };
 }
@@ -17974,36 +18255,36 @@ import { createClient as createClient4 } from "@supabase/supabase-js";
 
 // apps/omni-app/src/canon/canon.ts
 import { createHash as createHash5 } from "node:crypto";
-import { z as z60 } from "zod";
+import { z as z63 } from "zod";
 
 // apps/omni-app/src/canon/schema.ts
-import { z as z59 } from "zod";
-var ClaimSchema = z59.looseObject({ id: z59.string(), kind: z59.string(), value: z59.string().nullish() });
-var PersonaSchema2 = z59.looseObject({
-  name: z59.string(),
-  who: z59.string().nullish(),
-  trade: z59.string().nullish(),
-  stance: z59.string().nullish(),
-  usage: z59.string().nullish()
+import { z as z62 } from "zod";
+var ClaimSchema = z62.looseObject({ id: z62.string(), kind: z62.string(), value: z62.string().nullish() });
+var PersonaSchema2 = z62.looseObject({
+  name: z62.string(),
+  who: z62.string().nullish(),
+  trade: z62.string().nullish(),
+  stance: z62.string().nullish(),
+  usage: z62.string().nullish()
 });
-var LegalSchema2 = z59.looseObject({ id: z59.string(), statement: z59.string(), source: z59.string().nullish(), owner: z59.string().nullish() });
-var BusinessSchema = z59.looseObject({
-  business: z59.unknown().optional(),
-  claims: z59.array(ClaimSchema).nullish(),
-  personas: z59.array(PersonaSchema2).nullish(),
-  updatedAt: z59.string().nullish(),
-  legal: z59.array(LegalSchema2).nullish(),
-  knowledgeEventId: z59.string().nullish()
+var LegalSchema2 = z62.looseObject({ id: z62.string(), statement: z62.string(), source: z62.string().nullish(), owner: z62.string().nullish() });
+var BusinessSchema = z62.looseObject({
+  business: z62.unknown().optional(),
+  claims: z62.array(ClaimSchema).nullish(),
+  personas: z62.array(PersonaSchema2).nullish(),
+  updatedAt: z62.string().nullish(),
+  legal: z62.array(LegalSchema2).nullish(),
+  knowledgeEventId: z62.string().nullish()
 });
-var ConstituentSchema = z59.looseObject({ id: z59.string(), text: z59.string() });
-var ConstituentsSchema = z59.looseObject({
-  state: z59.string().nullish(),
+var ConstituentSchema = z62.looseObject({ id: z62.string(), text: z62.string() });
+var ConstituentsSchema = z62.looseObject({
+  state: z62.string().nullish(),
   statement: ConstituentSchema.nullish(),
-  never: z59.array(ConstituentSchema).nullish(),
-  latestEventId: z59.string().nullish()
+  never: z62.array(ConstituentSchema).nullish(),
+  latestEventId: z62.string().nullish()
 });
-var FindingSchema3 = z59.looseObject({ quote: z59.string(), claims: z59.array(z59.string()), why: z59.unknown().optional() });
-var ReplyPersonaSchema = z59.looseObject({ name: z59.unknown().optional(), line: z59.unknown().optional() });
+var FindingSchema3 = z62.looseObject({ quote: z62.string(), claims: z62.array(z62.string()), why: z62.unknown().optional() });
+var ReplyPersonaSchema = z62.looseObject({ name: z62.unknown().optional(), line: z62.unknown().optional() });
 function parsed2(schema, what, value) {
   const result = schema.safeParse(value);
   if (result.success) return result.data;
@@ -18015,9 +18296,9 @@ var parseBusiness = (value) => parsed2(BusinessSchema, "business", value);
 var parseConstituents = (value) => parsed2(ConstituentsSchema, "constituents", value);
 
 // apps/omni-app/src/canon/canon.ts
-var CheckedReplySchema = z60.object({
-  findings: z60.array(z60.object({ quote: z60.string(), claims: z60.array(z60.string()), why: z60.string() })),
-  persona: z60.object({ name: z60.string(), line: z60.string() })
+var CheckedReplySchema = z63.object({
+  findings: z63.array(z63.object({ quote: z63.string(), claims: z63.array(z63.string()), why: z63.string() })),
+  persona: z63.object({ name: z63.string(), line: z63.string() })
 });
 var CANON_GATE = "canon";
 var CANON_SPEC_LIMIT = 4e4;
@@ -18177,10 +18458,10 @@ function enough(repo, business, read2) {
   const nothing = constituents.length + legal.length === 0;
   if (nothing && !business.business) return { gate: neutral(`no business: no workspace tracking ${repo} has one`) };
   if (nothing && claims.length === 0) return { gate: neutral("no confirmed claim or constituent for this repository's product") };
-  return { business, claims, personas: business.personas ?? [], constituents, legal, version: versionOf(business, read2) };
+  return { business, claims, personas: business.personas ?? [], constituents, legal, version: versionOf2(business, read2) };
 }
 var liveLegal = (business) => (business.legal ?? []).filter((entry) => entry.statement.trim());
-var versionOf = (business, read2) => [read2?.latestEventId ?? "", business.knowledgeEventId ?? ""].join("|");
+var versionOf2 = (business, read2) => [read2?.latestEventId ?? "", business.knowledgeEventId ?? ""].join("|");
 var isConstituent = (id) => id === "statement" || /^never#\d+$/.test(id);
 function judgeState({ spec, constituents, findings }) {
   const statement2 = constituents.find((c) => c.id === "statement")?.text ?? null;
@@ -18220,26 +18501,26 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
       if (verdict.gate) return verdict.gate;
       if (constituents.length === 0) return judged2({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said2 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
-      if (!said2.ok) {
-        return neutral(said2.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said2.reason})` : `judge error: ${said2.reason}`);
+      const said3 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      if (!said3.ok) {
+        return neutral(said3.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said3.reason})` : `judge error: ${said3.reason}`);
       }
-      const findings = counted2(verdict.findings, said2.answer === "true");
-      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said2.decidedBy, confidence: said2.confidence } });
+      const findings = counted2(verdict.findings, said3.answer === "true");
+      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said3.decidedBy, confidence: said3.confidence } });
     }
   };
 }
 
 // apps/omni-app/src/canon/judge.ts
-import { z as z61 } from "zod";
+import { z as z64 } from "zod";
 var JUDGE_SECRET_VAR = "CONSTITUENT_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS2 = 55e3;
-var VerdictSchema2 = z61.looseObject({
-  answer: z61.enum(["true", "false"]),
-  confidence: z61.number().nullable().catch(null),
-  decidedBy: z61.string().nullable().catch(null)
+var VerdictSchema2 = z64.looseObject({
+  answer: z64.enum(["true", "false"]),
+  confidence: z64.number().nullable().catch(null),
+  decidedBy: z64.string().nullable().catch(null)
 });
-var RefusalSchema = z61.looseObject({ error: z61.unknown().optional() });
+var RefusalSchema = z64.looseObject({ error: z64.unknown().optional() });
 function judgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/constituents/judge`;
 }
@@ -18262,8 +18543,8 @@ function constituentJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE
     const reply = await response.json().catch(() => null);
     if (!response.ok) {
       const refusal4 = RefusalSchema.safeParse(reply);
-      const said2 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
-      return failed("judge", `galaxy answered ${response.status}${said2}`);
+      const said3 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
+      return failed("judge", `galaxy answered ${response.status}${said3}`);
     }
     const verdict = VerdictSchema2.safeParse(reply);
     if (!verdict.success) return failed("judge", "galaxy answered no verdict");
@@ -18312,7 +18593,7 @@ function liveCanon(env, { fetch: fetch2 = globalThis.fetch } = {}) {
 import { mkdtempSync as mkdtempSync11, rmSync as rmSync14 } from "node:fs";
 import { tmpdir as tmpdir11 } from "node:os";
 import { join as join63 } from "node:path";
-import { z as z62 } from "zod";
+import { z as z65 } from "zod";
 
 // kit/lib/escalation/escalation.ts
 var DAY_MS4 = 24 * 60 * 60 * 1e3;
@@ -18466,12 +18747,12 @@ function heldAt({ config, head, pr, gate: gate2 }) {
 }
 
 // apps/omni-app/src/escalation/sweep.ts
-var InstallationsSchema2 = z62.array(z62.looseObject({ id: z62.number() }));
-var RepositoriesSchema = z62.looseObject({
-  repositories: z62.array(z62.looseObject({ name: z62.string(), owner: z62.looseObject({ login: z62.string() }) }))
+var InstallationsSchema2 = z65.array(z65.looseObject({ id: z65.number() }));
+var RepositoriesSchema = z65.looseObject({
+  repositories: z65.array(z65.looseObject({ name: z65.string(), owner: z65.looseObject({ login: z65.string() }) }))
 });
-var OpenPullsSchema = z62.array(z62.looseObject({ number: z62.number(), base: z62.looseObject({ sha: z62.string() }) }));
-var RepositorySweptSchema = z62.object({ pulls: z62.number(), asked: z62.number(), failed: z62.number() });
+var OpenPullsSchema = z65.array(z65.looseObject({ number: z65.number(), base: z65.looseObject({ sha: z65.string() }) }));
+var RepositorySweptSchema = z65.object({ pulls: z65.number(), asked: z65.number(), failed: z65.number() });
 var lower = (login) => login.toLowerCase();
 function moveDue(lines2, settings, now, posted) {
   const decisions = decide(lines2.map(({ thing, kind, firstHeld }) => ({ thing, kind, firstHeld, answered: false })), now, settings);
@@ -18600,12 +18881,12 @@ function escalationHandler({
 }
 
 // apps/omni-app/src/fix-rows/fix-stamp.ts
-import { z as z63 } from "zod";
-var FixStampKindSchema = z63.enum(["merged", "closed", "reopened"]);
-var at3 = z63.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
-var FixStampDataSchema = z63.looseObject({
-  installationId: z63.number(),
-  repository: z63.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+import { z as z66 } from "zod";
+var FixStampKindSchema = z66.enum(["merged", "closed", "reopened"]);
+var at3 = z66.string().refine((value) => !Number.isNaN(Date.parse(value)), "a time");
+var FixStampDataSchema = z66.looseObject({
+  installationId: z66.number(),
+  repository: z66.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
   prNumber: PrNumberSchema,
   kind: FixStampKindSchema,
   at: at3,
@@ -18630,16 +18911,16 @@ function fixRowStampHandler({ stamp, log: log2 = noteTo("fix-row-stamp") }) {
 }
 
 // apps/omni-app/src/fix-rows/stamp.ts
-import { z as z64 } from "zod";
-var StampedRowSchema = z64.object({
+import { z as z67 } from "zod";
+var StampedRowSchema = z67.object({
   bug: ProductBugIdSchema,
-  dossierId: z64.string().min(1),
-  position: z64.number().int().positive(),
-  state: z64.enum(["open", "merged", "closed"])
+  dossierId: z67.string().min(1),
+  position: z67.number().int().positive(),
+  state: z67.enum(["open", "merged", "closed"])
 });
-var StampAnswerSchema = z64.object({
-  rows: z64.array(StampedRowSchema),
-  shipped: z64.array(ProductBugIdSchema),
+var StampAnswerSchema = z67.object({
+  rows: z67.array(StampedRowSchema),
+  shipped: z67.array(ProductBugIdSchema),
   unmatched: ProductBugIdSchema.nullable()
 });
 function fixRowStamper(connection) {
@@ -18658,26 +18939,26 @@ function fixRowStamper(connection) {
 }
 
 // apps/omni-app/src/fleet-board/job.ts
-import { z as z68 } from "zod";
+import { z as z71 } from "zod";
 
 // apps/omni-app/src/fleet-board/events.ts
-import { z as z65 } from "zod";
-var FleetBoardDataSchema = z65.looseObject({
-  installationId: z65.number(),
-  owner: z65.string().min(1),
-  repo: z65.string().min(1),
-  repository: z65.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
+import { z as z68 } from "zod";
+var FleetBoardDataSchema = z68.looseObject({
+  installationId: z68.number(),
+  owner: z68.string().min(1),
+  repo: z68.string().min(1),
+  repository: z68.string().regex(/^[^/\s]+\/[^/\s]+$/, "owner/name"),
   prNumber: PrNumberSchema,
   /** The pull request's GraphQL node id, the card's content. */
-  nodeId: z65.string().min(1),
+  nodeId: z68.string().min(1),
   /** The pull request's link, as a runner's job lists it. */
-  url: z65.string().min(1),
+  url: z68.string().min(1),
   /** The GitHub login of its author. */
-  author: z65.string().min(1)
+  author: z68.string().min(1)
 });
 
 // apps/omni-app/src/fleet-board/github.ts
-import { z as z66 } from "zod";
+import { z as z69 } from "zod";
 var BOARD = /^https:\/\/github\.com\/orgs\/([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/projects\/([1-9][0-9]{0,9})\/?$/;
 function boardOf(url) {
   const match = BOARD.exec(url.trim());
@@ -18690,11 +18971,11 @@ var PROJECT = `query FleetBoardProject($org: String!, $number: Int!) {
 var ADD = `mutation FleetBoardAdd($project: ID!, $content: ID!) {
   addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
 }`;
-var ProjectAnswerSchema = z66.looseObject({
-  organization: z66.looseObject({ projectV2: z66.looseObject({ id: z66.string().min(1) }).nullish() }).nullish()
+var ProjectAnswerSchema = z69.looseObject({
+  organization: z69.looseObject({ projectV2: z69.looseObject({ id: z69.string().min(1) }).nullish() }).nullish()
 });
-var AddAnswerSchema = z66.looseObject({
-  addProjectV2ItemById: z66.looseObject({ item: z66.looseObject({ id: z66.string().min(1) }).nullish() }).nullish()
+var AddAnswerSchema = z69.looseObject({
+  addProjectV2ItemById: z69.looseObject({ item: z69.looseObject({ id: z69.string().min(1) }).nullish() }).nullish()
 });
 async function addToBoard(octokit, { url, contentId }) {
   const board = boardOf(url);
@@ -18715,8 +18996,8 @@ function refused5(reason2) {
   return { outcome: "refused", reason: reason2 };
 }
 var NOT_ALLOWED = /* @__PURE__ */ new Set(["FORBIDDEN", "INSUFFICIENT_SCOPES"]);
-var GraphqlErrorsSchema = z66.looseObject({ errors: z66.array(z66.looseObject({ type: z66.unknown().optional() })).min(1) });
-var HttpErrorSchema = z66.looseObject({ status: z66.number(), message: z66.string().optional() });
+var GraphqlErrorsSchema = z69.looseObject({ errors: z69.array(z69.looseObject({ type: z69.unknown().optional() })).min(1) });
+var HttpErrorSchema = z69.looseObject({ status: z69.number(), message: z69.string().optional() });
 function refusalOf(error) {
   const graphql = GraphqlErrorsSchema.safeParse(error);
   if (graphql.success) {
@@ -18734,21 +19015,21 @@ function refusalOf(error) {
 }
 
 // apps/omni-app/src/fleet-board/store.ts
-import { z as z67 } from "zod";
+import { z as z70 } from "zod";
 var NOTE_MAX = 200;
 var LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 var TRACKED = "workspace_id, workspaces!inner(github_installation_id)";
 var PLAYER = "team";
 var JOB = "sent_by, sent_by_key";
 var TEAM = "name, project_url";
-var TrackedRowSchema = z67.object({ workspace_id: z67.string().min(1), workspaces: z67.object({ github_installation_id: z67.union([z67.number(), z67.string()]).nullable() }) });
-var PlayerRowSchema = z67.object({ team: z67.string().nullable() });
-var JobRowSchema = z67.object({ sent_by: z67.string().nullable(), sent_by_key: z67.string().nullable() });
-var TeamRowSchema = z67.object({ name: z67.string().min(1), project_url: z67.string().nullable() });
+var TrackedRowSchema = z70.object({ workspace_id: z70.string().min(1), workspaces: z70.object({ github_installation_id: z70.union([z70.number(), z70.string()]).nullable() }) });
+var PlayerRowSchema = z70.object({ team: z70.string().nullable() });
+var JobRowSchema = z70.object({ sent_by: z70.string().nullable(), sent_by_key: z70.string().nullable() });
+var TeamRowSchema2 = z70.object({ name: z70.string().min(1), project_url: z70.string().nullable() });
 function fleetBoardStore(connection) {
   const db = serviceDb(connection);
   async function activeFleet(workspace, name) {
-    const [team] = rowsOf(TeamRowSchema, await db.from("teams").select(TEAM).eq("workspace_id", workspace).eq("name", name).is("retired_at", null).limit(1));
+    const [team] = rowsOf(TeamRowSchema2, await db.from("teams").select(TEAM).eq("workspace_id", workspace).eq("name", name).is("retired_at", null).limit(1));
     return team ? { name: team.name, projectUrl: team.project_url } : null;
   }
   return {
@@ -18777,7 +19058,7 @@ function fleetBoardStore(connection) {
     },
     async note({ workspace, fleet, projectUrl, note, at: at4 }) {
       const written = rowsOf(
-        TeamRowSchema,
+        TeamRowSchema2,
         await db.from("teams").update({ project_note: note.slice(0, NOTE_MAX), project_noted_at: at4 }).eq("workspace_id", workspace).eq("name", fleet).eq("project_url", projectUrl).select(TEAM)
       );
       return { noted: written.length > 0 };
@@ -18789,7 +19070,7 @@ function fleetBoardStore(connection) {
 var FLEET_BOARD_KIND = "fleet-board";
 var LOOKS = 10;
 var WAIT_MS = 6e4;
-var ProgressSchema2 = z68.looseObject({ look: z68.number().int().min(1).max(LOOKS).optional() });
+var ProgressSchema2 = z71.looseObject({ look: z71.number().int().min(1).max(LOOKS).optional() });
 function fleetBoardHandler({ octokitFor, store, now = () => /* @__PURE__ */ new Date(), log: log2 = noteTo("fleet-board") }) {
   return async (job) => {
     const data = parseOrThrow(FleetBoardDataSchema, job.payload, `The ${FLEET_BOARD_KIND} job carries an unexpected shape`);
@@ -18805,9 +19086,9 @@ function fleetBoardHandler({ octokitFor, store, now = () => /* @__PURE__ */ new 
     }
     const outcomes2 = [];
     for (const workspace of workspaces) outcomes2.push(await addCard({ octokitFor, store, now, data, workspace, fleet: fleets.get(workspace) ?? null }));
-    const said2 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
-    log2(`fleet board: ${said2}`);
-    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said2 };
+    const said3 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
+    log2(`fleet board: ${said3}`);
+    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said3 };
   };
 }
 async function addCard({
@@ -18856,27 +19137,27 @@ function noteOf(added, { owner, repo, prNumber }) {
 }
 
 // apps/omni-app/src/inbox-check/business-laws-judge.ts
-import { z as z69 } from "zod";
+import { z as z72 } from "zod";
 var SECRET_VAR = "BUSINESS_LAWS_JUDGE_SECRET";
 var GATE = "business laws";
 var TIMEOUT_MS = 55e3;
-var FindingSchema4 = z69.looseObject({
-  law: z69.string(),
-  statement: z69.string(),
-  why: z69.string(),
-  quote: z69.string(),
+var FindingSchema4 = z72.looseObject({
+  law: z72.string(),
+  statement: z72.string(),
+  why: z72.string(),
+  quote: z72.string(),
   // What the judge found broken, in its own words (bug #2696); an older galaxy sends none.
-  broken: z69.string().optional().catch(void 0),
-  owners: z69.array(z69.string()).catch([])
+  broken: z72.string().optional().catch(void 0),
+  owners: z72.array(z72.string()).catch([])
 });
-var VerdictSchema3 = z69.looseObject({
-  state: z69.enum(["green", "red", "neutral"]),
-  reason: z69.string(),
-  laws: z69.array(z69.string()),
-  domains: z69.array(z69.looseObject({ key: z69.string(), name: z69.string().optional() })).catch([]),
-  findings: z69.array(FindingSchema4).catch([])
+var VerdictSchema3 = z72.looseObject({
+  state: z72.enum(["green", "red", "neutral"]),
+  reason: z72.string(),
+  laws: z72.array(z72.string()),
+  domains: z72.array(z72.looseObject({ key: z72.string(), name: z72.string().optional() })).catch([]),
+  findings: z72.array(FindingSchema4).catch([])
 });
-var RefusalSchema2 = z69.looseObject({ error: z69.string().optional().catch(void 0) });
+var RefusalSchema2 = z72.looseObject({ error: z72.string().optional().catch(void 0) });
 function businessLawsJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/business-laws/judge`;
 }
@@ -18932,10 +19213,10 @@ function businessLawsJudge({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/inbox-check/canon-actions.ts
-import { z as z70 } from "zod";
+import { z as z73 } from "zod";
 var CANON_ACTION = Object.freeze({ rewrite: "canon-rewrite", claim: "canon-claim" });
 var MAX_LABEL = 20;
-var MarkerSchema = z70.looseObject({ prd: z70.unknown(), persona: z70.unknown(), claims: z70.unknown() });
+var MarkerSchema = z73.looseObject({ prd: z73.unknown(), persona: z73.unknown(), claims: z73.unknown() });
 function canonActions(canon) {
   if (canon?.state !== "red") return [];
   const persona = canon.persona?.name;
@@ -19063,17 +19344,17 @@ function blocksAllViolations(graded, area2) {
   }).map((slice) => `flow: ${slice.id} is blocked by no slice of area ${area2} (${ids}), directly or through another \u2014 ${area2}: blocks all.`);
 }
 function aloneSplit(slice, flow) {
-  const split2 = { alone: [], other: [], areas: [] };
+  const split3 = { alone: [], other: [], areas: [] };
   for (const path of slice.territory) {
     const area2 = areaOf(flow, path);
     if (!landsAlone(area2.rules)) {
-      split2.other.push(path);
+      split3.other.push(path);
       continue;
     }
-    split2.alone.push(path);
-    if (!split2.areas.includes(area2.name)) split2.areas.push(area2.name);
+    split3.alone.push(path);
+    if (!split3.areas.includes(area2.name)) split3.areas.push(area2.name);
   }
-  return split2;
+  return split3;
 }
 var landsAlone = (rules) => rules.plan.landingAlone;
 function areaNote(areas) {
@@ -19083,10 +19364,10 @@ function areaNote(areas) {
 }
 function landingAloneViolations(slices, flow) {
   if (![flow.defaultArea, ...flow.areas].some(({ rules }) => landsAlone(rules))) return [];
-  const split2 = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, flow)]));
+  const split3 = new Map(slices.map((slice) => [slice.id, aloneSplit(slice, flow)]));
   const violations = [];
   for (const slice of slices) {
-    const { alone, other, areas } = split2.get(slice.id) ?? { alone: [], other: [], areas: [] };
+    const { alone, other, areas } = split3.get(slice.id) ?? { alone: [], other: [], areas: [] };
     if (alone.length > 0 && other.length > 0) {
       violations.push(
         `landing: ${slice.id} (landing ${slice.landing}) touches ${alone.join(", ")}, which lands alone${areaNote(areas)}, and also ${other.join(", ")} \u2014 a slice touching a land-alone path touches nothing else.`
@@ -19095,8 +19376,8 @@ function landingAloneViolations(slices, flow) {
   }
   for (const landing of new Set(slices.map((slice) => slice.landing))) {
     const members2 = slices.filter((slice) => slice.landing === landing);
-    const lone = members2.filter((slice) => split2.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
-    const rest = members2.filter((slice) => split2.get(slice.id)?.alone.length === 0);
+    const lone = members2.filter((slice) => split3.get(slice.id)?.other.length === 0 && slice.territory.length > 0);
+    const rest = members2.filter((slice) => split3.get(slice.id)?.alone.length === 0);
     if (lone.length > 0 && rest.length > 0) {
       violations.push(
         `landing: landing ${landing} holds ${lone.map((slice) => slice.id).join(", ")}, which land alone, and ${rest.map((slice) => slice.id).join(", ")}, which do not \u2014 a landing holding a land-alone slice holds only land-alone slices.`
@@ -19115,11 +19396,11 @@ import { parse as parse3, stringify } from "yaml";
 import { execFileSync as execFileSync7 } from "node:child_process";
 import { readFileSync as readFileSync45, realpathSync as realpathSync2, writeFileSync as writeFileSync17 } from "node:fs";
 import { basename as basename12, dirname as dirname13, join as join64, resolve as resolve2 } from "node:path";
-import { z as z71 } from "zod";
+import { z as z74 } from "zod";
 var DOSSIERS_FILE = join64(LOCAL_DIR, "dossiers.json");
 var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
-var text15 = z71.string().min(1);
-var DossierEntrySchema = z71.object({
+var text15 = z74.string().min(1);
+var DossierEntrySchema = z74.object({
   id: text15,
   url: text15,
   claudeSessionId: text15.nullable(),
@@ -19146,19 +19427,19 @@ function mainCheckout(cwd, exec = execFileSync7) {
 import { createHash as createHash6 } from "node:crypto";
 import { chmodSync as chmodSync3, existsSync as existsSync46, mkdirSync as mkdirSync13, readdirSync as readdirSync21, readFileSync as readFileSync46, renameSync as renameSync3, rmSync as rmSync15, statSync as statSync15, writeFileSync as writeFileSync18 } from "node:fs";
 import { dirname as dirname14, join as join65, posix as posix4 } from "node:path";
-import { z as z72 } from "zod";
+import { z as z75 } from "zod";
 var PACKS_DIR = join65(LOCAL_DIR, "packs");
 var PACK_FILE = "pack.json";
-var FileSchema = z72.object({ path: z72.string().min(1), sha256: z72.string().regex(/^[0-9a-f]{64}$/) });
-var MetaSchema = z72.object({
-  repository: z72.string().min(1),
-  sha: z72.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z72.string().min(1),
-  madeAt: z72.string().min(1),
-  files: z72.array(FileSchema)
+var FileSchema = z75.object({ path: z75.string().min(1), sha256: z75.string().regex(/^[0-9a-f]{64}$/) });
+var MetaSchema = z75.object({
+  repository: z75.string().min(1),
+  sha: z75.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z75.string().min(1),
+  madeAt: z75.string().min(1),
+  files: z75.array(FileSchema)
 });
 var PackReplySchema = MetaSchema.omit({ files: true }).extend({
-  files: z72.array(FileSchema.extend({ content: z72.string() }))
+  files: z75.array(FileSchema.extend({ content: z75.string() }))
 });
 var packName = (repo) => repo.slice(repo.indexOf("/") + 1);
 function localPacks(root, repo) {
@@ -20085,11 +20366,11 @@ function canonActionHandler({ octokitFor, galaxyUrl }) {
 }
 
 // apps/omni-app/src/knowledge-embed/embedder.ts
-import { z as z74 } from "zod";
+import { z as z77 } from "zod";
 var EMBED_TIMEOUT_MS = 6e4;
-var AnswerSchema2 = z74.object({
-  model: z74.literal(EMBED_MODEL),
-  vectors: z74.array(z74.array(z74.number()).length(EMBED_DIMENSIONS))
+var AnswerSchema2 = z77.object({
+  model: z77.literal(EMBED_MODEL),
+  vectors: z77.array(z77.array(z77.number()).length(EMBED_DIMENSIONS))
 });
 var embedUrl = (url) => `${url.replace(/\/+$/, "")}/functions/v1/embed`;
 async function post(fetch2, endpoint, key, texts2, timeoutMs) {
@@ -20135,15 +20416,15 @@ function embedClient({ url, key, fetch: fetch2 = globalThis.fetch }, { timeoutMs
 }
 
 // apps/omni-app/src/knowledge-embed/store.ts
-import { z as z75 } from "zod";
+import { z as z78 } from "zod";
 var PAGE = 1e3;
-var PackRowSchema2 = z75.object({ id: z75.string().min(1), workspace_id: z75.string().min(1) });
-var FileRowSchema = z75.object({ path: z75.string(), content: z75.string() });
-var HolderRowSchema3 = z75.object({ product_id: z75.string().min(1), workspace_id: z75.string().min(1), repository: z75.string().min(1) });
-var ProductRowSchema = z75.object({ id: z75.string().min(1), workspace_id: z75.string().min(1), plan_repository: z75.string().nullable() });
-var LegalRowSchema = z75.object({ product_id: z75.string().min(1), code: z75.string().min(1), number: z75.number().int(), statement: z75.string(), source: z75.string() });
-var TermRowSchema = z75.object({ product_id: z75.string().min(1), term: z75.string(), meaning: z75.string(), avoid: z75.array(z75.string()) });
-var NeverRowSchema = z75.object({ product_id: z75.string().min(1), seq: z75.number().int(), body: z75.string() });
+var PackRowSchema2 = z78.object({ id: z78.string().min(1), workspace_id: z78.string().min(1) });
+var FileRowSchema = z78.object({ path: z78.string(), content: z78.string() });
+var HolderRowSchema3 = z78.object({ product_id: z78.string().min(1), workspace_id: z78.string().min(1), repository: z78.string().min(1) });
+var ProductRowSchema = z78.object({ id: z78.string().min(1), workspace_id: z78.string().min(1), plan_repository: z78.string().nullable() });
+var LegalRowSchema = z78.object({ product_id: z78.string().min(1), code: z78.string().min(1), number: z78.number().int(), statement: z78.string(), source: z78.string() });
+var TermRowSchema = z78.object({ product_id: z78.string().min(1), term: z78.string(), meaning: z78.string(), avoid: z78.array(z78.string()) });
+var NeverRowSchema = z78.object({ product_id: z78.string().min(1), seq: z78.number().int(), body: z78.string() });
 async function paged(schema, page) {
   const rows = [];
   for (let start = 0; ; start += PAGE) {
@@ -20201,32 +20482,32 @@ function knowledgeEmbedStore(connection) {
       if (hashes.length === 0) return [];
       const { data, error } = await db.rpc("knowledge_vectors_missing", { p_workspace: workspace, p_model: model, p_hashes: [...hashes] });
       if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
-      return z75.array(z75.string()).parse(data);
+      return z78.array(z78.string()).parse(data);
     },
     put: async (workspace, model, rows) => {
       if (rows.length === 0) return 0;
       const { data, error } = await db.rpc("knowledge_vectors_put", { p_workspace: workspace, p_model: model, p_rows: rows.map(({ sha256: sha2562, vector }) => ({ sha256: sha2562, vector })) });
       if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
-      return z75.number().int().nonnegative().parse(data);
+      return z78.number().int().nonnegative().parse(data);
     }
   };
 }
 
 // apps/omni-app/src/knowledge-pack/store.ts
-import { z as z76 } from "zod";
-var KeptSchema = z76.object({
-  workspace: z76.string().min(1),
-  packId: z76.string().min(1),
-  created: z76.boolean(),
-  newest: z76.boolean(),
-  files: z76.number().int().nonnegative()
+import { z as z79 } from "zod";
+var KeptSchema = z79.object({
+  workspace: z79.string().min(1),
+  packId: z79.string().min(1),
+  created: z79.boolean(),
+  newest: z79.boolean(),
+  files: z79.number().int().nonnegative()
 });
-var PutAnswerSchema = z76.object({
-  repository: z76.string().min(1),
-  sha: z76.string().regex(/^[0-9a-f]{40}$/),
-  packs: z76.array(KeptSchema)
+var PutAnswerSchema = z79.object({
+  repository: z79.string().min(1),
+  sha: z79.string().regex(/^[0-9a-f]{40}$/),
+  packs: z79.array(KeptSchema)
 });
-var HolderSchema = z76.object({ product_id: z76.string().min(1) });
+var HolderSchema = z79.object({ product_id: z79.string().min(1) });
 var refused6 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 function knowledgePackStore(connection) {
   const db = serviceDb(connection);
@@ -20295,7 +20576,7 @@ function answerText(option, answer) {
     `${option.letter}. ${option.text}`,
     "",
     `Answered by fleet ${answer.fleet} for ${answer.branch}: every member who sat answered yes.`,
-    ...answer.verdicts.map(({ role, answer: said2, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said2} \u2014 ${sentence2}`)
+    ...answer.verdicts.map(({ role, answer: said3, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said3} \u2014 ${sentence2}`)
   ].join("\n");
 }
 function openItem(ctx, prd, item) {
@@ -20453,11 +20734,11 @@ Locked laws changed (${laws}): approved by their CODEOWNERS, ${approved}.` };
 }
 
 // apps/omni-app/src/outbox-check/product-outbox.ts
-import { z as z77 } from "zod";
-var text16 = z77.string().min(1);
-var HolderRowSchema4 = z77.object({ product_id: text16, products: z77.object({ name: text16 }) });
-var DossierRowSchema3 = z77.object({ id: text16 });
-var ItemRowSchema2 = z77.object({ item: text16, rank: text16, outbox_settlements: z77.array(z77.unknown()) });
+import { z as z80 } from "zod";
+var text16 = z80.string().min(1);
+var HolderRowSchema4 = z80.object({ product_id: text16, products: z80.object({ name: text16 }) });
+var DossierRowSchema3 = z80.object({ id: text16 });
+var ItemRowSchema2 = z80.object({ item: text16, rank: text16, outbox_settlements: z80.array(z80.unknown()) });
 function productOutboxReader(connection) {
   const db = serviceDb(connection);
   return async (repository, prd) => {
@@ -20709,20 +20990,20 @@ function outboxFailureHook({ octokitFor, log: log2 = noteTo("outbox-check") }) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-import { z as z79 } from "zod";
+import { z as z82 } from "zod";
 
 // kit/lib/plan-repo/gh-schema.ts
-import { z as z78 } from "zod";
-var GhRepositorySchema = z78.looseObject({ default_branch: z78.string() });
-var GhContentEntrySchema = z78.looseObject({ type: z78.string(), name: z78.string(), path: z78.string() });
-var GhCompareFileSchema = z78.looseObject({
-  filename: z78.string(),
-  previous_filename: z78.string().optional()
+import { z as z81 } from "zod";
+var GhRepositorySchema = z81.looseObject({ default_branch: z81.string() });
+var GhContentEntrySchema = z81.looseObject({ type: z81.string(), name: z81.string(), path: z81.string() });
+var GhCompareFileSchema = z81.looseObject({
+  filename: z81.string(),
+  previous_filename: z81.string().optional()
 });
-var GhCompareSchema = z78.looseObject({
-  ahead_by: z78.number().optional(),
-  status: z78.string().optional(),
-  files: z78.array(GhCompareFileSchema).optional()
+var GhCompareSchema = z81.looseObject({
+  ahead_by: z81.number().optional(),
+  status: z81.string().optional(),
+  files: z81.array(GhCompareFileSchema).optional()
 });
 function firstIssue(error) {
   const [issue] = error.issues;
@@ -20732,64 +21013,64 @@ function firstIssue(error) {
 }
 
 // apps/omni-app/src/pr-stats/schema.ts
-var RateLimitSchema = z79.looseObject({
-  limit: z79.number(),
-  remaining: z79.number(),
-  resetAt: z79.string().nullish()
+var RateLimitSchema = z82.looseObject({
+  limit: z82.number(),
+  remaining: z82.number(),
+  resetAt: z82.string().nullish()
 });
-var RateLimited = z79.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
-var PullsUpdatedSchema = z79.looseObject({
-  repository: z79.looseObject({
-    pullRequests: z79.looseObject({
-      pageInfo: z79.looseObject({ hasNextPage: z79.boolean(), endCursor: z79.string().nullish() }),
-      nodes: z79.array(z79.looseObject({ number: PrNumberSchema, updatedAt: z79.string() }))
+var RateLimited = z82.looseObject({ rateLimit: RateLimitSchema.nullish() }).nullish();
+var PullsUpdatedSchema = z82.looseObject({
+  repository: z82.looseObject({
+    pullRequests: z82.looseObject({
+      pageInfo: z82.looseObject({ hasNextPage: z82.boolean(), endCursor: z82.string().nullish() }),
+      nodes: z82.array(z82.looseObject({ number: PrNumberSchema, updatedAt: z82.string() }))
     })
   })
 });
-var ActorSchema = z79.looseObject({ login: z79.string().nullish(), __typename: z79.string().nullish() }).nullish();
-var PullDetailSchema = z79.looseObject({
+var ActorSchema = z82.looseObject({ login: z82.string().nullish(), __typename: z82.string().nullish() }).nullish();
+var PullDetailSchema = z82.looseObject({
   number: PrNumberSchema,
   author: ActorSchema,
-  createdAt: z79.string(),
-  mergedAt: z79.string().nullish(),
-  closedAt: z79.string().nullish(),
+  createdAt: z82.string(),
+  mergedAt: z82.string().nullish(),
+  closedAt: z82.string().nullish(),
   mergedBy: ActorSchema,
-  baseRefName: z79.string().nullish(),
-  headRefName: z79.string().nullish(),
-  isDraft: z79.boolean().nullish(),
-  body: z79.string().nullish(),
-  additions: z79.number().nullish(),
-  deletions: z79.number().nullish(),
-  labels: z79.looseObject({ nodes: z79.array(z79.looseObject({ name: z79.string().nullish() }).nullish()).nullish() }).nullish(),
-  commits: z79.looseObject({
-    totalCount: z79.number(),
-    nodes: z79.array(
-      z79.looseObject({
-        commit: z79.looseObject({ message: z79.string().nullish(), committedDate: z79.string().nullish() }).nullish()
+  baseRefName: z82.string().nullish(),
+  headRefName: z82.string().nullish(),
+  isDraft: z82.boolean().nullish(),
+  body: z82.string().nullish(),
+  additions: z82.number().nullish(),
+  deletions: z82.number().nullish(),
+  labels: z82.looseObject({ nodes: z82.array(z82.looseObject({ name: z82.string().nullish() }).nullish()).nullish() }).nullish(),
+  commits: z82.looseObject({
+    totalCount: z82.number(),
+    nodes: z82.array(
+      z82.looseObject({
+        commit: z82.looseObject({ message: z82.string().nullish(), committedDate: z82.string().nullish() }).nullish()
       })
     )
   }).nullish(),
-  reviews: z79.looseObject({ nodes: z79.array(z79.looseObject({ author: ActorSchema, submittedAt: z79.string().nullish() })).nullish() }).nullish(),
-  timelineItems: z79.looseObject({
-    nodes: z79.array(
-      z79.looseObject({ createdAt: z79.string().nullish(), label: z79.looseObject({ name: z79.string().nullish() }).nullish() }).nullish()
+  reviews: z82.looseObject({ nodes: z82.array(z82.looseObject({ author: ActorSchema, submittedAt: z82.string().nullish() })).nullish() }).nullish(),
+  timelineItems: z82.looseObject({
+    nodes: z82.array(
+      z82.looseObject({ createdAt: z82.string().nullish(), label: z82.looseObject({ name: z82.string().nullish() }).nullish() }).nullish()
     ).nullish()
   }).nullish()
 });
-var PullDetailsSchema = z79.looseObject({ repository: z79.record(z79.string(), z79.unknown()) });
-var PullCommentsSchema = z79.looseObject({
-  comments: z79.looseObject({ nodes: z79.array(z79.looseObject({ body: z79.string().nullish() }).nullish()).nullish() }).nullish()
+var PullDetailsSchema = z82.looseObject({ repository: z82.record(z82.string(), z82.unknown()) });
+var PullCommentsSchema = z82.looseObject({
+  comments: z82.looseObject({ nodes: z82.array(z82.looseObject({ body: z82.string().nullish() }).nullish()).nullish() }).nullish()
 }).nullish();
-var TrackedRowSchema2 = z79.looseObject({
-  workspace_id: z79.string(),
-  full_name: z79.string(),
-  collected_until: z79.string().nullish(),
-  workspaces: z79.looseObject({ github_installation_id: z79.union([z79.number(), z79.string()]) })
+var TrackedRowSchema2 = z82.looseObject({
+  workspace_id: z82.string(),
+  full_name: z82.string(),
+  collected_until: z82.string().nullish(),
+  workspaces: z82.looseObject({ github_installation_id: z82.union([z82.number(), z82.string()]) })
 });
-var FailureSchema2 = z79.looseObject({
-  errors: z79.array(z79.looseObject({ type: z79.unknown().optional(), message: z79.unknown().optional() }).nullish()).nullish().catch(void 0),
-  message: z79.unknown().optional(),
-  status: z79.unknown().optional()
+var FailureSchema2 = z82.looseObject({
+  errors: z82.array(z82.looseObject({ type: z82.unknown().optional(), message: z82.unknown().optional() }).nullish()).nullish().catch(void 0),
+  message: z82.unknown().optional(),
+  status: z82.unknown().optional()
 });
 function parseAnswer(schema, value, what) {
   return parsedOr2(schema, value, `GitHub answered ${what} unexpectedly`);
@@ -20799,36 +21080,36 @@ function parsedOr2(schema, value, context) {
   if (parsed3.success) return parsed3.data;
   throw new Error(`${context}: ${firstIssue(parsed3.error)}`);
 }
-var BudgetSchema = z79.object({
-  limit: z79.number().exactOptional(),
-  remaining: z79.number().exactOptional(),
-  resetAt: z79.string().nullable().exactOptional()
+var BudgetSchema = z82.object({
+  limit: z82.number().exactOptional(),
+  remaining: z82.number().exactOptional(),
+  resetAt: z82.string().nullable().exactOptional()
 });
-var TrackedRepositorySchema = z79.object({
-  workspaceId: z79.string(),
-  installationId: z79.number(),
-  fullName: z79.string(),
-  collectedUntil: z79.string().nullable()
+var TrackedRepositorySchema = z82.object({
+  workspaceId: z82.string(),
+  installationId: z82.number(),
+  fullName: z82.string(),
+  collectedUntil: z82.string().nullable()
 });
-var TrackedRepositoriesSchema = z79.array(TrackedRepositorySchema);
-var BatchOutSchema = z79.object({
-  saved: z79.number(),
-  cursor: z79.string(),
-  more: z79.boolean(),
-  paused: z79.literal(true).exactOptional(),
-  error: z79.string().exactOptional(),
+var TrackedRepositoriesSchema = z82.array(TrackedRepositorySchema);
+var BatchOutSchema = z82.object({
+  saved: z82.number(),
+  cursor: z82.string(),
+  more: z82.boolean(),
+  paused: z82.literal(true).exactOptional(),
+  error: z82.string().exactOptional(),
   budget: BudgetSchema
 });
 
 // apps/omni-app/src/pr-stats/signed.ts
 var DEFAULT_SIGNATURE = parseConfig("kit: 1\n").signature;
 if (!DEFAULT_SIGNATURE) throw new Error("the kit's default config signs as Omni-man");
-var SIGNATURE = DEFAULT_SIGNATURE;
-var OMNI_LOGIN = botLogin(SIGNATURE.email);
+var SIGNATURE2 = DEFAULT_SIGNATURE;
+var OMNI_LOGIN = botLogin(SIGNATURE2.email);
 var TRAILER = /^co-authored-by:.*<([^>]+)>$/i;
 function carriesOmniTrailer(message) {
   if (typeof message !== "string") return false;
-  const email = SIGNATURE.email.toLowerCase();
+  const email = SIGNATURE2.email.toLowerCase();
   return message.split("\n").some((line3) => TRAILER.exec(line3.trim())?.[1]?.trim().toLowerCase() === email);
 }
 function isOmniSigned({ author, body, commitMessages }) {
@@ -21105,10 +21386,10 @@ function batchOf(listed4) {
 }
 function describe2(error) {
   const failure2 = FailureSchema2.safeParse(error);
-  const { errors, message: said2, status: status2 } = failure2.success ? failure2.data : {};
+  const { errors, message: said3, status: status2 } = failure2.success ? failure2.data : {};
   const graphqlError = errors?.[0];
   if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
-  const message = printed2(said2 ?? error ?? "unknown error").split("\n")[0] ?? "";
+  const message = printed2(said3 ?? error ?? "unknown error").split("\n")[0] ?? "";
   return status2 ? `HTTP ${printed2(status2)}: ${message}` : message;
 }
 var printed2 = (value) => String(value);
@@ -21173,14 +21454,14 @@ function prStatsHandler({
 }
 
 // apps/omni-app/src/server-event/job.ts
-import { z as z80 } from "zod";
+import { z as z83 } from "zod";
 var SERVER_EVENT_KIND = "server-event";
 var SERVER_EVENT_KINDS = ["approved", "voided", "item-opened", "item-settled"];
 var UUID2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var ServerEventSchema = z80.object({
-  event: z80.enum(SERVER_EVENT_KINDS),
-  dossier: z80.string().regex(UUID2),
-  at: z80.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
+var ServerEventSchema = z83.object({
+  event: z83.enum(SERVER_EVENT_KINDS),
+  dossier: z83.string().regex(UUID2),
+  at: z83.string().refine((at4) => !Number.isNaN(Date.parse(at4)))
 });
 var SERVER_EVENT_TRIGGER = "server-event";
 var GONE = /* @__PURE__ */ new Set([404, 410]);
@@ -21239,13 +21520,13 @@ function serverEventHandler({ octokitFor, readTargets: readTargets2, recheck, lo
 }
 
 // apps/omni-app/src/server-event/targets.ts
-import { z as z81 } from "zod";
-var text17 = z81.string().min(1);
-var DossierRowSchema4 = z81.object({ workspace_id: text17, product_id: text17.nullable(), product_seq: z81.number().int().positive().nullable() });
-var ProductRowSchema2 = z81.object({ key: text17.nullable() });
-var WorkspaceRowSchema = z81.object({ github_installation_id: z81.number().int().positive().nullable() });
-var LinkRowSchema = z81.object({ repository: text17 });
-var PullRowSchema = z81.object({ repo: text17, number: z81.number().int().positive() });
+import { z as z84 } from "zod";
+var text17 = z84.string().min(1);
+var DossierRowSchema4 = z84.object({ workspace_id: text17, product_id: text17.nullable(), product_seq: z84.number().int().positive().nullable() });
+var ProductRowSchema2 = z84.object({ key: text17.nullable() });
+var WorkspaceRowSchema = z84.object({ github_installation_id: z84.number().int().positive().nullable() });
+var LinkRowSchema = z84.object({ repository: text17 });
+var PullRowSchema = z84.object({ repo: text17, number: z84.number().int().positive() });
 function targetsReader(connection) {
   const db = serviceDb(connection);
   return async (dossier) => {
@@ -21266,17 +21547,17 @@ function targetsReader(connection) {
 }
 
 // apps/omni-app/src/knowledge-harvest/landing.ts
-import { z as z84 } from "zod";
+import { z as z87 } from "zod";
 
 // apps/omni-app/src/missions/landing.ts
 import { mkdtempSync as mkdtempSync14, rmSync as rmSync18 } from "node:fs";
 import { tmpdir as tmpdir14 } from "node:os";
 import { join as join73 } from "node:path";
-import { z as z83 } from "zod";
+import { z as z86 } from "zod";
 
 // apps/omni-app/src/missions/branch.ts
-import { z as z82 } from "zod";
-var RepoSchema = z82.looseObject({ default_branch: z82.string(), allow_rebase_merge: z82.boolean().optional() });
+import { z as z85 } from "zod";
+var RepoSchema = z85.looseObject({ default_branch: z85.string(), allow_rebase_merge: z85.boolean().optional() });
 var rebaseWhy = (repo) => `${repo} does not allow rebase merges: turn on "Allow rebase merging" in its settings, so the mission branch can land on the default branch; nothing was cut`;
 function missionBranches({ octokitFor }) {
   return {
@@ -21294,7 +21575,7 @@ function missionBranches({ octokitFor }) {
     }
   };
 }
-var DefaultBranchSchema = z82.looseObject({ default_branch: z82.string() });
+var DefaultBranchSchema = z85.looseObject({ default_branch: z85.string() });
 async function missionRepo(octokitFor, { installation, repo: slug, branch }) {
   const [owner = "", repo = ""] = slug.split("/");
   const octokit = await octokitFor(installation);
@@ -21372,18 +21653,18 @@ function decisionLists(decisions) {
 }
 
 // apps/omni-app/src/missions/landing.ts
-var PullsSchema3 = z83.array(
-  z83.looseObject({
+var PullsSchema3 = z86.array(
+  z86.looseObject({
     number: PrNumberSchema,
-    html_url: z83.string(),
-    state: z83.string(),
-    title: z83.string(),
-    body: z83.string().nullish(),
-    merged_at: z83.string().nullish()
+    html_url: z86.string(),
+    state: z86.string(),
+    title: z86.string(),
+    body: z86.string().nullish(),
+    merged_at: z86.string().nullish()
   })
 );
-var CommitsSchema3 = z83.array(z83.looseObject({ sha: z83.string(), commit: z83.looseObject({ message: z83.string() }) }));
-var CompareSchema2 = z83.looseObject({ commits: z83.array(z83.looseObject({ sha: z83.string(), commit: z83.looseObject({ message: z83.string() }) })) });
+var CommitsSchema3 = z86.array(z86.looseObject({ sha: z86.string(), commit: z86.looseObject({ message: z86.string() }) }));
+var CompareSchema3 = z86.looseObject({ commits: z86.array(z86.looseObject({ sha: z86.string(), commit: z86.looseObject({ message: z86.string() }) })) });
 var PULLS_READ = 30;
 function prOfTitle(message) {
   const number = /\(#(\d+)\)\s*$/.exec(message.split("\n")[0] ?? "")?.[1];
@@ -21417,7 +21698,7 @@ function missionLandings({ octokitFor }) {
     async branch({ installation, repo: slug, branch, defaultBranch }) {
       const { owner, repo } = where(slug);
       const octokit = await octokitFor(installation);
-      const compared = CompareSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${defaultBranch}...${branch}` })).data);
+      const compared = CompareSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${defaultBranch}...${branch}` })).data);
       const tip = RefSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${defaultBranch}` })).data).object.sha;
       const folder = mkdtempSync14(join73(tmpdir14(), "omni-landing-"));
       try {
@@ -21493,7 +21774,7 @@ function missionPullBody({
 }
 
 // apps/omni-app/src/knowledge-harvest/landing.ts
-var CommitsSchema4 = z84.array(z84.looseObject({ commit: z84.looseObject({ message: z84.string() }) }));
+var CommitsSchema4 = z87.array(z87.looseObject({ commit: z87.looseObject({ message: z87.string() }) }));
 var literal = (text20) => text20.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function isMissionBranch(head, template) {
   const pattern2 = template.split(/(\{number\}|\{topic\})/).map((part) => part === "{number}" ? "[1-9][0-9]*" : part === "{topic}" ? "[a-z0-9][a-z0-9-]*" : literal(part)).join("");
@@ -21877,15 +22158,15 @@ function harvestFailureHook({ octokitFor }) {
 }
 
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z85 } from "zod";
+import { z as z88 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS3 = 55e3;
-var VerdictSchema4 = z85.looseObject({
-  answer: z85.enum(["true", "false"]),
-  confidence: z85.number().nullable().catch(null),
-  decidedBy: z85.string().nullable().catch(null)
+var VerdictSchema4 = z88.looseObject({
+  answer: z88.enum(["true", "false"]),
+  confidence: z88.number().nullable().catch(null),
+  decidedBy: z88.string().nullable().catch(null)
 });
-var RefusalSchema3 = z85.looseObject({ error: z85.string().optional().catch(void 0) });
+var RefusalSchema3 = z88.looseObject({ error: z88.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
@@ -21919,13 +22200,13 @@ function lawJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE_TIMEOUT
 }
 
 // apps/omni-app/src/main-watch/store.ts
-import { z as z87 } from "zod";
+import { z as z90 } from "zod";
 
 // apps/omni-app/src/retro/runner-queue.ts
-import { z as z86 } from "zod";
+import { z as z89 } from "zod";
 var APP_SENDER = "omni-app";
-var IdRowSchema = z86.object({ id: z86.string().min(1) });
-var RemovedRowSchema = z86.object({ removed_at: z86.string().nullable() });
+var IdRowSchema = z89.object({ id: z89.string().min(1) });
+var RemovedRowSchema = z89.object({ removed_at: z89.string().nullable() });
 function runnerQueue(connection) {
   const db = serviceDb(connection);
   return async ({ installationId, repository, line: line3 }) => {
@@ -21946,10 +22227,10 @@ function runnerQueue(connection) {
 }
 
 // apps/omni-app/src/main-watch/store.ts
-var LaneRowSchema = z87.object({ lane: z87.string().min(1) });
-var RepositoryRowSchema = z87.object({ repository: z87.string().min(1) });
-var KeyRowSchema = z87.object({ key: z87.string().min(1) });
-var SourceRowSchema = z87.object({ source: z87.string().min(1) });
+var LaneRowSchema = z90.object({ lane: z90.string().min(1) });
+var RepositoryRowSchema = z90.object({ repository: z90.string().min(1) });
+var KeyRowSchema = z90.object({ key: z90.string().min(1) });
+var SourceRowSchema = z90.object({ source: z90.string().min(1) });
 function mainWatchStore(connection) {
   const db = serviceDb(connection);
   const watchOf = ({ workspace, repository, prd, lane: lane2 }) => ({ workspace_id: workspace, repository: repository.toLowerCase(), prd, lane: lane2.toLowerCase() });
@@ -21992,17 +22273,17 @@ function mainWatchStore(connection) {
 }
 
 // apps/omni-app/src/checkpoints/store.ts
-import { z as z88 } from "zod";
+import { z as z91 } from "zod";
 var CHECKPOINT_BUCKET = "runner-checkpoints";
-var KeptRowSchema = z88.object({
-  id: z88.string().min(1),
-  job_id: z88.string().min(1),
-  storage_path: z88.string().min(1),
-  created_at: z88.string().min(1),
-  keep_until: z88.string().min(1)
+var KeptRowSchema = z91.object({
+  id: z91.string().min(1),
+  job_id: z91.string().min(1),
+  storage_path: z91.string().min(1),
+  created_at: z91.string().min(1),
+  keep_until: z91.string().min(1)
 });
-var ResumeRowSchema = z88.object({ id: z88.string().min(1), resumes: z88.string().min(1) });
-var StatusRowSchema = z88.object({ id: z88.string().min(1), status: z88.string().min(1) });
+var ResumeRowSchema = z91.object({ id: z91.string().min(1), resumes: z91.string().min(1) });
+var StatusRowSchema = z91.object({ id: z91.string().min(1), status: z91.string().min(1) });
 var OVER = ["done", "failed", "cancelled"];
 var MAX_RESUMES = 2;
 function refused7(error) {
@@ -22049,13 +22330,13 @@ function checkpointStore(connection) {
 }
 
 // apps/omni-app/src/missions/drop.ts
-import { z as z90 } from "zod";
+import { z as z93 } from "zod";
 
 // apps/omni-app/src/missions/keep-up.ts
 import { mkdtempSync as mkdtempSync15, rmSync as rmSync19 } from "node:fs";
 import { tmpdir as tmpdir15 } from "node:os";
 import { join as join74 } from "node:path";
-import { z as z89 } from "zod";
+import { z as z92 } from "zod";
 
 // kit/lib/generated/stale.ts
 function splitGenerated(entries, paths) {
@@ -22065,22 +22346,22 @@ function splitGenerated(entries, paths) {
 
 // apps/omni-app/src/missions/keep-up.ts
 var MAX_COMMITS3 = 100;
-var CompareSchema3 = z89.looseObject({
-  merge_base_commit: z89.looseObject({ sha: z89.string() }),
-  ahead_by: z89.number(),
-  behind_by: z89.number(),
-  commits: z89.array(
-    z89.looseObject({
-      sha: z89.string(),
-      parents: z89.array(z89.looseObject({ sha: z89.string() })),
-      commit: z89.looseObject({ message: z89.string(), author: z89.looseObject({ name: z89.string(), email: z89.string(), date: z89.string() }).nullish() })
+var CompareSchema4 = z92.looseObject({
+  merge_base_commit: z92.looseObject({ sha: z92.string() }),
+  ahead_by: z92.number(),
+  behind_by: z92.number(),
+  commits: z92.array(
+    z92.looseObject({
+      sha: z92.string(),
+      parents: z92.array(z92.looseObject({ sha: z92.string() })),
+      commit: z92.looseObject({ message: z92.string(), author: z92.looseObject({ name: z92.string(), email: z92.string(), date: z92.string() }).nullish() })
     })
   ),
-  files: z89.array(z89.looseObject({ filename: z89.string(), status: z89.string(), sha: z89.string().nullish() })).nullish()
+  files: z92.array(z92.looseObject({ filename: z92.string(), status: z92.string(), sha: z92.string().nullish() })).nullish()
 });
-var CommitSchema3 = z89.looseObject({ tree: z89.looseObject({ sha: z89.string() }), committer: z89.looseObject({ date: z89.string() }).nullish() });
-var MergedSchema = z89.looseObject({ commit: z89.looseObject({ tree: z89.looseObject({ sha: z89.string() }) }) });
-var PullSchema4 = z89.looseObject({ state: z89.string(), base: z89.looseObject({ ref: z89.string() }), head: z89.looseObject({ sha: z89.string() }) });
+var CommitSchema3 = z92.looseObject({ tree: z92.looseObject({ sha: z92.string() }), committer: z92.looseObject({ date: z92.string() }).nullish() });
+var MergedSchema = z92.looseObject({ commit: z92.looseObject({ tree: z92.looseObject({ sha: z92.string() }) }) });
+var PullSchema4 = z92.looseObject({ state: z92.string(), base: z92.looseObject({ ref: z92.string() }), head: z92.looseObject({ sha: z92.string() }) });
 async function generatedAt(octokit, { owner, repo, ref }) {
   const folder = mkdtempSync15(join74(tmpdir15(), "omni-keep-up-"));
   try {
@@ -22101,7 +22382,7 @@ function onRepo(octokit, where, scratch) {
       throw error;
     }
   };
-  const compare2 = async (base, tip) => CompareSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${base}...${tip}` })).data);
+  const compare2 = async (base, tip) => CompareSchema4.parse((await octokit.request("GET /repos/{owner}/{repo}/compare/{basehead}", { owner, repo, basehead: `${base}...${tip}` })).data);
   const commit = async (sha) => CommitSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/git/commits/{commit_sha}", { owner, repo, commit_sha: sha })).data);
   const write2 = async (branch, sha, force) => {
     await octokit.request("PATCH /repos/{owner}/{repo}/git/refs/{ref}", { owner, repo, ref: `heads/${branch}`, sha, force });
@@ -22243,7 +22524,7 @@ function keptWaits(kept3, branch) {
 var careLine = (prd, branch) => `/omni:pr-care ${String(prd)} --once --base ${branch}`;
 
 // apps/omni-app/src/missions/drop.ts
-var PullSchema5 = z90.looseObject({ number: PrNumberSchema, title: z90.string(), body: z90.string().nullish(), head: z90.looseObject({ ref: z90.string(), sha: z90.string() }) });
+var PullSchema5 = z93.looseObject({ number: PrNumberSchema, title: z93.string(), body: z93.string().nullish(), head: z93.looseObject({ ref: z93.string(), sha: z93.string() }) });
 var MAX_COMMITS4 = 100;
 async function listed(on, { branch, defaultBranch }) {
   const head = await on.head(branch);
@@ -22328,24 +22609,24 @@ function missionDrops({ octokitFor }) {
 import { mkdtempSync as mkdtempSync16, rmSync as rmSync20 } from "node:fs";
 import { tmpdir as tmpdir16 } from "node:os";
 import { join as join75 } from "node:path";
-import { z as z91 } from "zod";
-var PullSchema6 = z91.looseObject({
-  html_url: z91.string(),
-  title: z91.string(),
-  state: z91.string(),
-  draft: z91.boolean().nullish(),
-  merged: z91.boolean().nullish(),
-  merged_at: z91.string().nullish(),
-  base: z91.looseObject({ ref: z91.string(), repo: z91.looseObject({ default_branch: z91.string() }) }),
-  head: z91.looseObject({ sha: z91.string(), ref: z91.string().nullish() })
+import { z as z94 } from "zod";
+var PullSchema6 = z94.looseObject({
+  html_url: z94.string(),
+  title: z94.string(),
+  state: z94.string(),
+  draft: z94.boolean().nullish(),
+  merged: z94.boolean().nullish(),
+  merged_at: z94.string().nullish(),
+  base: z94.looseObject({ ref: z94.string(), repo: z94.looseObject({ default_branch: z94.string() }) }),
+  head: z94.looseObject({ sha: z94.string(), ref: z94.string().nullish() })
 });
-var CheckRunsSchema2 = z91.looseObject({
-  check_runs: z91.array(
-    z91.looseObject({ id: z91.number(), name: z91.string(), status: z91.string(), conclusion: z91.string().nullish(), output: z91.looseObject({ title: z91.string().nullish() }).nullish() })
+var CheckRunsSchema2 = z94.looseObject({
+  check_runs: z94.array(
+    z94.looseObject({ id: z94.number(), name: z94.string(), status: z94.string(), conclusion: z94.string().nullish(), output: z94.looseObject({ title: z94.string().nullish() }).nullish() })
   )
 });
-var StatusSchema = z91.looseObject({ statuses: z91.array(z91.looseObject({ context: z91.string(), state: z91.string(), description: z91.string().nullish() })) });
-var ReviewsSchema = z91.array(z91.looseObject({ body: z91.string().nullish(), commit_id: z91.string().nullish() }));
+var StatusSchema = z94.looseObject({ statuses: z94.array(z94.looseObject({ context: z94.string(), state: z94.string(), description: z94.string().nullish() })) });
+var ReviewsSchema = z94.array(z94.looseObject({ body: z94.string().nullish(), commit_id: z94.string().nullish() }));
 var REFUSED2 = /* @__PURE__ */ new Set([405, 409, 422]);
 var DefaultBranchMergeError = class extends Error {
   constructor(branch) {
@@ -22438,11 +22719,11 @@ function missionJoins({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/job.ts
-import { z as z105 } from "zod";
+import { z as z108 } from "zod";
 
 // kit/lib/mission/brief.ts
 import { parse as parse4 } from "yaml";
-import { z as z92 } from "zod";
+import { z as z95 } from "zod";
 var DEFAULT_PARALLEL = 2;
 var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
 var DEFAULT_LEVEL = "with-you";
@@ -22450,41 +22731,55 @@ var PLAN_OWN_BRANCH_REFUSAL = "a mission branch holds one repository: use with-y
 function levelRefusal(level, inPlan) {
   return inPlan && level === "own-branch" ? PLAN_OWN_BRANCH_REFUSAL : null;
 }
+var MISSION_KINDS = ["prds", "omni-bugs"];
+var DEFAULT_KIND = "prds";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
 var MAX_MISSION_TOKENS = 1e9;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-var text18 = (max) => z92.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
+var text18 = (max) => z95.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
 var distinct = (list2) => new Set(list2).size === list2.length;
-var MeasureSchema = z92.object({ sign: text18(200), read: text18(200), target: text18(200) }, { message: "must be {sign, read, target}" }).strict();
-var ScopeSchema = z92.object(
+var MeasureSchema = z95.object({ sign: text18(200), read: text18(200), target: text18(200) }, { message: "must be {sign, read, target}" }).strict();
+var ScopeSchema = z95.object(
   {
-    prds: z92.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
-    roadmaps: z92.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+    prds: z95.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z95.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
-).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
+).strict();
+var NO_SCOPE = { prds: [], roadmaps: [] };
 var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
-var MandateSchema = z92.object(
+var MandateSchema = z95.object(
   {
-    parallel: z92.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
-    level: z92.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
-    hardToRevert: z92.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z92.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
-    tokens: z92.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
+    parallel: z95.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
+    level: z95.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
+    hardToRevert: z95.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
+    ownPrds: z95.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
+    tokens: z95.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
   },
   { message: "must be {parallel, level, hardToRevert, ownPrds, tokens}" }
 ).strict().transform(({ tokens, ...mandate }) => tokens == null ? mandate : { ...mandate, tokens });
 var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
-var BriefSchema = z92.object({
+var BriefSchema = z95.object({
   mission: IssueNumberSchema,
   title: text18(200),
   fleet: text18(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
   goal: text18(500),
-  measures: z92.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
-  scope: ScopeSchema,
+  measures: z95.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
+  kind: z95.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
+  scope: ScopeSchema.optional(),
   mandate: MandateSchema.default(DEFAULT_MANDATE)
-}).strict();
+}).strict().transform(({ scope, ...rest }, ctx) => {
+  const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
+  if (rest.kind === "omni-bugs") {
+    if (named > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
+  } else if (scope === void 0) {
+    ctx.addIssue({ code: "invalid_type", expected: "object", input: void 0, path: ["scope"], message: "missing" });
+  } else if (named === 0) {
+    ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
+  }
+  return { ...rest, scope: scope ?? NO_SCOPE };
+});
 
 // kit/lib/mission/drop.ts
 function territoryOf(plan) {
@@ -22547,18 +22842,18 @@ function droppedOf(events) {
 var dropLine = (mission, prd) => `omni mission drop ${String(mission)} ${String(prd)}`;
 
 // kit/lib/committee/record.ts
-import { z as z94 } from "zod";
+import { z as z97 } from "zod";
 
 // kit/lib/committee/vote.ts
-import { z as z93 } from "zod";
+import { z as z96 } from "zod";
 var COMMITTEE_ROLES = Object.freeze(["pm", "architect", "reviewer"]);
-var CommitteeRoleSchema = z93.enum(COMMITTEE_ROLES);
+var CommitteeRoleSchema = z96.enum(COMMITTEE_ROLES);
 var VERDICT_ANSWERS = Object.freeze(["yes", "no", "unsure", "failed", "timeout"]);
 var SENTENCE_MAX = 200;
-var VerdictSchema5 = z93.object({
+var VerdictSchema5 = z96.object({
   role: CommitteeRoleSchema,
-  answer: z93.enum(VERDICT_ANSWERS),
-  sentence: z93.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX, `sentence: ${String(SENTENCE_MAX)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
+  answer: z96.enum(VERDICT_ANSWERS),
+  sentence: z96.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX, `sentence: ${String(SENTENCE_MAX)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
 });
 var NAMES2 = { pm: "PM", architect: "Architect", reviewer: "Reviewer" };
 var roleName = (role) => `the ${NAMES2[role]}`;
@@ -22577,25 +22872,25 @@ function tally(verdicts, author) {
   if (why.length === 0) why.push(...recorded.filter((verdict) => verdict.answer !== "yes").map(whyOf));
   return { outcome: why.length === 0 ? "carried" : "escalated", why, verdicts: recorded };
 }
-var VotesSchema = z93.object({ verdicts: z93.array(VerdictSchema5).max(COMMITTEE_ROLES.length + 1) });
+var VotesSchema = z96.object({ verdicts: z96.array(VerdictSchema5).max(COMMITTEE_ROLES.length + 1) });
 
 // kit/lib/committee/record.ts
 var COMMITTEE_LINE = "omni committee: ";
 var REASONS_MAX = 10;
 var REASON_MAX = 300;
-var ReadFileSchema = z94.object({ kind: z94.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z94.string().regex(/^[0-9a-f]{64}$/) });
+var ReadFileSchema = z97.object({ kind: z97.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z97.string().regex(/^[0-9a-f]{64}$/) });
 var RECORD2 = {
-  v: z94.literal(1),
+  v: z97.literal(1),
   prd: PrdNumberSchema,
   author: CommitteeRoleSchema.nullable(),
-  read: z94.array(ReadFileSchema).max(10),
-  escalations: z94.array(z94.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
-  verdicts: z94.array(VerdictSchema5).max(COMMITTEE_ROLES.length + 1),
-  outcome: z94.enum(["carried", "escalated"])
+  read: z97.array(ReadFileSchema).max(10),
+  escalations: z97.array(z97.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
+  verdicts: z97.array(VerdictSchema5).max(COMMITTEE_ROLES.length + 1),
+  outcome: z97.enum(["carried", "escalated"])
 };
-var CommitteeRecordSchema = z94.discriminatedUnion("kind", [
-  z94.object({ ...RECORD2, kind: z94.literal("approve") }),
-  z94.object({ ...RECORD2, kind: z94.literal("answer"), item: OutboxItemIdSchema, option: z94.string().regex(/^[A-Z]$/) })
+var CommitteeRecordSchema = z97.discriminatedUnion("kind", [
+  z97.object({ ...RECORD2, kind: z97.literal("approve") }),
+  z97.object({ ...RECORD2, kind: z97.literal("answer"), item: OutboxItemIdSchema, option: z97.string().regex(/^[A-Z]$/) })
 ]);
 var STAMP = /^\d{2}:\d{2}:\d{2} /;
 function* recordsOf(log2) {
@@ -22719,7 +23014,7 @@ function answerEvents(committees, where) {
 }
 
 // kit/lib/virtual-fleet/pm.ts
-import { z as z95 } from "zod";
+import { z as z98 } from "zod";
 
 // kit/lib/runner/line.ts
 var RUNNABLE_SKILLS = Object.freeze([
@@ -22760,15 +23055,15 @@ var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave"
 var OWN_PRDS_MAX = 10;
 var TITLE_MAX2 = 120;
 var UNWRITTEN_MAX = 20;
-var PmSkillSchema = z95.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var PmSkillSchema = z98.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
 var PM_LINE = "omni pm: ";
-var PmRecordSchema = z95.object({
-  v: z95.literal(1),
-  mission: z95.number().int().positive(),
+var PmRecordSchema = z98.object({
+  v: z98.literal(1),
+  mission: z98.number().int().positive(),
   skill: PmSkillSchema,
-  cap: z95.number().int().min(1).max(OWN_PRDS_MAX),
-  prds: z95.array(PrdNumberSchema).max(OWN_PRDS_MAX),
-  unwritten: z95.array(z95.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
+  cap: z98.number().int().min(1).max(OWN_PRDS_MAX),
+  prds: z98.array(PrdNumberSchema).max(OWN_PRDS_MAX),
+  unwritten: z98.array(z98.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
 });
 function pmSkillFor(left, planRepository) {
   if (!Number.isInteger(left) || left < 1) return null;
@@ -22862,28 +23157,28 @@ function withPm(next, writing, wakeAt2) {
 }
 
 // kit/lib/review/verdict.ts
-import { z as z96 } from "zod";
+import { z as z99 } from "zod";
 var REVIEW_ROUNDS = 2;
 var MAX_FINDINGS = 5;
 var SEVERITIES = Object.freeze(["blocker", "major", "minor"]);
 var VERDICTS3 = Object.freeze(["pass", "changes"]);
 var ONE_LINE = "one line";
 var MAX_TEXT2 = 500;
-var line = (what) => z96.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text20) => !text20.includes("\n"), `${ONE_LINE}: ${what}`);
-var RepoPathSchema = z96.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
-var FindingSchema5 = z96.strictObject({
+var line = (what) => z99.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text20) => !text20.includes("\n"), `${ONE_LINE}: ${what}`);
+var RepoPathSchema = z99.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
+var FindingSchema5 = z99.strictObject({
   file: RepoPathSchema,
-  line: z96.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
-  severity: z96.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
+  line: z99.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
+  severity: z99.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
   rule: line("the rule it breaks: a law or rule id, a playbook form and section, or default \u203A <item>"),
   problem: line("what is wrong"),
   fix: line("what would fix it")
 });
-var VerdictSchema6 = z96.strictObject({
-  round: z96.union([z96.literal(1), z96.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
-  verdict: z96.enum(VERDICTS3, { error: `one of ${VERDICTS3.join(", ")}` }),
+var VerdictSchema6 = z99.strictObject({
+  round: z99.union([z99.literal(1), z99.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
+  verdict: z99.enum(VERDICTS3, { error: `one of ${VERDICTS3.join(", ")}` }),
   summary: line("the summary").optional(),
-  findings: z96.array(FindingSchema5).default([])
+  findings: z99.array(FindingSchema5).default([])
 }).superRefine((verdict, context) => {
   const count4 = verdict.findings.length;
   if (verdict.verdict === "pass" && count4 > 0) {
@@ -22983,12 +23278,12 @@ function judge3(pull, branch) {
 }
 
 // kit/lib/repair/line.ts
-import { z as z100 } from "zod";
+import { z as z103 } from "zod";
 
 // kit/lib/repair/fingerprint.ts
 import { createHash as createHash7 } from "node:crypto";
-import { z as z97 } from "zod";
-var FingerprintSchema = z97.string().regex(/^[0-9a-f]{64}$/, "a fingerprint is 64 lowercase hex characters");
+import { z as z100 } from "zod";
+var FingerprintSchema = z100.string().regex(/^[0-9a-f]{64}$/, "a fingerprint is 64 lowercase hex characters");
 var REPAIR_CLASSES = ["code", "omni-loop", "flake", "person"];
 var VARYING = [
   [/(?:\/private)?\/(?:tmp|var\/folders)\/\S*/g, "<tmp>"],
@@ -23012,7 +23307,7 @@ function fingerprint(cause) {
 }
 
 // kit/lib/repair/retro.ts
-import { z as z98 } from "zod";
+import { z as z101 } from "zod";
 
 // kit/lib/repair/sensitive.ts
 var FILE_EXTENSIONS = "ts|tsx|mts|cts|js|jsx|mjs|cjs|json|jsonc|md|mdx|ya?ml|sql|sh|py|rb|go|rs|java|kt|php|cs|css|scss|html?|txt|lock|toml|env|log|csv|xml";
@@ -23060,30 +23355,30 @@ function isOneSentence(text20) {
   return trimmed4.length > 0 && trimmed4.length <= SENTENCE_MAX3 && !/[\r\n]/.test(trimmed4) && !NEXT_SENTENCE.test(trimmed4);
 }
 var NO_TOKEN = "a retro never holds a credential in clear";
-var SentenceSchema = z98.string().refine(isOneSentence, `one sentence, on one line, at most ${String(SENTENCE_MAX3)} characters`).refine((text20) => !holdsToken(text20), NO_TOKEN);
-var LineSchema = z98.string().trim().min(1).max(LINE_MAX2).refine((text20) => !/[\r\n]/.test(text20), "on one line").refine((text20) => !holdsToken(text20), NO_TOKEN);
-var RepairClassSchema = z98.enum(REPAIR_CLASSES);
-var RepairRetroSchema = z98.object({
+var SentenceSchema = z101.string().refine(isOneSentence, `one sentence, on one line, at most ${String(SENTENCE_MAX3)} characters`).refine((text20) => !holdsToken(text20), NO_TOKEN);
+var LineSchema = z101.string().trim().min(1).max(LINE_MAX2).refine((text20) => !/[\r\n]/.test(text20), "on one line").refine((text20) => !holdsToken(text20), NO_TOKEN);
+var RepairClassSchema = z101.enum(REPAIR_CLASSES);
+var RepairRetroSchema = z101.object({
   cause: SentenceSchema,
   class: RepairClassSchema,
   place: LineSchema,
   signature: LineSchema,
-  evidence: z98.array(SentenceSchema).min(1).max(EVIDENCE_MAX),
+  evidence: z101.array(SentenceSchema).min(1).max(EVIDENCE_MAX),
   proposedFix: LineSchema,
   fingerprint: FingerprintSchema
 });
 
 // kit/lib/repair/scrub.ts
-import { z as z99 } from "zod";
+import { z as z102 } from "zod";
 var MESSAGE_MAX = 300;
-var KitVersionSchema = z99.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/, "a kit version");
-var CommandSchema = z99.string().regex(/^(?:\/omni:[a-z][a-z0-9-]*|omni(?: [a-z][a-z0-9-]*){1,2})$/, "a skill or an omni command");
+var KitVersionSchema = z102.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/, "a kit version");
+var CommandSchema = z102.string().regex(/^(?:\/omni:[a-z][a-z0-9-]*|omni(?: [a-z][a-z0-9-]*){1,2})$/, "a skill or an omni command");
 var COMMAND = /^(?:\/omni:[a-z][a-z0-9-]*|omni(?: (?!-)[a-z][a-z0-9-]*){1,2}(?= |$))/;
-var PublicReportSchema = z99.object({
+var PublicReportSchema = z102.object({
   kitVersion: KitVersionSchema,
   command: CommandSchema,
   class: RepairClassSchema,
-  message: z99.string().min(1).max(MESSAGE_MAX).refine((text20) => sensitiveShape(text20) === null, "a public message holds no path, repository, login, email, URL or token"),
+  message: z102.string().min(1).max(MESSAGE_MAX).refine((text20) => sensitiveShape(text20) === null, "a public message holds no path, repository, login, email, URL or token"),
   fingerprint: FingerprintSchema
 });
 var escape6 = (text20) => text20.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -23111,10 +23406,10 @@ function scrub(input) {
 // kit/lib/repair/line.ts
 var REPAIR_LINE = "omni repair: ";
 var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
-var RepairRecordSchema = z100.object({
-  v: z100.literal(1),
-  mission: z100.number().int().positive(),
-  trigger: z100.enum(["failure", "stuck"]).optional(),
+var RepairRecordSchema = z103.object({
+  v: z103.literal(1),
+  mission: z103.number().int().positive(),
+  trigger: z103.enum(["failure", "stuck"]).optional(),
   prd: PrdNumberSchema.nullable(),
   fingerprint: FingerprintSchema,
   class: RepairClassSchema,
@@ -23146,58 +23441,10 @@ function repairLine(log2) {
 }
 
 // apps/omni-app/src/bug-reports/job.ts
-import { z as z101 } from "zod";
-
-// apps/omni-app/src/bug-reports/file.ts
-var OMNI_LOOP_REPOSITORY = "vertuoza/vertuo-omni-loop";
-var BUG_LABEL2 = "bug";
-var SIGNATURE2 = "Filed by the Omni App from a mission that met this bug. No customer work is in this report.";
-function issueTitle(report) {
-  const message = report.message.length <= 80 ? report.message : `${report.message.slice(0, 79).trimEnd()}\u2026`;
-  return `${report.command}: ${message} [${report.fingerprint.slice(0, 8)}]`;
-}
-function issueBody(report) {
-  return [
-    `**Kit version:** ${report.kitVersion}`,
-    `**Command:** \`${report.command}\``,
-    `**Class:** ${report.class}`,
-    `**Fingerprint:** \`${report.fingerprint}\``,
-    "",
-    report.message,
-    "",
-    `_${SIGNATURE2}_`
-  ].join("\n");
-}
-function repeatComment(report) {
-  return `+1 \xB7 kit ${report.kitVersion}
-
-_${SIGNATURE2}_`;
-}
-async function fileBugReport({
-  report,
-  repo = OMNI_LOOP_REPOSITORY,
-  store,
-  issues
-}) {
-  const { fingerprint: fingerprint2 } = report;
-  const known = await store.find(fingerprint2);
-  if (known) return again(known, report, store, issues);
-  const issue = await issues.create({ repo, title: issueTitle(report), body: issueBody(report), labels: [BUG_LABEL2] });
-  if (await store.record({ fingerprint: fingerprint2, repo, issue })) return { kind: "filed", repo, issue, fingerprint: fingerprint2 };
-  const raced = await store.find(fingerprint2);
-  if (!raced) throw new Error("the report row was refused and is not there");
-  return again(raced, report, store, issues);
-}
-async function again(known, report, store, issues) {
-  await issues.comment({ repo: known.repo, issue: known.issue, body: repeatComment(report) });
-  await store.seen(report.fingerprint);
-  return { kind: "repeat", repo: known.repo, issue: known.issue, fingerprint: report.fingerprint };
-}
-
-// apps/omni-app/src/bug-reports/job.ts
+import { z as z104 } from "zod";
 var BUG_REPORT_KIND = "bug-report";
 var BUG_REPORT_LANE = "bug-report";
-var BugReportJobDataSchema = z101.object({ report: PublicReportSchema });
+var BugReportJobDataSchema = z104.object({ report: PublicReportSchema });
 async function submitBugReport({ input, attempt: attempt3, add }) {
   const scrubbed = scrub(input);
   if (!scrubbed.ok) return { ok: false, reason: scrubbed.reason };
@@ -23227,12 +23474,49 @@ function bugReportHandler({
     return { outcome: "done" };
   };
 }
+function bugFollowHandler({
+  store,
+  github,
+  repo = OMNI_LOOP_REPOSITORY,
+  log: log2 = noteTo("bug-follow")
+}) {
+  return async (job) => {
+    const { event } = checkPayloadOf(BugFollowDataSchema, BUG_FOLLOW_KIND, job.payload);
+    const { moved } = await followBugEvent({ event, repo, store, github });
+    log2(`bug follow: ${event.kind} moved ${String(moved)} bug${moved === 1 ? "" : "s"}`);
+    return { outcome: "done" };
+  };
+}
 
 // apps/omni-app/src/missions/repair.ts
 import { createHash as createHash8 } from "node:crypto";
+
+// kit/lib/version/version.ts
+var VERSION2 = /^v?(\d+)\.(\d+)\.(\d+)$/;
+function parseVersion(text20) {
+  const match = VERSION2.exec(plainText(text20).trim());
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : null;
+}
+function compareVersions2(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i += 1) {
+    const x = pa[i] ?? Number.NaN;
+    const y = pb[i] ?? Number.NaN;
+    if (x !== y) return x - y;
+  }
+  return 0;
+}
+
+// apps/omni-app/src/missions/repair.ts
 var CAUSE_REPAIRS = 3;
 var MISSION_REPAIRS = 9;
 var isStuckRow = (row) => row.trigger === "stuck";
+function bugFixOf(state, fixedIn) {
+  const version = parseVersion(fixedIn);
+  if (state === "fixed" && version !== null) return { state: "fixed", version };
+  return state === "wont-fix" ? { state: "wont-fix" } : { state: "open" };
+}
 var NO_REPAIRS = { budget: 0, round: 1, jobs: [], rows: [], stuck: [], refused: /* @__PURE__ */ new Map(), landings: /* @__PURE__ */ new Map(), reports: /* @__PURE__ */ new Map() };
 var KEY3 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
 var repairKey = (mission, prd, k) => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
@@ -23266,8 +23550,8 @@ var ended = (job) => {
 var rowOf2 = (view, job) => view.rows.find((row) => row.job === job);
 function spentOf(view) {
   const kept3 = view.rows.filter((row) => row.outcome !== "lost").length;
-  const atWork2 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
-  return kept3 + atWork2;
+  const atWork3 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
+  return kept3 + atWork3;
 }
 var leftOf = (view) => Math.max(0, view.budget - spentOf(view));
 var short2 = (fingerprint2) => fingerprint2.slice(0, 8);
@@ -23305,9 +23589,29 @@ function reportWords(view, row) {
   if (report?.state === "refused") return `its Omni Loop bug report [${short2(row.fingerprint)}] was not sent: ${report.why}`;
   return `its Omni Loop bug report [${short2(row.fingerprint)}] is being filed`;
 }
+function filedOf(view, row) {
+  const report = view.reports.get(row.job ?? "");
+  return report?.state === "filed" ? { issue: report.issue, repo: report.repo, fix: report.fix ?? { state: "open" } } : null;
+}
+var runsFix = (kit, version) => {
+  const pinned = parseVersion(kit);
+  return pinned !== null && compareVersions2(pinned, version) >= 0;
+};
+var updateKitWords = (version) => `Fixed in v${version}: update the kit to resume (omni update)`;
+var wontFixWords = (issue) => `Omni Loop bug #${String(issue)} won't be fixed: take this PRD by hand`;
+function wayBack(view, row) {
+  const moved = movedOf(view, row);
+  if (moved === null) return null;
+  if (moved.fix.state === "wont-fix") return { next: "stops", why: wontFixWords(moved.issue) };
+  const { version } = moved.fix;
+  if (view.held === true) return { next: "stops", why: `Omni Loop bug #${String(moved.issue)} is fixed in v${version}: resume the mission to carry on` };
+  return runsFix(view.kit, version) ? { next: "again" } : { next: "kit", why: updateKitWords(version) };
+}
 function afterRow(view, prd, row, failure2) {
   const retro2 = row.retro;
   if (retro2 === null) return sendOrStop(view, prd, row.failedJob, failure2);
+  const back = wayBack(view, row);
+  if (back !== null) return back;
   if (row.round < view.round && row.outcome === "stopped") return { next: "again" };
   const cause = `[${short2(row.fingerprint)}]`;
   switch (retro2.class) {
@@ -23370,20 +23674,52 @@ var startedEvent = (job, { where, mission }) => ({
 function rowEvents(row) {
   const n = `PRD ${String(row.prd)}`;
   const cause = `[${short2(row.fingerprint)}]`;
-  const said2 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said2("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said3 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said3("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "not fixed: its record line could not be read." : `${row.outcome}.`;
-  return [...retro2, said2("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
+  return [...retro2, said3("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
 }
 function reportEvent(row, report, who = `PRD ${String(row.prd)}`) {
   if (report?.state !== "filed") return [];
   const link = linkOf(`https://github.com/${report.repo}/issues/${String(report.issue)}`);
   return [{ kind: "bug-reported", role: "supervisor", prd: row.prd, job: row.job, link, sentence: `${who} met an Omni Loop bug [${short2(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
 }
-function repairEvents(view, where) {
+function repairEvents(view, where, sentAfter = () => null) {
   const own = view.rows.filter((row) => !isStuckRow(row));
-  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))])];
+  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))]), ...bugFixedEvents(view, sentAfter)];
+}
+function toldWords(view, issue, fix) {
+  if (fix.state === "wont-fix") return `${wontFixWords(issue)}.`;
+  const fixed = `Omni Loop bug #${String(issue)} is fixed in v${fix.version}.`;
+  return view.held === true || runsFix(view.kit, fix.version) ? fixed : `${fixed} ${updateKitWords(fix.version)}.`;
+}
+function movedOf(view, row) {
+  const job = row.job;
+  if (job === null || isStuckRow(row) || row.retro?.class !== "omni-loop") return null;
+  const filed = filedOf(view, row);
+  return filed === null || filed.fix.state === "open" ? null : { ...filed, row: { ...row, job }, fix: filed.fix };
+}
+function resumedEvent(view, moved, sentAfter, said3) {
+  if (moved.fix.state !== "fixed" || view.held === true || !runsFix(view.kit, moved.fix.version)) return [];
+  const job = sentAfter(moved.row);
+  return job === null ? [] : [said3(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
+}
+function bugFixedEvents(view, sentAfter) {
+  const told = /* @__PURE__ */ new Set();
+  return view.rows.flatMap((row) => {
+    const moved = movedOf(view, row);
+    if (moved === null) return [];
+    const link = linkOf(`https://github.com/${moved.repo}/issues/${String(moved.issue)}`);
+    const said3 = (job, sentence2) => ({ kind: "bug-fixed", role: "supervisor", prd: row.prd, job, link, sentence: sentence2 });
+    const first = told.has(row.fingerprint) ? [] : [said3(moved.row.job, toldWords(view, moved.issue, moved.fix))];
+    told.add(row.fingerprint);
+    return [...first, ...resumedEvent(view, moved, sentAfter, said3)];
+  });
+}
+function untold(rows, told) {
+  const heard = new Set(rows.filter((one) => told.has(one.job)).map((one) => `${one.mission} ${one.fingerprint}`));
+  return [...new Set(rows.filter((one) => !heard.has(`${one.mission} ${one.fingerprint}`)).map((one) => one.mission))];
 }
 
 // apps/omni-app/src/missions/qa.ts
@@ -23517,9 +23853,9 @@ function fixEvent(prd, step, last, runs, view) {
   const landing = view.landings.get(last.id);
   if (fix !== null && (landing === void 0 || landing.state === "waits")) return null;
   const bug = issue === void 0 ? "its bug" : `#${String(issue)}`;
-  const said2 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
-  if (fix === null) return said2(`not fixed ${bug}: ${noFixWhy(last)}`);
-  return landing?.state === "landed" ? said2(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said2(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
+  const said3 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
+  if (fix === null) return said3(`not fixed ${bug}: ${noFixWhy(last)}`);
+  return landing?.state === "landed" ? said3(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said3(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
 }
 function sentPairWords(one, where, runs, view) {
   const round = qaRoundOf(one.step);
@@ -23739,6 +24075,7 @@ function afterEnd(fact, latest, last, around) {
 function repaired(fact, latest, last, why, around) {
   const next = repairNext(around.repairs, fact.prd, last.id, why);
   if (next === null || next.next === "stops") return { state: "stopped", why: next?.why ?? why };
+  if (next.next === "kit") return { state: "waits", on: "kit", why: next.why };
   if (next.next === "repair") return { state: "repairable", k: next.k, failedJob: next.failedJob };
   if (next.next === "repairing") return { state: "repairing", number: next.number, left: next.left, why: next.why };
   if (next.next === "paused") return { state: "paused" };
@@ -23828,11 +24165,13 @@ var WAITS_WORDS = {
   "approve-again": "approve it again",
   answer: "answer its questions",
   merge: "merge it",
-  act: "act on its runner job"
+  act: "act on its runner job",
+  kit: "update the kit"
 };
 function waitWords(state, branch) {
   if (state.on === "join") return `joins ${branch ?? "the mission branch"} once: ${state.lacks.join("; ")}`;
   if (state.on === "decide-bugs") return decideWords(state.issues);
+  if (state.on === "kit") return state.why ?? WAITS_WORDS.kit;
   if (state.on !== "decide") return state.why == null ? WAITS_WORDS[state.on] : `${WAITS_WORDS[state.on]} (${state.why})`;
   return `decide the Reviewer's findings on ${state.pr === null ? "its feature PR" : `PR #${String(state.pr)}`}`;
 }
@@ -23915,13 +24254,22 @@ var KEYS = {
   retro: (_prdKey, job) => jobKey2("retro", job),
   "repair-ended": (_prdKey, job) => jobKey2("repair-ended", job),
   "bug-reported": (_prdKey, job) => jobKey2("bug", job),
-  stuck: (_prdKey, job) => jobKey2("stuck", job)
+  stuck: (_prdKey, job) => jobKey2("stuck", job),
+  "bug-taken": (_prdKey, job) => jobKey2("bug-taken", job),
+  "bug-asked": (_prdKey, job) => jobKey2("bug-asked", job),
+  "bug-fixed": (_prdKey, job) => jobKey2("bug-fixed", job)
 };
 var keysOf3 = ({ kind, prd, job }) => KEYS[kind]?.(prd === null ? null : String(prd), job) ?? [];
 var recordedKeys = (events) => new Set(events.flatMap(keysOf3));
 var linkOf3 = (url) => url !== null && /^https?:\/\//.test(url) && url.length <= 500 ? url : null;
 var againWords = (n, what, run) => run >= LAST_RUN ? `${n} ${what} a second time${STOPS_HERE}` : `${n} ${what}: the mission sends it again, once.`;
 var STOPS_HERE = ": it stops here.";
+var sentAfterOf = (runs) => (row) => {
+  const failed3 = runs.find((one) => one.prd === row.prd && one.attempts.some((attempt3) => attempt3.id === row.failedJob));
+  if (failed3 === void 0) return null;
+  const later2 = runs.filter((one) => one.prd === row.prd && after(one, failed3));
+  return later2.reduce((first, one) => first === null || after(first, one) ? one : first, null)?.job ?? null;
+};
 var REPAIRS_HERE = ": the mission sends a repair, while it has one left.";
 var END_WORDS = {
   ready: (n, _run, _reason, branch) => ({
@@ -23998,11 +24346,11 @@ function prdEvents(facts, states) {
   return facts.flatMap((fact) => {
     const n = `PRD ${String(fact.prd)}`;
     const state = states.get(fact.prd);
-    const said2 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
+    const said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
     return [
-      ...fact.stage === "merged" ? [said2("prd-merged", `${n} is merged: delivered.`)] : [],
-      ...fact.stage === "ready" ? [said2("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
-      ...state?.state === "stopped" ? [said2("stopped", `${n} stops: ${state.why}.`)] : []
+      ...fact.stage === "merged" ? [said3("prd-merged", `${n} is merged: delivered.`)] : [],
+      ...fact.stage === "ready" ? [said3("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
+      ...state?.state === "stopped" ? [said3("stopped", `${n} stops: ${state.why}.`)] : []
     ];
   });
 }
@@ -24032,11 +24380,11 @@ function committeeEvents(committees, where) {
   });
 }
 function missionEvents(mission, next) {
-  const said2 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
-  if (next.status === "delivered") return [said2("delivered", "Every PRD of the mission is merged: delivered.")];
-  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said2("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
+  const said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+  if (next.status === "delivered") return [said3("delivered", "Every PRD of the mission is merged: delivered.")];
+  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said3("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
   const waits = newWait(mission, next);
-  return waits === null ? [] : [said2("waits", `Waits on a person: ${waits}`)];
+  return waits === null ? [] : [said3("waits", `Waits on a person: ${waits}`)];
 }
 function newWait(mission, next) {
   if (next.status !== "running" && next.status !== "waiting") return null;
@@ -24066,7 +24414,7 @@ function eventsOf({
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
     ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa }),
-    ...repairEvents(repairs, { where, mission: mission.number }),
+    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
     ...joinEvents(joins, base),
     ...landEvents(landings),
     ...prdEvents(facts, states),
@@ -24115,8 +24463,8 @@ async function endedAtOnce(at4, kept3) {
 async function keepRow(at4, one, { round, rows }) {
   const fingerprint2 = one.record?.fingerprint ?? one.unreadable;
   const retro2 = one.record?.retro ?? null;
-  const spent = overBudget(rows, { budget: at4.budget, round, fingerprint: fingerprint2 });
-  if (spent !== null) return { spent, fingerprint: fingerprint2, retro: retro2 };
+  const spent2 = overBudget(rows, { budget: at4.budget, round, fingerprint: fingerprint2 });
+  if (spent2 !== null) return { spent: spent2, fingerprint: fingerprint2, retro: retro2 };
   const trigger = one.trigger === void 0 ? {} : { trigger: one.trigger };
   const kept3 = await at4.store.keepRepair(at4.mission, { prd: one.prd, fingerprint: fingerprint2, round, failedJob: one.failedJob, job: one.job, retro: retro2, fixPr: fixUrlOf(at4, one.record), ...trigger });
   return "spent" in kept3 ? { spent: kept3.spent, fingerprint: fingerprint2, retro: retro2 } : endedAtOnce(at4, kept3);
@@ -24185,7 +24533,12 @@ async function reportAll(at4, rows, jobs, round) {
   const reports = /* @__PURE__ */ new Map();
   for (const row of rows) {
     const id = row.job;
-    if (id === null || row.round !== round || row.retro?.class !== "omni-loop") continue;
+    if (id === null || row.retro?.class !== "omni-loop") continue;
+    if (row.round !== round) {
+      const filed = await at4.store.bugIssue(row.fingerprint);
+      if (filed !== null) reports.set(id, { state: "filed", ...filed });
+      continue;
+    }
     const job = jobs.find((one) => one.job === id);
     reports.set(id, await reportOne(at4, { ...row, job: id }, () => job === void 0 ? Promise.resolve(null) : jobRecord2(at4, job)));
   }
@@ -24208,7 +24561,22 @@ async function readRepairs(at4) {
   await settleAll(at4, own);
   const reports = await reportAll(at4, own, read2.jobs, round);
   const settled2 = rows.map((row) => own.find((one) => one.id === row.id) ?? row);
-  return { budget: at4.budget, round, jobs: read2.jobs, rows: settled2, stuck: [], refused: refused10, landings, reports };
+  return { budget: at4.budget, round, jobs: read2.jobs, rows: settled2, stuck: [], refused: refused10, landings, reports, ...await wayBackOf(at4, own, reports) };
+}
+async function wayBackOf(at4, rows, reports) {
+  const held2 = at4.mission.status === "paused" || at4.mission.status === "stopped";
+  if (held2 || !waitsOnFix(at4.runs, rows, reports)) return { held: held2 };
+  return { held: held2, kit: await pinnedKit(at4) };
+}
+function waitsOnFix(runs, rows, reports) {
+  return rows.some((row) => {
+    const report = reports.get(row.job ?? "");
+    return row.retro?.class === "omni-loop" && report?.state === "filed" && report.fix?.state === "fixed" && stepAfter(runs, row) === null;
+  });
+}
+async function pinnedKit(at4) {
+  if (at4.kits == null || at4.installation === null) return null;
+  return at4.kits.pinned({ installation: at4.installation, repo: at4.mission.repo, ref: at4.branch });
 }
 
 // apps/omni-app/src/missions/qa-run.ts
@@ -24276,9 +24644,9 @@ var trimmed3 = (n) => n.toFixed(1).replace(/\.0$/, "");
 var spentWords2 = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${trimmed3(n / 1e3)}k` : String(n);
 var capWords = (n) => n >= 1e6 ? `${trimmed3(n / 1e6)}M` : n >= 1e3 ? `${trimmed3(n / 1e3)}k` : String(n);
 var WHOSE = { mission: "this mission's budget", fleet: "this fleet's daily cap" };
-function pausedWords(cap, limit, spent) {
+function pausedWords(cap, limit, spent2) {
   const window = cap === "fleet" ? " in the last 24 hours" : "";
-  return `Paused: budget reached \xB7 ${spentWords2(spent)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
+  return `Paused: budget reached \xB7 ${spentWords2(spent2)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
 }
 var clockOf2 = (iso2) => new Date(iso2).toISOString().slice(11, 16);
 var said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
@@ -24304,16 +24672,16 @@ function sendAct(stop, read2, byBudget) {
   if (!byBudget) return { act: "none" };
   return stop !== null && stop.answer === null ? { act: "quiet" } : { act: "resume", event: said("resumed", resumeWords2(stop, read2)) };
 }
-var pauseAct = ({ cap, limit, spent }) => ({
+var pauseAct = ({ cap, limit, spent: spent2 }) => ({
   act: "pause",
-  stop: { cap, capTokens: limit, spent },
-  words: pausedWords(cap, limit, spent),
+  stop: { cap, capTokens: limit, spent: spent2 },
+  words: pausedWords(cap, limit, spent2),
   event: said("budget-stop", `Paused: ${WHOSE[cap]} reached (${capWords(limit)})`)
 });
 function holdAct(cap, read2, moving2) {
-  const { limit, spent } = against(cap, read2);
+  const { limit, spent: spent2 } = against(cap, read2);
   const again2 = moving2 ? said("paused", `Paused again: ${WHOSE[cap]} is still reached (${capWords(limit)}); its question waits for an answer.`) : null;
-  return { act: "hold", words: pausedWords(cap, limit, spent), event: again2 };
+  return { act: "hold", words: pausedWords(cap, limit, spent2), event: again2 };
 }
 function wakeAct(at4, moving2) {
   const words = `Paused: budget reached \xB7 ${WHOSE.fleet} \xB7 resumes by itself at ${clockOf2(at4)} UTC`;
@@ -24467,12 +24835,12 @@ function pastOf(beats) {
   return past2;
 }
 var resumeWords3 = (left) => `Resume gives each cause ${String(CAUSE_REPAIRS)} more (${String(left)} of ${String(MISSION_REPAIRS)} left in this mission)`;
-function pauseWords(view, { fingerprint: fingerprint2, retro: retro2 }, left, spent) {
+function pauseWords(view, { fingerprint: fingerprint2, retro: retro2 }, left, spent2) {
   const cause = retro2 === null ? "its stuck repairs left no record that could be read." : retro2.cause;
   const fix = retro2 === null ? "" : ` Proposed fix: ${retro2.proposedFix}`;
-  if (spent === "mission") return bare3(`the mission spent its ${String(MISSION_REPAIRS)} repairs [${short2(fingerprint2)}]: ${cause}${fix}`);
+  if (spent2 === "mission") return bare3(`the mission spent its ${String(MISSION_REPAIRS)} repairs [${short2(fingerprint2)}]: ${cause}${fix}`);
   const tried = view.rows.filter((row) => row.round === view.round && row.fingerprint === fingerprint2).sort((a, b) => a.number - b.number);
-  const head = spent === "cause" ? `its cause [${short2(fingerprint2)}] was repaired ${String(CAUSE_REPAIRS)} times: ${cause}` : cause;
+  const head = spent2 === "cause" ? `its cause [${short2(fingerprint2)}] was repaired ${String(CAUSE_REPAIRS)} times: ${cause}` : cause;
   return `${head} Tried: ${tried.length === 0 ? "nothing" : tried.map(triedWords).join(", ")}.${fix} ${resumeWords3(left)}`;
 }
 function fixOnItsWay(view, row, left) {
@@ -24535,11 +24903,11 @@ var sentEvent = (job, { where, mission }) => ({
 });
 function rowEvents2(row) {
   const cause = `[${short2(row.fingerprint)}]`;
-  const said2 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said2("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said3 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said3("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "ended not fixed: its record line could not be read." : `${cause} ended ${row.outcome}.`;
-  return [...retro2, said2("repair-ended", "supervisor", `The stuck repair ${how}`)];
+  return [...retro2, said3("repair-ended", "supervisor", `The stuck repair ${how}`)];
 }
 function stuckEvents(view, where) {
   return [...view.jobs.map((job) => sentEvent(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission")])];
@@ -24627,61 +24995,61 @@ async function stuckStep(at4) {
 }
 
 // kit/lib/mission/retro.ts
-import { z as z104 } from "zod";
+import { z as z107 } from "zod";
 
 // kit/lib/mission/item.ts
-import { z as z103 } from "zod";
+import { z as z106 } from "zod";
 
 // kit/lib/mission/retro-cited.ts
-import { z as z102 } from "zod";
+import { z as z105 } from "zod";
 var CITE_KINDS = ["event", "prd", "pr", "repair"];
 var SENTENCES_MAX = 5;
 var LOG_STAMP = /^\d{2}:\d{2}:\d{2}\b/;
-var CiteSchema = z102.strictObject({
-  kind: z102.enum(CITE_KINDS),
-  ref: z102.number().int().positive()
+var CiteSchema = z105.strictObject({
+  kind: z105.enum(CITE_KINDS),
+  ref: z105.number().int().positive()
 });
-var CitedSentenceSchema = z102.strictObject({
-  text: z102.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
-  cites: z102.array(CiteSchema)
+var CitedSentenceSchema = z105.strictObject({
+  text: z105.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
+  cites: z105.array(CiteSchema)
 }).superRefine((sentence2, ctx) => {
   if (sentence2.cites.length === 0) {
     ctx.addIssue({ code: "custom", message: `the sentence "${sentence2.text}" cites no event, PRD, pull request or repair`, path: ["cites"] });
   }
 });
-var CitedSentencesSchema = z102.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
+var CitedSentencesSchema = z105.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
 
 // kit/lib/mission/item.ts
 var WORDING_MAX = 1200;
-var IdSchema = z103.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
-var NameSchema = z103.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
-var MissionItemTargetSchema = z103.discriminatedUnion("kind", [
-  z103.strictObject({ kind: z103.literal("rule"), id: IdSchema }),
-  z103.strictObject({ kind: z103.literal("law"), id: IdSchema }),
-  z103.strictObject({ kind: z103.literal("form"), form: NameSchema, section: NameSchema })
+var IdSchema = z106.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
+var NameSchema = z106.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
+var MissionItemTargetSchema = z106.discriminatedUnion("kind", [
+  z106.strictObject({ kind: z106.literal("rule"), id: IdSchema }),
+  z106.strictObject({ kind: z106.literal("law"), id: IdSchema }),
+  z106.strictObject({ kind: z106.literal("form"), form: NameSchema, section: NameSchema })
 ]);
-var MissionItemSchema = z103.strictObject({
+var MissionItemSchema = z106.strictObject({
   target: MissionItemTargetSchema,
-  wording: z103.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
+  wording: z106.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
   evidence: CitedSentencesSchema
 });
 
 // kit/lib/mission/retro.ts
 var RETRO_LINE = "omni retro: ";
 var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
-var MissionRetroSchema = z104.strictObject({
+var MissionRetroSchema = z107.strictObject({
   wentWell: CitedSentencesSchema,
   toChange: CitedSentencesSchema
 });
-var MilestoneSchema = z104.union([z104.literal("mission"), z104.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
-var FileSchema2 = z104.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
-var RetroRecordSchema = z104.strictObject({
-  v: z104.literal(1),
-  mission: z104.number().int().positive(),
+var MilestoneSchema = z107.union([z107.literal("mission"), z107.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
+var FileSchema2 = z107.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
+var RetroRecordSchema = z107.strictObject({
+  v: z107.literal(1),
+  mission: z107.number().int().positive(),
   milestone: MilestoneSchema,
   retro: MissionRetroSchema,
   file: FileSchema2.nullable(),
-  items: z104.array(MissionItemSchema)
+  items: z107.array(MissionItemSchema)
 });
 function retroLine(log2) {
   const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP4, "")).findLast((line3) => line3.startsWith(RETRO_LINE));
@@ -24711,11 +25079,11 @@ var ended3 = (job) => ["done", "failed", "cancelled"].includes(job.attempts.at(-
 function milestoneNext(view, { done, delivered, held: held2 }) {
   const kept3 = new Set(view.rows.map((row) => row.milestone));
   const sent = new Set(view.jobs.map((job) => job.milestone));
-  const atWork2 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended3(job));
+  const atWork3 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended3(job));
   const pending = reachedOf(view.roadmaps, done, delivered).filter((milestone) => !kept3.has(milestone) && !sent.has(milestone));
-  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork2 };
-  if (held2 !== null || atWork2) return { send: null, skip: [], atWork: atWork2 };
-  return { send: pending[0] ?? null, skip: [], atWork: atWork2 };
+  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork3 };
+  if (held2 !== null || atWork3) return { send: null, skip: [], atWork: atWork3 };
+  return { send: pending[0] ?? null, skip: [], atWork: atWork3 };
 }
 var FILE = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*\.md$/;
 function fileOf(path) {
@@ -24741,11 +25109,11 @@ function fileLink(file, { repo, branch }) {
   return link.length <= 500 ? link : null;
 }
 function retroEvents(one, at4) {
-  const said2 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
+  const said3 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
   const words = milestoneWords(one.milestone);
-  if (one.skipped !== null) return [said2("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
-  const retro2 = said2("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
-  return [retro2, ...one.targets.map((target2) => said2("item-proposed", `Proposes a change to ${target2}.`))];
+  if (one.skipped !== null) return [said3("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
+  const retro2 = said3("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
+  return [retro2, ...one.targets.map((target2) => said3("item-proposed", `Proposes a change to ${target2}.`))];
 }
 var sentEvent2 = (job, { where, mission }) => ({
   kind: "dispatched",
@@ -24825,6 +25193,193 @@ async function milestoneStep(at4) {
   return { events: [...read2.events, ...acted.events], watching: retroAtWork(acted.view) };
 }
 
+// apps/omni-app/src/missions/bug-team.ts
+var BUG_TRIES = 3;
+var BUG_STATES2 = ["open", "fixing", "pr-opened", "asked", "merged", "fixed", "wont-fix"];
+var bugKey = (mission, issue, k) => `mission:${mission}:bug:${String(issue)}:run:${String(k)}`;
+var KEY7 = /^mission:[0-9a-f-]{36}:bug:([1-9][0-9]*):run:([1-9][0-9]*)$/;
+function bugOfKey(key) {
+  const match = KEY7.exec(key);
+  const issue = IssueNumberSchema.safeParse(Number(match?.[1]));
+  return match && issue.success ? { issue: issue.data, k: Number(match[2]) } : null;
+}
+var bugFixLine = (issue) => `/omni:bug-fix #${String(issue)}`;
+var issueLink2 = (repo, issue) => `https://github.com/${repo}/issues/${String(issue)}`;
+var LOST = /* @__PURE__ */ new Set(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
+var lastOf2 = (job) => job.attempts.at(-1);
+var atWork = (job) => ["queued", "claimed", "running"].includes(lastOf2(job)?.status ?? "done");
+var latestOf3 = (jobs, issue) => jobs.filter((one) => one.issue === issue).reduce((last, one) => last === void 0 || one.k > last.k ? one : last, void 0);
+var nextK2 = (jobs, issue) => (latestOf3(jobs, issue)?.k ?? 0) + 1;
+function prOf2(url) {
+  const pr = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)(?:[/#?].*)?$/.exec(url ?? "")?.[1]));
+  return pr.success ? pr.data : null;
+}
+var ASKED = { human: "need-human", "need-human": "need-human", "needs-brainstorm": "needs-brainstorm", "not-a-bug": "not-a-bug" };
+function bugEndOf(attempt3) {
+  if (attempt3.status === "failed" && (attempt3.limitedUntil != null || LOST.has(attempt3.reason ?? ""))) return { end: "lost" };
+  if (attempt3.status === "cancelled") return { end: "asked", word: "cancelled" };
+  if (attempt3.status !== "done") return { end: "spent", word: "failed" };
+  const word = attempt3.outcome ?? "";
+  if (word === "pr-opened") return { end: "pr-opened", pr: prOf2(attempt3.prUrl) };
+  if (word === "already-fixed") return { end: "already-fixed", pr: prOf2(attempt3.prUrl) };
+  const asked = ASKED[word];
+  if (asked !== void 0) return { end: "asked", word: asked };
+  return { end: "spent", word: word === "stuck" || word === "blocked" ? word : "unreadable" };
+}
+var byCount = (a, b) => b.count - a.count || a.createdAt.localeCompare(b.createdAt) || a.issue - b.issue;
+function candidatesOf(bugs, jobs) {
+  return bugs.filter((bug) => bug.state === "open" && !jobs.some((one) => one.issue === bug.issue && atWork(one))).sort(byCount);
+}
+var runningOf = (bugs, jobs) => bugs.filter((bug) => bug.state === "fixing" || jobs.some((one) => one.issue === bug.issue && atWork(one))).length;
+function pickBugs({ bugs, jobs, issues, parallel }) {
+  const slots = parallel - runningOf(bugs, jobs);
+  if (slots <= 0) return [];
+  return candidatesOf(bugs, jobs).filter((bug) => {
+    const read2 = issues.get(bug.issue);
+    return read2 !== void 0 && read2.open && read2.openFix === null;
+  }).slice(0, slots);
+}
+var countWords = (count4) => `reported ${String(count4)}\xD7`;
+var bugWords = (bug) => `Omni Loop bug #${String(bug.issue)} (${countWords(bug.count)})`;
+var ASKED_WHY = {
+  "need-human": "its bug fix needs a person, and its question waits for a person",
+  "needs-brainstorm": "it needs a product decision, and its question waits for a person",
+  "not-a-bug": "its bug fix says it may not be a bug, and its question waits for a person",
+  cancelled: "its bug fix was cancelled, and a person decides what comes next"
+};
+function triedOf(jobs, issue) {
+  return jobs.filter((one) => one.issue === issue && !atWork(one)).sort((a, b) => a.k - b.k).flatMap((one) => {
+    const last = lastOf2(one);
+    const read2 = last === void 0 ? null : bugEndOf(last);
+    return read2?.end === "spent" ? [read2.word] : [];
+  });
+}
+var moveOf = (bug, change2) => ({ state: bug.state, attempts: bug.attempts, fixPr: bug.fixPr, askedJob: bug.askedJob, ...change2 });
+var said2 = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
+var pullLink = (repo, pr) => `https://github.com/${repo}/pull/${String(pr)}`;
+function spent(bug, job, word, { repo, jobs }) {
+  const attempts = Math.min(BUG_TRIES, bug.attempts + 1);
+  const link = issueLink2(repo, bug.issue);
+  if (attempts < BUG_TRIES) {
+    const left = `${String(attempts)} of ${String(BUG_TRIES)} tries spent`;
+    return { move: moveOf(bug, { state: "open", attempts }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix ended ${word}, ${left}; it goes back in line.`) };
+  }
+  const tried = triedOf(jobs, bug.issue).slice(-BUG_TRIES);
+  const words = tried.length > 0 ? tried.join(", ") : word;
+  return { move: moveOf(bug, { state: "asked", attempts, askedJob: job.job }), event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside after ${String(BUG_TRIES)} tries (${words}): it waits for a person.`) };
+}
+function bugAfter(bug, { repo, jobs }) {
+  const job = latestOf3(jobs, bug.issue);
+  if (job === void 0) return { move: moveOf(bug, { state: "open" }), event: null };
+  const last = lastOf2(job);
+  if (last === void 0 || atWork(job)) return null;
+  const read2 = bugEndOf(last);
+  const link = issueLink2(repo, bug.issue);
+  switch (read2.end) {
+    case "pr-opened":
+      return {
+        move: moveOf(bug, { state: "pr-opened", fixPr: read2.pr }),
+        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)}: ${read2.pr === null ? "its fix pull request" : `fix PR #${String(read2.pr)}`} is open; it waits for a person's merge.`)
+      };
+    case "already-fixed":
+      return {
+        move: moveOf(bug, { state: "merged", fixPr: read2.pr ?? bug.fixPr }),
+        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)} is already fixed${read2.pr === null ? "" : ` by PR #${String(read2.pr)}`}: it waits for its release.`)
+      };
+    case "asked":
+      return {
+        move: moveOf(bug, { state: "asked", askedJob: job.job }),
+        event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read2.word]}.`)
+      };
+    case "lost":
+      return { move: moveOf(bug, { state: "open" }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix's runner was lost; it goes back in line, no try spent.`) };
+    case "spent":
+      return spent(bug, job, read2.word, { repo, jobs });
+  }
+}
+var takenEvent = (bug, job, repo) => said2("bug-taken", "supervisor", job, issueLink2(repo, bug.issue), `Took ${bugWords(bug)}: sent ${bugFixLine(bug.issue)}, try ${String(bug.attempts + 1)} of ${String(BUG_TRIES)}.`);
+function askedWords(bugs) {
+  return bugs.filter((bug) => bug.state === "asked").sort(byCount).map((bug) => `Omni Loop bug #${String(bug.issue)}: answer its question`);
+}
+
+// apps/omni-app/src/missions/bug-team-run.ts
+var NO_TEAM = {
+  bugs: () => Promise.resolve([]),
+  jobs: () => Promise.resolve([]),
+  send: () => Promise.resolve(null),
+  move: () => Promise.resolve(false)
+};
+async function settleOne(team, mission, bug, jobs) {
+  const latest = latestOf3(jobs, bug.issue);
+  if (bug.state === "open" && latest !== void 0 && atWork(latest)) {
+    const moved = await team.move(bug, { ...bug, state: "fixing" });
+    return moved ? { bug: { ...bug, state: "fixing" }, event: takenEvent(bug, latest.job, mission.repo) } : { bug, event: null };
+  }
+  const after2 = bug.state === "fixing" ? bugAfter(bug, { repo: mission.repo, jobs }) : null;
+  if (after2 === null || !await team.move(bug, after2.move)) return { bug, event: null };
+  return { bug: { ...bug, ...after2.move }, event: after2.event };
+}
+async function settle(team, mission, read2, jobs) {
+  const bugs = [];
+  const events = [];
+  for (const one of read2) {
+    const settled2 = await settleOne(team, mission, one, jobs);
+    bugs.push(settled2.bug);
+    if (settled2.event !== null) events.push(settled2.event);
+  }
+  return { bugs, events };
+}
+async function readIssues(at4, candidates) {
+  const none = /* @__PURE__ */ new Map();
+  if (at4.issues === null) return { issues: none, why: "the app cannot read the Omni Loop bugs' issues here: it has no GitHub access" };
+  const installation = await at4.store.installation(at4.mission);
+  if (installation === null) return { issues: none, why: "the Omni Loop bugs' issues cannot be read: the workspace has not installed the Omni GitHub App" };
+  return { issues: await at4.issues.read({ installation, repo: at4.mission.repo, issues: candidates.map((bug) => bug.issue) }), why: null };
+}
+async function take(at4, team, mission, state) {
+  const candidates = candidatesOf(state.bugs, state.jobs);
+  if (candidates.length === 0 || runningOf(state.bugs, state.jobs) >= mission.parallel) return { sent: 0, events: [], why: null };
+  const read2 = await readIssues({ ...at4, mission }, candidates);
+  const picks = pickBugs({ bugs: state.bugs, jobs: state.jobs, issues: read2.issues, parallel: mission.parallel });
+  if (picks.length === 0) return { sent: 0, events: [], why: read2.why };
+  const toFleet = await at4.store.fleetRunners(mission);
+  const events = [];
+  let sent = 0;
+  for (const bug of picks) {
+    const k = nextK2(state.jobs, bug.issue);
+    const job = await team.send({ mission, issue: bug.issue, k, toFleet });
+    if (job === null) continue;
+    sent += 1;
+    state.jobs.push({ issue: bug.issue, k, job, attempts: [{ id: job, status: "queued", outcome: null, reason: null, prUrl: null }] });
+    if (await team.move(bug, { ...bug, state: "fixing" })) state.bugs = state.bugs.map((one) => one.issue === bug.issue ? { ...one, state: "fixing" } : one);
+    events.push(takenEvent(bug, job, mission.repo));
+  }
+  return { sent, events, why: read2.why };
+}
+function teamNext(mission, { running, waits, now }) {
+  if (mission.status !== "running" && mission.status !== "waiting") return { status: mission.status, waitingOn: mission.waitingOn, nextWakeAt: null };
+  const waitingOn = waits.length > 0 ? cut4(waits.join(" \xB7 ")) : null;
+  return { status: running ? "running" : "waiting", waitingOn, nextWakeAt: new Date(now + WAKE_MS).toISOString() };
+}
+async function bugTeamRun(at4) {
+  const { store, now } = at4;
+  const budget = await runBudget(store, at4.mission, now);
+  const mission = budget.mission;
+  const team = store.bugTeam ?? NO_TEAM;
+  const [read2, jobs, recorded] = await Promise.all([team.bugs(mission.repo), team.jobs(mission.id), store.events(mission.id)]);
+  const settled2 = await settle(team, mission, read2, jobs);
+  const state = { bugs: settled2.bugs, jobs: [...jobs] };
+  const moving2 = mission.status === "running" || mission.status === "waiting";
+  const taken = moving2 ? await take(at4, team, mission, state) : { sent: 0, events: [], why: null };
+  const running = state.jobs.some(atWork);
+  const waits = [...taken.why === null ? [] : [taken.why], ...askedWords(state.bugs)];
+  const next = budget.finish(teamNext(mission, { running: running || taken.sent > 0, waits, now }));
+  const events = unrecorded([...settled2.events, ...taken.events], recordedKeys(recorded));
+  await store.record(mission.id, [...budget.events, ...events], new Date(now));
+  const moved = await store.update(mission.id, budget.from, next);
+  return { next, running, moved, sent: taken.sent, events: events.length };
+}
+
 // apps/omni-app/src/missions/job.ts
 var MISSION_KIND = "mission";
 var LATERS_BEFORE_RENEW = 15;
@@ -24832,7 +25387,7 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z105.looseObject({ laters: z105.number().int().min(0).optional() });
+var ProgressSchema3 = z108.looseObject({ laters: z108.number().int().min(0).optional() });
 async function supervise(store, sought, now, github) {
   const first = await readRun(store, sought, now);
   const { read: read2, runs, recorded, toFleet, inPlan, decided, pm, fleet } = first;
@@ -24852,7 +25407,7 @@ async function supervise(store, sought, now, github) {
   if (kept3.hold === null) await missionPull({ store, at: at4, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS });
+  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const before2 = prdStates(facts, runs, branch, view, fleet, repairView, qa);
   const { sent, approved, asked, repaired: repaired2 } = unready === null ? await sendEvery({ store, mission, facts, states: before2, toFleet, skill, added: pm.added, left: leftOf(repairView) }) : NOTHING_SENT;
@@ -24871,9 +25426,9 @@ async function supervise(store, sought, now, github) {
   const next = retro2.next;
   await store.record(mission.id, [...pmSent, ...budget.events, ...events, ...retro2.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
-  return { next, running: atWork(states, retro2.running), moved, sent: sent.length + repaired2.length, events: events.length + retro2.events.length };
+  return { next, running: atWork2(states, retro2.running), moved, sent: sent.length + repaired2.length, events: events.length + retro2.events.length };
 }
-var atWork = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
+var atWork2 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
 async function repairsOf(at4) {
   const read2 = await readRepairs(at4);
   const stuck = at4.store.retros === void 0 ? NO_STUCK : await readStuck({ ...at4, retros: at4.store.retros, rows: read2.rows });
@@ -25261,6 +25816,8 @@ function missionHandler({
   landings = null,
   drops = null,
   answers = null,
+  bugIssues: bugIssues2 = null,
+  kits = null,
   galaxyUrl = DEFAULT_GALAXY_URL,
   now = Date.now,
   log: log2 = noteTo("missions")
@@ -25270,15 +25827,25 @@ function missionHandler({
     const mission = await runnable(store, id);
     if (!("id" in mission)) return mission;
     const at4 = now();
-    if (mission.status === "delivered") {
+    if (mission.status === "delivered" && mission.kind !== "omni-bugs") {
       const retros = mission.store.retros;
       return retros !== void 0 && await deliveredRun(mission.store, retros, mission, at4) ? laterOf({ job, refresh, mission, at: at4 }) : { outcome: "done" };
     }
-    const run = await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
-    log2(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
-    if (!watched(run) && run.moved) return wakeOf(run) === null ? { outcome: "done" } : laterOf({ job, refresh, mission, at: at4, until: wakeOf(run) });
-    return laterOf({ job, refresh, mission, at: at4 });
+    const team = mission.kind === "omni-bugs";
+    const run = team ? await teamRun({ store: mission.store, mission, now: at4, issues: bugIssues2 }, refresh) : await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, drops, answers, kits, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
+    log2(`mission ${id}: ${team ? "the bug team " : ""}${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
+    return afterRun(run, { job, refresh, mission, at: at4 });
   };
+}
+async function teamRun(at4, refresh) {
+  const run = await bugTeamRun(at4);
+  const holders = await at4.store.bugTeam?.holders?.() ?? [];
+  for (const one of holders) await refresh(missionJob(one.id, one.repo));
+  return run;
+}
+function afterRun(run, at4) {
+  if (!watched(run) && run.moved) return wakeOf(run) === null ? Promise.resolve({ outcome: "done" }) : laterOf({ ...at4, until: wakeOf(run) });
+  return laterOf(at4);
 }
 async function runnable(store, id) {
   if (!store) return { outcome: "skipped", reason: "no database to read the mission from" };
@@ -25296,55 +25863,106 @@ async function laterOf({ job, refresh, mission, at: at4, until = null }) {
   return { outcome: "later", at: due, progress: { laters: 0 } };
 }
 
-// apps/omni-app/src/bug-reports/github.ts
-import { z as z106 } from "zod";
-var InstallationSchema3 = z106.looseObject({ id: z106.number().int().positive() });
-var IssueCreatedSchema = z106.looseObject({ number: IssueNumberSchema });
-var split = (repo) => {
+// apps/omni-app/src/missions/bug-team.github.ts
+import { z as z109 } from "zod";
+var ISSUES_READ = 20;
+var LINKED = 10;
+var IssueSchema4 = z109.looseObject({
+  state: z109.enum(["OPEN", "CLOSED"]),
+  closedByPullRequestsReferences: z109.looseObject({ nodes: z109.array(z109.looseObject({ number: PrNumberSchema, state: z109.string() }).nullable()) }).nullable()
+});
+var AnswerSchema3 = z109.looseObject({
+  data: z109.looseObject({ repository: z109.record(z109.string(), IssueSchema4.nullable()).nullable() }).nullable()
+});
+function issuesQuery(issues) {
+  const fields = issues.map((issue) => `i${String(issue)}: issue(number: ${String(issue)}) { state closedByPullRequestsReferences(first: ${String(LINKED)}, includeClosedPrs: false) { nodes { number state } } }`).join(" ");
+  return `query BugIssues($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { ${fields} } }`;
+}
+function issuesOf(issues, data) {
+  const repository = AnswerSchema3.parse(data).data?.repository ?? {};
+  const read2 = /* @__PURE__ */ new Map();
+  for (const issue of issues) {
+    const one = repository[`i${String(issue)}`];
+    if (one == null) continue;
+    const fix = one.closedByPullRequestsReferences?.nodes.find((node) => node?.state === "OPEN") ?? null;
+    read2.set(issue, { open: one.state === "OPEN", openFix: fix?.number ?? null });
+  }
+  return read2;
+}
+var split2 = (repo) => {
   const [owner, name, ...rest] = repo.split("/");
   if (!owner || !name || rest.length > 0) throw new Error(`the repository "${repo}" is not owner/name`);
-  return { owner, repo: name };
+  return { owner, name };
 };
-function bugIssues({ octokitFor, app }) {
-  const clientFor = async (repo) => {
-    const at4 = split(repo);
-    const { data } = await (await app()).request("GET /repos/{owner}/{repo}/installation", at4);
-    return { at: at4, octokit: await octokitFor(InstallationSchema3.parse(data).id) };
-  };
+function missionBugIssues({ octokitFor }) {
   return {
-    create: async ({ repo, title, body, labels }) => {
-      const { at: at4, octokit } = await clientFor(repo);
-      const { data } = await octokit.request("POST /repos/{owner}/{repo}/issues", { ...at4, title, body, labels: [...labels] });
-      return IssueCreatedSchema.parse(data).number;
-    },
-    comment: async ({ repo, issue, body }) => {
-      const { at: at4, octokit } = await clientFor(repo);
-      await octokit.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { ...at4, issue_number: issue, body });
+    async read({ installation, repo, issues }) {
+      const asked = issues.slice(0, ISSUES_READ);
+      if (asked.length === 0) return /* @__PURE__ */ new Map();
+      const octokit = await octokitFor(installation);
+      const { data } = await octokit.request("POST /graphql", { query: issuesQuery(asked), variables: split2(repo) });
+      return issuesOf(asked, data);
     }
   };
 }
 
-// apps/omni-app/src/bug-reports/store.ts
-import { z as z107 } from "zod";
-var REPORT_COLUMNS = "fingerprint, repo, issue, count";
-var ReportRowSchema = z107.object({
-  fingerprint: z107.string().regex(/^[0-9a-f]{64}$/),
-  repo: z107.string().min(1),
-  issue: IssueNumberSchema,
-  count: z107.number().int().positive()
-});
-var UNIQUE_VIOLATION = "23505";
-function bugReportStore(connection) {
-  const db = serviceDb(connection);
+// apps/omni-app/src/missions/repair.github.ts
+import { z as z110 } from "zod";
+var STAMP5 = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
+var stampOf = (text20) => parseVersion(STAMP5.exec(text20)?.[1]);
+var BIN = ".omni-loop/bin/omni.mjs";
+var HEAD_BYTES = 65535;
+var CONTENTS2 = "GET /repos/{owner}/{repo}/contents/{path}";
+var PackageSchema = z110.looseObject({ version: z110.unknown() });
+function ownerAndName(full) {
+  const match = /^([^/\s]+)\/([^/\s]+)$/.exec(full);
+  const owner = match?.[1];
+  const repo = match?.[2];
+  if (owner === void 0 || repo === void 0) throw new Error(`the repository "${full}" is not owner/name`);
+  return { owner, repo };
+}
+async function rawText(octokit, { owner, repo, ref, path, bytes }) {
+  try {
+    const { data } = await octokit.request(CONTENTS2, {
+      owner,
+      repo,
+      path,
+      ...ref === null ? {} : { ref },
+      mediaType: { format: "raw" },
+      ...bytes === void 0 ? {} : { headers: { range: `bytes=0-${String(bytes)}` } }
+    });
+    if (typeof data === "string") return data;
+    return data instanceof ArrayBuffer ? new TextDecoder().decode(data) : null;
+  } catch (error) {
+    if (statusOf(error) === 404) return null;
+    throw error;
+  }
+}
+var isShim = (bin) => /['"]\.\.\/\.\.\/kit\/bin\/omni\.ts['"]/.test(bin);
+function packageVersion(text20) {
+  if (text20 === null) return null;
+  try {
+    const parsed3 = PackageSchema.safeParse(JSON.parse(text20));
+    return parsed3.success ? parseVersion(parsed3.data.version) : null;
+  } catch {
+    return null;
+  }
+}
+function missionKits({ octokitFor }) {
   return {
-    find: async (fingerprint2) => rowsOf(ReportRowSchema, await db.from("omni_bug_reports").select(REPORT_COLUMNS).eq("fingerprint", fingerprint2))[0] ?? null,
-    record: async (row) => {
-      const { error } = await db.from("omni_bug_reports").insert(row);
-      if (error?.code === UNIQUE_VIOLATION) return false;
-      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
-      return true;
-    },
-    seen: async (fingerprint2) => rowsOf(ReportRowSchema, await db.rpc("omni_bug_report_seen", { p_fingerprint: fingerprint2 }))[0] ?? null
+    async pinned({ installation, repo, ref }) {
+      try {
+        const octokit = await octokitFor(installation);
+        const at4 = { ...ownerAndName(repo), ref };
+        const bin = await rawText(octokit, { ...at4, path: BIN, bytes: HEAD_BYTES });
+        if (bin === null) return null;
+        const stamped = stampOf(bin);
+        if (stamped !== null || !isShim(bin)) return stamped;
+        return packageVersion(await rawText(octokit, { ...at4, path: "package.json" }));
+      } catch {
+        return null;
+      }
+    }
   };
 }
 
@@ -25352,12 +25970,12 @@ function bugReportStore(connection) {
 import { mkdtempSync as mkdtempSync17, rmSync as rmSync21 } from "node:fs";
 import { tmpdir as tmpdir17 } from "node:os";
 import { join as join76 } from "node:path";
-import { z as z108 } from "zod";
-var PullSchema7 = z108.looseObject({
-  html_url: z108.string(),
-  state: z108.string(),
-  base: z108.looseObject({ ref: z108.string(), repo: z108.looseObject({ default_branch: z108.string() }) }),
-  head: z108.looseObject({ ref: z108.string(), sha: z108.string() })
+import { z as z111 } from "zod";
+var PullSchema7 = z111.looseObject({
+  html_url: z111.string(),
+  state: z111.string(),
+  base: z111.looseObject({ ref: z111.string(), repo: z111.looseObject({ default_branch: z111.string() }) }),
+  head: z111.looseObject({ ref: z111.string(), sha: z111.string() })
 });
 var messageOf5 = (item, prd, fleet) => `docs(outbox): ${item} answered by fleet ${fleet}
 
@@ -25397,19 +26015,19 @@ function missionAnswers({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z110 } from "zod";
+import { z as z113 } from "zod";
 
 // kit/lib/qa/verdict.ts
-import { z as z109 } from "zod";
+import { z as z112 } from "zod";
 var MAX_BUGS = 5;
-var QaRoundSchema = z109.union([z109.literal(1), z109.literal(2)]);
-var QaBugSchema = z109.strictObject({ issue: IssueNumberSchema });
-var QaVerdictSchema = z109.discriminatedUnion("verdict", [
-  z109.strictObject({ round: QaRoundSchema, verdict: z109.literal("pass") }),
-  z109.strictObject({
+var QaRoundSchema = z112.union([z112.literal(1), z112.literal(2)]);
+var QaBugSchema = z112.strictObject({ issue: IssueNumberSchema });
+var QaVerdictSchema = z112.discriminatedUnion("verdict", [
+  z112.strictObject({ round: QaRoundSchema, verdict: z112.literal("pass") }),
+  z112.strictObject({
     round: QaRoundSchema,
-    verdict: z109.literal("bugs"),
-    bugs: z109.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
+    verdict: z112.literal("bugs"),
+    bugs: z112.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
   })
 ]);
 var POSTED_PREFIX = "omni qa: posted ";
@@ -25432,7 +26050,7 @@ var commentUrl = (url) => url !== void 0 && COMMENT_URL.test(url) ? url : null;
 // apps/omni-app/src/missions/store.ts
 var APP_SENDER2 = "omni-app";
 var TAKEN = "23505";
-var MISSION = "id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by";
+var MISSION = "id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by, kind";
 var WORKSPACE2 = "github_installation_id";
 var ROADMAP = "id, number";
 var ROADMAP_PRD = "roadmap_id, position, row_id, prd, blockers";
@@ -25454,109 +26072,134 @@ var ROOM_JOB = "runner_id";
 var PRODUCT = "plan_repository";
 var REPAIR = "id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger";
 var RETRO = "id, milestone, job_id, skipped, file";
-var BUG_REPORT = "repo, issue";
+var BUG_REPORT = "repo, issue, state, fixed_in";
+var TEAM_BUG = "fingerprint, issue, count, created_at, state, attempts, fix_pr, fixed_in, asked_job";
+var MOVED_BUG = "fingerprint";
+var HOLDER_REPAIR = "mission_id, job_id, fingerprint";
+var TOLD = "job_id";
+var HOLDER_MISSION = "id, repo";
 var REPOSITORY = "full_name";
 var ACTOR = "actor";
 var FLEET_CAP = "daily_tokens";
 var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at";
 var PAUSE_EVENT = "kind, actor, at";
 var FLEET_MISSION = "id";
-var text19 = z110.string().min(1);
-var MissionRowSchema = z110.object({
+var text19 = z113.string().min(1);
+var MissionRowSchema = z113.object({
   id: text19,
   workspace_id: text19,
   repo: text19,
   fleet: text19,
   number: IssueNumberSchema,
   title: text19,
-  status: z110.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z110.string().nullable(),
-  mandate: z110.object({
-    parallel: z110.number().int().min(1).max(4),
-    level: z110.enum(MISSION_LEVELS).default("with-you"),
-    hardToRevert: z110.number().min(0).max(1).default(DEFAULT_BOUND),
-    ownPrds: z110.number().int().min(0).max(10).default(0),
-    tokens: z110.number().int().min(1).nullable().default(null)
+  status: z113.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z113.string().nullable(),
+  mandate: z113.object({
+    parallel: z113.number().int().min(1).max(4),
+    level: z113.enum(MISSION_LEVELS).default("with-you"),
+    hardToRevert: z113.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z113.number().int().min(0).max(10).default(0),
+    tokens: z113.number().int().min(1).nullable().default(null)
   }),
-  scope: z110.object({ prds: z110.array(PrdNumberSchema), roadmaps: z110.array(IssueNumberSchema) }),
+  scope: z113.object({ prds: z113.array(PrdNumberSchema), roadmaps: z113.array(IssueNumberSchema) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
-  paused_by: z110.enum(["stuck"]).nullable().default(null)
+  paused_by: z113.enum(["stuck"]).nullable().default(null),
+  /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
+  kind: z113.enum(["prds", "omni-bugs"]).default("prds")
 });
-var WorkspaceRowSchema2 = z110.object({ github_installation_id: z110.number().int().positive().nullable() });
-var RoadmapRowSchema = z110.object({ id: text19, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z110.object({ roadmap_id: text19, position: z110.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z110.array(z110.string()) });
-var StageRowSchema = z110.object({ prd: PrdNumberSchema, stage: text19 });
-var DossierRowSchema5 = z110.object({ id: text19, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z110.object({ id: text19, dossier_id: text19, mission_id: z110.string().nullable(), approved_at: text19 });
-var FleetEventRowSchema = z110.object({ kind: text19, prd: PrdNumberSchema.nullable(), sentence: text19, link: z110.string().nullable(), actor: z110.string().nullable() });
-var OverturnRowSchema = z110.object({ prd: PrdNumberSchema.nullable(), at: text19 });
-var VoidRowSchema2 = z110.object({ approval_id: text19 });
-var PlanRowSchema = z110.object({ content: z110.string() });
-var JobRowSchema2 = z110.object({
+var WorkspaceRowSchema2 = z113.object({ github_installation_id: z113.number().int().positive().nullable() });
+var RoadmapRowSchema = z113.object({ id: text19, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z113.object({ roadmap_id: text19, position: z113.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z113.array(z113.string()) });
+var StageRowSchema = z113.object({ prd: PrdNumberSchema, stage: text19 });
+var DossierRowSchema5 = z113.object({ id: text19, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z113.object({ id: text19, dossier_id: text19, mission_id: z113.string().nullable(), approved_at: text19 });
+var FleetEventRowSchema = z113.object({ kind: text19, prd: PrdNumberSchema.nullable(), sentence: text19, link: z113.string().nullable(), actor: z113.string().nullable() });
+var OverturnRowSchema = z113.object({ prd: PrdNumberSchema.nullable(), at: text19 });
+var VoidRowSchema2 = z113.object({ approval_id: text19 });
+var PlanRowSchema = z113.object({ content: z113.string() });
+var JobRowSchema2 = z113.object({
   id: text19,
-  mission_key: z110.string().nullable(),
-  resumes: z110.string().nullable(),
-  status: z110.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z110.string().nullable(),
-  reason: z110.string().nullable(),
-  pr_url: z110.string().nullable(),
-  limited_until: z110.string().nullable().default(null),
+  mission_key: z113.string().nullable(),
+  resumes: z113.string().nullable(),
+  status: z113.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z113.string().nullable(),
+  reason: z113.string().nullable(),
+  pr_url: z113.string().nullable(),
+  limited_until: z113.string().nullable().default(null),
   /** The job's parts, read only for whether the runner guessed the reset (PRD 2949). */
-  parts: z110.array(z110.looseObject({ guessed: z110.boolean().optional() })).nullable().default(null)
+  parts: z113.array(z113.looseObject({ guessed: z113.boolean().optional() })).nullable().default(null)
 });
-var JobLogRowSchema = z110.object({ id: text19, log_tail: z110.string() });
+var JobLogRowSchema = z113.object({ id: text19, log_tail: z113.string() });
 var ASK2 = `${JOB2}, line`;
-var AskRowSchema = JobRowSchema2.extend({ line: z110.string() });
-var CareRowSchema = z110.object({ id: text19 });
-var EventRowSchema = z110.object({ kind: text19, prd: PrdNumberSchema.nullable(), job_id: z110.string().nullable() });
-var DecisionRowSchema = z110.object({ job_id: text19, outcome: z110.enum(["carried", "escalated"]), why: z110.array(z110.string()) });
-var DecidedSchema = z110.object({ outcome: z110.enum(["carried", "escalated"]), why: z110.array(z110.string()) });
-var RunnerRowSchema = z110.object({ repos: z110.array(z110.string()) });
-var RoomRunnerRowSchema = z110.object({
+var AskRowSchema = JobRowSchema2.extend({ line: z113.string() });
+var CareRowSchema = z113.object({ id: text19 });
+var EventRowSchema = z113.object({ kind: text19, prd: PrdNumberSchema.nullable(), job_id: z113.string().nullable() });
+var DecisionRowSchema = z113.object({ job_id: text19, outcome: z113.enum(["carried", "escalated"]), why: z113.array(z113.string()) });
+var DecidedSchema = z113.object({ outcome: z113.enum(["carried", "escalated"]), why: z113.array(z113.string()) });
+var RunnerRowSchema = z113.object({ repos: z113.array(z113.string()) });
+var RoomRunnerRowSchema = z113.object({
   id: text19,
-  repos: z110.array(z110.string()),
-  slots: z110.number().int(),
+  repos: z113.array(z113.string()),
+  slots: z113.number().int(),
   last_seen_at: text19,
-  health: z110.looseObject({ at: text19, paused: z110.string().nullable().optional(), accounts: z110.array(z110.looseObject({ state: z110.string(), resetsAt: z110.string().optional() })).optional() }).nullable()
+  health: z113.looseObject({ at: text19, paused: z113.string().nullable().optional(), accounts: z113.array(z113.looseObject({ state: z113.string(), resetsAt: z113.string().optional() })).optional() }).nullable()
 });
-var RoomJobRowSchema = z110.object({ runner_id: z110.string().nullable() });
+var RoomJobRowSchema = z113.object({ runner_id: z113.string().nullable() });
 var CHAIN_MAX = 9;
-var ProductRowSchema3 = z110.object({ plan_repository: z110.string().nullable() });
-var RepairRowSchema = z110.object({
+var ProductRowSchema3 = z113.object({ plan_repository: z113.string().nullable() });
+var RepairRowSchema = z113.object({
   id: text19,
   /** None only for a stuck repair whose cause is the mission's own (PRD 3065). */
   prd: PrdNumberSchema.nullable(),
-  trigger: z110.enum(["failure", "stuck"]).default("failure"),
-  fingerprint: z110.string().regex(/^[0-9a-f]{64}$/),
-  round: z110.number().int().min(1),
-  number: z110.number().int().min(1).max(3),
+  trigger: z113.enum(["failure", "stuck"]).default("failure"),
+  fingerprint: z113.string().regex(/^[0-9a-f]{64}$/),
+  round: z113.number().int().min(1),
+  number: z113.number().int().min(1).max(3),
   failed_job_id: text19,
-  job_id: z110.string().nullable(),
+  job_id: z113.string().nullable(),
   /** A retro that no longer reads as one is read as none: the repair counts, its words are not shown. */
   retro: RepairRetroSchema.nullable().catch(null),
-  fix_pr: z110.string().nullable(),
-  outcome: z110.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
+  fix_pr: z113.string().nullable(),
+  outcome: z113.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
 });
-var BugReportRowSchema = z110.object({ repo: text19, issue: IssueNumberSchema });
-var RetroRowSchema = z110.object({ id: text19, milestone: text19, job_id: z110.string().nullable(), skipped: z110.string().nullable(), file: z110.string().nullable() });
-var RepositoryRowSchema2 = z110.object({ full_name: text19 });
-var ActorRowSchema = z110.object({ actor: z110.string().nullable() });
-var FleetCapRowSchema = z110.object({ daily_tokens: z110.number().int().positive().nullable() });
-var StopRowSchema = z110.object({
-  id: text19,
-  cap: z110.enum(["mission", "fleet"]),
-  cap_tokens: z110.number().int().positive(),
-  spent: z110.number().int().min(0),
-  missions: z110.array(text19),
-  answer: z110.enum(["raised", "tomorrow", "stopped"]).nullable(),
-  raised_to: z110.number().int().positive().nullable(),
+var BugReportRowSchema = z113.object({ repo: text19, issue: IssueNumberSchema, state: z113.enum(BUG_STATES2).default("open"), fixed_in: z113.string().nullable().default(null) });
+var TeamBugRowSchema = z113.object({
+  fingerprint: z113.string().regex(/^[0-9a-f]{64}$/),
+  issue: IssueNumberSchema,
+  count: z113.number().int().min(1),
   created_at: text19,
-  answered_at: z110.string().nullable()
+  state: z113.enum(BUG_STATES2),
+  attempts: z113.number().int().min(0).max(BUG_TRIES),
+  fix_pr: PrNumberSchema.nullable(),
+  fixed_in: z113.string().nullable(),
+  asked_job: z113.string().nullable()
 });
-var PauseEventRowSchema = z110.object({ kind: z110.enum(["paused", "resumed"]), actor: z110.string().nullable(), at: text19 });
-var FleetMissionRowSchema = z110.object({ id: text19 });
-var CountSchema = z110.coerce.number().int().min(0);
-var FleetTokensRowSchema = z110.object({ tokens: CountSchema, oldest_end: z110.string().nullable() });
+var TEAM_STATES = ["open", "fixing", "asked"];
+var MovedBugRowSchema = z113.object({ fingerprint: z113.string().regex(/^[0-9a-f]{64}$/) });
+var HolderRepairRowSchema = z113.object({ mission_id: text19, job_id: text19, fingerprint: z113.string().regex(/^[0-9a-f]{64}$/) });
+var ToldRowSchema = z113.object({ job_id: z113.string().nullable() });
+var HolderMissionRowSchema = z113.object({ id: text19, repo: text19 });
+var MOVED_STATES = ["fixed", "wont-fix"];
+var HELD_STATUSES = ["paused", "stopped"];
+var RetroRowSchema = z113.object({ id: text19, milestone: text19, job_id: z113.string().nullable(), skipped: z113.string().nullable(), file: z113.string().nullable() });
+var RepositoryRowSchema2 = z113.object({ full_name: text19 });
+var ActorRowSchema = z113.object({ actor: z113.string().nullable() });
+var FleetCapRowSchema = z113.object({ daily_tokens: z113.number().int().positive().nullable() });
+var StopRowSchema = z113.object({
+  id: text19,
+  cap: z113.enum(["mission", "fleet"]),
+  cap_tokens: z113.number().int().positive(),
+  spent: z113.number().int().min(0),
+  missions: z113.array(text19),
+  answer: z113.enum(["raised", "tomorrow", "stopped"]).nullable(),
+  raised_to: z113.number().int().positive().nullable(),
+  created_at: text19,
+  answered_at: z113.string().nullable()
+});
+var PauseEventRowSchema = z113.object({ kind: z113.enum(["paused", "resumed"]), actor: z113.string().nullable(), at: text19 });
+var FleetMissionRowSchema = z113.object({ id: text19 });
+var CountSchema = z113.coerce.number().int().min(0);
+var FleetTokensRowSchema = z113.object({ tokens: CountSchema, oldest_end: z113.string().nullable() });
 var stopOf2 = (row) => ({
   id: row.id,
   cap: row.cap,
@@ -25576,7 +26219,7 @@ var STOP_MISSIONS = 100;
 var PAUSES_READ = 50;
 function madeOf(answer, none) {
   if (answer.error?.code === TAKEN) return null;
-  const [made] = rowsOf(z110.object({ id: text19 }), answer);
+  const [made] = rowsOf(z113.object({ id: text19 }), answer);
   if (!made) throw new Error(`the database ${none} and gave no reason`);
   return made.id;
 }
@@ -25700,9 +26343,9 @@ function missionStore(connection) {
     return team?.daily_tokens ?? null;
   }
   async function missionSpent(mission) {
-    const spent = await db.rpc("mission_tokens", { p_mission: mission.id });
-    if (spent.error) throw new Error(`the database refused the mission's tokens: ${spent.error.message}`);
-    return CountSchema.parse(spent.data);
+    const spent2 = await db.rpc("mission_tokens", { p_mission: mission.id });
+    if (spent2.error) throw new Error(`the database refused the mission's tokens: ${spent2.error.message}`);
+    return CountSchema.parse(spent2.data);
   }
   const retros = {
     async milestones(mission) {
@@ -25744,8 +26387,52 @@ function missionStore(connection) {
     const open = rowsOf(StopRowSchema, await stops().eq("fleet", mission.fleet).eq("cap", "fleet").is("answer", null).limit(1)).map(stopOf2);
     return { named: named[0] ?? null, open: open[0] ?? null };
   }
+  const bugTeam = {
+    async bugs(repo) {
+      const rows = rowsOf(TeamBugRowSchema, await db.from("omni_bug_reports").select(TEAM_BUG).eq("repo", repo.toLowerCase()).in("state", [...TEAM_STATES]).order("created_at"));
+      return rows.map((row) => ({
+        fingerprint: row.fingerprint,
+        issue: row.issue,
+        count: row.count,
+        createdAt: row.created_at,
+        state: row.state,
+        attempts: row.attempts,
+        fixPr: row.fix_pr,
+        fixedIn: row.fixed_in,
+        askedJob: row.asked_job
+      }));
+    },
+    async jobs(id) {
+      return (await keyedJobs(id, `mission:${id}:bug:%`)).flatMap(({ row, attempts }) => {
+        const key = row.mission_key === null ? null : bugOfKey(row.mission_key);
+        return key === null ? [] : [{ issue: key.issue, k: key.k, job: row.id, attempts }];
+      });
+    },
+    send: ({ mission, issue, k, toFleet }) => queue({ mission, toFleet, line: bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
+    async move(bug, { state, attempts, fixPr, askedJob }) {
+      const moved = rowsOf(
+        z113.object({ fingerprint: text19 }),
+        await db.from("omni_bug_reports").update({ state, attempts, fix_pr: fixPr, asked_job: askedJob, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("fingerprint", bug.fingerprint).eq("state", bug.state).eq("attempts", bug.attempts).select("fingerprint")
+      );
+      return moved.length > 0;
+    },
+    async holders() {
+      const moved = rowsOf(MovedBugRowSchema, await db.from("omni_bug_reports").select(MOVED_BUG).in("state", [...MOVED_STATES])).map((row) => row.fingerprint);
+      if (moved.length === 0) return [];
+      const repairs = rowsOf(
+        HolderRepairRowSchema,
+        await db.from("mission_repairs").select(HOLDER_REPAIR).in("fingerprint", moved).eq("outcome", "stopped").eq("trigger", "failure").eq("retro->>class", "omni-loop").not("job_id", "is", null)
+      );
+      if (repairs.length === 0) return [];
+      const told = rowsOf(ToldRowSchema, await db.from("mission_events").select(TOLD).eq("kind", "bug-fixed").in("job_id", repairs.map((row) => row.job_id)));
+      const ids = untold(repairs.map((row) => ({ mission: row.mission_id, job: row.job_id, fingerprint: row.fingerprint })), new Set(told.flatMap((row) => row.job_id === null ? [] : [row.job_id])));
+      if (ids.length === 0) return [];
+      return rowsOf(HolderMissionRowSchema, await db.from("missions").select(HOLDER_MISSION).in("id", ids).in("status", [...HELD_STATUSES]));
+    }
+  };
   return {
     retros,
+    bugTeam,
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
       if (!row) return null;
@@ -25764,7 +26451,8 @@ function missionStore(connection) {
         hardToRevert: row.mandate.hardToRevert,
         ownPrds: row.mandate.ownPrds,
         ...row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens },
-        ...row.paused_by === "stuck" ? { pausedBy: "stuck" } : {}
+        ...row.paused_by === "stuck" ? { pausedBy: "stuck" } : {},
+        ...row.kind === "omni-bugs" ? { kind: row.kind } : {}
       };
     },
     async facts(mission) {
@@ -25898,11 +26586,11 @@ function missionStore(connection) {
       return repairOf(kept3);
     },
     async endRepair(id, outcome3) {
-      rowsOf(z110.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
+      rowsOf(z113.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
     },
     async bugIssue(fingerprint2) {
       const [row] = rowsOf(BugReportRowSchema, await db.from("omni_bug_reports").select(BUG_REPORT).eq("fingerprint", fingerprint2).limit(1));
-      return row ?? null;
+      return row === void 0 ? null : { repo: row.repo, issue: row.issue, fix: bugFixOf(row.state, row.fixed_in) };
     },
     addJob: (job) => jobLedger(connection).add(job),
     async names(mission) {
@@ -25924,36 +26612,36 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z110.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z113.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status: status2, waitingOn, nextWakeAt, pausedBy }) {
       const by = pausedBy === "stuck" ? { paused_by: pausedBy } : {};
       const moved = rowsOf(
-        z110.object({ id: text19 }),
+        z113.object({ id: text19 }),
         await db.from("missions").update({ status: status2, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString(), ...by }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
     },
     async budget(mission, at4) {
       const fleetCap = await fleetCapOf(mission);
-      const spent = await missionSpent(mission);
+      const spent2 = await missionSpent(mission);
       const fleet = await fleetSpent(mission, at4);
       const stops = await stopsOf(mission);
       const pauses = rowsOf(PauseEventRowSchema, await db.from("mission_events").select(PAUSE_EVENT).eq("mission_id", mission.id).in("kind", ["paused", "resumed"]).is("prd", null).order("at", { ascending: false }).limit(PAUSES_READ));
-      return { missionSpent: spent, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
+      return { missionSpent: spent2, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
     },
     async fleetMissions(mission) {
       const rows = rowsOf(FleetMissionRowSchema, await db.from("missions").select(FLEET_MISSION).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet).in("status", ["running", "waiting"]).order("created_at").limit(STOP_MISSIONS));
       return [mission.id, ...rows.map((row) => row.id).filter((id) => id !== mission.id)].slice(0, STOP_MISSIONS);
     },
-    async stop(mission, { cap, capTokens, spent, missions }) {
-      const answer = await db.from("mission_budget_stops").insert({ workspace_id: mission.workspace, fleet: mission.fleet, cap, mission_id: cap === "mission" ? mission.id : null, cap_tokens: capTokens, spent, missions: [...missions] }).select("id");
+    async stop(mission, { cap, capTokens, spent: spent2, missions }) {
+      const answer = await db.from("mission_budget_stops").insert({ workspace_id: mission.workspace, fleet: mission.fleet, cap, mission_id: cap === "mission" ? mission.id : null, cap_tokens: capTokens, spent: spent2, missions: [...missions] }).select("id");
       return madeOf(answer, "recorded no budget stop");
     },
     async pause(ids, waitingOn) {
       if (ids.length === 0) return;
       rowsOf(
-        z110.unknown(),
+        z113.unknown(),
         await db.from("missions").update({ status: "paused", waiting_on: waitingOn, next_wake_at: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", [...ids]).in("status", ["running", "waiting"]).select("id")
       );
     }
@@ -26063,9 +26751,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z111 } from "zod";
+import { z as z114 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z111.looseObject({ category: z111.string().nullable() });
+var ReplySchema2 = z114.looseObject({ category: z114.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -26088,10 +26776,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z112 } from "zod";
-var UngroupedRowSchema = z112.object({ id: z112.string().min(1), product_id: z112.string().min(1), workspace_id: z112.string().min(1), query: z112.string().min(1) });
-var NearestRowSchema = z112.object({ group_id: z112.string().min(1), cosine: z112.number() });
-var GroupIdSchema = z112.object({ id: z112.string().min(1) });
+import { z as z115 } from "zod";
+var UngroupedRowSchema = z115.object({ id: z115.string().min(1), product_id: z115.string().min(1), workspace_id: z115.string().min(1), query: z115.string().min(1) });
+var NearestRowSchema = z115.object({ group_id: z115.string().min(1), cosine: z115.number() });
+var GroupIdSchema = z115.object({ id: z115.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -26109,7 +26797,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z112.array(NearestRowSchema).parse(data);
+      const [row] = z115.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -26129,13 +26817,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z113 } from "zod";
+import { z as z116 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z113.looseObject({
-  verdicts: z113.array(z113.looseObject({ entryId: z113.string().min(1), relevant: z113.boolean().nullable(), confidence: z113.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z116.looseObject({
+  verdicts: z116.array(z116.looseObject({ entryId: z116.string().min(1), relevant: z116.boolean().nullable(), confidence: z116.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z113.looseObject({ ids: z113.array(z113.string().min(1)) });
+var SearchSchema2 = z116.looseObject({ ids: z116.array(z116.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -26171,19 +26859,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z114 } from "zod";
+import { z as z117 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z114.object({ group_id: z114.string().min(1), product_id: z114.string().min(1), workspace_id: z114.string().min(1), category: z114.string().nullable() });
-var GroupRowSchema = z114.object({ group_id: z114.string().min(1) });
-var QuestionTextSchema = z114.object({ question: z114.string() });
-var OpenedRowSchema = z114.object({ opened_id: z114.string().min(1) });
-var ProductRowSchema4 = z114.object({ product_id: z114.string().min(1) });
-var HolderRowSchema5 = z114.object({ product_id: z114.string().min(1) });
-var LiveProductSchema = z114.object({ id: z114.string().min(1) });
-var QuestionRowSchema = z114.object({ id: z114.string().min(1), product_id: z114.string().min(1), workspace_id: z114.string().min(1), question: z114.string(), category: z114.string().nullable() });
-var AnswerRowSchema = z114.object({ question_id: z114.string().min(1), entry_id: z114.string().min(1) });
-var RunRowSchema = z114.object({ id: z114.string().min(1) });
+var LogRowSchema = z117.object({ group_id: z117.string().min(1), product_id: z117.string().min(1), workspace_id: z117.string().min(1), category: z117.string().nullable() });
+var GroupRowSchema = z117.object({ group_id: z117.string().min(1) });
+var QuestionTextSchema = z117.object({ question: z117.string() });
+var OpenedRowSchema = z117.object({ opened_id: z117.string().min(1) });
+var ProductRowSchema4 = z117.object({ product_id: z117.string().min(1) });
+var HolderRowSchema5 = z117.object({ product_id: z117.string().min(1) });
+var LiveProductSchema = z117.object({ id: z117.string().min(1) });
+var QuestionRowSchema = z117.object({ id: z117.string().min(1), product_id: z117.string().min(1), workspace_id: z117.string().min(1), question: z117.string(), category: z117.string().nullable() });
+var AnswerRowSchema = z117.object({ question_id: z117.string().min(1), entry_id: z117.string().min(1) });
+var RunRowSchema = z117.object({ id: z117.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -26218,7 +26906,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z114.string().min(1).nullable().parse(data);
+      return z117.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -26231,7 +26919,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant: relevant2, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant2, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z114.boolean().parse(data);
+      return z117.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -26264,7 +26952,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z114.string().min(1).nullable().parse(data);
+      return z117.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -26355,19 +27043,19 @@ function searchEvalPromoteHandler({
 }
 
 // kit/lib/ready/report.ts
-import { z as z115 } from "zod";
+import { z as z118 } from "zod";
 var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
 var ACCEPTANCE_CHECK_NAME = "acceptance";
 var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z115.object({
-  ac: z115.number().int().positive(),
-  kind: z115.enum(AC_KINDS),
-  state: z115.enum(RESULT_STATES),
+var ResultSchema = z118.object({
+  ac: z118.number().int().positive(),
+  kind: z118.enum(AC_KINDS),
+  state: z118.enum(RESULT_STATES),
   /** The test's title, `AC-<n>: …`. */
-  title: z115.string().min(1),
+  title: z118.string().min(1),
   /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z115.string().min(1).nullable().default(null),
-  why: z115.string().min(1).optional()
+  proof: z118.string().min(1).nullable().default(null),
+  why: z118.string().min(1).optional()
 }).strict().superRefine((result, issues) => {
   const proves = acNumberOfTitle(result.title);
   if (proves !== result.ac) {
@@ -26375,10 +27063,10 @@ var ResultSchema = z115.object({
     issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
   }
 });
-var ReportSchema = z115.object({
-  format: z115.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z115.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z115.array(ResultSchema)
+var ReportSchema = z118.object({
+  format: z118.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z118.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z118.array(ResultSchema)
 }).strict();
 function parseAcceptanceReport(text20) {
   let raw;
@@ -26408,9 +27096,9 @@ var ACCEPTANCE_MARK = "omni-acceptance:";
 function acceptanceOfLog(log2) {
   const line3 = log2.split("\n").reverse().find((each) => each.includes(ACCEPTANCE_MARK));
   if (line3 === void 0) return null;
-  const said2 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
-  if (!said2.startsWith("{")) return { ok: false, why: said2.replace(/^failed — /, "") || "the run said nothing" };
-  const read2 = parseAcceptanceReport(said2);
+  const said3 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
+  if (!said3.startsWith("{")) return { ok: false, why: said3.replace(/^failed — /, "") || "the run said nothing" };
+  const read2 = parseAcceptanceReport(said3);
   return read2.ok ? { ok: true, report: read2.report } : { ok: false, why: read2.why };
 }
 var READY_JOB_KIND = "pr-ready";
@@ -26802,25 +27490,25 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z118 } from "zod";
+import { z as z121 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
 import { existsSync as existsSync52, readFileSync as readFileSync50 } from "node:fs";
 import { join as join78 } from "node:path";
-import { z as z116 } from "zod";
+import { z as z119 } from "zod";
 var read = (value) => ({ ok: true, value });
 var unread = (why) => ({ ok: false, why });
-var RunSchema3 = z116.looseObject({
-  name: z116.string(),
-  status: z116.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
-  conclusion: z116.string().nullish(),
-  html_url: z116.string().nullish(),
-  output: z116.looseObject({ title: z116.string().nullish(), summary: z116.string().nullish(), text: z116.string().nullish() }).nullish()
+var RunSchema3 = z119.looseObject({
+  name: z119.string(),
+  status: z119.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
+  conclusion: z119.string().nullish(),
+  html_url: z119.string().nullish(),
+  output: z119.looseObject({ title: z119.string().nullish(), summary: z119.string().nullish(), text: z119.string().nullish() }).nullish()
 });
-var RunsPageSchema2 = z116.looseObject({ check_runs: z116.array(RunSchema3) });
-var ComparePageSchema2 = z116.looseObject({
-  merge_base_commit: z116.looseObject({ sha: z116.string() }).nullish(),
-  files: z116.array(z116.looseObject({ filename: z116.string(), status: z116.string(), previous_filename: z116.string().nullish() })).nullish()
+var RunsPageSchema2 = z119.looseObject({ check_runs: z119.array(RunSchema3) });
+var ComparePageSchema2 = z119.looseObject({
+  merge_base_commit: z119.looseObject({ sha: z119.string() }).nullish(),
+  files: z119.array(z119.looseObject({ filename: z119.string(), status: z119.string(), previous_filename: z119.string().nullish() })).nullish()
 });
 var STATUS2 = Object.freeze({
   added: "added",
@@ -26988,7 +27676,7 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
 }
 
 // apps/omni-app/src/ready-check/runner-fallback.ts
-import { z as z117 } from "zod";
+import { z as z120 } from "zod";
 
 // apps/omni-app/src/ready-check/zip.ts
 import { inflateRawSync } from "node:zlib";
@@ -27046,11 +27734,11 @@ function unzipText(zip, name) {
 var KEPT_ARTIFACT = "acceptance-report";
 var KEPT_FILE = "report.json";
 var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
-var ArtifactsSchema = z117.looseObject({
-  artifacts: z117.array(z117.looseObject({ id: z117.number(), expired: z117.boolean().nullish(), workflow_run: z117.looseObject({ head_sha: z117.string().nullish() }).nullish() }))
+var ArtifactsSchema = z120.looseObject({
+  artifacts: z120.array(z120.looseObject({ id: z120.number(), expired: z120.boolean().nullish(), workflow_run: z120.looseObject({ head_sha: z120.string().nullish() }).nullish() }))
 });
-var RunSchema4 = z117.looseObject({ id: z117.number(), status: z117.string().nullish(), conclusion: z117.string().nullish(), output: z117.looseObject({ title: z117.string().nullish(), summary: z117.string().nullish(), text: z117.string().nullish() }).nullish() });
-var RunsSchema = z117.looseObject({ check_runs: z117.array(RunSchema4).nullish() });
+var RunSchema4 = z120.looseObject({ id: z120.number(), status: z120.string().nullish(), conclusion: z120.string().nullish(), output: z120.looseObject({ title: z120.string().nullish(), summary: z120.string().nullish(), text: z120.string().nullish() }).nullish() });
+var RunsSchema = z120.looseObject({ check_runs: z120.array(RunSchema4).nullish() });
 async function keptReport(octokit, { owner, repo, headSha }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
   const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
@@ -27067,16 +27755,16 @@ async function keptReport(octokit, { owner, repo, headSha }) {
 }
 var ended6 = (job) => job !== null && ["done", "failed", "cancelled"].includes(job.status);
 function noResult(job) {
-  const said2 = acceptanceOfLog(job.logTail);
-  const how = said2 !== null && !said2.ok ? said2.why : job.reason ?? `it ended ${job.status} with no result`;
+  const said3 = acceptanceOfLog(job.logTail);
+  const how = said3 !== null && !said3.ok ? said3.why : job.reason ?? `it ended ${job.status} with no result`;
   return `the runner's e2e run gave no result (${how}); a new commit runs it again`;
 }
 function standingReport(kept3, criteria, job) {
   if (!ended6(job)) return kept3;
   const e2e = new Set(criteria.filter((criterion) => criterion.kind === "e2e").map((criterion) => criterion.number));
   const others = kept3.results.filter((result) => result.kind !== "e2e" || !e2e.has(result.ac));
-  const said2 = acceptanceOfLog(job.logTail);
-  const ran = said2?.ok === true && said2.report.commit === kept3.commit ? said2.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
+  const said3 = acceptanceOfLog(job.logTail);
+  const ran = said3?.ok === true && said3.report.commit === kept3.commit ? said3.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
   return { ...kept3, results: [...others, ...ran].sort((a, b) => a.ac - b.ac) };
 }
 function standing(criterion, report) {
@@ -27202,9 +27890,9 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema5 = z118.looseObject({ id: z118.number(), status: z118.string().nullish(), conclusion: z118.string().nullish(), html_url: z118.string().nullish(), output: z118.looseObject({ title: z118.string().nullish(), summary: z118.string().nullish() }).nullish() });
-var RunsSchema2 = z118.looseObject({ check_runs: z118.array(RunSchema5).nullish() });
-var WrittenSchema2 = z118.looseObject({ id: z118.number(), html_url: z118.string().nullish() });
+var RunSchema5 = z121.looseObject({ id: z121.number(), status: z121.string().nullish(), conclusion: z121.string().nullish(), html_url: z121.string().nullish(), output: z121.looseObject({ title: z121.string().nullish(), summary: z121.string().nullish() }).nullish() });
+var RunsSchema2 = z121.looseObject({ check_runs: z121.array(RunSchema5).nullish() });
+var WrittenSchema2 = z121.looseObject({ id: z121.number(), html_url: z121.string().nullish() });
 var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
@@ -27298,15 +27986,15 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z119 } from "zod";
+import { z as z122 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var AppJobRowSchema = z119.object({
-  status: z119.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  log_tail: z119.string(),
-  reason: z119.string().nullable()
+var AppJobRowSchema = z122.object({
+  status: z122.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z122.string(),
+  reason: z122.string().nullable()
 });
-var MissionScopeRowSchema = z119.object({ scope: z119.object({ prds: z119.array(PrdNumberSchema), roadmaps: z119.array(z119.number().int().positive()) }) });
-var RoadmapRowOfSchema = z119.object({ roadmap_id: z119.string().min(1) });
+var MissionScopeRowSchema = z122.object({ scope: z122.object({ prds: z122.array(PrdNumberSchema), roadmaps: z122.array(z122.number().int().positive()) }) });
+var RoadmapRowOfSchema = z122.object({ roadmap_id: z122.string().min(1) });
 function readyStore(connection) {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
@@ -27436,8 +28124,9 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), bugIssues: missionBugIssues({ octokitFor }), kits: missionKits({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
+      [BUG_FOLLOW_KIND]: bugFollowHandler({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
       [FIX_ROW_STAMP_KIND]: fixRowStampHandler({ stamp: fixRowStamper(supabase) }),
       [FLEET_BOARD_KIND]: fleetBoardHandler({ octokitFor, store: fleetBoardStore(supabase) }),
@@ -27500,7 +28189,7 @@ async function runDue({
   return summary2;
 }
 async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt: endsAt2, log: log2, summary: summary2 }) {
-  const settling = settle(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
+  const settling = settle2(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
   const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
   const kept3 = await keep2(ledger, job, settled2, log2);
@@ -27539,7 +28228,7 @@ function stepsOf(ledger, job, leaseSeconds, log2) {
   if (!save || !read2 || !renew) return memorySteps();
   return jobSteps({ ledger: { save, stepsOf: read2, renew }, job: { id: job.id, claim: job.claim }, leaseSeconds, log: log2 });
 }
-async function settle(job, handler, run, clock) {
+async function settle2(job, handler, run, clock) {
   try {
     if (!handler) throw new Error(`no handler runs jobs of kind ${job.kind} here`);
     return settledOf2(await handler(job, run));
@@ -27597,10 +28286,11 @@ function liveJobs(env, logger) {
     schedule: () => addScheduled({ ledger }),
     gaps: () => compareGaps({ store: gapsStore(supabase), ledger, appOctokit: appOctokitFor(env.githubApp ?? null), octokitFor }),
     replay: (id) => ledger.replay(id),
-    forget: () => ledger.forget()
+    forget: () => ledger.forget(),
+    bugs: () => sweepBugs({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), log: noteTo("bug-follow", logger) })
   };
 }
-var ReplayBodySchema = z120.object({ replay: z120.string().min(1) });
+var ReplayBodySchema = z123.object({ replay: z123.string().min(1) });
 var json2 = (status2, body) => Response.json(body, { status: status2, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;
@@ -27620,6 +28310,7 @@ function jobsSweepRoute(env, { logger = log, jobs = liveJobs(env, logger), clock
       const body = {};
       if (new URL(request.url).searchParams.get("gaps") === "1") {
         body.gaps = await ledger.gaps();
+        if (ledger.bugs) body.bugs = await ledger.bugs().catch(() => ({ failed: true }));
         if (new Date(clock()).getUTCHours() === FORGET_HOUR_UTC) body.forgotten = await ledger.forget();
       }
       body.delayed = await ledger.delayed();

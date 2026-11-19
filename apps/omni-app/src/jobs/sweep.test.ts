@@ -131,6 +131,43 @@ describe('/api/jobs-sweep (PRD 2676 s4)', () => {
   });
 });
 
+describe('/api/jobs-sweep — the Omni Loop bugs a webhook missed (PRD 3088 s4)', () => {
+  const gapsCall = () => new Request(`${URL_BASE}?gaps=1`, { headers: authed });
+
+  it('reads the bugs in the hourly call, after the comparison and before the jobs due', async () => {
+    const calls: string[] = [];
+    const jobs: SweepJobs = {
+      ...fake(calls),
+      bugs: () => {
+        calls.push('bugs');
+        return Promise.resolve({ read: 3, moved: 1 });
+      },
+    };
+    const body = (await (await route(jobs).GET(gapsCall())).json()) as { bugs: unknown };
+    expect(body.bugs).toEqual({ read: 3, moved: 1 });
+    expect(calls.slice(0, 2)).toEqual(['gaps', 'bugs']);
+    expect(calls).toContain('run');
+  });
+
+  it('reads no bug in the minute call', async () => {
+    const calls: string[] = [];
+    const jobs: SweepJobs = { ...fake(calls), bugs: () => Promise.resolve({ read: 0, moved: 0 }) };
+    const body = (await (await route(jobs).GET(new Request(URL_BASE, { headers: authed }))).json()) as { bugs?: unknown };
+    expect(body.bugs).toBeUndefined();
+  });
+
+  it('counts a reading that failed and still runs the jobs due, saying nothing of why', async () => {
+    const calls: string[] = [];
+    const jobs: SweepJobs = { ...fake(calls), bugs: () => Promise.reject(new Error('token ghs_secret refused')) };
+    const response = await route(jobs).GET(gapsCall());
+    const text = await response.text();
+    expect(response.status).toBe(200);
+    expect(JSON.parse(text)).toMatchObject({ bugs: { failed: true } });
+    expect(text).not.toContain('ghs_secret');
+    expect(calls).toContain('run');
+  });
+});
+
 describe('/api/jobs-sweep — the jobs run within the function (bug #2756)', () => {
   it('tells the run, and a replay\'s, the function ends 300 seconds after the call came in', async () => {
     const ends: number[] = [];
