@@ -13,8 +13,8 @@ import { partsOf } from './parts.ts';
 const SRC = new URL('../src/', import.meta.url);
 const SCREENS = new URL('../../../.omni-loop/knowledge/design/screens/', import.meta.url);
 const OUT = new URL('../../design/design-system.json', import.meta.url);
-const THEMES = ['omni', 'light', 'dark'] as const;
-type Theme = (typeof THEMES)[number];
+
+type Theme = 'omni' | 'light' | 'dark';
 
 /** The manifest's version: a reader refuses any other. */
 export const MANIFEST_VERSION = 1;
@@ -126,8 +126,8 @@ async function componentsOf(src: URL): Promise<ComponentSource[]> {
   const files = readdirSync(src);
   const parts = partsOf(files, (file) => readFileSync(new URL(file, src), 'utf8'));
   return Promise.all(parts.map(async ({ name, meta }) => {
-    const module: Record<string, unknown> = await import(new URL(`${name}.meta.ts`, src).href);
-    return module[meta] as ComponentSource;
+    const module: unknown = await import(new URL(`${name}.meta.ts`, src).href);
+    return (module as Record<string, ComponentSource>)[meta] as ComponentSource;
   }));
 }
 
