@@ -892,7 +892,7 @@ Proposed: harvest 2026-11-14
 A mission sends a PRD again after it failed, was held twice or stopped mid-way twice only when a repair allows it: while the mission has repairs left (3 per cause in a round, 9 per mission), it sends a repair, and the step goes again once the repair's fix landed on the mission branch or its cause was a flake. The PRD stops for good when its cause's 3 or the mission's 9 are spent, its job was cancelled, or its repair needs a person or met an Omni Loop bug; it comes back when a person resumes the mission, which opens a new round, or takes it to ready for review, and the mission then waits for its merge. A PRD stopped on an Omni Loop bug also comes back, spending no repair, once that bug's fix is released and the kit its repository pins is at that release or later; with an older kit it waits for the kit to be updated, a paused or stopped mission waits for its own Resume first, and a bug closed as not planned leaves it stopped, even after a Resume. A mission with nothing able to move reads stopped.
 
 Serves: P-PRODUCT-114
-Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-01-rule-on-sending-failed-prds-again-changes, PRD #2980; .omni-loop/delivery/inbox/3088-omni-bug-team/spec.md, section 6, PRD #3088
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-01-rule-on-sending-failed-prds-again-changes, PRD #2980; .omni-loop/delivery/shipped/3088-omni-bug-team/spec.md, section 6, PRD #3088
 Enforced by: apps/omni-app/src/missions/supervisor.test.ts, apps/omni-app/src/missions/mission.e2e.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts, apps/omni-app/src/missions/repair.bug-fixed.test.ts
 Stated: 2026-11-17
 Decided: @pierrederval, 2026-11-17
@@ -1077,7 +1077,7 @@ Proposed: harvest 2026-11-19
 At most one Omni Loop bug team is live at a time, across every workspace together: a team mission that is running, waiting or paused holds the one seat, and a draft or a stopped one does not, so a new team starts only once the old one is stopped.
 
 Serves: P-PRODUCT-52
-Source: .omni-loop/delivery/outbox/3088-omni-bug-team/settled.md, entry s2-01-one-live-bug-team, PRD #3088
+Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry s2-01-one-live-bug-team, PRD #3088
 Enforced by: supabase/checks/omni_bug_team.sql
 Stated: 2026-11-19
 Decided: @pierrederval, 2026-11-19
@@ -1087,7 +1087,7 @@ Decided: @pierrederval, 2026-11-19
 A paused or stopped mission holding a PRD on an Omni Loop bug hears once that the bug was fixed or will not be: the running bug team wakes it a single time to record the news in its own room, and it sends nothing until a person resumes it. A Resume then follows the bug: a fixed bug still needs the repository's kit at the fix's version, a bug closed as not planned keeps the PRD stopped, and a bug still open goes again as before.
 
 Serves: P-PRODUCT-114
-Source: .omni-loop/delivery/outbox/3088-omni-bug-team/settled.md, entry s5-03-held-missions-hear, PRD #3088
+Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry s5-03-held-missions-hear, PRD #3088
 Enforced by: apps/omni-app/src/missions/repair.bug-fixed.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts
 Stated: 2026-11-19
 Decided: @pierrederval, 2026-11-19

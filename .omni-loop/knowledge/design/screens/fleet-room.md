@@ -124,4 +124,4 @@ an agent is not a person.
 /omni:brainstorm, PRD 3001: .omni-loop/delivery/shipped/3001-qa-turn/before-after.html (QA rows, Checking, Decide the bugs, tokens on every row)
 /omni:brainstorm, PRD 3040: .omni-loop/delivery/shipped/3040-token-budget/before-after.html (the budget stop row)
 /omni:brainstorm, PRD 3065: .omni-loop/delivery/shipped/3065-mission-retros/before-after.html (the stuck, milestone-retro and proposed-change rows)
-/omni:brainstorm, PRD 3088: .omni-loop/delivery/inbox/3088-omni-bug-team/before-after.html (the bug team's rows, Omni Loop bug fixed, update kit, won't be fixed)
+/omni:brainstorm, PRD 3088: .omni-loop/delivery/shipped/3088-omni-bug-team/before-after.html (the bug team's rows, Omni Loop bug fixed, update kit, won't be fixed)
