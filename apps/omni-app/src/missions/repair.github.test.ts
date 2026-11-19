@@ -1,7 +1,8 @@
 // The kit a mission's repository pins (PRD 3088 s5), read from a fake GitHub: never the real one.
 import { describe, expect, it } from 'vitest';
 import type { GitHubClient } from '../outbox-check/github-schema.ts';
-import { BIN, isShim, missionKits, packageVersion } from './repair.github.ts';
+import { bundleVersion } from 'omni-loop/kit/lib/update/installed.ts';
+import { BIN, isShim, missionKits, packageVersion, stampOf } from './repair.github.ts';
 
 const STAMPED = '#!/usr/bin/env node\nvar define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.690" };\n';
 const SHIM = "#!/usr/bin/env node\n// a shim onto the live kit source\nimport('../../kit/bin/omni.ts').then(({ main }) => main(process.argv.slice(2)));\n";
@@ -42,6 +43,10 @@ describe('the kit a mission\'s repository pins', () => {
     expect(packageVersion('{"version":"v0.0.7"}')).toBe('0.0.7');
     expect(packageVersion('not json')).toBeNull();
     expect(packageVersion(null)).toBeNull();
+  });
+
+  it('reads the stamp as the kit itself reads it', () => {
+    for (const text of [STAMPED, SHIM, 'define_OMNI_BUNDLE_default = { version: "v1.2.3", home: null }', '']) expect(stampOf(text)).toBe(bundleVersion(text));
   });
 
   it('reads null with no bin, or when GitHub refuses: that reads older than any fix', async () => {

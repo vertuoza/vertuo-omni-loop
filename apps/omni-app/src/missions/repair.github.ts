@@ -2,13 +2,12 @@
 // branch (else the default branch), the one a runner compares its plugin with (kit/lib/runner/plugin.ts). Read through
 // `octokitFor(installation)`, only while a PRD of the mission waits on an Omni Loop bug that was fixed. Read only.
 //
-//   a bundle   the version its build stamped in it (kit/lib/update/installed.ts › bundleVersion), near its start: only its first
+//   a bundle   the version its build stamped in it (the stamp kit/lib/update/installed.ts reads), near its start: only its first
 //              bytes are asked for
 //   a shim     a repository that runs the kit's own source (the Omni Loop repository, its bin importing kit/bin/omni.ts) carries
 //              no stamp: its version is its root package.json's, as the running kit reads it (kit/lib/init/bundle.ts › runningKit)
 //   none       no bin, any other bin with no stamp, or a read GitHub refused: null, which reads older than any fix
 import { z } from 'zod';
-import { bundleVersion } from 'omni-loop/kit/lib/update/installed.ts';
 import { parseVersion } from 'omni-loop/kit/lib/version/version.ts';
 import { statusOf, type GitHubClient } from '../outbox-check/github-schema.ts';
 
@@ -17,6 +16,15 @@ export type KitAt = { installation: number; repo: string; ref: string | null };
 
 /** The kit a mission's repository pins: `0.0.N`, or null when it does not read. */
 export type MissionKits = { pinned: (at: KitAt) => Promise<string | null> };
+
+/**
+ * The stamp `kit/build.ts` writes in a bundle, as kit/lib/update/installed.ts reads it: not imported from there, which would bring the
+ * kit's update steps (and the skills they copy) into the App's functions, where Vercel ships none of their files.
+ */
+const STAMP = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
+
+/** The version a bundle's text carries, or null when it has none. */
+export const stampOf = (text: string): string | null => parseVersion(STAMP.exec(text)?.[1]);
 
 /** The bin every kitted repository runs. */
 export const BIN = '.omni-loop/bin/omni.mjs';
@@ -82,7 +90,7 @@ export function missionKits({ octokitFor }: { octokitFor: (installation: number)
         const at = { ...ownerAndName(repo), ref };
         const bin = await rawText(octokit, { ...at, path: BIN, bytes: HEAD_BYTES });
         if (bin === null) return null;
-        const stamped = bundleVersion(bin);
+        const stamped = stampOf(bin);
         if (stamped !== null || !isShim(bin)) return stamped;
         return packageVersion(await rawText(octokit, { ...at, path: 'package.json' }));
       } catch {
