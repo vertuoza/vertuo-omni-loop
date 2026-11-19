@@ -2650,6 +2650,8 @@ var ConfigSchema = z16.object({
     paths: z16.array(text5).default([]),
     ignore: z16.array(text5).optional(),
     screens: nullableText.default(null),
+    // PRD omni-loop-13: the generated design manifest (`kit/lib/design/manifest.ts`), a path or none.
+    manifest: nullableText.optional(),
     words: section({
       sentence: z16.number().int().positive().default(7),
       screen: wordSelector.default("[data-screen]"),
