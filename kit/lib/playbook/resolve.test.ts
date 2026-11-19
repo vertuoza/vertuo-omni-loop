@@ -154,6 +154,50 @@ describe('resolveForm — order, headings and what it reports', () => {
   });
 });
 
+// PRD omni-loop-13, slice s5: a `See:` naming the file `design.manifest` names shows the components
+// index, as `omni design components` prints it, never the raw JSON; any other `See:` is unchanged.
+describe('resolveForm — a See: to the design manifest (PRD omni-loop-13)', () => {
+  const MANIFEST = 'design/design-system.json';
+  const part = (name: string) => ({ name, import: '@omni/ui', example: `<${name} />` });
+  const manifest = (value: unknown) => JSON.stringify(value);
+  const valid = manifest({ 'omni-design': 1, tokens: [], components: [part('Button'), part('Card')], patterns: [], surfaces: [] });
+  const withManifest = { commands: { test: 'pnpm test' }, design: { manifest: MANIFEST } };
+  const seeing = (path: string, files: Record<string, string> = {}, config: Record<string, unknown> = withManifest) =>
+    resolved({ [FILE]: repoForm([{ id: 'never', required: true, body: `See: ${path}` }]), ...files }, config);
+
+  it('shows the components index, one line per component, labelled [→ <path>]', () => {
+    const result = seeing(MANIFEST, { [MANIFEST]: valid });
+    expect(section(result, 'never')).toMatchObject({ source: 'pointer', label: `[→ ${MANIFEST}]`, text: 'Button  @omni/ui\nCard  @omni/ui', questions: [] });
+    expect(result.problems).toEqual([]);
+  });
+
+  it('reads the same file written with a leading ./', () => {
+    const result = seeing(`./${MANIFEST}`, { [MANIFEST]: valid });
+    expect(section(result, 'never')).toMatchObject({ label: `[→ ./${MANIFEST}]`, text: 'Button  @omni/ui\nCard  @omni/ui' });
+  });
+
+  it('shows the file as it is when design.manifest is not set', () => {
+    const result = seeing(MANIFEST, { [MANIFEST]: valid }, { commands: { test: 'pnpm test' } });
+    expect(section(result, 'never')).toMatchObject({ source: 'pointer', text: valid });
+  });
+
+  it('resolves any other See: as before while a manifest is set', () => {
+    const result = seeing('guides/never.md', { [MANIFEST]: valid, 'guides/never.md': '# Never\n\nNo network.\n' });
+    expect(section(result, 'never')).toMatchObject({ label: '[→ guides/never.md]', text: '# Never\n\nNo network.' });
+  });
+
+  it('reports each refusal of a manifest the schema refuses, and shows nothing for it', () => {
+    const result = seeing(MANIFEST, { [MANIFEST]: manifest({ 'omni-design': 2 }) });
+    expect(section(result, 'never')).toMatchObject({ source: 'pointer', text: '' });
+    expect(result.problems).toEqual([expect.stringMatching(new RegExp(`^${FILE}: "## Never" See: ${MANIFEST}: omni-design: `))]);
+  });
+
+  it('reports a manifest that does not exist as any dead See:', () => {
+    const result = seeing(MANIFEST);
+    expect(result.problems).toEqual([`${FILE}: "## Never" See: ${MANIFEST} does not exist`]);
+  });
+});
+
 describe('resolveForm — {config:<key>} in a kit default', () => {
   it('fills a key from the repository’s config', () => {
     const result = resolved({}, { commands: { test: 'pnpm vitest run' } });

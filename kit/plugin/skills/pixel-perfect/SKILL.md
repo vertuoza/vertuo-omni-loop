@@ -53,6 +53,11 @@ branch shape or command you can read with `omni config <key>`.
    for a person, never a reason to stop: work from what the code shows (the tokens and components
    in use, the screens around the target), never invent a direction to fill it, and say in your
    report which section was a hole. An empty `language` is no hole: the product has no law yet.
+   **The parts first.** Before any UI work, run `node .omni-loop/bin/omni.mjs design components`: one
+   line per part of the repository's design manifest, with its import. Then run
+   `node .omni-loop/bin/omni.mjs design component <name>` for each part the work uses (its variants,
+   do and don't, one example). They replace the `system` prose for the parts. When it prints that
+   the repository has no design manifest, read the `system` section as written above.
 3. **The library.** Run `node .omni-loop/bin/omni.mjs design screens`: every screen of the
    repository's screen library, with its status, who locked it and when, and its routes (it says
    so when the library is empty). Each screen is a file in the folder

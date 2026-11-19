@@ -21,6 +21,17 @@
 // it cannot read is named and the next is read. It prints `design: off` while the flag is off, and
 // exits 0 whatever it finds.
 //
+// `omni design components` and `omni design component <name>` (PRD omni-loop-13): the index of the
+// design manifest `design.manifest` names (one line per component, its name and import) and one
+// component's card (variants, do, don't, one example). With no `design.manifest` they say so in one
+// line and exit 0; a manifest that fails its schema prints its refusals and exits 1, as does an
+// unknown name (one line naming the closest).
+//
+// `omni design tokens [<group>]` and `omni design pattern <name>` (PRD omni-loop-13): the manifest's
+// token groups with their counts (or one group's tokens, with their value in each theme) and one locked
+// screen's card (routes, mockup). With no locked screen, `pattern` says so and exits 0; the no-manifest
+// line and the refusals are the same as above.
+//
 // `omni design gallery [--out <file>]` (PRD 1550): one self-contained HTML page of the whole library
 // (`kit/lib/design/gallery/`), written by default to a fresh folder under the system's temporary
 // folder, or to `--out` (read from the repository root), and its path printed. Generated each time,
@@ -33,6 +44,8 @@ import { designScreensDir } from '../../lib/config.ts';
 import { defaultDesignBase } from '../../lib/design/base.ts';
 import { galleryPage } from '../../lib/design/gallery/page.ts';
 import { designIgnore, dropIgnored } from '../../lib/design/ignore.ts';
+import type { DesignManifest } from '../../lib/design/manifest.ts';
+import { closestNames, formatComponent, formatComponents, formatPattern, formatTokenGroups, formatTokens, NO_MANIFEST, patternNames, readManifest, tokenGroupNames } from '../../lib/design/manifest.ts';
 import { formatScreens, readScreens } from '../../lib/design/screens.ts';
 import { avoidedWords } from '../../lib/design/words/avoid.ts';
 import { productAvoids } from '../../lib/design/words/product.ts';
@@ -47,7 +60,7 @@ import { parseArgs, println, usageError } from '../args.ts';
 import type { Command, CommandIo } from '../io.ts';
 import { synchronous } from '../synchronous.ts';
 
-const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>]';
+const USAGE = 'usage: omni design touched [<base>] | omni design screens | omni design words <page.html>… | omni design gallery [--out <file>] | omni design components | omni design component <name> | omni design tokens [<group>] | omni design pattern <name>';
 
 /** The checked-out branch, or null on a detached head or when git cannot say. */
 function currentBranch({ ctx, exec }: CommandIo): string | null {
@@ -106,6 +119,42 @@ function gallery({ ctx }: CommandIo, out: string | undefined): string[] {
   return [path];
 }
 
+type Answer = { lines: string[]; code: number };
+
+/** A manifest verb's answer: the no-manifest line (exit 0), the refusals (exit 1), or what `answer` makes of the manifest. */
+function fromManifest({ ctx }: CommandIo, answer: (manifest: DesignManifest) => Answer): Answer {
+  const read = readManifest(ctx.root, ctx.config.design.manifest);
+  if (read.kind === 'none') return { lines: [NO_MANIFEST], code: 0 };
+  if (read.kind === 'refused') return { lines: read.refusals, code: 1 };
+  return answer(read.manifest);
+}
+
+/** One component's card, or one line naming the closest names and exit 1. */
+function componentCard(io: CommandIo, name: string): Answer {
+  return fromManifest(io, (manifest) => {
+    const card = formatComponent(manifest, name);
+    return card ? { lines: card, code: 0 } : { lines: [`no component named ${name}; closest: ${closestNames(manifest, name).join(', ')}`], code: 1 };
+  });
+}
+
+/** The token groups with their counts, or one group's tokens; an unknown group is one line naming the groups, exit 1. */
+function tokensAnswer(io: CommandIo, group: string | undefined): Answer {
+  return fromManifest(io, (manifest) => {
+    if (group === undefined) return plain(formatTokenGroups(manifest));
+    const lines = formatTokens(manifest, group);
+    return lines ? plain(lines) : { lines: [`no token group named ${group}; groups: ${tokenGroupNames(manifest).join(', ')}`], code: 1 };
+  });
+}
+
+/** One locked screen's card; with none locked, one line saying so (exit 0); an unknown name exits 1. */
+function patternCard(io: CommandIo, name: string): Answer {
+  return fromManifest(io, (manifest) => {
+    if (manifest.patterns.length === 0) return plain(['the library has no locked screen yet']);
+    const card = formatPattern(manifest, name);
+    return card ? plain(card) : { lines: [`no pattern named ${name}; patterns: ${patternNames(manifest).join(', ')}`], code: 1 };
+  });
+}
+
 /** A selector the config has already checked. */
 function checked(source: string): Selector {
   const selector = parseSelector(source);
@@ -157,12 +206,19 @@ function words(io: CommandIo, pages: readonly string[]): string[] {
   });
 }
 
-/** Each verb's lines from its operands, or null when the operands are a usage mistake. */
-const VERBS: Readonly<Record<string, (io: CommandIo, operands: readonly string[], out: string | undefined) => string[] | null>> = {
-  touched: (io, operands) => (operands.length > 1 ? null : touched(io, operands[0])),
-  screens: (io, operands) => (operands.length > 0 ? null : screens(io)),
-  words: (io, operands) => (operands.length === 0 ? null : words(io, operands)),
-  gallery: (io, operands, out) => (operands.length > 0 ? null : gallery(io, out)),
+/** An answer that exits 0. */
+const plain = (lines: string[]): Answer => ({ lines, code: 0 });
+
+/** Each verb's answer from its operands, or null when the operands are a usage mistake. */
+const VERBS: Readonly<Record<string, (io: CommandIo, operands: readonly string[], out: string | undefined) => Answer | null>> = {
+  touched: (io, operands) => (operands.length > 1 ? null : plain(touched(io, operands[0]))),
+  screens: (io, operands) => (operands.length > 0 ? null : plain(screens(io))),
+  words: (io, operands) => (operands.length === 0 ? null : plain(words(io, operands))),
+  gallery: (io, operands, out) => (operands.length > 0 ? null : plain(gallery(io, out))),
+  components: (io, operands) => (operands.length > 0 ? null : fromManifest(io, (manifest) => plain(formatComponents(manifest)))),
+  component: (io, operands) => (operands.length !== 1 ? null : componentCard(io, operands[0] ?? '')),
+  tokens: (io, operands) => (operands.length > 1 ? null : tokensAnswer(io, operands[0])),
+  pattern: (io, operands) => (operands.length !== 1 ? null : patternCard(io, operands[0] ?? '')),
 };
 
 export const design: Command = {
@@ -170,9 +226,9 @@ export const design: Command = {
     const { positional, flags } = parseArgs('design', args, { values: ['out'] });
     const [verb = '', ...operands] = positional;
     if (flags.out !== undefined && verb !== 'gallery') throw usageError(USAGE);
-    const lines = Object.hasOwn(VERBS, verb) ? VERBS[verb]?.(io, operands, flags.out) : null;
-    if (!lines) throw usageError(USAGE);
-    for (const line of lines) println(io.stdout, line);
-    return 0;
+    const answer = Object.hasOwn(VERBS, verb) ? VERBS[verb]?.(io, operands, flags.out) : null;
+    if (!answer) throw usageError(USAGE);
+    for (const line of answer.lines) println(io.stdout, line);
+    return answer.code;
   }),
 };

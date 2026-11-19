@@ -27,6 +27,7 @@ describe('kb and targetLabel', () => {
     expect(targetLabel('session')).toContain('`session`');
     expect(targetLabel('form:design')).toBe('the `design` playbook form');
     expect(targetLabel('context:AGENTS.md')).toBe('the context file `AGENTS.md`');
+    expect(targetLabel('design:components')).toBe('the design components index (`omni design components`)');
     expect(targetLabel('other')).toBe('`other`');
   });
 });

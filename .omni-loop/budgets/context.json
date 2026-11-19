@@ -1,6 +1,7 @@
 {
   "briefing": 4096,
   "context:AGENTS.md": 7168,
+  "design:components": 1536,
   "form:architecture": 6144,
   "form:bug-fixing": 2048,
   "form:ci": 8192,
