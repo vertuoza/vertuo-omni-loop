@@ -17,6 +17,7 @@
   line-height: var(--type-3-line);
   font-weight: var(--weight-medium);
   cursor: pointer;
+  text-decoration: none;
 }
 .omni-segment:first-child { border-inline-start: 0; }
 .omni-segmented--sm .omni-segment { padding: var(--space-1) var(--space-3); font-size: var(--type-2-size); line-height: var(--type-2-line); }
