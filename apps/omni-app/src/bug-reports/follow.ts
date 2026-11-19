@@ -12,6 +12,7 @@
 // A state only moves forward on the evidence it is given: a fixed bug stays fixed unless its issue is reopened, and a bug
 // the team has not filed (no row) is never invented. Nothing in a bug row names a workspace, a repository of a customer or a
 // login (L-GDPR-1, L-GDPR-2): the repository is the Omni Loop's own.
+import { IssueNumberSchema, PrNumberSchema, type IssueNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import type { NewJob } from '../jobs/ledger.ts';
 import { OMNI_LOOP_REPOSITORY } from './file.ts';
@@ -21,17 +22,17 @@ export const BUG_STATES = ['open', 'fixing', 'pr-opened', 'asked', 'merged', 'fi
 export type BugState = (typeof BUG_STATES)[number];
 
 /** A bug as the following reads it. */
-export type TeamBug = { fingerprint: string; repo: string; issue: number; state: BugState; fixPr: number | null; fixedIn: string | null };
+export type TeamBug = { fingerprint: string; repo: string; issue: IssueNumber; state: BugState; fixPr: PrNumber | null; fixedIn: string | null };
 
 /** What a following writes on a bug: its state, and the two facts that go with it. */
-export type BugPatch = { state: BugState; fixPr?: number | null; fixedIn?: string | null };
+export type BugPatch = { state: BugState; fixPr?: PrNumber | null; fixedIn?: string | null };
 
 /** `omni_bug_reports`, as the following reads and writes it. */
 export type BugTeamStore = {
   /** The bug filed as the issue, or none. */
-  byIssue: (repo: string, issue: number) => Promise<TeamBug | null>;
+  byIssue: (repo: string, issue: IssueNumber) => Promise<TeamBug | null>;
   /** The bug whose fix pull request is `pr`, or none. */
-  byFixPr: (repo: string, pr: number) => Promise<TeamBug | null>;
+  byFixPr: (repo: string, pr: PrNumber) => Promise<TeamBug | null>;
   /** Every bug in one of the states. */
   inStates: (states: readonly BugState[]) => Promise<TeamBug[]>;
   /** Writes the patch if the bug still is in `from` (another run may have moved it): whether it did. */
@@ -45,8 +46,8 @@ export type PullFacts = { merged: boolean; open: boolean; mergeCommit: string | 
 
 /** The Omni Loop repository on GitHub, as the Omni App. */
 export type BugGithub = {
-  issue: (repo: string, issue: number) => Promise<IssueFacts>;
-  pull: (repo: string, pr: number) => Promise<PullFacts>;
+  issue: (repo: string, issue: IssueNumber) => Promise<IssueFacts>;
+  pull: (repo: string, pr: PrNumber) => Promise<PullFacts>;
   /** The tags of the repository's releases, newest first. */
   releases: (repo: string) => Promise<string[]>;
   /** Whether the commit is in the tag's history. */
@@ -57,23 +58,22 @@ export type BugGithub = {
 
 /** What a delivery says about a bug. */
 export type BugEvent =
-  | { kind: 'merged'; issue: number; pr: number }
-  | { kind: 'pr-closed'; pr: number }
-  | { kind: 'not-planned'; issue: number }
-  | { kind: 'reopened'; issue: number }
+  | { kind: 'merged'; issue: IssueNumber; pr: PrNumber }
+  | { kind: 'pr-closed'; pr: PrNumber }
+  | { kind: 'not-planned'; issue: IssueNumber }
+  | { kind: 'reopened'; issue: IssueNumber }
   | { kind: 'released'; tag: string };
 
 export const BUG_FOLLOW_KIND = 'bug-follow';
 /** One following at a time, so two deliveries of one bug never race. */
 const BUG_FOLLOW_LANE = 'bug-follow';
 
-const Count = z.number().int().positive();
 
 const BugEventSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('merged'), issue: Count, pr: Count }),
-  z.object({ kind: z.literal('pr-closed'), pr: Count }),
-  z.object({ kind: z.literal('not-planned'), issue: Count }),
-  z.object({ kind: z.literal('reopened'), issue: Count }),
+  z.object({ kind: z.literal('merged'), issue: IssueNumberSchema, pr: PrNumberSchema }),
+  z.object({ kind: z.literal('pr-closed'), pr: PrNumberSchema }),
+  z.object({ kind: z.literal('not-planned'), issue: IssueNumberSchema }),
+  z.object({ kind: z.literal('reopened'), issue: IssueNumberSchema }),
   z.object({ kind: z.literal('released'), tag: z.string().min(1) }),
 ]);
 
@@ -83,16 +83,16 @@ export const BugFollowDataSchema = z.object({ event: BugEventSchema, delivery: z
 const DeliverySchema = z.looseObject({
   action: z.string().nullish(),
   repository: z.looseObject({ full_name: z.string().nullish() }).nullish(),
-  issue: z.looseObject({ number: Count, state_reason: z.string().nullish(), pull_request: z.unknown().optional() }).nullish(),
-  pull_request: z.looseObject({ number: Count, merged: z.boolean().nullish(), body: z.string().nullish() }).nullish(),
+  issue: z.looseObject({ number: IssueNumberSchema, state_reason: z.string().nullish(), pull_request: z.unknown().optional() }).nullish(),
+  pull_request: z.looseObject({ number: PrNumberSchema, merged: z.boolean().nullish(), body: z.string().nullish() }).nullish(),
   release: z.looseObject({ tag_name: z.string().nullish(), draft: z.boolean().nullish(), prerelease: z.boolean().nullish() }).nullish(),
 });
 
 /** The issues a pull request body closes (`Closes #12`, `fixes #12`, `Resolved #12`). */
 const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+#(\d+)\b/gi;
-export function closedIssues(body: string | null | undefined): number[] {
+export function closedIssues(body: string | null | undefined): IssueNumber[] {
   if (!body) return [];
-  return [...body.matchAll(CLOSING)].map((found) => Number(found[1])).filter((n) => Number.isSafeInteger(n) && n > 0);
+  return [...body.matchAll(CLOSING)].flatMap((found) => { const n = IssueNumberSchema.safeParse(Number(found[1])); return n.success ? [n.data] : []; });
 }
 
 /**
@@ -178,18 +178,19 @@ const REOPENABLE: ReadonlySet<BugState> = new Set(['merged', 'fixed', 'wont-fix'
 
 type Followed1 = Exclude<BugEvent, { kind: 'released' }>;
 
-/** One rule per kind of event: the patch it gives a bug, or none when the bug stays as it is. */
-const RULES: { [K in Followed1['kind']]: (bug: TeamBug, event: Extract<Followed1, { kind: K }>) => BugPatch | null } = {
-  merged: (bug, event) => (TERMINAL.has(bug.state) ? null : { state: 'merged', fixPr: event.pr }),
-  'pr-closed': (bug, event) => (bug.state === 'pr-opened' && bug.fixPr === event.pr ? { state: 'open', fixPr: null } : null),
-  'not-planned': (bug) => (TERMINAL.has(bug.state) ? null : { state: 'wont-fix' }),
-  reopened: (bug) => (REOPENABLE.has(bug.state) ? { state: 'open', fixPr: null, fixedIn: null } : null),
-};
+const mergedPatch = (bug: TeamBug, pr: PrNumber): BugPatch | null => (TERMINAL.has(bug.state) ? null : { state: 'merged', fixPr: pr });
+const prClosedPatch = (bug: TeamBug, pr: PrNumber): BugPatch | null => (bug.state === 'pr-opened' && bug.fixPr === pr ? { state: 'open', fixPr: null } : null);
+const notPlannedPatch = (bug: TeamBug): BugPatch | null => (TERMINAL.has(bug.state) ? null : { state: 'wont-fix' });
+const reopenedPatch = (bug: TeamBug): BugPatch | null => (REOPENABLE.has(bug.state) ? { state: 'open', fixPr: null, fixedIn: null } : null);
 
 /** What an event does to a bug, pure: the patch, or none when the bug stays as it is. */
 function patchFor(bug: TeamBug, event: Followed1): BugPatch | null {
-  const rule = RULES[event.kind] as (bug: TeamBug, event: Followed1) => BugPatch | null;
-  return rule(bug, event);
+  switch (event.kind) {
+    case 'merged': return mergedPatch(bug, event.pr);
+    case 'pr-closed': return prClosedPatch(bug, event.pr);
+    case 'not-planned': return notPlannedPatch(bug);
+    case 'reopened': return reopenedPatch(bug);
+  }
 }
 
 /**

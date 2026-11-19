@@ -1,6 +1,6 @@
 // `omni_bug_reports` as the App reads and writes it (PRD 2980 s4), as the service role: nobody signed in reads or writes it
 // (supabase/migrations/20270125140000_mission_repairs.sql). Every answer is parsed where it comes in.
-import { IssueNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { IssueNumberSchema, PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { z } from 'zod';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
@@ -26,7 +26,7 @@ export const TeamRowSchema = z.object({
   repo: z.string().min(1),
   issue: IssueNumberSchema,
   state: z.enum(BUG_STATES),
-  fix_pr: z.number().int().positive().nullable(),
+  fix_pr: PrNumberSchema.nullable(),
   fixed_in: z.string().nullable(),
 });
 
