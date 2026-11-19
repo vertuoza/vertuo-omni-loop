@@ -142,7 +142,7 @@ describe('following an event', () => {
     expect(store.bugs[0]).toMatchObject({ state: 'merged', fixPr: parsePr(40) });
   });
 
-  it('turns a merged bug fixed in the release whose tag holds the merge commit (AC-5)', async () => {
+  it('AC-5: turns a merged bug fixed in the release whose tag holds the merge commit', async () => {
     const store = memoryStore([bug(parseIssue(12), 'merged', { fixPr: parsePr(40) })]);
     const github = fakeGithub({ pulls: { 40: { merged: true, open: false, mergeCommit: 'abc' } }, tags: { 'v0.0.680': ['abc'] } });
     expect(await followBugEvent({ event: { kind: 'released', tag: 'v0.0.680' }, store, github })).toEqual({ moved: 1 });
