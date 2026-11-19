@@ -152,7 +152,7 @@ describe('where a stuck mission goes (spec sections 2 and 4)', () => {
     expect(stuckNext(person, beats, 8)).toEqual({ next: 'none' });
   });
 
-  it('a spent cause pauses it; a spent 9 pauses it at the count, sending nothing (AC-3)', () => {
+  it('AC-3: a spent cause pauses it; a spent 9 pauses it at the count, sending nothing', () => {
     const refused = view({ jobs: [stuckJob(4, attempt('s4', { status: 'done' }))], refused: new Map([['s4', { spent: 'cause', fingerprint: FP, retro: retro() }]]) });
     expect(stuckNext(refused, [], 5)).toMatchObject({ next: 'pause', why: expect.stringContaining(`its cause [${FP.slice(0, 8)}] was repaired 3 times`) as unknown });
     expect(stuckNext(view(), five, 0)).toEqual({ next: 'pause', why: '5 jobs ended and nothing moved, and the mission spent its 9 repairs' });

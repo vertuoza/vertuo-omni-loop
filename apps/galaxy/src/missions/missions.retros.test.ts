@@ -62,7 +62,7 @@ describe('answerMissionItem', () => {
     expect(db.events).toMatchObject([{ mission: STUCK, kind: 'item-answered', actor: 'ada', sentence: 'Adopted the change to the Roadmap form: Prerequisites.' }]);
   });
 
-  it('keeps the first answer and refuses the second, whoever gives it (AC-8)', async () => {
+  it('AC-8: keeps the first answer and refuses the second, whoever gives it', async () => {
     const { deps: given, db } = deps(ADA);
     await answerMissionItem(ITEM, post({ answer: 'adopted' }), given);
     const again = await answerMissionItem(ITEM, post({ answer: 'declined' }), given);
