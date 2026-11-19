@@ -1071,3 +1071,23 @@ Stated: 2026-11-19
 Decided: nobody — adopted when raised (medium), 2026-11-18
 Merged: @pierrederval, 2026-11-19, PR #3066
 Proposed: harvest 2026-11-19
+
+## BR-PRODUCT-171
+
+At most one Omni Loop bug team is live at a time, across every workspace together: a team mission that is running, waiting or paused holds the one seat, and a draft or a stopped one does not, so a new team starts only once the old one is stopped.
+
+Serves: P-PRODUCT-52
+Source: .omni-loop/delivery/outbox/3088-omni-bug-team/settled.md, entry s2-01-one-live-bug-team, PRD #3088
+Enforced by: supabase/checks/omni_bug_team.sql
+Stated: 2026-11-19
+Decided: @pierrederval, 2026-11-19
+
+## BR-PRODUCT-172
+
+A paused or stopped mission holding a PRD on an Omni Loop bug hears once that the bug was fixed or will not be: the running bug team wakes it a single time to record the news in its own room, and it sends nothing until a person resumes it. A Resume then follows the bug: a fixed bug still needs the repository's kit at the fix's version, a bug closed as not planned keeps the PRD stopped, and a bug still open goes again as before.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/outbox/3088-omni-bug-team/settled.md, entry s5-03-held-missions-hear, PRD #3088
+Enforced by: apps/omni-app/src/missions/repair.bug-fixed.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts
+Stated: 2026-11-19
+Decided: @pierrederval, 2026-11-19
