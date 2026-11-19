@@ -1,0 +1,2116 @@
+{
+  "components": [
+    {
+      "do": [
+        "Give each entry an icon and a word: the icon never stands alone.",
+        "Mark the page you are on with `current`."
+      ],
+      "dont": [
+        "Put a second main landmark inside it.",
+        "Hide the skip link: it shows itself when it takes focus."
+      ],
+      "example": "<AppShell navigation={[{ id: \"home\", label: \"Home\", href: \"/\", icon: \"home\" }]} current=\"home\">The page</AppShell>",
+      "import": "@omni/ui",
+      "name": "AppShell",
+      "replaces": [
+        "page-frame",
+        "skip-link"
+      ],
+      "usage": "The frame of an app page: a navigation of 1-bit icons with text labels beside one main region, and a skip link to it.",
+      "variants": {
+        "current": [
+          "home",
+          "prds"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Always give the person's name: it is what a screen reader says.",
+        "Keep to the three sizes: the sprite is drawn at a whole-number scale and stays crisp."
+      ],
+      "dont": [
+        "Stretch or resize it with CSS: a fractional scale blurs the pixels.",
+        "Use it for a team or a repository: those have their own parts."
+      ],
+      "example": "<Avatar hero={hero} name=\"Ada Lovelace\" />",
+      "import": "@omni/ui",
+      "name": "Avatar",
+      "replaces": [
+        "avatar",
+        "hero-chip"
+      ],
+      "usage": "A person, drawn as the head and shoulders of their hero sprite, beside their name or on a card.",
+      "variants": {
+        "size": [
+          "sm",
+          "md",
+          "lg"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say the state in one or two words.",
+        "Pick the tone from what the state means: success for done, danger for broken."
+      ],
+      "dont": [
+        "Make it a button or a link: it takes no action.",
+        "Use the signal colour: the signal belongs to one thing per view."
+      ],
+      "example": "<Badge tone=\"success\">Approved</Badge>",
+      "import": "@omni/ui",
+      "name": "Badge",
+      "replaces": [
+        "stage-badge",
+        "fix-badge",
+        "care-chip"
+      ],
+      "usage": "A short label for the state of a thing, or a count beside it: Draft, Approved, 3 open.",
+      "variants": {
+        "tone": [
+          "neutral",
+          "accent",
+          "success",
+          "warning",
+          "danger",
+          "info"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Keep each crumb to the page's own name.",
+        "Leave the last crumb without a link."
+      ],
+      "dont": [
+        "Use it as the main navigation.",
+        "Repeat the page title as a link."
+      ],
+      "example": "<Breadcrumb items={[{ label: \"PRDs\", href: \"/prds\" }, { label: \"PRD 12\" }]} />",
+      "import": "@omni/ui",
+      "name": "Breadcrumb",
+      "replaces": [
+        "breadcrumb",
+        "crumbs"
+      ],
+      "usage": "The path from the top of the app to the page you are on: each step up is a link, the last is where you are.",
+      "variants": {
+        "depth": [
+          "2",
+          "4"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Name the action with a verb: Approve, Send to a runner.",
+        "Give the view one `primary`, its main action; keep the others secondary or quiet."
+      ],
+      "dont": [
+        "Put two primary buttons in one view.",
+        "Use a button to go to another page when a link says it better."
+      ],
+      "example": "<Button variant=\"primary\" onClick={approve}>Approve</Button>",
+      "import": "@omni/ui",
+      "name": "Button",
+      "replaces": [
+        "dossier-approve",
+        "pitch-action"
+      ],
+      "usage": "An action the person takes on this view: approve, send, copy. With an `href` it is a link that looks like one.",
+      "variants": {
+        "disabled": [
+          "true",
+          "false"
+        ],
+        "size": [
+          "md",
+          "sm"
+        ],
+        "variant": [
+          "primary",
+          "secondary",
+          "quiet",
+          "danger"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Hold one thing per card.",
+        "Group cards with a Stack, a step of the space scale apart."
+      ],
+      "dont": [
+        "Put a card inside a card.",
+        "Give a card a loud border or the signal colour: a card never shouts."
+      ],
+      "example": "<Card surface=\"raised\"><Text>What the PRD changes.</Text></Card>",
+      "import": "@omni/ui",
+      "name": "Card",
+      "replaces": [
+        "dossier-seal-card",
+        "outbox-card"
+      ],
+      "usage": "A block of content set off from the page: one PRD's seal, one outbox question.",
+      "variants": {
+        "padding": [
+          "3",
+          "4",
+          "5"
+        ],
+        "surface": [
+          "surface",
+          "raised",
+          "sunken"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put it in a Field so it has a label, a hint and an error.",
+        "Word the label so that ticked means yes."
+      ],
+      "dont": [
+        "Use it to pick exactly one of several: that is a Radio.",
+        "Use it for a setting that acts at once: that is a Switch."
+      ],
+      "example": "<Field label=\"Include archived\"><Checkbox name=\"archived\" /></Field>",
+      "import": "@omni/ui",
+      "name": "Checkbox",
+      "replaces": [
+        "checkbox",
+        "check-row"
+      ],
+      "usage": "One yes or no choice, or one of several that may all be on: accept the terms, include archived.",
+      "variants": {
+        "checked": [
+          "true",
+          "false"
+        ],
+        "disabled": [
+          "true",
+          "false"
+        ],
+        "invalid": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Use inline for a word in a sentence, such as a path or a command.",
+        "Use block for several lines: it keeps the line breaks and wraps a long one."
+      ],
+      "dont": [
+        "Use it for emphasis: use Text with `strong`.",
+        "Put a screenful in it: link to the file instead."
+      ],
+      "example": "<Code>pnpm test</Code>",
+      "import": "@omni/ui",
+      "name": "Code",
+      "replaces": [
+        "inline-code",
+        "command-block",
+        "path-chip"
+      ],
+      "usage": "A command, a path, an id or a few lines of code, in the monospace face on a sunken background.",
+      "variants": {
+        "display": [
+          "inline",
+          "block"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put it in a Field so it has a label, a hint and an error.",
+        "Say in `emptyText` what to do when nothing matches."
+      ],
+      "dont": [
+        "Use it for a handful of options: that is a Select, or a SegmentedControl for two or three.",
+        "Use it for actions: that is a Menu."
+      ],
+      "example": "<Field label=\"Repository\"><Combobox options={repositories} onValueChange={pick} /></Field>",
+      "import": "@omni/ui",
+      "name": "Combobox",
+      "replaces": [
+        "autocomplete",
+        "typeahead"
+      ],
+      "usage": "One choice out of a list too long to read through, found by typing: a repository, a person, a PRD.",
+      "variants": {
+        "disabled": [
+          "false",
+          "true"
+        ],
+        "invalid": [
+          "false",
+          "true"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Keep each term to one or two words.",
+        "Use `inline` when the page is wide, `stacked` when it is narrow."
+      ],
+      "dont": [
+        "Use it to compare many things across the same columns: use Table.",
+        "Put a long paragraph in a detail."
+      ],
+      "example": "<DataList items={[{ id: \"owner\", term: \"Owner\", detail: \"Pierre\" }]} />",
+      "import": "@omni/ui",
+      "name": "DataList",
+      "replaces": [
+        "dossier-facts",
+        "meta-list"
+      ],
+      "usage": "The facts of one thing as names and values: a PRD's owner, state and date.",
+      "variants": {
+        "density": [
+          "normal",
+          "compact"
+        ],
+        "layout": [
+          "stacked",
+          "inline"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Title it with the question, and give it one action that answers it beside a way out.",
+        "Keep it short: one decision, a few lines."
+      ],
+      "dont": [
+        "Open a dialog the person did not ask for.",
+        "Put a long form or a page of reading in it: that is a Drawer or a page."
+      ],
+      "example": "<Dialog trigger=\"Approve the plan\" title=\"Approve the plan?\" actions={<Button variant=\"primary\" onClick={approve}>Approve</Button>}>Five slices, two waves.</Dialog>",
+      "import": "@omni/ui",
+      "name": "Dialog",
+      "replaces": [
+        "modal",
+        "dialog-panel"
+      ],
+      "usage": "A question the person must answer before the page goes on, opened from a button: confirm an approval, name a new runner.",
+      "variants": {
+        "size": [
+          "md",
+          "sm",
+          "lg"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Title it with what it holds.",
+        "Keep the page behind it as it was, so closing it puts the person back where they were."
+      ],
+      "dont": [
+        "Ask a yes-or-no question in it: that is a Dialog.",
+        "Open a drawer from inside a drawer."
+      ],
+      "example": "<Drawer trigger=\"Filters\" title=\"Filter the PRDs\" side=\"end\">…</Drawer>",
+      "import": "@omni/ui",
+      "name": "Drawer",
+      "replaces": [
+        "drawer",
+        "side-panel"
+      ],
+      "usage": "Work beside the page, opened from a button, that the person closes to come back: filters, a slice's details, the navigation on a phone.",
+      "variants": {
+        "side": [
+          "end",
+          "start"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say why it is empty and what will fill it.",
+        "Offer the one action that fills it, when the person has one."
+      ],
+      "dont": [
+        "Leave a section blank instead.",
+        "Blame the person: it is empty, not wrong."
+      ],
+      "example": "<EmptyState title=\"No questions yet\">Questions appear once the plan is read.</EmptyState>",
+      "import": "@omni/ui",
+      "name": "EmptyState",
+      "replaces": [
+        "dossier-empty"
+      ],
+      "usage": "What a section says while it holds nothing yet: why it is empty, and what fills it.",
+      "variants": {
+        "size": [
+          "page",
+          "inline"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say what failed and what it means for the person, then offer one action (try again, go back).",
+        "Keep the cause in plain words; leave stack traces and codes to the logs."
+      ],
+      "dont": [
+        "Offer two or three actions: pick the one that is most likely to work.",
+        "Say only \"Something went wrong\"."
+      ],
+      "example": "<ErrorState title=\"The plan did not load\" action={<Button onClick={retry}>Try again</Button>}>The server did not answer.</ErrorState>",
+      "import": "@omni/ui",
+      "name": "ErrorState",
+      "replaces": [
+        "load-error",
+        "error-panel"
+      ],
+      "usage": "What a section says when what it shows could not be loaded or done: what failed, in plain words, and the one thing to try.",
+      "variants": {
+        "size": [
+          "page",
+          "inline"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Always give a label in words; the placeholder is not one.",
+        "Say what is wrong and how to fix it in the error."
+      ],
+      "dont": [
+        "Put more than one control in a Field.",
+        "Show the error in colour alone: it is always text."
+      ],
+      "example": "<Field label=\"Name\" hint=\"As on your badge\" error={problem}><Input name=\"name\" /></Field>",
+      "import": "@omni/ui",
+      "name": "Field",
+      "replaces": [
+        "form-field",
+        "field-label"
+      ],
+      "usage": "The label, the hint and the error of one form control: put an Input, a Textarea or a Select inside it.",
+      "variants": {
+        "error": [
+          "shown",
+          "none"
+        ],
+        "required": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Give every control a label in words.",
+        "Start each on the value that shows everything."
+      ],
+      "dont": [
+        "Put actions that change data in it: those are Buttons.",
+        "Offer more filters than fit on one or two lines."
+      ],
+      "example": "<FilterBar label=\"Filter PRDs\" search={{ label: \"Search\" }} selects={[{ label: \"Repository\", name: \"repo\", options }]} />",
+      "import": "@omni/ui",
+      "name": "FilterBar",
+      "replaces": [
+        "filter-bar",
+        "toolbar"
+      ],
+      "usage": "The controls above a list that narrow it: a search, a few selects and a segmented choice, side by side.",
+      "variants": {
+        "controls": [
+          "all",
+          "search"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Give it blocks of about the same size.",
+        "Pick the gap from the space scale: the same step both ways."
+      ],
+      "dont": [
+        "Use it for a page layout of unequal columns.",
+        "Ask for four columns of text: the lines get too short to read."
+      ],
+      "example": "<Grid columns=\"3\" gap=\"4\"><Card>One</Card><Card>Two</Card><Card>Three</Card></Grid>",
+      "import": "@omni/ui",
+      "name": "Grid",
+      "replaces": [
+        "stat-grid",
+        "card-grid",
+        "dossier-columns"
+      ],
+      "usage": "Lays cards, stats or other blocks of one size out in equal columns, one column on a narrow screen.",
+      "variants": {
+        "columns": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "gap": [
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Use one level 1 per page, then go down one level at a time.",
+        "Pick the size for the look, apart from the level."
+      ],
+      "dont": [
+        "Skip a level to get a smaller look: change `size` instead.",
+        "Use it for a line that is not a title, such as a label: use Text."
+      ],
+      "example": "<Heading level=\"2\" size=\"section\">Open questions</Heading>",
+      "import": "@omni/ui",
+      "name": "Heading",
+      "replaces": [
+        "dossier-heading",
+        "section-title",
+        "card-title"
+      ],
+      "usage": "A heading of the page outline: the level says where it sits, the size says how it looks.",
+      "variants": {
+        "level": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "size": [
+          "page",
+          "section",
+          "subsection",
+          "label"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Give it a `label` when it stands alone, and pair it with text otherwise.",
+        "Keep to the two sizes, whole-number scales of the 16 px grid."
+      ],
+      "dont": [
+        "Say something with an icon alone when a word fits.",
+        "Stretch it to a size that is not a whole multiple of 16."
+      ],
+      "example": "<Icon name=\"home\" label=\"Home\" />",
+      "import": "@omni/ui",
+      "name": "Icon",
+      "replaces": [
+        "nav-icon"
+      ],
+      "usage": "A 1-bit pixel icon of the set, drawn in the ink around it: a navigation entry, a control, a status mark.",
+      "variants": {
+        "size": [
+          "md",
+          "lg"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Write the label as the action: Close, Search.",
+        "Use the quiet variant for a control that sits in a toolbar."
+      ],
+      "dont": [
+        "Leave the label out: the type refuses it.",
+        "Use it for the view's main action: that is a Button with words."
+      ],
+      "example": "<IconButton icon=\"close\" label=\"Close\" onClick={close} />",
+      "import": "@omni/ui",
+      "name": "IconButton",
+      "replaces": [
+        "icon-button"
+      ],
+      "usage": "An action that is one icon: close, search, open the menu. Its label is required and says what it does.",
+      "variants": {
+        "disabled": [
+          "true",
+          "false"
+        ],
+        "variant": [
+          "secondary",
+          "quiet"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Pick the gap from the space scale.",
+        "Use it for short items; use Stack for a column or a row that must not wrap."
+      ],
+      "dont": [
+        "Put wide blocks in it: they wrap one under the other, so use Grid.",
+        "Add margins to the children to space them."
+      ],
+      "example": "<Inline gap=\"2\"><Badge>Draft</Badge><Badge tone=\"success\">Approved</Badge></Inline>",
+      "import": "@omni/ui",
+      "name": "Inline",
+      "replaces": [
+        "chip-row",
+        "inline-actions",
+        "meta-line"
+      ],
+      "usage": "Sets small things side by side on a line that wraps when it is full: badges, tags, a row of buttons.",
+      "variants": {
+        "align": [
+          "start",
+          "center",
+          "end",
+          "baseline"
+        ],
+        "gap": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+        ],
+        "justify": [
+          "start",
+          "center",
+          "end",
+          "between"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put it in a Field so it has a label, a hint and an error.",
+        "Pick the `type` that matches the value: the keyboard on a phone follows it."
+      ],
+      "dont": [
+        "Use a placeholder as the label.",
+        "Use it for several lines: that is a Textarea."
+      ],
+      "example": "<Input name=\"email\" type=\"email\" />",
+      "import": "@omni/ui",
+      "name": "Input",
+      "replaces": [
+        "text-input",
+        "search-box"
+      ],
+      "usage": "One line of text: a name, an email, a search, a number.",
+      "variants": {
+        "disabled": [
+          "true",
+          "false"
+        ],
+        "invalid": [
+          "true",
+          "false"
+        ],
+        "type": [
+          "text",
+          "email",
+          "search",
+          "url",
+          "password",
+          "number"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Write one key in each Kbd and put a plus sign between two.",
+        "Name the key as it is on the keyboard: Esc, not Escape key."
+      ],
+      "dont": [
+        "Use it for a button a person clicks: use Button.",
+        "Use it for a command: use Code."
+      ],
+      "example": "<Kbd>Esc</Kbd>",
+      "import": "@omni/ui",
+      "name": "Kbd",
+      "replaces": [
+        "shortcut-hint",
+        "key-chip",
+        "help-key"
+      ],
+      "usage": "A key a person presses, drawn as a key cap, in a shortcut hint or in help text: Esc, Enter, Tab.",
+      "variants": {
+        "size": [
+          "small",
+          "body"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say where it goes in its own words: \"the outbox\", not \"here\".",
+        "Mark an outside site with `external`."
+      ],
+      "dont": [
+        "Use a link for an action that changes something: that is a Button.",
+        "Remove the underline."
+      ],
+      "example": "<Link href=\"/outbox\">the outbox</Link>",
+      "import": "@omni/ui",
+      "name": "Link",
+      "replaces": [
+        "text-link"
+      ],
+      "usage": "A link to another page or an outside site, in a sentence or beside it.",
+      "variants": {
+        "variant": [
+          "default",
+          "quiet"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Keep the title short and put the rest in the detail.",
+        "Make the whole row one link when it opens one thing."
+      ],
+      "dont": [
+        "Put a second link or a button inside a linked row.",
+        "Repeat the title in the trailing slot."
+      ],
+      "example": "<ListRow title=\"AC-1 tokens are generated\" detail=\"test\" trailing={<Badge tone=\"success\">Passing</Badge>} />",
+      "import": "@omni/ui",
+      "name": "ListRow",
+      "replaces": [
+        "proof-row",
+        "ready-row",
+        "care-row"
+      ],
+      "usage": "One row of a list of like things: a proof, a check, a pull request, each with its state at the end.",
+      "variants": {
+        "density": [
+          "normal",
+          "compact"
+        ],
+        "link": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Name each item as the action it takes: Rename, Archive.",
+        "Keep it short: a handful of items, the one that destroys last, in the danger tone."
+      ],
+      "dont": [
+        "Hide the view's main action in it: that is a Button on the page.",
+        "Use it to pick a value for a form: that is a Select or a Combobox."
+      ],
+      "example": "<Menu trigger=\"Actions\" items={[{ id: 'rename', label: 'Rename' }, { id: 'archive', label: 'Archive', tone: 'danger' }]} onSelect={act} />",
+      "import": "@omni/ui",
+      "name": "Menu",
+      "replaces": [
+        "dropdown-menu",
+        "more-actions"
+      ],
+      "usage": "A short list of actions behind one button, when they do not all fit beside it: rename, archive, copy the link.",
+      "variants": {
+        "side": [
+          "bottom",
+          "top"
+        ],
+        "tone": [
+          "neutral",
+          "danger"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say what happened and what to do next.",
+        "Use danger for what is broken, warning for what waits on the reader."
+      ],
+      "dont": [
+        "Stack several notices in one place: merge them.",
+        "Use a notice for help text that is always true."
+      ],
+      "example": "<Notice tone=\"warning\" title=\"Waiting for a person\">Two questions are open.</Notice>",
+      "import": "@omni/ui",
+      "name": "Notice",
+      "replaces": [
+        "outbox-note",
+        "proof-note",
+        "ready-note"
+      ],
+      "usage": "A message the page owes the reader: what happened, or what is needed from them.",
+      "variants": {
+        "tone": [
+          "info",
+          "success",
+          "warning",
+          "danger"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say the question in plain words, as the title.",
+        "Make the row one link when it opens the item."
+      ],
+      "dont": [
+        "Show the level by colour alone: the Badge says it in words.",
+        "Put a second link or a button inside a linked row."
+      ],
+      "example": "<OutboxItem level=\"high\" title=\"Keep the old route?\" detail=\"PRD 12 · s4\" href=\"/outbox/1\" />",
+      "import": "@omni/ui",
+      "name": "OutboxItem",
+      "replaces": [
+        "outbox-row",
+        "outbox-item"
+      ],
+      "usage": "One decision an agent took alone, waiting for a person: its question, a line of detail, and its level as a Badge.",
+      "variants": {
+        "level": [
+          "low",
+          "medium",
+          "high"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say the state once, in the status slot.",
+        "Put the view's one primary action in the action slot."
+      ],
+      "dont": [
+        "Use two page headers at level 1 on one page.",
+        "Fill the lede with what the page itself says below."
+      ],
+      "example": "<PageHeader title=\"Checkout rewrite\" eyebrow=\"PRD 12\" status={<Badge>Building</Badge>} action={<Button variant=\"primary\">Approve</Button>} />",
+      "import": "@omni/ui",
+      "name": "PageHeader",
+      "replaces": [
+        "dossier-head",
+        "dossier-head-top",
+        "dossier-history-head"
+      ],
+      "usage": "The head of a page or of a major section: what it is, where it stands, and the one thing to do next.",
+      "variants": {
+        "level": [
+          "1",
+          "2"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Use it every time a person is named, so a reader can always follow it.",
+        "Take the quiet variant inside a sentence that is already a link or a heading."
+      ],
+      "dont": [
+        "Write a name as plain text where a page exists.",
+        "Use it for an agent: an agent is never named as a person."
+      ],
+      "example": "<PersonRef name=\"Ada Lovelace\" href=\"/people/ada\" />",
+      "import": "@omni/ui",
+      "name": "PersonRef",
+      "replaces": [
+        "person-link",
+        "author-chip"
+      ],
+      "usage": "A person named where they are mentioned: their name, as a link to their page.",
+      "variants": {
+        "variant": [
+          "default",
+          "quiet"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Title it in a few words; keep what it holds short.",
+        "Let it close on its own: Escape and a click outside both close it."
+      ],
+      "dont": [
+        "Put a question the person must answer in it: that is a Dialog.",
+        "Open it on hover alone: a keyboard and a touch screen never hover."
+      ],
+      "example": "<Popover trigger=\"Who answers?\" title=\"Who answers\">The people of this PRD.</Popover>",
+      "import": "@omni/ui",
+      "name": "Popover",
+      "replaces": [
+        "popover",
+        "hint-panel"
+      ],
+      "usage": "A few lines or a couple of links beside the button that opens them, while the page goes on around them: who answers a question, what a badge means.",
+      "variants": {
+        "side": [
+          "bottom",
+          "top"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Use it every time a PRD is named, so a reader can always follow it.",
+        "Take the quiet variant inside a sentence that is already a link or a heading."
+      ],
+      "dont": [
+        "Write \"PRD 12\" as plain text where its page exists.",
+        "Shorten or translate the title: the text is what a screen reader says."
+      ],
+      "example": "<PrdRef number={12} title=\"Parts and the catalogue\" href=\"/prd/12\" />",
+      "import": "@omni/ui",
+      "name": "PrdRef",
+      "replaces": [
+        "prd-link",
+        "prd-chip"
+      ],
+      "usage": "A PRD named where it is mentioned: its number and title, as a link to its page.",
+      "variants": {
+        "variant": [
+          "default",
+          "quiet"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Give it a label that says what is progressing.",
+        "Pick the tone from what the value means: warning when a budget runs low."
+      ],
+      "dont": [
+        "Use it for a task of unknown length: say what is happening in text.",
+        "Rely on the bar alone: the percentage beside it says the same in words."
+      ],
+      "example": "<Progress label=\"Tokens used\" value={40} />",
+      "import": "@omni/ui",
+      "name": "Progress",
+      "replaces": [
+        "progress-bar",
+        "budget-bar"
+      ],
+      "usage": "How far a task, an upload or a budget has got, as a bar with its percentage in words.",
+      "variants": {
+        "tone": [
+          "accent",
+          "success",
+          "warning",
+          "danger"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Wrap the whole text once: it sets the rhythm between its paragraphs and lists.",
+        "Keep the reading measure for text; use `full` only inside a column that is already narrow."
+      ],
+      "dont": [
+        "Use it for a label or a single line: use Text.",
+        "Add spacing to its children: the rhythm is its own."
+      ],
+      "example": "<Prose><p>The spec, as the PRD says it.</p><ul><li>One</li><li>Two</li></ul></Prose>",
+      "import": "@omni/ui",
+      "name": "Prose",
+      "replaces": [
+        "spec-body",
+        "dossier-prose",
+        "note-text"
+      ],
+      "usage": "Long text a person reads, a spec or a note: paragraphs, lists and links at a readable size, line length and rhythm.",
+      "variants": {
+        "measure": [
+          "reading",
+          "full"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put it in a Field so the group has a label, a hint and an error.",
+        "Start on the safe or most common option when one exists."
+      ],
+      "dont": [
+        "Use it for more than about six options: that is a Select.",
+        "Use it when several may be chosen: that is a Checkbox."
+      ],
+      "example": "<Field label=\"Who can see it\"><Radio label=\"Who can see it\" name=\"who\" options={[{ value: 'team', label: 'Team' }, { value: 'all', label: 'Everyone' }]} /></Field>",
+      "import": "@omni/ui",
+      "name": "Radio",
+      "replaces": [
+        "radio",
+        "radio-row"
+      ],
+      "usage": "Exactly one choice out of a few that all stay in view: a role, a sort order, a visibility.",
+      "variants": {
+        "disabled": [
+          "true",
+          "false"
+        ],
+        "invalid": [
+          "true",
+          "false"
+        ],
+        "orientation": [
+          "vertical",
+          "horizontal"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Use it every time a repository is named, so a reader can always follow it.",
+        "Take the quiet variant inside a sentence that is already a link or a heading."
+      ],
+      "dont": [
+        "Write \"owner/name\" as plain text where a link exists.",
+        "Shorten the name: the text is what a screen reader says."
+      ],
+      "example": "<RepoRef owner=\"vertuoza\" name=\"vertuo-omni-loop\" />",
+      "import": "@omni/ui",
+      "name": "RepoRef",
+      "replaces": [
+        "repo-link",
+        "repo-chip"
+      ],
+      "usage": "A repository named where it is mentioned: owner and name, as a link to it on GitHub.",
+      "variants": {
+        "variant": [
+          "default",
+          "quiet"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Group related things under one title, then lay them out with a Stack.",
+        "Put the group's own actions in the header."
+      ],
+      "dont": [
+        "Put a Card inside a Card to group: use a Section.",
+        "Skip a heading level to get a smaller look."
+      ],
+      "example": "<Section title=\"Open questions\" description=\"Answer these before the PRD ships.\"><Text>Nothing open.</Text></Section>",
+      "import": "@omni/ui",
+      "name": "Section",
+      "replaces": [
+        "dossier-section",
+        "section-header"
+      ],
+      "usage": "A titled group of the page, with an optional description and actions: the one way to group things, where a Card would nest.",
+      "variants": {
+        "level": [
+          "2",
+          "3"
+        ],
+        "rule": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Keep each label to one or two words.",
+        "Always choose one option; start on the usual one."
+      ],
+      "dont": [
+        "Use it to go to other pages: that is Tabs.",
+        "Offer more than five options."
+      ],
+      "example": "<SegmentedControl label=\"Show\" value=\"open\" onChange={setShow} options={[{ id: \"open\", label: \"Open\" }, { id: \"all\", label: \"All\" }]} />",
+      "import": "@omni/ui",
+      "name": "SegmentedControl",
+      "replaces": [
+        "segmented",
+        "filter-toggle"
+      ],
+      "usage": "One choice out of two to five, side by side, that changes what this view shows: All, Open, Closed.",
+      "variants": {
+        "size": [
+          "md",
+          "sm"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put it in a Field so it has a label, a hint and an error.",
+        "Order the options the way people look for them."
+      ],
+      "dont": [
+        "Use it for two or three choices that should stay in view: that is a SegmentedControl.",
+        "Use it when people must search a long list: that is a Combobox."
+      ],
+      "example": "<Select name=\"role\" options={[{ value: \"dev\", label: \"Developer\" }, { value: \"pm\", label: \"Product\" }]} />",
+      "import": "@omni/ui",
+      "name": "Select",
+      "replaces": [
+        "select-box",
+        "dropdown"
+      ],
+      "usage": "One choice out of a short list, in the browser's own picker: a role, a repository, a status.",
+      "variants": {
+        "disabled": [
+          "true",
+          "false"
+        ],
+        "invalid": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Match the shape and size of what will replace it: text lines for text, a block for a card, a circle for an avatar.",
+        "Name what loads in `label`, in words."
+      ],
+      "dont": [
+        "Use it for more than a moment or two: past that, say what is happening in a Notice.",
+        "Show a skeleton where nothing will ever load: that is an EmptyState."
+      ],
+      "example": "<Skeleton shape=\"text\" label=\"Loading the plan\" lines={3} />",
+      "import": "@omni/ui",
+      "name": "Skeleton",
+      "replaces": [
+        "loading-bar",
+        "placeholder-line"
+      ],
+      "usage": "The grey shape of what is loading, drawn where it will land, so the page does not jump when it arrives.",
+      "variants": {
+        "shape": [
+          "text",
+          "block",
+          "circle"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Pick the gap from the scale: closer for things that belong together.",
+        "Nest stacks for a row inside a column."
+      ],
+      "dont": [
+        "Add margins to the children to space them.",
+        "Use a row for content that must wrap on a phone, without `wrap`."
+      ],
+      "example": "<Stack direction=\"row\" gap=\"2\"><Button>Approve</Button><Badge>Draft</Badge></Stack>",
+      "import": "@omni/ui",
+      "name": "Stack",
+      "replaces": [
+        "dossier-actions",
+        "stage-action-stack",
+        "outbox-chips"
+      ],
+      "usage": "Lays its children out in a column or a row, a step of the space scale apart: the one way a page spaces things.",
+      "variants": {
+        "align": [
+          "start",
+          "center",
+          "end",
+          "stretch"
+        ],
+        "direction": [
+          "column",
+          "row"
+        ],
+        "gap": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6"
+        ],
+        "wrap": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Give the stage the PRD is in: the ones before it read as done.",
+        "Use the horizontal layout in a header and the vertical one in a narrow column."
+      ],
+      "dont": [
+        "Use it for steps that are not the loop's stages: that is a Timeline.",
+        "Rely on the marker alone to say where the PRD is."
+      ],
+      "example": "<StageTrack stage=\"Building\" />",
+      "import": "@omni/ui",
+      "name": "StageTrack",
+      "replaces": [
+        "stage-track",
+        "stage-stepper"
+      ],
+      "usage": "Where a PRD stands in the loop: idea, PRD, inbox, building, outbox, shipped, retro, with the stages behind it done and the ones ahead pending.",
+      "variants": {
+        "layout": [
+          "horizontal",
+          "vertical"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put the label in words that say what is counted.",
+        "Use `lg` for the one number a view is about."
+      ],
+      "dont": [
+        "Put a sentence in the value: it is a number or a short word.",
+        "Line up many of them in a grid of cards: a DataList reads better."
+      ],
+      "example": "<Stat label=\"Open PRDs\" value={12} hint=\"this week\" />",
+      "import": "@omni/ui",
+      "name": "Stat",
+      "replaces": [
+        "stat",
+        "metric",
+        "kpi"
+      ],
+      "usage": "One number with its label and, when it helps, one line of context: 12 open PRDs, this week.",
+      "variants": {
+        "size": [
+          "md",
+          "lg"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put it in a Field so it has a label and a hint.",
+        "Name what is on, not the action: \"Email me about the outbox\"."
+      ],
+      "dont": [
+        "Use it in a form that is sent later: that is a Checkbox.",
+        "Show the state in colour alone: the thumb moves too."
+      ],
+      "example": "<Field label=\"Email me about the outbox\"><Switch name=\"email\" /></Field>",
+      "import": "@omni/ui",
+      "name": "Switch",
+      "replaces": [
+        "toggle",
+        "switch-row"
+      ],
+      "usage": "A setting that is on or off and takes effect as soon as it is flipped: notifications, a runner online.",
+      "variants": {
+        "checked": [
+          "true",
+          "false"
+        ],
+        "disabled": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Give it a caption that says what it lists.",
+        "Align numbers to the end of their column."
+      ],
+      "dont": [
+        "Use a table to lay a page out.",
+        "Hold a list of one column: use ListRow."
+      ],
+      "example": "<Table caption=\"Slices\" columns={[{ id: \"slice\", label: \"Slice\" }]} rows={[{ id: \"s1\", cells: { slice: \"s1\" } }]} />",
+      "import": "@omni/ui",
+      "name": "Table",
+      "replaces": [
+        "slice-table",
+        "checks-table"
+      ],
+      "usage": "Rows of like things compared across columns: the checks of a run, the slices of a plan.",
+      "variants": {
+        "align": [
+          "start",
+          "end"
+        ],
+        "density": [
+          "normal",
+          "compact"
+        ],
+        "striped": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Name each tab with one or two words.",
+        "Give the app's router link, so a tab switches without a full page load."
+      ],
+      "dont": [
+        "Use tabs to go to other pages: that is navigation.",
+        "Show one tab alone."
+      ],
+      "example": "<Tabs label=\"PRD sections\" current=\"spec\" items={[{ id: \"spec\", label: \"Spec\", href: \"?tab=spec\" }]} />",
+      "import": "@omni/ui",
+      "name": "Tabs",
+      "replaces": [
+        "dossier-tabs",
+        "dossier-tab"
+      ],
+      "usage": "A row of links to the sections of one page, the current one marked: Spec, Plan, Outbox.",
+      "variants": {
+        "size": [
+          "md",
+          "sm"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Keep it to one or two words.",
+        "Use the same tag text for the same topic everywhere."
+      ],
+      "dont": [
+        "Use it for a state or a count: that is a Badge.",
+        "Make it a button or a link: it takes no action."
+      ],
+      "example": "<Tag>backend</Tag>",
+      "import": "@omni/ui",
+      "name": "Tag",
+      "replaces": [
+        "tag",
+        "topic-chip"
+      ],
+      "usage": "A label that files a thing under a kind or a topic: backend, docs, security. Unlike a Badge it names what the thing is, not its state.",
+      "variants": {
+        "tone": [
+          "neutral",
+          "info",
+          "success",
+          "warning",
+          "danger"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Pick `as` for the outline and `size` for the look.",
+        "Use the prose size for what a person reads at length."
+      ],
+      "dont": [
+        "Skip a heading level to get a smaller look.",
+        "Say a state by its tone alone: the words say it too."
+      ],
+      "example": "<Text as=\"p\" size=\"prose\">The spec, as the PRD says it.</Text>",
+      "import": "@omni/ui",
+      "name": "Text",
+      "replaces": [
+        "dossier-title",
+        "ready-title",
+        "prd-timeline-title"
+      ],
+      "usage": "A run of text at a step of the type scale, in a tone: the one way a page sets type.",
+      "variants": {
+        "as": [
+          "p",
+          "span",
+          "h1",
+          "h2",
+          "h3",
+          "h4"
+        ],
+        "size": [
+          "caption",
+          "small",
+          "body",
+          "prose",
+          "heading",
+          "title"
+        ],
+        "strong": [
+          "true",
+          "false"
+        ],
+        "tone": [
+          "primary",
+          "secondary",
+          "tertiary",
+          "success",
+          "warning",
+          "danger"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put it in a Field so it has a label, a hint and an error.",
+        "Set `rows` to about the length you expect."
+      ],
+      "dont": [
+        "Use it for a short value: that is an Input.",
+        "Use a placeholder as the label."
+      ],
+      "example": "<Textarea name=\"comment\" rows={5} />",
+      "import": "@omni/ui",
+      "name": "Textarea",
+      "replaces": [
+        "text-area",
+        "comment-box"
+      ],
+      "usage": "Several lines of text: a comment, a description, a reason.",
+      "variants": {
+        "disabled": [
+          "true",
+          "false"
+        ],
+        "invalid": [
+          "true",
+          "false"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Put the items in the order they happen, oldest first.",
+        "Mark at most one item as current."
+      ],
+      "dont": [
+        "Use it for a list with no order: use ListRow.",
+        "Rely on the marker alone to say a step is done."
+      ],
+      "example": "<Timeline items={[{ id: \"plan\", title: \"Plan written\", time: \"Nov 17\", state: \"done\" }]} />",
+      "import": "@omni/ui",
+      "name": "Timeline",
+      "replaces": [
+        "dossier-timeline",
+        "history-list"
+      ],
+      "usage": "What happened, and what comes next, in order: the steps of a PRD from idea to shipped.",
+      "variants": {
+        "density": [
+          "normal",
+          "compact"
+        ],
+        "state": [
+          "done",
+          "current",
+          "pending"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say what happened in a few words; add one line of detail at most.",
+        "Raise it from `useToast().show` once, after the thing it reports."
+      ],
+      "dont": [
+        "Put the only copy of something the person must act on in a toast: it goes away. That is a Notice or a Dialog.",
+        "Stack a string of toasts: merge them into one."
+      ],
+      "example": "<Toast><SaveButton /></Toast>  // inside: const toast = useToast(); toast.show({ title: \"Answer saved\", tone: \"success\" })",
+      "import": "@omni/ui",
+      "name": "Toast",
+      "replaces": [
+        "snackbar",
+        "flash-message"
+      ],
+      "usage": "A short word that something happened, which fades by itself while the page goes on: a runner restarted, an answer saved.",
+      "variants": {
+        "tone": [
+          "info",
+          "success",
+          "danger"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Write the label as the action, in two or three words: Search, Copy the link.",
+        "Keep it to the name: the hint says what the button already says to a screen reader."
+      ],
+      "dont": [
+        "Put something the person needs only in the hint: a touch screen never shows it.",
+        "Put a link or a button in it: that is a Popover."
+      ],
+      "example": "<Tooltip icon=\"search\" label=\"Search the PRDs\" onClick={openSearch} />",
+      "import": "@omni/ui",
+      "name": "Tooltip",
+      "replaces": [
+        "tooltip",
+        "title-hint"
+      ],
+      "usage": "An icon button whose name shows as a short hint on hover and on focus, for a toolbar of icons a sighted person may not read at a glance.",
+      "variants": {
+        "side": [
+          "top",
+          "bottom"
+        ]
+      }
+    }
+  ],
+  "omni-design": 1,
+  "patterns": [],
+  "surfaces": {
+    "exclude": [
+      "apps/galaxy/app/page.tsx",
+      "apps/galaxy/app/play/**",
+      "apps/galaxy/src/arcade/**",
+      "apps/galaxy/src/arcade-api/**",
+      "apps/galaxy/src/home/**",
+      "apps/galaxy/src/play-dock/**"
+    ],
+    "include": [
+      "apps/galaxy/app/**",
+      "apps/galaxy/src/**"
+    ]
+  },
+  "tokens": [
+    {
+      "group": "color",
+      "name": "color-canvas",
+      "role": "canvas",
+      "themes": {
+        "dark": "#0e0d33",
+        "light": "#f5f4fc",
+        "omni": "#07061c"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-surface",
+      "role": "surface",
+      "themes": {
+        "dark": "#16144a",
+        "light": "#ffffff",
+        "omni": "#120f3a"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-raised",
+      "role": "raised",
+      "themes": {
+        "dark": "#221f62",
+        "light": "#ffffff",
+        "omni": "#1a1749"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-sunken",
+      "role": "sunken",
+      "themes": {
+        "dark": "#1d1a58",
+        "light": "#eceaf8",
+        "omni": "#0e0d33"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-text-primary",
+      "role": "text-primary",
+      "themes": {
+        "dark": "#f2f4ff",
+        "light": "#17153d",
+        "omni": "#f2f4ff"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-text-secondary",
+      "role": "text-secondary",
+      "themes": {
+        "dark": "#a9aee6",
+        "light": "#4f5486",
+        "omni": "#8a90d6"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-text-tertiary",
+      "role": "text-tertiary",
+      "themes": {
+        "dark": "#9499d6",
+        "light": "#5f6494",
+        "omni": "#7c82c4"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-text-on-accent",
+      "role": "text-on-accent",
+      "themes": {
+        "dark": "#0e0d33",
+        "light": "#ffffff",
+        "omni": "#07061c"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-text-on-signal",
+      "role": "text-on-signal",
+      "themes": {
+        "dark": "#0e0d33",
+        "light": "#ffffff",
+        "omni": "#07061c"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-text-on-highlight",
+      "role": "text-on-highlight",
+      "themes": {
+        "dark": "#3a2c00",
+        "light": "#3a2c00",
+        "omni": "#07061c"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-border-subtle",
+      "role": "border-subtle",
+      "themes": {
+        "dark": "#2f2c78",
+        "light": "#d9d6ee",
+        "omni": "#1a2170"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-border-strong",
+      "role": "border-strong",
+      "themes": {
+        "dark": "#6d6acc",
+        "light": "#85819f",
+        "omni": "#5a60c4"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-accent",
+      "role": "accent",
+      "themes": {
+        "dark": "#9aa4ff",
+        "light": "#2f3fc4",
+        "omni": "#8f9bff"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-accent-soft",
+      "role": "accent-soft",
+      "themes": {
+        "dark": "#272a7a",
+        "light": "#e6e8fb",
+        "omni": "#1e2160"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-signal",
+      "role": "signal",
+      "themes": {
+        "dark": "#b37cff",
+        "light": "#6a2fd0",
+        "omni": "#ffd84a"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-signal-soft",
+      "role": "signal-soft",
+      "themes": {
+        "dark": "#2a1d66",
+        "light": "#efe7ff",
+        "omni": "#2a2350"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-highlight",
+      "role": "highlight",
+      "themes": {
+        "dark": "#ffd84a",
+        "light": "#ffd84a",
+        "omni": "#ff3ea5"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-success",
+      "role": "success",
+      "themes": {
+        "dark": "#4ee08a",
+        "light": "#15703f",
+        "omni": "#4ee08a"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-warning",
+      "role": "warning",
+      "themes": {
+        "dark": "#ffb357",
+        "light": "#8a4b00",
+        "omni": "#ff9b30"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-danger",
+      "role": "danger",
+      "themes": {
+        "dark": "#ff6b86",
+        "light": "#b3122f",
+        "omni": "#ff6b86"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-info",
+      "role": "info",
+      "themes": {
+        "dark": "#6ff0ff",
+        "light": "#0b6f86",
+        "omni": "#6ff0ff"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-focus-ring",
+      "role": "focus-ring",
+      "themes": {
+        "dark": "#9aa4ff",
+        "light": "#2f3fc4",
+        "omni": "#8f9bff"
+      }
+    },
+    {
+      "group": "color",
+      "name": "color-scrim",
+      "role": "scrim",
+      "themes": {
+        "dark": "rgb(7 6 28 / 0.72)",
+        "light": "rgb(23 21 61 / 0.48)",
+        "omni": "rgb(7 6 28 / 0.72)"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-1",
+      "role": "space",
+      "themes": {
+        "dark": "4px",
+        "light": "4px",
+        "omni": "4px"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-2",
+      "role": "space",
+      "themes": {
+        "dark": "8px",
+        "light": "8px",
+        "omni": "8px"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-3",
+      "role": "space",
+      "themes": {
+        "dark": "12px",
+        "light": "12px",
+        "omni": "12px"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-4",
+      "role": "space",
+      "themes": {
+        "dark": "16px",
+        "light": "16px",
+        "omni": "16px"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-5",
+      "role": "space",
+      "themes": {
+        "dark": "24px",
+        "light": "24px",
+        "omni": "24px"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-6",
+      "role": "space",
+      "themes": {
+        "dark": "32px",
+        "light": "32px",
+        "omni": "32px"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-7",
+      "role": "space",
+      "themes": {
+        "dark": "48px",
+        "light": "48px",
+        "omni": "48px"
+      }
+    },
+    {
+      "group": "space",
+      "name": "space-8",
+      "role": "space",
+      "themes": {
+        "dark": "64px",
+        "light": "64px",
+        "omni": "64px"
+      }
+    },
+    {
+      "group": "radius",
+      "name": "radius-1",
+      "role": "radius",
+      "themes": {
+        "dark": "4px",
+        "light": "4px",
+        "omni": "4px"
+      }
+    },
+    {
+      "group": "radius",
+      "name": "radius-2",
+      "role": "radius",
+      "themes": {
+        "dark": "8px",
+        "light": "8px",
+        "omni": "8px"
+      }
+    },
+    {
+      "group": "radius",
+      "name": "radius-full",
+      "role": "radius",
+      "themes": {
+        "dark": "9999px",
+        "light": "9999px",
+        "omni": "9999px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-1-size",
+      "role": "type",
+      "themes": {
+        "dark": "12px",
+        "light": "12px",
+        "omni": "12px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-1-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.5",
+        "light": "1.5",
+        "omni": "1.5"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-2-size",
+      "role": "type",
+      "themes": {
+        "dark": "13px",
+        "light": "13px",
+        "omni": "13px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-2-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.45",
+        "light": "1.45",
+        "omni": "1.45"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-3-size",
+      "role": "type",
+      "themes": {
+        "dark": "14px",
+        "light": "14px",
+        "omni": "14px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-3-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.45",
+        "light": "1.45",
+        "omni": "1.45"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-4-size",
+      "role": "type",
+      "themes": {
+        "dark": "16px",
+        "light": "16px",
+        "omni": "16px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-4-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.4",
+        "light": "1.4",
+        "omni": "1.4"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-5-size",
+      "role": "type",
+      "themes": {
+        "dark": "20px",
+        "light": "20px",
+        "omni": "20px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-5-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.3",
+        "light": "1.3",
+        "omni": "1.3"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-6-size",
+      "role": "type",
+      "themes": {
+        "dark": "24px",
+        "light": "24px",
+        "omni": "24px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-6-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.25",
+        "light": "1.25",
+        "omni": "1.25"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-7-size",
+      "role": "type",
+      "themes": {
+        "dark": "32px",
+        "light": "32px",
+        "omni": "32px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-7-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.2",
+        "light": "1.2",
+        "omni": "1.2"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-prose-size",
+      "role": "type",
+      "themes": {
+        "dark": "17px",
+        "light": "17px",
+        "omni": "17px"
+      }
+    },
+    {
+      "group": "type",
+      "name": "type-prose-line",
+      "role": "type",
+      "themes": {
+        "dark": "1.6",
+        "light": "1.6",
+        "omni": "1.6"
+      }
+    },
+    {
+      "group": "weight",
+      "name": "weight-regular",
+      "role": "weight",
+      "themes": {
+        "dark": "400",
+        "light": "400",
+        "omni": "400"
+      }
+    },
+    {
+      "group": "weight",
+      "name": "weight-medium",
+      "role": "weight",
+      "themes": {
+        "dark": "500",
+        "light": "500",
+        "omni": "500"
+      }
+    },
+    {
+      "group": "weight",
+      "name": "weight-semibold",
+      "role": "weight",
+      "themes": {
+        "dark": "600",
+        "light": "600",
+        "omni": "600"
+      }
+    },
+    {
+      "group": "weight",
+      "name": "weight-bold",
+      "role": "weight",
+      "themes": {
+        "dark": "700",
+        "light": "700",
+        "omni": "700"
+      }
+    },
+    {
+      "group": "elevation",
+      "name": "elevation-flat",
+      "role": "elevation",
+      "themes": {
+        "dark": "0px 0px 0px 0px rgb(0 0 0 / 0)",
+        "light": "0px 0px 0px 0px rgb(0 0 0 / 0)",
+        "omni": "0px 0px 0px 0px rgb(0 0 0 / 0)"
+      }
+    },
+    {
+      "group": "elevation",
+      "name": "elevation-raised",
+      "role": "elevation",
+      "themes": {
+        "dark": "0px 1px 3px 0px rgb(0 0 0 / 0.24)",
+        "light": "0px 1px 3px 0px rgb(0 0 0 / 0.24)",
+        "omni": "0px 1px 3px 0px rgb(0 0 0 / 0.24)"
+      }
+    },
+    {
+      "group": "elevation",
+      "name": "elevation-overlay",
+      "role": "elevation",
+      "themes": {
+        "dark": "0px 8px 24px 0px rgb(0 0 0 / 0.32)",
+        "light": "0px 8px 24px 0px rgb(0 0 0 / 0.32)",
+        "omni": "0px 8px 24px 0px rgb(0 0 0 / 0.32)"
+      }
+    },
+    {
+      "group": "motion",
+      "name": "motion-duration-fast",
+      "role": "motion",
+      "themes": {
+        "dark": "120ms",
+        "light": "120ms",
+        "omni": "120ms"
+      }
+    },
+    {
+      "group": "motion",
+      "name": "motion-duration-slow",
+      "role": "motion",
+      "themes": {
+        "dark": "240ms",
+        "light": "240ms",
+        "omni": "240ms"
+      }
+    },
+    {
+      "group": "motion",
+      "name": "motion-ease-out",
+      "role": "motion",
+      "themes": {
+        "dark": "cubic-bezier(0.2, 0, 0, 1)",
+        "light": "cubic-bezier(0.2, 0, 0, 1)",
+        "omni": "cubic-bezier(0.2, 0, 0, 1)"
+      }
+    },
+    {
+      "group": "layer",
+      "name": "layer-base",
+      "role": "layer",
+      "themes": {
+        "dark": "0",
+        "light": "0",
+        "omni": "0"
+      }
+    },
+    {
+      "group": "layer",
+      "name": "layer-sticky",
+      "role": "layer",
+      "themes": {
+        "dark": "10",
+        "light": "10",
+        "omni": "10"
+      }
+    },
+    {
+      "group": "layer",
+      "name": "layer-overlay",
+      "role": "layer",
+      "themes": {
+        "dark": "20",
+        "light": "20",
+        "omni": "20"
+      }
+    },
+    {
+      "group": "layer",
+      "name": "layer-dialog",
+      "role": "layer",
+      "themes": {
+        "dark": "30",
+        "light": "30",
+        "omni": "30"
+      }
+    },
+    {
+      "group": "layer",
+      "name": "layer-toast",
+      "role": "layer",
+      "themes": {
+        "dark": "40",
+        "light": "40",
+        "omni": "40"
+      }
+    }
+  ]
+}
