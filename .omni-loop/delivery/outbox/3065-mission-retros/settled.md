@@ -398,3 +398,259 @@ Removing a route is a small change; the events they record stay in the ledger, w
 ```
 
 <!-- /omni-outbox-settled: s5-01-stuck-stop-and-item-routes -->
+
+<!-- omni-outbox-settled: s2-03-mission-retros-check-in-ci -->
+
+## s2-03-mission-retros-check-in-ci — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-18T20:22:17Z
+- Channel: feature pull request #3066
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3066#issuecomment-6990529145
+- Basis: affirmation — the answer opens with "ok" and carries no contradiction marker
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-11-18
+- Slice: s2
+- Wave: 1
+- Became: playbook/conventions#naming
+
+### The answer, as it was given
+
+```text
+ok
+```
+
+### The item, as it was raised
+
+````text
+---
+id: s2-03-mission-retros-check-in-ci
+prd: 3065
+slice: s2
+rank: human-action
+bears-on: none
+raised: 2026-11-18
+wave: 1
+---
+
+## The question, in plain words
+
+The new database check for mission retros has to run in the automatic checks on every pull request, but the agent is not allowed to change the automatic checks' settings. Can a person add that one step?
+
+## The decision, in plain words
+
+The agent wrote the check and proved it passes on a local database, but its push was refused when it tried to add the check to the automatic checks. Until a person adds that step, nothing runs the new check on a pull request.
+
+## The intro, for fun
+
+The guard is hired, trained and in uniform.
+
+## The punchline, for fun
+
+Somebody just has to put it on the rota.
+
+## What a person must do
+
+On the branch feat/mission-retros (or feat/mission-retros--s2 before it merges), in .github/workflows/supabase.yml, right after the step "A mission's token budget, its fleet's daily cap and a budget stop's answer", add:
+
+```yaml
+      - name: A mission's stuck repairs, milestone retros and own outbox
+        # A repair reads failure unless it says stuck; a stuck one may name no PRD and spends from the same 3 per cause and 9
+        # per mission. One retro per milestone, never changed; an item names a target, a wording and cited evidence, and a
+        # member answers it once as themselves, nobody else; paused by stuck only while paused; the five event kinds, the
+        # two job keys, and a stuck repair claimed first (PRD 3065).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mission_retros.sql
+```
+
+Commit and push it with an account that may change workflows, then answer this item.
+
+## What I had to decide
+
+The slice's territory includes .github/workflows/supabase.yml, and conventions › A new database check runs in CI asks for a named step. The push of that change was refused: "refusing to allow a GitHub App to create or update workflow `.github/workflows/supabase.yml` without `workflows` permission". The step was dropped from the slice so the rest could be pushed.
+
+Decided by: Jev (hardToRevert 0.62) · agent said false
+
+## What I did meanwhile
+
+supabase/checks/mission_retros.sql is committed and passed on a local database (supabase db start, then psql -f), along with every other check the workflow names.
+
+## What it costs to change later
+
+None to add later: one step, no other file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the wave runner can be given the workflows permission, so a later slice can add such a step itself, is not known here.
+
+````
+
+<!-- /omni-outbox-settled: s2-03-mission-retros-check-in-ci -->
+
+<!-- omni-outbox-settled: s2-01-stuck-and-retro-shapes -->
+
+## s2-01-stuck-and-retro-shapes — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-18T19:22:49Z
+- Channel: feature pull request #3066
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3066#issuecomment-6989088790
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-11-18
+- Slice: s2
+- Wave: 1
+- Stays here: the shapes belong to this PRD; its migration and spec hold them
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-stuck-and-retro-shapes
+prd: 3065
+slice: s2
+rank: high
+bears-on: none
+raised: 2026-11-18
+wave: 1
+---
+
+## The question, in plain words
+
+How should the database remember that a mission was paused because it was stuck, and what a retro that could not be written looks like?
+
+## The decision, in plain words
+
+A mission now carries a small mark saying it was paused because it was stuck, and the database wipes that mark itself as soon as the mission is resumed or stopped. A retro that was skipped is kept as a card saying why, and every proposed rule change points back to the one retro or repair that raised it.
+
+## The intro, for fun
+
+A mission that spins all night needs a sticky note on the fridge.
+
+## The punchline, for fun
+
+The note peels itself off the moment someone presses Resume.
+
+## The options, in plain words
+
+A. Keep a paused-by mark on the mission, cleared by the database when the pause ends, and the shapes above.
+B. Keep no mark: tell a pause by stuck apart from the mission's latest events instead.
+C. Keep the pause by stuck as its own table of questions and answers, as the token budget does.
+
+## What I had to decide
+
+The spec asks the database to keep the pause by stuck but does not say how. I added missions.paused_by (only 'stuck', only while status is paused), and a trigger clears it whenever the mission leaves paused, so the existing Resume and Stop paths need no change. Other shapes the spec left open: a mission_retros row holds either a retro or a skipped reason (never both), one per milestone; a mission_items row is raised by exactly one milestone retro or one repair of the same mission, numbered 1 to 20 within it; a stuck repair's failed_job_id is the fifth job, whose end made the mission stuck; job keys mission:<id>:stuck:<k> and mission:<id>:retro:<roadmap n | mission> keep a replay from sending twice; a stuck repair is claimed first in line, as a PRD's repair is.
+
+Decided by: Jev (hardToRevert 0.44) · agent said false
+
+## What I did meanwhile
+
+Built and proven by supabase/checks/mission_retros.sql against a local database, with every other database check still green.
+
+## What it costs to change later
+
+Low: the tables and the column are new and empty until the supervisor (s4) writes them; a follow-up migration can reshape them before any row exists, or with a small backfill after.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the pause by a token budget should share the same mark, which today lives in its own budget-stop table, was left as it is.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-stuck-and-retro-shapes -->
+
+<!-- omni-outbox-settled: s3-01-mission-retro-runner-lists -->
+
+## s3-01-mission-retro-runner-lists — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-18T19:22:49Z
+- Channel: feature pull request #3066
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3066#issuecomment-6989088790
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-11-18
+- Slice: s3
+- Wave: 2
+- Became: playbook/conventions#naming
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-mission-retro-runner-lists
+prd: 3065
+slice: s3
+rank: high
+bears-on: none
+raised: 2026-11-18
+wave: 2
+---
+
+## The question, in plain words
+
+A runner can only take a skill that the runner list, the app's copy of it, the database's copy and the runners guide all name. Should this slice have touched those outside its own folders so a mission can send the new retro skill?
+
+## The decision, in plain words
+
+To let a runner accept the mission retro skill, the slice also added it to the app's runner list, the runners guide and one small new database migration that keeps a repository from reusing the name. It left the engineer hero's skill list alone, because adding it there changes many page tests.
+
+## The intro, for fun
+
+A new skill needs a badge before the bouncer lets it in.
+
+## The punchline, for fun
+
+Four doors, four lists, and one of them was a database.
+
+## The options, in plain words
+
+A. A. Add the name to the app list, the guide and a new migration, and leave the Engineer role as it is (as built).
+B. B. Add it everywhere, the Engineer role and the heroes drawer's tests included, in a later slice that owns the arcade.
+C. C. Touch nothing outside the slice and let the supervisor slice add the lists.
+
+## What I had to decide
+
+Kept: the kit's runnable list, the app's contract list, the guide's line and a migration (20270126120000_mission_retro_skill.sql) adding mission-retro to the fixed list of set_repository_runner_skill. Not done: mission-retro in the Engineer's skills (kit/lib/virtual-fleet/roles.ts), which the plan lists for this slice but which moves counts on the heroes drawer in apps/galaxy.
+
+## What I did meanwhile
+
+Without these edits a mission could not send /omni:mission-retro: the app and the database would refuse the line.
+
+## What it costs to change later
+
+The migration redefines one function with one more name in its list; undoing it is another migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The Engineer role does not list mission-retro yet, so the heroes drawer does not show it (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-mission-retro-runner-lists -->

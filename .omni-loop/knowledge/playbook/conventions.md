@@ -57,10 +57,16 @@ New server code logs through `kit/lib/log`, never a bare `console` string (ADR-0
   #1649, #2207).
 - **A new database check runs in CI.** Each `supabase/checks/` file is its own named step in the
   `supabase` workflow's `check` job, added with the check: a check CI never runs proves nothing (PRD
-  902, s1-02).
+  902, s1-02). A runner's GitHub App may not push a change under `.github/workflows/`: on a runner,
+  the slice keeps the check and raises the step as a human-action item with its exact lines (PRD 3065,
+  s2-03).
 - **A new returned column lands with its readers.** A migration adding a column to returned rows
   extends every parse schema reading them in the same change: they refuse unknown keys and
   `pnpm schemas:verify` stays red (retro of PRD 2270, #2295).
+- **A skill a runner may run is named in four lists**, changed together: the kit's runnable list
+  (`kit/lib/runner/line`), the app's contract list, the runners guide, and the fixed list of
+  `set_repository_runner_skill` (a new migration). Missing one, the app or the database refuses the
+  line (PRD 3065, s3-01).
 - **A slice that adds a migration has `supabase/migrations/` in its territory**, so the plan's table
   shows every slice adding one (retro of PRD 2809, #2839).
 
