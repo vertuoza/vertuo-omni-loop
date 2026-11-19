@@ -1,7 +1,7 @@
 // The brief's schema (PRD 2842 s2): a mission.md's front matter read into its brief, every fault
 // naming its field; and the page rules mission.html keeps.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PARALLEL, levelRefusal, parseBrief } from './brief.ts';
+import { DEFAULT_PARALLEL, OMNI_BUGS_REPOSITORY_REFUSAL, levelRefusal, parseBrief, repositoryRefusal } from './brief.ts';
 import { PAGE_MAX_BYTES, pageFaults } from './page.ts';
 
 const FRONT = [
@@ -38,7 +38,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
     expect(parseBrief(record())).toEqual({
       ok: true,
       brief: {
-        mission: 2850, title: 'Every quote can be paid online', fleet: 'night-shift',
+        mission: 2850, kind: 'prds', title: 'Every quote can be paid online', fleet: 'night-shift',
         goal: 'Every quote can be paid online, for every customer.',
         measures: [{ sign: 'Quotes paid online', read: 'the payments report, weekly', target: 'three in ten within a month' }],
         scope: { prds: [2803, 2804], roadmaps: [12] },
@@ -149,5 +149,40 @@ describe('levelRefusal (PRD 2896 s14)', () => {
     expect(levelRefusal('own-branch', false)).toBeNull();
     expect(levelRefusal('alone', true)).toBeNull();
     expect(levelRefusal('with-you', true)).toBeNull();
+  });
+});
+
+describe('a brief\'s kind (PRD 3088)', () => {
+  const BUGS = ['mission: 3100', 'title: The Omni Loop bug team', 'fleet: night-shift', 'goal: Fix the Omni Loop bugs missions report', 'kind: omni-bugs'];
+
+  it('reads prds when the kind is absent', () => {
+    const parsed = parseBrief(record());
+    expect(parsed.ok && parsed.brief.kind).toBe('prds');
+  });
+
+  it('reads an omni-bugs brief with no scope, and with an empty one', () => {
+    for (const lines of [BUGS, [...BUGS, 'scope:', '  prds: []']]) {
+      const parsed = parseBrief(record(lines));
+      expect(parsed.ok && parsed.brief).toMatchObject({ kind: 'omni-bugs', measures: [], scope: { prds: [], roadmaps: [] }, mandate: { parallel: 2, level: 'with-you' } });
+    }
+  });
+
+  it('still refuses a prds brief with an empty or missing scope, and an unknown kind', () => {
+    expect(errorsOf(record(swap('scope', ['scope:', '  prds: []'])))).toEqual(['scope: names no PRD and no roadmap: one at least.']);
+    expect(errorsOf(record(swap('scope', [])))).toEqual(['scope: missing.']);
+    expect(errorsOf(record([...FRONT, 'kind: prds']))).toEqual([]);
+    expect(errorsOf(record([...FRONT, 'kind: bugs']))).toEqual(['kind: is one of prds, omni-bugs.']);
+  });
+
+  it('refuses an omni-bugs brief that names a PRD', () => {
+    expect(errorsOf(record([...BUGS, 'scope:', '  prds: [2803]']))).toEqual(['scope: is empty for an omni-bugs mission.']);
+  });
+
+  it('refuses an omni-bugs brief off the Omni Loop repository, naming why', () => {
+    const omni = 'vertuoza/vertuo-omni-loop';
+    expect(OMNI_BUGS_REPOSITORY_REFUSAL).toBe('Only the Omni Loop repository runs the Omni Loop bug team');
+    expect(repositoryRefusal('omni-bugs', 'acme/shop-app', omni)).toBe(OMNI_BUGS_REPOSITORY_REFUSAL);
+    expect(repositoryRefusal('omni-bugs', 'Vertuoza/Vertuo-Omni-Loop', omni)).toBeNull();
+    expect(repositoryRefusal('prds', 'acme/shop-app', omni)).toBeNull();
   });
 });
