@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-17
 - Slice: s1
 - Wave: 1
+- Became: BR-ACCESS-10
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant in one database function; changing it is one new migration redefining
 - Raised: 2026-11-17
 - Slice: s1
 - Wave: 1
+- Became: ADR-0169
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ None to undo: the file is regenerated from the migrations whenever they change.
 - Raised: 2026-11-17
 - Slice: s2
 - Wave: 1
+- Stays here: A stopgap until the page answers the product key, removable in one function. A wrong guess only shows the knowledge-off line, so there is no lasting guarantee to record.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ If the page later answers the key beside the name, the rewriting is deleted in o
 - Raised: 2026-11-17
 - Slice: s3
 - Wave: 2
+- Stays here: A local choice of test placement, cheap to move later; nothing lasting about the product's behaviour to keep in the knowledge base.
 
 ### The answer, as it was given
 
