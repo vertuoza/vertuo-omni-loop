@@ -997,3 +997,12 @@ Why: People need to trust that a budget pause neither silently overspends nor ho
 Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s1-01-budget-edge-rules, PRD #3040
 Merged: @pierrederval, 2026-11-18, PR #3042
 Proposed: harvest 2026-11-18
+
+## P-PRODUCT-127
+
+A bug report the loop files in public never carries anything that identifies a workspace, its people or its code.
+
+Why: Reports go to a public tracker, so a leaked path, login or repository name would expose a private workspace to anyone.
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s1-02-public-report-scrubs-wide-and-strict-record, PRD #2980
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17

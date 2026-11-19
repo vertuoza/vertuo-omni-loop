@@ -963,3 +963,63 @@ Stated: 2026-11-18
 Decided: nobody — adopted when raised (medium), 2026-11-18
 Merged: @pierrederval, 2026-11-18, PR #3042
 Proposed: harvest 2026-11-18
+
+## BR-PRODUCT-159
+
+A public bug report's message keeps only the leading command without its arguments, cut to 300 characters, with paths, file names, repository and workspace names, logins, emails, links and commit hashes removed; any leftover one refuses the report.
+
+Serves: P-PRODUCT-127
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s1-02-public-report-scrubs-wide-and-strict-record, PRD #2980
+Enforced by: kit/lib/repair/scrub.test.ts, kit/lib/repair/line.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-160
+
+A mission repair ends fixed, not fixed, stopped (handed to a person or reported an Omni Loop bug) or lost, and its ending never changes once set. A lost repair gives its turn back to the next repair of the same cause; the other three count against the 3 per cause and 9 per mission.
+
+Serves: P-PRODUCT-63
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s2-03-how-a-repair-ends, PRD #2980
+Enforced by: supabase/checks/mission_repairs.sql, apps/omni-app/src/missions/store.repair.test.ts, apps/galaxy/src/runners/runners.repair.migration.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-161
+
+A repair's fix whose checks failed, that was closed, that targets another base or whose merge is refused stops the PRD, naming the merge's reason. A fix still a draft or with checks running or absent waits, read again each run.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-02-repair-fix-landing-rules, PRD #2980
+Enforced by: apps/omni-app/src/missions/repair.test.ts, apps/omni-app/src/missions/supervisor.repair.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-162
+
+A mission repair that leaves no readable report counts against the PRD it repaired as one cause, so three such in a round stop that PRD. A repair of a cause that already spent its three still runs its retro, but nothing it proposes is applied and the PRD stops.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-03-repair-budget-counting, PRD #2980
+Enforced by: apps/omni-app/src/missions/repair.test.ts, apps/omni-app/src/missions/supervisor.repair.test.ts, supabase/checks/mission_repairs.sql
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## BR-PRODUCT-163
+
+A public Omni Loop bug report from a mission's repair never carries the owner or name of any repository of the workspace, nor the login of anyone named on the mission's history, beyond what the first scrub already removes.
+
+Serves: P-PRODUCT-38
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s5-04-repair-resume-and-report-names, PRD #2980
+Enforced by: kit/lib/repair/scrub.test.ts, apps/omni-app/src/missions/store.repair.test.ts, apps/omni-app/src/missions/repair.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
