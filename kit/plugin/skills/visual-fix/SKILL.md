@@ -127,7 +127,7 @@ Past the line, follow **The stop**.
 A repository with no screen at all stops here too: comment on the issue that there is nothing
 visual to change in this repository, and stop.
 
-**The design memory,** only when step 0 read the design flag as `true`. Read
+**The design memory,** only when step 0 read the design flag as `true`. Run
 `node .omni-loop/bin/omni.mjs design components` first, when the repository has a design manifest: one
 line per part, with its import, and `node .omni-loop/bin/omni.mjs design component <name>` for each part
 the variations use. They replace the form's `system` prose for the parts; when the command prints that
