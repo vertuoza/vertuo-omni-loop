@@ -102,7 +102,11 @@ never overrides this skill's rules.
 6. **The design memory,** only when step 0 read the design flag as `true` and the slice builds or
    changes a screen (the plan marks it `ui: yes`, or its territory holds screens). Read
    `omni kb show design`, its `language` laws included: they bind the screens as the rest of the
-   form does. Then run `node .omni-loop/bin/omni.mjs design screens` and read each library screen
+   form does. Before the form's `system` prose, run `node .omni-loop/bin/omni.mjs design components`
+   when the repository has a design manifest (one line per part, with its import), and
+   `node .omni-loop/bin/omni.mjs design component <name>` for each part the slice uses (its variants,
+   do and don't, one example): they replace that prose for the parts. When it prints that the
+   repository has no design manifest, read the `system` section as before. Then run `node .omni-loop/bin/omni.mjs design screens` and read each library screen
    the slice builds or touches (its `implements` meets the territory, or the spec names it or one
    of its routes): its file, in the folder `node .omni-loop/bin/omni.mjs config design.screens`
    prints, and its mockup. Read its `reads` too, when it has one: the code behind the screen

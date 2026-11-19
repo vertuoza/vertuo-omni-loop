@@ -128,6 +128,10 @@ A repository with no screen at all stops here too: comment on the issue that the
 visual to change in this repository, and stop.
 
 **The design memory,** only when step 0 read the design flag as `true`. Read
+`node .omni-loop/bin/omni.mjs design components` first, when the repository has a design manifest: one
+line per part, with its import, and `node .omni-loop/bin/omni.mjs design component <name>` for each part
+the variations use. They replace the form's `system` prose for the parts; when the command prints that
+the repository has no design manifest, read the `system` section of the form as before. Then run
 `node .omni-loop/bin/omni.mjs kb show design`, its `language` laws included, then run
 `node .omni-loop/bin/omni.mjs design screens` and find the library screen the line is about: the one
 whose `implements` meets the files its look comes from, or whose `routes` show it. Read its file, in
