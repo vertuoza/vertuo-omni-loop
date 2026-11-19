@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-19
 - Slice: s2
 - Wave: 1
+- Stays here: This is a slicing choice about which slice wires one field. The default-to-ordinary behaviour is transitional and holds no lasting product guarantee beyond the existing brief rules.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ One field added to the brief the page sends, and its test; nothing in the databa
 - Raised: 2026-11-19
 - Slice: s2
 - Wave: 1
+- Became: N-PRODUCT-26
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Changing the shape later is one migration and the App's two writers; no bug has 
 - Raised: 2026-11-19
 - Slice: s3
 - Wave: 2
+- Stays here: A temporary wiring order between two slices of one wave, costing one line to change; nothing lasting about the product's behaviour to keep.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ One line in the App's job list, beside the other GitHub readers a mission gets; 
 - Raised: 2026-11-19
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-173
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ Following the answer later is one more read at the team's wake, of the job that 
 - Raised: 2026-11-19
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-174
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ One line of the team's reading of how a bug fix ended; no stored shape changes.
 - Raised: 2026-11-19
 - Slice: s5
 - Wave: 3
+- Stays here: A one-line wiring choice outside territory; the lasting behaviour (resume once kit is at the fix's release) is already in BR-PRODUCT-139, nothing new to keep.
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ Removing it is one line; a PRD would then wait on the kit until a person updates
 - Raised: 2026-11-19
 - Slice: s5
 - Wave: 3
+- Became: ADR-0171
 
 ### The answer, as it was given
 
