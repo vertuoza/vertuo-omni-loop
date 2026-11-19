@@ -92,11 +92,14 @@ describe('bugEndOf', () => {
     expect(bugEndOf(attempt('a', { outcome: 'blocked' }))).toEqual({ end: 'spent', word: 'blocked' });
   });
 
-  it('reads a done job with no word it knows, a failure and a cancel as unreadable, spending a try', () => {
+  it('reads a done job with no word it knows and a failure as spending a try', () => {
     expect(bugEndOf(attempt('a', { outcome: null }))).toEqual({ end: 'spent', word: 'unreadable' });
     expect(bugEndOf(attempt('a', { outcome: 'ready' }))).toEqual({ end: 'spent', word: 'unreadable' });
     expect(bugEndOf(attempt('a', { status: 'failed', reason: 'exit 1' }))).toEqual({ end: 'spent', word: 'failed' });
-    expect(bugEndOf(attempt('a', { status: 'cancelled' }))).toEqual({ end: 'spent', word: 'cancelled' });
+  });
+
+  it('reads a cancel as a person\'s: set aside for a person, never sent again on the team\'s own (P-PRODUCT-114)', () => {
+    expect(bugEndOf(attempt('a', { status: 'cancelled' }))).toEqual({ end: 'asked', word: 'cancelled' });
   });
 
   it('reads a lost runner and a provider limit as lost', () => {
@@ -143,6 +146,12 @@ describe('bugAfter', () => {
   it('sets aside needs-brainstorm and not-a-bug as asked too: an agent never closes a report alone', () => {
     expect(after(fixing, [job(12, 1, attempt('a', { outcome: 'needs-brainstorm' }))])?.move.state).toBe('asked');
     expect(after(fixing, [job(12, 1, attempt('a', { outcome: 'not-a-bug' }))])?.move.state).toBe('asked');
+  });
+
+  it('sets aside a bug whose bug fix a person cancelled, spending no try', () => {
+    const ended = after({ ...fixing, attempts: 1 }, [job(12, 2, attempt('job-4', { status: 'cancelled' }))]);
+    expect(ended?.move).toEqual({ state: 'asked', attempts: 1, fixPr: null, askedJob: 'job-4' });
+    expect(ended?.event?.sentence).toBe('Omni Loop bug #12 (reported 7×) is set aside: its bug fix was cancelled, and a person decides what comes next.');
   });
 
   it('spends a try on stuck, blocked or an unreadable end, and puts the bug back in line', () => {

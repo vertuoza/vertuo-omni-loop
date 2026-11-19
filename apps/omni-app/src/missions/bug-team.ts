@@ -11,7 +11,10 @@
 //                already-fixed                   merged, the pull request it names kept: it waits for its release
 //                need-human, needs-brainstorm,   asked: set aside, the job's own question waits for a person, the job kept; never
 //                not-a-bug                       taken again (only an `open` bug is taken), so never asked twice
-//                stuck, blocked, unreadable      one try spent, back `open`; the 3rd ends it `asked`, saying what was tried
+//                cancelled                       asked too, no try spent: a person stopped it, and only a person sends it again
+//                                                (P-PRODUCT-114)
+//                stuck, blocked, a failure,      one try spent, back `open`; the 3rd ends it `asked`, saying what was tried
+//                unreadable
 //                lost                            back `open`, no try spent: a lost job's resume carries it while one is queued
 //   events     bug-taken and bug-asked (role supervisor), job-ended (role engineer), one sentence each naming the issue and its
 //              count, and one link, the public issue or the fix pull request; keyed by their job so a replay records none twice
@@ -90,7 +93,7 @@ export const nextK = (jobs: readonly BugJob[], issue: IssueNumber): number => (l
 export type BugEnd =
   | { end: 'pr-opened'; pr: PrNumber | null }
   | { end: 'already-fixed'; pr: PrNumber | null }
-  | { end: 'asked'; word: 'need-human' | 'needs-brainstorm' | 'not-a-bug' }
+  | { end: 'asked'; word: 'need-human' | 'needs-brainstorm' | 'not-a-bug' | 'cancelled' }
   | { end: 'spent'; word: string }
   | { end: 'lost' };
 
@@ -106,7 +109,9 @@ const ASKED: Readonly<Record<string, 'need-human' | 'needs-brainstorm' | 'not-a-
 /** How an attempt that ended reads: its outcome word, its runner lost, or unreadable (a failure, a cancel, no word the team knows). */
 export function bugEndOf(attempt: Attempt): BugEnd {
   if (attempt.status === 'failed' && (attempt.limitedUntil != null || LOST.has(attempt.reason ?? ''))) return { end: 'lost' };
-  if (attempt.status !== 'done') return { end: 'spent', word: attempt.status === 'cancelled' ? 'cancelled' : 'failed' };
+  // A person cancelled it: never sent again on the team's own (P-PRODUCT-114), set aside for a person, no try spent.
+  if (attempt.status === 'cancelled') return { end: 'asked', word: 'cancelled' };
+  if (attempt.status !== 'done') return { end: 'spent', word: 'failed' };
   const word = attempt.outcome ?? '';
   if (word === 'pr-opened') return { end: 'pr-opened', pr: prOf(attempt.prUrl) };
   if (word === 'already-fixed') return { end: 'already-fixed', pr: prOf(attempt.prUrl) };
@@ -150,11 +155,12 @@ export function pickBugs({ bugs, jobs, issues, parallel }: { bugs: readonly Bug[
 const countWords = (count: number): string => `reported ${String(count)}×`;
 const bugWords = (bug: Bug): string => `Omni Loop bug #${String(bug.issue)} (${countWords(bug.count)})`;
 
-/** Why an asked ending sets a bug aside, in the room's words. */
+/** Why an asked ending sets a bug aside, in the room's words, and what waits for a person. */
 const ASKED_WHY: Readonly<Record<Extract<BugEnd, { end: 'asked' }>['word'], string>> = {
-  'need-human': 'its bug fix needs a person',
-  'needs-brainstorm': 'it needs a product decision',
-  'not-a-bug': 'its bug fix says it may not be a bug',
+  'need-human': 'its bug fix needs a person, and its question waits for a person',
+  'needs-brainstorm': 'it needs a product decision, and its question waits for a person',
+  'not-a-bug': 'its bug fix says it may not be a bug, and its question waits for a person',
+  cancelled: 'its bug fix was cancelled, and a person decides what comes next',
 };
 
 /** What a bug's tries ended on, in order: each of its ended jobs that spent one. */
@@ -219,7 +225,7 @@ export function bugAfter(bug: Bug, { repo, jobs }: { repo: string; jobs: readonl
     case 'asked':
       return {
         move: moveOf(bug, { state: 'asked', askedJob: job.job }),
-        event: said('bug-asked', 'supervisor', job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read.word]}, and its question waits for a person.`),
+        event: said('bug-asked', 'supervisor', job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read.word]}.`),
       };
     case 'lost':
       return { move: moveOf(bug, { state: 'open' }), event: said('job-ended', 'engineer', job.job, link, `${bugWords(bug)}: its bug fix's runner was lost; it goes back in line, no try spent.`) };
