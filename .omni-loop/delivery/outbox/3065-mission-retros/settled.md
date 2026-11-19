@@ -415,7 +415,7 @@ Removing a route is a small change; the events they record stay in the ledger, w
 - Raised: 2026-11-18
 - Slice: s2
 - Wave: 1
-- Became: playbook/conventions#naming
+- Became: ADR-0148
 
 ### The answer, as it was given
 
@@ -590,7 +590,7 @@ Low: the tables and the column are new and empty until the supervisor (s4) write
 - Raised: 2026-11-18
 - Slice: s3
 - Wave: 2
-- Became: playbook/conventions#naming
+- Became: ADR-0147
 
 ### The answer, as it was given
 
