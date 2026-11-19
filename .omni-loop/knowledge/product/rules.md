@@ -1022,6 +1022,7 @@ Enforced by: kit/lib/repair/scrub.test.ts, apps/omni-app/src/missions/store.repa
 Stated: 2026-11-17
 Decided: nobody — adopted when raised (medium), 2026-11-17
 Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
 
 ## BR-PRODUCT-164
 

@@ -75,6 +75,7 @@ Enforced by: apps/omni-app/src/missions/repair.test.ts, kit/lib/repair/fingerpri
 Stated: 2026-11-17
 Decided: nobody — adopted when raised (medium), 2026-11-17
 Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
 
 ## N-PRODUCT-25
 

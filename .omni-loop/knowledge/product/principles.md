@@ -1005,6 +1005,7 @@ A bug report the loop files in public never carries anything that identifies a w
 Why: Reports go to a public tracker, so a leaked path, login or repository name would expose a private workspace to anyone.
 Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s1-02-public-report-scrubs-wide-and-strict-record, PRD #2980
 Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
 
 ## P-PRODUCT-128
 
