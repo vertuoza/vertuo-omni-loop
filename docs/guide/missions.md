@@ -186,7 +186,7 @@ this mission`, and the room names the cause and the fix pull request.
 | `code` | a bug fix into the mission branch. When its fix is green it lands there, and the step runs again |
 | `flake` | a timeout, a lost network or a busy service: nothing is changed, and the step runs once more |
 | `person` | only a person can decide. The PRD stops with the question |
-| `omni-loop` | the kit, a skill or the runner is wrong. A scrubbed report goes to the Omni Loop repository, and the PRD waits on that bug |
+| `omni-loop` | the kit, a skill or the runner is wrong. A scrubbed report goes to the Omni Loop repository, and the PRD waits on that bug (see [The Omni Loop bug team](#the-omni-loop-bug-team)) |
 
 The budget has two caps:
 
@@ -203,6 +203,62 @@ spends nothing; one whose record cannot be read spends one.
 **Resume** of a stopped mission opens a new round: each cause gets 3 repairs again, and the mission's
 9 stay counted. The room reads what is left, for example `6 of 9 left in this mission`. A job a
 person cancelled sends no repair: a person stopped it, so the PRD stays stopped.
+
+## The Omni Loop bug team
+
+When a repair finds that Omni Loop itself is wrong, the App files a scrubbed report as a `bug` issue
+on the Omni Loop repository, or adds a `+1` to the one already open. The **Omni Loop bug team** is a
+standing mission that works through those reports. It is the one mission that never ends delivered.
+
+**Starting it.** Run `/omni:mission --omni-bugs` on the Omni Loop repository. Its goal is fixed (`Fix
+the Omni Loop bugs missions report`), it has no scope and no measure, and it takes the default mandate
+(2 bug fixes at once). At most one runs at a time. Any other repository refuses it: `Only the Omni
+Loop repository runs the Omni Loop bug team`.
+
+**What it takes.** At each wake the team takes the open bugs, the most-reported first and then the
+oldest, up to its mandate's running count. It skips a bug whose issue is closed, and one that already
+has an open pull request closing it, since a person is on that one. Each bug it takes is sent to a
+runner as `/omni:bug-fix #<issue>`, into the default branch. It takes only bugs the App filed: an issue
+a person opened by hand with the `bug` label is never taken.
+
+**A bug's states.** The room shows one row per bug the team holds:
+
+| state | the room reads | what it means |
+|---|---|---|
+| open | no row | waits in line to be taken |
+| fixing | `Fixing #<issue> · reported <n>×` | a bug-fix job is running |
+| pr-opened | `#<issue> · <n>× · PR #<m> to merge` | the fix pull request waits for your merge |
+| asked | `#<issue> · asked: <why>` | set aside; its question waits for you |
+| merged | `#<issue> · <n>× · fixed, waits for its release` | the fix is on the default branch, not released yet |
+| fixed | no row; the room's ledger reads `Omni Loop bug #<issue> is fixed in v0.0.N.` | a release holds the merge |
+| wont-fix | no row; the ledger reads `Omni Loop bug #<issue> won't be fixed` | the issue was closed as not planned |
+
+**Tries and questions.** A bug gets 3 tries. A try that ends `stuck`, `blocked` or with no outcome the
+App can read goes back in line. The third such try sets the bug aside as asked, with what was tried. A
+job lost with its runner spends no try. When a bug fix needs a person, needs a product decision, or
+says the report may not be a bug, the bug is set aside and its question is asked once, in your bell and
+in the room. The team moves on to the next bug and never asks that one again. Closing the issue as not
+planned makes the bug `won't fix`.
+
+**Fixed means released.** You merge each fix pull request yourself; nothing reaches the default branch
+otherwise. A merged fix stays `merged` until a published release holds its merge commit, and then the
+bug reads `fixed in v0.0.N`. A fix pull request closed without merging puts the bug back in line.
+
+**A mission waiting on an Omni Loop bug.** A PRD that stopped on a bug reads `Waits on Omni Loop bug
+#<issue>`. Its mission follows that bug:
+
+- **Still open:** the PRD stays stopped, as before. A Resume of the mission sends it again.
+- **Fixed in v0.0.N:** the room reads `Omni Loop bug #<issue> is fixed in v0.0.N.` What happens next
+  depends on the kit the mission's repository pins (on the mission branch, or on the default branch
+  when there is none):
+  - at v0.0.N or later, the PRD's step is sent again at the next wake, spending no repair, and the room
+    reads `PRD <n> resumed: the kit is at v0.0.N.`;
+  - older, the PRD reads `Fixed in v0.0.N: update the kit to resume (omni update)`. Run `omni update` in
+    that repository. The PRD goes again at the first wake that reads a kit new enough.
+- **Mission paused or stopped:** the PRD waits for your Resume of the mission, then follows the rule
+  above.
+- **Won't fix:** the room reads `Omni Loop bug #<issue> won't be fixed: take this PRD by hand`, and the
+  PRD stays stopped.
 
 ## Retros
 
