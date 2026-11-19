@@ -65,6 +65,8 @@
 //   how it ends    `later`, a minute on, while the mission runs or waits, or while it is paused with a job of it
 //                  still running (its end is recorded); at its wake, paused by the budget until tomorrow; `done`
 //                  otherwise. Paused sends nothing new
+//   the bug team   an `omni-bugs` mission (PRD 3088) runs ./bug-team-run.ts instead: no PRD, no branch, never delivered; its budget,
+//                  each bug's ended job read, the next bugs taken (`/omni:bug-fix #<issue>`), watched a minute on while it runs or waits
 //   the cap        the ledger fails a job's 21st `later` in a row: before that, a run refreshes its own job (it is
 //                  running, so the refresh marks it `again`), and its finish queues it at once with its count reset.
 //                  The extra run reads the same state and records nothing twice
@@ -100,6 +102,8 @@ import { isStuckRow, leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } 
 import { readStuck, stuckStep } from './stuck-run.ts';
 import { NO_STUCK, type StuckView } from './stuck.ts';
 import { milestoneStep } from './milestone-run.ts';
+import { bugTeamRun } from './bug-team-run.ts';
+import type { MissionBugIssues } from './bug-team.github.ts';
 import {
   baseOf,
   conclude,
@@ -160,6 +164,8 @@ export type MissionDeps = {
   landings?: MissionLandings | null;
   /** A high item the fleet's committee answered, settled on its PRD's feature branch (PRD 2896 s10); null (no GitHub): it goes to a person. */
   answers?: MissionAnswers | null;
+  /** The Omni Loop bug team's read of its bugs' issues (PRD 3088); null (no GitHub): an `omni-bugs` mission takes no bug, saying why. */
+  bugIssues?: MissionBugIssues | null;
   /** The Omni page's host, which each PRD's page in the mission pull request is linked on. */
   galaxyUrl?: string;
   /** Refreshes a job on the ledger: how a run resets its count of `later`s. */
@@ -897,6 +903,7 @@ export function missionHandler({
   landings = null,
   drops = null,
   answers = null,
+  bugIssues = null,
   galaxyUrl = DEFAULT_GALAXY_URL,
   now = Date.now,
   log = noteTo('missions'),
@@ -907,16 +914,24 @@ export function missionHandler({
     if (!('id' in mission)) return mission;
     const at = now();
     // Delivered (PRD 3065): only its milestone retros run, watched until each that was sent is recorded.
-    if (mission.status === 'delivered') {
+    if (mission.status === 'delivered' && mission.kind !== 'omni-bugs') {
       const retros = mission.store.retros;
       return retros !== undefined && (await deliveredRun(mission.store, retros, mission, at)) ? laterOf({ job, refresh, mission, at }) : { outcome: 'done' };
     }
-    const run = await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
-    log(`mission ${id}: ${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
-    // A status changed meanwhile (a Pause) is read again on the next run, a minute on.
-    if (!watched(run) && run.moved) return wakeOf(run) === null ? { outcome: 'done' } : laterOf({ job, refresh, mission, at, until: wakeOf(run) });
-    return laterOf({ job, refresh, mission, at });
+    // The Omni Loop bug team (PRD 3088): its own run, never delivered.
+    const team = mission.kind === 'omni-bugs';
+    const run = team
+      ? await bugTeamRun({ store: mission.store, mission, now: at, issues: bugIssues })
+      : await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
+    log(`mission ${id}: ${team ? 'the bug team ' : ''}${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
+    return afterRun(run, { job, refresh, mission, at });
   };
+}
+
+/** How a run ends: a status changed meanwhile (a Pause) is read again on the next run, a minute on; a mission no longer watched is done, or wakes by itself. */
+function afterRun(run: Supervised, at: { job: ClaimedJob; refresh: MissionDeps['refresh']; mission: MissionRecord; at: number }): Promise<JobResult> {
+  if (!watched(run) && run.moved) return wakeOf(run) === null ? Promise.resolve({ outcome: 'done' }) : laterOf({ ...at, until: wakeOf(run) });
+  return laterOf(at);
 }
 
 /** The mission to run, with its store; or how the run ends without one: no database, no mission, a draft. */

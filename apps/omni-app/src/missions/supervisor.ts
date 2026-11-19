@@ -246,7 +246,9 @@ export type EventKind =
   /** PRD 3040: the supervisor recorded a budget stop, paused the mission again by it, or resumed it once it was answered. */
   | 'budget-stop' | 'paused' | 'resumed'
   /** PRD 3065: a stuck repair sent or a pause by stuck, a milestone retro recorded or skipped, a change a retro proposed. */
-  | 'stuck' | 'milestone-retro' | 'item-proposed';
+  | 'stuck' | 'milestone-retro' | 'item-proposed'
+  /** PRD 3088: the Omni Loop bug team sent a bug-fix job, or set a bug aside on its question or its third try. */
+  | 'bug-taken' | 'bug-asked';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa';
 
 /** An event to record, signed by its role and `agent`. */
@@ -849,6 +851,8 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   'repair-ended': (_prdKey, job) => jobKey('repair-ended', job),
   'bug-reported': (_prdKey, job) => jobKey('bug', job),
   stuck: (_prdKey, job) => jobKey('stuck', job),
+  'bug-taken': (_prdKey, job) => jobKey('bug-taken', job),
+  'bug-asked': (_prdKey, job) => jobKey('bug-asked', job),
 };
 
 /** The keys an event recorded stands for; none for a kind recorded on every change (waits, Start, Pause). */
