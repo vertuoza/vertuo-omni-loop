@@ -29,10 +29,31 @@ signed. A command that prints nothing means signing is off here: add nothing.
 | nothing, or the goal | `/omni:mission 'dark mode for quotes'` | the conversation of step 1; a goal given is the first answer, still shown for a yes |
 | `--prd <n> '<goal>'` | `/omni:mission --prd 2803 'dark mode for quotes on site'` | the one-line mission: no conversation. That PRD is its scope, the goal is as given, no measure yet, the default mandate |
 | `--fleet <key>` | `--fleet crew-bots` | the Virtual Fleet's key, when it is already known; saves the question |
+| `--omni-bugs` | `/omni:mission --omni-bugs` | the Omni Loop bug team: a standing mission of kind `omni-bugs`, written in one line (see below). Only on the Omni Loop repository |
 | `--level <key>` | `--level own-branch` | the level the mission runs at, `with-you`, `own-branch` or `alone`; overrides the fleet's. A member who is not an owner can take it only up to the fleet's own level |
 
 `<n>` below is the mission's number, its issue's number. With `--prd` and no goal, say that the
 one-line form takes the goal, and stop.
+
+## `--omni-bugs`: the Omni Loop bug team
+
+`--omni-bugs` writes the brief of a standing mission that fixes the Omni Loop bugs missions report
+(PRD 3088), in one line and with one question at most:
+
+- `kind: omni-bugs` in the front matter, and no `scope`: it has none, and a brief with a PRD or a
+  roadmap in it is refused. It never ends delivered.
+- The goal is fixed: `Fix the Omni Loop bugs missions report`. No measure (`measures: []`) and the
+  default mandate (`parallel: 2`, the fleet's level).
+- The fleet is `--fleet` when given, else the workspace's Virtual Fleet that has an Engineer. With
+  several, ask which one: that is its one question. With none, say that a member creates it from the
+  Fleet section and stop. Under `OMNI_UNATTENDED` with several, ask nothing: stop and say the fleet's
+  key is the one thing it cannot guess.
+- Only the Omni Loop repository runs it. On any other repository stop before step 1 and say `Only the
+  Omni Loop repository runs the Omni Loop bug team`; the kit's brief schema and the app refuse it too.
+  At most one `omni-bugs` mission runs at a time.
+
+Then run steps 0, 2, 3, 4 and 5 as for any mission (step 1 is this section), showing the brief for
+a yes first.
 
 ## Step 0
 
@@ -113,6 +134,7 @@ mission: <n>
 title: <title>
 fleet: <fleet key>
 goal: <the goal, one sentence>
+kind: <prds | omni-bugs>
 measures:
   - { sign: <the sign>, read: <how it is read>, target: <its target> }
 scope:
@@ -124,7 +146,7 @@ mandate:
 ---
 ```
 
-`measures: []` when there are none. Quote a value that holds a colon. `hardToRevert` and `ownPrds` join
+`kind` is `prds` (leave it out) or `omni-bugs`, whose brief has no `scope`. `measures: []` when there are none. Quote a value that holds a colon. `hardToRevert` and `ownPrds` join
 `mandate` only when the person asked for a value other than their default. Nothing else goes in the
 front matter: the kit's schema refuses an unknown field and names the one that is wrong.
 
