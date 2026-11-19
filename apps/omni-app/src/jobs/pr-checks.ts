@@ -71,6 +71,7 @@ import { missionBranches } from '../missions/branch.ts';
 import { missionDrops } from '../missions/drop.ts';
 import { missionJoins } from '../missions/join.ts';
 import { MISSION_KIND, missionHandler } from '../missions/job.ts';
+import { missionBugIssues } from '../missions/bug-team.github.ts';
 import { BUG_FOLLOW_KIND } from '../bug-reports/follow.ts';
 import { bugGithub, bugIssues } from '../bug-reports/github.ts';
 import { BUG_REPORT_KIND, bugFollowHandler, bugReportHandler } from '../bug-reports/job.ts';
@@ -245,7 +246,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
-      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
+      [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), bugIssues: missionBugIssues({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
       [BUG_FOLLOW_KIND]: bugFollowHandler({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }) }),
       [ESCALATION_KIND]: escalationHandler({ octokitFor, appOctokit: appOctokitFor(env.githubApp ?? null) }),
