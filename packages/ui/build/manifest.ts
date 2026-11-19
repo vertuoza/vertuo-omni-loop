@@ -127,8 +127,25 @@ async function componentsOf(src: URL): Promise<ComponentSource[]> {
   const parts = partsOf(files, (file) => readFileSync(new URL(file, src), 'utf8'));
   return Promise.all(parts.map(async ({ name, meta }) => {
     const module: unknown = await import(new URL(`${name}.meta.ts`, src).href);
-    return (module as Record<string, ComponentSource>)[meta] as ComponentSource;
+    const value = field(module, meta);
+    if (!isComponentSource(value)) throw new Error(`${name}.meta.ts: ${meta} is not a part's meta (name, variants, usage, do, dont, replaces, example)`);
+    return value;
   }));
+}
+
+/** An own property of a value, or undefined when it is not an object. */
+function field(value: unknown, key: string): unknown {
+  return typeof value === 'object' && value !== null && key in value ? Reflect.get(value, key) : undefined;
+}
+
+const isStrings = (value: unknown): boolean => Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+/** Whether a meta export holds what the manifest keeps of it. */
+function isComponentSource(value: unknown): value is ComponentSource {
+  const variants = field(value, 'variants');
+  return typeof field(value, 'name') === 'string' && typeof field(value, 'usage') === 'string' && typeof field(value, 'example') === 'string'
+    && isStrings(field(value, 'do')) && isStrings(field(value, 'dont')) && isStrings(field(value, 'replaces'))
+    && typeof variants === 'object' && variants !== null && Object.values(variants).every(isStrings);
 }
 
 /** The manifest of this repository, as it should be committed. */
