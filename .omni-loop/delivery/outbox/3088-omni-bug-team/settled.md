@@ -392,3 +392,158 @@ One line of the team's reading of how a bug fix ended; no stored shape changes.
 ```
 
 <!-- /omni-outbox-settled: s3-03-cancelled-fix-set-aside -->
+
+<!-- omni-outbox-settled: s5-02-kit-read-wiring -->
+
+## s5-02-kit-read-wiring — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-19
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-19
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-kit-read-wiring
+prd: 3088
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-19
+wave: 3
+excuses: [apps/omni-app/src/jobs/pr-checks.ts]
+---
+
+## The question, in plain words
+
+To resume a PRD once its bug is fixed, the App has to read which kit the customer's repository runs, and the place that hands each App job what it may read lies outside this slice. Should the slice add that one line?
+
+## The decision, in plain words
+
+Yes: the slice added one line there, so the mission job can read the kit a repository runs. Without it a PRD whose bug was fixed would always ask for a kit update and never resume.
+
+## The intro, for fun
+
+The App learned to read a kit version, but nobody had handed it the glasses.
+
+## The punchline, for fun
+
+One line later, it reads the label on the jar.
+
+## The options, in plain words
+
+A. Add the one line that hands the mission job its kit read (built).
+B. Leave the file alone: a PRD whose bug was fixed always reads update the kit until a later change adds the line.
+
+## What I had to decide
+
+Whether to touch the file that builds the App's job handlers, outside this slice's territory, or ship a resume that cannot read the kit until a later change. Decided by: Jev (hardToRevert 0.46) · agent said false
+
+## What I did meanwhile
+
+Added the kit read to the mission job's dependencies, next to the bug team's issue read the previous wave added the same way. It reads only the repository's own bin file, near its start, and only while a PRD waits on a fixed bug.
+
+## What it costs to change later
+
+Removing it is one line; a PRD would then wait on the kit until a person updates and resumes it by hand.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan lists the kit read in no slice's territory: the job handlers' file belongs to no slice of this PRD.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-kit-read-wiring -->
+
+<!-- omni-outbox-settled: s5-04-one-event-kind -->
+
+## s5-04-one-event-kind — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-19
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-19
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-one-event-kind
+prd: 3088
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-11-19
+wave: 3
+---
+
+## The question, in plain words
+
+The room learns three things about a bug a mission waited on: it is fixed, it will not be fixed, or the PRD went again. Should all three use the one new kind of event the database has for this?
+
+## The decision, in plain words
+
+Yes: all three are bug-fixed events, each with its own sentence and a link to the public issue. The fix and the not-planned news come once per bug; the resume comes once, when the PRD is sent again.
+
+## The intro, for fun
+
+Three pieces of news, one envelope.
+
+## The punchline, for fun
+
+The letter inside says which one, so nobody has to guess from the stamp.
+
+## The options, in plain words
+
+A. All three as bug-fixed events, told apart by their sentence (built).
+B. Add a fourth kind for the not-planned news and the resume, with a migration.
+
+## What I had to decide
+
+Which event kind carries the not-planned news and the resume, since the spec names only bug-fixed among the new kinds and the older kinds already have one-per-PRD meanings.
+
+## What I did meanwhile
+
+Recorded all three as bug-fixed, each keyed so a replay records none twice: the news by the first repair that met the bug, the resume by the step sent again. The room's slice reads them by their sentences.
+
+## What it costs to change later
+
+Splitting them later takes a migration widening the kinds and a change to the room's reading.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's section 7 names the three new kinds but not which one carries the not-planned news or the resume.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-one-event-kind -->
