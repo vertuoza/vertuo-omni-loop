@@ -19,3 +19,7 @@
 ## Guard
 
 The reproduction: a push of an `omni-bugs` mission.md whose brief reaches `mission_push()` without its kind fails it.
+
+## Mutation
+
+mutation: no changed core file against origin/main (9b4143ef): nothing to mutate
