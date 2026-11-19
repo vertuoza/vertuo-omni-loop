@@ -75,4 +75,14 @@ Enforced by: apps/omni-app/src/missions/repair.test.ts, kit/lib/repair/fingerpri
 Stated: 2026-11-17
 Decided: nobody — adopted when raised (medium), 2026-11-17
 Merged: @pierrederval, 2026-11-17, PR #2981
+
+## N-PRODUCT-25
+
+QA's verdict line names every bug report it filed after the count; a bugs verdict missing its numbers, or whose numbers do not match its count, is read as no verdict, so the mission never hands the Engineer guessed bugs.
+
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s1-01-qa-line-carries-issues, PRD #3001
+Enforced by: kit/lib/qa/verdict.test.ts, apps/omni-app/src/missions/qa.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #3002
 Proposed: harvest 2026-11-17

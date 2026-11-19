@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-17
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-25
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A constant: the line's shape and its parser in one module, before any skill prin
 - Raised: 2026-11-17
 - Slice: s2
 - Wave: 1
+- Stays here: A one-off sequencing choice between two slices of one plan; nothing lasting about the product or code to keep beyond this delivery's ledger.
 
 ### The answer, as it was given
 
@@ -176,6 +178,7 @@ Rewriting or deleting one Markdown file, one help entry and one count; no data, 
 - Raised: 2026-11-17
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-164
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ One schema refinement and one line of the service; changing it is a constant, no
 - Raised: 2026-11-17
 - Slice: s2
 - Wave: 1
+- Became: ADR-0166
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ Widening or narrowing one check constraint, or adding nullable columns later, in
 - Raised: 2026-11-17
 - Slice: s4
 - Wave: 2
+- Became: ADR-0167
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ Reading the pick from another kind or a new column means one function (picksOf) 
 - Raised: 2026-11-17
 - Slice: s4
 - Wave: 2
+- Became: ADR-0168
 
 ### The answer, as it was given
 
@@ -487,6 +493,7 @@ Writing the failure on the job's own row later is one update in the store, as th
 - Raised: 2026-11-17
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-165, P-PRODUCT-128
 
 ### The answer, as it was given
 
@@ -564,6 +571,7 @@ Waiting on a draft instead is one line in judgeBugFix and its test.
 - Raised: 2026-11-17
 - Slice: s5
 - Wave: 3
+- Stays here: A one-off placement choice about a slice's territory; ADR-0095 already covers the layering, and nothing lasting about the product is decided here.
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ Deleting one file and its call removes the pick.
 - Raised: 2026-11-17
 - Slice: s5
 - Wave: 3
+- Stays here: A local choice of data sources and display for the room, cheap to change in one file; no lasting guarantee beyond existing principles.
 
 ### The answer, as it was given
 

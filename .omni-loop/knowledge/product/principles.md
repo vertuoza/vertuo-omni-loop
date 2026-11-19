@@ -1005,4 +1005,12 @@ A bug report the loop files in public never carries anything that identifies a w
 Why: Reports go to a public tracker, so a leaked path, login or repository name would expose a private workspace to anyone.
 Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s1-02-public-report-scrubs-wide-and-strict-record, PRD #2980
 Merged: @pierrederval, 2026-11-17, PR #2981
+
+## P-PRODUCT-128
+
+A mission never waits on work that no job is left to finish; it records what was not done and moves on.
+
+Why: Waiting on a draft nobody will mark ready would hold the PRD with nothing at work.
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s4-03-draft-fix-is-not-fixed, PRD #3001
+Merged: @pierrederval, 2026-11-17, PR #3002
 Proposed: harvest 2026-11-17
