@@ -22375,6 +22375,8 @@ var PLAN_OWN_BRANCH_REFUSAL = "a mission branch holds one repository: use with-y
 function levelRefusal(level, inPlan) {
   return inPlan && level === "own-branch" ? PLAN_OWN_BRANCH_REFUSAL : null;
 }
+var MISSION_KINDS = ["prds", "omni-bugs"];
+var DEFAULT_KIND = "prds";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
 var MAX_MISSION_TOKENS = 1e9;
@@ -22388,7 +22390,8 @@ var ScopeSchema = z91.object(
     roadmaps: z91.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
-).strict().refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, "names no PRD and no roadmap: one at least");
+).strict();
+var NO_SCOPE = { prds: [], roadmaps: [] };
 var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
 var MandateSchema = z91.object(
   {
@@ -22407,9 +22410,20 @@ var BriefSchema = z91.object({
   fleet: text17(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
   goal: text17(500),
   measures: z91.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
-  scope: ScopeSchema,
+  kind: z91.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
+  scope: ScopeSchema.optional(),
   mandate: MandateSchema.default(DEFAULT_MANDATE)
-}).strict();
+}).strict().transform(({ scope, ...rest }, ctx) => {
+  const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
+  if (rest.kind === "omni-bugs") {
+    if (named > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
+  } else if (scope === void 0) {
+    ctx.addIssue({ code: "invalid_type", expected: "object", input: void 0, path: ["scope"], message: "missing" });
+  } else if (named === 0) {
+    ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
+  }
+  return { ...rest, scope: scope ?? NO_SCOPE };
+});
 
 // kit/lib/mission/drop.ts
 function territoryOf(plan) {
