@@ -157,6 +157,13 @@ describe('a mission\'s page (PRD 2842 s2)', () => {
     expect(Object.keys(firstArgs(calls))).toEqual(parameters('mission_push', MISSIONS_MIGRATION));
   });
 
+  it('sends the brief\'s kind, so an Omni Loop bug team with no scope reaches mission_push() as omni-bugs (bug #3104)', async () => {
+    const { calls, db } = recording({ data: { id: 'd-2', added: [], unchanged: [] }, error: null });
+    const team = '---\nmission: 2850\ntitle: Omni Loop bugs\nkind: omni-bugs\nfleet: night-shift\ngoal: Fix the Omni Loop bugs missions report.\n---\n';
+    await dossierStore(db).push(push(files(team)));
+    expect(firstArgs(calls).p_brief).toMatchObject({ kind: 'omni-bugs', fleet: 'night-shift' });
+  });
+
   it('refuses, before the database is asked, a push with no mission.md, one that does not read, or one naming another mission', async () => {
     const { calls, db } = recording({ data: { id: 'd-1' }, error: null });
     const refusal = (artifacts: Parameters<typeof push>[0]) => dossierStore(db).push(push(artifacts)).catch((e: unknown) => e);
