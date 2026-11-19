@@ -16530,7 +16530,7 @@ function briefingLaws(ctx) {
 
 // kit/lib/playbook/resolve.ts
 import { existsSync as existsSync38, readdirSync as readdirSync17, readFileSync as readFileSync36, statSync as statSync10 } from "node:fs";
-import { join as join51 } from "node:path";
+import { join as join51, normalize as normalize3 } from "node:path";
 var LEVEL_SOURCE = Object.freeze({ "plan repo": "plan-repo", "omni settings": "omni-settings" });
 var CONFIG_PLACEHOLDER = /\{config:([^{}\s]+)\}/g;
 function configValue(config, key) {
@@ -16586,19 +16586,34 @@ function sectionOf2(text20, anchor) {
   const end = headings.find((heading) => heading.index > start.index && heading.depth <= start.depth);
   return lines2.slice(start.index, end?.index).join("\n").trim();
 }
-function resolvePointer(base, see, { ctx, heading, file, problems }) {
+function namesManifest(path, ctx) {
+  const manifest = ctx.config.design.manifest;
+  return typeof manifest === "string" && normalize3(path) === normalize3(manifest);
+}
+function manifestIndex(path, { ctx, heading, file, problems }) {
+  const read2 = readManifest(ctx.root, path);
+  if (read2.kind === "ok") return formatComponents(read2.manifest).join("\n");
+  if (read2.kind === "refused") problems.push(...read2.refusals.map((refusal4) => `${file}: "## ${heading}" See: ${path}: ${refusal4}`));
+  return "";
+}
+function pointerText(see, page, io) {
   const { path, anchor } = see;
-  const target2 = readTarget2(path, null, { ctx });
-  const pointer = anchor ? `${path}#${anchor}` : path;
-  const label2 = `[\u2192 ${pointer}]`;
+  if (anchor) {
+    const section4 = sectionOf2(page, anchor);
+    if (section4 === null) io.problems.push(`${io.file}: "## ${io.heading}" See: ${path}#${anchor} names no heading of ${path}`);
+    return section4 ?? "";
+  }
+  return namesManifest(path, io.ctx) ? manifestIndex(path, io) : page;
+}
+function resolvePointer(base, see, io) {
+  const { path, anchor } = see;
+  const target2 = readTarget2(path, null, { ctx: io.ctx });
+  const label2 = `[\u2192 ${anchor ? `${path}#${anchor}` : path}]`;
   if (target2.missing) {
-    problems.push(`${file}: "## ${heading}" See: ${path} does not exist`);
+    io.problems.push(`${io.file}: "## ${io.heading}" See: ${path} does not exist`);
     return { ...base, source: "pointer", label: label2, text: "", questions: [] };
   }
-  if (!anchor) return { ...base, source: "pointer", label: label2, text: target2.text, questions: [] };
-  const section4 = sectionOf2(target2.text, anchor);
-  if (section4 === null) problems.push(`${file}: "## ${heading}" See: ${pointer} names no heading of ${path}`);
-  return { ...base, source: "pointer", label: label2, text: section4 ?? "", questions: [] };
+  return { ...base, source: "pointer", label: label2, text: pointerText(see, target2.text, io), questions: [] };
 }
 function repoLabel(slot) {
   const parts = ["repo"];
@@ -19497,7 +19512,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map(), befo
 
 // kit/lib/policy/phase-0.ts
 var PHASE_0_REQUIRED_KINDS = ["spec", "plan", "before-after"];
-function normalize3(path) {
+function normalize4(path) {
   return plainText(path).trim().replace(/^\.\//, "").replace(/^\/+/, "");
 }
 function phase0Paths(prd, { ctx }) {
@@ -19526,7 +19541,7 @@ function isDocsPath(file, ctx) {
   return false;
 }
 function classifyPhase0Path(path, { ctx, prd }) {
-  const file = normalize3(path);
+  const file = normalize4(path);
   const paths = phase0Paths(prd, { ctx });
   if (file === paths.spec) return "spec";
   if (file === paths.plan) return "plan";
@@ -19542,7 +19557,7 @@ function phase0Verdict(paths, {
   needsPlan = true,
   commits
 }) {
-  const files = (paths ?? []).map(normalize3).filter(Boolean);
+  const files = (paths ?? []).map(normalize4).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
   const carries = {
     spec: files.filter((_, index) => kinds[index] === "spec"),

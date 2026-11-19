@@ -10333,7 +10333,7 @@ function readDecisions({
 
 // kit/lib/playbook/resolve.ts
 import { existsSync as existsSync27, readdirSync as readdirSync13, readFileSync as readFileSync26, statSync as statSync6 } from "node:fs";
-import { join as join38 } from "node:path";
+import { join as join38, normalize as normalize2 } from "node:path";
 var LEVEL_SOURCE = Object.freeze({ "plan repo": "plan-repo", "omni settings": "omni-settings" });
 var CONFIG_PLACEHOLDER = /\{config:([^{}\s]+)\}/g;
 function configValue(config, key) {
@@ -10389,19 +10389,34 @@ function sectionOf(text20, anchor) {
   const end = headings.find((heading) => heading.index > start.index && heading.depth <= start.depth);
   return lines2.slice(start.index, end?.index).join("\n").trim();
 }
-function resolvePointer(base, see, { ctx, heading, file, problems }) {
+function namesManifest(path, ctx) {
+  const manifest = ctx.config.design.manifest;
+  return typeof manifest === "string" && normalize2(path) === normalize2(manifest);
+}
+function manifestIndex(path, { ctx, heading, file, problems }) {
+  const read2 = readManifest(ctx.root, path);
+  if (read2.kind === "ok") return formatComponents(read2.manifest).join("\n");
+  if (read2.kind === "refused") problems.push(...read2.refusals.map((refusal4) => `${file}: "## ${heading}" See: ${path}: ${refusal4}`));
+  return "";
+}
+function pointerText(see, page, io) {
   const { path, anchor } = see;
-  const target2 = readTarget2(path, null, { ctx });
-  const pointer = anchor ? `${path}#${anchor}` : path;
-  const label2 = `[\u2192 ${pointer}]`;
+  if (anchor) {
+    const section4 = sectionOf(page, anchor);
+    if (section4 === null) io.problems.push(`${io.file}: "## ${io.heading}" See: ${path}#${anchor} names no heading of ${path}`);
+    return section4 ?? "";
+  }
+  return namesManifest(path, io.ctx) ? manifestIndex(path, io) : page;
+}
+function resolvePointer(base, see, io) {
+  const { path, anchor } = see;
+  const target2 = readTarget2(path, null, { ctx: io.ctx });
+  const label2 = `[\u2192 ${anchor ? `${path}#${anchor}` : path}]`;
   if (target2.missing) {
-    problems.push(`${file}: "## ${heading}" See: ${path} does not exist`);
+    io.problems.push(`${io.file}: "## ${io.heading}" See: ${path} does not exist`);
     return { ...base, source: "pointer", label: label2, text: "", questions: [] };
   }
-  if (!anchor) return { ...base, source: "pointer", label: label2, text: target2.text, questions: [] };
-  const section4 = sectionOf(target2.text, anchor);
-  if (section4 === null) problems.push(`${file}: "## ${heading}" See: ${pointer} names no heading of ${path}`);
-  return { ...base, source: "pointer", label: label2, text: section4 ?? "", questions: [] };
+  return { ...base, source: "pointer", label: label2, text: pointerText(see, target2.text, io), questions: [] };
 }
 function repoLabel(slot) {
   const parts = ["repo"];
@@ -13549,7 +13564,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map(), befo
 
 // kit/lib/policy/phase-0.ts
 var PHASE_0_REQUIRED_KINDS = ["spec", "plan", "before-after"];
-function normalize2(path) {
+function normalize3(path) {
   return plainText(path).trim().replace(/^\.\//, "").replace(/^\/+/, "");
 }
 function phase0Paths(prd, { ctx }) {
@@ -13578,7 +13593,7 @@ function isDocsPath(file, ctx) {
   return false;
 }
 function classifyPhase0Path(path, { ctx, prd }) {
-  const file = normalize2(path);
+  const file = normalize3(path);
   const paths = phase0Paths(prd, { ctx });
   if (file === paths.spec) return "spec";
   if (file === paths.plan) return "plan";
@@ -13594,7 +13609,7 @@ function phase0Verdict(paths, {
   needsPlan = true,
   commits
 }) {
-  const files = (paths ?? []).map(normalize2).filter(Boolean);
+  const files = (paths ?? []).map(normalize3).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
   const carries = {
     spec: files.filter((_, index) => kinds[index] === "spec"),
@@ -19186,7 +19201,7 @@ function keptCount(counts, count4) {
   return section4;
 }
 function playwrightName(title) {
-  return normalize3(title.replace(/(\S+?\.\w+):\d+:\d+/g, "$1").replace(/\s*\(retry #\d+\)\s*$/, ""));
+  return normalize4(title.replace(/(\S+?\.\w+):\d+:\d+/g, "$1").replace(/\s*\(retry #\d+\)\s*$/, ""));
 }
 var JEST_SKIPPED = /^(Console|Validation Warning|Validation Error|Deprecation Warning)\b/;
 var jest = {
@@ -19208,14 +19223,14 @@ function jestFailed(line3, file) {
   const block = /^\s*● (.+?)\s*$/.exec(line3);
   if (block?.[1] === void 0 || JEST_SKIPPED.test(block[1])) return [];
   if (block[1] === "Test suite failed to run") return file ? [file] : [];
-  return [normalize3(file ? `${file} \u203A ${block[1]}` : block[1])];
+  return [normalize4(file ? `${file} \u203A ${block[1]}` : block[1])];
 }
 var VITEST_SUMMARY = /^\s*Tests\s{2,}(.+)$/;
 var vitest = {
   id: "vitest",
   detects: (lines2) => lines2.some((line3) => /^\s*Test Files\s{2,}\d/.test(line3) || VITEST_SUMMARY.test(line3) || /^\s*FAIL\s{2,}\S.* > /.test(line3)),
   read(lines2) {
-    const failLines = present(lines2.map((line3) => /^\s*FAIL\s{2,}(\S.*?)\s*$/.exec(line3)?.[1])).map((rest) => normalize3(rest.replace(/\s+\[\s*.+?\s*\]$/, "")));
+    const failLines = present(lines2.map((line3) => /^\s*FAIL\s{2,}(\S.*?)\s*$/.exec(line3)?.[1])).map((rest) => normalize4(rest.replace(/\s+\[\s*.+?\s*\]$/, "")));
     const tests = failLines.length > 0 ? failLines : vitestCrosses(lines2);
     const summary2 = present(lines2.map((line3) => VITEST_SUMMARY.exec(line3)?.[1])).at(-1);
     return { tests, counts: summary2 ? countsIn(summary2) : null };
@@ -19231,7 +19246,7 @@ function vitestCrosses(lines2) {
       continue;
     }
     const cross = /^\s*[×✗]\s+(.+?)(?:\s+\d+(?:\.\d+)?m?s)?\s*$/.exec(line3);
-    if (cross?.[1] !== void 0) tests.push(normalize3(file ? `${file} > ${cross[1]}` : cross[1]));
+    if (cross?.[1] !== void 0) tests.push(normalize4(file ? `${file} > ${cross[1]}` : cross[1]));
   }
   return tests;
 }
@@ -19246,7 +19261,7 @@ function countsIn(text20) {
   if (total && !("total" in counts)) counts.total = Number(total[1]);
   return Object.keys(counts).length > 0 ? counts : null;
 }
-function normalize3(name) {
+function normalize4(name) {
   return name.replace(/\s+[›>]\s+/g, " > ").replace(/\s+/g, " ").trim();
 }
 function unique5(values) {
