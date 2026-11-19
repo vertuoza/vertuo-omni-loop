@@ -547,3 +547,329 @@ Splitting them later takes a migration widening the kinds and a change to the ro
 ```
 
 <!-- /omni-outbox-settled: s5-04-one-event-kind -->
+
+<!-- omni-outbox-settled: s2-01-one-live-bug-team -->
+
+## s2-01-one-live-bug-team — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-19T19:06:13Z
+- Channel: feature pull request #3089
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3089#issuecomment-7019251473
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: P-PRODUCT-52
+- Raised: 2026-11-19
+- Slice: s2
+- Wave: 1
+- Became: BR-PRODUCT-171
+
+### The answer, as it was given
+
+```text
+A. A. One live bug team across every workspace, a paused one counted (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-one-live-bug-team
+prd: 3088
+slice: s2
+rank: high
+bears-on: P-PRODUCT-52
+raised: 2026-11-19
+wave: 1
+---
+
+## The question, in plain words
+
+The spec says at most one bug team mission runs at a time, but not whether that limit counts every workspace together or each one apart, nor whether a paused team counts as running.
+
+## The decision, in plain words
+
+The database allows one bug team mission that is running, waiting or paused, across every workspace together. A draft or a stopped one does not count, so stopping the old team lets a new one start.
+
+## The intro, for fun
+
+Two bug teams on the same bug would race to fix it twice.
+
+## The punchline, for fun
+
+So the database keeps one team on duty, and a paused one still holds its seat.
+
+## The options, in plain words
+
+A. A. One live bug team across every workspace, a paused one counted (built).
+B. B. One live bug team per workspace: two workspaces could each run a team and take the same bugs.
+C. C. Count running and waiting teams only: a paused team gives up its seat, and resuming it after another started is refused.
+
+## What I had to decide
+
+Keep one live team across every workspace (A), or count each workspace apart (B), or count running and waiting only, letting a paused team be replaced (C). Each is one partial index in a follow-up migration.
+
+## What I did meanwhile
+
+A second bug team mission is refused when it starts while another, in any workspace, is running, waiting or paused.
+
+## What it costs to change later
+
+Switching later is one migration that swaps one partial index; no row changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The refusal tells a workspace that a team runs somewhere else, which P-PRODUCT-52 asks to keep deliberate; only the Omni Loop repository may run a team (the kit refuses others), so in practice one workspace meets it.
+- (author) The App's Start must turn the refusal into a sentence naming why; that is the App's code, not this slice's.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-one-live-bug-team -->
+
+<!-- omni-outbox-settled: s4-01-release-event -->
+
+## s4-01-release-event — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-19T19:06:13Z
+- Channel: feature pull request #3089
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3089#issuecomment-7019251473
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: P-PRODUCT-52
+- Raised: 2026-11-19
+- Slice: s4
+- Wave: 2
+- Stays here: a setting of the registered Omni App (subscribe it to the release event), not a rule of the product
+
+### The answer, as it was given
+
+```text
+A. Subscribe to the release event and sweep hourly as the backup (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-release-event
+prd: 3088
+slice: s4
+rank: high
+bears-on: P-PRODUCT-52
+raised: 2026-11-19
+wave: 2
+---
+
+## The question, in plain words
+
+To know a fix is released, the App has to hear about a published release, which it does not subscribe to today. Should it subscribe, or only look at releases when it sweeps?
+
+## The decision, in plain words
+
+The App's manifest now subscribes to the release event, and the App reads a published release at once. The hourly sweep reads the releases too, so a release the App missed is still caught within the hour.
+
+## The intro, for fun
+
+A bug is only fixed for people once it ships.
+
+## The punchline, for fun
+
+So the App now listens for the ship's horn, and checks the harbour every hour in case it slept through it.
+
+## The options, in plain words
+
+A. Subscribe to the release event and sweep hourly as the backup (built).
+B. Do not subscribe: the hourly sweep alone reads the releases, so a fix reads fixed up to an hour late.
+C. Read the release from the push of the version commit to the default branch, which the App already hears.
+
+## What I had to decide
+
+Whether to touch the App manifest (apps/omni-app/app.yml, outside this slice's territory) to add one event, or to leave it alone and accept a delay of up to an hour.
+
+## What I did meanwhile
+
+Added release to the manifest's events and to the webhook's handled events, and updated the manifest's test. Someone with the registered App's settings has to tick the release event; until then, only the sweep sees a release.
+
+## What it costs to change later
+
+Removing the event is one line in the manifest and one in the webhook; the sweep keeps working alone.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a bug turns fixed when the release is published but not whether the manifest may change in this slice.
+- (author) The release event needs no new permission: the App already holds contents: write, and the event is ticked by hand in the registered App's settings, as the manifest's header says of every added event.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-release-event -->
+
+<!-- omni-outbox-settled: s5-01-rule-139-way-back -->
+
+## s5-01-rule-139-way-back — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-19T19:06:13Z
+- Channel: feature pull request #3089
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3089#issuecomment-7019251473
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-139
+- Raised: 2026-11-19
+- Slice: s5
+- Wave: 3
+- Became: BR-PRODUCT-139
+
+### The answer, as it was given
+
+```text
+A. Change the rule's text as the spec asks, and name the new tests that prove it (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-rule-139-way-back
+prd: 3088
+slice: s5
+rank: high
+bears-on: BR-PRODUCT-139
+raised: 2026-11-19
+wave: 3
+---
+
+## The question, in plain words
+
+The rule on when a mission sends a stopped PRD again said a PRD stopped on an Omni Loop bug stays stopped until a person steps in. Should the rule now say such a PRD comes back by itself once the fix is released and its repository runs it?
+
+## The decision, in plain words
+
+The rule now says it: once the fix is released and the repository runs that release or a later one, the PRD goes again without spending a repair. With an older kit it waits for the kit to be updated, a paused or stopped mission waits for its own Resume, and a bug closed as not planned leaves the PRD stopped.
+
+## The intro, for fun
+
+A rule that said wait for a person now also says wait for the release.
+
+## The punchline, for fun
+
+The person still gets the last word, it just arrives on the release train.
+
+## The options, in plain words
+
+A. Change the rule's text as the spec asks, and name the new tests that prove it (built).
+B. Keep the rule's old text and record the way back as a new rule of its own.
+
+## What I had to decide
+
+Whether the rule's text changes as the spec asks, or the way back becomes a rule of its own. The spec says the rule's text is updated in the same change; the plan says a slice that changes this rule or its proofs records a high item naming it.
+
+## What I did meanwhile
+
+Changed the rule's text, added the PRD's spec to its sources and the two new test files to its proofs. The tests prove the PRD goes again on a kit at the fix's version, waits on an older or unreadable kit, waits for the mission's Resume while paused or stopped, and stays stopped on a bug closed as not planned.
+
+## What it costs to change later
+
+Going back to the old text is one paragraph; the behaviour would then need its own rule, or the code taken back out.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The rule is not locked, so no owner's approval is required on GitHub; this item is the person's chance to say no.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-rule-139-way-back -->
+
+<!-- omni-outbox-settled: s5-03-held-missions-hear -->
+
+## s5-03-held-missions-hear — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-19T19:06:13Z
+- Channel: feature pull request #3089
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3089#issuecomment-7019251473
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: BR-PRODUCT-139
+- Raised: 2026-11-19
+- Slice: s5
+- Wave: 3
+- Became: BR-PRODUCT-172
+
+### The answer, as it was given
+
+```text
+A. The team wakes each paused or stopped mission once; a Resume follows the bug (built).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-held-missions-hear
+prd: 3088
+slice: s5
+rank: high
+bears-on: BR-PRODUCT-139
+raised: 2026-11-19
+wave: 3
+---
+
+## The question, in plain words
+
+A mission that stopped on an Omni Loop bug no longer wakes by itself, so it would never hear the bug was fixed. How does it learn, and what does a person's Resume do afterwards?
+
+## The decision, in plain words
+
+The bug team wakes each paused or stopped mission that waited on the bug once, and that mission writes the news in its own room, sending nothing until a person resumes it. After a Resume, a fixed bug still needs the repository's kit at the fix's version, a bug closed as not planned keeps the PRD stopped, and a bug still open goes again as before.
+
+## The intro, for fun
+
+A stopped mission sleeps soundly, even through good news.
+
+## The punchline, for fun
+
+So the bug team knocks once, leaves a note, and lets the person decide when to get up.
+
+## The options, in plain words
+
+A. The team wakes each paused or stopped mission once; a Resume follows the bug (built).
+B. A paused or stopped mission hears nothing until a person resumes it, and a Resume sends the PRD again whatever the bug's state, as before.
+C. The team writes the news into each waiting mission's room itself, without waking it.
+
+## What I had to decide
+
+How a stopped mission hears that its bug moved, since only a mission that runs or waits checks again each minute, and whether a Resume overrides the bug's state. The spec says a paused or stopped mission waits for its own Resume and the PRD then resumes by the same rule.
+
+## What I did meanwhile
+
+The team, after each of its runs, finds the paused or stopped missions holding a PRD on a bug that was fixed or will not be and that were not told yet, and wakes each by its own job; it writes nothing into another workspace's mission itself. The woken mission records the news once and stays as it was. A Resume follows the bug as described.
+
+## What it costs to change later
+
+Each part is a few lines: the wake is one step after the team's run, and the Resume rule is one check before the new round's.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Only a running team wakes these missions: with no bug team running, a stopped mission hears of the fix at its next Resume.
+- (author) The spec does not say whether a Resume should override a bug closed as not planned; keeping it stopped follows the room's words, take this PRD by hand.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-held-missions-hear -->
