@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { HERO_ROLES, roleOf, worksAlone, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import type { WaitLine } from '../limit-wait';
 import { prOfLink, qaNowWords, tokensWords, type JobTokens, type QaJob } from './qa';
@@ -168,7 +168,7 @@ function repairStateOf(repair: RepairLine): NowLine['state'] {
 
 /** One row of the Omni Loop bug team's room: a bug it holds (PRD 3088, the `fleet-room` screen's 1.A). */
 export interface BugLine {
-  issue: number;
+  issue: IssueNumber;
   role: 'engineer' | 'supervisor';
   words: string;
   chip: 'Fixing' | 'Waiting for a merge' | 'Asked' | 'Waiting for a release';
@@ -178,10 +178,10 @@ export interface BugLine {
 const BUG_SENTENCE = /^Omni Loop bug #(\d+) \(reported (\d+)×\)/;
 
 /** The bug a team event is about: its issue and how often it was reported, read from its one sentence; null for any other row. */
-function bugOf(event: EventRow): { issue: number; count: number } | null {
+function bugOf(event: EventRow): { issue: IssueNumber; count: number } | null {
   if (event.prd !== null) return null;
   const read = BUG_SENTENCE.exec(event.sentence.replace(/^Took /, ''));
-  return read === null ? null : { issue: Number(read[1]), count: Number(read[2]) };
+  return read === null ? null : { issue: IssueNumberSchema.parse(Number(read[1])), count: Number(read[2]) };
 }
 
 /** What an asked event says it was set aside for: the words after `set aside:` up to the first comma, or the tries it spent. */
@@ -198,7 +198,7 @@ function askedWhy(sentence: string): string {
  */
 export function bugLinesOf(events: readonly EventRow[]): BugLine[] {
   const fixed = new Set(events.filter((e) => e.kind === 'bug-fixed').map((e) => Number(/#(\d+)/.exec(e.sentence)?.[1])));
-  const seen = new Set<number>();
+  const seen = new Set<IssueNumber>();
   const lines: BugLine[] = [];
   for (const event of events.toSorted((a, b) => b.at.localeCompare(a.at))) {
     const bug = bugOf(event);
@@ -213,7 +213,7 @@ export function bugLinesOf(events: readonly EventRow[]): BugLine[] {
 const TEAM_KINDS = ['bug-taken', 'bug-asked', 'job-ended'];
 
 /** The row a bug's newest event gives it, or null when it holds none: back in line, or fixed already. */
-function bugLineOf(event: EventRow, bug: { issue: number; count: number }, fixed: boolean): BugLine | null {
+function bugLineOf(event: EventRow, bug: { issue: IssueNumber; count: number }, fixed: boolean): BugLine | null {
   const n = String(bug.issue);
   const times = `${String(bug.count)}×`;
   const row = (role: BugLine['role'], words: string, chip: BugLine['chip']): BugLine => ({ issue: bug.issue, role, words, chip, link: event.link });
