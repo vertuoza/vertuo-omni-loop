@@ -454,22 +454,22 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     /** PRD 3088: the bugs as `omni_bug_reports` holds them now, every state. */
     bugs: () => teamBugs.map((one) => ({ ...one })),
     /** PRD 3088: a bug's row changes, as a webhook or a person would move it. */
-    setBug: (issue: number, change: Partial<Bug>) => {
-      teamBugs = teamBugs.map((one) => (one.issue === issue ? { ...one, ...change } : one));
+    setBug: (filed: number, change: Partial<Bug>) => {
+      teamBugs = teamBugs.map((one) => (one.issue === filed ? { ...one, ...change } : one));
     },
     /** PRD 3088: the bug-fix jobs the team queued, in order. */
     bugJobs: () => bugJobs.map((one) => ({ ...one, attempts: one.attempts.map((each) => ({ ...each })) })),
     /** PRD 3088: the bug's latest bug-fix job ends (or runs) as `change` says. */
-    endBug: (issue: number, change: Partial<Attempt>) => {
-      const attempt = bugJobs.filter((one) => one.issue === issue).at(-1)?.attempts.at(-1);
-      if (!attempt) throw new Error(`no bug fix of #${String(issue)} was sent`);
+    endBug: (filed: number, change: Partial<Attempt>) => {
+      const attempt = bugJobs.filter((one) => one.issue === filed).at(-1)?.attempts.at(-1);
+      if (!attempt) throw new Error(`no bug fix of #${String(filed)} was sent`);
       Object.assign(attempt, change);
     },
     /** PRD 3088: the bug's latest bug-fix job's runner is lost: it fails `runner lost` and a resume of it is queued (PRD 2809). */
-    loseBug: (issue: number) => {
-      const one = bugJobs.filter((each) => each.issue === issue).at(-1);
+    loseBug: (filed: number) => {
+      const one = bugJobs.filter((each) => each.issue === filed).at(-1);
       const attempt = one?.attempts.at(-1);
-      if (!one || !attempt) throw new Error(`no bug fix of #${String(issue)} was sent`);
+      if (!one || !attempt) throw new Error(`no bug fix of #${String(filed)} was sent`);
       Object.assign(attempt, { status: 'failed', reason: 'runner lost' });
       made += 1;
       one.attempts.push(queued(`job-${String(made)}`));
