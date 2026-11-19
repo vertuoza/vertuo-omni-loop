@@ -9,9 +9,11 @@
   font-size: var(--type-1-size);
   line-height: var(--type-1-line);
 }
-.omni-stage-track--horizontal { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+/* Equal columns while the names fit; in a narrow frame a stage keeps its name whole and the track wraps. */
+.omni-stage-track--horizontal { display: flex; flex-wrap: wrap; row-gap: var(--space-3); }
 .omni-stage-track--vertical { grid-auto-flow: row; gap: var(--space-2); }
-.omni-stage-track__stage { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.omni-stage-track__stage { display: flex; flex-direction: column; gap: var(--space-1); }
+.omni-stage-track--horizontal .omni-stage-track__stage { flex: 1 1 0; min-width: max-content; }
 .omni-stage-track--vertical .omni-stage-track__stage { flex-direction: row; align-items: center; gap: var(--space-2); }
 /* The bar: filled when passed, filled to its share when current, an outline when later: its shape says the state, not its colour alone. */
 .omni-stage-track__bar {
@@ -27,7 +29,7 @@
 .omni-stage-track__stage--current .omni-stage-track__bar { border: 0; background: var(--color-border-subtle); }
 .omni-stage-track__fill { display: block; width: 100%; height: 100%; fill: var(--color-accent); }
 .omni-stage-track__stage--waiting .omni-stage-track__fill { fill: var(--color-signal); }
-.omni-stage-track__name { overflow-wrap: anywhere; }
+.omni-stage-track__name { white-space: nowrap; }
 .omni-stage-track__stage--current .omni-stage-track__name { font-weight: var(--weight-bold); color: var(--color-accent); }
 .omni-stage-track__stage--waiting .omni-stage-track__name { color: var(--color-signal); }
 /* The state in words, for a screen reader: the bar's shape and the weight say it to the eye. */
