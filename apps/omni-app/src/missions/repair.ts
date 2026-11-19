@@ -24,9 +24,19 @@
 //   stuck         a stuck repair (PRD 3065, ./stuck.ts) is a row of the same table, `trigger` stuck, its PRD the one its cause sits in or
 //                 none: it counts toward the same 3 and 9, and a stuck repair at work spends one as a PRD's does. A PRD's repair never
 //                 reads a stuck row as its own
+//   the way back  PRD 3088 s5 (spec section 6): a PRD stopped waiting on an Omni Loop bug follows the bug, in any round:
+//                   open       it stays stopped, as before; a person's Resume of the mission sends it again in the new round
+//                   fixed      released in v0.0.N: with the kit its repository pins (on the mission branch, else the default
+//                              branch) at 0.0.N or later the step is sent again, spending no repair; older, or unread, it waits,
+//                              `Fixed in v0.0.N: update the kit to resume (omni update)`, and goes again at the first wake that
+//                              reads a kit new enough. A paused or stopped mission waits for its own Resume
+//                   wont-fix   it stays stopped, `take this PRD by hand`, in any round
+//                 the room is told once per bug, `bug-fixed`, linking the public issue, and once more when the PRD goes again: the
+//                 issue, the version and the PRD only, never a workspace, a repository or a login of another mission (BR-PRODUCT-163)
 import { createHash } from 'node:crypto';
 import { PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RepairRetro } from 'omni-loop/kit/lib/repair/retro.ts';
+import { compareVersions, parseVersion } from 'omni-loop/kit/lib/version/version.ts';
 import { checksOf, type PullRead } from './gate.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
 
@@ -71,8 +81,21 @@ export const isStuckRow = (row: RepairRow): boolean => row.trigger === 'stuck';
 /** A code repair's fix on its way to the mission branch: landed, waiting on what it lacks, or refused, with why. */
 export type FixLanding = { state: 'landed' } | { state: 'waits'; lacks: readonly string[] } | { state: 'refused'; why: string };
 
-/** An omni-loop repair's report: filed as an issue, being filed, or refused by the scrub, with why. */
-export type BugReport = { state: 'filed'; repo: string; issue: IssueNumber } | { state: 'filing' } | { state: 'refused'; why: string };
+/**
+ * Where the Omni Loop bug a report was filed as stands (PRD 3088): not released yet (`open`, whatever the team does with it), released
+ * fixed in kit `version` (0.0.N), or closed as not planned.
+ */
+export type BugFix = { state: 'open' } | { state: 'fixed'; version: string } | { state: 'wont-fix' };
+
+/** An omni-loop repair's report: filed as an issue (where its bug stands, `fix`, absent read open), being filed, or refused by the scrub, with why. */
+export type BugReport = { state: 'filed'; repo: string; issue: IssueNumber; fix?: BugFix } | { state: 'filing' } | { state: 'refused'; why: string };
+
+/** A bug's state and version as `omni_bug_reports` keeps them, as the way back reads them: `fixed` with no version that reads is still open. */
+export function bugFixOf(state: string, fixedIn: string | null): BugFix {
+  const version = parseVersion(fixedIn);
+  if (state === 'fixed' && version !== null) return { state: 'fixed', version };
+  return state === 'wont-fix' ? { state: 'wont-fix' } : { state: 'open' };
+}
 
 /** A repair whose row the budget refused: the cause spent its 3 in the round, or the mission its 9. */
 export type Refused = { spent: 'cause' | 'mission'; fingerprint: string; retro: RepairRetro | null };
@@ -94,6 +117,13 @@ export type RepairView = {
   landings: ReadonlyMap<string, FixLanding>;
   /** By repair job: its Omni Loop bug report. */
   reports: ReadonlyMap<string, BugReport>;
+  /**
+   * The kit the mission's repository pins (PRD 3088), read only while a PRD waits on a fixed bug: `0.0.N`, null when it did not read,
+   * absent when it was not read. Either of the two last reads older than any fix.
+   */
+  kit?: string | null;
+  /** Whether the mission is paused or stopped (PRD 3088): a PRD whose bug was fixed then waits for the mission's own Resume. */
+  held?: boolean;
 };
 
 /** No repairs: a failure stops its PRD, as before PRD 2980. */
@@ -105,7 +135,9 @@ export type RepairNext =
   | { next: 'repairing'; number: number; left: number; why: string | null }
   | { next: 'again' }
   | { next: 'stops'; why: string }
-  | { next: 'paused' };
+  | { next: 'paused' }
+  /** Its Omni Loop bug is fixed in a kit newer than the one its repository pins (PRD 3088): it waits for the kit, saying so. */
+  | { next: 'kit'; why: string };
 
 const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
 
@@ -229,10 +261,44 @@ function reportWords(view: RepairView, row: RepairRow): string {
   return `its Omni Loop bug report [${short(row.fingerprint)}] is being filed`;
 }
 
+/** The Omni Loop bug an omni-loop repair's report was filed as, and where it stands; null while it is not filed. */
+function filedOf(view: RepairView, row: RepairRow): { issue: IssueNumber; repo: string; fix: BugFix } | null {
+  const report = view.reports.get(row.job ?? '');
+  return report?.state === 'filed' ? { issue: report.issue, repo: report.repo, fix: report.fix ?? { state: 'open' } } : null;
+}
+
+/** Whether the kit a repository pins holds a fix released in `version`: an unread kit does not. */
+const runsFix =(kit: string | null | undefined, version: string): boolean => {
+  const pinned = parseVersion(kit);
+  return pinned !== null && compareVersions(pinned, version) >= 0;
+};
+
+/** `Fixed in v0.0.N: update the kit to resume (omni update)`: what a PRD waiting on a kit older than its bug's fix reads. */
+const updateKitWords =(version: string): string => `Fixed in v${version}: update the kit to resume (omni update)`;
+
+/** `Omni Loop bug #N won't be fixed: take this PRD by hand`. */
+const wontFixWords = (issue: IssueNumber): string => `Omni Loop bug #${String(issue)} won't be fixed: take this PRD by hand`;
+
+/**
+ * Where a PRD stopped on an Omni Loop bug goes once the bug moved (PRD 3088), in any round: its step again on a kit that runs the fix,
+ * spending no repair; waiting for the kit on an older one; waiting for the mission's own Resume while it is paused or stopped; stopped
+ * for good when the bug will not be fixed. Null for any other repair, or while the bug is open: the PRD goes as before.
+ */
+function wayBack(view: RepairView, row: RepairRow): RepairNext | null {
+  const moved = movedOf(view, row);
+  if (moved === null) return null;
+  if (moved.fix.state === 'wont-fix') return { next: 'stops', why: wontFixWords(moved.issue) };
+  const { version } = moved.fix;
+  if (view.held === true) return { next: 'stops', why: `Omni Loop bug #${String(moved.issue)} is fixed in v${version}: resume the mission to carry on` };
+  return runsFix(view.kit, version) ? { next: 'again' } : { next: 'kit', why: updateKitWords(version) };
+}
+
 /** Where a repair's kept row leaves its PRD, by its retro's class. */
 function afterRow(view: RepairView, prd: PrdNumber, row: RepairRow, failure: string): RepairNext {
   const retro = row.retro;
   if (retro === null) return sendOrStop(view, prd, row.failedJob, failure);
+  const back = wayBack(view, row);
+  if (back !== null) return back;
   if (row.round < view.round && row.outcome === 'stopped') return { next: 'again' };
   const cause = `[${short(row.fingerprint)}]`;
   switch (retro.class) {
@@ -335,7 +401,67 @@ export function reportEvent(row: RepairRow, report: BugReport | undefined, who =
 }
 
 /** Every repair event a run may record, in order: each dispatch, then each PRD's row's retro, end and report (a stuck one's are ./stuck.ts's). */
-export function repairEvents(view: RepairView, where: Where): NewEvent[] {
+export function repairEvents(view: RepairView, where: Where, sentAfter: SentAfter = () => null): NewEvent[] {
   const own = view.rows.filter((row) => !isStuckRow(row));
-  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ''))])];
+  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ''))]), ...bugFixedEvents(view, sentAfter)];
+}
+
+// ── The way back (PRD 3088) ─────────────────────────────────────────────────────
+
+/** The job of the step a repair's PRD was sent after its failed one (./supervisor.ts reads it from the run's jobs); null when none was. */
+export type SentAfter = (row: RepairRow) => string | null;
+
+/** What the room is told of a bug that moved, once per bug: fixed in its version (and to update the kit when it must), or won't be fixed. */
+function toldWords(view: RepairView, issue: IssueNumber, fix: Moved['fix']): string {
+  if (fix.state === 'wont-fix') return `${wontFixWords(issue)}.`;
+  const fixed = `Omni Loop bug #${String(issue)} is fixed in v${fix.version}.`;
+  return view.held === true || runsFix(view.kit, fix.version) ? fixed : `${fixed} ${updateKitWords(fix.version)}.`;
+}
+
+/** A PRD's repair that stopped on an Omni Loop bug which was fixed or will not be: its row, with its job, and where the bug stands. */
+type Moved = { row: RepairRow & { job: string }; issue: IssueNumber; repo: string; fix: Exclude<BugFix, { state: 'open' }> };
+
+/** The repair as a bug that moved, when it is one: a PRD's omni-loop repair, its bug filed and fixed or not planned; else null. */
+function movedOf(view: RepairView, row: RepairRow): Moved | null {
+  const job = row.job;
+  if (job === null || isStuckRow(row) || row.retro?.class !== 'omni-loop') return null;
+  const filed = filedOf(view, row);
+  return filed === null || filed.fix.state === 'open' ? null : { ...filed, row: { ...row, job }, fix: filed.fix };
+}
+
+/** The event saying a PRD went again on a kit that runs its bug's fix, keyed by that step's job; none before it was sent. */
+function resumedEvent(view: RepairView, moved: Moved, sentAfter: SentAfter, said: (job: string, sentence: string) => NewEvent): NewEvent[] {
+  if (moved.fix.state !== 'fixed' || view.held === true || !runsFix(view.kit, moved.fix.version)) return [];
+  const job = sentAfter(moved.row);
+  return job === null ? [] : [said(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
+}
+
+/**
+ * The `bug-fixed` events (PRD 3088): one per bug the mission's PRDs stopped on, once it is fixed or will not be, keyed by the first repair
+ * that met it, linking the public issue; and, for each PRD sent its step again on a kit that runs the fix, one saying so, keyed by that
+ * step's job. The issue, the version and the PRD only.
+ */
+function bugFixedEvents(view: RepairView, sentAfter: SentAfter): NewEvent[] {
+  const told = new Set<string>();
+  return view.rows.flatMap((row) => {
+    const moved = movedOf(view, row);
+    if (moved === null) return [];
+    const link = linkOf(`https://github.com/${moved.repo}/issues/${String(moved.issue)}`);
+    const said = (job: string, sentence: string): NewEvent => ({ kind: 'bug-fixed', role: 'supervisor', prd: row.prd, job, link, sentence });
+    const first = told.has(row.fingerprint) ? [] : [said(moved.row.job, toldWords(view, moved.issue, moved.fix))];
+    told.add(row.fingerprint);
+    return [...first, ...resumedEvent(view, moved, sentAfter, said)];
+  });
+}
+
+/** A repair row the missions to tell are read from: its mission, its job and the bug's fingerprint. */
+export type HolderRow = { mission: string; job: string; fingerprint: string };
+
+/**
+ * The missions to tell that a bug moved (PRD 3088): each holding a PRD on a bug none of whose repairs of that bug has a `bug-fixed`
+ * event yet (`told`, by repair job), in the order first met.
+ */
+export function untold(rows: readonly HolderRow[], told: ReadonlySet<string>): string[] {
+  const heard = new Set(rows.filter((one) => told.has(one.job)).map((one) => `${one.mission} ${one.fingerprint}`));
+  return [...new Set(rows.filter((one) => !heard.has(`${one.mission} ${one.fingerprint}`)).map((one) => one.mission))];
 }

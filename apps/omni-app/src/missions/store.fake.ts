@@ -8,7 +8,7 @@
 // tries held. No database, no model call.
 import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
-import { repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
+import { bugFixOf, repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
 import { retroKey, retroSkillLine, type ItemRow, type MissionRetro, type RetroJob, type RetroRow, type RoadmapScope } from './milestone.ts';
 import { stuckJobsOf, stuckKey, stuckSkillLine } from './stuck.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
@@ -40,8 +40,11 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
    * supervisor runs no stuck count and no milestone retro, as before.
    */
   retros?: { roadmaps: RoadmapScope[] };
-  /** PRD 3088: the store keeps the Omni Loop bug team's bugs, these, and its bug-fix jobs. Absent, it has none. */
-  team?: { bugs: Bug[] };
+  /**
+   * PRD 3088: the store keeps the Omni Loop bug team's bugs, these, and its bug-fix jobs; `holders`, the paused or stopped missions the
+   * team is to tell that a bug moved (s5). Absent, it has none.
+   */
+  team?: { bugs: Bug[]; holders?: { id: string; repo: string }[] };
 }) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
@@ -63,8 +66,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const repairs: (RepairJob & { key: string; line: string; toFleet: string | null; log: string | null })[] = [];
   /** The rows `mission_repairs` kept. */
   const rows: RepairRow[] = [];
-  /** The Omni Loop bugs `omni_bug_reports` holds, by fingerprint, and the jobs added to the App's ledger. */
-  const bugs = new Map<string, { repo: string; issue: IssueNumber }>();
+  /** The Omni Loop bugs `omni_bug_reports` holds, by fingerprint, where each stands (PRD 3088), and the jobs added to the App's ledger. */
+  const bugs = new Map<string, { repo: string; issue: IssueNumber; state: string; fixedIn: string | null }>();
   const added: NewJob[] = [];
   /** The token budget (PRD 3040): what the mission and its fleet spent, the fleet's cap, its other missions and the stops. */
   const spent: { mission: number; fleet: number; oldestEnd: string | null } = { mission: 0, fleet: 0, oldestEnd: null };
@@ -156,6 +159,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       Object.assign(held, { state: to.state, attempts: to.attempts, fixPr: to.fixPr, askedJob: to.askedJob });
       return Promise.resolve(true);
     },
+    holders: () => Promise.resolve((team?.holders ?? []).map((one) => ({ ...one }))),
   };
 
   const store: MissionStore = {
@@ -261,7 +265,10 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (one?.outcome === null) one.outcome = outcome;
       return Promise.resolve();
     },
-    bugIssue: (fingerprint) => Promise.resolve(bugs.get(fingerprint) ?? null),
+    bugIssue: (fingerprint) => {
+      const filed = bugs.get(fingerprint);
+      return Promise.resolve(filed === undefined ? null : { repo: filed.repo, issue: filed.issue, fix: bugFixOf(filed.state, filed.fixedIn) });
+    },
     addJob: (job) => {
       if (added.some((one) => one.kind === job.kind && one.key === job.key)) return Promise.resolve(false);
       added.push(job);
@@ -447,7 +454,13 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     items: () => items.map((one) => ({ ...one, evidence: [...one.evidence] })),
     /** The App's bug-report job filed the fingerprint as `issue` (PRD 2980 s4). */
     fileBug: (fingerprint: string, filed: number, repo = 'vertuoza/vertuo-omni-loop') => {
-      bugs.set(fingerprint, { repo, issue: parseIssue(filed) });
+      bugs.set(fingerprint, { repo, issue: parseIssue(filed), state: 'open', fixedIn: null });
+    },
+    /** PRD 3088 s5: the filed bug moves, as the App's following of its issue and release moves it: fixed in `fixedIn`, or won't fix. */
+    moveBug: (fingerprint: string, state: 'open' | 'merged' | 'fixed' | 'wont-fix', fixedIn: string | null = null) => {
+      const filed = bugs.get(fingerprint);
+      if (filed === undefined) throw new Error(`no bug was filed for ${fingerprint}`);
+      bugs.set(fingerprint, { ...filed, state, fixedIn });
     },
     /** The jobs added to the App's ledger, in order. */
     added: () => added.map((one) => ({ ...one })),
