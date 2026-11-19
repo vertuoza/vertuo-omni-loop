@@ -150,7 +150,7 @@ describe('a mission\'s page (PRD 2842 s2)', () => {
       name: 'mission_push',
       args: {
         p_repo: 'acme/widgets', p_mission: 2850, p_title: 'Paid online',
-        p_brief: { fleet: 'night-shift', goal: 'Every quote is paid online.', measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 } },
+        p_brief: { kind: 'prds', fleet: 'night-shift', goal: 'Every quote is paid online.', measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 } },
         p_artifacts: files(),
       },
     }]);
