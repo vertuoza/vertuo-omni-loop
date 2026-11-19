@@ -1,0 +1,9 @@
+.omni-icon {
+  display: inline-flex;
+  flex: none;
+  color: inherit;
+  line-height: 0;
+}
+.omni-icon--md { inline-size: 16px; block-size: 16px; }
+.omni-icon--lg { inline-size: 32px; block-size: 32px; }
+.omni-icon > svg { display: block; }

@@ -63,8 +63,12 @@ describe('what quick runs', () => {
     expect(checkout?.with?.['fetch-depth']).toBe(0);
   });
 
-  it('installs from the lockfile, then runs check:changed against the base branch', () => {
+  it('installs from the lockfile, rebuilds the generated part list, then runs check:changed against the base branch', () => {
     const runs = steps('quick').flatMap((step) => (step.run === undefined ? [] : [step.run]));
-    expect(runs).toEqual(['pnpm install --frozen-lockfile', 'pnpm check:changed --base origin/${{ github.base_ref }}']);
+    expect(runs).toEqual([
+      'pnpm install --frozen-lockfile',
+      'node packages/ui/build/parts.ts',
+      'pnpm check:changed --base origin/${{ github.base_ref }}',
+    ]);
   });
 });

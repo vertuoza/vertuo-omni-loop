@@ -112,6 +112,8 @@
   --color-warning: #ff9b30;
   --color-danger: #ff6b86;
   --color-info: #6ff0ff;
+  --color-focus-ring: #8f9bff;
+  --color-scrim: rgb(7 6 28 / 0.72);
 }
 :is(html:has(.ask[data-ask-theme="light"]), .ask[data-ask-theme="light"]) {
   --color-canvas: #f5f4fc;
@@ -135,6 +137,8 @@
   --color-warning: #8a4b00;
   --color-danger: #b3122f;
   --color-info: #0b6f86;
+  --color-focus-ring: #2f3fc4;
+  --color-scrim: rgb(23 21 61 / 0.48);
 }
 :is(html:has(.ask[data-ask-theme="dark"]), .ask[data-ask-theme="dark"]) {
   --color-canvas: #0e0d33;
@@ -158,6 +162,8 @@
   --color-warning: #ffb357;
   --color-danger: #ff6b86;
   --color-info: #6ff0ff;
+  --color-focus-ring: #9aa4ff;
+  --color-scrim: rgb(7 6 28 / 0.72);
 }
 
 /* The anti-loop mode (data-ask-mode="anti"): the roles it remaps, after the theme's own. */

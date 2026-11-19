@@ -1,0 +1,38 @@
+.omni-menu-positioner { z-index: var(--layer-overlay); }
+.omni-menu {
+  box-sizing: border-box;
+  display: grid;
+  min-inline-size: 160px;
+  max-inline-size: min(320px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-2);
+  background: var(--color-raised);
+  box-shadow: var(--elevation-overlay);
+  font-family: var(--font-body);
+  font-size: var(--type-3-size);
+  line-height: var(--type-3-line);
+  outline: none;
+  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+}
+.omni-menu[data-starting-style], .omni-menu[data-ending-style] { opacity: 0; }
+.omni-menu__item {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+.omni-menu__item--danger { color: var(--color-danger); }
+.omni-menu__item[data-highlighted] { background: var(--color-accent-soft); }
+.omni-menu__item[data-highlighted]:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+.omni-menu__item[data-disabled] { cursor: not-allowed; opacity: 0.5; }
+
+/* The catalogue's still: the open list drawn in place beside its button, for /design and its screenshot. */
+.omni-menu-specimen { display: grid; gap: var(--space-2); justify-items: start; }
+.omni-menu-still { display: flex; }
+.omni-menu-specimen--top .omni-menu-still { order: -1; }
+.omni-menu-still .omni-menu { transition: none; }

@@ -1,0 +1,54 @@
+.omni-toast-viewport {
+  position: fixed;
+  inset-block-end: var(--space-4);
+  inset-inline-end: var(--space-4);
+  z-index: var(--layer-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: 360px;
+  max-inline-size: calc(100vw - 2 * var(--space-4));
+  pointer-events: none;
+}
+.omni-toast-viewport:empty { display: none; }
+.omni-toast {
+  --toast-edge: var(--color-info);
+  box-sizing: border-box;
+  pointer-events: auto;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-inline-start: 4px solid var(--toast-edge);
+  border-radius: var(--radius-2);
+  background: var(--color-raised);
+  box-shadow: var(--elevation-overlay);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--type-3-size);
+  line-height: var(--type-3-line);
+  transition: opacity var(--motion-duration-slow) var(--motion-ease-out), translate var(--motion-duration-slow) var(--motion-ease-out);
+}
+.omni-toast[data-starting-style], .omni-toast[data-ending-style] { opacity: 0; translate: 0 var(--space-2); }
+.omni-toast:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.omni-toast--info { --toast-edge: var(--color-info); }
+.omni-toast--success { --toast-edge: var(--color-success); }
+.omni-toast--danger { --toast-edge: var(--color-danger); }
+.omni-toast__content { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.omni-toast__text { display: grid; gap: var(--space-1); min-inline-size: 0; }
+.omni-toast__title { margin: 0; font-weight: var(--weight-semibold); }
+.omni-toast__description { margin: 0; color: var(--color-text-secondary); }
+.omni-toast__close {
+  flex: none;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.omni-toast__close:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+
+/* The catalogue's still: a toast drawn in place, for /design and its screenshot (the real one floats in the viewport). */
+.omni-toast-specimen { display: grid; gap: var(--space-2); justify-items: start; }
+.omni-toast-still { display: flex; }
+.omni-toast-still .omni-toast { transition: none; inline-size: 320px; max-inline-size: 100%; }

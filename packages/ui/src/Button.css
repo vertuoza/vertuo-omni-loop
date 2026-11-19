@@ -18,7 +18,7 @@
 .omni-button--md { padding: var(--space-2) var(--space-4); }
 .omni-button--sm { padding: var(--space-1) var(--space-3); font-size: var(--type-2-size); line-height: var(--type-2-line); }
 .omni-button:hover { background: var(--color-raised); }
-.omni-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.omni-button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 .omni-button--primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-text-on-accent); }
 .omni-button--primary:hover { background: var(--color-accent); opacity: 0.9; }
 .omni-button--quiet { background: transparent; border-color: transparent; color: var(--color-text-secondary); }

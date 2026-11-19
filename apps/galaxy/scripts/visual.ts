@@ -1,8 +1,11 @@
-// pnpm --filter @omni/galaxy-app visual — the PRD page's screenshot test (PRD omni-loop-10, s4).
+// pnpm --filter @omni/galaxy-app visual — the PRD page's (PRD omni-loop-10, s4) and /design's (PRD omni-loop-12, s3) screenshot test.
 //
 // It starts the demo world (no database, no network: `next dev` with OMNI_LOOP_DEMO=1), shoots the
 // PRD page of the demo's PRD at 1440x900 and 393x700 in Omni, Light and Dark, and compares each shot
-// with its baseline committed in apps/galaxy/visual/baselines/. A shot whose differing pixels pass
+// with its baseline committed in apps/galaxy/visual/baselines/. It then opens /design, runs axe on it
+// (any violation fails the run) and shoots each part x variant x theme (the themed boxes the page
+// marks, scripts/catalogue.ts) against apps/galaxy/visual/baselines/design/<Part>/; a missing
+// baseline fails. A shot whose differing pixels pass
 // THRESHOLD fails the run; the diff images land in apps/galaxy/visual/diff/ (git ignores them, CI
 // attaches them to the run as an artifact), never in the repository.
 //
@@ -18,9 +21,16 @@
 //   pnpm --filter @omni/galaxy-app exec playwright install chromium
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import axe from 'axe-core';
 import type { Browser, Page } from 'playwright';
+import { BOX, baselineName } from './catalogue.ts';
+import type { Box } from './catalogue.ts';
+
+/** One part's article on /design: its heading, usage, do and don't, and its themed boxes. */
+const PART = 'article.ds-part';
 
 /** The demo world's PRD (src/dossier/page/demo.ts, PRD 71) and the heading its page must show. */
 const ROUTE = 'prd/71';
@@ -168,15 +178,17 @@ async function judge(browser: Browser, name: string, png: Buffer): Promise<strin
     console.log(`ok ${name} (${(share * 100).toFixed(3)}% differ)`);
     return null;
   }
+  const flat = name.replaceAll('/', '--');
   mkdirSync(DIFFS, { recursive: true });
-  writeFileSync(DIFFS + name, Buffer.from(v.diff, 'base64'));
-  writeFileSync(DIFFS + name.replace('.png', '.actual.png'), png);
+  writeFileSync(DIFFS + flat, Buffer.from(v.diff, 'base64'));
+  writeFileSync(DIFFS + flat.replace('.png', '.actual.png'), png);
   return `${name}: ${(share * 100).toFixed(2)}% of pixels differ (limit ${(THRESHOLD * 100).toFixed(2)}%), diff in visual/diff/`;
 }
 
 /** One shot: written as a baseline under --update, else judged; the failure line or null. */
 async function check(browser: Browser, name: string, png: Buffer): Promise<string | null> {
   if (!update) return judge(browser, name, png);
+  mkdirSync(dirname(BASELINES + name), { recursive: true });
   writeFileSync(BASELINES + name, png);
   console.log(`baseline written: ${name}`);
   return null;
@@ -194,12 +206,68 @@ async function runAll(browser: Browser, base: string): Promise<string[]> {
   return failures.filter((f) => f !== '');
 }
 
+/** The design page, opened in a viewport wide enough for its three theme columns. */
+async function openDesign(browser: Browser, base: string): Promise<{ page: Page; close: () => Promise<void> }> {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.goto(new URL('design', base).href, { waitUntil: 'load', timeout: 120_000 });
+  await page.addStyleTag({ content: STILL });
+  // The page's ground (a glow sized to the page's height and a 6 px dot grid) shows through a box's
+  // rounded corners, and moves under it whenever a part is added above: the shots see a flat ground.
+  await page.addStyleTag({ content: 'body { background: var(--void) !important; }' });
+  await page.locator(BOX).first().waitFor({ timeout: 120_000 });
+  await page.evaluate(() => document.fonts.ready.then(() => true));
+  await sleep(500);
+  return { page, close: () => context.close() };
+}
+
+/** Axe on /design: one failure line per violated rule. */
+async function runAxe(page: Page): Promise<string[]> {
+  await page.evaluate(axe.source);
+  const { violations } = await page.evaluate<axe.AxeResults>('axe.run()');
+  return violations.map((v) => `/design: axe ${v.id} (${v.impact ?? 'unrated'}) on ${String(v.nodes.length)} node(s): ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
+}
+
+/** Axe, then every themed box of /design shot and judged, in the page's order; the failure lines. */
+async function runDesign(browser: Browser, base: string): Promise<string[]> {
+  const { page, close } = await openDesign(browser, base);
+  try {
+    const failures = await runAxe(page);
+    const boxes = page.locator(BOX);
+    const count = await boxes.count();
+    if (count === 0) failures.push('/design: no part to shoot');
+    // A part's article is a fraction of a pixel tall (its lines are), so a part added above a box
+    // moved it down by a fraction too, and its text drew a few percent differently. Every article is
+    // set to its height rounded up to a whole pixel first: a part added above then moves each box by
+    // whole pixels only, and a box's shot depends on its own part alone.
+    await page.locator(PART).evaluateAll((els) => {
+      const heights = els.map((el) => Math.ceil(el.getBoundingClientRect().height));
+      els.forEach((el, i) => {
+        if (!(el instanceof HTMLElement)) return;
+        el.style.boxSizing = 'border-box';
+        el.style.height = `${String(heights[i] ?? 0)}px`;
+      });
+    });
+    for (let i = 0; i < count; i++) {
+      const box = boxes.nth(i);
+      // BOX only matches an element that carries the four attributes, so none is missing.
+      const attrs = await box.evaluate((el): Box => ({
+        part: String(el.dataset.part), prop: String(el.dataset.prop), value: String(el.dataset.value), theme: String(el.dataset.theme),
+      }));
+      failures.push(await check(browser, baselineName(attrs), await box.screenshot({ type: 'png' })) ?? '');
+    }
+    return failures.filter((f) => f !== '');
+  } finally {
+    await close();
+  }
+}
+
 async function main(): Promise<void> {
   const server = await startServer();
   const browser = await chromium.launch();
   mkdirSync(BASELINES, { recursive: true });
   rmSync(DIFFS, { recursive: true, force: true });
-  const failures = await runAll(browser, server.base).finally(async () => {
+  const failures = await runAll(browser, server.base).then(async (prd) => [...prd, ...await runDesign(browser, server.base)]).finally(async () => {
     await browser.close();
     server.stop();
   });

@@ -2,10 +2,11 @@
 // colour of its own, so a piece the package gains appears on the page without an edit here.
 import { keysOf } from 'omni-loop/kit/lib/narrow.ts';
 import {
-  HERO_PRESETS, INK, LOGO_DRAWINGS, OMNI_POSES, SPRITE_DEFS, TYPE_SCALE, contrast, heroLook,
+  HERO_PRESETS, ICON_NAMES, INK, LOGO_DRAWINGS, OMNI_POSES, SPRITE_DEFS, TYPE_SCALE, contrast, heroLook,
   type Hero, type LogoDrawing, type Tint,
 } from '@omni/design';
 import { DEMO_PROJECTS } from '@omni/galaxy';
+import { PARTS } from '@omni/ui/catalogue';
 
 /** The whole-number scales every logo form is shown at. */
 export const LOGO_SCALES = [1, 2, 4] as const;
@@ -56,3 +57,16 @@ const RED_CAPE = HERO_PRESETS.cape.findIndex(([label]) => label === 'RED');
 export function fleetHero(body: Hero['body'], color: string): { sprite: string; tint: Tint } {
   return heroLook({ v: 1, body, skin: 1, hair: 0, suit: 0, cape: RED_CAPE }, color);
 }
+
+/** The three reading themes every part is shown in, in the order the page draws them. */
+export const THEMES = ['omni', 'light', 'dark'] as const;
+
+/** Every registered part with each of its variants (one closed prop at one value), from the generated list: a part added later shows with no edit here. */
+export const COMPONENTS = PARTS.map(({ meta, specimen }) => ({
+  meta,
+  specimen,
+  variants: Object.entries(meta.variants).flatMap(([prop, values]) => values.map((value) => ({ prop, value }))),
+}));
+
+/** The 1-bit icon set, in its order. */
+export const BIT_ICONS = ICON_NAMES;

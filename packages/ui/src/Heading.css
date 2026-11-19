@@ -1,0 +1,10 @@
+.omni-heading {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  overflow-wrap: anywhere;
+}
+.omni-heading--page { font-size: var(--type-7-size); line-height: var(--type-7-line); font-weight: var(--weight-bold); }
+.omni-heading--section { font-size: var(--type-5-size); line-height: var(--type-5-line); font-weight: var(--weight-semibold); }
+.omni-heading--subsection { font-size: var(--type-4-size); line-height: var(--type-4-line); font-weight: var(--weight-semibold); }
+.omni-heading--label { font-size: var(--type-3-size); line-height: var(--type-3-line); font-weight: var(--weight-medium); }

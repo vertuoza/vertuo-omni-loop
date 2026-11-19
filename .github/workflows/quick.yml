@@ -50,4 +50,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # @omni/ui's part list is generated (packages/ui/src/generated/): a slice adds a part's files and
+      # commits no rebuild, so the list is rebuilt first, or the new part reads as dead code.
+      - run: node packages/ui/build/parts.ts
       - run: pnpm check:changed --base origin/${{ github.base_ref }}

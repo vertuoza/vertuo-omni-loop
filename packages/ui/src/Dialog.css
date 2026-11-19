@@ -1,0 +1,60 @@
+.omni-dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-dialog);
+  background: var(--color-scrim);
+  transition: opacity var(--motion-duration-slow) var(--motion-ease-out);
+}
+.omni-dialog-scrim[data-starting-style], .omni-dialog-scrim[data-ending-style] { opacity: 0; }
+.omni-dialog {
+  position: fixed;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: var(--layer-dialog);
+  translate: -50% -50%;
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--space-3);
+  inline-size: 440px;
+  max-inline-size: calc(100vw - 2 * var(--space-4));
+  max-block-size: calc(100vh - 2 * var(--space-4));
+  overflow-y: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-2);
+  background: var(--color-raised);
+  box-shadow: var(--elevation-overlay);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  transition: opacity var(--motion-duration-slow) var(--motion-ease-out), scale var(--motion-duration-slow) var(--motion-ease-out);
+}
+.omni-dialog[data-starting-style], .omni-dialog[data-ending-style] { opacity: 0; scale: 0.96; }
+.omni-dialog:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.omni-dialog--sm { inline-size: 320px; }
+.omni-dialog--lg { inline-size: 600px; }
+.omni-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.omni-dialog__title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--type-5-size);
+  line-height: var(--type-5-line);
+  font-weight: var(--weight-bold);
+}
+.omni-dialog__description { margin: 0; color: var(--color-text-secondary); font-size: var(--type-3-size); line-height: var(--type-3-line); }
+.omni-dialog__body { font-size: var(--type-4-size); line-height: var(--type-4-line); }
+.omni-dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); padding-block-start: var(--space-2); }
+
+/* The catalogue's still: the open panel drawn in place on its scrim, for /design and its screenshot. */
+.omni-dialog-specimen { display: grid; gap: var(--space-3); justify-items: start; inline-size: 100%; }
+.omni-dialog-still {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  inline-size: 100%;
+  /* Its width is its holder's, never the panel's: a wide size shrinks to fit the still. */
+  contain: inline-size;
+  padding: var(--space-5) var(--space-3);
+  border-radius: var(--radius-2);
+  background: var(--color-scrim);
+}
+.omni-dialog-still .omni-dialog { position: static; translate: none; max-inline-size: 100%; transition: none; }

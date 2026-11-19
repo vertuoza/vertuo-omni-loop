@@ -1,0 +1,17 @@
+/*
+ * The input is Input's look and Select's chevron (it carries `omni-input` and sits in `omni-select`);
+ * its list is a Menu's panel and items (`omni-menu`, `omni-menu__item`). This adds what a list of
+ * options has and a menu has not: room to scroll, the option picked, and the words when none matches.
+ */
+.omni-combobox__input { cursor: text; }
+.omni-combobox-positioner { z-index: var(--layer-overlay); }
+.omni-combobox { min-inline-size: 200px; }
+.omni-combobox__list { max-block-size: 320px; overflow-y: auto; outline: none; }
+.omni-combobox__list[data-empty] { display: none; }
+.omni-combobox__item[data-selected] { font-weight: var(--weight-bold); }
+.omni-combobox__empty:empty { display: none; }
+.omni-combobox__empty { padding: var(--space-2) var(--space-3); color: var(--color-text-secondary); }
+
+/* The catalogue's still: the open list drawn in place under its input, for /design and its screenshot. */
+.omni-combobox-specimen { display: grid; gap: var(--space-1); inline-size: 240px; }
+.omni-combobox-still .omni-combobox { transition: none; }

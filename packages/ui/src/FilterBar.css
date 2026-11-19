@@ -1,0 +1,5 @@
+.omni-filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); font-family: var(--font-body); color: var(--color-text-primary); }
+.omni-filter-bar__search { flex: 1 1 14rem; min-width: 0; }
+.omni-filter-bar__select { flex: 0 1 12rem; min-width: 0; }
+.omni-filter-bar__segments { display: flex; flex-direction: column; gap: var(--space-1); }
+.omni-filter-bar__caption { font-size: var(--type-3-size); font-weight: var(--weight-medium); color: var(--color-text-primary); }

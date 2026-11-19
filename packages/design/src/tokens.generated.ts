@@ -115,6 +115,8 @@ export const TOKEN_THEMES = Object.freeze({
     warning: '#ff9b30',
     danger: '#ff6b86',
     info: '#6ff0ff',
+    'focus-ring': '#8f9bff',
+    scrim: 'rgb(7 6 28 / 0.72)',
   }),
   light: Object.freeze({
     canvas: '#f5f4fc',
@@ -138,6 +140,8 @@ export const TOKEN_THEMES = Object.freeze({
     warning: '#8a4b00',
     danger: '#b3122f',
     info: '#0b6f86',
+    'focus-ring': '#2f3fc4',
+    scrim: 'rgb(23 21 61 / 0.48)',
   }),
   dark: Object.freeze({
     canvas: '#0e0d33',
@@ -161,6 +165,8 @@ export const TOKEN_THEMES = Object.freeze({
     warning: '#ffb357',
     danger: '#ff6b86',
     info: '#6ff0ff',
+    'focus-ring': '#9aa4ff',
+    scrim: 'rgb(7 6 28 / 0.72)',
   }),
 } as const);
 

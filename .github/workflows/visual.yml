@@ -17,7 +17,9 @@ on:
       - 'apps/galaxy/src/**/*.tsx'
       - 'apps/galaxy/src/**/*.css'
       - 'apps/galaxy/visual/**'
+      - 'apps/galaxy/src/design/**'
       - 'apps/galaxy/scripts/visual.ts'
+      - 'apps/galaxy/scripts/catalogue.ts'
       - 'packages/design/**'
       - 'packages/galaxy/**'
       - 'packages/ui/**'
@@ -45,6 +47,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # The part list is generated (packages/ui/src/generated/): a slice branch adds a part's files and
+      # commits no rebuild, so the run rebuilds it to shoot every part the branch holds.
+      - name: Register the parts
+        run: node packages/ui/build/parts.ts
       - run: pnpm --filter @omni/galaxy-app exec playwright install --with-deps chromium
       - name: Compare with the baselines
         if: ${{ !inputs.update }}

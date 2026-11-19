@@ -1,7 +1,7 @@
-import { OMNI_LOOP, logoSvg, spritePixels, type FontRole, type Tint } from '@omni/design';
+import { OMNI_LOOP, drawIcon, logoSvg, spritePixels, type FontRole, type Tint } from '@omni/design';
 import {
-  CAST, COLOURS, FLEETS, FRAMES, ICONS, LOGOS, LOGO_NOTES, LOGO_SCALES, LOGO_SHOWINGS, POSES, POSTER_SCALE,
-  TYPE_STEPS, fleetHero, ratio,
+  BIT_ICONS, CAST, COLOURS, COMPONENTS, FLEETS, FRAMES, ICONS, LOGOS, LOGO_NOTES, LOGO_SCALES, LOGO_SHOWINGS, POSES, POSTER_SCALE,
+  THEMES, TYPE_STEPS, fleetHero, ratio,
 } from './catalogue';
 import { cssVars } from '../arcade/css-vars';
 import { pixelSvg } from './pixel-svg';
@@ -14,7 +14,7 @@ import { pixelSvg } from './pixel-svg';
 
 const SECTIONS = [
   ['logo', 'Logo'], ['colours', 'Colours'], ['type', 'Type'], ['sprites', 'Sprites'],
-  ['heroes', 'Heroes'], ['poses', 'Poses'], ['icons', 'Icons'],
+  ['heroes', 'Heroes'], ['poses', 'Poses'], ['icons', 'Icons'], ['components', 'Components'],
 ] as const;
 
 /** What each role's specimen reads: short enough for the largest display step on a phone. */
@@ -169,7 +169,15 @@ export function DesignScreen() {
           ))}
         </Section>
 
-        <Section id="icons" title="Icons" lede="The icons, in both frames at 3×.">
+        <Section id="icons" title="Icons" lede="The 1-bit icon set, one ink at 16 px and 32 px, then the multicolour icon sprites, in both frames at 3×.">
+          <ul className="ds-grid ds-grid-bits">
+            {BIT_ICONS.map((name) => (
+              <li key={name} className="ds-card" data-icon={name}>
+                <div className="ds-frames ds-bits"><Svg svg={drawIcon(name, 1)} /><Svg svg={drawIcon(name, 2)} /></div>
+                <code>{name}</code>
+              </li>
+            ))}
+          </ul>
           <ul className="ds-grid ds-grid-icons">
             {ICONS.map((name) => (
               <li key={name} className="ds-card">
@@ -184,6 +192,41 @@ export function DesignScreen() {
               </li>
             ))}
           </ul>
+        </Section>
+
+        <Section id="components" title="Components" lede="Every part of @omni/ui, each variant in the Omni, Light and Dark themes, with when to use it and what to do and not to do.">
+          {COMPONENTS.map(({ meta, specimen, variants }) => (
+            <article key={meta.name} id={meta.name} className="ds-part" aria-labelledby={`${meta.name}-title`}>
+              <h3 id={`${meta.name}-title`} className="ds-h3"><a href={`#${meta.name}`}>{meta.name}</a></h3>
+              <p className="ds-note">{meta.usage}</p>
+              <div className="ds-dos">
+                <div className="ds-do"><strong>Do</strong><ul>{meta.do.map((line) => <li key={line}>{line}</li>)}</ul></div>
+                <div className="ds-dont"><strong>Don’t</strong><ul>{meta.dont.map((line) => <li key={line}>{line}</li>)}</ul></div>
+              </div>
+              <pre className="ds-example" tabIndex={0} aria-label={`${meta.name} example`}><code>{meta.example}</code></pre>
+              {variants.map(({ prop, value }) => (
+                <div key={`${prop}=${value}`} className="ds-variant">
+                  <p className="ds-spec"><code>{prop}={value}</code></p>
+                  <div className="ds-themes">
+                    {THEMES.map((theme) => (
+                      <div
+                        key={theme}
+                        className="ask ds-theme"
+                        data-ask-theme={theme}
+                        data-part={meta.name}
+                        data-prop={prop}
+                        data-value={value}
+                        data-theme={theme}
+                      >
+                        <span className="ds-theme-name">{theme}</span>
+                        {specimen(prop, value)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </article>
+          ))}
         </Section>
       </main>
     </div>
