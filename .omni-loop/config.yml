@@ -87,6 +87,11 @@ generated:
   - path: packages/ui/src/generated/
     from: [packages/ui/src/, packages/ui/build/]
     build: node packages/ui/build/parts.ts
+  # The design manifest (PRD omni-loop-13): the tokens, the parts' metas and the locked screens as one
+  # short file the kit reads (`omni design components`), rebuilt by the wave after merging.
+  - path: packages/design/design-system.json
+    from: [packages/design/tokens/, packages/ui/src/, packages/ui/build/, .omni-loop/knowledge/design/screens/]
+    build: node packages/ui/build/manifest.ts
 # Design craft (PRD 1369, dogfooded by PRD 1407): the skills read the design form and the screen
 # library (.omni-loop/knowledge/design/screens/), and a slice whose diff meets these globs gets its
 # design review. apps/galaxy/app/ holds the routes and layouts the screens are mounted by;
