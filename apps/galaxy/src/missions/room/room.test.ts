@@ -82,7 +82,7 @@ describe('the Reviewer rows (PRD 2871)', () => {
   it('shows only those rows to the Reviewer filter, and draws the link and the word', () => {
     const ledger = ledgerOf([asked, event({})], filterOf({ role: 'reviewer' }, [M1]));
     expect(ledger).toHaveLength(1);
-    const view: RoomView = { fleet: 'night', color: null, now: [], cleanUp: 'Nothing to clean up', stopped: [], missions: [], ledger, filter: { role: 'reviewer', mission: null }, empty: false };
+    const view: RoomView = { fleet: 'night', color: null, now: [], cleanUp: 'Nothing to clean up', bugs: [], stopped: [], missions: [], ledger, filter: { role: 'reviewer', mission: null }, empty: false };
     const out = renderToStaticMarkup(createElement(RoomTab, { view, keep: {} }));
     expect(out).toContain('Reviewer · agent');
     expect(out).toContain('Changes asked: 2 findings, round 1/2.');
@@ -141,7 +141,7 @@ describe('roomService', () => {
       repairs: () => Promise.resolve({ rows: [], events: [], statuses: new Map() }),
     };
     const view = await roomService(repository).view('w', 'night', null, { role: 'engineer' }, new Date());
-    expect(view).toMatchObject({ empty: false, cleanUp: 'Nothing to clean up', stopped: [], filter: { role: 'engineer', mission: null } });
+    expect(view).toMatchObject({ empty: false, cleanUp: 'Nothing to clean up', bugs: [], stopped: [], filter: { role: 'engineer', mission: null } });
     expect(view.ledger).toHaveLength(1);
   });
 
@@ -168,7 +168,7 @@ describe('roomRepository', () => {
 
 describe('RoomTab', () => {
   const view: RoomView = {
-    fleet: 'night', color: '#4fb0ff', now: nowLines(HEROES, []), cleanUp: 'Nothing to clean up', stopped: [], missions: [{ id: M1, title: 'Pay online' }],
+    fleet: 'night', color: '#4fb0ff', now: nowLines(HEROES, []), cleanUp: 'Nothing to clean up', bugs: [], stopped: [], missions: [{ id: M1, title: 'Pay online' }],
     ledger: ledgerOf([event({})], { role: null, mission: null }), filter: { role: null, mission: null }, empty: false,
   };
 
@@ -198,7 +198,7 @@ describe('the waiting now lines (PRD 2949 s5, the `fleet-room` screen)', () => {
     waitingOn: new Map([[M1, 'PRD 2803: waiting for a provider limit until 09:00 UTC']]),
   });
   const ended = [event({}), event({ kind: 'job-ended', at: '2026-11-14T10:00:00Z' })];
-  const viewOf = (lines: RoomView['now']): RoomView => ({ fleet: 'night', color: null, now: lines, cleanUp: 'x', stopped: [], missions: [], ledger: [], filter: { role: null, mission: null }, empty: false });
+  const viewOf = (lines: RoomView['now']): RoomView => ({ fleet: 'night', color: null, now: lines, cleanUp: 'x', bugs: [], stopped: [], missions: [], ledger: [], filter: { role: null, mission: null }, empty: false });
 
   it('says the provider limit, the account that ran out, its linked job, and that no tokens are spent', () => {
     const lines = nowLines(HEROES, ended, limitWaitsOf(limitFacts(false), now));

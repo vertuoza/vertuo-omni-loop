@@ -70,6 +70,15 @@ export function RoomTab({ view, keep, refresh }: RoomTabProps) {
           {view.now.map((line) => (
             <li key={line.id} data-state={line.state}>{line.repair !== undefined ? <RepairingNow line={line} repair={line.repair} /> : line.wait !== undefined ? <WaitingNow line={line} wait={line.wait} /> : line.state === 'working' ? line.words : <><span className="room-hero">{line.heading}</span>: {line.words}</>}</li>
           ))}
+          {view.bugs.map((bug) => (
+            <li key={`bug-${String(bug.issue)}`} data-state="bug">
+              <span className="room-wait">
+                <span className="room-hero">{roleName(bug.role)} · {ROOM_WORDS.agent}</span>
+                <span className="room-doing">{bug.words}{bug.link !== null && <small><a href={bug.link}>{`Omni Loop bug #${String(bug.issue)}`}</a></small>}</span>
+                <span className="room-state">{bug.chip}</span>
+              </span>
+            </li>
+          ))}
         </ul>
       </div>
       {view.stopped.map((line) => <StoppedBlock key={`${line.mission}:${String(line.prd)}`} line={line} demo={false} />)}

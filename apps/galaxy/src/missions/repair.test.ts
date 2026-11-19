@@ -70,7 +70,7 @@ describe('repairLinesOf', () => {
 const HERO: HeroLine = { id: 'e', name: 'e', role: 'engineer', skills: ['yolo'] };
 const sent: EventRow = { id: 'a', mission: M, at: '2026-11-17T06:00:00Z', role: 'engineer', actor: 'agent', kind: 'dispatched', prd: parsePrd(2801), job: JOB1, link: null, sentence: 'Sent PRD 2801.' };
 const stoppedFacts = (): RepairFacts => facts([1, 2, 3].map((n) => row({ number: n, job: `22222222-2222-4222-8222-22222222222${String(n)}`, fixPr: PR(2983 + n), startedAt: `2026-11-17T0${String(5 + n)}:00:00Z` })), [ev('repair-started', '2026-11-17T08:00:00Z', { job: '22222222-2222-4222-8222-222222222223' }), ev('repair-ended', '2026-11-17T09:12:00Z', { job: '22222222-2222-4222-8222-222222222223' }), ev('stopped', '2026-11-17T09:14:00Z')], 'stopped');
-const viewOf = (over: Partial<RoomView>): RoomView => ({ fleet: 'f', color: null, now: [], cleanUp: 'x', stopped: [], missions: [], ledger: [], filter: { role: null, mission: null }, empty: false, ...over });
+const viewOf = (over: Partial<RoomView>): RoomView => ({ fleet: 'f', color: null, now: [], cleanUp: 'x', bugs: [], stopped: [], missions: [], ledger: [], filter: { role: null, mission: null }, empty: false, ...over });
 
 describe('the Operation room (AC-10)', () => {
   it('reads Repairing on the hero that sent the PRD, its cause and its fix linked', () => {
@@ -136,7 +136,7 @@ describe('repairRepository', () => {
   it('reads the repairs, their events and the missions status as the person', async () => {
     const answers: Record<string, unknown[]> = {
       mission_repairs: [{ mission_id: M, prd: 2801, trigger: 'failure', fingerprint: FP, round: 1, number: 1, job_id: JOB1, fix_pr: PR(2984), outcome: 'fixed', started_at: '2026-11-17T06:03:00Z', retro: { cause: 'c', class: 'code', proposedFix: 'f' } }, { mission_id: M, prd: null, trigger: 'stuck', fingerprint: FP, round: 1, number: 1, job_id: JOB2, fix_pr: null, outcome: null, started_at: '2026-11-17T07:03:00Z', retro: null }],
-      mission_events: [{ mission_id: M, kind: 'repair-started', prd: 2801, job_id: JOB1, link: null, at: '2026-11-17T06:03:00Z' }],
+      mission_events: [{ mission_id: M, kind: 'repair-started', prd: 2801, job_id: JOB1, link: null, at: '2026-11-17T06:03:00Z', sentence: 'Sent.' }],
       missions: [{ id: M, status: 'stopped' }],
     };
     const db = { from: (table: string) => { const self: Record<string, unknown> = { then: (done: (v: unknown) => void) => { done({ data: answers[table], error: null }); } }; for (const n of ['select', 'in', 'order', 'limit']) self[n] = () => self; return self; } } as unknown as RepairDb;
