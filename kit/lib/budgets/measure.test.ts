@@ -1,7 +1,7 @@
 // PRD 1679, s1: the context measure on a fixture repository — a briefing, two forms (one whose
 // section points at a guide), two `paths.context` files — each count the bytes `resolveForm` prints.
 import { describe, expect, it } from 'vitest';
-import { formText, makeRepo } from '../../test/fixture.ts';
+import { formText, makeRepo, testContext } from '../../test/fixture.ts';
 import { briefingLaws } from '../knowledge/briefing-laws.ts';
 import { DECISIONS_FORM, FORM_IDS } from '../playbook/forms.ts';
 import { readDecisions } from '../playbook/decisions.ts';
@@ -148,5 +148,45 @@ describe('measureContextBudget (PRD 1679)', () => {
   it('measures a form with no file at its kit default', () => {
     const { ctx } = fixture();
     expect(bytesOf(measureContextBudget({ ctx }), 'form:review')).toBe(printed(ctx, 'review'));
+  });
+
+  describe('design:components (PRD omni-loop-13)', () => {
+    const MANIFEST = 'design-system.json';
+    const manifest = (components: unknown[]) =>
+      JSON.stringify({ 'omni-design': 1, components, tokens: [], patterns: [], surfaces: [] });
+    const part = (name: string) => ({ name, import: '@omni/ui', example: `<${name} />` });
+    const measureWith = (text: string, design: unknown = { manifest: MANIFEST }) => {
+      const { root } = fixture({ files: { [MANIFEST]: text } });
+      return measureContextBudget({ ctx: testContext(root, { design, paths: { context: ['CLAUDE.md'] } }) });
+    };
+
+    it('measures no such target when design.manifest is not set', () => {
+      const targets = measureContextBudget({ ctx: fixture().ctx }).map(({ target }) => target);
+      expect(targets).not.toContain('design:components');
+    });
+
+    it('measures what omni design components prints, its newline counted, before session', () => {
+      const measures = measureWith(manifest([part('Button'), part('Card')]));
+      const targets = measures.map(({ target }) => target);
+      expect(targets.at(-1)).toBe(SESSION);
+      expect(targets.at(-2)).toBe('design:components');
+      expect(bytesOf(measures, 'design:components')).toBe(Buffer.byteLength('Button  @omni/ui\nCard  @omni/ui\n'));
+    });
+
+    it('leaves session as the briefing and the context files, the index not in it', () => {
+      const measures = measureWith(manifest([part('Button')]));
+      expect(bytesOf(measures, SESSION)).toBe(bytesOf(measures, BRIEFING) + bytesOf(measures, 'context:CLAUDE.md'));
+    });
+
+    it('makes a manifest the schema refuses a measurement error naming its refusals', () => {
+      const one = byTarget(measureWith(JSON.stringify({ 'omni-design': 2 }))).get('design:components');
+      expect(one && 'error' in one ? one.error : '').toMatch(/omni-design/);
+    });
+
+    it('makes a manifest file that is missing a measurement error', () => {
+      const { root } = fixture();
+      const one = byTarget(measureContextBudget({ ctx: testContext(root, { design: { manifest: 'gone.json' }, paths: { context: ['CLAUDE.md'] } }) })).get('design:components');
+      expect(one && 'error' in one ? one.error : '').toMatch(/gone\.json/);
+    });
   });
 });
