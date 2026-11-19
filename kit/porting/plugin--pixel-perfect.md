@@ -213,3 +213,7 @@ review's stale-mockup note, and lock's rule.
 ### Tests
 
 `kit/test/design-skills.test.ts`.
+
+## PRD omni-loop-13, slice s6 — the design manifest
+
+Step 0 gains **The parts first**: `omni design components`, then `omni design component <name>` for each part the work uses, in place of the form's `system` prose for the parts; a repository with no design manifest reads the `system` section as before. Tested in `kit/test/design-manifest-skills.test.ts`.
