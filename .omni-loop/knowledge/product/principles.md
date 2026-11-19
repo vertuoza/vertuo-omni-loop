@@ -988,3 +988,21 @@ Why: Re-sending failed or cancelled work automatically would spend runs on a gue
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-130
+
+A mission is judged stuck only by whether its PRDs' work actually moves, never by the mission's own coordinating jobs.
+
+Why: Counting committees, planners or repairs would pause or stop missions for work that is not progress, misleading the people who answer stuck questions.
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-02-what-the-stuck-count-counts, PRD #3065
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19
+
+## P-PRODUCT-131
+
+A delivered mission's retros are never silently lost; each one is either written down or recorded as skipped, with the reason.
+
+Why: People rely on a mission's retros to learn from it, so a missing retro must be visible and explained, never quietly absent.
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-03-milestone-retros-run-and-shape, PRD #3065
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19

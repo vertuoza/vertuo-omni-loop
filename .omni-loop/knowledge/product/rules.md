@@ -939,3 +939,27 @@ Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s
 Enforced by: apps/galaxy/src/missions/missions.controller.test.ts, apps/galaxy/src/virtual-fleets/virtual-fleets.controller.test.ts
 Stated: 2026-11-18
 Decided: @pierrederval, 2026-11-18
+
+## BR-PRODUCT-169
+
+Only a PRD's step jobs (build, QA, a QA fix, the Reviewer, the fix after it) whose last attempt ended count toward a stuck mission, never a committee, planner, repair or retro. A mission with nothing able to move stops; a stuck repair counts as fixed once something moves after it.
+
+Serves: P-PRODUCT-130
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-02-what-the-stuck-count-counts, PRD #3065
+Enforced by: apps/omni-app/src/missions/stuck.test.ts, apps/omni-app/src/missions/supervisor.stuck.test.ts
+Stated: 2026-11-19
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19
+
+## BR-PRODUCT-170
+
+A delivered mission keeps being watched until every retro it sent is recorded, running one retro at a time per mission. A mission over its token budget records each milestone retro it never sent as skipped, with the budget as the reason.
+
+Serves: P-PRODUCT-131
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-03-milestone-retros-run-and-shape, PRD #3065
+Enforced by: apps/omni-app/src/missions/job.milestone.test.ts, apps/omni-app/src/missions/milestone.test.ts
+Stated: 2026-11-19
+Decided: nobody — adopted when raised (medium), 2026-11-18
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19

@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-18
 - Slice: s2
 - Wave: 1
+- Stays here: A one-off deferral of scope within this plan. The lasting rule, that a runner skill's lists change together, is already ADR-0147.
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ Low: one follow-up migration redefines the two functions, with RUNNER_SKILLS and
 - Raised: 2026-11-18
 - Slice: s4
 - Wave: 2
+- Stays here: A wire-format choice held in one constant and its reader. It is cheap to change, changes no stored shape and guarantees nothing lasting to the product, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -176,6 +178,7 @@ Low: the line is one constant (stuckSkillLine in apps/omni-app/src/missions/stuc
 - Raised: 2026-11-18
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-169, P-PRODUCT-130
 
 ### The answer, as it was given
 
@@ -255,6 +258,7 @@ Low: no stored shape depends on it. The count is read again from the mission's e
 - Raised: 2026-11-18
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-170, P-PRODUCT-131
 
 ### The answer, as it was given
 
@@ -334,6 +338,7 @@ Low: the target words are text in mission_items, read by the mission page alone;
 - Raised: 2026-11-18
 - Slice: s5
 - Wave: 3
+- Stays here: Adding two routes is a local build choice; the write-once answer is already held by BR-PRODUCT-12, and the events stay in the append-only ledger.
 
 ### The answer, as it was given
 
