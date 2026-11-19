@@ -12,6 +12,8 @@ import { z } from 'zod';
 //   POST /api/missions/<id>/level    {level}: Change for this mission (PRD 2896), the level it runs at
 //   POST /api/missions/<id>/tokens   {tokens}: the mission's token budget, or null for none (PRD 3040)
 //   POST /api/missions/stops/<stop>  {answer, tokens?}: a budget stop answered once (PRD 3040)
+//   POST /api/missions/<id>/stop     a mission paused by stuck ends stopped, saying it was stuck (PRD 3065)
+//   POST /api/missions/items/<item>  {answer, note?}: a mission item adopted or declined, once (PRD 3065)
 //   POST /api/missions/<id>/bugs     {prd, pick}: a person's pick on Decide the bugs (PRD 3001), send the PRD on to the Reviewer or stop it
 
 export type MissionAction = 'start' | 'pause' | 'resume';
@@ -94,6 +96,15 @@ export const OverturnedMissionSchema = z.object({
   overturn: z.object({ mission: z.uuid(), branch: z.string().nullable(), decision: z.string(), prd: PrdNumberSchema, onBranch: z.boolean() }),
 });
 export type OverturnedMission = z.infer<typeof OverturnedMissionSchema>;
+
+/** A member's answer to a mission item (PRD 3065): Adopt or Decline, with an optional note; written once, never rewritten. */
+const ITEM_ANSWERS = ['adopted', 'declined'] as const;
+export const ItemAnswerSchema = z.enum(ITEM_ANSWERS);
+export type ItemAnswer = z.infer<typeof ItemAnswerSchema>;
+export const ItemAnswerBodySchema = z.object({ answer: ItemAnswerSchema, note: z.string().trim().min(1).max(500).optional() });
+export type ItemAnswerBody = z.infer<typeof ItemAnswerBodySchema>;
+export const AnsweredItemSchema = z.object({ item: z.object({ id: z.uuid(), answer: ItemAnswerSchema }) });
+export type AnsweredItem = z.infer<typeof AnsweredItemSchema>;
 
 /** Each refusal's status. */
 export const MISSION_REFUSALS = {

@@ -193,3 +193,15 @@ Source: .omni-loop/delivery/shipped/3007-kit-knowledge-mcp/outbox/settled.md, en
 Enforced by: apps/galaxy/src/product-mcp/product-mcp.controller.test.ts
 Stated: 2026-11-17
 Decided: @pierrederval — answered A on PR #3008, 2026-11-17
+
+## BR-ACCESS-10
+
+When a person's kit sign-in names a product key held by products in more than one of their workspaces, the knowledge server reads the oldest such product whose knowledge is on. A product that is off, archived, or in a workspace they are not in is never chosen.
+
+Serves: P-PRODUCT-58
+Source: .omni-loop/delivery/shipped/3007-kit-knowledge-mcp/outbox/settled.md, entry s1-02-one-key-two-workspaces, PRD #3007
+Enforced by: apps/galaxy/src/product-mcp/product-mcp-member.migration.test.ts, supabase/checks/product_mcp.sql, apps/galaxy/src/product-mcp/product-mcp.repository.test.ts
+Stated: 2026-11-18
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-18, PR #3008
+Proposed: harvest 2026-11-18

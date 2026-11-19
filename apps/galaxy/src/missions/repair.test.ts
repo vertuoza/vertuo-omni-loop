@@ -21,7 +21,7 @@ const JOB2 = '22222222-2222-4222-8222-222222222222';
 const FP = '3fa1c09e'.padEnd(64, '0');
 const PR = (n: number) => `https://github.com/acme/shop/pull/${String(n)}`;
 const row = (over: Partial<RepairRow>): RepairRow => ({
-  mission: M, prd: parsePrd(2801), fingerprint: FP, round: 1, number: 1, job: JOB1, fixPr: PR(2984), outcome: 'not fixed', startedAt: '2026-11-17T06:03:00Z', retro: { cause: 'The login test waits for a session the fixture never creates.', class: 'code', proposedFix: 'One session in the shared fixture' }, ...over,
+  mission: M, prd: parsePrd(2801), trigger: 'failure', fingerprint: FP, round: 1, number: 1, job: JOB1, fixPr: PR(2984), outcome: 'not fixed', startedAt: '2026-11-17T06:03:00Z', retro: { cause: 'The login test waits for a session the fixture never creates.', class: 'code', proposedFix: 'One session in the shared fixture' }, ...over,
 });
 const ev = (kind: string, at: string, over: Partial<RepairEvent> = {}): RepairEvent => ({ mission: M, kind, prd: parsePrd(2801), job: JOB1, link: null, at, ...over });
 const facts = (rows: RepairRow[], events: RepairEvent[], status: 'running' | 'stopped' = 'running'): RepairFacts => ({ rows, events: events.toSorted((a, b) => b.at.localeCompare(a.at)), statuses: new Map([[M, status]]) });
@@ -135,13 +135,16 @@ describe('the Missions tab', () => {
 describe('repairRepository', () => {
   it('reads the repairs, their events and the missions status as the person', async () => {
     const answers: Record<string, unknown[]> = {
-      mission_repairs: [{ mission_id: M, prd: 2801, fingerprint: FP, round: 1, number: 1, job_id: JOB1, fix_pr: PR(2984), outcome: 'fixed', started_at: '2026-11-17T06:03:00Z', retro: { cause: 'c', class: 'code', proposedFix: 'f' } }],
+      mission_repairs: [{ mission_id: M, prd: 2801, trigger: 'failure', fingerprint: FP, round: 1, number: 1, job_id: JOB1, fix_pr: PR(2984), outcome: 'fixed', started_at: '2026-11-17T06:03:00Z', retro: { cause: 'c', class: 'code', proposedFix: 'f' } }, { mission_id: M, prd: null, trigger: 'stuck', fingerprint: FP, round: 1, number: 1, job_id: JOB2, fix_pr: null, outcome: null, started_at: '2026-11-17T07:03:00Z', retro: null }],
       mission_events: [{ mission_id: M, kind: 'repair-started', prd: 2801, job_id: JOB1, link: null, at: '2026-11-17T06:03:00Z' }],
       missions: [{ id: M, status: 'stopped' }],
     };
     const db = { from: (table: string) => { const self: Record<string, unknown> = { then: (done: (v: unknown) => void) => { done({ data: answers[table], error: null }); } }; for (const n of ['select', 'in', 'order', 'limit']) self[n] = () => self; return self; } } as unknown as RepairDb;
     const read = await repairRepository(db).facts([M]);
-    expect(read.rows[0]).toMatchObject({ prd: 2801, outcome: 'fixed', number: 1 });
+    expect(read.rows[0]).toMatchObject({ prd: 2801, trigger: 'failure', outcome: 'fixed', number: 1 });
+    // A stuck repair whose cause is the mission's own names no PRD (PRD 3065), and spends from the mission's 9 all the same.
+    expect(read.rows[1]).toMatchObject({ prd: null, trigger: 'stuck', outcome: null });
+    expect(leftOf(read.rows)).toBe(7);
     expect(read.events).toHaveLength(1);
     expect(read.statuses.get(M)).toBe('stopped');
     expect((await repairRepository(db).facts([])).rows).toEqual([]);

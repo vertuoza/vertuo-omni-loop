@@ -2563,6 +2563,79 @@ export type Database = {
           },
         ]
       }
+      mission_items: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          answered_by: string | null
+          created_at: string
+          evidence: Json
+          file: string | null
+          id: string
+          mission_id: string
+          note: string | null
+          number: number
+          repair_id: string | null
+          retro_id: string | null
+          target: string
+          wording: string
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          evidence: Json
+          file?: string | null
+          id?: string
+          mission_id: string
+          note?: string | null
+          number: number
+          repair_id?: string | null
+          retro_id?: string | null
+          target: string
+          wording: string
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          evidence?: Json
+          file?: string | null
+          id?: string
+          mission_id?: string
+          note?: string | null
+          number?: number
+          repair_id?: string | null
+          retro_id?: string | null
+          target?: string
+          wording?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_items_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_items_repair_id_fkey"
+            columns: ["repair_id"]
+            isOneToOne: false
+            referencedRelation: "mission_repairs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_items_retro_id_fkey"
+            columns: ["retro_id"]
+            isOneToOne: false
+            referencedRelation: "mission_retros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mission_repairs: {
         Row: {
           ended_at: string | null
@@ -2574,10 +2647,11 @@ export type Database = {
           mission_id: string
           number: number
           outcome: string | null
-          prd: number
+          prd: number | null
           retro: Json | null
           round: number
           started_at: string
+          trigger: string
         }
         Insert: {
           ended_at?: string | null
@@ -2589,10 +2663,11 @@ export type Database = {
           mission_id: string
           number?: number
           outcome?: string | null
-          prd: number
+          prd?: number | null
           retro?: Json | null
           round?: number
           started_at?: string
+          trigger?: string
         }
         Update: {
           ended_at?: string | null
@@ -2604,14 +2679,56 @@ export type Database = {
           mission_id?: string
           number?: number
           outcome?: string | null
-          prd?: number
+          prd?: number | null
           retro?: Json | null
           round?: number
           started_at?: string
+          trigger?: string
         }
         Relationships: [
           {
             foreignKeyName: "mission_repairs_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_retros: {
+        Row: {
+          created_at: string
+          file: string | null
+          id: string
+          job_id: string | null
+          milestone: string
+          mission_id: string
+          retro: Json | null
+          skipped: string | null
+        }
+        Insert: {
+          created_at?: string
+          file?: string | null
+          id?: string
+          job_id?: string | null
+          milestone: string
+          mission_id: string
+          retro?: Json | null
+          skipped?: string | null
+        }
+        Update: {
+          created_at?: string
+          file?: string | null
+          id?: string
+          job_id?: string | null
+          milestone?: string
+          mission_id?: string
+          retro?: Json | null
+          skipped?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_retros_mission_id_fkey"
             columns: ["mission_id"]
             isOneToOne: false
             referencedRelation: "missions"
@@ -2629,6 +2746,7 @@ export type Database = {
           measures: Json
           next_wake_at: string | null
           number: number
+          paused_by: string | null
           repo: string
           scope: Json
           started_by: string | null
@@ -2647,6 +2765,7 @@ export type Database = {
           measures?: Json
           next_wake_at?: string | null
           number: number
+          paused_by?: string | null
           repo: string
           scope: Json
           started_by?: string | null
@@ -2665,6 +2784,7 @@ export type Database = {
           measures?: Json
           next_wake_at?: string | null
           number?: number
+          paused_by?: string | null
           repo?: string
           scope?: Json
           started_by?: string | null
@@ -5963,6 +6083,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      answer_mission_item: {
+        Args: { p_answer: string; p_item: string; p_note?: string }
+        Returns: {
+          answer: string | null
+          answered_at: string | null
+          answered_by: string | null
+          created_at: string
+          evidence: Json
+          file: string | null
+          id: string
+          mission_id: string
+          note: string | null
+          number: number
+          repair_id: string | null
+          retro_id: string | null
+          target: string
+          wording: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "mission_items"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       answered_counts: {
         Args: { from_at: string; to_at: string; workspace: string }
         Returns: {
@@ -9172,6 +9317,7 @@ export type Database = {
           measures: Json
           next_wake_at: string | null
           number: number
+          paused_by: string | null
           repo: string
           scope: Json
           started_by: string | null
@@ -9199,6 +9345,7 @@ export type Database = {
           measures: Json
           next_wake_at: string | null
           number: number
+          paused_by: string | null
           repo: string
           scope: Json
           started_by: string | null

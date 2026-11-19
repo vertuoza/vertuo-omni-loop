@@ -65,3 +65,25 @@ Stated: 2026-11-14
 Decided: nobody — adopted when raised (medium), 2026-11-13
 Merged: @pierrederval, 2026-11-14, PR #2810
 Proposed: harvest 2026-11-14
+
+## N-PRODUCT-24
+
+The Omni App counts a mission repair's cause by the fingerprint it computes itself from the retro's class, place and signature, never by the value the runner wrote, so one cause always has one fingerprint and the per-cause repair limit cannot be dodged.
+
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s1-01-fingerprint-computed-again-by-the-app, PRD #2980
+Enforced by: apps/omni-app/src/missions/repair.test.ts, kit/lib/repair/fingerprint.test.ts, kit/lib/repair/line.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## N-PRODUCT-25
+
+QA's verdict line names every bug report it filed after the count; a bugs verdict missing its numbers, or whose numbers do not match its count, is read as no verdict, so the mission never hands the Engineer guessed bugs.
+
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s1-01-qa-line-carries-issues, PRD #3001
+Enforced by: kit/lib/qa/verdict.test.ts, apps/omni-app/src/missions/qa.test.ts
+Stated: 2026-11-17
+Decided: nobody — adopted when raised (medium), 2026-11-17
+Merged: @pierrederval, 2026-11-17, PR #3002
+Proposed: harvest 2026-11-17

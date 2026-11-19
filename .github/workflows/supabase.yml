@@ -169,6 +169,12 @@ jobs:
         # One open stop per cap, recorded by the service role; a member answers it once as themselves, an owner alone
         # raises the cap, and an answer is never rewritten (PRD 3040).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/token_budget.sql
+      - name: A mission's stuck repairs, milestone retros and own outbox
+        # A repair reads failure unless it says stuck; a stuck one may name no PRD and spends from the same 3 per cause and 9
+        # per mission. One retro per milestone, never changed; an item names a target, a wording and cited evidence, and a
+        # member answers it once as themselves, nobody else; paused by stuck only while paused; the five event kinds, the
+        # two job keys, and a stuck repair claimed first (PRD 3065).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mission_retros.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is

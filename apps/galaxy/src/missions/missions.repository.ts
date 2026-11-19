@@ -5,7 +5,7 @@ import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
-import { MissionLevelSchema, MissionStatusSchema, StopAnswerSchema, type MissionStatus, type StopAnswer } from './missions.contract';
+import { ItemAnswerSchema, MissionLevelSchema, MissionStatusSchema, StopAnswerSchema, type ItemAnswer, type MissionStatus, type StopAnswer } from './missions.contract';
 
 // The missions' reads and writes (PRD 2842 s5), on the clients they are given. A signed-in person reads
 // through their own session, so row-level security shows a mission to the members of its workspace and to
@@ -16,11 +16,13 @@ import { MissionLevelSchema, MissionStatusSchema, StopAnswerSchema, type Mission
 export type MissionsDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 const WHERE = 'missions/missions.repository';
-const MISSION = 'id, workspace_id, repo, status, number, title, mandate';
+const MISSION = 'id, workspace_id, repo, status, number, title, mandate, paused_by';
 
 const MissionRow = z.object({
   id: z.uuid(), workspace_id: z.uuid(), repo: z.string().min(1), status: MissionStatusSchema,
   number: z.number().int().positive(), title: z.string(),
+  // `stuck` while the supervisor holds the mission paused by stuck (PRD 3065); absent from a row an older read returns.
+  paused_by: z.enum(['stuck']).nullable().default(null),
   // A mission made before PRD 2896 holds no level: it reads `with-you`.
   mandate: z.object({ level: MissionLevelSchema.optional(), tokens: z.number().int().positive().optional() }).loose(),
 });
@@ -30,10 +32,14 @@ const StopRow = z.object({
 /** A budget stop as its answer left it: who it paused, and what the answer was (PRD 3040). */
 type AnsweredStopRow = { id: string; answer: StopAnswer; raisedTo: number | null; mission: string | null; missions: string[] };
 /** A mission as the repository reads it: its workspace, its repository, where it stands and the level it runs at. */
-export type MissionRecord = { id: string; workspace: string; repo: string; status: MissionStatus; number: number; title: string; level: MissionLevel };
+export type MissionRecord = { id: string; workspace: string; repo: string; status: MissionStatus; number: number; title: string; level: MissionLevel; pausedBy: 'stuck' | null };
 
 const toRecord = (row: z.infer<typeof MissionRow>): MissionRecord =>
-  ({ id: row.id, workspace: row.workspace_id, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.mandate.level ?? 'with-you' });
+  ({ id: row.id, workspace: row.workspace_id, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.mandate.level ?? 'with-you', pausedBy: row.paused_by });
+
+const ItemRow = z.object({ id: z.uuid(), mission_id: z.uuid(), target: z.string(), answer: ItemAnswerSchema.nullable() });
+/** A mission item as its answer left it: its mission, what it proposes to change and the answer (PRD 3065). */
+type AnsweredItemRow = { id: string; mission: string; target: string; answer: ItemAnswer };
 
 /** The job a mission keeps on the App's ledger: its kind, key, subject and lane, due at once (mirrors apps/omni-app/src/missions/job.ts). */
 export type MissionJob = { kind: 'mission'; key: string; subject: string; payload: { mission: string }; lane: string; delaySeconds: 0 };
@@ -146,6 +152,14 @@ export function missionsReader(db: MissionsDb) {
       return { ok: true, stop: { id: row.id, answer: row.answer, raisedTo: row.raised_to, mission: row.mission_id, missions: row.missions } };
     },
 
+    /** Answers a mission item as the signed-in person, once (answer_mission_item): the item as answered, or the database's refusal in its words (PRD 3065). */
+    async answerItem(item: string, answer: ItemAnswer, note: string | null): Promise<{ ok: true; item: AnsweredItemRow } | { ok: false; code: string | null; error: string }> {
+      const made: { data: unknown; error: { message: string; code?: string } | null } = await db.rpc('answer_mission_item', { p_item: item, p_answer: answer, ...(note === null ? {} : { p_note: note }) });
+      if (made.error) return { ok: false, code: made.error.code ?? null, error: made.error.message };
+      const row = orThrow(parseRow(ItemRow, made.data, `${WHERE}: answer_mission_item`));
+      return row.answer === null ? { ok: false, code: null, error: 'The answer was not kept.' } : { ok: true, item: { id: row.id, mission: row.mission_id, target: row.target, answer: row.answer } };
+    },
+
     /** Sets the mission's level as the signed-in person, so the database decides who may raise it: the level, or the database's refusal in its words. */
     async setLevel(id: string, level: MissionLevel): Promise<{ ok: true; level: MissionLevel } | { ok: false; forbidden: boolean; error: string }> {
       const answer: { data: unknown; error: { message: string; code?: string } | null } = await db.rpc('set_mission_level', { p_mission: id, p_level: level });
@@ -171,15 +185,15 @@ export function missionsWriter(db: MissionsDb) {
     },
 
     /** Moves the mission from one of `from` to `to`, due at `at`; whether it was still there to move (a Pause landing meanwhile is never overwritten). */
-    async move(id: string, from: readonly MissionStatus[], to: MissionStatus, change: { at: string; startedBy: string | null }): Promise<boolean> {
-      const patch = { status: to, next_wake_at: change.at, updated_at: change.at, ...(change.startedBy === null ? {} : { started_by: change.startedBy }) };
+    async move(id: string, from: readonly MissionStatus[], to: MissionStatus, change: { at: string; startedBy: string | null; waitingOn?: string }): Promise<boolean> {
+      const patch = { status: to, next_wake_at: change.at, updated_at: change.at, ...(change.startedBy === null ? {} : { started_by: change.startedBy }), ...(change.waitingOn === undefined ? {} : { waiting_on: change.waitingOn }) };
       const { data, error } = await db.from('missions').update(patch).eq('id', id).in('status', [...from]).select('id');
       if (error) throw new Error(`Supabase: could not move the mission (${error.message})`);
       return Array.isArray(data) && data.length > 0;
     },
 
     /** Records one event of the mission, signed with the member's login. */
-    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'stopped' | 'drop-asked' | 'drop-asked-keep' | 'overturned' | 'budget-answer'; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string }): Promise<void> {
+    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'stopped' | 'drop-asked' | 'drop-asked-keep' | 'overturned' | 'budget-answer' | 'stuck-answer' | 'item-answered'; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string }): Promise<void> {
       const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }), ...(event.job === undefined ? {} : { job_id: event.job }) });
       if (error) throw new Error(`Supabase: could not record the mission's event (${error.message})`);
     },

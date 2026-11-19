@@ -31,6 +31,11 @@ runners while the laptop is closed.
   said, or the PRD to drop when the branch is red), and the mission pull request's link. The progress then
   reads `2 of 4 on main · 1 joined`. A mission at Reviews with you, and a draft, show no branch line.
 - **The budget line** (PRD 3040), on each row: `412k of 2M tokens`, or `No token budget`; on a draft, set for this mission.
+- **Retros** (PRD 3065), under a delivered roadmap or mission: one card per milestone retro, `Roadmap #<n> delivered` or
+  `Mission delivered`, with `Went well` and `To change`, each sentence citing what it rests on, and a link to its file on the
+  mission branch (at Reviews with you, `Kept on this page only`).
+- **Questions** (PRD 3065): one card per mission item, a proposed change to a rule, a law or a playbook form, with its
+  wording and evidence, and `Adopt` or `Decline`; once answered, who answered and how to apply it (`Not applied yet`).
 - **The trust line,** at Works alone: `14 decisions by the fleet · 1 overturned`.
 - **The primary action:** `Start`, on a draft. `Pause` on a running or waiting mission, `Resume` on a
   paused one.
@@ -45,6 +50,8 @@ runners while the laptop is closed.
 - **Running, Waiting on you:** the progress and each PRD waiting, with `Pause`.
 - **Paused:** with `Resume`.
 - **Paused: budget reached** (PRD 3040): what was spent and whose cap (`this mission's budget`, `this fleet's daily cap`), with `Raise the cap` and `Stop the mission`; the fleet's cap adds one notice above the list with `Resume tomorrow` and `Raise the cap`, asked once for the fleet.
+- **Stuck** (PRD 3065): `Stuck: 5 jobs, nothing moved`, `Repairing (1 of 3) · 7 left in this mission`, the cause and the fix PR, with `Pause`.
+- **Paused: stuck** (PRD 3065): the cause, the repairs tried, the proposed fix, `Each cause gets 3 more · 6 of 9 left`, with `Resume` and `Stop the mission`, asked once.
 - **Stopped:** why, and how to carry on, with no button.
 - **Delivered:** every PRD merged; no button.
 - **Refused or failed:** the refusal's words under the mission.
@@ -54,7 +61,8 @@ runners while the laptop is closed.
 - `Start`, `Pause`, `Resume`, `Waiting on you`, `Not started`, `Level`, `Change`, `Change for this mission`,
   `Reviews with you`, `Own branch`, `Works alone`, `Branch`, `up to date`, `behind the default branch`,
   `Mission pull request`, `on main`, `joined`, `decisions by the fleet`,
-  `overturned`.
+  `overturned`, `Stuck`, `nothing moved`, `Retros`, `Went well`, `To change`, `Questions`, `Adopt`, `Decline`,
+  `Not applied yet`, `Kept on this page only`.
 
 ## Refusals
 
@@ -68,6 +76,7 @@ runners while the laptop is closed.
   the supervisor has met them.
 - Where `Change` and `Change for this mission` open: in place, or in a drawer.
 - Where a person overturns a decision from this tab, beside the mission pull request's list.
+- Where a long retro or a long item wording folds, past five sentences.
 - Whether the estimate line (`Likely ready for review <day> <time>`) ships once there is enough history.
 
 ## Source
@@ -76,3 +85,4 @@ runners while the laptop is closed.
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2896: .omni-loop/delivery/shipped/2896-fleet-alone/before-after.html
 /omni:brainstorm, PRD 3040: .omni-loop/delivery/shipped/3040-token-budget/before-after.html (the caps, the budget line, Paused: budget reached)
+/omni:brainstorm, PRD 3065: .omni-loop/delivery/shipped/3065-mission-retros/before-after.html (Stuck, Paused: stuck, Retros, Questions)

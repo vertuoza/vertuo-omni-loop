@@ -161,10 +161,16 @@ function stopAct(cap: BudgetCap, stop: StopRow | null, status: MissionStatus): B
   return { act: 'stop', words: `Stopped by the budget: ${why}`, event: said('stopped', `The budget stopped the mission: ${why}`) };
 }
 
-/** What a run does about the mission's two caps, before it sends anything. */
-export function budgetAct(read: BudgetRead, mission: { id: string; status: MissionStatus }, now: number): BudgetAct {
+/** Whether a cap is reached at `now`, whatever any stop says: a milestone retro is then held back (PRD 3065). */
+export const capReached = (read: BudgetRead, now: number): boolean => budgetNext({ ...read, stop: null, answer: null, now }).next !== 'send';
+
+/**
+ * What a run does about the mission's two caps, before it sends anything. A mission the supervisor paused by stuck (PRD 3065) waits
+ * for a person, as one a person paused does: the budget never resumes it.
+ */
+export function budgetAct(read: BudgetRead, mission: { id: string; status: MissionStatus; pausedBy?: 'stuck' }, now: number): BudgetAct {
   const stop = stopOf(read);
-  const byBudget = pausedByBudget(read, mission.status);
+  const byBudget = mission.pausedBy !== 'stuck' && pausedByBudget(read, mission.status);
   const moving = mission.status === 'running' || mission.status === 'waiting';
   const next = budgetNext({ ...read, stop: stop?.cap ?? null, answer: stop?.answer ?? null, now });
   if (next.next === 'send') return sendAct(stop, read, byBudget);

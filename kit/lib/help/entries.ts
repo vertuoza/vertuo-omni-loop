@@ -455,7 +455,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'log\'s new lines, those after the last the app accepted, at most 2,000 lines and 256 KB per ' +
       'report, sending them again when a report fails and every line left once the job ends: the ' +
       'Runners page shows them live in its Terminal panel. Only yolo, yolo-fix, pr-care, do-work, wave, ultra-yolo, ultra-wave, ultra-yolo-fix, bug-fix, ' +
-      'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind, knowledge-add and rewind-apply run. A job past --timeout (8h by default) ' +
+      'mega-bug-fix, visual-fix, plan, pitch, prove, retro-apply, rewind, knowledge-add, rewind-apply and mission-retro run. A job past --timeout (8h by default) ' +
       'is stopped; Ctrl-C ' +
       'waits for the running jobs. It also keeps the Omni plugin current, since a job runs the skills ' +
       'the plugin holds: before Claude starts, a plugin older than the omni the job\'s repository ' +
@@ -2510,19 +2510,39 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'repair',
     kind: 'skill',
     who: 'skills',
-    usage: ['/omni:repair --mission <m> --prd <n> --job <id>'],
+    usage: ['/omni:repair --mission <m> --prd <n> --job <id>', '/omni:repair --mission <m> --stuck --jobs <j1>,…,<j5>'],
     summary: 'repair the step a mission\'s PRD failed on',
     detail:
       'Reads why the failed job failed, on a runner, and writes a retro: the cause in one sentence, its ' +
       'class, where, the error\'s signature, the evidence and the proposed fix. A code cause is fixed ' +
       'through /omni:bug-fix --base <mission branch>; an omni-loop cause writes a scrubbed report and ' +
       'fixes nothing; a flake fixes nothing and the step is sent again; a person cause names the question. ' +
-      'A mission sends it on a runner; it asks nothing, never merges and ends on one omni repair: line.',
+      'With --stuck --jobs it reads the last five jobs of a mission that stopped moving and takes the same four ways, ' +
+      'its record line carrying "trigger":"stuck". A mission sends it on a runner; it asks nothing, never merges and ends on one omni repair: line.',
     group: 'run-by-skills',
     when: "Use it when a mission's PRD failed a step: the mission sends it, you never run it by hand.",
     example: {
       type: '/omni:repair --mission 12 --prd 2950 --job 4821',
       result: 'a retro, then a bug fix into the mission branch, and the omni repair: record line',
+    },
+  },
+  {
+    name: 'mission-retro',
+    kind: 'skill',
+    who: 'skills',
+    usage: ['/omni:mission-retro --mission <m> --milestone <roadmap n | mission>'],
+    summary: 'write a mission\'s retro at a milestone',
+    detail:
+      'Writes what went well and what to change when a roadmap of a mission\'s scope is delivered, or the mission is: ' +
+      '1 to 5 sentences each, every one citing an event, a PRD, a pull request or a repair. Above with-you it commits the retro ' +
+      'and each rule-change item it proposes on the mission branch; at with-you it keeps them on the mission page only. ' +
+      'It never changes a rule, a law or a form, never pauses the mission and never touches the default branch. ' +
+      'A mission sends it on a runner and it ends on one omni retro: line.',
+    group: 'run-by-skills',
+    when: "Use it when a mission reached a milestone: the mission sends it, you never run it by hand.",
+    example: {
+      type: '/omni:mission-retro --mission 12 --milestone 2950',
+      result: 'a retro file on the mission branch, its items, and the omni retro: record line',
     },
   },
   {

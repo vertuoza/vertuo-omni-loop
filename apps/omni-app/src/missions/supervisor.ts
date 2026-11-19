@@ -237,14 +237,16 @@ export type Joined = { prd: PrdNumber; pr: PrNumber; url: string };
 /** A PRD to send: the run it is, and its step; for an Engineer's fix of QA's bug, the bug and its feature branch (PRD 3001). */
 export type Send = { prd: PrdNumber; run: number; step: Step; fix?: Fix };
 
-/** What a run sets on the mission. */
-export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null };
+/** What a run sets on the mission; `pausedBy` stuck when the run pauses it by stuck (PRD 3065). */
+export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null; pausedBy?: 'stuck' };
 
 export type EventKind =
   | 'dispatched' | 'job-ended' | 'waits' | 'prd-ready' | 'prd-merged' | 'held' | 'stopped' | 'delivered' | 'reviewed' | 'prd-joined' | 'prd-dropped' | 'decided' | 'escalated'
   | 'prd-added' | 'not-written' | 'repair-started' | 'retro' | 'repair-ended' | 'bug-reported' | 'checked'
   /** PRD 3040: the supervisor recorded a budget stop, paused the mission again by it, or resumed it once it was answered. */
-  | 'budget-stop' | 'paused' | 'resumed';
+  | 'budget-stop' | 'paused' | 'resumed'
+  /** PRD 3065: a stuck repair sent or a pause by stuck, a milestone retro recorded or skipped, a change a retro proposed. */
+  | 'stuck' | 'milestone-retro' | 'item-proposed';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa';
 
 /** An event to record, signed by its role and `agent`. */
@@ -468,8 +470,11 @@ export function outcome(end: JobEnd, run: number, reason: string | null = null, 
 /** A run's latest attempt: the resume that carries it, or the job itself. */
 const lastOf = (run: Run): Attempt | undefined => run.attempts.at(-1);
 
+/** A step's place in a run, the build's 0: a later step is further on (PRD 3065: reaching one is moving). */
+export const stepRank = (step: Step): number => STEPS.indexOf(step);
+
 /** Whether job `a` comes after job `b`: a later run, or a later step of the same run. */
-export const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && STEPS.indexOf(a.step) > STEPS.indexOf(b.step));
+export const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && stepRank(a.step) > stepRank(b.step));
 
 /**
  * Where each PRD of the scope is, by PRD. On a mission branch (PRD 2896), a PRD on it is `joined` and unblocks the PRDs
@@ -753,7 +758,7 @@ function fitted(parts: readonly string[], glue: string, max = WORDS_MAX): string
 }
 
 /** `text`, cut to `max` characters. */
-const cut = (text: string, max = WORDS_MAX): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
+export const cut = (text: string, max = WORDS_MAX): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 
 /** What the mission waits on, PRD by PRD, then the PRDs on its branch waiting to land (PRD 2896); null when nothing. */
 function waitsOf(facts: readonly PrdFacts[], states: ReadonlyMap<PrdNumber, PrdState>, branch: string | null): string | null {
@@ -843,6 +848,7 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   retro: (_prdKey, job) => jobKey('retro', job),
   'repair-ended': (_prdKey, job) => jobKey('repair-ended', job),
   'bug-reported': (_prdKey, job) => jobKey('bug', job),
+  stuck: (_prdKey, job) => jobKey('stuck', job),
 };
 
 /** The keys an event recorded stands for; none for a kind recorded on every change (waits, Start, Pause). */
@@ -1047,6 +1053,9 @@ function newWait(mission: Mission, next: Concluded): string | null {
   return next.waitingOn !== mission.waitingOn ? next.waitingOn : null;
 }
 
+/** Where the mission's jobs go, in words: its fleet's runners when one holds its repository, else any runner of the workspace. */
+export const whereOf = (mission: Pick<Mission, 'fleet'>, toFleet: boolean): string => (toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace');
+
 /** The events this run records, in the order they happened, none already recorded. */
 export function eventsOf({
   mission,
@@ -1086,7 +1095,7 @@ export function eventsOf({
   qa?: QaView;
 }): NewEvent[] {
   const keys = new Set(recorded);
-  const where = toFleet ? `the ${mission.fleet} fleet's runners` : 'any runner of the workspace';
+  const where = whereOf(mission, toFleet);
   const base = baseOf(mission, skill === 'ultra-yolo');
   const all = [
     ...committeeEvents(committees, where),
@@ -1098,10 +1107,15 @@ export function eventsOf({
     ...prdEvents(facts, states),
     ...missionEvents(mission, next),
   ];
-  return all.flatMap((event) => {
+  return unrecorded(all, keys);
+}
+
+/** `events`, each whose keys none of `recorded` holds, in order, its sentence cut to what the database keeps; `recorded` gains their keys. */
+export function unrecorded(events: readonly NewEvent[], recorded: Set<string>): NewEvent[] {
+  return events.flatMap((event) => {
     const own = keysOf(event);
-    if (own.some((key) => keys.has(key))) return [];
-    for (const key of own) keys.add(key);
+    if (own.some((key) => recorded.has(key))) return [];
+    for (const key of own) recorded.add(key);
     return [{ ...event, sentence: cut(event.sentence) }];
   });
 }

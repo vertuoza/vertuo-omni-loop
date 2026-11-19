@@ -5,6 +5,7 @@ import { isWaitWords, type WaitLine } from '../limit-wait';
 import type { RepairLine } from '../repair';
 import type { MissionAction, MissionStatus } from '../missions.contract';
 import { capWords, spentWords } from '../token-words';
+import { itemCardsOf, NO_RETROS, RETRO_WORDS, retroCardsOf, stuckGoingOf, stuckPausedOf, type ItemCard, type RetroCard, type RetroRead, type StuckGoing, type StuckPaused } from './retros';
 
 // The Missions tab's rules (PRD 2842 s7, the `mission-start` screen), pure so each is tested without a
 // browser: a mission's status in words, its progress (`2 of 4 merged · 1 ready`), each PRD it waits a person
@@ -97,6 +98,8 @@ export interface MissionRow {
   inPlan: boolean;
   /** Its token budget (PRD 3040), the brief's mandate `tokens`; null or absent, none. */
   tokens?: number | null;
+  /** `stuck` while the supervisor holds it paused by stuck (PRD 3065); null or absent otherwise. */
+  pausedBy?: 'stuck' | null;
 }
 
 /** One of its events, as far as the tab reads: which PRD reached which point. */
@@ -209,6 +212,14 @@ export interface MissionView {
   budget: BudgetLine;
   /** The budget stop that paused it and waits for an answer (PRD 3040); null when none. */
   stop: StopView | null;
+  /** `Stuck: 5 jobs, nothing moved` while a stuck repair works (PRD 3065); null otherwise. */
+  stuck: StuckGoing | null;
+  /** The question of a mission paused by stuck, asked once, with Resume and Stop the mission (PRD 3065); null otherwise. */
+  stuckPaused: StuckPaused | null;
+  /** One card per milestone retro (PRD 3065). */
+  retros: RetroCard[];
+  /** One card per question of the mission's own outbox (PRD 3065). */
+  questions: ItemCard[];
 }
 
 /** What the fleet's PM added to the mission (PRD 2896 s12): `PRD 50, PRD 51 added by the fleet`, then each row the cap left. */
@@ -352,8 +363,25 @@ export function dailyOf(read: BudgetRead): DailyView {
   };
 }
 
+/** A mission's status in words, the one move it allows and the budget stop that paused it. A mission paused by stuck asks one question, with its own Resume and Stop (PRD 3065). */
+function statusParts(row: MissionRow, budget: BudgetRead): Pick<MissionView, 'statusWords' | 'action' | 'stop'> {
+  if (row.status === 'paused' && row.pausedBy === 'stuck') return { statusWords: RETRO_WORDS.pausedStuck, action: null, stop: null };
+  // A stopped mission with repairs has its Resume in the Stopped block (PRD 2980), not here.
+  return { statusWords: STATUS_WORDS[row.status], action: ACTION[row.status], stop: row.status === 'paused' ? stopOf(row.id, budget) : null };
+}
+
+/** What the tab adds of PRD 3065 to a mission: its stuck line, the question a stuck pause asks, its retros and its questions. */
+function retroParts(row: MissionRow, retro: RetroRead): Pick<MissionView, 'stuck' | 'stuckPaused' | 'retros' | 'questions'> {
+  return {
+    stuck: stuckGoingOf(row, retro.repairs),
+    stuckPaused: stuckPausedOf({ id: row.id, status: row.status, pausedBy: row.pausedBy ?? null }, retro.repairs),
+    retros: retroCardsOf(row, retro.retros),
+    questions: itemCardsOf(row.id, retro.items),
+  };
+}
+
 /** One mission as the tab shows it; `events` are its own, newest first. */
-export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWaits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = [], budget: BudgetRead = NO_BUDGET): MissionView {
+export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWaits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = [], budget: BudgetRead = NO_BUDGET, retro: RetroRead = NO_RETROS): MissionView {
   const own = repairs.filter((line) => line.mission === row.id);
   const waiting = row.status === 'waiting' || row.status === 'running';
   return {
@@ -361,15 +389,12 @@ export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWai
     title: row.title,
     goal: row.goal,
     status: row.status,
-    statusWords: STATUS_WORDS[row.status],
     progress: progressOf(row.status, row.prds, events, row.level),
     waits: waiting ? waitsOf(row.waitingOn, row.repo, events).filter((wait) => !isWaitWords(wait.on)) : [],
     limitWaits: waiting ? limitWaits.filter((wait) => wait.mission === row.id) : [],
     repairs: own,
     stopped: row.status === 'stopped' && !own.some((line) => line.kind === 'stopped') ? row.waitingOn : null,
     briefHref: issueHref(row.repo, row.number),
-    // A stopped mission with repairs has its Resume in the Stopped block (PRD 2980), not here.
-    action: ACTION[row.status],
     level: row.level,
     levelWords: LEVEL_WORDS[row.level],
     levels: row.inPlan ? LEVELS.filter((each) => each !== 'own-branch') : LEVELS,
@@ -379,7 +404,8 @@ export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWai
     trust: row.level === 'alone' && row.status !== 'draft' ? trustLine(decisionsOf(events.toReversed())) : null,
     fleetPrds: fleetPrdsOf(events),
     budget: budgetOf(row, budget.spent.get(row.id) ?? 0),
-    stop: row.status === 'paused' ? stopOf(row.id, budget) : null,
+    ...statusParts(row, budget),
+    ...retroParts(row, retro),
   };
 }
 

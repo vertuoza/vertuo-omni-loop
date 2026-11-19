@@ -988,3 +988,48 @@ Why: Re-sending failed or cancelled work automatically would spend runs on a gue
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-129
+
+A mission paused by a token budget waits exactly as long as some cap still has no room, never longer and never less.
+
+Why: People need to trust that a budget pause neither silently overspends nor holds work after room has been made.
+Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s1-01-budget-edge-rules, PRD #3040
+Merged: @pierrederval, 2026-11-18, PR #3042
+Proposed: harvest 2026-11-18
+
+## P-PRODUCT-127
+
+A bug report the loop files in public never carries anything that identifies a workspace, its people or its code.
+
+Why: Reports go to a public tracker, so a leaked path, login or repository name would expose a private workspace to anyone.
+Source: .omni-loop/delivery/shipped/2980-mission-repairs/outbox/settled.md, entry s1-02-public-report-scrubs-wide-and-strict-record, PRD #2980
+Merged: @pierrederval, 2026-11-17, PR #2981
+Proposed: harvest 2026-11-17
+
+## P-PRODUCT-128
+
+A mission never waits on work that no job is left to finish; it records what was not done and moves on.
+
+Why: Waiting on a draft nobody will mark ready would hold the PRD with nothing at work.
+Source: .omni-loop/delivery/shipped/3001-qa-turn/outbox/settled.md, entry s4-03-draft-fix-is-not-fixed, PRD #3001
+Merged: @pierrederval, 2026-11-17, PR #3002
+Proposed: harvest 2026-11-17
+
+## P-PRODUCT-130
+
+A mission is judged stuck only by whether its PRDs' work actually moves, never by the mission's own coordinating jobs.
+
+Why: Counting committees, planners or repairs would pause or stop missions for work that is not progress, misleading the people who answer stuck questions.
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-02-what-the-stuck-count-counts, PRD #3065
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19
+
+## P-PRODUCT-131
+
+A delivered mission's retros are never silently lost; each one is either written down or recorded as skipped, with the reason.
+
+Why: People rely on a mission's retros to learn from it, so a missing retro must be visible and explained, never quietly absent.
+Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-03-milestone-retros-run-and-shape, PRD #3065
+Merged: @pierrederval, 2026-11-19, PR #3066
+Proposed: harvest 2026-11-19
