@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-18
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-167, P-PRODUCT-129
 
 ### The answer, as it was given
 
@@ -98,6 +99,7 @@ Low: one pure function, no stored data depends on the order.
 - Raised: 2026-11-18
 - Slice: s3
 - Wave: 2
+- Became: ADR-0170
 
 ### The answer, as it was given
 
@@ -177,6 +179,7 @@ Low: waking from the answer is one call per mission in the answer's route, as Re
 - Raised: 2026-11-18
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-168
 
 ### The answer, as it was given
 

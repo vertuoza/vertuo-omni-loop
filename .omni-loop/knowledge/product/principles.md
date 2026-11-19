@@ -988,3 +988,12 @@ Why: Re-sending failed or cancelled work automatically would spend runs on a gue
 Source: .omni-loop/delivery/shipped/2842-missions/outbox/settled.md, entry s4-03-a-stopped-prd-comes-back-by-hand, PRD #2842
 Merged: @pierrederval, 2026-11-14, PR #2843
 Proposed: harvest 2026-11-14
+
+## P-PRODUCT-129
+
+A mission paused by a token budget waits exactly as long as some cap still has no room, never longer and never less.
+
+Why: People need to trust that a budget pause neither silently overspends nor holds work after room has been made.
+Source: .omni-loop/delivery/shipped/3040-token-budget/outbox/settled.md, entry s1-01-budget-edge-rules, PRD #3040
+Merged: @pierrederval, 2026-11-18, PR #3042
+Proposed: harvest 2026-11-18
