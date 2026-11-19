@@ -21,4 +21,4 @@ red on that item, so the gap is never silent.
 
 ## Source
 
-`.omni-loop/delivery/outbox/3065-mission-retros/settled.md`, entry `s2-03-mission-retros-check-in-ci`.
+`.omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md`, entry `s2-03-mission-retros-check-in-ci`.

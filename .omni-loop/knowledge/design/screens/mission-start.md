@@ -85,4 +85,4 @@ runners while the laptop is closed.
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
 /omni:brainstorm, PRD 2896: .omni-loop/delivery/shipped/2896-fleet-alone/before-after.html
 /omni:brainstorm, PRD 3040: .omni-loop/delivery/shipped/3040-token-budget/before-after.html (the caps, the budget line, Paused: budget reached)
-/omni:brainstorm, PRD 3065: .omni-loop/delivery/inbox/3065-mission-retros/before-after.html (Stuck, Paused: stuck, Retros, Questions)
+/omni:brainstorm, PRD 3065: .omni-loop/delivery/shipped/3065-mission-retros/before-after.html (Stuck, Paused: stuck, Retros, Questions)

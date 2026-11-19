@@ -27,4 +27,4 @@ the heroes drawer's counts.
 
 ## Source
 
-`.omni-loop/delivery/outbox/3065-mission-retros/settled.md`, entry `s3-01-mission-retro-runner-lists`.
+`.omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md`, entry `s3-01-mission-retro-runner-lists`.
