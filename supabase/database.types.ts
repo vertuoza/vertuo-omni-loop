@@ -2742,6 +2742,7 @@ export type Database = {
           fleet: string
           goal: string
           id: string
+          kind: string
           mandate: Json
           measures: Json
           next_wake_at: string | null
@@ -2761,6 +2762,7 @@ export type Database = {
           fleet: string
           goal: string
           id?: string
+          kind?: string
           mandate?: Json
           measures?: Json
           next_wake_at?: string | null
@@ -2780,6 +2782,7 @@ export type Database = {
           fleet?: string
           goal?: string
           id?: string
+          kind?: string
           mandate?: Json
           measures?: Json
           next_wake_at?: string | null
@@ -2813,27 +2816,42 @@ export type Database = {
       }
       omni_bug_reports: {
         Row: {
+          asked_job: string | null
+          attempts: number
           count: number
           created_at: string
           fingerprint: string
+          fix_pr: number | null
+          fixed_in: string | null
           issue: number
           repo: string
+          state: string
           updated_at: string
         }
         Insert: {
+          asked_job?: string | null
+          attempts?: number
           count?: number
           created_at?: string
           fingerprint: string
+          fix_pr?: number | null
+          fixed_in?: string | null
           issue: number
           repo: string
+          state?: string
           updated_at?: string
         }
         Update: {
+          asked_job?: string | null
+          attempts?: number
           count?: number
           created_at?: string
           fingerprint?: string
+          fix_pr?: number | null
+          fixed_in?: string | null
           issue?: number
           repo?: string
+          state?: string
           updated_at?: string
         }
         Relationships: []
@@ -7366,11 +7384,16 @@ export type Database = {
       omni_bug_report_seen: {
         Args: { p_fingerprint: string }
         Returns: {
+          asked_job: string | null
+          attempts: number
           count: number
           created_at: string
           fingerprint: string
+          fix_pr: number | null
+          fixed_in: string | null
           issue: number
           repo: string
+          state: string
           updated_at: string
         }[]
         SetofOptions: {
@@ -9313,6 +9336,7 @@ export type Database = {
           fleet: string
           goal: string
           id: string
+          kind: string
           mandate: Json
           measures: Json
           next_wake_at: string | null
@@ -9341,6 +9365,7 @@ export type Database = {
           fleet: string
           goal: string
           id: string
+          kind: string
           mandate: Json
           measures: Json
           next_wake_at: string | null
