@@ -67,6 +67,15 @@ describe('omni budget measure context (PRD 1679)', () => {
     expect(sizes.session).toBe(Number(sizes.briefing) + 9 + 28);
   });
 
+  it('counts the components index as omni design components prints it, only when design.manifest is set (PRD omni-loop-13)', async () => {
+    const manifest = JSON.stringify({ 'omni-design': 1, components: [{ name: 'Button', import: '@omni/ui', example: '<Button />' }] });
+    const set = repo({ '.omni-loop/config.yml': config('design:\n  manifest: design-system.json\n'), 'design-system.json': manifest });
+    const { out } = await omni(set.root, ['design', 'components']);
+    expect((await measured(set.root))['design:components']).toBe(Buffer.byteLength(out));
+    expect(out).toBe('Button  @omni/ui\n');
+    expect(await measured(repo().root)).not.toHaveProperty('design:components');
+  });
+
   it('prints one line per target, its bytes and its approximate tokens', async () => {
     const { root } = repo();
     const sizes = await measured(root);

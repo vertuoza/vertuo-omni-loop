@@ -103,6 +103,8 @@ design:
     - apps/galaxy/app/
     - apps/omni-app/src/
     - packages/design/
+  # PRD omni-loop-13: the generated manifest `omni design components` and the budget's `design:components` read.
+  manifest: packages/design/design-system.json
 # Context budgets (PRD 1679): what every agent session reads here (the briefing, each playbook form as
 # `omni kb show` prints it, the `paths.context` files, and `session`, their sum) has a ceiling in bytes
 # in .omni-loop/budgets/context.json. `omni check context` (in `omni check all`) and the App's
