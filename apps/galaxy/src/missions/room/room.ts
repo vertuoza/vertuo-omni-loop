@@ -2,7 +2,7 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { HERO_ROLES, roleOf, worksAlone, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import type { WaitLine } from '../limit-wait';
 import { prOfLink, qaNowWords, tokensWords, type JobTokens, type QaJob } from './qa';
-import { repairLinkLabel, repairStateWord, type RepairLine } from '../repair';
+import { bugMoveOf, repairLinkLabel, repairStateWord, type RepairLine } from '../repair';
 
 // The Operation room's rules (PRD 2842 s8, PRD 2873 s3, the `fleet-room` screen), pure so each is tested without a
 // browser: one now line per hero (what a working hero does, else Idle, else, when none of its skills is one a
@@ -96,12 +96,22 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   'milestone-retro': 'Written',
   'item-proposed': 'Proposed',
   'item-answered': 'Answered',
+  // The Omni Loop bug team (PRD 3088): a bug taken, set aside on its question, and a bug a PRD waited on that was released fixed.
+  'bug-taken': 'Fixing',
+  'bug-asked': 'Asked',
+  'bug-fixed': 'Fixed',
 };
 
 /** A Reviewer's verdict reads `Passed` when it passed and `Changes` when it asked for changes (PRD 2871); QA's (PRD 3001) reads `Passed` on a pass, `Bugs` when it found some; null for any other kind. */
 function verdictWord(kind: string, sentence: string): string | null {
   if (kind === 'reviewed') return sentence.startsWith('Passed') ? 'Passed' : 'Changes';
   return kind === 'checked' ? (sentence.startsWith('pass') ? 'Passed' : 'Bugs') : null;
+}
+
+/** The Omni Loop bug team's words (PRD 3088): a bug-fixed event reads as what it says (a PRD resumed, a bug that will not be fixed, or fixed), and a bug's open fix pull request waits for a person's merge. Null for any other row. */
+function bugWord(kind: string, sentence: string): string | null {
+  if (kind === 'bug-fixed') return { 'wont-fix': "Won't fix", resumed: 'Resumed', 'update-kit': 'Fixed', fixed: 'Fixed' }[bugMoveOf(sentence).move];
+  return kind === 'job-ended' && sentence.startsWith('Omni Loop bug #') && sentence.includes('is open;') ? 'Waiting for a merge' : null;
 }
 
 /** The kinds whose word turns on their sentence: a PRD a mission pull request put on the default branch is a landing (PRD 2896); a retro that was not written and the pause by stuck read as what they are, never as done (PRD 3065, BL-GATE-1). Null for any other row. */
@@ -112,7 +122,7 @@ function sentenceWord(kind: string, sentence: string): string | null {
 }
 
 /** The word a ledger row carries: a verdict's, the one its sentence gives, a repair's end, or the kind's fixed word. */
-const stateWord = (kind: string, sentence: string): string => verdictWord(kind, sentence) ?? sentenceWord(kind, sentence) ?? repairStateWord(kind, sentence) ?? STATE_WORDS[kind] ?? kind;
+const stateWord = (kind: string, sentence: string): string => verdictWord(kind, sentence) ?? bugWord(kind, sentence) ?? sentenceWord(kind, sentence) ?? repairStateWord(kind, sentence) ?? STATE_WORDS[kind] ?? kind;
 
 /** What a ledger link is called: a Reviewer's verdict links its GitHub review, any other row its PRD or `Open`. */
 const linkLabel = (kind: string, prd: PrdNumber | null, link: string | null = null): string => {
@@ -142,11 +152,77 @@ export interface NowLine {
   role: HeroRole;
   heading: string;
   words: string;
-  state: 'working' | 'checking' | 'idle' | 'person' | 'waiting' | 'repairing';
+  state: 'working' | 'checking' | 'idle' | 'person' | 'waiting' | 'repairing' | 'stopped';
   /** A hero whose PRD repairs a failed step or waits on an Omni Loop bug (PRD 2980): the line, its headline and its link. */
   repair?: RepairLine;
   /** A hero whose PRD waits on a provider limit or on room (PRD 2949): the line says so, names the job and links it. */
   wait?: WaitLine;
+}
+
+/** The state of a hero whose PRD repairs or waits on an Omni Loop bug: a bug that moved reads as what it did (PRD 3088). */
+function repairStateOf(repair: RepairLine): NowLine['state'] {
+  if (repair.bug === 'resumed') return 'working';
+  if (repair.bug === 'wont-fix') return 'stopped';
+  return repair.bug === undefined ? 'repairing' : 'waiting';
+}
+
+/** One row of the Omni Loop bug team's room: a bug it holds (PRD 3088, the `fleet-room` screen's 1.A). */
+export interface BugLine {
+  issue: number;
+  role: 'engineer' | 'supervisor';
+  words: string;
+  chip: 'Fixing' | 'Waiting for a merge' | 'Asked' | 'Waiting for a release';
+  link: string | null;
+}
+
+const BUG_SENTENCE = /^Omni Loop bug #(\d+) \(reported (\d+)×\)/;
+
+/** The bug a team event is about: its issue and how often it was reported, read from its one sentence; null for any other row. */
+function bugOf(event: EventRow): { issue: number; count: number } | null {
+  if (event.prd !== null) return null;
+  const read = BUG_SENTENCE.exec(event.sentence.replace(/^Took /, ''));
+  return read === null ? null : { issue: Number(read[1]), count: Number(read[2]) };
+}
+
+/** What an asked event says it was set aside for: the words after `set aside:` up to the first comma, or the tries it spent. */
+function askedWhy(sentence: string): string {
+  const after = /set aside: (.*)\.$/.exec(sentence)?.[1];
+  if (after !== undefined) return after.split(',')[0] ?? after;
+  return /set aside after (\d+ tries)/.exec(sentence)?.[1] ?? 'a person decides';
+}
+
+/**
+ * One row per bug the team holds, from its events, newest first: Fixing while a bug fix runs, `PR #m to merge` once its fix
+ * pull request is open, `asked: <why>` once it was set aside. A bug back in line holds no row, and a bug a PRD of this
+ * fleet waited on that was fixed drops its merge row.
+ */
+export function bugLinesOf(events: readonly EventRow[]): BugLine[] {
+  const fixed = new Set(events.filter((e) => e.kind === 'bug-fixed').map((e) => Number(/#(\d+)/.exec(e.sentence)?.[1])));
+  const seen = new Set<number>();
+  const lines: BugLine[] = [];
+  for (const event of events.toSorted((a, b) => b.at.localeCompare(a.at))) {
+    const bug = bugOf(event);
+    if (bug === null || seen.has(bug.issue) || !TEAM_KINDS.includes(event.kind)) continue;
+    seen.add(bug.issue);
+    const line = bugLineOf(event, bug, fixed.has(bug.issue));
+    if (line !== null) lines.push(line);
+  }
+  return lines;
+}
+
+const TEAM_KINDS = ['bug-taken', 'bug-asked', 'job-ended'];
+
+/** The row a bug's newest event gives it, or null when it holds none: back in line, or fixed already. */
+function bugLineOf(event: EventRow, bug: { issue: number; count: number }, fixed: boolean): BugLine | null {
+  const n = String(bug.issue);
+  const times = `${String(bug.count)}×`;
+  const row = (role: BugLine['role'], words: string, chip: BugLine['chip']): BugLine => ({ issue: bug.issue, role, words, chip, link: event.link });
+  if (event.kind === 'bug-taken') return row('engineer', `Fixing #${n} · reported ${times}`, 'Fixing');
+  if (event.kind === 'bug-asked') return row('supervisor', `#${n} · asked: ${askedWhy(event.sentence)}`, 'Asked');
+  if (fixed) return null;
+  const pr = /fix PR #(\d+) is open/.exec(event.sentence)?.[1];
+  if (pr !== undefined) return row('engineer', `#${n} · ${times} · PR #${pr} to merge`, 'Waiting for a merge');
+  return event.sentence.includes('waits for its release') ? row('engineer', `#${n} · ${times} · fixed, waits for its release`, 'Waiting for a release') : null;
 }
 
 /** The PRD a role is building: its newest `dispatched` event whose job has no `job-ended` yet; events newest first. */
@@ -165,7 +241,7 @@ export function nowLines(heroes: readonly HeroLine[], events: readonly EventRow[
     // A PRD that waits is still the seat's that sent it, though its job ended on the limit: the wait is the line (PRD 2949).
     // A PRD that repairs, or waits on an Omni Loop bug, says so (PRD 2980); a stopped one has its block under the lines.
     const repair = repairs.find((one) => one.kind !== 'stopped' && events.some((e) => e.role === hero.role && e.kind === 'dispatched' && e.prd === one.prd && e.mission === one.mission));
-    if (repair !== undefined) return { id: hero.id, role: hero.role, heading, words: repair.headline, state: 'repairing', repair };
+    if (repair !== undefined) return { id: hero.id, role: hero.role, heading, words: repair.headline, state: repairStateOf(repair), repair };
     const wait = waits.find((one) => events.some((e) => e.role === hero.role && e.kind === 'dispatched' && e.prd === one.prd && e.mission === one.mission));
     if (wait !== undefined) return { id: hero.id, role: hero.role, heading, words: wait.headline, state: 'waiting', wait };
     // QA's job that runs (PRD 3001): the pull request it checks, from the newest link a pull request gave the PRD, and its round; or the preview it waits for.
@@ -240,6 +316,8 @@ export interface RoomView {
   color: string | null;
   now: NowLine[];
   cleanUp: string;
+  /** The bugs the Omni Loop bug team holds, one row each (PRD 3088): empty in any other fleet. */
+  bugs: BugLine[];
   /** The PRDs that stopped after repairs (PRD 2980): the block under the now lines. */
   stopped: RepairLine[];
   ledger: LedgerRow[];
