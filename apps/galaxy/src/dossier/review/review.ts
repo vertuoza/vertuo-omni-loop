@@ -1,3 +1,4 @@
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { approveOff, type ApprovalView, type ApproveScreen } from '../page/approval';
 import type { ReadyView } from '../page/ready';
 import { dossierPath } from '../page/view';
@@ -23,7 +24,7 @@ export type ReviewKind = 'approve' | 'tech' | 'feature';
 export const reviewPath = (id: string) => `${dossierPath(id)}/review`;
 
 /** How the screen names a PRD: `PRD 7`, `PRD mobile-12`, or `PRD` for one with no number. */
-export const prdLabel = (prd: number | string | null | undefined) => (prd === null || prd === undefined ? 'PRD' : `PRD ${String(prd)}`);
+export const prdLabel = (prd: PrdNumber | string | null | undefined) => (prd === null || prd === undefined ? 'PRD' : `PRD ${String(prd)}`);
 
 /** The decision that waits on the viewer, or null when none does. */
 export function reviewKindOf(approval: Pick<ApprovalView, 'canApprove' | 'tech'> | null, ready: Pick<ReadyView, 'tone' | 'foot'> | null): ReviewKind | null {
