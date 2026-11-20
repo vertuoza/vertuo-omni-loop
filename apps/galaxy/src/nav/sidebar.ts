@@ -181,22 +181,48 @@ export interface Trail {
   sprite: string | null;
 }
 
+/** The noun of an item page under an entry (omni-loop-20 s6): what the trail's last crumb says until the
+ * page names its item. */
+const ITEM_NOUNS: Partial<Record<SidebarId, string>> = { prds: 'PRD', bugs: 'Bug fix', visual: 'Visual update' };
+
+/** A dossier's id, as its page's address carries it. */
+const ITEM_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The page of a PRD's review screen, after the PRD in the trail. */
+const REVIEW_CRUMB = 'Review for approval';
+
+/** The crumbs of an item page under an entry: `/prd/<id>` names the item, `/prd/<id>/review` the item
+ * then the review screen; none for any other path. */
+function itemCrumbs(entry: Entry, path: string, item: string | null): Crumb[] {
+  const noun = ITEM_NOUNS[entry.item.id];
+  const [id = '', ...rest] = path.slice(entry.path.length + 1).split('/');
+  if (!noun || !ITEM_ID.test(id)) return [];
+  const name = item ?? noun;
+  const sub = rest.join('/');
+  if (sub === '') return [{ label: name }];
+  return entry.item.id === 'prds' && sub === 'review' ? [{ label: name, path: `${entry.path}/${id}` }, { label: REVIEW_CRUMB }] : [];
+}
+
 /** The top bar's trail for the path ("Work › Questions › Shared with me", "Settings › Fleets"), or null
  * when it falls under no entry. A group has no page to link; the entry and its page each link back only
- * from a page under them. */
-export function pageTrail(pathname: string | null | undefined): Trail | null {
+ * from a page under them. An item's page (a PRD's, a fix's) ends on the item, named `item` once its page
+ * gave its name, and a PRD's review screen on Review for approval (omni-loop-20 s6). */
+export function pageTrail(pathname: string | null | undefined, item: string | null = null): Trail | null {
   const entry = entryOf(pathname);
   if (!entry) return null;
-  const { item, page, group } = entry;
-  const here = bare(defined(pathname, 'the path')) === entry.path;
-  const last = page ?? item;
+  const { item: section, page, group } = entry;
+  const path = bare(defined(pathname, 'the path'));
+  const here = path === entry.path;
+  const last = page ?? section;
+  const items = here || page ? [] : itemCrumbs(entry, path, item);
   return {
     crumbs: [
       ...(group ? [{ label: group.label }] : []),
-      ...(page ? [{ label: item.label, path: item.path }] : []),
+      ...(page ? [{ label: section.label, path: section.path }] : []),
       here ? { label: last.label } : { label: last.label, path: last.path },
+      ...items,
     ],
-    sprite: item.sprite ?? null,
+    sprite: section.sprite ?? null,
   };
 }
 

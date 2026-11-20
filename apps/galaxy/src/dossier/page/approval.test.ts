@@ -153,9 +153,10 @@ describe('the Tech Approval on the page (PRD 2608)', () => {
     expect(page(asked, BOB.user_id)).toMatch(/<button[^>]*>Give Tech Approval<\/button>/);
   });
 
-  it('says the same in the Stage line while the Tech Approval is missing, and nothing once it is given', () => {
+  it('says the same in About this PRD while the Tech Approval is missing, and nothing once it is given', () => {
     const asked = { ...techRead({ user: BOB.user_id, state: 'asked', approval: null }), stages: [] };
-    const stage = (html: string) => /dossier-fact-stage.*?<\/dd>/s.exec(html)?.[0] ?? '';
+    // omni-loop-20 s6: the Stage cell is gone; who the Tech Approval waits on is a fact of About this PRD.
+    const stage = (html: string) => /<section class="dossier-about".*?<\/section>/s.exec(html)?.[0] ?? '';
     expect(stage(page(asked, ADA.user_id))).toContain('waiting for Bob&#x27;s tech approval');
     const given = { ...techRead({ user: BOB.user_id, state: 'approved', approval: TECH_APPROVED }), stages: [] };
     expect(stage(page(given, ADA.user_id))).not.toContain('tech approval');
@@ -168,7 +169,8 @@ describe('the Tech Approval on the page (PRD 2608)', () => {
     const both = techRead({ user: BOB.user_id, state: 'approved', approval: TECH_APPROVED }, APPROVED);
     const view = approvalView(both, ADA.user_id);
     expect(view?.tech?.seal).toMatchObject({ approver: 'bob' });
-    const html = page(both);
+    // Under the head (omni-loop-20 s6): the meta row says who approved it too.
+    const html = page(both).split('<div class="dossier-tabbar">')[1] ?? '';
     expect(html.indexOf('Tech approval · PRD 1299')).toBeGreaterThan(-1);
     expect(html.indexOf('Tech approval · PRD 1299')).toBeLessThan(html.indexOf('Approved by ada'));
   });
@@ -250,7 +252,7 @@ describe('readApproval', () => {
 describe('the PRD page', () => {
   it('shows a ◆ PRD waiting for approval, with the Approve button', () => {
     const html = page(read(born('server'), null));
-    expect(html).toContain('<dt>Approval</dt>');
+    expect(html).toContain('<dt class="omni-definition-list__label">Approval</dt>');
     expect(html).toContain('waiting for approval');
     expect(html).toMatch(/<button[^>]*>Approve<\/button>/);
   });

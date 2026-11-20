@@ -308,16 +308,16 @@ describe('the lists\' frame (PRD 691)', () => {
 
 describe('a fix\'s page', () => {
   it('opens a visual fix on /visual/<id>, and a bug fix on /bugs/<id>', async () => {
-    expect(await page(VisualPage, visual)).toContain('<span class="omni-badge omni-badge--neutral">Visual</span>');
+    expect(await page(VisualPage, visual)).toContain('<p class="omni-page-header__eyebrow">Visual fix · #');
     const record = await page(BugPage, bug);
-    expect(record).toContain('<span class="omni-badge omni-badge--neutral">Bug</span>');
+    expect(record).toContain('<p class="omni-page-header__eyebrow">Bug fix · #');
     expect(await page(BugPage, bug, { tab: 'bug-record' })).toContain('<h1>Crash</h1>');
   });
 
   it('opens a fix on its Timeline, with its state and its issue and PR in the header', async () => {
     const html = await page(VisualPage, visual);
     expect(html).toContain('<ol class="fix-timeline" aria-label="Timeline">');
-    expect(html).toContain('<dt>State</dt><dd><span class="fix-state fix-state-in-review">In review</span></dd>');
+    expect(html).toMatch(/<li class="omni-stage-track__stage omni-stage-track__stage--current[^"]*"[^>]*>.*?<span class="omni-stage-track__name">(?:Asked|Picked|Approved)<\/span>/);
     expect(html).toContain('href="https://github.com/acme/widgets/pull/600"');
     expect(html).toContain('<span>by <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/anna.png?size=48" alt=""');
     expect(html.replace(/<[^>]+>/g, '')).toContain('by @anna');
@@ -339,7 +339,7 @@ describe('a fix\'s page', () => {
 
   it('stores what it read of the fix, after the response (PRD 691)', async () => {
     const html = await page(BugPage, bug);
-    expect(html).toContain('<dt>State</dt>');
+    expect(html).toContain('<section class="dossier-about" aria-label="About this fix">');
     expect(given.facts.rows).toEqual([]);
     expect(given.later).toHaveLength(1);
     await sure(given.later[0], 'given.later[0]')();

@@ -69,8 +69,3 @@ export function TimelinePane({ fix, people = NOBODY() }: { fix: FixPageView | nu
     </ol>
   );
 }
-
-/** The header's State cell: the pill, `—` when GitHub did not answer. */
-export function FixStatePill({ fix }: { fix: FixPageView }) {
-  return <span className={`fix-state fix-state-${fix.state ?? 'unknown'}`}>{fix.stateLabel}</span>;
-}

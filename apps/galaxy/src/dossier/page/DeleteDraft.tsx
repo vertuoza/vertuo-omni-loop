@@ -1,42 +1,30 @@
 'use client';
-import { useState } from 'react';
-import { Button, Notice } from '@omni/ui';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { deleteDraft } from './source';
 import { dossierPath } from './view';
 
-// Delete draft, shown to the opener of a draft only (PRD 216): a spike, an idea dropped. It deletes as
-// the signed-in person, so the table's policy decides (the opener, their own draft; nobody deletes a
-// numbered dossier), then reloads the address saying it is gone. The questions asked while it was open
-// are not touched: they stay in the ask history.
+// Delete draft, in the Actions menu of a draft's page for its opener only (PRD 216, omni-loop-20 s6): a
+// spike, an idea dropped. It deletes as the signed-in person, so the table's policy decides (the opener,
+// their own draft; nobody deletes a numbered dossier), then reloads the address saying it is gone. The
+// questions asked while it was open are not touched: they stay in the ask history.
 
 type Supabase = { url: string; key: string };
 
-export function DeleteDraft({ supabase, id }: { supabase: Supabase; id: string }) {
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+/** What the browser asks before it deletes. */
+export const DELETE_CONFIRM = 'Delete this draft for good? Its link stops working; its questions stay in the ask history.';
 
-  async function remove() {
-    if (busy || !window.confirm('Delete this draft for good? Its link stops working; its questions stay in the ask history.')) return;
-    setBusy(true);
-    setProblem(null);
-    try {
-      if (await deleteDraft(createBrowserClient<Database>(supabase.url, supabase.key), id)) {
-        window.location.assign(`${dossierPath(id)}?deleted=1`);
-        return;
-      }
-      setProblem('This draft could not be deleted: only the person who opened it can, and only until it has a PRD number.');
-    } catch {
-      setProblem('The draft was not deleted. Check your connection and try again.');
+/** Deletes the draft once the person confirms, then reloads its address saying it is gone; the problem in
+ * words when it was not deleted, null when it was or the person said no. */
+export async function removeDraft(supabase: Supabase, id: string, confirm: (question: string) => boolean = (q) => window.confirm(q)): Promise<string | null> {
+  if (!confirm(DELETE_CONFIRM)) return null;
+  try {
+    if (await deleteDraft(createBrowserClient<Database>(supabase.url, supabase.key), id)) {
+      window.location.assign(`${dossierPath(id)}?deleted=1`);
+      return null;
     }
-    setBusy(false);
+    return 'This draft could not be deleted: only the person who opened it can, and only until it has a PRD number.';
+  } catch {
+    return 'The draft was not deleted. Check your connection and try again.';
   }
-
-  return (
-    <span className="dossier-delete">
-      <Button variant="quiet" disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete draft'}</Button>
-      {problem && <Notice tone="danger">{problem}</Notice>}
-    </span>
-  );
 }

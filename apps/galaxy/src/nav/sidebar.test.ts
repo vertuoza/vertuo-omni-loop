@@ -197,6 +197,20 @@ describe('currentItem and pageTrail', () => {
     ]);
   });
 
+  it('ends a PRD\'s and a fix\'s page on its item, named once the page names it, and a PRD\'s review screen on Review for approval (omni-loop-20 s6)', () => {
+    const id = '00000000-0000-4000-8000-0000000000d1';
+    expect(pageTrail(`/prd/${id}`)?.crumbs).toEqual([{ label: 'Work' }, { label: 'PRDs', path: '/prd' }, { label: 'PRD' }]);
+    expect(pageTrail(`/prd/${id}?tab=spec`, 'PRD #216')?.crumbs).toEqual([{ label: 'Work' }, { label: 'PRDs', path: '/prd' }, { label: 'PRD #216' }]);
+    expect(pageTrail(`/prd/${id}/review`, 'PRD #216')?.crumbs).toEqual([
+      { label: 'Work' }, { label: 'PRDs', path: '/prd' }, { label: 'PRD #216', path: `/prd/${id}` }, { label: 'Review for approval' },
+    ]);
+    expect(pageTrail(`/visual/${id}`, 'Visual #548')?.crumbs.at(-1)).toEqual({ label: 'Visual #548' });
+    expect(pageTrail(`/bugs/${id}`)?.crumbs.at(-1)).toEqual({ label: 'Bug fix' });
+    expect(pageTrail(`/bugs/${id}/review`)?.crumbs.at(-1)).toEqual({ label: 'Bug Fixes', path: '/bugs' });
+    expect(pageTrail('/prd/at/x', 'PRD #216')?.crumbs.at(-1)).toEqual({ label: 'PRDs', path: '/prd' });
+    expect(pageTrail('/prd', 'PRD #216')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
+  });
+
   it('carries the section\'s sprite, a page its section\'s, and none for an entry without one', () => {
     expect(pageTrail('/app/workspace')?.sprite).toBe('menu-workspace');
     expect(pageTrail('/prd/3f2a')?.sprite).toBe('menu-prds');

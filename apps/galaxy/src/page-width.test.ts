@@ -1,7 +1,8 @@
 // The app pages' width and top bar (PRD 498, s1), read from the stylesheets as text: the top bar
-// stands apart from the page, every app page but the PRD page uses the full width, prose keeps a
-// 900 px column, a form field is never wider than 900 px, and `.ask-main` pads its sides with the
-// page gutter, `--ask-gutter`.
+// stands apart from the page, every app page uses the full width — the PRD page included, since
+// omni-loop-20 s6 — only running prose keeps a 900 px column (the spec and the plan, a docs article), a
+// form field is never wider than 900 px, and `.ask-main` pads its sides with the page gutter,
+// `--ask-gutter`.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -16,6 +17,7 @@ const DASH = sheet('./dashboard/dashboard.css');
 const KNOWLEDGE = sheet('./knowledge/knowledge.css');
 const DOCS = sheet('./docs/docs.css');
 const DOORWAY = sheet('./doorway/doorway.css');
+const DOSSIER = sheet('./dossier/page/dossier.css');
 
 /** The body of every `@media <query> { … }` block in `css`, joined. */
 function media(css: string, query: string): string {
@@ -90,8 +92,9 @@ describe('the top bar (T1)', () => {
   });
 });
 
-describe('every app page but the PRD page', () => {
+describe('every app page, the PRD page included', () => {
   const containers: [string, string][] = [
+    ['.dossier', DOSSIER],
     ['.dash', DASH],
     ['.ask-page', ASK],
     ['.ask-col', ASK],
@@ -100,7 +103,7 @@ describe('every app page but the PRD page', () => {
     ['.docs', DOCS],
   ];
 
-  it.each(containers)('%s declares no max-width, is full width and is not centred', (selector, css) => {
+  it.each(containers)('AC-6: %s declares no max-width, is full width and is not centred', (selector, css) => {
     expect(declarations(css, selector).length).toBeGreaterThan(0);
     expect(has(css, selector, 'max-width')).toEqual([]);
     expect(has(css, selector, 'width')).toEqual(['100%']);
@@ -119,6 +122,14 @@ describe('every app page but the PRD page', () => {
 
   it('keeps a docs article at 900 px, as the spec and the plan', () => {
     expect(has(DOCS, '.docs-article', 'max-width')).toEqual(['900px']);
+    expect(has(DOSSIER, '.dossier-md', 'max-width')).toEqual(['900px']);
+  });
+
+  it('caps none of the PRD page\'s own frames: its head, its tab row, About this PRD and its pane', () => {
+    for (const selector of ['.dossier-top', '.dossier-tabbar', '.dossier-about', '.dossier-pane']) {
+      expect(has(DOSSIER, selector, 'max-width'), selector).toEqual([]);
+      expect(has(DOSSIER, selector, 'margin').concat(has(DOSSIER, selector, 'margin-inline')).filter((m) => m.includes('auto')), selector).toEqual([]);
+    }
   });
 
   it('never lets a form field in the page grow past 900 px', () => {
