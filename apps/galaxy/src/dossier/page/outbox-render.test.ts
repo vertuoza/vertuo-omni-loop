@@ -7,6 +7,7 @@ import { UNREAD, type GithubSummary, type Outbox, type OutboxItem } from '../git
 import { renderMarkdown } from '../markdown';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { DossierPage } from './DossierPage';
+import { plainOption } from './OutboxPane';
 import { isWide, subscribe, WIDE } from './outbox-context';
 import { SEND_OFF } from './outbox-view';
 import { dossierView, readPick } from './view';
@@ -165,7 +166,10 @@ describe('the cards', () => {
     expect(card).toContain('Decision taken');
     expect(card).toContain('<p class="outbox-fun">The punchline of s1-01-colour.</p>');
     expect([...card.matchAll(/<input class="omni-radio" type="radio" name="outbox-2" value="([A-D])"/g)].map((m) => m[1])).toEqual(['A', 'B', 'C']);
-    expect(card).toMatch(/value="A"[^>]*\/>A<\/label><\/div><span class="ask-rec">built · recommended<\/span><span class="outbox-option-text">/);
+    // One radio group per question, each radio named by its option's words (keyboard and screen reader).
+    expect(card.match(/role="radiogroup"/g)).toHaveLength(1);
+    expect(card).toMatch(/role="radiogroup" aria-label="Your answer to question 2">/);
+    expect(card).toMatch(/value="A"[^>]*\/>A\. [^<]+ \(built · recommended\)<\/label>/);
     expect(card.match(/built · recommended/g)).toHaveLength(1);
     expect(card).toContain('<a class="ask-chip" href="/knowledge?entry=P-PRODUCT-3">P-PRODUCT-3</a>');
     expect(card).toContain('<h4>What I had to decide</h4>');
@@ -283,5 +287,12 @@ describe('the context disclosure, wide and tall', () => {
     const css = readFileSync(fileURLToPath(new URL('./dossier.css', import.meta.url)), 'utf8');
     expect(css).toContain('@media (min-width: 960px)');
     expect(css).toMatch(/\.outbox-context > summary \{ display: none; \}/);
+  });
+});
+
+describe('an option as its radio names it', () => {
+  it("keeps a link's words and drops emphasis and code marks, on one line", () => {
+    expect(plainOption('Keep **the** [old page](https://example.com) as\n`it` is.')).toBe('Keep the old page as it is.');
+    expect(plainOption('Drop them.')).toBe('Drop them.');
   });
 });

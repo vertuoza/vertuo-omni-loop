@@ -29,13 +29,16 @@ type Props = {
 
 const html = (text: string | null | undefined) => (text && text.trim() ? renderMarkdown(text).html : null);
 
+/** An option's words as plain text, its radio's label: a link keeps its words, emphasis and code marks go. */
+export const plainOption = (text: string) => text.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*`]/g, '').replace(/\s+/g, ' ').trim();
+
 /** A card with its text rendered. */
 export function shownCard(card: OutboxCard): ShownCard {
   return {
     ...card,
     question: html(card.question) ?? '',
     decision: html(card.decision),
-    options: card.options.map((o) => ({ letter: o.letter, html: html(o.text) ?? '', built: o.built })),
+    options: card.options.map((o) => ({ letter: o.letter, label: plainOption(o.text), built: o.built })),
     steps: html(card.steps),
     details: card.details.map((d) => ({ label: d.label, html: html(d.text) ?? '' })),
   };

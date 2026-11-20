@@ -597,19 +597,6 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .outbox-pending-label { font-weight: 700; }
 .outbox-options { margin: 0; padding: 0; border: 0; display: grid; gap: var(--space-1); min-width: 0; }
 .outbox-options legend { margin-bottom: var(--space-1); }
-.outbox-option {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  padding: var(--space-2);
-  border: 1px solid var(--ask-line-strong);
-  border-radius: var(--radius-2);
-}
-.outbox-option[data-picked='true'] { border-color: var(--ask-plasma); }
-.outbox-option .ask-rec { grid-column: 2; justify-self: start; }
-.outbox-option-text { grid-column: 3; min-width: 0; cursor: pointer; }
-.outbox-option-text > p { margin: 0; }
 .outbox-details > summary { cursor: pointer; color: var(--ask-muted); font-size: var(--type-3-size); }
 .outbox-details h4 { margin: var(--space-3) 0 var(--space-1); font-size: var(--type-3-size); }
 

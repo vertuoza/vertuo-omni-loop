@@ -524,7 +524,8 @@ describe('the Outbox tab (PRD 426)', () => {
     expect([...html.matchAll(/<span class="outbox-rank" data-rank="[a-z-]+"><span class="omni-badge[^"]*">([^<]+)<\/span><\/span>/g)].map((m) => m[1])).toEqual(['needs a person', 'medium', 'agreed']);
     expect(html).toContain('Keep &lt;i&gt;tabs&lt;/i&gt; in the address?');
     expect(html).not.toContain('<i>tabs</i>');
-    expect(html).toContain('<span class="ask-rec">built · recommended</span><span class="outbox-option-text"><p>Keep them.</p>');
+    expect(html).toMatch(/value="A"[^>]*\/>A\. Keep them\. \(built · recommended\)<\/label>/);
+    expect(html).toMatch(/value="B"[^>]*\/>B\. Drop them\.<\/label>/);
     expect(html).toContain('<span class="ask-hint">Decision taken</span><div class="dossier-md"><p>Kept them.</p>');
     expect(html).toContain('<div class="dossier-md outbox-steps"><p>Add the key on the host.</p>');
     expect(html).toContain('<summary>Settled · 1</summary>');

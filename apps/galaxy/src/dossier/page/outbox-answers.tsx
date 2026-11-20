@@ -33,7 +33,8 @@ export type ShownCard = {
   punchline: string | null;
   question: string;
   decision: string | null;
-  options: { letter: string; html: string; built: boolean }[];
+  /** Each option's words as plain text: its radio's own label, so a screen reader hears them. */
+  options: { letter: string; label: string; built: boolean }[];
   steps: string | null;
   bearsOn: Chip[];
   details: { label: string; html: string }[];
@@ -106,28 +107,24 @@ function Reason({ card, pick, readOnly, onPick, label }: CardProps & { label: st
 /** A card the outbox comment has not numbered yet shows its choices, and none can be picked. */
 const nameOf = (card: ShownCard) => `outbox-${card.number ?? card.id}`;
 
+/** An option's label: its letter, its words, and whether it was built. */
+const optionLabel = (option: ShownCard['options'][number]) =>
+  `${option.letter}. ${option.label}${option.built ? ' (built · recommended)' : ''}`;
+
+/** A card's options as one radio group: the arrow keys move the choice, and each radio is named by its words. */
 function Options({ card, pick, readOnly, onPick, letters }: CardProps & { letters: string[] }) {
   const { number } = card;
-  // A click on an option's words picks it as its radio does, unless nothing can be picked.
-  const choose = (letter: string) => {
-    if (number !== null && !readOnly) onPick(number, { pick: letter, reason: pick?.reason ?? '' });
-  };
+  const legend = number === null ? 'The options' : `Your answer to question ${number}`;
   return (
     <fieldset className="outbox-options" disabled={readOnly || number === null}>
-      <legend className="ask-hint">{number === null ? 'The options' : `Your answer to question ${number}`}</legend>
-      {card.options.filter((o) => letters.includes(o.letter)).map((option) => (
-        <div key={option.letter} className="outbox-option" data-picked={pick?.pick === option.letter ? 'true' : undefined}>
-          <Radio
-            label={`Option ${option.letter}`}
-            name={nameOf(card)}
-            options={[{ value: option.letter, label: option.letter }]}
-            value={pick?.pick ?? ''}
-            onChange={() => { choose(option.letter); }}
-          />
-          {option.built && <span className="ask-rec">built · recommended</span>}
-          <span className="outbox-option-text" onClick={() => { choose(option.letter); }} dangerouslySetInnerHTML={{ __html: option.html }} />
-        </div>
-      ))}
+      <legend className="ask-hint">{legend}</legend>
+      <Radio
+        label={legend}
+        name={nameOf(card)}
+        options={card.options.filter((o) => letters.includes(o.letter)).map((o) => ({ value: o.letter, label: optionLabel(o) }))}
+        value={pick?.pick ?? ''}
+        onChange={(e) => { if (number !== null && !readOnly) onPick(number, { pick: e.target.value, reason: pick?.reason ?? '' }); }}
+      />
     </fieldset>
   );
 }
