@@ -19,6 +19,7 @@
     "typecheck:tsc": "tsc -p . && tsc -p kit/pitch-engine && tsc -p packages/ui && pnpm --filter @omni/galaxy-app typecheck:tsc",
     "lint": "pnpm --filter @omni/galaxy-app exec fumadocs-mdx && node --max-old-space-size=8192 scripts/lint.ts",
     "eval:search": "node scripts/eval-search.ts",
+    "commander:eval": "node scripts/commander-eval-run.ts",
     "fallow:audit": "fallow audit",
     "check:changed": "node scripts/check-changed.ts",
     "design": "sh -c 'node scripts/design-ratchet.ts \"$@\"; code=$?; node scripts/design-detect.ts; exit $code' design",

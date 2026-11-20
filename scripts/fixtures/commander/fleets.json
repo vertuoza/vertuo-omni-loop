@@ -1,0 +1,88 @@
+{
+  "now": "2026-11-21T09:30:00Z",
+  "fleets": [
+    {
+      "fleet": "harbor-fleet",
+      "workspace": "acme-works",
+      "missions": [
+        { "id": "mission-4101", "number": 4101, "title": "Invoice export", "status": "waiting", "waitingOn": "review of PRD 4150", "repo": "acme/billing", "updatedAt": "2026-11-21T08:41:00Z" },
+        { "id": "mission-4102", "number": 4102, "title": "Retry queue", "status": "running", "waitingOn": null, "repo": "acme/billing", "updatedAt": "2026-11-21T09:10:00Z" },
+        { "id": "mission-4103", "number": 4103, "title": "Docs sweep", "status": "delivered", "waitingOn": null, "repo": "acme/docs", "updatedAt": "2026-11-21T02:00:00Z" }
+      ],
+      "events": [
+        { "id": "ev-h01", "mission": "mission-4101", "at": "2026-11-21T08:41:00Z", "role": "reviewer", "kind": "waits", "prd": 4150, "job": "job-h-0001", "link": "https://github.com/acme/billing/pull/4150", "sentence": "PRD 4150 waits on a review." },
+        { "id": "ev-h02", "mission": "mission-4101", "at": "2026-11-21T07:10:00Z", "role": "engineer", "kind": "held", "prd": 4148, "job": null, "link": null, "sentence": "QA sent PRD 4148 back: the CSV header was missing." },
+        { "id": "ev-h03", "mission": "mission-4101", "at": "2026-11-20T16:00:00Z", "role": "engineer", "kind": "dispatched", "prd": 4150, "job": null, "link": null, "sentence": "The engineer started PRD 4150, the invoice export." },
+        { "id": "ev-h04", "mission": "mission-4102", "at": "2026-11-21T09:10:00Z", "role": "engineer", "kind": "ready", "prd": 4152, "job": "job-h-0002", "link": "https://github.com/acme/billing/pull/4152", "sentence": "PRD 4152 is ready for review." },
+        { "id": "ev-h05", "mission": "mission-4102", "at": "2026-11-21T03:20:00Z", "role": "qa", "kind": "failed", "prd": 4152, "job": null, "link": null, "sentence": "The e2e suite timed out on the retry page twice." },
+        { "id": "ev-h06", "mission": "mission-4102", "at": "2026-11-20T22:45:00Z", "role": "engineer", "kind": "dispatched", "prd": 4152, "job": null, "link": null, "sentence": "The engineer started PRD 4152, the retry queue." },
+        { "id": "ev-h07", "mission": "mission-4103", "at": "2026-11-21T02:00:00Z", "role": "writer", "kind": "delivered", "prd": 4140, "job": null, "link": null, "sentence": "PRD 4140, the docs sweep, was delivered." },
+        { "id": "ev-h08", "mission": "mission-4103", "at": "2026-11-20T21:30:00Z", "role": "writer", "kind": "ready", "prd": 4140, "job": null, "link": null, "sentence": "PRD 4140 is ready for review." }
+      ],
+      "jobs": [
+        { "id": "job-h-0001", "mission": "mission-4101", "queuedAt": "2026-11-21T06:00:00Z", "line": "/omni:yolo 4150", "status": "done", "outcome": "ready" },
+        { "id": "job-h-0002", "mission": "mission-4102", "queuedAt": "2026-11-21T08:00:00Z", "line": "/omni:yolo 4152", "status": "done", "outcome": "ready" },
+        { "id": "job-h-0003", "mission": "mission-4102", "queuedAt": "2026-11-21T09:20:00Z", "line": "/omni:pr-care 4152", "status": "running", "outcome": null }
+      ],
+      "thread": [
+        { "kind": "question", "id": "msg-h-1", "at": "2026-11-21T07:30:00Z", "login": "mira-k", "text": "Is the invoice export stuck?" }
+      ],
+      "notes": [
+        { "id": "note-h-1", "notebook": "fleet", "mission": "mission-4103", "day": "2026-11-20", "line": "The docs sweep needed two review rounds before it was ready.", "events": ["ev-h08"], "createdAt": "2026-11-21T02:05:00Z" },
+        { "id": "note-h-2", "notebook": "mission", "mission": "mission-4102", "day": "2026-11-20", "line": "The engineer started the retry queue late in the evening.", "events": ["ev-h06"], "createdAt": "2026-11-21T00:10:00Z" }
+      ],
+      "rail": {
+        "missions": [
+          { "id": "mission-4101", "number": 4101, "repo": "acme/billing", "status": "waiting", "prds": [4150, 4148] },
+          { "id": "mission-4102", "number": 4102, "repo": "acme/billing", "status": "running", "prds": [4152] }
+        ],
+        "jobs": [
+          { "job": "job-h-0001", "mission": "mission-4101", "issue": 4150, "questions": [{ "question": "Ship the export as CSV or XLSX?", "options": [{ "label": "CSV" }, { "label": "XLSX" }], "multiSelect": false }], "answers": null, "closedBy": null, "closedAt": null, "askedAt": "2026-11-21T08:30:00Z" },
+          { "job": "job-h-0002", "mission": "mission-4102", "issue": 4152, "questions": [{ "question": "Retry three times or five?", "options": [{ "label": "Three" }, { "label": "Five" }], "multiSelect": false }], "answers": { "q1": "Three" }, "closedBy": "acct-1", "closedAt": "2026-11-21T09:00:00Z", "askedAt": "2026-11-21T08:10:00Z" }
+        ],
+        "items": [
+          { "id": "item-h-1", "mission": "mission-4102", "target": "the retry guide", "wording": "Say the queue gives up after three tries.", "answer": null, "answeredBy": null, "answeredAt": null, "createdAt": "2026-11-21T05:00:00Z" }
+        ],
+        "outbox": [
+          { "repository": "acme/billing", "prd": 4150, "waiting": [{ "id": "o1", "question": "Should the export include voided invoices?" }], "syncedAt": "2026-11-21T08:50:00Z" }
+        ],
+        "approvals": [
+          { "id": "appr-h-1", "repo": "acme/billing", "prd": 4152, "title": "Approve the retry queue PRD", "askedAt": "2026-11-21T04:00:00Z" }
+        ],
+        "logins": { "acct-1": "mira-k" }
+      },
+      "openQuestions": ["job-h-0001", "item-h-1", "acme/billing#4150/o1", "appr-h-1"]
+    },
+    {
+      "fleet": "orchard-fleet",
+      "workspace": "acme-works",
+      "missions": [
+        { "id": "mission-5201", "number": 5201, "title": "Index rebuild", "status": "running", "waitingOn": null, "repo": "acme/search", "updatedAt": "2026-11-21T09:05:00Z" },
+        { "id": "mission-5202", "number": 5202, "title": "Typo fixes", "status": "paused", "waitingOn": null, "repo": "acme/search", "updatedAt": "2026-11-20T18:00:00Z" }
+      ],
+      "events": [
+        { "id": "ev-o01", "mission": "mission-5201", "at": "2026-11-21T09:05:00Z", "role": "engineer", "kind": "ready", "prd": 5210, "job": "job-o-0001", "link": "https://github.com/acme/search/pull/5210", "sentence": "PRD 5210 is ready for review." },
+        { "id": "ev-o02", "mission": "mission-5201", "at": "2026-11-21T01:40:00Z", "role": "engineer", "kind": "held", "prd": 5210, "job": null, "link": null, "sentence": "The index rebuild stopped: the disk was full." },
+        { "id": "ev-o03", "mission": "mission-5202", "at": "2026-11-20T18:00:00Z", "role": "operator", "kind": "paused", "prd": null, "job": null, "link": null, "sentence": "The mission was paused by a person." }
+      ],
+      "jobs": [
+        { "id": "job-o-0001", "mission": "mission-5201", "queuedAt": "2026-11-21T08:30:00Z", "line": "/omni:yolo 5210", "status": "done", "outcome": "ready" }
+      ],
+      "thread": [],
+      "notes": [],
+      "rail": {
+        "missions": [
+          { "id": "mission-5201", "number": 5201, "repo": "acme/search", "status": "running", "prds": [5210] }
+        ],
+        "jobs": [],
+        "items": [],
+        "outbox": [
+          { "repository": "acme/search", "prd": 5210, "waiting": [{ "id": "o1", "question": "Rebuild the whole index or only the new documents?" }], "syncedAt": "2026-11-21T09:00:00Z" }
+        ],
+        "approvals": [],
+        "logins": {}
+      },
+      "openQuestions": ["acme/search#5210/o1"]
+    }
+  ]
+}
