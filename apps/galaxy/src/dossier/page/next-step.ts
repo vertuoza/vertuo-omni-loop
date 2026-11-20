@@ -7,8 +7,10 @@
 // draft for a draft's opener, Request a Tech Approval. A fix's page gets the same head, with its own track.
 import type { MenuItem, PageHeaderMeta } from '@omni/ui';
 import type { MomentId } from '../../fixes/timeline';
+import { reviewKindOf, reviewPath } from '../review/review';
+import type { ReadyView } from './ready';
 import { STAGES, type StageId } from './stage';
-import { dossierPath, type DossierView } from './view';
+import type { DossierView } from './view';
 
 /** The loop's stages as the stage track names them, in order. */
 const TRACK_STAGES = ['Idea', 'PRD', 'Inbox', 'Building', 'Outbox', 'Shipped', 'Retro'] as const;
@@ -33,8 +35,6 @@ export type Tone = 'waiting' | 'working';
 
 export type NextStep = { lede: string | null; primary: Primary | null; tone: Tone };
 
-/** Where the signed decisions are taken (omni-loop-20 s5): the review screen of the PRD. */
-export const reviewPath = (id: string) => `${dossierPath(id)}/review`;
 
 const plural = (n: number, one: string, many = `${one}s`) => `${String(n)} ${n === 1 ? one : many}`;
 
@@ -83,12 +83,16 @@ function answerStep(view: DossierView): NextStep {
 }
 
 /** Each of the stage's buttons, by its label: who acts and what. */
-const BY_ACTION: Readonly<Record<string, (view: DossierView) => NextStep>> = {
+const BY_ACTION: Readonly<Record<string, (view: DossierView, ready: ReadyView | null) => NextStep>> = {
   'Answer the outbox': answerStep,
   'Fix with answers': () => yours('Every answer is in: you start the fix with them.', { kind: 'stage' }),
   'Build it': () => yours('It is approved: you start the build.', { kind: 'stage' }),
   'Approve spec': () => yours('You review the spec and merge its phase-0 pull request.', { kind: 'stage' }),
-  'Review & merge': (view) => yours('The feature is ready: you review it, then merge it on GitHub.', review(view, 'Review the feature')),
+  // The review screen reviews a feature the Omni App's verdict says is ready (s5, ../review/review.ts);
+  // without that verdict the stage's own button opens the feature PR on GitHub.
+  'Review & merge': (view, ready) => (reviewKindOf(null, ready) === 'feature'
+    ? yours('The feature is ready: you review it, then merge it on GitHub.', review(view, 'Review the feature'))
+    : yours('The feature is ready: you review it and merge it on GitHub.', { kind: 'stage' })),
   Pitch: (view) => ({
     lede: view.stage?.id === 'retro' ? 'Shipped, and its retro is written: you may pitch it.' : 'Shipped: the retro is written next, and you may pitch it.',
     primary: { kind: 'stage' },
@@ -97,13 +101,13 @@ const BY_ACTION: Readonly<Record<string, (view: DossierView) => NextStep>> = {
 };
 
 /** The moment the stage and its one button say, once no signed decision waits. */
-function stageStep(view: DossierView): NextStep {
+function stageStep(view: DossierView, ready: ReadyView | null): NextStep {
   const { stage } = view;
   if (!stage) return none(null);
   const fixing = stage.caption?.match(/fixing on (.+)$/)?.[1];
   if (fixing) return none(`The agents fix it with your answers on ${fixing}. ${NOTHING}`);
   const step = stage.action ? BY_ACTION[stage.action.label] : undefined;
-  return step ? step(view) : none(quietLede(view));
+  return step ? step(view, ready) : none(quietLede(view));
 }
 
 /** The words of a moment that waits on no one in particular. */
@@ -123,13 +127,13 @@ function draftStep(view: DossierView): NextStep {
 }
 
 /** Who acts next and what, at the moment the page reads; a fix's page says nothing more than its track. */
-export function nextStep(view: DossierView): NextStep {
+export function nextStep(view: DossierView, ready: ReadyView | null = null): NextStep {
   if (view.kind !== 'prd') return none(null);
   if (view.draft) return draftStep(view);
   if (view.mainWatch?.state === 'broke') {
     return yours('It broke main after it merged: you read the breaks and the rewind’s findings.', { kind: 'link', label: 'Read the breaks', href: tabHref(view, 'main') });
   }
-  return approvalStep(view) ?? stageStep(view);
+  return approvalStep(view) ?? stageStep(view, ready);
 }
 
 /** The line above the title: `PRD #216`, `PRD #216 · Product PRD`, `Draft`, or a fix's `Visual fix · #548`. */

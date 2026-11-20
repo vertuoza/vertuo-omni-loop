@@ -275,8 +275,8 @@ const trailName = (view: DossierView) => (view.kind !== 'prd' ? `${view.badge ??
 /** The head on the page anatomy (omni-loop-20 s6): eyebrow, title, who acts next, at most five facts, Copy
  * link, the one primary for the person who acts, the Actions menu, then the stage said once. It scrolls
  * away; only the tab row under it pins. */
-function Head({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
-  const step = nextStep(view);
+function Head({ view, supabase, ready = null }: Pick<Props, 'view' | 'supabase' | 'ready'>) {
+  const step = nextStep(view, ready);
   const track = view.kind === 'prd' ? prdTrack(view) : fixTrack(view);
   const draft = view.canDelete && supabase ? { supabase, id: view.id } : null;
   return (
@@ -320,7 +320,7 @@ function HeadTabs({ view }: { view: DossierView }) {
 export function DossierPage({ view, markdown, supabase, live, voice, attestation, productOutbox, ready }: Props) {
   return (
     <div className="dossier">
-      <Head view={view} supabase={supabase} />
+      <Head view={view} supabase={supabase} ready={ready} />
       <PinnedHead bar>
         <HeadTabs view={view} />
       </PinnedHead>

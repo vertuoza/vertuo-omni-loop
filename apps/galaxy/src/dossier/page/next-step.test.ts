@@ -6,8 +6,10 @@ import type { GithubSummary, PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
 import type { DossierRow, DossierVersionRow } from '../store';
 import type { ApprovalRow } from './approval';
+import { readyView, type ReadyRow } from './ready';
 import { DossierPage } from './DossierPage';
-import { actionsOf, eyebrowOf, fixTrack, metaOf, nextStep, prdTrack, reviewPath, sinceWords } from './next-step';
+import { actionsOf, eyebrowOf, fixTrack, metaOf, nextStep, prdTrack, sinceWords } from './next-step';
+import { reviewPath } from '../review/review';
 import { fixPageView } from '../../fixes/timeline';
 import { dossierView, readPick, type DossierRead } from './view';
 
@@ -113,11 +115,16 @@ describe('the subtitle and the one primary, at each moment', () => {
     expect(prdTrack(fixing)?.progress).toBe('3 of 3 slices · fixing on pierre-laptop');
   });
 
-  it('ready: you review the feature on the review screen, then merge it on GitHub', () => {
+  it('ready with the Omni App\'s passing verdict: you review the feature on the review screen; without one, on GitHub', () => {
     const ready = view({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }), stages: at('outbox') });
-    expect(nextStep(ready)).toEqual({
+    const row: ReadyRow = {
+      repo: 'acme/widgets', prd: parsePrd(216), pr_number: 221, head_sha: 'a41f9c2'.padEnd(40, '0'), state: 'ready', passed: 5, headline: 'Ready for review · 5 of 5',
+      checks: [], criteria: [], decided_at: '2026-11-15T07:00:00Z',
+    };
+    expect(nextStep(ready, readyView(row))).toEqual({
       lede: 'The feature is ready: you review it, then merge it on GitHub.', primary: { kind: 'link', label: 'Review the feature', href: reviewPath(ID) }, tone: 'waiting',
     });
+    expect(nextStep(ready)).toEqual({ lede: 'The feature is ready: you review it and merge it on GitHub.', primary: { kind: 'stage' }, tone: 'waiting' });
   });
 
   it('shipped and retro: Pitch, and the retro next or written', () => {

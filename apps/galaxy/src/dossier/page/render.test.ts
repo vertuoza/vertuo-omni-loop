@@ -205,14 +205,14 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
     expect(await copyCommand('/omni:yolo 216', undefined)).toBe('refused');
   });
 
-  it('in the building stage, the slices merged out of the plan\'s on the track; in the outbox stage, Review the feature', () => {
+  it('in the building stage, the slices merged out of the plan\'s on the track; in the outbox stage, Review & merge on GitHub', () => {
     const building = summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2 });
     const html = page({ github: building, slices: 5, stages: at('building') });
     expect(currentStage(html)).toBe('Building · 2 of 5 slices');
     expect(button(html)).toBeNull();
     expect(html).not.toContain('data-primary');
     const ready = page({ github: { ...building, feature: pr(221, 'open') }, stages: at('outbox') });
-    expect(ready).toContain(`<a class="omni-button omni-button--primary omni-button--md" href="/prd/${ID}/review" data-primary="">Review the feature</a>`);
+    expect(button(ready)).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/221', 'Review &amp; merge']);
   });
 
   it('at building with open outbox items, the one primary answers them on the Outbox tab', () => {
@@ -353,7 +353,7 @@ describe('the head on the page anatomy, and About this PRD (omni-loop-20 s6)', (
     const inbox = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at('inbox') });
     expect(actions(inbox)).toEqual(['Copy link', 'Build it']);
     expect(headOf(inbox)).toContain('<code class="stage-command">/omni:yolo 216</code>');
-    expect(actions(page({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }), stages: at('outbox') }))).toEqual(['Copy link', 'Review the feature']);
+    expect(actions(page({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }), stages: at('outbox') }))).toEqual(['Copy link', 'Review &amp; merge']);
     expect(actions(page())).toEqual(['Copy link']);
   });
 
@@ -483,7 +483,7 @@ describe('the Outbox tab (PRD 426)', () => {
     const html = outbox(outboxSummary({ open: [], settled: SETTLED }));
     expect(html).toContain('<p class="outbox-nothing">Nothing is waiting on you.</p>');
     expect(html).toContain('<small>1 settled</small>');
-    expect(html).toContain('>Review the feature</a>');
+    expect(html).toContain('>Review &amp; merge</a>');
   });
 
   it('is dimmed and says why while empty, and says when GitHub did not answer', () => {
