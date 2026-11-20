@@ -1738,6 +1738,90 @@ export type Database = {
           },
         ]
       }
+      fleet_message_reads: {
+        Row: {
+          job_id: string
+          message_id: string
+          mission_id: string
+          read_at: string
+          role: string
+        }
+        Insert: {
+          job_id: string
+          message_id: string
+          mission_id: string
+          read_at?: string
+          role: string
+        }
+        Update: {
+          job_id?: string
+          message_id?: string
+          mission_id?: string
+          read_at?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_message_reads_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_message_reads_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_messages: {
+        Row: {
+          author_id: string
+          author_login: string
+          body: string
+          created_at: string
+          fleet: string
+          id: string
+          workspace_id: string
+        }
+        Insert: {
+          author_id: string
+          author_login: string
+          body: string
+          created_at?: string
+          fleet: string
+          id?: string
+          workspace_id: string
+        }
+        Update: {
+          author_id?: string
+          author_login?: string
+          body?: string
+          created_at?: string
+          fleet?: string
+          id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_messages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_messages_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
       github_budget: {
         Row: {
           installation_id: number
@@ -2588,6 +2672,7 @@ export type Database = {
           job_id: string | null
           kind: string
           link: string | null
+          message_id: string | null
           mission_id: string
           prd: number | null
           role: string
@@ -2600,6 +2685,7 @@ export type Database = {
           job_id?: string | null
           kind: string
           link?: string | null
+          message_id?: string | null
           mission_id: string
           prd?: number | null
           role: string
@@ -2612,12 +2698,20 @@ export type Database = {
           job_id?: string | null
           kind?: string
           link?: string | null
+          message_id?: string | null
           mission_id?: string
           prd?: number | null
           role?: string
           sentence?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "mission_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mission_events_mission_id_fkey"
             columns: ["mission_id"]
@@ -6945,8 +7039,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      commander_claim_messages: {
+        Args: { p_job: string }
+        Returns: {
+          author_login: string
+          body: string
+          created_at: string
+          id: string
+        }[]
+      }
       commander_messages_forget: { Args: never; Returns: number }
       commander_reply_ok: { Args: { p_reply: Json }; Returns: boolean }
+      commander_send: {
+        Args: { p_fleet: string; p_text: string; p_workspace: string }
+        Returns: {
+          author_id: string
+          author_login: string
+          body: string
+          created_at: string
+          fleet: string
+          id: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fleet_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       constituent_add: {
         Args: {
           p_kind: string
@@ -7445,6 +7566,7 @@ export type Database = {
         }
         Returns: Json
       }
+      mission_job_role: { Args: { p_key: string }; Returns: string }
       mission_mandate_ok: { Args: { p_mandate: Json }; Returns: boolean }
       mission_measures_ok: { Args: { p_measures: Json }; Returns: boolean }
       mission_push: {
