@@ -704,3 +704,239 @@ Small: show the Message fleet mode alone in those two states, one component and 
 ```
 
 <!-- /omni-outbox-settled: s3-02-message-box-needs-no-model -->
+
+<!-- omni-outbox-settled: s4-01-notebook-job-wired-outside-territory -->
+
+## s4-01-notebook-job-wired-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-notebook-job-wired-outside-territory
+prd: 3107
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-20
+wave: 4
+---
+
+## The question, in plain words
+
+The notebook job has to run on its own every day, but the place where background jobs are listed was not part of this piece of work. Should it be switched on here?
+
+## The decision, in plain words
+
+I switched it on: the daily job is listed with the others, and the database checks for the notebooks and for the fleet messages now run on every pull request.
+
+## The intro, for fun
+
+A job that nobody schedules is a very well written diary nobody opens.
+
+## The punchline, for fun
+
+So the diary got a daily alarm clock, and the checks got a seat on the bus.
+
+## The options, in plain words
+
+A. Switch it on here: the schedule line, the worker line and both database checks in CI, as built.
+B. Leave the job built but off, and switch it on in a follow-up change.
+C. Switch the job on, but leave the s3 check out of CI and add it in its own change.
+
+## What I had to decide
+
+Added the commander-notebook kind to the App's schedules (daily, 3 tries) and its handler to the worker in apps/omni-app/src/jobs/, with the schedule test updated; added two steps to the supabase workflow, commander_notes.sql and commander_messaged.sql (the s3 check was in no step, so CI never ran it).
+
+## What I did meanwhile
+
+The job is built and tested as its own module; the wiring is three lines and the workflow two steps.
+
+## What it costs to change later
+
+Low: removing the schedule line and the handler line turns the job off; the workflow steps are independent.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory names apps/omni-app/src/missions/notebook only; the schedule and the worker live in apps/omni-app/src/jobs/, and the workflow in .github/workflows/
+
+```
+
+<!-- /omni-outbox-settled: s4-01-notebook-job-wired-outside-territory -->
+
+<!-- omni-outbox-settled: s4-02-undo-holds-the-delete -->
+
+## s4-02-undo-holds-the-delete — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-undo-holds-the-delete
+prd: 3107
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-20
+wave: 4
+---
+
+## The question, in plain words
+
+When a member deletes a notebook line, they can undo it for 5 seconds. Should the line be deleted at once and brought back on undo, or only deleted once the 5 seconds have passed?
+
+## The decision, in plain words
+
+The page waits 5 seconds before it deletes the line; undo simply cancels the wait. A line, once deleted, is never brought back, so the record of who deleted it is never erased.
+
+## The intro, for fun
+
+Every eraser comes with five seconds of second thoughts.
+
+## The punchline, for fun
+
+After that, the ink is gone and the name of the eraser stays.
+
+## The options, in plain words
+
+A. Hold the deletion 5 seconds on the page, then send it; the database never restores a line.
+B. Delete at once, and let undo restore the line within 5 seconds, erasing the deletion record.
+C. Delete at once, and let undo add a new restore record beside the deletion.
+
+## What I had to decide
+
+The drawer shows Deleted by <login> · <time> with Undo for 5 seconds, then calls commander_note_delete(); leaving the tab sends what waits at once. The database has no restore: a deletion is recorded once, never undone.
+
+## What I did meanwhile
+
+Deletion is one database call; undo is a timer on the page.
+
+## What it costs to change later
+
+Low: a restore function and an undo call can be added later without changing the stored lines.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says Delete with Undo for 5 seconds and that the deletion is recorded with who and when; it does not say whether undo restores a recorded deletion
+- (author) A browser closed within the 5 seconds may not send the deletion
+
+```
+
+<!-- /omni-outbox-settled: s4-02-undo-holds-the-delete -->
+
+<!-- omni-outbox-settled: s4-03-notebook-job-daily-and-strict -->
+
+## s4-03-notebook-job-daily-and-strict — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-notebook-job-daily-and-strict
+prd: 3107
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-20
+wave: 4
+---
+
+## The question, in plain words
+
+How often should the notebook job write, which model should it use, and how strict should it be about lines that sound like orders?
+
+## The decision, in plain words
+
+It runs once a day, writing each running mission's lines for the day before and the fleet lines of a mission that ended in the last three days, with the same model as the Commander. Any line with words like should or must, or speaking to someone, is dropped, even when it might have been a useful lesson.
+
+## The intro, for fun
+
+The fleet keeps a diary, but only writes in it after the day is done.
+
+## The punchline, for fun
+
+And it writes like a witness, never like a boss.
+
+## The options, in plain words
+
+A. Daily, the previous day's lines, fleet lines within 3 days, strict screen, tokens not counted, as built.
+B. Hourly, so fleet lines arrive within the hour of a mission's end.
+C. As built, and count the notebook's model calls against the fleet's daily tokens.
+
+## What I had to decide
+
+Daily schedule at midnight UTC for the previous UTC day; fleet lines for missions delivered or stopped in the last 3 days; at most 5 lines a batch and 6 batches a run, then it carries on a minute later; model anthropic/claude-sonnet-5.5 through the App's OPENROUTER_API_KEY; a fleet over its daily tokens is skipped, but the notebook's own model calls are not counted against those tokens; the instruction screen drops any line with an obligation word, an imperative first word, a second person, or saying all is well.
+
+## What I did meanwhile
+
+Every rule is a constant in apps/omni-app/src/missions/notebook.ts or notebook-run.ts.
+
+## What it costs to change later
+
+Low: each is a constant or a schedule line; counting the notebook's tokens would need a column.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says at most once a day per running mission and when a mission is delivered or stopped, without a time of day or a delay
+- (author) The spec does not say whether the notebook's model calls spend the fleet's daily tokens
+
+```
+
+<!-- /omni-outbox-settled: s4-03-notebook-job-daily-and-strict -->
