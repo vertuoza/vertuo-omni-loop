@@ -115,7 +115,7 @@ export const ITEMS: readonly Item[] = [
   row(4, 'Segment: Approval record', seg('approval'), NUMBERED, 'Approval record'),
   row(4, 'Version picker: the version, its date and who', seg('spec'), ALL, 'v1 · 27 Sep · Pierre (kit)'),
   row(4, 'Version picker: an older version from GitHub', seg('spec'), ALL, 'v2 · 28 Sep · commit a1b2c3d (github)'),
-  row(4, 'Version picker: Show', seg('spec'), ALL, 'Show'),
+  row(4, 'Version picker: opens the list of versions', seg('spec'), ALL, 'dossier-version__list', { html: true }),
   row(4, 'Before/after: the framed page', seg('before-after'), ALL, '/v/1/page', { html: true }),
   row(4, 'Before/after: sandbox caption', seg('before-after'), ALL, 'sandboxed · no cookies · no network'),
   row(4, 'Before/after: open on its own', seg('before-after'), ALL, 'open on its own'),

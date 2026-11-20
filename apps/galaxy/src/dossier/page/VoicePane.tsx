@@ -1,4 +1,5 @@
 import { personaGrid } from '@omni/design';
+import { Notice, Table } from '@omni/ui';
 import { at } from 'omni-loop/kit/lib/narrow.ts';
 import { pixelSvg } from '../../design/pixel-svg';
 import { StageHeaderCopy } from './StageHeaderCopy';
@@ -47,37 +48,34 @@ function Score({ cell, name, round }: { cell: VoiceCell; name: string; round: st
 function Grid({ view }: { view: VoiceView }) {
   return (
     <div className="voice-scroll">
-      <table className="voice-grid">
-        <thead>
-          <tr>
-            <th scope="col">Persona</th>
-            {view.rounds.map((r) => (
-              <th key={r.stage} scope="col">{r.label}<small>{r.date}</small></th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {view.rows.map((row) => (
-            <tr key={row.name}>
-              <th scope="row">
-                <span className="voice-persona">
-                  <Portrait row={row} />
-                  <span className="voice-who">
-                    <strong>{row.name}</strong>
-                    <span className="voice-stance" data-stance={row.stance}>{STANCE_LABEL[row.stance]}</span>
-                    <span className="voice-latest">{row.latest}</span>
-                  </span>
+      <Table
+        caption="Personas by round"
+        columns={[
+          { id: 'persona', label: 'Persona' },
+          ...view.rounds.map((r) => ({ id: r.stage, label: <>{r.label}<small>{r.date}</small></> })),
+        ]}
+        rows={view.rows.map((row) => ({
+          id: row.name,
+          cells: {
+            persona: (
+              <span className="voice-persona">
+                <Portrait row={row} />
+                <span className="voice-who">
+                  <strong>{row.name}</strong>
+                  <span className="voice-stance" data-stance={row.stance}>{STANCE_LABEL[row.stance]}</span>
+                  <span className="voice-latest">{row.latest}</span>
                 </span>
-              </th>
-              {row.cells.map((cell, i) => (
-                <td key={cell.stage} className={cell.objected ? 'voice-cell voice-objected' : 'voice-cell'}>
-                  <Score cell={cell} name={row.name} round={at(view.rounds, i, 'the round').label} />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </span>
+            ),
+            ...Object.fromEntries(row.cells.map((cell, i) => [
+              cell.stage,
+              <span key={cell.stage} className={cell.objected ? 'voice-cell voice-objected' : 'voice-cell'}>
+                <Score cell={cell} name={row.name} round={at(view.rounds, i, 'the round').label} />
+              </span>,
+            ])),
+          },
+        }))}
+      />
     </div>
   );
 }
@@ -112,7 +110,7 @@ export function VoicePane({ view, rework }: { view: VoiceView | null; rework: st
           </ol>
         </>
       ) : (
-        <p className="ask-problem" role="alert">This version could not be read. Reload the page in a moment.</p>
+        <Notice tone="danger">This version could not be read. Reload the page in a moment.</Notice>
       )}
     </div>
   );

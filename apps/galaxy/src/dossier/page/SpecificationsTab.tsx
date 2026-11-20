@@ -21,7 +21,7 @@ import { VOICE_EMPTY } from './voice';
 // holds the seals of the approval in force, its business laws' verdict and a product PRD's attestation, at
 // #attestation. While a version waits for the viewer's approval or Tech Approval, the tab opens on one line
 // linking to the review screen (/prd/<id>/review): no approve panel is drawn on the page. About this PRD
-// sits under the segment, until omni-loop-20 s11 draws it as side facts.
+// sits beside the segment as side facts (s11); the version picker is one button, and the front matter a line beside it.
 
 type Shown = NonNullable<DossierView['shown']>;
 
@@ -42,17 +42,14 @@ export function NoVersion({ kind }: { kind: ArtifactKind }) {
 function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
   if (!markdown) return <Notice tone="danger">This version could not be read. Reload the page in a moment.</Notice>;
   return (
-    <>
-      {markdown.front && <p className="dossier-front">{markdown.front}</p>}
-      <article className="dossier-md" dangerouslySetInnerHTML={{ __html: markdown.html }} />
-    </>
+    <article className="dossier-md" dangerouslySetInnerHTML={{ __html: markdown.html }} />
   );
 }
 
 /** The shown version of an artifact under its picker: framed, or rendered from markdown. */
 export function ArtifactPane({ view, kind, shown, markdown }: { view: DossierView; kind: ArtifactKind; shown: Shown; markdown: RenderedMarkdown | null }) {
   const round = kind === 'variations';
-  const picker = <VersionPicker action={view.link} tab={kind} versions={view.versions} shown={shown.number} noun={round ? 'Round' : 'Version'} />;
+  const picker = <VersionPicker action={view.link} tab={kind} versions={view.versions} shown={shown.number} noun={round ? 'Round' : 'Version'} button={view.kind === 'prd'} />;
   if (shown.frame) {
     return (
       <>
@@ -69,7 +66,10 @@ export function ArtifactPane({ view, kind, shown, markdown }: { view: DossierVie
   }
   return (
     <>
-      {picker}
+      <div className="dossier-version-row">
+        {picker}
+        {markdown?.front && <p className="dossier-front">{markdown.front}</p>}
+      </div>
       <MarkdownVersion markdown={markdown} />
     </>
   );
@@ -125,14 +125,18 @@ export function SpecificationsTab({ view, markdown, attestation, supabase }: Pro
   return (
     <>
       <Waiting view={view} />
-      <SegmentedControl
-        label="Specifications"
-        options={view.segments.map((s) => ({ id: s.id, label: s.label, href: s.href }))}
-        value={view.segment ?? 'before-after'}
-        link={Link}
-      />
-      <SegmentPane view={view} markdown={markdown} attestation={attestation} />
-      <AboutPrd view={view} supabase={supabase} />
+      <div className="dossier-specifications">
+        <div className="dossier-specifications__main">
+          <SegmentedControl
+            label="Specifications"
+            options={view.segments.map((s) => ({ id: s.id, label: s.label, href: s.href }))}
+            value={view.segment ?? 'before-after'}
+            link={Link}
+          />
+          <SegmentPane view={view} markdown={markdown} attestation={attestation} />
+        </div>
+        <AboutPrd view={view} supabase={supabase} />
+      </div>
     </>
   );
 }

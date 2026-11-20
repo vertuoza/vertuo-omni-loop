@@ -12,7 +12,7 @@ import type { DossierView } from './view';
 // omni-loop-20 s7: About this PRD sits in the Specifications tab, under its segment; About this fix stays
 // under a fix page's tab bar. The Main fact links the Feature tab's After merge section.
 
-type Props = { view: DossierView; supabase: { url: string; key: string } | null };
+type Props = { view: DossierView; supabase: { url: string; key: string } | null; };
 
 /** The repositories, each a chip. */
 function Repos({ repos }: { repos: readonly string[] }) {

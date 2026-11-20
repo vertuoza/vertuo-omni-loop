@@ -111,7 +111,7 @@ function VoiceTab({ view, voice = null }: PaneProps) {
   if (!shown) return <EmptyState size="inline" title={`${VOICE_EMPTY}.`} />;
   return (
     <>
-      <VersionPicker action={view.link} tab="voice" versions={view.versions} shown={shown.number} noun="Version" />
+      <VersionPicker action={view.link} tab="voice" versions={view.versions} shown={shown.number} noun="Version" button />
       <VoicePane view={voice} rework={view.rework} />
     </>
   );

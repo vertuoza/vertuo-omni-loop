@@ -170,7 +170,7 @@ describe('Attestation — on the PRD page, where omni/approved\'s Details opens'
     expect(html).toContain('Approved by irisa');
     expect(html).toContain('workspace member ✓ · product approver ✓ · 8 Oct 2026, 14:02 UTC');
     expect(html).toContain('building · every pinned hash matches');
-    expect(html).toContain('<span>= plan.md</span><span><code>bbbbbbb</code> · <code>bbbbbbb</code></span>');
+    expect(html).toContain('>= plan.md</td><td class="omni-table__cell omni-table__cell--start"><code>bbbbbbb</code> · <code>bbbbbbb</code></td>');
     expect(html).not.toContain('Restore');
     expect(html).not.toContain('Ask again');
   });
@@ -179,7 +179,7 @@ describe('Attestation — on the PRD page, where omni/approved\'s Details opens'
     const html = render(attestationView({ ...READ, member: false, asked: [], versions: [...PINNED, version('v-plan-2', 'plan', 'e', '2026-10-09T10:00:00Z')] }, PAGE));
     expect(html).toContain('no longer a member ✗ · any member may approve ✓');
     expect(html).toContain('drifted · a pinned file changed');
-    expect(html).toContain('<span>≠ plan.md</span><span><code>bbbbbbb</code> · <code>eeeeeee</code> · <a href="/prd/d-1?tab=plan&amp;v=1">Restore</a></span>');
+    expect(html).toContain('>≠ plan.md</td><td class="omni-table__cell omni-table__cell--start"><code>bbbbbbb</code> · <code>eeeeeee</code> · <a href="/prd/d-1?tab=plan&amp;v=1">Restore</a></td>');
     expect(html).toContain('<a href="/prd/d-1#approve">Ask again</a>');
   });
 
