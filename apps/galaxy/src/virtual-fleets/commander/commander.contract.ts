@@ -8,6 +8,7 @@ import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 //   GET  /api/virtual-fleets/commander?workspace=<id>&fleet=<key>   200 {view}
 //   POST /api/virtual-fleets/commander {workspace, fleet, text}      201 {question, reply}
 //   POST /api/virtual-fleets/commander/answer {workspace, fleet, source, id, choice}   200 {card} (s2)
+//   POST /api/virtual-fleets/commander/message {workspace, fleet, text}   201 {message} (s3)
 
 /** Where a claim comes from: the link the app built (inside the app or on GitHub), its chip's words and the record's own line. */
 const SourceSchema = z.object({
@@ -30,10 +31,15 @@ export const ReplySchema = z.object({
 });
 export type Reply = z.infer<typeof ReplySchema>;
 
-/** A message of the thread: a member's question, signed by their login, or the Commander's reply to one. */
+/** A runner job that read a message to the fleet (PRD 3107 s3): its role, its id and when its claim carried it. */
+const ReadSchema = z.object({ role: z.string().min(1).max(30), job: z.uuid(), at: z.string() });
+
+/** A message of the thread: a member's question, signed by their login, the Commander's reply to one, or a member's message
+ * to the fleet's agents, tagged `To the fleet`, with the jobs that read it (none while it waits for the next job). */
 const MessageSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('question'), id: z.uuid(), at: z.string(), login: z.string().min(1), text: z.string().min(1) }),
   z.object({ kind: z.literal('reply'), id: z.uuid(), at: z.string(), replyTo: z.uuid(), reply: ReplySchema }),
+  z.object({ kind: z.literal('fleet'), id: z.uuid(), at: z.string(), login: z.string().min(1), text: z.string().min(1), reads: z.array(ReadSchema).max(60) }),
 ]);
 export type Message = z.infer<typeof MessageSchema>;
 
@@ -99,6 +105,9 @@ export type ViewQuery = z.infer<typeof ViewQuerySchema>;
 export const AskRequestSchema = z.object({ workspace: z.uuid(), fleet: z.string().min(1).max(60), text: z.string().trim().min(1).max(2000) });
 export type AskRequest = z.infer<typeof AskRequestSchema>;
 
+export const SendRequestSchema = AskRequestSchema;
+export type SendRequest = AskRequest;
+
 export const ViewAnswerSchema = z.object({ view: CommanderViewSchema });
 
 /** A question and the Commander's reply to it. */
@@ -107,6 +116,9 @@ export const AskAnswerSchema = z.object({
   reply: MessageSchema,
 });
 export type AskAnswer = z.infer<typeof AskAnswerSchema>;
+
+/** A message to the fleet, as stored. */
+export const SendAnswerSchema = z.object({ message: MessageSchema });
 
 /** A refusal: its words; the question when it was kept with no answer; the state when the Commander cannot answer. */
 export const CommanderRefusalSchema = z.object({
