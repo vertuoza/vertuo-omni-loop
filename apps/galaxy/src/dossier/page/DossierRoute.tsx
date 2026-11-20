@@ -26,7 +26,7 @@ import { livePageSnapshot } from '../snapshot/live';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from './route-gate';
 import { dossierCallbackPath } from './sign-in';
 import { isDossierId, readContent, readDossier, readPlanSlices, type Db } from './source';
-import { dossierView, readPick, type DossierRead } from './view';
+import { dossierView, mayOpen, oldTabPath, readPick, type DossierRead } from './view';
 import type { VoiceCast, VoiceView } from './voice';
 import { readShownVoice, readVoiceCast } from './voice-source';
 import { kindOf, misrouted, rowKind } from './work';
@@ -114,6 +114,11 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 // `fixing on <runner>`; a read that fails leaves the line as it was, never hides the page.
 // PRD omni-loop-20 s5: the approval's read moved, unchanged, to ../review/approval-read.ts, which the review
 // screen at /prd/<id>/review (../review/ReviewRoute.tsx) reads too.
+// PRD omni-loop-20 s7: a PRD's old tab ids (questions, before-after, spec, plan, care, proof, main, pitch) are
+// answered by a redirect to their new tab and segment, or their Feature or Retro section, every other
+// parameter kept (./view.ts, oldTabPath), once the dossier is known to be a PRD: a fix keeps its own tabs. The
+// proof runs' clips are signed whenever the Feature tab may open (named, or by default), and the pitches'
+// files whenever the Retro tab may.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -246,9 +251,25 @@ async function shownVoice(view: ReturnType<typeof dossierView>, read: (id: strin
 
 type Query = Record<string, string | string[] | undefined>;
 
+/** Where a dossier of `kind` opened on `route`'s page is sent: its own route, the query kept, else a PRD's old
+ * tab id to its new tab (omni-loop-20 s7); null when it stays. */
+const elsewhereOf = (kind: WorkKind, route: WorkKind, id: string, query: Query) =>
+  misrouted(kind, route, id, query) ?? (kind === 'prd' ? oldTabPath(id, query) : null);
+
+/** The proof runs and the pitches of dossier `id`, started now: a run's clips signed whenever the Feature tab
+ * may open (named, or by default), a pitch's files whenever the Retro tab may (omni-loop-20 s7). */
+function runsOf(db: Parameters<typeof proofStore>[0] & Parameters<typeof pitchStore>[0], id: string, pick: ReturnType<typeof readPick>) {
+  if (!isDossierId(id)) return { proofs: Promise.resolve(null), pitches: Promise.resolve(null) };
+  const feature = mayOpen(pick, 'feature');
+  return {
+    proofs: readProofs(proofStore(db), id, { sign: feature, version: feature ? pick.version : null }),
+    pitches: readPitches(pitchStore(db), id, { sign: mayOpen(pick, 'retro'), pitch: pick.pitch ?? null }),
+  };
+}
+
 /** The demo's one dossier, a PRD's: another route is sent to /prd/<id>. */
 async function demoPage(route: WorkKind, id: string, query: Query, pick: ReturnType<typeof readPick>) {
-  const elsewhere = misrouted('prd', route, id, query);
+  const elsewhere = elsewhereOf('prd', route, id, query);
   if (elsewhere) redirect(elsewhere);
   const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
   const content = (shownId: string) => Promise.resolve(demoContent(shownId));
@@ -317,8 +338,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const { env, db, user } = gate.member;
 
   let read: DossierRead | null;
-  const proofs = isDossierId(id) ? readProofs(proofStore(db), id, { sign: pick.tab === 'proof', version: pick.version }) : Promise.resolve(null);
-  const pitches = isDossierId(id) ? readPitches(pitchStore(db), id, { sign: pick.tab === 'pitch', pitch: pick.pitch ?? null }) : Promise.resolve(null);
+  const { proofs, pitches } = runsOf(db, id, pick);
   try {
     read = await readDossier(db, id, user.id, timings);
   } catch (error) {
@@ -329,7 +349,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   if (!read) notFound();
   // A product roadmap's dossier (PRD 2011) has its page under /roadmaps, which finds it by its dossier's id too.
   if (rowKind(read.dossier) === null && String(read.dossier.kind) === 'roadmap') redirect(`/roadmaps/${encodeURIComponent(id)}`);
-  const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
+  const elsewhere = elsewhereOf(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
   const { dossier } = read;

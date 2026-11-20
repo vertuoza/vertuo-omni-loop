@@ -131,7 +131,7 @@ export function nextStep(view: DossierView, ready: ReadyView | null = null): Nex
   if (view.kind !== 'prd') return none(null);
   if (view.draft) return draftStep(view);
   if (view.mainWatch?.state === 'broke') {
-    return yours('It broke main after it merged: you read the breaks and the rewind’s findings.', { kind: 'link', label: 'Read the breaks', href: tabHref(view, 'main') });
+    return yours('It broke main after it merged: you read the breaks and the rewind’s findings.', { kind: 'link', label: 'Read the breaks', href: `${tabHref(view, 'feature')}#after-merge` });
   }
   return approvalStep(view) ?? stageStep(view, ready);
 }

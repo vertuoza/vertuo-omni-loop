@@ -50,11 +50,11 @@ function Approval({ approval }: { approval: NonNullable<DossierView['approval']>
   );
 }
 
-/** A watched PRD's status on main (PRD 2410, s3), linking its Main tab. */
+/** A watched PRD's status on main (PRD 2410, s3), linking the Feature tab's After merge section. */
 function Main({ view }: { view: DossierView }) {
   const main = view.mainWatch;
   if (!main) return null;
-  const href = view.tabs.find((t) => t.kind === 'main')?.href ?? view.link;
+  const href = `${view.tabs.find((t) => t.kind === 'feature')?.href ?? view.link}#after-merge`;
   return <a className={`dossier-main dossier-main-${main.state}`} href={href}><strong>{main.words}</strong></a>;
 }
 
