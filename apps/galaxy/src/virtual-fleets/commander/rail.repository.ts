@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import type { ApprovalRow, JobQuestionsRow, MissionItemRow, OutboxRow, RailMission } from './rail';
 
@@ -25,7 +25,7 @@ const QuestionSchema = z.object({
   question: z.string(), options: z.array(z.object({ label: z.string() }).loose()), multiSelect: z.boolean().default(false),
 }).loose();
 const JobQuestionsSchema = z.object({
-  job_id: z.uuid(), issue: z.number().int().positive(), questions: z.array(QuestionSchema),
+  job_id: z.uuid(), issue: IssueNumberSchema, questions: z.array(QuestionSchema),
   answers: z.record(z.string(), z.string()).nullable(), closed_by: z.uuid().nullable(), closed_at: z.string().nullable(), asked_at: z.string(),
 });
 const ItemSchema = z.object({

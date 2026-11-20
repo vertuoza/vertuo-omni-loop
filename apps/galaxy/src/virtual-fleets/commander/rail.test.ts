@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { answerable, answeredBy, answerAs, answersAs, cardsOf, openCount, railHeading, sourceLine, type JobQuestionsRow, type RailRecord } from './rail';
 
 // The rail's rules (PRD 3107 s2), pure: a card per question of this fleet waiting on a person, built from its record,
@@ -12,7 +12,7 @@ const PAUL_ID = '0000bbbb-0000-4000-8000-00000000000b';
 const prd = (n: number) => PrdNumberSchema.parse(n);
 
 const job = (over: Partial<JobQuestionsRow> = {}): JobQuestionsRow => ({
-  job: '4f2a1b2c-0000-4000-8000-000000000001', mission: MISSION, issue: 2817, answers: null, closedBy: null, closedAt: null, askedAt: '2026-11-21T08:40:00Z',
+  job: '4f2a1b2c-0000-4000-8000-000000000001', mission: MISSION, issue: parseIssue(2817), answers: null, closedBy: null, closedAt: null, askedAt: '2026-11-21T08:40:00Z',
   questions: [{ question: 'Old quotes API or v2?', options: [{ label: 'Keep old API' }, { label: 'Use v2' }], multiSelect: false }], ...over,
 });
 const record = (over: Partial<RailRecord> = {}): RailRecord => ({

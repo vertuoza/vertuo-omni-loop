@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CommanderBody, RAIL_AT_REST, type CommanderBodyProps } from './CommanderTab';
@@ -14,19 +15,19 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '
 const NOW = new Date('2026-11-21T09:30:00Z');
 
 const WAITING: Card = {
-  source: 'job', id: '4f2a1b2c-0000-4000-8000-000000000001', ref: 'job 4f2a1b2c', prd: 2817, question: 'Old quotes API or v2?',
+  source: 'job', id: '4f2a1b2c-0000-4000-8000-000000000001', ref: 'job 4f2a1b2c', prd: parsePrd(2817), question: 'Old quotes API or v2?',
   choices: ['Keep old API', 'Use v2'], href: '/app/runners#job-4f2a1b2c-0000-4000-8000-000000000001', at: '2026-11-21T08:40:00Z', answered: null,
 };
 const APPROVAL: Card = {
-  source: 'approval', id: 'eeeeeeee-0000-4000-8000-000000002820', ref: null, prd: 2820, question: 'Quotes export v2', choices: [],
+  source: 'approval', id: 'eeeeeeee-0000-4000-8000-000000002820', ref: null, prd: parsePrd(2820), question: 'Quotes export v2', choices: [],
   href: '/prd/at/northwind/quotes/2820?to=page', at: '2026-11-21T08:30:00Z', answered: null,
 };
 const OUTBOX: Card = {
-  source: 'outbox', id: 'northwind/quotes#2817/s2-01-keep', ref: null, prd: 2817, question: 'Keep the CSV export?', choices: [],
+  source: 'outbox', id: 'northwind/quotes#2817/s2-01-keep', ref: null, prd: parsePrd(2817), question: 'Keep the CSV export?', choices: [],
   href: '/prd/at/northwind/quotes/2817?to=page', at: '2026-11-21T08:45:00Z', answered: null,
 };
 const DONE: Card = {
-  source: 'job', id: '3e90aaaa-0000-4000-8000-000000000002', ref: 'job 3e90aaaa', prd: 2809, question: 'Keep the retry?', choices: ['Keep', 'Drop'],
+  source: 'job', id: '3e90aaaa-0000-4000-8000-000000000002', ref: 'job 3e90aaaa', prd: parsePrd(2809), question: 'Keep the retry?', choices: ['Keep', 'Drop'],
   href: '/app/runners#job-3e90aaaa-0000-4000-8000-000000000002', at: '2026-11-21T08:00:00Z', answered: { login: 'paul-n', at: '2026-11-21T08:58:00Z', choice: 'Keep' },
 };
 

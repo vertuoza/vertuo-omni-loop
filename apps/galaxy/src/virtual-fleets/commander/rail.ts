@@ -1,4 +1,4 @@
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { jobHref } from '../../runners/send/targets';
 import type { Card, CardSource } from './commander.contract';
 import { ACTIVE, prdHref } from './commander';
@@ -53,7 +53,7 @@ export interface JobQuestion {
 export interface JobQuestionsRow {
   job: string;
   mission: string;
-  issue: number;
+  issue: IssueNumber;
   questions: readonly JobQuestion[];
   answers: Readonly<Record<string, string>> | null;
   closedBy: string | null;
@@ -106,7 +106,7 @@ export interface RailRecord {
 export const railHeading = (open: number): string => `${RAIL_WORDS.rail} · ${String(open)}`;
 export const answersAs = (login: string | null): string => `Answers as ${login ?? RAIL_WORDS.you}`;
 export const answerAs = (login: string | null): string => `Answer as ${login ?? RAIL_WORDS.you}?`;
-export const openPrd = (prd: number): string => `Open PRD ${String(prd)}`;
+export const openPrd = (prd: PrdNumber): string => `Open PRD ${String(prd)}`;
 /** `Answered by paul-n · 08:58 · `, the choice drawn after it. */
 export const answeredBy = (answered: NonNullable<Card['answered']>): string => `Answered by ${answered.login} · ${new Date(answered.at).toISOString().slice(11, 16)} · `;
 /** Where a card's question comes from: `Question · job 4f2a1b2c · PRD 2817`. */
@@ -139,7 +139,7 @@ function jobCard(row: JobQuestionsRow, logins: ReadonlyMap<string, string>): Car
     choice: cut(Object.values(row.answers).join(' · '), 200),
   };
   return {
-    source: 'job', id: row.job, ref: `job ${row.job.slice(0, 8)}`, prd: row.issue,
+    source: 'job', id: row.job, ref: `job ${row.job.slice(0, 8)}`, prd: parsePrd(row.issue),
     question: cut(row.questions.map((q) => q.question).join(' '), 1000),
     choices: one ? only.options.map((o) => cut(o.label, 200)).slice(0, 6) : [],
     href: jobHref(row.job), at: row.askedAt, answered,

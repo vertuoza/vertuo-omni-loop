@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
 // The Commander tab's contract (PRD 3107 s1; ADR-0095): what a Virtual Fleet's Commander thread is as the tab reads it,
 // and what its box sends, safe for the browser. Every refusal is `{error}` in plain words, with the thread's state when
@@ -68,7 +69,7 @@ const CardSchema = z.object({
   id: z.string().min(1).max(300),
   /** A job's short id, a mission's number: what the source line names besides its PRD. */
   ref: z.string().max(60).nullable(),
-  prd: z.number().int().positive().nullable(),
+  prd: PrdNumberSchema.nullable(),
   question: z.string().min(1).max(1000),
   choices: z.array(z.string().min(1).max(200)).max(6),
   href: z.string().regex(/^\/[^/]/).max(500),

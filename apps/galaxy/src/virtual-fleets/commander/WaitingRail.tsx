@@ -8,10 +8,11 @@ import { answerable, answeredBy, answerAs, answersAs, openCount, openPrd, RAIL_W
 // The Waiting on you rail (PRD 3107 s2, the `fleet-commander` screen's rail of 2.A, 2.C, 2.D and 2.G): one card per
 // question of the fleet waiting on a person, built from its record. A card shows where it comes from, its question and
 // its choices, and `Answers as <login>`; a click on a choice selects it and asks `Answer as <login>?` with Confirm and
-// Cancel (2.G); nothing is sent before Confirm (secondary: the box's Ask stays the view's one primary). An answered card reads `Answered by <login> · <time> · <choice>`; a
-// route that refused reads `Not sent: try again.`. An approval card links to its PRD's page, where approving stays; a
-// question answered on its own page links there. At zero: `Nothing waits on you.` It needs no model. The rules live in
-// ./rail.ts; the tab holds the state and makes the call.
+// Cancel (2.G); nothing is sent before Confirm, a secondary button, so the box's Ask stays the view's one primary. An
+// answered card reads `Answered by <login> · <time> · <choice>`; a route that refused reads `Not sent: try again.`. An
+// approval card links to its PRD's page, where approving stays; a question answered on its own page links there. At
+// zero: `Nothing waits on you.` It needs no model. The rules live in ./rail.ts; useRail holds the member's moves and
+// makes the call.
 
 /** A card's key in the rail: its source and its id. */
 export const cardKey = (card: Pick<Card, 'source' | 'id'>): string => `${card.source}:${card.id}`;

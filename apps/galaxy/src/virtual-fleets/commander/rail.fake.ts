@@ -1,4 +1,4 @@
-import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { RailReader } from './rail.repository';
 import type { CardAnswerers } from './rail.service';
 import type { ApprovalRow, JobQuestionsRow, MissionItemRow, OutboxRow, RailMission } from './rail';
@@ -37,15 +37,15 @@ export function fakeRailDb() {
   ];
   const jobs: Owned<JobQuestionsRow>[] = [
     {
-      workspace: NORTHWIND, job: JOB_4F2A, mission: MISSION_3110, issue: 2817, answers: null, closedBy: null, closedAt: null, askedAt: '2026-11-21T08:40:00Z',
+      workspace: NORTHWIND, job: JOB_4F2A, mission: MISSION_3110, issue: parseIssue(2817), answers: null, closedBy: null, closedAt: null, askedAt: '2026-11-21T08:40:00Z',
       questions: [{ question: 'Old quotes API or v2?', options: [{ label: 'Keep old API' }, { label: 'Use v2' }], multiSelect: false }],
     },
     {
-      workspace: NORTHWIND, job: JOB_3E90, mission: MISSION_3110, issue: 2809, answers: { 'Keep the retry?': 'Keep' }, closedBy: account(PAUL), closedAt: '2026-11-21T08:58:00Z', askedAt: '2026-11-21T08:00:00Z',
+      workspace: NORTHWIND, job: JOB_3E90, mission: MISSION_3110, issue: parseIssue(2809), answers: { 'Keep the retry?': 'Keep' }, closedBy: account(PAUL), closedAt: '2026-11-21T08:58:00Z', askedAt: '2026-11-21T08:00:00Z',
       questions: [{ question: 'Keep the retry?', options: [{ label: 'Keep' }, { label: 'Drop' }], multiSelect: false }],
     },
     {
-      workspace: GLOBEX, job: JOB_GLOBEX, mission: MISSION_9001, issue: 77, answers: null, closedBy: null, closedAt: null, askedAt: '2026-11-21T07:00:00Z',
+      workspace: GLOBEX, job: JOB_GLOBEX, mission: MISSION_9001, issue: parseIssue(77), answers: null, closedBy: null, closedAt: null, askedAt: '2026-11-21T07:00:00Z',
       questions: [{ question: 'Globex secret payroll question?', options: [{ label: 'Yes' }, { label: 'No' }], multiSelect: false }],
     },
   ];
