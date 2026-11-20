@@ -55,6 +55,11 @@ describe('ReviewScreen', () => {
     expect(/\.omni-review\s*\{[^}]*max-width/.exec(css)).toBeNull();
   });
 
+  it('names each section a region by its heading, in a div (the /design page ends its components at the first section element)', () => {
+    expect(html).not.toContain('<section');
+    expect(html.match(/role="region"/g)).toHaveLength(3);
+  });
+
   it('draws no detail line when none is given', () => {
     expect(renderToStaticMarkup(createElement(ReviewScreen, { ...props, detail: undefined }))).not.toContain('omni-review__detail');
   });

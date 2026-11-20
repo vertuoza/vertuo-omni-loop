@@ -23,6 +23,6 @@ export const reviewScreenMeta = {
     'Each section is a region named by its numbered heading, in reading order.',
     'The decision bar is a group named by its question.',
   ],
-  replaces: ['dossier-approve', 'dossier-approve-screen'],
+  replaces: ['review-screen', 'decision-bar'],
   example: '<ReviewScreen title="Review and approve" sections={[{ title: "What changed", children: "The diff" }]} question="Approve this spec and plan?" decision={<Button variant="primary">Approve</Button>} />',
 } satisfies ComponentMeta;
