@@ -1197,6 +1197,70 @@ export type Database = {
           },
         ]
       }
+      commander_messages: {
+        Row: {
+          author_id: string | null
+          author_login: string | null
+          body: string | null
+          created_at: string
+          fleet: string
+          id: string
+          kind: string
+          reply: Json | null
+          reply_to: string | null
+          tokens: number
+          workspace_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_login?: string | null
+          body?: string | null
+          created_at?: string
+          fleet: string
+          id?: string
+          kind: string
+          reply?: Json | null
+          reply_to?: string | null
+          tokens?: number
+          workspace_id: string
+        }
+        Update: {
+          author_id?: string | null
+          author_login?: string | null
+          body?: string | null
+          created_at?: string
+          fleet?: string
+          id?: string
+          kind?: string
+          reply?: Json | null
+          reply_to?: string | null
+          tokens?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commander_messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "commander_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_messages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_messages_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
       constituent_events: {
         Row: {
           action: string
@@ -6859,6 +6923,30 @@ export type Database = {
         Args: { p_rejected?: string[]; p_workspace: string }
         Returns: number
       }
+      commander_ask: {
+        Args: { p_fleet: string; p_text: string; p_workspace: string }
+        Returns: {
+          author_id: string | null
+          author_login: string | null
+          body: string | null
+          created_at: string
+          fleet: string
+          id: string
+          kind: string
+          reply: Json | null
+          reply_to: string | null
+          tokens: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "commander_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      commander_messages_forget: { Args: never; Returns: number }
+      commander_reply_ok: { Args: { p_reply: Json }; Returns: boolean }
       constituent_add: {
         Args: {
           p_kind: string
