@@ -32,7 +32,7 @@ C. C. Leave support to the person's sample alone, with no automatic rate.
 
 ## What I had to decide
 
-Claims supported is a word-overlap proxy, not a judgement of meaning, because the spec asks for a sample checked by a person on top of the 95% bar. The script imports the arcade's extensionless sources, so the root typecheck cannot follow them: its two files are excluded from tsconfig.json and added to apps/galaxy/tsconfig.json, two config files outside the slice's territory. The command bundles the script with esbuild before running it, for the same reason.
+Claims supported is a word-overlap proxy, not a judgement of meaning, because the spec asks for a sample checked by a person on top of the 95% bar. The script imports the arcade's extensionless sources, so the root typecheck cannot follow them: its folder is excluded from tsconfig.json, gets its own tsconfig that extends the arcade's, and is included in apps/galaxy/tsconfig.json, two config files outside the slice's territory. The command bundles the script with esbuild before running it, for the same reason.
 
 ## What I did meanwhile
 

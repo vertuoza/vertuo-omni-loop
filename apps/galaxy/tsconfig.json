@@ -23,8 +23,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "../../scripts/commander-eval.ts",
-    "../../scripts/commander-eval.test.ts",
+    "../../scripts/commander-eval/**/*.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],

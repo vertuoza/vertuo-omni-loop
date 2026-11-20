@@ -2,10 +2,10 @@ import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Claim } from '../apps/galaxy/src/virtual-fleets/commander/commander.contract.ts';
-import type { CommanderModel, ModelTurn } from '../apps/galaxy/src/virtual-fleets/commander/model.ts';
-import type { NotebookModel } from '../apps/omni-app/src/missions/notebook-run.ts';
-import { ask, BARS, evaluate, injectionCase, isOfFleet, isSupported, loadFixtures, main, met, percentile, railMatches, report, withInjection, type Fixtures, type Models } from './commander-eval.ts';
+import type { Claim } from '../../apps/galaxy/src/virtual-fleets/commander/commander.contract.ts';
+import type { CommanderModel, ModelTurn } from '../../apps/galaxy/src/virtual-fleets/commander/model.ts';
+import type { NotebookModel } from '../../apps/omni-app/src/missions/notebook-run.ts';
+import { ask, BARS, evaluate, injectionCase, isOfFleet, isSupported, loadFixtures, main, met, percentile, railMatches, report, withInjection, type Fixtures, type Models } from './eval.ts';
 
 // The harness is proved with fake models: the evals themselves call the real one, a person runs them, never CI.
 
@@ -49,7 +49,7 @@ describe('the fixtures', () => {
     expect(fixtures.questions).toHaveLength(60);
     expect(fixtures.questions.filter((q) => !q.answerable).length).toBeGreaterThanOrEqual(20);
     expect(fixtures.injections.map((i) => i.where).sort()).toEqual(expect.arrayContaining(['event', 'pr-title', 'message', 'notebook-line']));
-    const dir = new URL('./fixtures/commander/', import.meta.url);
+    const dir = new URL('../fixtures/commander/', import.meta.url);
     for (const name of readdirSync(dir)) {
       const text = readFileSync(new URL(name, dir), 'utf8');
       expect(text).not.toMatch(/sk-[A-Za-z0-9-]{10,}|gh[pousr]_[A-Za-z0-9]{10,}|xox[bp]-|BEGIN [A-Z ]*PRIVATE KEY|[\w.]+@[\w-]+\.[a-z]{2,}/);
@@ -60,7 +60,7 @@ describe('the fixtures', () => {
   it('refuse a question that names no fleet, and a file that is not JSON', () => {
     const dir = mkdtempSync(join(tmpdir(), 'commander-fixtures-'));
     const copy = (name: string, text: string) => { writeFileSync(join(dir, name), text); };
-    for (const name of ['fleets.json', 'injections.json']) copy(name, readFileSync(new URL(`./fixtures/commander/${name}`, import.meta.url), 'utf8'));
+    for (const name of ['fleets.json', 'injections.json']) copy(name, readFileSync(new URL(`../fixtures/commander/${name}`, import.meta.url), 'utf8'));
     copy('questions.json', '[{"fleet":"nowhere","answerable":true,"text":"q"}]');
     const url = new URL(`file://${dir}/`);
     expect(() => loadFixtures(url)).toThrow('names a fleet the fixtures do not hold');
@@ -265,7 +265,7 @@ describe('the command', () => {
   }
 
   it('prints its usage with no key file, and for a file it cannot read or one that is empty', async () => {
-    expect(await run([])).toMatchObject({ code: 1, err: 'usage: node scripts/commander-eval-run.ts --key-file <file>' });
+    expect(await run([])).toMatchObject({ code: 1, err: 'usage: node scripts/commander-eval/run.ts --key-file <file>' });
     expect(await run(['stray'])).toMatchObject({ code: 1 });
     expect((await run(['--key-file', '/nonexistent/key'])).err).toBe('the key file cannot be read');
     expect((await run(['--key-file', '@empty'])).err).toBe('the key file is empty');
@@ -295,9 +295,9 @@ describe('the command', () => {
 
 describe('where it runs', () => {
   it('is a package script a person runs, and no workflow does', () => {
-    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { scripts: Record<string, string> };
-    expect(pkg.scripts['commander:eval']).toBe('node scripts/commander-eval-run.ts');
-    const dir = new URL('../.github/workflows/', import.meta.url);
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { scripts: Record<string, string> };
+    expect(pkg.scripts['commander:eval']).toBe('node scripts/commander-eval/run.ts');
+    const dir = new URL('../../.github/workflows/', import.meta.url);
     for (const name of readdirSync(dir)) {
       const text = readFileSync(new URL(name, dir), 'utf8');
       expect(text, name).not.toMatch(/commander[:-]eval/);
