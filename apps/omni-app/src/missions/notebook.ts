@@ -74,13 +74,13 @@ export const NOTEBOOK_REPLY_SCHEMA = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** `2026-11-20`, the UTC day `at` falls on. */
-export const dayOf = (at: Date): string => at.toISOString().slice(0, 10);
+export const utcDayOf = (at: Date): string => at.toISOString().slice(0, 10);
 
 /** The day before `at`'s, and its bounds: the day a run writes its mission lines for. */
 export function yesterdayOf(at: Date): { day: string; from: string; to: string } {
-  const to = new Date(`${dayOf(at)}T00:00:00.000Z`);
+  const to = new Date(`${utcDayOf(at)}T00:00:00.000Z`);
   const from = new Date(to.getTime() - DAY_MS);
-  return { day: dayOf(from), from: from.toISOString(), to: to.toISOString() };
+  return { day: utcDayOf(from), from: from.toISOString(), to: to.toISOString() };
 }
 
 // ── The instructions and the data ───────────────────────────────────────────────

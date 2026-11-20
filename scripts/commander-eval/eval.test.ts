@@ -290,7 +290,7 @@ describe('the command', () => {
     expect(done.code).toBe(1);
     expect(`${done.out}\n${done.err}`).not.toContain(KEY);
     expect(done.out).toContain('- error:');
-  }, 60_000);
+  });
 });
 
 describe('where it runs', () => {

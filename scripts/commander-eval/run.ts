@@ -6,6 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
+import { z } from 'zod';
+
+/** The bundle's one export: the eval's entry, answering its exit code. */
+const BundleSchema = z.object({ main: z.custom<(argv: readonly string[]) => Promise<unknown>>((value) => typeof value === 'function') });
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const dir = mkdtempSync(join(tmpdir(), 'commander-eval-'));
@@ -23,8 +27,9 @@ try {
     define: { 'import.meta.url': JSON.stringify(pathToFileURL(join(root, 'scripts/commander-eval/eval.ts')).href) },
     logLevel: 'error',
   });
-  const { main } = (await import(pathToFileURL(outfile).href)) as { main: (argv: readonly string[]) => Promise<number> };
-  process.exitCode = await main(process.argv.slice(2));
+  const { main } = BundleSchema.parse(await import(pathToFileURL(outfile).href));
+  const code: unknown = await main(process.argv.slice(2));
+  process.exitCode = typeof code === 'number' ? code : 1;
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }
