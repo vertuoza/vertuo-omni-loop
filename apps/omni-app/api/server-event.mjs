@@ -25748,11 +25748,11 @@ var NOTEBOOK_REPLY_SCHEMA = {
   }
 };
 var DAY_MS5 = 24 * 60 * 60 * 1e3;
-var dayOf = (at4) => at4.toISOString().slice(0, 10);
+var utcDayOf = (at4) => at4.toISOString().slice(0, 10);
 function yesterdayOf(at4) {
-  const to = /* @__PURE__ */ new Date(`${dayOf(at4)}T00:00:00.000Z`);
+  const to = /* @__PURE__ */ new Date(`${utcDayOf(at4)}T00:00:00.000Z`);
   const from = new Date(to.getTime() - DAY_MS5);
-  return { day: dayOf(from), from: from.toISOString(), to: to.toISOString() };
+  return { day: utcDayOf(from), from: from.toISOString(), to: to.toISOString() };
 }
 var NOTEBOOK_SYSTEM = [
   "You keep a notebook for a Virtual Fleet of software agents in Omni Loop. You write short lines of what happened, from the fleet's record alone.",
@@ -25887,7 +25887,7 @@ async function batchesDue(store, now) {
   const byId = (a, b) => a.id.localeCompare(b.id);
   return [
     ...[...active].sort(byId).map((mission) => ({ notebook: "mission", mission, day: yesterday.day, from: yesterday.from, to: yesterday.to })),
-    ...[...ended7].sort(byId).map((mission) => ({ notebook: "fleet", mission, day: dayOf(now), from: null, to: null }))
+    ...[...ended7].sort(byId).map((mission) => ({ notebook: "fleet", mission, day: utcDayOf(now), from: null, to: null }))
   ];
 }
 var rowsOf3 = (batch, lines2) => lines2.map((line3, n) => ({ workspace: batch.mission.workspace, fleet: batch.mission.fleet, notebook: batch.notebook, mission: batch.mission.id, day: batch.day, place: n + 1, line: line3.line, events: line3.events }));
