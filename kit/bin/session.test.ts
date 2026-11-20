@@ -13,7 +13,7 @@ import { SESSION_FILE } from '../lib/dossier/session.ts';
 import { readSyncCache, writeSyncCache } from '../lib/sync/cache.ts';
 import type { SyncRecord } from '../lib/sync/schema.ts';
 import { dig } from './dig.ts';
-import { FROM_YOUR_PEOPLE_FILE } from './commands/session.ts';
+import { FROM_YOUR_PEOPLE_FILE } from '../lib/runner/fleet-messages.ts';
 import { main } from './omni.ts';
 import type { Tokens } from '../lib/ask/schema.ts';
 
