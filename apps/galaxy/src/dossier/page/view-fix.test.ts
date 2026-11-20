@@ -100,7 +100,12 @@ describe('a bug fix', () => {
   });
 
   it('falls back to the Timeline for a tab a bug fix does not have', () => {
-    for (const tab of ['before-after', 'variations', 'spec', 'outbox']) expect(view(fix('bug', 571), BUG_VERSIONS, { tab }).tab).toBe('timeline');
+    for (const tab of ['before-after', 'variations', 'spec', 'outbox', 'specifications', 'feature']) expect(view(fix('bug', 571), BUG_VERSIONS, { tab }).tab).toBe('timeline');
+  });
+
+  it('opens its Questions for a PRD\'s Brainstorm, so the way back from a round lands there (omni-loop-20 s7)', () => {
+    expect(view(fix('bug', 571), BUG_VERSIONS, { tab: 'brainstorm' }).tab).toBe('questions');
+    expect(view(fix('visual'), VISUAL_VERSIONS, { tab: 'brainstorm' }).tab).toBe('questions');
   });
 });
 

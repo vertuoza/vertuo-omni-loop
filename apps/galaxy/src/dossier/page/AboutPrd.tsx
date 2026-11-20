@@ -9,6 +9,8 @@ import type { DossierView } from './view';
 // requests with when GitHub was last read, the approval, who the Tech Approval waits on, the PRD's status on
 // main, its timeline line, and who opened it and when. A fact with nothing to show is left out. A fix's
 // page shows About this fix: its repositories, its issue and fix PR, and who opened it.
+// omni-loop-20 s7: About this PRD sits in the Specifications tab, under its segment; About this fix stays
+// under a fix page's tab bar. The Main fact links the Feature tab's After merge section.
 
 type Props = { view: DossierView; supabase: { url: string; key: string } | null };
 

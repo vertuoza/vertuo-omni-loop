@@ -748,12 +748,15 @@ function prdTabOf(pick: DossierPick): PageTab | null {
   return pick.tab === null && pick.segment !== undefined ? 'specifications' : null;
 }
 
+/** The tab a fix's address picks: a PRD's Brainstorm is a fix's Questions, so a way back from a round lands on either. */
+const fixTabOf = (tab: PickTab | null): PickTab | null => (tab === 'brainstorm' ? 'questions' : tab);
+
 function pageOf(read: DossierRead, me: string | null, pick: DossierPick, moment: Moment): Page {
   const work = kindOf(read.dossier);
   const numbered = read.dossier.prd === null ? undefined : read.github;
   const tabs = KIND_TABS[work];
   const fallback = work === 'prd' ? defaultTab(moment) : at(tabs, 0, 'the first tab');
-  const picked = work === 'prd' ? prdTabOf(pick) : tabs.find((t) => t === pick.tab) ?? null;
+  const picked = work === 'prd' ? prdTabOf(pick) : tabs.find((t) => t === fixTabOf(pick.tab)) ?? null;
   const tab = picked ?? fallback;
   const base: LinkBase = { id: read.dossier.id, kind: work, fallback, fallbackSegment: defaultSegment(read.versions) };
   const segment = tab === 'specifications' ? segmentOf(pick, moment.approval) ?? base.fallbackSegment : null;
@@ -1111,8 +1114,8 @@ export type WayBack = {
   rounds: readonly Opened[] | null;
 };
 
-/** Where the question page goes once its round is answered (PRD 384): the dossier's Questions tab at
- * the first round still open in the order asked (`/prd/<id>?tab=questions#<round>`), or that tab alone
+/** Where the question page goes once its round is answered (PRD 384): the dossier's Brainstorm tab at
+ * the first round still open in the order asked (`/prd/<id>?tab=brainstorm#<round>`, omni-loop-20 s7), or that tab alone
  * when none is left; the ask page of the round's session when `from` names no dossier, so the
  * parameter can never send anyone to another site. */
 export function wayBack({ from, sessionId, roundId, rounds }: WayBack): string {
