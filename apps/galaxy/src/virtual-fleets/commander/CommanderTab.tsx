@@ -1,11 +1,12 @@
 'use client';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Button, EmptyState, Notice, SegmentedControl, Skeleton, Tag, Textarea } from '@omni/ui';
-import { demoCommanderPort, httpCommanderPort, type CommanderPort } from './commander.client';
+import { demoCommanderPort, httpCommanderPort, type Asked, type CommanderPort } from './commander.client';
 import type { CommanderView, Message } from './commander.contract';
 import { clockOf, dayOf, dayWords, readingWords, readLines, readWords, removedWords, tokensWords, usedUpWords, WORDS } from './commander';
 import { jobHref } from '../../runners/send/targets';
 import { cardsAfter, useRail, WaitingRail, type RailProps } from './WaitingRail';
+import { notebooksAfter, NotebooksDrawer, useNotebooks, type NotebooksProps } from './Notebooks';
 import './commander.css';
 
 // The Commander tab of a Virtual Fleet (PRD 3107 s1, the `fleet-commander` screen's 2.A thread, 2.C, 2.D, 2.E and 2.F):
@@ -18,6 +19,7 @@ import './commander.css';
 // in every state, off and out of tokens included, the Waiting on you rail (s2, ./WaitingRail.tsx), which needs no model.
 // The box has two modes (s3): Ask, and Message fleet, whose message joins the thread tagged `To the fleet`, reads `Waiting for
 // next job` until a job claimed it and `Read by <role> · job <id>` after, and warns before it is sent when no mission runs.
+// The status line ends with `Notebooks · <n>` (s4), which opens the Notebooks drawer (./Notebooks.tsx).
 
 export type BoxMode = 'ask' | 'message';
 
@@ -39,7 +41,14 @@ export interface CommanderBodyProps {
   onSend?: (text: string) => void;
   /** The rail's state and moves; its cards and the member's login are the view's. */
   rail: Omit<RailProps, 'cards' | 'me'>;
+  /** The Notebooks drawer's state and moves (s4); its notebooks and the member's login are the view's. At rest when not given. */
+  notes?: NotesMoves;
 }
+
+type NotesMoves = Omit<NotebooksProps, 'notebooks' | 'me'>;
+
+/** The drawer as nobody has touched it. */
+const NOTES_AT_REST: NotesMoves = { pending: new Map(), shown: new Set(), problem: null, onDelete: () => undefined, onUndo: () => undefined, onShow: () => undefined };
 
 /** The rail as nobody has touched it. */
 export const RAIL_AT_REST: Omit<RailProps, 'cards' | 'me' | 'onPick' | 'onConfirm' | 'onCancel'> = { confirming: null, sending: false, problems: new Map() };
@@ -58,16 +67,19 @@ function Glyph({ big = false }: { big?: boolean }) {
   );
 }
 
-function Status({ view }: { view: CommanderView }) {
+function Status({ view, notes = NOTES_AT_REST }: { view: CommanderView; notes?: NotesMoves | undefined }) {
   const href = missionsHref(view.fleet);
   const { status } = view;
   return (
-    <p className="commander-strip" aria-label={WORDS.status}>
-      <a href={href}>{`${String(status.running)} ${WORDS.running}`}</a>{' · '}
-      <a href={href}>{`${String(status.waiting)} ${WORDS.waiting}`}</a>{' · '}
-      <a href={href}>{`${String(status.paused)} ${WORDS.paused}`}</a>{' · '}
-      <span>{tokensWords(status)}</span>
-    </p>
+    <div className="commander-strip">
+      <p aria-label={WORDS.status}>
+        <a href={href}>{`${String(status.running)} ${WORDS.running}`}</a>{' · '}
+        <a href={href}>{`${String(status.waiting)} ${WORDS.waiting}`}</a>{' · '}
+        <a href={href}>{`${String(status.paused)} ${WORDS.paused}`}</a>{' · '}
+        <span>{tokensWords(status)}</span>
+      </p>
+      <NotebooksDrawer notebooks={view.notebooks} me={view.me} {...notes} />
+    </div>
   );
 }
 
@@ -180,8 +192,31 @@ function Box({ draft, busy, mode, running, onMode, onDraft, onAsk, onSend }: {
   );
 }
 
+/** The thread's column of a Commander that answers or is out of tokens: the first visit or the thread, then the box. */
+function Main({ view, now, pending, draft, problem, onDraft, onAsk, mode, onMode, sending, onSend }: Omit<CommanderBodyProps, 'rail' | 'notes' | 'mode' | 'onMode' | 'sending' | 'onSend'> & Required<Pick<CommanderBodyProps, 'mode' | 'onMode' | 'sending' | 'onSend'>>) {
+  const first = view.messages.length === 0 && pending === null;
+  const reading = readingWords(view.reading.missions, view.reading.jobs);
+  return (
+    <div className="commander-main">
+      {first && view.state.kind === 'ready' ? (
+        <div className="commander-first">
+          <Glyph big />
+          <EmptyState title={WORDS.firstVisit} size="inline" />
+          <p className="commander-suggestions">
+            {view.suggestions.map((suggestion) => <Button key={suggestion} variant="quiet" size="sm" onClick={() => { onAsk(suggestion); }}>{suggestion}</Button>)}
+          </p>
+        </div>
+      ) : <Thread messages={view.messages} now={now} pending={pending} reading={reading} />}
+      {view.state.kind === 'used-up'
+        ? <Notice tone="warning" title={usedUpWords(view.state.backAt)} />
+        : <Box draft={draft} busy={pending !== null || sending} mode={mode} running={view.status.running} onMode={onMode} onDraft={onDraft} onAsk={onAsk} onSend={onSend} />}
+      {problem !== null && <p className="commander-problem" role="alert">{problem}</p>}
+    </div>
+  );
+}
+
 /** One state of the tab, drawn from what it was given. */
-export function CommanderBody({ view, now, pending, draft, problem, onDraft, onAsk, mode = 'ask', onMode = () => undefined, sending = false, onSend = () => undefined, rail }: CommanderBodyProps) {
+export function CommanderBody({ view, now, pending, draft, problem, onDraft, onAsk, mode = 'ask', onMode = () => undefined, sending = false, onSend = () => undefined, rail, notes }: CommanderBodyProps) {
   const railed = <WaitingRail cards={view.cards} me={view.me} {...rail} />;
   if (view.state.kind === 'off') {
     return (
@@ -196,27 +231,11 @@ export function CommanderBody({ view, now, pending, draft, problem, onDraft, onA
       </section>
     );
   }
-  const first = view.messages.length === 0 && pending === null;
-  const reading = readingWords(view.reading.missions, view.reading.jobs);
   return (
     <section className="commander" data-screen="fleet-commander" aria-label={WORDS.tab}>
-      <Status view={view} />
+      <Status view={view} notes={notes} />
       <div className="commander-cols">
-        <div className="commander-main">
-          {first && view.state.kind === 'ready' ? (
-            <div className="commander-first">
-              <Glyph big />
-              <EmptyState title={WORDS.firstVisit} size="inline" />
-              <p className="commander-suggestions">
-                {view.suggestions.map((suggestion) => <Button key={suggestion} variant="quiet" size="sm" onClick={() => { onAsk(suggestion); }}>{suggestion}</Button>)}
-              </p>
-            </div>
-          ) : <Thread messages={view.messages} now={now} pending={pending} reading={reading} />}
-          {view.state.kind === 'used-up'
-            ? <Notice tone="warning" title={usedUpWords(view.state.backAt)} />
-            : <Box draft={draft} busy={pending !== null || sending} mode={mode} running={view.status.running} onMode={onMode} onDraft={onDraft} onAsk={onAsk} onSend={onSend} />}
-          {problem !== null && <p className="commander-problem" role="alert">{problem}</p>}
-        </div>
+        <Main view={view} now={now} pending={pending} draft={draft} problem={problem} onDraft={onDraft} onAsk={onAsk} mode={mode} onMode={onMode} sending={sending} onSend={onSend} />
         {railed}
       </div>
     </section>
@@ -235,6 +254,24 @@ export interface CommanderTabProps {
   now?: Date;
 }
 
+/** The view once an ask came back: its question and reply, or the question kept with no answer and the state it says. */
+function viewAfterAsk(was: CommanderView, asked: Asked): CommanderView {
+  if (asked.ok) return { ...was, messages: [...was.messages, asked.answer.question, asked.answer.reply] };
+  return { ...was, messages: asked.question === null ? was.messages : [...was.messages, asked.question], state: asked.state ?? was.state };
+}
+
+/** The tab while it reads, or why it could not. */
+function Loading({ problem }: { problem: string | null }) {
+  return (
+    <section className="commander" data-screen="fleet-commander" aria-label={WORDS.tab}>
+      {problem === null ? <Skeleton shape="block" label={WORDS.loading} /> : <p className="commander-problem" role="alert">{problem}</p>}
+    </section>
+  );
+}
+
+/** A change to the view once it was read; none before. */
+const onView = (change: (view: CommanderView) => CommanderView) => (was: CommanderView | null): CommanderView | null => (was === null ? was : change(was));
+
 export function CommanderTab({ workspace, fleet, view: given, port, now }: CommanderTabProps) {
   const calls = useMemo(() => port ?? (workspace === null ? demoCommanderPort : httpCommanderPort(workspace, fleet)), [port, workspace, fleet]);
   const [view, setView] = useState<CommanderView | null>(given ?? null);
@@ -243,7 +280,8 @@ export function CommanderTab({ workspace, fleet, view: given, port, now }: Comma
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState<BoxMode>('ask');
   const [sending, setSending] = useState(false);
-  const rail = useRail(calls, (key, sent) => { setView((was) => (was === null ? was : { ...was, cards: cardsAfter(was.cards, key, sent) })); });
+  const rail = useRail(calls, (key, sent) => { setView(onView((was) => ({ ...was, cards: cardsAfter(was.cards, key, sent) }))); });
+  const notes = useNotebooks(calls, (note) => { setView(onView((was) => ({ ...was, notebooks: notebooksAfter(was.notebooks, note) }))); });
 
   useEffect(() => {
     if (given) return undefined;
@@ -261,15 +299,9 @@ export function CommanderTab({ workspace, fleet, view: given, port, now }: Comma
     setProblem(null);
     const asked = await calls.ask(text);
     setPending(null);
-    if (asked.ok) {
-      setDraft('');
-      setView((was) => (was === null ? was : { ...was, messages: [...was.messages, asked.answer.question, asked.answer.reply] }));
-      return;
-    }
-    const { question, state } = asked;
-    if (question !== null) setDraft('');
-    setView((was) => (was === null ? was : { ...was, messages: question === null ? was.messages : [...was.messages, question], state: state ?? was.state }));
-    if (question === null && state === null) setProblem(asked.message);
+    setView(onView((was) => viewAfterAsk(was, asked)));
+    if (asked.ok || asked.question !== null) setDraft('');
+    else if (asked.state === null) setProblem(asked.message);
   }
 
   async function send(text: string) {
@@ -279,19 +311,13 @@ export function CommanderTab({ workspace, fleet, view: given, port, now }: Comma
     setSending(false);
     if (sent.ok) {
       setDraft('');
-      setView((was) => (was === null ? was : { ...was, messages: [...was.messages, sent.message] }));
+      setView(onView((was) => ({ ...was, messages: [...was.messages, sent.message] })));
       return;
     }
     setProblem(sent.message);
   }
 
-  if (view === null) {
-    return (
-      <section className="commander" data-screen="fleet-commander" aria-label={WORDS.tab}>
-        {problem === null ? <Skeleton shape="block" label={WORDS.loading} /> : <p className="commander-problem" role="alert">{problem}</p>}
-      </section>
-    );
-  }
+  if (view === null) return <Loading problem={problem} />;
   return <CommanderBody view={view} now={now ?? new Date()} pending={pending} draft={draft} problem={problem} onDraft={setDraft} onAsk={(text) => { void ask(text); }}
-      mode={mode} onMode={setMode} sending={sending} onSend={(text) => { void send(text); }} rail={rail} />;
+      mode={mode} onMode={setMode} sending={sending} onSend={(text) => { void send(text); }} rail={rail} notes={notes} />;
 }

@@ -1,7 +1,8 @@
 import type { z } from 'zod';
 import { reply } from '../../business-api/reply';
 import {
-  AskAnswerSchema, AskRequestSchema, CardAnswerRequestSchema, CardAnswerSchema, COMMANDER_REFUSALS, SendAnswerSchema, SendRequestSchema, ViewAnswerSchema, ViewQuerySchema,
+  AskAnswerSchema, AskRequestSchema, CardAnswerRequestSchema, CardAnswerSchema, COMMANDER_REFUSALS, NoteDeletedSchema, NoteDeleteRequestSchema, SendAnswerSchema, SendRequestSchema,
+  ViewAnswerSchema, ViewQuerySchema,
   type Card, type CommanderRefusalKind, type CommanderState, type Message,
 } from './commander.contract';
 import type { CommanderService } from './commander.service';
@@ -13,6 +14,7 @@ import type { CommanderService } from './commander.service';
 //   POST /api/virtual-fleets/commander {workspace, fleet, text}      201 {question, reply}
 //   POST /api/virtual-fleets/commander/answer {workspace, fleet, source, id, choice}   200 {card} (s2)
 //   POST /api/virtual-fleets/commander/message {workspace, fleet, text}   201 {message} (s3)
+//   POST /api/virtual-fleets/commander/notes {workspace, fleet, note}   200 {note} (s4)
 //
 // The caller is checked first: signed out, 401, and nothing else runs. The service then reads as the signed-in person,
 // so row-level security decides what they see (a member alone). The answer is checked against the contract before it
@@ -32,6 +34,7 @@ const FAILED = 'The Commander could not answer. Try again.';
 const BAD_VIEW = 'The query must be ?workspace=<id>&fleet=<a virtual fleet\'s key>.';
 const BAD_ANSWER = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "source": "job" or "item", "id": "<the card\'s id>", "choice": "<one of its choices>"}.';
 const BAD_MESSAGE = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "text": "<1 to 2000 characters>"}.';
+const BAD_NOTE = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "note": "<a line\'s id>"}.';
 const BAD_ASK = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "text": "<1 to 2000 characters>"}.';
 
 type Refusal = { kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; card?: Card };
@@ -112,5 +115,15 @@ export function postCommanderMessage(request: Request, deps: CommanderDeps): Pro
     const read = await bodyIn(request, SendRequestSchema);
     if (!read.ok) return refuse({ kind: read.kind, error: BAD_MESSAGE });
     return answerOf(await service.send(read.data), deps, 201, (message) => SendAnswerSchema.parse({ message }));
+  });
+}
+
+/** POST /api/virtual-fleets/commander/notes: a member deletes a line of the fleet's notebooks, as themselves (s4); who deleted
+ * it and when. The line leaves the Commander's memory. No model is asked. */
+export function postCommanderNote(request: Request, deps: CommanderDeps): Promise<Response> {
+  return asPerson(deps, async (service) => {
+    const read = await bodyIn(request, NoteDeleteRequestSchema);
+    if (!read.ok) return refuse({ kind: read.kind, error: BAD_NOTE });
+    return answerOf(await service.deleteNote(read.data), deps, 200, (note) => NoteDeletedSchema.parse({ note }));
   });
 }

@@ -2,8 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRow, parseRows } from '../../data/parse-rows';
-import { ReplySchema, type Message, type Reply } from './commander.contract';
-import type { EventRow, JobRow, MissionRow } from './commander';
+import { ReplySchema, type Deleted, type Message, type Reply } from './commander.contract';
+import type { EventRow, JobRow, MissionRow, NoteRow } from './commander';
 
 // The Commander's reads and writes (PRD 3107 s1; ADR-0095). The reader runs on the signed-in person's own client, so
 // row-level security shows a fleet, its missions, events, jobs and thread to the workspace's members and to nobody else,
@@ -38,6 +38,12 @@ const MessageRowSchema = z.object({
 const FleetMessageRowSchema = z.object({ id: z.uuid(), author_login: z.string().min(1), body: z.string().min(1), created_at: z.string() });
 const ReadRowSchema = z.object({ message_id: z.uuid(), role: z.string(), job_id: z.uuid(), read_at: z.string() });
 const SpentRowSchema = z.object({ tokens: z.number().int().min(0), oldest_end: z.string().nullable() });
+const NoteRowSchema = z.object({
+  id: z.uuid(), notebook: z.enum(['mission', 'fleet']), mission_id: z.uuid(), day: z.string(), line: z.string().min(1), events: z.array(z.uuid()).min(1), created_at: z.string(),
+});
+const DeletedRowSchema = z.object({ id: z.uuid(), deleted_at: z.string(), deleted_login: z.string().min(1) });
+/** The most lines of a fleet's notebooks the tab reads. */
+const NOTES_READ = 500;
 
 /** A stored message as the thread reads it. */
 function messageOf(row: z.infer<typeof MessageRowSchema>): Message {
@@ -124,6 +130,24 @@ export function commanderReader(db: CommanderDb) {
       if (answer.error) throw new Error(`Supabase: could not read the fleet's spending (${answer.error.message})`);
       const row = orThrow(parseRows(SpentRowSchema, answer.data, `${WHERE}: fleet_tokens_24h`))[0];
       return { tokens: row?.tokens ?? 0, oldestEnd: row?.oldest_end ?? null };
+    },
+
+    /** The fleet's notebooks' lines that are not deleted, newest first (commander_notes, s4). */
+    async notes(workspace: string, fleet: string): Promise<NoteRow[]> {
+      const { data, error } = await db.from('commander_notes').select('id, notebook, mission_id, day, line, events, created_at')
+        .eq('workspace_id', workspace).eq('fleet', fleet).is('deleted_at', null).order('created_at', { ascending: false }).limit(NOTES_READ);
+      if (error) throw new Error(`Supabase: could not read the fleet's notebooks (${error.message})`);
+      return orThrow(parseRows(NoteRowSchema, data, `${WHERE}: commander_notes`)).map((n) => ({
+        id: n.id, notebook: n.notebook, mission: n.mission_id, day: n.day, line: n.line, events: n.events, createdAt: n.created_at,
+      }));
+    },
+
+    /** Deletes a line as the signed-in member (commander_note_delete()): who deleted it and when. */
+    async deleteNote(note: string): Promise<Written<Deleted>> {
+      const answer: Answer = await db.rpc('commander_note_delete', { p_note: note });
+      if (answer.error) return refusedBy(answer.error);
+      const row = orThrow(parseRow(DeletedRowSchema, answer.data, `${WHERE}: commander_note_delete`));
+      return { ok: true, value: { id: row.id, at: row.deleted_at, login: row.deleted_login } };
     },
 
     /** Records the message to the fleet as its author (commander_send()): it waits for the next job, and no job read it yet. */

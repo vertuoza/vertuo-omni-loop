@@ -33,7 +33,7 @@ const DONE: Card = {
 
 const view = (over: Partial<CommanderView> = {}): CommanderView => ({
   workspace: NORTHWIND, fleet: 'blue-fleet', state: { kind: 'ready' }, status: { running: 2, waiting: 1, paused: 0, spent: 410, cap: 1000 },
-  messages: [], suggestions: ['What waits on me?'], reading: { missions: 2, jobs: 3 }, cards: [WAITING, APPROVAL, OUTBOX, DONE], me: 'mira-k', ...over,
+  messages: [], suggestions: ['What waits on me?'], reading: { missions: 2, jobs: 3 }, cards: [WAITING, APPROVAL, OUTBOX, DONE], notebooks: { fleet: [], missions: [], count: 0 }, me: 'mira-k', ...over,
 });
 const render = (v: CommanderView, rail: Partial<CommanderBodyProps['rail']> = {}) => renderToStaticMarkup(createElement(CommanderBody, {
   view: v, now: NOW, pending: null, draft: '', problem: null, onDraft: () => undefined, onAsk: () => undefined,

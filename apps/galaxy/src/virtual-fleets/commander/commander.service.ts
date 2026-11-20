@@ -1,7 +1,7 @@
-import type { AskAnswer, AskRequest, SendRequest, Card, CardAnswerRequest, CommanderRefusalKind, CommanderState, CommanderView, Message, ViewQuery } from './commander.contract';
+import type { AskAnswer, AskRequest, SendRequest, Card, CardAnswerRequest, CommanderRefusalKind, CommanderState, CommanderView, Deleted, Message, NoteDeleteRequest, ViewQuery } from './commander.contract';
 import type { CommanderReader, CommanderWriter, Written } from './commander.repository';
 import {
-  ACTIVE, EVENTS_PER_MISSION, inRecord, keepClaims, moreEvents, OLDER_EVENTS_TOOL, readModelReply, stateOf, suggestionsOf, SYSTEM, THREAD_MESSAGES,
+  ACTIVE, EVENTS_PER_MISSION, inRecord, keepClaims, moreEvents, notebooksOf, OLDER_EVENTS_TOOL, readModelReply, stateOf, suggestionsOf, SYSTEM, THREAD_MESSAGES,
   turnOf, WORDS, usedUpWords, type EventRow, type FleetRecord, type MissionRow, type Turn,
 } from './commander';
 import type { CommanderModel } from './model';
@@ -15,6 +15,8 @@ import type { RailService } from './rail.service';
 // claims whose every reference was in the turn, and writes the reply, signed by no person, with what it counted.
 // The tab also carries the Waiting on you rail's cards (s2), read whatever the state, and a member's answer from a card
 // is checked against the fleet first, then left to the rail (rail.service.ts): no model is ever asked about a card.
+// The tab carries the fleet's two notebooks too (s4), and a question reads the fleet notebook's last 50 lines that are not
+// deleted and the last lines of each mission it reads; a member deletes a line as themselves, and it leaves the record.
 
 type Served<T> = { ok: true; value: T } | { ok: false; kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; card?: Card; cause?: string };
 
@@ -24,6 +26,9 @@ const NOT_HERE = 'The Commander is not available here: this deployment cannot ke
 const FAILED = 'The Commander could not answer. Try again.';
 const ONLY_MEMBERS_MESSAGE = 'Only a member of the workspace messages its fleet.';
 const NOT_SENT = 'Not sent: try again.';
+const ONLY_MEMBERS_NOTE = 'Only a member of the workspace deletes a line of its notebooks.';
+const NO_NOTE = 'Note: no such line in this fleet\u2019s notebooks.';
+const NOT_DELETED = 'Not deleted: try again.';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The most messages the tab shows. */
@@ -32,7 +37,7 @@ const SHOWN = 50;
 const SUGGESTION_EVENTS = 20;
 
 export interface CommanderServiceDeps {
-  reader: Pick<CommanderReader, 'fleet' | 'missions' | 'events' | 'jobs' | 'thread' | 'fleetMessages' | 'spent' | 'ask' | 'send'>;
+  reader: Pick<CommanderReader, 'fleet' | 'missions' | 'events' | 'jobs' | 'thread' | 'fleetMessages' | 'spent' | 'ask' | 'send' | 'notes' | 'deleteNote'>;
   /** The service role's writer, or null when this deployment has none. */
   writer: Pick<CommanderWriter, 'reply'> | null;
   /** The model, or null when the server has no key. */
@@ -90,11 +95,12 @@ export function commanderService(deps: CommanderServiceDeps) {
   /** The turn of a question over this fleet's record alone, and the oldest event read of each mission. */
   async function turnFor(request: AskRequest, thread: Message[], now: Date): Promise<{ turn: Turn; oldest: Map<string, string> }> {
     const missions = inRecord(await reader.missions(request.workspace, request.fleet), now);
-    const [events, jobs] = await Promise.all([
+    const [events, jobs, notes] = await Promise.all([
       eventsOf(missions, EVENTS_PER_MISSION),
       reader.jobs(request.workspace, missions.map((m) => m.id), new Date(now.getTime() - DAY_MS)),
+      reader.notes(request.workspace, request.fleet),
     ]);
-    const record: FleetRecord = { fleet: request.fleet, missions, events, jobs, thread };
+    const record: FleetRecord = { fleet: request.fleet, missions, events, jobs, thread, notes };
     const oldest = new Map<string, string>();
     for (const e of events) oldest.set(e.mission, e.at);
     return { turn: turnOf(record, request.text), oldest };
@@ -122,13 +128,14 @@ export function commanderService(deps: CommanderServiceDeps) {
       const missions = await reader.missions(query.workspace, query.fleet);
       const active = missions.filter((m) => ACTIVE.includes(m.status));
       const record = inRecord(missions, now);
-      const [{ state, spent }, asked, told, events, jobs, cards] = await Promise.all([
+      const [{ state, spent }, asked, told, events, jobs, cards, notes] = await Promise.all([
         stateNow(query, fleet.value.cap, now),
         reader.thread(query.workspace, query.fleet, SHOWN),
         reader.fleetMessages(query.workspace, query.fleet, SHOWN),
         eventsOf(active, SUGGESTION_EVENTS),
         reader.jobs(query.workspace, record.map((m) => m.id), new Date(now.getTime() - DAY_MS)),
         deps.rail.cards(query.workspace, query.fleet),
+        reader.notes(query.workspace, query.fleet),
       ]);
       // The Commander's questions and replies and the messages to the fleet, one thread by time, the last SHOWN of it.
       const messages = [...asked, ...told].sort((a, b) => a.at.localeCompare(b.at)).slice(-SHOWN);
@@ -144,6 +151,7 @@ export function commanderService(deps: CommanderServiceDeps) {
           suggestions: suggestionsOf(events),
           reading: { missions: record.length, jobs: jobs.length },
           cards,
+          notebooks: notebooksOf(query.fleet, notes, missions),
           me: deps.me,
         },
       };
@@ -166,6 +174,19 @@ export function commanderService(deps: CommanderServiceDeps) {
       if (sent.code === '42501') return { ok: false, kind: 'forbidden', error: ONLY_MEMBERS_MESSAGE };
       if (sent.code === '22023' && sent.message) return { ok: false, kind: 'invalid', error: sent.message };
       return { ok: false, kind: 'not-sent', error: NOT_SENT, cause: `${sent.code ?? 'no code'}: ${sent.message}` };
+    },
+
+    /** A member deletes a line of the fleet's notebooks, as themselves (s4): who deleted it and when. It needs no model. */
+    async deleteNote(request: NoteDeleteRequest): Promise<Served<Deleted>> {
+      const fleet = await fleetOf(request);
+      if (!fleet.ok) return fleet;
+      const notes = await reader.notes(request.workspace, request.fleet);
+      if (!notes.some((note) => note.id === request.note)) return { ok: false, kind: 'missing', error: NO_NOTE };
+      const deleted = await reader.deleteNote(request.note);
+      if (deleted.ok) return deleted;
+      if (deleted.code === '42501') return { ok: false, kind: 'forbidden', error: ONLY_MEMBERS_NOTE };
+      if (deleted.code === '22023') return { ok: false, kind: 'missing', error: NO_NOTE };
+      return { ok: false, kind: 'database', error: NOT_DELETED, cause: `${deleted.code ?? 'no code'}: ${deleted.message}` };
     },
 
     /** A member's question and the Commander's reply. */

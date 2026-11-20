@@ -1261,6 +1261,76 @@ export type Database = {
           },
         ]
       }
+      commander_notes: {
+        Row: {
+          created_at: string
+          day: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_login: string | null
+          events: string[]
+          fleet: string
+          id: string
+          line: string
+          mission_id: string
+          notebook: string
+          place: number
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_login?: string | null
+          events: string[]
+          fleet: string
+          id?: string
+          line: string
+          mission_id: string
+          notebook: string
+          place: number
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_login?: string | null
+          events?: string[]
+          fleet?: string
+          id?: string
+          line?: string
+          mission_id?: string
+          notebook?: string
+          place?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commander_notes_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_notes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_notes_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
       constituent_events: {
         Row: {
           action: string
@@ -7049,6 +7119,30 @@ export type Database = {
         }[]
       }
       commander_messages_forget: { Args: never; Returns: number }
+      commander_note_delete: {
+        Args: { p_note: string }
+        Returns: {
+          created_at: string
+          day: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_login: string | null
+          events: string[]
+          fleet: string
+          id: string
+          line: string
+          mission_id: string
+          notebook: string
+          place: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "commander_notes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       commander_reply_ok: { Args: { p_reply: Json }; Returns: boolean }
       commander_send: {
         Args: { p_fleet: string; p_text: string; p_workspace: string }

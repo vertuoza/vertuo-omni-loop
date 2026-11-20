@@ -5,7 +5,8 @@
    the rail goes under the thread. */
 
 .commander { display: grid; gap: var(--space-4); margin-top: var(--space-3); min-width: 0; }
-.commander-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; color: var(--color-text-secondary); font-size: var(--type-2-size); }
+.commander-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin: 0; color: var(--color-text-secondary); font-size: var(--type-2-size); }
+.commander-strip > p { margin: 0; }
 .commander-main { display: grid; gap: var(--space-4); min-width: 0; max-width: 900px; }
 .commander-thread, .commander-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .commander-day {
@@ -57,10 +58,21 @@
 .commander-nothing { color: var(--color-text-secondary); font-size: var(--type-2-size); }
 .commander-card { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border-strong); border-radius: var(--radius-2); background: var(--color-surface); }
 .commander-card-done { border-style: dashed; }
-.commander-src { color: var(--color-text-secondary); font-size: var(--type-1-size); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.commander-src, .commander-lab { margin: 0; color: var(--color-text-secondary); font-size: var(--type-1-size); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
 .commander-q, .commander-confirm { font-weight: 700; }
 .commander-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .commander-by { color: var(--color-text-secondary); font-size: var(--type-2-size); }
+
+/* The Notebooks drawer (s4): a label per notebook, then one row per line (its day, its words, its events' chip, Delete). */
+.commander-notebooks { display: grid; gap: var(--space-4); }
+.commander-book { display: grid; gap: var(--space-2); }
+.commander-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.commander-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; border-top: 1px solid var(--color-border-subtle); }
+.commander-note:first-child { border-top: 0; }
+.commander-note time { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: var(--type-1-size); }
+.commander-note-line { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.commander-note-gone { color: var(--color-text-secondary); font-size: var(--type-2-size); }
+.commander-fold { display: flex; align-items: center; gap: var(--space-2); margin: 0; color: var(--color-text-secondary); font-size: var(--type-2-size); }
 
 @media (max-width: 719px) {
   .commander-cols { grid-template-columns: minmax(0, 1fr); }

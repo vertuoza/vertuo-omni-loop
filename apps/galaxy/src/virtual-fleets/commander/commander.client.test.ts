@@ -9,7 +9,7 @@ const QUESTION = { kind: 'question', id: 'cccccccc-0000-4000-8000-000000000001',
 const REPLY = { kind: 'reply', id: 'cccccccc-0000-4000-8000-000000000002', at: '2026-11-21T09:30:05Z', replyTo: QUESTION.id, reply: { verdict: null, claims: [], read: 3, removed: 0 } };
 const VIEW = {
   workspace: NORTHWIND, fleet: 'blue-fleet', state: { kind: 'ready' }, status: { running: 1, waiting: 0, paused: 0, spent: 0, cap: null },
-  messages: [], suggestions: ['What waits on me?'], reading: { missions: 1, jobs: 0 }, cards: [], me: 'mira-k',
+  messages: [], suggestions: ['What waits on me?'], reading: { missions: 1, jobs: 0 }, cards: [], notebooks: { fleet: [], missions: [], count: 0 }, me: 'mira-k',
 };
 const CARD = {
   source: 'job' as const, id: '4f2a1b2c-0000-4000-8000-000000000001', ref: 'job 4f2a1b2c', prd: 2817, question: 'Old quotes API or v2?',
@@ -73,5 +73,17 @@ describe('the Commander port', () => {
     expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(200, { nope: true }).fetch).ask('x')).toEqual({ ok: false, message: 'No answer: try again.', question: null, state: null });
     expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(500, 'oops').fetch).load()).toEqual({ ok: false, message: 'Couldn’t load the Commander. Try again in a moment.' });
     expect(await demoCommanderPort.load()).toEqual({ ok: false, message: 'The demo world has no Commander.' });
+  });
+
+  it('deletes a line of the notebooks (s4), and keeps a refusal\'s words', async () => {
+    const LINE = 'dddddddd-0000-4000-8000-000000000001';
+    const gone = answering(200, { note: { id: LINE, at: '2026-11-21T09:30:00Z', login: 'mira-k' } });
+    expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', gone.fetch).deleteNote(LINE)).toEqual({ ok: true });
+    expect(gone.calls[0]?.url).toBe('/api/virtual-fleets/commander/notes');
+    expect(JSON.parse(gone.calls[0]?.body ?? '')).toEqual({ workspace: NORTHWIND, fleet: 'blue-fleet', note: LINE });
+    expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(403, { error: 'Only a member of the workspace deletes a line of its notebooks.' }).fetch).deleteNote(LINE))
+      .toEqual({ ok: false, message: 'Only a member of the workspace deletes a line of its notebooks.' });
+    expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(502, 'oops').fetch).deleteNote(LINE)).toEqual({ ok: false, message: 'Not deleted: try again.' });
+    expect(await demoCommanderPort.deleteNote(LINE)).toEqual({ ok: false, message: 'The demo world has no Commander.' });
   });
 });
