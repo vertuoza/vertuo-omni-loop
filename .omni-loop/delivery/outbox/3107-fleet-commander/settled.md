@@ -392,3 +392,159 @@ Removing the line is one edit, and the guard then fails until the model is named
 ```
 
 <!-- /omni-outbox-settled: s1-05-model-id-allowed-in-agent-words-guard -->
+
+<!-- omni-outbox-settled: s2-02-tab-count-not-drawn -->
+
+## s2-02-tab-count-not-drawn — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-tab-count-not-drawn
+prd: 3107
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-20
+wave: 2
+---
+
+## The question, in plain words
+
+The spec says the Commander tab's name carries the count of questions waiting on a person, but the tabs live in a part of the app this slice may not change. Who draws that count?
+
+## The decision, in plain words
+
+This slice shows the count at the top of the rail, as Waiting on you followed by the number, and leaves the tab's name as it is, so a later slice or the wave adds the count to the tab.
+
+## The intro, for fun
+
+The rail knows the number, but the tab is in another room.
+
+## The punchline, for fun
+
+The number waits by the door until someone with the key comes along.
+
+## The options, in plain words
+
+A. A. As built: the count shows in the rail's heading only, for now.
+B. B. The wave adds the count to the tab's name after merging, reading the rail's cards with the fleet page.
+C. C. Leave the count out of the tab for good: the rail's heading is enough.
+
+## What I had to decide
+
+Whether the wave adds the count to the tab's name, or a later slice does.
+
+## What I did meanwhile
+
+The rail's heading says how many questions wait, so a member who opens the tab sees the count at once.
+
+## What it costs to change later
+
+Small: the fleet page reads the open count with the tab and adds it to the label; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Reading the count on the Fleet page means one more read on every Virtual Fleet's page load, not only on the Commander tab (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-02-tab-count-not-drawn -->
+
+<!-- omni-outbox-settled: s2-03-answered-cards-stay-a-day -->
+
+## s2-03-answered-cards-stay-a-day — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-answered-cards-stay-a-day
+prd: 3107
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-11-20
+wave: 2
+---
+
+## The question, in plain words
+
+Once a question is answered, how long does its card stay in the rail reading who answered it? And should Confirm be the screen's main button, as the drawing shows?
+
+## The decision, in plain words
+
+An answered card stays one day, then leaves the rail. Confirm is drawn as an ordinary button, since the Ask button already is the screen's one main button.
+
+## The intro, for fun
+
+An answered question likes to linger a little, to say who answered it.
+
+## The punchline, for fun
+
+One day is long enough to be seen and short enough not to crowd the rail.
+
+## The options, in plain words
+
+A. A. As built: answered cards stay one day; Confirm is an ordinary button.
+B. B. Answered cards stay until the member leaves the tab, and Confirm is the main button while it shows.
+C. C. Answered cards stay a week; Confirm is an ordinary button.
+
+## What I had to decide
+
+Whether one day is the right stay for an answered card, and whether Confirm may be a main button beside Ask.
+
+## What I did meanwhile
+
+A member who comes back within a day sees who answered what; the design rule of one main button per screen holds.
+
+## What it costs to change later
+
+Each is a single constant or a single attribute to change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The screen library's drawing marks Confirm as the main button while Ask is one too; the design system says one main button per screen (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-03-answered-cards-stay-a-day -->
