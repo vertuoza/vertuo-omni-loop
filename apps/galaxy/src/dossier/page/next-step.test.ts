@@ -72,7 +72,7 @@ describe('the subtitle and the one primary, at each moment', () => {
   it('approved: no signed decision waits, and the meta row says who approved it and when', () => {
     const approved = view({ ...born, approval: APPROVED });
     expect(nextStep(approved).primary).toBeNull();
-    expect(metaOf(approved)).toEqual(['acme/widgets', 'Opened by Ada · 27 Sep 2026, 09:12 UTC', 'Approved by ada · 9 Oct 2026, 09:12 UTC']);
+    expect(metaOf(approved)).toEqual(['acme/widgets', 'Approved by ada · 9 Oct 2026, 09:12 UTC']);
   });
 
   it('in the PRD stage: the phase-0 pull request to merge, else the agents write the spec', () => {

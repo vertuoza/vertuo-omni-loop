@@ -7,7 +7,7 @@
 // draft for a draft's opener, Request a Tech Approval. A fix's page gets the same head, with its own track.
 import type { MenuItem, PageHeaderMeta } from '@omni/ui';
 import type { MomentId } from '../../fixes/timeline';
-import type { StageId } from './stage';
+import { STAGES, type StageId } from './stage';
 import { dossierPath, type DossierView } from './view';
 
 /** The loop's stages as the stage track names them, in order. */
@@ -141,14 +141,14 @@ export function eyebrowOf(view: DossierView): string {
 
 const capital = (words: string) => `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 
-/** The meta row: at most five unlabelled facts, never the stage (the track says it) nor what the subtitle says. */
+/** The meta row: at most five unlabelled facts, never the stage (the track says it) nor what the subtitle
+ * says, nor what About this PRD says (who opened it, with their face). */
 export function metaOf(view: DossierView): PageHeaderMeta {
   const [only] = view.repos;
   const repos = view.repos.length === 1 && only ? only : plural(view.repos.length, 'repository', 'repositories');
   const approval = view.approval;
-  const opened = capital(view.opened);
-  if (approval?.state !== 'approved') return [repos, opened];
-  return [repos, opened, capital([approval.words, approval.detail].filter(Boolean).join(' '))];
+  if (approval?.state !== 'approved') return [repos];
+  return [repos, capital([approval.words, approval.detail].filter(Boolean).join(' '))];
 }
 
 /** The Actions menu: Request a Tech Approval for any member while it is allowed, Delete draft for a draft's
@@ -185,10 +185,9 @@ export function prdTrack(view: DossierView): TrackView | null {
   const waits = view.approval?.tech?.canGive ? 'waits for your Tech Approval' : view.approval?.canApprove ? 'waits for your approval' : null;
   const current = stage.id === 'brainstorming' ? 'Idea' : stage.id === 'syncing' ? 'Syncing…' : TRACK_NAME[stage.id];
   const progress = stage.id === 'brainstorming' || stage.id === 'idea' ? 'brainstorm in progress' : waits ?? stage.progress ?? undefined;
-  const reached = TRACK_STAGES.flatMap((name, at) => {
-    const id = (Object.keys(TRACK_NAME) as StageId[])[at];
-    const when = id ? stage.reached[id] : undefined;
-    return when ? [{ name, when }] : [];
+  const reached = STAGES.flatMap((id) => {
+    const when = stage.reached[id];
+    return when ? [{ name: TRACK_NAME[id], when }] : [];
   });
   const times: Record<string, string> = {};
   reached.forEach(({ name, when }, at) => {

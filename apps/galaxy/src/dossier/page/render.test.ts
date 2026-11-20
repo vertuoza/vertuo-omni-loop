@@ -125,11 +125,11 @@ const facts = (html: string) => [...aboutOf(html).matchAll(/<dt class="omni-defi
 const actions = (html: string) => [...headOf(html).matchAll(/<(?:a|button)[^>]*class="omni-button[^"]*"[^>]*>([^<]+)<\/(?:a|button)>/g)].map((m) => m[1]);
 
 describe('the head (omni-loop-20 s6)', () => {
-  it('shows the eyebrow, the 32 px title, who opened it and the repository in the meta row, and Copy link', () => {
+  it('shows the eyebrow, the 32 px title, the repository in the meta row, who opened it in About this PRD, and Copy link', () => {
     const html = page();
     expect(html).toContain('<p class="omni-page-header__eyebrow">PRD #216</p>');
     expect(html).toContain('<h1 class="omni-page-header__title">PRD dossiers</h1>');
-    expect(meta(html)).toEqual(['vertuoza/vertuo-omni-loop', 'Opened by Pierre · 27 Sep 2026, 09:12 UTC']);
+    expect(meta(html)).toEqual(['vertuoza/vertuo-omni-loop']);
     expect(aboutOf(html)).toContain(REPO_CHIP('vertuoza/vertuo-omni-loop'));
     expect(textOf(aboutOf(html))).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
     expect(aboutOf(html)).toMatch(chip('Pierre'));

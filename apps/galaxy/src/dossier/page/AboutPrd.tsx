@@ -58,19 +58,33 @@ function Main({ view }: { view: DossierView }) {
   return <a className={`dossier-main dossier-main-${main.state}`} href={href}><strong>{main.words}</strong></a>;
 }
 
+/** A ◆ PRD's approval facts: the approval, then who the Tech Approval waits on. */
+function approvalFacts(approval: DossierView['approval']): DefinitionFact[] {
+  if (!approval) return [];
+  return [
+    { id: 'approval', label: 'Approval', value: <Approval approval={approval} /> },
+    { id: 'tech', label: 'Tech Approval', value: approval.tech?.waiting ?? null },
+  ];
+}
+
+/** The timeline's line without its `Now: <stage>` words: the track says the stage once, and its hover the time. */
+const timelineWords = (line: string | null) => (line === null ? null : line.replace(/ · Now: .*$/, ''));
+
+/** Who opened it, with their face when the page knows them. */
+function Opened({ view }: { view: DossierView }) {
+  if (!view.openedBy) return <>{view.opened}</>;
+  return <span className="ask-hint">opened by <PersonChip person={view.openedBy} size="inline" /> · {view.openedAt}</span>;
+}
+
 /** The facts About this PRD lists, in order; one with no value is left out by the list. */
 function aboutFacts(view: DossierView): DefinitionFact[] {
   return [
     { id: 'repos', label: view.repos.length > 1 ? 'Repositories' : 'Repository', value: <Repos repos={view.repos} /> },
     { id: 'github', label: 'On GitHub', value: linksOf(view).length > 0 || view.githubAsOf ? <OnGithub view={view} /> : null },
-    { id: 'approval', label: 'Approval', value: view.approval ? <Approval approval={view.approval} /> : null },
-    { id: 'tech', label: 'Tech Approval', value: view.approval?.tech?.waiting ?? null },
+    ...approvalFacts(view.approval),
     { id: 'main', label: 'Main', value: view.mainWatch ? <Main view={view} /> : null },
-    { id: 'timeline', label: 'Timeline', value: view.timelineLine },
-    {
-      id: 'opened', label: 'Opened',
-      value: view.openedBy ? <span className="ask-hint">opened by <PersonChip person={view.openedBy} size="inline" /> · {view.openedAt}</span> : view.opened,
-    },
+    { id: 'timeline', label: 'Timeline', value: timelineWords(view.timelineLine) },
+    { id: 'opened', label: 'Opened', value: <Opened view={view} /> },
   ];
 }
 

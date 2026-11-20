@@ -50,6 +50,8 @@
 .dossier-about { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-3) var(--space-6); min-width: 0; }
 .dossier-about > .omni-definition-list { flex-direction: row; flex-wrap: wrap; gap: var(--space-3) var(--space-6); min-width: 0; }
 .dossier-about .dossier-repo { font: inherit; background: transparent; border: 0; padding: 0; }
+.dossier-about .stage-links { display: grid; gap: 0; }
+.dossier-about .stage-links li + li::before { content: none; }
 .dossier-about .dossier-approval { display: grid; gap: var(--space-1); }
 .dossier-about .dossier-approval p { margin: 0; }
 
