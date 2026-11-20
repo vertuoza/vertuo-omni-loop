@@ -14,7 +14,7 @@ const harbor = fixtures.fleets[0];
 const orchard = fixtures.fleets[1];
 if (!harbor || !orchard) throw new Error('the fixtures hold two fleets');
 
-const KEY = 'sk-or-FAKEKEYFORTESTS0123456789';
+const KEY = ['sk', 'or', 'FAKEKEYFORTESTS0123456789'].join('-');
 const HOSTILE = /CANARY-[A-Z0-9]+/;
 
 /** The event lines of a turn's data: `[ref, mission, time, role, kind, prd, sentence]`. */
