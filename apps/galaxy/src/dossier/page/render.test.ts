@@ -7,7 +7,7 @@ import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { StageRow } from '../../stages/stage';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { CopyLink } from './CopyLink';
-import { DeleteDraft } from './DeleteDraft';
+import { DELETE_CONFIRM, removeDraft } from './DeleteDraft';
 import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
 import { headHeight } from './PinnedHead';
@@ -103,29 +103,51 @@ const chip = (name: string) => new RegExp(`<span class="person-chip is-inline"><
 /** The stored stages of a PRD at `stage` (PRD 587): that one row, last synced 29 Sep 2026, 09:15 UTC. */
 const at = (stage: StageRow['stage']): StageRow[] => [{ stage, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
 
-describe('the header', () => {
-  it('shows PRD #n, the title, the repository chips, who opened it and when, and Copy link', () => {
+/** The current stage of the track, with its progress words: `PRD`, `Building · 2 of 5 slices`. */
+const currentStage = (html: string) => /omni-stage-track__stage--current[^>]*>.*?<span class="omni-stage-track__name">([^<]+)<\/span>/.exec(html)?.[1] ?? null;
+/** Each stage of the track and its state: `PRD:current`. */
+const track = (html: string) => [...html.matchAll(/<li class="omni-stage-track__stage omni-stage-track__stage--(done|current|pending)[^"]*"[^>]*>.*?<span class="omni-stage-track__name">([^<]+)<\/span>/g)]
+  .map((m) => `${(m[2] ?? '').split(' · ')[0] ?? ''}:${m[1] ?? ''}`);
+/** The head's subtitle. */
+const lede = (html: string) => /<p class="omni-page-header__lede">([^<]+)<\/p>/.exec(html)?.[1] ?? null;
+/** The head's meta row, fact by fact. */
+const meta = (html: string) => [...html.matchAll(/<li class="omni-page-header__fact">([^<]+)<\/li>/g)].map((m) => m[1]);
+/** The head: everything before the tab row. */
+const headOf = (html: string) => html.slice(html.indexOf('<div class="dossier-top">'), html.indexOf('<div class="dossier-tabbar">'));
+/** About this PRD: its section. */
+const aboutOf = (html: string) => {
+  const start = html.indexOf('<section class="dossier-about"');
+  return start === -1 ? '' : html.slice(start, html.indexOf('</section>', start));
+};
+/** The labels of About this PRD's facts, in order. */
+const facts = (html: string) => [...aboutOf(html).matchAll(/<dt class="omni-definition-list__label">([^<]+)<\/dt>/g)].map((m) => m[1]);
+/** The label of each button or button link in the head, in order. */
+const actions = (html: string) => [...headOf(html).matchAll(/<(?:a|button)[^>]*class="omni-button[^"]*"[^>]*>([^<]+)<\/(?:a|button)>/g)].map((m) => m[1]);
+
+describe('the head (omni-loop-20 s6)', () => {
+  it('shows the eyebrow, the 32 px title, who opened it and the repository in the meta row, and Copy link', () => {
     const html = page();
-    expect(html).toMatch(/<h1 class="omni-page-header__title">PRD dossiers<\/h1>.*<a class="dossier-number" href="https:\/\/github.com\/vertuoza\/vertuo-omni-loop\/issues\/216" target="_blank" rel="noopener noreferrer">PRD #216 ↗<\/a>/);
-    expect(html).toContain(REPO_CHIP('vertuoza/vertuo-omni-loop'));
-    expect(textOf(html)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
-    expect(html).toMatch(chip('Pierre'));
+    expect(html).toContain('<p class="omni-page-header__eyebrow">PRD #216</p>');
+    expect(html).toContain('<h1 class="omni-page-header__title">PRD dossiers</h1>');
+    expect(meta(html)).toEqual(['vertuoza/vertuo-omni-loop', 'Opened by Pierre · 27 Sep 2026, 09:12 UTC']);
+    expect(aboutOf(html)).toContain(REPO_CHIP('vertuoza/vertuo-omni-loop'));
+    expect(textOf(aboutOf(html))).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+    expect(aboutOf(html)).toMatch(chip('Pierre'));
     expect(html).toContain('>Copy link</button>');
   });
 
-  it('shows DRAFT for a draft', () => {
+  it('reads Draft for a draft, with no issue, its track on Idea while the brainstorm runs', () => {
     const html = page({ dossier: draft, pick: tab('before-after') });
-    expect(html).toContain('<span class="omni-badge omni-badge--warning">DRAFT</span>');
+    expect(html).toContain('<p class="omni-page-header__eyebrow">Draft</p>');
     expect(html).toContain('Offline quotes on the site app');
     expect(html).not.toContain('PRD #');
     expect(html).not.toContain('/issues/');
-    expect(html).toContain('<li class="stage-stop stage-current" aria-current="step">idea</li>');
-    expect(page({ dossier: draft, questions: [] })).toContain('<strong>Brainstorming</strong>');
-    expect(html).toContain('<strong>Stage: idea</strong><span class="ask-hint"> · Brainstorm in progress</span>');
+    expect(currentStage(html)).toBe('Idea · brainstorm in progress');
+    expect(currentStage(page({ dossier: draft, questions: [] }))).toBe('Idea · brainstorm in progress');
   });
 });
 
-describe('the stage header (PRD 426, PRD 587)', () => {
+describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
   const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
     ({ number: parsePr(number), url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
   const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
@@ -133,31 +155,42 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
     phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
   });
-  const track = (html: string) => [...html.matchAll(/<li class="stage-stop stage-(\w+)"[^>]*>([^<]+)<\/li>/g)]
-    .map((m) => `${m[2]}:${m[1]}`);
   const button = (html: string) => /<a class="omni-button omni-button--primary omni-button--md" href="([^"]+)" data-primary="" target="_blank" rel="noopener noreferrer">([^<]+)<\/a>/.exec(html)?.slice(1) ?? null;
   const links = (html: string) => [...html.matchAll(/<li><div class="omni-list-row omni-list-row--compact"><span class="omni-list-row__main"><span class="omni-list-row__title"><a href="[^"]+" target="_blank" rel="noopener noreferrer">([^<]+)<\/a><\/span><\/span><span class="omni-list-row__trailing"><span class="ask-hint">([^<]+)<\/span>/g)]
     .map((m) => `${m[1]} ${m[2]}`);
 
   it('shows no track when the stages were not asked for', () => {
-    expect(page()).not.toContain('stage-track');
-    expect(page({ github: summary() })).not.toContain('stage-track');
+    expect(page()).not.toContain('omni-stage-track');
+    expect(page({ github: summary() })).not.toContain('omni-stage-track');
   });
 
-  it('in the PRD stage, Approve spec opens the phase-0 PR; with none open yet, no button and "Spec being written"', () => {
+  it('says the stage once at every stage: one track, no Stage cell, no stage words, no stage pill, nothing in the meta row', () => {
+    for (const stage of ['prd', 'inbox', 'building', 'outbox', 'shipped', 'retro'] as const) {
+      const html = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at(stage) });
+      expect(html.match(/<ol class="omni-stage-track/g), stage).toHaveLength(1);
+      expect(html, stage).not.toContain('Stage: ');
+      expect(html, stage).not.toContain('Now:');
+      expect(html, stage).not.toContain('stage-stop');
+      expect(html, stage).not.toContain('<dt>Stage</dt>');
+      expect(facts(html), stage).not.toContain('Stage');
+      expect(meta(html).join(' '), stage).not.toMatch(new RegExp(stage, 'i'));
+    }
+  });
+
+  it('in the PRD stage, Approve spec opens the phase-0 PR; with none open yet, no button and the agents write the spec', () => {
     const html = page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') });
-    expect(track(html)).toEqual(['idea:passed', 'PRD:current', 'inbox:ahead', 'building:ahead', 'outbox:ahead', 'shipped:ahead', 'retro:ahead']);
-    expect(html).toContain('<strong>Stage: PRD</strong>');
+    expect(track(html)).toEqual(['Idea:done', 'PRD:current', 'Inbox:pending', 'Building:pending', 'Outbox:pending', 'Shipped:pending', 'Retro:pending']);
     expect(button(html)).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/220', 'Approve spec']);
+    expect(lede(html)).toBe('You review the spec and merge its phase-0 pull request.');
     expect(links(html)).toEqual(['issue #216 open', 'phase-0 #220 open']);
     const writing = page({ github: summary(), stages: at('prd') });
     expect(button(writing)).toBeNull();
-    expect(writing).toContain('Spec being written');
+    expect(lede(writing)).toBe('The agents write the spec. Nothing waits on you.');
   });
 
   it('in the inbox stage, Build it is a button carrying the command to copy', () => {
     const html = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at('inbox') });
-    expect(html).toContain('<strong>Stage: inbox</strong>');
+    expect(currentStage(html)).toBe('Inbox');
     expect(html).toContain(PRIMARY('Build it', '/omni:yolo 216'));
     expect(html).toContain('<code class="stage-command">/omni:yolo 216</code>');
     expect(links(html)).toEqual(['issue #216 open', 'phase-0 #220 ✓']);
@@ -172,25 +205,27 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     expect(await copyCommand('/omni:yolo 216', undefined)).toBe('refused');
   });
 
-  it('in the building stage, being built with the slices merged out of the plan\'s; in the outbox stage, Review & merge', () => {
+  it('in the building stage, the slices merged out of the plan\'s on the track; in the outbox stage, Review the feature', () => {
     const building = summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2 });
     const html = page({ github: building, slices: 5, stages: at('building') });
-    expect(html).toContain('<strong>Stage: building</strong><span class="ask-hint"> · Being built · 2/5 slices</span>');
+    expect(currentStage(html)).toBe('Building · 2 of 5 slices');
     expect(button(html)).toBeNull();
-    expect(html).not.toContain('stage-badge');
-    expect(button(page({ github: { ...building, feature: pr(221, 'open') }, stages: at('outbox') }))).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/221', 'Review &amp; merge']);
+    expect(html).not.toContain('data-primary');
+    const ready = page({ github: { ...building, feature: pr(221, 'open') }, stages: at('outbox') });
+    expect(ready).toContain(`<a class="omni-button omni-button--primary omni-button--md" href="/prd/${ID}/review" data-primary="">Review the feature</a>`);
   });
 
-  it('at building with open outbox items, shows N questions waiting beside the pills, linking to the outbox comment', () => {
+  it('at building with open outbox items, the one primary answers them on the Outbox tab', () => {
     const item = { id: 's1-01-x', rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null };
     const comment = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7';
     const red = summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2, outbox: { open: [item], settled: [] }, outboxComment: comment });
     const html = page({ github: red, stages: at('building') });
-    expect(html).toContain(`</ol><a class="stage-badge" href="${comment}" target="_blank" rel="noopener noreferrer">1 question waiting →</a>`);
-    expect(button(html)).toEqual([comment, 'Answer the outbox']);
+    expect(html).not.toContain('stage-badge');
+    expect(lede(html)).toBe('You answer the decision the agents left open.');
+    expect(html).toContain(`<a class="omni-button omni-button--primary omni-button--md" href="/prd/${ID}?tab=outbox" data-primary="">Answer 1 item</a>`);
   });
 
-  it('the head says where the outbox stands: waiting, answered, or unread (PRD 2223)', () => {
+  it('the track says where the outbox stands: waiting, answered, or unread (PRD 2223)', () => {
     const item = (id: string) => ({ id, rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null });
     const comment = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7';
     const answer = (number: number, id: string) => ({ number, id, text: 'B', by: 'paula', at: null, url: null, counted: true, door: 'github' as const });
@@ -201,18 +236,19 @@ describe('the stage header (PRD 426, PRD 587)', () => {
     const render = (replies: GithubSummary['replies']) => page({ github: { ...base, replies }, slices: 3, stages: at('building') });
 
     const waiting = render({ numbering, pending: [answer(1, 'a')] });
-    expect(waiting).toContain('<strong>Stage: building</strong><span class="ask-hint"> · 3/3 slices · 1 of 2 answered</span>');
-    expect(button(waiting)).toEqual([comment, 'Answer the outbox']);
+    expect(currentStage(waiting)).toBe('Building · 3 of 3 slices · 1 of 2 answered');
+    expect(waiting).toContain('>Answer 2 items</a>');
     expect(waiting).toContain('feature #221 · draft</a>');
 
     const answered = render({ numbering, pending: [answer(1, 'a'), answer(4, 'b')] });
-    expect(answered).toContain('<span class="ask-hint"> · 3/3 slices · answered</span>');
+    expect(currentStage(answered)).toBe('Building · 3 of 3 slices · answered');
+    expect(lede(answered)).toBe('Every answer is in: you start the fix with them.');
     expect(answered).toContain('type="button" title="/omni:yolo-fix 216" data-primary="">Fix with answers</button>');
     expect(answered).toContain('<a class="stage-fixes ask-hint" href="?tab=outbox">Fixes with 1: B · 4: B</a>');
 
     const unread = render(UNREAD);
-    expect(button(unread)).toEqual([comment, 'Answer the outbox']);
-    expect(unread).not.toContain('slices · ');
+    expect(unread).toContain('>Answer 2 items</a>');
+    expect(currentStage(unread)).toBe('Building · 3 of 3 slices');
     expect(unread).not.toContain('Fix with answers');
   });
 
@@ -224,27 +260,28 @@ describe('the stage header (PRD 426, PRD 587)', () => {
       outboxComment: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7', replies: { numbering: [{ number: 1, id: 'a' }], pending: [answer(1, 'a')] },
     });
     const fixing = page({ github, slices: 3, stages: at('building'), fixing: { runner: 'pierre-laptop' } });
-    expect(fixing).toContain('<span class="ask-hint"> · 3/3 slices · fixing on pierre-laptop</span>');
+    expect(currentStage(fixing)).toBe('Building · 3 of 3 slices · fixing on pierre-laptop');
+    expect(lede(fixing)).toBe('The agents fix it with your answers on pierre-laptop. Nothing waits on you.');
     expect(fixing).not.toContain('Fix with answers');
-    expect(fixing).not.toContain('slices · answered');
-    expect(page({ github, slices: 3, stages: at('building'), fixing: null })).toContain('slices · answered</span>');
+    expect(fixing).not.toContain('data-primary');
+    expect(currentStage(page({ github, slices: 3, stages: at('building'), fixing: null }))).toBe('Building · 3 of 3 slices · answered');
   });
 
-  it('says when the stage was last synced on hover, and Syncing… with nothing lit before the first sync', () => {
-    expect(page({ github: summary(), stages: at('prd') })).toContain('<p class="stage-words" title="last synced 29 Sep 2026, 09:15 UTC"><strong>Stage: PRD</strong>');
+  it('says when the stage was reached and last synced on hover, and lights nothing before the first sync', () => {
+    expect(page({ github: summary(), stages: at('prd') })).toContain('title="PRD since 28 Sep 10:00 UTC · 23.3 h · last synced 29 Sep 2026, 09:15 UTC"');
     const syncing = page({ github: summary(), stages: [] });
-    expect(track(syncing).every((stop) => stop.endsWith(':ahead'))).toBe(true);
-    expect(syncing).toContain('<p class="stage-words" title="not synced yet"><strong>Syncing…</strong></p>');
+    expect(track(syncing).every((stop) => stop.endsWith(':pending'))).toBe(true);
+    expect(lede(syncing)).toBe('Its stages are being read from GitHub.');
   });
 
   it('in the shipped stage, Pitch and the retro comes next; in the retro stage, Pitch, with the retro PR in the links (PRD 859)', () => {
     const shipped = summary({ issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'closed' }, phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 });
     const html = page({ github: shipped, stages: at('shipped') });
-    expect(html).toContain('Shipped · the retro is written next');
+    expect(lede(html)).toBe('Shipped: the retro is written next, and you may pitch it.');
     expect(button(html)).toBeNull();
     expect(html).toContain(PITCH_BUTTON);
     const retro = page({ github: { ...shipped, retro: pr(230, 'open') }, stages: at('retro') });
-    expect(track(retro)).toEqual(['idea:passed', 'PRD:passed', 'inbox:passed', 'building:passed', 'outbox:passed', 'shipped:passed', 'retro:current']);
+    expect(track(retro)).toEqual(['Idea:done', 'PRD:done', 'Inbox:done', 'Building:done', 'Outbox:done', 'Shipped:done', 'Retro:current']);
     expect(button(retro)).toBeNull();
     expect(retro).toContain(PITCH_BUTTON);
     expect(links(retro)).toEqual(['issue #216 ✓', 'phase-0 #220 ✓', 'feature #221 ✓', 'retro #230 open']);
@@ -265,12 +302,11 @@ describe('the stage header (PRD 426, PRD 587)', () => {
   it('when GitHub did not answer, still shows the stored stage and the rest of the page, with no GitHub-bound button', () => {
     for (const github of [null, summary({ retro: UNREAD })]) {
       const html = page({ github, stages: at('retro') });
-      expect(track(html).at(-1)).toBe('retro:current');
-      expect(html).toContain('<strong>Stage: retro</strong>');
+      expect(track(html).at(-1)).toBe('Retro:current');
       expect(button(html)).toBeNull();
       expect(html).toContain(PITCH_BUTTON);
-      expect(html).toContain('PRD #216 ↗');
-      expect(html).toContain('<div class="dossier-tabs">');
+      expect(html).toContain('<p class="omni-page-header__eyebrow">PRD #216</p>');
+      expect(html).toContain('<div class="dossier-tabbar">');
     }
   });
 
@@ -288,7 +324,7 @@ describe('the stage header (PRD 426, PRD 587)', () => {
   });
 });
 
-describe('the header box (PRD 476)', () => {
+describe('the head on the page anatomy, and About this PRD (omni-loop-20 s6)', () => {
   const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
     ({ number: parsePr(number), url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
   const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
@@ -296,115 +332,76 @@ describe('the header box (PRD 476)', () => {
     issue: { number: parseIssue(216), url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
     phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
   });
-  /** The one header box: everything between its opening tag and its end. */
-  const box = (html: string) => {
-    const start = html.indexOf('<header class="dossier-head">');
-    expect(start, 'one header box').toBeGreaterThanOrEqual(0);
-    expect(html.indexOf('<header', start + 1), 'the page header is the only one inside').toBe(html.indexOf('<header class="omni-page-header">', start));
-    return html.slice(start, html.indexOf('</nav></div></header>', start) + '</nav></div></header>'.length);
-  };
-  /** The title row: the title, then its actions. */
-  const titleRow = (html: string) => {
-    const head = box(html);
-    return head.slice(head.indexOf('<header class="omni-page-header">'), head.indexOf('<dl class="dossier-facts"'));
-  };
-  const cells = (html: string) => [...box(html).matchAll(/<dt>([^<]+)<\/dt>/g)].map((m) => m[1]);
-  /** The label of each action in the title row, in order. */
-  const actions = (html: string) => [...titleRow(html).matchAll(/<(?:a|button)[^>]*class="omni-button[^"]*"[^>]*>([^<]+)<\/(?:a|button)>/g)].map((m) => m[1]);
-  const cell = (html: string, label: string) => {
-    const head = box(html);
-    const at = head.indexOf(`<dt>${label}</dt>`);
-    return at === -1 ? null : head.slice(at, head.indexOf('</div>', at));
-  };
 
-  it('holds the title row, the facts strip and the tabs, in that order, with the pane after it', () => {
+  it('holds the head, then the tab row, then About this PRD, then the pane', () => {
     const html = page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') });
-    const head = box(html);
-    const top = head.indexOf('<header class="omni-page-header"><div class="omni-page-header__text"><div class="omni-page-header__line"><h1 class="omni-page-header__title">');
-    const facts = head.indexOf('<dl class="dossier-facts">');
-    const tabs = head.indexOf('<nav class="omni-tabs omni-tabs--md" aria-label="Artifacts">');
-    expect(top).toBeGreaterThan(0);
-    expect(facts).toBeGreaterThan(top);
-    expect(tabs).toBeGreaterThan(facts);
-    expect(html.indexOf('<section class="dossier-pane"')).toBeGreaterThan(html.indexOf('</nav></div></header>'));
+    const head = html.indexOf('<div class="dossier-top"><header class="omni-page-header">');
+    const track = html.indexOf('<ol class="omni-stage-track');
+    const tabs = html.indexOf('<div class="dossier-tabbar"><nav class="omni-tabs omni-tabs--md" aria-label="Artifacts">');
+    const about = html.indexOf('<section class="dossier-about" aria-label="About this PRD">');
+    expect(head).toBeGreaterThanOrEqual(0);
+    expect(track).toBeGreaterThan(head);
+    expect(tabs).toBeGreaterThan(track);
+    expect(about).toBeGreaterThan(tabs);
+    expect(html.indexOf('<section class="dossier-pane"')).toBeGreaterThan(about);
+    expect(html).not.toContain('dossier-facts');
+    expect(html).not.toContain('class="dossier-head"');
   });
 
-  it('puts the actions in the title row: the stage\'s button, then Copy link', () => {
-    expect(actions(page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') }))).toEqual(['Approve spec', 'Copy link']);
+  it('puts Copy link then the one primary in the head, and the primary only where someone acts', () => {
+    expect(actions(page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') }))).toEqual(['Copy link', 'Approve spec']);
     const inbox = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at('inbox') });
-    expect(actions(inbox)).toEqual(['Build it', 'Copy link']);
-    expect(titleRow(inbox)).toContain('<code class="stage-command">/omni:yolo 216</code>');
-    expect(actions(page({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }), stages: at('outbox') }))).toEqual(['Review &amp; merge', 'Copy link']);
+    expect(actions(inbox)).toEqual(['Copy link', 'Build it']);
+    expect(headOf(inbox)).toContain('<code class="stage-command">/omni:yolo 216</code>');
+    expect(actions(page({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }), stages: at('outbox') }))).toEqual(['Copy link', 'Review the feature']);
     expect(actions(page())).toEqual(['Copy link']);
   });
 
-  it('puts Delete draft last in the title row, for a draft\'s opener only', () => {
-    expect(actions(page({ dossier: draft, me: PIERRE.user_id }))).toEqual(['Copy link', 'Delete draft']);
-    expect(actions(page({ dossier: draft, me: MARIE.user_id }))).toEqual(['Copy link']);
+  it('gives a draft\'s opener the Actions menu, and nobody else', () => {
+    expect(headOf(page({ dossier: draft, me: PIERRE.user_id }))).toMatch(/<button[^>]*class="omni-button omni-button--secondary omni-button--md"[^>]*>Actions<span class="omni-icon/);
+    expect(headOf(page({ dossier: draft, me: MARIE.user_id }))).not.toContain('>Actions<');
+    expect(headOf(page({ dossier: draft, me: PIERRE.user_id, supabase: null }))).not.toContain('>Actions<');
+    expect(headOf(page({ dossier: numbered, me: PIERRE.user_id }))).not.toContain('>Actions<');
   });
 
-  it('shows Stage, Repo, On GitHub and Opened for a PRD in every stage', () => {
-    const stages: [GithubSummary, StageRow['stage'], string][] = [
-      [summary(), 'prd', 'Stage: PRD'],
-      [summary({ phase0: pr(220, 'open') }), 'prd', 'Stage: PRD'],
-      [summary({ phase0: pr(220, 'merged') }), 'inbox', 'Stage: inbox'],
-      [summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2 }), 'building', 'Stage: building'],
-      [summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }), 'outbox', 'Stage: outbox'],
-      [summary({ phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 }), 'shipped', 'Stage: shipped'],
-      [summary({ phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5, retro: pr(230, 'open') }), 'retro', 'Stage: retro'],
-    ];
-    for (const [github, stage, words] of stages) {
-      const html = page({ github, stages: at(stage) });
-      expect(cells(html), words).toEqual(['Stage', 'Repo', 'On GitHub', 'Opened']);
-      expect(cell(html, 'Stage')).toContain('<ol class="stage-track" aria-label="Stages" title="last synced 29 Sep 2026, 09:15 UTC">');
-      expect(cell(html, 'Stage')).toContain(`<strong>${words}</strong>`);
-      expect(cell(html, 'On GitHub')).toContain('<ul class="stage-links" aria-label="On GitHub">');
-      expect(cell(html, 'Repo')).toContain(REPO_CHIP('vertuoza/vertuo-omni-loop'));
-      const opened = cell(html, 'Opened');
-      assertDefined(opened, 'the Opened cell');
-      expect(textOf(opened)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+  it('lists the repository, On GitHub and Opened in About this PRD at every stage', () => {
+    for (const stage of ['prd', 'inbox', 'building', 'outbox', 'shipped', 'retro'] as const) {
+      const html = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at(stage) });
+      expect(facts(html), stage).toEqual(['Repository', 'On GitHub', 'Opened']);
+      expect(aboutOf(html)).toContain('<ul class="stage-links" aria-label="On GitHub">');
+      expect(textOf(aboutOf(html))).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
     }
   });
 
-  it('says Repos for more than one repository, each a chip', () => {
+  it('says Repositories for more than one repository, each a chip, and counts them in the meta row', () => {
     const html = page({ repos: ['vertuoza/vertuo-omni-loop', 'demo-org/nimbus-web'] });
-    expect(cells(html)).toEqual(['Repos', 'Opened']);
-    expect(cell(html, 'Repos')).toContain(`<ul class="dossier-repos" aria-label="Repositories">${REPO_CHIP('vertuoza/vertuo-omni-loop')}${REPO_CHIP('demo-org/nimbus-web')}</ul>`);
+    expect(facts(html)).toEqual(['Repositories', 'Opened']);
+    expect(aboutOf(html)).toContain(`<ul class="dossier-repos" aria-label="Repositories">${REPO_CHIP('vertuoza/vertuo-omni-loop')}${REPO_CHIP('demo-org/nimbus-web')}</ul>`);
+    expect(meta(html)[0]).toBe('2 repositories');
   });
 
-  it('shows a draft its idea stage, with no On GitHub cell', () => {
-    const html = page({ dossier: draft, me: PIERRE.user_id });
-    expect(cells(html)).toEqual(['Stage', 'Repo', 'Opened']);
-    expect(titleRow(html)).toContain('<span class="omni-badge omni-badge--warning">DRAFT</span>');
+  it('shows a draft no On GitHub fact', () => {
+    expect(facts(page({ dossier: draft, me: PIERRE.user_id }))).toEqual(['Repository', 'Opened']);
   });
 
-  it('shows no Stage cell where the stages were not asked for', () => {
-    expect(cells(page())).toEqual(['Repo', 'Opened']);
-    expect(box(page())).not.toContain('stage-track');
-  });
-
-  it('shows the stored stage in the Stage cell when GitHub did not answer, and Syncing… before the first sync', () => {
+  it('shows the links GitHub gave when GitHub did not answer the rest', () => {
     for (const github of [null, summary({ retro: UNREAD })]) {
-      const html = page({ github, stages: at('shipped') });
-      expect(cells(html)).toEqual(github ? ['Stage', 'Repo', 'On GitHub', 'Opened'] : ['Stage', 'Repo', 'Opened']);
-      expect(cell(html, 'Stage')).toContain('<strong>Stage: shipped</strong>');
-      expect(cell(page({ github, stages: [] }), 'Stage')).toContain('<strong>Syncing…</strong>');
+      expect(facts(page({ github, stages: at('shipped') }))).toEqual(github ? ['Repository', 'On GitHub', 'Opened'] : ['Repository', 'Opened']);
     }
   });
 });
 
-describe('Delete', () => {
-  it('is offered to the opener of a draft', () => {
-    expect(page({ dossier: draft, me: PIERRE.user_id })).toContain('>Delete draft</button>');
-  });
-
-  it('is offered to nobody else, and to nobody on a numbered dossier', () => {
+describe('Delete draft', () => {
+  it('is an action of the Actions menu, for the opener of a draft where the page can delete', () => {
+    expect(page({ dossier: draft, me: PIERRE.user_id })).toContain('>Actions<');
     expect(page({ dossier: draft, me: MARIE.user_id })).not.toContain('Delete');
     expect(page({ dossier: numbered, me: PIERRE.user_id })).not.toContain('Delete');
   });
 
-  it('is not offered where the page has no database to delete from', () => {
-    expect(page({ dossier: draft, me: PIERRE.user_id, supabase: null })).not.toContain('Delete');
+  it('asks before it deletes, and does nothing when the person says no', async () => {
+    let asked = '';
+    expect(await removeDraft(SUPABASE, ID, (question) => { asked = question; return false; })).toBeNull();
+    expect(asked).toBe(DELETE_CONFIRM);
   });
 });
 
@@ -479,15 +476,14 @@ describe('the Outbox tab (PRD 426)', () => {
     expect(html).toContain('Zeta or eta?');
     expect(html).toContain('<p class="outbox-settled-answer">Zeta, as built.</p>');
     expect(html).toContain('<small>2 open</small>');
-    expect(html).toContain('<strong>Stage: outbox</strong>');
-    expect(html).toContain('>Answer the outbox</a>');
+    expect(html).toContain('>Answer 2 items</a>');
   });
 
   it('with none open, says nothing is waiting, lists the settled ones, and counts them on the tab', () => {
     const html = outbox(outboxSummary({ open: [], settled: SETTLED }));
     expect(html).toContain('<p class="outbox-nothing">Nothing is waiting on you.</p>');
     expect(html).toContain('<small>1 settled</small>');
-    expect(html).toContain('>Review &amp; merge</a>');
+    expect(html).toContain('>Review the feature</a>');
   });
 
   it('is dimmed and says why while empty, and says when GitHub did not answer', () => {
@@ -819,18 +815,12 @@ describe('the pieces the browser takes over', () => {
     );
   });
 
-  it('the header box writes its height as whole pixels, never negative, for the rounds to land under (PRD 476)', () => {
+  it('the pinned tab row writes its height as whole pixels, never negative, for the rounds to land under (PRD 476)', () => {
     expect(headHeight(212)).toBe('212px');
     expect(headHeight(211.2)).toBe('212px');
     expect(headHeight(0)).toBe('0px');
     expect(headHeight(-4)).toBe('0px');
     expect(headHeight(Number.NaN)).toBe('0px');
-  });
-
-  it('Delete draft is one quiet button', () => {
-    expect(renderToStaticMarkup(createElement(DeleteDraft, { supabase: SUPABASE, id: ID }))).toBe(
-      '<span class="dossier-delete"><button class="omni-button omni-button--quiet omni-button--md" type="button">Delete draft</button></span>',
-    );
   });
 
   it('the sign-in card offers only GitHub and says the link opens for its members', () => {

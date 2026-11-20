@@ -176,7 +176,7 @@ describe('the page to share', () => {
   it('shows a member of the workspace the dossier', async () => {
     given.token = 'bob';
     const page = await html(numbered);
-    expect(page).toContain('<a class="dossier-number" href="https://github.com/acme/widgets/issues/7" target="_blank" rel="noopener noreferrer">PRD #7 ↗</a>');
+    expect(page).toContain('<p class="omni-page-header__eyebrow">PRD #7</p>');
     expect(page).toContain('Team inbox');
     expect(page).toContain(REPO_CHIP('acme/widgets'));
     expect(textOf(page)).toContain('opened by ADA · ');
@@ -319,13 +319,14 @@ describe('the page to share', () => {
 
   it('offers the opener of a draft Delete draft, and nobody else', async () => {
     given.token = 'ada';
+    // omni-loop-20 s6: Delete draft is an action of the head's Actions menu, drawn once it opens.
     const mine = await html(draft);
-    expect(mine).toContain('<span class="omni-badge omni-badge--warning">DRAFT</span>');
-    expect(mine).toContain('Delete draft');
+    expect(mine).toContain('<p class="omni-page-header__eyebrow">Draft</p>');
+    expect(mine).toContain('>Actions<');
     given.token = 'bob';
-    expect(await html(draft)).not.toContain('Delete draft');
+    expect(await html(draft)).not.toContain('>Actions<');
     given.token = 'ada';
-    expect(await html(numbered)).not.toContain('Delete draft');
+    expect(await html(numbered)).not.toContain('>Actions<');
   });
 
   it('is not found for a member of another workspace', async () => {
@@ -405,7 +406,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     given.token = 'bob';
     const page = await html(numbered);
     expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
-    expect(page).toContain('<strong>Stage: inbox</strong>');
+    expect(page).toContain('<span class="omni-stage-track__name">Inbox</span><span class="omni-stage-track__state"> (current)</span>');
     expect(page).toContain('type="button" title="/omni:yolo 7" data-primary="">Build it</button>');
     expect(page).toContain('>phase-0 #12</a></span></span><span class="omni-list-row__trailing"><span class="ask-hint">✓</span>');
   });
@@ -426,19 +427,20 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     await stored('shipped');
     given.token = 'bob';
     const page = await html(numbered);
-    expect(page).toContain('<strong>Stage: shipped</strong>');
-    expect(page).toContain('title="last synced 29 Sep 2026, 09:15 UTC"');
+    expect(page).toContain('<span class="omni-stage-track__name">Shipped</span><span class="omni-stage-track__state"> (current)</span>');
+    expect(page).toContain('· last synced 29 Sep 2026, 09:15 UTC"');
     expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
   });
 
   it('says Syncing… for a PRD with no stored stage yet, or whose stages could not be read', async () => {
     given.summary.mockResolvedValue(inbox);
     given.token = 'bob';
-    expect(await html(numbered)).toContain('<strong>Syncing…</strong>');
+    const syncing = 'Its stages are being read from GitHub.';
+    expect(await html(numbered)).toContain(syncing);
     given.stages.fail = 'down';
     const page = await html(numbered);
-    expect(page).toContain('<strong>Syncing…</strong>');
-    expect(page).toContain('PRD #7 ↗');
+    expect(page).toContain(syncing);
+    expect(page).toContain('<p class="omni-page-header__eyebrow">PRD #7</p>');
   });
 
   const keepSnapshot = (summary: object, staleSince: string | null = null) => {
@@ -492,7 +494,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     await html(numbered);
     given.token = 'ada';
     const page = await html(draft);
-    expect(page).toContain('<strong>Brainstorming</strong></p>');
+    expect(page).toContain('<span class="omni-stage-track__name">Idea · brainstorm in progress</span>');
     given.mode = 'demo';
     await html('anything');
     expect(given.summary).not.toHaveBeenCalled();
@@ -513,7 +515,7 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     given.token = 'bob';
     const page = await html(numbered);
     expect(given.approval).toHaveBeenCalledWith(expect.anything(), numbered);
-    expect(page).toContain('<dt>Approval</dt>');
+    expect(page).toContain('<dt class="omni-definition-list__label">Approval</dt>');
     expect(page).toContain('<strong>waiting for approval</strong>');
     expect(page).toMatch(APPROVE);
   });
@@ -586,7 +588,7 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     const page = await html(numbered);
     expect(page).toContain('The approval could not be read');
     expect(page).not.toMatch(APPROVE);
-    expect(page).toContain('PRD #7 ↗');
+    expect(page).toContain('<p class="omni-page-header__eyebrow">PRD #7 · Product PRD</p>');
   });
 
   // PRD 1322 s7: the approve screen.

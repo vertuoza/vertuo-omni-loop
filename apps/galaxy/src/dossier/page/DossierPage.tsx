@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Badge, Card, EmptyState, Notice, PageHeader, Stack, Tabs, Text } from '@omni/ui';
-import { PersonChip } from '../../people/PersonChip';
-import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
+import { Badge, Button, Card, EmptyState, Notice, Tabs } from '@omni/ui';
+import { TrailItem } from '../../nav/AppBarItem';
+import { TimelinePane } from '../../fixes/TimelinePane';
 import { PrdTimelinePane } from '../../timeline/TimelineView';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
@@ -10,13 +10,11 @@ import { approveOff, type ApprovalView, type ApproveScreen } from './approval';
 import { ApproveButton } from './ApproveButton';
 import { BusinessLawsVerdict } from './BusinessLawsVerdict';
 import { GiveTechApprovalButton } from './GiveTechApprovalButton';
-import { RequestTechApproval } from './RequestTechApproval';
 import { SealCard } from './SealCard';
 import { Attestation } from './Attestation';
 import type { AttestationView } from './Attestation.service';
 import { CarePane } from './CarePane';
 import { CopyLink } from './CopyLink';
-import { DeleteDraft } from './DeleteDraft';
 import { MainPane } from './MainPane';
 import { MarkSeen } from './MarkSeen';
 import { OutboxPane } from './OutboxPane';
@@ -30,9 +28,11 @@ import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
 import { PitchPane } from './PitchPane';
-import { ProductPicker } from './ProductPicker';
 import { ProofPane } from './ProofPane';
-import { DossierMarks, StageAction, StageLinks, StageTrack } from './StageHeader';
+import { AboutPrd } from './AboutPrd';
+import { actionsOf, eyebrowOf, fixTrack, metaOf, nextStep, prdTrack, type NextStep } from './next-step';
+import { HeadTrack, StageAction } from './StageHeader';
+import { DossierHead } from './StageHeaderHead';
 import { VersionPicker } from './VersionPicker';
 import { isArtifactTab, TAB_LABELS, type DossierView } from './view';
 import { VOICE_EMPTY, type VoiceView } from './voice';
@@ -79,6 +79,12 @@ import { VoicePane } from './VoicePane';
 // has read it. None in the demo, nor on a fix.
 // PRD 1548 s4: a product PRD's approval in force has its attestation under the head (Attestation.tsx), at
 // #attestation, where omni/approved's Details opens; Ask again there opens the approve screen, at #approve.
+// omni-loop-20 s6: the head moves onto the page anatomy (@omni/ui's PageHeader and StageTrack): the eyebrow,
+// the title, a subtitle naming who acts next and what (next-step.ts), at most five facts, Copy link, the one
+// primary for the person who acts (the signed decisions linking to /prd/<id>/review), the Actions menu
+// (Request a Tech Approval, Delete draft), then the stage said once. The facts strip is gone: what the head
+// has no room for is About this PRD (AboutPrd.tsx), under the tab bar. Only the tab row pins. A fix's page
+// gets the same head, its track Asked · Picked · Approved · Merged · Released. The page spans the full width.
 
 type Props = {
   view: DossierView;
@@ -185,19 +191,6 @@ function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
   );
 }
 
-/** A ◆ PRD's Approval cell (PRD 1299 s3): its state, then who approved it and when, or what changed since. */
-function ApprovalFact({ approval }: { approval: ApprovalView }) {
-  return (
-    <div className={`dossier-fact dossier-approval dossier-approval-${approval.state}`}>
-      <dt>Approval</dt>
-      <dd>
-        {approval.state === 'unread' ? <Notice tone="danger">{approval.words}</Notice> : <strong>{approval.words}</strong>}
-        {approval.detail && <Text size="small" tone="secondary">{approval.detail}</Text>}
-      </dd>
-    </div>
-  );
-}
-
 const DIFF_CLASS = { '+': 'dossier-diff-add', '-': 'dossier-diff-del', ' ': 'dossier-diff-same', '…': 'dossier-diff-gap' } as const;
 
 /** One changed file's diff since it was approved (PRD 1322 s7). */
@@ -248,10 +241,9 @@ function ApproveScreenSection({ screen, laws, button }: { screen: ApproveScreen 
 /** Under the head of a ◆ PRD: the approve screen for whoever may approve it, or the seal once approved. */
 function ApprovalArea({ approval }: { approval: ApprovalView }) {
   const { tech } = approval;
-  const request = approval.canRequestTech && <RequestTechApproval dossier={approval.dossier} />;
-  if (tech?.canGive) return <>{request}<ApproveScreenSection screen={tech.screen} laws={approval.laws} button={<GiveTechApprovalButton dossier={approval.dossier} />} /></>;
-  if (approval.canApprove) return <>{request}<ApproveScreenSection screen={approval.screen} laws={approval.laws} button={<ApproveButton dossier={approval.dossier} off={approveOff(approval)} />} /></>;
-  return <>{request}{tech?.waiting && <p className="ask-hint dossier-tech-waiting">{tech.waiting}</p>}<Seals approval={approval} />{approval.seal && <BusinessLawsVerdict laws={approval.laws} />}</>;
+  if (tech?.canGive) return <ApproveScreenSection screen={tech.screen} laws={approval.laws} button={<GiveTechApprovalButton dossier={approval.dossier} />} />;
+  if (approval.canApprove) return <ApproveScreenSection screen={approval.screen} laws={approval.laws} button={<ApproveButton dossier={approval.dossier} off={approveOff(approval)} />} />;
+  return <><Seals approval={approval} />{approval.seal && <BusinessLawsVerdict laws={approval.laws} />}</>;
 }
 
 /** The seals of an approval in force: the tech one first, then the product one. */
@@ -270,135 +262,39 @@ function UnderHead({ approval, attestation }: { approval: ApprovalView | null; a
   );
 }
 
-/** The Stage cell: the track, the timeline line, and, while a Tech Approval is missing, who the PRD waits on (PRD 2608). */
-function StageFact({ view }: { view: DossierView }) {
-  const { stage, timelineLine } = view;
-  const techWaiting = view.approval?.tech?.waiting;
-  if (!stage) return null;
+/** The one primary, for the person who acts: a signed decision or the outbox's answers as a link, else the
+ * stage's own button (a command to copy, a GitHub link, Pitch). */
+function Primary({ view, primary }: { view: DossierView; primary: NonNullable<NextStep['primary']> }) {
+  if (primary.kind === 'link') return <Button variant="primary" href={primary.href}>{primary.label}</Button>;
+  return <StageAction stage={view.stage} demo={view.demo ?? false} />;
+}
+
+/** The name the app bar's trail gives the item (omni-loop-20 s6): `PRD #216`, `Draft`, or a fix's `Visual #548`. */
+const trailName = (view: DossierView) => (view.kind !== 'prd' ? `${view.badge ?? 'Fix'} ${view.heading}` : view.draft ? 'Draft' : view.heading);
+
+/** The head on the page anatomy (omni-loop-20 s6): eyebrow, title, who acts next, at most five facts, Copy
+ * link, the one primary for the person who acts, the Actions menu, then the stage said once. It scrolls
+ * away; only the tab row under it pins. */
+function Head({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
+  const step = nextStep(view);
+  const track = view.kind === 'prd' ? prdTrack(view) : fixTrack(view);
+  const draft = view.canDelete && supabase ? { supabase, id: view.id } : null;
   return (
-    <div className="dossier-fact dossier-fact-stage">
-      <dt>Stage</dt>
-      <dd>
-        <StageTrack stage={stage} />
-        {timelineLine && <p className="ask-hint prd-timeline-line">{timelineLine}</p>}
-        {techWaiting && <p className="ask-hint dossier-stage-tech">{techWaiting}</p>}
-      </dd>
+    <div className="dossier-top">
+      <TrailItem name={trailName(view)} />
+      <DossierHead
+        title={view.title}
+        eyebrow={eyebrowOf(view)}
+        lede={step.lede}
+        meta={metaOf(view)}
+        {...(step.primary ? { action: <Primary view={view} primary={step.primary} /> } : {})}
+        secondary={<CopyLink path={view.link} />}
+        actions={actionsOf(view, draft !== null)}
+        draft={draft}
+        dossier={view.approval?.dossier ?? view.id}
+      />
+      {track && <HeadTrack track={track} />}
     </div>
-  );
-}
-
-/** A watched PRD's Main cell (PRD 2410, s3): Watching · n days left, Clean, Broke main or Could not check, linking its Main tab. */
-function MainFact({ view }: { view: DossierView }) {
-  const main = view.mainWatch;
-  if (!main) return null;
-  const href = view.tabs.find((t) => t.kind === 'main')?.href ?? view.link;
-  return (
-    <div className={`dossier-fact dossier-main dossier-main-${main.state}`}>
-      <dt>Main</dt>
-      <dd><a href={href}><strong>{main.words}</strong></a></dd>
-    </div>
-  );
-}
-
-/** A PRD's Product cell (PRD 1364 s7), on a deployment with a database: none in the demo, nor on a fix. */
-function ProductFact({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
-  return view.kind === 'prd' && supabase && !view.demo ? <ProductPicker dossier={view.id} /> : null;
-}
-
-/** The title row of the head: the title with its marks, and the actions, the stage's button the only primary one. */
-function HeadTitle({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
-  return (
-    <PageHeader
-      title={view.title}
-      status={<DossierMarks heading={view.heading} draft={view.draft} issueUrl={view.issueUrl} badge={view.badge} />}
-      action={(
-        <Stack direction="row" gap="2" align="center" wrap>
-          <StageAction stage={view.stage} demo={view.demo ?? false} />
-          <CopyLink path={view.link} />
-          {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
-        </Stack>
-      )}
-    />
-  );
-}
-
-/** The Repo or Repos cell: each repository a chip. */
-function RepoFact({ repos }: { repos: DossierView['repos'] }) {
-  return (
-    <div className="dossier-fact">
-      <dt>{repos.length > 1 ? 'Repos' : 'Repo'}</dt>
-      <dd>
-        <ul className="dossier-repos" aria-label="Repositories">
-          {repos.map((repo) => <li key={repo} className="dossier-repo"><Badge tone="neutral">{repo}</Badge></li>)}
-        </ul>
-      </dd>
-    </div>
-  );
-}
-
-/** A fix's State cell, and its On GitHub cell when it has links. */
-function FixFacts({ fix }: { fix: NonNullable<DossierView['fix']> }) {
-  return (
-    <>
-      <div className="dossier-fact">
-        <dt>State</dt>
-        <dd><FixStatePill fix={fix} /></dd>
-      </div>
-      {fix.links.length > 0 && (
-        <div className="dossier-fact">
-          <dt>On GitHub</dt>
-          <dd><StageLinks links={fix.links} /></dd>
-        </div>
-      )}
-    </>
-  );
-}
-
-/** A PRD's On GitHub cell: its issue and pull requests, and when GitHub was last read. */
-function GithubFact({ view }: { view: DossierView }) {
-  const { stage } = view;
-  if (!stage || (stage.links.length === 0 && !view.githubAsOf)) return null;
-  return (
-    <div className="dossier-fact">
-      <dt>On GitHub</dt>
-      <dd>
-        {stage.links.length > 0 && <StageLinks links={stage.links} />}
-        {view.githubAsOf && (
-          <p className="ask-hint github-as-of">
-            {view.githubAsOf}{view.githubResumes && <> · <strong>{view.githubResumes}</strong></>}
-          </p>
-        )}
-      </dd>
-    </div>
-  );
-}
-
-/** The Opened cell: who opened it, and when. */
-function OpenedFact({ view }: { view: DossierView }) {
-  return (
-    <div className="dossier-fact">
-      <dt>Opened</dt>
-      <dd className="ask-hint">
-        {view.openedBy ? <>opened by <PersonChip person={view.openedBy} size="inline" /> · {view.openedAt}</> : view.opened}
-      </dd>
-    </div>
-  );
-}
-
-/** The facts strip of the head: labelled cells, each left out when it has nothing to show. */
-function HeadFacts({ view, supabase }: Pick<Props, 'view' | 'supabase'>) {
-  const { fix, approval } = view;
-  return (
-    <dl className="dossier-facts">
-      <StageFact view={view} />
-      {approval && <ApprovalFact approval={approval} />}
-      <MainFact view={view} />
-      <ProductFact view={view} supabase={supabase} />
-      <RepoFact repos={view.repos} />
-      {fix && <FixFacts fix={fix} />}
-      <GithubFact view={view} />
-      <OpenedFact view={view} />
-    </dl>
   );
 }
 
@@ -417,20 +313,18 @@ function HeadTabs({ view }: { view: DossierView }) {
     ),
   }));
   return (
-    <div className="dossier-tabs">
-      <Tabs label="Artifacts" current={view.tabs.find((t) => t.current)?.kind ?? view.tab} items={items} link={Link} />
-    </div>
+    <Tabs label="Artifacts" current={view.tabs.find((t) => t.current)?.kind ?? view.tab} items={items} link={Link} />
   );
 }
 
 export function DossierPage({ view, markdown, supabase, live, voice, attestation, productOutbox, ready }: Props) {
   return (
     <div className="dossier">
-      <PinnedHead>
-        <HeadTitle view={view} supabase={supabase} />
-        <HeadFacts view={view} supabase={supabase} />
+      <Head view={view} supabase={supabase} />
+      <PinnedHead bar>
         <HeadTabs view={view} />
       </PinnedHead>
+      <AboutPrd view={view} supabase={supabase} />
       <UnderHead approval={view.approval} attestation={attestation} />
       <ReadyPanel ready={ready} />
       <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />

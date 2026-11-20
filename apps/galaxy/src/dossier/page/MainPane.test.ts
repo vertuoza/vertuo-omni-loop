@@ -43,7 +43,8 @@ const html = (mainWatch: MainWatchRead | null | undefined, query: Record<string,
   view: dossierView({ dossier: numbered, versions: [], members: [PIERRE], rounds: [], mainWatch }, PIERRE.user_id, readPick(query), NOW),
   markdown: null, supabase: SUPABASE,
 }));
-const head = (page: string) => page.slice(0, page.indexOf('class="dossier-tabs"'));
+/** About this PRD, where the Main fact sits since omni-loop-20 s6. */
+const head = (page: string) => /<section class="dossier-about".*?<\/section>/s.exec(page)?.[0] ?? '';
 
 describe('a PRD nobody watches', () => {
   it('shows no Main cell and no Main tab', () => {
@@ -62,7 +63,7 @@ describe('a PRD nobody watches', () => {
 describe('the Main cell of the facts strip', () => {
   it('says Watching · n days left', () => {
     const page = html({ watches: [watch()], breaks: [] });
-    expect(head(page)).toContain('<dt>Main</dt>');
+    expect(head(page)).toContain('<dt class="omni-definition-list__label">Main</dt>');
     expect(head(page)).toContain('Watching · 5 days left');
     expect(head(page)).toContain('href="/prd/' + ID + '?tab=main"');
   });

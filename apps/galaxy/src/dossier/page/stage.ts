@@ -215,6 +215,11 @@ export type StageView = CurrentStage & Action & {
   links: StageLink[];
   /** What hovering the stage says: `last synced 29 Sep 2026, 09:15 UTC`, or `not synced yet`; null for a draft. */
   synced: string | null;
+  /** The current stage's progress in words, for the stage track (omni-loop-20 s6): `2 of 5 slices · 1 of 2
+   * answered`, `fixing on <runner>`; null when nothing is counted. */
+  progress: string | null;
+  /** When each stored stage was reached, by stage: the track's hover times (omni-loop-20 s6). */
+  reached: Partial<Record<StageId, string>>;
 };
 
 function linksOf(summary: GithubSummary | null | undefined): StageLink[] {
@@ -262,6 +267,27 @@ export type StageViewInput = {
   fixing?: Fixing | null | undefined;
 };
 
+/** `2 of 5 slices`, or `2 slices merged` when the plan's slice count is not known: the track's words. */
+const progressWords = (merged: number, slices: number | null) =>
+  slices === null ? `${merged} slice${merged === 1 ? '' : 's'} merged` : `${merged} of ${slices} slices`;
+
+/** The current stage's progress, said by the stage track: the slices merged while it is built, then where
+ * the outbox's answers stand; null when nothing is counted (omni-loop-20 s6). */
+function progressOf(id: CurrentStage['id'], github: GithubSummary | null, slices: number | null, fixing: Fixing | null): string | null {
+  if (id !== 'building' && id !== 'outbox') return null;
+  const merged = github ? github.mergedSlices : UNREAD;
+  const stand = openOutboxOf(github) ? outboxStand(github) : null;
+  const words = [
+    ...(known(merged) && merged > 0 ? [progressWords(merged, slices)] : []),
+    ...(stand ? [standWords(stand, fixing)] : []),
+  ];
+  return words.length ? words.join(' · ') : null;
+}
+
+/** When each stored stage was first reached. */
+const reachedOf = (rows: readonly StageRow[]): Partial<Record<StageId, string>> =>
+  Object.fromEntries(rows.map((row) => [row.stage, row.reached_at]));
+
 export function stageView({ prd, answered = false, rows, github = null, slices = null, fixing = null }: StageViewInput): StageView {
   const stage = storedStageOf({ prd, answered, rows, openOutbox: openOutboxOf(github) });
   return {
@@ -269,5 +295,7 @@ export function stageView({ prd, answered = false, rows, github = null, slices =
     ...actionOf(stage.id, prd, github, slices, fixing),
     links: prd === null ? [] : linksOf(github),
     synced: prd === null ? null : syncedWords(stage.syncedAt),
+    progress: progressOf(stage.id, github, slices, fixing),
+    reached: reachedOf(rows),
   };
 }

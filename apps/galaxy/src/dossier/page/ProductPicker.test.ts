@@ -71,10 +71,9 @@ describe('on the PRD page', () => {
     return renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, supabase }));
   };
 
-  it('places the picker of a PRD in its facts strip, after Approval\'s place, before Repo', () => {
+  it('places the picker of a PRD first in About this PRD, before its other facts (omni-loop-20 s6)', () => {
     const html = page(row, SUPABASE);
-    const facts = html.slice(html.indexOf('<dl class="dossier-facts">'), html.indexOf('</dl>'));
-    expect(facts).toContain(`<i data-product-picker="${ID}"></i><div class="dossier-fact"><dt>Repo</dt>`);
+    expect(html).toContain(`<section class="dossier-about" aria-label="About this PRD"><i data-product-picker="${ID}"></i><dl class="omni-definition-list`);
   });
 
   it('places none without a database (the demo), nor on a fix', () => {
