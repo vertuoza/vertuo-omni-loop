@@ -122,6 +122,9 @@ const OTHER_LINK_COLUMNS = 'repository, products(name)';
 /** A link of another product to one of this product's repositories, with that product's name. */
 const StoredOtherLink = z.object({ repository: z.string(), products: z.object({ name: z.string() }) });
 export type StoredOtherLink = z.infer<typeof StoredOtherLink>;
+/** The same link as read: its product is null when the reader cannot read it (a member, an archived product; #3115). */
+const ReadOtherLink = StoredOtherLink.extend({ products: StoredOtherLink.shape.products.nullable() });
+const readable = (link: z.infer<typeof ReadOtherLink>): link is StoredOtherLink => link.products !== null;
 
 const PHASE0_COLUMNS = 'full_name, phase0';
 /** Where a repository's phase 0 is approved: `pr` (docs-only pull request) or `server` (the PRD page). */
@@ -380,7 +383,7 @@ export function productHomeRepository(db: ProductHomeDb) {
       if (repos.length === 0) return [];
       const { data, error } = await otherLinksOf(db, { workspace, product }, repos);
       if (error) throw new Error(`Supabase: could not read the repositories' other products (${why(error)})`);
-      return orThrow(parseRows(StoredOtherLink, data, `${WHERE}: product_repositories of other products`));
+      return orThrow(parseRows(ReadOtherLink, data, `${WHERE}: product_repositories of other products`)).filter(readable);
     },
 
     /** The phase 0 flag of `repos`. */

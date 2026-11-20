@@ -234,6 +234,12 @@ describe('the product home\'s storage', () => {
     ]);
   });
 
+  it('leaves out another product\'s link when the reader cannot read that product, as a member an archived one (#3115)', async () => {
+    const live = { repository: 'a/api', products: { name: 'Web' } };
+    const hidden = { repository: 'a/api', products: null };
+    expect(await stub({ product_repositories: { data: [hidden, live] } }).repo.otherLinks('ws-1', 'p-1', ['a/api'])).toEqual([live]);
+  });
+
   it('reads the targets of the PRDs given, none for no PRD, and throws on a refusal or an answer out of shape (PRD 2174 s3)', async () => {
     const row = { dossier_id: 'd-1', repository: 'a/api' };
     const { calls, repo } = stub({ prd_targets: { data: [row] } });
