@@ -1,12 +1,13 @@
 /* The Commander tab of a Virtual Fleet (PRD 3107 s1), as the `fleet-commander` screen draws it: the status line, then
    the thread (a member's message set in, the Commander's reply flush with its glyph, a bold verdict, one row per claim
-   with its source chip at the right, a muted footer), then the box. Every value is a token of @omni/design. At 393 px a
-   claim's chip goes under its sentence. */
+   with its source chip at the right, a muted footer), then the box; beside them, the Waiting on you rail (s2), sticky,
+   one card per question. Every value is a token of @omni/design. At 393 px a claim's chip goes under its sentence, and
+   the rail goes under the thread. */
 
 .commander { display: grid; gap: var(--space-4); margin-top: var(--space-3); min-width: 0; }
 .commander-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; color: var(--color-text-secondary); font-size: var(--type-2-size); }
 .commander-main { display: grid; gap: var(--space-4); min-width: 0; max-width: 900px; }
-.commander-thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.commander-thread, .commander-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
 .commander-day {
   padding-bottom: var(--space-1); border-bottom: 1px solid var(--color-border-subtle); color: var(--color-text-secondary);
   font-size: var(--type-1-size); font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
@@ -44,7 +45,24 @@
 .commander-suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin: 0; }
 .commander-problem { margin: 0; color: var(--color-danger); font-size: var(--type-2-size); }
 
+.commander-cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: var(--space-5); }
+.commander-rail {
+  position: sticky; top: var(--space-3); display: grid; gap: var(--space-3); padding: var(--space-4);
+  border: 1px solid var(--color-accent); border-radius: var(--radius-2); background: var(--color-sunken);
+}
+.commander-rail p { margin: 0; overflow-wrap: anywhere; }
+.commander-rail-h { font-weight: 700; }
+.commander-nothing { color: var(--color-text-secondary); font-size: var(--type-2-size); }
+.commander-card { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border-strong); border-radius: var(--radius-2); background: var(--color-surface); }
+.commander-card-done { border-style: dashed; }
+.commander-src { color: var(--color-text-secondary); font-size: var(--type-1-size); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.commander-q, .commander-confirm { font-weight: 700; }
+.commander-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.commander-by { color: var(--color-text-secondary); font-size: var(--type-2-size); }
+
 @media (max-width: 719px) {
+  .commander-cols { grid-template-columns: minmax(0, 1fr); }
+  .commander-rail { position: static; }
   .commander-person { margin-left: var(--space-5); }
   .commander-claims li { flex-wrap: wrap; }
 }

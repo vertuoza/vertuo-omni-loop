@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { CommanderBody, CommanderTab } from './CommanderTab';
+import { CommanderBody, CommanderTab, RAIL_AT_REST } from './CommanderTab';
 import type { CommanderView, Message } from './commander.contract';
 import { NORTHWIND } from './commander.fake';
 
@@ -31,10 +31,10 @@ const R2: Message = {
 const view = (over: Partial<CommanderView> = {}): CommanderView => ({
   workspace: NORTHWIND, fleet: 'blue-fleet', state: { kind: 'ready' },
   status: { running: 2, waiting: 1, paused: 0, spent: 410, cap: 1000 },
-  messages: [Q1, R1, Q2, R2], suggestions: ['What waits on me?', 'What happened overnight?', 'Why did PRD 2817 stop?'], reading: { missions: 2, jobs: 3 }, ...over,
+  messages: [Q1, R1, Q2, R2], suggestions: ['What waits on me?', 'What happened overnight?', 'Why did PRD 2817 stop?'], reading: { missions: 2, jobs: 3 }, cards: [], me: 'mira-k', ...over,
 });
 const render = (v: CommanderView, pending: string | null = null) =>
-  renderToStaticMarkup(createElement(CommanderBody, { view: v, now: NOW, pending, draft: '', problem: null, onDraft: () => undefined, onAsk: () => undefined }));
+  renderToStaticMarkup(createElement(CommanderBody, { view: v, now: NOW, pending, draft: '', problem: null, onDraft: () => undefined, onAsk: () => undefined, rail: { ...RAIL_AT_REST, onPick: () => undefined, onConfirm: () => undefined, onCancel: () => undefined } }));
 
 describe('the Commander tab', () => {
   it('2.A: the status line, then the thread: each question by its login, each reply signed Commander · agent with its sources', () => {

@@ -1,10 +1,11 @@
-import type { AskAnswer, AskRequest, CommanderRefusalKind, CommanderState, CommanderView, Message, ViewQuery } from './commander.contract';
+import type { AskAnswer, AskRequest, Card, CardAnswerRequest, CommanderRefusalKind, CommanderState, CommanderView, Message, ViewQuery } from './commander.contract';
 import type { CommanderReader, CommanderWriter, Written } from './commander.repository';
 import {
   ACTIVE, EVENTS_PER_MISSION, inRecord, keepClaims, moreEvents, OLDER_EVENTS_TOOL, readModelReply, stateOf, suggestionsOf, SYSTEM, THREAD_MESSAGES,
   turnOf, WORDS, usedUpWords, type EventRow, type FleetRecord, type MissionRow, type Turn,
 } from './commander';
 import type { CommanderModel } from './model';
+import type { RailService } from './rail.service';
 
 // The Commander's rules (PRD 3107 s1; ADR-0095), over the reader as the signed-in person and the writer as the service
 // role. Opening the tab reads the fleet's state (off with no model key, used up once its daily cap is reached), the
@@ -12,8 +13,10 @@ import type { CommanderModel } from './model';
 // no tokens left no model call is made and nothing is written; then records the question as its asker, reads this
 // fleet's record alone (the workspace and the fleet named on every read), asks the model at most 3 tool rounds, keeps the
 // claims whose every reference was in the turn, and writes the reply, signed by no person, with what it counted.
+// The tab also carries the Waiting on you rail's cards (s2), read whatever the state, and a member's answer from a card
+// is checked against the fleet first, then left to the rail (rail.service.ts): no model is ever asked about a card.
 
-type Served<T> = { ok: true; value: T } | { ok: false; kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; cause?: string };
+type Served<T> = { ok: true; value: T } | { ok: false; kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; card?: Card; cause?: string };
 
 export const ONLY_MEMBERS = 'Only a member of the workspace reads its fleet’s Commander.';
 export const NOT_VIRTUAL = 'Fleet: only a Virtual Fleet has a Commander.';
@@ -32,6 +35,10 @@ export interface CommanderServiceDeps {
   writer: Pick<CommanderWriter, 'reply'> | null;
   /** The model, or null when the server has no key. */
   model: CommanderModel | null;
+  /** The Waiting on you rail (s2): its cards, and a member's answer from one. It needs no model. */
+  rail: Pick<RailService, 'cards' | 'answer'>;
+  /** The signed-in member's GitHub login, or null when their sign-in carries none. */
+  me: string | null;
   now: () => Date;
 }
 
@@ -113,11 +120,12 @@ export function commanderService(deps: CommanderServiceDeps) {
       const missions = await reader.missions(query.workspace, query.fleet);
       const active = missions.filter((m) => ACTIVE.includes(m.status));
       const record = inRecord(missions, now);
-      const [{ state, spent }, messages, events, jobs] = await Promise.all([
+      const [{ state, spent }, messages, events, jobs, cards] = await Promise.all([
         stateNow(query, fleet.value.cap, now),
         reader.thread(query.workspace, query.fleet, SHOWN),
         eventsOf(active, SUGGESTION_EVENTS),
         reader.jobs(query.workspace, record.map((m) => m.id), new Date(now.getTime() - DAY_MS)),
+        deps.rail.cards(query.workspace, query.fleet),
       ]);
       const count = (status: string) => missions.filter((m) => m.status === status).length;
       return {
@@ -130,8 +138,17 @@ export function commanderService(deps: CommanderServiceDeps) {
           messages,
           suggestions: suggestionsOf(events),
           reading: { missions: record.length, jobs: jobs.length },
+          cards,
+          me: deps.me,
         },
       };
+    },
+
+    /** A member's choice on a card of the rail, sent through its question's own route as them (s2): the card as it then stands. */
+    async answer(request: CardAnswerRequest): Promise<Served<Card>> {
+      const fleet = await fleetOf(request);
+      if (!fleet.ok) return fleet;
+      return deps.rail.answer(request, deps.me);
     },
 
     /** A member's question and the Commander's reply. */
