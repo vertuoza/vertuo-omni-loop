@@ -11,6 +11,7 @@ import { Board } from '../board/Board';
 import { hrefWith, type Query } from '../board/links';
 import { NewVirtualFleet } from '../../virtual-fleets/drawer/NewVirtualFleet';
 import { HeroesTab } from '../../virtual-fleets/heroes/HeroesTab';
+import { CommanderTab } from '../../virtual-fleets/commander/CommanderTab';
 import type { FleetBoard, VirtualOf } from './fleet';
 import { FleetTabs } from './FleetTabs';
 import { tabOf, type FleetTab } from './tabs';
@@ -26,6 +27,7 @@ import './fleet.css';
 // colour.
 // PRD 2842 s6: on a virtual fleet the page reads tabs, Operation room · Missions · Heroes · Board (`?tab=`), Board
 // being today's board unchanged; an ordinary fleet shows only its board.
+// PRD 3107 s1: a fifth tab, Commander, after Board, reads its own thread from the browser, so no other tab waits on it.
 // PRD 2842 s1: `+ New virtual fleet` closes the row of chips, and is the page's main button when the
 // workspace has no fleet yet; it opens the New virtual fleet drawer. A virtual fleet's chip says so.
 
@@ -123,8 +125,9 @@ function TabBody({ tab, view }: { tab: Exclude<FleetTab, 'board'>; view: Extract
   return view.heroes ? <HeroesTab view={view.heroes} /> : <CouldNotLoad />;
 }
 
-/** The streamed block of a tab the page reads (Missions, Operation room), when it sent one. */
-const blockOf = (tab: FleetTab, blocks: Record<'missions' | 'room', ReactNode>): ReactNode => (tab === 'missions' || tab === 'room' ? blocks[tab] : undefined);
+/** The block of a tab read on its own: the page streams Missions and the Operation room, the Commander reads its thread itself. */
+const blockOf = (tab: FleetTab, blocks: Record<'missions' | 'room' | 'commander', ReactNode>): ReactNode =>
+  (tab === 'missions' || tab === 'room' || tab === 'commander' ? blocks[tab] : undefined);
 
 export function FleetScreen({ view, supabase, signinError, query, missions, room }: FleetScreenProps) {
   switch (view.kind) {
@@ -162,7 +165,7 @@ export function FleetScreen({ view, supabase, signinError, query, missions, room
             <Place place={view.fleet.place} season={view.board.season.name} />
           </header>
           {virtual && <FleetTabs current={tab} query={query} path={FLEET_PATH} />}
-          {tab === 'board' ? <Board board={view.board} path={FLEET_PATH} query={query} /> : blockOf(tab, { missions, room }) ?? <TabBody tab={tab} view={view} />}
+          {tab === 'board' ? <Board board={view.board} path={FLEET_PATH} query={query} /> : blockOf(tab, { missions, room, commander: <CommanderTab workspace={view.virtual?.workspace ?? null} fleet={view.fleet.name} /> }) ?? <TabBody tab={tab} view={view} />}
         </div>
       );
     }
