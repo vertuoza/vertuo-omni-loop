@@ -176,8 +176,10 @@ function briefOf(mission: IssueNumber, artifacts: readonly DossierArtifact[]): O
   const parsed = parseBrief(record.content);
   if (!parsed.ok) throw refuse(`mission.md does not read: ${parsed.errors.join(' ')}`);
   if (parsed.brief.mission !== mission) throw refuse(`mission.md is mission #${parsed.brief.mission}, not #${mission}.`);
-  const { fleet, goal, measures, scope, mandate } = parsed.brief;
-  return { fleet, goal, measures, scope, mandate };
+  // The brief's kind travels too (bug #3104): an Omni Loop bug team (`omni-bugs`, PRD 3088) takes no scope,
+  // and mission_push() reads the kind to allow it; a brief with none is read as `prds`.
+  const { kind = 'prds', fleet, goal, measures, scope, mandate } = parsed.brief;
+  return { kind, fleet, goal, measures, scope, mandate };
 }
 
 /** PRD 2842: a mission's page and its row, through mission_push(); the page's id and which versions were added. */

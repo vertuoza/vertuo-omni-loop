@@ -150,11 +150,18 @@ describe('a mission\'s page (PRD 2842 s2)', () => {
       name: 'mission_push',
       args: {
         p_repo: 'acme/widgets', p_mission: 2850, p_title: 'Paid online',
-        p_brief: { fleet: 'night-shift', goal: 'Every quote is paid online.', measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 } },
+        p_brief: { kind: 'prds', fleet: 'night-shift', goal: 'Every quote is paid online.', measures: [], scope: { prds: [2803], roadmaps: [] }, mandate: { parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 } },
         p_artifacts: files(),
       },
     }]);
     expect(Object.keys(firstArgs(calls))).toEqual(parameters('mission_push', MISSIONS_MIGRATION));
+  });
+
+  it('sends the brief\'s kind, so an Omni Loop bug team with no scope reaches mission_push() as omni-bugs (bug #3104)', async () => {
+    const { calls, db } = recording({ data: { id: 'd-2', added: [], unchanged: [] }, error: null });
+    const team = '---\nmission: 2850\ntitle: Omni Loop bugs\nkind: omni-bugs\nfleet: night-shift\ngoal: Fix the Omni Loop bugs missions report.\n---\n';
+    await dossierStore(db).push(push(files(team)));
+    expect(firstArgs(calls).p_brief).toMatchObject({ kind: 'omni-bugs', fleet: 'night-shift' });
   });
 
   it('refuses, before the database is asked, a push with no mission.md, one that does not read, or one naming another mission', async () => {
