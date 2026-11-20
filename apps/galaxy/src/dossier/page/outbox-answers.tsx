@@ -1,6 +1,6 @@
 'use client';
+import { Badge, Button, Card, EmptyState, Field, Inline, Notice, Radio, Textarea } from '@omni/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { answered, dropPicks, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './outbox-picks';
 import type { Face } from '../../people/face';
 import { LoginChip } from './LoginChip';
@@ -46,6 +46,8 @@ type Props = {
   adopted: ShownCard[];
   settled: SettledEntry[];
   readOnly: boolean;
+  /** The outbox comment on the pull request, to answer there instead; null when it has none. */
+  answerUrl?: string | null;
   /** Shipped or closed: said above the questions, in place of the toolbar. */
   note: string | null;
   /** Set when the viewer may not answer. */
@@ -88,14 +90,16 @@ type CardProps = {
   onPick: (number: number, pick: Pick | null) => void;
 };
 
+/** A reason is at most this long: what the textarea's maxLength held before it moved onto @omni/ui. */
+const REASON_MAX = 500;
+
 function Reason({ card, pick, readOnly, onPick, label }: CardProps & { label: string }) {
   if (!pick || card.number === null) return null;
   const number = card.number;
   return (
-    <label className="outbox-reason">
-      <span className="ask-hint">{label}</span>
-      <textarea rows={2} value={pick.reason} disabled={readOnly} maxLength={500} onChange={(e) => { onPick(number, { ...pick, reason: e.target.value }); }} />
-    </label>
+    <Field label={label}>
+      <Textarea rows={2} value={pick.reason} disabled={readOnly} onChange={(e) => { onPick(number, { ...pick, reason: e.target.value.slice(0, REASON_MAX) }); }} />
+    </Field>
   );
 }
 
@@ -104,22 +108,25 @@ const nameOf = (card: ShownCard) => `outbox-${card.number ?? card.id}`;
 
 function Options({ card, pick, readOnly, onPick, letters }: CardProps & { letters: string[] }) {
   const { number } = card;
+  // A click on an option's words picks it as its radio does, unless nothing can be picked.
+  const choose = (letter: string) => {
+    if (number !== null && !readOnly) onPick(number, { pick: letter, reason: pick?.reason ?? '' });
+  };
   return (
     <fieldset className="outbox-options" disabled={readOnly || number === null}>
       <legend className="ask-hint">{number === null ? 'The options' : `Your answer to question ${number}`}</legend>
       {card.options.filter((o) => letters.includes(o.letter)).map((option) => (
-        <label key={option.letter} className="outbox-option" data-picked={pick?.pick === option.letter ? 'true' : undefined}>
-          <input
-            type="radio"
+        <div key={option.letter} className="outbox-option" data-picked={pick?.pick === option.letter ? 'true' : undefined}>
+          <Radio
+            label={`Option ${option.letter}`}
             name={nameOf(card)}
-            value={option.letter}
-            checked={pick?.pick === option.letter}
-            onChange={() => { if (number !== null) onPick(number, { pick: option.letter, reason: pick?.reason ?? '' }); }}
+            options={[{ value: option.letter, label: option.letter }]}
+            value={pick?.pick ?? ''}
+            onChange={() => { choose(option.letter); }}
           />
-          <span className="outbox-option-letter">{option.letter}</span>
           {option.built && <span className="ask-rec">built · recommended</span>}
-          <span className="outbox-option-text" dangerouslySetInnerHTML={{ __html: option.html }} />
-        </label>
+          <span className="outbox-option-text" onClick={() => { choose(option.letter); }} dangerouslySetInnerHTML={{ __html: option.html }} />
+        </div>
       ))}
     </fieldset>
   );
@@ -131,18 +138,14 @@ function Done({ card, pick, readOnly, onPick }: CardProps) {
   return (
     <fieldset className="outbox-options" disabled={readOnly || number === null}>
       <legend className="ask-hint">Is it done?</legend>
-      {choices.map((choice) => (
-        <label key={choice.value} className="outbox-option" data-picked={pick?.pick === choice.value ? 'true' : undefined}>
-          <input
-            type="radio"
-            name={nameOf(card)}
-            value={choice.value}
-            checked={pick?.pick === choice.value}
-            onChange={() => { if (number !== null) onPick(number, { pick: choice.value, reason: pick?.reason ?? '' }); }}
-          />
-          <span className="outbox-option-letter">{choice.label}</span>
-        </label>
-      ))}
+      <Radio
+        label="Is it done?"
+        name={nameOf(card)}
+        options={choices}
+        value={pick?.pick ?? ''}
+        orientation="horizontal"
+        onChange={(e) => { if (number !== null) onPick(number, { pick: e.target.value, reason: pick?.reason ?? '' }); }}
+      />
     </fieldset>
   );
 }
@@ -151,9 +154,9 @@ function Details({ card }: { card: ShownCard }) {
   return (
     <>
       {card.bearsOn.length > 0 && (
-        <ul className="outbox-chips" aria-label="Bears on">
-          {card.bearsOn.map((chip) => <li key={chip.id}><a className="ask-chip" href={chip.href}>{chip.id}</a></li>)}
-        </ul>
+        <Inline gap="1">
+          {card.bearsOn.map((chip) => <a key={chip.id} className="ask-chip" href={chip.href}>{chip.id}</a>)}
+        </Inline>
       )}
       {card.details.length > 0 && (
         <details className="outbox-details">
@@ -170,25 +173,51 @@ function Details({ card }: { card: ShownCard }) {
   );
 }
 
-function Card(props: CardProps) {
+/** How a rank is drawn: a person's own step shouts, the rest stay quiet (a Badge has no signal tone). */
+const RANK_TONE: Record<string, 'danger' | 'warning' | 'neutral'> = { 'human-action': 'danger', high: 'warning' };
+
+/** An adopted card: Object, which opens its other options and a way to withdraw. */
+function Objection(props: CardProps) {
   const { card, pick, readOnly, onPick } = props;
   const [objecting, setObjecting] = useState(false);
   const others = card.options.filter((o) => o.letter !== 'A').map((o) => o.letter);
-  const numbered = card.number !== null;
-  const heading = numbered ? `Question ${card.number}` : card.id;
+  const number = card.number;
+  if (others.length === 0 || number === null || readOnly) return null;
+  if (!objecting && pick === undefined) return <Button variant="quiet" size="sm" onClick={() => { setObjecting(true); }}>Object</Button>;
   return (
-    <article
-      id={card.id}
-      className="outbox-card"
-      data-kind={card.kind}
-      data-adopted={card.adopted ? 'true' : undefined}
-      data-answered={card.pending ? 'true' : undefined}
-      aria-labelledby={`outbox-q-${card.id}`}
-    >
-      <header className="outbox-card-head">
-        <h3 id={`outbox-q-${card.id}`} className="outbox-number">{heading}</h3>
-        <span className="outbox-rank" data-rank={card.adopted ? 'adopted' : card.rank}>{card.rankWords}</span>
-      </header>
+    <>
+      <Options {...props} letters={others} />
+      <Reason {...props} label="Why you object (optional)" />
+      <Button variant="quiet" size="sm" onClick={() => { setObjecting(false); onPick(number, null); }}>Withdraw the objection</Button>
+    </>
+  );
+}
+
+/** What a person answers with on a card: Done or Not done, the options, or Object on an adopted one. */
+function Answering(props: CardProps) {
+  const { card, pick } = props;
+  if (card.kind === 'action') {
+    return (
+      <>
+        <Done {...props} />
+        <Reason {...props} label={pick?.pick === 'not-done' ? 'Why not (needed)' : 'A note (optional)'} />
+      </>
+    );
+  }
+  if (card.adopted) return <Objection {...props} />;
+  if (card.options.length === 0) return null;
+  return (
+    <>
+      <Options {...props} letters={card.options.map((o) => o.letter)} />
+      <Reason {...props} label="Why (optional)" />
+    </>
+  );
+}
+
+/** What was asked and decided on a card: its intro, question, decision and punchline. */
+function Said({ card }: { card: ShownCard }) {
+  return (
+    <>
       {card.intro && <p className="outbox-fun">{card.intro}</p>}
       <Html html={card.question} className="dossier-md outbox-question" />
       {card.decision && (
@@ -198,36 +227,47 @@ function Card(props: CardProps) {
         </div>
       )}
       {card.punchline && <p className="outbox-fun">{card.punchline}</p>}
-      <Pending card={card} />
-      {card.kind === 'action' && <Html html={card.steps} className="dossier-md outbox-steps" />}
-      {!numbered && <p className="ask-hint">{NOT_NUMBERED}</p>}
-      {card.kind === 'action' && (
-        <>
-          <Done {...props} />
-          <Reason {...props} label={pick?.pick === 'not-done' ? 'Why not (needed)' : 'A note (optional)'} />
-        </>
-      )}
-      {card.kind === 'decision' && !card.adopted && card.options.length > 0 && (
-        <>
-          <Options {...props} letters={card.options.map((o) => o.letter)} />
-          <Reason {...props} label="Why (optional)" />
-        </>
-      )}
-      {card.adopted && others.length > 0 && numbered && !readOnly && (
-        objecting || pick !== undefined ? (
-          <>
-            <Options {...props} letters={others} />
-            <Reason {...props} label="Why you object (optional)" />
-            <button type="button" className="ask-button quiet" onClick={() => { setObjecting(false); onPick(defined(card.number, 'the question number'), null); }}>
-              Withdraw the objection
-            </button>
-          </>
-        ) : (
-          <button type="button" className="ask-button quiet" onClick={() => { setObjecting(true); }}>Object</button>
-        )
-      )}
-      <Details card={card} />
+    </>
+  );
+}
+
+function QuestionCard(props: CardProps) {
+  const { card } = props;
+  return (
+    <article
+      id={card.id}
+      className="outbox-entry"
+      data-kind={card.kind}
+      data-adopted={card.adopted ? 'true' : undefined}
+      data-answered={card.pending ? 'true' : undefined}
+      aria-labelledby={`outbox-q-${card.id}`}
+    >
+      <Card>
+        <div className="outbox-entry-body">
+          <header className="outbox-entry-head">
+            <h3 id={`outbox-q-${card.id}`} className="outbox-number">{card.number === null ? card.id : `Question ${card.number}`}</h3>
+            <span className="outbox-rank" data-rank={card.adopted ? 'adopted' : card.rank}>
+              <Badge tone={card.adopted ? 'neutral' : RANK_TONE[card.rank] ?? 'neutral'}>{card.rankWords}</Badge>
+            </span>
+          </header>
+          <Said card={card} />
+          <Pending card={card} />
+          {card.kind === 'action' && <Html html={card.steps} className="dossier-md outbox-steps" />}
+          {card.number === null && <p className="ask-hint">{NOT_NUMBERED}</p>}
+          <Answering {...props} />
+          <Details card={card} />
+        </div>
+      </Card>
     </article>
+  );
+}
+
+/** Or answer where the outbox comment is: the latest answer wins. */
+function PullRequestLine({ url }: { url: string }) {
+  return (
+    <p className="ask-hint outbox-pr">
+      Or answer <a href={url} target="_blank" rel="noopener noreferrer">on the pull request</a>: the latest answer wins.
+    </p>
   );
 }
 
@@ -236,7 +276,7 @@ function Settled({ entry }: { entry: SettledEntry }) {
     <li id={entry.id} className="outbox-settled">
       <p className="outbox-settled-top">
         <b>{entry.number !== null ? `Question ${entry.number}` : entry.id}</b>{' '}
-        <span className="outbox-rank" data-rank="settled">{entry.verdict}</span>{' '}
+        <span className="outbox-rank" data-rank="settled"><Badge tone="success">{entry.verdict}</Badge></span>{' '}
         <span className="ask-hint">
           {entry.title}
           {entry.by && <> · approved by <LoginChip login={entry.by} face={entry.face} /></>}{entry.when ? ` · ${entry.when}` : ''}
@@ -248,7 +288,7 @@ function Settled({ entry }: { entry: SettledEntry }) {
   );
 }
 
-export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, note, signIn, sendOff, sender = null }: Props) {
+export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, answerUrl = null, note, signIn, sendOff, sender = null }: Props) {
   const questions = useMemo(() => pickable([...open, ...adopted]), [open, adopted]);
   const [picks, setPicks] = useState<Picks>({});
   const key = picksKey(dossierId);
@@ -291,22 +331,24 @@ export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, not
 
   const count = answered(questions, picks);
   const openDecisions = questions.some((q) => q.kind === 'decision' && !q.adopted);
-  const card = (c: ShownCard) => <Card key={c.id} card={c} pick={c.number === null ? undefined : picks[c.number]} readOnly={readOnly} onPick={onPick} />;
+  const card = (c: ShownCard) => <QuestionCard key={c.id} card={c} pick={c.number === null ? undefined : picks[c.number]} readOnly={readOnly} onPick={onPick} />;
 
   return (
     <div className="outbox-answers">
-      {note && <p className="outbox-note" role="status">{note}</p>}
-      {!note && signIn && <p className="outbox-note" role="status">{signIn}</p>}
+      {note && <Notice tone="info">{note}</Notice>}
+      {!note && signIn && <Notice tone="info">{signIn}</Notice>}
       {!readOnly && (
         <div className="outbox-toolbar" role="toolbar" aria-label="Answers">
-          <button type="button" className="ask-button quiet" onClick={() => { change(recommend(questions, picks)); }} disabled={!openDecisions}>
+          <Button variant="quiet" onClick={() => { change(recommend(questions, picks)); }} disabled={!openDecisions}>
             Select every recommendation
-          </button>
+          </Button>
           <OutboxSend dossierId={dossierId} questions={questions} picks={picks} count={count} sendOff={sendOff} onDrop={drop} sender={sender} />
+          {answerUrl && <PullRequestLine url={answerUrl} />}
         </div>
       )}
+      {readOnly && answerUrl && <PullRequestLine url={answerUrl} />}
       {open.length === 0 ? (
-        <p className="outbox-nothing">Nothing is waiting on you.</p>
+        <EmptyState size="inline" title="Nothing is waiting on you." />
       ) : (
         <div className="outbox-cards">{open.map(card)}</div>
       )}

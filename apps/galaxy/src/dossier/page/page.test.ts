@@ -932,7 +932,7 @@ describe('the stylesheet', () => {
   it('outlines chips, badges, cards, controls and the tab bar with --ask-line-strong, and keeps --ask-line for dividers (PRD 476)', () => {
     const outlined = [
       '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-empty', '.dossier-frame iframe',
-      '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
+      '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-option', '.outbox-settled', '.outbox-context',
       '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
       '.ask a.dossier-history-row', '.dossier-history-artifact',
     ];

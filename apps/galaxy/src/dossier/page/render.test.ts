@@ -520,8 +520,8 @@ describe('the Outbox tab (PRD 426)', () => {
     const html = outbox(outboxSummary({ open: OPEN, settled: SETTLED }));
     expect(html).toContain('<section class="dossier-pane" aria-label="Outbox">');
     expect(html).toContain('<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7" target="_blank" rel="noopener noreferrer">on the pull request</a>');
-    expect([...html.matchAll(/<article id="(s\d-\d\d-[a-z]+)" class="outbox-card"/g)].map((m) => m[1])).toEqual(['s2-01-key', 's1-01-medium']);
-    expect([...html.matchAll(/<span class="outbox-rank" data-rank="[a-z-]+">([^<]+)<\/span>/g)].map((m) => m[1])).toEqual(['needs a person', 'medium', 'agreed']);
+    expect([...html.matchAll(/<article id="(s\d-\d\d-[a-z]+)" class="outbox-entry"/g)].map((m) => m[1])).toEqual(['s2-01-key', 's1-01-medium']);
+    expect([...html.matchAll(/<span class="outbox-rank" data-rank="[a-z-]+"><span class="omni-badge[^"]*">([^<]+)<\/span><\/span>/g)].map((m) => m[1])).toEqual(['needs a person', 'medium', 'agreed']);
     expect(html).toContain('Keep &lt;i&gt;tabs&lt;/i&gt; in the address?');
     expect(html).not.toContain('<i>tabs</i>');
     expect(html).toContain('<span class="ask-rec">built · recommended</span><span class="outbox-option-text"><p>Keep them.</p>');
@@ -536,7 +536,7 @@ describe('the Outbox tab (PRD 426)', () => {
 
   it('with none open, says nothing is waiting, lists the settled ones, and counts them on the tab', () => {
     const html = outbox(outboxSummary({ open: [], settled: SETTLED }));
-    expect(html).toContain('<p class="outbox-nothing">Nothing is waiting on you.</p>');
+    expect(html).toContain('<p class="omni-empty-state__title">Nothing is waiting on you.</p>');
     expect(html).toContain('Outbox<span class="omni-tab__count">1 settled</span>');
     expect(html).toContain('>Review &amp; merge</a>');
   });
@@ -545,9 +545,9 @@ describe('the Outbox tab (PRD 426)', () => {
     const empty = outbox(outboxSummary(null));
     expect(empty).toContain('<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox">Outbox</a>');
     expect(page({ github: outboxSummary(null), stages: at('outbox') })).toContain('<span class="omni-tab omni-tab--empty" aria-disabled="true" title="No decision yet: the outbox fills while the PRD is built.">Outbox</span>');
-    expect(empty).toContain('<p class="dossier-empty">No decision yet: the outbox fills while the PRD is built.</p>');
+    expect(empty).toContain('<p class="omni-empty-state__title">No decision yet: the outbox fills while the PRD is built.</p>');
     for (const html of [outbox(null), outbox(outboxSummary(UNREAD))]) {
-      expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
+      expect(html).toContain('<div class="omni-notice__body">GitHub did not answer. The page tries again within a minute.</div>');
     }
   });
 });

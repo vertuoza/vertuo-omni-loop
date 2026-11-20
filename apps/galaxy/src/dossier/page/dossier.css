@@ -547,17 +547,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 }
 .outbox-context > summary { cursor: pointer; font-weight: 700; }
 .outbox-context[open] > summary { margin-bottom: var(--space-2); }
-.outbox-switch { display: flex; gap: var(--space-1); flex-wrap: wrap; margin-bottom: var(--space-3); }
-.ask a.outbox-switch-link {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  border: 1.5px solid var(--ask-line-strong);
-  color: var(--ask-muted);
-  font-weight: 700;
-  font-size: var(--type-3-size);
-  text-decoration: none;
-}
-.ask a.outbox-switch-link[aria-current='page'] { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.outbox-context > .omni-segmented { margin-bottom: var(--space-3); }
 .outbox-context-body { min-width: 0; overflow-wrap: anywhere; }
 .outbox-frame iframe { height: 70vh; min-height: 360px; }
 .outbox-brainstorm { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-3); }
@@ -581,49 +571,20 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 
 .outbox-answers { display: grid; gap: var(--space-3); min-width: 0; }
 .outbox-toolbar { display: flex; align-items: center; gap: var(--space-2) var(--space-3); flex-wrap: wrap; }
-.outbox-note,
-.outbox-nothing {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-2);
-  background: var(--ask-sunk);
-  border: 1.5px solid var(--ask-line-strong);
-}
-.outbox-nothing { font-weight: 700; }
+.outbox-toolbar .omni-notice,
+.outbox-sent { flex-basis: 100%; min-width: 0; }
+.outbox-sent { display: grid; gap: var(--space-2); }
 .outbox-cards { display: grid; gap: var(--space-3); min-width: 0; }
 .outbox-group > summary { cursor: pointer; font-weight: 700; padding: var(--space-2) 0; }
 .outbox-group[open] > summary { margin-bottom: var(--space-2); }
 
-.outbox-card {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-4);
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-left: 4px solid var(--ask-plasma);
-  border-radius: var(--radius-2);
-  overflow-wrap: anywhere;
-  scroll-margin-top: 16px;
-}
-.outbox-card[data-kind='action'] { border-left-color: var(--ask-red); }
-.outbox-card[data-adopted='true'] { border-left-color: var(--ask-line); }
-.outbox-card-head { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+.outbox-entry { min-width: 0; overflow-wrap: anywhere; scroll-margin-top: 16px; }
+.outbox-entry-body { display: grid; gap: var(--space-2); min-width: 0; }
+.outbox-entry-head { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
 .outbox-number { margin: 0; font-size: var(--type-4-size); }
-.outbox-rank {
-  font: 700 12px/1 var(--ask-body);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ask-muted);
-  background: var(--ask-sunk);
-  border-radius: var(--radius-1);
-  padding: var(--space-1) var(--space-2);
-}
-.outbox-rank[data-rank='high'] { color: var(--ask-on-plasma); background: var(--ask-plasma); }
-.outbox-rank[data-rank='human-action'] { color: var(--ask-red); background: var(--ask-surface); outline: 1px solid var(--ask-red); outline-offset: -1px; }
 .outbox-fun { margin: 0; font-style: italic; color: var(--ask-muted); }
-.outbox-card .dossier-md { max-width: none; }
-.outbox-card .dossier-md > :last-child { margin-bottom: 0; }
+.outbox-entry .dossier-md { max-width: none; }
+.outbox-entry .dossier-md > :last-child { margin-bottom: 0; }
 .outbox-decision { display: grid; gap: var(--space-1); }
 .outbox-pending {
   display: grid;
@@ -641,31 +602,14 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   grid-template-columns: auto auto 1fr;
   align-items: baseline;
   gap: var(--space-1) var(--space-2);
-  padding: var(--space-2) var(--space-2);
-  border: 1.5px solid var(--ask-line-strong);
+  padding: var(--space-2);
+  border: 1px solid var(--ask-line-strong);
   border-radius: var(--radius-2);
-  cursor: pointer;
 }
 .outbox-option[data-picked='true'] { border-color: var(--ask-plasma); }
-.outbox-option .ask-rec { grid-column: 3; justify-self: start; }
-.outbox-option-letter { font-weight: 700; }
-.outbox-option-text { grid-column: 3; min-width: 0; }
+.outbox-option .ask-rec { grid-column: 2; justify-self: start; }
+.outbox-option-text { grid-column: 3; min-width: 0; cursor: pointer; }
 .outbox-option-text > p { margin: 0; }
-.outbox-option input { margin: 0; }
-.outbox-reason { display: grid; gap: var(--space-1); }
-.outbox-reason textarea {
-  width: 100%;
-  font: inherit;
-  color: var(--ask-ink);
-  background: var(--ask-ground);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: var(--radius-2);
-  padding: var(--space-2) var(--space-2);
-  resize: vertical;
-}
-.outbox-card .ask-button.quiet { justify-self: start; }
-.outbox-chips { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-1); flex-wrap: wrap; }
-.ask .outbox-chips a.ask-chip { text-decoration: none; }
 .outbox-details > summary { cursor: pointer; color: var(--ask-muted); font-size: var(--type-3-size); }
 .outbox-details h4 { margin: var(--space-3) 0 var(--space-1); font-size: var(--type-3-size); }
 
@@ -771,7 +715,6 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   .dossier-round-line .omni-list-row { padding: var(--space-2) 0; }
   .dossier-round[data-state='open'] .dossier-round-line { padding-left: var(--space-3); }
   .dossier-round-body { padding: var(--space-1) var(--space-3) var(--space-3); }
-  .outbox-card { padding: var(--space-3); }
 }
 
 /* A fix's state and Timeline (PRD 627, s5): the pill on its list row and in its header, the risk and
