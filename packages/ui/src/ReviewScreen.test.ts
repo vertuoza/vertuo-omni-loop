@@ -61,7 +61,8 @@ describe('ReviewScreen', () => {
   });
 
   it('draws no detail line when none is given', () => {
-    expect(renderToStaticMarkup(createElement(ReviewScreen, { ...props, detail: undefined }))).not.toContain('omni-review__detail');
+    const bare: ReviewScreenProps = { title: 'T', sections: [], question: 'Q?', decision: createElement(Button, { variant: 'primary' }, 'Go') };
+    expect(renderToStaticMarkup(createElement(ReviewScreen, bare))).not.toContain('omni-review__detail');
   });
 
   it('takes no className and no style', () => {
