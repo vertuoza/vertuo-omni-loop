@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import type { Candidate, NoteEvent, NoteMission } from './notebook.ts';
-import { BATCHES_PER_RUN, liveNotebookModel, notebookHandler, type NotebookModel, type NotebookStore, type NoteRow } from './notebook-run.ts';
+import { BATCHES_PER_RUN, liveNotebookModel, notebookHandler, type NotebookModel, type NotebookStore, type NotebookRow } from './notebook-run.ts';
 
 const SLOT = '2026-11-21T00:00:00.000Z';
 const NOW = Date.parse('2026-11-21T00:01:00Z');
@@ -22,7 +22,7 @@ const event = (m: NoteMission, k: number, at: string, sentence: string): NoteEve
 
 /** The store in memory: missions, their events, the lines written (the database's batch index and event rule kept). */
 function fakeStore(input: { active?: NoteMission[]; ended?: NoteMission[]; events?: (NoteEvent & { mission: string })[]; over?: boolean }) {
-  const rows: (NoteRow & { deleted: boolean })[] = [];
+  const rows: (NotebookRow & { deleted: boolean })[] = [];
   const asked: { over: string[] } = { over: [] };
   const store: NotebookStore = {
     active: () => Promise.resolve(input.active ?? []),

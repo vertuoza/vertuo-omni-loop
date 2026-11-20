@@ -17,7 +17,7 @@ import { askModel, type OpenRouterSettings } from 'omni-loop/kit/lib/openrouter.
 import { noteTo } from '../run-log/run-log.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import {
-  BATCH_MAX, dayOf, NOTEBOOK_MODEL, NOTEBOOK_REPLY_SCHEMA, NOTEBOOK_SYSTEM, NotebookReplySchema, notebookPrompt, screenLines, yesterdayOf,
+  BATCH_MAX, utcDayOf, NOTEBOOK_MODEL, NOTEBOOK_REPLY_SCHEMA, NOTEBOOK_SYSTEM, NotebookReplySchema, notebookPrompt, screenLines, yesterdayOf,
   type Candidate, type Notebook, type NoteEvent, type NoteLine, type NoteMission,
 } from './notebook.ts';
 
@@ -34,7 +34,7 @@ const AGAIN_MS = 60_000;
 const PROGRESS_MAX = 300;
 
 /** A line to write, as the database keeps it. */
-export type NoteRow = { workspace: string; fleet: string; notebook: Notebook; mission: string; day: string; place: number; line: string; events: string[] };
+export type NotebookRow = { workspace: string; fleet: string; notebook: Notebook; mission: string; day: string; place: number; line: string; events: string[] };
 
 /** What the job reads and writes, as the service role. */
 export type NotebookStore = {
@@ -51,7 +51,7 @@ export type NotebookStore = {
   /** Whether the fleet used up its daily tokens at `at`. */
   over(workspace: string, fleet: string, at: Date): Promise<boolean>;
   /** Writes a batch whole; the lines written, 0 when its batch was written already. */
-  write(rows: readonly NoteRow[]): Promise<number>;
+  write(rows: readonly NotebookRow[]): Promise<number>;
 };
 
 /** What the model answers a batch: its candidate lines, or why there are none. */
@@ -83,12 +83,12 @@ async function batchesDue(store: NotebookStore, now: Date): Promise<Batch[]> {
   const byId = (a: NoteMission, b: NoteMission) => a.id.localeCompare(b.id);
   return [
     ...[...active].sort(byId).map((mission): Batch => ({ notebook: 'mission', mission, day: yesterday.day, from: yesterday.from, to: yesterday.to })),
-    ...[...ended].sort(byId).map((mission): Batch => ({ notebook: 'fleet', mission, day: dayOf(now), from: null, to: null })),
+    ...[...ended].sort(byId).map((mission): Batch => ({ notebook: 'fleet', mission, day: utcDayOf(now), from: null, to: null })),
   ];
 }
 
 /** The rows of a batch's lines. */
-const rowsOf = (batch: Batch, lines: readonly NoteLine[]): NoteRow[] =>
+const rowsOf = (batch: Batch, lines: readonly NoteLine[]): NotebookRow[] =>
   lines.map((line, n) => ({ workspace: batch.mission.workspace, fleet: batch.mission.fleet, notebook: batch.notebook, mission: batch.mission.id, day: batch.day, place: n + 1, line: line.line, events: line.events }));
 
 /** What one batch did: asked nothing (written already, no event, over the cap), or the lines it wrote and dropped. */

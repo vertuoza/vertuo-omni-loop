@@ -9,7 +9,7 @@ import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import type { NoteEvent, NoteMission } from './notebook.ts';
-import type { NotebookStore, NoteRow } from './notebook-run.ts';
+import type { NotebookStore, NotebookRow } from './notebook-run.ts';
 
 /** The columns each read selects, shared with ./notebook.boundary.ts. */
 export const NOTE_MISSION = 'id, workspace_id, fleet, number, title, status, teams!inner(kind)';
@@ -72,7 +72,7 @@ export function notebookStore(connection: Connection): NotebookStore {
       return (spent?.tokens ?? 0) >= team.daily_tokens;
     },
 
-    async write(rows: readonly NoteRow[]) {
+    async write(rows: readonly NotebookRow[]) {
       if (rows.length === 0) return 0;
       const answer = await db.from('commander_notes').insert(rows.map((row) => ({
         workspace_id: row.workspace, fleet: row.fleet, notebook: row.notebook, mission_id: row.mission, day: row.day, place: row.place, line: row.line, events: row.events,
