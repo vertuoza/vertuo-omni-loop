@@ -49,4 +49,4 @@ fleet shows today's board, unchanged.
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
-/omni:brainstorm, PRD 3107: .omni-loop/delivery/inbox/3107-fleet-commander/before-after.html
+/omni:brainstorm, PRD 3107: .omni-loop/delivery/shipped/3107-fleet-commander/before-after.html

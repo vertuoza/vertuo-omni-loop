@@ -68,4 +68,4 @@ waiting on a person from cards, and writes to the fleet. The Commander is an age
 
 ## Source
 
-/omni:brainstorm, PRD 3107: .omni-loop/delivery/inbox/3107-fleet-commander/before-after.html
+/omni:brainstorm, PRD 3107: .omni-loop/delivery/shipped/3107-fleet-commander/before-after.html
