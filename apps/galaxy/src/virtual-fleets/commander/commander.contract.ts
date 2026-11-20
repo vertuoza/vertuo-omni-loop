@@ -9,6 +9,7 @@ import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 //   POST /api/virtual-fleets/commander {workspace, fleet, text}      201 {question, reply}
 //   POST /api/virtual-fleets/commander/answer {workspace, fleet, source, id, choice}   200 {card} (s2)
 //   POST /api/virtual-fleets/commander/message {workspace, fleet, text}   201 {message} (s3)
+//   POST /api/virtual-fleets/commander/notes {workspace, fleet, note}   200 {note} (s4)
 
 /** Where a claim comes from: the link the app built (inside the app or on GitHub), its chip's words and the record's own line. */
 const SourceSchema = z.object({
@@ -84,8 +85,36 @@ const CardSchema = z.object({
 });
 export type Card = z.infer<typeof CardSchema>;
 
+/** A line of a notebook (PRD 3107 s4): its day, its words, how many events it cites and where to read them. */
+const NoteSchema = z.object({
+  id: z.uuid(),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  line: z.string().min(1).max(300),
+  events: z.number().int().min(1).max(10),
+  href: z.string().regex(/^\/[^/]/).max(500),
+});
+export type Note = z.infer<typeof NoteSchema>;
+
+/** One mission's notebook: the mission, and its lines, newest first. */
+const MissionNotebookSchema = z.object({
+  mission: z.uuid(),
+  number: z.number().int().positive(),
+  title: z.string(),
+  status: z.string(),
+  lines: z.array(NoteSchema).min(1).max(50),
+});
+export type MissionNotebook = z.infer<typeof MissionNotebookSchema>;
+
+/** The Notebooks drawer: the fleet notebook's lines, then each mission's notebook, and how many lines in all. */
+const NotebooksSchema = z.object({
+  fleet: z.array(NoteSchema).max(50),
+  missions: z.array(MissionNotebookSchema).max(50),
+  count: z.number().int().min(0),
+});
+export type Notebooks = z.infer<typeof NotebooksSchema>;
+
 /** The tab as it opens: its state, the status line, the thread, the first visit's questions, what a question reads, the
- * rail's cards and the signed-in member's login (null when their sign-in carries none). */
+ * rail's cards, the notebooks and the signed-in member's login (null when their sign-in carries none). */
 const CommanderViewSchema = z.object({
   workspace: z.uuid(),
   fleet: z.string().min(1),
@@ -95,6 +124,7 @@ const CommanderViewSchema = z.object({
   suggestions: z.array(z.string().min(1)).max(3),
   reading: z.object({ missions: z.number().int().min(0), jobs: z.number().int().min(0) }),
   cards: z.array(CardSchema).max(50),
+  notebooks: NotebooksSchema,
   me: z.string().min(1).nullable(),
 });
 export type CommanderView = z.infer<typeof CommanderViewSchema>;
@@ -142,6 +172,15 @@ export const CardAnswerSchema = z.object({ card: CardSchema });
 
 /** A card's refusal: its words, and the card as it stands when it was answered elsewhere or the route refused. */
 export const CardRefusalSchema = z.object({ error: z.string(), card: CardSchema.optional() });
+
+/** A member deletes a line of their fleet's notebooks (s4). */
+export const NoteDeleteRequestSchema = z.object({ workspace: z.uuid(), fleet: z.string().min(1).max(60), note: z.uuid() });
+export type NoteDeleteRequest = z.infer<typeof NoteDeleteRequestSchema>;
+
+/** The line once deleted: who deleted it and when. */
+const DeletedSchema = z.object({ id: z.uuid(), at: z.string(), login: z.string().min(1) });
+export type Deleted = z.infer<typeof DeletedSchema>;
+export const NoteDeletedSchema = z.object({ note: DeletedSchema });
 
 /** Each refusal's status. */
 export const COMMANDER_REFUSALS = {

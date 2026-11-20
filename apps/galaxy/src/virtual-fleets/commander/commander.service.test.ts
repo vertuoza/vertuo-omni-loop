@@ -148,6 +148,7 @@ describe('opening the Commander tab', () => {
         suggestions: ['What waits on me?', 'What happened overnight?', 'Why did PRD 2809 stop?'],
         reading: { missions: 1, jobs: 1 },
         cards: [],
+        notebooks: { fleet: [], missions: [], count: 0 },
         me: MIRA,
       },
     });

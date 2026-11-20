@@ -19,7 +19,8 @@
 //                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, and
 //                    `search-categorize`, PRD omni-loop-7 s3, `search-eval-promote` and `search-eval-run`, PRD
-//                    omni-loop-8 s4, and `checkpoints-forget`, PRD 2809 s6, ./schedule.ts; the run also added by the embed), and
+//                    omni-loop-8 s4, `checkpoints-forget`, PRD 2809 s6, and `commander-notebook`, PRD 3107 s4, ./schedule.ts; the run
+//                    also added by the embed), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
 //                    refreshes the five checks' jobs of a product PRD's target pull requests, and the
@@ -81,6 +82,9 @@ import { missionKeepUps } from '../missions/keep-up.ts';
 import { missionAnswers } from '../missions/settle.ts';
 import { missionLandings } from '../missions/landing.ts';
 import { missionStore } from '../missions/store.ts';
+import { NOTEBOOK_KIND } from '../missions/notebook.ts';
+import { liveNotebookModel, notebookHandler } from '../missions/notebook-run.ts';
+import { notebookStore } from '../missions/notebook-store.ts';
 import { CHECKPOINTS_FORGET_KIND, checkpointsForgetHandler } from './checkpoints-forget.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { embedHandler, EMBED_KIND } from './embed.ts';
@@ -247,6 +251,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
+      [NOTEBOOK_KIND]: notebookHandler({ store: notebookStore(supabase), model: liveNotebookModel(env.openrouter ?? null) }),
       [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), bugIssues: missionBugIssues({ octokitFor }), kits: missionKits({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
       [BUG_FOLLOW_KIND]: bugFollowHandler({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }) }),

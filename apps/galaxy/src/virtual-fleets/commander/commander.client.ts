@@ -1,5 +1,5 @@
 import {
-  AskAnswerSchema, CardAnswerSchema, CardRefusalSchema, CommanderRefusalSchema, SendAnswerSchema, ViewAnswerSchema,
+  AskAnswerSchema, CardAnswerSchema, CardRefusalSchema, CommanderRefusalSchema, NoteDeletedSchema, SendAnswerSchema, ViewAnswerSchema,
   type AskAnswer, type Card, type CardSource, type CommanderState, type CommanderView, type Message,
 } from './commander.contract';
 import { WORDS } from './commander';
@@ -18,16 +18,21 @@ export type Answered = { ok: true; card: Card } | { ok: false; message: string; 
 /** A message to the fleet (s3): as stored, or why it was not sent. */
 export type Sent = { ok: true; message: Message } | { ok: false; message: string };
 
+/** A line of a notebook deleted (s4), or why it was not. */
+export type NoteGone = { ok: true } | { ok: false; message: string };
+
 export interface CommanderPort {
   load(): Promise<Loaded>;
   ask(text: string): Promise<Asked>;
   answer(source: CardSource, id: string, choice: string): Promise<Answered>;
   send(text: string): Promise<Sent>;
+  deleteNote(note: string): Promise<NoteGone>;
 }
 
 const ROUTE = '/api/virtual-fleets/commander';
 const ANSWER_ROUTE = `${ROUTE}/answer`;
 const MESSAGE_ROUTE = `${ROUTE}/message`;
+const NOTES_ROUTE = `${ROUTE}/notes`;
 const NOT_SENT = { ok: false as const, message: RAIL_WORDS.notSent, card: null };
 
 export function httpCommanderPort(workspace: string, fleet: string, fetch: typeof globalThis.fetch = globalThis.fetch): CommanderPort {
@@ -69,6 +74,17 @@ export function httpCommanderPort(workspace: string, fleet: string, fetch: typeo
         return { ok: false, message: WORDS.notSent };
       }
     },
+    async deleteNote(note) {
+      try {
+        const res = await fetch(NOTES_ROUTE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace, fleet, note }) });
+        const json: unknown = await res.json().catch(() => null);
+        if (res.ok && NoteDeletedSchema.safeParse(json).success) return { ok: true };
+        const refusal = CommanderRefusalSchema.safeParse(json);
+        return { ok: false, message: refusal.success ? refusal.data.error : WORDS.notDeleted };
+      } catch {
+        return { ok: false, message: WORDS.notDeleted };
+      }
+    },
     async answer(source, id, choice) {
       try {
         const res = await fetch(ANSWER_ROUTE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace, fleet, source, id, choice }) });
@@ -92,4 +108,5 @@ export const demoCommanderPort: CommanderPort = {
   ask: () => Promise.resolve({ ...DEMO, question: null, state: null }),
   answer: () => Promise.resolve({ ...DEMO, card: null }),
   send: () => Promise.resolve(DEMO),
+  deleteNote: () => Promise.resolve(DEMO),
 };
