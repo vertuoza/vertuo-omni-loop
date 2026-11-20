@@ -548,3 +548,159 @@ Each is a single constant or a single attribute to change.
 ```
 
 <!-- /omni-outbox-settled: s2-03-answered-cards-stay-a-day -->
+
+<!-- omni-outbox-settled: s3-01-runner-hands-messages-to-the-session -->
+
+## s3-01-runner-hands-messages-to-the-session — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-runner-hands-messages-to-the-session
+prd: 3107
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-20
+wave: 3
+---
+
+## The question, in plain words
+
+A job's claim now carries the fleet's messages, but the runner program that starts each job lies outside this slice. Who should hand the messages to the job's session?
+
+## The decision, in plain words
+
+The session prints the messages from a small file in the job's workspace folder, and the runner will write that file once a later change lets it read the new field of the claim.
+
+## The intro, for fun
+
+The post office now sorts the letters, but nobody has told the courier to carry them.
+
+## The punchline, for fun
+
+Until the courier is briefed, the letters wait in the tray.
+
+## The options, in plain words
+
+A. A. The runner writes a file in the job's worktree, which omni session start reads (as built on the reading side).
+B. B. The runner sets an environment variable with the messages, which needs a new entry in the kit's environment module.
+C. C. omni session start fetches the messages from the app itself, with the job's id.
+
+## What I had to decide
+
+Add the claim's messages to the runner's job reading (kit/lib/runner/api.ts) and have the runner write them to .omni-loop/local/from-your-people.json in the job's worktree before the agent starts (kit/lib/runner/runner.ts).
+
+## What I did meanwhile
+
+The app side is done and tested: the claim carries the messages, they are marked read, and omni session start prints them from the file. Until the runner writes the file, a job prints no block and the message keeps reading as read by that job.
+
+## What it costs to change later
+
+Small: one field in the runner's job schema and one file write per job, with a test; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for this slice holds kit/bin/commands/session.ts but not kit/lib/runner/, so the runner side could not be built here
+
+```
+
+<!-- /omni-outbox-settled: s3-01-runner-hands-messages-to-the-session -->
+
+<!-- omni-outbox-settled: s3-02-message-box-needs-no-model -->
+
+## s3-02-message-box-needs-no-model — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-20
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-message-box-needs-no-model
+prd: 3107
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-11-20
+wave: 3
+---
+
+## The question, in plain words
+
+Messaging the fleet needs no model, yet the screen draws no box when the Commander is off and a notice in its place when tokens are used up. Should a member still be able to message the fleet then?
+
+## The decision, in plain words
+
+The box stays as the screen draws it: off or out of tokens, there is no box, so no message can be sent from the tab then.
+
+## The intro, for fun
+
+The mail slot sits behind the same door as the oracle.
+
+## The punchline, for fun
+
+When the oracle sleeps, the door is shut for the postman too.
+
+## The options, in plain words
+
+A. A. As built: no box when the Commander is off or out of tokens.
+B. B. Keep the box in those states with Message fleet alone, since it needs no model.
+C. C. Keep the whole box and let Ask say why it cannot answer.
+
+## What I had to decide
+
+Keep the box hidden in the off and tokens-used-up states, as the drawn screens 2.C and 2.D show; the send route itself works in those states.
+
+## What I did meanwhile
+
+A member can still message through the route, and the Commander being off blocks only the tab's box.
+
+## What it costs to change later
+
+Small: show the Message fleet mode alone in those two states, one component and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The screen library draws the notice in place of the box and says nothing of Message fleet there
+
+```
+
+<!-- /omni-outbox-settled: s3-02-message-box-needs-no-model -->
