@@ -77,14 +77,15 @@ describe('a PRD\'s page, streamed', () => {
     expect((await everything(Promise.resolve(null))).match(/data-live=/g)).toHaveLength(1);
   });
   // PRD 2898 s9: the route hands the page its latest ready verdict, and the Ready panel shows it.
-  it('shows the Ready panel once the route hands it a verdict, and none without one', async () => {
+  // omni-loop-20 s7: the Ready checks are a record at the top of the Feature tab, no panel above every tab.
+  it('shows the Ready panel on the Feature tab once the route hands it a verdict, and none without one', async () => {
     const check = (at: number): ReadyRow['checks'][number] => ({ id: `c${String(at + 1)}`, title: `Check ${String(at + 1)}`, state: 'pass', why: '', evidence: null, excused: [] });
     const row: ReadyRow = {
       repo: 'acme/widgets', prd: parsePrd(71), pr_number: 72, head_sha: 'a'.repeat(40), state: 'ready', passed: 5, headline: 'Ready for review · 5 of 5',
       checks: [0, 1, 2, 3, 4].map(check), criteria: [], decided_at: '2026-11-15T07:00:00Z',
     };
     const page = (ready: Promise<ReturnType<typeof readyView>>) => createElement('main', null, createElement(DossierStream, {
-      read: { ...read, github: undefined }, me: DEMO_VIEWER, pick: { tab: 'outbox', version: null },
+      read: { ...read, github: undefined }, me: DEMO_VIEWER, pick: { tab: 'feature', version: null },
       reads: { ...reads(Promise.resolve(DEMO_GITHUB)), ready }, markdown: Promise.resolve(null), supabase: SUPABASE,
       live: () => null,
     }));

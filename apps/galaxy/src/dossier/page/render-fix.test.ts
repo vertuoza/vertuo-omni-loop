@@ -52,8 +52,9 @@ describe('a visual fix\'s page', () => {
 
   it('lists Timeline, Before/after, Variations and Questions, and nothing of a PRD', () => {
     const html = render('visual', VISUAL);
-    const labels = [...html.matchAll(/class="omni-tab[^"]*"[^>]*href="[^"]*"[^>]*><span[^>]*>([^<]+)/g)].map((m) => m[1]);
+    const labels = [...html.matchAll(/class="omni-tab[^"]*"[^>]*href="[^"]*"[^>]*>([^<]+)/g)].map((m) => m[1]);
     expect(labels).toEqual(['Timeline', 'Before/after', 'Variations', 'Questions']);
+    expect(html).not.toMatch(/>(Brainstorm|Specifications|Feature)</);
   });
 
   it('frames the round picked on its sandboxed route, with a Round picker kept on its route', () => {

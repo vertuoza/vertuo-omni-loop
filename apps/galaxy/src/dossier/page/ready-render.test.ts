@@ -1,9 +1,15 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import type { DossierRow } from '../store';
+import { DossierPage } from './DossierPage';
 import { readyView, type ReadyRow } from './ready';
 import { ReadyPanel } from './ReadyPanel';
+import { dossierView, readPick } from './view';
+
+vi.mock('server-only', () => ({}));
+vi.mock('next/navigation', async (original) => ({ ...(await original<typeof import('next/navigation')>()), useRouter: () => ({ refresh: () => {} }) }));
 
 // The Ready panel (PRD 2898 s9) at 5 of 5 and at 4 of 5: the failing check named at the top, each check
 // linking its evidence, each AC with its lines, kind, proof and state. Every name and link is fictional.
@@ -69,6 +75,19 @@ describe('the Ready panel', () => {
     expect(text).toContain('Not judged · the plan is unreadable');
     expect(html.match(/is-pass/g)).toHaveLength(3);
     expect(text.match(/merged/gi)).toBeNull();
+  });
+
+  it('AC-3: sits on the Feature tab only, on top of it, and above no other tab (omni-loop-20 s7)', () => {
+    const dossier: DossierRow = {
+      id: '00000000-0000-4000-8000-0000000000d1', workspace_id: 'w1', home_repo: 'acme/widgets', prd: parsePrd(2803), title: 'Theme',
+      opened_by: 'u-1', created_at: '2026-11-14T09:00:00Z', numbered_at: '2026-11-14T09:00:00Z',
+    };
+    const page = (tab: string) => renderToStaticMarkup(createElement(DossierPage, {
+      view: dossierView({ dossier, versions: [], members: [], rounds: [] }, 'u-1', readPick({ tab })), markdown: null, supabase: null, ready: readyView(BASE),
+    }));
+    for (const tab of ['brainstorm', 'specifications', 'voice', 'outbox', 'retro', 'timeline']) expect(page(tab), tab).not.toContain('data-screen="ready-checks"');
+    const feature = page('feature');
+    expect(feature).toContain('<section class="dossier-pane" aria-label="Feature"><section class="ready ready-pass" aria-label="Ready" data-screen="ready-checks">');
   });
 
   it('draws only https links', () => {

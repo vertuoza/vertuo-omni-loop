@@ -53,8 +53,10 @@ const APPROVED: ApprovalRow = {
 const read = (dossier: DossierRow, approval: DossierRead['approval'], versions = VERSIONS): DossierRead =>
   ({ dossier, versions, members: [ADA], rounds: [], approval });
 
-const page = (r: DossierRead, me: string | null = ADA.user_id) =>
-  renderToStaticMarkup(createElement(DossierPage, { view: dossierView(r, me, readPick({})), markdown: null, supabase: null }));
+const page = (r: DossierRead, me: string | null = ADA.user_id, query: Record<string, string> = {}) =>
+  renderToStaticMarkup(createElement(DossierPage, { view: dossierView(r, me, readPick(query)), markdown: null, supabase: null }));
+/** The Specifications tab's Approval record, where the seals sit since omni-loop-20 s7. */
+const RECORD = { segment: 'approval' };
 
 describe('approvalView', () => {
   it('waits for approval while none was given, with the button for a member', () => {
@@ -74,12 +76,12 @@ describe('approvalView', () => {
   });
 
   it('shows the seal on the page once approved, as the approval, with who, when and the pinned files (#1351)', () => {
-    const html = page(read(born('server'), APPROVED));
+    const html = page(read(born('server'), APPROVED), ADA.user_id, RECORD);
     expect(html).toContain('id="approval"');
     expect(html).toContain('APPROVED · PINNED');
     expect(html).toContain('Approved by ada');
     expect(html).toContain('9c41aa0');
-    expect(page(read(born('server'), null))).not.toContain('APPROVED · PINNED');
+    expect(page(read(born('server'), null), ADA.user_id, RECORD)).not.toContain('APPROVED · PINNED');
   });
 
   it('drifts once a version newer than a pinned one was pushed, naming the file, with the button back', () => {
@@ -142,7 +144,7 @@ describe('the Tech Approval on the page (PRD 2608)', () => {
     expect(approvalView(read(born('server'), APPROVED), ADA.user_id)?.canRequestTech).toBe(false);
   });
 
-  it('shows the author the request, and the named person Give Tech Approval, never the author Approve before it is given', () => {
+  it('shows the author the request, and the named person Review the plan, never the author Approve before it is given', () => {
     const asked = techRead({ user: BOB.user_id, state: 'asked', approval: null });
     expect(approvalView(asked, ADA.user_id)).toMatchObject({ canRequestTech: false, canApprove: false, tech: { state: 'asked', name: 'Bob', canGive: false, waiting: 'waiting for Bob\'s tech approval' } });
     expect(approvalView(asked, BOB.user_id)).toMatchObject({ canApprove: false, tech: { canGive: true } });
@@ -150,7 +152,9 @@ describe('the Tech Approval on the page (PRD 2608)', () => {
     const html = page(asked, ADA.user_id);
     expect(html).toContain('waiting for Bob&#x27;s tech approval');
     expect(html).not.toMatch(/<button[^>]*>Approve<\/button>/);
-    expect(page(asked, BOB.user_id)).toMatch(/<button[^>]*>Give Tech Approval<\/button>/);
+    // omni-loop-20 s7: Give Tech Approval is on the review screen; the page links to it.
+    expect(page(asked, BOB.user_id)).toContain(`<a href="/prd/${ID}/review">Review the plan</a>`);
+    expect(page(asked, BOB.user_id)).not.toMatch(/<button[^>]*>Give Tech Approval<\/button>/);
   });
 
   it('says the same in About this PRD while the Tech Approval is missing, and nothing once it is given', () => {
@@ -170,7 +174,7 @@ describe('the Tech Approval on the page (PRD 2608)', () => {
     const view = approvalView(both, ADA.user_id);
     expect(view?.tech?.seal).toMatchObject({ approver: 'bob' });
     // Under the head (omni-loop-20 s6): the meta row says who approved it too.
-    const html = page(both).split('<div class="dossier-tabbar">')[1] ?? '';
+    const html = page(both, ADA.user_id, RECORD).split('<div class="dossier-tabbar">')[1] ?? '';
     expect(html.indexOf('Tech approval · PRD 1299')).toBeGreaterThan(-1);
     expect(html.indexOf('Tech approval · PRD 1299')).toBeLessThan(html.indexOf('Approved by ada'));
   });
@@ -250,11 +254,12 @@ describe('readApproval', () => {
 });
 
 describe('the PRD page', () => {
-  it('shows a ◆ PRD waiting for approval, with the Approve button', () => {
+  it('shows a ◆ PRD waiting for approval, with Review and approve leading to the review screen (omni-loop-20 s7)', () => {
     const html = page(read(born('server'), null));
     expect(html).toContain('<dt class="omni-definition-list__label">Approval</dt>');
     expect(html).toContain('waiting for approval');
-    expect(html).toMatch(/<button[^>]*>Approve<\/button>/);
+    expect(html).toContain(`href="/prd/${ID}/review" data-primary="">Review and approve</a>`);
+    expect(html).not.toMatch(/<button[^>]*>Approve<\/button>/);
   });
 
   it('shows a ◆ PRD approved, with who and when, and no button', () => {
@@ -264,11 +269,11 @@ describe('the PRD page', () => {
     expect(html).not.toMatch(/<button[^>]*>Approve<\/button>/);
   });
 
-  it('shows a ◆ PRD drifted · approve again, with the changed files and the button back', () => {
+  it('shows a ◆ PRD drifted · approve again, with the changed files and Review and approve back', () => {
     const html = page(read(born('server'), APPROVED, [...VERSIONS, NEWER_PLAN]));
     expect(html).toContain('drifted · approve again');
     expect(html).toContain('plan.md changed since ada approved it');
-    expect(html).toMatch(/<button[^>]*>Approve<\/button>/);
+    expect(html).toContain(`href="/prd/${ID}/review" data-primary="">Review and approve</a>`);
   });
 
   it('says when the approval could not be read', () => {
@@ -417,7 +422,7 @@ describe('readVoids and readAskedApprovers', () => {
   });
 });
 
-describe('the approve screen on the page', () => {
+describe('the approve screen, on the review screen since omni-loop-20 s7', () => {
   const screenOf = (html: string) => /<section class="dossier-approve-screen"[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
   const SCREEN = {
     diffs: [{ path: 'plan.md', rows: [{ sign: '-' as const, text: 'two' }, { sign: '+' as const, text: '2' }, { sign: '…' as const, text: '' }] }],
@@ -425,22 +430,24 @@ describe('the approve screen on the page', () => {
     spec: 'read' as const,
   };
 
-  it('shows the changed file\'s diff, then Problem and Solution, then Approve, and no Approve among the actions', () => {
-    const html = page(withFacts(read(born('server'), APPROVED, [...VERSIONS, NEWER_PLAN]), { voids: [VOID], asked: [], screen: SCREEN }));
-    const screen = screenOf(html);
-    expect(screen).toContain('<pre class="dossier-diff" aria-label="Changes to plan.md"><span class="dossier-diff-del">- two\n</span><span class="dossier-diff-add">+ 2\n</span><span class="dossier-diff-gap">…\n</span></pre>');
-    const order = ['<h3>plan.md</h3>', '<h2>Problem</h2>', '<h2>Solution</h2>', '>Approve</button>'].map((s) => screen.indexOf(s));
-    expect(order.every((at) => at >= 0)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(/<div class="omni-page-header__action">[\s\S]*?<\/header>/.exec(html)?.[0]).not.toContain('Approve');
+  it('draws no diff, no Problem and Solution and no Approve on the page, on any tab: Review and approve leads to the review screen', () => {
+    const facts = withFacts(read(born('server'), APPROVED, [...VERSIONS, NEWER_PLAN]), { voids: [VOID], asked: [], screen: SCREEN });
+    for (const tab of ['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline']) {
+      const html = page(facts, ADA.user_id, { tab });
+      expect(screenOf(html), tab).toBe('');
+      expect(html, tab).not.toContain('class="dossier-diff"');
+      expect(html, tab).not.toContain('<h2>Problem</h2>');
+      expect(html, tab).not.toMatch(/<button[^>]*>Approve<\/button>/);
+      expect(html, tab).toContain(`href="/prd/${ID}/review" data-primary="">Review and approve</a>`);
+    }
   });
 
-  it('says when a changed file or the spec could not be read', () => {
+  it('draws nothing of an unread change on the page either', () => {
     const unread = { diffs: [{ path: 'plan.md', rows: null }], sections: [], spec: 'unread' as const };
-    const screen = screenOf(page(withFacts(read(born('server'), null), { voids: [], asked: [], screen: unread })));
-    expect(screen).toContain('This file’s change could not be read');
-    expect(screen).toContain('The spec could not be read');
-    expect(screen).toContain('>Approve</button>');
+    const html = page(withFacts(read(born('server'), null), { voids: [], asked: [], screen: unread }));
+    expect(screenOf(html)).toBe('');
+    expect(html).not.toContain('This file’s change could not be read');
+    expect(html).toContain(`<a href="/prd/${ID}/review">Review and approve</a>`);
   });
 
   it('shows no screen to a viewer who may not approve, nor once approved', () => {

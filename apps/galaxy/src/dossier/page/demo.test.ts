@@ -68,6 +68,18 @@ describe('the demo dossier\'s GitHub summary', () => {
     expect(read.dossier.title).toBe('Ask mode — the agent\'s questions on a page made for reading');
   });
 
+  it('opens on its moment\'s tab (omni-loop-20 s7): Feature, its main broken, else Outbox while its decisions wait', () => {
+    const read = demoDossier(NOW);
+    const view = dossierView(read, DEMO_VIEWER, { tab: null, version: null }, NOW);
+    expect(view.mainWatch?.state).toBe('broke');
+    expect(view.tab).toBe('feature');
+    expect(view.tabs.map((t) => t.label)).toEqual(['Brainstorm', 'Specifications', 'User voice', 'Outbox', 'Feature', 'Retro', 'Timeline']);
+    expect(view.tabs.find((t) => t.kind === 'feature')).toMatchObject({ current: true, attention: true });
+    const unwatched = dossierView({ ...read, mainWatch: null }, DEMO_VIEWER, { tab: null, version: null }, NOW);
+    expect(unwatched.tab).toBe('outbox');
+    expect(unwatched.tabs.find((t) => t.kind === 'outbox')).toMatchObject({ current: true, attention: true, badge: '2 open' });
+  });
+
   it('gives a signature that carries its stage and open outbox count', () => {
     expect(signature(pulseOf(demoDossier(NOW)))).toMatch(/#outbox:2:1@2026-09-26T09:12:00Z$/);
   });

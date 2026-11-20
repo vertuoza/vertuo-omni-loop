@@ -65,6 +65,15 @@
 //
 // PRD 1299, s3: a PRD born on the server (◆) carries its approval (./approval.ts): waiting for approval,
 // approved with who and when, or drifted · approve again; any other dossier carries none.
+//
+// omni-loop-20 s7: a PRD's page has exactly seven tabs, always, in this order — Brainstorm (was Questions),
+// Specifications (Before/after · Spec · Plan · Approval record, picked by `?segment=`), User voice, Outbox,
+// Feature (the Ready checks, then PR care, Proof and After merge — was Main), Retro (then Pitch) and
+// Timeline — with no More menu. An empty tab stays, dimmed, with its reason; a count is a pill, yellow only
+// when the tab waits on the viewer. With no tab named, the page opens on the tab that waits on the reader
+// (`defaultTab`). The old tab ids still open: the route redirects each to its new tab and segment, or its
+// Feature or Retro section (`oldTabPath`), and `#approve`, `#approval` and `#attestation` reach the review
+// screen or the Approval record (`anchorPath`). A fix's page keeps its own tabs.
 import type { FixPageView } from '../../fixes/timeline';
 import type { MilestoneRow } from '../../timeline/store';
 import { pageTimeline, type TimelineView } from '../../timeline/view';
@@ -87,10 +96,10 @@ import { GITHUB_PENDING } from './stream/pending';
 import type { StageRow } from '../../stages/stage';
 import { stageView, type Fixing, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
-import { reworkCommand } from './voice';
+import { reworkCommand, VOICE_EMPTY } from './voice';
 import { pad, shortDay, stamp } from './dates';
 import type { GithubAt } from '../snapshot/snapshot';
-import { proofView, runsBadge, type ProofRead, type ProofView } from './proof';
+import { proofView, type ProofRead, type ProofView } from './proof';
 import { pitchesBadge, pitchView, type PitchRead, type PitchView } from './pitch';
 import { approvalView, type ApprovalFacts, type ApprovalRead, type ApprovalView } from './approval';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
@@ -100,63 +109,83 @@ import type { FindingView } from '../../rewind/rewind.contract';
 
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
-/** The page's tabs: an artifact's, the questions that shaped it, or the decisions taken while it was built. */
-export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'care' | 'retro' | 'timeline' | 'proof' | 'pitch' | 'main';
+/** A PRD page's seven tabs, always all of them, in this order (omni-loop-20 s7). */
+export const PAGE_TABS = ['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline'] as const;
+export type PageTab = (typeof PAGE_TABS)[number];
+
+/** A fix's tabs (PRD 627): its own artifacts, its questions and its Timeline. */
+type FixTab = 'timeline' | 'before-after' | 'variations' | 'bug-record' | 'questions';
+
+/** The tabs a page draws: a PRD's seven, or a fix's own. */
+export type DossierTab = PageTab | FixTab;
+
+/** The Specifications tab's segments, in order: the before/after page, the spec, the plan, and the
+ * approval record of a ◆ PRD (its seals, its attestation and its business laws' verdict). */
+const SEGMENTS = ['before-after', 'spec', 'plan', 'approval'] as const;
+export type Segment = (typeof SEGMENTS)[number];
+
+/** A section of the Feature or the Retro tab, by its element's id: an old tab's link lands on it. */
+type Section = 'pr-care' | 'proof' | 'after-merge' | 'pitch';
+
+/** Where each tab id a PRD's page had before omni-loop-20 s7 now leads: its new tab, and its segment or section. */
+const OLD_TABS = {
+  questions: { tab: 'brainstorm' },
+  'before-after': { tab: 'specifications', segment: 'before-after' },
+  spec: { tab: 'specifications', segment: 'spec' },
+  plan: { tab: 'specifications', segment: 'plan' },
+  care: { tab: 'feature', section: 'pr-care' },
+  proof: { tab: 'feature', section: 'proof' },
+  main: { tab: 'feature', section: 'after-merge' },
+  pitch: { tab: 'retro', section: 'pitch' },
+} as const satisfies Record<string, { tab: PageTab; segment?: Segment; section?: Section }>;
+type OldTab = keyof typeof OLD_TABS;
+type Moved = { tab: PageTab; segment?: Segment; section?: Section };
 
 /** The tabs the dossier itself keeps, in the order a PRD is made (PRD 384): the questions first, then
  * the before/after, the spec and the plan. The history lists these. */
 export const TABS: readonly (DossierKind | 'questions')[] = ['questions', 'before-after', 'spec', 'plan'];
 
-/** Every tab of the page, in order: the dossier's, the User voice beside them (PRD 822), then what
- * GitHub holds (PRD 426). */
-export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'timeline', 'voice', 'outbox', 'care', 'retro'];
-
-/** Each kind's tabs, in order (PRD 627): a PRD's every tab; a fix's own artifacts, then its questions. */
+/** Each kind's tabs, in order (PRD 627): a PRD's seven; a fix's Timeline, its own artifacts, then its questions. */
 export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
   prd: PAGE_TABS,
   visual: ['timeline', 'before-after', 'variations', 'questions'],
   bug: ['timeline', 'bug-record', 'questions'],
 };
 
-export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
-  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', care: 'PR care', retro: 'Retro',
-  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline', voice: 'User voice', proof: 'Proof',
-  pitch: 'Pitch', main: 'Main',
+/** Every tab's label, and the label of each artifact the history and the fix lists name. */
+export const TAB_LABELS: Readonly<Record<DossierTab | ArtifactKind, string>> = {
+  brainstorm: 'Brainstorm', specifications: 'Specifications', voice: 'User voice', outbox: 'Outbox', feature: 'Feature', retro: 'Retro',
+  timeline: 'Timeline', 'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', variations: 'Variations',
+  'bug-record': 'Bug record',
 };
 
-/** A PRD's tabs once it holds a proof run (PRD 798): Proof after Outbox, before Retro. */
-const withProof = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t) => (t === 'retro' ? ['proof', t] : [t]));
+/** Each segment's label on the Specifications tab's segmented control. */
+const SEGMENT_LABELS: Readonly<Record<Segment, string>> = {
+  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', approval: 'Approval record',
+};
 
-/** A PRD's tabs once it holds a pitch (PRD 859): Pitch after Proof, before Retro. */
-const withPitch = (tabs: readonly DossierTab[]): DossierTab[] => tabs.flatMap((t) => (t === 'retro' ? ['pitch', t] : [t]));
+/** Whether a tab shows versions of an artifact the dossier keeps: a fix's own artifacts, and the User voice. */
+export const isArtifactTab = (tab: DossierTab | ArtifactKind): tab is ArtifactKind => isArtifactKind(tab);
 
-/** A PRD's tabs once the Omni App watches its main (PRD 2410, s3): Main after Retro. */
-const withMain = (tabs: readonly DossierTab[]): DossierTab[] => [...tabs, 'main'];
+const KNOWN_TABS: readonly string[] = [...PAGE_TABS, ...KIND_TABS.visual, ...KIND_TABS.bug, ...Object.keys(OLD_TABS)];
 
-/** A PRD's tabs, with Proof and Pitch once it holds a proof run and a pitch, and Main once it is watched. */
-function prdTabs(read: DossierRead): readonly DossierTab[] {
-  const proofed = read.proofs?.runs.length ? withProof(KIND_TABS.prd) : KIND_TABS.prd;
-  const pitched = read.pitches?.runs.length ? withPitch(proofed) : proofed;
-  return read.mainWatch?.watches.length ? withMain(pitched) : pitched;
-}
-
-/** The tabs that hold no artifact of the dossier's own. */
-const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'care', 'retro', 'timeline', 'proof', 'pitch', 'main'];
-
-/** Whether a tab shows versions of an artifact the dossier keeps. */
-export const isArtifactTab = (tab: DossierTab): tab is ArtifactKind => !NOT_ARTIFACTS.includes(tab);
-
-const isDossierTab = (value: unknown): value is DossierTab =>
-  isOneOf(NOT_ARTIFACTS, value) || isArtifactKind(value);
+/** A tab id the address may name: a tab drawn today, or one a PRD's page had before (OLD_TABS). */
+export type PickTab = DossierTab | OldTab;
+const isPickTab = (value: unknown): value is PickTab => typeof value === 'string' && KNOWN_TABS.includes(value);
+const isOldTab = (value: string): value is OldTab => Object.hasOwn(OLD_TABS, value);
+const isSegment = (value: unknown): value is Segment => isOneOf(SEGMENTS, value);
+const isPageTab = (value: unknown): value is PageTab => isOneOf(PAGE_TABS, value);
 
 /** An empty Retro tab says why. */
 export const RETRO_EMPTY = 'The retro is written when the feature PR merges.';
 
-/** What the address picks: a tab (null: none named, the page's default), a version of its artifact
- * (null: the latest), and on the Outbox tab what its context rail shows (left out: Before/after). */
+/** What the address picks: a tab (null: none named, the page's default), the Specifications tab's segment
+ * (left out: its default), a version of the shown artifact or proof run (null: the latest), and on the
+ * Outbox tab what its context rail shows (left out: Before/after). */
 export type DossierPick = {
-  tab: DossierTab | null; version: number | null; context?: ContextKind;
-  /** The pitch the Pitch tab's picker names (PRD 859): a run's id, shown in its audience's place. */
+  tab: PickTab | null; version: number | null; context?: ContextKind;
+  segment?: Segment;
+  /** The pitch the Pitch section's picker names (PRD 859): a run's id, shown in its audience's place. */
   pitch?: string;
 };
 
@@ -170,18 +199,72 @@ export function readPick(query: Query): DossierPick {
   const tab = one(query.tab);
   const version = one(query.v);
   const context = one(query.context);
+  const segment = one(query.segment);
   const pitch = one(query.pitch);
   return {
-    tab: isDossierTab(tab) ? tab : null,
+    tab: isPickTab(tab) ? tab : null,
     version: version !== null && VERSION.test(version) ? Number(version) : null,
     ...(isContext(context) ? { context } : {}),
+    ...(isSegment(segment) ? { segment } : {}),
     ...(pitch !== null && RUN_ID.test(pitch) ? { pitch: pitch.toLowerCase() } : {}),
   };
 }
 
-/** The tab the page opens on when the address names none: Questions once a round was asked, else
- * Before/after, so nobody lands on an empty tab. */
-export const defaultTab = (rounds: readonly unknown[] | null): DossierTab => (rounds?.length ? 'questions' : 'before-after');
+/** Where an old tab id of a PRD's page now leads; null for a tab of today, or none. */
+const movedOf = (tab: PickTab | null): Moved | null => (tab !== null && isOldTab(tab) ? OLD_TABS[tab] : null);
+
+/** The address a PRD's page sends an old `?tab=` to (AC-4): its new tab, its segment, every other parameter
+ * kept, and its Feature or Retro section as the fragment; null when the address names no old tab. */
+export function oldTabPath(id: string, query: Query): string | null {
+  const tab = one(query.tab);
+  const moved = tab !== null && isOldTab(tab) ? OLD_TABS[tab] : null;
+  if (!moved) return null;
+  const params = new URLSearchParams();
+  params.set('tab', moved.tab);
+  if ('segment' in moved) params.set('segment', moved.segment);
+  for (const [key, value] of Object.entries(query)) {
+    if (key === 'tab' || (key === 'segment' && 'segment' in moved)) continue;
+    for (const each of Array.isArray(value) ? value : value === undefined ? [] : [value]) params.append(key, each);
+  }
+  return `${dossierPath(id)}?${String(params)}${'section' in moved ? `#${moved.section}` : ''}`;
+}
+
+/** Where a link to the page's old anchors leads (AC-4): `#approve` to the review screen while a decision
+ * waits on the viewer, else to the Approval record, like `#approval` and `#attestation` when the page shows
+ * no element of that id; null for any other fragment, when it is on the page, or when the page is already
+ * the Approval record (`here`, its path and query). */
+export function anchorPath(hash: string, at: { review: string | null; record: string; here: string; onPage: (id: string) => boolean }): string | null {
+  const id = hash.replace(/^#/, '');
+  const to = id === 'approve' ? at.review ?? `${at.record}#approval`
+    : (id === 'approval' || id === 'attestation') && !at.onPage(id) ? `${at.record}#${id}` : null;
+  return to === null || to.split('#')[0] === at.here ? null : to;
+}
+
+/** What a PRD's page reads to open on the tab that waits on the reader. */
+export type Moment = {
+  draft: boolean; approval: ApprovalView | null; outbox: OutboxView; stage: StageView | null; mainWatch: MainWatchView | null;
+};
+
+/** Whether a signed decision (the approval, or the Tech Approval) waits on the viewer. */
+const decisionWaits = (approval: ApprovalView | null) => approval !== null && (approval.canApprove || approval.tech?.canGive === true);
+
+/** Whether the feature waits for its review and merge (the stage's one button). */
+const readyToMerge = (stage: StageView | null) => stage?.action?.label === 'Review & merge';
+
+/** The tab a PRD's page opens on when the address names none (omni-loop-20 s7): Feature while main is broken
+ * (its After merge section), Specifications while an approval or a Tech Approval waits on the viewer, Outbox
+ * while items wait, Feature when ready, Retro once shipped, Brainstorm for a draft, else Specifications. */
+export function defaultTab({ draft, approval, outbox, stage, mainWatch }: Moment): PageTab {
+  if (mainWatch?.state === 'broke') return 'feature';
+  if (decisionWaits(approval)) return 'specifications';
+  if (outbox.state === 'items' && outbox.open.length > 0) return 'outbox';
+  if (readyToMerge(stage)) return 'feature';
+  if (stage?.id === 'shipped' || stage?.id === 'retro') return 'retro';
+  return draft && approval === null ? 'brainstorm' : 'specifications';
+}
+
+/** Whether the page opens `tab` for `pick` on a PRD: named, or opened by default (the route signs a tab's files ahead). */
+export const mayOpen = (pick: DossierPick, tab: PageTab) => pick.tab === null || pick.tab === tab || movedOf(pick.tab)?.tab === tab;
 
 /** A PRD's issue on GitHub: its number is the issue's. */
 export const issueUrl = (repo: string, prd: PrdNumber) =>
@@ -194,10 +277,16 @@ export const dossierPath = (id: string, kind: WorkKind = 'prd') => workPath(kind
 export const sandboxPath = (id: string, number: number, kind: WorkKind = 'prd', artifact: 'before-after' | 'variations' = 'before-after') =>
   `${dossierPath(id, kind)}/${artifact === 'variations' ? 'r' : 'v'}/${number}/page`;
 
-/** A view's link; the default tab leaves `tab` out, and the default context (Before/after) `context`. */
-function hrefOf(id: string, tab: DossierTab, version: number | null, fallback: DossierTab, context: ContextKind | null = null, kind: WorkKind = 'prd') {
+/** Where a view's link starts from: the dossier, its kind, its default tab and the Specifications tab's default segment. */
+type LinkBase = { id: string; kind: WorkKind; fallback: DossierTab; fallbackSegment: Segment };
+
+/** A view's link; the default tab leaves `tab` out, the default segment `segment`, and the default context
+ * (Before/after) `context`. */
+function hrefOf(base: LinkBase, tab: DossierTab, version: number | null, segment: Segment | null = null, context: ContextKind | null = null) {
+  const { id, kind, fallback, fallbackSegment } = base;
   const query = new URLSearchParams();
   if (tab !== fallback) query.set('tab', tab);
+  if (tab === 'specifications' && segment !== null && segment !== fallbackSegment) query.set('segment', segment);
   if (version !== null) query.set('v', String(version));
   if (context !== null && context !== 'before-after') query.set('context', context);
   return String(query) ? `${dossierPath(id, kind)}?${query}` : dossierPath(id, kind);
@@ -259,12 +348,18 @@ export type DossierRead = {
 /** Nobody known: every face is the GitHub photo of a login, or the name's initial (PRD 652). */
 const NOBODY: People = peopleOf([], []);
 
-/** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
- * of asked (`7/10`, or `10/10 answered` once none is left); null when there is nothing yet. `alert` is
- * what is left to answer (`3 to answer`), null when nothing is. */
-export type TabEntry = { kind: DossierTab; label: string; badge: string | null; alert: string | null; href: string; current: boolean;
+/** A tab and the count its pill reads: the questions answered out of asked (`7/10`), the spec's latest
+ * version (`v3`), the outbox's open items (`2 open`); null when there is nothing to count. */
+export type TabEntry = { kind: DossierTab; label: string; badge: string | null; href: string; current: boolean;
+  /** The tab waits on the viewer: its pill turns yellow. */
+  attention: boolean;
   /** Nothing to show yet: the tab stays in the bar, dimmed. */
-  empty: boolean };
+  empty: boolean;
+  /** Why it is empty, its title; null when it is not. */
+  why: string | null };
+
+/** One segment of the Specifications tab: its link, and whether it is the one shown. */
+export type SegmentEntry = { id: Segment; label: string; href: string; current: boolean };
 
 /** The Retro tab: retro.md as markdown (`text`), none yet (`empty`), or GitHub unread; `words` says why
  * it is empty, and `prUrl` is the retro PR (null when there is none). */
@@ -331,6 +426,12 @@ export type DossierView = {
   canDelete: boolean;
   tabs: TabEntry[];
   tab: DossierTab;
+  /** The Specifications tab's segment shown; null on any other tab. */
+  segment: Segment | null;
+  /** The Specifications tab's segments, in order (Approval record only for a ◆ PRD); none on any other tab. */
+  segments: SegmentEntry[];
+  /** Each kept artifact's version count, which the seen signature reads (PRD 579). */
+  latest: Readonly<Record<DossierKind, number>>;
   /** The tab's versions, newest first; none on Questions. */
   versions: VersionEntry[];
   /** The version the tab shows: the picked one, else the latest; null when there is none yet, and on
@@ -554,13 +655,13 @@ export const roundPath = (roundId: string, dossierId: string) =>
 
 /** The Outbox tab's context rail: its three switches, the latest before/after page, the latest spec,
  * and the brainstorm's questions with their answers. */
-function contextView(id: string, versions: DossierVersionRow[], questions: QuestionsView, current: ContextKind, fallback: DossierTab): ContextView {
+function contextView(base: LinkBase, versions: DossierVersionRow[], questions: QuestionsView, current: ContextKind): ContextView {
   const pages = versions.filter((v) => v.kind === 'before-after').length;
   const specs = versions.filter((v) => v.kind === 'spec').length;
   return {
     current,
-    links: CONTEXTS.map((kind) => ({ kind, label: CONTEXT_LABELS[kind], href: hrefOf(id, 'outbox', null, fallback, kind), current: kind === current })),
-    frame: pages ? sandboxPath(id, pages) : null,
+    links: CONTEXTS.map((kind) => ({ kind, label: CONTEXT_LABELS[kind], href: hrefOf(base, 'outbox', null, null, kind), current: kind === current })),
+    frame: pages ? sandboxPath(base.id, pages) : null,
     spec: specs || null,
     brainstorm: questions.rounds === null ? null : questions.rounds
       .filter((round) => round.rule === 'brainstorm')
@@ -617,27 +718,54 @@ export function questionsView(
 }
 
 /** What the page is read for: the rows, the viewer, the dossier's kind and tabs, the tab picked (its
- * default the `fallback`), the links between its views, and the GitHub summary a numbered PRD reads
- * (left out for a draft). */
+ * default the `base`'s fallback), the Specifications tab's segment, the links between its views, and the
+ * GitHub summary a numbered PRD reads (left out for a draft). */
 type Page = {
-  read: DossierRead; me: string | null; people: People; work: WorkKind; tabs: readonly DossierTab[]; tab: DossierTab; fallback: DossierTab;
-  href: (to: DossierTab, version?: number | null) => string;
+  read: DossierRead; me: string | null; people: People; work: WorkKind; tabs: readonly DossierTab[]; tab: DossierTab;
+  segment: Segment | null; base: LinkBase;
+  href: (to: DossierTab, version?: number | null, segment?: Segment | null) => string;
   numbered: GithubSummary | null | undefined;
 };
 
-function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
+/** The artifacts the Specifications tab segments, in order. */
+const SPEC_ARTIFACTS = ['before-after', 'spec', 'plan'] as const satisfies readonly Segment[];
+
+/** The Specifications tab's default segment: the first of its artifacts with a version, else Before/after. */
+const defaultSegment = (versions: readonly Pick<DossierVersionRow, 'kind'>[]): Segment =>
+  SPEC_ARTIFACTS.find((kind) => versions.some((v) => v.kind === kind)) ?? 'before-after';
+
+/** The segment the address picks, or an old tab's; Approval record only for a ◆ PRD; null when none. */
+function segmentOf(pick: DossierPick, approval: ApprovalView | null): Segment | null {
+  const picked = pick.segment ?? movedOf(pick.tab)?.segment ?? null;
+  return picked === 'approval' && approval === null ? null : picked;
+}
+
+/** The tab a PRD's address picks: one of its seven, an old tab's new one, or Specifications when only a segment is named. */
+function prdTabOf(pick: DossierPick): PageTab | null {
+  if (isPageTab(pick.tab)) return pick.tab;
+  const moved = movedOf(pick.tab);
+  if (moved) return moved.tab;
+  return pick.tab === null && pick.segment !== undefined ? 'specifications' : null;
+}
+
+/** The tab a fix's address picks: a PRD's Brainstorm is a fix's Questions, so a way back from a round lands on either. */
+const fixTabOf = (tab: PickTab | null): PickTab | null => (tab === 'brainstorm' ? 'questions' : tab);
+
+function pageOf(read: DossierRead, me: string | null, pick: DossierPick, moment: Moment): Page {
   const work = kindOf(read.dossier);
   const numbered = read.dossier.prd === null ? undefined : read.github;
-  const kindTabs = work === 'prd' ? prdTabs(read) : KIND_TABS[work];
-  const tabs = kindTabs.filter((t) => t !== 'care' || !noFeature(read.dossier.prd, numbered));
-  const fallback = work === 'prd' ? defaultTab(read.rounds) : at(tabs, 0, 'the first tab');
-  const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
-  const href = (to: DossierTab, version: number | null = null) => hrefOf(read.dossier.id, to, version, fallback, null, work);
-  return { read, me, people: read.people ?? NOBODY, work, tabs, tab, fallback, href, numbered };
+  const tabs = KIND_TABS[work];
+  const fallback = work === 'prd' ? defaultTab(moment) : at(tabs, 0, 'the first tab');
+  const picked = work === 'prd' ? prdTabOf(pick) : tabs.find((t) => t === fixTabOf(pick.tab)) ?? null;
+  const tab = picked ?? fallback;
+  const base: LinkBase = { id: read.dossier.id, kind: work, fallback, fallbackSegment: defaultSegment(read.versions) };
+  const segment = tab === 'specifications' ? segmentOf(pick, moment.approval) ?? base.fallbackSegment : null;
+  const href = (to: DossierTab, version: number | null = null, at: Segment | null = null) => hrefOf(base, to, version, at);
+  return { read, me, people: read.people ?? NOBODY, work, tabs, tab, segment, base, href, numbered };
 }
 
 /** Whether the PRD is known to have no feature PR: a draft, or GitHub answered there is none. While
- * GitHub is being read, or could not be, the PR care tab stays, so the tab bar does not move. */
+ * GitHub is being read, or could not be, the Feature tab keeps its PR care section. */
 const noFeature = (prd: PrdNumber | null, github: GithubSummary | null | undefined) => prd === null || (!!github && github.feature === null);
 
 /** The PRD's feature PR, open or merged; null when it has none, or it could not be read. */
@@ -646,39 +774,54 @@ function featureOf(github: GithubSummary | null | undefined) {
   return feature && feature !== UNREAD ? feature : null;
 }
 
-/** The Outbox tab, with its context rail while it is the tab shown. */
-function outboxOf({ read, me, people, tab, fallback, numbered }: Page, questions: QuestionsView, context: ContextKind): OutboxView {
+/** The Outbox tab, before its context rail: the page reads it to open on the tab that waits on the reader. */
+function outboxOf(read: DossierRead, me: string | null, people: People, numbered: GithubSummary | null | undefined): OutboxView {
   return outboxView(numbered, {
     canAnswer: me !== null,
     demo: read.demo ?? false,
     people,
     sender: me === null ? null : people.byId(me, nameOf(me, read.members)).face,
-    context: tab === 'outbox' ? contextView(read.dossier.id, read.versions, questions, context, fallback) : null,
   });
 }
 
+/** The artifact whose versions the tab shows: the Specifications segment's, the User voice's, or a fix's
+ * own; null for any other tab, and on Approval record. */
+function shownKind({ tab, segment }: Page): ArtifactKind | null {
+  if (tab === 'specifications') return segment === 'approval' ? null : segment;
+  return isArtifactTab(tab) ? tab : null;
+}
+
 /** The tab's versions, newest first, the picked one (else the latest) current. */
-function versionEntries({ read, tab, work, href }: Page, version: number | null): VersionEntry[] {
-  const mine = isArtifactTab(tab) ? read.versions.filter((v) => v.kind === tab) : [];
+function versionEntries(page: Page, version: number | null): VersionEntry[] {
+  const { read, tab, segment, work, href } = page;
+  const kind = shownKind(page);
+  const mine = kind === null ? [] : read.versions.filter((v) => v.kind === kind);
   const picked = version !== null && version <= mine.length ? version : mine.length;
   return mine.map((row, i): VersionEntry => {
     const number = i + 1;
     return {
       id: row.id,
       number,
-      label: `${tab === 'variations' ? `Round ${number}` : `v${number}`} · ${shortDay(row.created_at)} · ${versionSource(row, read.members)}`,
-      href: href(tab, number),
+      label: `${kind === 'variations' ? `Round ${number}` : `v${number}`} · ${shortDay(row.created_at)} · ${versionSource(row, read.members)}`,
+      href: href(tab, number, segment),
       current: number === picked,
-      frame: tab === 'before-after' || tab === 'variations' ? sandboxPath(read.dossier.id, number, work, tab) : null,
+      frame: kind === 'before-after' || kind === 'variations' ? sandboxPath(read.dossier.id, number, work, kind) : null,
     };
   }).reverse();
 }
 
-/** The rail's spec is rendered by the route, as the Spec tab's is: its latest version; null with none. */
+/** The rail's spec is rendered by the route, as the Spec segment's is: its latest version; null with none. */
 function railSpecOf({ read, href }: Page): VersionEntry | null {
   const specs = read.versions.filter((v) => v.kind === 'spec');
   if (!specs.length) return null;
-  return { id: at(specs, -1, 'the latest spec').id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
+  return { id: at(specs, -1, 'the latest spec').id, number: specs.length, label: `v${specs.length}`, href: href('specifications', null, 'spec'), current: true, frame: null };
+}
+
+/** The Specifications tab's segments, each a link; Approval record only for a ◆ PRD; none on any other tab. */
+function segmentsOf(page: Page, approval: ApprovalView | null): SegmentEntry[] {
+  if (page.tab !== 'specifications') return [];
+  return SEGMENTS.filter((id) => id !== 'approval' || approval !== null)
+    .map((id) => ({ id, label: SEGMENT_LABELS[id], href: page.href('specifications', null, id), current: id === page.segment }));
 }
 
 /** `DRAFT`, `PRD #216`, or a fix's `#548`. */
@@ -686,7 +829,7 @@ const headingOf = (prd: PrdNumber | null, work: WorkKind) => (prd === null ? 'DR
 
 /** A PRD's stage: a draft's from its questions, a numbered one's from its stored stages when they were
  * asked for; none for a fix. */
-function stageOf({ read: { dossier, stages, github, slices = null, fixing = null }, work }: Page, questions: QuestionsView): StageView | null {
+function stageOf({ dossier, stages, github, slices = null, fixing = null }: DossierRead, work: WorkKind, questions: QuestionsView): StageView | null {
   if (work !== 'prd') return null;
   if (dossier.prd === null) return stageView({ prd: null, answered: questions.answered > 0, rows: [] });
   return stages !== undefined ? stageView({ prd: dossier.prd, rows: stages ?? [], github, slices, fixing }) : null;
@@ -695,7 +838,7 @@ function stageOf({ read: { dossier, stages, github, slices = null, fixing = null
 type DossierHeader = Pick<DossierView,
   'id' | 'kind' | 'heading' | 'badge' | 'draft' | 'issueUrl' | 'stage' | 'title' | 'repos' | 'opened' | 'openedBy' | 'openedAt' | 'link' | 'canDelete'>;
 
-function headerOf(page: Page, questions: QuestionsView): DossierHeader {
+function headerOf(page: Page, stage: StageView | null): DossierHeader {
   const { read: { dossier, members, repos }, work, me, people } = page;
   const opener = dossier.opened_by === null ? 'read from GitHub' : `opened by ${nameOf(dossier.opened_by, members)}`;
   return {
@@ -705,7 +848,7 @@ function headerOf(page: Page, questions: QuestionsView): DossierHeader {
     badge: WORK_NAMES[work].badge,
     draft: dossier.prd === null,
     issueUrl: dossier.prd === null ? null : issueUrl(dossier.home_repo, dossier.prd),
-    stage: stageOf(page, questions),
+    stage,
     title: dossier.title,
     repos: repos?.length ? repos : [dossier.home_repo],
     opened: `${opener} · ${stamp(dossier.created_at)}`,
@@ -716,11 +859,14 @@ function headerOf(page: Page, questions: QuestionsView): DossierHeader {
   };
 }
 
-/** What the tabs' badges read from: the retro PR's, the outbox, the questions' count, and how many
- * versions each artifact has. */
-type Badges = {
-  retro: string | null; care: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null };
-  count: (kind: ArtifactKind) => number; runs: number; pitches: number;
+/** What the tabs' pills, their yellow and their dimming read from. */
+type Tally = Moment & {
+  questions: QuestionsView;
+  /** An open round the viewer may answer, as the server decided it. */
+  answerable: boolean;
+  retro: RetroView; care: CareView | null; proof: boolean; pitches: number;
+  retroPr: string | null;
+  count: (kind: ArtifactKind) => number;
   /** How many milestones the PRD holds (PRD 2370); null on a fix, and when they were not read. */
   milestones: number | null;
 };
@@ -735,86 +881,157 @@ function retroBadge(github: GithubSummary | null | undefined): string | null {
 /** The Outbox tab's badge: the open decisions, else the settled ones; null with none. */
 const outboxBadge = ({ open, ledger }: OutboxView) => (open.length ? `${open.length} open` : ledger ? `${ledger} settled` : null);
 
-function badgeOf(kind: DossierTab, badges: Badges): string | null {
-  if (kind === 'retro') return badges.retro;
-  if (kind === 'care') return badges.care;
-  if (kind === 'outbox') return outboxBadge(badges.outbox);
-  if (kind === 'proof') return badges.runs ? runsBadge(badges.runs) : null;
-  if (kind === 'pitch') return badges.pitches ? pitchesBadge(badges.pitches) : null;
-  if (kind === 'variations') return roundsBadge(badges.count(kind));
-  if (kind === 'questions') return badges.counted.badge;
-  if (!isArtifactTab(kind)) return null;
-  return badges.count(kind) ? `v${badges.count(kind)}` : null;
-}
+/** An artifact's latest version, `v3`; null with none. */
+const latestBadge = (count: number) => (count ? `v${count}` : null);
 
-/** The tabs drawn dimmed while they hold nothing; any other tab never is. */
-const EMPTY_WHEN: Partial<Record<DossierTab, (badges: Badges, retro: RetroView, care: CareView | null) => boolean>> = {
-  outbox: (badges) => badges.outbox.state !== 'items',
-  retro: (_badges, retro) => retro.state !== 'text',
-  care: (_badges, _retro, care) => care?.state !== 'care',
-  voice: (badges) => badges.count('voice') === 0,
-  timeline: (badges) => badges.milestones === 0,
+/** Each tab's pill. */
+const BADGES: Readonly<Record<DossierTab, (tally: Tally) => string | null>> = {
+  brainstorm: (t) => questionsCount(t.questions).badge,
+  questions: (t) => questionsCount(t.questions).badge,
+  specifications: (t) => latestBadge(t.count('spec')),
+  voice: (t) => latestBadge(t.count('voice')),
+  outbox: (t) => outboxBadge(t.outbox),
+  feature: (t) => careBadge(t.care),
+  retro: (t) => t.retroPr ?? (t.pitches ? pitchesBadge(t.pitches) : null),
+  timeline: () => null,
+  'before-after': (t) => latestBadge(t.count('before-after')),
+  'bug-record': (t) => latestBadge(t.count('bug-record')),
+  variations: (t) => roundsBadge(t.count('variations')),
 };
 
-function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: RetroView, care: CareView | null): TabEntry {
+/** The tabs whose pill turns yellow while they wait on the viewer; any other never does. */
+const WAITS_WHEN: Partial<Record<DossierTab, (tally: Tally) => boolean>> = {
+  brainstorm: (t) => t.answerable,
+  questions: (t) => t.answerable,
+  specifications: (t) => decisionWaits(t.approval),
+  outbox: (t) => t.outbox.state === 'items' && t.outbox.open.length > 0 && !t.outbox.readOnly,
+  feature: (t) => t.mainWatch?.state === 'broke' || readyToMerge(t.stage),
+};
+
+/** An empty Specifications tab says why. */
+const SPECIFICATIONS_EMPTY = 'Nothing is written yet: the before/after page, the spec and the plan show here once pushed.';
+/** An empty Feature tab says why. */
+export const FEATURE_EMPTY = 'The feature PR opens once the first slice is built.';
+/** An empty Brainstorm tab says why. */
+const BRAINSTORM_EMPTY = 'No question was asked yet.';
+/** An empty Timeline tab says why. */
+const TIMELINE_EMPTY = 'Nothing happened on GitHub yet.';
+
+/** Why a tab is drawn dimmed while it holds nothing; any other tab never is. */
+const EMPTY_WHY: Partial<Record<DossierTab, (tally: Tally) => string | null>> = {
+  brainstorm: (t) => (t.questions.rounds !== null && t.questions.asked === 0 ? BRAINSTORM_EMPTY : null),
+  specifications: (t) => (t.approval === null && SPEC_ARTIFACTS.every((kind) => t.count(kind) === 0) ? SPECIFICATIONS_EMPTY : null),
+  voice: (t) => (t.count('voice') === 0 ? `${VOICE_EMPTY}.` : null),
+  outbox: (t) => (t.outbox.state !== 'items' ? t.outbox.words ?? OUTBOX_EMPTY : null),
+  feature: (t) => (t.care === null && !t.proof && t.mainWatch === null ? FEATURE_EMPTY : null),
+  retro: (t) => (t.retro.state !== 'text' && !t.pitches ? t.retro.words ?? RETRO_EMPTY : null),
+  timeline: (t) => (t.milestones === 0 ? TIMELINE_EMPTY : null),
+};
+
+function tabEntry(kind: DossierTab, { tab, href }: Page, tally: Tally): TabEntry {
+  const why = EMPTY_WHY[kind]?.(tally) ?? null;
   return {
     kind,
     label: TAB_LABELS[kind],
-    badge: badgeOf(kind, badges),
-    alert: kind === 'questions' ? badges.counted.alert : null,
+    badge: BADGES[kind](tally),
     href: href(kind),
     current: kind === tab,
-    empty: EMPTY_WHEN[kind]?.(badges, retro, care) ?? false,
+    attention: WAITS_WHEN[kind]?.(tally) ?? false,
+    empty: why !== null,
+    why,
   };
 }
 
 /** A PRD's stored milestones (PRD 2370); undefined for a fix and a draft, which have no timeline. */
-const ownMilestones = (page: Page, read: DossierRead) => (page.work === 'prd' && read.dossier.prd !== null ? read.milestones : undefined);
+const ownMilestones = (work: WorkKind, read: DossierRead) => (work === 'prd' && read.dossier.prd !== null ? read.milestones : undefined);
 
 /** A PRD's status on main (PRD 2410, s3); null for a fix, a draft and a PRD nobody watches. */
-function ownMainWatch(page: Page, read: DossierRead, now: number): MainWatchView | null {
-  return page.work === 'prd' && read.dossier.prd !== null ? mainWatchView(read.mainWatch, read.dossier.prd, now) : null;
+function ownMainWatch(work: WorkKind, read: DossierRead, now: number): MainWatchView | null {
+  return work === 'prd' && read.dossier.prd !== null ? mainWatchView(read.mainWatch, read.dossier.prd, now) : null;
 }
 
 /** The rewind's findings of a PRD (PRD 2410, s5); none for a fix, a draft, and a PRD with none. */
-const ownFindings = (page: Page, read: DossierRead): readonly FindingView[] => (page.work === 'prd' ? read.rewindFindings ?? [] : []);
+const ownFindings = (work: WorkKind, read: DossierRead): readonly FindingView[] => (work === 'prd' ? read.rewindFindings ?? [] : []);
+
+/** What a PRD's page reads before it knows its tab: its questions, its stage, its approval, its status on
+ * main and its outbox, without the context rail. */
+function momentOf(read: DossierRead, me: string | null, work: WorkKind, people: People, now: number): Moment & { questions: QuestionsView } {
+  const questions = questionsView(read.rounds, read.members, read.dossier.id, read.answerable ?? [], now, people);
+  const numbered = read.dossier.prd === null ? undefined : read.github;
+  return {
+    questions,
+    draft: read.dossier.prd === null,
+    approval: approvalView(read, me),
+    outbox: outboxOf(read, me, people, numbered),
+    stage: stageOf(read, work, questions),
+    mainWatch: ownMainWatch(work, read, now),
+  };
+}
+
+/** What the tabs' pills, their yellow and their dimming read from, once the page is known. */
+type Counted = Tally & { runs: number; own: ReturnType<typeof pageTimeline> };
+
+function tallyOf(page: Page, moment: Moment & { questions: QuestionsView }, outbox: OutboxView, now: number): Counted {
+  const { read, work, numbered, people } = page;
+  const own = pageTimeline(ownMilestones(work, read), now);
+  const runs = work === 'prd' ? read.proofs?.runs.length ?? 0 : 0;
+  const open = new Set(moment.questions.rounds?.filter((r) => r.state === 'open').map((r) => r.id));
+  return {
+    ...moment, outbox, runs, own, proof: runs > 0, pitches: work === 'prd' ? read.pitches?.runs.length ?? 0 : 0,
+    answerable: (read.answerable ?? []).some((id) => open.has(id)),
+    retro: retroView(numbered), care: careView(numbered, read.dossier.prd, people, now), retroPr: retroBadge(numbered),
+    count: (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length, milestones: own.count,
+  };
+}
+
+/** When the PRD's GitHub snapshot was read, and when GitHub resumes while paused (PRD 902, s2). */
+const githubTimes = (at: GithubAt | null | undefined) => ({
+  githubAsOf: at ? `GitHub as of ${timeOfDay(at.readAt)}` : null,
+  githubResumes: at?.resumesAt ? `GitHub resumes at ${timeOfDay(at.resumesAt)}` : null,
+});
+
+/** A PRD's own parts: what Rework copies, its proof run and its pitches; none for a draft or a fix. */
+function prdParts(page: Page, pick: DossierPick, tally: Counted): Pick<DossierView, 'rework' | 'proof' | 'pitch'> {
+  const { read, work, tab } = page;
+  return {
+    rework: work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
+    proof: tally.runs && read.proofs ? proofView(read.proofs, tab === 'feature' ? pick.version : null, (n) => `${page.href('feature', n)}#proof`, read.members) : null,
+    pitch: tally.pitches && read.pitches ? pitchView(read.pitches, pick.pitch ?? null, read.members) : null,
+  };
+}
 
 export function dossierView(read: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now()): DossierView {
-  const page = pageOf(read, me, pick);
-  const questions = questionsView(read.rounds, read.members, read.dossier.id, read.answerable ?? [], now, page.people);
+  const work = kindOf(read.dossier);
+  const moment = momentOf(read, me, work, read.people ?? NOBODY, now);
+  const { questions, approval } = moment;
+  const page = pageOf(read, me, pick, moment);
   const context = pick.context ?? 'before-after';
-  const outbox = outboxOf(page, questions, context);
-  const retro = retroView(page.numbered);
-  const care = careView(page.numbered, read.dossier.prd, page.people, now);
-  const count = (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length;
-  const runs = page.tabs.includes('proof') ? read.proofs?.runs.length ?? 0 : 0;
-  const pitches = page.tabs.includes('pitch') ? read.pitches?.runs.length ?? 0 : 0;
-  const own = pageTimeline(ownMilestones(page, read), now);
-  const badges: Badges = { retro: retroBadge(page.numbered), care: careBadge(care), outbox, counted: questionsCount(questions), count, runs, pitches, milestones: own.count };
+  const outbox = moment.outbox.state === 'items' && page.tab === 'outbox' ? { ...moment.outbox, context: contextView(page.base, read.versions, questions, context) } : moment.outbox;
+  const tally = tallyOf(page, moment, outbox, now);
   const versions = versionEntries(page, pick.version);
   const railSpec = page.tab === 'outbox' && context === 'spec' ? railSpecOf(page) : null;
   return {
-    ...headerOf(page, questions),
-    tabs: page.tabs.map((kind) => tabEntry(kind, page, badges, retro, care)),
+    ...headerOf(page, moment.stage),
+    tabs: page.tabs.map((kind) => tabEntry(kind, page, tally)),
     tab: page.tab,
+    segment: page.segment,
+    segments: segmentsOf(page, approval),
+    latest: { 'before-after': tally.count('before-after'), spec: tally.count('spec'), plan: tally.count('plan') },
     versions,
     shown: railSpec ?? versions.find((e) => e.current) ?? null,
     questions,
     outbox,
-    retro,
-    care,
-    fix: page.work === 'prd' ? null : read.fix ?? null,
-    mainWatch: ownMainWatch(page, read, now),
-    rewindFindings: ownFindings(page, read),
-    timeline: own.view,
-    timelineLine: own.line,
-    rework: page.work === 'prd' && read.dossier.prd !== null ? reworkCommand(read.dossier.prd) : null,
-    proof: runs && read.proofs ? proofView(read.proofs, page.tab === 'proof' ? pick.version : null, (n) => page.href('proof', n), read.members) : null,
-    pitch: pitches && read.pitches ? pitchView(read.pitches, pick.pitch ?? null, read.members) : null,
+    retro: tally.retro,
+    care: tally.care,
+    fix: work === 'prd' ? null : read.fix ?? null,
+    mainWatch: moment.mainWatch,
+    rewindFindings: ownFindings(work, read),
+    timeline: tally.own.view,
+    timelineLine: tally.own.line,
+    ...prdParts(page, pick, tally),
     ...(read.demo ? { demo: true as const } : {}),
-    githubAsOf: read.githubAt ? `GitHub as of ${timeOfDay(read.githubAt.readAt)}` : null,
-    githubResumes: read.githubAt?.resumesAt ? `GitHub resumes at ${timeOfDay(read.githubAt.resumesAt)}` : null,
-    approval: approvalView(read, me),
+    ...githubTimes(read.githubAt),
+    approval,
   };
 }
 
@@ -897,9 +1114,9 @@ export type WayBack = {
   rounds: readonly Opened[] | null;
 };
 
-/** Where the question page goes once its round is answered (PRD 384): the dossier's Questions tab at
- * the first round still open in the order asked (`/prd/<id>?tab=questions#<round>`), or that tab alone
- * when none is left; the ask page of the round's session when `from` names no dossier, so the
+/** Where the question page goes once its round is answered (PRD 384): the dossier's questions at the
+ * first round still open in the order asked (`/prd/<id>?tab=questions#<round>`), or that tab alone
+ * when none is left (a PRD's page redirects the old id to Brainstorm, a fix's opens its Questions); the ask page of the round's session when `from` names no dossier, so the
  * parameter can never send anyone to another site. */
 export function wayBack({ from, sessionId, roundId, rounds }: WayBack): string {
   if (from === null || !isDossierId(from)) return `/ask/${encodeURIComponent(sessionId)}`;

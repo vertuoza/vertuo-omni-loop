@@ -82,11 +82,10 @@ function tab({ github = summary(), query = {}, spec = null, me = PIERRE.user_id,
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
 describe('the tab', () => {
-  it('is Outbox, after Plan and the User voice, with n open in its label, and current; the other tabs are unchanged', () => {
+  it('is Outbox, after Specifications and the User voice, with n open in its pill, and current (omni-loop-20 s7)', () => {
     const html = tab();
-    expect(html).toMatch(/User voice<\/span><\/a><a class="omni-tab omni-tab--current" aria-current="page" href="\/prd\/[^"]+\?tab=outbox"><span class="dossier-tab-label">Outbox<small>2 open<\/small><\/span><\/a>/);
-    expect(html).toContain('>Before/after<small>v1</small></span></a>');
-    expect(html).toContain('>Spec<small>v1</small></span></a>');
+    expect(html).toMatch(/User voice<\/span><a class="omni-tab omni-tab--current" aria-current="page" href="\/prd\/[^"?]+(\?tab=outbox)?">Outbox<span class="omni-tab__count[^"]*">2 open<\/span><\/a>/);
+    expect(html).toContain('Specifications<span class="omni-tab__count">v1</span></a>');
   });
 });
 
@@ -121,7 +120,7 @@ describe('the states', () => {
     for (const github of [null, summary({ outbox: UNREAD })]) {
       const html = tab({ github });
       expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
-      expect(html).toContain('>Before/after<small>v1</small></span></a>');
+      expect(html).toContain('Specifications<span class="omni-tab__count">v1</span></a>');
     }
   });
 
@@ -227,7 +226,7 @@ describe('the context rail', () => {
   it('Before/after by default: the sandboxed frame of the latest version', () => {
     const html = tab();
     expect(html).toContain('<details class="outbox-context" open="" aria-label="Context"><summary>Context</summary>');
-    expect(html).toMatch(/<a class="outbox-switch-link" href="[^"]+\?tab=outbox" aria-current="page">Before\/after<\/a>/);
+    expect(html).toMatch(/<a class="outbox-switch-link" href="\/prd\/[^"?]+(\?tab=outbox)?" aria-current="page">Before\/after<\/a>/);
     expect(html).toContain(`src="/prd/${ID}/v/1/page" sandbox="allow-scripts"`);
   });
 

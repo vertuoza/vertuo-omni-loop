@@ -1,8 +1,8 @@
 // The app pages' width and top bar (PRD 498, s1), read from the stylesheets as text: the top bar
 // stands apart from the page, every app page uses the full width — the PRD page included, since
-// omni-loop-20 s6 — only running prose keeps a 900 px column (the spec and the plan, a docs article), a
-// form field is never wider than 900 px, and `.ask-main` pads its sides with the page gutter,
-// `--ask-gutter`.
+// omni-loop-20 s6 — only running prose keeps a 900 px column (the spec and the plan, a docs article,
+// and since omni-loop-20 s7 the review screen's prose), a form field is never wider than 900 px, and
+// `.ask-main` pads its sides with the page gutter, `--ask-gutter`.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -130,6 +130,16 @@ describe('every app page, the PRD page included', () => {
       expect(has(DOSSIER, selector, 'max-width'), selector).toEqual([]);
       expect(has(DOSSIER, selector, 'margin').concat(has(DOSSIER, selector, 'margin-inline')).filter((m) => m.includes('auto')), selector).toEqual([]);
     }
+  });
+
+  it('AC-6: caps none of the review screen\'s frames, and keeps only its prose at 900 px (omni-loop-20 s7)', () => {
+    const review = sheet('./dossier/review/review.css');
+    const part = sheet('../../../packages/ui/src/ReviewScreen.css');
+    expect(review).not.toMatch(/max-width/);
+    expect(review).not.toMatch(/margin(-inline)?:[^;]*auto/);
+    expect(has(part, '.omni-review', 'width')).toEqual(['100%']);
+    expect(has(part, '.omni-review', 'max-width')).toEqual([]);
+    expect([...part.matchAll(/([^{}]+)\{[^{}]*max-width:\s*900px/g)].map((m) => (m[1] ?? '').trim())).toEqual(['.omni-review__prose']);
   });
 
   it('never lets a form field in the page grow past 900 px', () => {

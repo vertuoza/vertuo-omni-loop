@@ -100,12 +100,17 @@ describe('a bug fix', () => {
   });
 
   it('falls back to the Timeline for a tab a bug fix does not have', () => {
-    for (const tab of ['before-after', 'variations', 'spec', 'outbox']) expect(view(fix('bug', 571), BUG_VERSIONS, { tab }).tab).toBe('timeline');
+    for (const tab of ['before-after', 'variations', 'spec', 'outbox', 'specifications', 'feature']) expect(view(fix('bug', 571), BUG_VERSIONS, { tab }).tab).toBe('timeline');
+  });
+
+  it('opens its Questions for a PRD\'s Brainstorm, so the way back from a round lands there (omni-loop-20 s7)', () => {
+    expect(view(fix('bug', 571), BUG_VERSIONS, { tab: 'brainstorm' }).tab).toBe('questions');
+    expect(view(fix('visual'), VISUAL_VERSIONS, { tab: 'brainstorm' }).tab).toBe('questions');
   });
 });
 
 describe('a PRD', () => {
-  it('keeps exactly today\'s tabs, heading, route and no badge, with a kind or without one', () => {
+  it('keeps exactly its seven tabs, heading, route and no badge, with a kind or without one', () => {
     for (const kind of ['prd', undefined] as const) {
       const v = view(fix(kind, 216), [version('spec', '2026-09-29T09:00:00Z')]);
       expect(v.tabs.map((t) => t.kind)).toEqual(PAGE_TABS);
@@ -114,7 +119,7 @@ describe('a PRD', () => {
   });
 
   it('knows no Variations or Bug record tab', () => {
-    expect(view(fix('prd', 216), [], { tab: 'variations' }).tab).toBe('before-after');
-    expect(view(fix('prd', 216), [], { tab: 'bug-record' }).tab).toBe('before-after');
+    expect(view(fix('prd', 216), [], { tab: 'variations' }).tab).toBe('specifications');
+    expect(view(fix('prd', 216), [], { tab: 'bug-record' }).tab).toBe('specifications');
   });
 });

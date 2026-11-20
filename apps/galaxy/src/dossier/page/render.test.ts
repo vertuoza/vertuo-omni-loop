@@ -222,7 +222,7 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
     const html = page({ github: red, stages: at('building') });
     expect(html).not.toContain('stage-badge');
     expect(lede(html)).toBe('You answer the decision the agents left open.');
-    expect(html).toContain(`<a class="omni-button omni-button--primary omni-button--md" href="/prd/${ID}?tab=outbox" data-primary="">Answer 1 item</a>`);
+    expect(html).toContain(`<a class="omni-button omni-button--primary omni-button--md" href="/prd/${ID}" data-primary="">Answer 1 item</a>`);
   });
 
   it('the track says where the outbox stands: waiting, answered, or unread (PRD 2223)', () => {
@@ -233,7 +233,7 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
       phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 3, outbox: { open: [item('a'), item('b')], settled: [] }, outboxComment: comment,
     });
     const numbering = [{ number: 1, id: 'a' }, { number: 4, id: 'b' }];
-    const render = (replies: GithubSummary['replies']) => page({ github: { ...base, replies }, slices: 3, stages: at('building') });
+    const render = (replies: GithubSummary['replies']) => page({ github: { ...base, replies }, slices: 3, stages: at('building'), pick: tab('specifications') });
 
     const waiting = render({ numbering, pending: [answer(1, 'a')] });
     expect(currentStage(waiting)).toBe('Building · 3 of 3 slices · 1 of 2 answered');
@@ -280,7 +280,7 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
     expect(lede(html)).toBe('Shipped: the retro is written next, and you may pitch it.');
     expect(button(html)).toBeNull();
     expect(html).toContain(PITCH_BUTTON);
-    const retro = page({ github: { ...shipped, retro: pr(230, 'open') }, stages: at('retro') });
+    const retro = page({ github: { ...shipped, retro: pr(230, 'open') }, stages: at('retro'), pick: tab('specifications') });
     expect(track(retro)).toEqual(['Idea:done', 'PRD:done', 'Inbox:done', 'Building:done', 'Outbox:done', 'Shipped:done', 'Retro:current']);
     expect(button(retro)).toBeNull();
     expect(retro).toContain(PITCH_BUTTON);
@@ -314,12 +314,13 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
     const care = { ci: 'green' as const, failedUrl: null, conflict: false, base: 'main', threads: [], watchingSince: null, lastRound: null };
     const open = summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2, care });
     const featureLink = '<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/221" target="_blank" rel="noopener noreferrer">feature #221</a></span></span><span class="omni-list-row__trailing"><span class="ask-hint">open</span>';
-    expect(page({ github: open, stages: at('outbox') }))
+    const specs = tab('specifications');
+    expect(page({ github: open, stages: at('outbox'), pick: specs }))
       .toContain(`${featureLink}<span class="omni-badge omni-badge--success" title="PR care">CI ✓ · no conflict · 0 open</span></span></div></li>`);
-    expect(page({ github: { ...open, care: { ...care, ci: 'red' } }, stages: at('outbox') })).toContain('<span class="omni-badge omni-badge--danger" title="PR care">CI red · no conflict · 0 open</span>');
-    expect(page({ github: { ...open, care: { ...care, ci: 'running' } }, stages: at('outbox') })).toContain('<span class="omni-badge omni-badge--neutral" title="PR care">CI running · no conflict · 0 open</span>');
+    expect(page({ github: { ...open, care: { ...care, ci: 'red' } }, stages: at('outbox'), pick: specs })).toContain('<span class="omni-badge omni-badge--danger" title="PR care">CI red · no conflict · 0 open</span>');
+    expect(page({ github: { ...open, care: { ...care, ci: 'running' } }, stages: at('outbox'), pick: specs })).toContain('<span class="omni-badge omni-badge--neutral" title="PR care">CI running · no conflict · 0 open</span>');
     for (const github of [{ ...open, care: UNREAD }, { ...open, care: null }, { ...open, feature: pr(221, 'merged') }, summary()]) {
-      expect(page({ github, stages: at('outbox') })).not.toMatch(/omni-badge[^>]*>CI /);
+      expect(page({ github, stages: at('outbox'), pick: specs })).not.toMatch(/omni-badge[^>]*>CI /);
     }
   });
 });
@@ -333,19 +334,23 @@ describe('the head on the page anatomy, and About this PRD (omni-loop-20 s6)', (
     phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
   });
 
-  it('holds the head, then the tab row, then About this PRD, then the pane', () => {
+  it('holds the head, then the tab row, then the pane, About this PRD placed in the Specifications tab (omni-loop-20 s7)', () => {
     const html = page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') });
     const head = html.indexOf('<div class="dossier-top"><header class="omni-page-header">');
     const track = html.indexOf('<ol class="omni-stage-track');
     const tabs = html.indexOf('<div class="dossier-tabbar"><nav class="omni-tabs omni-tabs--md" aria-label="Artifacts">');
+    const pane = html.indexOf('<section class="dossier-pane" aria-label="Specifications">');
     const about = html.indexOf('<section class="dossier-about" aria-label="About this PRD">');
     expect(head).toBeGreaterThanOrEqual(0);
     expect(track).toBeGreaterThan(head);
     expect(tabs).toBeGreaterThan(track);
-    expect(about).toBeGreaterThan(tabs);
-    expect(html.indexOf('<section class="dossier-pane"')).toBeGreaterThan(about);
+    expect(pane).toBeGreaterThan(tabs);
+    expect(about).toBeGreaterThan(pane);
     expect(html).not.toContain('dossier-facts');
     expect(html).not.toContain('class="dossier-head"');
+    for (const other of ['brainstorm', 'outbox', 'feature', 'retro', 'timeline', 'voice'] as const) {
+      expect(page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd'), pick: tab(other) }), other).not.toContain('dossier-about');
+    }
   });
 
   it('puts Copy link then the one primary in the head, and the primary only where someone acts', () => {
@@ -366,7 +371,7 @@ describe('the head on the page anatomy, and About this PRD (omni-loop-20 s6)', (
 
   it('lists the repository, On GitHub and Opened in About this PRD at every stage', () => {
     for (const stage of ['prd', 'inbox', 'building', 'outbox', 'shipped', 'retro'] as const) {
-      const html = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at(stage) });
+      const html = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at(stage), pick: tab('specifications') });
       expect(facts(html), stage).toEqual(['Repository', 'On GitHub', 'Opened']);
       expect(aboutOf(html)).toContain('<ul class="stage-links" aria-label="On GitHub">');
       expect(textOf(aboutOf(html))).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
@@ -381,12 +386,12 @@ describe('the head on the page anatomy, and About this PRD (omni-loop-20 s6)', (
   });
 
   it('shows a draft no On GitHub fact', () => {
-    expect(facts(page({ dossier: draft, me: PIERRE.user_id }))).toEqual(['Repository', 'Opened']);
+    expect(facts(page({ dossier: draft, me: PIERRE.user_id, pick: tab('specifications') }))).toEqual(['Repository', 'Opened']);
   });
 
   it('shows the links GitHub gave when GitHub did not answer the rest', () => {
     for (const github of [null, summary({ retro: UNREAD })]) {
-      expect(facts(page({ github, stages: at('shipped') }))).toEqual(github ? ['Repository', 'On GitHub', 'Opened'] : ['Repository', 'Opened']);
+      expect(facts(page({ github, stages: at('shipped'), pick: tab('specifications') }))).toEqual(github ? ['Repository', 'On GitHub', 'Opened'] : ['Repository', 'Opened']);
     }
   });
 });
@@ -405,44 +410,94 @@ describe('Delete draft', () => {
   });
 });
 
-describe('the tabs', () => {
-  const tabsOf = (html: string) => [...html.matchAll(/<a class="omni-tab( omni-tab--current)?"( aria-current="page")? href="([^"]+)"><span class="dossier-tab-label( dossier-tab-empty)?">([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="omni-badge omni-badge--warning">([^<]+)<\/span>)?<\/span><\/a>/g)]
-    .map((m) => [m[5], m[7] ? `${m[6]} · ${m[7]}` : m[6] ?? null, m[3]?.replaceAll('&amp;', '&'), Boolean(m[2]), ...(m[4] ? ['dimmed'] : [])]);
+describe('the tabs (omni-loop-20 s7)', () => {
+  /** Each tab of the row: its label, its pill, its link (none while dimmed), whether it is current, its reason while dimmed, and its yellow. */
+  const tabsOf = (html: string) => [...html.matchAll(/<(?:a|span) class="omni-tab( omni-tab--current| omni-tab--empty)?"(?: aria-current="page")?(?: aria-disabled="true" title="([^"]*)")?(?: href="([^"]+)")?>([^<]+)(?:<span class="omni-tab__count( omni-tab__count--attention)?">([^<]+)<\/span>)?<\/(?:a|span)>/g)]
+    .map((m) => [m[4], m[6] ?? null, m[3]?.replaceAll('&amp;', '&') ?? null, m[1] === ' omni-tab--current', ...(m[2] ? [`dimmed: ${m[2]}`] : []), ...(m[5] ? ['yellow'] : [])]);
 
-  it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
-    expect(tabsOf(page())).toEqual([
-      ['Questions', '1/2 answered', `/prd/${ID}`, true],
-      ['Before/after', 'v2', `/prd/${ID}?tab=before-after`, false],
-      ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
-      ['Plan', null, `/prd/${ID}?tab=plan`, false],
-      ['Timeline', null, `/prd/${ID}?tab=timeline`, false],
-      ['User voice', null, `/prd/${ID}?tab=voice`, false, 'dimmed'],
-      ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
-      ['PR care', null, `/prd/${ID}?tab=care`, false, 'dimmed'],
-      ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
-    ]);
-    expect(page()).toContain('dossier-rounds');
-  });
-
-  it('reads the questions answered out of asked, and how many are left to answer as a badge (PRD 498)', () => {
-    const html = page({ questions: [...rounds, asked('r3', 'brainstorm', '2026-09-28T09:00:00Z', { questions: [SHAPE, { ...SHAPE, question: 'Why?' }] })] });
-    expect(tabsOf(html)[0]).toEqual(['Questions', '1/4 · 2 to answer', `/prd/${ID}`, true]);
-  });
-
-  it('opens on Before/after when no question was asked yet', () => {
-    const html = page({ questions: [] });
+  it('AC-1: reads Brainstorm, Specifications, User voice, Outbox, Feature, Retro, Timeline, in that order, with no More menu, each count a pill', () => {
+    const html = page();
     expect(tabsOf(html)).toEqual([
-      ['Questions', null, `/prd/${ID}?tab=questions`, false],
-      ['Before/after', 'v2', `/prd/${ID}`, true],
-      ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
-      ['Plan', null, `/prd/${ID}?tab=plan`, false],
+      ['Brainstorm', '1/2 answered', `/prd/${ID}?tab=brainstorm`, false],
+      ['Specifications', 'v2', `/prd/${ID}`, true],
+      ['User voice', null, null, false, 'dimmed: No voice yet: it appears once a brainstorm runs with personas.'],
+      ['Outbox', null, null, false, 'dimmed: No decision yet: the outbox fills while the PRD is built.'],
+      ['Feature', null, `/prd/${ID}?tab=feature`, false],
+      ['Retro', null, null, false, 'dimmed: The retro is written when the feature PR merges.'],
       ['Timeline', null, `/prd/${ID}?tab=timeline`, false],
-      ['User voice', null, `/prd/${ID}?tab=voice`, false, 'dimmed'],
-      ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
-      ['PR care', null, `/prd/${ID}?tab=care`, false, 'dimmed'],
-      ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
+    expect(html).not.toMatch(/>More</);
+    expect(html).toContain('<div class="omni-segmented omni-segmented--md" role="group" aria-label="Specifications">');
     expect(html).toContain(`src="/prd/${ID}/v/2/page"`);
+  });
+
+  it('turns a pill yellow only while the tab waits on the viewer: a question they may answer', () => {
+    const open = asked('r3', 'brainstorm', '2026-09-28T09:00:00Z', { questions: [SHAPE, { ...SHAPE, question: 'Why?' }] });
+    expect(tabsOf(page({ questions: [...rounds, open] }))[0]).toEqual(['Brainstorm', '1/4', `/prd/${ID}?tab=brainstorm`, false]);
+    expect(tabsOf(page({ questions: [...rounds, open], answerable: ['r3'] }))[0]).toEqual(['Brainstorm', '1/4', `/prd/${ID}?tab=brainstorm`, false, 'yellow']);
+  });
+
+  it('opens a draft on Brainstorm, and a draft with no question yet stays there, its reason said', () => {
+    expect(tabsOf(page({ dossier: draft, me: PIERRE.user_id }))[0]).toEqual(['Brainstorm', '1/2 answered', `/prd/${ID}`, true]);
+    expect(page({ dossier: draft, me: PIERRE.user_id })).toContain('dossier-rounds');
+    expect(tabsOf(page({ dossier: draft, me: PIERRE.user_id, questions: [] }))[0]).toEqual(['Brainstorm', null, `/prd/${ID}`, true]);
+  });
+});
+
+describe('a signed decision on the review screen only (omni-loop-20 s7)', () => {
+  const SCREEN = {
+    diffs: [{ path: 'plan.md', rows: [{ sign: '+' as const, text: 'two' }] }],
+    sections: [{ name: 'Problem' as const, html: '<p>Nobody is told.</p>' }],
+    spec: 'read' as const,
+  };
+  const server = (approval: Parameters<typeof dossierView>[0]['approval'], me: string, pick: DossierPick, tech = false) => {
+    const techFacts = tech ? { tech: { user: me, state: 'asked' as const, approval: null }, techScreen: SCREEN } : {};
+    const view = dossierView({
+      dossier: { ...numbered, birthplace: 'server' }, versions, members: [PIERRE, MARIE], rounds, approval,
+      approvalFacts: { voids: [], asked: [], screen: SCREEN, ...techFacts },
+    }, me, pick);
+    return renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, supabase: SUPABASE }));
+  };
+  const above = (html: string) => html.slice(0, html.indexOf('<section class="dossier-pane"'));
+
+  it('AC-3: draws no approve panel above any tab, and Review and approve leads to the review screen', () => {
+    for (const name of ['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline'] as const) {
+      const html = server(null, MARIE.user_id, tab(name));
+      expect(html, name).not.toContain('dossier-approve-screen');
+      expect(html, name).not.toContain('>Approve</button>');
+      expect(html, name).not.toContain('What changed since it was approved');
+      expect(above(html), name).not.toContain('dossier-seal-card');
+      expect(html, name).toContain(`<a class="omni-button omni-button--primary omni-button--md" href="/prd/${ID}/review" data-primary="">Review and approve</a>`);
+    }
+  });
+
+  it('AC-2: opens on Specifications, whose one line links to the review screen, never an approve panel', () => {
+    const html = server(null, MARIE.user_id, readPick({}));
+    expect(html).toContain('<section class="dossier-pane" aria-label="Specifications">');
+    expect(html).toContain(`<p class="omni-notice__title">This version waits for your approval.</p><div class="omni-notice__body"><a href="/prd/${ID}/review">Review and approve</a></div>`);
+    expect(html).not.toContain('<a href="/prd/' + ID + '/review">Review and approve</a></div></div><section');
+  });
+
+  it('says it changed since it was approved, once drifted, with the same one line', () => {
+    const approved = { id: 'a-1', approver_login: 'pierre', approved_at: '2026-09-27T12:00:00Z', files: [{ kind: 'spec' as const, path: 'spec.md', version_id: 'v1', sha256: 'abc' }] };
+    const html = server(approved, MARIE.user_id, tab('specifications'));
+    expect(html).toContain('It changed since it was approved: it waits for your approval again.');
+    expect(html).toContain(`<a href="/prd/${ID}/review">Review and approve</a>`);
+  });
+
+  it('gives the named person one line to Review the plan, and no Give Tech Approval button on the page', () => {
+    const html = server(null, MARIE.user_id, tab('specifications'), true);
+    expect(html).not.toContain('Give Tech Approval</button>');
+    expect(html).toContain(`<p class="omni-notice__title">The plan waits for your Tech Approval.</p><div class="omni-notice__body"><a href="/prd/${ID}/review">Review the plan</a></div>`);
+  });
+
+  it('keeps the seals and the verdict in the Approval record, at #approval, and nowhere above the pane', () => {
+    const approved = { id: 'a-1', approver_login: 'pierre', approved_at: '2026-09-27T12:00:00Z', files: [{ kind: 'spec' as const, path: 'spec.md', version_id: 's2', sha256: 'abc' }, { kind: 'before-after' as const, path: 'before-after.html', version_id: 'b2' }] };
+    const record = server(approved, MARIE.user_id, readPick({ segment: 'approval' }));
+    expect(record).toContain('<section id="approval" class="dossier-seal-card" aria-label="Approved">');
+    expect(above(record)).not.toContain('dossier-seal-card');
+    expect(record).toContain(`aria-current="page" href="/prd/${ID}?segment=approval">Approval record</a>`);
+    expect(server(approved, MARIE.user_id, tab('outbox'))).not.toContain('dossier-seal-card');
   });
 });
 
@@ -475,20 +530,21 @@ describe('the Outbox tab (PRD 426)', () => {
     expect(html).toContain('<summary>Settled · 1</summary>');
     expect(html).toContain('Zeta or eta?');
     expect(html).toContain('<p class="outbox-settled-answer">Zeta, as built.</p>');
-    expect(html).toContain('<small>2 open</small>');
+    expect(html).toContain('Outbox<span class="omni-tab__count omni-tab__count--attention">2 open</span>');
     expect(html).toContain('>Answer 2 items</a>');
   });
 
   it('with none open, says nothing is waiting, lists the settled ones, and counts them on the tab', () => {
     const html = outbox(outboxSummary({ open: [], settled: SETTLED }));
     expect(html).toContain('<p class="outbox-nothing">Nothing is waiting on you.</p>');
-    expect(html).toContain('<small>1 settled</small>');
+    expect(html).toContain('Outbox<span class="omni-tab__count">1 settled</span>');
     expect(html).toContain('>Review &amp; merge</a>');
   });
 
   it('is dimmed and says why while empty, and says when GitHub did not answer', () => {
     const empty = outbox(outboxSummary(null));
-    expect(empty).toContain('<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox"><span class="dossier-tab-label dossier-tab-empty">Outbox</span></a>');
+    expect(empty).toContain('<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox">Outbox</a>');
+    expect(page({ github: outboxSummary(null), stages: at('outbox') })).toContain('<span class="omni-tab omni-tab--empty" aria-disabled="true" title="No decision yet: the outbox fills while the PRD is built.">Outbox</span>');
     expect(empty).toContain('<p class="dossier-empty">No decision yet: the outbox fills while the PRD is built.</p>');
     for (const html of [outbox(null), outbox(outboxSummary(UNREAD))]) {
       expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
@@ -514,17 +570,17 @@ describe('the Retro tab (PRD 426, s3)', () => {
     expect(html).toContain(`<a class="ask-button" href="${RETRO_URL}" target="_blank" rel="noopener noreferrer">Open the retro PR</a>`);
     expect(html).toContain('<article class="dossier-md"><h1>How PRD 216 went</h1>');
     expect(html).not.toContain('<script>');
-    expect(html).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=retro"><span class="dossier-tab-label">Retro<small>open PR</small></span></a>`);
+    expect(html).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=retro">Retro<span class="omni-tab__count">open PR</span></a>`);
     expect(html.indexOf('>Outbox')).toBeLessThan(html.indexOf('>Retro<'));
   });
 
   it('is badged merged once the retro PR is merged', () => {
-    expect(retro(retroSummary(pr('merged'), RETRO))).toContain('Retro<small>merged</small></span></a>');
+    expect(retro(retroSummary(pr('merged'), RETRO))).toContain('Retro<span class="omni-tab__count">merged</span></a>');
   });
 
   it('is dimmed and says why while there is no retro, and says when GitHub did not answer', () => {
     const empty = retro(retroSummary(null, null));
-    expect(empty).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=retro"><span class="dossier-tab-label dossier-tab-empty">Retro</span></a>`);
+    expect(empty).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=retro">Retro</a>`);
     expect(empty).toContain('<p class="dossier-empty">The retro is written when the feature PR merges.</p>');
     expect(empty).not.toContain('Open the retro PR');
     for (const html of [retro(null), retro(retroSummary(pr('open'), UNREAD))]) {
@@ -801,7 +857,7 @@ describe('an artifact with no version yet', () => {
     const plan = page({ pick: tab('plan') });
     expect(plan).toContain('The plan has no version yet.');
     expect(plan).not.toContain('<select');
-    const empty = page({ dossier: draft, rows: [], questions: [] });
+    const empty = page({ dossier: draft, rows: [], questions: [], pick: tab('specifications') });
     expect(empty).toContain('The before/after page has no version yet.');
     expect(empty).not.toContain('<iframe');
     expect(page({ dossier: draft, rows: [], pick: tab('spec') })).toContain('The spec has no version yet.');

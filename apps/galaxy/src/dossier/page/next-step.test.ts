@@ -98,7 +98,8 @@ describe('the subtitle and the one primary, at each moment', () => {
     const red = view({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2, outbox: { open: [item], settled: [] }, outboxComment: comment }), stages: at('building') });
     const step = nextStep(red);
     expect(step.lede).toBe('You answer the decision the agents left open.');
-    expect(step.primary).toEqual({ kind: 'link', label: 'Answer 1 item', href: `/prd/${ID}?tab=outbox` });
+    // omni-loop-20 s7: open items make Outbox the page's default tab, so its link names no tab.
+    expect(step.primary).toEqual({ kind: 'link', label: 'Answer 1 item', href: `/prd/${ID}` });
     expect(step.tone).toBe('waiting');
   });
 
