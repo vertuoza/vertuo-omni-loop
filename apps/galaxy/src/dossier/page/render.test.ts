@@ -688,6 +688,8 @@ describe('the Questions tab', () => {
     const html = questions({ questions: [...rounds, open] });
     expect(html).toContain('<div class="dossier-progress"><p class="dossier-progress-words">1 of 4 answered <span class="dossier-left">2 to answer</span></p>'
       + '<meter class="dossier-meter" aria-label="Questions answered" min="0" max="4" value="1"></meter></div>');
+    expect(html).toMatch(/<h2 class="omni-section-heading__title">Questions<\/h2><span class="omni-section-heading__count">1\/4<\/span>/);
+    expect(html).toContain('class="omni-list-row omni-list-row--normal"');
     expect(html.indexOf('dossier-progress')).toBeLessThan(html.indexOf('dossier-rounds'));
     expect(questions()).toContain('<p class="dossier-progress-words">1 of 2 answered</p>');
   });
@@ -706,14 +708,16 @@ describe('the Questions tab', () => {
 
   it('says when no question was asked yet', () => {
     const html = questions({ questions: [] });
-    expect(html).toContain('No question yet. The questions the agent asks with ask mode on show here');
+    expect(html).toContain('No question yet.');
+    expect(html).toContain('The questions the agent asks with ask mode on show here');
     expect(html).not.toMatch(/claude/i);
     expect(html).not.toContain('dossier-rounds');
   });
 
   it('says when the questions could not be read, and still shows the dossier', () => {
     const html = questions({ questions: null });
-    expect(html).toContain('role="alert">The questions could not be read.');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('The questions could not be read.');
     expect(html).toContain('PRD #216');
   });
 });
@@ -724,7 +728,7 @@ describe('a quick round on the Questions tab (PRD 384)', () => {
   const open = asked('q1', 'brainstorm', AT);
   const later = asked('q2', 'brainstorm', '2026-09-28T09:00:30Z', { questions: [SHAPE, SHAPE] });
   const quick = (more: Parameters<typeof page>[0] = {}) => page({ pick: tab('questions'), questions: [open, later], now: SOON, ...more });
-  const buttons = (html: string) => [...html.matchAll(/<button type="button" class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
+  const buttons = (html: string) => [...html.matchAll(/<button class="omni-button[^"]*" type="button"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
 
   it('shows a person who may answer it one button per option, in place of the option list, with its Open link', () => {
     const html = quick({ answerable: ['q1'], questions: [open] });
@@ -737,13 +741,13 @@ describe('a quick round on the Questions tab (PRD 384)', () => {
   });
 
   it('keeps its buttons off until the script runs: with no script, the Open link answers it', () => {
-    expect(quick({ answerable: ['q1'] })).toMatch(/<button type="button" class="dossier-quick-choice" disabled="">/);
+    expect(quick({ answerable: ['q1'] })).toMatch(/<button class="omni-button[^"]*" type="button" disabled="">/);
   });
 
   it('shows anyone else its options and "Waiting for <owner>", with no button', () => {
     const html = quick({ answerable: [] });
     expect(buttons(html)).toEqual([]);
-    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).not.toContain('dossier-quick-choices');
     expect(html).toContain('aria-label="Options, one could be chosen"');
     expect(textOf(html)).toContain('Waiting for Pierre');
     expect(html).toMatch(/<p class="dossier-quick-note">Waiting for <span class="person-chip is-inline">/);
@@ -751,20 +755,20 @@ describe('a quick round on the Questions tab (PRD 384)', () => {
 
   it('shows a round that is not quick with its Open link only', () => {
     const html = quick({ answerable: ['q1', 'q2'], questions: [later] });
-    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).not.toContain('dossier-quick-choices');
     expect(html).not.toContain('Waiting for');
     expect(html).toContain(`href="/ask/q/q2?from=${ID}">Open the question</a>`);
   });
 
   it('shows no button once its time is up', () => {
     const html = quick({ answerable: ['q1'], now: Date.parse(AT) + 540_000 });
-    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).not.toContain('dossier-quick-choices');
     expect(html).not.toContain('Waiting for');
   });
 
   it('shows no button where the page has no database to answer through (the demo)', () => {
     const html = quick({ answerable: ['q1'], supabase: null });
-    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).not.toContain('dossier-quick-choices');
     expect(html).toContain('aria-label="Options, one could be chosen"');
   });
 

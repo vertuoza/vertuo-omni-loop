@@ -240,7 +240,7 @@ describe('the page to share', () => {
       { created_at: new Date(Date.now() - 60_000).toISOString(), prd: parsePrd(7), questions: quick },
     ]);
     assertDefined(round, 'the quick round');
-    const buttons = (page: string) => [...page.matchAll(/class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
+    const buttons = (page: string) => [...page.matchAll(/class="omni-button[^"]*"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
 
     given.token = 'ada';
     const owner = await html(numbered, { tab: 'brainstorm' });
@@ -933,7 +933,7 @@ describe('the stylesheet', () => {
     const outlined = [
       '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-empty', '.dossier-frame iframe',
       '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
-      '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
+      '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
       '.ask a.dossier-history-row', '.dossier-history-artifact',
     ];
     for (const selector of outlined) {

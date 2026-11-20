@@ -1,3 +1,4 @@
+import { EmptyState, ListRow, Notice, SectionHeading } from '@omni/ui';
 import { PersonChip } from '../../people/PersonChip';
 import { QuickAnswer } from './QuickAnswer';
 import { questionsCount, type QuestionsView, type RoundEntry, type RoundQuestion } from './view';
@@ -19,6 +20,9 @@ import { questionsCount, type QuestionsView, type RoundEntry, type RoundQuestion
 // <summary>, so it folds with no script and from the keyboard. An open round is NEVER folded: a plain
 // element on --ask-sunk with a yellow edge, every option shown. Unfolded, an answered question reads on
 // one line: chip · question → the chosen option(s), in no box.
+//
+// omni-loop-20 s10 draws it in Calm 2: a SectionHeading with the answered count and the meter beneath, each round's line a
+// ListRow, the error a Notice and the empty state an EmptyState.
 //
 // PRD 652: who asked, who answered and who a quick round waits for each read with their face before
 // their name (PersonChip, resolved by account id through the people directory); the words are unchanged.
@@ -91,23 +95,29 @@ function Outcome({ round }: { round: RoundEntry }) {
   return by ? <>answered by <PersonChip person={by.person} size="inline" />{by.rest}</> : <>{round.outcome}</>;
 }
 
-/** A round's line: its mark, rule · category, headers, count, when it was asked, and the outcome. */
+/** A round's line, one list row: its mark, rule · category, headers, then the count, when it was asked and the outcome. */
 function Line({ round }: { round: RoundEntry }) {
   const mark = MARK[round.state];
   return (
-    <>
-      <span className="dossier-mark" data-state={round.state} role="img" aria-label={mark.label}>{mark.sign}</span>
-      <span className="dossier-round-title">
-        <span className="dossier-rule">{round.rule}</span>
-        <span className="dossier-category" data-category={round.categoryValue ?? 'unsorted'}>{round.category}</span>
-        {round.headers && <span className="dossier-round-headers">— {round.headers}</span>}
-      </span>
-      <span className="dossier-round-count">
-        {round.state === 'open' ? <span className="dossier-left">{round.count}</span> : round.count}
-      </span>
-      <span className="ask-hint dossier-round-when">{round.when}</span>
-      {round.state !== 'moved' && <span className="dossier-outcome"><Outcome round={round} /></span>}
-    </>
+    <ListRow
+      title={
+        <span className="dossier-round-title">
+          <span className="dossier-mark" data-state={round.state} role="img" aria-label={mark.label}>{mark.sign}</span>
+          <span className="dossier-rule">{round.rule}</span>
+          <span className="dossier-category" data-category={round.categoryValue ?? 'unsorted'}>{round.category}</span>
+          {round.headers && <span className="dossier-round-headers">— {round.headers}</span>}
+        </span>
+      }
+      trailing={
+        <>
+          <span className="dossier-round-count">
+            {round.state === 'open' ? <span className="dossier-left">{round.count}</span> : round.count}
+          </span>
+          <span className="ask-hint dossier-round-when">{round.when}</span>
+          {round.state !== 'moved' && <span className="dossier-outcome"><Outcome round={round} /></span>}
+        </>
+      }
+    />
   );
 }
 
@@ -149,29 +159,32 @@ function Round({ round, supabase }: { round: RoundEntry; supabase: Supabase }) {
   );
 }
 
-/** The strip above the list: the questions answered out of asked, what is left, and a meter. */
+/** The section heading, with the questions answered out of asked beside it, then the words and a meter. */
 function Progress({ questions }: { questions: QuestionsView }) {
   const { alert } = questionsCount(questions);
   return (
-    <div className="dossier-progress">
-      <p className="dossier-progress-words">
-        {questions.answered} of {questions.asked} answered{alert !== null && <> <span className="dossier-left">{alert}</span></>}
-      </p>
-      <meter className="dossier-meter" aria-label="Questions answered" min={0} max={questions.asked} value={questions.answered} />
-    </div>
+    <>
+      <SectionHeading count={`${questions.answered}/${questions.asked}`}>Questions</SectionHeading>
+      <div className="dossier-progress">
+        <p className="dossier-progress-words">
+          {questions.answered} of {questions.asked} answered{alert !== null && <> <span className="dossier-left">{alert}</span></>}
+        </p>
+        <meter className="dossier-meter" aria-label="Questions answered" min={0} max={questions.asked} value={questions.answered} />
+      </div>
+    </>
   );
 }
 
 export function QuestionsPane({ questions, supabase = null }: { questions: QuestionsView; supabase?: Supabase }) {
   if (questions.rounds === null) {
-    return <p className="ask-problem" role="alert">The questions could not be read. Reload the page in a moment.</p>;
+    return <Notice tone="danger">The questions could not be read. Reload the page in a moment.</Notice>;
   }
   if (questions.rounds.length === 0) {
     return (
-      <p className="dossier-empty">
-        No question yet. The questions the agent asks with ask mode on show here: those of the brainstorm that opened this
-        dossier, and those asked while the PRD is delivered.
-      </p>
+      <EmptyState size="inline" title="No question yet.">
+        The questions the agent asks with ask mode on show here: those of the brainstorm that opened this dossier, and those
+        asked while the PRD is delivered.
+      </EmptyState>
     );
   }
   return (
