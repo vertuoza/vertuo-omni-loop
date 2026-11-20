@@ -832,27 +832,27 @@ describe('the Spec and Plan tabs', () => {
   });
 });
 
-describe('the version picker', () => {
-  it('lists the tab\'s versions newest first, with their day and source, the shown one selected', () => {
+describe('the version picker (omni-loop-20 s11)', () => {
+  it('is one button naming the shown version, its day and who, with no Show button', () => {
     const html = page({ pick: tab('spec'), markdown: SPEC });
-    const options = [...html.matchAll(/<option value="(\d+)"( selected="")?>([^<]+)<\/option>/g)].map((m) => [m[1], m[3], Boolean(m[2])]);
-    expect(options).toEqual([
-      ['2', 'v2 · 28 Sep · commit a1b2c3d (github)', true],
-      ['1', 'v1 · 27 Sep · Pierre (kit)', false],
+    expect(html).toContain('<summary class="dossier-version__button"');
+    expect(html).toContain('<span class="dossier-version__label">v2 · 28 Sep · commit a1b2c3d (github)</span>');
+    expect(html).not.toContain('>Show</button>');
+    expect(html).not.toMatch(/<select[^>]*name="v"/);
+  });
+
+  it('opens the list of versions newest first, each a link to the new address, the shown one current', () => {
+    const html = page({ pick: tab('spec'), markdown: SPEC });
+    const links = [...html.matchAll(/<li><a href="([^"]+)"( aria-current="true")?>([^<]+)<\/a><\/li>/g)].map((m) => [m[1], m[3], Boolean(m[2])]);
+    expect(links).toEqual([
+      [`/prd/${ID}?segment=spec&amp;v=2`, 'v2 · 28 Sep · commit a1b2c3d (github)', true],
+      [`/prd/${ID}?segment=spec&amp;v=1`, 'v1 · 27 Sep · Pierre (kit)', false],
     ]);
+    expect(html).not.toContain('tab=spec');
   });
 
-  it('is a GET form to the same page that keeps the tab, so it works before any script runs', () => {
-    const html = page({ pick: tab('spec'), markdown: SPEC });
-    const form = html.match(/<form[^>]*>/)?.[0] ?? '';
-    expect(form).toContain('method="get"');
-    expect(form).toContain(`action="/prd/${ID}"`);
-    expect(html).toContain('<input type="hidden" name="tab" value="spec"/>');
-    expect(html).toMatch(/<select[^>]*name="v"/);
-  });
-
-  it('keeps the Before/after tab too, so a version picked there does not land on Questions', () => {
-    expect(page({ pick: tab('before-after') })).toContain('<input type="hidden" name="tab" value="before-after"/>');
+  it('keeps the Before/after segment too, so a version picked there does not land on Spec', () => {
+    expect(page({ pick: tab('before-after') })).toContain(`<li><a href="/prd/${ID}?v=1">`);
   });
 });
 

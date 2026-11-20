@@ -72,7 +72,7 @@ describe('the User voice tab', () => {
     expect(page).toContain('aria-label="Sofia">S</span>');
     expect(page).toContain('data-stance="skeptical">Skeptical</span>');
     expect(page).toContain('Marc gives 3.');
-    expect(page).toContain('<th scope="col">Design<small>30 Sep</small></th>');
+    expect(page).toContain('>Design<small>30 Sep</small></th>');
     expect(page).toContain('<strong>3/5</strong>');
     expect(page).not.toContain('voice-move');
   });
@@ -143,7 +143,7 @@ describe('the layout at 393 px', () => {
   it('keeps a persona\'s column narrow enough for a phone, the reactions wrapping', () => {
     expect(rule('.voice-who')).toContain('min-width: 0');
     expect(rule('.voice-latest')).toContain('overflow-wrap: anywhere');
-    expect(rule('.voice-grid th[scope=\'row\']')).toMatch(/max-width: min\(\d+px, \d+vw\)/);
+    expect(rule('.voice-persona')).toMatch(/max-width: min\(\d+px, \d+vw\)/);
   });
 });
 
