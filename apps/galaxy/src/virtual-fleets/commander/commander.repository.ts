@@ -35,12 +35,22 @@ const MessageRowSchema = z.object({
   id: z.uuid(), kind: z.enum(['question', 'reply']), author_login: z.string().nullable(), body: z.string().nullable(),
   reply_to: z.uuid().nullable(), reply: ReplySchema.nullable(), created_at: z.string(),
 });
+const FleetMessageRowSchema = z.object({ id: z.uuid(), author_login: z.string().min(1), body: z.string().min(1), created_at: z.string() });
+const ReadRowSchema = z.object({ message_id: z.uuid(), role: z.string(), job_id: z.uuid(), read_at: z.string() });
 const SpentRowSchema = z.object({ tokens: z.number().int().min(0), oldest_end: z.string().nullable() });
 
 /** A stored message as the thread reads it. */
 function messageOf(row: z.infer<typeof MessageRowSchema>): Message {
   if (row.kind === 'reply' && row.reply !== null && row.reply_to !== null) return { kind: 'reply', id: row.id, at: row.created_at, replyTo: row.reply_to, reply: row.reply };
   return { kind: 'question', id: row.id, at: row.created_at, login: row.author_login ?? 'a member', text: row.body ?? '' };
+}
+
+/** A message to the fleet as the thread reads it, with the jobs that read it, oldest read first. */
+function fleetMessageOf(row: z.infer<typeof FleetMessageRowSchema>, reads: readonly z.infer<typeof ReadRowSchema>[]): Message {
+  return {
+    kind: 'fleet', id: row.id, at: row.created_at, login: row.author_login, text: row.body,
+    reads: reads.filter((r) => r.message_id === row.id).sort((a, b) => a.read_at.localeCompare(b.read_at)).map((r) => ({ role: r.role, job: r.job_id, at: r.read_at })),
+  };
 }
 
 const refusedBy = (error: NonNullable<Answer['error']>) => ({ ok: false as const, code: error.code || null, hint: error.hint || null, message: error.message });
@@ -96,12 +106,31 @@ export function commanderReader(db: CommanderDb) {
       return orThrow(parseRows(MessageRowSchema, data, `${WHERE}: commander_messages`)).map(messageOf).reverse();
     },
 
+    /** The fleet's last `limit` messages to its agents, with the jobs that read each, oldest first (fleet_messages, fleet_message_reads). */
+    async fleetMessages(workspace: string, fleet: string, limit: number): Promise<Message[]> {
+      const { data, error } = await db.from('fleet_messages').select('id, author_login, body, created_at').eq('workspace_id', workspace).eq('fleet', fleet).order('created_at', { ascending: false }).limit(limit);
+      if (error) throw new Error(`Supabase: could not read the fleet's messages (${error.message})`);
+      const rows = orThrow(parseRows(FleetMessageRowSchema, data, `${WHERE}: fleet_messages`));
+      if (rows.length === 0) return [];
+      const seen = await db.from('fleet_message_reads').select('message_id, role, job_id, read_at').in('message_id', rows.map((r) => r.id));
+      if (seen.error) throw new Error(`Supabase: could not read who read the fleet's messages (${seen.error.message})`);
+      const reads = orThrow(parseRows(ReadRowSchema, seen.data, `${WHERE}: fleet_message_reads`));
+      return rows.map((row) => fleetMessageOf(row, reads)).reverse();
+    },
+
     /** What the fleet spent in the last 24 hours up to `at` (fleet_tokens_24h(): its jobs and its Commander), and the oldest spending's time. */
     async spent(workspace: string, fleet: string, at: Date): Promise<{ tokens: number; oldestEnd: string | null }> {
       const answer: Answer = await db.rpc('fleet_tokens_24h', { p_workspace: workspace, p_fleet: fleet, p_at: at.toISOString() });
       if (answer.error) throw new Error(`Supabase: could not read the fleet's spending (${answer.error.message})`);
       const row = orThrow(parseRows(SpentRowSchema, answer.data, `${WHERE}: fleet_tokens_24h`))[0];
       return { tokens: row?.tokens ?? 0, oldestEnd: row?.oldest_end ?? null };
+    },
+
+    /** Records the message to the fleet as its author (commander_send()): it waits for the next job, and no job read it yet. */
+    async send(workspace: string, fleet: string, text: string): Promise<Written<Message>> {
+      const answer: Answer = await db.rpc('commander_send', { p_workspace: workspace, p_fleet: fleet, p_text: text });
+      if (answer.error) return refusedBy(answer.error);
+      return { ok: true, value: fleetMessageOf(orThrow(parseRow(FleetMessageRowSchema, answer.data, `${WHERE}: commander_send`)), []) };
     },
 
     /** Records the question as its asker (commander_ask()). */

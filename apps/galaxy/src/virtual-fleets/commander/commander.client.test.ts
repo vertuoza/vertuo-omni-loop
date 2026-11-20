@@ -58,6 +58,17 @@ describe('the Commander port', () => {
     expect(await demoCommanderPort.answer('job', CARD.id, 'Use v2')).toEqual({ ok: false, message: 'The demo world has no Commander.', card: null });
   });
 
+  it('sends a message to the fleet, and reads a refusal\'s words', async () => {
+    const message = { kind: 'fleet', id: 'dddddddd-0000-4000-8000-000000000001', at: '2026-11-21T09:30:00Z', login: 'mira-k', text: 'Hi', reads: [] };
+    const sent = answering(201, { message });
+    expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', sent.fetch).send('Hi')).toEqual({ ok: true, message });
+    expect(sent.calls[0]?.url).toBe('/api/virtual-fleets/commander/message');
+    expect(JSON.parse(sent.calls[0]?.body ?? '')).toEqual({ workspace: NORTHWIND, fleet: 'blue-fleet', text: 'Hi' });
+    expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(422, { error: 'Message: 1 to 2000 characters.' }).fetch).send('Hi')).toEqual({ ok: false, message: 'Message: 1 to 2000 characters.' });
+    expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(502, 'oops').fetch).send('Hi')).toEqual({ ok: false, message: 'Not sent: try again.' });
+    expect(await demoCommanderPort.send('Hi')).toEqual({ ok: false, message: 'The demo world has no Commander.' });
+  });
+
   it('reads anything else as no answer, and the demo as having no Commander', async () => {
     expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(200, { nope: true }).fetch).ask('x')).toEqual({ ok: false, message: 'No answer: try again.', question: null, state: null });
     expect(await httpCommanderPort(NORTHWIND, 'blue-fleet', answering(500, 'oops').fetch).load()).toEqual({ ok: false, message: 'Couldn’t load the Commander. Try again in a moment.' });

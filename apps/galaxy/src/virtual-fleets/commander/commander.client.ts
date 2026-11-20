@@ -1,5 +1,5 @@
 import {
-  AskAnswerSchema, CardAnswerSchema, CardRefusalSchema, CommanderRefusalSchema, ViewAnswerSchema,
+  AskAnswerSchema, CardAnswerSchema, CardRefusalSchema, CommanderRefusalSchema, SendAnswerSchema, ViewAnswerSchema,
   type AskAnswer, type Card, type CardSource, type CommanderState, type CommanderView, type Message,
 } from './commander.contract';
 import { WORDS } from './commander';
@@ -15,14 +15,19 @@ export type Asked = { ok: true; answer: AskAnswer } | { ok: false; message: stri
 
 export type Answered = { ok: true; card: Card } | { ok: false; message: string; card: Card | null };
 
+/** A message to the fleet (s3): as stored, or why it was not sent. */
+export type Sent = { ok: true; message: Message } | { ok: false; message: string };
+
 export interface CommanderPort {
   load(): Promise<Loaded>;
   ask(text: string): Promise<Asked>;
   answer(source: CardSource, id: string, choice: string): Promise<Answered>;
+  send(text: string): Promise<Sent>;
 }
 
 const ROUTE = '/api/virtual-fleets/commander';
 const ANSWER_ROUTE = `${ROUTE}/answer`;
+const MESSAGE_ROUTE = `${ROUTE}/message`;
 const NOT_SENT = { ok: false as const, message: RAIL_WORDS.notSent, card: null };
 
 export function httpCommanderPort(workspace: string, fleet: string, fetch: typeof globalThis.fetch = globalThis.fetch): CommanderPort {
@@ -52,6 +57,18 @@ export function httpCommanderPort(workspace: string, fleet: string, fetch: typeo
         return { ok: false, message: WORDS.noAnswer, question: null, state: null };
       }
     },
+    async send(text) {
+      try {
+        const res = await fetch(MESSAGE_ROUTE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace, fleet, text }) });
+        const json: unknown = await res.json().catch(() => null);
+        const read = SendAnswerSchema.safeParse(json);
+        if (res.ok && read.success) return { ok: true, message: read.data.message };
+        const refusal = CommanderRefusalSchema.safeParse(json);
+        return { ok: false, message: refusal.success ? refusal.data.error : WORDS.notSent };
+      } catch {
+        return { ok: false, message: WORDS.notSent };
+      }
+    },
     async answer(source, id, choice) {
       try {
         const res = await fetch(ANSWER_ROUTE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ workspace, fleet, source, id, choice }) });
@@ -74,4 +91,5 @@ export const demoCommanderPort: CommanderPort = {
   load: () => Promise.resolve(DEMO),
   ask: () => Promise.resolve({ ...DEMO, question: null, state: null }),
   answer: () => Promise.resolve({ ...DEMO, card: null }),
+  send: () => Promise.resolve(DEMO),
 };

@@ -93,6 +93,33 @@ describe('the Commander tab', () => {
     expect(t).not.toContain('Ask about this fleet.');
   });
 
+  it('2.A: Message fleet: its message is tagged To the fleet and waits for the next job, then reads which job read it', () => {
+    const waiting: Message = { kind: 'fleet', id: 'dddddddd-0000-4000-8000-000000000001', at: '2026-11-21T09:20:00Z', login: 'mira-k', text: 'the design review moved to Thursday', reads: [] };
+    const read: Message = { ...waiting, id: 'dddddddd-0000-4000-8000-000000000002', at: '2026-11-21T09:21:00Z', reads: [{ role: 'engineer', job: '4f2a1b2c-0000-4000-8000-000000000001', at: '2026-11-21T09:25:00Z' }] };
+    const html = render(view({ messages: [waiting, read] }));
+    const t = text(html);
+    expect(t).toContain('mira-k · 09:20 To the fleet the design review moved to Thursday Waiting for next job');
+    expect(t).toContain('mira-k · 09:21 To the fleet the design review moved to Thursday Read by engineer · job 4f2a1b2c');
+    expect(html).toContain('<a href="/app/runners#job-4f2a1b2c-0000-4000-8000-000000000001">Read by engineer · job 4f2a1b2c</a>');
+  });
+
+  it('the box offers Ask and Message fleet; in Message fleet it has its placeholder, its button and, with no mission running, the warning (AC-14)', () => {
+    const body = (v: CommanderView, mode: 'ask' | 'message') => renderToStaticMarkup(createElement(CommanderBody, {
+      view: v, now: NOW, pending: null, draft: '', problem: null, onDraft: () => undefined, onAsk: () => undefined, mode,
+      rail: { ...RAIL_AT_REST, onPick: () => undefined, onConfirm: () => undefined, onCancel: () => undefined },
+    }));
+    const asking = body(view(), 'ask');
+    expect(text(asking)).toContain('Ask Message fleet');
+    expect(asking).toContain('placeholder="Ask the Commander"');
+    expect(text(asking)).not.toContain('No mission running');
+    const messaging = body(view(), 'message');
+    expect(messaging).toContain('placeholder="Agents read this at their next job"');
+    expect(text(messaging)).toContain('Send to fleet');
+    expect(text(messaging)).not.toContain('No mission running');
+    const idle = body(view({ status: { running: 0, waiting: 1, paused: 0, spent: 0, cap: 1000 } }), 'message');
+    expect(text(idle)).toContain('No mission running: no agent will read this.');
+  });
+
   it('says the fleet has no daily cap rather than a share of none', () => {
     expect(text(render(view({ status: { running: 0, waiting: 0, paused: 0, spent: 5, cap: null } })))).toContain('0 paused · no daily token cap');
   });

@@ -413,6 +413,12 @@ export function runnersRepository(db: RunnersDb) {
       return row === null ? null : row.mandate.level ?? 'with-you';
     },
 
+    /** The fleet messages job `id` carries (PRD 3107 s3): those its mission was told that its role had not read, oldest first; the job
+     * becomes their reader (commander_claim_messages(), supabase/migrations/20270128091000_commander_messaged.sql). */
+    fleetMessagesFor: async (id: string): Promise<{ author: string; at: string; text: string }[]> =>
+      (await parsed(db.rpc('commander_claim_messages', { p_job: id }), z.array(z.object({ author_login: z.string(), body: z.string(), created_at: z.string() })), 'commander_claim_messages()'))
+        .map((row) => ({ author: row.author_login, at: row.created_at, text: row.body })),
+
     /** The oldest queued job the runner may run, claimed for it; null when none, or when the runner registered again since `registeredAt` (runner_claim()). */
     claim: async (runnerId: string, registeredAt: string): Promise<JobRow | null> =>
       (await parsed(db.rpc('runner_claim', { p_runner: runnerId, p_registered_at: registeredAt }), z.array(JobRow), 'runner_claim()'))[0] ?? null,

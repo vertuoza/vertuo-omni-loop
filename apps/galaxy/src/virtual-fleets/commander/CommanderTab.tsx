@@ -1,9 +1,10 @@
 'use client';
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Button, EmptyState, Notice, Skeleton, Tag, Textarea } from '@omni/ui';
+import { Button, EmptyState, Notice, SegmentedControl, Skeleton, Tag, Textarea } from '@omni/ui';
 import { demoCommanderPort, httpCommanderPort, type CommanderPort } from './commander.client';
 import type { CommanderView, Message } from './commander.contract';
-import { clockOf, dayOf, dayWords, readingWords, readWords, removedWords, tokensWords, usedUpWords, WORDS } from './commander';
+import { clockOf, dayOf, dayWords, readingWords, readLines, readWords, removedWords, tokensWords, usedUpWords, WORDS } from './commander';
+import { jobHref } from '../../runners/send/targets';
 import { cardsAfter, useRail, WaitingRail, type RailProps } from './WaitingRail';
 import './commander.css';
 
@@ -15,6 +16,10 @@ import './commander.css';
 // a pending row says what; off, it says so and links Settings; out of tokens, a notice takes the box's place. The rules
 // live in ./commander.ts; CommanderBody draws one state, CommanderTab holds it and makes the calls. Beside the thread,
 // in every state, off and out of tokens included, the Waiting on you rail (s2, ./WaitingRail.tsx), which needs no model.
+// The box has two modes (s3): Ask, and Message fleet, whose message joins the thread tagged `To the fleet`, reads `Waiting for
+// next job` until a job claimed it and `Read by <role> · job <id>` after, and warns before it is sent when no mission runs.
+
+export type BoxMode = 'ask' | 'message';
 
 export interface CommanderBodyProps {
   view: CommanderView;
@@ -26,6 +31,12 @@ export interface CommanderBodyProps {
   problem: string | null;
   onDraft: (text: string) => void;
   onAsk: (text: string) => void;
+  /** What the box does (s3): ask the Commander, or message the fleet's agents. Ask when not given. */
+  mode?: BoxMode;
+  onMode?: (mode: BoxMode) => void;
+  /** A message to the fleet is on its way (s3). */
+  sending?: boolean;
+  onSend?: (text: string) => void;
   /** The rail's state and moves; its cards and the member's login are the view's. */
   rail: Omit<RailProps, 'cards' | 'me'>;
 }
@@ -65,6 +76,19 @@ function Question({ message }: { message: Extract<Message, { kind: 'question' }>
     <li className="commander-msg commander-person">
       <p className="commander-who">{message.login} · <time dateTime={message.at}>{clockOf(message.at)}</time></p>
       <p className="commander-text">{message.text}</p>
+    </li>
+  );
+}
+
+/** A member's message to the fleet's agents: tagged `To the fleet`, then who read it, or that it waits for the next job. */
+function ToFleet({ message }: { message: Extract<Message, { kind: 'fleet' }> }) {
+  return (
+    <li className="commander-msg commander-person">
+      <p className="commander-who">{message.login} · <time dateTime={message.at}>{clockOf(message.at)}</time> <Tag>{WORDS.toFleet}</Tag></p>
+      <p className="commander-text">{message.text}</p>
+      {message.reads.length === 0
+        ? <p className="commander-foot">{WORDS.waitingForJob}</p>
+        : message.reads.map((read) => <p key={read.job + read.role} className="commander-foot"><a href={jobHref(read.job)}>{readLines([read])[0]}</a></p>)}
     </li>
   );
 }
@@ -115,7 +139,9 @@ function Thread({ messages, now, pending, reading }: { messages: readonly Messag
         return (
           <Fragment key={message.id}>
             {(before === undefined || dayOf(before.at) !== dayOf(message.at)) && <li className="commander-day">{dayWords(message.at, now)}</li>}
-            {message.kind === 'question' ? <Question message={message} /> : <Reply message={message} />}
+            {message.kind === 'question' && <Question message={message} />}
+            {message.kind === 'reply' && <Reply message={message} />}
+            {message.kind === 'fleet' && <ToFleet message={message} />}
             {message.kind === 'question' && !answered.has(message.id) && <li className="commander-msg commander-agent"><p className="commander-failed" role="status">{WORDS.noAnswer}</p></li>}
           </Fragment>
         );
@@ -135,17 +161,27 @@ function Thread({ messages, now, pending, reading }: { messages: readonly Messag
   );
 }
 
-function Box({ draft, busy, onDraft, onAsk }: { draft: string; busy: boolean; onDraft: (text: string) => void; onAsk: (text: string) => void }) {
+function Box({ draft, busy, mode, running, onMode, onDraft, onAsk, onSend }: {
+  draft: string; busy: boolean; mode: BoxMode; running: number;
+  onMode: (mode: BoxMode) => void; onDraft: (text: string) => void; onAsk: (text: string) => void; onSend: (text: string) => void;
+}) {
+  const messaging = mode === 'message';
   return (
-    <form className="commander-box" onSubmit={(event) => { event.preventDefault(); if (draft.trim() !== '') onAsk(draft.trim()); }}>
-      <Textarea label={WORDS.question} name="question" rows={2} placeholder={WORDS.placeholder} value={draft} disabled={busy} onChange={(event) => { onDraft(event.target.value); }} />
-      <Button variant="primary" type="submit" disabled={busy || draft.trim() === ''}>{WORDS.ask}</Button>
+    <form className="commander-box" onSubmit={(event) => { event.preventDefault(); if (draft.trim() !== '') (messaging ? onSend : onAsk)(draft.trim()); }}>
+      <SegmentedControl label={WORDS.mode} size="sm" value={mode} onChange={(id) => { onMode(id === 'message' ? 'message' : 'ask'); }}
+        options={[{ id: 'ask', label: WORDS.modeAsk }, { id: 'message', label: WORDS.modeMessage }]} />
+      <Textarea
+        label={messaging ? WORDS.message : WORDS.question} name={messaging ? 'message' : 'question'} rows={2}
+        placeholder={messaging ? WORDS.placeholderMessage : WORDS.placeholder} value={draft} disabled={busy} onChange={(event) => { onDraft(event.target.value); }}
+      />
+      <Button variant="primary" type="submit" disabled={busy || draft.trim() === ''}>{messaging ? WORDS.send : WORDS.ask}</Button>
+      {messaging && running === 0 && <p className="commander-nomission" role="note">{WORDS.noMission}</p>}
     </form>
   );
 }
 
 /** One state of the tab, drawn from what it was given. */
-export function CommanderBody({ view, now, pending, draft, problem, onDraft, onAsk, rail }: CommanderBodyProps) {
+export function CommanderBody({ view, now, pending, draft, problem, onDraft, onAsk, mode = 'ask', onMode = () => undefined, sending = false, onSend = () => undefined, rail }: CommanderBodyProps) {
   const railed = <WaitingRail cards={view.cards} me={view.me} {...rail} />;
   if (view.state.kind === 'off') {
     return (
@@ -178,7 +214,7 @@ export function CommanderBody({ view, now, pending, draft, problem, onDraft, onA
           ) : <Thread messages={view.messages} now={now} pending={pending} reading={reading} />}
           {view.state.kind === 'used-up'
             ? <Notice tone="warning" title={usedUpWords(view.state.backAt)} />
-            : <Box draft={draft} busy={pending !== null} onDraft={onDraft} onAsk={onAsk} />}
+            : <Box draft={draft} busy={pending !== null || sending} mode={mode} running={view.status.running} onMode={onMode} onDraft={onDraft} onAsk={onAsk} onSend={onSend} />}
           {problem !== null && <p className="commander-problem" role="alert">{problem}</p>}
         </div>
         {railed}
@@ -205,6 +241,8 @@ export function CommanderTab({ workspace, fleet, view: given, port, now }: Comma
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [mode, setMode] = useState<BoxMode>('ask');
+  const [sending, setSending] = useState(false);
   const rail = useRail(calls, (key, sent) => { setView((was) => (was === null ? was : { ...was, cards: cardsAfter(was.cards, key, sent) })); });
 
   useEffect(() => {
@@ -234,6 +272,19 @@ export function CommanderTab({ workspace, fleet, view: given, port, now }: Comma
     if (question === null && state === null) setProblem(asked.message);
   }
 
+  async function send(text: string) {
+    setSending(true);
+    setProblem(null);
+    const sent = await calls.send(text);
+    setSending(false);
+    if (sent.ok) {
+      setDraft('');
+      setView((was) => (was === null ? was : { ...was, messages: [...was.messages, sent.message] }));
+      return;
+    }
+    setProblem(sent.message);
+  }
+
   if (view === null) {
     return (
       <section className="commander" data-screen="fleet-commander" aria-label={WORDS.tab}>
@@ -241,5 +292,6 @@ export function CommanderTab({ workspace, fleet, view: given, port, now }: Comma
       </section>
     );
   }
-  return <CommanderBody view={view} now={now ?? new Date()} pending={pending} draft={draft} problem={problem} onDraft={setDraft} onAsk={(text) => { void ask(text); }} rail={rail} />;
+  return <CommanderBody view={view} now={now ?? new Date()} pending={pending} draft={draft} problem={problem} onDraft={setDraft} onAsk={(text) => { void ask(text); }}
+      mode={mode} onMode={setMode} sending={sending} onSend={(text) => { void send(text); }} rail={rail} />;
 }

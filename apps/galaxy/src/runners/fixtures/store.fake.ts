@@ -137,7 +137,7 @@ const ENDED_STATUSES: readonly JobRowStatus[] = ['done', 'failed', 'cancelled'];
 export type AllowedSkillRow = { workspace_id: string; full_name: string; skill: string };
 
 /** The fake's tables, and the clock it stamps writes with. */
-export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], keys = [], products = [], needsApp = [], missions = {}, now = () => T0 }: {
+export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = [], questions = [], skills = [], keys = [], products = [], needsApp = [], missions = {}, fleetMessages = {}, now = () => T0 }: {
   runners?: RunnerRow[]; jobs?: JobRow[]; lines?: JobLineRow[]; samples?: SampleRow[]; questions?: QuestionsRow[]; skills?: AllowedSkillRow[];
   /** The keys that hold an App, or no longer work; a key not listed holds none and works. */
   keys?: KeyState[];
@@ -147,6 +147,8 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
   needsApp?: string[];
   /** Each mission's level, by its id (PRD 2896 s12): a job's `mission_id` reads it; a mission not listed reads none. */
   missions?: Readonly<Record<string, string>>;
+  /** The fleet messages each job carries, by its id (PRD 3107 s3), as commander_claim_messages() answers them; a job not listed carries none. */
+  fleetMessages?: Readonly<Record<string, { author: string; at: string; text: string }[]>>;
   now?: () => Date;
 } = {}) {
   const calls: string[] = [];
@@ -297,6 +299,7 @@ export function fakeStore({ runners = RUNNERS, jobs = [], lines = [], samples = 
     },
     // As repository_runner_skills_of() reads them: the repository's names, in order.
     missionLevel: (id) => Promise.resolve(missions[id] ?? null),
+    fleetMessagesFor: (id) => Promise.resolve(fleetMessages[id] ?? []),
     allowedSkills: (workspaceId, repo) => Promise.resolve(state.skills
       .filter((row) => row.workspace_id === workspaceId && row.full_name === repo.toLowerCase()).map((row) => row.skill).sort()),
     runner: (id) => Promise.resolve(state.runners.find((r) => r.id === id) ?? null),

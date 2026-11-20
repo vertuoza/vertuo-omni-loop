@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import { reply } from '../../business-api/reply';
 import {
-  AskAnswerSchema, AskRequestSchema, CardAnswerRequestSchema, CardAnswerSchema, COMMANDER_REFUSALS, ViewAnswerSchema, ViewQuerySchema,
+  AskAnswerSchema, AskRequestSchema, CardAnswerRequestSchema, CardAnswerSchema, COMMANDER_REFUSALS, SendAnswerSchema, SendRequestSchema, ViewAnswerSchema, ViewQuerySchema,
   type Card, type CommanderRefusalKind, type CommanderState, type Message,
 } from './commander.contract';
 import type { CommanderService } from './commander.service';
@@ -12,6 +12,7 @@ import type { CommanderService } from './commander.service';
 //   GET  /api/virtual-fleets/commander?workspace=<id>&fleet=<key>   200 {view}
 //   POST /api/virtual-fleets/commander {workspace, fleet, text}      201 {question, reply}
 //   POST /api/virtual-fleets/commander/answer {workspace, fleet, source, id, choice}   200 {card} (s2)
+//   POST /api/virtual-fleets/commander/message {workspace, fleet, text}   201 {message} (s3)
 //
 // The caller is checked first: signed out, 401, and nothing else runs. The service then reads as the signed-in person,
 // so row-level security decides what they see (a member alone). The answer is checked against the contract before it
@@ -30,6 +31,7 @@ const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The Commander could not answer. Try again.';
 const BAD_VIEW = 'The query must be ?workspace=<id>&fleet=<a virtual fleet\'s key>.';
 const BAD_ANSWER = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "source": "job" or "item", "id": "<the card\'s id>", "choice": "<one of its choices>"}.';
+const BAD_MESSAGE = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "text": "<1 to 2000 characters>"}.';
 const BAD_ASK = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "text": "<1 to 2000 characters>"}.';
 
 type Refusal = { kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; card?: Card };
@@ -100,5 +102,15 @@ export function postCommanderAnswer(request: Request, deps: CommanderDeps): Prom
     const read = await bodyIn(request, CardAnswerRequestSchema);
     if (!read.ok) return refuse({ kind: read.kind, error: BAD_ANSWER });
     return answerOf(await service.answer(read.data), deps, 200, (card) => CardAnswerSchema.parse({ card }));
+  });
+}
+
+/** POST /api/virtual-fleets/commander/message: a member messages the fleet's agents, as themselves (s3); the message as stored,
+ * which no job has read yet. No model is asked. */
+export function postCommanderMessage(request: Request, deps: CommanderDeps): Promise<Response> {
+  return asPerson(deps, async (service) => {
+    const read = await bodyIn(request, SendRequestSchema);
+    if (!read.ok) return refuse({ kind: read.kind, error: BAD_MESSAGE });
+    return answerOf(await service.send(read.data), deps, 201, (message) => SendAnswerSchema.parse({ message }));
   });
 }

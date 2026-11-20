@@ -46,6 +46,8 @@ export function fakeCommanderDb() {
     { workspace: GLOBEX, id: 'bbbbbbbb-1111-4000-8000-000000000001', mission: MISSION_9001, queuedAt: '2026-11-21T07:00:00Z', line: '/omni:yolo 77', status: 'running', outcome: null },
   ];
   const messages: (Message & { workspace: string; fleet: string; tokens: number })[] = [];
+  // The messages to the fleet's agents (s3), as commander_send() stores them: `messaged` events are added to the running missions.
+  const told: (Extract<Message, { kind: 'fleet' }> & { workspace: string; fleet: string })[] = [];
   let spentOther = 0;
   let made = 0;
   const id = () => {
@@ -55,11 +57,11 @@ export function fakeCommanderDb() {
   const missionOf = (mission: string) => missions.find((m) => m.id === mission);
 
   return {
-    missions, events, jobs, messages,
+    missions, events, jobs, messages, told,
     /** Tokens the fleets' jobs spent in the last 24 hours. */
     spendJobs(tokens: number) { spentOther = tokens; },
     /** The reader as `person` reads: their workspaces alone, as row-level security shows them. */
-    as(person: string): Pick<CommanderReader, 'fleet' | 'missions' | 'events' | 'jobs' | 'thread' | 'spent' | 'ask'> {
+    as(person: string): Pick<CommanderReader, 'fleet' | 'missions' | 'events' | 'jobs' | 'thread' | 'fleetMessages' | 'spent' | 'ask' | 'send'> {
       const sees = (workspace: string) => spaces.get(workspace)?.members.has(person) === true;
       return {
         fleet: (workspace, fleet) => Promise.resolve(sees(workspace) ? spaces.get(workspace)?.fleets.get(fleet) ?? null : null),
@@ -69,6 +71,18 @@ export function fakeCommanderDb() {
           .sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit)),
         jobs: (workspace, ids, since) => Promise.resolve(jobs.filter((j) => sees(j.workspace) && j.workspace === workspace && j.mission !== null && ids.includes(j.mission) && j.queuedAt >= since.toISOString())),
         thread: (workspace, fleet, limit) => Promise.resolve(messages.filter((m) => sees(m.workspace) && m.workspace === workspace && m.fleet === fleet).slice(-limit)),
+        fleetMessages: (workspace, fleet, limit) => Promise.resolve(told.filter((m) => sees(m.workspace) && m.workspace === workspace && m.fleet === fleet).slice(-limit)),
+        send(workspace, fleet, text): Promise<Written<Message>> {
+          if (!sees(workspace)) return Promise.resolve({ ok: false, code: '42501', hint: null, message: 'Only a member of the workspace messages its fleet.' });
+          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not a virtual fleet of this workspace.' });
+          if (text.trim() === '' || text.trim().length > 2000) return Promise.resolve({ ok: false, code: '22023', hint: 'text', message: 'Message: 1 to 2000 characters.' });
+          const message = { kind: 'fleet' as const, id: id(), at: NOW.toISOString(), login: person, text: text.trim(), reads: [] };
+          told.push({ ...message, workspace, fleet });
+          for (const m of missions.filter((x) => x.workspace === workspace && x.fleet === fleet && x.status === 'running')) {
+            events.push({ id: id(), mission: m.id, at: NOW.toISOString(), role: 'supervisor', kind: 'messaged', prd: null, job: null, link: null, sentence: 'Sent a message to the fleet.' });
+          }
+          return Promise.resolve({ ok: true, value: message });
+        },
         spent: (workspace, fleet) => {
           const commander = messages.filter((m) => m.workspace === workspace && m.fleet === fleet).reduce((n, m) => n + m.tokens, 0);
           return Promise.resolve(sees(workspace) ? { tokens: spentOther + commander, oldestEnd: '2026-11-20T23:00:00Z' } : { tokens: 0, oldestEnd: null });

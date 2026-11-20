@@ -33,7 +33,22 @@ export const WORDS = {
   demo: 'The demo world has no Commander.',
   couldNotLoad: 'Couldn’t load the Commander. Try again in a moment.',
   loading: 'Loading the Commander',
+  mode: 'What the box does',
+  modeAsk: 'Ask',
+  modeMessage: 'Message fleet',
+  placeholderMessage: 'Agents read this at their next job',
+  send: 'Send to fleet',
+  message: 'Your message to the fleet',
+  toFleet: 'To the fleet',
+  waitingForJob: 'Waiting for next job',
+  noMission: 'No mission running: no agent will read this.',
+  notSent: 'Not sent: try again.',
 } as const;
+
+/** What a message to the fleet says of who read it: it waits for the next job until a job claimed it, then each job that did,
+ * by its role and the first 8 characters of its id (`Read by engineer · job 4f2a1b2c`). */
+export const readLines = (reads: readonly { role: string; job: string }[]): string[] =>
+  reads.length === 0 ? [WORDS.waitingForJob] : reads.map((read) => `Read by ${read.role} · job ${read.job.slice(0, 8)}`);
 
 /** The most events of one mission a question reads, and the most messages of the thread. */
 export const EVENTS_PER_MISSION = 50;
@@ -195,6 +210,7 @@ function addEvent(turn: Turn, e: EventRow, missionRefs: ReadonlyMap<string, stri
 /** The thread's last messages as data: a member's question by its login, the Commander's earlier replies as their claims only. */
 function threadLines(thread: readonly Message[]): string[] {
   return thread.flatMap((m) => {
+    if (m.kind === 'fleet') return [];
     if (m.kind === 'question') return [`q | ${escapeData(m.login)} | ${stampOf(m.at)} | ${escapeData(m.text)}`];
     if (m.reply.claims.length === 0) return [`a | Commander | ${stampOf(m.at)} | (found nothing)`];
     return m.reply.claims.map((c) => `a | Commander | ${stampOf(m.at)} | ${escapeData(c.text)} (${c.sources.map((s) => escapeData(s.label)).join(', ')})`);

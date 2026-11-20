@@ -1,4 +1,4 @@
-import type { AskAnswer, AskRequest, Card, CardAnswerRequest, CommanderRefusalKind, CommanderState, CommanderView, Message, ViewQuery } from './commander.contract';
+import type { AskAnswer, AskRequest, SendRequest, Card, CardAnswerRequest, CommanderRefusalKind, CommanderState, CommanderView, Message, ViewQuery } from './commander.contract';
 import type { CommanderReader, CommanderWriter, Written } from './commander.repository';
 import {
   ACTIVE, EVENTS_PER_MISSION, inRecord, keepClaims, moreEvents, OLDER_EVENTS_TOOL, readModelReply, stateOf, suggestionsOf, SYSTEM, THREAD_MESSAGES,
@@ -22,6 +22,8 @@ export const ONLY_MEMBERS = 'Only a member of the workspace reads its fleet’s 
 export const NOT_VIRTUAL = 'Fleet: only a Virtual Fleet has a Commander.';
 const NOT_HERE = 'The Commander is not available here: this deployment cannot keep its replies.';
 const FAILED = 'The Commander could not answer. Try again.';
+const ONLY_MEMBERS_MESSAGE = 'Only a member of the workspace messages its fleet.';
+const NOT_SENT = 'Not sent: try again.';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The most messages the tab shows. */
@@ -30,7 +32,7 @@ const SHOWN = 50;
 const SUGGESTION_EVENTS = 20;
 
 export interface CommanderServiceDeps {
-  reader: Pick<CommanderReader, 'fleet' | 'missions' | 'events' | 'jobs' | 'thread' | 'spent' | 'ask'>;
+  reader: Pick<CommanderReader, 'fleet' | 'missions' | 'events' | 'jobs' | 'thread' | 'fleetMessages' | 'spent' | 'ask' | 'send'>;
   /** The service role's writer, or null when this deployment has none. */
   writer: Pick<CommanderWriter, 'reply'> | null;
   /** The model, or null when the server has no key. */
@@ -120,13 +122,16 @@ export function commanderService(deps: CommanderServiceDeps) {
       const missions = await reader.missions(query.workspace, query.fleet);
       const active = missions.filter((m) => ACTIVE.includes(m.status));
       const record = inRecord(missions, now);
-      const [{ state, spent }, messages, events, jobs, cards] = await Promise.all([
+      const [{ state, spent }, asked, told, events, jobs, cards] = await Promise.all([
         stateNow(query, fleet.value.cap, now),
         reader.thread(query.workspace, query.fleet, SHOWN),
+        reader.fleetMessages(query.workspace, query.fleet, SHOWN),
         eventsOf(active, SUGGESTION_EVENTS),
         reader.jobs(query.workspace, record.map((m) => m.id), new Date(now.getTime() - DAY_MS)),
         deps.rail.cards(query.workspace, query.fleet),
       ]);
+      // The Commander's questions and replies and the messages to the fleet, one thread by time, the last SHOWN of it.
+      const messages = [...asked, ...told].sort((a, b) => a.at.localeCompare(b.at)).slice(-SHOWN);
       const count = (status: string) => missions.filter((m) => m.status === status).length;
       return {
         ok: true,
@@ -149,6 +154,18 @@ export function commanderService(deps: CommanderServiceDeps) {
       const fleet = await fleetOf(request);
       if (!fleet.ok) return fleet;
       return deps.rail.answer(request, deps.me);
+    },
+
+    /** A member's message to the fleet's agents (s3): stored signed by them and tagged for the fleet, a `messaged` event linking to
+     * it in each running mission. It needs no model, so the Commander being off or out of tokens changes nothing. */
+    async send(request: SendRequest): Promise<Served<Message>> {
+      const fleet = await fleetOf(request);
+      if (!fleet.ok) return fleet;
+      const sent = await reader.send(request.workspace, request.fleet, request.text);
+      if (sent.ok) return sent;
+      if (sent.code === '42501') return { ok: false, kind: 'forbidden', error: ONLY_MEMBERS_MESSAGE };
+      if (sent.code === '22023' && sent.message) return { ok: false, kind: 'invalid', error: sent.message };
+      return { ok: false, kind: 'not-sent', error: NOT_SENT, cause: `${sent.code ?? 'no code'}: ${sent.message}` };
     },
 
     /** A member's question and the Commander's reply. */
