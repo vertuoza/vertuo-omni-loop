@@ -111,7 +111,7 @@ export const removedWords = (removed: number): string => `${plural(removed, 'sen
 export const readingWords = (missions: number, jobs: number): string =>
   `Reading the record · ${plural(missions, 'mission', 'missions')} · ${plural(jobs, 'job', 'jobs')}`;
 export const usedUpWords = (backAt: string): string => `Tokens used up. Back at ${clockOf(backAt)} UTC.`;
-const stopQuestion = (prd: number): string => `Why did PRD ${String(prd)} stop?`;
+const stopQuestion = (prd: PrdNumber): string => `Why did PRD ${String(prd)} stop?`;
 
 /** Today's tokens against the fleet's daily cap: `tokens 41% today`, or that the fleet has no cap. */
 export function tokensWords(status: Pick<Status, 'spent' | 'cap'>): string {
@@ -146,7 +146,7 @@ export function stateOf(input: { modelOn: boolean; cap: number | null; spent: nu
 const SAFE_LINK = /^(\/[^/]|https:\/\/github\.com\/)/;
 
 const fleetTab = (fleet: string, tab: string, extra = ''): string => `/app/fleet?fleet=${encodeURIComponent(fleet)}&tab=${tab}${extra}`;
-const prdHref = (repo: string, prd: number): string => `/prd/at/${repo.split('/').map(encodeURIComponent).join('/')}/${String(prd)}?to=page`;
+const prdHref = (repo: string, prd: PrdNumber): string => `/prd/at/${repo.split('/').map(encodeURIComponent).join('/')}/${String(prd)}?to=page`;
 const cut = (text: string, max: number): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 
 // ── The data blocks ───────────────────────────────────────────────────────────
