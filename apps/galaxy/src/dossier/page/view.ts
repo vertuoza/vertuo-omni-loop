@@ -1114,13 +1114,13 @@ export type WayBack = {
   rounds: readonly Opened[] | null;
 };
 
-/** Where the question page goes once its round is answered (PRD 384): the dossier's Brainstorm tab at
- * the first round still open in the order asked (`/prd/<id>?tab=brainstorm#<round>`, omni-loop-20 s7), or that tab alone
- * when none is left; the ask page of the round's session when `from` names no dossier, so the
+/** Where the question page goes once its round is answered (PRD 384): the dossier's questions at the
+ * first round still open in the order asked (`/prd/<id>?tab=questions#<round>`), or that tab alone
+ * when none is left (a PRD's page redirects the old id to Brainstorm, a fix's opens its Questions); the ask page of the round's session when `from` names no dossier, so the
  * parameter can never send anyone to another site. */
 export function wayBack({ from, sessionId, roundId, rounds }: WayBack): string {
   if (from === null || !isDossierId(from)) return `/ask/${encodeURIComponent(sessionId)}`;
-  const tab = `${dossierPath(from)}?tab=brainstorm`;
+  const tab = `${dossierPath(from)}?tab=questions`;
   const next = nextOpen(rounds ?? [], roundId);
   return next ? `${tab}#${encodeURIComponent(next)}` : tab;
 }

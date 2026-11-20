@@ -647,21 +647,21 @@ describe('the way back from a question answered on its own page (PRD 384)', () =
   const SESSION = '00000000-0000-4000-8000-0000000000a5';
   const back = (from: string | null, asked: DossierRoundRow[] | null = rounds, roundId = 'r1') => wayBack({ from, sessionId: SESSION, roundId, rounds: asked });
 
-  it('goes to the Brainstorm tab of the dossier it came from, at the next round still open', () => {
-    expect(back(ID)).toBe(`/prd/${ID}?tab=brainstorm#r4`);
+  it('goes to the questions of the dossier it came from, at the next round still open', () => {
+    expect(back(ID)).toBe(`/prd/${ID}?tab=questions#r4`);
   });
 
   it('picks the first round still open in the order asked, never the one just answered', () => {
     const early = round('r0', 'brainstorm', '2026-09-27T09:00:00Z');
     const answeredNow = round('r5', 'brainstorm', '2026-09-27T08:00:00Z');
-    expect(back(ID, [...rounds, early, answeredNow], 'r5')).toBe(`/prd/${ID}?tab=brainstorm#r0`);
+    expect(back(ID, [...rounds, early, answeredNow], 'r5')).toBe(`/prd/${ID}?tab=questions#r0`);
   });
 
-  it('goes to the Brainstorm tab alone when no round is left open, or the rounds cannot be read', () => {
+  it('goes to the questions alone when no round is left open, or the rounds cannot be read', () => {
     const settled = rounds.filter((r) => r.status !== 'open');
-    expect(back(ID, settled)).toBe(`/prd/${ID}?tab=brainstorm`);
-    expect(back(ID, [])).toBe(`/prd/${ID}?tab=brainstorm`);
-    expect(back(ID, null)).toBe(`/prd/${ID}?tab=brainstorm`);
+    expect(back(ID, settled)).toBe(`/prd/${ID}?tab=questions`);
+    expect(back(ID, [])).toBe(`/prd/${ID}?tab=questions`);
+    expect(back(ID, null)).toBe(`/prd/${ID}?tab=questions`);
   });
 
   it("goes to the ask page of the question's session when it came from no dossier", () => {
