@@ -201,7 +201,7 @@ function HeadTabs({ view }: { view: DossierView }) {
 function OldAnchors({ view }: { view: DossierView }) {
   if (view.kind !== 'prd') return null;
   const waits = view.approval !== null && (view.approval.canApprove || view.approval.tech?.canGive === true);
-  const record = `${view.tabs.find((t) => t.kind === 'specifications')?.href ?? view.link}`;
+  const record = view.tabs.find((t) => t.kind === 'specifications')?.href ?? view.link;
   const at = new URL(record, 'https://page.invalid');
   at.searchParams.set('segment', 'approval');
   return <SpecificationsTabAnchors review={waits ? reviewPath(view.id) : null} record={`${at.pathname}${at.search}`} />;

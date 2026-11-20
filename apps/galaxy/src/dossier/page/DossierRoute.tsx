@@ -258,7 +258,7 @@ const elsewhereOf = (kind: WorkKind, route: WorkKind, id: string, query: Query) 
 
 /** The proof runs and the pitches of dossier `id`, started now: a run's clips signed whenever the Feature tab
  * may open (named, or by default), a pitch's files whenever the Retro tab may (omni-loop-20 s7). */
-function runsOf(db: Parameters<typeof proofStore>[0] & Parameters<typeof pitchStore>[0], id: string, pick: ReturnType<typeof readPick>) {
+function runsOf(db: Parameters<typeof proofStore>[0], id: string, pick: ReturnType<typeof readPick>) {
   if (!isDossierId(id)) return { proofs: Promise.resolve(null), pitches: Promise.resolve(null) };
   const feature = mayOpen(pick, 'feature');
   return {
