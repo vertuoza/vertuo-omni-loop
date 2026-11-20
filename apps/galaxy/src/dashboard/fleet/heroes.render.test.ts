@@ -43,10 +43,11 @@ const board = (asked: string, heroes?: HeroesView | null) =>
   ({ ...fleetOf(READ, { asked, viewerId: 'u-ada', period: '7d', now: NOW }), virtual: VIRTUAL, ...(heroes === undefined ? {} : { heroes }) }) as FleetView;
 
 describe('the Fleet\'s tabs', () => {
-  it('reads Operation room · Missions · Heroes · Board on a virtual fleet, the Operation room first', () => {
+  it('reads Operation room · Missions · Heroes · Board · Commander on a virtual fleet, the Operation room first (PRD 3107 s1)', () => {
     const html = screen(board('night-shift', HEROES(true)));
     const nav = /<nav class="fleet-tabs"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? '';
-    expect(text(nav)).toBe('Operation room Missions Heroes Board');
+    expect(text(nav)).toBe('Operation room Missions Heroes Board Commander');
+    expect(nav).toContain('href="/app/fleet?tab=commander"');
     expect(nav).toMatch(/href="\/app\/fleet\?tab=room" aria-current="page"/);
     expect(nav).toContain('href="/app/fleet?tab=heroes"');
   });
@@ -60,6 +61,16 @@ describe('the Fleet\'s tabs', () => {
     const html = screen(board('beaver'));
     expect(html).not.toContain('fleet-tabs');
     expect(html).not.toContain('Heroes');
+    expect(html).not.toContain('Commander');
+    expect(screen(board('beaver'), { tab: 'commander' })).not.toContain('data-screen="fleet-commander"');
+  });
+
+  it('AC-11: shows the Commander tab of a virtual fleet, which reads its own thread, the other tabs as before (PRD 3107 s1)', () => {
+    const html = screen(board('night-shift', HEROES(true)), { tab: 'commander' });
+    expect(html).toMatch(/href="\/app\/fleet\?tab=commander" aria-current="page"/);
+    expect(html).toContain('data-screen="fleet-commander"');
+    expect(text(html)).toContain('Loading the Commander');
+    expect(screen(board('night-shift', HEROES(true)), { tab: 'heroes' })).not.toContain('data-screen="fleet-commander"');
   });
 
   it('shows the board unchanged under the Board tab, and no heroes', () => {
