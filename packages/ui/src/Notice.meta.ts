@@ -17,7 +17,7 @@ export const noticeMeta = {
   },
   accessibility: [
     'A danger or warning notice is role="alert"; info and success are role="status".',
-    'The tone shows as a strong start edge and the title: never as colour alone.',
+    'The tone shows as an icon of the 1-bit set and the title, inside a full thin border: never as colour alone, and never as a coloured stripe on one side.',
   ],
   replaces: ['outbox-note', 'proof-note', 'ready-note'],
   example: '<Notice tone="warning" title="Waiting for a person">Two questions are open.</Notice>',

@@ -1,7 +1,6 @@
 .omni-empty-state {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: var(--space-2);
   border: 1px dashed var(--color-border-subtle);
   border-radius: var(--radius-2);
@@ -9,9 +8,11 @@
   font-family: var(--font-body);
   font-size: var(--type-3-size);
   line-height: var(--type-3-line);
-  text-align: center;
 }
-.omni-empty-state--page { padding: var(--space-7) var(--space-5); }
-.omni-empty-state--inline { padding: var(--space-4); }
+.omni-empty-state--page { align-items: center; padding: var(--space-7) var(--space-5); text-align: center; }
+.omni-empty-state--inline { align-items: flex-start; padding: var(--space-3) var(--space-4); text-align: start; }
 .omni-empty-state__title { margin: 0; color: var(--color-text-primary); font-size: var(--type-4-size); line-height: var(--type-4-line); font-weight: var(--weight-semibold); }
+.omni-empty-state--inline .omni-empty-state__title { font-size: var(--type-3-size); line-height: var(--type-3-line); }
+/* When it fills in: one line under the why, never a paragraph. */
+.omni-empty-state__body { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; max-width: 60ch; }
 .omni-empty-state__action { margin-top: var(--space-2); }
