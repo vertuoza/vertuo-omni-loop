@@ -1018,3 +1018,167 @@ Low: a stricter support check is one function in the script, and the two config 
 ```
 
 <!-- /omni-outbox-settled: s5-01-eval-checks-and-typecheck-wiring -->
+
+<!-- omni-outbox-settled: s2-01-some-cards-answer-on-their-page -->
+
+## s2-01-some-cards-answer-on-their-page — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-20T19:32:52Z
+- Channel: feature pull request #3110
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3110#issuecomment-7048769096
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Stays here: which rail cards answer in place and which link to their page follows ADR-0052 (every answer door ends as the person's own reply) and the existing answer routes; it adds no new rule.
+- Rank: high
+- Bears on: ADR-0052
+- Raised: 2026-11-20
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+A. A. As built: outbox items, multi-question jobs and multi-pick questions link to their own page; the rest answer from the card.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-some-cards-answer-on-their-page
+prd: 3107
+slice: s2
+rank: high
+bears-on: ADR-0052
+raised: 2026-11-20
+wave: 2
+---
+
+## The question, in plain words
+
+The spec says every card in the Waiting on you rail is answered from the card, but an outbox question of a repository PRD is answered on its pull request, and a job asking several questions at once needs all its answers together. Should those cards be answerable from the rail?
+
+## The decision, in plain words
+
+Those cards show their question and link to the page where it is answered, as the approval card already does. A job's single question with one pick, and a mission item (Adopt or Decline), are answered from the card.
+
+## The intro, for fun
+
+Some questions wear a badge that says: answer me at home, please.
+
+## The punchline, for fun
+
+So the rail points the way instead of knocking on the wrong door.
+
+## The options, in plain words
+
+A. A. As built: outbox items, multi-question jobs and multi-pick questions link to their own page; the rest answer from the card.
+B. B. Answer a job's several questions from the card too, one pick per question, Confirm once all are picked.
+C. C. Add an answer route for repository PRD outbox items that posts the member's reply on the feature pull request, and answer them from the card.
+
+## What I had to decide
+
+Whether link-only cards are enough for now, or the rail must answer every kind of question itself.
+
+## What I did meanwhile
+
+Link-only cards send the member to the question's own page, so nothing waiting is hidden; the rail only answers what it can send through an existing answer route.
+
+## What it costs to change later
+
+Small to change later: answering several questions on one card is a few more fields on the card and one more state; answering a repository PRD's outbox item needs a new answer route that replies on the pull request.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The app has no route that answers an outbox item of a repository PRD; the existing answer route only answers product PRDs, and no mission runs one (author)
+- Knowledge read: ADR-0052 (every answer door ends as the person's own reply on the feature PR), ADR-0061 (prd_outbox keeps each PRD's waiting questions)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-some-cards-answer-on-their-page -->
+
+<!-- omni-outbox-settled: s3-03-messages-in-their-own-table -->
+
+## s3-03-messages-in-their-own-table — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-11-20T19:32:52Z
+- Channel: feature pull request #3110
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/3110#issuecomment-7048769096
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Stays here: where fleet messages and their reads are stored is this PRD's own schema, in its migration and its check; it states no rule beyond the Commander.
+- Rank: high
+- Bears on: none
+- Raised: 2026-11-20
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+A. A. As built: a separate table, a message_id column on events, receipts per mission and role.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-messages-in-their-own-table
+prd: 3107
+slice: s3
+rank: high
+bears-on: none
+raised: 2026-11-20
+wave: 3
+---
+
+## The question, in plain words
+
+Where should a message to the fleet be kept, and how should its event point to it?
+
+## The decision, in plain words
+
+Messages to the fleet get their own table, and the event that points to one carries its id in a new column. Who read a message is kept in a second table, one row per mission and role.
+
+## The intro, for fun
+
+Questions to the oracle and notes for the crew now sit on separate shelves.
+
+## The punchline, for fun
+
+So the oracle never reads the crew's mail by mistake.
+
+## The options, in plain words
+
+A. A. As built: a separate table, a message_id column on events, receipts per mission and role.
+B. B. Add a message kind to the Commander's thread table, and link the event by its id in the same new column.
+C. C. Link the event with a web address to the fleet page and keep the message id in the sentence.
+
+## What I had to decide
+
+A fleet_messages table, a message_id column on mission events set only on messaged events, and a fleet_message_reads table; the role of a job is read from its mission key.
+Decided by: Jev (hardToRevert 0.58) · agent said true
+
+## What I did meanwhile
+
+The Commander's thread is untouched, the message holds its words in one place, and a job of each role reads a message once.
+
+## What it costs to change later
+
+Medium: merging the two tables into one means a migration and rewriting the reader, the claim and the purge.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the event links to the message but does not say how a link to a stored row is written; a mission event's link column holds web addresses only
+
+```
+
+<!-- /omni-outbox-settled: s3-03-messages-in-their-own-table -->
