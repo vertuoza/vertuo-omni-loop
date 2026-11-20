@@ -5,7 +5,6 @@ mock: prd-review.html
 implements: ["apps/galaxy/app/prd/[id]/review/page.tsx", "apps/galaxy/src/dossier/review/*.tsx", "apps/galaxy/src/dossier/review/*.ts"]
 reads: ["apps/galaxy/src/dossier/page/approval.ts", "apps/galaxy/src/dossier/page/approval-diff.ts", "apps/galaxy/src/dossier/page/ApproveButton.tsx", "apps/galaxy/src/dossier/page/BusinessLawsVerdict.tsx", "apps/galaxy/src/dossier/page/ReadyPanel.tsx", "apps/galaxy/src/dossier/page/MarkSeen.tsx", "apps/galaxy/app/prd/layout.tsx"]
 routes: [/prd/<id>/review]
-uses: [PageHeader, ReviewScreen, SectionHeading, DefinitionList, Notice, Button, Badge, Stack, Text]
 supersedes: null
 ---
 

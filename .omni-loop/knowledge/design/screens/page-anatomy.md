@@ -5,7 +5,6 @@ mock: page-anatomy.html
 implements: ["packages/ui/src/PageHeader.tsx", "packages/ui/src/StageTrack.tsx", "packages/ui/src/Tabs.tsx", "packages/ui/src/SegmentedControl.tsx", "packages/ui/src/SectionHeading.tsx", "packages/ui/src/DefinitionList.tsx", "packages/ui/src/ReviewScreen.tsx", "packages/ui/src/EmptyState.tsx", "packages/ui/src/Notice.tsx", "packages/ui/src/ListRow.tsx"]
 reads: ["packages/ui/src/", "packages/design/tokens/", "apps/galaxy/src/page-width.test.ts", "apps/galaxy/src/nav/AppShell.tsx"]
 routes: []
-uses: [PageHeader, StageTrack, Tabs, SegmentedControl, SectionHeading, DefinitionList, ListRow, EmptyState, Notice, ReviewScreen, Breadcrumb, Button, Badge, Stack, Text]
 supersedes: null
 ---
 
