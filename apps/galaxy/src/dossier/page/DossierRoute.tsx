@@ -47,10 +47,8 @@ import { pitchStore } from '../../pitch/store';
 import { readPitches } from './pitch-read';
 import { readProductOutbox } from './outbox-product.repository';
 import { productOutboxView } from './outbox-product';
-import { approvalView, readApproval, readApproveScreen, judgeApproval, readAskedApprovers, readProductPrd, readTech, readVoids, type ApprovalFacts, type ApprovalView, type ApprovalRead } from './approval';
+import { approvalOf } from '../review/approval-read';
 import { attestationOf } from './Attestation.service';
-import { lawsForPage, lawsOfApproved } from '../../business-laws/verdicts.live';
-import type { LawsView } from '../../business-laws/verdicts.service';
 import { liveSendSetup } from '../../runners/send/send.live';
 import { continuationsRepository, runnersRepository } from '../../runners/runners.repository';
 import { fixingOf, type Fixing } from './stage';
@@ -114,6 +112,8 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 // button that copies a line a runner runs. None, or a read that fails, leaves the button out, never the page.
 // PRD 2270 s4: it also reads the PRD's /omni:yolo-fix job while queued or running, for the status line's
 // `fixing on <runner>`; a read that fails leaves the line as it was, never hides the page.
+// PRD omni-loop-20 s5: the approval's read moved, unchanged, to ../review/approval-read.ts, which the review
+// screen at /prd/<id>/review (../review/ReviewRoute.tsx) reads too.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -122,60 +122,18 @@ export type DossierRouteProps = {
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
-const logged = <T,>(fallback: T) => (error: unknown): T => {
-  console.error(error);
-  return fallback;
-};
+type Session = NonNullable<Awaited<ReturnType<typeof dossierSession>>>;
 
-/** A ◆ PRD's approval in force, `unread` when it or its voids could not be read, with its voids, who the
- * product asks to approve (`unread` when that could not be read), and, for `me` when they get the
- * button, the approve screen (PRD 1322 s7); nothing for any other dossier. */
-async function approvalOf(db: Db, read: DossierRead, me: string): Promise<Pick<DossierRead, 'approval' | 'approvalFacts'>> {
-  const { dossier } = read;
-  if (dossier.birthplace !== 'server') return {};
-  const [row, voids, asked, productPrd] = await Promise.all([
-    readApproval(db, dossier.id).catch(logged<ApprovalRead>('unread')),
-    readVoids(db, dossier.id).catch(logged(null)),
-    readAskedApprovers(db, dossier).catch(logged<'unread'>('unread')),
-    readProductPrd(db, dossier).catch(logged<string | null>(null)),
-  ]);
-  const approval: ApprovalRead = voids === null ? 'unread' : row;
-  const tech = await readTech(db, dossier.id, read.versions, voids ?? []).catch(logged<'unread'>('unread'));
-  const facts: ApprovalFacts = { voids: voids ?? [], asked, tech, productPrd };
-  return { approval, approvalFacts: { ...facts, ...await screensOf(db, read, approval, facts, me) } };
-}
+/** A dossier route's viewer: the signed-in person with their database, or the page shown instead (no
+ * database here: closed; signed out: the sign-in card, coming back to dossier `id`). Shared with the review
+ * screen (../review/ReviewRoute.tsx). */
+export type Gated = { member: Session & { user: NonNullable<Session['user']> } } | { page: ReactNode };
 
-/** What `me` reads beside the approval: the approve screen when they get Approve (PRD 1322 s7), the Tech Approval's when they give it (PRD 2608), and the business laws' verdict (PRD 2632 s4). */
-async function screensOf(db: Db, read: DossierRead, approval: ApprovalRead, facts: ApprovalFacts, me: string): Promise<Pick<ApprovalFacts, 'screen' | 'techScreen' | 'laws'>> {
-  const view = approvalView({ ...read, approval, approvalFacts: facts }, me);
-  const content = (id: string) => readContent(db, id);
-  const [techScreen, screen, laws] = await Promise.all([
-    view?.tech?.canGive ? techScreenOf(content, read, facts) : undefined,
-    view?.canApprove ? readApproveScreen(content, read.versions, approval, view) : undefined,
-    lawsOfView(db, read.dossier.id, view, approval),
-  ]);
-  return { techScreen, screen, laws };
-}
-
-/** The business laws' verdict `view` shows (PRD 2632 s4): the latest spec's for whoever gets a button, the approved spec's under the seal. */
-function lawsOfView(db: Db, dossier: string, view: ApprovalView | null, approval: ApprovalRead): Promise<LawsView> | undefined {
-  if (!view) return undefined;
-  if (view.canApprove || view.tech?.canGive) return lawsForPage(db, dossier);
-  const spec = view.seal ? pinnedSpecOf(approval) : undefined;
-  return spec && lawsOfApproved(db, dossier, spec.version_id);
-}
-
-/** The spec an approval pinned, when it holds one. */
-function pinnedSpecOf(approval: ApprovalRead) {
-  return approval === null || approval === 'unread' ? undefined : approval.files.find((file) => file.kind === 'spec');
-}
-
-/** The named person's screen (PRD 2608): what changed since their last tech approval, then the spec's Problem and Solution. */
-function techScreenOf(content: (id: string) => Promise<string | null>, read: DossierRead, facts: ApprovalFacts) {
-  const { tech } = facts;
-  const given = tech && tech !== 'unread' ? tech.approval : null;
-  const changed = given ? judgeApproval(given, facts.voids, read.versions).changed : [];
-  return readApproveScreen(content, read.versions, given, { changed });
+export function gated(session: Session | null, id: string, query: Record<string, string | string[] | undefined>): Gated {
+  if (!session) return { page: <DossiersClosed /> };
+  const { env, user } = session;
+  if (!user) return { page: <DossierSignIn supabase={env} returnPath={dossierCallbackPath(id)} error={one(query.signin_error)} /> };
+  return { member: { ...session, user } };
 }
 
 /** The runner the PRD's fix job is queued or running on (PRD 2270); null when none is, or the jobs could not be read. */
@@ -264,7 +222,7 @@ async function keepFacts(dossier: DossierRead['dossier'], read: FixSummary): Pro
 }
 
 /** The shown Spec or Plan, rendered; null when it could not be read (the pane says so). */
-async function markdownOf(read: () => Promise<string | null>): Promise<RenderedMarkdown | null> {
+export async function markdownOf(read: () => Promise<string | null>): Promise<RenderedMarkdown | null> {
   try {
     const content = await read();
     return content === null ? null : renderMarkdown(content);
@@ -354,10 +312,9 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const mode = serverEnv().mode;
 
   if (mode === 'demo') return demoPage(route, id, query, pick);
-  const session = await timings.time('viewer', dossierSession(mode));
-  if (!session) return <DossiersClosed />;
-  const { env, db, user } = session;
-  if (!user) return <DossierSignIn supabase={env} returnPath={dossierCallbackPath(id)} error={one(query.signin_error)} />;
+  const gate = gated(await timings.time('viewer', dossierSession(mode)), id, query);
+  if ('page' in gate) return gate.page;
+  const { env, db, user } = gate.member;
 
   let read: DossierRead | null;
   const proofs = isDossierId(id) ? readProofs(proofStore(db), id, { sign: pick.tab === 'proof', version: pick.version }) : Promise.resolve(null);
