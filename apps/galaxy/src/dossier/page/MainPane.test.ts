@@ -55,8 +55,10 @@ describe('a PRD nobody watches', () => {
     }
   });
 
-  it('opens the page on its default tab when the address asks for Main', () => {
-    expect(html(null, { tab: 'main' })).toContain('aria-label="Before/after"');
+  it('opens the Feature tab when the address asks for Main, with no After merge section (omni-loop-20 s7)', () => {
+    const page = html(null, { tab: 'main' });
+    expect(page).toContain('<section class="dossier-pane" aria-label="Feature">');
+    expect(page).not.toContain('id="after-merge"');
   });
 });
 
@@ -65,7 +67,7 @@ describe('the Main cell of the facts strip', () => {
     const page = html({ watches: [watch()], breaks: [] });
     expect(head(page)).toContain('<dt class="omni-definition-list__label">Main</dt>');
     expect(head(page)).toContain('Watching · 5 days left');
-    expect(head(page)).toContain('href="/prd/' + ID + '?tab=main"');
+    expect(head(page)).toContain('href="/prd/' + ID + '?tab=feature#after-merge"');
   });
 
   it('says Clean', () => {
@@ -73,7 +75,7 @@ describe('the Main cell of the facts strip', () => {
   });
 
   it('says Broke main', () => {
-    const page = html({ watches: [watch({ status: 'broke' })], breaks: [red] });
+    const page = html({ watches: [watch({ status: 'broke' })], breaks: [red] }, { tab: 'specifications' });
     expect(head(page)).toContain('dossier-main-broke');
     expect(head(page)).toContain('<strong>Broke main</strong>');
   });
@@ -88,8 +90,9 @@ describe('the Main cell of the facts strip', () => {
 describe('the Main tab', () => {
   const broken = { watches: [watch({ status: 'broke' })], breaks: [red] };
 
-  it('is in the bar once the PRD is watched', () => {
-    expect(html({ watches: [watch()], breaks: [] })).toContain('>Main</span></a>');
+  it('is the Feature tab\'s After merge section once the PRD is watched (omni-loop-20 s7), the tab it opens on once main broke', () => {
+    expect(html({ watches: [watch()], breaks: [] }, { tab: 'feature' })).toContain('<section id="after-merge" aria-label="After merge">');
+    expect(html(broken)).toContain('<section class="dossier-pane" aria-label="Feature">');
   });
 
   it('lists each break with its kind and its link, escaped, the parent result beside a CI red', () => {

@@ -58,17 +58,17 @@ describe('the Proof tab', () => {
     expect(page({ runs: [], shown: null }, { tab: 'proof' }).tab).not.toBe('proof');
   });
 
-  it('comes after Outbox and PR care and before Retro once a run exists, counting the runs', () => {
+  it('sits in the Feature tab once a run exists, which it keeps from being dimmed (omni-loop-20 s7)', () => {
     const v = page({ runs: RUNS, shown: null });
-    expect(v.tabs.map((t) => t.kind)).toEqual(['questions', 'before-after', 'spec', 'plan', 'timeline', 'voice', 'outbox', 'care', 'proof', 'retro']);
-    const tab = v.tabs.find((t) => t.kind === 'proof');
-    expect(tab).toMatchObject({ label: 'Proof', badge: '2 runs', href: `/prd/${ID}?tab=proof`, current: false, empty: false });
-  });
+    expect(v.tabs.map((t) => t.kind)).toEqual(['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline']);
+    expect(v.tabs.find((t) => t.kind === 'feature')).toMatchObject({ label: 'Feature', href: `/prd/${ID}?tab=feature`, current: false, empty: false });
+    expect(v.proof?.number).toBe(2);  });
 
-  it('is picked by ?tab=proof', () => {
+  it('is picked by ?tab=proof, on the Feature tab, its versions linking there at #proof', () => {
     const v = page({ runs: RUNS, shown: signed(NEW.id) }, { tab: 'proof' });
-    expect(v.tab).toBe('proof');
+    expect(v.tab).toBe('feature');
     expect(v.proof?.number).toBe(2);
+    expect(page({ runs: RUNS, shown: signed(OLD.id) }, { tab: 'feature', v: '1' }).proof?.number).toBe(1);
   });
 });
 

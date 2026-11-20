@@ -105,7 +105,7 @@ describe('a bug fix', () => {
 });
 
 describe('a PRD', () => {
-  it('keeps exactly today\'s tabs, heading, route and no badge, with a kind or without one', () => {
+  it('keeps exactly its seven tabs, heading, route and no badge, with a kind or without one', () => {
     for (const kind of ['prd', undefined] as const) {
       const v = view(fix(kind, 216), [version('spec', '2026-09-29T09:00:00Z')]);
       expect(v.tabs.map((t) => t.kind)).toEqual(PAGE_TABS);
@@ -114,7 +114,7 @@ describe('a PRD', () => {
   });
 
   it('knows no Variations or Bug record tab', () => {
-    expect(view(fix('prd', 216), [], { tab: 'variations' }).tab).toBe('before-after');
-    expect(view(fix('prd', 216), [], { tab: 'bug-record' }).tab).toBe('before-after');
+    expect(view(fix('prd', 216), [], { tab: 'variations' }).tab).toBe('specifications');
+    expect(view(fix('prd', 216), [], { tab: 'bug-record' }).tab).toBe('specifications');
   });
 });

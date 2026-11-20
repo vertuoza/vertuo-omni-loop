@@ -57,10 +57,9 @@ describe('the Proof tab, rendered', () => {
     expect(html(null)).not.toContain('>Proof<');
   });
 
-  it('is in the bar with a run, badged with the runs', () => {
-    const page = html({ runs: [RUN, OLDER], shown: null }, {});
-    expect(page).toContain(`href="/prd/${ID}?tab=proof"`);
-    expect(page).toMatch(/>Proof<small>2 runs<\/small>/);
+  it('is a section of the Feature tab with a run (omni-loop-20 s7)', () => {
+    const page = html({ runs: [RUN, OLDER], shown: null }, { tab: 'feature' });
+    expect(page).toContain('<section id="proof" aria-label="Proof">');
   });
 
   it('shows the run: its commit, URL, date and counts', () => {

@@ -55,21 +55,21 @@ describe('the Pitch tab, rendered', () => {
     expect(html(null)).not.toContain('>Pitch<');
   });
 
-  it('sits after Proof and before Retro, badged with the pitches', () => {
+  it('sits in Retro, after the retro, the Retro tab counting the pitches; the proof sits in Feature (omni-loop-20 s7)', () => {
     const run: ProofRunRow = {
       id: OLDER, dossier_id: ID, commit_sha: 'abc1234', url: 'https://preview.test', gif: null, created_by: null,
       created_at: '2026-09-30T10:00:00Z', criteria: [{ text: 'x', verdict: 'pass' }],
     };
     const view = dossierView({ dossier: numbered, versions: [], members: [PIERRE], rounds: [], proofs: { runs: [run], shown: null }, pitches: { runs: [pitch({})], links: {} } }, PIERRE.user_id, readPick({}));
-    const kinds = view.tabs.map((t) => t.kind);
-    expect(kinds.indexOf('pitch')).toBe(kinds.indexOf('proof') + 1);
-    expect(kinds.indexOf('retro')).toBe(kinds.indexOf('pitch') + 1);
-    expect(view.tabs.find((t) => t.kind === 'pitch')).toMatchObject({ label: 'Pitch', badge: '1 pitch', href: `/prd/${ID}?tab=pitch` });
+    expect(view.tabs.map((t) => t.kind)).toEqual(['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline']);
+    expect(view.tabs.find((t) => t.kind === 'retro')).toMatchObject({ label: 'Retro', badge: '1 pitch', href: `/prd/${ID}?tab=retro`, empty: false });
+    const page = html({ runs: [pitch({})], links: {} }, { tab: 'retro' });
+    expect(page.indexOf('<section id="pitch" aria-label="Pitch">')).toBeGreaterThan(page.indexOf('<section class="dossier-pane" aria-label="Retro">'));
   });
 
   it('shows one pitch: the slide, the player, the five downloads and Copy GIF link', () => {
     const page = html({ runs: [pitch({})], links: { [NEWER]: signed(NEWER) } });
-    expect(page).toMatch(/>Pitch<small>1 pitch<\/small>/);
+    expect(page).toContain('Retro<span class="omni-tab__count">1 pitch</span>');
     expect(page).toContain('<h2>Customers</h2>');
     expect(page).toContain(`src="https://storage.test/${NEWER}/slide.png"`);
     expect(page).toMatch(new RegExp(`<video[^>]*src="https://storage.test/${NEWER}/pitch.mp4"`));
