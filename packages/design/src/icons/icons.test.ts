@@ -8,6 +8,13 @@ describe('the 1-bit icon set', () => {
     for (const name of NAVIGATION) expect(ICON_NAMES, name).toContain(name);
   });
 
+  it('has the four tone icons a Notice draws, in currentColor', () => {
+    for (const name of ['tone-info', 'tone-success', 'tone-warning', 'tone-danger'] as const) {
+      expect(ICON_NAMES, name).toContain(name);
+      expect(drawIcon(name), name).toContain('fill="currentColor"');
+    }
+  });
+
   it('draws every icon on a 16×16 grid of on and off pixels only', () => {
     for (const name of ICON_NAMES) {
       const grid = ICON_GRIDS[name];
