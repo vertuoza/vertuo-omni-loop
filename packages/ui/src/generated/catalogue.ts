@@ -32,6 +32,9 @@ import { comboboxSpecimen } from '../Combobox.specimen.tsx';
 import { DataList } from '../DataList.tsx';
 import { dataListMeta } from '../DataList.meta.ts';
 import { dataListSpecimen } from '../DataList.specimen.tsx';
+import { DefinitionList } from '../DefinitionList.tsx';
+import { definitionListMeta } from '../DefinitionList.meta.ts';
+import { definitionListSpecimen } from '../DefinitionList.specimen.tsx';
 import { Dialog } from '../Dialog.tsx';
 import { dialogMeta } from '../Dialog.meta.ts';
 import { dialogSpecimen } from '../Dialog.specimen.tsx';
@@ -110,9 +113,15 @@ import { radioSpecimen } from '../Radio.specimen.tsx';
 import { RepoRef } from '../RepoRef.tsx';
 import { repoRefMeta } from '../RepoRef.meta.ts';
 import { repoRefSpecimen } from '../RepoRef.specimen.tsx';
+import { ReviewScreen } from '../ReviewScreen.tsx';
+import { reviewScreenMeta } from '../ReviewScreen.meta.ts';
+import { reviewScreenSpecimen } from '../ReviewScreen.specimen.tsx';
 import { Section } from '../Section.tsx';
 import { sectionMeta } from '../Section.meta.ts';
 import { sectionSpecimen } from '../Section.specimen.tsx';
+import { SectionHeading } from '../SectionHeading.tsx';
+import { sectionHeadingMeta } from '../SectionHeading.meta.ts';
+import { sectionHeadingSpecimen } from '../SectionHeading.specimen.tsx';
 import { SegmentedControl } from '../SegmentedControl.tsx';
 import { segmentedControlMeta } from '../SegmentedControl.meta.ts';
 import { segmentedControlSpecimen } from '../SegmentedControl.specimen.tsx';
@@ -160,7 +169,7 @@ import { tooltipMeta } from '../Tooltip.meta.ts';
 import { tooltipSpecimen } from '../Tooltip.specimen.tsx';
 
 /** Every part's component, by its name. */
-export const COMPONENTS = { AppShell, Avatar, Badge, Breadcrumb, Button, Card, Checkbox, Code, Combobox, DataList, Dialog, Drawer, EmptyState, ErrorState, Field, FilterBar, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, OutboxItem, PageHeader, PersonRef, Popover, PrdRef, Progress, Prose, Radio, RepoRef, Section, SegmentedControl, Select, Skeleton, Stack, StageTrack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Toast, Tooltip } as const;
+export const COMPONENTS = { AppShell, Avatar, Badge, Breadcrumb, Button, Card, Checkbox, Code, Combobox, DataList, DefinitionList, Dialog, Drawer, EmptyState, ErrorState, Field, FilterBar, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, OutboxItem, PageHeader, PersonRef, Popover, PrdRef, Progress, Prose, Radio, RepoRef, ReviewScreen, Section, SectionHeading, SegmentedControl, Select, Skeleton, Stack, StageTrack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Toast, Tooltip } as const;
 
 /** Every part: its meta (variants, usage, do, don't, contrast) and its specimen. */
 export const PARTS: readonly Part[] = [
@@ -174,6 +183,7 @@ export const PARTS: readonly Part[] = [
   { meta: codeMeta, specimen: codeSpecimen },
   { meta: comboboxMeta, specimen: comboboxSpecimen },
   { meta: dataListMeta, specimen: dataListSpecimen },
+  { meta: definitionListMeta, specimen: definitionListSpecimen },
   { meta: dialogMeta, specimen: dialogSpecimen },
   { meta: drawerMeta, specimen: drawerSpecimen },
   { meta: emptyStateMeta, specimen: emptyStateSpecimen },
@@ -200,7 +210,9 @@ export const PARTS: readonly Part[] = [
   { meta: proseMeta, specimen: proseSpecimen },
   { meta: radioMeta, specimen: radioSpecimen },
   { meta: repoRefMeta, specimen: repoRefSpecimen },
+  { meta: reviewScreenMeta, specimen: reviewScreenSpecimen },
   { meta: sectionMeta, specimen: sectionSpecimen },
+  { meta: sectionHeadingMeta, specimen: sectionHeadingSpecimen },
   { meta: segmentedControlMeta, specimen: segmentedControlSpecimen },
   { meta: selectMeta, specimen: selectSpecimen },
   { meta: skeletonMeta, specimen: skeletonSpecimen },
