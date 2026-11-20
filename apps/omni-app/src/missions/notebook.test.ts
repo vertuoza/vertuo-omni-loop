@@ -1,11 +1,12 @@
 // The Commander's notebooks (PRD 3107 s4), pure: the data a batch hands the model, and the screens a candidate line passes
 // before it is kept (a cited event, one short line, no link or secret, no instruction, no repeat).
 import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import { notebookPrompt, readsAsInstruction, repeats, screenLines, yesterdayOf, type NoteEvent, type NoteMission } from './notebook.ts';
 
 const MISSION: NoteMission = { id: 'aaaaaaaa-0000-4000-8000-000000003110', workspace: '11111111-1111-4111-8111-111111111111', fleet: 'blue-fleet', number: 3110, title: 'Quotes export', status: 'running' };
 const event = (n: number, sentence: string, over: Partial<NoteEvent> = {}): NoteEvent => ({
-  id: `aaaaaaaa-0000-4000-8000-0000000e000${String(n)}`, at: `2026-11-20T0${String(n)}:00:00Z`, role: 'engineer', kind: 'dispatched', prd: 2817, sentence, ...over,
+  id: `aaaaaaaa-0000-4000-8000-0000000e000${String(n)}`, at: `2026-11-20T0${String(n)}:00:00Z`, role: 'engineer', kind: 'dispatched', prd: parsePrd(2817), sentence, ...over,
 });
 const E1 = event(1, 'Sent PRD 2817 to the runner.');
 const E2 = event(2, 'QA sent PRD 2817 back: the quotes e2e suite timed out.', { kind: 'held', role: 'qa' });

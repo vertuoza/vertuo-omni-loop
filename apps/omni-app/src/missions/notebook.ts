@@ -15,6 +15,7 @@
 //                          notebook or its batch, and does not echo an event's sentence that reads as one. Anything else is
 //                          dropped, never rewritten
 import { z } from 'zod';
+import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { maskSecrets } from 'omni-loop/kit/lib/openrouter.ts';
 
 export const NOTEBOOK_KIND = 'commander-notebook';
@@ -34,7 +35,7 @@ export const BATCH_MAX = 5;
 export type NoteMission = { id: string; workspace: string; fleet: string; number: number; title: string; status: string };
 
 /** One event of the mission, as the job reads it. */
-export type NoteEvent = { id: string; at: string; role: string; kind: string; prd: number | null; sentence: string };
+export type NoteEvent = { id: string; at: string; role: string; kind: string; prd: PrdNumber | null; sentence: string };
 
 /** A line the model offered: its words and the references it cites. */
 export type Candidate = { text: string; refs: readonly string[] };

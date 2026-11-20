@@ -5,6 +5,7 @@
 // batch already written (the unique batch index, 23505) writes nothing. Throws when the database refuses or answers out of
 // shape: the job's run fails, and the worker retries it.
 import { z } from 'zod';
+import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import type { NoteEvent, NoteMission } from './notebook.ts';
@@ -21,7 +22,7 @@ export const NoteMissionRowSchema = z.object({
   id: z.uuid(), workspace_id: z.uuid(), fleet: z.string().min(1), number: z.number().int().positive(), title: z.string(), status: z.string(),
   teams: z.object({ kind: z.string() }),
 });
-export const NoteEventRowSchema = z.object({ id: z.uuid(), at: z.string(), role: z.string(), kind: z.string(), prd: z.number().int().positive().nullable(), sentence: z.string() });
+export const NoteEventRowSchema = z.object({ id: z.uuid(), at: z.string(), role: z.string(), kind: z.string(), prd: PrdNumberSchema.nullable(), sentence: z.string() });
 export const NoteLineRowSchema = z.object({ line: z.string() });
 export const NoteBatchRowSchema = z.object({ id: z.uuid() });
 export const NoteCapRowSchema = z.object({ daily_tokens: z.number().int().positive().nullable() });

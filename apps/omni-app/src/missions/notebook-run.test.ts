@@ -4,6 +4,7 @@
 // never becomes a line (AC-15), a batch is written once, and a run asks the model for at
 // most 6 batches before it carries on in the next.
 import { describe, expect, it } from 'vitest';
+import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import type { Candidate, NoteEvent, NoteMission } from './notebook.ts';
 import { BATCHES_PER_RUN, liveNotebookModel, notebookHandler, type NotebookModel, type NotebookStore, type NoteRow } from './notebook-run.ts';
@@ -16,7 +17,7 @@ const mission = (n: number, status: string, over: Partial<NoteMission> = {}): No
   id: `aaaaaaaa-0000-4000-8000-00000000${String(n).padStart(4, '0')}`, workspace: NORTHWIND, fleet: 'blue-fleet', number: n, title: `Mission ${String(n)}`, status, ...over,
 });
 const event = (m: NoteMission, k: number, at: string, sentence: string): NoteEvent & { mission: string } => ({
-  id: `${m.id.slice(0, 24)}e${String(k).padStart(11, '0')}`, mission: m.id, at, role: 'engineer', kind: 'dispatched', prd: 2817, sentence,
+  id: `${m.id.slice(0, 24)}e${String(k).padStart(11, '0')}`, mission: m.id, at, role: 'engineer', kind: 'dispatched', prd: parsePrd(2817), sentence,
 });
 
 /** The store in memory: missions, their events, the lines written (the database's batch index and event rule kept). */
