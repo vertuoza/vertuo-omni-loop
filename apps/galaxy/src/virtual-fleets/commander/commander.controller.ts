@@ -1,5 +1,9 @@
+import type { z } from 'zod';
 import { reply } from '../../business-api/reply';
-import { AskAnswerSchema, AskRequestSchema, COMMANDER_REFUSALS, ViewAnswerSchema, ViewQuerySchema, type CommanderRefusalKind, type CommanderState, type Message } from './commander.contract';
+import {
+  AskAnswerSchema, AskRequestSchema, CardAnswerRequestSchema, CardAnswerSchema, COMMANDER_REFUSALS, ViewAnswerSchema, ViewQuerySchema,
+  type Card, type CommanderRefusalKind, type CommanderState, type Message,
+} from './commander.contract';
 import type { CommanderService } from './commander.service';
 
 // The Commander tab's route (PRD 3107 s1; ADR-0095), as plain functions of a Request, so they are tested with the real
@@ -7,6 +11,7 @@ import type { CommanderService } from './commander.service';
 //
 //   GET  /api/virtual-fleets/commander?workspace=<id>&fleet=<key>   200 {view}
 //   POST /api/virtual-fleets/commander {workspace, fleet, text}      201 {question, reply}
+//   POST /api/virtual-fleets/commander/answer {workspace, fleet, source, id, choice}   200 {card} (s2)
 //
 // The caller is checked first: signed out, 401, and nothing else runs. The service then reads as the signed-in person,
 // so row-level security decides what they see (a member alone). The answer is checked against the contract before it
@@ -24,27 +29,37 @@ const NO_DATABASE = 'The Commander is not available here: this deployment has no
 const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The Commander could not answer. Try again.';
 const BAD_VIEW = 'The query must be ?workspace=<id>&fleet=<a virtual fleet\'s key>.';
+const BAD_ANSWER = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "source": "job" or "item", "id": "<the card\'s id>", "choice": "<one of its choices>"}.';
 const BAD_ASK = 'The body must be {"workspace": "<id>", "fleet": "<a virtual fleet\'s key>", "text": "<1 to 2000 characters>"}.';
 
-type Refusal = { kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState };
+type Refusal = { kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; card?: Card };
 
-const refuse = ({ kind, error, question, state }: Refusal) =>
-  reply(COMMANDER_REFUSALS[kind], { error, ...(question ? { question } : {}), ...(state ? { state } : {}) });
+const refuse = ({ kind, error, question, state, card }: Refusal) =>
+  reply(COMMANDER_REFUSALS[kind], { error, ...(question ? { question } : {}), ...(state ? { state } : {}), ...(card ? { card } : {}) });
 
-/** `text` as JSON, or undefined when it is none. */
-function jsonOf(text: string): unknown {
+type Read<T> = { ok: true; data: T } | { ok: false; kind: 'malformed' | 'invalid' };
+
+/** The body read in `schema`: malformed when it is no JSON object of at most MAX_BODY_CHARS, invalid when it breaks the schema. */
+async function bodyIn<T>(request: Request, schema: z.ZodType<T>): Promise<Read<T>> {
+  const text = await request.text();
+  let json: unknown;
   try {
-    return JSON.parse(text);
+    json = text.length > MAX_BODY_CHARS ? null : JSON.parse(text);
   } catch {
-    return undefined;
+    json = null;
   }
+  if (json === null || typeof json !== 'object' || Array.isArray(json)) return { ok: false, kind: 'malformed' };
+  const read = schema.safeParse(json);
+  return read.success ? { ok: true, data: read.data } : { ok: false, kind: 'invalid' };
 }
 
-/** The body as an object, or undefined. */
-async function bodyOf(request: Request): Promise<object | undefined> {
-  const text = await request.text();
-  const json = text.length > MAX_BODY_CHARS ? undefined : jsonOf(text);
-  return json === null || typeof json !== 'object' || Array.isArray(json) ? undefined : json;
+type Served<T> = { ok: true; value: T } | (Refusal & { ok: false; cause?: string });
+
+/** What a route answers once served: `status` and the contract's body, or the refusal, its cause logged. */
+function answerOf<T>(served: Served<T>, deps: CommanderDeps, status: number, body: (value: T) => unknown): Response {
+  if (served.ok) return reply(status, body(served.value));
+  if (served.cause) deps.log(`virtual-fleets/commander: ${served.cause}`);
+  return refuse(served);
 }
 
 /** Runs `act` as the signed-in person; a failure is a 500, logged. */
@@ -65,27 +80,25 @@ export function getCommander(request: Request, deps: CommanderDeps): Promise<Res
     const params = new URL(request.url).searchParams;
     const read = ViewQuerySchema.safeParse({ workspace: params.get('workspace'), fleet: params.get('fleet') });
     if (!read.success) return refuse({ kind: 'malformed', error: BAD_VIEW });
-    const served = await service.view(read.data);
-    if (!served.ok) {
-      if (served.cause) deps.log(`virtual-fleets/commander: ${served.cause}`);
-      return refuse(served);
-    }
-    return reply(200, ViewAnswerSchema.parse({ view: served.value }));
+    return answerOf(await service.view(read.data), deps, 200, (view) => ViewAnswerSchema.parse({ view }));
   });
 }
 
 /** POST /api/virtual-fleets/commander: a member asks; the Commander's reply, or why there is none. */
 export function postCommander(request: Request, deps: CommanderDeps): Promise<Response> {
   return asPerson(deps, async (service) => {
-    const body = await bodyOf(request);
-    if (!body) return refuse({ kind: 'malformed', error: BAD_ASK });
-    const read = AskRequestSchema.safeParse(body);
-    if (!read.success) return refuse({ kind: 'invalid', error: BAD_ASK });
-    const served = await service.ask(read.data);
-    if (!served.ok) {
-      if (served.cause) deps.log(`virtual-fleets/commander: ${served.cause}`);
-      return refuse(served);
-    }
-    return reply(201, AskAnswerSchema.parse(served.value));
+    const read = await bodyIn(request, AskRequestSchema);
+    if (!read.ok) return refuse({ kind: read.kind, error: BAD_ASK });
+    return answerOf(await service.ask(read.data), deps, 201, (asked) => AskAnswerSchema.parse(asked));
+  });
+}
+
+/** POST /api/virtual-fleets/commander/answer: a member answers a card of the rail, as themselves; the card as it then stands
+ * (s2). A card answered elsewhere is 409 with the card, a route that refused is 502 with the card left open. */
+export function postCommanderAnswer(request: Request, deps: CommanderDeps): Promise<Response> {
+  return asPerson(deps, async (service) => {
+    const read = await bodyIn(request, CardAnswerRequestSchema);
+    if (!read.ok) return refuse({ kind: read.kind, error: BAD_ANSWER });
+    return answerOf(await service.answer(read.data), deps, 200, (card) => CardAnswerSchema.parse({ card }));
   });
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { commanderService, NOT_VIRTUAL, ONLY_MEMBERS } from './commander.service';
-import { fakeCommanderDb, fakeModel, GLOBEX, GUS, MIRA, NORTHWIND, NOW, PAUL, replied } from './commander.fake';
+import { fakeCommanderDb, fakeModel, NO_RAIL, GLOBEX, GUS, MIRA, NORTHWIND, NOW, PAUL, replied } from './commander.fake';
 import type { ModelAnswer } from './model';
 
 // The Commander's rules (PRD 3107 s1) over the fake database and a fake model: a reply signed by no person whose every
@@ -13,7 +13,7 @@ const ASK = { workspace: NORTHWIND, fleet: 'blue-fleet', text: 'What is PRD 2817
 function setup(person = MIRA, answers: readonly (ModelAnswer | { tool: string; args: unknown })[] = [], options: { model?: boolean; writer?: boolean } = {}) {
   const db = fakeCommanderDb();
   const fake = fakeModel(answers);
-  const service = commanderService({ reader: db.as(person), writer: options.writer === false ? null : db.writer(), model: options.model === false ? null : fake.model, now: () => NOW });
+  const service = commanderService({ reader: db.as(person), writer: options.writer === false ? null : db.writer(), model: options.model === false ? null : fake.model, rail: NO_RAIL, me: person, now: () => NOW });
   return { db, fake, service };
 }
 
@@ -126,7 +126,7 @@ describe('asking the Commander', () => {
     const db = fakeCommanderDb();
     const fake = fakeModel([]);
     const refusing = (code: string, message: string) => commanderService({
-      reader: { ...db.as(MIRA), ask: () => Promise.resolve({ ok: false, code, hint: null, message }) }, writer: db.writer(), model: fake.model, now: () => NOW,
+      reader: { ...db.as(MIRA), ask: () => Promise.resolve({ ok: false, code, hint: null, message }) }, writer: db.writer(), model: fake.model, rail: NO_RAIL, me: MIRA, now: () => NOW,
     });
     expect(await refusing('42501', 'no').ask(ASK)).toMatchObject({ ok: false, kind: 'forbidden', error: ONLY_MEMBERS });
     expect(await refusing('22023', 'Question: 1 to 2000 characters.').ask(ASK)).toMatchObject({ ok: false, kind: 'invalid', error: 'Question: 1 to 2000 characters.' });
@@ -147,6 +147,8 @@ describe('opening the Commander tab', () => {
         messages: [],
         suggestions: ['What waits on me?', 'What happened overnight?', 'Why did PRD 2809 stop?'],
         reading: { missions: 1, jobs: 1 },
+        cards: [],
+        me: MIRA,
       },
     });
   });
@@ -154,7 +156,7 @@ describe('opening the Commander tab', () => {
   it('shows the thread, oldest first, to every member', async () => {
     const asked = setup(MIRA, [replied({ verdict: 'Yes.', claims: [{ text: 'It waits.', refs: ['m1'] }] })]);
     await asked.service.ask(ASK);
-    const paul = commanderService({ reader: asked.db.as(PAUL), writer: null, model: null, now: () => NOW });
+    const paul = commanderService({ reader: asked.db.as(PAUL), writer: null, model: null, rail: NO_RAIL, me: PAUL, now: () => NOW });
     const view = await paul.view({ workspace: NORTHWIND, fleet: 'blue-fleet' });
     expect(view.ok && view.value.messages.map((m) => m.kind)).toEqual(['question', 'reply']);
     expect(view.ok && view.value.messages[0]).toMatchObject({ login: MIRA });

@@ -3,6 +3,7 @@ import type { Message, Reply } from './commander.contract';
 import type { CommanderReader, CommanderWriter, FleetOf, Written } from './commander.repository';
 import type { EventRow, JobRow, MissionRow } from './commander';
 import type { ModelAnswer, ModelTurn } from './model';
+import type { RailService } from './rail.service';
 
 // The Commander's database in memory (PRD 3107 s1), for the service's and the controller's tests: two workspaces as one
 // person reads them, under the rules of row-level security and commander_ask()
@@ -117,3 +118,9 @@ export function fakeModel(answers: readonly (ModelAnswer | { tool: string; args:
 
 /** The model's reply in its fixed shape. */
 export const replied = (reply: object, tokens = 900): ModelAnswer => ({ ok: true, content: JSON.stringify(reply), tokens });
+
+/** A rail with no card, for the tests of the thread alone (the rail's own tests use rail.fake.ts). */
+export const NO_RAIL: Pick<RailService, 'cards' | 'answer'> = {
+  cards: () => Promise.resolve([]),
+  answer: () => Promise.resolve({ ok: false, kind: 'missing', error: 'No card.' }),
+};

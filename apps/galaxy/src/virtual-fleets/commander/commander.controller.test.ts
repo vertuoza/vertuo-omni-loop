@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getCommander, postCommander, type CommanderDeps } from './commander.controller';
 import { commanderService } from './commander.service';
-import { fakeCommanderDb, fakeModel, GUS, MIRA, NORTHWIND, NOW, replied } from './commander.fake';
+import { fakeCommanderDb, fakeModel, NO_RAIL, GUS, MIRA, NORTHWIND, NOW, replied } from './commander.fake';
 import type { ModelAnswer } from './model';
 
 // GET and POST /api/virtual-fleets/commander (PRD 3107 s1), with the real service on the fake database and a fake model:
@@ -21,7 +21,7 @@ function deps(person: string | null, answers: readonly ModelAnswer[] = [], optio
   const logged: string[] = [];
   return {
     logged,
-    service: () => Promise.resolve(person === null ? null : commanderService({ reader: db.as(person), writer: db.writer(), model: options.model === false ? null : fake.model, now: () => NOW })),
+    service: () => Promise.resolve(person === null ? null : commanderService({ reader: db.as(person), writer: db.writer(), model: options.model === false ? null : fake.model, rail: NO_RAIL, me: person, now: () => NOW })),
     log: (line) => { logged.push(line); },
   };
 }

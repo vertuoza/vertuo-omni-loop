@@ -146,7 +146,7 @@ export function stateOf(input: { modelOn: boolean; cap: number | null; spent: nu
 const SAFE_LINK = /^(\/[^/]|https:\/\/github\.com\/)/;
 
 const fleetTab = (fleet: string, tab: string, extra = ''): string => `/app/fleet?fleet=${encodeURIComponent(fleet)}&tab=${tab}${extra}`;
-const prdHref = (repo: string, prd: PrdNumber): string => `/prd/at/${repo.split('/').map(encodeURIComponent).join('/')}/${String(prd)}?to=page`;
+export const prdHref = (repo: string, prd: PrdNumber): string => `/prd/at/${repo.split('/').map(encodeURIComponent).join('/')}/${String(prd)}?to=page`;
 const cut = (text: string, max: number): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 
 // ── The data blocks ───────────────────────────────────────────────────────────
