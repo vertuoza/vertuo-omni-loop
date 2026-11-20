@@ -103,7 +103,7 @@ describe('the Commander tab', () => {
     expect(html).toContain('<a href="/app/runners#job-4f2a1b2c-0000-4000-8000-000000000001">Read by engineer · job 4f2a1b2c</a>');
   });
 
-  it('the box offers Ask and Message fleet; in Message fleet it has its placeholder, its button and, with no mission running, the warning (AC-14)', () => {
+  it('AC-14: the box offers Ask and Message fleet; in Message fleet it has its placeholder, its button and, with no mission running, the warning', () => {
     const body = (v: CommanderView, mode: 'ask' | 'message') => renderToStaticMarkup(createElement(CommanderBody, {
       view: v, now: NOW, pending: null, draft: '', problem: null, onDraft: () => undefined, onAsk: () => undefined, mode,
       rail: { ...RAIL_AT_REST, onPick: () => undefined, onConfirm: () => undefined, onCancel: () => undefined },
