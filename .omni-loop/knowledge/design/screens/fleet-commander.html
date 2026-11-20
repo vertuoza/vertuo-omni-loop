@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet Commander</title>
+<style>
+:root{--ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;--ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--plasma-soft:#2a2350;--on-plasma:#07061c;--cyan:#6ff0ff;--fleet:#4aa8ff;--body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+.wrap{padding:24px;background:var(--ground);color:var(--ink);font:17px/1.6 var(--body);min-height:520px}
+a,.link{color:var(--cyan);text-underline-offset:3px;background:none;border:0;padding:0;font:inherit;cursor:pointer;text-decoration:underline}
+.fleet-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.mascot{display:inline-block;width:52px;height:44px;border-radius:8px;background:var(--sunk);border:1.5px solid var(--fleet)}
+.fleet-head h2{margin:0;font:700 26px/1.2 var(--body)}
+.fleet-meta{margin:0;color:var(--muted);font-size:15px}
+.tabs{display:flex;gap:4px;margin:18px 0 22px;border-bottom:2px solid var(--line-strong)}
+.tab{padding:10px 14px;font:700 15px/1.2 var(--body);color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
+.frame-page{border:2px dashed var(--line-strong);border-radius:12px;padding:40px 24px;color:var(--muted);min-height:200px}
+.frame-page p{margin:0}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font:700 15px/1.2 var(--body);cursor:pointer}
+.btn[data-primary]{background:var(--plasma);border-color:var(--plasma);color:var(--on-plasma)}
+.btn:disabled,textarea:disabled{opacity:.45;cursor:not-allowed}
+.btn.quiet{background:transparent}
+.cmd{max-width:900px}
+.cmd-head{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.mem{margin:0;color:var(--muted);font-size:15px;flex:1}
+.thread{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:12px}
+.msg{padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.msg.person{background:var(--sunk);margin-left:120px}
+.msg p{margin:0 0 4px}
+.who{font-weight:700;font-size:14px;color:var(--muted)}
+.who time{font-family:var(--mono);font-weight:400;margin-left:6px}
+.sent{color:var(--muted);font-size:14px}
+.card{margin:10px 0 0;padding:12px 14px;border:1.5px solid var(--plasma);border-radius:10px;background:var(--plasma-soft)}
+.card .src{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.card .q{font-weight:700}
+.choices{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.box{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface)}
+.box textarea{flex:1 1 400px;background:var(--sunk);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:15px/1.4 var(--body);resize:none}
+.toggle{display:inline-flex;gap:6px;align-items:center;font-size:15px;color:var(--ink)}
+.notice{margin:0 0 14px;padding:10px 14px;border:1.5px dashed var(--line-strong);border-radius:8px;color:var(--ink);font-weight:700}
+.drawer{max-width:720px;margin-left:auto;padding:18px 20px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface)}
+.drawer h3{margin:0 0 10px;font:700 18px/1.3 var(--body)}
+.lab{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px}
+.notes{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px}
+.notes li{display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;padding:10px 14px;border-top:1px solid var(--line);font-size:15px}
+.notes li:first-child{border-top:0}
+.notes li.gone{color:var(--muted);font-style:italic;grid-template-columns:1fr}
+:root{--green:#4ee08a;--red:#ff6b86}
+.grow{flex:1}
+.fleet-head .btn{margin-left:auto}
+.count{display:inline-block;min-width:20px;padding:2px 6px;margin-left:4px;border-radius:999px;background:var(--plasma);color:var(--on-plasma);font:700 12px/1 var(--body);text-align:center}
+.strip{display:flex;align-items:center;gap:8px;margin:-8px 0 16px;color:var(--muted);font-size:15px}
+.btn.sm{padding:5px 12px;font-size:14px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start}
+.main-col{min-width:0}
+.main-col.dim{opacity:.5}
+.day{margin:0 0 10px;color:var(--muted);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line);padding-bottom:4px}
+.msg.agent{background:transparent;border:0;padding:4px 0}
+.msg.person{margin-left:160px}
+.glyph{display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:-2px;background:linear-gradient(90deg,var(--cyan) 0 25%,transparent 25% 75%,var(--cyan) 75%) top/100% 25% no-repeat,linear-gradient(var(--cyan),var(--cyan)) center/50% 50% no-repeat;image-rendering:pixelated}
+.glyph.big{width:40px;height:40px;margin:0 0 8px}
+.sig{display:inline-block;padding:0 6px;border:1px solid var(--line-strong);border-radius:4px;font-size:12px;font-weight:600}
+.verdict{font-weight:700;margin:4px 0 6px}
+.claims{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.claims li{display:flex;align-items:center;gap:12px;padding:8px 14px;border-top:1px solid var(--line)}
+.claims li:first-child{border-top:0}
+.claims li span{flex:1}
+.chip{font:500 13px/1.5 var(--mono);padding:1px 8px;border:1px solid var(--line-strong);border-radius:5px;background:var(--sunk);text-decoration:none;white-space:nowrap}
+.foot{margin:6px 0 0;color:var(--muted);font-size:13px}
+.tag{display:inline-block;padding:0 7px;border-radius:999px;border:1.5px solid var(--plasma);color:var(--plasma);font-size:12px}
+.receipt{margin:4px 0 0;color:var(--green);font-size:14px}
+.seg{display:inline-flex;border:1.5px solid var(--line-strong);border-radius:6px;overflow:hidden}
+.seg span{padding:6px 12px;font:700 14px/1 var(--body);color:var(--muted)}
+.seg span.on{background:var(--ink);color:var(--ground)}
+.rail{position:sticky;top:0;display:grid;gap:12px;padding:14px;border:1.5px solid var(--plasma);border-radius:12px;background:var(--plasma-soft)}
+.rail-h{margin:0;font-weight:700}
+.rail .card{margin:0;background:var(--surface);border-color:var(--line-strong)}
+.card .by{margin:6px 0 0;color:var(--muted);font-size:13px}
+.card.done{opacity:.75;border-style:dashed}
+.calm{margin:0;color:var(--muted)}
+.btn.picked{border-color:var(--plasma);color:var(--plasma)}
+.confirm{margin:10px 0 4px;font-weight:700}
+.notice.warn{border-color:var(--plasma);color:var(--plasma)}
+.empty{display:grid;justify-items:center;gap:6px;padding:48px 16px;text-align:center}
+.em-h{margin:0;font-weight:700;font-size:19px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0 0}
+.chipb{border:1.5px solid var(--line-strong);background:transparent;border-radius:999px;padding:4px 12px;font:600 14px/1.4 var(--body);color:var(--ink);cursor:pointer}
+.pending .reading{color:var(--muted);font-size:15px}
+.skel{display:block;height:12px;margin:8px 0;border-radius:6px;background:var(--sunk);width:70%}
+.skel.short{width:40%}
+.drawer{padding:16px 18px;border:1.5px solid var(--line-strong);border-radius:12px;background:var(--surface);max-width:none}
+.drawer-h{display:flex;align-items:center}
+.drawer-h h3{flex:1;margin:0}
+.x{border:1.5px solid var(--line-strong);background:transparent;border-radius:6px;width:32px;height:32px;font:700 18px/1 var(--body);color:var(--ink);cursor:pointer}
+.notes li{grid-template-columns:auto 1fr auto auto}
+.notes time{font:13px var(--mono);color:var(--muted)}
+.notes li.gone{grid-template-columns:1fr auto}
+.fold{margin:0;color:var(--muted);font-size:15px}
+body{margin:0;background:var(--ground)}</style>
+</head>
+<body>
+<section data-screen="fleet-commander" aria-label="Fleet Commander">
+<div class="wrap"><div class="fleet-head"><span class="mascot" aria-hidden="true"></span><h2>Blue Fleet</h2><p class="fleet-meta">Virtual Fleet · 3 runners</p><span class="grow"></span><button type="button" class="btn">Start a mission</button></div>
+<div class="tabs"><span class="tab">Operation room</span><span class="tab">Missions</span><span class="tab">Heroes</span><span class="tab">Board</span><span class="tab" aria-selected="true">Commander <span class="count">2</span></span></div>
+<p class="strip"><a href="#">2 running</a> · <a href="#">1 waiting</a> · <a href="#">0 paused</a> · tokens 41% today<span class="grow"></span><button type="button" class="btn quiet sm">Notebooks · 14</button></p>
+<div class="cols">
+<div class="main-col">
+<p class="day">Today</p>
+<ol class="thread">
+<li class="msg person"><p class="who">mira-k · <time>09:02</time></p><p>What is waiting on me?</p></li>
+<li class="msg agent"><p class="who"><span class="glyph" aria-hidden="true"></span>Commander <span class="sig">agent</span> · <time>09:02</time></p>
+<p class="verdict">2 things wait on a person.</p>
+<ul class="claims">
+<li><span>PRD 2817 waits on its Engineer.</span><a class="chip" href="#">job 4f2a</a></li>
+<li><span>PRD 2820 waits on approval.</span><a class="chip" href="#">PRD 2820</a></li>
+</ul>
+<p class="foot">Read 100 events · 09:02</p></li>
+<li class="msg person"><p class="who">mira-k · <time>09:05</time> <span class="tag">To the fleet</span></p><p>Design review moved to Thursday.</p><p class="receipt">Read by Engineer · <a href="#">job 5b1c</a></p></li>
+<li class="msg person"><p class="who">paul-n · <time>09:11</time></p><p>Why did PRD 2809 stop?</p></li>
+<li class="msg agent"><p class="who"><span class="glyph" aria-hidden="true"></span>Commander <span class="sig">agent</span> · <time>09:11</time></p>
+<p class="verdict">QA found two bugs.</p>
+<ul class="claims"><li><span>QA sent PRD 2809 back.</span><a class="chip" href="#">event 08:41</a></li></ul>
+<p class="foot">1 sentence removed: no link.</p></li>
+</ol>
+<form class="box"><div class="seg" role="radiogroup"><span class="on">Ask</span><span>Message fleet</span></div><textarea rows="2" aria-label="Message">Ask the Commander</textarea><button type="button" class="btn" data-primary>Ask</button></form>
+</div>
+<aside class="rail"><p class="rail-h">Waiting on you · 2</p>
+<div class="card"><p class="src">Question · job 4f2a · PRD 2817</p><p class="q">Old quotes API or v2?</p><div class="choices"><button type="button" class="btn">Keep old API</button><button type="button" class="btn">Use v2</button></div><p class="by">Answers as mira-k</p></div>
+<div class="card"><p class="src">Approval · PRD 2820</p><p class="q">Approve on its page.</p><a class="link" href="#">Open PRD 2820</a></div>
+<div class="card done"><p class="src">Question · job 3e90 · PRD 2809</p><p class="q">Keep the retry?</p><p class="by">Answered by paul-n · 08:58 · <b>Keep</b></p></div>
+</aside>
+</div></div>
+</section>
+</body>
+</html>
