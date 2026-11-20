@@ -20,7 +20,7 @@ export const reviewScreenMeta = {
   contrast: { base: [...onSurfaces('text-primary'), ...onSurfaces('text-secondary'), ...onSurfaces('text-tertiary'), ...onSurfaces('focus-ring', { edge: true })] },
   accessibility: [
     'The step list is a `nav` named by `stepsLabel`: each link reaches the heading of its section, and the last reaches the decision bar.',
-    'Each section is a region named by its numbered heading, in reading order.',
+    'Each section is a numbered level-2 heading and its content, in reading order; the page holds one list of steps, so name it with `stepsLabel` when more than one screen is drawn.',
     'The decision bar is a group named by its question.',
   ],
   replaces: ['review-screen', 'decision-bar'],

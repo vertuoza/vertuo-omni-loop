@@ -55,9 +55,11 @@ describe('ReviewScreen', () => {
     expect(/\.omni-review\s*\{[^}]*max-width/.exec(css)).toBeNull();
   });
 
-  it('names each section a region by its heading, in a div (the /design page ends its components at the first section element)', () => {
+  it('draws each section as a div under its heading, never a section element or a region landmark', () => {
+    // The /design page ends its components at the first section element, and a landmark repeated across specimens fails axe.
     expect(html).not.toContain('<section');
-    expect(html.match(/role="region"/g)).toHaveLength(3);
+    expect(html).not.toContain('role="region"');
+    expect(html.match(/<h2 /g)).toHaveLength(3);
   });
 
   it('draws no detail line when none is given', () => {

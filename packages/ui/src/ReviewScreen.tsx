@@ -56,7 +56,7 @@ export function ReviewScreen({ title, eyebrow, lede, sections, decideLabel = 'De
         </nav>
         <div className="omni-review__sections">
           {sections.map((section, index) => (
-            <div className="omni-review__section" role="region" key={`${String(index)}-${section.title}`} aria-labelledby={sectionId(index)}>
+            <div className="omni-review__section" key={`${String(index)}-${section.title}`}>
               <h2 className="omni-review__heading" id={sectionId(index)}>{`${String(index + 1)} · ${section.title}`}</h2>
               <div className="omni-review__prose">{section.children}</div>
             </div>
