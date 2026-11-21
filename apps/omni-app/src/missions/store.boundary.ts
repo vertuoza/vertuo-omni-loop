@@ -1,5 +1,5 @@
 // The mission store's reads (./store.ts), for `pnpm schemas:verify` (PRD 1030): the mission, its roadmaps and their
-// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs and their logs (PRD 2871), its events and its fleet's runners, its token budget's caps, stops and pauses (PRD 3040), each parsed
+// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs and their logs (PRD 2871), its events and its fleet's runners, its token budget's caps, stops and pauses (PRD 3040), the bug team's bugs and the missions it tells (PRD 3088), each parsed
 // with the schema the store parses it with. Its send, record and update are not here: they write, and the check only
 // reads.
 import type { Boundary } from '../boundary.ts';
@@ -8,6 +8,16 @@ import {
   ActorRowSchema,
   BUG_REPORT,
   BugReportRowSchema,
+  TEAM_BUG,
+  TeamBugRowSchema,
+  MOVED_BUG,
+  MovedBugRowSchema,
+  HOLDER_REPAIR,
+  HolderRepairRowSchema,
+  TOLD,
+  ToldRowSchema,
+  HOLDER_MISSION,
+  HolderMissionRowSchema,
   REPAIR,
   RepairRowSchema,
   RETRO,
@@ -89,6 +99,11 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: room runners', read: (db) => db.from('runners').select(ROOM_RUNNER).limit(5), schema: RoomRunnerRowSchema, shape: 'rows' },
   { name: 'missions/store: mission repairs', read: (db) => db.from('mission_repairs').select(REPAIR).limit(5), schema: RepairRowSchema, shape: 'rows' },
   { name: 'missions/store: Omni Loop bug reports', read: (db) => db.from('omni_bug_reports').select(BUG_REPORT).limit(5), schema: BugReportRowSchema, shape: 'rows' },
+  { name: 'missions/store: the bug team\'s bugs', read: (db) => db.from('omni_bug_reports').select(TEAM_BUG).limit(5), schema: TeamBugRowSchema, shape: 'rows' },
+  { name: 'missions/store: the bugs that moved', read: (db) => db.from('omni_bug_reports').select(MOVED_BUG).in('state', ['fixed', 'wont-fix']).limit(5), schema: MovedBugRowSchema, shape: 'rows' },
+  { name: 'missions/store: the repairs that stopped on a bug', read: (db) => db.from('mission_repairs').select(HOLDER_REPAIR).eq('retro->>class', 'omni-loop').not('job_id', 'is', null).limit(5), schema: HolderRepairRowSchema, shape: 'rows' },
+  { name: 'missions/store: the bugs told', read: (db) => db.from('mission_events').select(TOLD).eq('kind', 'bug-fixed').limit(5), schema: ToldRowSchema, shape: 'rows' },
+  { name: 'missions/store: the missions to tell', read: (db) => db.from('missions').select(HOLDER_MISSION).in('status', ['paused', 'stopped']).limit(5), schema: HolderMissionRowSchema, shape: 'rows' },
   { name: 'missions/store: repositories', read: (db) => db.from('repositories').select(REPOSITORY).limit(5), schema: RepositoryRowSchema, shape: 'rows' },
   { name: 'missions/store: event actors', read: (db) => db.from('mission_events').select(ACTOR).neq('actor', 'agent').limit(5), schema: ActorRowSchema, shape: 'rows' },
   { name: 'missions/store: fleet daily caps', read: (db) => db.from('teams').select(FLEET_CAP).limit(5), schema: FleetCapRowSchema, shape: 'rows' },

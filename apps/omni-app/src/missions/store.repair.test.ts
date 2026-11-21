@@ -73,7 +73,8 @@ describe('missionStore — a mission\'s repairs (PRD 2980)', () => {
     await store.endRepair('row-1', 'fixed');
     expect(db.requests[0]).toMatchObject({ method: 'PATCH', body: { outcome: 'fixed' } });
     expect(db.requests[0]?.query.get('outcome')).toBe('is.null');
-    expect(await store.bugIssue(FP)).toEqual({ repo: 'vertuoza/vertuo-omni-loop', issue: 3100 });
+    // A row read before PRD 3088's columns reads its bug open.
+    expect(await store.bugIssue(FP)).toEqual({ repo: 'vertuoza/vertuo-omni-loop', issue: 3100, fix: { state: 'open' } });
     expect(await store.bugIssue(FP)).toBeNull();
   });
 

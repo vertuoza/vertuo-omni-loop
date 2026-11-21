@@ -23,7 +23,8 @@ export type Schedule = { kind: string; periodMinutes: number; maxTries: number }
  * every hour (../escalation/job.ts), 3 tries each (PRD omni-loop-3 s2), and the search log's categorizer every 15
  * minutes (./search-categorize.ts), 3 tries (PRD omni-loop-7 s3), the eval set's promotion and run each day
  * (./search-eval-promote.ts, ./search-eval-run.ts), 3 tries each (PRD omni-loop-8 s4), and the runners' saves'
- * forgetting every hour (./checkpoints-forget.ts), 3 tries (PRD 2809 s6).
+ * forgetting every hour (./checkpoints-forget.ts), 3 tries (PRD 2809 s6), and the Commander's notebooks each day
+ * (../missions/notebook-run.ts), 3 tries (PRD 3107 s4).
  */
 export const SCHEDULES: readonly Schedule[] = Object.freeze([
   { kind: 'pr-stats', periodMinutes: 15, maxTries: 3 },
@@ -32,6 +33,7 @@ export const SCHEDULES: readonly Schedule[] = Object.freeze([
   { kind: 'search-eval-promote', periodMinutes: 1440, maxTries: 3 },
   { kind: 'search-eval-run', periodMinutes: 1440, maxTries: 3 },
   { kind: 'checkpoints-forget', periodMinutes: 60, maxTries: 3 },
+  { kind: 'commander-notebook', periodMinutes: 1440, maxTries: 3 },
 ]);
 
 const MINUTE = 60_000;

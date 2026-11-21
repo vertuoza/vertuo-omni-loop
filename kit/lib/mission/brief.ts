@@ -15,6 +15,7 @@
  * - `goal`: one sentence, 1 to 500 characters: what changes, and for whom;
  * - `measures`: 0 to 5 observable signs it worked, each `{sign, read, target}` (how it is read, and
  *   the target), each 1 to 200 characters. None yet is a one-line mission's (`/omni:mission --prd`);
+ * - `kind`: `prds` (when absent) or `omni-bugs`, the standing Omni Loop bug team (PRD 3088), which takes no scope;
  * - `scope`: `{prds, roadmaps}`, lists of numbers of this repository, 50 PRDs and 10 roadmaps at
  *   most, one of either at least;
  * - `mandate`: `{parallel, level, hardToRevert, ownPrds}`: how many PRDs may run at once (1 to 4, 2 when not
@@ -54,6 +55,23 @@ export const COMMITTEE_ONLY_WORDS = "committee only: a person merges each target
 export function levelRefusal(level: MissionLevel, inPlan: boolean): string | null {
   return inPlan && level === 'own-branch' ? PLAN_OWN_BRANCH_REFUSAL : null;
 }
+/** What a mission is: PRDs to deliver, or the standing Omni Loop bug team (PRD 3088). */
+const MISSION_KINDS = ['prds', 'omni-bugs'] as const;
+export type MissionKind = (typeof MISSION_KINDS)[number];
+const DEFAULT_KIND: MissionKind = 'prds';
+
+/** Why an `omni-bugs` brief is refused off the Omni Loop repository (PRD 3088, AC-10). */
+export const OMNI_BUGS_REPOSITORY_REFUSAL = 'Only the Omni Loop repository runs the Omni Loop bug team';
+
+/**
+ * The refusal of a brief of `kind` started on `repository`, or null when it may run there: only the
+ * Omni Loop repository (`omniLoopRepository`, `owner/name`, compared without case) runs `omni-bugs`.
+ */
+export function repositoryRefusal(kind: MissionKind, repository: string, omniLoopRepository: string): string | null {
+  if (kind !== 'omni-bugs') return null;
+  return repository.trim().toLowerCase() === omniLoopRepository.trim().toLowerCase() ? null : OMNI_BUGS_REPOSITORY_REFUSAL;
+}
+
 /** The mandate's two bounds under the level, when the brief says nothing. */
 const DEFAULT_HARD_TO_REVERT = 0.6;
 const DEFAULT_OWN_PRDS = 0;
@@ -66,6 +84,8 @@ export type Measure = { sign: string; read: string; target: string };
 /** A mission's brief, as its front matter says it. */
 export type Brief = {
   mission: IssueNumber;
+  /** `prds` when the brief says nothing (parseBrief always sets it); `omni-bugs` takes no scope (PRD 3088). Optional so a brief built by hand stays a `prds` one. */
+  kind?: MissionKind;
   title: string;
   fleet: string;
   goal: string;
@@ -96,8 +116,8 @@ const ScopeSchema = z
     },
     { message: 'must be {prds, roadmaps}' },
   )
-  .strict()
-  .refine(({ prds, roadmaps }) => prds.length + roadmaps.length > 0, 'names no PRD and no roadmap: one at least');
+  .strict();
+const NO_SCOPE = { prds: [], roadmaps: [] };
 
 const TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
 
@@ -126,10 +146,23 @@ const BriefSchema = z
     fleet: text(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
     goal: text(500),
     measures: z.array(MeasureSchema, { message: 'must be a list' }).max(5, 'holds 5 at most').default([]),
-    scope: ScopeSchema,
+    kind: z.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(', ')}` }).default(DEFAULT_KIND),
+    scope: ScopeSchema.optional(),
     mandate: MandateSchema.default(DEFAULT_MANDATE),
   })
-  .strict();
+  .strict()
+  // A `prds` mission names a PRD or a roadmap; an `omni-bugs` one names none (its scope is empty).
+  .transform(({ scope, ...rest }, ctx) => {
+    const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
+    if (rest.kind === 'omni-bugs') {
+      if (named > 0) ctx.addIssue({ code: 'custom', path: ['scope'], message: 'is empty for an omni-bugs mission' });
+    } else if (scope === undefined) {
+      ctx.addIssue({ code: 'invalid_type', expected: 'object', input: undefined, path: ['scope'], message: 'missing' });
+    } else if (named === 0) {
+      ctx.addIssue({ code: 'custom', path: ['scope'], message: 'names no PRD and no roadmap: one at least' });
+    }
+    return { ...rest, scope: scope ?? NO_SCOPE };
+  });
 
 /** Where an issue is, as a person reads it: `measures[2].target`, counting from 1. */
 function placeOf(path: readonly PropertyKey[]): string {

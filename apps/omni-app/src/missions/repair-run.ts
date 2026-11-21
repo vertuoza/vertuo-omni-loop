@@ -13,12 +13,17 @@
 //             when it failed again (its failure is a new retro)
 //   report    each `omni-loop` repair of this round: the Omni Loop bug its fingerprint was filed as, else its report scrubbed with
 //             the workspace's names and added to the ledger once per repair (../bug-reports/job.ts); a report the scrub
-//             refuses is never sent, and says why on the workspace's own pages only (never#5, never#11, never#12)
+//             refuses is never sent, and says why on the workspace's own pages only (never#5, never#11, never#12); an earlier
+//             round's is read only, never filed again: where its bug stands (PRD 3088)
+//   the kit   PRD 3088 s5: only while a PRD stopped on an Omni Loop bug that was fixed and is not sent again yet, and the mission is
+//             neither paused nor stopped: the kit its repository pins, read once per run on the mission branch (else the default
+//             branch, ./repair.github.ts); unread, or no GitHub, it reads older than any fix
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { repairLine as readRepairLine, type RepairRecord } from 'omni-loop/kit/lib/repair/line.ts';
 import { submitBugReport } from '../bug-reports/job.ts';
 import type { MissionJoins } from './join.ts';
+import type { MissionKits } from './repair.github.ts';
 import {
   CAUSE_REPAIRS,
   isStuckRow,
@@ -49,6 +54,8 @@ export type RepairRunAt = {
   joins: MissionJoins | null;
   /** The mission's repairs: MISSION_REPAIRS, or 0 when repairs are off. */
   budget: number;
+  /** The kit the mission's repository pins (PRD 3088); null or absent (no GitHub): it reads older than any fix. */
+  kits?: MissionKits | null;
 };
 
 /** Whether a repair job ended in a way that spends: done or failed. A cancelled one spends nothing; a lost one is carried by its resume. */
@@ -194,12 +201,17 @@ export async function reportOne(at: RepairRunAt, row: RepairRow & { job: string 
   return submitted.ok ? { state: 'filing' } : { state: 'refused', why: submitted.reason };
 }
 
-/** Each omni-loop repair of this round's report, by repair job. */
+/** Each omni-loop repair's report, by repair job: this round's filed when it is not yet, an earlier round's read only (PRD 3088). */
 async function reportAll(at: RepairRunAt, rows: readonly RepairRow[], jobs: readonly RepairJob[], round: number): Promise<Map<string, BugReport>> {
   const reports = new Map<string, BugReport>();
   for (const row of rows) {
     const id = row.job;
-    if (id === null || row.round !== round || row.retro?.class !== 'omni-loop') continue;
+    if (id === null || row.retro?.class !== 'omni-loop') continue;
+    if (row.round !== round) {
+      const filed = await at.store.bugIssue(row.fingerprint);
+      if (filed !== null) reports.set(id, { state: 'filed', ...filed });
+      continue;
+    }
     const job = jobs.find((one) => one.job === id);
     reports.set(id, await reportOne(at, { ...row, job: id }, () => (job === undefined ? Promise.resolve(null) : jobRecord(at, job))));
   }
@@ -225,5 +237,29 @@ export async function readRepairs(at: RepairRunAt): Promise<RepairView> {
   await settleAll(at, own);
   const reports = await reportAll(at, own, read.jobs, round);
   const settled = rows.map((row) => own.find((one) => one.id === row.id) ?? row);
-  return { budget: at.budget, round, jobs: read.jobs, rows: settled, stuck: [], refused, landings, reports };
+  return { budget: at.budget, round, jobs: read.jobs, rows: settled, stuck: [], refused, landings, reports, ...(await wayBackOf(at, own, reports)) };
+}
+
+/**
+ * What the way back of a PRD stopped on an Omni Loop bug reads (PRD 3088): whether the mission is paused or stopped, and, only while a
+ * PRD waits on a fixed bug and the mission is neither, the kit its repository pins.
+ */
+async function wayBackOf(at: RepairRunAt, rows: readonly RepairRow[], reports: ReadonlyMap<string, BugReport>): Promise<Pick<RepairView, 'held' | 'kit'>> {
+  const held = at.mission.status === 'paused' || at.mission.status === 'stopped';
+  if (held || !waitsOnFix(at.runs, rows, reports)) return { held };
+  return { held, kit: await pinnedKit(at) };
+}
+
+/** Whether a PRD stopped on an Omni Loop bug that was fixed, and its step was not sent again yet (PRD 3088): its kit is then read. */
+function waitsOnFix(runs: readonly Run[], rows: readonly RepairRow[], reports: ReadonlyMap<string, BugReport>): boolean {
+  return rows.some((row) => {
+    const report = reports.get(row.job ?? '');
+    return row.retro?.class === 'omni-loop' && report?.state === 'filed' && report.fix?.state === 'fixed' && stepAfter(runs, row) === null;
+  });
+}
+
+/** The kit the mission's repository pins, on the mission branch, else the default branch; null with no GitHub. */
+async function pinnedKit(at: RepairRunAt): Promise<string | null> {
+  if (at.kits == null || at.installation === null) return null;
+  return at.kits.pinned({ installation: at.installation, repo: at.mission.repo, ref: at.branch });
 }

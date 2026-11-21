@@ -1,4 +1,4 @@
-import { cleanUpLine, filterOf, ledgerOf, nowLines, type RoomView } from './room';
+import { bugLinesOf, cleanUpLine, filterOf, ledgerOf, nowLines, type RoomView } from './room';
 import { limitWaitsOf } from '../limit-wait';
 import { repairLinesOf } from '../repair';
 import type { RepairRepository } from '../repair.repository';
@@ -22,7 +22,7 @@ export function roomService(repository: Port) {
       const waits = limitWaitsOf(await repository.waits(missions.map((m) => m.id)), now);
       const repairs = repairLinesOf(await repository.repairs(missions.map((m) => m.id)));
       const filter = filterOf(query, missions.map((m) => m.id));
-      return { fleet, color, now: nowLines(heroes, events, waits, repairs, qa), cleanUp: cleanUpLine(kept), stopped: repairs.filter((line) => line.kind === 'stopped'), ledger: ledgerOf(events, filter), missions, filter, empty: events.length === 0 };
+      return { fleet, color, now: nowLines(heroes, events, waits, repairs, qa), cleanUp: cleanUpLine(kept), bugs: bugLinesOf(events), stopped: repairs.filter((line) => line.kind === 'stopped'), ledger: ledgerOf(events, filter), missions, filter, empty: events.length === 0 };
     },
   };
 }

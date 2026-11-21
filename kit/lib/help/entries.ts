@@ -1428,8 +1428,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'design',
     kind: 'command',
     who: 'skills',
-    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]'],
-    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, and the gallery',
+    usage: ['omni design touched [<base>]', 'omni design screens', 'omni design words <page.html>…', 'omni design gallery [--out <file>]', 'omni design components', 'omni design component <name>', 'omni design tokens [<group>]', 'omni design pattern <name>'],
+    summary: 'whether a branch touches a screen, the screen library, the word pass over a mockup, the gallery, and the design manifest',
     detail:
       'Design craft is off until the config sets design.enabled to true: then the skills read the ' +
       "design form, omni kb show design (the product, where its design system lives, what it does on " +
@@ -1481,7 +1481,17 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'screens in a group of their own after the pages. It writes ' +
       'to a fresh folder under the system temporary folder, or to --out <file>, and prints the path; ' +
       'the page is generated each time and never committed. An empty library prints no screen yet ' +
-      'and writes nothing, design: off while the flag is off, and gallery exits 0.',
+      'and writes nothing, design: off while the flag is off, and gallery exits 0. components prints the index of the design manifest the design.manifest key names ' +
+      'in the config (a generated file, "omni-design": 1): one line per component, its name and its ' +
+      'import, at most 1.5 KB; component <name> prints one component\'s variants, do and don\'t and one ' +
+      'example, at most 800 bytes, and for an unknown name one line naming the closest names, exit 1. ' +
+      'tokens prints the token groups and their counts, and tokens <group> that group\'s tokens with ' +
+      'their value in each theme (an unknown group: one line naming the groups, exit 1); pattern <name> ' +
+      "prints a locked screen's routes and mockup, at most 800 bytes, and with no locked screen says the " +
+      'library has none yet, exit 0. ' +
+      'With no design.manifest all of them print one line saying the repository has no design manifest and ' +
+      'exit 0; a manifest that fails its schema prints each refusal, one line naming the field, and ' +
+      'exits 1.',
   },
   {
     name: 'e2e',

@@ -48,7 +48,8 @@
 //   keepRepair   a repair's row, numbered by the database, which refuses a 4th repair of a cause in a round and a 10th in a
 //                mission (23514): the cap it refused it on is the answer, never a throw
 //   endRepair    a repair's outcome, set once
-//   bugIssue     the Omni Loop bug a fingerprint was filed as (`omni_bug_reports`), read only for its repository and issue
+//   bugIssue     the Omni Loop bug a fingerprint was filed as (`omni_bug_reports`), read only for its repository, its issue, and
+//                where it stands (PRD 3088: open, fixed in its version, or won't fix)
 //   addJob       a job added to the App's ledger: an Omni Loop bug report to file (../bug-reports/job.ts)
 //   names        what the mission's workspace is known by (its repositories' owners and names, the logins on its events), which
 //                a public report never holds
@@ -69,11 +70,18 @@
 //                the `mission_retros` rows kept, one queued; a retro kept once per milestone (23505 keeps none) and the changes
 //                it proposed as `mission_items`, each once. A stuck repair's row is a `mission_repairs` row, `trigger` stuck, and
 //                `update` writes `paused_by` stuck when a run pauses the mission by stuck
+//   bugTeam      PRD 3088: an `omni-bugs` mission's bugs, the rows of `omni_bug_reports` filed on its repository that it may still
+//                take, run or wait on (open, fixing, asked), never a workspace, a mission or a log of who reported one; its bug-fix
+//                jobs (`…:bug:<issue>:run:<k>`) with their resumes; one queued, `/omni:bug-fix #<issue>`, under its key; and a bug's
+//                row moved only while it still holds the state and tries the run read; and the paused or stopped missions to tell
+//                that a bug a PRD of theirs stopped on was fixed or will not be (`mission_repairs` of class omni-loop, joined by
+//                the fingerprint as the service role, never shown to anyone), each that has no `bug-fixed` event of it yet
 //
 // Throws when the database refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
+import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { MISSION_LEVELS, type MissionKind } from 'omni-loop/kit/lib/mission/brief.ts';
+import { BUG_STATES, BUG_TRIES, bugFixLine, bugKey, bugOfKey, type Bug, type BugJob, type BugMove } from './bug-team.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
@@ -82,7 +90,7 @@ import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } fro
 import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
 import { RepairRetroSchema } from 'omni-loop/kit/lib/repair/retro.ts';
 import { jobLedger, type NewJob } from '../jobs/ledger.ts';
-import { failedJobOf, repairKey, repairSkillLine, repairOfKey, type RepairJob, type RepairOutcome, type RepairRow, type StuckJob } from './repair.ts';
+import { bugFixOf, failedJobOf, repairKey, repairSkillLine, repairOfKey, untold, type BugFix, type RepairJob, type RepairOutcome, type RepairRow, type StuckJob } from './repair.ts';
 import { retroKey, retroOfKey, retroSkillLine, type ItemRow, type Milestone, type MissionRetro, type RetroJob, type RetroRow, type RoadmapScope } from './milestone.ts';
 import { stuckJobsOf, stuckKey, stuckOfKey, stuckSkillLine } from './stuck.ts';
 import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
@@ -126,6 +134,32 @@ export type MissionRecord = Mission & {
   tokens?: number | null;
   /** `paused_by` (PRD 3065): `stuck` while the supervisor holds it paused by stuck; absent otherwise. */
   pausedBy?: 'stuck';
+  /** `kind` (PRD 3088): `omni-bugs` for the standing Omni Loop bug team; absent, a mission of PRDs. */
+  kind?: MissionKind;
+};
+
+/** A bug-fix job to send (PRD 3088): the mission, the bug's issue, its number among the bug's jobs, and where it goes. */
+export type BugSend = { mission: MissionRecord; issue: IssueNumber; k: number; toFleet: boolean };
+
+/**
+ * An `omni-bugs` mission's bugs and their jobs (PRD 3088), as the service role. A store without them (a test's) reads no bug, and the
+ * team takes none.
+ */
+export type MissionBugTeam = {
+  /** The bugs filed on `repo` the team may take, run or wait on: open, fixing or asked, oldest first. */
+  bugs: (repo: string) => Promise<Bug[]>;
+  /** The bug-fix jobs the mission sent (`…:bug:<issue>:run:<k>`), each with its resumes. */
+  jobs: (id: string) => Promise<BugJob[]>;
+  /** A bug-fix job queued under its key: its id, or null when the key was already held. */
+  send: (job: BugSend) => Promise<string | null>;
+  /** The bug's row moved to `to`, only while it still holds the state and tries the run read: whether it moved. */
+  move: (bug: Bug, to: BugMove) => Promise<boolean>;
+  /**
+   * The paused or stopped missions, of any workspace, holding a PRD on a bug that was fixed or will not be, and not told yet (no
+   * `bug-fixed` event of that bug): the ones the team wakes, so each records it once (PRD 3088 s5). Their ids and repositories only.
+   * Absent (a store that keeps no repairs), the team wakes none.
+   */
+  holders?: () => Promise<{ id: string; repo: string }[]>;
 };
 
 /** A stuck repair to send (PRD 3065): the mission, its number among the mission's stuck repairs, the five jobs, and where it goes. */
@@ -235,8 +269,8 @@ export type MissionStore = {
   keepRepair: (mission: MissionRecord, row: NewRepair) => Promise<Kept>;
   /** A repair's outcome, set once. */
   endRepair: (id: string, outcome: RepairOutcome) => Promise<void>;
-  /** The Omni Loop bug a fingerprint was filed as; null when none was. */
-  bugIssue: (fingerprint: string) => Promise<{ repo: string; issue: IssueNumber } | null>;
+  /** The Omni Loop bug a fingerprint was filed as, and where it stands (PRD 3088; absent, open); null when none was filed. */
+  bugIssue: (fingerprint: string) => Promise<{ repo: string; issue: IssueNumber; fix?: BugFix } | null>;
   /** A job added to the App's ledger: whether it was added (a key already held adds none). */
   addJob: (job: NewJob) => Promise<boolean>;
   /** The names the mission's workspace is known by, which a public report never holds. */
@@ -254,6 +288,8 @@ export type MissionStore = {
   pause: (ids: readonly string[], waitingOn: string) => Promise<void>;
   /** Its stuck repairs and milestone retros (PRD 3065); absent, none is read or sent. */
   retros?: MissionRetros;
+  /** An `omni-bugs` mission's bugs and jobs (PRD 3088); absent, none is read or sent. */
+  bugTeam?: MissionBugTeam;
 };
 
 /** Who the job is sent by: the app, never a person (`runner_jobs.sent_by_app`). */
@@ -263,7 +299,7 @@ const APP_SENDER = 'omni-app';
 const TAKEN = '23505';
 
 /** The columns each read selects, shared with ./store.boundary.ts. */
-export const MISSION = 'id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by';
+export const MISSION = 'id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by, kind';
 export const WORKSPACE = 'github_installation_id';
 export const ROADMAP = 'id, number';
 export const ROADMAP_PRD = 'roadmap_id, position, row_id, prd, blockers';
@@ -285,7 +321,13 @@ export const ROOM_JOB = 'runner_id';
 export const PRODUCT = 'plan_repository';
 export const REPAIR = 'id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger';
 export const RETRO = 'id, milestone, job_id, skipped, file';
-export const BUG_REPORT = 'repo, issue';
+export const BUG_REPORT = 'repo, issue, state, fixed_in';
+export const TEAM_BUG = 'fingerprint, issue, count, created_at, state, attempts, fix_pr, fixed_in, asked_job';
+/** PRD 3088 s5: the bugs that moved, the repairs that stopped on them, the events that told them, and the missions to tell. */
+export const MOVED_BUG = 'fingerprint';
+export const HOLDER_REPAIR = 'mission_id, job_id, fingerprint';
+export const TOLD = 'job_id';
+export const HOLDER_MISSION = 'id, repo';
 export const REPOSITORY = 'full_name';
 export const ACTOR = 'actor';
 export const FLEET_CAP = 'daily_tokens';
@@ -314,6 +356,8 @@ export const MissionRowSchema = z.object({
   scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
   paused_by: z.enum(['stuck']).nullable().default(null),
+  /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
+  kind: z.enum(['prds', 'omni-bugs']).default('prds'),
 });
 export const WorkspaceRowSchema = z.object({ github_installation_id: z.number().int().positive().nullable() });
 export const RoadmapRowSchema = z.object({ id: text, number: IssueNumberSchema.nullable() });
@@ -372,7 +416,29 @@ export const RepairRowSchema = z.object({
   fix_pr: z.string().nullable(),
   outcome: z.enum(['fixed', 'not fixed', 'stopped', 'lost']).nullable(),
 });
-export const BugReportRowSchema = z.object({ repo: text, issue: IssueNumberSchema });
+/** PRD 3088: where the bug stands, and the kit that released its fix; a row read before the columns were added is open. */
+export const BugReportRowSchema = z.object({ repo: text, issue: IssueNumberSchema, state: z.enum(BUG_STATES).default('open'), fixed_in: z.string().nullable().default(null) });
+export const TeamBugRowSchema = z.object({
+  fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+  issue: IssueNumberSchema,
+  count: z.number().int().min(1),
+  created_at: text,
+  state: z.enum(BUG_STATES),
+  attempts: z.number().int().min(0).max(BUG_TRIES),
+  fix_pr: PrNumberSchema.nullable(),
+  fixed_in: z.string().nullable(),
+  asked_job: z.string().nullable(),
+});
+/** The states a bug the team may take, run or wait on holds: the rest are a person's, a release's or the webhooks' to move. */
+const TEAM_STATES = ['open', 'fixing', 'asked'] as const;
+export const MovedBugRowSchema = z.object({ fingerprint: z.string().regex(/^[0-9a-f]{64}$/) });
+export const HolderRepairRowSchema = z.object({ mission_id: text, job_id: text, fingerprint: z.string().regex(/^[0-9a-f]{64}$/) });
+export const ToldRowSchema = z.object({ job_id: z.string().nullable() });
+export const HolderMissionRowSchema = z.object({ id: text, repo: text });
+/** The states of a bug whose holding missions are told (PRD 3088 s5): released fixed, or closed as not planned. */
+const MOVED_STATES = ['fixed', 'wont-fix'] as const;
+/** The statuses of a mission the team wakes to tell it: one that runs or waits wakes by itself, a minute on. */
+const HELD_STATUSES = ['paused', 'stopped'] as const;
 export const RetroRowSchema = z.object({ id: text, milestone: text, job_id: z.string().nullable(), skipped: z.string().nullable(), file: z.string().nullable() });
 export const RepositoryRowSchema = z.object({ full_name: text });
 export const ActorRowSchema = z.object({ actor: z.string().nullable() });
@@ -647,8 +713,65 @@ export function missionStore(connection: Connection): MissionStore {
     return { named: named[0] ?? null, open: open[0] ?? null };
   }
 
+  /** An `omni-bugs` mission's bugs and their jobs (PRD 3088). */
+  const bugTeam: MissionBugTeam = {
+    async bugs(repo) {
+      const rows = rowsOf(TeamBugRowSchema, await db.from('omni_bug_reports').select(TEAM_BUG).eq('repo', repo.toLowerCase()).in('state', [...TEAM_STATES]).order('created_at'));
+      return rows.map((row): Bug => ({
+        fingerprint: row.fingerprint,
+        issue: row.issue,
+        count: row.count,
+        createdAt: row.created_at,
+        state: row.state,
+        attempts: row.attempts,
+        fixPr: row.fix_pr,
+        fixedIn: row.fixed_in,
+        askedJob: row.asked_job,
+      }));
+    },
+
+    async jobs(id) {
+      return (await keyedJobs(id, `mission:${id}:bug:%`)).flatMap(({ row, attempts }): BugJob[] => {
+        const key = row.mission_key === null ? null : bugOfKey(row.mission_key);
+        return key === null ? [] : [{ issue: key.issue, k: key.k, job: row.id, attempts }];
+      });
+    },
+
+    send: ({ mission, issue, k, toFleet }) => queue({ mission, toFleet, line: bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
+
+    async move(bug, { state, attempts, fixPr, askedJob }) {
+      const moved = rowsOf(
+        z.object({ fingerprint: text }),
+        await db
+          .from('omni_bug_reports')
+          .update({ state, attempts, fix_pr: fixPr, asked_job: askedJob, updated_at: new Date().toISOString() })
+          .eq('fingerprint', bug.fingerprint)
+          .eq('state', bug.state)
+          .eq('attempts', bug.attempts)
+          .select('fingerprint'),
+      );
+      return moved.length > 0;
+    },
+
+    async holders() {
+      const moved = rowsOf(MovedBugRowSchema, await db.from('omni_bug_reports').select(MOVED_BUG).in('state', [...MOVED_STATES])).map((row) => row.fingerprint);
+      if (moved.length === 0) return [];
+      // A PRD's repair that stopped on the bug (never a stuck repair's, which no PRD waits on), by the fingerprint, as the service role.
+      const repairs = rowsOf(
+        HolderRepairRowSchema,
+        await db.from('mission_repairs').select(HOLDER_REPAIR).in('fingerprint', moved).eq('outcome', 'stopped').eq('trigger', 'failure').eq('retro->>class', 'omni-loop').not('job_id', 'is', null),
+      );
+      if (repairs.length === 0) return [];
+      const told = rowsOf(ToldRowSchema, await db.from('mission_events').select(TOLD).eq('kind', 'bug-fixed').in('job_id', repairs.map((row) => row.job_id)));
+      const ids = untold(repairs.map((row) => ({ mission: row.mission_id, job: row.job_id, fingerprint: row.fingerprint })), new Set(told.flatMap((row) => (row.job_id === null ? [] : [row.job_id]))));
+      if (ids.length === 0) return [];
+      return rowsOf(HolderMissionRowSchema, await db.from('missions').select(HOLDER_MISSION).in('id', ids).in('status', [...HELD_STATUSES]));
+    },
+  };
+
   return {
     retros,
+    bugTeam,
 
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
@@ -657,6 +780,7 @@ export function missionStore(connection: Connection): MissionStore {
         id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds,
         ...(row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens }),
         ...(row.paused_by === 'stuck' ? { pausedBy: 'stuck' as const } : {}),
+        ...(row.kind === 'omni-bugs' ? { kind: row.kind } : {}),
       };
     },
 
@@ -823,7 +947,7 @@ export function missionStore(connection: Connection): MissionStore {
 
     async bugIssue(fingerprint) {
       const [row] = rowsOf(BugReportRowSchema, await db.from('omni_bug_reports').select(BUG_REPORT).eq('fingerprint', fingerprint).limit(1));
-      return row ?? null;
+      return row === undefined ? null : { repo: row.repo, issue: row.issue, fix: bugFixOf(row.state, row.fixed_in) };
     },
 
     addJob: (job) => jobLedger(connection).add(job),

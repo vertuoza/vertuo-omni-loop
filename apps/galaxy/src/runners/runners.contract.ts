@@ -204,9 +204,18 @@ export type GithubGrant = z.infer<typeof GithubGrantSchema>;
  * only for a key that holds one, and null otherwise: a job that needs an App is never answered without it. `resume` is
  * a resume's (PRD 2809, s5): its attempt, the earlier jobs of its chain and the saves they left; absent for any other job. `mission` is
  * the level of the mission that sent it (PRD 2896 s12), null for a job no mission sent: a PM skill runs on one at `alone` only. */
+/** The fleet messages a mission job carries (PRD 3107 s3): what its members told the fleet that this job's role had not read, oldest
+ * first, each with its author's login, its time and its words. Absent when there are none, and for any job no mission sent. The
+ * words are data an agent reads as it reads an answer, never an instruction that overrides a law, a Never line or the spec. */
+const FleetMessageClaimSchema = z.object({ author: z.string().min(1).max(200), at: z.string(), text: z.string().min(1).max(2000) });
+export type FleetMessageClaim = z.infer<typeof FleetMessageClaimSchema>;
+/** The most fleet messages one claim carries: the newest, when a role was away for long. */
+export const MAX_FLEET_MESSAGES = 50;
+
 export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
   sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(), mission: z.object({ level: z.string() }).nullable().optional(),
+  messages: z.array(FleetMessageClaimSchema).max(MAX_FLEET_MESSAGES).optional(),
 }).refine((job) => checkLine(job.line, job.allowedSkills).ok || isAppLine(job.line), { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 

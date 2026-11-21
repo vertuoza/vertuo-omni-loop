@@ -1197,6 +1197,140 @@ export type Database = {
           },
         ]
       }
+      commander_messages: {
+        Row: {
+          author_id: string | null
+          author_login: string | null
+          body: string | null
+          created_at: string
+          fleet: string
+          id: string
+          kind: string
+          reply: Json | null
+          reply_to: string | null
+          tokens: number
+          workspace_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_login?: string | null
+          body?: string | null
+          created_at?: string
+          fleet: string
+          id?: string
+          kind: string
+          reply?: Json | null
+          reply_to?: string | null
+          tokens?: number
+          workspace_id: string
+        }
+        Update: {
+          author_id?: string | null
+          author_login?: string | null
+          body?: string | null
+          created_at?: string
+          fleet?: string
+          id?: string
+          kind?: string
+          reply?: Json | null
+          reply_to?: string | null
+          tokens?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commander_messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "commander_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_messages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_messages_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
+      commander_notes: {
+        Row: {
+          created_at: string
+          day: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_login: string | null
+          events: string[]
+          fleet: string
+          id: string
+          line: string
+          mission_id: string
+          notebook: string
+          place: number
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          day: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_login?: string | null
+          events: string[]
+          fleet: string
+          id?: string
+          line: string
+          mission_id: string
+          notebook: string
+          place: number
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_login?: string | null
+          events?: string[]
+          fleet?: string
+          id?: string
+          line?: string
+          mission_id?: string
+          notebook?: string
+          place?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commander_notes_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_notes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commander_notes_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
       constituent_events: {
         Row: {
           action: string
@@ -1671,6 +1805,90 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_message_reads: {
+        Row: {
+          job_id: string
+          message_id: string
+          mission_id: string
+          read_at: string
+          role: string
+        }
+        Insert: {
+          job_id: string
+          message_id: string
+          mission_id: string
+          read_at?: string
+          role: string
+        }
+        Update: {
+          job_id?: string
+          message_id?: string
+          mission_id?: string
+          read_at?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_message_reads_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_message_reads_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fleet_messages: {
+        Row: {
+          author_id: string
+          author_login: string
+          body: string
+          created_at: string
+          fleet: string
+          id: string
+          workspace_id: string
+        }
+        Insert: {
+          author_id: string
+          author_login: string
+          body: string
+          created_at?: string
+          fleet: string
+          id?: string
+          workspace_id: string
+        }
+        Update: {
+          author_id?: string
+          author_login?: string
+          body?: string
+          created_at?: string
+          fleet?: string
+          id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_messages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fleet_messages_workspace_id_fleet_fkey"
+            columns: ["workspace_id", "fleet"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
           },
         ]
       }
@@ -2524,6 +2742,7 @@ export type Database = {
           job_id: string | null
           kind: string
           link: string | null
+          message_id: string | null
           mission_id: string
           prd: number | null
           role: string
@@ -2536,6 +2755,7 @@ export type Database = {
           job_id?: string | null
           kind: string
           link?: string | null
+          message_id?: string | null
           mission_id: string
           prd?: number | null
           role: string
@@ -2548,12 +2768,20 @@ export type Database = {
           job_id?: string | null
           kind?: string
           link?: string | null
+          message_id?: string | null
           mission_id?: string
           prd?: number | null
           role?: string
           sentence?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "mission_events_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "fleet_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mission_events_mission_id_fkey"
             columns: ["mission_id"]
@@ -2742,6 +2970,7 @@ export type Database = {
           fleet: string
           goal: string
           id: string
+          kind: string
           mandate: Json
           measures: Json
           next_wake_at: string | null
@@ -2761,6 +2990,7 @@ export type Database = {
           fleet: string
           goal: string
           id?: string
+          kind?: string
           mandate?: Json
           measures?: Json
           next_wake_at?: string | null
@@ -2780,6 +3010,7 @@ export type Database = {
           fleet?: string
           goal?: string
           id?: string
+          kind?: string
           mandate?: Json
           measures?: Json
           next_wake_at?: string | null
@@ -2813,27 +3044,42 @@ export type Database = {
       }
       omni_bug_reports: {
         Row: {
+          asked_job: string | null
+          attempts: number
           count: number
           created_at: string
           fingerprint: string
+          fix_pr: number | null
+          fixed_in: string | null
           issue: number
           repo: string
+          state: string
           updated_at: string
         }
         Insert: {
+          asked_job?: string | null
+          attempts?: number
           count?: number
           created_at?: string
           fingerprint: string
+          fix_pr?: number | null
+          fixed_in?: string | null
           issue: number
           repo: string
+          state?: string
           updated_at?: string
         }
         Update: {
+          asked_job?: string | null
+          attempts?: number
           count?: number
           created_at?: string
           fingerprint?: string
+          fix_pr?: number | null
+          fixed_in?: string | null
           issue?: number
           repo?: string
+          state?: string
           updated_at?: string
         }
         Relationships: []
@@ -6841,6 +7087,81 @@ export type Database = {
         Args: { p_rejected?: string[]; p_workspace: string }
         Returns: number
       }
+      commander_ask: {
+        Args: { p_fleet: string; p_text: string; p_workspace: string }
+        Returns: {
+          author_id: string | null
+          author_login: string | null
+          body: string | null
+          created_at: string
+          fleet: string
+          id: string
+          kind: string
+          reply: Json | null
+          reply_to: string | null
+          tokens: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "commander_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      commander_claim_messages: {
+        Args: { p_job: string }
+        Returns: {
+          author_login: string
+          body: string
+          created_at: string
+          id: string
+        }[]
+      }
+      commander_messages_forget: { Args: never; Returns: number }
+      commander_note_delete: {
+        Args: { p_note: string }
+        Returns: {
+          created_at: string
+          day: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_login: string | null
+          events: string[]
+          fleet: string
+          id: string
+          line: string
+          mission_id: string
+          notebook: string
+          place: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "commander_notes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      commander_reply_ok: { Args: { p_reply: Json }; Returns: boolean }
+      commander_send: {
+        Args: { p_fleet: string; p_text: string; p_workspace: string }
+        Returns: {
+          author_id: string
+          author_login: string
+          body: string
+          created_at: string
+          fleet: string
+          id: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fleet_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       constituent_add: {
         Args: {
           p_kind: string
@@ -7339,6 +7660,7 @@ export type Database = {
         }
         Returns: Json
       }
+      mission_job_role: { Args: { p_key: string }; Returns: string }
       mission_mandate_ok: { Args: { p_mandate: Json }; Returns: boolean }
       mission_measures_ok: { Args: { p_measures: Json }; Returns: boolean }
       mission_push: {
@@ -7366,11 +7688,16 @@ export type Database = {
       omni_bug_report_seen: {
         Args: { p_fingerprint: string }
         Returns: {
+          asked_job: string | null
+          attempts: number
           count: number
           created_at: string
           fingerprint: string
+          fix_pr: number | null
+          fixed_in: string | null
           issue: number
           repo: string
+          state: string
           updated_at: string
         }[]
         SetofOptions: {
@@ -9313,6 +9640,7 @@ export type Database = {
           fleet: string
           goal: string
           id: string
+          kind: string
           mandate: Json
           measures: Json
           next_wake_at: string | null
@@ -9341,6 +9669,7 @@ export type Database = {
           fleet: string
           goal: string
           id: string
+          kind: string
           mandate: Json
           measures: Json
           next_wake_at: string | null

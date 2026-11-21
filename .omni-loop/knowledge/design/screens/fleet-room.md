@@ -67,6 +67,16 @@ an agent is not a person.
   one action, and `Take it by hand`.
 - **Waits on Omni Loop** (PRD 2980): `Waits on Omni Loop bug #3012`, linked, and how many missions
   met it; the issue holds none of the workspace's work.
+- **Omni Loop bug fixed** (PRD 3088): a Supervisor row `Omni Loop bug #3102 is fixed in v0.0.690.`;
+  the PRD's now line reads `PRD 412 · fixed in v0.0.690 · update kit` while the repository's kit is
+  older, then `PRD 412 · resumed · bug #3102 fixed` once it is not; closed as not planned,
+  `PRD 412 · bug #3102 won't be fixed`, stopped, with `take this PRD by hand` in the ledger.
+- **The Omni Loop bug team** (PRD 3088, an `omni-bugs` mission, on the Omni Loop repository only):
+  one now line per bug it holds, `Fixing #3102 · reported 7×` (its run linked as the one action),
+  `#3097 · 4× · PR #3111 to merge` (`Waiting for a merge`), `#3090 · asked: not reproducible`
+  (`Asked`); ledger rows `Took Omni Loop bug #3102, reported 7×.`, `Bug #3090 set aside: a person is
+  asked once.`, `Omni Loop bug #3081 is fixed in v0.0.684.` It never names a workspace that reported
+  a bug, only how often it was reported.
 - **Idle:** nothing assigned.
 - **Not on this fleet:** no runner can run the seat, and why.
 - **Empty:** no mission has run yet; the page says so and points to Missions.
@@ -114,3 +124,4 @@ an agent is not a person.
 /omni:brainstorm, PRD 3001: .omni-loop/delivery/shipped/3001-qa-turn/before-after.html (QA rows, Checking, Decide the bugs, tokens on every row)
 /omni:brainstorm, PRD 3040: .omni-loop/delivery/shipped/3040-token-budget/before-after.html (the budget stop row)
 /omni:brainstorm, PRD 3065: .omni-loop/delivery/shipped/3065-mission-retros/before-after.html (the stuck, milestone-retro and proposed-change rows)
+/omni:brainstorm, PRD 3088: .omni-loop/delivery/shipped/3088-omni-bug-team/before-after.html (the bug team's rows, Omni Loop bug fixed, update kit, won't be fixed)
