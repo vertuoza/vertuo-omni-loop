@@ -152,7 +152,7 @@ describe('the other app pages pick with the Select (AC-5)', () => {
 
   it('the knowledge map opens the repository picked', async () => {
     const assign = vi.fn<(url: string) => void>();
-    vi.stubGlobal('location', { ...window.location, assign });
+    vi.stubGlobal('location', { assign });
     render(createElement(RepoPicker, { menu: { options: [{ value: '', label: 'acme/widgets' }, { value: 'acme/Anvils', label: 'acme/Anvils' }], current: '' } }));
     await pick('Repository', 'acme/Anvils');
     expect(assign).toHaveBeenCalledWith('/knowledge?repo=acme%2FAnvils');
@@ -166,7 +166,7 @@ describe('the other app pages pick with the Select (AC-5)', () => {
       prds: [parsePrd(1), parsePrd(2)], level: 'own-branch', inPlan: false,
     };
     const view = { workspace: '11111111-1111-4111-8111-111111111111', fleet: 'night-shift', missions: [missionOf(row, [])] };
-    render(createElement(MissionsTab, { view, port: { ...demoMissionsPort, setLevel: setLevel as never } }));
+    render(createElement(MissionsTab, { view, port: { ...demoMissionsPort, setLevel: setLevel } }));
     await userEvent.setup().click(screen.getByRole('combobox', { name: 'Change for this mission' }));
     const levels = screen.getAllByRole('option').map((option) => option.textContent);
     const other = levels.find((label) => label !== 'Own branch');
