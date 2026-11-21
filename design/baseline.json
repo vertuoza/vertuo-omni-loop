@@ -60,7 +60,6 @@
     "apps/galaxy/src/dossier/page/PitchAction.tsx raw-component",
     "apps/galaxy/src/dossier/page/PitchPane.tsx raw-component",
     "apps/galaxy/src/dossier/page/PitchPaneCopy.tsx raw-component",
-    "apps/galaxy/src/dossier/page/ProductPicker.tsx raw-component",
     "apps/galaxy/src/dossier/page/ProofPane.tsx raw-component",
     "apps/galaxy/src/dossier/page/QuestionsPane.tsx raw-component",
     "apps/galaxy/src/dossier/page/QuickAnswer.tsx raw-component",

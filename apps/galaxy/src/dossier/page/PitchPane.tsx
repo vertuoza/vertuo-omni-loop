@@ -1,4 +1,6 @@
 'use client';
+import { Select } from '@omni/ui';
+import { useRef } from 'react';
 import type { PitchAudienceView, PitchView } from './pitch';
 import { PitchPaneCopy } from './PitchPaneCopy';
 
@@ -8,15 +10,21 @@ import { PitchPaneCopy } from './PitchPaneCopy';
 // per file of the five, and Copy GIF link. Read-only; every text is escaped.
 
 function PitchPicker({ action, pitch }: { action: string; pitch: PitchAudienceView }) {
+  const form = useRef<HTMLFormElement>(null);
   return (
-    <form className="dossier-picker" method="get" action={action}>
+    <form ref={form} className="dossier-picker" method="get" action={action}>
       <input type="hidden" name="tab" value="pitch" />
-      <label className="dossier-picker-field">
+      <div className="dossier-picker-field">
         <span className="ask-hint">Pitch</span>
-        <select className="ask-share-pick" name="pitch" defaultValue={pitch.id} onChange={(e) => e.currentTarget.form?.requestSubmit()}>
-          {pitch.versions.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
-        </select>
-      </label>
+        <Select
+          size="sm"
+          label="Pitch"
+          name="pitch"
+          defaultValue={pitch.id}
+          options={pitch.versions.map((v) => ({ value: v.id, label: v.label }))}
+          onValueChange={() => { setTimeout(() => { form.current?.requestSubmit(); }, 0); }}
+        />
+      </div>
       <button type="submit" className="ask-button quiet">Show</button>
     </form>
   );

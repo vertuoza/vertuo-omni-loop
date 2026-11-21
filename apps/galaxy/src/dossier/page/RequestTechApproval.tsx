@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
@@ -50,10 +51,13 @@ export function RequestTechApproval({ dossier }: { dossier: string }) {
     <section className="dossier-request-tech" aria-label="Request a Tech Approval">
       <h2>Request a Tech Approval</h2>
       <p className="ask-hint">One engineer reads the plan with you before the product approvers are asked. It cannot be withdrawn.</p>
-      <select aria-label="Who should give the Tech Approval" value={login} disabled={members === null || busy} onChange={(event) => { setLogin(event.target.value); }}>
-        <option value="">Choose a member</option>
-        {members?.map((m) => <option key={m.login} value={m.login}>{m.name ? `${m.name} (@${m.login})` : `@${m.login}`}</option>)}
-      </select>
+      <Select
+        label="Who should give the Tech Approval"
+        value={login}
+        disabled={members === null || busy}
+        onValueChange={setLogin}
+        options={[{ value: '', label: 'Choose a member' }, ...(members ?? []).map((m) => ({ value: m.login, label: m.name ? `${m.name} (@${m.login})` : `@${m.login}` }))]}
+      />
       <button type="button" className="ask-button" disabled={busy || !login} onClick={() => void request()}>{busy ? 'Requesting…' : 'Request a Tech Approval'}</button>
       {problem && <span className="ask-problem" role="alert">{problem}</span>}
     </section>

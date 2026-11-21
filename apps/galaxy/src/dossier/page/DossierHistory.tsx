@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import Link from 'next/link';
 import { StagePill } from '../../stages/stage-pill';
 import { profileHref } from '../../people/PersonChip';
@@ -25,15 +26,10 @@ type Option = { value: string; label: string };
 
 function Pick({ name, label, any, value, options }: { name: string; label: string; any: string; value: string | undefined; options: Option[] }) {
   return (
-    <label className="dossier-history-field">
+    <div className="dossier-history-field">
       <span className="ask-hint">{label}</span>
-      <select className="ask-share-pick" name={name} defaultValue={value ?? ''}>
-        <option value="">{any}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </label>
+      <Select size="sm" label={label} name={name} defaultValue={value ?? ''} options={[{ value: '', label: any }, ...options]} />
+    </div>
   );
 }
 

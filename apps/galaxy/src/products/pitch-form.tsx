@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import type { ReactNode } from 'react';
 import { PITCH_PRESETS, type PitchPreset, type PitchSettings } from 'omni-loop/kit/lib/pitch/settings.ts';
 import { lookLabel } from './model';
@@ -39,13 +40,12 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Select({ label, value, choices, disabled, onChange }: { label: string; value: string; choices: readonly Choice[]; disabled: boolean; onChange: (value: string) => void }) {
+function Pick({ label, value, choices, disabled, onChange }: { label: string; value: string; choices: readonly Choice[]; disabled: boolean; onChange: (value: string) => void }) {
   return (
-    <Field label={label}>
-      <select className="products-look-select" value={value} disabled={disabled} onChange={(e) => { onChange(e.currentTarget.value); }}>
-        {choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-      </select>
-    </Field>
+    <div className="pitch-field">
+      <span>{label}</span>
+      <Select size="sm" label={label} value={value} options={choices} disabled={disabled} onValueChange={onChange} />
+    </div>
   );
 }
 
@@ -79,7 +79,7 @@ function FontFields({ role, label, draft, disabled, on }: Editing & { role: Font
   return (
     <fieldset className="pitch-group">
       <legend>{label} font</legend>
-      <Select label="Source" value={font.provider} choices={FONT_PROVIDERS} disabled={disabled} onChange={(provider) => { edit({ provider }); }} />
+      <Pick label="Source" value={font.provider} choices={FONT_PROVIDERS} disabled={disabled} onChange={(provider) => { edit({ provider }); }} />
       {font.provider === 'file'
         ? <Upload label={`${label} font file`} target={role} current={fileNameOf(font.family)} disabled={disabled} on={on} />
         : (
@@ -87,7 +87,7 @@ function FontFields({ role, label, draft, disabled, on }: Editing & { role: Font
             <input className="pitch-input" value={font.family} maxLength={80} disabled={disabled} onChange={(e) => { edit({ family: e.currentTarget.value }); }} />
           </Field>
         )}
-      <Select label="Weight" value={String(font.weight)} choices={WEIGHT_CHOICES} disabled={disabled} onChange={(w) => { edit({ weight: Number(w) }); }} />
+      <Pick label="Weight" value={String(font.weight)} choices={WEIGHT_CHOICES} disabled={disabled} onChange={(w) => { edit({ weight: Number(w) }); }} />
     </fieldset>
   );
 }
@@ -96,7 +96,7 @@ function LookFields({ draft, disabled, on }: Editing) {
   return (
     <section className="pitch-part" aria-labelledby="pitch-look">
       <h3 id="pitch-look">Look</h3>
-      <Select label="Preset" value={draft.look.preset} choices={PRESET_CHOICES} disabled={disabled} onChange={(preset) => { on.preset(preset === 'keynote' ? 'keynote' : 'arcade'); }} />
+      <Pick label="Preset" value={draft.look.preset} choices={PRESET_CHOICES} disabled={disabled} onChange={(preset) => { on.preset(preset === 'keynote' ? 'keynote' : 'arcade'); }} />
       <div className="pitch-colours">
         {COLOUR_TOKENS.map((t) => (
           <Field key={t.value} label={t.label}>
@@ -107,7 +107,7 @@ function LookFields({ draft, disabled, on }: Editing) {
       <FontFields role="heading" label="Heading" draft={draft} disabled={disabled} on={on} />
       <FontFields role="text" label="Text" draft={draft} disabled={disabled} on={on} />
       <Upload label="Logo" target="logo" current={fileNameOf(draft.look.logo)} disabled={disabled} on={on} />
-      <Select label="Theme" value={draft.look.theme} choices={THEMES} disabled={disabled} onChange={(theme) => { on.edit(withTheme(draft, theme === 'dark' ? 'dark' : 'light')); }} />
+      <Pick label="Theme" value={draft.look.theme} choices={THEMES} disabled={disabled} onChange={(theme) => { on.edit(withTheme(draft, theme === 'dark' ? 'dark' : 'light')); }} />
     </section>
   );
 }
@@ -116,7 +116,7 @@ function VoiceFields({ draft, disabled, on }: Editing) {
   return (
     <section className="pitch-part" aria-labelledby="pitch-voice">
       <h3 id="pitch-voice">Voice</h3>
-      <Select
+      <Pick
         label="Preset"
         value={draft.voice.preset}
         choices={VOICES}
@@ -153,9 +153,9 @@ function MusicFields({ draft, disabled, on }: Editing) {
   return (
     <section className="pitch-part" aria-labelledby="pitch-music">
       <h3 id="pitch-music">Music</h3>
-      <Select label="Source" value={music.provider} choices={MUSIC_PROVIDERS} disabled={disabled} onChange={(provider) => { on.edit(withMusicProvider(draft, provider)); }} />
+      <Pick label="Source" value={music.provider} choices={MUSIC_PROVIDERS} disabled={disabled} onChange={(provider) => { on.edit(withMusicProvider(draft, provider)); }} />
       {music.provider === 'freepd' && (
-        <Select label="Mood" value={music.mood ?? MOODS[0].value} choices={MOODS} disabled={disabled} onChange={(mood) => { on.edit(withSection(draft, 'music', { mood })); }} />
+        <Pick label="Mood" value={music.mood ?? MOODS[0].value} choices={MOODS} disabled={disabled} onChange={(mood) => { on.edit(withSection(draft, 'music', { mood })); }} />
       )}
       {music.provider === 'file' && <Upload label="Track" target="music" current={fileNameOf(music.file)} disabled={disabled} on={on} />}
     </section>

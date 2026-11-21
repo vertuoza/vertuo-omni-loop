@@ -85,16 +85,16 @@ describe('the Pitch tab, rendered', () => {
     const older = pitch({ id: OLDER, look: 'keynote', created_at: '2026-09-30T08:00:00Z' });
     const page = html({ runs: [pitch({}), older], links: { [NEWER]: signed(NEWER) } });
     expect(page).toContain(`src="https://storage.test/${NEWER}/slide.png"`);
-    expect(page).toContain('name="pitch"');
-    expect(page).toMatch(new RegExp(`<option value="${NEWER}" selected="">1 Oct · Arcade poster · Pierre</option>`));
-    expect(page).toContain(`<option value="${OLDER}">30 Sep · Clean keynote · Pierre</option>`);
+    expect(page).toMatch(new RegExp(`<input[^>]*name="pitch"[^>]*value="${NEWER}"`));
+    expect(page).toContain('<span class="omni-select__value">1 Oct · Arcade poster · Pierre</span>');
   });
 
   it('shows the older pitch once the picker names it', () => {
     const older = pitch({ id: OLDER, look: 'keynote', created_at: '2026-09-30T08:00:00Z' });
     const page = html({ runs: [pitch({}), older], links: { [OLDER]: signed(OLDER) } }, { tab: 'pitch', pitch: OLDER });
     expect(page).toContain(`src="https://storage.test/${OLDER}/slide.png"`);
-    expect(page).toContain(`<option value="${OLDER}" selected="">`);
+    expect(page).toMatch(new RegExp(`<input[^>]*name="pitch"[^>]*value="${OLDER}"`));
+    expect(page).toContain('<span class="omni-select__value">30 Sep · Clean keynote · Pierre</span>');
   });
 
   it('shows Customers before Inside, each with its latest', () => {

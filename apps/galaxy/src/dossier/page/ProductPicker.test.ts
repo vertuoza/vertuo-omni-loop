@@ -29,21 +29,19 @@ const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
 describe('the picker', () => {
   it('lists No product then the workspace\'s products, the PRD\'s selected', () => {
     const html = renderToStaticMarkup(createElement(ProductField, { pick: { product: MOBILE, products: [ESTIMATES, MOBILE], locked: null }, busy: false, problem: null, onPick: () => {} }));
-    expect(html).toContain('<select class="dossier-product" aria-label="Product">');
-    expect([...html.matchAll(/<option value="([^"]*)"[^>]*>([^<]+)<\/option>/g)].map((m) => `${m[1]}=${m[2]}`))
-      .toEqual(['=No product', `${ESTIMATES.id}=Estimates`, `${MOBILE.id}=Mobile`]);
-    expect(html).toMatch(new RegExp(`<option value="${MOBILE.id}" selected="">Mobile</option>`));
+    expect(html).toMatch(/<button[^>]*role="combobox"[^>]*aria-label="Product"/);
+    expect(html).toContain('<span class="omni-select__value">Mobile</span>');
     expect(html).not.toContain('disabled');
   });
 
   it('selects No product for a PRD with none', () => {
     const html = renderToStaticMarkup(createElement(ProductField, { pick: { product: null, products: [MOBILE], locked: null }, busy: false, problem: null, onPick: () => {} }));
-    expect(html).toContain('<option value="" selected="">No product</option>');
+    expect(html).toMatch(/<span[^>]*class="omni-select__value">No product<\/span>/);
   });
 
   it('is disabled once an approval is in force, saying why', () => {
     const html = renderToStaticMarkup(createElement(ProductField, { pick: { product: MOBILE, products: [MOBILE], locked: 'product is locked: PRD 7 is approved' }, busy: false, problem: null, onPick: () => {} }));
-    expect(html).toContain('<select class="dossier-product" aria-label="Product" disabled="">');
+    expect(html).toMatch(/<button[^>]*aria-label="Product"[^>]*disabled=""|<button[^>]*disabled=""[^>]*aria-label="Product"/);
     expect(textOf(html)).toContain('product is locked: PRD 7 is approved');
   });
 
