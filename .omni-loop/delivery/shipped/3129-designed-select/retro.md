@@ -21,6 +21,7 @@ The delivery replaced the native dropdown with one designed Select and moved the
 - **Proposed lesson:** When a slice deliberately changes a shared component's look or adds a variant, it regenerates the visual baselines for that component and for every component that embeds it in the same slice, so the visual check is green again before the next slice builds on it.
 - **Kept:** Neither the knowledge nor earlier lessons cover refreshing visual baselines after an intended redesign; it is about delivery behaviour, not the look itself.
 - **Evidence:** [visual on 539fa14 in s1](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/44886870244/job/136793948836), [visual on 6599966 in s2](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/44892397149/job/136810848655), [visual on 75b4a24 in s3](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/44897348282/job/136825742899), [visual on 991dcc0 in s4](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/44900869300/job/136836292319), [visual on 4fc07c6 in s5](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/44903975514/job/136845545673), [visual on 4fc07c6 in s5](https://github.com/vertuoza/vertuo-omni-loop/actions/runs/44904640547/job/136847490194)
+- **Became:** `playbook/ci#gating`
 
 ### F2 · First slice edited a field test outside its territory — `territory:s1`
 

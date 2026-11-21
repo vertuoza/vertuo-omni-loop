@@ -75,6 +75,7 @@ pull request must explain.
 - A red `design`: fix the new breach, never add a line to `design/baseline.json`. Cleaning an area
   deletes its lines from that file in the same pull request.
 - A green pull request whose merge turns `main` red: fix it forward; revert only when the product is down.
+- A slice that deliberately changes a shared component's look or adds a variant regenerates the visual baselines of that component and of every component that embeds it in the same slice (`pnpm --filter @omni/galaxy-app visual --update`), so `visual` is green before the next slice builds on it (retro of PRD 3129, #3140).
 
 ## Known reds
 <!-- slot: known-reds · optional -->

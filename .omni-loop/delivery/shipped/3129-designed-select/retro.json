@@ -766,6 +766,11 @@
           "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/3140",
           "state": "open"
         }
+      },
+      "outcomes": {
+        "repeated-red:visual": {
+          "became": "playbook/ci#gating"
+        }
       }
     }
   ]
