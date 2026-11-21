@@ -1,5 +1,5 @@
-import { EmptyState, Notice, SegmentedControl } from '@omni/ui';
-import Link from 'next/link';
+import { EmptyState, Notice } from '@omni/ui';
+import { RouterSegments } from './RouterSegments';
 import type { ReactNode } from 'react';
 import { renderMarkdown, type RenderedMarkdown } from '../markdown';
 import { OutboxAnswers, type ShownCard } from './outbox-answers';
@@ -81,12 +81,11 @@ function Rail({ context, spec }: { context: ContextView; spec: RenderedMarkdown 
   }
   return (
     <ContextDisclosure>
-      <SegmentedControl
+      <RouterSegments
         label="Context"
         options={context.links.map((link) => ({ id: link.kind, label: link.label, href: link.href }))}
         value={current}
         size="sm"
-        link={Link}
       />
       <div className="outbox-context-body">{body}</div>
     </ContextDisclosure>
