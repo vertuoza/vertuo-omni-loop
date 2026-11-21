@@ -161,10 +161,10 @@ describe('product ids, several repositories and resumes (PRD omni-loop-21 s1)', 
   });
 
   it('lists every repository the scope touches, and reads them at own-branch and alone', () => {
-    const repositories = ['repositories:', '  - vertuoza/a', '  - vertuoza/b'];
+    const repositories = ['repositories:', '  - demo-org/a', '  - demo-org/b'];
     for (const level of ['own-branch', 'alone']) {
       const parsed = parseBrief(record([...swap('mandate', ['mandate:', `  level: ${level}`]), ...repositories]));
-      expect(parsed.ok && parsed.brief).toMatchObject({ repositories: ['vertuoza/a', 'vertuoza/b'], mandate: { level } });
+      expect(parsed.ok && parsed.brief).toMatchObject({ repositories: ['demo-org/a', 'demo-org/b'], mandate: { level } });
     }
     const none = parseBrief(record());
     expect(none.ok && 'repositories' in none.brief).toBe(false);
@@ -172,7 +172,7 @@ describe('product ids, several repositories and resumes (PRD omni-loop-21 s1)', 
 
   it('refuses a repository that is not owner/name, or named twice', () => {
     expect(errorsOf(record([...FRONT, 'repositories:', '  - vertuo-omni-loop']))).toEqual(['repositories[1]: is not owner/name.']);
-    expect(errorsOf(record([...FRONT, 'repositories:', '  - vertuoza/a', '  - vertuoza/a']))).toEqual(['repositories: names a repository twice.']);
+    expect(errorsOf(record([...FRONT, 'repositories:', '  - demo-org/a', '  - demo-org/a']))).toEqual(['repositories: names a repository twice.']);
   });
 
   it('reads mandate.resumes from 0 to 10, 3 when not given', () => {
