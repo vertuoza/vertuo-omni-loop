@@ -7,6 +7,7 @@ import { UNREAD, type GithubSummary, type Outbox, type OutboxItem } from '../git
 import { renderMarkdown } from '../markdown';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { DossierPage } from './DossierPage';
+import { plainOption } from './OutboxPane';
 import { isWide, subscribe, WIDE } from './outbox-context';
 import { SEND_OFF } from './outbox-view';
 import { dossierView, readPick } from './view';
@@ -91,12 +92,12 @@ describe('the tab', () => {
 
 describe('the states', () => {
   it('no outbox yet', () => {
-    expect(tab({ github: summary({ outbox: null }) })).toContain('<p class="dossier-empty">No decision yet: the outbox fills while the PRD is built.</p>');
+    expect(tab({ github: summary({ outbox: null }) })).toContain('<div class="omni-empty-state omni-empty-state--inline"><p class="omni-empty-state__title">No decision yet: the outbox fills while the PRD is built.</p></div>');
   });
 
   it('nothing open: says so, then Adopted and Settled', () => {
     const html = tab({ github: summary({ outbox: { open: [], adopted: [NAME], settled: (summary().outbox as Outbox).settled } }) });
-    expect(html).toContain('Nothing is waiting on you.');
+    expect(html).toContain('<p class="omni-empty-state__title">Nothing is waiting on you.</p>');
     expect(html).toContain('<summary>Adopted unless you object · 1</summary>');
     expect(html).toContain('<summary>Settled · 1</summary>');
     expect(html.indexOf('Nothing is waiting on you.')).toBeLessThan(html.indexOf('Adopted unless you object'));
@@ -119,14 +120,14 @@ describe('the states', () => {
   it('GitHub out of reach: PRD 426\'s words, and the other tabs are there as ever', () => {
     for (const github of [null, summary({ outbox: UNREAD })]) {
       const html = tab({ github });
-      expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
+      expect(html).toContain('<div class="omni-notice__body">GitHub did not answer. The page tries again within a minute.</div>');
       expect(html).toContain('Specifications<span class="omni-tab__count">v1</span></a>');
     }
   });
 
   it('signed out: the questions, read-only, and Sign in with GitHub to answer here', () => {
     const html = tab({ me: null });
-    expect(html).toContain('<p class="outbox-note" role="status">Sign in with GitHub to answer here.</p>');
+    expect(html).toContain('<div class="omni-notice__body">Sign in with GitHub to answer here.</div>');
     expect(html).toContain('Question 2</h3>');
     expect(html).not.toContain('Select every recommendation');
     expect(html).toMatch(/<fieldset class="outbox-options" disabled="">/);
@@ -134,7 +135,7 @@ describe('the states', () => {
 
   it('the demo: Send off, saying so', () => {
     const html = tab({ demo: true });
-    expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send 0 answers<\/button>/);
+    expect(html).toMatch(/<button class="omni-button omni-button--secondary omni-button--md" type="button" disabled="">Send 0 answers<\/button>/);
     expect(html).toContain(SEND_OFF.demo);
   });
 
@@ -152,20 +153,23 @@ describe('the cards', () => {
 
   it('the toolbar: Select every recommendation, and Send n answers, shown but not open yet', () => {
     expect(html).toContain('>Select every recommendation</button>');
-    expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send 0 answers<\/button>/);
+    expect(html).toMatch(/<button class="omni-button omni-button--secondary omni-button--md" type="button" disabled="">Send 0 answers<\/button>/);
     expect(html).toContain(SEND_OFF.notYet);
   });
 
   it('a decision card: number and rank, intro, question, decision, punchline, the options with A built and recommended', () => {
-    const card = /<article id="s1-01-colour" class="outbox-card" data-kind="decision" data-answered="true"[^>]*>[\s\S]*?<\/article>/.exec(html)?.[0] ?? '';
+    const card = /<article id="s1-01-colour" class="outbox-entry" data-kind="decision" data-answered="true"[^>]*>[\s\S]*?<\/article>/.exec(html)?.[0] ?? '';
     expect(card).toContain('Question 2</h3>');
-    expect(card).toContain('data-rank="high">high</span>');
+    expect(card).toContain('data-rank="high"><span class="omni-badge omni-badge--warning">high</span></span>');
     expect(card).toContain('<p class="outbox-fun">The intro of s1-01-colour.</p>');
     expect(card).toContain('<strong>late</strong>');
     expect(card).toContain('Decision taken');
     expect(card).toContain('<p class="outbox-fun">The punchline of s1-01-colour.</p>');
-    expect([...card.matchAll(/<input type="radio" name="outbox-2" value="([A-D])"/g)].map((m) => m[1])).toEqual(['A', 'B', 'C']);
-    expect(card).toMatch(/value="A"[^>]*\/><span class="outbox-option-letter">A<\/span><span class="ask-rec">built · recommended<\/span>/);
+    expect([...card.matchAll(/<input class="omni-radio" type="radio" name="outbox-2" value="([A-D])"/g)].map((m) => m[1])).toEqual(['A', 'B', 'C']);
+    // One radio group per question, each radio named by its option's words (keyboard and screen reader).
+    expect(card.match(/role="radiogroup"/g)).toHaveLength(1);
+    expect(card).toMatch(/role="radiogroup" aria-label="Your answer to question 2">/);
+    expect(card).toMatch(/value="A"[^>]*\/>A\. [^<]+ \(built · recommended\)<\/label>/);
     expect(card.match(/built · recommended/g)).toHaveLength(1);
     expect(card).toContain('<a class="ask-chip" href="/knowledge?entry=P-PRODUCT-3">P-PRODUCT-3</a>');
     expect(card).toContain('<h4>What I had to decide</h4>');
@@ -191,10 +195,10 @@ describe('the cards', () => {
   });
 
   it('a human-action card: its steps, then Done or Not done', () => {
-    const card = /<article id="s2-01-secret" class="outbox-card" data-kind="action"[\s\S]*?<\/article>/.exec(html)?.[0] ?? '';
+    const card = /<article id="s2-01-secret" class="outbox-entry" data-kind="action"[\s\S]*?<\/article>/.exec(html)?.[0] ?? '';
     expect(card).toContain('Question 1</h3>');
     expect(card).toContain('<code>OMNI_OUTBOX_SECRET</code>');
-    expect([...card.matchAll(/<input type="radio" name="outbox-1" value="([a-z-]+)"/g)].map((m) => m[1])).toEqual(['done', 'not-done']);
+    expect([...card.matchAll(/<input class="omni-radio" type="radio" name="outbox-1" value="([a-z-]+)"/g)].map((m) => m[1])).toEqual(['done', 'not-done']);
     expect(card).not.toContain('built · recommended');
   });
 
@@ -226,7 +230,7 @@ describe('the context rail', () => {
   it('Before/after by default: the sandboxed frame of the latest version', () => {
     const html = tab();
     expect(html).toContain('<details class="outbox-context" open="" aria-label="Context"><summary>Context</summary>');
-    expect(html).toMatch(/<a class="outbox-switch-link" href="\/prd\/[^"?]+(\?tab=outbox)?" aria-current="page">Before\/after<\/a>/);
+    expect(html).toMatch(/<a class="omni-segment omni-segment--chosen" tabindex="0" aria-current="page" href="\/prd\/[^"?]+(\?tab=outbox)?">Before\/after<\/a>/);
     expect(html).toContain(`src="/prd/${ID}/v/1/page" sandbox="allow-scripts"`);
   });
 
@@ -237,7 +241,7 @@ describe('the context rail', () => {
 
   it('Spec: rendered, raw HTML off', () => {
     const html = tab({ query: { context: 'spec' }, spec: '# Team inbox\n\n<b>raw</b>\n' });
-    expect(html).toMatch(/<a class="outbox-switch-link" href="[^"]+context=spec" aria-current="page">Spec<\/a>/);
+    expect(html).toMatch(/<a class="omni-segment omni-segment--chosen" tabindex="0" aria-current="page" href="[^"]+context=spec">Spec<\/a>/);
     expect(html).toContain('<h1>Team inbox</h1>');
     expect(html).toContain('&lt;b&gt;raw&lt;/b&gt;');
     expect(html).not.toContain('<iframe');
@@ -283,5 +287,12 @@ describe('the context disclosure, wide and tall', () => {
     const css = readFileSync(fileURLToPath(new URL('./dossier.css', import.meta.url)), 'utf8');
     expect(css).toContain('@media (min-width: 960px)');
     expect(css).toMatch(/\.outbox-context > summary \{ display: none; \}/);
+  });
+});
+
+describe('an option as its radio names it', () => {
+  it("keeps a link's words and drops emphasis and code marks, on one line", () => {
+    expect(plainOption('Keep **the** [old page](https://example.com) as\n`it` is.')).toBe('Keep the old page as it is.');
+    expect(plainOption('Drop them.')).toBe('Drop them.');
   });
 });
