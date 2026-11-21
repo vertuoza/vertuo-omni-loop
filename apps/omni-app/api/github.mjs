@@ -21795,6 +21795,7 @@ var MISSION_KINDS = ["prds", "omni-bugs"];
 var DEFAULT_KIND = "prds";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
+var DEFAULT_RESUMES = 3;
 var MAX_MISSION_TOKENS = 1e9;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var text18 = (max) => z86.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
@@ -21802,11 +21803,12 @@ var distinct = (list2) => new Set(list2).size === list2.length;
 var MeasureSchema = z86.object({ sign: text18(200), read: text18(200), target: text18(200) }, { message: "must be {sign, read, target}" }).strict();
 var ScopeSchema = z86.object(
   {
-    prds: z86.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
-    roadmaps: z86.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+    prds: z86.array(z86.union([PrdNumberSchema, ProductPrdIdSchema]), { message: "must be a list of PRD numbers or product PRD ids" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z86.array(z86.union([IssueNumberSchema, ProductRoadmapIdSchema]), { message: "must be a list of roadmap numbers or product roadmap ids" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
   },
   { message: "must be {prds, roadmaps}" }
 ).strict();
+var REPOSITORY = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
 var NO_SCOPE = { prds: [], roadmaps: [] };
 var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
 var MandateSchema = z86.object(
@@ -21815,11 +21817,12 @@ var MandateSchema = z86.object(
     level: z86.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
     hardToRevert: z86.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
     ownPrds: z86.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
+    resumes: z86.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_RESUMES),
     tokens: z86.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
   },
-  { message: "must be {parallel, level, hardToRevert, ownPrds, tokens}" }
+  { message: "must be {parallel, level, hardToRevert, ownPrds, resumes, tokens}" }
 ).strict().transform(({ tokens, ...mandate }) => tokens == null ? mandate : { ...mandate, tokens });
-var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
+var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS, resumes: DEFAULT_RESUMES };
 var BriefSchema = z86.object({
   mission: IssueNumberSchema,
   title: text18(200),
@@ -21828,8 +21831,9 @@ var BriefSchema = z86.object({
   measures: z86.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
   kind: z86.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
   scope: ScopeSchema.optional(),
+  repositories: z86.array(text18(200).regex(REPOSITORY, "is not owner/name"), { message: "must be a list of owner/name" }).max(20, "holds 20 repositories at most").refine(distinct, "names a repository twice").optional(),
   mandate: MandateSchema.default(DEFAULT_MANDATE)
-}).strict().transform(({ scope, ...rest }, ctx) => {
+}).strict().transform(({ scope, repositories, ...rest }, ctx) => {
   const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
   if (rest.kind === "omni-bugs") {
     if (named > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
@@ -21838,7 +21842,7 @@ var BriefSchema = z86.object({
   } else if (named === 0) {
     ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
   }
-  return { ...rest, scope: scope ?? NO_SCOPE };
+  return { ...rest, scope: scope ?? NO_SCOPE, ...repositories === void 0 ? {} : { repositories } };
 });
 
 // kit/lib/mission/drop.ts
@@ -21946,7 +21950,8 @@ var RECORD2 = {
   read: z88.array(ReadFileSchema).max(10),
   escalations: z88.array(z88.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
   verdicts: z88.array(VerdictSchema5).max(COMMITTEE_ROLES.length + 1),
-  outcome: z88.enum(["carried", "escalated"])
+  /** `deferred` (PRD omni-loop-21 s2): an item the vote did not carry, settled meanwhile with option A, open for a person at landing. */
+  outcome: z88.enum(["carried", "deferred", "escalated"])
 };
 var CommitteeRecordSchema = z88.discriminatedUnion("kind", [
   z88.object({ ...RECORD2, kind: z88.literal("approve") }),
@@ -25438,7 +25443,7 @@ var MOVED_BUG = "fingerprint";
 var HOLDER_REPAIR = "mission_id, job_id, fingerprint";
 var TOLD = "job_id";
 var HOLDER_MISSION = "id, repo";
-var REPOSITORY = "full_name";
+var REPOSITORY2 = "full_name";
 var ACTOR = "actor";
 var FLEET_CAP = "daily_tokens";
 var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at";
@@ -25954,7 +25959,7 @@ function missionStore(connection) {
     },
     addJob: (job) => jobLedger(connection).add(job),
     async names(mission) {
-      const repositories = rowsOf(RepositoryRowSchema2, await db.from("repositories").select(REPOSITORY).eq("workspace_id", mission.workspace));
+      const repositories = rowsOf(RepositoryRowSchema2, await db.from("repositories").select(REPOSITORY2).eq("workspace_id", mission.workspace));
       const actors = rowsOf(ActorRowSchema, await db.from("mission_events").select(ACTOR).eq("mission_id", mission.id).neq("actor", "agent"));
       const names = [mission.repo, ...repositories.map((row) => row.full_name)].flatMap((full) => [full, ...full.split("/")]);
       return [...new Set([...names, ...actors.flatMap((row) => row.actor === null ? [] : [row.actor])].filter((name) => name.length > 0))];
