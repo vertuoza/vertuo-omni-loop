@@ -58,4 +58,4 @@ beyond an optional placeholder.
 
 ## Source
 
-/omni:brainstorm, PRD 3129: .omni-loop/delivery/inbox/3129-designed-select/before-after.html
+/omni:brainstorm, PRD 3129: .omni-loop/delivery/shipped/3129-designed-select/before-after.html
