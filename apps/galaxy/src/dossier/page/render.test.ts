@@ -568,7 +568,7 @@ describe('the Retro tab (PRD 426, s3)', () => {
   it('shows Open the retro PR on top, then retro.md rendered from markdown, raw HTML off, as the sixth tab', () => {
     const html = retro(retroSummary(pr('open'), RETRO));
     expect(html).toContain('<section class="dossier-pane" aria-label="Retro">');
-    expect(html).toContain(`<a class="ask-button" href="${RETRO_URL}" target="_blank" rel="noopener noreferrer">Open the retro PR</a>`);
+    expect(html).toContain(`href="${RETRO_URL}" target="_blank" rel="noopener noreferrer">Open the retro PR</a>`);
     expect(html).toContain('<article class="dossier-md"><h1>How PRD 216 went</h1>');
     expect(html).not.toContain('<script>');
     expect(html).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=retro">Retro<span class="omni-tab__count">open PR</span></a>`);
@@ -582,10 +582,11 @@ describe('the Retro tab (PRD 426, s3)', () => {
   it('is dimmed and says why while there is no retro, and says when GitHub did not answer', () => {
     const empty = retro(retroSummary(null, null));
     expect(empty).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=retro">Retro</a>`);
-    expect(empty).toContain('<p class="dossier-empty">The retro is written when the feature PR merges.</p>');
+    expect(empty).toContain('<p class="omni-empty-state__title">The retro is written when the feature PR merges.</p>');
     expect(empty).not.toContain('Open the retro PR');
     for (const html of [retro(null), retro(retroSummary(pr('open'), UNREAD))]) {
-      expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
+      expect(html).toContain('GitHub did not answer. The page tries again within a minute.');
+      expect(html).toContain('role="alert"');
       expect(html).not.toContain('dossier-md');
     }
   });
@@ -926,9 +927,11 @@ describe('the Pitch panel (PRD 859)', () => {
     const customers = shown.indexOf('Customers');
     expect(customers).toBeGreaterThan(-1);
     expect(shown.indexOf('Inside')).toBeGreaterThan(customers);
-    expect(shown).toContain('<input type="radio" name="pitch-audience-216" checked="" value="customers"/>');
-    expect(shown).toContain('<input type="radio" name="pitch-audience-216" value="inside"/>');
-    expect(shown).toContain('<code class="stage-command pitch-command">/omni:pitch 216 --for customers</code>');
+    expect(shown).toContain('role="radiogroup" aria-label="Pitch for"');
+    expect(shown.match(/<input[^>]*type="radio"[^>]*name="pitch-audience-216"/g)).toHaveLength(2);
+    expect(shown).toMatch(/<input[^>]*value="customers"[^>]*checked=""|<input[^>]*checked=""[^>]*value="customers"/);
+    expect(shown).not.toMatch(/<input[^>]*value="inside"[^>]*checked=""|<input[^>]*checked=""[^>]*value="inside"/);
+    expect(shown).toContain('<code class="omni-code omni-code--inline">/omni:pitch 216 --for customers</code>');
     expect(shown).toContain('<button class="omni-button omni-button--secondary omni-button--md" type="button" title="/omni:pitch 216 --for customers">Copy</button>');
     expect(shown).toContain(PITCH_HINT);
     expect(PITCH_HINT).toBe('Run it in your coding agent, in this repository. The pitch shows on the Pitch tab.');
@@ -946,22 +949,22 @@ describe('the Pitch panel (PRD 859)', () => {
 
   it('with Inside chosen, shows --for inside, and Copy carries the shown command', () => {
     const shown = panel({ audience: 'inside' });
-    expect(shown).toContain('checked="" value="inside"');
-    expect(shown).not.toContain('checked="" value="customers"');
-    expect(shown).toContain('<code class="stage-command pitch-command">/omni:pitch 216 --for inside</code>');
+    expect(shown).toMatch(/<input[^>]*value="inside"[^>]*checked=""|<input[^>]*checked=""[^>]*value="inside"/);
+    expect(shown).not.toMatch(/<input[^>]*value="customers"[^>]*checked=""|<input[^>]*checked=""[^>]*value="customers"/);
+    expect(shown).toContain('<code class="omni-code omni-code--inline">/omni:pitch 216 --for inside</code>');
     expect(shown).toContain('title="/omni:pitch 216 --for inside">Copy</button>');
     expect(shown).not.toContain('--for customers');
   });
 
   it('says Copied, or asks to copy by hand where the clipboard refuses', () => {
-    expect(panel({ copied: 'copied' })).toContain(`<span class="ask-hint" role="status">${COPY_WORDS.copied}</span>`);
-    expect(panel({ copied: 'refused' })).toContain(`<span class="ask-hint" role="status">${COPY_WORDS.refused}</span>`);
+    expect(panel({ copied: 'copied' })).toContain(`<span role="status"><span class="omni-text omni-text--small omni-text--secondary">${COPY_WORDS.copied}</span></span>`);
+    expect(panel({ copied: 'refused' })).toContain(`<span role="status"><span class="omni-text omni-text--small omni-text--secondary">${COPY_WORDS.refused}</span></span>`);
     expect(panel()).not.toContain('role="status"');
   });
 
   it('in the demo, shows the panel disabled: no choice can change and Copy does nothing', () => {
     const shown = panel({ disabled: true });
-    expect(shown).toContain('<fieldset class="pitch-choices" disabled="">');
+    expect(shown.match(/<input[^>]*type="radio"[^>]*disabled=""/g)).toHaveLength(2);
     expect(shown).toMatch(/<button class="omni-button omni-button--secondary omni-button--md" type="button" disabled="" title="[^"]+">Copy<\/button>/);
     expect(shown).toContain('/omni:pitch 216 --for customers');
     expect(shown).toContain('The demo cannot make a pitch.');
@@ -976,8 +979,8 @@ describe('the Pitch panel (PRD 859)', () => {
 
   it('the header passes the demo to the Pitch action, and only the Pitch action', () => {
     const shipped = stageView({ prd: parsePrd(216), rows: at('shipped') });
-    expect(html(createElement(StageAction, { stage: shipped, demo: true }))).toContain('<span class="pitch-action" data-demo="true">');
-    expect(html(createElement(StageAction, { stage: shipped }))).toContain('<span class="pitch-action">');
+    expect(html(createElement(StageAction, { stage: shipped, demo: true }))).toContain('<span class="pitch-anchor" data-demo="true">');
+    expect(html(createElement(StageAction, { stage: shipped }))).toContain('<span class="pitch-anchor">');
     const inbox = stageView({ prd: parsePrd(216), rows: at('inbox') });
     expect(html(createElement(StageAction, { stage: inbox, demo: true }))).toContain(PRIMARY('Build it', '/omni:yolo 216'));
   });
@@ -985,6 +988,6 @@ describe('the Pitch panel (PRD 859)', () => {
   it('a demo page at shipped draws its Pitch action disabled', () => {
     const view = dossierView({ dossier: numbered, versions, members: [PIERRE, MARIE], rounds, repos: null, answerable: [], stages: at('shipped'), demo: true }, MARIE.user_id, readPick({}), Date.now());
     const shown = renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, supabase: null }));
-    expect(shown).toContain('<span class="pitch-action" data-demo="true">');
+    expect(shown).toContain('<span class="pitch-anchor" data-demo="true">');
   });
 });

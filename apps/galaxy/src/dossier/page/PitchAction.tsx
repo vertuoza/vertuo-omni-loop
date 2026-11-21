@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Button } from '@omni/ui';
+import { Button, Code, Radio, Text } from '@omni/ui';
 import { SendToTerminal } from '../../runners/send/SendToTerminal';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
@@ -34,23 +34,23 @@ export function PitchPanel({ prd, audience, disabled, copied, onChoose, onCopy }
   const command = pitchCommand(prd, audience);
   return (
     <div className="pitch-panel" role="group" aria-label="Pitch">
-      <fieldset className="pitch-choices" disabled={disabled}>
-        <legend className="ask-hint">Pitch for</legend>
-        {AUDIENCES.map(({ id, label }) => (
-          <label key={id} className="pitch-choice">
-            <input type="radio" name={`pitch-audience-${prd}`} value={id} checked={audience === id} onChange={() => { onChoose(id); }} />
-            {label}
-          </label>
-        ))}
-      </fieldset>
+      <Radio
+        label="Pitch for"
+        name={`pitch-audience-${prd}`}
+        orientation="horizontal"
+        disabled={disabled}
+        value={audience}
+        options={AUDIENCES.map(({ id, label }) => ({ value: id, label }))}
+        onChange={(event) => { onChoose(event.currentTarget.value === 'inside' ? 'inside' : 'customers'); }}
+      />
       <span className="stage-copy">
-        <code className="stage-command pitch-command">{command}</code>
+        <Code>{command}</Code>
         <Button disabled={disabled} title={command} onClick={onCopy}>Copy</Button>
-        {copied !== 'idle' && <span className="ask-hint" role="status">{COPY_WORDS[copied]}</span>}
+        {copied !== 'idle' && <span role="status"><Text as="span" size="small" tone="secondary">{COPY_WORDS[copied]}</Text></span>}
         {!disabled && <SendToTerminal line={command} />}
       </span>
-      <p className="ask-hint pitch-hint">{PITCH_HINT}</p>
-      {disabled && <p className="ask-hint pitch-hint">The demo cannot make a pitch.</p>}
+      <Text size="small" tone="secondary">{PITCH_HINT}</Text>
+      {disabled && <Text size="small" tone="secondary">The demo cannot make a pitch.</Text>}
     </div>
   );
 }
@@ -71,7 +71,7 @@ export function PitchAction({ prd, disabled }: { prd: PrdNumber; disabled: boole
   }
 
   return (
-    <span className="pitch-action" data-demo={disabled ? 'true' : undefined}>
+    <span className="pitch-anchor" data-demo={disabled ? 'true' : undefined}>
       <Button variant="primary" expanded={open} onClick={() => { setOpen(!open); }}>Pitch</Button>
       {open && <PitchPanel prd={prd} audience={audience} disabled={disabled} copied={copied} onChoose={choose} onCopy={() => void copy()} />}
     </span>
