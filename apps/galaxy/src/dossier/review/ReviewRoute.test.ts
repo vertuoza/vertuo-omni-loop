@@ -104,10 +104,21 @@ describe('/prd/<id>/review', () => {
     await expect(route()).rejects.toThrow(`redirect /prd/${ID}`);
   });
 
-  it('sends the demo back to its PRD page, and a fix to its own page', async () => {
+  it('draws the demo\'s review with no session, no database and no network, and sends a fix to its own page', async () => {
     given.mode = 'demo';
-    await expect(route()).rejects.toThrow(`redirect /prd/${ID}`);
+    given.session = null;
+    given.read = null;
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const page = await html();
+    vi.unstubAllGlobals();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(page).toContain('Review and approve');
+    expect(page).toContain('PRD 71 · Ask mode');
+    expect(page).toContain('The page polls every 2 s while its tab is visible.');
+    expect(page).toContain('You approve as ADA.');
     given.mode = 'supabase';
+    given.session = { env: { url: 'https://db.example', key: 'k' }, db: {}, user: { id: ME } };
     given.read = { ...READ, dossier: { ...READ.dossier, kind: 'visual' } };
     await expect(route()).rejects.toThrow(`redirect /visual/${ID}`);
   });

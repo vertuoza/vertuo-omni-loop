@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { serverEnv } from '../../env';
 import { approvalView } from '../page/approval';
+import { demoReview } from '../page/demo';
 import { gated, markdownOf, type DossierRouteProps, type Gated } from '../page/DossierRoute';
 import { readyView, type ReadyView } from '../page/ready';
 import { readLatestVerdict } from '../page/ready.repository';
@@ -20,7 +21,7 @@ import { ReviewPage } from './ReviewPage';
 // read, not found; a fix, sent to its own page. The approval is read exactly as the page reads it
 // (./approval-read.ts), the Omni App's latest Ready verdict beside it for a numbered PRD. With no decision
 // waiting on the viewer, or one they may not take, the viewer is sent back to /prd/<id>. The demo has no
-// approval: it goes back to its PRD's page.
+// approval of its own: it draws the demo's review (../page/demo.ts), no database and no network.
 
 export type ReviewRouteProps = DossierRouteProps;
 
@@ -100,7 +101,7 @@ async function screenOf(db: Db, read: DossierRead, at: { decision: ReviewKind; f
 export async function reviewRoute({ params, searchParams }: ReviewRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const mode = serverEnv().mode;
-  if (mode === 'demo') redirect(dossierPath(id));
+  if (mode === 'demo') return <ReviewPage {...demoReview(Date.now())} />;
   const gate = gated(await dossierSession(mode), id, query);
   if ('page' in gate) return gate.page;
   const read = await prdOf(gate.member, id);
