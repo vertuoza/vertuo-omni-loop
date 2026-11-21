@@ -247,12 +247,10 @@ describe('the category chip, rendered (PRD 144)', () => {
 
   it('offers unsorted and the six, with the round\'s category picked', () => {
     const html = chip({ chip: { value: 'ux-ui', label: 'UX/UI', setBy: 'sorted by the model' }, onChange: () => {} });
-    expect(html).toMatch(/<select[^>]*aria-label="Category"/);
-    expect(count(html, /<option /)).toBe(7);
-    expect(html).toContain('<option value="">unsorted</option>');
-    expect(html).toContain('<option value="ux-ui" selected="">UX/UI</option>');
+    expect(html).toMatch(/<button[^>]*role="combobox"[^>]*aria-label="Category"/);
+    expect(html).toMatch(/<span class="omni-select__value">UX\/UI<\/span>/);
     expect(html).toContain('data-category="ux-ui"');
-    expect(html).not.toMatch(/<select[^>]*disabled/);
+    expect(html).not.toMatch(/<button[^>]*disabled/);
   });
 
   it('says who set it', () => {
@@ -263,13 +261,13 @@ describe('the category chip, rendered (PRD 144)', () => {
   it('shows an unsorted round as such, with nobody named', () => {
     const html = chip({ chip: { value: null, label: 'unsorted', setBy: null }, onChange: () => {} });
     expect(html).toContain('data-category="unsorted"');
-    expect(html).toContain('<option value="" selected="">unsorted</option>');
+    expect(html).toContain('<span class="omni-select__value">unsorted</span>');
     expect(html).not.toContain('ask-category-by');
   });
 
   it('cannot be changed while it saves, or where nothing can save it', () => {
-    expect(chip({ chip: { value: 'other', label: 'Other', setBy: null }, onChange: () => {}, saving: true })).toMatch(/<select[^>]*disabled=""/);
-    expect(chip({ chip: { value: 'other', label: 'Other', setBy: null } })).toMatch(/<select[^>]*disabled=""/);
+    expect(chip({ chip: { value: 'other', label: 'Other', setBy: null }, onChange: () => {}, saving: true })).toMatch(/<button[^>]*disabled=""/);
+    expect(chip({ chip: { value: 'other', label: 'Other', setBy: null } })).toMatch(/<button[^>]*disabled=""/);
   });
 
   describe('on the session page', () => {
@@ -279,18 +277,18 @@ describe('the category chip, rendered (PRD 144)', () => {
 
     it('sits on the open round and on each earlier one, for the owner', () => {
       const html = page('owner', 'demo');
-      expect(count(html, /<select[^>]*aria-label="Category"/)).toBe(3);
-      expect(html).toContain('<option value="" selected="">unsorted</option>');
-      expect(html).toContain('<option value="architecture" selected="">Architecture</option>');
+      expect(count(html, /<button[^>]*role="combobox"[^>]*aria-label="Category"/)).toBe(3);
+      expect(html).toContain('<span class="omni-select__value">unsorted</span>');
+      expect(html).toContain('<span class="omni-select__value">Architecture</span>');
       expect(html).toContain('sorted by the model');
-      expect(html).toContain('<option value="product" selected="">Product</option>');
+      expect(html).toContain('<span class="omni-select__value">Product</span>');
       expect(html).toContain('set by you');
     });
 
     it('can be changed by another member too, who reads who set it', () => {
       const html = page('member', 'bob');
-      expect(count(html, /<select[^>]*aria-label="Category"/)).toBe(3);
-      expect(html).not.toMatch(/<select[^>]*disabled/);
+      expect(count(html, /<button[^>]*role="combobox"[^>]*aria-label="Category"/)).toBe(3);
+      expect(html).not.toMatch(/<button[^>]*role="combobox"[^>]*disabled/);
       expect(html).toContain('set by the session owner');
     });
   });
