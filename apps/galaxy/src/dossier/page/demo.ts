@@ -23,7 +23,10 @@ import type { MainWatchRead } from '../../main-watch/store';
 import type { MilestoneRow } from '../../timeline/store';
 import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
+import type { ApprovalView } from './approval';
 import type { DossierRead } from './view';
+import { pinnedOf, planLine, prdLabel } from '../review/review';
+import type { ReviewPageProps } from '../review/ReviewPage';
 import type { VoiceCast } from './voice';
 import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
@@ -398,4 +401,42 @@ export const demoContent = (versionId: string): string | null => CONTENT[version
 export function demoSandboxed(number: number): string | null {
   const page = demoDossier(0).versions.filter((v) => v.kind === 'before-after')[number - 1];
   return page ? demoContent(page.id) : null;
+}
+
+/** The demo's approval, as the review screen reads it: nobody has approved yet, and the viewer may. */
+const DEMO_APPROVAL: ApprovalView = {
+  state: 'waiting', words: 'waiting for approval', detail: null, changed: [], canApprove: true, dossier: DEMO_DOSSIER_ID,
+  seal: null, laws: null, tech: null, canRequestTech: false,
+  screen: {
+    spec: 'read',
+    diffs: [{
+      path: 'spec.md',
+      rows: [
+        { sign: ' ', text: '## Solution' },
+        { sign: ' ', text: '' },
+        { sign: '-', text: '- The page polls every 5 s while its tab is visible.' },
+        { sign: '+', text: '- The page polls every 2 s while its tab is visible.' },
+        { sign: ' ', text: '- The terminal takes over when the page does not answer in time.' },
+      ],
+    }],
+    sections: [
+      { name: 'Problem', html: '<p>The agent\'s questions wait in the terminal, where a person who is not at it cannot read or answer them.</p>' },
+      { name: 'Solution', html: '<ul><li>The page polls every 2 s while its tab is visible.</li><li>The terminal takes over when the page does not answer in time.</li></ul>' },
+    ],
+  },
+};
+
+/** The review screen of the demo's PRD (/prd/<id>/review): Review and approve, with no database and no network. */
+export function demoReview(now: number): ReviewPageProps {
+  const { dossier, versions } = demoDossier(now);
+  return {
+    kind: 'approve',
+    dossier: { id: dossier.id, title: dossier.title, label: prdLabel(dossier.prd) },
+    me: 'ADA',
+    approval: DEMO_APPROVAL,
+    ready: null,
+    pinned: pinnedOf(versions),
+    plan: planLine(versions, 5),
+    planMarkdown: null,
+  };
 }

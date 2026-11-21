@@ -1,3 +1,4 @@
+import { Card, SectionHeading, Table, Text } from '@omni/ui';
 import type { ApproverTick, AttestationView } from './Attestation.service';
 
 // The attestation of a product PRD on its page (PRD 1548 s4), at `#attestation`, where `omni/approved`'s
@@ -19,26 +20,34 @@ const APPROVER_WORDS: Record<ApproverTick, string> = {
 export function Attestation({ attestation }: { attestation: AttestationView }) {
   const { state, approver, member, approverTick, at, files, voided, askAgain } = attestation;
   return (
-    <section id="attestation" className={`dossier-seal-card dossier-approval-${state}`} aria-label="Attestation">
-      <p className="dossier-seal-who">Approved by {approver}</p>
-      <p className="ask-hint">
-        {member ? 'workspace member ✓' : 'no longer a member ✗'} · {APPROVER_WORDS[approverTick]} · {at}
-      </p>
-      <p><strong>{STATE_WORDS[state]}</strong></p>
-      {voided && <p className="ask-hint">{voided}</p>}
-      <ul className="dossier-seal-files" aria-label="Pinned files">
-        <li><span>file</span><span>pinned · today</span></li>
-        {files.map((file) => (
-          <li key={file.path}>
-            <span>{file.same ? '=' : '≠'} {file.path}</span>
-            <span>
-              <code>{file.pinned}</code> · <code>{file.today ?? '—'}</code>
-              {file.restore && <> · <a href={file.restore}>Restore</a></>}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {askAgain && <p><a href={askAgain}>Ask again</a></p>}
+    <section id="attestation" className={`dossier-attestation dossier-approval-${state}`} aria-label="Attestation">
+      <SectionHeading level="3">Attestation</SectionHeading>
+      <Card padding="4">
+        <Text size="heading" strong>Approved by {approver}</Text>
+        <p className="ask-hint">
+          {member ? 'workspace member ✓' : 'no longer a member ✗'} · {APPROVER_WORDS[approverTick]} · {at}
+        </p>
+        <p><strong>{STATE_WORDS[state]}</strong></p>
+        {voided && <p className="ask-hint">{voided}</p>}
+        <Table
+          caption="Pinned files"
+          density="compact"
+          columns={[{ id: 'file', label: 'file' }, { id: 'hashes', label: 'pinned · today' }]}
+          rows={files.map((file) => ({
+            id: file.path,
+            cells: {
+              file: `${file.same ? '=' : '≠'} ${file.path}`,
+              hashes: (
+                <>
+                  <code>{file.pinned}</code> · <code>{file.today ?? '—'}</code>
+                  {file.restore && <> · <a href={file.restore}>Restore</a></>}
+                </>
+              ),
+            },
+          }))}
+        />
+        {askAgain && <p><a href={askAgain}>Ask again</a></p>}
+      </Card>
     </section>
   );
 }

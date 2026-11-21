@@ -15,9 +15,10 @@ vi.mock('next/navigation', async (original) => ({
   useRouter: () => ({ refresh: () => {} }),
 }));
 
-// A fix's page as the server renders it (PRD 627): `#n ↗` with its Visual or Bug badge, no stage, its
-// kind's tabs, a round of variations framed on its sandboxed route with a Round picker, and a bug record
-// rendered from markdown.
+// A fix's page as the server renders it (PRD 627): since omni-loop-20 s6 the PRD page's head, its eyebrow
+// naming its kind and number, its own track (Asked · Picked · Approved · Merged · Released) once GitHub gave
+// a moment, its issue and fix PR in About this fix; its kind's tabs, a round of variations framed on its
+// sandboxed route with a Round picker, and a bug record rendered from markdown.
 
 const ID = '00000000-0000-4000-8000-0000000000f1';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@example.com', name: 'Pierre' };
@@ -39,17 +40,21 @@ const render = (kind: 'visual' | 'bug', versions: DossierVersionRow[], query: Re
 const VISUAL = [version('r1', 'variations', '2026-09-29T09:10:00Z'), version('r2', 'variations', '2026-09-29T09:20:00Z'), version('b1', 'before-after', '2026-09-29T09:30:00Z')];
 
 describe('a visual fix\'s page', () => {
-  it('is headed #n ↗ to its issue with a Visual badge, and shows no stage', () => {
+  it('gets the PRD page\'s head, its eyebrow Visual fix · #n, and no track while GitHub gave no moment', () => {
     const html = render('visual', VISUAL);
-    expect(html).toContain('<span class="omni-badge omni-badge--neutral">Visual</span><a class="dossier-number" href="https://github.com/vertuoza/vertuo-omni-loop/issues/548" target="_blank" rel="noopener noreferrer">#548 ↗</a>');
-    expect(html).not.toContain('stage-track');
+    expect(html).toContain('<p class="omni-page-header__eyebrow">Visual fix · #548</p>');
+    expect(html).toContain('<h1 class="omni-page-header__title">Darker sidebar</h1>');
+    expect(html).toContain('<section class="dossier-about" aria-label="About this fix">');
+    expect(html).not.toContain('omni-stage-track');
     expect(html).not.toContain('Delete draft');
+    expect(html).not.toContain('>Actions<');
   });
 
   it('lists Timeline, Before/after, Variations and Questions, and nothing of a PRD', () => {
     const html = render('visual', VISUAL);
-    const labels = [...html.matchAll(/class="omni-tab[^"]*"[^>]*href="[^"]*"[^>]*><span[^>]*>([^<]+)/g)].map((m) => m[1]);
+    const labels = [...html.matchAll(/class="omni-tab[^"]*"[^>]*href="[^"]*"[^>]*>([^<]+)/g)].map((m) => m[1]);
     expect(labels).toEqual(['Timeline', 'Before/after', 'Variations', 'Questions']);
+    expect(html).not.toMatch(/>(Brainstorm|Specifications|Feature)</);
   });
 
   it('frames the round picked on its sandboxed route, with a Round picker kept on its route', () => {
@@ -65,9 +70,9 @@ describe('a visual fix\'s page', () => {
 });
 
 describe('a bug fix\'s page', () => {
-  it('is headed #n ↗ with a Bug badge, and renders its record from markdown', () => {
+  it('is headed Bug fix · #n, and renders its record from markdown', () => {
     const html = render('bug', [version('g1', 'bug-record', '2026-09-29T10:00:00Z')], { tab: 'bug-record' }, '# The bug\n\nIt <b>broke</b>.\n');
-    expect(html).toContain('<span class="omni-badge omni-badge--neutral">Bug</span><a class="dossier-number"');
+    expect(html).toContain('<p class="omni-page-header__eyebrow">Bug fix · #571</p>');
     expect(html).toContain('<h1>The bug</h1>');
     expect(html).toContain('<span class="ask-hint">Version</span>');
   });
@@ -102,16 +107,18 @@ describe('a fix\'s Timeline and state (PRD 627, s5)', () => {
     expect(html).toContain('<a href="https://github.com/vertuoza/vertuo-omni-loop/issues/548" target="_blank" rel="noopener noreferrer">Asked</a>');
   });
 
-  it('shows the state pill and the issue and PR in the header', () => {
+  it('says its state once, on its own track, and lists the issue and PR in About this fix', () => {
     const html = withFix('visual', fixPageView('visual', summary, 'none'), { tab: 'before-after' });
-    expect(html).toContain('<dt>State</dt><dd><span class="fix-state fix-state-merged">Merged</span></dd>');
+    const stages = [...html.matchAll(/omni-stage-track__stage--(done|current|pending)[^>]*>.*?<span class="omni-stage-track__name">([^<]+)<\/span>/g)].map((m) => `${m[2] ?? ''}:${m[1] ?? ''}`);
+    expect(stages).toEqual(['Asked:done', 'Picked:done', 'Approved:done', 'Merged:current', 'Released:pending']);
+    expect(html).not.toContain('fix-state');
     expect(html).toContain('<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/562" target="_blank" rel="noopener noreferrer">PR #562</a>');
     expect(html).toContain('>Issue #548</a>');
   });
 
-  it('reads — and every moment unknown when GitHub did not answer', () => {
+  it('draws no track and every moment unknown when GitHub did not answer', () => {
     const html = withFix('bug', fixPageView('bug', null, 'no-page'));
-    expect(html).toContain('<span class="fix-state fix-state-unknown">—</span>');
+    expect(html).not.toContain('omni-stage-track');
     expect(html).not.toContain('Picked');
     expect([...html.matchAll(/fix-moment-unknown/g)]).toHaveLength(4);
   });

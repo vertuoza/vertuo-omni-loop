@@ -7,6 +7,7 @@ import { pixelSvg } from '../design/pixel-svg';
 import type { ShellMode } from '../anti/anti';
 import { AntiLoopButton } from '../switch/AntiLoopButton';
 import { GameModeButton } from '../switch/GameModeButton';
+import { useTrailItem } from './AppBarItem.tsx';
 import { Bell } from './Bell.tsx';
 import { useDrawer } from './drawer-context';
 import { pageTrail } from './sidebar.ts';
@@ -17,7 +18,8 @@ import './app-bar.css';
 // The app's top bar (PRD 438), over the page's content, to the right of the sidebar: where you are
 // and how you see it. On the left, the sprite of the page's section at 2× in a tile, and the trail to
 // the page (issue 704): its group, a nested item's section, then the page, the crumbs above it links
-// back (next/link, PRD 657: no document load). Then the theme switch and Game mode, both unchanged
+// back (next/link, PRD 657: no document load); a PRD's or a fix's page ends on its item, named by the
+// page (AppBarItem.tsx), and a PRD's review screen on Review for approval (omni-loop-20 s6). Then the theme switch and Game mode, both unchanged
 // (PRD 284, PRD 238), then, signed in, the bell that says what waits for you (PRD 499,
 // src/nav/Bell.tsx), then you: signed in, the avatar that opens the user menu; signed out, Sign in
 // with GitHub in its place. A section without a sprite, and a path under no item, show the OMNI LOOP
@@ -31,7 +33,7 @@ const MARK = logoSvg('mark', { scale: 1, title: null });
 const tileSvg = (sprite: string | null) => (sprite ? pixelSvg(spritePixels(sprite), { scale: 2, title: '' }) : MARK);
 
 export function AppBar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: ShellMode }) {
-  const trail = pageTrail(usePathname());
+  const trail = pageTrail(usePathname(), useTrailItem());
   const drawer = useDrawer();
   return (
     <header className="app-bar">

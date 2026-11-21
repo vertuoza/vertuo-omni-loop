@@ -1,0 +1,11 @@
+.omni-definition-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-family: var(--font-body);
+}
+.omni-definition-list--normal { gap: var(--space-3); }
+.omni-definition-list--compact { gap: var(--space-2); }
+.omni-definition-list__fact { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.omni-definition-list__label { color: var(--color-text-tertiary); font-size: var(--type-1-size); line-height: var(--type-1-line); }
+.omni-definition-list__value { margin: 0; color: var(--color-text-primary); font-size: var(--type-2-size); line-height: var(--type-2-line); overflow-wrap: anywhere; }

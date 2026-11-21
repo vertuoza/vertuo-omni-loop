@@ -1,19 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { seenSignature, seenWatch } from './seen';
-import type { TabEntry } from './view';
 
 // The PRD page marks its PRD seen (PRD 579, s1): on mount, and again each time the versions it renders
 // change while it is open (the page refreshes itself), so its New documents group leaves the bell.
 
-const tab = (kind: TabEntry['kind'], badge: string | null): TabEntry => ({ kind, label: kind, badge, alert: null, href: `#${kind}`, current: false, empty: false });
-
 describe('the rendered versions\' signature', () => {
-  it('names each artifact\'s latest version, and nothing else', () => {
-    const tabs = [tab('before-after', 'v2'), tab('spec', 'v3'), tab('plan', null), tab('questions', '7/10'), tab('outbox', '2 open')];
-    expect(seenSignature(tabs)).toBe('before-after:v2|spec:v3|plan:-');
-    expect(seenSignature([...tabs.slice(0, 3), tab('questions', '8/10')])).toBe(seenSignature(tabs));
-    expect(seenSignature([tab('before-after', 'v2'), tab('spec', 'v4'), tab('plan', null)])).not.toBe(seenSignature(tabs));
+  it('names each kept artifact\'s latest version, and moves only when a new one lands (omni-loop-20 s7)', () => {
+    const latest = { 'before-after': 2, spec: 3, plan: 0 };
+    expect(seenSignature(latest)).toBe('before-after:v2|spec:v3|plan:-');
+    expect(seenSignature({ ...latest })).toBe(seenSignature(latest));
+    expect(seenSignature({ ...latest, spec: 4 })).not.toBe(seenSignature(latest));
+    expect(seenSignature({ ...latest, plan: 1 })).toBe('before-after:v2|spec:v3|plan:v1');
   });
 });
 
@@ -33,7 +31,7 @@ describe('marking the PRD seen', () => {
 
   it('is drawn on the PRD page, with the dossier id and the signature', () => {
     const page = readFileSync(new URL('./DossierPage.tsx', import.meta.url), 'utf8');
-    expect(page).toMatch(/<MarkSeen id=\{view\.id\} signature=\{seenSignature\(view\.tabs\)\} \/>/);
+    expect(page).toMatch(/<MarkSeen id=\{view\.id\} signature=\{seenSignature\(view\.latest\)\} \/>/);
     const part = readFileSync(new URL('./MarkSeen.tsx', import.meta.url), 'utf8');
     expect(part).toMatch(/^'use client';/);
     expect(part).toContain('markSeen(');

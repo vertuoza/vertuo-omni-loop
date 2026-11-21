@@ -7,7 +7,7 @@ export const emptyStateMeta = {
   name: 'EmptyState',
   variants: { size: EMPTY_STATE_SIZES },
   usage: 'What a section says while it holds nothing yet: why it is empty, and what fills it.',
-  do: ['Say why it is empty and what will fill it.', 'Offer the one action that fills it, when the person has one.'],
+  do: ['Say why it is empty in the title and when it fills in in one line under it: two lines at most.', 'Offer the one action that fills it, when the person has one: never two.'],
   dont: ['Leave a section blank instead.', 'Blame the person: it is empty, not wrong.'],
   contrast: { base: [...onSurfaces('text-primary'), ...onSurfaces('text-secondary')] },
   accessibility: [

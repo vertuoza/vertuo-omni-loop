@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page anatomy mockup (Calm 2)</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c;
+    --ask-yellow: #ff3ea5; --ask-cyan: #6ff0ff; --ask-green: #4ee08a;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --ask-gutter: 32px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 16px/1.6 var(--ask-body); }
+  .mock-note { max-width: 1200px; margin: 0 auto; padding: 16px var(--ask-gutter) 0; font: 13px/1.5 system-ui, sans-serif; color: var(--ask-muted); }
+  .board { padding: 24px var(--ask-gutter) 48px; display: grid; gap: 28px; }
+  .part { display: grid; gap: 10px; border-top: 1px solid var(--ask-line); padding-top: 16px; }
+  .part h2 { margin: 0; font: 700 13px/1.2 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .part p { margin: 0; color: var(--ask-muted); font-size: 14px; max-width: 900px; }
+  .specimen { border: 1.5px dashed var(--ask-line-strong); border-radius: 10px; padding: 16px; display: grid; gap: 12px; background: var(--ask-surface); }
+  .crumbs { font: 13px/1.4 var(--ask-mono); color: var(--ask-muted); }
+  .crumbs span.last { color: var(--ask-ink); }
+  .title { margin: 0; font-size: 32px; line-height: 1.2; }
+  .subtitle { margin: 0; font-size: 17px; }
+  .subtitle b { color: var(--ask-plasma); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; font-size: 14px; color: var(--ask-muted); }
+  .btn { display: inline-block; padding: 9px 16px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font: 700 15px/1.2 var(--ask-body); }
+  .btn.primary { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ask-line-strong); overflow-x: auto; }
+  .tab { padding: 10px 14px; font-weight: 700; white-space: nowrap; border-bottom: 3px solid transparent; }
+  .tab[aria-current='page'] { border-bottom-color: var(--ask-plasma); }
+  .tab .pill { font: 600 12px/1 var(--ask-mono); margin-left: 6px; padding: 3px 7px; border-radius: 999px; background: var(--ask-sunk); color: var(--ask-muted); }
+  .tab .pill.wait { background: var(--ask-yellow); color: var(--ask-on-plasma); }
+  .tab.empty { color: var(--ask-muted); }
+  .seg { display: inline-flex; border: 1.5px solid var(--ask-line-strong); border-radius: 8px; overflow: hidden; font: 600 14px/1 var(--ask-body); }
+  .seg span { padding: 8px 12px; color: var(--ask-muted); }
+  .seg span[aria-selected='true'] { background: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .stage { display: flex; gap: 4px; font: 600 12px/1 var(--ask-mono); list-style: none; margin: 0; padding: 0; }
+  .stage li { padding: 6px 9px; border-radius: 999px; border: 1px solid var(--ask-line-strong); color: var(--ask-muted); }
+  .stage li.now { background: var(--ask-cyan); color: var(--ask-on-plasma); border-color: var(--ask-cyan); font-weight: 800; }
+  .section-h { margin: 0; font: 700 13px/1.2 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ask-line); }
+  .rows li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--ask-line); }
+  .rows small { color: var(--ask-muted); font: 13px/1.4 var(--ask-mono); }
+  .facts { margin: 0; display: grid; gap: 10px; border-left: 1px solid var(--ask-line-strong); padding-left: 14px; }
+  .facts dt { font: 700 11px/1 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .facts dd { margin: 4px 0 0; }
+  .empty-state { color: var(--ask-muted); font-size: 15px; }
+  .notice { border: 1.5px solid var(--ask-line-strong); border-radius: 10px; padding: 12px 14px; background: var(--ask-sunk); font-size: 15px; }
+  .notice.warn { border-color: var(--ask-yellow); }
+  .notice.error { border-color: var(--ask-yellow); background: var(--ask-surface); }
+  .prose { max-width: 900px; }
+  .review-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1.5px solid var(--ask-line-strong); padding-top: 12px; }
+</style>
+</head>
+<body>
+<p class="mock-note">Mock of the page anatomy (omni-loop-20, s8): the shared parts of @omni/ui, drawn once each. Draft, drawn from the spec. Sample content is fictional.</p>
+
+<main class="board">
+
+  <section class="part">
+    <h2>PageHeader</h2>
+    <p>Breadcrumb whose last crumb names the item, one 32 px title, a one-sentence subtitle that names who acts, a meta row of at most five facts, one primary action shown only to the person who acts, and an Actions menu for rare actions.</p>
+    <div class="specimen">
+      <nav class="crumbs">Products › Omni Loop › PRD 20 › <span class="last">Specifications</span></nav>
+      <h3 class="title">The page anatomy, and the PRD page redesigned on it</h3>
+      <p class="subtitle"><b>You:</b> approve the spec and plan.</p>
+      <p class="meta"><span>Repo vertuo-omni-loop</span><span>Opened 3 days ago</span></p>
+      <div style="display:flex; gap:8px; justify-content:flex-end;"><button class="btn" aria-label="Actions">Actions</button><button class="btn primary">Review and approve</button></div>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>StageTrack</h2>
+    <p>The stage said once. Accent while agents work; the current stop is filled.</p>
+    <div class="specimen">
+      <ol class="stage"><li>Brainstorm</li><li>Spec</li><li class="now">Approval</li><li>Building</li><li>Feature</li><li>Shipped</li></ol>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>Tabs and SegmentedControl</h2>
+    <p>One tab row, seven tabs, a count as a mono pill, yellow only when it waits on the reader, empty tabs dimmed. SegmentedControl holds sub-views and versions, never a second tab row.</p>
+    <div class="specimen">
+      <nav class="tabs">
+        <span class="tab">Brainstorm<span class="pill">2</span></span>
+        <span class="tab" aria-current="page">Specifications<span class="pill wait">1</span></span>
+        <span class="tab empty">User voice</span>
+        <span class="tab">Outbox<span class="pill">0</span></span>
+        <span class="tab empty">Feature</span>
+        <span class="tab empty">Retro</span>
+        <span class="tab">Timeline</span>
+      </nav>
+      <div class="seg"><span>Before/after</span><span aria-selected="true">Spec</span><span>Plan</span><span>Approval record</span></div>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>SectionHeading, DefinitionList and ListRow</h2>
+    <p>One heading form for every section. Side facts are a DefinitionList; an empty fact is left out. A list row holds a mark, a title and its facts.</p>
+    <div class="specimen">
+      <h4 class="section-h">Rounds</h4>
+      <ul class="rows"><li><span>Rule 4 · category scope</span><small>3 answers · 18 Nov</small></li><li><span>Rule 7 · category stage</span><small>answered</small></li></ul>
+      <dl class="facts"><div><dt>Version</dt><dd>v3</dd></div><div><dt>Approval</dt><dd>Waiting for you</dd></div></dl>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>EmptyState and Notice</h2>
+    <p>An empty state says why, muted, with at most one action. A notice has a full border and an icon, never a left stripe; three tones.</p>
+    <div class="specimen">
+      <p class="empty-state">No decision yet: the outbox fills while the PRD is built.</p>
+      <div class="notice warn">Waiting on you: one question to answer.</div>
+      <div class="notice error">Could not read the outbox. The rest of the page still works.</div>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>ReviewScreen</h2>
+    <p>A focused, full-width screen for one signed decision, in reading order, ending in one decision row. No tabs, nothing else on it.</p>
+    <div class="specimen">
+      <nav class="crumbs">Products › Omni Loop › PRD 20 › <span class="last">Review the spec and plan</span></nav>
+      <p class="subtitle">Review the spec and plan. Approve covers exactly the files you read.</p>
+      <div class="review-foot"><span>Back to the PRD</span><div style="display:flex; gap:8px;"><button class="btn">Request changes</button><button class="btn primary">Approve</button></div></div>
+    </div>
+  </section>
+
+  <section class="part">
+    <h2>Width</h2>
+    <p>Every page spans the full app width. Only running prose keeps a 900 px measure.</p>
+    <div class="specimen">
+      <div class="prose"><p>Running prose keeps its measure here, at 900 px at most. The surrounding page is full width.</p></div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

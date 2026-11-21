@@ -1,14 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { DefinitionList } from '@omni/ui';
 import { productClient } from '../product/product.client';
 import type { ProductPick } from '../product/product.contract';
 
-// The PRD page's Product picker (PRD 1364 s7), in its facts strip: the workspace's products and No
+// The PRD page's Product picker (PRD 1364 s7), first of About this PRD (omni-loop-20 s6): the workspace's products and No
 // product, the PRD's own selected. Any member changes it until the PRD is approved; once an approval is in
 // force it is disabled, with `product is locked: PRD <n> is approved` beside it, and a void enables it
 // again. It reads and writes through the picker's route (src/dossier/product/), once the page runs: the
-// cell shows once read, so the server's render of the facts strip is as before. A person the route
-// refuses (signed out, or not a member) sees no cell. A change the route refuses puts the PRD's product
+// fact shows once read, so the server's render of About this PRD is as before. A person the route
+// refuses (signed out, or not a member) sees no fact. A change the route refuses puts the PRD's product
 // back and shows the route's own words.
 
 const client = productClient();
@@ -43,7 +44,7 @@ export function ProductField({ pick, busy, problem, onPick }: FieldProps) {
   );
 }
 
-/** The Product cell of a PRD's facts strip. */
+/** The Product fact of About this PRD. */
 export function ProductPicker({ dossier }: { dossier: string }) {
   const [pick, setPick] = useState<ProductPick | null | 'reading' | 'unread'>('reading');
   const [busy, setBusy] = useState(false);
@@ -67,15 +68,8 @@ export function ProductPicker({ dossier }: { dossier: string }) {
     setBusy(false);
   }
 
-  return (
-    <div className="dossier-fact dossier-fact-product">
-      <dt>Product</dt>
-      <dd>
-        {pick === 'unread' && <span className="ask-problem" role="alert">The product could not be read. Reload the page in a moment.</span>}
-        {typeof pick === 'object' && (
-          <ProductField pick={pick} busy={busy} problem={problem} onPick={(product) => { void change(pick, product); }} />
-        )}
-      </dd>
-    </div>
-  );
+  const value = pick === 'unread'
+    ? <span className="ask-problem" role="alert">The product could not be read. Reload the page in a moment.</span>
+    : <ProductField pick={pick} busy={busy} problem={problem} onPick={(product) => { void change(pick, product); }} />;
+  return <DefinitionList density="compact" facts={[{ id: 'product', label: 'Product', value }]} />;
 }
