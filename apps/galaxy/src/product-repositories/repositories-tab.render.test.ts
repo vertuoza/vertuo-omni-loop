@@ -28,6 +28,8 @@ const rowOf = (html: string, repo: string) => {
   return from < 0 ? '' : html.slice(html.indexOf('>', from) + 1, html.indexOf('</li>', from));
 };
 const buttons = (html: string) => [...html.matchAll(/<button\b[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]);
+/** What each Select of the markup shows on the server, and the value its hidden input posts. */
+const picks = (html: string) => [...html.matchAll(/<button [^>]*aria-label="([^"]*)"[^>]*><span[^>]*class="omni-select__value">([^<]*)<\/span>[\s\S]*?<input [^>]*aria-hidden="true"[^>]*value="([^"]*)"/g)].map((m) => ({ label: m[1], shown: m[2], value: m[3] }));
 
 describe('an owner\'s tab', () => {
   const html = render(live(TAB));
@@ -41,33 +43,30 @@ describe('an owner\'s tab', () => {
   it('lists each repository with every field to edit, Save and Remove', () => {
     const widgets = rowOf(html, 'acme/widgets');
     expect(widgets).toContain('value="web"');
-    expect(widgets).toMatch(/<option value="own" selected="">Its own<\/option>/);
+    expect(picks(widgets)).toContainEqual({ label: 'Knowledge', shown: 'Its own', value: 'own' });
     expect(widgets).toMatch(/<input type="checkbox" checked=""[^>]*\/?>\s*<span>acme\/api<\/span>/);
     expect(text(widgets)).toContain('added by a PRD');
     expect(buttons(widgets)).toEqual(['Save', 'Remove']);
     expect(rowOf(html, 'acme/api')).toMatch(/<input type="checkbox" checked=""[^>]*\/?>\s*<span>Read only<\/span>/);
   });
 
-  it('offers the nine roles in a select, the saved one picked (PRD 2346)', () => {
-    const roles = (markup: string) => [...markup.matchAll(/<option value="([^"]*)"( selected="")?>/g)].map((m) => (m[2] ? `${m[1]} *` : m[1]));
+  it('shows the saved role on a Select (PRD 2346); the nine roles are in the pick test', () => {
     const widgets = rowOf(html, 'acme/widgets');
-    const select = /<select id="link-acme-widgets-role"[^>]*>(.*?)<\/select>/.exec(widgets)?.[1] ?? '';
-    expect(roles(select)).toEqual(['api', 'web *', 'mobile', 'ui', 'library', 'infra', 'plan', 'doc', 'monorepo']);
+    expect(picks(widgets)).toContainEqual({ label: 'Role', shown: 'web', value: 'web' });
     expect(widgets).not.toContain('is not a role');
     expect([...ROLES]).toEqual(Object.keys(CANONICAL_ROLES));
   });
 
-  it('shows a saved role that is not one of the nine as the first option, flagged under the row', () => {
+  it('shows a saved role that is not one of the nine on the Select, flagged under the row', () => {
     const old = render(live({ ...TAB, links: [{ ...(TAB.links[0] as RepositoriesTab['links'][number]), repo: 'acme/old', role: 'back-end' }] }));
     const row = rowOf(old, 'acme/old');
-    const select = /<select id="link-acme-old-role"[^>]*>(.*?)<\/select>/.exec(row)?.[1] ?? '';
-    expect(select.startsWith('<option value="back-end" selected="">back-end (not a role)</option><option value="api">')).toBe(true);
+    expect(picks(row)).toContainEqual({ label: 'Role', shown: 'back-end (not a role)', value: 'back-end' });
     expect(text(row)).toContain('back-end is not a role: pick one');
   });
 
   it('offers the workspace\'s other repositories under Add a repository, starting on ?add=', () => {
     expect(buttons(html)).toContain('Add a repository');
-    expect(render(live({ ...TAB, addable: ['acme/billing', 'acme/scripts'] }), 'acme/scripts')).toMatch(/<option value="acme\/scripts" selected="">/);
+    expect(picks(render(live({ ...TAB, addable: ['acme/billing', 'acme/scripts'] }), 'acme/scripts'))).toContainEqual({ label: 'Repository to add', shown: 'acme/scripts', value: 'acme/scripts' });
     expect(text(render(live({ ...TAB, addable: [] })))).toContain(ALL_LINKED);
   });
 
@@ -146,20 +145,17 @@ describe('the ladder and the plan repository (PRD 2011 s17)', () => {
 
 describe('naming the plan repository', () => {
   const sectionOf = (html: string) => html.slice(html.indexOf('id="plan-title"'), html.indexOf('id="links-title"'));
-  const options = (html: string) => [...html.matchAll(/<option value="([^"]*)"( selected="")?>/g)].map((m) => (m[2] ? `${m[1]} *` : m[1]));
   const PLAN = { repository: 'acme/plan', holds: [] };
 
   it('offers an owner none or any of the workspace\'s repositories, the saved one picked, Save waiting for a change', () => {
     const section = sectionOf(render(live({ ...TAB, plan: PLAN })));
-    expect(section).toContain('aria-label="Plan repository"');
-    expect(options(section)).toEqual(['', 'acme/api', 'acme/plan *', 'acme/scripts', 'acme/widgets']);
-    expect(section).toContain(`<option value="">${NO_PLAN_CHOICE}</option>`);
+    expect(picks(section)).toEqual([{ label: 'Plan repository', shown: 'acme/plan', value: 'acme/plan' }]);
     expect(section).toMatch(/<button class="ask-button" type="submit" disabled="">Save<\/button>/);
   });
 
   it('picks none for an owner while the product names no plan repository, and keeps a saved one the workspace no longer lists', () => {
-    expect(options(sectionOf(render(live({ ...TAB, plan: null }))))).toEqual([' *', 'acme/api', 'acme/plan', 'acme/scripts', 'acme/widgets']);
-    expect(options(sectionOf(render(live({ ...TAB, plan: { repository: 'acme/old-plan', holds: [] } }))))).toContain('acme/old-plan *');
+    expect(picks(sectionOf(render(live({ ...TAB, plan: null }))))).toEqual([{ label: 'Plan repository', shown: NO_PLAN_CHOICE, value: '' }]);
+    expect(picks(sectionOf(render(live({ ...TAB, plan: { repository: 'acme/old-plan', holds: [] } }))))).toEqual([{ label: 'Plan repository', shown: 'acme/old-plan', value: 'acme/old-plan' }]);
   });
 
   it('reads the plan repository as text to a member, or says there is none, with no control', () => {

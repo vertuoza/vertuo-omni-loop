@@ -52,11 +52,8 @@ describe('the filters', () => {
     expect(form).toContain('action="/prd"');
     expect(form).toContain('role="search"');
     expect(html).toMatch(/<input[^>]*type="search"[^>]*name="q"/);
-    const repos = [...html.matchAll(/<option value="([^"]*)"[^>]*>([^<]+)<\/option>/g)].map((m) => [m[1], m[2]]);
-    expect(repos).toEqual([
-      ['', 'Any'], ['demo-org/nimbus-core', 'demo-org/nimbus-core'], ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-omni-loop'],
-      ['', 'Drafts and PRDs'], ['draft', 'Drafts'], ['prd', 'PRDs'],
-    ]);
+    const picks = [...html.matchAll(/<button[^>]*role="combobox"[^>]*><span[^>]*class="omni-select__value">([^<]*)<\/span>/g)].map((m) => m[1]);
+    expect(picks).toEqual(['Any', 'Drafts and PRDs']);
     expect(html).toContain('>Filter</button>');
     expect(html).not.toContain('>Clear</a>');
   });
@@ -85,8 +82,8 @@ describe('the filters', () => {
   it('keep what the address picked, and offer to clear it', () => {
     const html = history({ who: 'mine', repo: 'demo-org/nimbus-core', state: 'prd', search: 'dossiers' });
     expect(html).toMatch(/<input[^>]*name="q"[^>]*value="dossiers"/);
-    expect(html).toContain('<option value="demo-org/nimbus-core" selected="">');
-    expect(html).toContain('<option value="prd" selected="">');
+    expect(html).toMatch(/<input[^>]*name="repo"[^>]*value="demo-org\/nimbus-core"/);
+    expect(html).toMatch(/<input[^>]*name="state"[^>]*value="prd"/);
     expect(html).toContain('<a class="dossier-history-clear" href="/prd">Clear</a>');
   });
 });

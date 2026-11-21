@@ -1,4 +1,6 @@
 'use client';
+import { Select } from '@omni/ui';
+import { useRef } from 'react';
 import type { ArtifactKind } from '../store';
 import type { VersionEntry } from './view';
 
@@ -11,15 +13,21 @@ import type { VersionEntry } from './view';
 type Props = { action: string; tab: ArtifactKind | 'proof'; versions: VersionEntry[]; shown: number; noun?: 'Version' | 'Round' | 'Run' };
 
 export function VersionPicker({ action, tab, versions, shown, noun = 'Version' }: Props) {
+  const form = useRef<HTMLFormElement>(null);
   return (
-    <form className="dossier-picker" method="get" action={action}>
+    <form ref={form} className="dossier-picker" method="get" action={action}>
       <input type="hidden" name="tab" value={tab} />
-      <label className="dossier-picker-field">
+      <div className="dossier-picker-field">
         <span className="ask-hint">{noun}</span>
-        <select className="ask-share-pick" name="v" defaultValue={String(shown)} onChange={(e) => e.currentTarget.form?.requestSubmit()}>
-          {versions.map((v) => <option key={v.number} value={String(v.number)}>{v.label}</option>)}
-        </select>
-      </label>
+        <Select
+          size="sm"
+          label={noun}
+          name="v"
+          defaultValue={String(shown)}
+          options={versions.map((v) => ({ value: String(v.number), label: v.label }))}
+          onValueChange={() => { setTimeout(() => { form.current?.requestSubmit(); }, 0); }}
+        />
+      </div>
       <button type="submit" className="ask-button quiet">Show</button>
     </form>
   );

@@ -18,10 +18,7 @@ const OWNED: Approvers = {
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const rows = (html: string) => [...html.matchAll(/<li class="approvers-row">([\s\S]*?)<\/li>/g)].map((m) => group(m, 1));
-const selects = (html: string) => [...html.matchAll(/<select ([^>]*)>([\s\S]*?)<\/select>/g)].map((m) => ({
-  label: /aria-label="([^"]*)"/.exec(group(m, 1))?.[1],
-  options: [...group(m, 2).matchAll(/<option ([^>]*)>([^<]*)<\/option>/g)].map((o) => ({ value: /value="([^"]*)"/.exec(group(o, 1))?.[1], selected: group(o, 1).includes('selected'), text: o[2] })),
-}));
+const selects = (html: string) => [...html.matchAll(/<button [^>]*aria-label="([^"]*)"[^>]*><span[^>]*class="omni-select__value">([^<]*)<\/span>[\s\S]*?<input [^>]*aria-hidden="true"[^>]*value="([^"]*)"/g)].map((m) => ({ label: m[1], shown: m[2], value: m[3] }));
 const buttons = (html: string) => [...html.matchAll(/<button [^>]*>([^<]*)<\/button>/g)].map((m) => m[1]);
 
 const draw = (approvers: Approvers | null, message: string | null = null) =>
@@ -34,9 +31,9 @@ describe('the Approvers list, for a workspace owner', () => {
     expect(text(html)).toContain(APPROVERS_HINT);
     expect(rows(html).map((r) => text(r).split(' ')[0])).toEqual(['Irisa', 'Dev']);
     expect(selects(html)).toEqual([
-      { label: 'Irisa', options: [{ value: 'asked', selected: true, text: 'Asked to approve' }, { value: 'skipped', selected: false, text: 'Skipped' }] },
-      { label: 'Dev', options: [{ value: 'asked', selected: false, text: 'Asked to approve' }, { value: 'skipped', selected: true, text: 'Skipped' }] },
-      { label: 'Member to add', options: [{ value: 'u-paul', selected: true, text: 'paul' }] },
+      { label: 'Irisa', shown: 'Asked to approve', value: 'asked' },
+      { label: 'Dev', shown: 'Skipped', value: 'skipped' },
+      { label: 'Member to add', shown: 'paul', value: 'u-paul' },
     ]);
     expect(buttons(html)).toEqual(['Remove', 'Remove', 'Add']);
     expect(text(html)).toContain(ONLY_ASKED);
