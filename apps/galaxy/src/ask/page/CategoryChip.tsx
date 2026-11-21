@@ -1,3 +1,4 @@
+'use client';
 import { Select } from '@omni/ui';
 import { CATEGORIES, CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import type { ChipView } from './view';
