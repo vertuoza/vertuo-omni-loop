@@ -145,6 +145,20 @@ search box inside the list (that is the Combobox).
     needs @pierrederval or @dervalp to approve the pull request on GitHub.
   - N-PRODUCT-8: a person's questions and answers could be sent to a server they never chose.
     Changing it needs @pierrederval or @dervalp to approve the pull request on GitHub.
+
+  The questions card (`agent-connect/`), the terminal tokens card (`profile/`) and the settings
+  repository line (`omni-settings/`) put the change in the access area too, so these apply as well,
+  and are kept the same way:
+  - BR-PRODUCT-28: a stranger could link a GitHub account to a workspace. Changing it needs
+    @pierrederval or @dervalp to approve the pull request on GitHub.
+  - BR-PRODUCT-63: an agent link could read repositories of another workspace. Changing it needs
+    @pierrederval or @dervalp to approve the pull request on GitHub.
+  - BR-PRODUCT-64: a person who left could still act through an agent link. Changing it needs
+    @pierrederval or @dervalp to approve the pull request on GitHub.
+  - N-PRODUCT-17: anyone opening the app could read a secret sent to the browser. Changing it needs
+    @pierrederval or @dervalp to approve the pull request on GitHub.
+  - BR-PRODUCT-59: a member could copy the workspace's stored AI key. Changing it needs
+    @pierrederval or @dervalp to approve the pull request on GitHub.
 - **The business laws:** none touched.
 
 ## Acceptance criteria
