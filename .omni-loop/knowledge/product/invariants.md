@@ -87,3 +87,14 @@ Stated: 2026-11-17
 Decided: nobody — adopted when raised (medium), 2026-11-17
 Merged: @pierrederval, 2026-11-17, PR #3002
 Proposed: harvest 2026-11-17
+
+## N-PRODUCT-26
+
+An Omni Loop bug reads fixed only once the release holding its fix is known; a bug with a fix pull request but no release is never treated as fixed.
+
+Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry s2-03-bug-fix-and-release-shape, PRD #3088
+Enforced by: supabase/checks/omni_bug_team.sql, apps/omni-app/src/missions/store.bug-fixed.test.ts
+Stated: 2026-11-19
+Decided: nobody — adopted when raised (medium), 2026-11-19
+Merged: @pierrederval, 2026-11-19, PR #3089
+Proposed: harvest 2026-11-19

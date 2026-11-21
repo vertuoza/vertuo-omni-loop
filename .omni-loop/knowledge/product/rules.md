@@ -1091,3 +1091,27 @@ Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry 
 Enforced by: apps/omni-app/src/missions/repair.bug-fixed.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts
 Stated: 2026-11-19
 Decided: @pierrederval, 2026-11-19
+
+## BR-PRODUCT-173
+
+Once a person answers the question of a bug the Omni Loop bug team set aside, the bug still reads set aside until GitHub shows its fix merged or its issue closed. The team never asks about that bug again and never takes it up again on its own.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry s3-02-answered-bug-stays-asked, PRD #3088
+Enforced by: apps/omni-app/src/missions/bug-team.test.ts, apps/omni-app/src/bug-reports/follow.test.ts
+Stated: 2026-11-19
+Decided: nobody — adopted when raised (medium), 2026-11-19
+Merged: @pierrederval, 2026-11-19, PR #3089
+Proposed: harvest 2026-11-19
+
+## BR-PRODUCT-174
+
+When an Omni Loop bug team's bug fix was cancelled by a person, its bug is set aside for a person and spends none of its three tries; the team never takes that bug again on its own.
+
+Serves: P-PRODUCT-114
+Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry s3-03-cancelled-fix-set-aside, PRD #3088
+Enforced by: apps/omni-app/src/missions/bug-team.test.ts
+Stated: 2026-11-19
+Decided: nobody — adopted when raised (medium), 2026-11-19
+Merged: @pierrederval, 2026-11-19, PR #3089
+Proposed: harvest 2026-11-19
