@@ -216,8 +216,8 @@ describe('the board', () => {
 
   it('gives a workspace owner a fleet picker per runner, Shared first, the runner\'s fleet chosen', () => {
     expect(html).toContain('aria-label="Fleet of acme-agents"');
-    expect(html).toMatch(/aria-label="Fleet of acme-agents"[^>]*><option value="">Shared<\/option><option value="comets" selected="">Comets<\/option><option value="nebula">Nebula<\/option><\/select>/);
-    expect(html).toMatch(/aria-label="Fleet of mac-mini-office"[^>]*><option value="" selected="">Shared<\/option>/);
+    expect(html).toMatch(/aria-label="Fleet of acme-agents"[^>]*><span class="omni-select__value">Comets<\/span>/);
+    expect(html).toMatch(/aria-label="Fleet of mac-mini-office"[^>]*><span[^>]*class="omni-select__value">Shared<\/span>/);
   });
 
   it('gives a member who is not an owner each fleet as text, with no picker', () => {

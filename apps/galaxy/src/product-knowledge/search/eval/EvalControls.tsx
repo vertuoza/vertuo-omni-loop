@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useState, type SyntheticEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { addEvalQuestion, removeEvalQuestion, setEvalAnswer } from './eval-actions';
@@ -91,13 +92,17 @@ export function AddQuestion({ product, categories }: { product: string; categori
         <span>Add a question to the set</span>
         <input type="text" value={text} onChange={(e) => { setText(e.target.value); }} placeholder="what an agent would ask" disabled={busy} />
       </label>
-      <label>
+      <div>
         <span className="ask-muted">Category</span>
-        <select value={category} onChange={(e) => { setCategory(e.target.value); }} disabled={busy}>
-          <option value="">No category</option>
-          {categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-        </select>
-      </label>
+        <Select
+          size="sm"
+          label="Category"
+          value={category}
+          onValueChange={setCategory}
+          disabled={busy}
+          options={[{ value: '', label: 'No category' }, ...categories.map((c) => ({ value: c.key, label: c.label }))]}
+        />
+      </div>
       <button type="submit" className="ask-button ev-button" disabled={busy || text.trim() === ''}>Add question</button>
       <Refusal message={refusal} />
     </form>

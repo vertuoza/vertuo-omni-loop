@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useReducer, useRef, useState, type SubmitEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConstituentsPanel, type ConstituentHandlers } from '../../business/ConstituentsPanel';
@@ -101,11 +102,15 @@ function useAdd({ source, read, product, hasStatement }: Props & { hasStatement:
 
 const KindSelect = ({ kind, busy, hasStatement, onKind }: { kind: Kind; busy: boolean; hasStatement: boolean; onKind: (kind: Kind) => void }) => (
   <>
-    <label className="ask-muted" htmlFor="add-constituent-kind">Add</label>
-    <select id="add-constituent-kind" value={kind} disabled={busy} onChange={(e) => { onKind(e.currentTarget.value === 'never' ? 'never' : 'statement'); }}>
-      {!hasStatement && <option value="statement">Statement</option>}
-      <option value="never">Never line</option>
-    </select>
+    <span className="ask-muted">Add</span>
+    <Select
+      size="sm"
+      label="Add"
+      value={kind}
+      disabled={busy}
+      onValueChange={(value) => { onKind(value === 'never' ? 'never' : 'statement'); }}
+      options={[...(hasStatement ? [] : [{ value: 'statement', label: 'Statement' }]), { value: 'never', label: 'Never line' }]}
+    />
   </>
 );
 

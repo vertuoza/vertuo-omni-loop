@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useState, type SubmitEvent } from 'react';
 import { chooseRepository, demoChoice, type Chosen, type PlaybookEditing } from './omni-settings.client';
 import type { RepositoryChoice } from './omni-settings.contract';
@@ -98,14 +99,13 @@ function Picker({ chosen, listed, saving, onCancel }: { chosen: string | null; l
   };
   return (
     <form className="omni-settings-line omni-settings-picker" onSubmit={submit}>
-      <label htmlFor="omni-settings-repository">Settings repository</label>
-      <select
-        id="omni-settings-repository" name="repository" className="omni-settings-select" required disabled={saving.busy}
-        defaultValue={chosen !== null && listed.includes(chosen) ? chosen : ''}
-      >
-        <option value="" disabled>Choose a repository</option>
-        {listed.map((name) => <option key={name} value={name}>{name}</option>)}
-      </select>
+      <span className="omni-settings-picker-label">Settings repository</span>
+      <Select
+        label="Settings repository" name="repository" required disabled={saving.busy}
+        {...(chosen !== null && listed.includes(chosen) ? { defaultValue: chosen } : {})}
+        placeholder="Choose a repository"
+        options={listed.map((name) => ({ value: name, label: name }))}
+      />
       <Actions>
         <button type="submit" className="ask-button" data-primary disabled={saving.busy}>Save</button>
         {onCancel !== null && <button type="button" className="ask-button quiet" disabled={saving.busy} onClick={onCancel}>Cancel</button>}

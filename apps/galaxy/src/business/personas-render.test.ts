@@ -82,7 +82,8 @@ describe('the card grid', () => {
     const generic = cardOf(render([persona(9, { name: 'Lou', trade: 'generic' })]), 'pe-9').match(/<svg[\s\S]*?<\/svg>/)?.[0]?.replace(/aria-label="[^"]*"|<title>[^<]*<\/title>/g, '');
     expect(card.match(/<svg[\s\S]*?<\/svg>/)?.[0]?.replace(/aria-label="[^"]*"|<title>[^<]*<\/title>/g, '')).toBe(generic);
     const edit = render(odd, { actions: [{ type: 'edit', persona: 'pe-9', seed: 'e' }] });
-    expect(edit).toContain('<option value="Other…" selected="">Other…</option>');
+    expect(edit).toMatch(/<input[^>]*name="trade" value="Other…"\/>/);
+    expect(edit).toContain('<span class="omni-select__value">Other…</span>');
     expect(edit).toMatch(/<input[^>]*name="other-trade"[^>]*value="credit risk analyst"/);
     expect(variations(edit)).toHaveLength(24);
     expect(variations(edit).every((v) => sure(v, 'v').includes('<svg'))).toBe(true);
@@ -104,13 +105,12 @@ describe('the drawer', () => {
     expect(tag('name')).toContain('maxLength="40"');
     const stances = buttons(open).filter((b) => sure(b.attrs, 'b.attrs').includes('data-stance'));
     expect(stances.map((b) => [b.text, sure(b.attrs, 'b.attrs').includes('aria-pressed="true"')])).toEqual([['Enthusiastic', false], ['Neutral', true], ['Skeptical', false]]);
-    const options = [...open.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1]);
-    expect(options).toEqual([...PERSONA_TRADES.map((t) => t.id), 'Other…']);
-    expect(options.slice(0, -1)).toHaveLength(21);
+    expect(PERSONA_TRADES).toHaveLength(21);
     expect(open).not.toContain('name="other-trade"');
     expect(tag('who')).toContain('maxLength="400"');
     expect(tag('usage')).toContain('maxLength="400"');
-    expect(tag('trade')).toContain('<select');
+    expect(open).toMatch(/role="combobox"[^>]*aria-label="Trade"/);
+    expect(open).not.toContain('<select');
     expect(text(open)).toContain('Who they are');
     expect(text(open)).toContain('How they use it');
     expect(buttons(open).map((b) => b.text)).toEqual(expect.arrayContaining([SHUFFLE, 'Save', 'Cancel']));
