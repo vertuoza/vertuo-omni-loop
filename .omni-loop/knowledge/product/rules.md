@@ -1091,3 +1091,27 @@ Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry 
 Enforced by: apps/omni-app/src/missions/repair.bug-fixed.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts
 Stated: 2026-11-19
 Decided: @pierrederval, 2026-11-19
+
+## BR-PRODUCT-175
+
+The Commander reads the last 50 events, with their jobs, of every mission that runs, waits or is paused and of every mission that ended in the last 24 hours; the oldest are trimmed first when one message's input would pass 40,000 tokens.
+
+Serves: P-PRODUCT-132
+Source: .omni-loop/delivery/shipped/3107-fleet-commander/outbox/settled.md, entry s1-03-record-reads-waiting-and-ended-missions, PRD #3107
+Enforced by: apps/galaxy/src/virtual-fleets/commander/commander.service.test.ts
+Stated: 2026-11-21
+Decided: nobody — adopted when raised (medium), 2026-11-20
+Merged: @pierrederval, 2026-11-21, PR #3110
+Proposed: harvest 2026-11-21
+
+## BR-PRODUCT-176
+
+The notebook job drops any line that holds an obligation word such as should or must, opens with an imperative, speaks to someone in the second person, or says all is well, even when the line might have been a useful lesson.
+
+Serves: P-PRODUCT-133
+Source: .omni-loop/delivery/shipped/3107-fleet-commander/outbox/settled.md, entry s4-03-notebook-job-daily-and-strict, PRD #3107
+Enforced by: apps/omni-app/src/missions/notebook.test.ts, apps/omni-app/src/missions/notebook-run.test.ts
+Stated: 2026-11-21
+Decided: nobody — adopted when raised (medium), 2026-11-20
+Merged: @pierrederval, 2026-11-21, PR #3110
+Proposed: harvest 2026-11-21

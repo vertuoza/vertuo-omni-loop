@@ -1033,3 +1033,21 @@ Why: People rely on a mission's retros to learn from it, so a missing retro must
 Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-03-milestone-retros-run-and-shape, PRD #3065
 Merged: @pierrederval, 2026-11-19, PR #3066
 Proposed: harvest 2026-11-19
+
+## P-PRODUCT-132
+
+The Commander reads every mission a member is likely to ask about, so it never says it found nothing about work that waits, is paused or just ended.
+
+Why: Members mostly ask what waits on them, what happened overnight and why a mission stopped, and those answers live in missions that are not running.
+Source: .omni-loop/delivery/shipped/3107-fleet-commander/outbox/settled.md, entry s1-03-record-reads-waiting-and-ended-missions, PRD #3107
+Merged: @pierrederval, 2026-11-21, PR #3110
+Proposed: harvest 2026-11-21
+
+## P-PRODUCT-133
+
+A fleet's notebook never keeps a line that reads as an order; only plain observations are written down for the Commander.
+
+Why: Notebook lines are read back by the Commander, so an order-like line could steer agents as an injected instruction.
+Source: .omni-loop/delivery/shipped/3107-fleet-commander/outbox/settled.md, entry s4-03-notebook-job-daily-and-strict, PRD #3107
+Merged: @pierrederval, 2026-11-21, PR #3110
+Proposed: harvest 2026-11-21
