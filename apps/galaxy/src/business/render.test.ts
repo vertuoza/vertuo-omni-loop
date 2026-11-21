@@ -43,6 +43,8 @@ const render = (claims: Claim[], { demo = false, actions = [] as BusinessAction[
   renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims)), demo }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1 = (html: string) => text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '').replace(/ (?=[,.-])/g, '').replace(/- /g, '-');
+/** The buttons of a form that are not a Select's trigger. */
+const actions = (html: string) => buttons(html).filter((b) => !b.attrs?.includes('role="combobox"'));
 const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(sure(m[2], 'm[2]')) }));
 const inputs = (html: string) => [...html.matchAll(/<input\b([^>]*)>/g)].map((m) => sure(m[1], 'm[1]'));
 const rowOf = (html: string, id: string) => {
@@ -512,21 +514,21 @@ describe('Questions agents couldn’t answer (PRD 855 s3)', () => {
 
   it('opens Answer once: the kinds, the value, and no product when the question names one', () => {
     const row = rowOfQuestion(card([ask()], [{ type: 'answer', id: 'q-1' }, { type: 'kind', kind: 'never' }, { type: 'value', value: 'Luxembourg' }]), 'q-1');
-    expect([...row.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])).toEqual(['offering', 'size', 'trade', 'region', 'rival', 'never']);
-    expect(row).toMatch(/<option value="never" selected="">/);
+    expect(row).toMatch(/<button[^>]*role="combobox"[^>]*aria-label="Kind"[^>]*><span class="omni-select__value">Never<\/span>/);
+    expect(row).toMatch(/<input[^>]*name="kind" value="never"/);
     expect(inputs(row).find((i) => i.includes('name="value"'))).toContain('maxLength="200"');
     expect(row).not.toContain('name="product"');
-    expect(buttons(row).map((b) => b.text)).toEqual([SAVE_ANSWER, 'Cancel']);
-    expect(sure(buttons(row)[0], 'buttons(row)[0]').attrs).not.toContain('disabled');
+    expect(actions(row).map((b) => b.text)).toEqual([SAVE_ANSWER, 'Cancel']);
+    expect(sure(actions(row)[0], 'actions(row)[0]').attrs).not.toContain('disabled');
   });
 
   it('asks for the product when the question names none and the business has several, but never for a region', () => {
     const open: QuestionsAction[] = [{ type: 'answer', id: 'q-1' }, { type: 'kind', kind: 'trade' }, { type: 'value', value: 'plumbing' }];
     const html = rowOfQuestion(card([ask({ product: null })], open), 'q-1');
     expect(html).toContain('name="product"');
-    expect(sure(buttons(html)[0], 'buttons(html)[0]').attrs).toContain('disabled');
+    expect(sure(actions(html)[0], 'actions(html)[0]').attrs).toContain('disabled');
     const picked = rowOfQuestion(card([ask({ product: null })], [...open, { type: 'product', product: 'p-2' }]), 'q-1');
-    expect(sure(buttons(picked)[0], 'buttons(picked)[0]').attrs).not.toContain('disabled');
+    expect(sure(actions(picked)[0], 'actions(picked)[0]').attrs).not.toContain('disabled');
     expect(rowOfQuestion(card([ask({ product: null })], [{ type: 'answer', id: 'q-1' }]), 'q-1')).not.toContain('name="product"');
     expect(rowOfQuestion(card([ask({ product: null })], open, { products: [sure(TWO[0], 'TWO[0]')] }), 'q-1')).not.toContain('name="product"');
   });
