@@ -19,7 +19,7 @@ fleet shows today's board, unchanged.
 ## Regions
 
 - **The header:** the fleet's name, its colour and its mascot, drawn once.
-- **The tabs:** Operation room · Missions · Heroes · Board, the current one marked.
+- **The tabs:** Operation room · Missions · Heroes · Board · Commander, the current one marked.
 - **The page area:** the tab's own screen (`fleet-room`, `mission-start`, `fleet-seats` as the Heroes
   tab, or today's fleet board). The tab is `?tab=room|missions|heroes|board`, the Operation room by
   default; a tab whose slice is not built yet says `This tab is not open yet.`
@@ -31,7 +31,7 @@ fleet shows today's board, unchanged.
 
 ## Words
 
-- `Operation room`, `Missions`, `Heroes`, `Board`, `This tab is not open yet.`
+- `Operation room`, `Missions`, `Heroes`, `Board`, `Commander`, `This tab is not open yet.`
 
 ## Refusals
 
@@ -49,3 +49,4 @@ fleet shows today's board, unchanged.
 
 /omni:think-big, concept #2800, crowned A on 2026-11-13: .omni-loop/delivery/inbox/concepts/2800-fleet-operation-room/vision.html
 /omni:brainstorm, PRD 2842: .omni-loop/delivery/shipped/2842-missions/before-after.html
+/omni:brainstorm, PRD 3107: .omni-loop/delivery/shipped/3107-fleet-commander/before-after.html

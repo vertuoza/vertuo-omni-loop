@@ -97,7 +97,7 @@
 import type { IssueNumber, PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { missionRefusal } from 'omni-loop/kit/lib/runner/line.ts';
 import {
-  CHECKPOINT_BYTES_MAX, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, isAppLine, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
+  CHECKPOINT_BYTES_MAX, type FleetMessageClaim, MAX_FLEET_MESSAGES, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, isAppLine, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type BoardSave, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
   type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
@@ -916,8 +916,21 @@ export function runnersService(
     const resume = await resumeClaimOf(job);
     return {
       id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(job.sent_by === null ? null : logins.get(job.sent_by) ?? null, keyName, job.sent_by_app), allowedSkills,
-      sentByKey: keyName, github: granted.grant, ...(resume === null ? {} : { resume }), ...await missionClaimOf(job),
+      sentByKey: keyName, github: granted.grant, ...(resume === null ? {} : { resume }), ...await missionClaimOf(job), ...await messagesClaimOf(job),
     };
+  }
+
+  /** The fleet messages `job` carries (PRD 3107 s3): the newest MAX_FLEET_MESSAGES of those its mission was told that its role had
+   * not read, `messages` absent when there are none. A job no mission sent carries none. A read that fails leaves them for the
+   * role's next job, and never costs the claim. */
+  async function messagesClaimOf(job: Pick<JobRow, 'id' | 'mission_id'>): Promise<{ messages?: FleetMessageClaim[] }> {
+    if (typeof job.mission_id !== 'string') return {};
+    try {
+      const told = await store.fleetMessagesFor(job.id);
+      return told.length === 0 ? {} : { messages: told.slice(-MAX_FLEET_MESSAGES) };
+    } catch {
+      return {};
+    }
   }
 
   /** The mission that sent `job`, by its level (PRD 2896 s12), for the runner, which runs a PM skill on a job of a mission at `alone`

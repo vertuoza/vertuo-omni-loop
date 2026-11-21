@@ -39,7 +39,7 @@ describe('scheduledJobs — the job of the current slot of each schedule', () =>
     ]);
   });
 
-  it('holds the Engineering board’s collector every 15 minutes and the escalation every hour, 3 tries each (s2), the search categorizer every 15 minutes (omni-loop-7 s3), the eval set\'s promotion and run each day (omni-loop-8 s4), and the saves\' forgetting every hour (PRD 2809 s6)', () => {
+  it('holds the Engineering board’s collector every 15 minutes and the escalation every hour, 3 tries each (s2), the search categorizer every 15 minutes (omni-loop-7 s3), the eval set\'s promotion and run each day (omni-loop-8 s4), the saves\' forgetting every hour (PRD 2809 s6), and the Commander\'s notebooks each day (PRD 3107 s4)', () => {
     expect(SCHEDULES).toEqual([
       STATS,
       ESCALATION,
@@ -47,8 +47,9 @@ describe('scheduledJobs — the job of the current slot of each schedule', () =>
       { kind: 'search-eval-promote', periodMinutes: 1440, maxTries: 3 },
       { kind: 'search-eval-run', periodMinutes: 1440, maxTries: 3 },
       { kind: 'checkpoints-forget', periodMinutes: 60, maxTries: 3 },
+      { kind: 'commander-notebook', periodMinutes: 1440, maxTries: 3 },
     ]);
-    expect(scheduledJobs(SCHEDULES, at('2027-01-15T09:20:00.000Z')).map((job) => job.key)).toEqual(['pr-stats@2027-01-15T09:15:00.000Z', 'escalation@2027-01-15T09:00:00.000Z', 'search-categorize@2027-01-15T09:15:00.000Z', 'search-eval-promote@2027-01-15T00:00:00.000Z', 'search-eval-run@2027-01-15T00:00:00.000Z', 'checkpoints-forget@2027-01-15T09:00:00.000Z']);
+    expect(scheduledJobs(SCHEDULES, at('2027-01-15T09:20:00.000Z')).map((job) => job.key)).toEqual(['pr-stats@2027-01-15T09:15:00.000Z', 'escalation@2027-01-15T09:00:00.000Z', 'search-categorize@2027-01-15T09:15:00.000Z', 'search-eval-promote@2027-01-15T00:00:00.000Z', 'search-eval-run@2027-01-15T00:00:00.000Z', 'checkpoints-forget@2027-01-15T09:00:00.000Z', 'commander-notebook@2027-01-15T00:00:00.000Z']);
   });
 });
 

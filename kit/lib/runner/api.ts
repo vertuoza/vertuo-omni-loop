@@ -29,6 +29,8 @@ import { field, jsonObject } from '../ask/schema.ts';
 import type { JsonObject } from '../ask/schema.ts';
 import type { IssueNumber, PrdNumber } from '../ids.ts';
 import type { CheckpointManifest } from './checkpoint.manifest.ts';
+import { FleetMessagesSchema } from './fleet-messages.ts';
+import type { FleetMessage } from './fleet-messages.ts';
 import { ResumeClaimSchema } from './resume.claim.ts';
 import type { ResumeClaim } from './resume.claim.ts';
 import type { Sample } from './health.ts';
@@ -98,12 +100,17 @@ const JobSchema = z.object({
   // The mission that sent it, by its level (PRD 2896 s12): the PM's skills run on a job of a mission at `alone` only. An older app
   // sends none, and the job belongs to no mission: a PM skill is refused on it.
   mission: z.object({ level: z.string() }).nullish().catch(null).transform((value) => value ?? null),
+  // The fleet messages a mission job carries (PRD 3107 s3): an older app sends none, and a list the runner cannot read is none too,
+  // so the job still runs and its session prints no `From your people` block.
+  messages: FleetMessagesSchema.nullish().catch(null).transform((value) => value ?? []),
 });
 
 /** A job as the runner reads it: its id, its line, its repository (`owner/name`), who sent it, the
  * repository's own skills it may run, the GitHub App it runs as, the API key that sent it, and, for a resume, its chain
  * (absent or `null` for any other job), and the mission that sent it, by its level (absent or `null` for a job no mission sent). */
-export type RunnerJob = Omit<z.output<typeof JobSchema>, 'resume' | 'mission'> & { resume?: ResumeClaim | null | undefined; mission?: JobMission | undefined };
+export type RunnerJob = Omit<z.output<typeof JobSchema>, 'resume' | 'mission' | 'messages'> & {
+  resume?: ResumeClaim | null | undefined; mission?: JobMission | undefined; messages?: readonly FleetMessage[] | undefined;
+};
 
 /** What a job update answers: whether a cancel waits. */
 const UpdatedSchema = z.object({ cancel: z.boolean().optional() }).loose();

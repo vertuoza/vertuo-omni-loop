@@ -115,6 +115,7 @@ import type { Released, Releaser } from './release.ts';
 import { KEEP_BUDGET_GB, saveJob, savedLine, savesIn, sendSave } from './checkpoint.ts';
 import type { Author, LocalSave, Sent } from './checkpoint.ts';
 import { CHECKPOINT_BYTES_MAX } from './checkpoint.manifest.ts';
+import { handFleetMessages } from './fleet-messages.ts';
 import { chainCarriesOn, chainOf, keepChain, lostWords, readChain, restoreSaves, resumedLine, resumeNote, resumeNotePath, resumePointer } from './resume.ts';
 import type { Chain } from './resume.ts';
 import { dropJobBranch, forgottenLine, keepWithin, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
@@ -881,6 +882,12 @@ async function resumed(loop: Loop, job: RunnerJob, place: Place): Promise<string
   return resumePointer(resume, path);
 }
 
+/** Leaves the job's fleet messages for its session (PRD 3107 s3); a file that cannot be written prints why, and the job runs. */
+function handMessages(loop: Loop, job: RunnerJob, place: Place): void {
+  const unhanded = handFleetMessages(place.worktree, job.messages ?? []);
+  if (unhanded !== null) loop.print(`job ${job.id}: its fleet messages could not be handed to the session (${unhanded})`);
+}
+
 /** Runs `job` to its end, and answers its last status and its live lines, once it has a log. */
 async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; live: Live | null }> {
   const place = placeOf(loop, job);
@@ -897,6 +904,7 @@ async function runJob(loop: Loop, job: RunnerJob): Promise<{ last: JobUpdate; li
     const taken = takeAccount(loop, job);
     if (taken !== null) return { last: { status: 'failed', reason: taken }, live: null };
     const pointer = await resumed(loop, job, place);
+    handMessages(loop, job, place);
     if (!startSession(loop, job, place, plugin.note, app.env, pointer)) return { last: { status: 'failed', reason: 'the tmux session could not be started' }, live: null };
     const live: Live = { log: place.log, cursor: 0 };
     return { last: await watch(loop, job, place, live), live };

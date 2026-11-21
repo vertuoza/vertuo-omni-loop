@@ -182,6 +182,22 @@ jobs:
         # and a member of another workspace reads none of the team's mission. A bug's job key and the three event kinds
         # (PRD 3088).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/omni_bug_team.sql
+      - name: A Virtual Fleet's Commander thread
+        # A member asks their fleet's Commander as themselves; a stranger, an account of no workspace and anon read and post
+        # nothing. Only the service role replies, once per question, of its fleet, its links inside the app or on GitHub; no
+        # message changes; the replies' tokens spend the fleet's 24 hours; the hourly purge forgets what is older than 90
+        # days, and a deleted account's questions go with it (PRD 3107).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/commander_messages.sql
+      - name: A message to a Virtual Fleet, read at its next job
+        # A member messages their fleet as themselves; a messaged event in each running mission links to it and holds none of
+        # its words; a job's claim carries what its role had not read, once; strangers read and send nothing; the purge
+        # forgets what is older than 90 days, and a deleted account's messages go with it (PRD 3107 s3).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/commander_messaged.sql
+      - name: A Virtual Fleet's two notebooks
+        # Only the service role writes a line, each citing 1 to 10 events of its mission, a batch once; a line with no event,
+        # another mission's or another fleet's is refused; nobody changes a line; a member reads both notebooks and deletes a
+        # line as themselves, the record keeping who and when; strangers read and delete nothing (PRD 3107 s4).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/commander_notes.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is
