@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import type { SubmitEvent } from 'react';
 import { PERSONA_TRADES, personaGrid, TRADE_MAX, validPersonaTrade, type PersonaAvatar } from '@omni/design';
 import { pixelSvg } from '../design/pixel-svg';
@@ -118,22 +119,20 @@ function TradeFields({ state, on }: { state: PersonasState; on: PersonaHandlers 
   const f = drawer.fields;
   return (
     <>
-      <label className="business-persona-field">
+      <div className="business-persona-field">
         <span className="business-type-label">Trade</span>
-        <select
+        <Select
+          label="Trade"
           name="trade"
           value={drawer.other ? OTHER_VALUE : f.trade}
           disabled={state.busy}
-          onChange={(e) => {
-            const picked = e.currentTarget.value;
+          onValueChange={(picked) => {
             if (picked === OTHER_VALUE) on.change({ trade: '' }, true);
             else on.change({ trade: picked }, false);
           }}
-        >
-          {PERSONA_TRADES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          <option value={OTHER_VALUE}>{OTHER_VALUE}</option>
-        </select>
-      </label>
+          options={[...PERSONA_TRADES.map((t) => ({ value: t.id, label: t.label })), { value: OTHER_VALUE, label: OTHER_VALUE }]}
+        />
+      </div>
       {drawer.other && (
         <label className="business-persona-field">
           <span className="business-type-label">Other trade</span>

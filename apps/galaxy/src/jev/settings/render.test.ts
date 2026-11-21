@@ -119,17 +119,17 @@ describe('the decision rows (PRD 812 s2)', () => {
   it('lists the nine decisions, each with what it sends, Off at the defaults (PRD omni-loop-8 s3 adds Search relevance, PRD omni-loop-7 s2 adds Search category, PRD 855 s4 adds Unknown worth asking, PRD 871 s4 Constituent break, PRD 1217 s3 Human work kind, PRD 1342 s3 Worth a law)', () => {
     const html = page(STORED);
     expect(rows(html).map((r) => r.name)).toEqual(['question-category', 'outbox-risk', 'bug-risk', 'unknown-worth-asking', 'constituent-break', 'hitl-category', 'law-worth', 'search-category', 'search-relevant']);
-    expect(row(html, 'search-relevant')).toMatch(/<option value="off" selected="">Off<\/option>/);
-    expect(row(html, 'law-worth')).toMatch(/<option value="off" selected="">Off<\/option>/);
+    expect(row(html, 'search-relevant')).toMatch(/<input[^>]*name="mode" value="off"\/>/);
+    expect(row(html, 'law-worth')).toMatch(/<input[^>]*name="mode" value="off"\/>/);
     expect(text(sure(row(html, 'hitl-category'), 'the value'))).toContain('Sends: The entry’s source, text, act and repository, and its PRD’s title.');
-    expect(row(html, 'hitl-category')).toMatch(/<option value="off" selected="">Off<\/option>/);
+    expect(row(html, 'hitl-category')).toMatch(/<input[^>]*name="mode" value="off"\/>/);
     expect(text(sure(row(html, 'unknown-worth-asking'), 'the value'))).toContain('Sends: The agent’s question, its repository and file');
-    expect(row(html, 'unknown-worth-asking')).toMatch(/<option value="off" selected="">Off<\/option>/);
+    expect(row(html, 'unknown-worth-asking')).toMatch(/<input[^>]*name="mode" value="off"\/>/);
     expect(text(sure(row(html, 'constituent-break'), 'the value'))).toContain('Sends: The spec, the product’s Statement and Never lines');
     expect(text(sure(row(html, 'question-category'), 'the value'))).toContain('Sends: The round’s questions, their options and descriptions (never a preview)');
     expect(text(sure(row(html, 'outbox-risk'), 'the value'))).toContain('Sends: The item’s decision text and options');
     expect(text(sure(row(html, 'bug-risk'), 'the value'))).toContain('Sends: The issue’s title and body');
-    expect(row(html, 'question-category')).toMatch(/<option value="off" selected="">Off<\/option>/);
+    expect(row(html, 'question-category')).toMatch(/<input[^>]*name="mode" value="off"\/>/);
     expect(valueOf(sure(row(html, 'question-category'), 'the value'), 'threshold')).toBe('0.50');
     expect(valueOf(sure(row(html, 'question-category'), 'the value'), 'floor')).toBe('0.40');
   });
@@ -137,23 +137,21 @@ describe('the decision rows (PRD 812 s2)', () => {
   it('gives the owner a form for each decision, none of them coming any more (s5 registers bug-risk)', () => {
     const html = page(STORED, { decisions: [CATEGORY_ON] });
     const category = row(html, 'question-category');
-    expect(category).toMatch(/<option value="on" selected="">On<\/option>/);
+    expect(category).toMatch(/<input[^>]*name="mode" value="on"\/>/);
     expect(valueOf(sure(category, 'category'), 'threshold')).toBe('0.65');
     expect(valueOf(sure(category, 'category'), 'floor')).toBe('0.30');
-    expect(buttons(sure(category, 'category')).map((b) => b.text)).toEqual(['Save']);
+    expect(buttons(sure(category, 'category')).map((b) => b.text)).toEqual(['On', 'Save']);
     for (const name of ['outbox-risk', 'bug-risk', 'constituent-break']) {
-      expect(buttons(sure(row(html, name), 'row(html, name)')).map((b) => b.text)).toEqual(['Save']);
+      expect(buttons(sure(row(html, name), 'row(html, name)')).map((b) => b.text)).toEqual(['Off', 'Save']);
       expect(text(sure(row(html, name), 'row(html, name)'))).not.toContain('Coming in this PRD');
     }
   });
 
   it('offers Shadow and On only once Jev is on', () => {
     const off = row(page(NONE), 'question-category');
-    expect(off).toMatch(/<option value="shadow" disabled="">Shadow<\/option>/);
-    expect(off).toMatch(/<option value="on" disabled="">On<\/option>/);
+    expect(off).toMatch(/<input[^>]*name="mode" value="off"\/>/);
     expect(text(page(NONE))).toContain('Switch Jev on above to put a decision in Shadow or On.');
-    const on = row(page(STORED), 'question-category');
-    expect(on).toMatch(/<option value="shadow">Shadow<\/option>/);
+    // The list of modes itself (Off alone while Jev is off) is read by select-pick.dom.test.ts.
   });
 
   it('shows a member every decision read-only: no form, no control', () => {
@@ -182,7 +180,7 @@ describe('the decision rows (PRD 812 s2)', () => {
 
   it('waits on every row while one is saved', () => {
     const html = page(STORED, { actions: [{ type: 'decision-saving', decision: 'question-category' }] });
-    const b = buttons(sure(row(html, 'question-category'), 'the value'))[0];
+    const b = buttons(sure(row(html, 'question-category'), 'the value')).find((button) => button.text === 'Saving…');
     expect(sure(b, 'b').text).toBe('Saving…');
     expect(sure(b, 'b').attrs).toContain('disabled');
   });
@@ -251,7 +249,7 @@ describe('each decision\'s record (PRD 812 s4)', () => {
   it('says the record could not be read, and still shows the settings', () => {
     const html = row(page(STORED, { decisions: [SHADOW], records: null }), 'question-category');
     expect(text(record(sure(html, 'html')))).toBe('The record could not be read. Reload in a moment.');
-    expect(html).toContain('<select');
+    expect(html).toContain('role="combobox"');
   });
 
   it('is handed from the page\'s view down to each row', () => {

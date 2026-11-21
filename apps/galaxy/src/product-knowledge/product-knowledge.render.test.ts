@@ -237,8 +237,8 @@ describe('a workspace owner', () => {
   it('sees, above each list, the control that names its owner and delegate', () => {
     for (const html of [legalPage(tab), glossaryPage(tab)]) {
       expect(buttons(html)).toContain('Name owner and delegate');
-      expect(html).toMatch(/<option value="u-anna" selected="">@anna<\/option>/);
-      expect(html).toContain('<option value="u-dev">@dev</option>');
+      expect(html).toContain('<span class="omni-select__value">@anna</span>');
+      expect(html).toMatch(/role="combobox"[^>]*aria-label="Delegate"/);
     }
   });
 });

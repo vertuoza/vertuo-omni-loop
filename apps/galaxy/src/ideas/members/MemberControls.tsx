@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useState, type SubmitEvent } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../../supabase/database.types.ts';
@@ -75,12 +76,10 @@ function Fields({ idea, lane }: { idea?: Idea; lane: Lane }) {
         <span>{MEMBERS.pitch}</span>
         <textarea name="pitch" required maxLength={600} rows={3} defaultValue={idea?.pitch} />
       </label>
-      <label className="idea-field">
+      <div className="idea-field">
         <span>{MEMBERS.lane}</span>
-        <select name="lane" defaultValue={lane}>
-          {LANES.map((l) => <option key={l} value={l}>{IDEAS.lanes[l]}</option>)}
-        </select>
-      </label>
+        <Select label={MEMBERS.lane} name="lane" defaultValue={lane} options={LANES.map((l) => ({ value: l, label: IDEAS.lanes[l] }))} />
+      </div>
       {idea ? (
         <label className="idea-field">
           <span>{MEMBERS.prd}</span>

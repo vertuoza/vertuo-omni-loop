@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { poll } from '../../ask/page/poll';
@@ -34,10 +35,8 @@ export function FleetPicker({ runner, name, value, options }: { runner: string; 
   const { busy, problem, act } = useAct();
   return (
     <span className="runners-fleet">
-      <select aria-label={`Fleet of ${name}`} defaultValue={value} disabled={busy}
-        onChange={(event) => { const fleet = event.target.value; void act(() => setRunnerFleet(runner, fleet === '' ? null : fleet)); }}>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+      <Select size="sm" label={`Fleet of ${name}`} defaultValue={value} disabled={busy} options={options}
+        onValueChange={(fleet) => { void act(() => setRunnerFleet(runner, fleet === '' ? null : fleet)); }} />
       <Problem problem={problem} />
     </span>
   );

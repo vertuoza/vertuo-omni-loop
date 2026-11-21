@@ -72,15 +72,4 @@
   color: var(--ask-muted);
 }
 .omni-settings-picker { justify-items: stretch; }
-.omni-settings-picker label { font-weight: 700; color: var(--ask-ink); }
-.omni-settings-select {
-  width: 100%;
-  max-width: 900px;
-  min-width: 0;
-  padding: 10px 12px;
-  font: inherit;
-  color: var(--ask-ink);
-  background: var(--ask-sunk);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 10px;
-}
+.omni-settings-picker-label { font-weight: 700; color: var(--ask-ink); }

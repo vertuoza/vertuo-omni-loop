@@ -70,7 +70,8 @@ describe('the section', () => {
     expect(html).toContain('<form class="terminal-make" action="/ask/signin" method="get">');
     for (const field of ['name="purpose" value="token"', 'name="workspace" value="vertuoza"', 'name="back" value="/app/people/ada"']) expect(html).toContain(field);
     expect(html).toContain('<input type="text" required="" maxLength="40" placeholder="cloud-agent" name="name"/>');
-    expect(html).toContain('<option value="30">30 days</option><option value="90" selected="">90 days</option><option value="365">365 days</option>');
+    expect(html).toMatch(/<input[^>]*name="days" value="90"\/>/);
+    expect(html).toContain('<span class="omni-select__value">90 days</span>');
     expect(html).toMatch(/<button type="submit" class="ask-button" data-primary="true">Make a token<\/button>/);
   });
 
@@ -90,7 +91,7 @@ describe('the section', () => {
 
   it('shows no list with no live token, and keeps the line and the form', () => {
     const said = text(card([], { tokens: [], live: 0 }));
-    expect(said).toBe(`${TERMINAL_LINE.title} ${TERMINAL_LINE.intro} ${TERMINAL_LINE.name} ${TERMINAL_LINE.expiresIn} 30 days 90 days 365 days ${TERMINAL_LINE.make}`);
+    expect(said).toBe(`${TERMINAL_LINE.title} ${TERMINAL_LINE.intro} ${TERMINAL_LINE.name} ${TERMINAL_LINE.expiresIn} 90 days ${TERMINAL_LINE.make}`);
   });
 
   it('holds no token in its markup, but the one shown once, in a copy field, once the round trip came back', () => {
