@@ -108,7 +108,7 @@ describe('the Main tab', () => {
   it('says that no rewind ran yet, with the line to run it', () => {
     const page = html(broken, { tab: 'main' });
     expect(page).toContain('No rewind yet.');
-    expect(page).toContain('<code>/omni:rewind 2410</code>');
+    expect(page).toContain('<code class="omni-code omni-code--inline">/omni:rewind 2410</code>');
   });
 
   it('says nothing broke for a PRD still watched, and offers no rewind', () => {
@@ -140,7 +140,7 @@ describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
     expect(page).toContain('Started in: The Omni setup');
     expect(page).toContain('Proposed');
     expect(page).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/actions/runs/2"');
-    expect(page).toContain('<strong>Fix:</strong> Require the lint job.');
+    expect(page).toContain('Fix:</span> Require the lint job.');
     expect(page).not.toContain('No rewind yet');
     expect(page.indexOf('What broke main')).toBeLessThan(page.indexOf('What the rewind found'));
   });
@@ -217,7 +217,7 @@ describe('an approved finding\'s outcome on the Main tab (PRD 2498, s2)', () => 
 
   it('shows the pull request that proposes the rule, linked', () => {
     const html = page(approved({ outcome: { kind: 'proposed', pr: parsePr(42), url: 'https://github.com/acme/widgets/pull/42' } }));
-    expect(html).toContain('<a href="https://github.com/acme/widgets/pull/42" target="_blank" rel="noopener noreferrer">Rule proposed in PR #42</a>');
+    expect(html).toContain('href="https://github.com/acme/widgets/pull/42" target="_blank" rel="noopener noreferrer">Rule proposed in PR #42</a>');
     expect(html).not.toContain('Proposing the rule');
   });
 
@@ -228,7 +228,7 @@ describe('an approved finding\'s outcome on the Main tab (PRD 2498, s2)', () => 
 
   it('shows the rule that already says it, escaped', () => {
     const html = page(approved({ outcome: { kind: 'already', rule: 'playbook/testing#<b>x</b>' } }));
-    expect(html).toContain('Already said by <code>playbook/testing#&lt;b&gt;x&lt;/b&gt;</code>');
+    expect(html).toContain('Already said by <code class="omni-code omni-code--inline">playbook/testing#&lt;b&gt;x&lt;/b&gt;</code>');
   });
 
   it('shows the question asked', () => {
@@ -255,7 +255,7 @@ describe('the demo dossier', () => {
   it('shows a PRD that broke main, with its red job', () => {
     const read = demoDossier(NOW);
     const page = renderToStaticMarkup(createElement(DossierPage, { view: dossierView(read, DEMO_VIEWER, readPick({ tab: 'main' }), NOW), markdown: null, supabase: null }));
-    expect(page).toContain('<strong>Broke main</strong>');
+    expect(page).toContain('omni-notice__title">Broke main</p>');
     expect(page).toContain('CI red');
     expect(page).toContain('/omni:rewind 71');
   });

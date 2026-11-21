@@ -169,7 +169,7 @@
 .stage-fixes { font-size: var(--type-2-size); }
 .stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
 /* Pitch (PRD 859): the button, and under it a small panel of two choices, the command and Copy. */
-.pitch-action { position: relative; display: inline-flex; }
+.pitch-anchor { position: relative; display: inline-flex; }
 /* One look for the two small panels under a button: Pitch's and Send to terminal's. */
 .pitch-panel,
 .send-pick {
@@ -186,12 +186,6 @@
 }
 .pitch-panel { width: min(360px, calc(100vw - 32px)); }
 .send-pick { width: min(320px, calc(100vw - 32px)); }
-.pitch-choices { display: flex; gap: var(--space-3); align-items: center; margin: 0; padding: 0; border: 0; }
-.pitch-choices legend { float: left; margin-right: var(--space-1); }
-.pitch-choice { display: inline-flex; gap: var(--space-1); align-items: center; cursor: pointer; }
-.pitch-choices:disabled .pitch-choice { cursor: not-allowed; color: var(--ask-muted); }
-.pitch-command { overflow-wrap: anywhere; }
-.pitch-hint { margin: 0; }
 .stage-links {
   list-style: none;
   margin: 0;
@@ -753,27 +747,20 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .fix-moment-label { font-weight: 700; }
 .fix-moment:not(.fix-moment-done) .fix-moment-label { color: var(--ask-muted); }
 
-/* The PR care tab (PRD 790, s4): the CI, Conflicts and Review rows, one line per review thread (asked
-   first, its verdict in red), then the watcher line. */
-.care-rows { display: grid; gap: var(--space-1); margin: 0 0 var(--space-4); }
-.care-row { display: flex; gap: var(--space-3); align-items: baseline; }
-.care-row dt { width: 88px; flex: none; font-weight: 600; color: var(--ask-muted); }
-.care-row dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.care-ci-red dd, .care-conflict-conflict dd { color: var(--ask-red); font-weight: 600; }
-.care-ci-green dd { color: var(--ask-green); font-weight: 600; }
-.care-threads { list-style: none; margin: 0 0 var(--space-4); padding: 0; border-top: 1px solid var(--ask-line); }
+/* PR care, a section of the Feature tab (PRD 790, s4; Calm 2, omni-loop-20 s13): the facts, one line per
+   review thread (asked first), then the watcher line. */
+.care-open { margin: 0 0 var(--space-3); }
+.care-threads { list-style: none; margin: var(--space-4) 0; padding: 0; border-top: 1px solid var(--ask-line); }
 .care-thread {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-1) var(--space-3);
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--ask-line);
 }
 .care-first, .care-verdict { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
-.care-verdict-asked .care-verdict strong { color: var(--ask-red); }
-.care-watcher { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--ask-muted); }
-.care-watcher.care-watching { color: var(--ask-ink); }
+.care-watcher { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 
 /* The User voice tab (PRD 822, s3): the Rework button, then a grid of personas by rounds that scrolls
    inside its own box at 393 px, never the page, each score a <details> holding its
@@ -821,17 +808,9 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
    its note, a player at most 960 px wide (a 1280 × 720 clip, scaled to the width on a phone) and its
    script behind a fold that scrolls sideways rather than widen the page. ── */
 
-.proof-facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: 0; }
-.proof-facts > div { display: grid; gap: var(--space-1); min-width: 0; }
-.proof-facts dt { font-size: var(--type-1-size); color: var(--ask-muted); }
-.proof-facts dd { margin: 0; overflow-wrap: anywhere; }
-.proof-counts { display: flex; gap: var(--space-3); }
-.proof-mark { font-weight: 700; flex: none; }
-.proof-mark.proof-pass { color: var(--ask-green); }
-.proof-mark.proof-fail { color: var(--ask-red); }
-.proof-mark.proof-unfilmable { color: var(--ask-muted); }
-.proof-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); max-width: 960px; min-width: 0; }
-.proof-row {
+.proof-counts { display: inline-flex; gap: var(--space-2); }
+.proof-rows { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-3); max-width: 960px; min-width: 0; }
+.proof-item {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
@@ -841,23 +820,13 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   border-left-width: 4px;
   border-radius: var(--radius-2);
 }
-.proof-row.proof-pass { border-left-color: var(--ask-green); }
-.proof-row.proof-fail { border-left-color: var(--ask-red); }
-.proof-criterion { display: flex; gap: var(--space-2); margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.proof-note { margin: 0; color: var(--ask-muted); font: 13px/1.5 var(--ask-mono); overflow-wrap: anywhere; }
+.proof-item.proof-pass { border-left-color: var(--ask-green); }
+.proof-item.proof-fail { border-left-color: var(--ask-red); }
+.proof-criterion { display: flex; align-items: center; gap: var(--space-2); margin: 0; overflow-wrap: anywhere; }
 .proof-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--ask-sunk); border-radius: var(--radius-2); }
 .proof-script { min-width: 0; }
 .proof-script > summary { cursor: pointer; font-weight: 700; }
 .proof-script[open] > summary { margin-bottom: var(--space-2); }
-.proof-script pre {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  max-height: 480px;
-  overflow: auto;
-  font: 12px/1.5 var(--ask-mono);
-  background: var(--ask-sunk);
-  border-radius: var(--radius-2);
-}
 
 /* ── The Pitch tab (PRD 859, s3): the latest pitch per audience, Customers first, each in its own card —
    its picker, facts, the slide and the 16:9 player side by side from 900 px (stacked on a phone), its
@@ -874,16 +843,11 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   border-radius: var(--radius-2);
 }
 .pitch-run-head { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; justify-content: space-between; }
-.pitch-run-head h2 { margin: 0; font-size: var(--type-4-size); }
 .pitch-media { display: grid; gap: var(--space-3); min-width: 0; }
 @media (min-width: 900px) { .pitch-media { grid-template-columns: 1fr 1fr; } }
 .pitch-slide, .pitch-video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--ask-sunk); border-radius: var(--radius-2); }
-.pitch-words { display: grid; gap: var(--space-1); overflow-wrap: anywhere; }
-.pitch-words p { margin: 0; }
-.pitch-kicker { font: 700 12px/1.4 var(--ask-mono); letter-spacing: 0.08em; color: var(--ask-muted); }
-.pitch-hook { font-weight: 700; font-size: var(--type-4-size); }
+.pitch-words { display: grid; gap: var(--space-2); overflow-wrap: anywhere; }
 .pitch-downloads { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
-.pitch-downloads [aria-disabled='true'] { color: var(--ask-muted); cursor: not-allowed; }
 /* Send to terminal (PRD 1830 s4): beside a copy button, and under it a small picker of where to send the
    line, each target with its state, then Send. */
 .send-terminal { position: relative; display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
@@ -904,49 +868,33 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-main a { text-decoration: none; }
 .dossier-main-broke strong { color: var(--ask-red); }
 .dossier-main-clean strong { color: var(--ask-green); }
-.main-status { margin: 0 0 var(--space-3); overflow-wrap: anywhere; }
-.main-broke strong { color: var(--ask-red); }
-.main-clean strong { color: var(--ask-green); }
-.main-unread { margin: 0 0 var(--space-3); padding-left: var(--space-4); }
-.main-breaks { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; gap: var(--space-2); max-width: 960px; min-width: 0; }
-.main-break { margin: 0; padding: var(--space-2) var(--space-3); background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-red); border-radius: var(--radius-2); overflow-wrap: anywhere; }
-.main-break p { margin: 0; }
-.main-break-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: baseline; }
-.main-kind { font: 700 12px/1 var(--ask-body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ask-red); }
-.main-rewind h2 { margin: var(--space-4) 0 var(--space-2); font-size: var(--type-3-size); }
+.main-unread { margin: var(--space-3) 0; padding-left: var(--space-4); }
+.main-breaks { list-style: none; margin: var(--space-3) 0 var(--space-4); padding: 0; display: grid; gap: var(--space-2); max-width: 960px; min-width: 0; }
+.main-break { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3); background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-red); border-radius: var(--radius-2); overflow-wrap: anywhere; }
+.main-break-head, .main-finding-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: center; margin: 0; }
+.main-rewind { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.main-findings { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); max-width: 960px; }
+.main-finding-body { display: grid; gap: var(--space-2); overflow-wrap: anywhere; }
+.main-finding-evidence { margin: 0; padding-left: var(--space-4); }
+.retro-open { margin: 0 0 var(--space-3); }
 .ready { display:grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); background:var(--ask-surface); border:1px solid var(--ask-line-strong); border-left-width:4px; border-radius: var(--radius-2); }
 .ready-pass { border-left-color:var(--ask-green); }
 .ready-fail { border-left-color:var(--ask-red); }
 .ready-wait { border-left-color:var(--ask-line-strong); border-style:solid dashed dashed solid; }
 .ready-top { display:flex; flex-wrap:wrap; align-items:baseline; gap: var(--space-1) var(--space-3); }
-.ready-lab { margin: 0; font-size: var(--type-1-size); font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ask-muted); }
-.ready-title { margin: 0; font-size: var(--type-5-size); line-height:1.3; }
-.ready-sign { margin-left: auto; font:13px/1.5 var(--ask-mono); color:var(--ask-muted); }
-.ready-named { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-2); background:var(--ask-sunk); overflow-wrap:anywhere; }
-.ready-named p { margin: 0; }
-.ready-named strong { color:var(--ask-red); }
+.ready-sign { margin-left: auto; }
+.ready-named { display:grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-2); background:var(--ask-sunk); overflow-wrap:anywhere; }
 .ready-checks { list-style:none; margin: 0; padding: 0; border-top:1px solid var(--ask-line); }
 .ready-check { display:grid; gap: var(--space-1); padding: var(--space-2) 0; border-bottom:1px solid var(--ask-line); }
-.ready-row { display:flex; flex-wrap:wrap; align-items:baseline; gap: var(--space-1) var(--space-3); }
+.ready-line { display:flex; flex-wrap:wrap; align-items:center; gap: var(--space-1) var(--space-3); }
 .ready-mark { flex:none; width:20px; font-weight:700; }
 .ready-check.is-pass .ready-mark { color:var(--ask-green); }
 .ready-check.is-fail .ready-mark { color:var(--ask-red); }
 .ready-check.is-wait .ready-mark { color:var(--ask-muted); }
-.ready-name { flex:1 1 300px; font-weight:600; }
-.ready-state { font:600 12px/1 var(--ask-mono); border:1px solid var(--ask-green); border-radius: var(--radius-full); padding: var(--space-1) var(--space-2); white-space:nowrap; }
-.ready-note { margin: 0 0 0 var(--space-6); color:var(--ask-muted); font:13px/1.5 var(--ask-mono); overflow-wrap:anywhere; }
+.ready-name { flex:1 1 300px; }
+.ready-detail { margin-left: var(--space-6); overflow-wrap:anywhere; }
 .ready-acs { list-style:none; margin: 0 0 0 var(--space-6); padding: 0; display:grid; gap: var(--space-2); }
 .ready-ac { display:grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-2); background:var(--ask-sunk); }
-.ready-ac-head { display:flex; flex-wrap:wrap; align-items:baseline; gap: var(--space-1) var(--space-2); font-size: var(--type-3-size); }
-.ready-ac-id { font:600 12px/1.4 var(--ask-mono); color:var(--ask-plasma); }
-.ready-kind { font:600 12px/1 var(--ask-mono); color:var(--ask-muted); }
-.ready-ac-head a { margin-left: auto; }
-.ready-ac p { margin: 0; font-size: var(--type-3-size); }
-.ready-ac p b { color:var(--ask-muted); font-weight:700; }
+.ready-ac-head { display:flex; flex-wrap:wrap; align-items:center; gap: var(--space-1) var(--space-2); }
+.ready-ac-proof { margin-left: auto; }
 .ready-foot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap: var(--space-2) var(--space-4); }
-.ready-foot p { margin: 0; }
-.ready-ac-pass { border-color:var(--ask-green); color:var(--ask-ink); }
-.ready-ac-fail { border-color:var(--ask-red); color:var(--ask-red); }
-.ready-ac-wait { border-color:var(--ask-line-strong); color:var(--ask-muted); }
-.is-fail .ready-state { border-color:var(--ask-red); color:var(--ask-red); }
-.is-wait .ready-state { border-color:var(--ask-line-strong); color:var(--ask-muted); }

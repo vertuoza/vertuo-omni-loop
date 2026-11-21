@@ -56,48 +56,49 @@ describe('the PR care section of the Feature tab (PRD 790, s4; omni-loop-20 s7)'
     expect(page(summary({ feature: null }), null)).not.toContain('PR care');
   });
 
-  it('shows the CI row linking the failed run, the conflict with its base, and the counts', () => {
+  it('shows the CI fact linking the failed run, the conflict with its base, and the counts', () => {
     const html = page(summary());
-    expect(html).toContain(`<div class="care-row care-ci-red"><dt>CI</dt><dd><a href="${RUN}" target="_blank" rel="noopener noreferrer">red</a></dd></div>`);
-    expect(html).toContain('<div class="care-row care-conflict-conflict"><dt>Conflicts</dt><dd>conflicting with main</dd></div>');
-    expect(html).toContain('<dt>Review</dt><dd>1 open · 1 fixed · 1 pushed back · 1 asked</dd>');
+    expect(html).toContain(`<dt class="omni-definition-list__label">CI</dt><dd class="omni-definition-list__value"><span class="omni-text omni-text--body omni-text--danger omni-text--strong"><a class="omni-link omni-link--default" href="${RUN}" target="_blank" rel="noopener noreferrer">red</a></span></dd>`);
+    expect(html).toContain('<dt class="omni-definition-list__label">Conflicts</dt><dd class="omni-definition-list__value"><span class="omni-text omni-text--body omni-text--danger omni-text--strong">conflicting with main</span></dd>');
+    expect(html).toContain('<dt class="omni-definition-list__label">Review</dt><dd class="omni-definition-list__value">1 open · 1 fixed · 1 pushed back · 1 asked</dd>');
     const green = page(summary({ care: { ...CARE, ci: 'green', failedUrl: null, conflict: false } }));
-    expect(green).toContain('<div class="care-row care-ci-green"><dt>CI</dt><dd>green</dd></div>');
-    expect(green).toContain('<dt>Conflicts</dt><dd>none</dd>');
+    expect(green).toContain('<dt class="omni-definition-list__label">CI</dt><dd class="omni-definition-list__value"><span class="omni-text omni-text--body omni-text--success omni-text--strong">green</span></dd>');
+    expect(green).toContain('<dt class="omni-definition-list__label">Conflicts</dt><dd class="omni-definition-list__value"><span class="omni-text omni-text--body omni-text--primary">none</span></dd>');
   });
 
   it('lists each thread, asked first: the reviewer, the first line, the verdict with its reason, and its link', () => {
     const html = page(summary());
     const order = [1, 2, 3, 4].map((n) => html.indexOf(`discussion_r${n}"`));
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    expect(html).toMatch(/<li class="care-thread care-verdict-asked"><span class="person-chip is-inline"><img class="person-face is-photo" src="https:\/\/github.com\/rev1.png\?size=48"[^>]*\/>rev1<\/span>/);
-    expect(html).toContain('<span class="care-first">Comment &lt;1&gt;</span>');
-    expect(html).toContain('<span class="care-verdict"><strong>asked: the PM decides</strong><span class="ask-hint"> · This needs a product decision: the PM will decide.</span></span>');
-    expect(html).toContain('<span class="care-verdict"><strong>not handled yet</strong></span>');
-    expect(html).toContain('<strong>pushed back</strong><span class="ask-hint"> · Low value for this PR: naming preference, no linter rule.</span>');
-    expect(html).toContain('<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/221#discussion_r1" target="_blank" rel="noopener noreferrer">on GitHub ↗</a>');
+    expect(html).toMatch(/<li class="care-thread"><span class="person-chip is-inline"><img class="person-face is-photo" src="https:\/\/github.com\/rev1.png\?size=48"[^>]*\/>rev1<\/span>/);
+    expect(html).toContain('<span class="care-first"><span class="omni-text omni-text--body omni-text--primary">Comment &lt;1&gt;</span></span>');
+    expect(html).toContain('<span class="omni-badge omni-badge--danger">asked: the PM decides</span> <span class="omni-text omni-text--small omni-text--secondary">· This needs a product decision: the PM will decide.</span>');
+    expect(html).toContain('<span class="care-verdict"><span class="omni-badge omni-badge--neutral">not handled yet</span></span>');
+    expect(html).toContain('<span class="omni-badge omni-badge--info">pushed back</span> <span class="omni-text omni-text--small omni-text--secondary">· Low value for this PR: naming preference, no linter rule.</span>');
+    expect(html).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/pull/221#discussion_r1" target="_blank" rel="noopener noreferrer">on GitHub ↗</a>');
     expect(page(summary({ care: { ...CARE, threads: [] } }))).not.toContain('care-threads');
   });
 
   it('says the agent is watching under 15 minutes, else nobody, with /omni:pr-care <n> to copy', () => {
     const watching = page(summary());
-    expect(watching).toContain('<p class="care-watcher care-watching"><span>The agent is watching · last round 3 min ago</span></p>');
+    expect(watching).toContain('<div class="care-watcher"><span class="omni-text omni-text--body omni-text--primary">The agent is watching · last round 3 min ago</span></div>');
     expect(watching).not.toContain('/omni:pr-care');
     for (const lastRound of ['2026-09-30T11:45:00Z', null]) {
       const nobody = page(summary({ care: { ...CARE, lastRound } }));
-      expect(nobody).toContain('<p class="care-watcher"><span>Nobody is watching</span> <span class="stage-copy">');
-      expect(nobody).toContain('type="button" title="/omni:pr-care 216" data-primary="">Copy</button><code class="stage-command">/omni:pr-care 216</code>');
+      expect(nobody).toContain('<div class="care-watcher"><span class="omni-text omni-text--body omni-text--secondary">Nobody is watching</span><span class="stage-copy">');
+      expect(nobody).toContain('title="/omni:pr-care 216" data-primary="">Copy</button><code class="stage-command">/omni:pr-care 216</code>');
     }
   });
 
   it('says there is nothing to look after once merged, and when GitHub did not answer', () => {
     const merged = page(summary({ feature: { ...FEATURE, state: 'merged' }, care: null }));
     expect(merged).toContain(`<a class="omni-tab omni-tab--current" aria-current="page" href="/prd/${ID}?tab=feature">Feature</a>`);
-    expect(merged).toContain('<p class="dossier-empty">The feature PR is merged: nothing is left to look after.</p>');
-    expect(merged).toContain(`<a class="ask-button" href="${FEATURE.url}" target="_blank" rel="noopener noreferrer">Open the feature PR</a>`);
-    expect(merged).not.toContain('care-rows');
+    expect(merged).toContain('<p class="omni-empty-state__title">The feature PR is merged: nothing is left to look after.</p>');
+    expect(merged).toContain(`href="${FEATURE.url}" target="_blank" rel="noopener noreferrer">Open the feature PR</a>`);
+    expect(merged).not.toContain('omni-definition-list');
     const unread = page(summary({ care: UNREAD }));
-    expect(unread).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
-    expect(unread).not.toContain('care-rows');
+    expect(unread).toContain('role="alert"');
+    expect(unread).toContain('GitHub did not answer. The page tries again within a minute.');
+    expect(unread).not.toContain('omni-definition-list');
   });
 });

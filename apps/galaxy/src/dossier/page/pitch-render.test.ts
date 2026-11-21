@@ -70,44 +70,46 @@ describe('the Pitch tab, rendered', () => {
   it('shows one pitch: the slide, the player, the five downloads and Copy GIF link', () => {
     const page = html({ runs: [pitch({})], links: { [NEWER]: signed(NEWER) } });
     expect(page).toContain('Retro<span class="omni-tab__count">1 pitch</span>');
-    expect(page).toContain('<h2>Customers</h2>');
+    expect(page).toContain('Customers</h3>');
     expect(page).toContain(`src="https://storage.test/${NEWER}/slide.png"`);
     expect(page).toMatch(new RegExp(`<video[^>]*src="https://storage.test/${NEWER}/pitch.mp4"`));
-    for (const name of FIVE) expect(page).toContain(`href="https://storage.test/${NEWER}/${name}" download="${name}"`);
+    for (const name of FIVE) expect(page).toContain(`href="https://storage.test/${NEWER}/${name}" download="${name}">${name}</a>`);
     expect(page).toContain('Copy GIF link');
     expect(page).toContain('NEW IN OMNI LOOP');
     expect(page).toContain('Answer from &lt;b&gt;your phone&lt;/b&gt;');
     expect(page).not.toContain('<b>your phone</b>');
-    expect(page).not.toContain('<h2>Inside</h2>');
+    expect(page).not.toContain('Inside</h3>');
   });
 
   it('shows two pitches for one audience as the newer, with a picker holding both', () => {
     const older = pitch({ id: OLDER, look: 'keynote', created_at: '2026-09-30T08:00:00Z' });
     const page = html({ runs: [pitch({}), older], links: { [NEWER]: signed(NEWER) } });
     expect(page).toContain(`src="https://storage.test/${NEWER}/slide.png"`);
-    expect(page).toContain('name="pitch"');
-    expect(page).toMatch(new RegExp(`<option value="${NEWER}" selected="">1 Oct · Arcade poster · Pierre</option>`));
-    expect(page).toContain(`<option value="${OLDER}">30 Sep · Clean keynote · Pierre</option>`);
+    expect(page).toContain(`href="/prd/${ID}?tab=retro&amp;pitch=${NEWER}#pitch"`);
+    expect(page).toContain('1 Oct · Arcade poster · Pierre');
+    expect(page).toContain(`href="/prd/${ID}?tab=retro&amp;pitch=${OLDER}#pitch"`);
+    expect(page).toContain('30 Sep · Clean keynote · Pierre');
+    expect(page).not.toContain('<select');
   });
 
   it('shows the older pitch once the picker names it', () => {
     const older = pitch({ id: OLDER, look: 'keynote', created_at: '2026-09-30T08:00:00Z' });
     const page = html({ runs: [pitch({}), older], links: { [OLDER]: signed(OLDER) } }, { tab: 'pitch', pitch: OLDER });
     expect(page).toContain(`src="https://storage.test/${OLDER}/slide.png"`);
-    expect(page).toContain(`<option value="${OLDER}" selected="">`);
+    expect(page).toMatch(new RegExp(`aria-current="page"[^>]*href="[^"]*pitch=${OLDER}#pitch"|href="[^"]*pitch=${OLDER}#pitch"[^>]*aria-current="page"`));
   });
 
   it('shows Customers before Inside, each with its latest', () => {
     const inside = pitch({ id: INSIDE, audience: 'inside', kicker: 'SHIPPED · PRD 859', created_at: '2026-10-01T15:00:00Z' });
     const page = html({ runs: [inside, pitch({})], links: { [NEWER]: signed(NEWER), [INSIDE]: signed(INSIDE) } });
-    expect(page.indexOf('<h2>Customers</h2>')).toBeGreaterThan(-1);
-    expect(page.indexOf('<h2>Inside</h2>')).toBeGreaterThan(page.indexOf('<h2>Customers</h2>'));
+    expect(page.indexOf('Customers</h3>')).toBeGreaterThan(-1);
+    expect(page.indexOf('Inside</h3>')).toBeGreaterThan(page.indexOf('Customers</h3>'));
     expect(page).toContain('SHIPPED · PRD 859');
   });
 
   it('says a file could not be loaded when its link could not be signed', () => {
     const page = html({ runs: [pitch({})], links: {} });
     expect(page).toContain('A file could not be loaded');
-    expect(page).toContain('aria-disabled="true"');
+    expect(page).toContain('disabled="" title="Could not be loaded"');
   });
 });
