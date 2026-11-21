@@ -1,7 +1,7 @@
 // The brief's schema (PRD 2842 s2): a mission.md's front matter read into its brief, every fault
 // naming its field; and the page rules mission.html keeps.
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PARALLEL, OMNI_BUGS_REPOSITORY_REFUSAL, levelRefusal, parseBrief, repositoryRefusal } from './brief.ts';
+import { DEFAULT_PARALLEL, DEFAULT_RESUMES, OMNI_BUGS_REPOSITORY_REFUSAL, levelRefusal, parseBrief, repositoryRefusal } from './brief.ts';
 import { PAGE_MAX_BYTES, pageFaults } from './page.ts';
 
 const FRONT = [
@@ -42,7 +42,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
         goal: 'Every quote can be paid online, for every customer.',
         measures: [{ sign: 'Quotes paid online', read: 'the payments report, weekly', target: 'three in ten within a month' }],
         scope: { prds: [2803, 2804], roadmaps: [12] },
-        mandate: { parallel: 3, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 },
+        mandate: { parallel: 3, level: 'with-you', hardToRevert: 0.6, ownPrds: 0, resumes: 3 },
       },
     });
   });
@@ -54,7 +54,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
     expect(DEFAULT_PARALLEL).toBe(2);
     // A mandate that names nothing keeps the default too.
     const empty = parseBrief(record([...lines, 'mandate: {}']));
-    expect(empty.ok && empty.brief.mandate).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 });
+    expect(empty.ok && empty.brief.mandate).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0, resumes: 3 });
   });
 
   it('reads roadmaps alone as a scope', () => {
@@ -96,7 +96,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
   it('refuses a scope of nothing, a PRD named twice, a number that is none, and an unknown list', () => {
     expect(errorsOf(record(swap('scope', ['scope:', '  prds: []'])))).toEqual(['scope: names no PRD and no roadmap: one at least.']);
     expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2803, 2803]'])))).toEqual(['scope.prds: names a PRD twice.']);
-    expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2803, -4]'])))).toEqual(['scope.prds[2]: must be a positive whole number.']);
+    expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2803, -4]'])))).toEqual(['scope.prds[2]: must be a positive whole number or a product PRD id (omni-loop-15), not -4.']);
     expect(errorsOf(record(swap('scope', ['scope:', '  roadmaps: [12, 12]'])))).toEqual(['scope.roadmaps: names a roadmap twice.']);
     expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2803]', '  bugs: [7]'])))).toEqual(['scope: unexpected field bugs.']);
     expect(errorsOf(record(swap('scope', [`scope:`, `  prds: [${Array.from({ length: 51 }, (_, k) => k + 1).join(', ')}]`]))))
@@ -106,7 +106,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
   it('reads the level and the two bounds under it, and refuses any other value by name (PRD 2896)', () => {
     const mandate = (...lines: string[]) => record(swap('mandate', ['mandate:', '  parallel: 3', ...lines.map((line) => `  ${line}`)]));
     const read = parseBrief(mandate('level: alone', 'hardToRevert: 0.8', 'ownPrds: 4'));
-    expect(read.ok && read.brief.mandate).toEqual({ parallel: 3, level: 'alone', hardToRevert: 0.8, ownPrds: 4 });
+    expect(read.ok && read.brief.mandate).toEqual({ parallel: 3, level: 'alone', hardToRevert: 0.8, ownPrds: 4, resumes: 3 });
     expect(errorsOf(mandate('level: on-its-own'))).toEqual(['mandate.level: is one of with-you, own-branch, alone.']);
     expect(errorsOf(mandate('hardToRevert: 1.2'))).toEqual(['mandate.hardToRevert: is 0 to 1.']);
     expect(errorsOf(mandate('hardToRevert: -0.1'))).toEqual(['mandate.hardToRevert: is 0 to 1.']);
@@ -140,6 +140,47 @@ describe('a mission.html, under the page rules', () => {
   it('names a page over the cap', () => {
     const page = `<p>${'x'.repeat(PAGE_MAX_BYTES)}</p>`;
     expect(pageFaults('m/mission.html', page)).toEqual([`m/mission.html: ${page.length} bytes, over the 512 KiB a page holds.`]);
+  });
+});
+
+describe('product ids, several repositories and resumes (PRD omni-loop-21 s1)', () => {
+  it('AC-1: reads product PRD ids and product roadmap ids beside repository numbers', () => {
+    const parsed = parseBrief(record(swap('scope', ['scope:', '  prds: [2896, "omni-loop-15"]', '  roadmaps: ["omni-loop-R3", 12]'])));
+    expect(parsed.ok && parsed.brief.scope).toEqual({ prds: [2896, 'omni-loop-15'], roadmaps: ['omni-loop-R3', 12] });
+  });
+
+  it('AC-1: refuses a key with no number, naming the value', () => {
+    expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2896, "omni-loop"]']))))
+      .toEqual(['scope.prds[2]: must be a positive whole number or a product PRD id (omni-loop-15), not "omni-loop".']);
+    expect(errorsOf(record(swap('scope', ['scope:', '  roadmaps: ["omni-loop-R"]']))))
+      .toEqual(['scope.roadmaps[1]: must be a positive whole number or a product roadmap id (omni-loop-R3), not "omni-loop-R".']);
+  });
+
+  it('refuses a product id named twice', () => {
+    expect(errorsOf(record(swap('scope', ['scope:', '  prds: ["omni-loop-15", "omni-loop-15"]'])))).toEqual(['scope.prds: names a PRD twice.']);
+  });
+
+  it('lists every repository the scope touches, and reads them at own-branch and alone', () => {
+    const repositories = ['repositories:', '  - vertuoza/a', '  - vertuoza/b'];
+    for (const level of ['own-branch', 'alone']) {
+      const parsed = parseBrief(record([...swap('mandate', ['mandate:', `  level: ${level}`]), ...repositories]));
+      expect(parsed.ok && parsed.brief).toMatchObject({ repositories: ['vertuoza/a', 'vertuoza/b'], mandate: { level } });
+    }
+    const none = parseBrief(record());
+    expect(none.ok && 'repositories' in none.brief).toBe(false);
+  });
+
+  it('refuses a repository that is not owner/name, or named twice', () => {
+    expect(errorsOf(record([...FRONT, 'repositories:', '  - vertuo-omni-loop']))).toEqual(['repositories[1]: is not owner/name.']);
+    expect(errorsOf(record([...FRONT, 'repositories:', '  - vertuoza/a', '  - vertuoza/a']))).toEqual(['repositories: names a repository twice.']);
+  });
+
+  it('reads mandate.resumes from 0 to 10, 3 when not given', () => {
+    const mandate = (value: string) => parseBrief(record(swap('mandate', ['mandate:', '  parallel: 3', `  resumes: ${value}`])));
+    expect(mandate('0').ok && (mandate('0') as { brief: { mandate: { resumes: number } } }).brief.mandate.resumes).toBe(0);
+    expect(DEFAULT_RESUMES).toBe(3);
+    expect(errorsOf(record(swap('mandate', ['mandate:', '  resumes: 11'])))).toEqual(['mandate.resumes: is 0 to 10.']);
+    expect(errorsOf(record(swap('mandate', ['mandate:', '  resumes: 1.5'])))).toEqual(['mandate.resumes: must be a whole number.']);
   });
 });
 

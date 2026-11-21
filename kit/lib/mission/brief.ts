@@ -16,13 +16,16 @@
  * - `measures`: 0 to 5 observable signs it worked, each `{sign, read, target}` (how it is read, and
  *   the target), each 1 to 200 characters. None yet is a one-line mission's (`/omni:mission --prd`);
  * - `kind`: `prds` (when absent) or `omni-bugs`, the standing Omni Loop bug team (PRD 3088), which takes no scope;
- * - `scope`: `{prds, roadmaps}`, lists of numbers of this repository, 50 PRDs and 10 roadmaps at
- *   most, one of either at least;
- * - `mandate`: `{parallel, level, hardToRevert, ownPrds}`: how many PRDs may run at once (1 to 4, 2 when not
+ * - `scope`: `{prds, roadmaps}`, 50 PRDs and 10 roadmaps at most, one of either at least; a PRD is a
+ *   repository's number (`2896`) or a product PRD's id (`omni-loop-15`), a roadmap a repository's number
+ *   or a product roadmap's id (`omni-loop-R3`) (PRD omni-loop-21);
+ * - `repositories`: optional, the `owner/name` of every repository the scope touches (20 at most); a
+ *   brief with several reads at `own-branch` and `alone`;
+ * - `mandate`: `{parallel, level, hardToRevert, ownPrds, resumes}`: how many PRDs may run at once (1 to 4, 2 when not
  *   given); the level the mission runs at, `with-you`, `own-branch` or `alone` (`with-you` when not given, the
  *   fleet's level written by `/omni:mission`: PRD 2896); the hard-to-revert score at or above which an item
- *   goes to a person (0 to 1, 0.6) and how many PRDs the fleet may add itself (0 to 10, 0); the last two are
- *   read only at `alone`; and, when it is given, `tokens`, the mission's token budget over every job it ever sent (1 to
+ *   goes to a person (0 to 1, 0.6) how many PRDs the fleet may add itself (0 to 10, 0) and how many times a
+ *   step that ended halfway is resumed (`resumes`, 0 to 10, 3); the last three are read only at `alone`; and, when it is given, `tokens`, the mission's token budget over every job it ever sent (1 to
  *   10⁹; none, or an empty one, means no budget: PRD 3040, `./budget.ts`).
  *
  * The page's rules, `mission.html`'s, are `./page.ts`'s: this module stays free of Node's built-ins, so
@@ -30,9 +33,9 @@
  */
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema } from '../ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, ProductPrdIdSchema, ProductRoadmapIdSchema } from '../ids.ts';
 import { messageOf, propertyOf } from '../narrow.ts';
-import type { IssueNumber, PrdNumber } from '../ids.ts';
+import type { IssueNumber, PrdNumber, ProductPrdId, ProductRoadmapId } from '../ids.ts';
 
 /** The brief's two files, as a mission's folder holds them. */
 export const MISSION_RECORD = 'mission.md';
@@ -75,6 +78,8 @@ export function repositoryRefusal(kind: MissionKind, repository: string, omniLoo
 /** The mandate's two bounds under the level, when the brief says nothing. */
 const DEFAULT_HARD_TO_REVERT = 0.6;
 const DEFAULT_OWN_PRDS = 0;
+/** How many times a step that ended halfway is resumed, when the mandate says nothing. */
+export const DEFAULT_RESUMES = 3;
 /** The highest token budget a mandate takes (PRD 3040). */
 export const MAX_MISSION_TOKENS = 1_000_000_000;
 
@@ -90,9 +95,11 @@ export type Brief = {
   fleet: string;
   goal: string;
   measures: Measure[];
-  scope: { prds: PrdNumber[]; roadmaps: IssueNumber[] };
+  scope: { prds: (PrdNumber | ProductPrdId)[]; roadmaps: (IssueNumber | ProductRoadmapId)[] };
+  /** Every repository the scope touches, `owner/name`, only when the brief lists them. */
+  repositories?: string[];
   /** `tokens`, the mission's token budget, only when the brief gives one: absent, the mission has none (PRD 3040). */
-  mandate: { parallel: number; level: MissionLevel; hardToRevert: number; ownPrds: number; tokens?: number };
+  mandate: { parallel: number; level: MissionLevel; hardToRevert: number; ownPrds: number; resumes: number; tokens?: number };
 };
 
 export type BriefParse = { ok: true; brief: Brief } | { ok: false; errors: string[] };
@@ -102,21 +109,23 @@ const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 const FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const text = (max: number) => z.string({ message: 'must be text' }).trim().min(1, 'is empty').max(max, `is over ${max} characters`);
-const distinct = (list: readonly number[]) => new Set(list).size === list.length;
+const distinct = (list: readonly (number | string)[]) => new Set(list).size === list.length;
 
 const MeasureSchema = z.object({ sign: text(200), read: text(200), target: text(200) }, { message: 'must be {sign, read, target}' }).strict();
 
 const ScopeSchema = z
   .object(
     {
-      prds: z.array(PrdNumberSchema, { message: 'must be a list of PRD numbers' }).max(50, 'holds 50 PRDs at most')
+      prds: z.array(z.union([PrdNumberSchema, ProductPrdIdSchema]), { message: 'must be a list of PRD numbers or product PRD ids' }).max(50, 'holds 50 PRDs at most')
         .refine(distinct, 'names a PRD twice').default([]),
-      roadmaps: z.array(IssueNumberSchema, { message: 'must be a list of roadmap numbers' }).max(10, 'holds 10 roadmaps at most')
+      roadmaps: z.array(z.union([IssueNumberSchema, ProductRoadmapIdSchema]), { message: 'must be a list of roadmap numbers or product roadmap ids' }).max(10, 'holds 10 roadmaps at most')
         .refine(distinct, 'names a roadmap twice').default([]),
     },
     { message: 'must be {prds, roadmaps}' },
   )
   .strict();
+/** A repository, `owner/name`. */
+const REPOSITORY = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
 const NO_SCOPE = { prds: [], roadmaps: [] };
 
 const TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
@@ -128,16 +137,17 @@ const MandateSchema = z
       level: z.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(', ')}` }).default(DEFAULT_LEVEL),
       hardToRevert: z.number({ message: 'must be a number' }).min(0, 'is 0 to 1').max(1, 'is 0 to 1').default(DEFAULT_HARD_TO_REVERT),
       ownPrds: z.number({ message: 'must be a number' }).int('must be a whole number').min(0, 'is 0 to 10').max(10, 'is 0 to 10').default(DEFAULT_OWN_PRDS),
+      resumes: z.number({ message: 'must be a number' }).int('must be a whole number').min(0, 'is 0 to 10').max(10, 'is 0 to 10').default(DEFAULT_RESUMES),
       tokens: z.number({ message: 'must be a number' }).int('must be a whole number').min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE)
         .nullish(),
     },
-    { message: 'must be {parallel, level, hardToRevert, ownPrds, tokens}' },
+    { message: 'must be {parallel, level, hardToRevert, ownPrds, resumes, tokens}' },
   )
   .strict()
   // No budget leaves no key: a brief without one reads as it did before PRD 3040.
   .transform(({ tokens, ...mandate }) => (tokens == null ? mandate : { ...mandate, tokens }));
 
-const DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
+const DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS, resumes: DEFAULT_RESUMES };
 
 const BriefSchema = z
   .object({
@@ -148,11 +158,13 @@ const BriefSchema = z
     measures: z.array(MeasureSchema, { message: 'must be a list' }).max(5, 'holds 5 at most').default([]),
     kind: z.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(', ')}` }).default(DEFAULT_KIND),
     scope: ScopeSchema.optional(),
+    repositories: z.array(text(200).regex(REPOSITORY, 'is not owner/name'), { message: 'must be a list of owner/name' }).max(20, 'holds 20 repositories at most')
+      .refine(distinct, 'names a repository twice').optional(),
     mandate: MandateSchema.default(DEFAULT_MANDATE),
   })
   .strict()
   // A `prds` mission names a PRD or a roadmap; an `omni-bugs` one names none (its scope is empty).
-  .transform(({ scope, ...rest }, ctx) => {
+  .transform(({ scope, repositories, ...rest }, ctx) => {
     const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
     if (rest.kind === 'omni-bugs') {
       if (named > 0) ctx.addIssue({ code: 'custom', path: ['scope'], message: 'is empty for an omni-bugs mission' });
@@ -161,7 +173,8 @@ const BriefSchema = z
     } else if (named === 0) {
       ctx.addIssue({ code: 'custom', path: ['scope'], message: 'names no PRD and no roadmap: one at least' });
     }
-    return { ...rest, scope: scope ?? NO_SCOPE };
+    // No repositories leaves no key: a brief without them reads as it did before.
+    return { ...rest, scope: scope ?? NO_SCOPE, ...(repositories === undefined ? {} : { repositories }) };
   });
 
 /** Where an issue is, as a person reads it: `measures[2].target`, counting from 1. */
@@ -174,15 +187,27 @@ function valueAt(raw: unknown, path: readonly PropertyKey[]): unknown {
   return path.reduce<unknown>((value, key) => (typeof value === 'object' ? propertyOf(value, String(key)) : undefined), raw);
 }
 
+/** The fault of a scope entry that is neither a number nor a product id, naming the value, or null when `place` is none. */
+function scopeFault(place: string, value: unknown): string | null {
+  const kind = /^scope\.(prds|roadmaps)\[/.exec(place)?.[1];
+  if (kind === undefined) return null;
+  const wanted = kind === 'prds' ? 'a product PRD id (omni-loop-15)' : 'a product roadmap id (omni-loop-R3)';
+  return `${place}: must be a positive whole number or ${wanted}, not ${JSON.stringify(value)}.`;
+}
+
 /** One line per issue of `raw`, the field first. */
 function faultsOf(raw: unknown, error: z.ZodError): string[] {
-  return error.issues.map((issue) => {
+  const lines = error.issues.map((issue) => {
     const place = placeOf(issue.path);
     if (issue.code === 'unrecognized_keys') return `${place ? `${place}: ` : ''}unexpected field${issue.keys.length > 1 ? 's' : ''} ${issue.keys.join(', ')}.`;
     if (issue.code === 'invalid_type' && valueAt(raw, issue.path) === undefined) return `${place}: missing.`;
-    if (place === 'mission' || /^scope\.(prds|roadmaps)\[/.test(place)) return `${place}: must be a positive whole number.`;
+    if (place === 'mission') return `${place}: must be a positive whole number.`;
+    const listed = scopeFault(place, valueAt(raw, issue.path));
+    if (listed !== null) return listed;
     return `${place}: ${issue.message}.`;
   });
+  // A union that fails raises one issue per member: say each fault once.
+  return [...new Set(lines)];
 }
 
 /** Parses one mission.md (`text`, the file's text) into its brief, or every fault it has. */
