@@ -76,11 +76,27 @@
 //                row moved only while it still holds the state and tries the run read; and the paused or stopped missions to tell
 //                that a bug a PRD of theirs stopped on was fixed or will not be (`mission_repairs` of class omni-loop, joined by
 //                the fingerprint as the service role, never shown to anyone), each that has no `bug-fixed` event of it yet
+//   alone        PRD omni-loop-21: a scope's product PRD and roadmap ids (`products`, beside the repository's numbers the supervisor
+//                reads), the mandate's `resumes`; a step's k-th fresh job after one that ended without its result line, under its
+//                step's key and `:resume:<k>` (a run's step, a committee's or a PM's), read back as that step with its `resume`;
+//                the mission's branch in each repository, kept once per repository (`mission_branches`); an item committee's
+//                decision, carried, deferred with its option or escalated, recorded through mission_decide_item() as the service
+//                role; and every decision of the mission, an approval's and an item's (`mission_decisions`), for its landing
 //
 // Throws when the database refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema, PrNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { MISSION_LEVELS, type MissionKind } from 'omni-loop/kit/lib/mission/brief.ts';
+import {
+  IssueNumberSchema,
+  PrdNumberSchema,
+  PrNumberSchema,
+  ProductPrdIdSchema,
+  ProductRoadmapIdSchema,
+  type IssueNumber,
+  type PrdNumber,
+  type ProductPrdId,
+  type ProductRoadmapId,
+} from 'omni-loop/kit/lib/ids.ts';
+import { DEFAULT_RESUMES, MISSION_LEVELS, type MissionKind } from 'omni-loop/kit/lib/mission/brief.ts';
 import { BUG_STATES, BUG_TRIES, bugFixLine, bugKey, bugOfKey, type Bug, type BugJob, type BugMove } from './bug-team.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { Connection } from '../approved-check/record.ts';
@@ -93,7 +109,7 @@ import { jobLedger, type NewJob } from '../jobs/ledger.ts';
 import { bugFixOf, failedJobOf, repairKey, repairSkillLine, repairOfKey, untold, type BugFix, type RepairJob, type RepairOutcome, type RepairRow, type StuckJob } from './repair.ts';
 import { retroKey, retroOfKey, retroSkillLine, type ItemRow, type Milestone, type MissionRetro, type RetroJob, type RetroRow, type RoadmapScope } from './milestone.ts';
 import { stuckJobsOf, stuckKey, stuckOfKey, stuckSkillLine } from './stuck.ts';
-import type { CommitteeRole } from 'omni-loop/kit/lib/committee/vote.ts';
+import type { CommitteeRole, MemberVerdict } from 'omni-loop/kit/lib/committee/vote.ts';
 import { qaLine } from 'omni-loop/kit/lib/qa/verdict.ts';
 import { isQaStep, type Fix } from './qa.ts';
 import type { BudgetRead, NewStop, StopRow } from './budget.ts';
@@ -136,7 +152,33 @@ export type MissionRecord = Mission & {
   pausedBy?: 'stuck';
   /** `kind` (PRD 3088): `omni-bugs` for the standing Omni Loop bug team; absent, a mission of PRDs. */
   kind?: MissionKind;
+  /** `mandate.resumes` (PRD omni-loop-21): how many times a step that ended without its result line is sent again; 3 when absent. */
+  resumes?: number;
+  /** PRD omni-loop-21: the product PRDs and product roadmaps its scope names, beside `scope`'s numbers; absent when it names none. */
+  products?: { prds: ProductPrdId[]; roadmaps: ProductRoadmapId[] };
 };
+
+/** A mission's branch in one repository (PRD omni-loop-21): cut once from its default branch, kept once. */
+export type MissionBranch = { repo: string; branch: string; cutAt: string };
+
+/** The option a deferred item is settled with meanwhile (PRD omni-loop-21 s2: the kit takes A, as built). */
+export type ItemOption = 'A' | 'B' | 'C' | 'D';
+const ITEM_OPTIONS = ['A', 'B', 'C', 'D'] as const;
+
+/**
+ * An item committee's decision (PRD omni-loop-21): `carried`, its why the cases of the escalation list it was on; `deferred`, settled
+ * meanwhile with `option`, open for a person on the mission pull request; or `escalated` to a person.
+ */
+export type ItemDecision = { outcome: 'carried' | 'deferred' | 'escalated'; why: string[]; option: ItemOption | null };
+
+/** An item committee's decision to record: the PRD, the item, its job, the members' verdicts and what the App decided. */
+export type ItemDecide = { prd: PrdNumber; item: string; job: string; verdicts: readonly MemberVerdict[]; decision: ItemDecision };
+
+/** One decision the mission's committee recorded (PRD omni-loop-21): an approval's (`approve`, no item) or an item's (`answer`). */
+export type FleetDecision = { kind: 'approve' | 'answer'; prd: PrdNumber; item: string | null; job: string } & ItemDecision & { decidedAt: string };
+
+/** A step's resume (PRD omni-loop-21): its k-th fresh job after one that ended without its result line; absent on the step's first job. */
+export type Resumed = { resume?: number };
 
 /** A bug-fix job to send (PRD 3088): the mission, the bug's issue, its number among the bug's jobs, and where it goes. */
 export type BugSend = { mission: MissionRecord; issue: IssueNumber; k: number; toFleet: boolean };
@@ -202,16 +244,16 @@ export type MissionSkill = BuildSkill;
  * A committee to send (PRD 2896 s9): the mission, the PRD, its round, whether the fleet's runners take it, and the hero who wrote
  * the PRD and sits out (PRD 2896 s12: the PM, for a PRD its fleet added), none by default.
  */
-export type Approve = { mission: MissionRecord; prd: PrdNumber; round: number; toFleet: boolean; author?: CommitteeRole | null };
+export type Approve = { mission: MissionRecord; prd: PrdNumber; round: number; toFleet: boolean; author?: CommitteeRole | null } & Resumed;
 
 /** The mission's PM job to send (PRD 2896 s12): the mission, its round, its line, and whether the fleet's runners take it. */
-export type PmSend = { mission: MissionRecord; round: number; line: string; toFleet: boolean };
+export type PmSend = { mission: MissionRecord; round: number; line: string; toFleet: boolean } & Resumed;
 
 /**
  * A job to send: the mission, the PRD, its run and step, whether the fleet's runners take it, and the build's skill; for the
  * Engineer's fix of a QA bug, the bug and the feature branch it is fixed into (PRD 3001).
  */
-export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill; fix?: Fix };
+export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; step: Step; toFleet: boolean; skill: MissionSkill; fix?: Fix } & Resumed;
 
 /**
  * A care job to send (PRD 2896 s5): its line, and since when one of it counts as sent, the mission branch's head's commit time,
@@ -231,7 +273,8 @@ export type Kept = RepairRow | { spent: 'cause' | 'mission' };
 export type MissionStore = {
   mission: (id: string) => Promise<MissionRecord | null>;
   facts: (mission: MissionRecord) => Promise<PrdFacts[]>;
-  runs: (id: string) => Promise<Run[]>;
+  /** Each job of a step, a resume of it (PRD omni-loop-21) included, with its `resume`. */
+  runs: (id: string) => Promise<(Run & Resumed)[]>;
   events: (id: string) => Promise<RecordedEvent[]>;
   fleetEvents: (id: string) => Promise<DecisionEvent[]>;
   fleetRunners: (mission: MissionRecord) => Promise<boolean>;
@@ -246,7 +289,7 @@ export type MissionStore = {
   /** A feature branch's care job (PRD 2896 s5): its id, or null when a job of `line` was queued for the mission since `since`. */
   care: (job: Care) => Promise<string | null>;
   /** The committees the mission sent (PRD 2896 s9), each with its decision once recorded. */
-  committees: (id: string) => Promise<Committee[]>;
+  committees: (id: string) => Promise<(Committee & Resumed)[]>;
   /** The log tail of a committee's job; null when it has none. */
   committeeLog: (job: string) => Promise<string | null>;
   /** A committee job's decision recorded once, as the database kept it. */
@@ -254,7 +297,7 @@ export type MissionStore = {
   /** A committee's job: its id, or null when its key was already held. */
   approve: (job: Approve) => Promise<string | null>;
   /** The PM jobs the mission sent (PRD 2896 s12): its jobs keyed `…:pm:<k>`, in order. */
-  pmJobs: (id: string) => Promise<PmJob[]>;
+  pmJobs: (id: string) => Promise<(PmJob & Resumed)[]>;
   /** The mission's PM job queued under its key: its id, or null when the key was already held. */
   pm: (job: PmSend) => Promise<string | null>;
   /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>`, in order. */
@@ -290,7 +333,31 @@ export type MissionStore = {
   retros?: MissionRetros;
   /** An `omni-bugs` mission's bugs and jobs (PRD 3088); absent, none is read or sent. */
   bugTeam?: MissionBugTeam;
+  /** The mission's branch in each repository it was cut in (PRD omni-loop-21), in the order they were cut. */
+  branches: (id: string) => Promise<MissionBranch[]>;
+  /** A mission branch kept once it is cut: whether it was kept (false when one was kept for that repository already). */
+  keepBranch: (mission: MissionRecord, branch: { repo: string; branch: string }) => Promise<boolean>;
+  /** An item committee's decision recorded once, as the database kept it (PRD omni-loop-21). */
+  decideItem: (mission: MissionRecord, one: ItemDecide) => Promise<ItemDecision>;
+  /** Every decision the mission's committee recorded, an approval's and an item's, in the order they were taken: what landing lists. */
+  decisions: (id: string) => Promise<FleetDecision[]>;
 };
+
+/** The most times a step is sent again after ending halfway (`mandate.resumes`, 0 to 10: PRD omni-loop-21). */
+const RESUMES_MAX = 10;
+const RESUME = /^(.+):resume:([1-9]|10)$/;
+
+/** A step's key for its `resume`-th fresh job: the step's own key for 0 (PRD omni-loop-21). */
+export const resumeKey = (key: string, resume = 0): string => (resume === 0 ? key : `${key}:resume:${String(resume)}`);
+
+/** The step's key a job's key names, and which of its fresh jobs it is: 0 for the step's first. */
+export function resumeOfKey(key: string): { key: string; resume: number } {
+  const match = RESUME.exec(key);
+  return match?.[1] === undefined ? { key, resume: 0 } : { key: match[1], resume: Number(match[2]) };
+}
+
+/** `{ resume }` for a resume, nothing for a step's first job: a run read before PRD omni-loop-21 reads as it did. */
+const resumed = (resume: number): Resumed => (resume === 0 ? {} : { resume });
 
 /** Who the job is sent by: the app, never a person (`runner_jobs.sent_by_app`). */
 const APP_SENDER = 'omni-app';
@@ -334,6 +401,9 @@ export const FLEET_CAP = 'daily_tokens';
 export const STOP = 'id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at';
 export const PAUSE_EVENT = 'kind, actor, at';
 export const FLEET_MISSION = 'id';
+/** PRD omni-loop-21: a mission's branches, and every decision of its committee. */
+export const BRANCH = 'repo, branch, cut_at';
+export const FLEET_DECISION = 'kind, prd, item, job_id, outcome, why, option, decided_at';
 
 const text = z.string().min(1);
 
@@ -351,9 +421,11 @@ export const MissionRowSchema = z.object({
     level: z.enum(MISSION_LEVELS).default('with-you'),
     hardToRevert: z.number().min(0).max(1).default(DEFAULT_BOUND),
     ownPrds: z.number().int().min(0).max(10).default(0),
+    resumes: z.number().int().min(0).max(RESUMES_MAX).default(DEFAULT_RESUMES),
     tokens: z.number().int().min(1).nullable().default(null),
   }),
-  scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(IssueNumberSchema) }),
+  /** PRD omni-loop-21: a product's ids beside the repository's numbers. */
+  scope: z.object({ prds: z.array(z.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z.array(z.union([IssueNumberSchema, ProductRoadmapIdSchema])) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
   paused_by: z.enum(['stuck']).nullable().default(null),
   /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
@@ -456,6 +528,19 @@ export const StopRowSchema = z.object({
 });
 export const PauseEventRowSchema = z.object({ kind: z.enum(['paused', 'resumed']), actor: z.string().nullable(), at: text });
 export const FleetMissionRowSchema = z.object({ id: text });
+export const BranchRowSchema = z.object({ repo: text, branch: text, cut_at: text });
+const ItemOutcomeSchema = z.enum(['carried', 'deferred', 'escalated']);
+export const FleetDecisionRowSchema = z.object({
+  kind: z.enum(['approve', 'answer']),
+  prd: PrdNumberSchema,
+  item: z.string().nullable(),
+  job_id: text,
+  outcome: ItemOutcomeSchema,
+  why: z.array(z.string()),
+  option: z.enum(ITEM_OPTIONS).nullable(),
+  decided_at: text,
+});
+const ItemDecidedSchema = z.object({ outcome: ItemOutcomeSchema, why: z.array(z.string()), option: z.enum(ITEM_OPTIONS).nullable() });
 /** What mission_tokens() answers, and each row of fleet_tokens_24h(): a bigint, which PostgREST may give as a number or its text. */
 const CountSchema = z.coerce.number().int().min(0);
 const FleetTokensRowSchema = z.object({ tokens: CountSchema, oldest_end: z.string().nullable() });
@@ -525,6 +610,13 @@ const isVerdict = (step: Step, attempt: Attempt): boolean => step.startsWith('re
 /** A QA job that ended done (PRD 3001): its log's record line says its verdict, or that none reads. */
 const isChecked = (step: Step, attempt: Attempt): boolean => isQaStep(step) && attempt.status === 'done';
 
+/** A scope as the row holds it, split: the repository's numbers the supervisor reads, and a product's ids, null when it names none. */
+function scopeOf(scope: z.infer<typeof MissionRowSchema>['scope']): { numbers: MissionRecord['scope']; products: { prds: ProductPrdId[]; roadmaps: ProductRoadmapId[] } | null } {
+  const numbers = { prds: scope.prds.filter((prd) => typeof prd === 'number'), roadmaps: scope.roadmaps.filter((roadmap) => typeof roadmap === 'number') };
+  const products = { prds: scope.prds.filter((prd) => typeof prd === 'string'), roadmaps: scope.roadmaps.filter((roadmap) => typeof roadmap === 'string') };
+  return { numbers, products: products.prds.length + products.roadmaps.length === 0 ? null : products };
+}
+
 /** The store, as the service role on `connection`. */
 export function missionStore(connection: Connection): MissionStore {
   const db = serviceDb(connection);
@@ -593,7 +685,7 @@ export function missionStore(connection: Connection): MissionStore {
    * `runs`, each Reviewer verdict carrying what its log says it posted, and each QA job that ended done its verdict, or null when
    * none reads (PRD 3001): one read of those jobs' log tails, none without one. Only the verdict is kept, never a line of the log.
    */
-  async function withPosted(runs: Run[]): Promise<Run[]> {
+  async function withPosted(runs: (Run & Resumed)[]): Promise<(Run & Resumed)[]> {
     const read = (step: Step, attempt: Attempt): boolean => isVerdict(step, attempt) || isChecked(step, attempt);
     const ids = runs.flatMap((one) => one.attempts.filter((attempt) => read(one.step, attempt)).map((attempt) => attempt.id));
     if (ids.length === 0) return runs;
@@ -776,8 +868,10 @@ export function missionStore(connection: Connection): MissionStore {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));
       if (!row) return null;
+      const scope = scopeOf(row.scope);
       return {
-        id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: row.scope, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds,
+        id: row.id, workspace: row.workspace_id, repo: row.repo, fleet: row.fleet, number: row.number, title: row.title, level: row.mandate.level, status: row.status, waitingOn: row.waiting_on, parallel: row.mandate.parallel, scope: scope.numbers, hardToRevert: row.mandate.hardToRevert, ownPrds: row.mandate.ownPrds, resumes: row.mandate.resumes,
+        ...(scope.products === null ? {} : { products: scope.products }),
         ...(row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens }),
         ...(row.paused_by === 'stuck' ? { pausedBy: 'stuck' as const } : {}),
         ...(row.kind === 'omni-bugs' ? { kind: row.kind } : {}),
@@ -810,9 +904,10 @@ export function missionStore(connection: Connection): MissionStore {
     async runs(id) {
       const jobs = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).eq('mission_id', id).order('queued_at'));
       const chains = await chainsOf(jobs);
-      const runs = jobs.flatMap((job): Run[] => {
-        const key = job.mission_key === null ? null : runOfKey(job.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+      const runs = jobs.flatMap((job): (Run & Resumed)[] => {
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const key = step === null ? null : runOfKey(step.key);
+        return key === null || step === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf), ...resumed(step.resume) }];
       });
       return withPosted(runs);
     },
@@ -854,8 +949,8 @@ export function missionStore(connection: Connection): MissionStore {
       return workspace?.github_installation_id ?? null;
     },
 
-    send: ({ mission, prd, run, step, toFleet, skill, fix = null }) =>
-      queue({ mission, toFleet, line: lineOf(prd, step, skill, baseOf(mission, skill === 'ultra-yolo'), fix), key: missionKey(mission.id, prd, run, step) }),
+    send: ({ mission, prd, run, step, toFleet, skill, fix = null, resume = 0 }) =>
+      queue({ mission, toFleet, line: lineOf(prd, step, skill, baseOf(mission, skill === 'ultra-yolo'), fix), key: resumeKey(missionKey(mission.id, prd, run, step), resume) }),
 
     async care({ mission, line, since, toFleet }) {
       // The mission's runs happen one at a time (its lane): a read, then the insert, sends one.
@@ -866,11 +961,13 @@ export function missionStore(connection: Connection): MissionStore {
     async committees(id) {
       const jobs = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).eq('mission_id', id).like('mission_key', `mission:${id}:prd:%:approve:%`).order('queued_at'));
       if (jobs.length === 0) return [];
-      const decided = rowsOf(DecisionRowSchema, await db.from('mission_decisions').select(DECISION).eq('mission_id', id));
-      return jobs.flatMap((job): Committee[] => {
-        const key = job.mission_key === null ? null : committeeOfKey(job.mission_key);
+      // An approval's decisions only: an item's (PRD omni-loop-21) are read by `decisions`.
+      const decided = rowsOf(DecisionRowSchema, await db.from('mission_decisions').select(DECISION).eq('mission_id', id).eq('kind', 'approve'));
+      return jobs.flatMap((job): (Committee & Resumed)[] => {
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const key = step === null ? null : committeeOfKey(step.key);
         const decision = decided.find((row) => row.job_id === job.id);
-        return key === null ? [] : [{ prd: key.prd, round: key.round, job: job.id, attempt: attemptOf(job), decision: decision ? { outcome: decision.outcome, why: decision.why } : null }];
+        return key === null || step === null ? [] : [{ prd: key.prd, round: key.round, job: job.id, attempt: attemptOf(job), decision: decision ? { outcome: decision.outcome, why: decision.why } : null, ...resumed(step.resume) }];
       });
     },
 
@@ -892,17 +989,18 @@ export function missionStore(connection: Connection): MissionStore {
       return DecidedSchema.parse(answer.data);
     },
 
-    approve: ({ mission, prd, round, toFleet, author = null }) => queue({ mission, toFleet, line: approveLine(prd, author), key: committeeKey(mission.id, prd, round) }),
+    approve: ({ mission, prd, round, toFleet, author = null, resume = 0 }) => queue({ mission, toFleet, line: approveLine(prd, author), key: resumeKey(committeeKey(mission.id, prd, round), resume) }),
 
     async pmJobs(id) {
       const jobs = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).like('mission_key', `mission:${id}:pm:%`).order('queued_at'));
-      return jobs.flatMap((job): PmJob[] => {
-        const round = job.mission_key === null ? null : pmRoundOfKey(job.mission_key);
-        return round === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job) }];
+      return jobs.flatMap((job): (PmJob & Resumed)[] => {
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const round = step === null ? null : pmRoundOfKey(step.key);
+        return round === null || step === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job), ...resumed(step.resume) }];
       });
     },
 
-    pm: ({ mission, round, line, toFleet }) => queue({ mission, toFleet, line, key: pmKey(mission.id, round) }),
+    pm: ({ mission, round, line, toFleet, resume = 0 }) => queue({ mission, toFleet, line, key: resumeKey(pmKey(mission.id, round), resume) }),
 
     async asks(id) {
       const rows = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).is('mission_key', null).like('line', '/omni:committee % --item %').order('queued_at'));
@@ -1013,6 +1111,45 @@ export function missionStore(connection: Connection): MissionStore {
         z.unknown(),
         await db.from('missions').update({ status: 'paused', waiting_on: waitingOn, next_wake_at: null, updated_at: new Date().toISOString() }).in('id', [...ids]).in('status', ['running', 'waiting']).select('id'),
       );
+    },
+
+    async branches(id) {
+      return rowsOf(BranchRowSchema, await db.from('mission_branches').select(BRANCH).eq('mission_id', id).order('cut_at')).map((row) => ({ repo: row.repo, branch: row.branch, cutAt: row.cut_at }));
+    },
+
+    async keepBranch(mission, { repo, branch }) {
+      const answer = await db.from('mission_branches').insert({ mission_id: mission.id, repo: repo.toLowerCase(), branch }).select('repo');
+      if (answer.error?.code === TAKEN) return false;
+      if (rowsOf(z.object({ repo: text }), answer).length === 0) throw new Error('the database kept no mission branch and gave no reason');
+      return true;
+    },
+
+    async decideItem(mission, { prd, item, job, verdicts, decision }) {
+      const answer = await db.rpc('mission_decide_item', {
+        p_mission: mission.id,
+        p_prd: prd,
+        p_job: job,
+        p_item: item,
+        p_verdicts: [...verdicts],
+        p_outcome: decision.outcome,
+        p_why: decision.why,
+        ...(decision.option === null ? {} : { p_option: decision.option }),
+      });
+      if (answer.error) throw new Error(`the database refused the item's decision: ${answer.error.message}`);
+      return ItemDecidedSchema.parse(answer.data);
+    },
+
+    async decisions(id) {
+      return rowsOf(FleetDecisionRowSchema, await db.from('mission_decisions').select(FLEET_DECISION).eq('mission_id', id).order('decided_at')).map((row) => ({
+        kind: row.kind,
+        prd: row.prd,
+        item: row.item,
+        job: row.job_id,
+        outcome: row.outcome,
+        why: row.why,
+        option: row.option,
+        decidedAt: row.decided_at,
+      }));
     },
   };
 }

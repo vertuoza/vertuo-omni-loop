@@ -5,7 +5,9 @@
 // hold here too, 3 per cause in a round and 9 per mission. Its token budget (PRD 3040): what the mission and its fleet spent,
 // the fleet's daily cap, the other missions of the fleet and the budget stops, one open per cap as the database keeps them, each
 // answered once, a raise saved with its answer. The Omni Loop bug team's bugs and bug-fix jobs (PRD 3088), the database's cap of 3
-// tries held. No database, no model call.
+// tries held. At `alone` for a product roadmap (PRD omni-loop-21): a step's resumes under their own keys, the mission's branch
+// kept once per repository, an item committee's decision recorded once (escalated off `alone`, as mission_decide_item() does) and
+// every decision of the committee listed in order. No database, no model call.
 import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { bugFixOf, repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
@@ -14,14 +16,17 @@ import { stuckJobsOf, stuckKey, stuckSkillLine } from './stuck.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
-import type { MissionBugTeam, MissionRecord, MissionRetros, MissionStore } from './store.ts';
+import { resumeKey, type FleetDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
 import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team.ts';
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type RoomRunner, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
-type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[] };
+type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[]; resume: number };
+
+/** `{ resume }` for a step's resume (PRD omni-loop-21), nothing for its first job, as the store reads it. */
+const resumedOf = (resume: number) => (resume === 0 ? {} : { resume });
 
 /** A recorded event, as its mission_events row. */
 type FakeEvent = Omit<NewEvent, 'kind'> & { kind: string; actor: string; at: string };
@@ -55,9 +60,9 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const cares: { id: string; line: string; queuedAt: string; toFleet: string | null }[] = [];
   const events: FakeEvent[] = [];
   /** The committees it queued (PRD 2896 s9): their key, line and log, and what the database recorded for each. */
-  const committees: (Committee & { key: string; line: string; toFleet: string | null; log: string | null; recorded: Recorded | null })[] = [];
+  const committees: (Committee & { key: string; line: string; toFleet: string | null; log: string | null; recorded: Recorded | null; resume: number })[] = [];
   /** The PM jobs it queued (PRD 2896 s12): their key and log. */
-  const pms: (PmJob & { key: string; toFleet: string | null; log: string | null })[] = [];
+  const pms: (PmJob & { key: string; toFleet: string | null; log: string | null; resume: number })[] = [];
   /** The item committees it queued (PRD 2896 s10), with no mission key: their line and log. */
   const asks: (Omit<ItemCommittee, 'decision'> & { line: string; toFleet: string | null; log: string | null })[] = [];
   /** What the database decides when the App records a decision: by default, what the App decided. */
@@ -79,7 +84,11 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   let together = 0;
   let waiting: (() => void)[] = [];
 
-  const copyOf = (job: FakeJob) => ({ prd: job.prd, run: job.run, step: job.step, job: job.id, attempts: job.attempts.map((one) => ({ ...one })) });
+  const copyOf = (job: FakeJob) => ({ prd: job.prd, run: job.run, step: job.step, job: job.id, attempts: job.attempts.map((one) => ({ ...one })), ...resumedOf(job.resume) });
+  /** PRD omni-loop-21: the mission's branches `mission_branches` kept, and every decision the committee recorded, in order. */
+  const branches: MissionBranch[] = [];
+  const decided: FleetDecision[] = [];
+  const decidedAt = (): string => new Date(NOW_OF_ASKS + decided.length).toISOString();
 
   /** PRD 3065: the stuck repairs and milestone retros it queued, their key, line and log; the retros and items the database kept. */
   const stucks: (StuckJob & { key: string; line: string; toFleet: string | null; log: string | null })[] = [];
@@ -188,12 +197,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     room: () => Promise.resolve(runners.map((one) => ({ ...one }))),
     planRepository: () => Promise.resolve(planRepository),
     installation: () => Promise.resolve(installation),
-    send: ({ mission: sent, prd, run, step, toFleet, skill, fix = null }) => {
-      const key = missionKey(sent.id, prd, run, step);
+    send: ({ mission: sent, prd, run, step, toFleet, skill, fix = null, resume = 0 }) => {
+      const key = resumeKey(missionKey(sent.id, prd, run, step), resume);
       if (jobs.some((job) => job.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      jobs.push({ id, line: lineOf(prd, step, skill, baseOf(sent, skill === 'ultra-yolo'), fix), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+      jobs.push({ id, line: lineOf(prd, step, skill, baseOf(sent, skill === 'ultra-yolo'), fix), key, toFleet: toFleet ? sent.fleet : null, sentByApp: 'omni-app', prd, run, step, attempts: [{ id, status: 'queued', outcome: null, reason: null, prUrl: null }], resume });
       return Promise.resolve(id);
     },
     care: ({ mission: sent, line, since, toFleet }) => {
@@ -204,15 +213,15 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       cares.push({ id, line, queuedAt: since, toFleet: toFleet ? sent.fleet : null });
       return Promise.resolve(id);
     },
-    committees: () => Promise.resolve(committees.map(({ prd, round, job, attempt, decision }) => ({ prd, round, job, attempt: { ...attempt }, decision }))),
+    committees: () => Promise.resolve(committees.map(({ prd, round, job, attempt, decision, resume }) => ({ prd, round, job, attempt: { ...attempt }, decision, ...resumedOf(resume) }))),
     committeeLog: (job) => Promise.resolve(logOf(job)),
-    pmJobs: () => Promise.resolve(pms.map(({ round, job, line, attempt }) => ({ round, job, line, attempt: { ...attempt } }))),
-    pm: ({ mission: sent, round, line, toFleet }) => {
-      const key = pmKey(sent.id, round);
+    pmJobs: () => Promise.resolve(pms.map(({ round, job, line, attempt, resume }) => ({ round, job, line, attempt: { ...attempt }, ...resumedOf(resume) }))),
+    pm: ({ mission: sent, round, line, toFleet, resume = 0 }) => {
+      const key = resumeKey(pmKey(sent.id, round), resume);
       if (pms.some((one) => one.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      pms.push({ round, job: id, line, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, key, toFleet: toFleet ? sent.fleet : null, log: null });
+      pms.push({ round, job: id, line, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, key, toFleet: toFleet ? sent.fleet : null, log: null, resume });
       return Promise.resolve(id);
     },
     decide: (_mission, one, recorded) => {
@@ -222,6 +231,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       const decision = database(recorded);
       held.decision = decision;
       held.recorded = recorded;
+      decided.push({ kind: 'approve', prd: one.prd, item: null, job: one.job, outcome: decision.outcome, why: [...decision.why], option: null, decidedAt: decidedAt() });
       if (decision.outcome === 'carried') current = current.map((fact) => (fact.prd === one.prd ? { ...fact, approval: 'standing' } : fact));
       return Promise.resolve(decision);
     },
@@ -233,12 +243,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       asks.push({ prd, item, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, line: askLine(prd, item, sent.hardToRevert ?? DEFAULT_BOUND), toFleet: toFleet ? sent.fleet : null, log: null });
       return Promise.resolve(id);
     },
-    approve: ({ mission: sent, prd, round, toFleet, author = null }) => {
-      const key = committeeKey(sent.id, prd, round);
+    approve: ({ mission: sent, prd, round, toFleet, author = null, resume = 0 }) => {
+      const key = resumeKey(committeeKey(sent.id, prd, round), resume);
       if (committees.some((one) => one.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      committees.push({ prd, round, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null, key, line: approveLine(prd, author), toFleet: toFleet ? sent.fleet : null, log: null, recorded: null });
+      committees.push({ prd, round, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null, key, line: approveLine(prd, author), toFleet: toFleet ? sent.fleet : null, log: null, recorded: null, resume });
       return Promise.resolve(id);
     },
     repairs: () => Promise.resolve({ jobs: repairs.map(({ prd, k, job, failedJob, attempts }) => ({ prd, k, job, failedJob, attempts: attempts.map((one) => ({ ...one })) })), rows: rows.map((one) => ({ ...one })) }),
@@ -316,6 +326,26 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       fleet = fleet.map((one) => (ids.includes(one.id) && (one.status === 'running' || one.status === 'waiting') ? { ...one, status: 'paused', waitingOn } : one));
       return Promise.resolve();
     },
+    branches: () => Promise.resolve(branches.map((one) => ({ ...one }))),
+    keepBranch: (_mission, { repo, branch }) => {
+      // One per repository (mission_branches' primary key), the repository lowercase.
+      const at = repo.toLowerCase();
+      if (branches.some((one) => one.repo === at)) return Promise.resolve(false);
+      branches.push({ repo: at, branch, cutAt: new Date(now()).toISOString() });
+      return Promise.resolve(true);
+    },
+    decideItem: (read, { prd, item, job, decision }) => {
+      // Once per job; off `alone` a person answers the item, as mission_decide_item() rules.
+      const kept = decided.find((one) => one.job === job);
+      if (kept !== undefined) return Promise.resolve({ outcome: kept.outcome, why: [...kept.why], option: kept.option });
+      const alone = decision.outcome === 'escalated' || read.level === 'alone';
+      const recorded = alone
+        ? { ...decision, why: [...decision.why], option: decision.outcome === 'deferred' ? decision.option : null }
+        : { outcome: 'escalated' as const, why: [...decision.why, 'the mission is not at alone: a person answers its items'], option: null };
+      decided.push({ kind: 'answer', prd, item, job, ...recorded, decidedAt: decidedAt() });
+      return Promise.resolve({ ...recorded, why: [...recorded.why] });
+    },
+    decisions: () => Promise.resolve(decided.map((one) => ({ ...one, why: [...one.why] }))),
   };
 
   /** The latest attempt of the PRD's latest run. */
