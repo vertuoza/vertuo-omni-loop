@@ -1,6 +1,6 @@
 /**
- * **What the committee may never settle** (PRD 2896 s9, spec "6. The committee, at `alone`"), checked by code before
- * any member runs: the committee's judgement only applies to what this list lets through.
+ * **The escalation list** (PRD 2896 s9, spec "6. The committee, at `alone`"), checked by code: what the committee never
+ * settles alone.
  *
  *   - a PRD approved by its phase-0 pull request (its spec does not say `phase0: server`): only a person merges that;
  *   - an item ranked `human-action`;
@@ -8,11 +8,13 @@
  *   - an item whose hard-to-revert score is at or above `mandate.hardToRevert` (an unknown score is never under it);
  *   - a migration that drops or rewrites data.
  *
- * Each line that applies is one reason, in the list's order; none means the vote decides ({@link decide}).
+ * Each line that applies is one reason, in the list's order. PRD omni-loop-21 s2: the list no longer sends its cases to a
+ * person mid-mission. Each goes to the members, who decide it, then to a person at landing, who answers it on the mission
+ * pull request ({@link routes}); only a PRD approved by its phase-0 pull request still goes to a person at once ({@link decide}).
  *
  * Pure: the facts are read by the caller (the kit's `omni committee`, the App's supervisor).
  */
-import { tally, type CommitteeRole, type Tally, type MemberVerdict } from './vote.ts';
+import { tally, type CommitteeRole, type MemberVerdict } from './vote.ts';
 
 /** What the list reads of a PRD waiting for approval. */
 export type ApprovalFacts = {
@@ -46,9 +48,12 @@ export type CommitteeFacts = ApprovalFacts | AnswerFacts;
 
 const listed = (ids: readonly string[]): string => ids.join(', ');
 
+/** The one case only a person decides, whatever the members answer: a PRD approved by its phase-0 pull request (N-PRODUCT-15). */
+const PHASE0_PR = 'it is approved by its phase-0 pull request, which only a person merges';
+
 /** The first line of the list: who alone may act on it, a person merging a phase-0 pull request or acting on a human-action item. */
 function whoActs(facts: CommitteeFacts): string[] {
-  if (facts.kind === 'approve') return facts.phase0 === 'server' ? [] : ['it is approved by its phase-0 pull request, which only a person merges'];
+  if (facts.kind === 'approve') return facts.phase0 === 'server' ? [] : [PHASE0_PR];
   return facts.rank === 'human-action' ? ['it is a human-action item: only a person can act on it'] : [];
 }
 
@@ -85,11 +90,54 @@ export const escalations = (facts: CommitteeFacts): string[] => [
   ...facts.dataMigrations.map((file) => `the migration ${file} drops or rewrites data`),
 ];
 
-/** The decision: escalated by rule when the list names anything, the vote being only recorded; else the vote's. */
-export function decide(facts: CommitteeFacts, verdicts: readonly MemberVerdict[], author: CommitteeRole | null): Tally {
-  const rule = escalations(facts);
+/** Where a case of the list goes (PRD omni-loop-21 s2): to the members, who decide it, then to a person at landing; or to a person at once. */
+const TO_THE_MEMBERS = 'to the members, then to a person at landing';
+const TO_A_PERSON = 'to a person';
+
+/** One case of the list and where it goes. */
+export type Route = { case: string; to: typeof TO_THE_MEMBERS | typeof TO_A_PERSON };
+
+/**
+ * Where each case of the list goes, in the list's order (PRD omni-loop-21 s2): every case to the committee's members, who
+ * decide it, the decision staying open for a person on the mission pull request at landing; but a PRD approved by its
+ * phase-0 pull request, which only a person merges (N-PRODUCT-15), goes to a person at once.
+ */
+export const routes = (facts: CommitteeFacts): Route[] =>
+  escalations(facts).map((line) => ({ case: line, to: line === PHASE0_PR ? TO_A_PERSON : TO_THE_MEMBERS }));
+
+/** The option a deferred item is settled with meanwhile: A, what was built, the most reversible (`/omni:do-work`, step 3). */
+const BUILT = 'A';
+
+/**
+ * What the committee's decision comes to (PRD omni-loop-21 s2):
+ *
+ *   - `carried`: every sitting member answered yes; `on the escalation list` when `listed` names a case;
+ *   - `deferred`: an item the vote did not carry, settled meanwhile with `option` A, as built, the most reversible;
+ *   - `escalated`: a case only a person decides (`why` names it, the vote only recorded), or a PRD the vote did not carry
+ *     (a PRD is never approved without every sitting yes).
+ *
+ * `listed` is each case of the list it was on: a carried or deferred one stays open for a person at landing.
+ */
+export type Decision = { outcome: 'carried' | 'deferred' | 'escalated'; listed: string[]; why: string[]; verdicts: MemberVerdict[]; option: typeof BUILT | null };
+
+const ON_THE_LIST = 'on the escalation list';
+
+/** The decision: by rule for a case only a person decides, the vote being only recorded; else the members', as {@link Decision} says. */
+export function decide(facts: CommitteeFacts, verdicts: readonly MemberVerdict[], author: CommitteeRole | null): Decision {
+  const cases = routes(facts);
+  const listed = cases.map((route) => route.case);
   const vote = tally(verdicts, author);
-  return rule.length > 0 ? { outcome: 'escalated', why: rule, verdicts: vote.verdicts } : vote;
+  const person = cases.filter((route) => route.to === TO_A_PERSON).map((route) => route.case);
+  if (person.length > 0) return { outcome: 'escalated', listed, why: person, verdicts: vote.verdicts, option: null };
+  const why = [...listed.map((line) => `${ON_THE_LIST}: ${line}`), ...vote.why];
+  if (vote.outcome === 'carried') return { outcome: 'carried', listed, why, verdicts: vote.verdicts, option: null };
+  return facts.kind === 'answer' ? { outcome: 'deferred', listed, why, verdicts: vote.verdicts, option: BUILT } : { outcome: 'escalated', listed, why, verdicts: vote.verdicts, option: null };
+}
+
+/** How a decision is recorded, in one line: `carried`, `carried · on the escalation list`, `deferred · option A` or `escalated`. */
+export function decisionLine(decision: Decision): string {
+  if (decision.outcome === 'deferred') return `deferred · option ${decision.option ?? BUILT}`;
+  return decision.outcome === 'carried' && decision.listed.length > 0 ? `carried · ${ON_THE_LIST}` : decision.outcome;
 }
 
 const LEGAL = /\bL-[A-Z][A-Z0-9]*-[1-9][0-9]*\b/g;
