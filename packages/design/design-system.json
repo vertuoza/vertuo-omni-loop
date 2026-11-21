@@ -81,7 +81,8 @@
     {
       "do": [
         "Keep each crumb to the page's own name.",
-        "Leave the last crumb without a link."
+        "Name the item itself in the last crumb, without a link.",
+        "Use it in place of a \"back\" link."
       ],
       "dont": [
         "Use it as the main navigation.",
@@ -281,6 +282,30 @@
     },
     {
       "do": [
+        "Give every fact an id, a short label and its value.",
+        "Pass an empty value to leave a fact out: the list drops it."
+      ],
+      "dont": [
+        "Draw a dash for a fact that is missing.",
+        "Use it for a table of many rows: use DataList or a table."
+      ],
+      "example": "<DefinitionList facts={[{ id: 'owner', label: 'Owner', value: 'pierrederval' }]} />",
+      "import": "@omni/ui",
+      "name": "DefinitionList",
+      "replaces": [
+        "dossier-fact",
+        "dossier-facts-strip"
+      ],
+      "usage": "The facts about one thing, beside its main content: each label over its value. A fact with no value is left out.",
+      "variants": {
+        "density": [
+          "normal",
+          "compact"
+        ]
+      }
+    },
+    {
+      "do": [
         "Title it with the question, and give it one action that answers it beside a way out.",
         "Keep it short: one decision, a few lines."
       ],
@@ -330,8 +355,8 @@
     },
     {
       "do": [
-        "Say why it is empty and what will fill it.",
-        "Offer the one action that fills it, when the person has one."
+        "Say why it is empty in the title and when it fills in in one line under it: two lines at most.",
+        "Offer the one action that fills it, when the person has one: never two."
       ],
       "dont": [
         "Leave a section blank instead.",
@@ -779,22 +804,28 @@
     },
     {
       "do": [
-        "Say the state once, in the status slot.",
-        "Put the view's one primary action in the action slot."
+        "Say the state once: in the status slot, or in the stage track under the head, never in both.",
+        "Write the subtitle as one sentence; on an item that waits on someone, the next step, naming who acts.",
+        "Keep the meta row to at most five short facts that need no label; the rest go to the side facts.",
+        "Put the view's one primary action in the action slot, only when the viewer is the one who acts, its label the verb of the subtitle.",
+        "Put Delete draft and the like in the Actions menu: actions only, never sections."
       ],
       "dont": [
         "Use two page headers at level 1 on one page.",
-        "Fill the lede with what the page itself says below."
+        "Fill the subtitle with what the page says below, or repeat the stage in the meta row.",
+        "Draw the title smaller, or inside a card.",
+        "Pass a sixth fact: the props type refuses it and the part drops it."
       ],
-      "example": "<PageHeader title=\"Checkout rewrite\" eyebrow=\"PRD 12\" status={<Badge>Building</Badge>} action={<Button variant=\"primary\">Approve</Button>} />",
+      "example": "<PageHeader title=\"Checkout rewrite\" eyebrow=\"PRD 12\" lede=\"Pierre approves the spec and plan.\" meta={['Opened by Pierre, 17 Nov', '2 agent decisions adopted']} actions={[{ id: 'delete', label: 'Delete draft', tone: 'danger' }]} action={<Button variant=\"primary\">Review and approve</Button>} />",
       "import": "@omni/ui",
       "name": "PageHeader",
       "replaces": [
         "dossier-head",
         "dossier-head-top",
-        "dossier-history-head"
+        "dossier-history-head",
+        "dossier-facts"
       ],
-      "usage": "The head of a page or of a major section: what it is, where it stands, and the one thing to do next.",
+      "usage": "The head of a page or of a major section: an eyebrow, one 32 px title, a one-sentence subtitle, at most five facts, the one primary action, and the rare actions in a menu.",
       "variants": {
         "level": [
           "1",
@@ -983,6 +1014,32 @@
     },
     {
       "do": [
+        "Order the sections as the reader should read them, and name each by what it shows (`What changed`).",
+        "Put the question in the decision bar, a line under it when it needs one, the secondary actions beside the one decision.",
+        "Let the screen span the width it is given; prose inside a section keeps its 900 px measure."
+      ],
+      "dont": [
+        "Put anything else on the screen: no tabs, no side panels, nothing that is not read before the decision.",
+        "Give the bar two primary decisions.",
+        "Pass a className or a style: the part takes sections and actions as slots."
+      ],
+      "example": "<ReviewScreen title=\"Review and approve\" sections={[{ title: \"What changed\", children: \"The diff\" }]} question=\"Approve this spec and plan?\" decision={<Button variant=\"primary\">Approve</Button>} />",
+      "import": "@omni/ui",
+      "name": "ReviewScreen",
+      "replaces": [
+        "review-screen",
+        "decision-bar"
+      ],
+      "usage": "A focused, full-width screen for one signed decision: numbered reading sections in order, a step list beside them, and a decision bar that stays at the bottom of the window with the question and the one decision.",
+      "variants": {
+        "sections": [
+          "2",
+          "3"
+        ]
+      }
+    },
+    {
+      "do": [
         "Group related things under one title, then lay them out with a Stack.",
         "Put the group's own actions in the header."
       ],
@@ -1011,11 +1068,37 @@
     },
     {
       "do": [
-        "Keep each label to one or two words.",
-        "Always choose one option; start on the usual one."
+        "Use level 2 for a section of the page and level 3 for a part inside a section.",
+        "Say the count in the count slot, not in the title."
       ],
       "dont": [
-        "Use it to go to other pages: that is Tabs.",
+        "Put a button where the link goes: a section has its action in its body.",
+        "Skip a level to get a smaller look."
+      ],
+      "example": "<SectionHeading count=\"3/7\" link={{ label: 'Open the question', href: '#q' }}>Questions</SectionHeading>",
+      "import": "@omni/ui",
+      "name": "SectionHeading",
+      "replaces": [
+        "dossier-section-title",
+        "section-title"
+      ],
+      "usage": "The title of a section of a page: sentence case, with how many there are beside it and one quiet link at its right.",
+      "variants": {
+        "level": [
+          "2",
+          "3"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Keep each label to one or two words.",
+        "Always mark one option; start on the usual one.",
+        "Give every option an `href` when each one is its own address (a sub-view, a version), and the app's router link."
+      ],
+      "dont": [
+        "Use it to go to the sections of a page: that is Tabs. Never draw a second row of tabs inside a tab: use this.",
+        "Mix options with and without an `href`.",
         "Offer more than five options."
       ],
       "example": "<SegmentedControl label=\"Show\" value=\"open\" onChange={setShow} options={[{ id: \"open\", label: \"Open\" }, { id: \"all\", label: \"All\" }]} />",
@@ -1025,7 +1108,7 @@
         "segmented",
         "filter-toggle"
       ],
-      "usage": "One choice out of two to five, side by side, that changes what this view shows: All, Open, Closed.",
+      "usage": "Two to five options side by side, as one control, that change what this view shows: a filter (All, Open, Closed), or, given an `href` on each, the sub-views of a tab (Before/after, Spec, Plan) and its versions as links.",
       "variants": {
         "size": [
           "md",
@@ -1131,25 +1214,32 @@
     },
     {
       "do": [
-        "Give the stage the PRD is in: the ones before it read as done.",
+        "Say the stage here and nowhere else on the page: no stage pill, badge or \"Stage:\" line beside it.",
+        "Give the current stage its progress in words, and the `waiting` tone only while it waits on the person reading.",
+        "Give each stage its time as hover text, worded by `stageSince`: \"Building since 17 Nov 09:40 UTC · 10.2 h\".",
         "Use the horizontal layout in a header and the vertical one in a narrow column."
       ],
       "dont": [
-        "Use it for steps that are not the loop's stages: that is a Timeline.",
-        "Rely on the marker alone to say where the PRD is."
+        "Use it for steps that are not a life cycle's stages: that is a Timeline.",
+        "Use the waiting tone while agents work: yellow means the viewer acts.",
+        "Rely on the colour alone to say where the item is."
       ],
-      "example": "<StageTrack stage=\"Building\" />",
+      "example": "<StageTrack stage=\"Building\" progress=\"3 of 7 slices\" share={3 / 7} times={{ Building: stageSince(\"Building\", since, now) }} />",
       "import": "@omni/ui",
       "name": "StageTrack",
       "replaces": [
         "stage-track",
         "stage-stepper"
       ],
-      "usage": "Where a PRD stands in the loop: idea, PRD, inbox, building, outbox, shipped, retro, with the stages behind it done and the ones ahead pending.",
+      "usage": "Where an item with a life cycle stands, said once: a PRD (Idea to Retro) or a fix (Asked to Released). The passed stages are done, the current one is named in bold with its progress (Building · 3 of 7 slices), the later ones are quiet; hovering a stage gives its time.",
       "variants": {
         "layout": [
           "horizontal",
           "vertical"
+        ],
+        "tone": [
+          "working",
+          "waiting"
         ]
       }
     },
@@ -1240,21 +1330,25 @@
     },
     {
       "do": [
-        "Name each tab with one or two words.",
+        "Name each tab with one or two words, and keep the same tabs in the same order on every item of a kind.",
+        "Give a count as a short mono pill (`3/7`, `v2`, `5`), and `attention` only when the tab waits on the person reading.",
+        "Keep an empty tab in the row with its reason (`empty`), rather than hiding it.",
         "Give the app's router link, so a tab switches without a full page load."
       ],
       "dont": [
         "Use tabs to go to other pages: that is navigation.",
+        "Put a second row of tabs inside a tab: sub-views, filters and versions are a SegmentedControl.",
+        "Write a count as \"(2)\" or a bare coloured number, or turn a pill yellow for something the viewer does not do.",
         "Show one tab alone."
       ],
-      "example": "<Tabs label=\"PRD sections\" current=\"spec\" items={[{ id: \"spec\", label: \"Spec\", href: \"?tab=spec\" }]} />",
+      "example": "<Tabs label=\"PRD sections\" current=\"spec\" items={[{ id: \"spec\", label: \"Specifications\", href: \"?tab=spec\", count: \"3/7\" }, { id: \"outbox\", label: \"Outbox\", href: \"?tab=outbox\", count: \"2 open\", attention: true }, { id: \"retro\", label: \"Retro\", href: \"?tab=retro\", empty: \"Written when the feature PR merges\" }]} />",
       "import": "@omni/ui",
       "name": "Tabs",
       "replaces": [
         "dossier-tabs",
         "dossier-tab"
       ],
-      "usage": "A row of links to the sections of one page, the current one marked: Spec, Plan, Outbox.",
+      "usage": "One row of links to the sections of one page, right under its header, the current one marked: Brainstorm, Specifications, Outbox. A tab may carry a count as a small mono pill, yellow only when it waits on the viewer; a tab with nothing yet stays, dimmed, with why on hover.",
       "variants": {
         "size": [
           "md",
