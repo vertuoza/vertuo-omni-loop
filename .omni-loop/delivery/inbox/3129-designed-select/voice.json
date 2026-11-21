@@ -112,6 +112,66 @@
       ],
       "objection": null,
       "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ✓ · persona:B-E DEv ~"
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-21",
+      "personas": [
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "Every dropdown now opens in our own look and the old grey box is gone: it shipped in five reviewable pieces.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The picks still save, and a customer sees one consistent dropdown on every page.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One component and a ratchet rule that refuses a new raw select, so I stop reviewing dropdowns.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Most screens have a test that a pick saves its value, but a few are checked in markup only and the pickers of a GET form now need script to open.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Nothing behind the dropdowns changed, though the Jev mode list now hides locked modes.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A few screens (the room ledger filters, the constituents kind picker, the idea lane) have no test that a pick saves, and the GET form pickers need script to open.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "none"
+      },
+      "fit": "fits persona:Paul - Product Manager ✓ · persona:Irisa ✓ · persona:Lead Engineer ✓ · persona:F-E Developer ~ · persona:B-E DEv ~"
     }
   ]
 }
