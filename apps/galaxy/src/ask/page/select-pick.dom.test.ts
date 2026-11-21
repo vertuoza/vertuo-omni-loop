@@ -7,6 +7,7 @@ import { userEvent } from '@testing-library/user-event';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Category } from '../classify';
+import type { ClaimKind } from '../../business/model';
 import { QuestionsCard } from '../../agent-connect/questions/QuestionsCard';
 import type { QuestionsHandlers } from '../../agent-connect/questions/QuestionsCard';
 import type { QuestionsState } from '../../agent-connect/questions/state';
@@ -60,7 +61,9 @@ describe('the Ask page and the questions card pick with the Select (AC-5)', () =
 
   it('the questions card saves the kind and the product picked', async () => {
     const user = userEvent.setup();
-    const on: QuestionsHandlers = { answer: vi.fn(), kind: vi.fn(), value: vi.fn(), product: vi.fn(), save: vi.fn(), cancel: vi.fn(), dismiss: vi.fn(), bringBack: vi.fn() };
+    const kind = vi.fn<(kind: ClaimKind) => void>();
+    const product = vi.fn<(product: string) => void>();
+    const on: QuestionsHandlers = { answer: vi.fn(), kind: (k) => { kind(k); }, value: vi.fn(), product: (p) => { product(p); }, save: vi.fn(), cancel: vi.fn(), dismiss: vi.fn(), bringBack: vi.fn() };
     const state: QuestionsState = {
       questions: [{ id: 'q1', question: 'Who do we sell to?', asked: 1, askedBy: 'Tom', repo: null, file: null, firstAskedAt: '2026-09-26T09:00:00Z', lastAskedAt: '2026-09-26T09:00:00Z', product: null }],
       answering: { id: 'q1', kind: 'offering', value: '', product: null },
@@ -70,9 +73,9 @@ describe('the Ask page and the questions card pick with the Select (AC-5)', () =
     render(createElement(QuestionsCard, { state, products, on }));
     await user.click(screen.getByRole('combobox', { name: 'Kind' }));
     await user.click(await screen.findByRole('option', { name: 'Never' }));
-    expect(on.kind).toHaveBeenCalledWith('never');
+    expect(kind).toHaveBeenCalledWith('never');
     await user.click(screen.getByRole('combobox', { name: 'Product' }));
     await user.click(await screen.findByRole('option', { name: 'Beta' }));
-    expect(on.product).toHaveBeenCalledWith('p2');
+    expect(product).toHaveBeenCalledWith('p2');
   });
 });
