@@ -30,18 +30,6 @@
 .products-back { font-size: 14px; color: var(--ask-muted); }
 .products-section h2 { margin: 0; }
 
-.products-look-select {
-  max-width: 100%;
-  font: 600 15px/1.2 var(--ask-body);
-  color: var(--ask-ink);
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 8px;
-  padding: 8px 12px;
-}
-.products-look-select:disabled { cursor: not-allowed; opacity: 0.6; }
-.products-look-select:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
-
 /* The Pitch section (PRD 1108 s2): five parts, each a column of labelled fields that wraps at 393 px;
    the colours side by side; the summary a reader without controls sees. */
 .pitch-form { display: grid; gap: 20px; width: 100%; }

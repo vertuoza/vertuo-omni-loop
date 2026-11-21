@@ -6,7 +6,6 @@
 .ask-share { margin: 0; display: grid; gap: 8px; }
 .ask-share p { margin: 0; }
 .ask-share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.ask-share-pick,
 .ask-share-link {
   font: 400 15px/1.2 var(--ask-body);
   color: var(--ask-ink);
