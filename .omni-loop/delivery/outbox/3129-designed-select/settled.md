@@ -157,3 +157,160 @@ Removing them later costs one edit of the package list and the lockfile.
 ```
 
 <!-- /omni-outbox-settled: s2-01-s2-dom-test-dev-dependencies -->
+
+<!-- omni-outbox-settled: s4-01-board-test-reads-the-select -->
+
+## s4-01-board-test-reads-the-select — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-21
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-21
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-board-test-reads-the-select
+prd: 3129
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-21
+wave: 4
+excuses: [apps/galaxy/src/ideas/Board.test.ts]
+---
+
+## The question, in plain words
+
+The ideas board's own test checked the lane list as a native dropdown, and that test sits outside this slice's folders. May this slice update it to read the designed Select?
+
+## The decision, in plain words
+
+The test file for the ideas board was edited to read the new lane picker (the picked lane and the value the form posts). Nothing else in that folder changed.
+
+## The intro, for fun
+
+One test still expected the old grey box.
+
+## The punchline, for fun
+
+It now expects our own list instead.
+
+## The options, in plain words
+
+A. A. Update the board test to read the designed Select, as built.
+B. B. Leave the board test alone and move the lane picker's test into the slice's own folders.
+
+## What I had to decide
+
+Edited apps/galaxy/src/ideas/Board.test.ts, two lines, because the lane picker in ideas/members now renders the designed Select and the old markup check could not pass. Without it the full test run is red.
+Decided by: Jev (hardToRevert 0.76) · agent said false
+
+## What I did meanwhile
+
+The board test would stay red, and the slice could not be marked ready.
+
+## What it costs to change later
+
+Reverting means putting the old two assertions back and keeping the native lane select, which the PRD forbids.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No test of the old behaviour is lost; the pick is covered by select-pick.dom.test.ts. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-board-test-reads-the-select -->
+
+<!-- omni-outbox-settled: s4-02-jev-mode-list-hides-locked-modes -->
+
+## s4-02-jev-mode-list-hides-locked-modes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-11-21
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-11-21
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-jev-mode-list-hides-locked-modes
+prd: 3129
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-11-21
+wave: 4
+---
+
+## The question, in plain words
+
+Jev's mode picker greyed out Shadow and On until a key is stored, and the designed Select cannot grey out one option. Should the list hide them instead?
+
+## The decision, in plain words
+
+While no key is stored, the mode list offers Off only. Once a key is stored all three show.
+
+## The intro, for fun
+
+Two choices were greyed out in the old list.
+
+## The punchline, for fun
+
+The new list simply does not show them yet.
+
+## The options, in plain words
+
+A. A. Hide Shadow and On from the list while no key is stored, as built.
+B. B. Add a disabled flag to the Select's options in a follow-up and grey them out as before.
+
+## What I had to decide
+
+Filtered the options of the Jev mode Select instead of marking them disabled, because the Select's options carry only a value and a label and packages/ui is outside this slice. The server still checks the mode again.
+Decided by: Jev (hardToRevert 0.80) · agent said false
+
+## What I did meanwhile
+
+Shadow and On stay out of the list until a key is stored, as they were out of reach before.
+
+## What it costs to change later
+
+Adding a disabled flag to the Select's options later is a small change in packages/ui, then this line goes back to marking them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No test of the old behaviour is lost; the pick is covered by select-pick.dom.test.ts. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-jev-mode-list-hides-locked-modes -->
