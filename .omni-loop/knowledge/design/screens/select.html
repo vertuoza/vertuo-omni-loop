@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Select mockup</title>
+<style>
+  /* The reading tokens of packages/design/tokens.css (Light; the dark block for the phone state). */
+  body { margin: 0; background: #f5f4fc; font: 14px/1.45 system-ui, sans-serif; }
+  .mock-note, .mock-h { max-width: 1280px; margin: 16px auto 8px; padding: 0 16px; font: 13px/1.5 system-ui, sans-serif; color: #4f5486; }
+  .mock-h { font-weight: 700; color: #17153d; }
+  [data-screen] { margin: 0 auto 24px; }
+
+/* The screens' one stylesheet: Light and Dark reading tokens of packages/design/tokens.css, the Select mockup's rules. */
+.tok{--bg:#f5f4fc;--surface:#fff;--raised:#fff;--ink:#17153d;--muted:#4f5486;--line:#d9d6ee;--strong:#85819f;--accent:#2f3fc4;--soft:#e6e8fb;--danger:#b3122f;--shadow:0 8px 24px rgb(0 0 0/.32)}
+.dark{--bg:#0e0d33;--surface:#16144a;--raised:#221f62;--ink:#f2f4ff;--muted:#a9aee6;--line:#2f2c78;--strong:#6d6acc;--accent:#9aa4ff;--soft:#272a7a;--danger:#ff6b86}
+.scr{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,sans-serif;padding:32px;min-height:420px;box-sizing:border-box}
+.scr.phone{padding:16px;min-height:640px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:24px;max-width:520px}
+.phone .card{padding:16px}
+h2{font-size:18px;margin:0 0 16px}
+.field{display:grid;gap:4px;margin:0 0 16px;position:relative}
+.field>label{font-size:13px;color:var(--muted);font-weight:600}
+.trig{display:flex;align-items:center;justify-content:space-between;gap:8px;box-sizing:border-box;width:100%;padding:8px 12px;border:1px solid var(--strong);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;text-align:left}
+.trig.sm{width:auto;padding:4px 8px;font-size:13px;border-radius:4px}
+.trig.open{outline:2px solid var(--accent);outline-offset:2px}
+.trig.inv{border:2px solid var(--danger)}
+.trig.dis{opacity:.5}
+.chev{width:7px;height:7px;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:translateY(-25%) rotate(45deg);flex:none}
+.err{color:var(--danger);font-size:13px}
+.list{position:absolute;top:100%;margin-top:4px;left:0;min-width:100%;max-width:min(320px,calc(100vw - 32px));box-sizing:border-box;padding:4px;background:var(--raised);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);z-index:2}
+.opt{display:flex;align-items:center;gap:8px;min-height:44px;box-sizing:border-box;padding:8px 12px;border-radius:4px}
+.opt.hi{background:var(--soft)}
+.opt .ck{width:16px;flex:none;color:var(--accent);font-weight:700}
+.opt[aria-selected=true]{font-weight:700}
+.native{position:absolute;top:100%;left:0;min-width:100%;background:#fff;color:#000;border:1px solid #999;font:13px/1.2 -apple-system,"Segoe UI",sans-serif;box-shadow:1px 2px 4px rgb(0 0 0/.4);z-index:2}
+.native div{padding:3px 8px}.native .hi{background:#0a64d8;color:#fff}
+.nbox{display:inline-flex;align-items:center;gap:6px;padding:2px 6px;border:1px solid #8a8a8a;border-radius:3px;background:#efefef;color:#000;font:13px -apple-system,"Segoe UI",sans-serif}
+.round{border-top:1px solid var(--line);padding:12px 0;display:grid;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;position:relative;font-size:13px}
+.by{color:var(--muted)}
+.row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+
+
+</style>
+</head>
+<body>
+<p class="mock-note"><b>Select</b> · draft · the designed dropdown of @omni/ui (PRD 3129). Example data, fictional. Each state is drawn at its width; the open list is the Menu's panel with a check on the option picked.</p>
+<h2 class="mock-h">1.A · A form field, open (products › pitch look)</h2>
+<div data-screen="select" data-ref="1.A" data-when="after" data-viewport="1280" style="width:1280px;max-width:100%" class="tok"><div class="scr"><div class="card"><h2>Pitch look</h2><div class="field"><label>Theme</label><button class="trig open" data-primary>Dark <span class="chev"></span></button><div class="list" role="listbox"><div class="opt hi" role="option" aria-selected="false"><span class="ck"></span>Light</div><div class="opt" role="option" aria-selected="true"><span class="ck">✓</span>Dark</div></div></div><div class="field"><label>Preset</label><button class="trig">Arcade <span class="chev"></span></button></div></div></div></div>
+<h2 class="mock-h">1.B · A form field, closed</h2>
+<div data-screen="select" data-ref="1.B" data-when="after" data-viewport="1280" style="width:1280px;max-width:100%" class="tok"><div class="scr"><div class="card"><h2>Pitch look</h2><div class="field"><label>Theme</label><button class="trig" data-primary>Dark <span class="chev"></span></button></div><div class="field"><label>Preset</label><button class="trig">Arcade <span class="chev"></span></button></div></div></div></div>
+<h2 class="mock-h">1.C · The small size inline: Ask's category chip, open</h2>
+<div data-screen="select" data-ref="1.C" data-when="after" data-viewport="1280" style="width:1280px;max-width:100%" class="tok"><div class="scr"><div class="card"><h2>Workspace history</h2><div class="round"><span>Which plan should the trial use?</span><span class="chip"><button class="trig sm open" data-primary>Business <span class="chev"></span></button><div class="list" role="listbox"><div class="opt" role="option" aria-selected="false"><span class="ck"></span>Unsorted</div><div class="opt" role="option" aria-selected="true"><span class="ck">✓</span>Business</div><div class="opt hi" role="option" aria-selected="false"><span class="ck"></span>Product</div><div class="opt" role="option" aria-selected="false"><span class="ck"></span>UX/UI</div><div class="opt" role="option" aria-selected="false"><span class="ck"></span>Architecture</div><div class="opt" role="option" aria-selected="false"><span class="ck"></span>Harness</div><div class="opt" role="option" aria-selected="false"><span class="ck"></span>Other</div></div><span class="by">sorted by the model</span></span></div></div></div></div>
+<h2 class="mock-h">1.D · Phone, dark theme: the dossier's version picker, open</h2>
+<div data-screen="select" data-ref="1.D" data-when="after" data-viewport="390" style="width:390px;max-width:100%" class="tok"><div class="scr phone dark"><div class="card"><h2>Spec</h2><div class="field"><button class="trig sm open" data-primary>Version 3 · today <span class="chev"></span></button><div class="list" role="listbox"><div class="opt" role="option" aria-selected="true"><span class="ck">✓</span>Version 3 · today</div><div class="opt hi" role="option" aria-selected="false"><span class="ck"></span>Version 2 · 19 Nov</div><div class="opt" role="option" aria-selected="false"><span class="ck"></span>Version 1 · 18 Nov</div></div></div></div></div></div>
+<h2 class="mock-h">1.E · Disabled, invalid, and the two sizes</h2>
+<div data-screen="select" data-ref="1.E" data-when="after" data-viewport="1280" style="width:1280px;max-width:100%" class="tok"><div class="scr"><div class="card"><h2>States</h2><div class="field"><label>Role</label><button class="trig dis" disabled>Developer <span class="chev"></span></button></div><div class="field"><label>Repository</label><button class="trig inv" aria-invalid="true" data-primary>Pick a repository <span class="chev"></span></button><span class="err">Pick the repository this key reads.</span></div><div class="row"><button class="trig">md · Developer <span class="chev"></span></button><button class="trig sm">sm · Newest first <span class="chev"></span></button></div></div></div></div>
+</body>
+</html>
