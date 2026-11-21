@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { EmptyState, Notice, SegmentedControl } from '@omni/ui';
+import { EmptyState, Notice } from '@omni/ui';
+import { RouterSegments } from './RouterSegments';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { reviewPath } from '../review/review';
@@ -127,11 +128,10 @@ export function SpecificationsTab({ view, markdown, attestation, supabase }: Pro
       <Waiting view={view} />
       <div className="dossier-specifications">
         <div className="dossier-specifications__main">
-          <SegmentedControl
+          <RouterSegments
             label="Specifications"
             options={view.segments.map((s) => ({ id: s.id, label: s.label, href: s.href }))}
             value={view.segment ?? 'before-after'}
-            link={Link}
           />
           <SegmentPane view={view} markdown={markdown} attestation={attestation} />
         </div>
