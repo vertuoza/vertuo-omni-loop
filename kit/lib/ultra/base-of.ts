@@ -24,16 +24,16 @@ export type BaseOfEntry = { repo: string; branch: string };
 /** A repository as GitHub names it: `owner/name`. */
 const SLUG = /^[\w.-]+\/[\w.-]+$/;
 
-/** What `git check-ref-format --branch` refuses anywhere in a name, and `,` and `=`, the flag's own separators. */
-const BAD_CHARS = /[\s~^:?*[\\,=]/;
-
-/** Whether `text` holds a control character, which no ref name holds. */
-const hasControl = (text: string) => [...text].some((char) => char.charCodeAt(0) < 0x20 || char.charCodeAt(0) === 0x7f);
+/**
+ * What `git check-ref-format --branch` refuses anywhere in a name (a space, a control character, `~^:?*[\`), and `,` and
+ * `=`, the flag's own separators.
+ */
+const BAD_CHARS = /[\s\p{Cc}~^:?*[\\,=]/u;
 
 /** What `git check-ref-format --branch` refuses, one rule each: a name none of them refuses is a branch name. */
 const BRANCH_REFUSALS: readonly ((branch: string) => boolean)[] = [
   (branch) => branch === '' || branch === '@',
-  (branch) => BAD_CHARS.test(branch) || hasControl(branch),
+  (branch) => BAD_CHARS.test(branch),
   (branch) => ['..', '@{', '//'].some((bit) => branch.includes(bit)),
   (branch) => /^[-/]|[/.]$/.test(branch),
   (branch) => branch.split('/').some((part) => part.startsWith('.') || part.endsWith('.lock')),
