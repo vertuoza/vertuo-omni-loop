@@ -1,7 +1,8 @@
-// PRD 2896 s9: the escalation list, pure. Each line reaches a person although three members would answer `yes`
-// (criterion 15): it is read by code before any member runs, so the committee's judgement only meets what it lets through.
+// PRD 2896 s9: the escalation list, pure, read by code before any member runs. PRD omni-loop-21 s2: each of its lines now
+// goes to the members, then to a person at landing (a carried or deferred decision stays open for them on the mission
+// pull request), but a PRD approved by its phase-0 pull request, which only a person merges.
 import { describe, expect, it } from 'vitest';
-import { bearsOn, decide, escalations, itemFacts, jevScore, rewritesData, type ApprovalFacts, type AnswerFacts } from './escalation.ts';
+import { bearsOn, decide, decisionLine, escalations, itemFacts, jevScore, rewritesData, routes, type ApprovalFacts, type AnswerFacts } from './escalation.ts';
 import { COMMITTEE_ROLES, type MemberVerdict } from './vote.ts';
 
 const approval = (over: Partial<ApprovalFacts> = {}): ApprovalFacts => ({
@@ -17,37 +18,37 @@ describe('the escalation list', () => {
     expect(escalations(approval())).toEqual([]);
   });
 
-  it('sends a person a PRD approved by its phase-0 pull request: only a person merges that', () => {
+  it('lists a PRD approved by its phase-0 pull request: only a person merges that', () => {
     expect(escalations(approval({ phase0: 'pr' }))).toEqual(['it is approved by its phase-0 pull request, which only a person merges']);
   });
 
-  it('sends a person a PRD bearing on a locked law, naming it', () => {
+  it('lists a PRD bearing on a locked law, naming it', () => {
     expect(escalations(approval({ lockedLaws: ['N-PRODUCT-15', 'BR-PRODUCT-5'] }))).toEqual(['it bears on the locked laws N-PRODUCT-15, BR-PRODUCT-5: their owners decide']);
     expect(escalations(approval({ lockedLaws: ['N-PRODUCT-15'] }))).toEqual(['it bears on the locked law N-PRODUCT-15: its owner decides']);
   });
 
-  it('sends a person a PRD bearing on a Legal entry', () => {
+  it('lists a PRD bearing on a Legal entry', () => {
     expect(escalations(approval({ legal: ['L-GDPR-4'] }))).toEqual(['it bears on the Legal entry L-GDPR-4']);
   });
 
-  it('sends a person a PRD whose spec a business law judged red', () => {
+  it('lists a PRD whose spec a business law judged red', () => {
     expect(escalations(approval({ redBusinessLaws: ['BL-APPROVALS-1'] }))).toEqual(['its spec breaks the business law BL-APPROVALS-1']);
   });
 
-  it('sends a person a migration that drops or rewrites data', () => {
+  it('lists a migration that drops or rewrites data', () => {
     expect(escalations(approval({ dataMigrations: ['supabase/migrations/1_x.sql'] }))).toEqual(['the migration supabase/migrations/1_x.sql drops or rewrites data']);
   });
 
-  it('sends a person a human-action item', () => {
+  it('lists a human-action item', () => {
     expect(escalations(answer({ rank: 'human-action' }))).toEqual(['it is a human-action item: only a person can act on it']);
   });
 
-  it('sends a person an item at or above the mission\'s hard-to-revert bound, and lets one below it through', () => {
+  it('lists an item at or above the mission\'s hard-to-revert bound, and lets one below it through', () => {
     expect(escalations(answer({ hardToRevert: 0.6 }))).toEqual(['its hard-to-revert score 0.6 is at or above the mission\'s bound 0.6']);
     expect(escalations(answer({ hardToRevert: 0.59 }))).toEqual([]);
   });
 
-  it('sends a person an item with no hard-to-revert score: unknown is never under the bound', () => {
+  it('lists an item with no hard-to-revert score: unknown is never under the bound', () => {
     expect(escalations(answer({ hardToRevert: null }))).toEqual(['its hard-to-revert score is unknown']);
   });
 
@@ -60,30 +61,131 @@ describe('the escalation list', () => {
   });
 });
 
-describe('the decision', () => {
-  it('carries on three yes when the list lets it through', () => {
-    expect(decide(approval(), threeYes, null)).toMatchObject({ outcome: 'carried', why: [] });
-  });
-
-  it('escalates by rule although three members would answer yes, for every line of the list', () => {
+describe('the routing (PRD omni-loop-21 s2)', () => {
+  it('sends every case of the list to the members, then to a person at landing, naming the case', () => {
     for (const facts of [
-      approval({ phase0: 'pr' }),
       approval({ lockedLaws: ['N-PRODUCT-15'] }),
       approval({ legal: ['L-AIACT-1'] }),
       approval({ redBusinessLaws: ['BL-GATE-1'] }),
       approval({ dataMigrations: ['m.sql'] }),
       answer({ rank: 'human-action' }),
+      answer({ lockedLaws: ['BR-PRODUCT-5'] }),
+      answer({ legal: ['L-GDPR-4'] }),
+      answer({ businessLaws: ['BL-GATE-1'] }),
       answer({ hardToRevert: 0.9 }),
+      answer({ hardToRevert: null }),
+      answer({ dataMigrations: ['m.sql'] }),
     ]) {
-      const decided = decide(facts, threeYes, null);
-      expect(decided.outcome, JSON.stringify(facts)).toBe('escalated');
-      expect(decided.why.length, JSON.stringify(facts)).toBeGreaterThan(0);
+      const [only, ...rest] = routes(facts);
+      expect(rest, JSON.stringify(facts)).toEqual([]);
+      expect(only, JSON.stringify(facts)).toEqual({ case: escalations(facts)[0], to: 'to the members, then to a person at landing' });
     }
   });
 
-  it('escalates by vote what the list lets through', () => {
-    const verdicts: MemberVerdict[] = [...threeYes.slice(0, 2), { role: 'reviewer', answer: 'no', sentence: 'Out of scope.' }];
-    expect(decide(approval(), verdicts, null)).toMatchObject({ outcome: 'escalated', why: ['the Reviewer answered no: Out of scope.'] });
+  it('keeps a PRD approved by its phase-0 pull request a person\'s: only a person merges that', () => {
+    expect(routes(approval({ phase0: 'pr' }))).toEqual([{ case: 'it is approved by its phase-0 pull request, which only a person merges', to: 'to a person' }]);
+  });
+
+  it('routes each line that applies, in the list\'s order, and none for a case on no line', () => {
+    expect(routes(approval({ phase0: 'pr', legal: ['L-GDPR-3'] })).map((route) => route.to)).toEqual(['to a person', 'to the members, then to a person at landing']);
+    expect(routes(approval())).toEqual([]);
+    expect(routes(answer())).toEqual([]);
+  });
+});
+
+describe('the decision', () => {
+  const no: MemberVerdict = { role: 'reviewer', answer: 'no', sentence: 'Out of scope.' };
+  const twoYesAnd = (last: MemberVerdict): MemberVerdict[] => [...threeYes.slice(0, 2), last];
+
+  it('carries on three yes when the list lets it through', () => {
+    expect(decide(approval(), threeYes, null)).toEqual({ outcome: 'carried', listed: [], why: [], verdicts: threeYes, option: null });
+    expect(decisionLine(decide(approval(), threeYes, null))).toBe('carried');
+  });
+
+  it('AC-5: carries an item bearing on a business law on three yes, recorded on the escalation list', () => {
+    const decided = decide(answer({ businessLaws: ['BL-GATE-1'] }), threeYes, null);
+    expect(decided).toEqual({
+      outcome: 'carried',
+      listed: ['it bears on the business law BL-GATE-1: a person decides'],
+      why: ['on the escalation list: it bears on the business law BL-GATE-1: a person decides'],
+      verdicts: threeYes,
+      option: null,
+    });
+    expect(decisionLine(decided)).toBe('carried · on the escalation list');
+  });
+
+  it('AC-5: defers an item bearing on a business law on a no, with option A, the most reversible, and the reasons', () => {
+    const decided = decide(answer({ businessLaws: ['BL-GATE-1'] }), twoYesAnd(no), null);
+    expect(decided).toEqual({
+      outcome: 'deferred',
+      listed: ['it bears on the business law BL-GATE-1: a person decides'],
+      why: ['on the escalation list: it bears on the business law BL-GATE-1: a person decides', 'the Reviewer answered no: Out of scope.'],
+      verdicts: twoYesAnd(no),
+      option: 'A',
+    });
+    expect(decisionLine(decided)).toBe('deferred · option A');
+  });
+
+  it('defers an item on an unsure, a failed or a timed-out member, and on a vote that does not read whole', () => {
+    for (const last of [
+      { role: 'reviewer', answer: 'unsure', sentence: 'Cannot tell.' },
+      { role: 'reviewer', answer: 'failed', sentence: 'Its agent failed: boom' },
+      { role: 'reviewer', answer: 'timeout', sentence: 'No verdict within 20 minutes.' },
+      { role: 'architect', answer: 'yes', sentence: 'Again.' },
+    ] satisfies MemberVerdict[]) {
+      expect(decide(answer({ hardToRevert: 0.9 }), twoYesAnd(last), null), JSON.stringify(last)).toMatchObject({ outcome: 'deferred', option: 'A' });
+    }
+    expect(decide(answer({ hardToRevert: 0.9 }), threeYes, 'pm')).toMatchObject({
+      outcome: 'deferred',
+      why: ["on the escalation list: its hard-to-revert score 0.9 is at or above the mission's bound 0.6", 'the PM wrote it and may not vote on it'],
+    });
+  });
+
+  it('carries every case of the list on every sitting yes, the author sitting out, and defers it on a no', () => {
+    for (const facts of [
+      answer({ rank: 'human-action' }),
+      answer({ lockedLaws: ['N-PRODUCT-15'] }),
+      answer({ legal: ['L-AIACT-1'] }),
+      answer({ hardToRevert: null }),
+      answer({ dataMigrations: ['m.sql'] }),
+    ]) {
+      expect(decide(facts, threeYes, null), JSON.stringify(facts)).toMatchObject({ outcome: 'carried', listed: escalations(facts), option: null });
+      expect(decide(facts, threeYes.filter((verdict) => verdict.role !== 'architect'), 'architect'), JSON.stringify(facts)).toMatchObject({ outcome: 'carried' });
+      expect(decide(facts, twoYesAnd(no), null), JSON.stringify(facts)).toMatchObject({ outcome: 'deferred', listed: escalations(facts), option: 'A' });
+    }
+  });
+
+  it('defers by vote an item the list lets through: the mission carries on', () => {
+    expect(decide(answer(), twoYesAnd(no), null)).toEqual({ outcome: 'deferred', listed: [], why: ['the Reviewer answered no: Out of scope.'], verdicts: twoYesAnd(no), option: 'A' });
+  });
+
+  it('carries a PRD on the list on three yes, and never approves one without them: a no escalates it', () => {
+    for (const facts of [approval({ lockedLaws: ['N-PRODUCT-15'] }), approval({ legal: ['L-AIACT-1'] }), approval({ redBusinessLaws: ['BL-GATE-1'] }), approval({ dataMigrations: ['m.sql'] })]) {
+      const carried = decide(facts, threeYes, null);
+      expect(carried, JSON.stringify(facts)).toMatchObject({ outcome: 'carried', listed: escalations(facts), option: null });
+      expect(decisionLine(carried)).toBe('carried · on the escalation list');
+      expect(decide(facts, twoYesAnd(no), null), JSON.stringify(facts)).toMatchObject({
+        outcome: 'escalated',
+        option: null,
+        why: [`on the escalation list: ${escalations(facts).join('')}`, 'the Reviewer answered no: Out of scope.'],
+      });
+    }
+  });
+
+  it('escalates by vote a PRD the list lets through', () => {
+    const decided = decide(approval(), twoYesAnd(no), null);
+    expect(decided).toMatchObject({ outcome: 'escalated', listed: [], why: ['the Reviewer answered no: Out of scope.'], option: null });
+    expect(decisionLine(decided)).toBe('escalated');
+  });
+
+  it('escalates by rule a PRD approved by its phase-0 pull request although three members answer yes, the vote only recorded', () => {
+    expect(decide(approval({ phase0: 'pr', legal: ['L-GDPR-4'] }), threeYes, null)).toEqual({
+      outcome: 'escalated',
+      listed: ['it is approved by its phase-0 pull request, which only a person merges', 'it bears on the Legal entry L-GDPR-4'],
+      why: ['it is approved by its phase-0 pull request, which only a person merges'],
+      verdicts: threeYes,
+      option: null,
+    });
   });
 });
 
@@ -163,7 +265,7 @@ describe('an item\'s facts', () => {
     expect(jevScore(itemText({ decide: 'Decided by: Jev (hardToRevert 1.5) · agent said true' }))).toBeNull();
   });
 
-  it('sends a person an item bearing on a business law: the committee cannot tell whether it breaks it', () => {
+  it('lists an item bearing on a business law: the committee cannot tell whether it breaks it', () => {
     expect(escalations(answer({ businessLaws: ['BL-GATE-1'] }))).toEqual(['it bears on the business law BL-GATE-1: a person decides']);
     expect(escalations(answer({ businessLaws: ['BL-GATE-1', 'BL-ASK-1'] }))).toEqual(['it bears on the business laws BL-GATE-1, BL-ASK-1: a person decides']);
   });

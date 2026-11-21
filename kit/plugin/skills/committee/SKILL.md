@@ -1,6 +1,6 @@
 ---
 name: committee
-description: The fleet's committee, at a mission's level `alone` — decides whether PRD n, waiting for approval on its page, is approved by the fleet instead of a person (--approve), or whether one of its high outbox items is answered by the fleet with option A, as built, instead of a person (--item <id>). Reads the escalation list by code first with omni committee check (a PRD approved by its phase-0 PR; a human-action item; a locked law, a Legal entry, a business law an item bears on; an item's hard-to-revert score unknown or at the mission's bound; a migration that drops or rewrites data all go to a person, no member running); then the PM, the Architect and the Reviewer, each as its own agent and model, read the PRD's files or the item with no other member's verdict in front of them and answer yes, no or unsure in one sentence; the hero whose job wrote the PRD or raised the item sits out. Records the decision with omni committee record, whose last line the App reads back to approve the PRD or settle the item in the fleet's name, or send it to a person with the verdicts. Never approves on the page, never settles an item itself, never merges, asks nothing, writes no file of the repository. A mission sends it on a runner. Triggers on "the committee approves PRD 2896", "/omni:committee 2896 --approve", "/omni:committee 2896 --item s3-01-keep-the-cap".
+description: The fleet's committee, at a mission's level `alone` — decides whether PRD n, waiting for approval on its page, is approved by the fleet instead of a person (--approve), or whether one of its high outbox items is answered by the fleet with option A, as built, instead of a person (--item <id>). Reads the escalation list by code first with omni committee check (a human-action item; a locked law, a Legal entry, a business law an item bears on; an item's hard-to-revert score unknown or at the mission's bound; a migration that drops or rewrites data) — each case on it goes to the members, then to a person at landing, never to a person mid-mission, but a PRD approved by its phase-0 PR, which only a person merges. The PM, the Architect and the Reviewer, each as its own agent and model, read the PRD's files or the item with no other member's verdict in front of them and answer yes, no or unsure in one sentence; the hero whose job wrote the PRD or raised the item sits out. Every sitting yes carries it (on the escalation list, when it was on it); any no or unsure defers an item with option A, the most reversible, and sends a PRD to a person. Records the decision with omni committee record, whose last line the App reads back to approve the PRD or settle the item in the fleet's name, the carried and deferred ones left open for the person on the mission pull request. Never approves on the page, never settles an item itself, never merges, asks nothing, writes no file of the repository. A mission sends it on a runner. Triggers on "the committee approves PRD 2896", "/omni:committee 2896 --approve", "/omni:committee 2896 --item s3-01-keep-the-cap".
 ---
 
 # Committee: the fleet decides for a mission, or a person does
@@ -11,12 +11,24 @@ branch shape or command you can read with `omni config <key>`.
 A mission whose level is `alone` (PRD 2896) has its fleet's committee decide what a person would
 otherwise decide: a PRD's approval (`--approve`), and a high outbox item's answer (`--item <id>`).
 The PM chairs; the Architect and the Reviewer sit on it. **Every member who sits must answer
-`yes`:** three, or two when the hero whose job wrote the PRD, or raised the item, sits out. Anything
-else goes to a person, with the verdicts. The escalation list is read by code before any member
-runs, so the members' judgement only meets what it lets through.
+`yes`** for the decision to carry: three, or two when the hero whose job wrote the PRD, or raised
+the item, sits out.
 
-An item is answered with **option A, what was built**, or not at all: a member who would rather
-another option answers `no`, says which in its sentence, and the item goes to a person.
+**The escalation list goes to the members, then to a person at landing** (PRD omni-loop-21). It is
+read by code first, and a case it names no longer goes to a person mid-mission: the members decide
+it, and the decision stays open for the person on the mission pull request, who agrees with it or
+overturns it there. The one case still a person's at once is a PRD approved by its phase-0 pull
+request, which only a person merges: it is escalated by rule, whatever the members answer.
+
+| the vote | an item (`--item`) | a PRD (`--approve`) |
+|---|---|---|
+| every sitting member `yes`, the case on the list | `carried · on the escalation list` | `carried · on the escalation list` |
+| every sitting member `yes`, on no line of the list | `carried` | `carried` |
+| any `no` or `unsure` (a member failed or timed out counts `unsure`) | `deferred`, with option A, the most reversible: the mission carries on | `escalated`: never approved without every yes, it goes to a person |
+
+An item is answered with **option A, what was built**, carried or deferred: a member who would
+rather another option answers `no` and says which in its sentence, and the item is deferred with
+option A, its sentence kept for the person at landing.
 
 This skill decides nothing itself: it runs the members and records what they answered. The App
 records the decision as the service, from this job's last line, and decides again from it: a line
@@ -27,7 +39,7 @@ written any other way is never carried. For an item, the App also settles it on 
 by its role and `agent` in the record, never in a person's name (L-AIACT-1).
 
 **It asks nothing,** on a runner (`OMNI_UNATTENDED` set) or in a terminal: a member that cannot
-decide answers `unsure`, and the PRD or the item goes to a person.
+decide answers `unsure`, and the item is deferred, or the PRD goes to a person.
 
 ## Never
 
@@ -72,10 +84,11 @@ and the PRD or the item goes to a person.
 
 `node .omni-loop/bin/omni.mjs committee check <n> <what> [--author <role>] --json`. Keep its
 `read` (each file with its hash and path), its `sitting` (each member with its agent and model) and
-its `escalations`.
+its `escalations`, each case of the list it is on.
 
-When `escalations` is not empty, **no member runs**: write `{ "verdicts": [] }` to a scratch file
-outside the repository and go to step 4. It goes to a person whatever a member would say.
+When `escalations` is not empty, **the members still run** (step 3): each case goes to the members,
+then to a person at landing, and step 4's record names it, so the decision is recorded `on the
+escalation list`. The members never see the list.
 
 ## 3. Each member, alone
 
@@ -107,8 +120,9 @@ Write `{ "verdicts": [<each verdict>] }` to a scratch file outside the repositor
 ## 4. Record it
 
 `node .omni-loop/bin/omni.mjs committee record <n> <what> --file <votes> [--author <role>]`,
-printing each line it prints. It decides (escalated by rule first, by vote second) and ends on its
-record line, `omni committee: {…}`, which the App reads.
+printing each line it prints. It decides (escalated by rule first, for a PRD approved by its
+phase-0 pull request only; by vote second: carried, deferred or escalated, as the table above says)
+and ends on its record line, `omni committee: {…}`, which the App reads.
 
 - Exit `1` (the votes are refused): rewrite each verdict that does not read as `failed`, its
   sentence `Its verdict did not read.`, and run it again once.
