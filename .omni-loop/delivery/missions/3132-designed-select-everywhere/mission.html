@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission 3132 brief</title>
+<style>
+  :root {
+    --bg: #f5f4fc; --surface: #ffffff; --ink: #17153d; --muted: #4f5486;
+    --line: #d9d6ee; --accent: #2f3fc4; --soft: #e6e8fb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e0d33; --surface: #16144a; --ink: #f2f4ff; --muted: #a9aee6; --line: #2f2c78; --accent: #9aa4ff; --soft: #272a7a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 14px; color: var(--muted); font-weight: 600; margin: 0 0 12px; }
+  .brief { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 24px; }
+  .goal { font-size: 22px; line-height: 1.35; font-weight: 700; margin: 0 0 20px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 20px 0 6px; }
+  p, ul { margin: 0; }
+  ul { padding-left: 20px; }
+  .tag { display: inline-block; background: var(--soft); color: var(--accent); border-radius: 4px; padding: 0 6px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>Mission 3132 · brief</h1>
+<section class="brief" data-screen="mission-brief">
+  <p class="goal">Every dropdown on the app pages is our own designed Select.</p>
+
+  <h2>Fleet</h2>
+  <p><span class="tag">invicibles</span>. Its heroes are the mission's team, and its jobs go to its runners.</p>
+
+  <h2>Measures</h2>
+  <table>
+    <tr><th>Sign</th><th>How it is read</th><th>Target</th></tr>
+    <tr><td colspan="3" class="muted">None yet.</td></tr>
+  </table>
+
+  <h2>Scope</h2>
+  <ul><li>PRD 3129: One designed Select for every dropdown</li></ul>
+
+  <h2>Mandate</h2>
+  <p>At most 2 PRDs at once, at the level <span class="tag">with-you</span>.</p>
+
+  <h2>Fixed rules</h2>
+  <ul>
+    <li>The mission never merges: a person does.</li>
+    <li>It never answers for a person.</li>
+    <li>It waits for a person wherever one is needed.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
