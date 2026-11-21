@@ -25123,6 +25123,15 @@ function qaLine(log2) {
 var commentUrl = (url) => url !== void 0 && COMMENT_URL.test(url) ? url : null;
 
 // apps/omni-app/src/missions/store.ts
+var ITEM_OPTIONS = ["A", "B", "C", "D"];
+var RESUMES_MAX = 10;
+var RESUME = /^(.+):resume:([1-9]|10)$/;
+var resumeKey = (key, resume = 0) => resume === 0 ? key : `${key}:resume:${String(resume)}`;
+function resumeOfKey(key) {
+  const match = RESUME.exec(key);
+  return match?.[1] === void 0 ? { key, resume: 0 } : { key: match[1], resume: Number(match[2]) };
+}
+var resumed = (resume) => resume === 0 ? {} : { resume };
 var APP_SENDER2 = "omni-app";
 var TAKEN = "23505";
 var MISSION = "id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by, kind";
@@ -25159,6 +25168,8 @@ var FLEET_CAP = "daily_tokens";
 var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at";
 var PAUSE_EVENT = "kind, actor, at";
 var FLEET_MISSION = "id";
+var BRANCH2 = "repo, branch, cut_at";
+var FLEET_DECISION = "kind, prd, item, job_id, outcome, why, option, decided_at";
 var text19 = z107.string().min(1);
 var MissionRowSchema = z107.object({
   id: text19,
@@ -25174,9 +25185,11 @@ var MissionRowSchema = z107.object({
     level: z107.enum(MISSION_LEVELS).default("with-you"),
     hardToRevert: z107.number().min(0).max(1).default(DEFAULT_BOUND),
     ownPrds: z107.number().int().min(0).max(10).default(0),
+    resumes: z107.number().int().min(0).max(RESUMES_MAX).default(DEFAULT_RESUMES),
     tokens: z107.number().int().min(1).nullable().default(null)
   }),
-  scope: z107.object({ prds: z107.array(PrdNumberSchema), roadmaps: z107.array(IssueNumberSchema) }),
+  /** PRD omni-loop-21: a product's ids beside the repository's numbers. */
+  scope: z107.object({ prds: z107.array(z107.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z107.array(z107.union([IssueNumberSchema, ProductRoadmapIdSchema])) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
   paused_by: z107.enum(["stuck"]).nullable().default(null),
   /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
@@ -25273,6 +25286,19 @@ var StopRowSchema = z107.object({
 });
 var PauseEventRowSchema = z107.object({ kind: z107.enum(["paused", "resumed"]), actor: z107.string().nullable(), at: text19 });
 var FleetMissionRowSchema = z107.object({ id: text19 });
+var BranchRowSchema = z107.object({ repo: text19, branch: text19, cut_at: text19 });
+var ItemOutcomeSchema = z107.enum(["carried", "deferred", "escalated"]);
+var FleetDecisionRowSchema = z107.object({
+  kind: z107.enum(["approve", "answer"]),
+  prd: PrdNumberSchema,
+  item: z107.string().nullable(),
+  job_id: text19,
+  outcome: ItemOutcomeSchema,
+  why: z107.array(z107.string()),
+  option: z107.enum(ITEM_OPTIONS).nullable(),
+  decided_at: text19
+});
+var ItemDecidedSchema = z107.object({ outcome: ItemOutcomeSchema, why: z107.array(z107.string()), option: z107.enum(ITEM_OPTIONS).nullable() });
 var CountSchema = z107.coerce.number().int().min(0);
 var FleetTokensRowSchema = z107.object({ tokens: CountSchema, oldest_end: z107.string().nullable() });
 var stopOf2 = (row) => ({
@@ -25322,6 +25348,11 @@ var attemptOf = (row) => ({
 });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 var isChecked = (step, attempt3) => isQaStep(step) && attempt3.status === "done";
+function scopeOf2(scope) {
+  const numbers2 = { prds: scope.prds.filter((prd) => typeof prd === "number"), roadmaps: scope.roadmaps.filter((roadmap) => typeof roadmap === "number") };
+  const products = { prds: scope.prds.filter((prd) => typeof prd === "string"), roadmaps: scope.roadmaps.filter((roadmap) => typeof roadmap === "string") };
+  return { numbers: numbers2, products: products.prds.length + products.roadmaps.length === 0 ? null : products };
+}
 function missionStore(connection) {
   const db = serviceDb(connection);
   async function roadmapsOf(mission) {
@@ -25511,6 +25542,7 @@ function missionStore(connection) {
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
       if (!row) return null;
+      const scope = scopeOf2(row.scope);
       return {
         id: row.id,
         workspace: row.workspace_id,
@@ -25522,9 +25554,11 @@ function missionStore(connection) {
         status: row.status,
         waitingOn: row.waiting_on,
         parallel: row.mandate.parallel,
-        scope: row.scope,
+        scope: scope.numbers,
         hardToRevert: row.mandate.hardToRevert,
         ownPrds: row.mandate.ownPrds,
+        resumes: row.mandate.resumes,
+        ...scope.products === null ? {} : { products: scope.products },
         ...row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens },
         ...row.paused_by === "stuck" ? { pausedBy: "stuck" } : {},
         ...row.kind === "omni-bugs" ? { kind: row.kind } : {}
@@ -25556,8 +25590,9 @@ function missionStore(connection) {
       const jobs = rowsOf(JobRowSchema2, await db.from("runner_jobs").select(JOB2).eq("mission_id", id).order("queued_at"));
       const chains = await chainsOf(jobs);
       const runs = jobs.flatMap((job) => {
-        const key = job.mission_key === null ? null : runOfKey(job.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const key = step === null ? null : runOfKey(step.key);
+        return key === null || step === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf), ...resumed(step.resume) }];
       });
       return withPosted(runs);
     },
@@ -25592,7 +25627,7 @@ function missionStore(connection) {
       const [workspace] = rowsOf(WorkspaceRowSchema2, await db.from("workspaces").select(WORKSPACE2).eq("id", mission.workspace).limit(1));
       return workspace?.github_installation_id ?? null;
     },
-    send: ({ mission, prd, run, step, toFleet, skill, fix = null }) => queue({ mission, toFleet, line: lineOf5(prd, step, skill, baseOf(mission, skill === "ultra-yolo"), fix), key: missionKey(mission.id, prd, run, step) }),
+    send: ({ mission, prd, run, step, toFleet, skill, fix = null, resume = 0 }) => queue({ mission, toFleet, line: lineOf5(prd, step, skill, baseOf(mission, skill === "ultra-yolo"), fix), key: resumeKey(missionKey(mission.id, prd, run, step), resume) }),
     async care({ mission, line: line3, since, toFleet }) {
       const sent = rowsOf(CareRowSchema, await db.from("runner_jobs").select(CARE).eq("mission_id", mission.id).eq("line", line3).gte("queued_at", since).limit(1));
       return sent.length > 0 ? null : queue({ mission, toFleet, line: line3, key: null });
@@ -25600,11 +25635,12 @@ function missionStore(connection) {
     async committees(id) {
       const jobs = rowsOf(JobRowSchema2, await db.from("runner_jobs").select(JOB2).eq("mission_id", id).like("mission_key", `mission:${id}:prd:%:approve:%`).order("queued_at"));
       if (jobs.length === 0) return [];
-      const decided = rowsOf(DecisionRowSchema, await db.from("mission_decisions").select(DECISION).eq("mission_id", id));
+      const decided = rowsOf(DecisionRowSchema, await db.from("mission_decisions").select(DECISION).eq("mission_id", id).eq("kind", "approve"));
       return jobs.flatMap((job) => {
-        const key = job.mission_key === null ? null : committeeOfKey(job.mission_key);
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const key = step === null ? null : committeeOfKey(step.key);
         const decision = decided.find((row) => row.job_id === job.id);
-        return key === null ? [] : [{ prd: key.prd, round: key.round, job: job.id, attempt: attemptOf(job), decision: decision ? { outcome: decision.outcome, why: decision.why } : null }];
+        return key === null || step === null ? [] : [{ prd: key.prd, round: key.round, job: job.id, attempt: attemptOf(job), decision: decision ? { outcome: decision.outcome, why: decision.why } : null, ...resumed(step.resume) }];
       });
     },
     async committeeLog(job) {
@@ -25623,15 +25659,16 @@ function missionStore(connection) {
       if (answer.error) throw new Error(`the database refused the committee's decision: ${answer.error.message}`);
       return DecidedSchema.parse(answer.data);
     },
-    approve: ({ mission, prd, round, toFleet, author = null }) => queue({ mission, toFleet, line: approveLine(prd, author), key: committeeKey(mission.id, prd, round) }),
+    approve: ({ mission, prd, round, toFleet, author = null, resume = 0 }) => queue({ mission, toFleet, line: approveLine(prd, author), key: resumeKey(committeeKey(mission.id, prd, round), resume) }),
     async pmJobs(id) {
       const jobs = rowsOf(AskRowSchema, await db.from("runner_jobs").select(ASK2).eq("mission_id", id).like("mission_key", `mission:${id}:pm:%`).order("queued_at"));
       return jobs.flatMap((job) => {
-        const round = job.mission_key === null ? null : pmRoundOfKey(job.mission_key);
-        return round === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job) }];
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const round = step === null ? null : pmRoundOfKey(step.key);
+        return round === null || step === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job), ...resumed(step.resume) }];
       });
     },
-    pm: ({ mission, round, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: pmKey(mission.id, round) }),
+    pm: ({ mission, round, line: line3, toFleet, resume = 0 }) => queue({ mission, toFleet, line: line3, key: resumeKey(pmKey(mission.id, round), resume) }),
     async asks(id) {
       const rows = rowsOf(AskRowSchema, await db.from("runner_jobs").select(ASK2).eq("mission_id", id).is("mission_key", null).like("line", "/omni:committee % --item %").order("queued_at"));
       return rows.flatMap((row) => {
@@ -25719,6 +25756,41 @@ function missionStore(connection) {
         z107.unknown(),
         await db.from("missions").update({ status: "paused", waiting_on: waitingOn, next_wake_at: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", [...ids]).in("status", ["running", "waiting"]).select("id")
       );
+    },
+    async branches(id) {
+      return rowsOf(BranchRowSchema, await db.from("mission_branches").select(BRANCH2).eq("mission_id", id).order("cut_at")).map((row) => ({ repo: row.repo, branch: row.branch, cutAt: row.cut_at }));
+    },
+    async keepBranch(mission, { repo, branch }) {
+      const answer = await db.from("mission_branches").insert({ mission_id: mission.id, repo: repo.toLowerCase(), branch }).select("repo");
+      if (answer.error?.code === TAKEN) return false;
+      if (rowsOf(z107.object({ repo: text19 }), answer).length === 0) throw new Error("the database kept no mission branch and gave no reason");
+      return true;
+    },
+    async decideItem(mission, { prd, item, job, verdicts, decision }) {
+      const answer = await db.rpc("mission_decide_item", {
+        p_mission: mission.id,
+        p_prd: prd,
+        p_job: job,
+        p_item: item,
+        p_verdicts: [...verdicts],
+        p_outcome: decision.outcome,
+        p_why: decision.why,
+        ...decision.option === null ? {} : { p_option: decision.option }
+      });
+      if (answer.error) throw new Error(`the database refused the item's decision: ${answer.error.message}`);
+      return ItemDecidedSchema.parse(answer.data);
+    },
+    async decisions(id) {
+      return rowsOf(FleetDecisionRowSchema, await db.from("mission_decisions").select(FLEET_DECISION).eq("mission_id", id).order("decided_at")).map((row) => ({
+        kind: row.kind,
+        prd: row.prd,
+        item: row.item,
+        job: row.job_id,
+        outcome: row.outcome,
+        why: row.why,
+        option: row.option,
+        decidedAt: row.decided_at
+      }));
     }
   };
 }
