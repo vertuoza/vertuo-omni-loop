@@ -1049,7 +1049,7 @@
         "select-box",
         "dropdown"
       ],
-      "usage": "One choice out of a short list, in the browser's own picker: a role, a repository, a status.",
+      "usage": "One choice out of a short list, in the product's own list: a role, a repository, a status. `md` for forms, `sm` for a chip, a toolbar or an inline sort.",
       "variants": {
         "disabled": [
           "true",
@@ -1058,6 +1058,10 @@
         "invalid": [
           "true",
           "false"
+        ],
+        "size": [
+          "md",
+          "sm"
         ]
       }
     },
