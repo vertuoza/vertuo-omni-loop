@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useId, useRef, useState } from 'react';
 import type { Face } from '../../people/face';
 import { PersonChip } from '../../people/PersonChip';
@@ -9,7 +10,7 @@ import { copyLink, shareLink } from './share';
 // link to paste wherever they like, with a copy button that falls back to selecting the text. The
 // member then sees the round under For me, and answers it on the link while it is open.
 
-/** A member to share with; their face shows once it is shared (PRD 652), never in the <select>. */
+/** A member to share with; their face shows once it is shared (PRD 652), never in the Select. */
 type Candidate = { id: string; label: string; face?: Face };
 
 type Props = {
@@ -87,12 +88,14 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
   return (
     <section className="ask-share">
       <div className="ask-share-row">
-        <label htmlFor={`${id}-member`} className="ask-muted">Share with</label>
-        <select id={`${id}-member`} className="ask-share-pick" value={member} onChange={(e) => {
-          setMember(e.target.value);
-        }}>
-          {candidates.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-        </select>
+        <span id={`${id}-member`} className="ask-muted">Share with</span>
+        <Select
+          size="sm"
+          label="Share with"
+          options={candidates.map((c) => ({ value: c.id, label: c.label }))}
+          value={member}
+          onValueChange={setMember}
+        />
         <button type="button" className="ask-button" disabled={stage.kind === 'sharing' || !member} onClick={() => void share()}>
           {stage.kind === 'sharing' ? 'Sharing…' : 'Share'}
         </button>

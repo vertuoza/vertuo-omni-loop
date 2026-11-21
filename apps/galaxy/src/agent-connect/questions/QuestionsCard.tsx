@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import type { SubmitEvent } from 'react';
 import { KIND_LABEL, KIND_ORDER, maxValue, type ClaimKind, type Product } from '../../business/model';
 import { dayLabel } from '../tokens/model';
@@ -61,20 +62,20 @@ function AnswerForm({ answering, needsProduct, products, busy, on }: {
     <form className="business-type agent-question-answer" onSubmit={submit}>
       <label>
         <span className="business-type-label">Kind</span>
-        <select
-          name="kind" value={answering.kind} disabled={busy}
-          onChange={(e) => { const kind = e.currentTarget.value; if (isOneOf(KIND_ORDER, kind)) on.kind(kind); }}
-        >
-          {KIND_ORDER.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
-        </select>
+        <Select
+          size="sm" label="Kind" name="kind" value={answering.kind} disabled={busy}
+          options={KIND_ORDER.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+          onValueChange={(kind) => { if (isOneOf(KIND_ORDER, kind)) on.kind(kind); }}
+        />
       </label>
       {needsProduct && answering.kind !== 'region' && (
         <label>
           <span className="business-type-label">Product</span>
-          <select name="product" value={answering.product ?? ''} disabled={busy} onChange={(e) => { on.product(e.currentTarget.value); }}>
-            <option value="" disabled>Pick one</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <Select
+            size="sm" label="Product" name="product" value={answering.product ?? ''} disabled={busy} placeholder="Pick one"
+            options={products.map((p) => ({ value: p.id, label: p.name }))}
+            onValueChange={(product) => { on.product(product); }}
+          />
         </label>
       )}
       <label>

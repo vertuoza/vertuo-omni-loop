@@ -11,7 +11,6 @@
     "apps/galaxy/src/ask/device-card.tsx raw-component",
     "apps/galaxy/src/ask/page/AskPage.tsx raw-component",
     "apps/galaxy/src/ask/page/AskSession.tsx raw-component",
-    "apps/galaxy/src/ask/page/CategoryChip.tsx raw-component",
     "apps/galaxy/src/ask/page/GithubSignInCard.tsx raw-component",
     "apps/galaxy/src/ask/page/LeadMessage.tsx raw-component",
     "apps/galaxy/src/ask/page/RoundForm.tsx raw-component",
