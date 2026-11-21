@@ -198,6 +198,12 @@ jobs:
         # another mission's or another fleet's is refused; nobody changes a line; a member reads both notebooks and deletes a
         # line as themselves, the record keeping who and when; strangers read and delete nothing (PRD 3107 s4).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/commander_notes.sql
+      - name: A mission at alone, for a product roadmap
+        # A scope takes product PRD and roadmap ids beside numbers, a mandate resumes 0 to 10; a mission branch is kept once
+        # per repository by the service role, never changed, read by its workspace's members only; a step, a committee's and
+        # a PM's job take a resume key, each once, read as their step; an item's decision is recorded once by the service role,
+        # carried, deferred with its option or escalated, and escalated off `alone` (PRD omni-loop-21 s3).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mission_alone.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is
