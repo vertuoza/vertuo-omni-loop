@@ -143,7 +143,7 @@ describe('the design ratchet, on fixtures', () => {
   });
 
   it('AC-4: a raw table, dialog, input, select, textarea or a replaced class fails; a Button from @omni/ui passes', async () => {
-    for (const body of ['<table />', '<dialog />', '<input />', '<select />', '<textarea />', '<div className="x dossier-approve" />', '<div className={`pitch-action ${y}`} />']) {
+    for (const body of ['<table />', '<dialog />', '<input />', '<textarea />', '<div className="x dossier-approve" />', '<div className={`pitch-action ${y}`} />']) {
       const file = 'apps/galaxy/src/ask/Raw.tsx';
       const { code, lines } = await main([], deps({ ...tree, [file]: `export const A = () => ${body};\n` }, { baseline: json([COLOUR]) }));
       expect({ body, code }).toEqual({ body, code: 1 });
@@ -151,6 +151,17 @@ describe('the design ratchet, on fixtures', () => {
     }
     const good = "import { Button } from '@omni/ui';\nexport const A = () => <Button className=\"dossier-approver\">Go</Button>;\n";
     expect((await main([], deps({ ...tree, 'apps/galaxy/src/ask/Good.tsx': good }, { baseline: json([COLOUR]) }))).code).toBe(0);
+  });
+
+  it('AC-7: a raw select added to a file the baseline lists for raw-component fails as raw-select, not raw-component', async () => {
+    const file = 'apps/galaxy/src/ask/Raw.tsx';
+    const files = { ...tree, [file]: 'export const A = () => <select><option>x</option></select>;\n' };
+    const { code, lines } = await main([], deps(files, { baseline: json([COLOUR, `${file} raw-component`]) }));
+    expect(code).toBe(1);
+    expect(lines).toContain(`${file} raw-select`);
+    expect(lines.filter((line) => line === `${file} raw-component`)).toHaveLength(1);
+    const listed = (await main([], deps(files, { baseline: json([COLOUR, `${file} raw-select`]) }))).lines;
+    expect(listed).not.toContain(`${file} raw-component`);
   });
 
   it('a style prop fails as inline-style', async () => {
@@ -214,6 +225,11 @@ describe('the design ratchet, on fixtures', () => {
 });
 
 describe('the design ratchet, on the tracked tree', () => {
+  it('AC-6: the baseline holds no raw-select line', () => {
+    const { breaches } = JSON.parse(readFileSync(join(repoRoot, BASELINE), 'utf8')) as { breaches: string[] };
+    expect(breaches.filter((line) => line.endsWith(' raw-select'))).toEqual([]);
+  });
+
   it(`finds no breach ${BASELINE} does not list, and no line there whose breach is gone`, async () => {
     const tracked = execFileSync('git', ['ls-files', '-z', 'apps/galaxy/src'], { cwd: repoRoot, encoding: 'utf8' }).split('\0').filter(Boolean);
     const read = (path: string) => readFileSync(join(repoRoot, path), 'utf8');
