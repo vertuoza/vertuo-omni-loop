@@ -30,8 +30,8 @@ describe('the dossier page picks with the Select (AC-5)', () => {
   it('the version picker lists every version and submits its form with the one picked', async () => {
     const submit = vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(() => {});
     const versions = [
-      { id: 'a', number: 2, label: 'v2 · 28 Sep', href: '#', current: true, sandbox: null },
-      { id: 'b', number: 1, label: 'v1 · 27 Sep', href: '#', current: false, sandbox: null },
+      { id: 'a', number: 2, label: 'v2 · 28 Sep', href: '#', current: true, frame: null },
+      { id: 'b', number: 1, label: 'v1 · 27 Sep', href: '#', current: false, frame: null },
     ];
     const { container } = render(createElement(VersionPicker, { action: '/prd/x', tab: 'spec', versions, shown: 2 }));
     const form = container.querySelector('form');
@@ -81,7 +81,7 @@ describe('the dossier page picks with the Select (AC-5)', () => {
   });
 
   it('the Tech Approval picker asks the member picked', async () => {
-    const fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>((url, init) => Promise.resolve(
+    const fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>((_url, init) => Promise.resolve(
       init?.method === 'POST'
         ? new Response('{}', { status: 200 })
         : new Response(JSON.stringify({ members: [{ login: 'irisa', name: 'Irisa' }, { login: 'dev', name: null }] }), { status: 200 }),
