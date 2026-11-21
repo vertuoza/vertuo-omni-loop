@@ -57,10 +57,9 @@ describe('the Proof tab, rendered', () => {
     expect(html(null)).not.toContain('>Proof<');
   });
 
-  it('is in the bar with a run, badged with the runs', () => {
-    const page = html({ runs: [RUN, OLDER], shown: null }, {});
-    expect(page).toContain(`href="/prd/${ID}?tab=proof"`);
-    expect(page).toMatch(/>Proof<small>2 runs<\/small>/);
+  it('is a section of the Feature tab with a run (omni-loop-20 s7)', () => {
+    const page = html({ runs: [RUN, OLDER], shown: null }, { tab: 'feature' });
+    expect(page).toContain('<section id="proof" aria-label="Proof">');
   });
 
   it('shows the run: its commit, URL, date and counts', () => {
@@ -74,14 +73,14 @@ describe('the Proof tab, rendered', () => {
 
   it('shows one row per criterion, its text escaped, verdict, note, player and script fold', () => {
     const page = html({ runs: [RUN, OLDER], shown: SHOWN });
-    expect(page.match(/class="proof-row /g)).toHaveLength(3);
+    expect(page.match(/class="proof-item /g)).toHaveLength(3);
     expect(page).toContain('The tab shows a &lt;b&gt;player&lt;/b&gt;');
     expect(page).toContain('<video');
     expect(page).toContain('src="https://storage.test/p.webm"');
     expect(page).toContain('controls=""');
     expect(page).toContain('expected ✗, got ✓');
     expect(page).toContain('a config key, not a screen');
-    expect(page).toContain('<summary>Script');
+    expect(page).toContain('<summary>Script <code');
     expect(page).toContain('await expect(page.getByRole(&#x27;tab&#x27;)).toBeVisible(); // &lt;script&gt;');
     expect(page).not.toContain('// <script>');
     // A clip whose link could not be made, and a script whose text could not be read, say so.
@@ -89,11 +88,13 @@ describe('the Proof tab, rendered', () => {
     expect(page).toContain('href="https://storage.test/f.spec.ts"');
   });
 
-  it('has the version picker for its runs, the shown one selected', () => {
+  it('has the run picker for its runs, the shown one current, each run a link to its own address', () => {
     const page = html({ runs: [RUN, OLDER], shown: SHOWN });
-    expect(page).toContain('name="tab" value="proof"');
-    expect(page).toContain('<span class="ask-hint">Run</span>');
+    expect(page).toContain('<span class="dossier-version__noun">Run</span>');
     expect(page).toContain('Run 2 · 30 Sep · commit a1b2c3d · Pierre');
-    expect(page).toMatch(/<input[^>]*name="v"[^>]*value="2"/);
+    expect(page).toContain('Run 1 · 29 Sep · commit 0000000 · Pierre');
+    expect(page).toContain(`href="/prd/${ID}?tab=feature&amp;v=1#proof"`);
+    expect(page).toContain(`href="/prd/${ID}?tab=feature&amp;v=2#proof" aria-current="true"`);
+    expect(page).not.toContain('<select');
   });
 });

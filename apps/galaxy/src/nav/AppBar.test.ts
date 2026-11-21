@@ -77,6 +77,13 @@ describe('the top bar', () => {
     expect(trail).not.toContain('aria-current');
   });
 
+  it('ends a PRD\'s page on the PRD, marked current, its section linked back (omni-loop-20 s6)', () => {
+    const trail = trailOf(render('/prd/00000000-0000-4000-8000-0000000000d1'));
+    expect(text(trail)).toBe('Work › PRDs › PRD');
+    expect(trail).toContain('<a class="app-bar-up" href="/prd">PRDs</a>');
+    expect(trail).toContain('<span aria-current="page">PRD</span>');
+  });
+
   it('holds, signed in, the bell between Game mode and the avatar, with the theme switch and Game mode', () => {
     const bar = render('/app', ADA);
     const bell = bar.indexOf('class="bell-button"');

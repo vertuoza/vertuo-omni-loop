@@ -1,3 +1,4 @@
+'use client';
 import { Select } from '@omni/ui';
 import type { SubmitEvent } from 'react';
 import { KIND_LABEL, KIND_ORDER, maxValue, type ClaimKind, type Product } from '../../business/model';

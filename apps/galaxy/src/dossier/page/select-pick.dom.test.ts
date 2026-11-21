@@ -42,20 +42,17 @@ describe('the dossier page picks with the Select (AC-5)', () => {
     await waitFor(() => { expect(submit).toHaveBeenCalled(); });
   });
 
-  it('the pitch picker posts the pitch picked and submits its form', async () => {
-    const submit = vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(() => {});
+  it('the pitch picker is a set of links, one per pitch, the shown one current (omni-loop-20 s13)', () => {
     const audience: PitchAudienceView = {
       audience: 'customers', label: 'Customers', id: 'p2', at: '1 Oct 2026', look: 'Arcade poster', commit: 'a1b2c3d', kicker: 'NEW', hook: 'h', benefit: 'b', closing: 'c',
       slide: null, video: null, downloads: [], gif: '/api/pitches/p2/pitch.gif',
       versions: [{ id: 'p2', label: '1 Oct · Arcade poster', current: true }, { id: 'p1', label: '30 Sep · Clean keynote', current: false }],
     };
     const { container } = render(createElement(PitchPane, { pitch: { audiences: [audience] }, action: '/prd/x' }));
-    const form = container.querySelector('form');
-    if (form === null) throw new Error('no form');
-    expect(new FormData(form).get('pitch')).toBe('p2');
-    await pick('Pitch', '30 Sep · Clean keynote');
-    expect(new FormData(form).get('pitch')).toBe('p1');
-    await waitFor(() => { expect(submit).toHaveBeenCalled(); });
+    expect(container.querySelector('form')).toBeNull();
+    const older = screen.getByRole('link', { name: '30 Sep · Clean keynote' });
+    expect(older.getAttribute('href')).toBe('/prd/x?tab=retro&pitch=p1#pitch');
+    expect(screen.getByRole('link', { name: '1 Oct · Arcade poster' }).getAttribute('aria-current')).toBe('page');
   });
 
   it('the history filters post the repository picked', async () => {

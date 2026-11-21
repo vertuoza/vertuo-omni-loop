@@ -1,3 +1,4 @@
+'use client';
 import { Select } from '@omni/ui';
 import type { SubmitEvent } from 'react';
 import { PERSONA_TRADES, personaGrid, TRADE_MAX, validPersonaTrade, type PersonaAvatar } from '@omni/design';

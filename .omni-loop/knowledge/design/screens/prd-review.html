@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review screen mockup (Calm 2)</title>
+<style>
+  /* Ask's reading tokens, theme Omni (ASK.omni in packages/design/src/tokens.ts). */
+  :root {
+    --ask-ground: #07061c; --ask-surface: #120f3a; --ask-sunk: #0e0d33; --ask-line: #1a2170; --ask-line-strong: #5a60c4;
+    --ask-ink: #f2f4ff; --ask-muted: #8a90d6; --ask-plasma: #ffd84a; --ask-on-plasma: #07061c;
+    --ask-cyan: #6ff0ff; --ask-green: #4ee08a; --ask-yellow: #ff3ea5;
+    --ask-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+    --ask-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --ask-gutter: 32px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ask-ground); color: var(--ask-ink); font: 16px/1.6 var(--ask-body); }
+  .mock-note { max-width: 1200px; margin: 0 auto; padding: 16px var(--ask-gutter) 0; font: 13px/1.5 system-ui, sans-serif; color: var(--ask-muted); }
+  /* ReviewScreen: full width, one focused reading, no tabs, nothing else on it. */
+  .review { padding: 24px var(--ask-gutter) 48px; display: grid; gap: 22px; }
+  .crumbs { font: 13px/1.4 var(--ask-mono); color: var(--ask-muted); }
+  .crumbs a { color: var(--ask-cyan); text-decoration: none; }
+  .crumbs span.last { color: var(--ask-ink); }
+  .title { margin: 0; font-size: 32px; line-height: 1.2; }
+  .subtitle { margin: 0; font-size: 17px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; font-size: 14px; color: var(--ask-muted); }
+  .section-h { margin: 0 0 8px; font: 700 13px/1.2 var(--ask-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ask-muted); }
+  .block { max-width: 900px; }
+  .file { border: 1.5px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-surface); margin-bottom: 10px; }
+  .file summary { padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; font-family: var(--ask-mono); font-size: 14px; }
+  .file .tag { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+  .file .tag.first { color: var(--ask-plasma); }
+  .diff { margin: 0; padding: 10px 14px; border-top: 1px solid var(--ask-line); font: 13px/1.6 var(--ask-mono); white-space: pre-wrap; }
+  .add { color: var(--ask-green); }
+  .del { color: var(--ask-yellow); }
+  .verdict { border: 1.5px solid var(--ask-line-strong); border-radius: 10px; padding: 14px; background: var(--ask-sunk); }
+  .verdict.red { border-color: var(--ask-yellow); }
+  .notice { border: 1.5px solid var(--ask-plasma); border-radius: 10px; padding: 12px 14px; background: var(--ask-surface); font-size: 15px; }
+  .decide { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 14px var(--ask-gutter); margin: 0 calc(-1 * var(--ask-gutter)); background: var(--ask-surface); border-top: 1.5px solid var(--ask-line-strong); }
+  .btn { display: inline-block; padding: 10px 18px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); color: var(--ask-ink); font: 700 15px/1.2 var(--ask-body); }
+  .btn.primary { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+  .prose p { margin: 0 0 12px; max-width: 900px; }
+  @media (max-width: 900px) { .decide { position: static; margin: 0; } }
+</style>
+</head>
+<body>
+<p class="mock-note">Mock of the review screen at /prd/&lt;id&gt;/review (omni-loop-20, s8). Draft, drawn from the spec. Sample content is fictional; the PRD's own text is content.</p>
+
+<main class="review">
+  <!-- PageHeader of the review: the breadcrumb ends at the review. -->
+  <nav class="crumbs"><a href="#">Products</a> › <a href="#">Omni Loop</a> › <a href="#">PRD 20</a> › <span class="last">Review the spec and plan</span></nav>
+  <h1 class="title" data-content>The page anatomy, and the PRD page redesigned on it</h1>
+  <p class="subtitle">Review the spec and plan. Approve covers exactly the files you read here.</p>
+  <p class="meta"><span>Version 3</span><span>Waiting since 18 Nov</span><span>Repo vertuo-omni-loop</span></p>
+
+  <div class="notice">Changed since you last read it: the plan. The spec is unchanged since your last read.</div>
+
+  <section class="block">
+    <h2 class="section-h">What changed since you last read it</h2>
+    <details class="file" open>
+      <summary><span>.omni-loop/knowledge/design/screens/prd-dossier.md</span><span class="tag">Changed since you read it</span></summary>
+      <pre class="diff"><span class="add">+ routes: [/prd/&lt;id&gt;/review]</span>
+<span class="add">+ uses: [PageHeader, Tabs, SegmentedControl]</span>
+<span class="del">- tabs: Questions, Before/after, Spec, Plan, PR care</span></pre>
+    </details>
+    <details class="file">
+      <summary><span>.omni-loop/delivery/inbox/omni-loop-20/plan.md</span><span class="tag first">First read</span></summary>
+      <pre class="diff">(the whole version, shown on first read)</pre>
+    </details>
+  </section>
+
+  <section class="block">
+    <h2 class="section-h">Business laws</h2>
+    <div class="verdict">
+      Judged, no finding. Twenty locked business laws were read against this version.
+    </div>
+  </section>
+
+  <section class="block prose">
+    <h2 class="section-h">Problem</h2>
+    <p>The PRD page does not say who acts next, and its approve card floats above unrelated tabs.</p>
+    <h2 class="section-h">Solution</h2>
+    <p>One review screen per signed decision, in reading order, ending in one decision.</p>
+    <h2 class="section-h">Plan</h2>
+    <p>Slice s8 writes the screen library drafts: prd-dossier, prd-review and page-anatomy.</p>
+  </section>
+
+  <!-- The decision row: the only actions on this screen. -->
+  <div class="decide">
+    <a href="#">Back to the PRD</a>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn">Request changes</button>
+      <button class="btn primary">Approve</button>
+    </div>
+  </div>
+</main>
+</body>
+</html>

@@ -44,6 +44,7 @@ describe('the Timeline tab', () => {
     const view = timelineView(merged(), NOW);
     if (view.state !== 'sections') throw new Error('expected sections');
     expect(view.sections.map((s) => s.title)).toEqual(['The PRD', REPO]);
+    expect(renderToStaticMarkup(<PrdTimelinePane timeline={view} />)).toMatch(/<h2 class="omni-section-heading__title">The PRD<\/h2><span class="omni-section-heading__count">[0-9]+\/[0-9]+<\/span>/);
     const html = renderToStaticMarkup(<PrdTimelinePane timeline={view} />);
     expect(html).toContain('href="https://github.com/acme/app/pull/11"');
     expect(html).toContain('Review · 5.0 d · waits on reviewer');

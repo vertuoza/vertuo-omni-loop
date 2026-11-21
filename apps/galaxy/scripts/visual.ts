@@ -1,8 +1,10 @@
 // pnpm --filter @omni/galaxy-app visual — the PRD page's (PRD omni-loop-10, s4) and /design's (PRD omni-loop-12, s3) screenshot test.
 //
 // It starts the demo world (no database, no network: `next dev` with OMNI_LOOP_DEMO=1), shoots the
-// PRD page of the demo's PRD at 1440x900 and 393x700 in Omni, Light and Dark, and compares each shot
-// with its baseline committed in apps/galaxy/visual/baselines/. It then opens /design, runs axe on it
+// demo's PRD on each of the PRD page's seven tabs and on its review screen (/prd/71/review) at
+// 1440x900 and 393x700 in Omni, Light and Dark, and compares each shot with its baseline committed in
+// apps/galaxy/visual/baselines/prd/<tab>/<theme>-<size>.png (the review screen's folder is `review`;
+// a missing baseline fails, PRD omni-loop-20 s14). It then opens /design, runs axe on it
 // (any violation fails the run) and shoots each part x variant x theme (the themed boxes the page
 // marks, scripts/catalogue.ts) against apps/galaxy/visual/baselines/design/<Part>/; a missing
 // baseline fails. A shot whose differing pixels pass
@@ -35,6 +37,12 @@ const PART = 'article.ds-part';
 /** The demo world's PRD (src/dossier/page/demo.ts, PRD 71) and the heading its page must show. */
 const ROUTE = 'prd/71';
 const HEADING = 'Ask mode';
+/** What the PRD page shoots: its seven tabs (src/dossier/page/view.ts, PAGE_TABS) and the review screen. */
+const TABS = ['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline'];
+const SCREENS = [
+  ...TABS.map((tab) => ({ folder: tab, route: `${ROUTE}?tab=${tab}` })),
+  { folder: 'review', route: `${ROUTE}/review` },
+];
 /** The key the ask pages keep the theme under (src/ask/theme.ts, THEME_KEY). */
 const THEME_KEY = 'omni-ask-theme';
 
@@ -88,8 +96,8 @@ async function answers(base: string): Promise<boolean> {
 }
 
 /** Opens the PRD page and checks it is the demo PRD, not an error page. */
-async function open(page: Page, base: string): Promise<void> {
-  await page.goto(new URL(ROUTE, base).href, { waitUntil: 'load', timeout: 120_000 });
+async function open(page: Page, base: string, route: string): Promise<void> {
+  await page.goto(new URL(route, base).href, { waitUntil: 'load', timeout: 120_000 });
   await page.addStyleTag({ content: STILL });
   // The page loads the PRD in the browser ("Loading the PRD…"): a cold dev server compiles that
   // first, so wait for the PRD itself, up to two minutes.
@@ -97,7 +105,7 @@ async function open(page: Page, base: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready.then(() => true));
   const text = await page.evaluate(() => document.body.innerText);
   if (!text.includes(HEADING)) {
-    throw new Error(`/${ROUTE} should show the demo PRD ("${HEADING}"); ${page.url()} shows: ${text.slice(0, 600)}`);
+    throw new Error(`/${route} should show the demo PRD ("${HEADING}"); ${page.url()} shows: ${text.slice(0, 600)}`);
   }
   await sleep(500);
 }
@@ -153,13 +161,13 @@ function compareInPage(args: { a: string; b: string; channel: number }): Promise
   return Promise.all([decode(args.a), decode(args.b)]).then(([a, b]) => compare(a, b));
 }
 
-/** Shoots the PRD page in one theme at one size. */
-async function shoot(browser: Browser, base: string, size: { width: number; height: number }, theme: string): Promise<Buffer> {
+/** Shoots one screen of the demo's PRD in one theme at one size. */
+async function shoot(browser: Browser, base: string, route: string, size: { width: number; height: number }, theme: string): Promise<Buffer> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   try {
     await context.addInitScript(({ key, value }) => { try { localStorage.setItem(key, value); } catch { /* none */ } }, { key: THEME_KEY, value: theme });
     const page = await context.newPage();
-    await open(page, base);
+    await open(page, base, route);
     return await page.screenshot({ type: 'png' });
   } finally {
     await context.close();
@@ -194,14 +202,13 @@ async function check(browser: Browser, name: string, png: Buffer): Promise<strin
   return null;
 }
 
-/** Every size in every theme; the failure lines. */
+/** Every screen at every size in every theme; the failure lines. */
 async function runAll(browser: Browser, base: string): Promise<string[]> {
   const failures: string[] = [];
-  for (const size of SIZES) {
-    for (const theme of THEMES) {
-      const name = `prd-${theme}-${size.name}.png`;
-      failures.push(await check(browser, name, await shoot(browser, base, size, theme)) ?? '');
-    }
+  const shots = SCREENS.flatMap((screen) => SIZES.flatMap((size) => THEMES.map((theme) => ({ screen, size, theme }))));
+  for (const { screen, size, theme } of shots) {
+    const name = `prd/${screen.folder}/${theme}-${size.name}.png`;
+    failures.push(await check(browser, name, await shoot(browser, base, screen.route, size, theme)) ?? '');
   }
   return failures.filter((f) => f !== '');
 }

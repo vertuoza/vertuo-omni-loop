@@ -1,3 +1,4 @@
+'use client';
 import { Select } from '@omni/ui';
 import { useState } from 'react';
 import {

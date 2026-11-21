@@ -43,7 +43,8 @@ const html = (mainWatch: MainWatchRead | null | undefined, query: Record<string,
   view: dossierView({ dossier: numbered, versions: [], members: [PIERRE], rounds: [], mainWatch }, PIERRE.user_id, readPick(query), NOW),
   markdown: null, supabase: SUPABASE,
 }));
-const head = (page: string) => page.slice(0, page.indexOf('class="dossier-tabs"'));
+/** About this PRD, where the Main fact sits since omni-loop-20 s6. */
+const head = (page: string) => /<section class="dossier-about".*?<\/section>/s.exec(page)?.[0] ?? '';
 
 describe('a PRD nobody watches', () => {
   it('shows no Main cell and no Main tab', () => {
@@ -54,17 +55,19 @@ describe('a PRD nobody watches', () => {
     }
   });
 
-  it('opens the page on its default tab when the address asks for Main', () => {
-    expect(html(null, { tab: 'main' })).toContain('aria-label="Before/after"');
+  it('opens the Feature tab when the address asks for Main, with no After merge section (omni-loop-20 s7)', () => {
+    const page = html(null, { tab: 'main' });
+    expect(page).toContain('<section class="dossier-pane" aria-label="Feature">');
+    expect(page).not.toContain('id="after-merge"');
   });
 });
 
 describe('the Main cell of the facts strip', () => {
   it('says Watching · n days left', () => {
     const page = html({ watches: [watch()], breaks: [] });
-    expect(head(page)).toContain('<dt>Main</dt>');
+    expect(head(page)).toContain('<dt class="omni-definition-list__label">Main</dt>');
     expect(head(page)).toContain('Watching · 5 days left');
-    expect(head(page)).toContain('href="/prd/' + ID + '?tab=main"');
+    expect(head(page)).toContain('href="/prd/' + ID + '?tab=feature#after-merge"');
   });
 
   it('says Clean', () => {
@@ -72,7 +75,7 @@ describe('the Main cell of the facts strip', () => {
   });
 
   it('says Broke main', () => {
-    const page = html({ watches: [watch({ status: 'broke' })], breaks: [red] });
+    const page = html({ watches: [watch({ status: 'broke' })], breaks: [red] }, { tab: 'specifications' });
     expect(head(page)).toContain('dossier-main-broke');
     expect(head(page)).toContain('<strong>Broke main</strong>');
   });
@@ -87,8 +90,9 @@ describe('the Main cell of the facts strip', () => {
 describe('the Main tab', () => {
   const broken = { watches: [watch({ status: 'broke' })], breaks: [red] };
 
-  it('is in the bar once the PRD is watched', () => {
-    expect(html({ watches: [watch()], breaks: [] })).toContain('>Main</span></a>');
+  it('is the Feature tab\'s After merge section once the PRD is watched (omni-loop-20 s7), the tab it opens on once main broke', () => {
+    expect(html({ watches: [watch()], breaks: [] }, { tab: 'feature' })).toContain('<section id="after-merge" aria-label="After merge">');
+    expect(html(broken)).toContain('<section class="dossier-pane" aria-label="Feature">');
   });
 
   it('lists each break with its kind and its link, escaped, the parent result beside a CI red', () => {
@@ -104,7 +108,7 @@ describe('the Main tab', () => {
   it('says that no rewind ran yet, with the line to run it', () => {
     const page = html(broken, { tab: 'main' });
     expect(page).toContain('No rewind yet.');
-    expect(page).toContain('<code>/omni:rewind 2410</code>');
+    expect(page).toContain('<code class="omni-code omni-code--inline">/omni:rewind 2410</code>');
   });
 
   it('says nothing broke for a PRD still watched, and offers no rewind', () => {
@@ -136,7 +140,7 @@ describe('the rewind\'s findings on the Main tab (PRD 2410, s5)', () => {
     expect(page).toContain('Started in: The Omni setup');
     expect(page).toContain('Proposed');
     expect(page).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/actions/runs/2"');
-    expect(page).toContain('<strong>Fix:</strong> Require the lint job.');
+    expect(page).toContain('Fix:</span> Require the lint job.');
     expect(page).not.toContain('No rewind yet');
     expect(page.indexOf('What broke main')).toBeLessThan(page.indexOf('What the rewind found'));
   });
@@ -213,7 +217,7 @@ describe('an approved finding\'s outcome on the Main tab (PRD 2498, s2)', () => 
 
   it('shows the pull request that proposes the rule, linked', () => {
     const html = page(approved({ outcome: { kind: 'proposed', pr: parsePr(42), url: 'https://github.com/acme/widgets/pull/42' } }));
-    expect(html).toContain('<a href="https://github.com/acme/widgets/pull/42" target="_blank" rel="noopener noreferrer">Rule proposed in PR #42</a>');
+    expect(html).toContain('href="https://github.com/acme/widgets/pull/42" target="_blank" rel="noopener noreferrer">Rule proposed in PR #42</a>');
     expect(html).not.toContain('Proposing the rule');
   });
 
@@ -224,7 +228,7 @@ describe('an approved finding\'s outcome on the Main tab (PRD 2498, s2)', () => 
 
   it('shows the rule that already says it, escaped', () => {
     const html = page(approved({ outcome: { kind: 'already', rule: 'playbook/testing#<b>x</b>' } }));
-    expect(html).toContain('Already said by <code>playbook/testing#&lt;b&gt;x&lt;/b&gt;</code>');
+    expect(html).toContain('Already said by <code class="omni-code omni-code--inline">playbook/testing#&lt;b&gt;x&lt;/b&gt;</code>');
   });
 
   it('shows the question asked', () => {
@@ -251,7 +255,7 @@ describe('the demo dossier', () => {
   it('shows a PRD that broke main, with its red job', () => {
     const read = demoDossier(NOW);
     const page = renderToStaticMarkup(createElement(DossierPage, { view: dossierView(read, DEMO_VIEWER, readPick({ tab: 'main' }), NOW), markdown: null, supabase: null }));
-    expect(page).toContain('<strong>Broke main</strong>');
+    expect(page).toContain('omni-notice__title">Broke main</p>');
     expect(page).toContain('CI red');
     expect(page).toContain('/omni:rewind 71');
   });

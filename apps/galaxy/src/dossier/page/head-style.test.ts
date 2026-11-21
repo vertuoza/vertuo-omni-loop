@@ -1,6 +1,8 @@
-// The PRD header runs edge to edge (PRD 498, s2): read dossier.css as text and prove the header's frame —
-// no rounded corners, no side or top border, pulled out to the page's edges by the gutter, one strong
-// bottom rule — the tabs' rule spanning the whole header, and the PRD list free of its width cap.
+// The PRD page's head on the page anatomy (omni-loop-20 s6), read from dossier.css as text: only the tab
+// row pins, on the page's ground, its rule across the whole page; the head above it scrolls away. A
+// concept's page keeps the header box of PRD 498, s2 — no rounded corners, no side or top border, pulled
+// out to the page's edges by the gutter, one strong bottom rule, the tabs' rule spanning the whole header —
+// and the PRD list stays free of its width cap.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { firstPart } from 'omni-loop/kit/lib/narrow.ts';
@@ -22,7 +24,24 @@ const props = (selector: string) => declarations(selector).map((d) => firstPart(
 const value = (selector: string, prop: string) =>
   declarations(selector).filter((d) => firstPart(d, ':').trim() === prop).map((d) => d.slice(d.indexOf(':') + 1).trim());
 
-describe('the PRD header frame', () => {
+describe('the PRD page\'s head (omni-loop-20 s6)', () => {
+  it('pins the tab row alone from 900 × 700, on the page\'s ground, above the content', () => {
+    expect(CSS).toMatch(/@media \(min-width: 900px\) and \(min-height: 700px\) \{\s*\.dossier-tabbar \{ position: sticky; top: 0; z-index: var\(--layer-sticky\); \}/);
+    expect(value('.dossier-tabbar', 'background')).toEqual(['var(--ask-ground)']);
+  });
+
+  it('never pins the head above the tab row', () => {
+    expect(props('.dossier-top')).not.toContain('position');
+    expect(CSS).not.toMatch(/\.dossier-top \{[^}]*sticky/);
+  });
+
+  it('draws the tab row\'s rule across the whole page, pulled out by the page gutter', () => {
+    expect(value('.dossier-tabbar', 'margin')).toEqual(['0 var(--dossier-gutter-pull)']);
+    expect(value('.dossier-tabbar', 'border-bottom')).toEqual(['1px solid var(--color-border-subtle)']);
+  });
+});
+
+describe('a concept\'s header frame', () => {
   it('has no rounded corners and no side or top border', () => {
     expect(props('.dossier-head')).not.toContain('border-radius');
     for (const prop of ['border', 'border-top', 'border-left', 'border-right', 'border-inline', 'border-block-start']) {

@@ -1,4 +1,5 @@
 'use client';
+import { Button, Notice } from '@omni/ui';
 import { useEffect, useRef, useState } from 'react';
 import { defined } from 'omni-loop/kit/lib/narrow.ts';
 import { copyLink } from '../../ask/page/share';
@@ -44,9 +45,7 @@ function CopyStep({ step }: { step: string }) {
   return (
     <>
       <code>{step}</code>{' '}
-      <button type="button" className="ask-button quiet" onClick={() => void copy()}>
-        Copy
-      </button>
+      <Button variant="quiet" size="sm" onClick={() => void copy()}>Copy</Button>
       {copied && <span className="ask-hint" role="status"> Copied.</span>}
     </>
   );
@@ -54,18 +53,20 @@ function CopyStep({ step }: { step: string }) {
 
 /** What became of a send, as the tab says it. */
 export function SendResult({ sent, sender = null }: { sent: SentView; sender?: Face | null }) {
-  if (sent.state === 'failed') return <p className="ask-problem outbox-sent" role="alert">{sent.error} {KEPT}</p>;
+  if (sent.state === 'failed') return <Notice tone="danger">{sent.error} {KEPT}</Notice>;
   if (sent.state === 'waiting') {
-    return <p className="ask-problem outbox-sent" role="alert">GitHub did not send you back with an answer, so nothing was posted. {KEPT}</p>;
+    return <Notice tone="danger">GitHub did not send you back with an answer, so nothing was posted. {KEPT}</Notice>;
   }
   return (
-    <div className="outbox-sent" role="status">
-      <p>
-        <b>Sent as <LoginChip login={sent.login} face={sender} /></b> ·{' '}
-        <a href={sent.url} target="_blank" rel="noopener noreferrer">the reply on the pull request</a>
-      </p>
-      <p>Next, in the terminal: <CopyStep step={sent.next} /></p>
-      {!sent.counted && <p className="ask-problem" role="alert">{UNCOUNTED(sent.login)} Someone who is should answer.</p>}
+    <div className="outbox-sent">
+      <Notice tone="success">
+        <p>
+          <b>Sent as <LoginChip login={sent.login} face={sender} /></b> ·{' '}
+          <a href={sent.url} target="_blank" rel="noopener noreferrer">the reply on the pull request</a>
+        </p>
+        <p>Next, in the terminal: <CopyStep step={sent.next} /></p>
+      </Notice>
+      {!sent.counted && <Notice tone="warning">{UNCOUNTED(sent.login)} Someone who is should answer.</Notice>}
     </div>
   );
 }
@@ -167,16 +168,16 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
 
   return (
     <>
-      <button type="button" className="ask-button" disabled={sendOff !== null || count === 0 || state.state === 'sending'} onClick={() => void send()}>
+      <Button disabled={sendOff !== null || count === 0 || state.state === 'sending'} onClick={() => void send()}>
         Send {plural(count, 'answer')}
-      </button>
+      </Button>
       {sendOff && <span className="ask-hint">{sendOff}</span>}
       {state.state === 'sending' && <span className="ask-hint" role="status">Sending…</span>}
-      {state.state === 'refused' && <p className="ask-problem outbox-sent" role="alert">{state.error}</p>}
+      {state.state === 'refused' && <Notice tone="danger">{state.error}</Notice>}
       {state.state === 'dropped' && (
-        <p className="outbox-sent" role="status">
-          {droppedWords(state.numbers)} <a className="ask-button" href={state.authorize}>Send the rest through GitHub</a>
-        </p>
+        <Notice tone="info">
+          {droppedWords(state.numbers)} <Button href={state.authorize}>Send the rest through GitHub</Button>
+        </Notice>
       )}
       {state.state === 'result' && <SendResult sent={state.sent} sender={sender} />}
     </>
