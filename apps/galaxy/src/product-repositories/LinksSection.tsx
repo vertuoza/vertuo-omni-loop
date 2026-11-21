@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import { useState } from 'react';
 import { KNOWLEDGE, ROLES, type Link, type LinkWrite } from './repositories-tab.contract';
 import { draftOf, KNOWLEDGE_LABELS, newLinkWrite, roleFlag, writeOf, type LinkDraft, type LinksForm } from './repositories-tab-model';
@@ -53,23 +54,33 @@ function OwnedRow({ link, others, busy, on }: { link: Link; others: string[]; bu
       <form className="links-form" onSubmit={(e) => { e.preventDefault(); on.save(writeOf(link.repo, draft)); }}>
         <strong>{link.repo}</strong>
         <span className="ask-muted links-added">{ADDED_BY[link.addedBy]}</span>
-        <label className="links-field" htmlFor={id('role')}>
+        <div className="links-field">
           <span>Role</span>
-          <select id={id('role')} className="products-look-select" value={draft.role} disabled={busy}
-            onChange={(e) => { edit({ role: e.currentTarget.value }); }}>
-            {link.role !== null && roleFlag(link.role) !== null && <option value={link.role}>{link.role} (not a role)</option>}
-            {link.role === null && <option value="">No role yet</option>}
-            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </label>
+          <Select
+            size="sm"
+            label="Role"
+            value={draft.role}
+            disabled={busy}
+            onValueChange={(role) => { edit({ role }); }}
+            options={[
+              ...(link.role !== null && roleFlag(link.role) !== null ? [{ value: link.role, label: `${link.role} (not a role)` }] : []),
+              ...(link.role === null ? [{ value: '', label: 'No role yet' }] : []),
+              ...ROLES.map((r) => ({ value: r, label: r })),
+            ]}
+          />
+        </div>
         {roleFlag(link.role) !== null && <p className="products-refusal links-role-flag" role="note">{roleFlag(link.role)}</p>}
-        <label className="links-field" htmlFor={id('knowledge')}>
+        <div className="links-field">
           <span>Knowledge</span>
-          <select id={id('knowledge')} className="products-look-select" value={draft.knowledge} disabled={busy}
-            onChange={(e) => { const k = KNOWLEDGE.find((v) => v === e.currentTarget.value); if (k) edit({ knowledge: k }); }}>
-            {KNOWLEDGE.map((k) => <option key={k} value={k}>{KNOWLEDGE_LABELS[k]}</option>)}
-          </select>
-        </label>
+          <Select
+            size="sm"
+            label="Knowledge"
+            value={draft.knowledge}
+            disabled={busy}
+            onValueChange={(value) => { const k = KNOWLEDGE.find((v) => v === value); if (k) edit({ knowledge: k }); }}
+            options={KNOWLEDGE.map((k) => ({ value: k, label: KNOWLEDGE_LABELS[k] }))}
+          />
+        </div>
         {draft.knowledge === 'imported' && (
           <label className="links-field" htmlFor={id('read-at')}>
             <span>Read at</span>
@@ -108,9 +119,7 @@ function AddRepository({ addable, add, busy, on }: { addable: string[]; add: str
   const repo = addable.find((r) => r === picked) ?? addable[0] ?? '';
   return (
     <form className="approvers-add links-add" onSubmit={(e) => { e.preventDefault(); on.save(newLinkWrite(repo)); }}>
-      <select className="products-look-select" aria-label="Repository to add" value={repo} disabled={busy} onChange={(e) => { setPicked(e.currentTarget.value); }}>
-        {addable.map((r) => <option key={r} value={r}>{r}</option>)}
-      </select>
+      <Select size="sm" label="Repository to add" value={repo} disabled={busy} onValueChange={setPicked} options={addable.map((r) => ({ value: r, label: r }))} />
       <button className="ask-button" type="submit" disabled={busy}>Add a repository</button>
     </form>
   );

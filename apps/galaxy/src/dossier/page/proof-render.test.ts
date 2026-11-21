@@ -94,6 +94,6 @@ describe('the Proof tab, rendered', () => {
     expect(page).toContain('name="tab" value="proof"');
     expect(page).toContain('<span class="ask-hint">Run</span>');
     expect(page).toContain('Run 2 · 30 Sep · commit a1b2c3d · Pierre');
-    expect(page).toContain('Run 1 · 29 Sep · commit 0000000 · Pierre');
+    expect(page).toMatch(/<input[^>]*name="v"[^>]*value="2"/);
   });
 });

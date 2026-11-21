@@ -270,13 +270,15 @@ describe('the repository menu', () => {
   const ANVILS: KnowledgeGraph = { ...GRAPH, repo: 'acme/Anvils' };
   const OPTIONS = [{ value: '', label: 'acme/widgets' }, { value: 'acme/Anvils', label: 'acme/Anvils' }];
   const head = (html: string) => between(html, '<div class="km-page-head">', '</form>');
-  const options = (html: string) => [...html.matchAll(/<option value="([^"]*)"( selected="")?>([^<]+)<\/option>/g)].map((m) => `${m[3]}${m[2] ? ' *' : ''}`);
+  const shown = (html: string) => /<span[^>]*class="omni-select__value">([^<]*)<\/span>/.exec(head(html))?.[1];
 
   it('replaces the chip, a GET form to /knowledge naming each repository, the deployed checkout first and shown', () => {
     const html = screen({ kind: 'map', graph: GRAPH, menu: { options: OPTIONS, current: '' } });
     expect(head(html)).toMatch(/<form class="km-picker" action="\/knowledge" method="get">/);
-    expect(head(html)).toMatch(/<select class="ask-share-pick" name="repo">/);
-    expect(options(html)).toEqual(['acme/widgets *', 'acme/Anvils']);
+    expect(head(html)).toMatch(/role="combobox"[^>]*aria-label="Repository"/);
+    expect(head(html)).toMatch(/<input[^>]*name="repo" value=""\/>/);
+    expect(head(html)).not.toContain('<select');
+    expect(shown(html)).toBe('acme/widgets');
     expect(head(html)).toContain('<button type="submit" class="ask-button quiet">Show</button>');
     expect(html).not.toContain('km-repo');
     expect(html).toContain('<a class="km-chart" href="/#chart">Open the star chart →</a>');
@@ -285,7 +287,8 @@ describe('the repository menu', () => {
 
   it('shows a picked repository, every address carrying it, and no star chart, which shows the deployed checkout', () => {
     const html = screen({ kind: 'map', graph: ANVILS, menu: { options: OPTIONS, current: 'acme/Anvils' } });
-    expect(options(html)).toEqual(['acme/widgets', 'acme/Anvils *']);
+    expect(shown(html)).toBe('acme/Anvils');
+    expect(head(html)).toMatch(/<input[^>]*name="repo" value="acme\/Anvils"\/>/);
     expect(html).not.toContain('km-chart');
     expect(between(html, 'class="km-tabs"', '</nav>')).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product"');
     expect(diagram(html)).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product&amp;entry=BR-PRODUCT-2"');
@@ -297,7 +300,7 @@ describe('the repository menu', () => {
 
   it('says a picked repository could not be read from GitHub, keeping the menu', () => {
     const html = screen({ kind: 'out-of-reach', menu: { options: OPTIONS, current: 'acme/Anvils' } });
-    expect(options(html)).toEqual(['acme/widgets', 'acme/Anvils *']);
+    expect(shown(html)).toBe('acme/Anvils');
     expect(html).toContain('The knowledge of acme/Anvils could not be read from GitHub; this deployment&#x27;s log says why.');
   });
 
@@ -306,7 +309,7 @@ describe('the repository menu', () => {
     expect(html).toContain('This repository is not on the menu');
     expect(html).toContain('other/secret is not a repository of your workspaces set up with Omni Loop, or the Omni Loop App cannot read it.');
     expect(html).toContain('Pick one from the menu above.');
-    expect(options(html)).toEqual(['acme/widgets *', 'acme/Anvils']);
+    expect(shown(html)).toBe('acme/widgets');
     for (const secret of SECRETS) expect(html, secret).not.toContain(secret);
     expect(screen({ kind: 'not-offered', repo: 'other/secret', menu: null })).not.toContain('Pick one from the menu');
   });

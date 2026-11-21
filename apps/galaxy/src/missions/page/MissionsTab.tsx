@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useMemo, useState } from 'react';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
@@ -31,19 +32,20 @@ function LevelLine({ words, level, levels, disabled, onChange }: { words: string
     <p className="mission-level">
       <span>{WORDS.level}: {words}</span>
       {level !== null && (
-        <label className="mission-level-change">
+        <span className="mission-level-change">
           {WORDS.changeLevel}{' '}
-          <select
+          <Select
+            size="sm"
+            label={WORDS.changeLevel}
             value={level}
             disabled={disabled}
-            onChange={(event) => {
-              const picked = MissionLevelSchema.safeParse(event.target.value);
+            onValueChange={(value) => {
+              const picked = MissionLevelSchema.safeParse(value);
               if (picked.success) onChange(picked.data);
             }}
-          >
-            {levels.map((each) => <option key={each} value={each}>{LEVEL_WORDS[each]}</option>)}
-          </select>
-        </label>
+            options={levels.map((each) => ({ value: each, label: LEVEL_WORDS[each] }))}
+          />
+        </span>
       )}
     </p>
   );

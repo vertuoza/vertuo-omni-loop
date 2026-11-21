@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import type { SubmitEvent } from 'react';
 import { CouldNotLoad } from '../dashboard/Notes';
 import type { KitToken } from './terminal-tokens.contract';
@@ -96,12 +97,11 @@ function Make({ workspace, back, full, on }: { workspace: string; back: string; 
         <span>{TERMINAL_LINE.name}</span>
         <input type="text" name="name" required maxLength={TOKEN_NAME_MAX} placeholder={TERMINAL_LINE.namePlaceholder} disabled={full} />
       </label>
-      <label>
+      <div>
         <span>{TERMINAL_LINE.expiresIn}</span>
-        <select name="days" defaultValue={String(DEFAULT_DAYS)} disabled={full}>
-          {TOKEN_DAYS.map((d) => <option key={d} value={String(d)}>{`${d} days`}</option>)}
-        </select>
-      </label>
+        <Select label={TERMINAL_LINE.expiresIn} name="days" defaultValue={String(DEFAULT_DAYS)} disabled={full}
+          options={TOKEN_DAYS.map((d) => ({ value: String(d), label: `${d} days` }))} />
+      </div>
       <button type="submit" className="ask-button" data-primary disabled={full}>{TERMINAL_LINE.make}</button>
       {full && <p className="terminal-limit">{TERMINAL_LINE.limit}</p>}
     </form>

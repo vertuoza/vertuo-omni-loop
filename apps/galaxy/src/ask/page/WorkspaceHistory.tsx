@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import { PersonChip } from '../../people/PersonChip';
 import { CATEGORIES, CATEGORY_LABELS } from '../classify';
 import { ContextLine } from './ContextLine';
@@ -14,15 +15,10 @@ type Option = { value: string; label: string };
 
 function Pick({ name, label, value, options }: { name: string; label: string; value: string | undefined; options: Option[] }) {
   return (
-    <label className="ask-history-field">
+    <div className="ask-history-field">
       <span className="ask-hint">{label}</span>
-      <select className="ask-share-pick" name={name} defaultValue={value ?? ''}>
-        <option value="">Any</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </label>
+      <Select size="sm" label={label} name={name} defaultValue={value ?? ''} options={[{ value: '', label: 'Any' }, ...options]} />
+    </div>
   );
 }
 

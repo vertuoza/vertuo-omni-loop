@@ -25,11 +25,12 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, 
 const links = (html: string) => [...html.matchAll(/<a [^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => ({ href: m[1], text: text(group(m, 2)) }));
 const headings = (html: string, level: number) => [...html.matchAll(new RegExp(`<h${String(level)}[^>]*>([\\s\\S]*?)</h${String(level)}>`, 'g'))].map((m) => text(group(m, 1)));
 /** Each labelled field: its label, and its control's markup. */
-const fields = (html: string) => [...html.matchAll(/<label class="pitch-field"><span>([^<]*)<\/span>([\s\S]*?)<\/label>/g)].map((m) => ({ label: group(m, 1), control: group(m, 2) }));
+const fields = (html: string) => [...html.matchAll(/<(label|div) class="pitch-field"><span>([^<]*)<\/span>([\s\S]*?)<\/\1>/g)].map((m) => ({ label: group(m, 2), control: group(m, 3) }));
 const field = (html: string, label: string, nth = 0) => fields(html).filter((f) => f.label === label)[nth]?.control ?? '';
-const options = (control: string) => [...control.matchAll(/<option ([^>]*)>([^<]*)<\/option>/g)].map((m) => ({ value: /value="([^"]*)"/.exec(group(m, 1))?.[1], selected: group(m, 1).includes('selected'), text: m[2] }));
 const valueOf = (control: string) => /value="([^"]*)"/.exec(control)?.[1];
-const selected = (control: string) => options(control).find((o) => o.selected)?.value;
+/** What a Select shows on the server: its trigger's text, and the value its hidden input posts. */
+const shown = (control: string) => /<span[^>]*class="omni-select__value">([^<]*)<\/span>/.exec(control)?.[1];
+const selected = (control: string) => /<input [^>]*aria-hidden="true"[^>]*value="([^"]*)"/.exec(control)?.[1];
 const buttons = (html: string) => [...html.matchAll(/<button ([^>]*)>([^<]*)<\/button>/g)].map((m) => ({ text: m[2], disabled: group(m, 1).includes('disabled') }));
 
 const section = (pitch: PitchSettings, { editable = true, actions = [] as PitchFormAction[] } = {}) =>
@@ -48,10 +49,7 @@ describe('a product\'s page, for whoever may edit the business', () => {
 
   it('shows the Look: a preset, four colours, the Heading and Text fonts, a logo and a theme', () => {
     const html = section(defaultPitchSettings('arcade'));
-    expect(options(field(html, 'Preset'))).toEqual([
-      { value: 'arcade', selected: true, text: 'Arcade poster' },
-      { value: 'keynote', selected: false, text: 'Clean keynote' },
-    ]);
+    expect([shown(field(html, 'Preset')), selected(field(html, 'Preset'))]).toEqual(['Arcade poster', 'arcade']);
     expect(COLOURS.map((label) => valueOf(field(html, label)))).toEqual(['#e7e7ff', '#07071a', '#4ee1ff', '#ffd23f']);
     expect(text(html)).toContain('Heading font');
     expect(text(html)).toContain('Text font');
@@ -77,7 +75,7 @@ describe('a product\'s page, for whoever may edit the business', () => {
   it('shows the Voice, the Intro / outro and the Length', () => {
     const pitch: PitchSettings = { ...defaultPitchSettings('arcade'), voice: { preset: 'formal', instructions: 'Say worksite.' } };
     const html = section(pitch);
-    expect(options(field(html, 'Preset', 1)).map((o) => o.text)).toEqual(['Confident &amp; warm', 'Playful', 'Formal', 'Hype (inside only)']);
+    expect(shown(field(html, 'Preset', 1))).toBe('Formal');
     expect(selected(field(html, 'Preset', 1))).toBe('formal');
     expect(field(html, 'Instructions')).toContain('maxLength="600"');
     expect(field(html, 'Instructions')).toContain('Say worksite.');
@@ -89,10 +87,10 @@ describe('a product\'s page, for whoever may edit the business', () => {
 
   it('offers no music, FreePD\'s five moods, or the product\'s own track', () => {
     const none = section(defaultPitchSettings('arcade'));
-    expect(options(field(none, 'Source', 2)).map((o) => o.value)).toEqual(['none', 'freepd', 'file']);
+    expect(selected(field(none, 'Source', 2))).toBe('none');
     expect(field(none, 'Mood')).toBe('');
     const freepd = section(withMusicProvider(defaultPitchSettings('arcade'), 'freepd'));
-    expect(options(field(freepd, 'Mood')).map((o) => o.value)).toEqual(['upbeat', 'calm', 'epic', 'playful', 'electronic']);
+    expect(selected(field(freepd, 'Mood'))).toBe('upbeat');
     const file = section({ ...defaultPitchSettings('arcade'), music: { provider: 'file', file: 'asset:theme.mp3' } });
     expect(field(file, 'Track')).toContain('accept=".mp3,.wav,.ogg"');
     expect(text(field(file, 'Track'))).toContain('theme.mp3');

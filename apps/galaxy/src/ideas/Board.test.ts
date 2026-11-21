@@ -128,7 +128,8 @@ describe('a member\'s board (PRD 1246, s4)', () => {
     expect(text(add)).toContain('Add an idea');
     expect(add).toMatch(/<input(?=[^>]*name="title")[^>]*maxLength="120"/);
     expect(add).toMatch(/<textarea(?=[^>]*name="pitch")[^>]*maxLength="600"/);
-    expect(add).toMatch(/<option value="later" selected="">Later<\/option>/);
+    expect(add).toMatch(/<input[^>]*name="lane" value="later"\/>/);
+    expect(add).toContain('<span class="omni-select__value">Later</span>');
     expect(add).not.toContain('name="prd"');
   });
 
@@ -139,7 +140,8 @@ describe('a member\'s board (PRD 1246, s4)', () => {
     expect(card).toContain('aria-label="Archive Linked"');
     expect(card).toMatch(/<input(?=[^>]*name="title")[^>]*value="Linked"/);
     expect(card).toMatch(/<textarea[^>]*name="pitch"[^>]*>Built\.<\/textarea>/);
-    expect(card).toMatch(/<option value="next" selected="">Next<\/option>/);
+    expect(card).toMatch(/<input[^>]*name="lane" value="next"\/>/);
+    expect(card).toContain('<span class="omni-select__value">Next</span>');
     expect(card).toMatch(/<input(?=[^>]*name="prd")[^>]*value="1246"/);
   });
 

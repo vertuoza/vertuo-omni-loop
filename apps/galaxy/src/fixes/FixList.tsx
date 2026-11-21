@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import { WORK_NAMES, WORK_PATHS } from '../dossier/page/work';
 import { fixAddress, fixFiltered, type FixFilters, type FixItem, type FixKind } from './list';
 import { STATE_LABELS } from './timeline';
@@ -49,22 +50,31 @@ function Filters({ kind, choices, filters }: { kind: FixKind; choices: Choices; 
         <span className="ask-hint">Search the titles</span>
         <input className="ask-share-link" type="search" name="q" defaultValue={filters.search ?? ''} placeholder={`a word of a ${WORK_NAMES[kind].one}'s title`} />
       </label>
-      <label className="dossier-history-field">
+      <div className="dossier-history-field">
         <span className="ask-hint">State</span>
-        <select className="ask-share-pick" name="state" defaultValue={filters.state ?? ''}>
-          <option value="">Any</option>
-          <option value="asked">{STATE_LABELS.asked}</option>
-          <option value="in-review">{STATE_LABELS['in-review']}</option>
-          <option value="merged">{STATE_LABELS.merged}</option>
-        </select>
-      </label>
-      <label className="dossier-history-field">
+        <Select
+          size="sm"
+          label="State"
+          name="state"
+          defaultValue={filters.state ?? ''}
+          options={[
+            { value: '', label: 'Any' },
+            { value: 'asked', label: STATE_LABELS.asked },
+            { value: 'in-review', label: STATE_LABELS['in-review'] },
+            { value: 'merged', label: STATE_LABELS.merged },
+          ]}
+        />
+      </div>
+      <div className="dossier-history-field">
         <span className="ask-hint">Repository</span>
-        <select className="ask-share-pick" name="repo" defaultValue={filters.repo ?? ''}>
-          <option value="">Any</option>
-          {choices.repos.map((repo) => <option key={repo} value={repo}>{repo}</option>)}
-        </select>
-      </label>
+        <Select
+          size="sm"
+          label="Repository"
+          name="repo"
+          defaultValue={filters.repo ?? ''}
+          options={[{ value: '', label: 'Any' }, ...choices.repos.map((repo) => ({ value: repo, label: repo }))]}
+        />
+      </div>
       <p className="dossier-history-actions">
         <button type="submit" className="ask-button">Filter</button>
         {fixFiltered(filters) && <a className="dossier-history-clear" href={fixAddress(kind, { who: filters.who })}>Clear</a>}

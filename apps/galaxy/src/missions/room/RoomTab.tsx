@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { heroSvg } from '../../virtual-fleets/heroes/heroes';
@@ -87,18 +88,24 @@ export function RoomTab({ view, keep, refresh }: RoomTabProps) {
         <h2 className="room-title">{ROOM_WORDS.ledger}</h2>
         <form className="room-filters" method="get">
           {Object.entries(keep).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
-          <label>{ROOM_WORDS.role}
-            <select name="role" defaultValue={view.filter.role ?? ''}>
-              <option value="">{ROOM_WORDS.anyRole}</option>
-              {EVENT_ROLES.map((role) => <option key={role} value={role}>{roleName(role)}</option>)}
-            </select>
-          </label>
-          <label>{ROOM_WORDS.mission}
-            <select name="mission" defaultValue={view.filter.mission ?? ''}>
-              <option value="">{ROOM_WORDS.anyMission}</option>
-              {view.missions.map((mission) => <option key={mission.id} value={mission.id}>{mission.title}</option>)}
-            </select>
-          </label>
+          <div className="room-filter">{ROOM_WORDS.role}
+            <Select
+              size="sm"
+              label={ROOM_WORDS.role}
+              name="role"
+              defaultValue={view.filter.role ?? ''}
+              options={[{ value: '', label: ROOM_WORDS.anyRole }, ...EVENT_ROLES.map((role) => ({ value: role, label: roleName(role) }))]}
+            />
+          </div>
+          <div className="room-filter">{ROOM_WORDS.mission}
+            <Select
+              size="sm"
+              label={ROOM_WORDS.mission}
+              name="mission"
+              defaultValue={view.filter.mission ?? ''}
+              options={[{ value: '', label: ROOM_WORDS.anyMission }, ...view.missions.map((mission) => ({ value: mission.id, label: mission.title }))]}
+            />
+          </div>
           <button type="submit" className="ask-button quiet">{ROOM_WORDS.show}</button>
         </form>
         {view.empty && <p className="ask-muted room-empty">{ROOM_WORDS.empty}</p>}

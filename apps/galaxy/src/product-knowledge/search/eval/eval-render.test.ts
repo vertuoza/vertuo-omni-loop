@@ -81,7 +81,7 @@ describe('the Eval view', () => {
   it('says so in one line with no run yet, draws no chart, and still shows the set', () => {
     const html = draw({ ...demo, runs: [] });
     expect(text(html)).toContain(NO_RUN);
-    expect(html).not.toContain('<svg');
+    expect(html).not.toContain('<svg viewBox');
     expect(html).not.toContain('data-region="misses"');
     expect(html).toContain('data-question="demo-q-numbers"');
   });

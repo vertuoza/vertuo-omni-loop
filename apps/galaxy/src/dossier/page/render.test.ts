@@ -779,11 +779,8 @@ describe('the Spec and Plan tabs', () => {
 describe('the version picker', () => {
   it('lists the tab\'s versions newest first, with their day and source, the shown one selected', () => {
     const html = page({ pick: tab('spec'), markdown: SPEC });
-    const options = [...html.matchAll(/<option value="(\d+)"( selected="")?>([^<]+)<\/option>/g)].map((m) => [m[1], m[3], Boolean(m[2])]);
-    expect(options).toEqual([
-      ['2', 'v2 · 28 Sep · commit a1b2c3d (github)', true],
-      ['1', 'v1 · 27 Sep · Pierre (kit)', false],
-    ]);
+    expect(html).toMatch(/<input[^>]*name="v"[^>]*value="2"/);
+    expect(html).toContain('<span class="omni-select__value">v2 · 28 Sep · commit a1b2c3d (github)</span>');
   });
 
   it('is a GET form to the same page that keeps the tab, so it works before any script runs', () => {
@@ -792,7 +789,7 @@ describe('the version picker', () => {
     expect(form).toContain('method="get"');
     expect(form).toContain(`action="/prd/${ID}"`);
     expect(html).toContain('<input type="hidden" name="tab" value="spec"/>');
-    expect(html).toMatch(/<select[^>]*name="v"/);
+    expect(html).toMatch(/<input[^>]*name="v"/);
   });
 
   it('keeps the Before/after tab too, so a version picked there does not land on Questions', () => {

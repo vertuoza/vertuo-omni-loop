@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { demoKnowledgePort, knowledgeClient, type Changed, type KnowledgePort } from './product-knowledge.client';
@@ -91,13 +92,11 @@ export function proposalLine(kind: Kind, proposal: Proposal, entries: readonly A
 function Naming({ kind, section, members, status, send }: { kind: Kind; section: AnySection; members: KnowledgeMember[]; status: Status; send: Send }) {
   const [owner, setOwner] = useState(section.owner?.user ?? '');
   const [delegate, setDelegate] = useState(section.delegate?.user ?? '');
-  const options = (current: string) => (
-    <>
-      <option value="">Nobody</option>
-      {members.map((m) => <option key={m.id} value={m.id}>@{m.login}</option>)}
-      {current !== '' && !members.some((m) => m.id === current) ? <option value={current}>A former member</option> : null}
-    </>
-  );
+  const options = (current: string) => [
+    { value: '', label: 'Nobody' },
+    ...members.map((m) => ({ value: m.id, label: `@${m.login}` })),
+    ...(current !== '' && !members.some((m) => m.id === current) ? [{ value: current, label: 'A former member' }] : []),
+  ];
   const save = async () => {
     const asked = [
       { role: 'owner', user: owner, was: section.owner?.user ?? '' },
@@ -109,14 +108,14 @@ function Naming({ kind, section, members, status, send }: { kind: Kind; section:
   };
   return (
     <form className="links-form" aria-label={`Who answers for ${KIND_NAMES[kind]}`} onSubmit={(e) => { e.preventDefault(); void save(); }}>
-      <label className="links-field">
+      <div className="links-field">
         <span>Owner</span>
-        <select className="products-look-select" value={owner} disabled={status.busy} onChange={(e) => { setOwner(e.currentTarget.value); }}>{options(owner)}</select>
-      </label>
-      <label className="links-field">
+        <Select size="sm" label="Owner" value={owner} disabled={status.busy} onValueChange={setOwner} options={options(owner)} />
+      </div>
+      <div className="links-field">
         <span>Delegate</span>
-        <select className="products-look-select" value={delegate} disabled={status.busy} onChange={(e) => { setDelegate(e.currentTarget.value); }}>{options(delegate)}</select>
-      </label>
+        <Select size="sm" label="Delegate" value={delegate} disabled={status.busy} onValueChange={setDelegate} options={options(delegate)} />
+      </div>
       <span className="links-actions"><button className="ask-button" type="submit" disabled={status.busy}>Name owner and delegate</button></span>
     </form>
   );

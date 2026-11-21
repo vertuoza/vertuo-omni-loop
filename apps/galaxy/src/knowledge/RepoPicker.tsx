@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import type { RepoMenu } from './access';
 
 // The knowledge map's repository menu: the checkout this app is deployed from, then every repository
@@ -11,17 +12,17 @@ export const repoHref = (value: string) => (value ? `/knowledge?${new URLSearchP
 export function RepoPicker({ menu }: { menu: RepoMenu }) {
   return (
     <form className="km-picker" method="get" action="/knowledge">
-      <label className="km-picker-field">
+      <div className="km-picker-field">
         <span className="ask-hint">Repository</span>
-        <select
-          className="ask-share-pick"
+        <Select
+          size="sm"
+          label="Repository"
           name="repo"
           defaultValue={menu.current}
-          onChange={(event) => { window.location.assign(repoHref(event.currentTarget.value)); }}
-        >
-          {menu.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </label>
+          onValueChange={(value) => { window.location.assign(repoHref(value)); }}
+          options={menu.options}
+        />
+      </div>
       <button type="submit" className="ask-button quiet">Show</button>
     </form>
   );
