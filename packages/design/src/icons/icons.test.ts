@@ -8,6 +8,10 @@ describe('the 1-bit icon set', () => {
     for (const name of NAVIGATION) expect(ICON_NAMES, name).toContain(name);
   });
 
+  it('has the check glyph the Select marks its picked option with', () => {
+    expect(ICON_NAMES).toContain('check');
+  });
+
   it('draws every icon on a 16×16 grid of on and off pixels only', () => {
     for (const name of ICON_NAMES) {
       const grid = ICON_GRIDS[name];

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // The text field parts in a DOM: a Field ties its label, hint and error to the control inside it, and
 // each control types, picks and reports its invalid state.
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -46,7 +46,7 @@ describe('Field', () => {
     expect(screen.getByLabelText('Why').getAttribute('aria-invalid')).toBe('true');
     cleanup();
     render(createElement(Field, { label: 'Role', hint: 'Pick one' }, createElement(Select, { options })));
-    expect(screen.getByLabelText('Role').tagName).toBe('SELECT');
+    expect(screen.getByLabelText('Role').getAttribute('role')).toBe('combobox');
     expect(screen.getByLabelText('Role').getAttribute('aria-describedby')).toBe(screen.getByText('Pick one').id);
   });
 });
@@ -76,7 +76,8 @@ describe('Input, Textarea and Select', () => {
   it('lets a Select pick with the keyboard', async () => {
     const user = userEvent.setup();
     render(createElement(Select, { label: 'Role', options }));
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Role' }), 'pm');
-    expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'Role' }).value).toBe('pm');
+    screen.getByRole('combobox', { name: 'Role' }).focus();
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    await waitFor(() => { expect(screen.getByRole('combobox', { name: 'Role' }).textContent).toContain('Product'); });
   });
 });
