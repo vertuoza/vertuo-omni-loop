@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import type { SubmitEvent } from 'react';
 import type { JevDecisionSettings, JevMode } from '../store';
 import { RECORD_DAYS, type DecisionRecord, type Disagreement, type JevRecords, type RefLink } from '../record/record';
@@ -106,14 +107,16 @@ function DecisionForm({ line, state, on }: { line: DecisionLine; state: JevState
   const id = (field: string) => `jev-${settings.decision}-${field}`;
   return (
     <form className="jev-decision-form" onSubmit={submit} key={JSON.stringify(settings)}>
-      <label className="jev-field" htmlFor={id('mode')}>
+      <div className="jev-field">
         <span>Mode</span>
-        <select id={id('mode')} name="mode" defaultValue={settings.mode} disabled={busy}>
-          {MODES.map((mode) => (
-            <option key={mode} value={mode} disabled={mode !== 'off' && !state.key.stored}>{MODE_LABELS[mode]}</option>
-          ))}
-        </select>
-      </label>
+        <Select
+          label="Mode"
+          name="mode"
+          defaultValue={settings.mode}
+          disabled={busy}
+          options={MODES.filter((mode) => mode === 'off' || mode === settings.mode || state.key.stored).map((mode) => ({ value: mode, label: MODE_LABELS[mode] }))}
+        />
+      </div>
       <label className="jev-field" htmlFor={id('threshold')}>
         <span>Threshold</span>
         <input id={id('threshold')} className="jev-number" type="number" name="threshold" min={0} max={1} step={0.05} defaultValue={tuningText(settings.threshold)} required disabled={busy} />

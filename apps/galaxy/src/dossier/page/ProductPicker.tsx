@@ -1,4 +1,5 @@
 'use client';
+import { Select } from '@omni/ui';
 import { useEffect, useState } from 'react';
 import { DefinitionList } from '@omni/ui';
 import { productClient } from '../product/product.client';
@@ -28,16 +29,14 @@ type FieldProps = {
 export function ProductField({ pick, busy, problem, onPick }: FieldProps) {
   return (
     <>
-      <select
-        className="dossier-product"
-        aria-label="Product"
+      <Select
+        size="sm"
+        label="Product"
         value={pick.product?.id ?? ''}
         disabled={busy || pick.locked !== null}
-        onChange={(event) => { onPick(productChoice(event.target.value)); }}
-      >
-        <option value="">No product</option>
-        {pick.products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-      </select>
+        onValueChange={(id) => { onPick(productChoice(id)); }}
+        options={[{ value: '', label: 'No product' }, ...pick.products.map((product) => ({ value: product.id, label: product.name }))]}
+      />
       {pick.locked && <p className="ask-hint">{pick.locked}</p>}
       {problem && <span className="ask-problem" role="alert">{problem}</span>}
     </>

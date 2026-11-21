@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import { useState } from 'react';
 import {
   addableOf, APPROVER_STATES, approveRuleOf, ApproverState, memberLabel, type Approver, type ApproversForm, type Member,
@@ -27,18 +28,17 @@ function OwnedRow({ approver, busy, on }: { approver: Approver; busy: boolean; o
   return (
     <li className="approvers-row">
       <strong>{label}</strong>
-      <select
-        className="products-look-select"
-        aria-label={label}
+      <Select
+        size="sm"
+        label={label}
         value={approver.state}
         disabled={busy}
-        onChange={(e) => {
-          const state = ApproverState.safeParse(e.currentTarget.value);
+        onValueChange={(value) => {
+          const state = ApproverState.safeParse(value);
           if (state.success) on.set(approver.id, state.data);
         }}
-      >
-        {APPROVER_STATES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-      </select>
+        options={APPROVER_STATES.map((s) => ({ value: s.value, label: s.label }))}
+      />
       <button className="ask-button quiet" type="button" disabled={busy} onClick={() => { on.remove(approver.id); }}>Remove</button>
     </li>
   );
@@ -50,9 +50,7 @@ function AddMember({ addable, busy, on }: { addable: Member[]; busy: boolean; on
   if (!member) return null;
   return (
     <form className="approvers-add" onSubmit={(e) => { e.preventDefault(); on.set(member.id, 'asked'); }}>
-      <select className="products-look-select" aria-label="Member to add" value={member.id} disabled={busy} onChange={(e) => { setPicked(e.currentTarget.value); }}>
-        {addable.map((m) => <option key={m.id} value={m.id}>{memberLabel(m)}</option>)}
-      </select>
+      <Select size="sm" label="Member to add" value={member.id} disabled={busy} onValueChange={setPicked} options={addable.map((m) => ({ value: m.id, label: memberLabel(m) }))} />
       <button className="ask-button" type="submit" disabled={busy}>Add</button>
     </form>
   );

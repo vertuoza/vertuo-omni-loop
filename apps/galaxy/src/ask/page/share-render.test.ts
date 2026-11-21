@@ -41,9 +41,9 @@ describe('the Share button', () => {
 
   it('picks a member of the workspace', () => {
     const html = button({ kind: 'picking' });
-    expect(html).toMatch(/<select[^>]*class="ask-share-pick"/);
-    expect(html).toContain('<option value="po" selected="">PAULA</option>');
-    expect(html).toContain('<option value="ux">uma@example.com</option>');
+    expect(html).toMatch(/<button[^>]*role="combobox"[^>]*aria-label="Share with"/);
+    expect(html).toContain('<span class="omni-select__value">PAULA</span>');
+    expect(html).not.toContain('<select');
   });
 
   it('then gives the link to copy, and who it went to', () => {

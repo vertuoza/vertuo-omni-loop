@@ -61,8 +61,9 @@ describe('the history page', () => {
     expect(form).toContain('method="get"');
     expect(form).toContain('action="/ask/history"');
     for (const name of ['category', 'repo', 'prd', 'skill', 'asked', 'answered', 'q']) expect(html).toContain(`name="${name}"`);
-    expect(html).toContain('<option value="product" selected="">Product</option>');
-    expect(html).toContain('<option value="71" selected="">PRD #71</option>');
+    expect(html).toContain('name="category" value="product"');
+    expect(html).toContain('name="prd" value="71"');
+    expect(html).toContain('<span class="omni-select__value">PRD #71</span>');
     expect(html).toMatch(/<input[^>]*name="q"[^>]*value="host"/);
     expect(html).toContain('<a class="ask-history-clear" href="/ask/history">Clear</a>');
   });

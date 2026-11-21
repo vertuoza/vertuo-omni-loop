@@ -3,8 +3,10 @@
 // as `layering/` (ADR-0095) and `fallow/` are: stylelint.config.ts runs on every app-page stylesheet
 // git tracks under apps/galaxy/src/, and an ESLint rule set of its own (never `pnpm lint`'s) runs on
 // every tracked .tsx there: an inline `style` prop is an `inline-style` breach, and a raw <button>,
-// <table>, <dialog>, <input>, <select> or <textarea>, or a className naming a class a
-// packages/ui/src/*.meta.ts lists under `replaces`, is a `raw-component` breach. The arcade (arcade/,
+// <table>, <dialog>, <input> or <textarea>, or a className naming a class a
+// packages/ui/src/*.meta.ts lists under `replaces`, is a `raw-component` breach, and a raw <select>
+// is a `raw-select` breach of its own (use `Select` from @omni/ui; the baseline holds no such line,
+// PRD 3129). The arcade (arcade/,
 // play-dock/) and HOME (home/) are left out, as they keep their own surface tokens. `design/baseline.json` lists the breaches that exist, one line
 // per file and rule (`<path> <rule>`), sorted, and may only shrink. The ratchet fails on
 //
@@ -166,7 +168,7 @@ export function stylelintSheets(read: (path: string) => string): Linter {
 }
 
 /** The elements a page never writes raw: `@omni/ui` has the component. */
-const RAW_ELEMENTS = ['button', 'table', 'dialog', 'input', 'select', 'textarea'];
+const RAW_ELEMENTS = ['button', 'table', 'dialog', 'input', 'textarea'];
 
 /** The classes `@omni/ui` components replace: the `replaces` of every packages/ui/src/*.meta.ts. */
 export function replacedClasses(read: (path: string) => string, list: () => string[]): string[] {
@@ -179,7 +181,7 @@ export function replacedClasses(read: (path: string) => string, list: () => stri
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** ESLint with a rule set of its own over the TSX files `paths` holds: `inline-style` and `raw-component`. */
+/** ESLint with a rule set of its own over the TSX files `paths` holds: `inline-style`, `raw-component` and `raw-select`. */
 export function eslintPages(read: (path: string) => string, replaced: readonly string[]): Linter {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const classPattern = replaced.length === 0 ? null : new RegExp(`(?<![\\w-])(?:${replaced.map(escape).join('|')})(?![\\w-])`);
@@ -195,6 +197,14 @@ export function eslintPages(read: (path: string) => string, replaced: readonly s
         create: (context) => ({
           JSXAttribute(node: Rule.Node & { name: { name?: unknown } }) {
             if (node.name.name === 'style') context.report({ node, messageId: 'style' });
+          },
+        }),
+      },
+      'raw-select': {
+        meta: { type: 'problem', schema: [], messages: { select: 'a raw <select>: use Select from @omni/ui' } },
+        create: (context) => ({
+          JSXOpeningElement(node: Rule.Node & { name: { type: string; name?: string } }) {
+            if (node.name.type === 'JSXIdentifier' && node.name.name === 'select') context.report({ node, messageId: 'select' });
           },
         }),
       },
@@ -219,7 +229,7 @@ export function eslintPages(read: (path: string) => string, replaced: readonly s
           languageOptions: { parser: tseslint.parser, parserOptions: { ecmaFeatures: { jsx: true } } },
           linterOptions: { noInlineConfig: true },
           plugins: { design: { rules } },
-          rules: { 'design/inline-style': 'error', 'design/raw-component': 'error' },
+          rules: { 'design/inline-style': 'error', 'design/raw-component': 'error', 'design/raw-select': 'error' },
         },
       ],
     });

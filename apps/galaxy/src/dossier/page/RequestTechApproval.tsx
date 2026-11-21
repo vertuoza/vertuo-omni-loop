@@ -63,7 +63,7 @@ export function RequestTechApproval({ dossier }: { dossier: string }) {
           <SectionHeading level="3">Request a Tech Approval</SectionHeading>
           <Text size="small" tone="secondary">One engineer reads the plan with you before the product approvers are asked. It cannot be withdrawn.</Text>
           <Stack direction="row" gap="2" align="center" wrap>
-            <Select label="Who should give the Tech Approval" options={memberOptions(members)} value={login} disabled={members === null || busy} onChange={(event) => { setLogin(event.target.value); }} />
+            <Select label="Who should give the Tech Approval" options={memberOptions(members)} value={login} disabled={members === null || busy} onValueChange={setLogin} />
             <Button variant="secondary" disabled={busy || !login} onClick={() => void request()}>{busy ? 'Requesting…' : 'Request a Tech Approval'}</Button>
           </Stack>
           {problem && <Notice tone="danger">{problem}</Notice>}

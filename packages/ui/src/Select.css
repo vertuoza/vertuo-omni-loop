@@ -1,19 +1,39 @@
-/* The look is Input's (the select also carries `omni-input`); this adds the chevron and its room. */
-.omni-select { position: relative; display: block; }
-.omni-select::after {
-  content: '';
-  position: absolute;
-  inset-inline-end: var(--space-3);
-  inset-block-start: 50%;
-  width: 0.5em;
-  height: 0.5em;
-  border-inline-end: 2px solid var(--color-text-primary);
-  border-block-end: 2px solid var(--color-text-primary);
-  transform: translateY(-75%) rotate(45deg);
-  pointer-events: none;
-}
-.omni-select__control {
-  appearance: none;
-  padding-inline-end: var(--space-6);
+/*
+ * The trigger is Input's look (it carries `omni-input`) with a chevron at its end; the list is a
+ * Menu's panel and items (`omni-menu`, `omni-menu__item`). This adds what a list of options has and a
+ * menu has not: the trigger's two sizes, room to scroll, and the check on the option picked.
+ */
+.omni-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  text-align: start;
   cursor: pointer;
 }
+.omni-select__trigger[data-popup-open] { border-color: var(--color-focus-ring); }
+.omni-select__value { flex: 1 1 auto; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.omni-select__value[data-placeholder] { color: var(--color-text-secondary); }
+.omni-select__chevron { display: inline-flex; flex: none; }
+.omni-select__trigger--sm {
+  inline-size: auto;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-2-size);
+  line-height: var(--type-2-line);
+}
+.omni-select-positioner { z-index: var(--layer-overlay); --anchor-width: 160px; } /* Base UI sets the real width inline */
+.omni-select__popup { min-inline-size: var(--anchor-width); }
+.omni-select__list { max-block-size: 320px; overflow-y: auto; outline: none; }
+.omni-select__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 44px;
+  box-sizing: border-box;
+}
+.omni-select__item[data-selected] { font-weight: var(--weight-bold); }
+.omni-select__check { display: inline-flex; flex: none; inline-size: 16px; }
+
+/* The catalogue's still: the open list drawn in place under its trigger, for /design and its screenshot. */
+.omni-select-specimen { display: grid; gap: var(--space-1); inline-size: 240px; }
+.omni-select-still .omni-select__popup { transition: none; }

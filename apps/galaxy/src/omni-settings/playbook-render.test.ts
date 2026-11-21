@@ -165,7 +165,7 @@ describe('the Settings repository line (PRD 2543, s3)', () => {
   it('none: the owner gets the picker in the card, a member is told the owner chooses', () => {
     const owner = render(view({ chosen: null, plan: null }, OWNER));
     expect(text(owner)).toContain('No settings repository yet Choose the repository that holds the playbook.');
-    expect(owner).toContain('<select');
+    expect(owner).toMatch(/role="combobox"[^>]*aria-label="Settings repository"/);
     expect(owner).not.toContain('Name a plan repository');
     const member = render(view({ chosen: null, plan: null }));
     expect(text(member)).toContain('No settings repository yet The workspace’s owner chooses it.');
@@ -175,7 +175,7 @@ describe('the Settings repository line (PRD 2543, s3)', () => {
 
   it('lists exactly the workspace\'s listed repositories in the picker, with Clear the choice only when one is chosen', () => {
     const none = render(view({ chosen: null, plan: null }, OWNER));
-    expect([...none.matchAll(/<option[^>]*value="([^"]+)"/g)].map((match) => match[1])).toEqual(LISTED);
+    expect(none).toContain('<span data-placeholder="" class="omni-select__value">Choose a repository</span>');
     expect(text(none)).toContain('Save');
     expect(text(none)).not.toContain('Clear the choice');
     expect(text(none)).not.toContain('Cancel');
@@ -184,8 +184,8 @@ describe('the Settings repository line (PRD 2543, s3)', () => {
   it('opens the picker on the repository chosen, with Save, Cancel and Clear the choice', () => {
     const choice = { chosen: 'acme/plans', plan: 'acme/app', listed: LISTED };
     const html = renderToStaticMarkup(createElement(SettingsRepositoryLine, { choice, editing: OWNER, picker: true }));
-    expect(html).toMatch(/<option[^>]*value="acme\/plans"[^>]*selected|<option[^>]*selected[^>]*value="acme\/plans"/);
-    expect([...html.matchAll(/<option[^>]*value="([^"]+)"/g)].map((match) => match[1])).toEqual(LISTED);
+    expect(html).toMatch(/<input[^>]*name="repository" value="acme\/plans"\/>/);
+    expect(html).toContain('<span class="omni-select__value">acme/plans</span>');
     expect(text(html)).toContain('Save Cancel Clear the choice');
     const unchosen = renderToStaticMarkup(createElement(SettingsRepositoryLine, { choice: { ...choice, chosen: null }, editing: OWNER, picker: true }));
     expect(text(unchosen)).toContain('Save Cancel');

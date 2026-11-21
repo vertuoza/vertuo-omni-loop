@@ -1,3 +1,4 @@
+import { Select } from '@omni/ui';
 import { useState } from 'react';
 import type { Link } from './repositories-tab.contract';
 import type { PlanForm } from './repositories-tab-model';
@@ -55,10 +56,7 @@ function PlanPicker({ saved, repositories, busy, on }: { saved: string | null; r
   const choices = [...new Set([...(saved === null ? [] : [saved]), ...repositories])].sort((a, b) => a.localeCompare(b));
   return (
     <form className="approvers-add plan-pick" onSubmit={(e) => { e.preventDefault(); on.save(picked === '' ? null : picked); }}>
-      <select className="products-look-select" aria-label="Plan repository" value={picked} disabled={busy} onChange={(e) => { setPicked(e.currentTarget.value); }}>
-        <option value="">{NO_PLAN_CHOICE}</option>
-        {choices.map((r) => <option key={r} value={r}>{r}</option>)}
-      </select>
+      <Select size="sm" label="Plan repository" value={picked} disabled={busy} onValueChange={setPicked} options={[{ value: '', label: NO_PLAN_CHOICE }, ...choices.map((r) => ({ value: r, label: r }))]} />
       <button className="ask-button" type="submit" disabled={busy || picked === (saved ?? '')}>Save</button>
     </form>
   );

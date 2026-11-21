@@ -44,7 +44,7 @@ describe('MissionsTab', () => {
     const draft = html(view(row({ level: 'own-branch' })));
     expect(text(draft)).toContain('Level: Own branch');
     expect(text(draft)).toContain('Change for this mission');
-    expect(draft).toMatch(/<option value="own-branch" selected/);
+    expect(draft).toMatch(/aria-label="Change for this mission"[^>]*><span class="omni-select__value">Own branch<\/span>/);
     const running = html(view(row({ status: 'running', level: 'alone' })));
     expect(text(running)).toContain('Level: Works alone');
     expect(running).not.toContain('<select');

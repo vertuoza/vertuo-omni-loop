@@ -39,7 +39,7 @@ export function FilterBar({ label, search, selects = [], segments, onSearch, onS
       {selects.map((select) => (
         <div className="omni-filter-bar__select" key={select.name}>
           <Field label={select.label}>
-            <Select name={select.name} options={select.options} onChange={(event) => { onSelect?.(select.name, event.target.value); }} />
+            <Select size="sm" name={select.name} options={select.options} onValueChange={(value) => { onSelect?.(select.name, value); }} />
           </Field>
         </div>
       ))}
