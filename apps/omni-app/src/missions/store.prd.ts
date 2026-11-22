@@ -15,7 +15,7 @@ export const PrdIdSchema: z.ZodType<MissionPrd, string> = z.union([
 ]);
 
 /** The two columns a PRD is written to: its number to `prd`, a product's id to `product_prd`; both null for none. */
-export function prdColumns(prd: MissionPrd | null): { prd: number | null; product_prd: string | null } {
+export function prdColumns(prd: MissionPrd | null): { prd: PrdNumber | null; product_prd: ProductPrdId | null } {
   if (prd === null) return { prd: null, product_prd: null };
   return isProductPrdId(prd) ? { prd: null, product_prd: prd } : { prd, product_prd: null };
 }
