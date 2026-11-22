@@ -15,7 +15,7 @@ const REDIRECTS = {
 
 export type OldAddress = keyof typeof REDIRECTS;
 
-export const OLD_ADDRESSES = Object.keys(REDIRECTS) as readonly OldAddress[];
+export const OLD_ADDRESSES: readonly OldAddress[] = ['/ask', '/ask/for-me', '/ask/outbox', '/ask/history', '/app/waiting'];
 
 /** Where an old address lands, its query kept. */
 export function redirectTarget(old: OldAddress, query: Query): string {
