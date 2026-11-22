@@ -25,7 +25,7 @@ const never = <T,>() => new Promise<T>(() => {});
 const parts = (over: Partial<HomeParts> = {}): HomeParts => ({
   season,
   you: Promise.resolve({ name: 'ADA', you: 'unreadable' }),
-  waiting: Promise.resolve({ count: 2, href: '/ask' }),
+  waiting: Promise.resolve({ count: 2, href: '/app/inbox' }),
   board: Promise.resolve({ board: 'B' as never, solo: false }),
   ...over,
 });
