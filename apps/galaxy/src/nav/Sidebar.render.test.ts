@@ -11,9 +11,9 @@ import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the
 // Dashboard and Work groups (PRD 572), then the foot's Settings entry and Omni's row (PRD 733), the current
-// entry marked, and what waits for the person as badges, from the waiting provider (PRD 499): Questions
-// the Questions part, shared ones included, PRDs the Outbox part, and Runners (PRD 2255) the Runners part,
-// the workspace's jobs waiting for an answer.
+// entry marked, and what waits for the person as badges, from the waiting provider (PRD 499): since
+// omni-loop-22 Inbox is the first row and carries the waiting total, the only filled count, and Runners
+// (PRD 2255) the workspace's jobs waiting for an answer as a quiet count.
 
 const at = { path: '/app' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
@@ -70,11 +70,11 @@ describe('the sidebar', () => {
     expect(render(SIGNED_OUT_VIEWER)).not.toContain('app-sidebar-workspace');
   });
 
-  it('lists Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
+  it('lists Inbox, Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Dashboard Home Fleet Loop Runners Workspace Engineering Work Products Roadmaps Ideas Concepts PRDs Waiting Bug Fixes Visual Updates Questions 5 Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Inbox 5 Dashboard Home Fleet Loop Runners Workspace Engineering Work Products Roadmaps Ideas Concepts PRDs Bug Fixes Visual Updates Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/loop', '/app/runners', '/app/workspace', '/app/engineering', '/app/products', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/app/waiting', '/bugs', '/visual', '/ask', '/knowledge', '/app/settings', '/docs', '/releases',
+      '/app/inbox', '/app', '/app/fleet', '/app/loop', '/app/runners', '/app/workspace', '/app/engineering', '/app/products', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/bugs', '/visual', '/knowledge', '/app/settings', '/docs', '/releases',
     ]);
   });
 
@@ -82,12 +82,12 @@ describe('the sidebar', () => {
     const html = render();
     expect(html).not.toContain('id="app-sidebar-settings"');
     expect(html).not.toMatch(/<p class="app-sidebar-label"[^>]*>Settings<\/p>/);
-    for (const path of ['/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/ask/for-me', '/ask/history']) expect(html).not.toContain(`href="${path}"`);
+    for (const path of ['/app/settings/fleets', '/app/settings/repositories', '/app/settings/business', '/ask', '/ask/for-me', '/ask/history', '/app/waiting']) expect(html).not.toContain(`href="${path}"`);
   });
 
   it('draws each section\'s sprite before its name, hidden from screen readers, at its native size (issue 653)', () => {
     const html = render();
-    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/app/runners', 'Runners'], ['/app/products', 'Products'], ['/roadmaps', 'Roadmaps'], ['/prd', 'PRDs'], ['/app/waiting', 'Waiting'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
+    for (const [path, label] of [['/app/inbox', 'Inbox'], ['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/app/loop', 'Loop'], ['/app/runners', 'Runners'], ['/app/products', 'Products'], ['/roadmaps', 'Roadmaps'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge'], ['/app/settings', 'Settings']]) {
       expect(html).toMatch(new RegExp(`<a class="app-sidebar-item" href="${path}" title="${label}"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*width="16" height="16"[^>]*>.*?</svg></span><span class="app-sidebar-text">${label}</span>`));
     }
   });
@@ -98,52 +98,54 @@ describe('the sidebar', () => {
     expect(render(ADA, '/ideas/acme/widgets')).toMatch(/href="\/ideas\/acme\/widgets" title="Ideas" aria-current="page"/);
   });
 
-  it('draws Questions with no nested lines (PRD 733)', () => {
+  it('AC-1: opens with Inbox, its count the waiting total, the only filled one; Questions and Waiting are gone', () => {
+    const review = (id: string): WaitingReview => ({ kind: 'review', id, prd: parsePrd(7), pr: parsePr(70), repo: 'acme/widgets', since: 0 });
+    const html = render({ ...ADA, waiting: waiting([question('a'), question('b')]) }, '/app', [gate('a')], 0, [review('a'), review('b')]);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Inbox 5 Dashboard Home /);
+    expect(links(html)[1]).toMatchObject({ text: 'Inbox 5' });
+    expect(html).toMatch(/<a class="app-sidebar-item" href="\/app\/inbox" title="Inbox" aria-label="Inbox: 5 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Inbox<\/span><span class="app-sidebar-badge" aria-hidden="true">5<\/span><\/a>/);
+    expect(html).not.toMatch(/app-sidebar-text">(Questions|Waiting)</);
+    expect(html.match(/class="app-sidebar-badge"/g)).toHaveLength(1);
+    expect(html).not.toContain('app-sidebar-badge-quiet');
+  });
+
+  it('draws Inbox with no group label and no nested lines', () => {
     const html = render();
-    expect(html).toMatch(/href="\/ask"[^>]*>(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Questions<\/span>(?:<span[^>]*>\d+<\/span>)?<\/a><\/li>/);
+    expect(html).toMatch(/<nav class="app-sidebar-nav" aria-label="Sections"><div class="app-sidebar-group"><ul class="app-sidebar-items" aria-label="Inbox"><li><a class="app-sidebar-item" href="\/app\/inbox"/);
     expect(html).not.toContain('app-sidebar-children');
   });
 
-  it('shows the Questions part\'s count on Questions, the shared ones included, and no other badge', () => {
-    const html = render();
-    expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask" title="Questions" aria-label="Questions: 5 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Questions<\/span><span class="app-sidebar-badge" aria-hidden="true">5<\/span><\/a>/);
-    expect(html.match(/app-sidebar-badge/g)).toHaveLength(1);
+  it('counts the shared questions too, and nothing on PRDs', () => {
+    const html = render(ADA, '/app', [gate('a'), gate('b')]);
+    expect(html).toContain('aria-label="Inbox: 7 waiting"');
+    expect(html).toMatch(/<a class="app-sidebar-item" href="\/prd" title="PRDs">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">PRDs<\/span><\/a>/);
   });
 
-  it('counts my own sessions\' questions on Questions too', () => {
-    const html = render({ ...ADA, waiting: waiting([question('a')]) });
-    expect(html).toMatch(/aria-label="Questions: 1 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Questions<\/span><span class="app-sidebar-badge" aria-hidden="true">1<\/span>/);
-  });
-
-  it('shows the Outbox part\'s count on PRDs, and none at 0', () => {
-    expect(render(ADA, '/app', [gate('a'), gate('b')])).toMatch(/<a class="app-sidebar-item" href="\/prd" title="PRDs" aria-label="PRDs: 2 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">PRDs<\/span><span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
-    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/prd" title="PRDs">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">PRDs<\/span><\/a>/);
-  });
-
-  it('shows the Runners part\'s count on Runners, spoken as how many wait, and none at 0 (PRD 2255)', () => {
-    expect(render(ADA, '/app', [], 2)).toMatch(/<a class="app-sidebar-item" href="\/app\/runners" title="Runners" aria-label="Runners: 2 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Runners<\/span><span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
+  it('shows the Runners part\'s count on Runners as a quiet count, spoken as how many wait, and none at 0 (PRD 2255)', () => {
+    expect(render(ADA, '/app', [], 2)).toMatch(/<a class="app-sidebar-item" href="\/app\/runners" title="Runners" aria-label="Runners: 2 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Runners<\/span><span class="app-sidebar-badge app-sidebar-badge-quiet" aria-hidden="true">2<\/span><\/a>/);
     expect(render()).toMatch(/<a class="app-sidebar-item" href="\/app\/runners" title="Runners">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Runners<\/span><\/a>/);
   });
 
-  it('shows the reviews waiting on the person as the Waiting entry\'s badge, spoken "yours", none at 0 (PRD 2377 s5)', () => {
+  it('keeps the reviews in the Inbox\'s count, not on a Waiting entry of their own', () => {
     const review = (id: string): WaitingReview => ({ kind: 'review', id, prd: parsePrd(7), pr: parsePr(70), repo: 'acme/widgets', since: 0 });
-    expect(render(ADA, '/app', [], 0, [review('a'), review('b')])).toMatch(/<a class="app-sidebar-item" href="\/app\/waiting" title="Waiting" aria-label="Waiting: 2 yours">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Waiting<\/span><span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
-    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/app\/waiting" title="Waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Waiting<\/span><\/a>/);
+    const html = render({ ...ADA, waiting: waiting([]) }, '/app', [], 0, [review('a'), review('b')]);
+    expect(html).toContain('aria-label="Inbox: 2 waiting"');
+    expect(html).not.toContain('href="/app/waiting"');
   });
 
-  it('shows the Runners badge beside the others, each on its own entry', () => {
+  it('shows the Runners badge beside the Inbox\'s, quiet', () => {
     const html = render(ADA, '/app', [gate('a')], 1);
-    expect(html.match(/app-sidebar-badge/g)).toHaveLength(3);
-    expect(html).toContain('aria-label="Questions: 5 waiting"');
-    expect(html).toContain('aria-label="PRDs: 1 waiting"');
+    expect(html.match(/app-sidebar-badge"/g)).toHaveLength(1);
+    expect(html.match(/app-sidebar-badge-quiet/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="Inbox: 6 waiting"');
     expect(html).toContain('aria-label="Runners: 1 waiting"');
   });
 
-  it('shows no badge at 0, nor signed out', () => {
+  it('AC-13: shows no count on Inbox at 0, nor signed out', () => {
     for (const viewer of [{ ...ADA, waiting: waiting([]) }, SIGNED_OUT_VIEWER]) {
       const html = render(viewer);
       expect(html).not.toContain('app-sidebar-badge');
-      expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask" title="Questions">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Questions<\/span><\/a>/);
+      expect(html).toMatch(/<a class="app-sidebar-item" href="\/app\/inbox" title="Inbox">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Inbox<\/span><\/a>/);
     }
   });
 
@@ -164,9 +166,11 @@ describe('the sidebar', () => {
     ['/prd/3f2a', '/prd'],
     ['/bugs/3f2a', '/bugs'],
     ['/visual/3f2a', '/visual'],
-    ['/ask/q/42', '/ask'],
-    ['/ask/for-me', '/ask'],
-    ['/ask/history', '/ask'],
+    ['/app/inbox', '/app/inbox'],
+    ['/app/inbox/done', '/app/inbox'],
+    ['/app/inbox/workspace', '/app/inbox'],
+    ['/ask/q/42', '/app/inbox'],
+    ['/ask/7c1e', '/app/inbox'],
     ['/knowledge', '/knowledge'],
   ])('on %s marks exactly one item current: %s', (path, current) => {
     const html = render(ADA, path);
@@ -226,10 +230,14 @@ describe('« and the rail (PRD 733)', () => {
     expect(render()).toContain('<button type="button" class="app-sidebar-unfold" title="Expand the menu" aria-label="Expand the menu" aria-expanded="false" aria-controls="app-sidebar">»</button>');
   });
 
+  it('AC-8: marks Inbox on a question round\'s page', () => {
+    expect(render(ADA, '/ask/q/42')).toMatch(/href="\/app\/inbox"[^>]*aria-current="page"/);
+  });
+
   it('names every sprite entry by its title and its spoken name, so the rail still says each one', () => {
     const html = render(ADA, '/app', [gate('a')]);
     const entries = links(html).filter((l) => l.attrs.includes('class="app-sidebar-item"') && !l.attrs.includes('target="_blank"'));
-    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Waiting', 'Bug Fixes', 'Visual Updates', 'Questions', 'Knowledge', 'Settings']);
+    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Inbox', 'Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Knowledge', 'Settings']);
     for (const entry of entries) {
       const title = /title="([^"]+)"/.exec(entry.attrs)?.[1];
       const spoken = /aria-label="([^"]+)"/.exec(entry.attrs)?.[1] ?? entry.text;
@@ -239,8 +247,7 @@ describe('« and the rail (PRD 733)', () => {
 
   it('keeps each name in its own span the rail hides from sight only, and a count\'s number in the spoken name', () => {
     const html = render(ADA, '/app', [gate('a'), gate('b')]);
-    expect(html).toMatch(/href="\/ask" title="Questions" aria-label="Questions: 5 waiting">.*?<span class="app-sidebar-text">Questions<\/span><span class="app-sidebar-badge" aria-hidden="true">5<\/span>/);
-    expect(html).toMatch(/href="\/prd" title="PRDs" aria-label="PRDs: 2 waiting">/);
+    expect(html).toMatch(/href="\/app\/inbox" title="Inbox" aria-label="Inbox: 7 waiting">.*?<span class="app-sidebar-text">Inbox<\/span><span class="app-sidebar-badge" aria-hidden="true">7<\/span>/);
   });
 
   it('is drawn from the shell\'s data-menu, which the menu script marks before the first paint', async () => {
@@ -266,7 +273,7 @@ describe('its links (PRD 657)', () => {
 
   it.each([
     ['/prd/3f2a', '/prd'],
-    ['/ask/for-me', '/ask'],
+    ['/ask/q/42', '/app/inbox'],
     ['/app/settings/fleets', '/app/settings'],
   ])('keeps the highlight on %s through the link, prefix match included: %s', (path, current) => {
     linked.length = 0;
@@ -312,5 +319,6 @@ describe('its stylesheet', () => {
     expect(rail).not.toMatch(/\.app-sidebar-text[^{]*\{[^}]*display:\s*none/);
     expect(rail).toMatch(/\.app-sidebar-links,[\s\S]*?\.app-sidebar-version\s*\{\s*display:\s*none/);
     expect(rail).toMatch(/\.app-sidebar-badge\s*\{[^}]*position:\s*absolute[^}]*font-size:\s*0/);
+    expect(rail).toMatch(/\.app-sidebar-badge-quiet\s*\{\s*display:\s*none/);
   });
 });

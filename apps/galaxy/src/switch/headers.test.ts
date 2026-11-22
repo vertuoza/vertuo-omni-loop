@@ -63,10 +63,9 @@ const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/roadmaps/<id>', RoadmapsLayout, '/roadmaps', 'Work › Roadmaps'],
   ['/prd', DossierLayout, '/prd', 'Work › PRDs'],
   ['/prd/<id>', DossierLayout, '/prd', 'Work › PRDs'],
-  ['/ask', AskLayout, '/ask', 'Work › Questions'],
-  ['/ask/<session>', AskLayout, '/ask', 'Work › Questions'],
-  ['/ask/for-me', AskLayout, '/ask', 'Work › Questions › Shared with me'],
-  ['/ask/history', AskLayout, '/ask', 'Work › Questions › History'],
+  ['/ask', AskLayout, '/app/inbox', 'Inbox'],
+  ['/ask/<session>', AskLayout, '/app/inbox', 'Inbox'],
+  ['/app/inbox/done', AskLayout, '/app/inbox', 'Inbox › Done'],
   ['/knowledge', KnowledgeLayout, '/knowledge', 'Work › Knowledge'],
 ];
 const pathOf = (name: string) => name.replace('<id>', '3f2a').replace('<session>', '7c1e');
@@ -86,7 +85,7 @@ describe('every app page', () => {
   it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="brand-logo app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Waiting', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
+    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', expect.stringMatching(/^Inbox( \d+)?$/), 'Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {

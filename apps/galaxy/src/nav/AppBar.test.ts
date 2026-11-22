@@ -13,7 +13,7 @@ import { item } from '../ask/test/test-item';
 // unchanged, then, signed in, the bell (PRD 499), then you: the avatar signed in, Sign in with GitHub
 // signed out.
 
-const at = { path: '/ask/for-me' as string | null };
+const at = { path: '/app/inbox/done' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
 // next/link as a plain anchor that records each href it links (PRD 657).
 const linked = vi.hoisted((): string[] => []);
@@ -49,24 +49,23 @@ const controls = (bar: string) =>
 
 describe('the top bar', () => {
   it('is a header holding the trail to the page, then Omni/Light/Dark, then Game mode, then the avatar, in that order', () => {
-    const bar = render('/ask/for-me', ADA);
+    const bar = render('/app/inbox/done', ADA);
     expect(bar).toMatch(/^<header class="app-bar">/);
-    expect(text(trailOf(bar))).toBe('Work › Questions › Shared with me');
+    expect(text(trailOf(bar))).toBe('Inbox › Done');
     const trail = bar.indexOf('app-bar-trail'), theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(trail).toBeGreaterThan(0);
     expect(theme).toBeGreaterThan(trail);
     expect(game).toBeGreaterThan(theme);
     const avatar = bar.indexOf('aria-haspopup="menu"');
     expect(avatar).toBeGreaterThan(game);
-    expect(controls(bar)).toEqual(['☰', 'Questions', 'Omni', 'Light', 'Dark', 'Game mode', 'Anti-loop', '', 'A']);
+    expect(controls(bar)).toEqual(['☰', 'Inbox', 'Omni', 'Light', 'Dark', 'Game mode', 'Anti-loop', '', 'A']);
   });
 
   it('is a Breadcrumb list: the group as text, the section above the page a link, the page itself marked current (issue 704)', () => {
-    expect(trailOf(render('/ask/for-me'))).toBe(
+    expect(trailOf(render('/app/inbox/done'))).toBe(
       '<nav class="app-bar-trail" aria-label="Breadcrumb"><ol>'
-      + '<li>Work</li>'
-      + '<li><span class="app-bar-sep" aria-hidden="true">›</span><a class="app-bar-up" href="/ask">Questions</a></li>'
-      + '<li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><span aria-current="page">Shared with me</span></li>'
+      + '<li><a class="app-bar-up" href="/app/inbox">Inbox</a></li>'
+      + '<li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><span aria-current="page">Done</span></li>'
       + '</ol></nav>',
     );
   });
@@ -122,8 +121,8 @@ describe('the top bar', () => {
     expect(render('/app', ADA)).not.toContain('app-bar-crest');
   });
 
-  it('holds a page\'s section sprite: Shared with me is under Questions, Fleets under Settings (PRD 733)', () => {
-    expect(tileOf(render('/ask/for-me'))).toBe(sprite('menu-questions'));
+  it('holds a page\'s section sprite: Done is under Inbox, Fleets under Settings (PRD 733)', () => {
+    expect(tileOf(render('/app/inbox/done'))).toBe(sprite('menu-inbox'));
     expect(tileOf(render('/app/settings/fleets'))).toBe(sprite('menu-settings'));
     expect(tileOf(render('/app/settings/repositories'))).toBe(sprite('menu-settings'));
     expect(tileOf(render('/app/settings/products/p-1'))).toBe(sprite('menu-settings'));
@@ -165,9 +164,9 @@ describe('the top bar', () => {
     ['/app/settings/repositories', 'Settings › Repositories'],
     ['/app/settings/business', 'Settings › Business'],
     ['/app/settings/jev', 'Settings › Jev'],
-    ['/ask/for-me', 'Work › Questions › Shared with me'],
+    ['/app/inbox/done', 'Inbox › Done'],
     ['/prd/3f2a', 'Work › PRDs'],
-    ['/ask/history', 'Work › Questions › History'],
+    ['/ask/q/42', 'Inbox'],
     ['/knowledge', 'Work › Knowledge'],
   ])('on %s reads %s', (path, trail) => {
     expect(text(trailOf(render(path)))).toBe(trail);
@@ -190,8 +189,8 @@ describe('the top bar', () => {
     render('/prd/3f2a', ADA);
     expect(linked.filter((h) => h !== '/anti')).toEqual(['/prd']);
     linked.length = 0;
-    render('/ask/history', ADA);
-    expect(linked.filter((h) => h !== '/anti')).toEqual(['/ask']);
+    render('/app/inbox/done', ADA);
+    expect(linked.filter((h) => h !== '/anti')).toEqual(['/app/inbox']);
   });
 
   it('offers no System theme', () => {
