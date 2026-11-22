@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
-import { DefaultBranchMergeError, missionJoins } from './join.ts';
+import { reviewMarker } from 'omni-loop/kit/lib/review/verdict.ts';
+import type { PullRead } from './gate.ts';
+import { DefaultBranchMergeError, joinProduct, missionJoins, type MissionJoins, type PullAt } from './join.ts';
 
 const HEAD = 'a'.repeat(40);
 const BRANCH = 'mission/12-faster-quotes';
@@ -175,5 +177,93 @@ describe('missionJoins.checks: the checks on the mission branch\'s own head (PRD
       statuses: [{ context: 'Vercel', state: 'success', description: null }],
     });
     expect(gh.calls[0]).toEqual({ route: 'GET /repos/{owner}/{repo}/git/ref/{ref}', params: { owner: 'acme', repo: 'widgets', ref: `heads/${BRANCH}` } });
+  });
+});
+
+// A product PRD joins each repository's mission branch (PRD omni-loop-21 s7, spec "2. One mission branch per repository"): each
+// of its target pull requests through the merge gate, its open items read on the server and given for every one.
+
+describe('joinProduct: a product PRD\'s target pull requests into their repositories\' mission branches', () => {
+  const passed = { body: `${reviewMarker(1, 'pass')}\n**Round 1 of 2: pass**`, commit: HEAD };
+  const green = { runs: [{ id: 1, name: 'test', status: 'completed', conclusion: 'success', title: null }], statuses: [], reviews: [passed] };
+
+  /** Joins whose pull requests read as `pulls` say (by repository), each judged green by default; every merge and read kept. */
+  function joins(pulls: Record<string, Partial<PullRead>> = {}, refuse: readonly string[] = []) {
+    const merged: string[] = [];
+    const read: (PullAt & { prdRead: PullAt['prd'] })[] = [];
+    const fake: MissionJoins = {
+      read: (at) => {
+        read.push({ ...at, prdRead: at.prd });
+        const over = pulls[at.repo] ?? {};
+        return Promise.resolve({
+          number: at.pr, url: `https://github.com/${at.repo}/pull/${String(at.pr)}`, title: `Part of omni-loop-15`, state: 'open', draft: false, merged: false,
+          base: BRANCH, defaultBranch: 'main', head: HEAD, ...green, items: { ranks: ['high'] }, ...over,
+        });
+      },
+      merge: (at) => {
+        if (at.base === at.defaultBranch) return Promise.reject(new DefaultBranchMergeError(at.base));
+        if (refuse.includes(at.repo)) return Promise.resolve({ ok: false, why: 'GitHub refused the merge: Head branch was modified' });
+        merged.push(`${at.repo}#${String(at.pr)}`);
+        return Promise.resolve({ ok: true });
+      },
+    };
+    return { fake, merged, read };
+  }
+
+  const targets = [{ repo: 'acme/api', pr: parsePr(12) }, { repo: 'acme/mobile', pr: parsePr(34) }];
+  const none = { ranks: [] };
+
+  it('squash-merges each target pull request into its repository\'s mission branch once every one passes the gate', async () => {
+    const gh = joins();
+    expect(await joinProduct(gh.fake, { installation: 7, targets, branch: BRANCH, items: none })).toEqual({
+      joined: true,
+      pulls: [
+        { repo: 'acme/api', pr: 12, url: 'https://github.com/acme/api/pull/12' },
+        { repo: 'acme/mobile', pr: 34, url: 'https://github.com/acme/mobile/pull/34' },
+      ],
+    });
+    expect(gh.merged).toEqual(['acme/api#12', 'acme/mobile#34']);
+    // No repository outbox is read for a product PRD: its items are the server's, given for every pull request.
+    expect(gh.read.map((one) => one.prdRead)).toEqual([null, null]);
+  });
+
+  it('merges none while one waits, naming its repository, its pull request and what the gate lacks', async () => {
+    const gh = joins({ 'acme/mobile': { draft: true } });
+    expect(await joinProduct(gh.fake, { installation: 7, targets, branch: BRANCH, items: none })).toEqual({ joined: false, pulls: [], lacks: ['acme/mobile #34: #34 is a draft'] });
+    expect(gh.merged).toEqual([]);
+  });
+
+  it('holds every pull request on the product PRD\'s open high item, read on the server', async () => {
+    const gh = joins();
+    const held = await joinProduct(gh.fake, { installation: 7, targets, branch: BRANCH, items: { ranks: ['high'] } });
+    expect(held).toEqual({ joined: false, pulls: [], lacks: ['acme/api #12: 1 high item open', 'acme/mobile #34: 1 high item open'] });
+    expect(gh.merged).toEqual([]);
+  });
+
+  it('reads a pull request merged into its mission branch already as joined, and merges it never twice', async () => {
+    const gh = joins({ 'acme/api': { merged: true } });
+    const done = await joinProduct(gh.fake, { installation: 7, targets, branch: BRANCH, items: none });
+    expect(done.joined).toBe(true);
+    expect(gh.merged).toEqual(['acme/mobile#34']);
+  });
+
+  it('waits on GitHub\'s refusal, naming the pull request, the ones merged before it kept as joined', async () => {
+    const gh = joins({}, ['acme/mobile']);
+    expect(await joinProduct(gh.fake, { installation: 7, targets, branch: BRANCH, items: none })).toEqual({
+      joined: false,
+      pulls: [{ repo: 'acme/api', pr: 12, url: 'https://github.com/acme/api/pull/12' }],
+      lacks: ['acme/mobile #34: GitHub refused the merge: Head branch was modified'],
+    });
+  });
+
+  it('never merges into a default branch (N-PRODUCT-15): a pull request into it waits', async () => {
+    const gh = joins({ 'acme/api': { base: 'main' } });
+    const held = await joinProduct(gh.fake, { installation: 7, targets, branch: 'main', items: none });
+    expect(held.joined).toBe(false);
+    expect(gh.merged).toEqual([]);
+  });
+
+  it('waits while the mission knows none of its target pull requests', async () => {
+    expect(await joinProduct(joins().fake, { installation: 7, targets: [], branch: BRANCH, items: none })).toEqual({ joined: false, pulls: [], lacks: ['its target pull requests are not known to the mission'] });
   });
 });
