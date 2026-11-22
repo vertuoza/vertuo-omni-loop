@@ -2535,8 +2535,8 @@ async function snapshot(octokit, {
   for (const segments of segmentsOf) {
     for (const file of await filesUnder(tree, ref, segments)) files.set(file.path, file);
   }
-  const listed4 = [...files.values()];
-  const list2 = listed4.filter((file) => fetchIf(file.path));
+  const listed5 = [...files.values()];
+  const list2 = listed5.filter((file) => fetchIf(file.path));
   if (list2.length > MAX_FILES) {
     throw new SnapshotBoundError(
       `The snapshot holds ${list2.length.toLocaleString("en-US")} files, over the bound of ${MAX_FILES.toLocaleString("en-US")} files.`
@@ -2549,7 +2549,7 @@ async function snapshot(octokit, {
     );
   }
   const folder = dest ?? mkdtempSync(join3(tmpdir(), "omni-snapshot-"));
-  for (const file of listed4) {
+  for (const file of listed5) {
     if (fetchIf(file.path)) continue;
     const target2 = join3(folder, ...repositoryPath(file.path));
     mkdirSync(dirname(target2), { recursive: true });
@@ -5103,8 +5103,8 @@ function lawPaths(before2, after2, { compared }) {
 function lawsAwaitingOwners(fired, { ownersOf: ownersOf2, approvers, lawOwners = [] }) {
   const fallback = lawOwners.map((login) => `@${login.replace(/^@/, "")}`).filter(isPersonOwner);
   const files = fired.map(({ law, path }) => {
-    const listed4 = ownersOf2(path).filter(isPersonOwner);
-    const persons = listed4.length > 0 ? listed4 : fallback;
+    const listed5 = ownersOf2(path).filter(isPersonOwner);
+    const persons = listed5.length > 0 ? listed5 : fallback;
     return { law, path, persons, approved: approvers.filter((login) => isOwnedBy(persons, login)) };
   });
   const awaiting = [];
@@ -9622,8 +9622,8 @@ async function gatherMega(octokit, scope) {
   return { bugs, mega: { plan, bugs: bugs.map((bug) => bug.number), planned, targets, unread: unread2 } };
 }
 async function megaIssues(octokit, scope, unread2) {
-  const { owner, repo, config, window, prd, listed: listed4, label: label2 } = scope;
-  const found = new Map(listed4.map((issue) => [issue.number, issue]));
+  const { owner, repo, config, window, prd, listed: listed5, label: label2 } = scope;
+  const found = new Map(listed5.map((issue) => [issue.number, issue]));
   if (config.labels.bug !== label2) {
     const more = await readOrRefused(
       () => paginate(
@@ -9719,15 +9719,15 @@ var afterMerge = Object.freeze({
     if (!mergedAt || !mergeSha || !prd?.number || !config) return null;
     const window = { from: new Date(mergedAt).toISOString(), to: followUpAt(mergedAt) };
     const unread2 = [];
-    const listed4 = await readOrRefused(
+    const listed5 = await readOrRefused(
       () => paginate(
         (page) => octokit.request(ISSUES3, { owner, repo, labels: BUG_LABEL2, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
       )
     );
-    if (listed4.status) unread2.push({ read: "bugs", status: listed4.status });
-    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed4.value ?? [], label: BUG_LABEL2 };
+    if (listed5.status) unread2.push({ read: "bugs", status: listed5.status });
+    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed5.value ?? [], label: BUG_LABEL2 };
     const mega = await gatherMega(octokit, megaScope);
-    const bugs = withMegaBugs(bugsNaming(listed4.value ?? [], { window, names: namesPrd2(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
+    const bugs = withMegaBugs(bugsNaming(listed5.value ?? [], { window, names: namesPrd2(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
     const fixes = await closingFixes(octokit, { owner, repo, base: config.repo.defaultBranch, window, featurePr: pr?.number, bugs, unread: unread2 });
     const checks = await mergeJobs(octokit, { owner, repo, mergeSha, unread: unread2 });
     const churnAtMerge = parseOrThrow(ChurnAtMergeSchema, atMerge?.kinds.churn, "The merge run's churn facts are of an unexpected shape");
@@ -9786,8 +9786,8 @@ var afterMerge = Object.freeze({
     return lines2;
   }
 });
-function bugsNaming(listed4, { window, names }) {
-  return listed4.filter((issue) => !issue.pull_request && within3(window, issue.created_at) && names(`${issue.title ?? ""}
+function bugsNaming(listed5, { window, names }) {
+  return listed5.filter((issue) => !issue.pull_request && within3(window, issue.created_at) && names(`${issue.title ?? ""}
 ${issue.body ?? ""}`)).map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null })).sort((a, b) => a.number - b.number);
 }
 function withMegaBugs(bugs, mega) {
@@ -10080,14 +10080,14 @@ var churn = Object.freeze({
     const seen = /* @__PURE__ */ new Set();
     const read2 = [];
     for (const pull of merged) {
-      const listed4 = await unlessMissing([404], () => listPullCommits(octokit, { owner, repo, number: pull.number }));
+      const listed5 = await unlessMissing([404], () => listPullCommits(octokit, { owner, repo, number: pull.number }));
       const commits = [];
-      for (const item of listed4 ?? []) {
+      for (const item of listed5 ?? []) {
         if ((item.parents?.length ?? 0) > 1 || seen.has(item.sha)) continue;
         seen.add(item.sha);
         commits.push(await readCommit(octokit, { owner, repo, sha: item.sha }));
       }
-      read2.push({ number: pull.number, url: pull.url, headRef: pull.headRef, mergedAt: pull.mergedAt, commits: listed4 ? commits : null });
+      read2.push({ number: pull.number, url: pull.url, headRef: pull.headRef, mergedAt: pull.mergedAt, commits: listed5 ? commits : null });
     }
     return { gitattributes, final, pulls: read2 };
   },
@@ -10392,14 +10392,14 @@ var playwright = {
   id: "playwright",
   detects: (lines2) => lines2.some((line3) => /^Running \d+ tests? using \d+ workers?/.test(line3.trim()) || PLAYWRIGHT_HEADER.test(line3)),
   read(lines2) {
-    const { counts, listed: listed4 } = playwrightSummary(lines2);
-    const failed3 = Object.keys(counts).length > 0 ? listed4 : present(lines2.map((line3) => PLAYWRIGHT_HEADER.exec(line3)?.[1]));
+    const { counts, listed: listed5 } = playwrightSummary(lines2);
+    const failed3 = Object.keys(counts).length > 0 ? listed5 : present(lines2.map((line3) => PLAYWRIGHT_HEADER.exec(line3)?.[1]));
     return { tests: failed3.map(playwrightName), counts: Object.keys(counts).length > 0 ? counts : null };
   }
 };
 function playwrightSummary(lines2) {
   const counts = {};
-  const listed4 = [];
+  const listed5 = [];
   let section4 = null;
   for (const line3 of lines2) {
     const count4 = PLAYWRIGHT_COUNT.exec(line3);
@@ -10408,10 +10408,10 @@ function playwrightSummary(lines2) {
       continue;
     }
     const entry = /^\s{2,}(\S.*? › .+?)\s*[─═=-]*\s*$/.exec(line3);
-    if (section4 === "failed" && entry?.[1] !== void 0) listed4.push(entry[1]);
+    if (section4 === "failed" && entry?.[1] !== void 0) listed5.push(entry[1]);
     else if (line3.trim() !== "") section4 = null;
   }
-  return { counts, listed: listed4 };
+  return { counts, listed: listed5 };
 }
 function keptCount(counts, count4) {
   const section4 = count4[2] ?? null;
@@ -12728,8 +12728,8 @@ function findOwningLibraryViolations(ctx, knowledge) {
     if (!existsSync30(join37(ctx.root, readme))) continue;
     const section4 = readFileSync25(join37(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
-    const listed4 = section4.split(/^## /m)[0] ?? "";
-    for (const match of listed4.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
+    const listed5 = section4.split(/^## /m)[0] ?? "";
+    for (const match of listed5.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = (match[1] ?? "").replace(/\/$/, "");
       if (!existsSync30(join37(ctx.root, path))) {
         violations.push(
@@ -14100,10 +14100,10 @@ async function takenElsewhere(octokit, { owner, repo, config, own }) {
 }
 var LAW_ISSUES_UNEXPECTED = "GitHub answered the open law issues unexpectedly";
 async function openLawIssue(octokit, { owner, repo, label: label2, issue }) {
-  const listed4 = await paginate(
+  const listed5 = await paginate(
     (page) => octokit.request("GET /repos/{owner}/{repo}/issues", { owner, repo, labels: label2, state: "open", per_page: PER_PAGE, page }).then(({ data: data2 }) => parsedOr(ListSchema, data2, LAW_ISSUES_UNEXPECTED))
   );
-  const open = parsedOr(ListedIssueSchema.array(), listed4, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
+  const open = parsedOr(ListedIssueSchema.array(), listed5, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
   if (open) return { number: open.number, created: false };
   const { data } = await octokit.request("POST /repos/{owner}/{repo}/issues", { owner, repo, title: issue.title, body: issue.body, labels: [label2] });
   return { number: parsedOr(ListedIssueSchema, data, "GitHub answered the new law issue unexpectedly").number, created: true };
@@ -21347,8 +21347,8 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
   const budget = { ...before2 };
   try {
     const octokit = await octokitFor(installationId);
-    const listed4 = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
-    const taken = batchOf(listed4);
+    const listed5 = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
+    const taken = batchOf(listed5);
     const records = await readPullRecords(octokit, budget, { workspaceId, fullName, numbers: taken.map((item) => item.number) });
     const byNumber = new Map(records.map((record) => [record.row.number, record]));
     for (const [index, item] of taken.entries()) {
@@ -21359,7 +21359,7 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
       }
       if (taken[index + 1]?.updatedAt !== item.updatedAt) reached2 = item.updatedAt;
     }
-    const more = listed4.length > taken.length;
+    const more = listed5.length > taken.length;
     await store.updateRepository(
       workspaceId,
       fullName,
@@ -21380,10 +21380,10 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
     return { saved, cursor: reached2, more: false, error: reason2, budget };
   }
 }
-function batchOf(listed4) {
-  let end = Math.min(BATCH, listed4.length);
-  while (end < listed4.length && listed4[end]?.updatedAt === listed4[end - 1]?.updatedAt) end += 1;
-  return listed4.slice(0, end);
+function batchOf(listed5) {
+  let end = Math.min(BATCH, listed5.length);
+  while (end < listed5.length && listed5[end]?.updatedAt === listed5[end - 1]?.updatedAt) end += 1;
+  return listed5.slice(0, end);
 }
 function describe2(error) {
   const failure2 = FailureSchema2.safeParse(error);
@@ -21681,11 +21681,11 @@ function missionLandings({ octokitFor }) {
     async landings(at4) {
       const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, at4);
       const { branch } = at4;
-      const listed4 = PullsSchema3.parse(
+      const listed5 = PullsSchema3.parse(
         (await octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, head: `${owner}:${branch}`, base: defaultBranch, state: "all", per_page: PULLS_READ, page: 1 })).data
       ).sort((a, b) => b.number - a.number);
       const pulls = [];
-      for (const one of listed4) {
+      for (const one of listed5) {
         const merged = (one.merged_at ?? null) !== null;
         const commits = merged ? await paginate(async (page) => CommitsSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/commits", { owner, repo, pull_number: one.number, per_page: PER_PAGE, page })).data)) : [];
         const carried2 = commits.flatMap(({ commit }) => {
@@ -22214,8 +22214,8 @@ function runnerQueue(connection) {
     const repo = repository.toLowerCase();
     const [workspace] = rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1));
     if (!workspace) return { job: null, created: false, reason: `no workspace holds the installation ${String(installationId)}` };
-    const [listed4] = rowsOf(RemovedRowSchema, await db.from("repositories").select("removed_at").eq("workspace_id", workspace.id).eq("full_name", repo).limit(1));
-    if (listed4 && listed4.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
+    const [listed5] = rowsOf(RemovedRowSchema, await db.from("repositories").select("removed_at").eq("workspace_id", workspace.id).eq("full_name", repo).limit(1));
+    if (listed5 && listed5.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
     const [found] = rowsOf(
       IdRowSchema,
       await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line3).order("queued_at").limit(1)
@@ -22708,8 +22708,13 @@ function reviewLacks(reviews, head) {
   return latest.commit === head ? [] : ["the Reviewer passed an older commit, not its head"];
 }
 var count2 = (n, what) => `${String(n)} ${what} item${n === 1 ? "" : "s"}`;
-function itemLacks(items) {
-  if ("notRead" in items) return [`its outbox not judged: ${items.notRead}`];
+function stillOpen(items, answered) {
+  if (items.open === void 0 || answered.size === 0) return items.ranks;
+  return items.open.filter(({ id, rank }) => !(rank === "high" && id !== null && answered.has(id))).map(({ rank }) => rank);
+}
+function itemLacks(read2, answered) {
+  if ("notRead" in read2) return [`its outbox not judged: ${read2.notRead}`];
+  const items = { ranks: stillOpen(read2, answered) };
   const high = items.ranks.filter((rank) => rank === "high").length;
   const human = items.ranks.filter((rank) => rank === "human-action").length;
   const unread2 = items.ranks.filter((rank) => rank === null).length;
@@ -22719,7 +22724,7 @@ function itemLacks(items) {
     ...unread2 > 0 ? [`${count2(unread2, "unreadable")} in its outbox`] : []
   ];
 }
-function judge3(pull, branch) {
+function judge3(pull, branch, answered = /* @__PURE__ */ new Set()) {
   const pr = `#${String(pull.number)}`;
   if (pull.merged) return pull.base === branch ? { decision: "joined" } : { decision: "waits", lacks: [`${pr} was merged into ${pull.base}, not ${branch}`] };
   if (pull.base !== branch || pull.base === pull.defaultBranch) return { decision: "waits", lacks: [`${pr} targets ${pull.base}, not ${branch}`] };
@@ -22728,7 +22733,7 @@ function judge3(pull, branch) {
     ...pull.draft ? [`${pr} is a draft`] : [],
     ...checkLacks(checksOf2(pull.runs, pull.statuses)),
     ...reviewLacks(pull.reviews, pull.head),
-    ...itemLacks(pull.items)
+    ...itemLacks(pull.items, answered)
   ];
   return lacks.length === 0 ? { decision: "merge" } : { decision: "waits", lacks };
 }
@@ -22969,9 +22974,6 @@ function droppedOf(events) {
 }
 var dropLine = (mission, prd) => `omni mission drop ${String(mission)} ${String(prd)}`;
 
-// kit/lib/committee/record.ts
-import { z as z98 } from "zod";
-
 // kit/lib/committee/vote.ts
 import { z as z97 } from "zod";
 var COMMITTEE_ROLES = Object.freeze(["pm", "architect", "reviewer"]);
@@ -23002,7 +23004,43 @@ function tally(verdicts, author) {
 }
 var VotesSchema = z97.object({ verdicts: z97.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1) });
 
+// kit/lib/committee/escalation.ts
+var listed2 = (ids) => ids.join(", ");
+var PHASE0_PR = "it is approved by its phase-0 pull request, which only a person merges";
+function whoActs(facts) {
+  if (facts.kind === "approve") return facts.phase0 === "server" ? [] : [PHASE0_PR];
+  return facts.rank === "human-action" ? ["it is a human-action item: only a person can act on it"] : [];
+}
+var naming = (ids, one, many) => ids.length === 0 ? [] : [ids.length === 1 ? one(listed2(ids)) : many(listed2(ids))];
+function lawsOf(facts) {
+  return [
+    ...naming(facts.lockedLaws, (id) => `it bears on the locked law ${id}: its owner decides`, (ids) => `it bears on the locked laws ${ids}: their owners decide`),
+    ...naming(facts.legal, (id) => `it bears on the Legal entry ${id}`, (ids) => `it bears on the Legal entries ${ids}`),
+    ...naming(facts.redBusinessLaws, (id) => `its spec breaks the business law ${id}`, (ids) => `its spec breaks the business laws ${ids}`),
+    ...naming(
+      facts.kind === "answer" ? facts.businessLaws ?? [] : [],
+      (id) => `it bears on the business law ${id}: a person decides`,
+      (ids) => `it bears on the business laws ${ids}: a person decides`
+    )
+  ];
+}
+function revertOf(facts) {
+  if (facts.kind === "approve") return [];
+  if (facts.hardToRevert === null) return ["its hard-to-revert score is unknown"];
+  return facts.hardToRevert >= facts.bound ? [`its hard-to-revert score ${String(facts.hardToRevert)} is at or above the mission's bound ${String(facts.bound)}`] : [];
+}
+var escalations = (facts) => [
+  ...whoActs(facts),
+  ...lawsOf(facts),
+  ...revertOf(facts),
+  ...facts.dataMigrations.map((file) => `the migration ${file} drops or rewrites data`)
+];
+var TO_THE_MEMBERS = "to the members, then to a person at landing";
+var TO_A_PERSON = "to a person";
+var routes = (facts) => escalations(facts).map((line3) => ({ case: line3, to: line3 === PHASE0_PR ? TO_A_PERSON : TO_THE_MEMBERS }));
+
 // kit/lib/committee/record.ts
+import { z as z98 } from "zod";
 var COMMITTEE_LINE = "omni committee: ";
 var REASONS_MAX = 10;
 var REASON_MAX = 300;
@@ -23075,14 +23113,33 @@ function noRecord(attempt3) {
   const vote = tally(failedAll(sentence2), null);
   return { verdicts: vote.verdicts, why: vote.why };
 }
+function itemAnswerOf(prd, one, log2) {
+  return one.attempt.status === "done" && log2 !== null ? answerOf(log2, prd, one.item) : null;
+}
+function unanswered(attempt3) {
+  const vote = noRecord(attempt3);
+  return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: vote.why } };
+}
+var ON_THE_LIST = "on the escalation list";
+var PERSON_CASES = new Set(
+  routes({ kind: "approve", phase0: "pr", lockedLaws: [], legal: [], redBusinessLaws: [], dataMigrations: [] }).filter((route) => route.to === "to a person").map((route) => route.case)
+);
+function routedOf(escalations2) {
+  return {
+    person: escalations2.filter((line3) => PERSON_CASES.has(line3)),
+    listed: escalations2.filter((line3) => !PERSON_CASES.has(line3)).map((line3) => `${ON_THE_LIST}: ${line3}`)
+  };
+}
 function recordedOf(prd, one, log2, author = null) {
   const found = one.attempt.status === "done" && log2 !== null ? committeeOf(log2, prd) : null;
   if (found === null) {
     const vote2 = noRecord(one.attempt);
     return { record: { author: null, read: [], verdicts: vote2.verdicts }, decision: { outcome: "escalated", why: vote2.why } };
   }
-  const vote = found.escalations.length > 0 ? { outcome: "escalated", why: found.escalations, verdicts: found.verdicts } : tally(found.verdicts, author ?? found.author);
-  return { record: { author: author ?? found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why: vote.why } };
+  const { person, listed: listed5 } = routedOf(found.escalations);
+  const vote = person.length > 0 ? { outcome: "escalated", why: person, verdicts: found.verdicts } : tally(found.verdicts, author ?? found.author);
+  const why = vote.outcome === "carried" ? [] : person.length > 0 ? vote.why : [...listed5, ...vote.why];
+  return { record: { author: author ?? found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why } };
 }
 
 // apps/omni-app/src/missions/answers.ts
@@ -23120,11 +23177,8 @@ function answersNext(open, committees) {
 }
 var itemsOpen = (open) => open.some(({ rank }) => rank === null || rank === "high" || rank === "human-action");
 function answeredOf(prd, one, log2) {
-  const found = one.attempt.status === "done" && log2 !== null ? answerOf(log2, prd, one.item) : null;
-  if (found === null) {
-    const vote2 = noRecord(one.attempt);
-    return { verdicts: vote2.verdicts, decision: { outcome: "escalated", why: vote2.why } };
-  }
+  const found = itemAnswerOf(prd, one, log2);
+  if (found === null) return unanswered(one.attempt);
   const vote = tally(found.verdicts, found.author);
   if (found.escalations.length > 0) return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: found.escalations } };
   if (found.option !== BUILT2) return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: [`it was answered with option ${found.option}: the fleet settles an item with option ${BUILT2}, as built, only`] } };
@@ -24758,7 +24812,7 @@ async function recordStop(store, mission, act) {
   await store.pause(missions.filter((one) => one !== mission.id), act.words);
   return true;
 }
-var listed2 = (event) => event === null ? [] : [event];
+var listed3 = (event) => event === null ? [] : [event];
 var stopped = (mission, words, event) => ({
   ...held(mission, words, [event], null),
   said: "stopped",
@@ -24780,9 +24834,9 @@ function settled(mission, act, recorded) {
     case "pause":
       return held(mission, act.words, recorded ? [act.event] : [], null);
     case "hold":
-      return held(mission, act.words, listed2(act.event), null);
+      return held(mission, act.words, listed3(act.event), null);
     case "wake":
-      return held(mission, act.words, listed2(act.event), act.at);
+      return held(mission, act.words, listed3(act.event), act.at);
     case "stop":
       return stopped(mission, act.words, act.event);
     case "quiet":
@@ -25603,8 +25657,8 @@ async function openAtHeads({ mission, facts, runs, branch, installation, github 
   const first = prdStates(facts, runs, branch, { alone: true, committees: [], answers: { open, committees } });
   for (const { prd } of facts.filter((fact) => waitsOnAnswers(first.get(fact.prd)))) {
     const pr = featurePrOf(runs, prd);
-    const listed4 = pr === null ? void 0 : listedOf((await joins.read({ installation, repo: mission.repo, prd, pr })).items);
-    if (listed4 !== void 0) open.set(prd, listed4);
+    const listed5 = pr === null ? void 0 : listedOf((await joins.read({ installation, repo: mission.repo, prd, pr })).items);
+    if (listed5 !== void 0) open.set(prd, listed5);
   }
   return open;
 }
@@ -27537,8 +27591,8 @@ var EXCUSING_VERDICTS = {
 function excuseItems({ settled: settled2, open }) {
   const fromLedger = settled2.map((entry) => ({ item: entry.id, verdict: entry.verdict?.trim() ?? null, excuses: itemExcuses(entry.itemText) }));
   const settledIds2 = new Set(settled2.map((entry) => entry.id));
-  const stillOpen = open.filter((item) => !settledIds2.has(item.id)).map((item) => ({ item: item.id, verdict: null, excuses: itemExcuses(item.text) }));
-  return [...fromLedger, ...stillOpen];
+  const stillOpen2 = open.filter((item) => !settledIds2.has(item.id)).map((item) => ({ item: item.id, verdict: null, excuses: itemExcuses(item.text) }));
+  return [...fromLedger, ...stillOpen2];
 }
 function whyNot({ item, verdict }) {
   if (verdict === null) return `${item} names it, but is still open`;
@@ -27547,10 +27601,10 @@ function whyNot({ item, verdict }) {
   return `${item} names it, but its verdict reads "${verdict}"`;
 }
 function excuse(path, items, check) {
-  const naming = items.filter((item) => item.excuses.includes(path));
-  const excusing = naming.find((item) => item.verdict !== null && EXCUSING_VERDICTS[check].includes(item.verdict));
+  const naming2 = items.filter((item) => item.excuses.includes(path));
+  const excusing = naming2.find((item) => item.verdict !== null && EXCUSING_VERDICTS[check].includes(item.verdict));
   if (excusing) return { excused: true, item: excusing.item };
-  const [first] = naming;
+  const [first] = naming2;
   return { excused: false, note: first === void 0 ? null : whyNot(first) };
 }
 
@@ -27767,7 +27821,7 @@ var fail = (why) => ({ state: "fail", why });
 var waiting = (why) => ({ state: "not finished", why });
 var unjudged = (why) => ({ state: "not judged", why });
 var LISTED = 3;
-function listed3(items, separator) {
+function listed4(items, separator) {
   const more = items.length - LISTED;
   return [...items.slice(0, LISTED), ...more > 0 ? [`and ${String(more)} more`] : []].join(separator);
 }
@@ -27822,15 +27876,15 @@ function proofsCheck(criteria, report) {
   const proofs = criteria.map((criterion) => proofOf2(criterion, report));
   const failing = proofs.flatMap((proof) => proof.state === "failing" ? [proof.why] : []);
   const pending = proofs.flatMap((proof) => proof.state === "waiting" ? [proof.why] : []);
-  if (failing.length > 0) return fail(listed3([...failing, ...pending], "; "));
-  if (pending.length > 0) return waiting(listed3(pending, "; "));
+  if (failing.length > 0) return fail(listed4([...failing, ...pending], "; "));
+  if (pending.length > 0) return waiting(listed4(pending, "; "));
   const count4 = String(criteria.length);
   return pass(`${count4} of ${count4} ${criteria.length === 1 ? "criterion" : "criteria"} proven`);
 }
 function acceptanceCheck(facts) {
   const { criteria, report } = facts;
   if (!criteria.ok) return unjudged(criteria.why);
-  if (criteria.value.problems.length > 0) return fail(`the spec's criteria are malformed: ${listed3(criteria.value.problems.map(({ problem }) => problem), "; ")}`);
+  if (criteria.value.problems.length > 0) return fail(`the spec's criteria are malformed: ${listed4(criteria.value.problems.map(({ problem }) => problem), "; ")}`);
   if (criteria.value.criteria.length === 0) return fail("the spec has no criterion written ### AC-<n> \xB7 <kind>");
   if (!report.ok) return unjudged(report.why);
   if (report.value === null) return noReport(facts.runs);
@@ -27851,7 +27905,7 @@ function excuseAll(found, ledger, check) {
   }
   return { open, excused };
 }
-var excusedText = (excused) => listed3(excused.map(({ path, item }) => `${path} excused by ${item}`), "; ");
+var excusedText = (excused) => listed4(excused.map(({ path, item }) => `${path} excused by ${item}`), "; ");
 function looseningOptions(facts) {
   const ends = facts.criteria.ok && facts.baseCriteria.ok ? { base: facts.baseCriteria.value, head: facts.criteria.value.criteria } : null;
   return { ground: facts.ground ?? READY_LOOSENING_GROUND, criteria: ends, generated: facts.area.ok ? facts.area.value.generated : [] };
@@ -27861,8 +27915,8 @@ function looseningCheck(facts) {
   const read2 = loosenings(facts.diff.value, looseningOptions(facts));
   const judged4 = excuseAll(read2.findings.map(({ path, what }) => ({ path, text: `${path}: ${what}` })), facts.ledger, "loosening");
   if ("state" in judged4) return judged4;
-  if (judged4.open.length > 0) return fail(listed3(judged4.open, "; "));
-  if (read2.unjudged.length > 0) return unjudged(listed3(read2.unjudged, "; "));
+  if (judged4.open.length > 0) return fail(listed4(judged4.open, "; "));
+  if (read2.unjudged.length > 0) return unjudged(listed4(read2.unjudged, "; "));
   return pass(judged4.excused.length === 0 ? "no test was loosened" : excusedText(judged4.excused), judged4.excused);
 }
 function areaCheck(facts) {
@@ -27873,7 +27927,7 @@ function areaCheck(facts) {
   const outside = breaches(paths, [...territories, ...prdFolders, ...generated]);
   const judged4 = excuseAll(outside.map((path) => ({ path, text: path })), facts.ledger, "area");
   if ("state" in judged4) return judged4;
-  if (judged4.open.length > 0) return fail(`outside every territory: ${listed3(judged4.open, ", ")}`);
+  if (judged4.open.length > 0) return fail(`outside every territory: ${listed4(judged4.open, ", ")}`);
   const inArea = "every file sits in its area";
   return pass(judged4.excused.length === 0 ? inArea : `${inArea}; ${excusedText(judged4.excused)}`, judged4.excused);
 }
