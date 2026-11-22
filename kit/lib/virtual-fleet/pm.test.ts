@@ -1,8 +1,9 @@
 // The PM's own PRDs (PRD 2896 s12): which skill it is sent, its line, the cap a roadmap writes under, and the record the App reads.
+// The PM's plan and replan (PRD omni-loop-21 s9): the line each is sent as, and the line read back.
 import { describe, expect, it } from 'vitest';
-import { PrdNumberSchema, type PrdNumber } from '../ids.ts';
+import { parseProductPrdId, PrdNumberSchema, type PrdNumber } from '../ids.ts';
 import { checkRunnerLine, missionRefusal } from '../runner/line.ts';
-import { fitCap, isPmSkill, keptOf, notWrittenWords, pmJobLine, pmLine, pmRecordOf, pmSkillFor, type PmRecord } from './pm.ts';
+import { fitCap, isPmSkill, keptOf, notWrittenWords, planJobLine, planOfLine, pmJobLine, pmLine, pmRecordOf, pmSkillFor, type PmRecord } from './pm.ts';
 
 const prd = (n: number): PrdNumber => PrdNumberSchema.parse(n);
 const record = (over: Partial<PmRecord> = {}): PmRecord => ({ v: 1, mission: 12, skill: 'roadmap', cap: 3, prds: [prd(2950), prd(2951)], unwritten: [], ...over });
@@ -71,5 +72,39 @@ describe('keptOf', () => {
 
   it('keeps the record\'s own cap when it is lower than the one sent', () => {
     expect(keptOf(record({ cap: 1 }), 3, new Set())).toEqual({ added: [prd(2950)], unwritten: ['PRD 2951'] });
+  });
+});
+
+describe('planJobLine and planOfLine', () => {
+  const product = parseProductPrdId('omni-loop-15');
+
+  it('AC-3: plans a repository PRD with /omni:plan and a product PRD with mega-brainstorm --plan-only, lines a runner takes', () => {
+    expect(planJobLine(prd(7), 'plan')).toBe('/omni:plan 7');
+    expect(planJobLine(product, 'plan')).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-15');
+    for (const line of [planJobLine(prd(7), 'plan'), planJobLine(product, 'replan')]) expect(checkRunnerLine(line), line).toMatchObject({ ok: true });
+    expect(missionRefusal('mega-brainstorm', { level: 'alone' })).toBeNull();
+  });
+
+  it('AC-4: replans with the same skill, its line ending --replan', () => {
+    expect(planJobLine(prd(7), 'replan')).toBe('/omni:plan 7 --replan');
+    expect(planJobLine(product, 'replan')).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-15 --replan');
+  });
+
+  it('reads each line back to its PRD and kind', () => {
+    for (const [id, kind] of [[prd(7), 'plan'], [prd(7), 'replan'], [product, 'plan'], [product, 'replan']] as const) {
+      expect(planOfLine(planJobLine(id, kind)), `${String(id)} ${kind}`).toEqual({ prd: id, kind });
+    }
+  });
+
+  it('reads no plan from the PM\'s own job, another skill, or a line whose PRD does not read', () => {
+    for (const line of [
+      pmJobLine('mega-brainstorm', 12, 1),
+      '/omni:yolo 7',
+      '/omni:plan 0',
+      '/omni:plan 7 --mission 12',
+      '/omni:plan omni-loop-15',
+      '/omni:mega-brainstorm --product mobile --plan-only omni-loop-15',
+      '/omni:mega-brainstorm --product omni-loop --plan-only 15',
+    ]) expect(planOfLine(line), line).toBeNull();
   });
 });
