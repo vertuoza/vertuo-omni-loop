@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { missionBranches, rebaseWhy } from './branch.ts';
+import { parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { missionBranches, planTargets, prepareAll, rebaseWhy, scopeRepos, type MissionBranches } from './branch.ts';
 
 const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 
@@ -60,5 +61,90 @@ describe('missionBranches.prepare: the mission branch, cut once from the default
     const gh = github();
     await expect(gh.prepare({ ...where, branch: 'main' })).rejects.toThrow('default branch');
     expect(gh.calls).not.toContain('POST /repos/{owner}/{repo}/git/refs');
+  });
+});
+
+// A mission branch in every repository the scope touches (PRD omni-loop-21 s7, spec "2. One mission branch per repository").
+
+const PLAN = [
+  '# Plan',
+  '',
+  '## Repositories',
+  '',
+  '| repo | role | read at | knowledge |',
+  '| --- | --- | --- | --- |',
+  '| api | backend | 2dd25db9a0139eee370871d480373dcbf9fef845 | own |',
+  '| acme/mobile | app | 2dd25db9a0139eee370871d480373dcbf9fef845 | imported |',
+  '',
+].join('\n');
+
+describe('planTargets: the repositories a product PRD\'s plan names', () => {
+  it('reads each row of its Repositories table as owner/name, a bare name under the mission repository\'s owner', () => {
+    expect(planTargets(PLAN, 'acme')).toEqual(['acme/api', 'acme/mobile']);
+  });
+
+  it('names none for a plan with no Repositories table', () => {
+    expect(planTargets('# Plan\n\n## Slices\n', 'acme')).toEqual([]);
+  });
+});
+
+describe('scopeRepos: every repository the scope touches', () => {
+  const targets = new Map([
+    [parseProductPrdId('omni-loop-15'), ['acme/api', 'acme/mobile']],
+    [parseProductPrdId('omni-loop-16'), ['ACME/api', 'acme/web']],
+  ]);
+
+  it('names the mission\'s repository for a repository PRD, then each target of each product PRD, once each', () => {
+    expect(scopeRepos({ repo: 'acme/widgets', prds: [parsePrd(2896), parseProductPrdId('omni-loop-15'), parseProductPrdId('omni-loop-16')], targets })).toEqual([
+      'acme/widgets',
+      'acme/api',
+      'acme/mobile',
+      'acme/web',
+    ]);
+  });
+
+  it('leaves the mission\'s repository out when no repository PRD is in scope and no plan names it', () => {
+    expect(scopeRepos({ repo: 'acme/widgets', prds: [parseProductPrdId('omni-loop-15')], targets })).toEqual(['acme/api', 'acme/mobile']);
+  });
+
+  it('names nothing for a product PRD whose plan is not read yet', () => {
+    expect(scopeRepos({ repo: 'acme/widgets', prds: [parseProductPrdId('omni-loop-17')], targets })).toEqual([]);
+  });
+});
+
+describe('prepareAll: the mission branch cut in each repository', () => {
+  /** Branches that refuse the repositories `refused` names, with its reason, and keep every repository asked. */
+  function branches(refused: Record<string, string> = {}, existing: readonly string[] = []): MissionBranches & { asked: string[] } {
+    const asked: string[] = [];
+    return {
+      asked,
+      prepare: ({ repo }) => {
+        asked.push(repo);
+        const why = refused[repo];
+        return Promise.resolve(why === undefined ? { ok: true, cut: !existing.includes(repo) } : { ok: false, why });
+      },
+    };
+  }
+
+  it('AC-2: cuts a mission branch in each of the two repositories a product PRD\'s plan names', async () => {
+    const two = branches();
+    expect(await prepareAll(two, { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-faster-quotes' })).toEqual({ ok: true, cut: ['acme/api', 'acme/mobile'] });
+    expect(two.asked).toEqual(['acme/api', 'acme/mobile']);
+  });
+
+  it('names only the repositories it cut, a branch already there left as it is', async () => {
+    expect(await prepareAll(branches({}, ['acme/api']), { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' })).toEqual({ ok: true, cut: ['acme/mobile'] });
+  });
+
+  it('asks every repository, and waits on each that refused, naming it', async () => {
+    const one = branches({ 'acme/api': rebaseWhy('acme/api') });
+    expect(await prepareAll(one, { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' })).toEqual({ ok: false, why: rebaseWhy('acme/api') });
+    expect(one.asked).toEqual(['acme/api', 'acme/mobile']);
+    const both = await prepareAll(branches({ 'acme/api': 'no', 'acme/mobile': 'not either' }), { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' });
+    expect(both).toEqual({ ok: false, why: 'no; not either' });
+  });
+
+  it('cuts nothing for a scope that touches no repository yet', async () => {
+    expect(await prepareAll(branches(), { installation: 7, repos: [], branch: 'mission/12-q' })).toEqual({ ok: true, cut: [] });
   });
 });
