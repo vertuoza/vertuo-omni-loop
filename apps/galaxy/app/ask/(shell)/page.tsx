@@ -1,8 +1,9 @@
-import { AskRoute, type AskQuery } from '../../../src/ask/page/AskRoute';
+import { redirect } from 'next/navigation';
+import { redirectTarget, type Query } from '../../../src/inbox/redirects';
 
-// /ask: the person's page, the link `omni ask on` prints. Every open ask session they own is a tab,
-// one per terminal, and the page opens on the first one (src/ask/page/AskRoute.tsx).
+// /ask (PRD omni-loop-22, s6): the page the link `omni ask on` prints. It lands on the Inbox, whose first
+// question is open, its query kept (src/inbox/redirects.ts). `/ask/<session>` and `/ask/q/<round>` stay.
 
-export default async function AskHome({ searchParams }: { searchParams: Promise<AskQuery> }) {
-  return <AskRoute id={null} query={await searchParams} />;
+export default async function AskHome({ searchParams }: { searchParams: Promise<Query> }): Promise<never> {
+  redirect(redirectTarget('/ask', await searchParams));
 }

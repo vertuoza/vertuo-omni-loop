@@ -41,7 +41,7 @@ function home(viewer: HomeViewer, fail: { roster?: boolean; activity?: boolean }
     prds: [],
   }, { scope: r.scope, people: r.people, viewerId: viewer.userId, period: '7d', now: NOW });
   const dashboard: DashboardData = {
-    name: 'ADA', season: seasonBounds(NOW), you: { kind: 'no-player' }, waiting: { count: 1, href: '/ask' }, board, solo: r.solo,
+    name: 'ADA', season: seasonBounds(NOW), you: { kind: 'no-player' }, waiting: { count: 1, href: '/app/inbox' }, board, solo: r.solo,
   };
   return renderToStaticMarkup(createElement(Dashboard, { dashboard, query: { period: '7d' } }));
 }

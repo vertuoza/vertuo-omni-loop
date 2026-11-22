@@ -1,13 +1,12 @@
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { item } from '../test/test-item';
 
-// The three Questions pages (PRD 733), called as the server calls them with their reads stubbed: each
-// starts with the Questions tabs, its own tab marked, whatever it shows below; a teammate's session,
-// opened on its own, has no tab row.
+// The person's own session page (PRD 733), called as the server calls it with its reads stubbed: it
+// starts with the Questions tabs, Open questions (now the Inbox, PRD omni-loop-22 s6) marked; a
+// teammate's session, opened on its own, has no tab row.
 
-type Given = { mode: 'demo' | 'closed' | 'supabase'; read: unknown; user: null | { id: string }; pane: unknown };
-const given = vi.hoisted((): Given => ({ mode: 'closed', read: { kind: 'unavailable' }, user: null, pane: null }));
+type Given = { mode: 'demo' | 'closed' | 'supabase'; user: null | { id: string }; pane: unknown };
+const given = vi.hoisted((): Given => ({ mode: 'closed', user: null, pane: null }));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../env', async (actual) => {
@@ -18,9 +17,6 @@ vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: () => Promise.resolve({ auth: { getUser: () => Promise.resolve({ data: { user: given.user } }) } }),
 }));
-vi.mock('./for-me-live', () => ({ readForMeLive: () => Promise.resolve(given.read) }));
-vi.mock('./history-live', () => ({ readHistoryLive: () => Promise.resolve(given.read) }));
-vi.mock('../../outbox-items/outbox-questions-live', () => ({ readOutboxLive: () => Promise.resolve(given.read) }));
 vi.mock('./source', () => ({
   readTabs: () => Promise.resolve([]),
   readSession: () => Promise.resolve(given.pane),
@@ -31,11 +27,7 @@ vi.mock('./source', () => ({
 const { QuestionsTabs } = await import('./QuestionsTabs');
 const { AskSession } = await import('./AskSession');
 const { AskRoute } = await import('./AskRoute');
-const { default: ForMePage } = await import('../../../app/ask/(shell)/for-me/page.tsx');
-const { default: HistoryPage } = await import('../../../app/ask/(shell)/history/page.tsx');
-const { default: OutboxPage } = await import('../../../app/ask/(shell)/outbox/page.tsx');
 
-const query = { searchParams: Promise.resolve({}) };
 /** The page's children, in order. */
 const partsOf = (element: unknown) => {
   const children = (element as ReactElement<{ children: unknown }>).props.children;
@@ -47,39 +39,16 @@ const tabsOf = (element: unknown) => {
 };
 
 beforeEach(() => {
-  Object.assign(given, { mode: 'closed', read: { kind: 'unavailable' }, user: null, pane: null });
+  Object.assign(given, { mode: 'closed', user: null, pane: null });
 });
 
 describe('the Questions pages start with their tabs', () => {
-  it('/ask/for-me, Shared with me marked, above the notice or the list', async () => {
-    expect(tabsOf(await ForMePage(query))).toBe('/ask/for-me');
-    given.read = { kind: 'entries', entries: [] };
-    const parts = partsOf(await ForMePage(query));
-    expect(item(parts, 0).type).toBe(QuestionsTabs);
-    expect(parts).toHaveLength(2);
-  });
-
-  it('/ask/history, History marked', async () => {
-    expect(tabsOf(await HistoryPage(query))).toBe('/ask/history');
-    given.read = { kind: 'signed-out', supabase: { url: 'u', key: 'k' } };
-    expect(tabsOf(await HistoryPage(query))).toBe('/ask/history');
-  });
-
-  it('/ask/outbox, Outbox marked, its count only once the items are read', async () => {
-    expect(tabsOf(await OutboxPage(query))).toBe('/ask/outbox');
-    given.read = { kind: 'signed-out', supabase: { url: 'u', key: 'k' } };
-    expect(tabsOf(await OutboxPage(query))).toBe('/ask/outbox');
-    given.read = { kind: 'view', view: { questions: [], open: 3, mine: 1, filter: null } };
-    const [tabs] = partsOf(await OutboxPage(query));
-    expect(tabs?.props).toEqual({ current: '/ask/outbox', open: 3 });
-  });
-
-  it('/ask, Inbox marked: closed, signed out, and the person\'s own terminals', async () => {
-    expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/ask');
+  it('the Open tab marked, closed, signed out, and the person\'s own terminals', async () => {
+    expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/app/inbox');
     given.mode = 'supabase';
-    expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/ask');
+    expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/app/inbox');
     given.user = { id: 'ada' };
-    expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/ask');
+    expect(tabsOf(await AskRoute({ id: null, query: {} }))).toBe('/app/inbox');
   });
 
   it('a teammate\'s session, opened on its own, has no tab row', async () => {

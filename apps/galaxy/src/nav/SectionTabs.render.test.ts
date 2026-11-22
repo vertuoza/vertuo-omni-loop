@@ -57,20 +57,20 @@ describe('the Questions tabs', () => {
     renderToStaticMarkup(createElement(SectionTabs, { label: 'Questions', tabs: withCounts(QUESTIONS_TABS, { questions, shared }), current }));
 
   it('draw Open questions, Shared with me and History, links to their pages', () => {
-    expect(links(render('/ask')).map((l) => [l.text, l.href])).toEqual([
-      ['Open questions', '/ask'],
-      ['Shared with me', '/ask/for-me'],
-      ['History', '/ask/history'],
+    expect(links(render('/app/inbox')).map((l) => [l.text, l.href])).toEqual([
+      ['Open questions', '/app/inbox'],
+      ['Shared with me', '/app/inbox?from=shared'],
+      ['History', '/app/inbox/done'],
     ]);
   });
 
   it('mark the page showing', () => {
-    expect(links(render('/ask/for-me')).map((l) => l.current)).toEqual([false, true, false]);
-    expect(links(render('/ask/history')).map((l) => l.current)).toEqual([false, false, true]);
+    expect(links(render('/app/inbox?from=shared')).map((l) => l.current)).toEqual([false, true, false]);
+    expect(links(render('/app/inbox/done')).map((l) => l.current)).toEqual([false, false, true]);
   });
 
   it('carry questions − shared on Open questions and shared on Shared with me, spoken with the name', () => {
-    const [open, shared, history] = links(render('/ask', 5, 2));
+    const [open, shared, history] = links(render('/app/inbox', 5, 2));
     assertDefined(open, 'the Open questions tab');
     assertDefined(shared, 'the Shared with me tab');
     assertDefined(history, 'the History tab');
@@ -83,13 +83,13 @@ describe('the Questions tabs', () => {
   });
 
   it('show no count at 0', () => {
-    const [open, shared] = links(render('/ask', 2, 2));
+    const [open, shared] = links(render('/app/inbox', 2, 2));
     assertDefined(open, 'the Open questions tab');
     assertDefined(shared, 'the Shared with me tab');
     expect(open.text).toBe('Open questions');
     expect(open.attrs).not.toContain('aria-label');
     expect(shared.text).toBe('Shared with me 2');
-    expect(links(render('/ask')).map((l) => l.text)).toEqual(['Open questions', 'Shared with me', 'History']);
-    expect(render('/ask')).not.toContain('section-tabs-count');
+    expect(links(render('/app/inbox')).map((l) => l.text)).toEqual(['Open questions', 'Shared with me', 'History']);
+    expect(render('/app/inbox')).not.toContain('section-tabs-count');
   });
 });
