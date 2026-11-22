@@ -1,13 +1,13 @@
 ---
 name: mission
-description: Settles a mission with a person — the Virtual Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), under the missions folder of the delivery folder, opens the mission's issue and its docs pull request, and sends the brief to the mission's page with omni mission push. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope. Writes no code, never merges, and starting the mission never waits for the pull request. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
+description: Settles a mission with a person — the Virtual Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), under the missions folder of the delivery folder, opens the mission's issue and its docs pull request, and sends the brief to the mission's page with omni mission push. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and starting the mission never waits for the pull request. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
 ---
 
 # Mission: a goal a Virtual Fleet delivers
 
 A **mission** is a goal, not a container: one sentence of what changes and for whom, 1 to 5
 measures that tell it worked once deployed, the Virtual Fleet that takes it, a scope of PRDs and
-roadmaps of this repository in any mix, and a mandate (how many PRDs may run at once). This skill is
+roadmaps (of this repository, or of a product) in any mix, and a mandate (how many PRDs may run at once). This skill is
 the lead's seat, a person's today: it settles those with a person as `/omni:brainstorm` settles a
 design, writes the brief, and sends it to the mission's page. The page's Start button is the
 person's; the fleet does the rest.
@@ -27,12 +27,13 @@ signed. A command that prints nothing means signing is off here: add nothing.
 | input | example | notes |
 |---|---|---|
 | nothing, or the goal | `/omni:mission 'dark mode for quotes'` | the conversation of step 1; a goal given is the first answer, still shown for a yes |
-| `--prd <n> '<goal>'` | `/omni:mission --prd 2803 'dark mode for quotes on site'` | the one-line mission: no conversation. That PRD is its scope, the goal is as given, no measure yet, the default mandate |
+| `--prd <n>` or `--prd <key>-<n>` `'<goal>'` | `/omni:mission --prd 2803 'dark mode for quotes on site'`, `/omni:mission --prd omni-loop-15 'a mission takes a roadmap'` | the one-line mission: no conversation. That PRD, a repository's number or a product PRD's id, is its scope, the goal is as given, no measure yet, the default mandate |
+| `--roadmap <n>` or `--roadmap <key>-R<n>` `'<goal>'` | `/omni:mission --roadmap omni-loop-R3 'the roadmap, delivered'` | the same one-line mission for a roadmap, a repository's number or a product roadmap's id. With `--prd` too, both are the scope |
 | `--fleet <key>` | `--fleet crew-bots` | the Virtual Fleet's key, when it is already known; saves the question |
 | `--omni-bugs` | `/omni:mission --omni-bugs` | the Omni Loop bug team: a standing mission of kind `omni-bugs`, written in one line (see below). Only on the Omni Loop repository |
 | `--level <key>` | `--level own-branch` | the level the mission runs at, `with-you`, `own-branch` or `alone`; overrides the fleet's. A member who is not an owner can take it only up to the fleet's own level |
 
-`<n>` below is the mission's number, its issue's number. With `--prd` and no goal, say that the
+`<n>` below is the mission's number, its issue's number. With `--prd` or `--roadmap` and no goal, say that the
 one-line form takes the goal, and stop.
 
 ## `--omni-bugs`: the Omni Loop bug team
@@ -72,9 +73,13 @@ Then read the design flag: `node .omni-loop/bin/omni.mjs config design.enabled`.
 
 ## 1. Settle the brief
 
-With `--prd`, ask nothing: take the goal as given, the scope as that PRD (`prds: [<n>]`, no
-roadmap), `measures: []`, `mandate.parallel: 2` and the level as question 5 says. Check the PRD exists: `omni prd <n>` must print
-its folder, else stop and say which PRD it could not find. The Virtual Fleet is `--fleet` when
+With `--prd` or `--roadmap`, ask nothing: take the goal as given, the scope as that PRD
+(`prds: [<id>]`, no roadmap) or that roadmap (`roadmaps: [<id>]`, no PRD), or both when both are
+given, `measures: []`, `mandate.parallel: 2` and the level as question 5 says. Check each id exists:
+a repository PRD with `omni prd <n>` (it must print its folder), a product PRD with
+`omni prd <key>-<n>` (it must print its state), a repository roadmap with `omni roadmap check <n>`,
+a product roadmap with `omni dossier get <key>-R<n> roadmap` (it must print the roadmap's file);
+else stop and say which PRD or roadmap it could not find. The Virtual Fleet is `--fleet` when
 given; else ask the one question of this form, the fleet's key, as the Fleet section of the Omni
 page shows it. Under `OMNI_UNATTENDED` with no `--fleet`, ask nothing: stop and say that the fleet's
 key is the one thing the one-line form cannot guess.
@@ -91,9 +96,13 @@ briefing's Any agent section for the rest), each with its recommended answer fir
 3. **The measures**: 1 to 5 observable signs it worked once deployed, each with a sign, how it is
    read and a target, at most 200 characters each. They are recorded now; following them after
    deployment is a later job. "None yet" is an answer.
-4. **The scope**: the PRDs and roadmaps it covers, as numbers of this repository, in any mix: 50
-   PRDs and 10 roadmaps at most, one of either at least. Check each with `omni prd <n>`, or
-   `omni roadmap check <n>` for a roadmap; a number that does not exist is asked again.
+4. **The scope**: the PRDs and roadmaps it covers, as numbers of this repository or ids of a
+   product, in any mix: 50 PRDs and 10 roadmaps at most, one of either at least. A product PRD is
+   `<key>-<n>` (`omni-loop-15`), a product roadmap `<key>-R<n>` (`omni-loop-R3`). Check a number with
+   `omni prd <n>`, or `omni roadmap check <n>` for a roadmap; check a product PRD with
+   `omni prd <key>-<n>`, and a product roadmap with `omni dossier get <key>-R<n> roadmap`; a number
+   or a product id that does not exist is asked again, and so is a value that is neither
+   (`omni-loop`, `omni-loop-R`).
 5. **The mandate**: how many PRDs may run at once, 1 to 4, 2 when the person has no preference.
    The fixed rules are said, not asked: the mission never merges, never answers for a person, and
    waits for a person wherever one is needed. Its level is never asked: it is `--level` when given,
@@ -138,8 +147,8 @@ kind: <prds | omni-bugs>
 measures:
   - { sign: <the sign>, read: <how it is read>, target: <its target> }
 scope:
-  prds: [<PRD numbers>]
-  roadmaps: [<roadmap numbers>]
+  prds: [<PRD numbers or product PRD ids>]
+  roadmaps: [<roadmap numbers or product roadmap ids>]
 mandate:
   parallel: <1 to 4>
   level: <with-you | own-branch | alone>
@@ -193,5 +202,5 @@ merge), since it never does those itself.
 - Never write code, merge a pull request, or press Start.
 - Never write a field the schema does not take, or a measure the person did not give.
 - Never write a level above the fleet's for a person who is not an owner of the workspace: the app refuses it.
-- Never invent a Virtual Fleet's key, a PRD or a roadmap: each is read from the person or checked.
-- Never ask more than one question at a time, or any under `--prd` beyond the fleet's key.
+- Never invent a Virtual Fleet's key, a PRD or a roadmap, a product id included: each is read from the person or checked.
+- Never ask more than one question at a time, or any under `--prd` or `--roadmap` beyond the fleet's key.
