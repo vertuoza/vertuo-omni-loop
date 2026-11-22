@@ -653,6 +653,22 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.poly([[5, 3], [11, 3], [8, 6 + f]], 'Y').rect(6, 12, 4, 1, 'Y').rect(7, 11, 2, 1, 'Y');
     d.px(8, 8 + f, 'Y').rect(3, 1, 10, 2, 'L').rect(3, 13, 10, 2, 'L');
   } },
+  // The Inbox entry (omni-loop-22, slice s1): a question card dropped in a tray, the tray's cyan glowing.
+  'menu-inbox': { w: 16, h: 16, draw(d) { // a question card dropped in a tray, its ? on the card
+    d.rect(4, 1, 8, 1, 'Y', 3).rect(4, 2, 1, 7, 'Y', 3).rect(11, 2, 1, 7, 'Y', 3).rect(5, 2, 1, 7, 'Y', 0);
+    d.rect(6, 2, 4, 1, 'Y', 1).pxs([[6, 3], [9, 3], [9, 6], [9, 8]], 'Y', 1).rect(7, 4, 2, 1, 'Y', 1);
+    d.rect(6, 5, 3, 1, 'Y', 1).rect(6, 6, 2, 1, 'Y', 1).rect(6, 7, 4, 1, 'Y', 1).rect(6, 8, 2, 1, 'Y', 1);
+    d.rect(10, 2, 1, 7, 'Y', 2);
+    d.rect(7, 3, 2, 1, 'X').pxs([[6, 4], [9, 4], [9, 5], [8, 6], [8, 8]], 'X');
+    d.rect(1, 8, 3, 1, 'X').rect(12, 8, 3, 1, 'X');
+    d.pxs([[1, 9], [14, 9], [1, 10], [14, 10], [1, 11], [14, 11], [1, 12], [14, 12], [1, 13], [14, 13], [1, 14], [14, 14]], 'X');
+    d.rect(6, 11, 4, 1, 'X').rect(2, 15, 12, 1, 'X');
+    d.rect(2, 9, 12, 1, 'C', 1).pxs([[2, 10], [2, 11], [2, 12], [2, 13]], 'C', 1);
+    d.rect(3, 10, 10, 1, 'C', 2).rect(3, 11, 2, 1, 'C', 2).rect(11, 11, 2, 1, 'C', 2);
+    d.rect(3, 12, 3, 1, 'C', 2).rect(10, 12, 3, 1, 'C', 2).rect(3, 13, 10, 1, 'C', 2);
+    d.pxs([[13, 10], [5, 11], [10, 11], [13, 11], [13, 12], [13, 13]], 'C', 3);
+    d.rect(6, 12, 4, 1, 'C', 3).rect(2, 14, 12, 1, 'C', 3);
+  } },
   'menu-bugs': { w: 16, h: 16, draw(d, f) { // an alien bug: Entropy's cousin, six legs and feelers
     d.line(5, 3, 3, 0 + f, 'Z').line(10, 3, 12, 0 + f, 'Z');
     for (const y of [7, 10, 13]) { d.line(3, y, 1, y - 1 + f, 'Z').line(12, y, 14, y - 1 + f, 'Z'); }
