@@ -16,10 +16,9 @@
 //                     Reviewer as any build does
 //   the record        what a decision was is its event: `decided` once settled, `escalated` otherwise, signed `pm` (the chair)
 //                     and `agent`, never in a person's name, keyed by the job so it is recorded once
-import { answerOf } from 'omni-loop/kit/lib/committee/record.ts';
 import { tally, type MemberVerdict } from 'omni-loop/kit/lib/committee/vote.ts';
 import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
-import { noRecord, verdictWords, type Decision } from './committee.ts';
+import { itemAnswerOf, unanswered, verdictWords, type Decision } from './committee.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
 
 /** The option the fleet settles an item with: what was built. */
@@ -90,11 +89,8 @@ export const itemsOpen = (open: readonly OpenAt[]): boolean => open.some(({ rank
  * log holds no answer record for the item, escalates. `verdicts` are the members' as recorded.
  */
 export function answeredOf(prd: PrdNumber, one: ItemCommittee, log: string | null): { verdicts: MemberVerdict[]; decision: Decision } {
-  const found = one.attempt.status === 'done' && log !== null ? answerOf(log, prd, one.item) : null;
-  if (found === null) {
-    const vote = noRecord(one.attempt);
-    return { verdicts: vote.verdicts, decision: { outcome: 'escalated', why: vote.why } };
-  }
+  const found = itemAnswerOf(prd, one, log);
+  if (found === null) return unanswered(one.attempt);
   const vote = tally(found.verdicts, found.author);
   if (found.escalations.length > 0) return { verdicts: vote.verdicts, decision: { outcome: 'escalated', why: found.escalations } };
   if (found.option !== BUILT) return { verdicts: vote.verdicts, decision: { outcome: 'escalated', why: [`it was answered with option ${found.option}: the fleet settles an item with option ${BUILT}, as built, only`] } };

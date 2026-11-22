@@ -118,12 +118,12 @@ const BUILT = 'A';
  *
  * `listed` is each case of the list it was on: a carried or deferred one stays open for a person at landing.
  */
-export type Decision = { outcome: 'carried' | 'deferred' | 'escalated'; listed: string[]; why: string[]; verdicts: MemberVerdict[]; option: typeof BUILT | null };
+export type CommitteeDecision = { outcome: 'carried' | 'deferred' | 'escalated'; listed: string[]; why: string[]; verdicts: MemberVerdict[]; option: typeof BUILT | null };
 
 const ON_THE_LIST = 'on the escalation list';
 
-/** The decision: by rule for a case only a person decides, the vote being only recorded; else the members', as {@link Decision} says. */
-export function decide(facts: CommitteeFacts, verdicts: readonly MemberVerdict[], author: CommitteeRole | null): Decision {
+/** The decision: by rule for a case only a person decides, the vote being only recorded; else the members', as {@link CommitteeDecision} says. */
+export function decide(facts: CommitteeFacts, verdicts: readonly MemberVerdict[], author: CommitteeRole | null): CommitteeDecision {
   const cases = routes(facts);
   const listed = cases.map((route) => route.case);
   const vote = tally(verdicts, author);
@@ -135,7 +135,7 @@ export function decide(facts: CommitteeFacts, verdicts: readonly MemberVerdict[]
 }
 
 /** How a decision is recorded, in one line: `carried`, `carried · on the escalation list`, `deferred · option A` or `escalated`. */
-export function decisionLine(decision: Decision): string {
+export function decisionLine(decision: CommitteeDecision): string {
   if (decision.outcome === 'deferred') return `deferred · option ${decision.option ?? BUILT}`;
   return decision.outcome === 'carried' && decision.listed.length > 0 ? `carried · ${ON_THE_LIST}` : decision.outcome;
 }

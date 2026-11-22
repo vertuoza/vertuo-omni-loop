@@ -92,10 +92,21 @@ export const sendsCommittees = (status: MissionStatus): boolean => status === 'r
 const failedAll = (sentence: string): MemberVerdict[] => COMMITTEE_ROLES.map((role) => ({ role, answer: 'failed', sentence }));
 
 /** The vote of a committee job that failed, was cancelled, or ended with no record: every member counted failed, why each. */
-export function noRecord(attempt: Pick<Attempt, 'status'>): { verdicts: MemberVerdict[]; why: string[] } {
+function noRecord(attempt: Pick<Attempt, 'status'>): { verdicts: MemberVerdict[]; why: string[] } {
   const sentence = attempt.status === 'done' ? 'Its job ended with no record of the vote.' : `Its job ${attempt.status === 'cancelled' ? 'was cancelled' : 'failed'}.`;
   const vote = tally(failedAll(sentence), null);
   return { verdicts: vote.verdicts, why: vote.why };
+}
+
+/** Item committee `one`'s answer record in its job's log `log`; null when its job did not end done or its log holds none. */
+export function itemAnswerOf(prd: PrdNumber, one: { item: string; attempt: Pick<Attempt, 'status'> }, log: string | null): ReturnType<typeof answerOf> {
+  return one.attempt.status === 'done' && log !== null ? answerOf(log, prd, one.item) : null;
+}
+
+/** An item committee whose job left no answer record: escalated, every member counted failed ({@link noRecord}). */
+export function unanswered(attempt: Pick<Attempt, 'status'>): { verdicts: MemberVerdict[]; decision: { outcome: 'escalated'; why: string[] } } {
+  const vote = noRecord(attempt);
+  return { verdicts: vote.verdicts, decision: { outcome: 'escalated', why: vote.why } };
 }
 
 /** How the escalation list's lines read, before each case it was on (kit/lib/committee/escalation.ts). */
@@ -166,10 +177,10 @@ const allYes = (verdicts: readonly MemberVerdict[]): string => `every member who
  * answers it on the mission pull request (BR-PRODUCT-145). Its why is never empty.
  */
 export function itemDecisionOf(prd: PrdNumber, one: { item: string; attempt: Pick<Attempt, 'status'> }, log: string | null): { verdicts: MemberVerdict[]; decision: ItemDecided } {
-  const found = one.attempt.status === 'done' && log !== null ? answerOf(log, prd, one.item) : null;
+  const found = itemAnswerOf(prd, one, log);
   if (found === null) {
-    const vote = noRecord(one.attempt);
-    return { verdicts: vote.verdicts, decision: { outcome: 'escalated', why: vote.why, option: null } };
+    const none = unanswered(one.attempt);
+    return { verdicts: none.verdicts, decision: { ...none.decision, option: null } };
   }
   const vote = tally(found.verdicts, found.author);
   const { person, listed } = routedOf(found.escalations);
