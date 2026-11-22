@@ -39,6 +39,10 @@
 //                  the mission sends its PM `/omni:brainstorm` or `/omni:roadmap` (their mega forms in a plan repository) for the
 //                  PRDs left under the cap; a PRD it wrote goes to the committee with the PM sitting out. While it writes, the
 //                  mission runs
+//   plan, replan   at `alone` (PRD omni-loop-21 s9, ./pm.plan.ts) a PRD with no plan on its page is sent to the PM (`/omni:plan <n>`)
+//                  before its committee, which is sent once a plan is on the page; a PRD stopped once its repairs are spent is replanned
+//                  (`--replan`), once, and built again only once a committee approved the new plan version. The PM sits out both
+//                  committees. A refused replan stops the PRD and sends the mission's retro (PRD 3065)
 //   the repairs    each run reads the mission's repairs first (PRD 2980, ./repair-run.ts): each repair that ended kept, each code
 //                  repair's fix landed on the mission branch once green, each step sent again settled, each Omni Loop bug report
 //                  sent. Then, where the table stops a PRD, a repair is sent first in line while the mission has repairs left,
@@ -90,7 +94,10 @@ import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mi
 import { decisionsOf, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { answeredOf, withDecisions, type ItemCommittee, type OpenAt } from './answers.ts';
 import { recordedOf, sendsCommittees, type Committee, type Decision } from './committee.ts';
-import { addedOf, pmDispatched, pmEvents, pmNext, pmWorking, withAdded, withPm, type PmJob } from './pm.ts';
+import { addedOf, isOwnJob, pmDispatched, pmEvents, pmNext, pmWorking, withAdded, withPm, type PmJob } from './pm.ts';
+import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
+import { planJobLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
+import { retroSkillLine } from './milestone.ts';
 import type { MissionAnswers } from './settle.ts';
 import type { MissionDrops, Reopened } from './drop.ts';
 import { checksOf, judge, type OpenItems } from './gate.ts';
@@ -220,14 +227,18 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
   const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
-  const before = prdStates(facts, runs, branch, view, fleet, repairView, qa);
-  const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before, toFleet, skill, added: pm.added, left: leftOf(repairView) }) : NOTHING_SENT;
+  // The PM plans a PRD with no plan before its approval, and replans one stopped once its repairs are spent (PRD omni-loop-21 s9).
+  const planAt: PlanAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
+  const before = withPlans(prdStates(facts, runs, branch, view, fleet, repairView, qa), planAt);
+  const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before.states, toFleet, skill, added: pm.authored, left: leftOf(repairView) }) : NOTHING_SENT;
   const repairs: RepairView = { ...repairView, jobs: [...repairView.jobs, ...repaired] };
-  const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
+  const planned = await sendPlans({ store, mission, send: before.send, jobs: pm.jobs, toFleet, sends: unready === null });
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa);
+  const after = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs });
+  const states = after.states;
+  const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after.retro });
   const fresh = sent.length + approved.length + asked.length + repaired.length;
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
@@ -318,23 +329,33 @@ async function readRun(store: MissionStore, sought: MissionRecord, now: number) 
     store.committees(mission.id),
     store.fleetRunners(mission).then((to) => store.room(mission, to)),
   ]);
-  const decided = await decideAll(store, mission, asked, pm.added);
+  const decided = await decideAll(store, mission, asked, pm.authored);
   const read = decided.carried ? await store.facts(mission) : first;
   return { mission, read, runs, recorded: pm.recorded, toFleet, inPlan, decided: decided.committees, pm, fleet: { room: roomOn(runners, mission.repo, now), now } };
 }
 
-/** What a run read of the mission's PM (PRD 2896 s12): the mission, its scope widened by the PRDs its fleet added, its events, those PRDs, its PM jobs, and whether one is at work. */
-type PmRead = { mission: MissionRecord; recorded: RecordedEvent[]; added: ReadonlySet<PrdNumber>; jobs: readonly PmJob[]; writing: boolean };
+/**
+ * What a run read of the mission's PM (PRD 2896 s12): the mission, its scope widened by the PRDs its fleet added, its events, those
+ * PRDs, its PM jobs, and whether one is at work; its plan jobs (PRD omni-loop-21 s9), and the PRDs the PM wrote or planned, whose
+ * committees it sits out.
+ */
+type PmRead = { mission: MissionRecord; recorded: RecordedEvent[]; added: ReadonlySet<PrdNumber>; jobs: readonly PmJob[]; writing: boolean; plans: PlanJob[]; authored: ReadonlySet<PrdNumber> };
 
 /**
  * Each PM job of a mission at `alone` that ended, what it wrote recorded once, a second before this run's events (./pm.ts): the PRDs it
- * added and the rows its cap left unwritten. Then the mission's scope holds the PRDs its fleet added, after its own.
+ * added and the rows its cap left unwritten; a plan job's end (./pm.plan.ts). Then the mission's scope holds the PRDs its fleet added,
+ * after its own.
  */
 async function pmRead(store: MissionStore, mission: MissionRecord, events: readonly RecordedEvent[], jobs: readonly PmJob[], now: number): Promise<PmRead> {
   const fresh: NewEvent[] = [];
+  const plans = planJobsOf(jobs);
   if (mission.level === 'alone') {
     for (const one of jobs) {
       const known = [...events, ...fresh.map(asRecorded)];
+      const plan = plans.find((each) => each.job === one.job);
+      if (plan !== undefined) fresh.push(...planEvents(plan, known));
+      // A product PRD's plan job is read once the run takes products (PRD omni-loop-21 s9b).
+      if (!isOwnJob(one)) continue;
       const held = new Set([...mission.scope.prds, ...addedOf(known)]);
       const log = pmWorking(one) ? null : await store.committeeLog(one.job);
       fresh.push(...pmEvents(mission, one, log, held, events));
@@ -343,7 +364,50 @@ async function pmRead(store: MissionStore, mission: MissionRecord, events: reado
   }
   const recorded = [...events, ...fresh.map(asRecorded)];
   const added = addedOf(recorded);
-  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking) };
+  const authored = new Set([...added, ...plannedOf(plans)]);
+  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking), plans, authored };
+}
+
+/** What a run sent its PM to plan (PRD omni-loop-21 s9): each dispatch, and each job as the run reads it from then on. */
+type PlansSent = { events: NewEvent[]; jobs: PlanJob[] };
+
+/**
+ * The plan jobs this run sends the PM, while the mission runs or waits and its PRDs can be built (`sends`), each under the next PM
+ * round (round 1 kept for its own PRDs).
+ */
+async function sendPlans({ store, mission, send, jobs, toFleet, sends }: { store: MissionStore; mission: MissionRecord; send: readonly PlanSend[]; jobs: readonly PmJob[]; toFleet: boolean; sends: boolean }): Promise<PlansSent> {
+  const out: PlansSent = { events: [], jobs: [] };
+  if (!sends || !sendsCommittees(mission.status)) return out;
+  let round = nextPlanRound(jobs);
+  for (const one of send) {
+    const line = planJobLine(one.prd, one.kind);
+    const job = await store.pm({ mission, round, line, toFleet });
+    round += 1;
+    if (job === null) continue;
+    out.events.push(planDispatched(job, one));
+    out.jobs.push({ round: round - 1, job, line, attempt: { id: job, status: 'queued', outcome: null, reason: null, prUrl: null }, prd: one.prd, kind: one.kind });
+  }
+  return out;
+}
+
+/**
+ * What this run sent the PM and for it, when its PRDs can be built (`sends`): its own PRDs' job (PRD 2896 s12), the plan jobs already
+ * sent (`planned`, their dispatches), and the mission's retro once a replan was refused (`retro`, PRD omni-loop-21 s9).
+ */
+async function sendPmAll(at: { store: MissionStore; mission: MissionRecord; pm: PmRead; inPlan: boolean; toFleet: boolean; sends: boolean; planned: readonly NewEvent[]; retro: boolean }): Promise<NewEvent[]> {
+  if (!at.sends) return [];
+  const own = await sendPm(at.store, at.mission, at.pm, at.inPlan, at.toFleet);
+  const retro = at.retro ? await sendRetro(at.store, at.mission, at.toFleet) : [];
+  return [...own, ...at.planned, ...retro];
+}
+
+/** The mission's retro (PRD 3065), sent once when the committee refused a PRD's new plan; nothing when the store keeps no retros. */
+async function sendRetro(store: MissionStore, mission: MissionRecord, toFleet: boolean): Promise<NewEvent[]> {
+  const retros = store.retros;
+  if (retros === undefined || !sendsCommittees(mission.status)) return [];
+  const job = await retros.retro({ mission, milestone: 'mission', toFleet });
+  const sentence = `A new plan was refused: sent ${retroSkillLine(mission.number, 'mission')} to ${whereOf(mission, toFleet)}.`;
+  return job === null ? [] : [{ kind: 'dispatched', role: 'supervisor', prd: null, job, link: null, sentence }];
 }
 
 /** A new event as a run reads it back. */

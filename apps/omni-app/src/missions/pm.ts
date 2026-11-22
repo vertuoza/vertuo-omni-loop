@@ -11,13 +11,13 @@
 //   after             a PRD added joins the mission's scope, read from those events, and goes to the committee like any other at
 //                     `alone`, but with the PM sitting out: the Architect and the Reviewer approve it (`--author pm`)
 //   the events        the dispatch, signed `supervisor`; what it added, signed `pm`; all by `agent`, never in a person's name
-import { isPmSkill, keptOf, notWrittenWords, pmJobLine, pmRecordOf, pmSkillFor, type PmSkill } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
+import { isPmSkill, keptOf, notWrittenWords, planOfLine, pmJobLine, pmRecordOf, pmSkillFor, type PmSkill } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { sendsCommittees } from './committee.ts';
 import type { Attempt, Concluded, Mission, NewEvent, RecordedEvent } from './supervisor.ts';
 
-/** The one PM job a mission sends: its round in the key. */
-const PM_ROUND = 1;
+/** The PM job for the mission's own PRDs: its round in the key. A plan job takes a later one (./pm.plan.ts). */
+export const PM_ROUND = 1;
 
 /** A PM job the mission sent: its round, its job, its line and the job's attempt. */
 export type PmJob = { round: number; job: string; line: string; attempt: Attempt };
@@ -46,9 +46,12 @@ export type PmNext = { next: 'none' } | { next: 'send'; round: number; skill: Pm
 /** What a run reads to decide on the PM's job: the mission, its cap, the PRDs its fleet added, its PM jobs, and whether its repository is a plan repository. */
 export type PmView = { mission: Pick<Mission, 'level' | 'status' | 'number'>; ownPrds: number; added: number; jobs: readonly PmJob[]; inPlan: boolean };
 
-/** Whether the mission sends its PM a job: at `alone`, under its cap, while it runs or waits, and once. */
+/** Whether a PM job is the one for the mission's own PRDs: any PM job but a plan or a replan of a PRD (PRD omni-loop-21 s9). */
+export const isOwnJob = ({ line }: Pick<PmJob, 'line'>): boolean => planOfLine(line) === null;
+
+/** Whether the mission sends its PM a job: at `alone`, under its cap, while it runs or waits, and once (a plan job counts none). */
 export function pmNext({ mission, ownPrds, added, jobs, inPlan }: PmView): PmNext {
-  if (mission.level !== 'alone' || !sendsCommittees(mission.status) || jobs.length > 0) return { next: 'none' };
+  if (mission.level !== 'alone' || !sendsCommittees(mission.status) || jobs.some(isOwnJob)) return { next: 'none' };
   const left = ownPrds - added;
   const skill = pmSkillFor(left, inPlan);
   if (skill === null) return { next: 'none' };
