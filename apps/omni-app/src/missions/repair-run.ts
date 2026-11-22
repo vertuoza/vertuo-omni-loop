@@ -18,11 +18,16 @@
 //   the kit   PRD 3088 s5: only while a PRD stopped on an Omni Loop bug that was fixed and is not sent again yet, and the mission is
 //             neither paused nor stopped: the kit its repository pins, read once per run on the mission branch (else the default
 //             branch, ./repair.github.ts); unread, or no GitHub, it reads older than any fix
+//   outside   PRD omni-loop-21 s11 (./outside-bug.ts): the outside bugs the Reviewer's, QA's and repair jobs that ended done named in
+//             their logs, each one's bug-fix jobs (`…:bug:<issue>:run:<k>`) and its fix's landing on the mission branch, by the same
+//             judge and squash-merge a code repair's fix lands by; then the one bug-fix job the run sends, through the port it is given
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { repairLine as readRepairLine, type RepairRecord } from 'omni-loop/kit/lib/repair/line.ts';
 import { submitBugReport } from '../bug-reports/job.ts';
+import type { BugJob } from './bug-team.ts';
 import type { MissionJoins } from './join.ts';
+import { namedOutside, outsidePicks, outsideStates, takenEvent, type Naming, type Outside } from './outside-bug.ts';
 import type { MissionKits } from './repair.github.ts';
 import {
   CAUSE_REPAIRS,
@@ -40,7 +45,7 @@ import {
   type RepairView,
 } from './repair.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
-import { after, endOf, outcome, type Attempt, type RecordedEvent, type Run } from './supervisor.ts';
+import { after, endOf, outcome, type Attempt, type NewEvent, type RecordedEvent, type Run, type Step } from './supervisor.ts';
 
 /** What a run reads its repairs with. */
 export type RepairRunAt = {
@@ -142,8 +147,11 @@ const prOf = (url: string): PrNumber | null => {
   return parsed.success ? parsed.data : null;
 };
 
-/** A code repair's fix, on its way to the mission branch: read, judged, and squash-merged once green. */
-export async function land(at: RepairRunAt, fixPr: string, prd: RepairRow['prd']): Promise<FixLanding> {
+/** What a fix's landing reads with: the mission's repository, its branch and the joins' GitHub reads and merge. */
+type LandAt = Pick<RepairRunAt, 'branch' | 'installation' | 'joins'> & { mission: Pick<MissionRecord, 'repo'> };
+
+/** A code repair's fix (or an outside bug's, PRD omni-loop-21 s11), on its way to the mission branch: read, judged, and squash-merged once green. */
+export async function land(at: LandAt, fixPr: string, prd: RepairRow['prd']): Promise<FixLanding> {
   const pr = prOf(fixPr);
   if (at.branch === null) return { state: 'refused', why: 'the mission has no branch of its own to land it on' };
   if (pr === null) return { state: 'refused', why: 'its link names no pull request' };
@@ -262,4 +270,80 @@ function waitsOnFix(runs: readonly Run[], rows: readonly RepairRow[], reports: R
 async function pinnedKit(at: RepairRunAt): Promise<string | null> {
   if (at.kits == null || at.installation === null) return null;
   return at.kits.pinned({ installation: at.installation, repo: at.mission.repo, ref: at.branch });
+}
+
+// ── Outside bugs (PRD omni-loop-21 s11) ─────────────────────────────────────────
+
+/** What a run reads its outside bugs with. */
+export type OutsideRunAt = LandAt & {
+  mission: Pick<MissionRecord, 'repo' | 'scope'>;
+  runs: readonly Run[];
+  /** The repairs the mission sent, a stuck one's too (PRD 3065): their logs may name outside bugs. */
+  repairs: readonly { prd: RepairRow['prd']; attempts: readonly Attempt[] }[];
+  /** The bug-fix jobs the mission sent (`…:bug:<issue>:run:<k>`, ./store.ts › bugTeam.jobs). */
+  jobs: readonly BugJob[];
+  /** A job's log tail; null when it has none (./store.ts › committeeLog). */
+  logOf: (job: string) => Promise<string | null>;
+};
+
+/** Who a step's job is, when it may name an outside bug: the Reviewer's rounds and QA's; null for any other step. */
+const namerOf = (step: Step): Naming['by'] | null => (step === 'review:1' || step === 'review:2' ? 'reviewer' : step === 'qa:1' || step === 'qa:2' ? 'qa' : null);
+
+/** The attempt a job ended done on: its last, when it is done; null otherwise. */
+const doneOf = (attempts: readonly Attempt[]): Attempt | null => {
+  const last = attempts.at(-1);
+  return last?.status === 'done' ? last : null;
+};
+
+/** The Reviewer's, QA's and repair jobs that ended done, each with its log: the runs in order, then the repairs. */
+async function namingsOf(at: OutsideRunAt): Promise<Naming[]> {
+  const ended = [
+    ...at.runs.flatMap((one) => {
+      const by = namerOf(one.step);
+      const done = doneOf(one.attempts);
+      return by === null || done === null ? [] : [{ by, prd: one.prd, job: done.id }];
+    }),
+    ...at.repairs.flatMap((one) => {
+      const done = doneOf(one.attempts);
+      return done === null ? [] : [{ by: 'repair' as const, prd: one.prd, job: done.id }];
+    }),
+  ];
+  const namings: Naming[] = [];
+  for (const one of ended) namings.push({ ...one, log: await at.logOf(one.job) });
+  return namings;
+}
+
+/** The pull request an opened bug fix names, as its link; null when its attempt names none. */
+const openedFix = (job: BugJob): string | null => {
+  const last = job.attempts.at(-1);
+  return last?.status === 'done' && last.outcome === 'pr-opened' && last.prUrl !== null ? last.prUrl : null;
+};
+
+/**
+ * What one run reads of the mission's outside bugs: each named one, where it stands, and, for each bug-fix job whose pull request is
+ * open, its landing on the mission branch, squash-merged once green.
+ */
+export async function readOutsideBugs(at: OutsideRunAt): Promise<Outside[]> {
+  const bugs = namedOutside(await namingsOf(at), { repo: at.mission.repo, scope: at.mission.scope.prds });
+  const view = { repo: at.mission.repo, branch: at.branch, jobs: at.jobs, landings: new Map<string, FixLanding>() };
+  const first = outsideStates(bugs, view);
+  for (const bug of first) {
+    const job = bug.state === 'joining' ? at.jobs.find((one) => one.job === bug.job) : undefined;
+    const fix = job === undefined ? null : openedFix(job);
+    if (job !== undefined && fix !== null) view.landings.set(job.job, await land(at, fix, null));
+  }
+  return view.landings.size === 0 ? first : outsideStates(bugs, view);
+}
+
+/** A bug-fix job of an outside bug queued under `…:bug:<issue>:run:<k>`, its line given: its id, or null when the key was held. */
+export type OutsideSend = (job: { issue: Outside['issue']; k: number; line: string }) => Promise<string | null>;
+
+/** The one bug-fix job this run sends (one at a time, in the order named), and what the room is told of it. */
+export async function sendOutsideBugs(states: readonly Outside[], send: OutsideSend): Promise<NewEvent[]> {
+  const events: NewEvent[] = [];
+  for (const bug of outsidePicks(states)) {
+    const job = await send({ issue: bug.issue, k: bug.k, line: bug.line });
+    if (job !== null) events.push(takenEvent(bug, job));
+  }
+  return events;
 }
