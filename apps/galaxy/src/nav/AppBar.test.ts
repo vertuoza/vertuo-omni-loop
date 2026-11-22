@@ -10,7 +10,7 @@ import { item } from '../ask/test/test-item';
 
 // The app's top bar (PRD 438) as the server renders it: the section's sprite in its tile and the trail
 // to the page (issue 704) on the left, then the theme switch (Omni, Light, Dark) and Game mode,
-// unchanged, then, signed in, the bell (PRD 499), then you: the avatar signed in, Sign in with GitHub
+// unchanged, then, signed in, the phone's Inbox button (omni-loop-22 s7), then you: the avatar signed in, Sign in with GitHub
 // signed out.
 
 const at = { path: '/app/inbox/done' as string | null };
@@ -28,6 +28,9 @@ vi.mock('next/link', async () => {
     },
   };
 });
+
+const waiting = vi.hoisted(() => ({ total: 0 }));
+vi.mock('../waiting/WaitingProvider', () => ({ useWaiting: () => ({ counts: { total: waiting.total } }) }));
 
 const { AppBar } = await import('./AppBar.tsx');
 
@@ -83,13 +86,33 @@ describe('the top bar', () => {
     expect(trail).toContain('<span aria-current="page">PRD</span>');
   });
 
-  it('holds, signed in, the bell between Game mode and the avatar, with the theme switch and Game mode', () => {
+  it('AC-9: holds no bell, and, below 900 px, an Inbox button with the count 3 linking to /app/inbox', () => {
+    waiting.total = 3;
     const bar = render('/app', ADA);
-    const bell = bar.indexOf('class="bell-button"');
-    expect(bell).toBeGreaterThan(bar.indexOf('>Game mode'));
-    expect(bell).toBeLessThan(bar.indexOf('aria-haspopup="menu"'));
+    expect(bar).not.toContain('class="bell');
     const view = bar.slice(bar.indexOf('<span class="app-bar-view">'), bar.indexOf('<span class="app-bar-you">'));
-    expect(view).toContain('aria-label="Nothing waiting for you"');
+    expect(view.indexOf('class="app-bar-inbox"')).toBeGreaterThan(view.indexOf('>Game mode'));
+    const button = view.match(/<a\b[^>]*class="app-bar-inbox"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? '';
+    expect(button).toContain('href="/app/inbox"');
+    expect(button).toContain('aria-label="Inbox: 3 waiting"');
+    expect(button).toContain(pixelSvg(spritePixels('menu-inbox'), { scale: 2, title: '' }));
+    expect(text(button)).toBe('3');
+    expect(button).toContain('class="app-bar-inbox-badge"');
+    waiting.total = 0;
+  });
+
+  it('AC-9: shows the button on a phone only, and the count in plasma, never red', () => {
+    const css = readFileSync(new URL('./app-bar.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/\.app-bar-inbox \{[^}]*display: none;[^}]*width: 36px;[^}]*height: 36px;/);
+    expect(css).toMatch(/@media \(max-width: 899\.98px\) \{\s*\.app-bar-inbox \{ display: inline-grid; \}/);
+    expect(css).toMatch(/\.app-bar-inbox-badge \{[^}]*var\(--ask-plasma\)/);
+    expect(css).not.toContain('--ask-red');
+  });
+
+  it('says only Inbox when nothing waits, and draws no count', () => {
+    const bar = render('/app', ADA);
+    expect(bar).toContain('aria-label="Inbox"');
+    expect(bar).not.toContain('app-bar-inbox-badge');
   });
 
   it('ends with the viewer\'s hero as the avatar button when they have one (PRD 652)', () => {
@@ -99,8 +122,8 @@ describe('the top bar', () => {
     expect(controls(bar).at(-1)).toBe('');
   });
 
-  it('holds no bell signed out', () => {
-    expect(render('/app')).not.toContain('class="bell');
+  it('holds no Inbox button signed out', () => {
+    expect(render('/app')).not.toContain('app-bar-inbox');
   });
 
   it('opens, for a phone, with ☰ ("Menu"), closed, which opens the sidebar, then the tile, then the trail', () => {
@@ -184,13 +207,13 @@ describe('the top bar', () => {
     expect(dialog).toMatch(/<a [^>]*href="\/#menu"[^>]*>Switch<\/a>/);
   });
 
-  it('links back up the trail through next/link: a click keeps the layout (PRD 657)', () => {
+  it('links back up the trail through next/link: a click keeps the layout (PRD 657; the last link is the Inbox button)', () => {
     linked.length = 0;
     render('/prd/3f2a', ADA);
-    expect(linked.filter((h) => h !== '/anti')).toEqual(['/prd']);
+    expect(linked.filter((h) => h !== '/anti')).toEqual(['/prd', '/app/inbox']);
     linked.length = 0;
     render('/app/inbox/done', ADA);
-    expect(linked.filter((h) => h !== '/anti')).toEqual(['/app/inbox']);
+    expect(linked.filter((h) => h !== '/anti')).toEqual(['/app/inbox', '/app/inbox']);
   });
 
   it('offers no System theme', () => {

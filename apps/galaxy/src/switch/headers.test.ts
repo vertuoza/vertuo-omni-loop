@@ -100,16 +100,15 @@ describe('every app page', () => {
     const crumbs = part(bar, '<nav class="app-bar-trail"', '</nav>');
     expect(text(crumbs)).toBe(trail);
     // The user menu's own items left out: it is closed until the avatar opens it.
-    // The bell's panel left out too (PRD 499): it is closed until the bell opens it.
-    const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').replace(/<div [^>]*class="bell-panel"[\s\S]*?<\/div>(?=<\/div><\/span><span class="app-bar-you">)/, '');
+    const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '');
     // ☰ opens the bar for a phone only (PRD 438 s3): the stylesheet hides it from 900px. The trail's
     // links, back up to the page's section, follow it (issue 704).
     const up = controls(crumbs);
     expect(controls(shown).slice(0, 1 + up.length)).toEqual(['☰', ...up]);
-    // Signed in, the bell (PRD 499) sits after Game mode, before you.
+    // Signed in, the phone's Inbox button (omni-loop-22 s7) sits after Game mode, before you; its count is its badge.
     const count: unknown = expect.stringMatching(/^\d*$/);
-    const bell = /class="bell-button"/.test(shown) ? [count] : [];
-    expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, 'Anti-loop', ...bell]);
+    const inbox = /class="app-bar-inbox"/.test(shown) ? [count] : [];
+    expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, 'Anti-loop', ...inbox]);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);
