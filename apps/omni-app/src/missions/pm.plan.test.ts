@@ -48,6 +48,13 @@ describe('the replan', () => {
     expect(withPlans(stopped, at({ repairs: { ...spent, rows: spent.rows.slice(1) } })).send).toEqual([]);
   });
 
+  it('is sent when the budget refused its latest repair, never for a PRD a repair stopped for a person', () => {
+    const repaired = { prd: p(1), k: 4, job: 'r4', failedJob: 'b4', attempts: [attempt('r4', 'done')] };
+    const refused = { ...NO_REPAIRS, budget: 9, jobs: [repaired], refused: new Map([['r4', { spent: 'cause' as const, fingerprint: 'f'.repeat(64), retro: null }]]) };
+    expect(withPlans(stopped, at({ repairs: refused })).send).toEqual([{ prd: p(1), kind: 'replan' }]);
+    expect(withPlans(stopped, at({ repairs: { ...spent, jobs: [repaired] } })).send).toEqual([]);
+  });
+
   it('asks its committee under the PRD\'s next round, counting only the committees sent after it ended', () => {
     const before: Committee = { prd: p(1), round: 2, job: 'c2', attempt: attempt('c2', 'done'), decision: { outcome: 'carried', why: [] } };
     const recorded: RecordedEvent[] = [

@@ -21,7 +21,7 @@ import { planJobLine, planOfLine, type PlanKind } from 'omni-loop/kit/lib/virtua
 import type { Committee } from './committee.ts';
 import { PM_ROUND, pmWorking, type PmJob } from './pm.ts';
 import { leftOf, type RepairView } from './repair.ts';
-import type { NewEvent, PrdFacts, PrdState, RecordedEvent, Run } from './supervisor.ts';
+import { after, type NewEvent, type PrdFacts, type PrdState, type RecordedEvent, type Run } from './supervisor.ts';
 
 /** A plan job the mission sent its PM: a PM job whose line plans a PRD of its scope. */
 export type PlanJob = PmJob & { prd: PrdNumber; kind: PlanKind };
@@ -63,11 +63,21 @@ type Planned = { states: Map<PrdNumber, PrdState>; send: PlanSend[]; retro: bool
 /** What the overlay makes of one PRD: its state, and a plan job to send or the retro; null to keep the state as it was. */
 type Over = { state: PrdState; send?: PlanKind; retro?: boolean } | null;
 
-/** Whether PRD `prd`'s repairs are spent (BR-PRODUCT-139): its cause's repair refused by the budget, or the mission's all spent. */
-function repairsSpent(repairs: RepairView, prd: PrdNumber): boolean {
-  if (repairs.budget === 0) return false;
-  return leftOf(repairs) === 0 || repairs.jobs.some((job) => job.prd === prd && repairs.refused.has(job.job));
+/**
+ * Whether a stopped PRD stopped because its repairs are spent (BR-PRODUCT-139): its latest job's failure (`failed`) got no repair as
+ * the mission had none left, or its latest repair was refused by the budget (its cause's 3, or the mission's 9). A PRD a repair stopped
+ * for a person, an Omni Loop bug or a fix that cannot land is not: a new plan would not help it.
+ */
+function repairsSpent(repairs: RepairView, prd: PrdNumber, failed: string | undefined): boolean {
+  if (repairs.budget === 0 || failed === undefined) return false;
+  const mine = repairs.jobs.filter((job) => job.prd === prd && job.failedJob === failed);
+  const last = mine.reduce<(typeof mine)[number] | undefined>((latest, job) => (latest === undefined || job.k > latest.k ? job : latest), undefined);
+  return last === undefined ? leftOf(repairs) === 0 : repairs.refused.has(last.job);
 }
+
+/** The PRD's latest job: the last attempt of its latest run, by run and step; undefined when it has none. */
+const latestJobOf = (runs: readonly Run[], prd: PrdNumber): string | undefined =>
+  runs.filter((one) => one.prd === prd).reduce<Run | undefined>((latest, one) => (latest === undefined || after(one, latest) ? one : latest), undefined)?.attempts.at(-1)?.id;
 
 /** The latest of `plans` of PRD `prd` and kind `kind`, by round; undefined when none. */
 const latestPlan = (plans: readonly PlanJob[], prd: PrdNumber, kind: PlanKind): PlanJob | undefined =>
@@ -125,7 +135,7 @@ function replanned(fact: PrdFacts, state: PrdState, at: PlanAt, committees: read
   if (state.state !== 'stopped') return null;
   const replan = latestPlan(at.plans, fact.prd, 'replan');
   if (replan !== undefined) return afterReplan(fact, replan, at, committees);
-  if (!repairsSpent(at.repairs, fact.prd)) return null;
+  if (!repairsSpent(at.repairs, fact.prd, latestJobOf(at.runs, fact.prd))) return null;
   return { state: { state: 'deciding', round: Math.max(1, roundOf(committees)) }, send: 'replan' };
 }
 
