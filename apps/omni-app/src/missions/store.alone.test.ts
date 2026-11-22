@@ -131,9 +131,9 @@ describe('missionStore at alone, for a product roadmap (PRD omni-loop-21 s3)', (
 
   it('reads every decision of the mission, an approval\'s and an item\'s, carried, deferred or escalated', async () => {
     const db = recordingFetch([[
-      { kind: 'approve', prd: 2896, item: null, job_id: 'job-5', outcome: 'carried', why: [], option: null, decided_at: '2027-01-29T09:00:00Z' },
-      { kind: 'answer', prd: 2896, item: '2896-s1-01', job_id: 'job-6', outcome: 'carried', why: ['on the escalation list: it bears on the business law BL-ASK-1: a person decides'], option: null, decided_at: '2027-01-29T09:01:00Z' },
-      { kind: 'answer', prd: 2896, item: '2896-s1-02', job_id: 'job-7', outcome: 'deferred', why: ['the Architect answered no: Too wide.'], option: 'A', decided_at: '2027-01-29T09:02:00Z' },
+      { kind: 'approve', prd_id: '2896', item: null, job_id: 'job-5', outcome: 'carried', why: [], option: null, decided_at: '2027-01-29T09:00:00Z' },
+      { kind: 'answer', prd_id: '2896', item: '2896-s1-01', job_id: 'job-6', outcome: 'carried', why: ['on the escalation list: it bears on the business law BL-ASK-1: a person decides'], option: null, decided_at: '2027-01-29T09:01:00Z' },
+      { kind: 'answer', prd_id: '2896', item: '2896-s1-02', job_id: 'job-7', outcome: 'deferred', why: ['the Architect answered no: Too wide.'], option: 'A', decided_at: '2027-01-29T09:02:00Z' },
     ]]);
     const read = await storeOn(db.fetch).decisions(ID);
     expect(read.map((one) => [one.kind, one.item, one.outcome, one.option])).toEqual([['approve', null, 'carried', null], ['answer', '2896-s1-01', 'carried', null], ['answer', '2896-s1-02', 'deferred', 'A']]);

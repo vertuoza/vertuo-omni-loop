@@ -204,6 +204,11 @@ jobs:
         # a PM's job take a resume key, each once, read as their step; an item's decision is recorded once by the service role,
         # carried, deferred with its option or escalated, and escalated off `alone` (PRD omni-loop-21 s3).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mission_alone.sql
+      - name: A mission stores a product PRD
+        # Events, decisions and repairs name a PRD by its number or a product PRD's id, never both, and read it as text, the
+        # rows before as their number; a run's step, a committee's and a repair's key take a product PRD's id, a product PRD's
+        # repair claimed first; an item's decision on a product PRD is recorded once by the service role (PRD omni-loop-21 s3b).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/mission_product_prd.sql
       - name: Who may read and write the outbox sends
         # A send is made only by a member of its dossier's workspace, as themselves, and read only by
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is

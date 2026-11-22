@@ -91,7 +91,7 @@ describe("missionStore — a mission's token budget (PRD 3040)", () => {
     expect(db.requests[2]?.body).toEqual({ p_workspace: 'ws-1', p_fleet: 'night-shift', p_at: '2027-01-26T09:00:00.000Z' });
     expect(db.requests[3]?.query.get('missions')).toBe(`cs.{${ID}}`);
     expect(db.requests[4]?.query.get('answer')).toBe('is.null');
-    expect(db.requests[5]?.query.get('prd')).toBe('is.null');
+    expect(db.requests[5]?.query.get('prd_id')).toBe('is.null');
   });
 
   it('reads no cap, no stop and nothing spent as such', async () => {
