@@ -13,6 +13,9 @@
 
 .inbox-open { display: grid; gap: var(--space-4); min-width: 0; }
 .inbox-chip-count { color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+/* The kind chips take their own width, each on one line, and scroll by themselves on a narrow screen. */
+.inbox-open > .omni-segmented { justify-self: start; max-width: 100%; overflow-x: auto; }
+.inbox-open > .omni-segmented .omni-segment { white-space: nowrap; }
 
 .inbox-split { display: flex; align-items: flex-start; gap: var(--space-5); min-width: 0; }
 .inbox-split > .inbox-list { flex: 0 1 480px; }

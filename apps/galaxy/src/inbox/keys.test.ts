@@ -26,6 +26,12 @@ describe('a key on the list', () => {
     for (const k of ['j', 'k', 'o', 'e', 'ArrowDown']) expect(listKey(key(k), true)).toBeNull();
   });
 
+  it('leaves the arrows to a focused control that moves with them, j and k still moving the list', () => {
+    expect(listKey(key('ArrowDown'), false, true)).toBeNull();
+    expect(listKey(key('ArrowUp'), false, true)).toBeNull();
+    expect(listKey(key('j'), false, true)).toEqual({ kind: 'move', by: 1 });
+  });
+
   it('leaves a key with a modifier, and every other key, to the page', () => {
     expect(listKey(key('j', { ctrlKey: true }), false)).toBeNull();
     expect(listKey(key('e', { metaKey: true }), false)).toBeNull();

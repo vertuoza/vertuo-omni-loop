@@ -8,7 +8,7 @@ import { useWaiting, type Waiting } from '../waiting/WaitingProvider';
 import { inboxOf, type Inbox, type InboxFilter, type InboxRow, type InboxSectionId } from './inbox';
 import { drawnSections, hrefOf, inputOf, nextOpen, problemsOf, rowWords, unreadCounted, type InboxParts } from './InboxScreen.model';
 import { ItemPanel, QuestionPanel } from './InboxScreen.panel';
-import { actionOf, isTyping, listKey, type KeyAction } from './keys';
+import { actionOf, isTyping, listKey, ownsArrows, type KeyAction } from './keys';
 
 // The Inbox's Open tab (PRD omni-loop-22, s5): the kind chips, then one list in sections, each shown
 // only when it has an item or a part it reads failed, oldest first inside each (src/inbox/inbox.ts),
@@ -169,7 +169,7 @@ export function InboxOpen({ source, me, filter }: { source: QuestionSource; me: 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      const action = actionOf(listKey(event, isTyping(target)), inbox.rows, focus, open);
+      const action = actionOf(listKey(event, isTyping(target), ownsArrows(target)), inbox.rows, focus, open);
       if (!action) return;
       event.preventDefault();
       act(action);

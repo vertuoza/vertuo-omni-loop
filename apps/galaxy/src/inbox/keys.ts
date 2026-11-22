@@ -21,12 +21,19 @@ export const isTyping = (el: Element | null): boolean =>
   !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && ['text', 'search', 'email', 'url'].includes(String(propertyOf(el, 'type')))) || propertyOf(el, 'isContentEditable') === true);
 
 const MOVES: Readonly<Record<string, 1 | -1>> = { j: 1, ArrowDown: 1, k: -1, ArrowUp: -1 };
+const ARROWS = new Set(['ArrowDown', 'ArrowUp']);
+
+/** Whether the focused element moves with the arrow keys itself (an option, the kind chips, a select):
+ * the list leaves them their arrows, as a page-wide key never takes over a focused control (P-PRODUCT-42). */
+export const ownsArrows = (el: Element | null): boolean =>
+  !!el && (['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) || el.closest('[role="group"], [role="radiogroup"], [role="tablist"], [role="listbox"], [role="menu"]') !== null);
 
 /** What a key press means on the list; null leaves it to the page and the answer form. */
-export function listKey(press: Press, typing: boolean): ListIntent {
+export function listKey(press: Press, typing: boolean, arrowsOwned = false): ListIntent {
   if (press.isComposing) return null;
   if (press.key === 'Enter') return (press.metaKey || press.ctrlKey) && !press.shiftKey && !press.altKey ? { kind: 'send' } : null;
   if (typing || press.metaKey || press.ctrlKey || press.altKey) return null;
+  if (arrowsOwned && ARROWS.has(press.key)) return null;
   const by = MOVES[press.key];
   if (by !== undefined) return { kind: 'move', by };
   if (press.key === 'o') return { kind: 'page' };

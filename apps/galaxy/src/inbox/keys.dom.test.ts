@@ -69,6 +69,20 @@ describe('e on the list', () => {
     expect(document.querySelector(`[data-key="question:${ROUND_ID}"]`)).not.toBeNull();
   });
 
+  it('leaves the down arrow to a focused option, as a page-wide key never takes over a focused control', async () => {
+    await inbox([question(ROUND_ID, 2), question('next', 1)]);
+    const [first] = screen.getAllByRole('radio');
+    if (!first) throw new Error('no option');
+    first.focus();
+    const down = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+    await act(async () => {
+      first.dispatchEvent(down);
+      await Promise.resolve();
+    });
+    expect(down.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(first);
+  });
+
   it('is off while a text field has the focus', async () => {
     await inbox([question(ROUND_ID, 2)]);
     const other = screen.getAllByRole('textbox')[0];
