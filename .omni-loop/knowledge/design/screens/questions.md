@@ -24,6 +24,9 @@ the workspace, the decisions agents took alone (PRD 2011).
   stored outbox's last read, and its question links to its PRD page's Outbox tab, where it is answered.
 - The one primary action: Answer.
 
+- omni-loop-22: superseded by the inbox screen. /ask, /ask/for-me, /ask/outbox and /ask/history redirect to
+  the Inbox; History becomes its Done tab.
+
 ## States
 
 - Outbox empty: no open decision in the workspace.
@@ -47,3 +50,4 @@ the workspace, the decisions agents took alone (PRD 2011).
 
 /omni:brainstorm, PRD 2011: .omni-loop/delivery/shipped/2011-product-records/before-after.html
 /omni:brainstorm, PRD 2124: .omni-loop/delivery/shipped/2124-outbox-all-prds/before-after.html (repository PRDs' rows)
+/omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after)

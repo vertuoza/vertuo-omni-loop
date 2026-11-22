@@ -5,7 +5,7 @@ kind: shared
 mock: notifications.html
 implements: [apps/galaxy/src/nav/Bell.tsx, apps/galaxy/src/nav/bell.ts, apps/galaxy/src/nav/bell.css, apps/galaxy/src/waiting/alerts.ts]
 reads: [apps/galaxy/src/waiting/, apps/galaxy/src/people/PersonChip.tsx, apps/galaxy/src/nav/AppBar.tsx]
-routes: [/app, /app/waiting, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
+routes: [/app, /app/inbox, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual]
 supersedes: null
 ---
 
@@ -33,6 +33,9 @@ It has no route of its own: it appears on each page the app shell wraps.
   - **Business:** `Business · <n> to check`, `Proposed, disputed or fading claims`. Never counted.
 - **The foot:** the Desktop alerts and Chime switches; Desktop alerts says `Blocked by the browser`
   when the browser refuses it (`waiting/alerts.ts`).
+
+- omni-loop-22: the bell retires from 900 px up. Its Desktop alerts and Chime switches move to the Inbox
+  header's Alerts popover; its groups are the Inbox's sections. Below 900 px its slot is the Inbox button.
 
 ## States
 
@@ -76,3 +79,4 @@ browser.
 - apps/galaxy/src/waiting/alerts.ts
 - PRD 1584 s4, 2026-10-11 (drawn by `/omni:pixel-perfect mock`, from the source)
 - /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html (the Reviews group)
+/omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after)
