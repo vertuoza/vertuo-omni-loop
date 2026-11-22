@@ -774,7 +774,7 @@ function supabaseGithubStore(db) {
 }
 
 // apps/omni-app/src/jobs/sweep.ts
-import { z as z125 } from "zod";
+import { z as z126 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -26021,19 +26021,33 @@ function missionAnswers({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z113 } from "zod";
+import { z as z114 } from "zod";
+
+// apps/omni-app/src/missions/store.prd.ts
+import { z as z112 } from "zod";
+var PrdIdSchema = z112.union([
+  ProductPrdIdSchema,
+  z112.string().regex(/^[1-9]\d{0,9}$/).transform(Number).pipe(PrdNumberSchema)
+]);
+function prdColumns(prd) {
+  if (prd === null) return { prd: null, product_prd: null };
+  return isProductPrdId(prd) ? { prd: null, product_prd: prd } : { prd, product_prd: null };
+}
+function numberedOf(prd) {
+  return prd !== null && isProductPrdId(prd) ? { prd: null, product: prd } : { prd };
+}
 
 // kit/lib/qa/verdict.ts
-import { z as z112 } from "zod";
+import { z as z113 } from "zod";
 var MAX_BUGS = 5;
-var QaRoundSchema = z112.union([z112.literal(1), z112.literal(2)]);
-var QaBugSchema = z112.strictObject({ issue: IssueNumberSchema });
-var QaVerdictSchema = z112.discriminatedUnion("verdict", [
-  z112.strictObject({ round: QaRoundSchema, verdict: z112.literal("pass") }),
-  z112.strictObject({
+var QaRoundSchema = z113.union([z113.literal(1), z113.literal(2)]);
+var QaBugSchema = z113.strictObject({ issue: IssueNumberSchema });
+var QaVerdictSchema = z113.discriminatedUnion("verdict", [
+  z113.strictObject({ round: QaRoundSchema, verdict: z113.literal("pass") }),
+  z113.strictObject({
     round: QaRoundSchema,
-    verdict: z112.literal("bugs"),
-    bugs: z112.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
+    verdict: z113.literal("bugs"),
+    bugs: z113.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
   })
 ]);
 var POSTED_PREFIX = "omni qa: posted ";
@@ -26072,20 +26086,20 @@ var ROADMAP_PRD = "roadmap_id, position, row_id, prd, blockers";
 var STAGE2 = "prd, stage";
 var DOSSIER = "id, prd";
 var APPROVAL2 = "id, dossier_id, mission_id, approved_at";
-var OVERTURN2 = "prd, at";
-var FLEET_EVENT = "kind, prd, sentence, link, actor";
+var OVERTURN2 = "prd_id, at";
+var FLEET_EVENT = "kind, prd_id, sentence, link, actor";
 var VOID3 = "approval_id";
 var PLAN = "content";
 var JOB2 = "id, mission_key, resumes, status, outcome, reason, pr_url, limited_until, parts";
 var JOB_LOG = "id, log_tail";
 var CARE = "id";
-var EVENT = "kind, prd, job_id";
+var EVENT = "kind, prd_id, job_id";
 var DECISION = "job_id, outcome, why";
 var RUNNER = "repos";
 var ROOM_RUNNER = "id, repos, slots, last_seen_at, health";
 var ROOM_JOB = "runner_id";
 var PRODUCT = "plan_repository";
-var REPAIR = "id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger";
+var REPAIR = "id, prd_id, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger";
 var RETRO = "id, milestone, job_id, skipped, file";
 var BUG_REPORT = "repo, issue, state, fixed_in";
 var TEAM_BUG = "fingerprint, issue, count, created_at, state, attempts, fix_pr, fixed_in, asked_job";
@@ -26100,138 +26114,138 @@ var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at,
 var PAUSE_EVENT = "kind, actor, at";
 var FLEET_MISSION = "id";
 var BRANCH2 = "repo, branch, cut_at";
-var FLEET_DECISION = "kind, prd, item, job_id, outcome, why, option, decided_at";
-var text19 = z113.string().min(1);
-var MissionRowSchema = z113.object({
+var FLEET_DECISION = "kind, prd_id, item, job_id, outcome, why, option, decided_at";
+var text19 = z114.string().min(1);
+var MissionRowSchema = z114.object({
   id: text19,
   workspace_id: text19,
   repo: text19,
   fleet: text19,
   number: IssueNumberSchema,
   title: text19,
-  status: z113.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z113.string().nullable(),
-  mandate: z113.object({
-    parallel: z113.number().int().min(1).max(4),
-    level: z113.enum(MISSION_LEVELS).default("with-you"),
-    hardToRevert: z113.number().min(0).max(1).default(DEFAULT_BOUND),
-    ownPrds: z113.number().int().min(0).max(10).default(0),
-    resumes: z113.number().int().min(0).max(RESUMES_MAX).default(DEFAULT_RESUMES),
-    tokens: z113.number().int().min(1).nullable().default(null)
+  status: z114.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z114.string().nullable(),
+  mandate: z114.object({
+    parallel: z114.number().int().min(1).max(4),
+    level: z114.enum(MISSION_LEVELS).default("with-you"),
+    hardToRevert: z114.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z114.number().int().min(0).max(10).default(0),
+    resumes: z114.number().int().min(0).max(RESUMES_MAX).default(DEFAULT_RESUMES),
+    tokens: z114.number().int().min(1).nullable().default(null)
   }),
   /** PRD omni-loop-21: a product's ids beside the repository's numbers. */
-  scope: z113.object({ prds: z113.array(z113.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z113.array(z113.union([IssueNumberSchema, ProductRoadmapIdSchema])) }),
+  scope: z114.object({ prds: z114.array(z114.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z114.array(z114.union([IssueNumberSchema, ProductRoadmapIdSchema])) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
-  paused_by: z113.enum(["stuck"]).nullable().default(null),
+  paused_by: z114.enum(["stuck"]).nullable().default(null),
   /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
-  kind: z113.enum(["prds", "omni-bugs"]).default("prds")
+  kind: z114.enum(["prds", "omni-bugs"]).default("prds")
 });
-var WorkspaceRowSchema2 = z113.object({ github_installation_id: z113.number().int().positive().nullable() });
-var RoadmapRowSchema = z113.object({ id: text19, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z113.object({ roadmap_id: text19, position: z113.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z113.array(z113.string()) });
-var StageRowSchema = z113.object({ prd: PrdNumberSchema, stage: text19 });
-var DossierRowSchema5 = z113.object({ id: text19, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z113.object({ id: text19, dossier_id: text19, mission_id: z113.string().nullable(), approved_at: text19 });
-var FleetEventRowSchema = z113.object({ kind: text19, prd: PrdNumberSchema.nullable(), sentence: text19, link: z113.string().nullable(), actor: z113.string().nullable() });
-var OverturnRowSchema = z113.object({ prd: PrdNumberSchema.nullable(), at: text19 });
-var VoidRowSchema2 = z113.object({ approval_id: text19 });
-var PlanRowSchema = z113.object({ content: z113.string() });
-var JobRowSchema2 = z113.object({
+var WorkspaceRowSchema2 = z114.object({ github_installation_id: z114.number().int().positive().nullable() });
+var RoadmapRowSchema = z114.object({ id: text19, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z114.object({ roadmap_id: text19, position: z114.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z114.array(z114.string()) });
+var StageRowSchema = z114.object({ prd: PrdNumberSchema, stage: text19 });
+var DossierRowSchema5 = z114.object({ id: text19, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z114.object({ id: text19, dossier_id: text19, mission_id: z114.string().nullable(), approved_at: text19 });
+var FleetEventRowSchema = z114.object({ kind: text19, prd_id: PrdIdSchema.nullable(), sentence: text19, link: z114.string().nullable(), actor: z114.string().nullable() });
+var OverturnRowSchema = z114.object({ prd_id: PrdIdSchema.nullable(), at: text19 });
+var VoidRowSchema2 = z114.object({ approval_id: text19 });
+var PlanRowSchema = z114.object({ content: z114.string() });
+var JobRowSchema2 = z114.object({
   id: text19,
-  mission_key: z113.string().nullable(),
-  resumes: z113.string().nullable(),
-  status: z113.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z113.string().nullable(),
-  reason: z113.string().nullable(),
-  pr_url: z113.string().nullable(),
-  limited_until: z113.string().nullable().default(null),
+  mission_key: z114.string().nullable(),
+  resumes: z114.string().nullable(),
+  status: z114.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z114.string().nullable(),
+  reason: z114.string().nullable(),
+  pr_url: z114.string().nullable(),
+  limited_until: z114.string().nullable().default(null),
   /** The job's parts, read only for whether the runner guessed the reset (PRD 2949). */
-  parts: z113.array(z113.looseObject({ guessed: z113.boolean().optional() })).nullable().default(null)
+  parts: z114.array(z114.looseObject({ guessed: z114.boolean().optional() })).nullable().default(null)
 });
-var JobLogRowSchema = z113.object({ id: text19, log_tail: z113.string() });
+var JobLogRowSchema = z114.object({ id: text19, log_tail: z114.string() });
 var ASK2 = `${JOB2}, line`;
-var AskRowSchema = JobRowSchema2.extend({ line: z113.string() });
-var CareRowSchema = z113.object({ id: text19 });
-var EventRowSchema = z113.object({ kind: text19, prd: PrdNumberSchema.nullable(), job_id: z113.string().nullable() });
-var DecisionRowSchema = z113.object({ job_id: text19, outcome: z113.enum(["carried", "escalated"]), why: z113.array(z113.string()) });
-var DecidedSchema = z113.object({ outcome: z113.enum(["carried", "escalated"]), why: z113.array(z113.string()) });
-var RunnerRowSchema = z113.object({ repos: z113.array(z113.string()) });
-var RoomRunnerRowSchema = z113.object({
+var AskRowSchema = JobRowSchema2.extend({ line: z114.string() });
+var CareRowSchema = z114.object({ id: text19 });
+var EventRowSchema = z114.object({ kind: text19, prd_id: PrdIdSchema.nullable(), job_id: z114.string().nullable() });
+var DecisionRowSchema = z114.object({ job_id: text19, outcome: z114.enum(["carried", "escalated"]), why: z114.array(z114.string()) });
+var DecidedSchema = z114.object({ outcome: z114.enum(["carried", "escalated"]), why: z114.array(z114.string()) });
+var RunnerRowSchema = z114.object({ repos: z114.array(z114.string()) });
+var RoomRunnerRowSchema = z114.object({
   id: text19,
-  repos: z113.array(z113.string()),
-  slots: z113.number().int(),
+  repos: z114.array(z114.string()),
+  slots: z114.number().int(),
   last_seen_at: text19,
-  health: z113.looseObject({ at: text19, paused: z113.string().nullable().optional(), accounts: z113.array(z113.looseObject({ state: z113.string(), resetsAt: z113.string().optional() })).optional() }).nullable()
+  health: z114.looseObject({ at: text19, paused: z114.string().nullable().optional(), accounts: z114.array(z114.looseObject({ state: z114.string(), resetsAt: z114.string().optional() })).optional() }).nullable()
 });
-var RoomJobRowSchema = z113.object({ runner_id: z113.string().nullable() });
+var RoomJobRowSchema = z114.object({ runner_id: z114.string().nullable() });
 var CHAIN_MAX = 9;
-var ProductRowSchema3 = z113.object({ plan_repository: z113.string().nullable() });
-var RepairRowSchema = z113.object({
+var ProductRowSchema3 = z114.object({ plan_repository: z114.string().nullable() });
+var RepairRowSchema = z114.object({
   id: text19,
-  /** None only for a stuck repair whose cause is the mission's own (PRD 3065). */
-  prd: PrdNumberSchema.nullable(),
-  trigger: z113.enum(["failure", "stuck"]).default("failure"),
-  fingerprint: z113.string().regex(/^[0-9a-f]{64}$/),
-  round: z113.number().int().min(1),
-  number: z113.number().int().min(1).max(3),
+  /** None only for a stuck repair whose cause is the mission's own (PRD 3065); a product PRD's id (PRD omni-loop-21 s3b). */
+  prd_id: PrdIdSchema.nullable(),
+  trigger: z114.enum(["failure", "stuck"]).default("failure"),
+  fingerprint: z114.string().regex(/^[0-9a-f]{64}$/),
+  round: z114.number().int().min(1),
+  number: z114.number().int().min(1).max(3),
   failed_job_id: text19,
-  job_id: z113.string().nullable(),
+  job_id: z114.string().nullable(),
   /** A retro that no longer reads as one is read as none: the repair counts, its words are not shown. */
   retro: RepairRetroSchema.nullable().catch(null),
-  fix_pr: z113.string().nullable(),
-  outcome: z113.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
+  fix_pr: z114.string().nullable(),
+  outcome: z114.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
 });
-var BugReportRowSchema = z113.object({ repo: text19, issue: IssueNumberSchema, state: z113.enum(BUG_STATES2).default("open"), fixed_in: z113.string().nullable().default(null) });
-var TeamBugRowSchema = z113.object({
-  fingerprint: z113.string().regex(/^[0-9a-f]{64}$/),
+var BugReportRowSchema = z114.object({ repo: text19, issue: IssueNumberSchema, state: z114.enum(BUG_STATES2).default("open"), fixed_in: z114.string().nullable().default(null) });
+var TeamBugRowSchema = z114.object({
+  fingerprint: z114.string().regex(/^[0-9a-f]{64}$/),
   issue: IssueNumberSchema,
-  count: z113.number().int().min(1),
+  count: z114.number().int().min(1),
   created_at: text19,
-  state: z113.enum(BUG_STATES2),
-  attempts: z113.number().int().min(0).max(BUG_TRIES),
+  state: z114.enum(BUG_STATES2),
+  attempts: z114.number().int().min(0).max(BUG_TRIES),
   fix_pr: PrNumberSchema.nullable(),
-  fixed_in: z113.string().nullable(),
-  asked_job: z113.string().nullable()
+  fixed_in: z114.string().nullable(),
+  asked_job: z114.string().nullable()
 });
 var TEAM_STATES = ["open", "fixing", "asked"];
-var MovedBugRowSchema = z113.object({ fingerprint: z113.string().regex(/^[0-9a-f]{64}$/) });
-var HolderRepairRowSchema = z113.object({ mission_id: text19, job_id: text19, fingerprint: z113.string().regex(/^[0-9a-f]{64}$/) });
-var ToldRowSchema = z113.object({ job_id: z113.string().nullable() });
-var HolderMissionRowSchema = z113.object({ id: text19, repo: text19 });
+var MovedBugRowSchema = z114.object({ fingerprint: z114.string().regex(/^[0-9a-f]{64}$/) });
+var HolderRepairRowSchema = z114.object({ mission_id: text19, job_id: text19, fingerprint: z114.string().regex(/^[0-9a-f]{64}$/) });
+var ToldRowSchema = z114.object({ job_id: z114.string().nullable() });
+var HolderMissionRowSchema = z114.object({ id: text19, repo: text19 });
 var MOVED_STATES = ["fixed", "wont-fix"];
 var HELD_STATUSES = ["paused", "stopped"];
-var RetroRowSchema = z113.object({ id: text19, milestone: text19, job_id: z113.string().nullable(), skipped: z113.string().nullable(), file: z113.string().nullable() });
-var RepositoryRowSchema2 = z113.object({ full_name: text19 });
-var ActorRowSchema = z113.object({ actor: z113.string().nullable() });
-var FleetCapRowSchema = z113.object({ daily_tokens: z113.number().int().positive().nullable() });
-var StopRowSchema = z113.object({
+var RetroRowSchema = z114.object({ id: text19, milestone: text19, job_id: z114.string().nullable(), skipped: z114.string().nullable(), file: z114.string().nullable() });
+var RepositoryRowSchema2 = z114.object({ full_name: text19 });
+var ActorRowSchema = z114.object({ actor: z114.string().nullable() });
+var FleetCapRowSchema = z114.object({ daily_tokens: z114.number().int().positive().nullable() });
+var StopRowSchema = z114.object({
   id: text19,
-  cap: z113.enum(["mission", "fleet"]),
-  cap_tokens: z113.number().int().positive(),
-  spent: z113.number().int().min(0),
-  missions: z113.array(text19),
-  answer: z113.enum(["raised", "tomorrow", "stopped"]).nullable(),
-  raised_to: z113.number().int().positive().nullable(),
+  cap: z114.enum(["mission", "fleet"]),
+  cap_tokens: z114.number().int().positive(),
+  spent: z114.number().int().min(0),
+  missions: z114.array(text19),
+  answer: z114.enum(["raised", "tomorrow", "stopped"]).nullable(),
+  raised_to: z114.number().int().positive().nullable(),
   created_at: text19,
-  answered_at: z113.string().nullable()
+  answered_at: z114.string().nullable()
 });
-var PauseEventRowSchema = z113.object({ kind: z113.enum(["paused", "resumed"]), actor: z113.string().nullable(), at: text19 });
-var FleetMissionRowSchema = z113.object({ id: text19 });
-var BranchRowSchema = z113.object({ repo: text19, branch: text19, cut_at: text19 });
-var ItemOutcomeSchema = z113.enum(["carried", "deferred", "escalated"]);
-var FleetDecisionRowSchema = z113.object({
-  kind: z113.enum(["approve", "answer"]),
-  prd: PrdNumberSchema,
-  item: z113.string().nullable(),
+var PauseEventRowSchema = z114.object({ kind: z114.enum(["paused", "resumed"]), actor: z114.string().nullable(), at: text19 });
+var FleetMissionRowSchema = z114.object({ id: text19 });
+var BranchRowSchema = z114.object({ repo: text19, branch: text19, cut_at: text19 });
+var ItemOutcomeSchema = z114.enum(["carried", "deferred", "escalated"]);
+var FleetDecisionRowSchema = z114.object({
+  kind: z114.enum(["approve", "answer"]),
+  prd_id: PrdIdSchema,
+  item: z114.string().nullable(),
   job_id: text19,
   outcome: ItemOutcomeSchema,
-  why: z113.array(z113.string()),
-  option: z113.enum(ITEM_OPTIONS).nullable(),
+  why: z114.array(z114.string()),
+  option: z114.enum(ITEM_OPTIONS).nullable(),
   decided_at: text19
 });
-var ItemDecidedSchema = z113.object({ outcome: ItemOutcomeSchema, why: z113.array(z113.string()), option: z113.enum(ITEM_OPTIONS).nullable() });
-var CountSchema = z113.coerce.number().int().min(0);
-var FleetTokensRowSchema = z113.object({ tokens: CountSchema, oldest_end: z113.string().nullable() });
+var ItemDecidedSchema = z114.object({ outcome: ItemOutcomeSchema, why: z114.array(z114.string()), option: z114.enum(ITEM_OPTIONS).nullable() });
+var CountSchema = z114.coerce.number().int().min(0);
+var FleetTokensRowSchema = z114.object({ tokens: CountSchema, oldest_end: z114.string().nullable() });
 var stopOf2 = (row) => ({
   id: row.id,
   cap: row.cap,
@@ -26251,14 +26265,14 @@ var STOP_MISSIONS = 100;
 var PAUSES_READ = 50;
 function madeOf(answer, none) {
   if (answer.error?.code === TAKEN) return null;
-  const [made] = rowsOf(z113.object({ id: text19 }), answer);
+  const [made] = rowsOf(z114.object({ id: text19 }), answer);
   if (!made) throw new Error(`the database ${none} and gave no reason`);
   return made.id;
 }
 var OVER_BUDGET2 = "23514";
 var repairOf = (row) => ({
   id: row.id,
-  prd: row.prd,
+  ...numberedOf(row.prd_id),
   ...row.trigger === "stuck" ? { trigger: "stuck" } : {},
   fingerprint: row.fingerprint,
   round: row.round,
@@ -26307,8 +26321,8 @@ function missionStore(connection) {
   async function overturnedAmong(given, mission, pageOf) {
     const overturned = /* @__PURE__ */ new Set();
     if (given.length === 0) return overturned;
-    for (const event of rowsOf(OverturnRowSchema, await db.from("mission_events").select(OVERTURN2).eq("mission_id", mission).eq("kind", "overturned").not("prd", "is", null).order("at"))) {
-      const page = event.prd === null ? void 0 : pageOf.get(event.prd);
+    for (const event of rowsOf(OverturnRowSchema, await db.from("mission_events").select(OVERTURN2).eq("mission_id", mission).eq("kind", "overturned").not("prd_id", "is", null).order("at"))) {
+      const page = event.prd_id === null || isProductPrdId(event.prd_id) ? void 0 : pageOf.get(event.prd_id);
       const row = given.find((one) => one.dossier_id === page);
       if (row !== void 0 && Date.parse(event.at) > Date.parse(row.approved_at)) overturned.add(row.dossier_id);
     }
@@ -26448,7 +26462,7 @@ function missionStore(connection) {
     send: ({ mission, issue, k, toFleet }) => queue({ mission, toFleet, line: bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
     async move(bug, { state, attempts, fixPr, askedJob }) {
       const moved = rowsOf(
-        z113.object({ fingerprint: text19 }),
+        z114.object({ fingerprint: text19 }),
         await db.from("omni_bug_reports").update({ state, attempts, fix_pr: fixPr, asked_job: askedJob, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("fingerprint", bug.fingerprint).eq("state", bug.state).eq("attempts", bug.attempts).select("fingerprint")
       );
       return moved.length > 0;
@@ -26528,10 +26542,10 @@ function missionStore(connection) {
       return withPosted(runs);
     },
     async fleetEvents(id) {
-      return rowsOf(FleetEventRowSchema, await db.from("mission_events").select(FLEET_EVENT).eq("mission_id", id).in("kind", ["decided", "overturned"]).order("at")).map((row) => ({ kind: row.kind, prd: row.prd, sentence: row.sentence, link: row.link, actor: row.actor }));
+      return rowsOf(FleetEventRowSchema, await db.from("mission_events").select(FLEET_EVENT).eq("mission_id", id).in("kind", ["decided", "overturned"]).order("at")).map((row) => ({ kind: row.kind, ...numberedOf(row.prd_id), sentence: row.sentence, link: row.link, actor: row.actor }));
     },
     async events(id) {
-      return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id).order("at")).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
+      return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id).order("at")).map((row) => ({ kind: row.kind, ...numberedOf(row.prd_id), job: row.job_id }));
     },
     async fleetRunners(mission) {
       const runners = rowsOf(RunnerRowSchema, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
@@ -26622,14 +26636,14 @@ function missionStore(connection) {
     },
     repair: ({ mission, prd, k, failedJob, toFleet }) => queue({ mission, toFleet, line: repairSkillLine(mission.number, prd, failedJob), key: repairKey(mission.id, prd, k) }),
     async keepRepair(mission, { prd, fingerprint: fingerprint2, round, failedJob, job, retro: retro2, fixPr, trigger }) {
-      const answer = await db.from("mission_repairs").insert({ mission_id: mission.id, prd, fingerprint: fingerprint2, round, failed_job_id: failedJob, job_id: job, retro: retro2, fix_pr: fixPr, ...trigger === "stuck" ? { trigger } : {} }).select(REPAIR);
+      const answer = await db.from("mission_repairs").insert({ mission_id: mission.id, ...prdColumns(prd), fingerprint: fingerprint2, round, failed_job_id: failedJob, job_id: job, retro: retro2, fix_pr: fixPr, ...trigger === "stuck" ? { trigger } : {} }).select(REPAIR);
       if (answer.error?.code === OVER_BUDGET2) return { spent: answer.error.hint === "mission" ? "mission" : "cause" };
       const [kept3] = rowsOf(RepairRowSchema, answer);
       if (!kept3) throw new Error("the database kept no repair and gave no reason");
       return repairOf(kept3);
     },
     async endRepair(id, outcome3) {
-      rowsOf(z113.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
+      rowsOf(z114.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
     },
     async bugIssue(fingerprint2) {
       const [row] = rowsOf(BugReportRowSchema, await db.from("omni_bug_reports").select(BUG_REPORT).eq("fingerprint", fingerprint2).limit(1));
@@ -26650,17 +26664,17 @@ function missionStore(connection) {
         role: event.role,
         actor: "agent",
         kind: event.kind,
-        prd: event.prd,
+        ...prdColumns(event.prd),
         job_id: event.job,
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z113.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z114.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status: status2, waitingOn, nextWakeAt, pausedBy }) {
       const by = pausedBy === "stuck" ? { paused_by: pausedBy } : {};
       const moved = rowsOf(
-        z113.object({ id: text19 }),
+        z114.object({ id: text19 }),
         await db.from("missions").update({ status: status2, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString(), ...by }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -26670,7 +26684,7 @@ function missionStore(connection) {
       const spent2 = await missionSpent(mission);
       const fleet = await fleetSpent(mission, at4);
       const stops = await stopsOf(mission);
-      const pauses = rowsOf(PauseEventRowSchema, await db.from("mission_events").select(PAUSE_EVENT).eq("mission_id", mission.id).in("kind", ["paused", "resumed"]).is("prd", null).order("at", { ascending: false }).limit(PAUSES_READ));
+      const pauses = rowsOf(PauseEventRowSchema, await db.from("mission_events").select(PAUSE_EVENT).eq("mission_id", mission.id).in("kind", ["paused", "resumed"]).is("prd_id", null).order("at", { ascending: false }).limit(PAUSES_READ));
       return { missionSpent: spent2, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
     },
     async fleetMissions(mission) {
@@ -26684,7 +26698,7 @@ function missionStore(connection) {
     async pause(ids, waitingOn) {
       if (ids.length === 0) return;
       rowsOf(
-        z113.unknown(),
+        z114.unknown(),
         await db.from("missions").update({ status: "paused", waiting_on: waitingOn, next_wake_at: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", [...ids]).in("status", ["running", "waiting"]).select("id")
       );
     },
@@ -26694,13 +26708,13 @@ function missionStore(connection) {
     async keepBranch(mission, { repo, branch }) {
       const answer = await db.from("mission_branches").insert({ mission_id: mission.id, repo: repo.toLowerCase(), branch }).select("repo");
       if (answer.error?.code === TAKEN) return false;
-      if (rowsOf(z113.object({ repo: text19 }), answer).length === 0) throw new Error("the database kept no mission branch and gave no reason");
+      if (rowsOf(z114.object({ repo: text19 }), answer).length === 0) throw new Error("the database kept no mission branch and gave no reason");
       return true;
     },
     async decideItem(mission, { prd, item, job, verdicts, decision }) {
       const answer = await db.rpc("mission_decide_item", {
         p_mission: mission.id,
-        p_prd: prd,
+        ...isProductPrdId(prd) ? { p_product_prd: prd } : { p_prd: prd },
         p_job: job,
         p_item: item,
         p_verdicts: [...verdicts],
@@ -26714,7 +26728,7 @@ function missionStore(connection) {
     async decisions(id) {
       return rowsOf(FleetDecisionRowSchema, await db.from("mission_decisions").select(FLEET_DECISION).eq("mission_id", id).order("decided_at")).map((row) => ({
         kind: row.kind,
-        prd: row.prd,
+        prd: row.prd_id,
         item: row.item,
         job: row.job_id,
         outcome: row.outcome,
@@ -26727,14 +26741,14 @@ function missionStore(connection) {
 }
 
 // apps/omni-app/src/missions/notebook.ts
-import { z as z114 } from "zod";
+import { z as z115 } from "zod";
 var NOTEBOOK_KIND = "commander-notebook";
 var NOTEBOOK_MODEL = "anthropic/claude-sonnet-5.5";
 var LINE_MAX3 = 300;
 var EVENTS_PER_LINE = 10;
 var BATCH_MAX = 5;
-var NotebookReplySchema = z114.object({
-  lines: z114.array(z114.object({ text: z114.string(), refs: z114.array(z114.string()).default([]) })).max(20)
+var NotebookReplySchema = z115.object({
+  lines: z115.array(z115.object({ text: z115.string(), refs: z115.array(z115.string()).default([]) })).max(20)
 });
 var NOTEBOOK_REPLY_SCHEMA = {
   name: "notebook_lines",
@@ -26956,26 +26970,26 @@ function notebookHandler({
 }
 
 // apps/omni-app/src/missions/notebook-store.ts
-import { z as z115 } from "zod";
+import { z as z116 } from "zod";
 var NOTE_MISSION = "id, workspace_id, fleet, number, title, status, teams!inner(kind)";
 var NOTE_EVENT = "id, at, role, kind, prd, sentence";
 var NOTE_LINE = "line";
 var NOTE_BATCH = "id";
 var NOTE_CAP = "daily_tokens";
-var NoteMissionRowSchema = z115.object({
-  id: z115.uuid(),
-  workspace_id: z115.uuid(),
-  fleet: z115.string().min(1),
-  number: z115.number().int().positive(),
-  title: z115.string(),
-  status: z115.string(),
-  teams: z115.object({ kind: z115.string() })
+var NoteMissionRowSchema = z116.object({
+  id: z116.uuid(),
+  workspace_id: z116.uuid(),
+  fleet: z116.string().min(1),
+  number: z116.number().int().positive(),
+  title: z116.string(),
+  status: z116.string(),
+  teams: z116.object({ kind: z116.string() })
 });
-var NoteEventRowSchema = z115.object({ id: z115.uuid(), at: z115.string(), role: z115.string(), kind: z115.string(), prd: PrdNumberSchema.nullable(), sentence: z115.string() });
-var NoteLineRowSchema = z115.object({ line: z115.string() });
-var NoteBatchRowSchema = z115.object({ id: z115.uuid() });
-var NoteCapRowSchema = z115.object({ daily_tokens: z115.number().int().positive().nullable() });
-var SpentRowSchema = z115.object({ tokens: z115.coerce.number().int().min(0) });
+var NoteEventRowSchema = z116.object({ id: z116.uuid(), at: z116.string(), role: z116.string(), kind: z116.string(), prd: PrdNumberSchema.nullable(), sentence: z116.string() });
+var NoteLineRowSchema = z116.object({ line: z116.string() });
+var NoteBatchRowSchema = z116.object({ id: z116.uuid() });
+var NoteCapRowSchema = z116.object({ daily_tokens: z116.number().int().positive().nullable() });
+var SpentRowSchema = z116.object({ tokens: z116.coerce.number().int().min(0) });
 var missionOf = (row) => ({
   id: row.id,
   workspace: row.workspace_id,
@@ -27137,9 +27151,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z116 } from "zod";
+import { z as z117 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z116.looseObject({ category: z116.string().nullable() });
+var ReplySchema2 = z117.looseObject({ category: z117.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -27162,10 +27176,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z117 } from "zod";
-var UngroupedRowSchema = z117.object({ id: z117.string().min(1), product_id: z117.string().min(1), workspace_id: z117.string().min(1), query: z117.string().min(1) });
-var NearestRowSchema = z117.object({ group_id: z117.string().min(1), cosine: z117.number() });
-var GroupIdSchema = z117.object({ id: z117.string().min(1) });
+import { z as z118 } from "zod";
+var UngroupedRowSchema = z118.object({ id: z118.string().min(1), product_id: z118.string().min(1), workspace_id: z118.string().min(1), query: z118.string().min(1) });
+var NearestRowSchema = z118.object({ group_id: z118.string().min(1), cosine: z118.number() });
+var GroupIdSchema = z118.object({ id: z118.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -27183,7 +27197,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z117.array(NearestRowSchema).parse(data);
+      const [row] = z118.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -27203,13 +27217,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z118 } from "zod";
+import { z as z119 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z118.looseObject({
-  verdicts: z118.array(z118.looseObject({ entryId: z118.string().min(1), relevant: z118.boolean().nullable(), confidence: z118.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z119.looseObject({
+  verdicts: z119.array(z119.looseObject({ entryId: z119.string().min(1), relevant: z119.boolean().nullable(), confidence: z119.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z118.looseObject({ ids: z118.array(z118.string().min(1)) });
+var SearchSchema2 = z119.looseObject({ ids: z119.array(z119.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -27245,19 +27259,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z119 } from "zod";
+import { z as z120 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z119.object({ group_id: z119.string().min(1), product_id: z119.string().min(1), workspace_id: z119.string().min(1), category: z119.string().nullable() });
-var GroupRowSchema = z119.object({ group_id: z119.string().min(1) });
-var QuestionTextSchema = z119.object({ question: z119.string() });
-var OpenedRowSchema = z119.object({ opened_id: z119.string().min(1) });
-var ProductRowSchema4 = z119.object({ product_id: z119.string().min(1) });
-var HolderRowSchema5 = z119.object({ product_id: z119.string().min(1) });
-var LiveProductSchema = z119.object({ id: z119.string().min(1) });
-var QuestionRowSchema = z119.object({ id: z119.string().min(1), product_id: z119.string().min(1), workspace_id: z119.string().min(1), question: z119.string(), category: z119.string().nullable() });
-var AnswerRowSchema = z119.object({ question_id: z119.string().min(1), entry_id: z119.string().min(1) });
-var RunRowSchema = z119.object({ id: z119.string().min(1) });
+var LogRowSchema = z120.object({ group_id: z120.string().min(1), product_id: z120.string().min(1), workspace_id: z120.string().min(1), category: z120.string().nullable() });
+var GroupRowSchema = z120.object({ group_id: z120.string().min(1) });
+var QuestionTextSchema = z120.object({ question: z120.string() });
+var OpenedRowSchema = z120.object({ opened_id: z120.string().min(1) });
+var ProductRowSchema4 = z120.object({ product_id: z120.string().min(1) });
+var HolderRowSchema5 = z120.object({ product_id: z120.string().min(1) });
+var LiveProductSchema = z120.object({ id: z120.string().min(1) });
+var QuestionRowSchema = z120.object({ id: z120.string().min(1), product_id: z120.string().min(1), workspace_id: z120.string().min(1), question: z120.string(), category: z120.string().nullable() });
+var AnswerRowSchema = z120.object({ question_id: z120.string().min(1), entry_id: z120.string().min(1) });
+var RunRowSchema = z120.object({ id: z120.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -27292,7 +27306,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z119.string().min(1).nullable().parse(data);
+      return z120.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -27305,7 +27319,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant: relevant2, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant2, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z119.boolean().parse(data);
+      return z120.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -27338,7 +27352,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z119.string().min(1).nullable().parse(data);
+      return z120.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -27429,19 +27443,19 @@ function searchEvalPromoteHandler({
 }
 
 // kit/lib/ready/report.ts
-import { z as z120 } from "zod";
+import { z as z121 } from "zod";
 var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
 var ACCEPTANCE_CHECK_NAME = "acceptance";
 var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z120.object({
-  ac: z120.number().int().positive(),
-  kind: z120.enum(AC_KINDS),
-  state: z120.enum(RESULT_STATES),
+var ResultSchema = z121.object({
+  ac: z121.number().int().positive(),
+  kind: z121.enum(AC_KINDS),
+  state: z121.enum(RESULT_STATES),
   /** The test's title, `AC-<n>: …`. */
-  title: z120.string().min(1),
+  title: z121.string().min(1),
   /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z120.string().min(1).nullable().default(null),
-  why: z120.string().min(1).optional()
+  proof: z121.string().min(1).nullable().default(null),
+  why: z121.string().min(1).optional()
 }).strict().superRefine((result, issues) => {
   const proves = acNumberOfTitle(result.title);
   if (proves !== result.ac) {
@@ -27449,10 +27463,10 @@ var ResultSchema = z120.object({
     issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
   }
 });
-var ReportSchema = z120.object({
-  format: z120.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z120.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z120.array(ResultSchema)
+var ReportSchema = z121.object({
+  format: z121.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z121.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z121.array(ResultSchema)
 }).strict();
 function parseAcceptanceReport(text20) {
   let raw;
@@ -27876,25 +27890,25 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z123 } from "zod";
+import { z as z124 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
 import { existsSync as existsSync52, readFileSync as readFileSync50 } from "node:fs";
 import { join as join78 } from "node:path";
-import { z as z121 } from "zod";
+import { z as z122 } from "zod";
 var read = (value) => ({ ok: true, value });
 var unread = (why) => ({ ok: false, why });
-var RunSchema3 = z121.looseObject({
-  name: z121.string(),
-  status: z121.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
-  conclusion: z121.string().nullish(),
-  html_url: z121.string().nullish(),
-  output: z121.looseObject({ title: z121.string().nullish(), summary: z121.string().nullish(), text: z121.string().nullish() }).nullish()
+var RunSchema3 = z122.looseObject({
+  name: z122.string(),
+  status: z122.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
+  conclusion: z122.string().nullish(),
+  html_url: z122.string().nullish(),
+  output: z122.looseObject({ title: z122.string().nullish(), summary: z122.string().nullish(), text: z122.string().nullish() }).nullish()
 });
-var RunsPageSchema2 = z121.looseObject({ check_runs: z121.array(RunSchema3) });
-var ComparePageSchema2 = z121.looseObject({
-  merge_base_commit: z121.looseObject({ sha: z121.string() }).nullish(),
-  files: z121.array(z121.looseObject({ filename: z121.string(), status: z121.string(), previous_filename: z121.string().nullish() })).nullish()
+var RunsPageSchema2 = z122.looseObject({ check_runs: z122.array(RunSchema3) });
+var ComparePageSchema2 = z122.looseObject({
+  merge_base_commit: z122.looseObject({ sha: z122.string() }).nullish(),
+  files: z122.array(z122.looseObject({ filename: z122.string(), status: z122.string(), previous_filename: z122.string().nullish() })).nullish()
 });
 var STATUS2 = Object.freeze({
   added: "added",
@@ -28062,7 +28076,7 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
 }
 
 // apps/omni-app/src/ready-check/runner-fallback.ts
-import { z as z122 } from "zod";
+import { z as z123 } from "zod";
 
 // apps/omni-app/src/ready-check/zip.ts
 import { inflateRawSync } from "node:zlib";
@@ -28120,11 +28134,11 @@ function unzipText(zip, name) {
 var KEPT_ARTIFACT = "acceptance-report";
 var KEPT_FILE = "report.json";
 var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
-var ArtifactsSchema = z122.looseObject({
-  artifacts: z122.array(z122.looseObject({ id: z122.number(), expired: z122.boolean().nullish(), workflow_run: z122.looseObject({ head_sha: z122.string().nullish() }).nullish() }))
+var ArtifactsSchema = z123.looseObject({
+  artifacts: z123.array(z123.looseObject({ id: z123.number(), expired: z123.boolean().nullish(), workflow_run: z123.looseObject({ head_sha: z123.string().nullish() }).nullish() }))
 });
-var RunSchema4 = z122.looseObject({ id: z122.number(), status: z122.string().nullish(), conclusion: z122.string().nullish(), output: z122.looseObject({ title: z122.string().nullish(), summary: z122.string().nullish(), text: z122.string().nullish() }).nullish() });
-var RunsSchema = z122.looseObject({ check_runs: z122.array(RunSchema4).nullish() });
+var RunSchema4 = z123.looseObject({ id: z123.number(), status: z123.string().nullish(), conclusion: z123.string().nullish(), output: z123.looseObject({ title: z123.string().nullish(), summary: z123.string().nullish(), text: z123.string().nullish() }).nullish() });
+var RunsSchema = z123.looseObject({ check_runs: z123.array(RunSchema4).nullish() });
 async function keptReport(octokit, { owner, repo, headSha }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
   const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
@@ -28276,9 +28290,9 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema5 = z123.looseObject({ id: z123.number(), status: z123.string().nullish(), conclusion: z123.string().nullish(), html_url: z123.string().nullish(), output: z123.looseObject({ title: z123.string().nullish(), summary: z123.string().nullish() }).nullish() });
-var RunsSchema2 = z123.looseObject({ check_runs: z123.array(RunSchema5).nullish() });
-var WrittenSchema2 = z123.looseObject({ id: z123.number(), html_url: z123.string().nullish() });
+var RunSchema5 = z124.looseObject({ id: z124.number(), status: z124.string().nullish(), conclusion: z124.string().nullish(), html_url: z124.string().nullish(), output: z124.looseObject({ title: z124.string().nullish(), summary: z124.string().nullish() }).nullish() });
+var RunsSchema2 = z124.looseObject({ check_runs: z124.array(RunSchema5).nullish() });
+var WrittenSchema2 = z124.looseObject({ id: z124.number(), html_url: z124.string().nullish() });
 var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
@@ -28372,15 +28386,15 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z124 } from "zod";
+import { z as z125 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var AppJobRowSchema = z124.object({
-  status: z124.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  log_tail: z124.string(),
-  reason: z124.string().nullable()
+var AppJobRowSchema = z125.object({
+  status: z125.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z125.string(),
+  reason: z125.string().nullable()
 });
-var MissionScopeRowSchema = z124.object({ scope: z124.object({ prds: z124.array(PrdNumberSchema), roadmaps: z124.array(z124.number().int().positive()) }) });
-var RoadmapRowOfSchema = z124.object({ roadmap_id: z124.string().min(1) });
+var MissionScopeRowSchema = z125.object({ scope: z125.object({ prds: z125.array(PrdNumberSchema), roadmaps: z125.array(z125.number().int().positive()) }) });
+var RoadmapRowOfSchema = z125.object({ roadmap_id: z125.string().min(1) });
 function readyStore(connection) {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
@@ -28677,7 +28691,7 @@ function liveJobs(env, logger) {
     bugs: () => sweepBugs({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), log: noteTo("bug-follow", logger) })
   };
 }
-var ReplayBodySchema = z125.object({ replay: z125.string().min(1) });
+var ReplayBodySchema = z126.object({ replay: z126.string().min(1) });
 var json2 = (status2, body) => Response.json(body, { status: status2, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;
