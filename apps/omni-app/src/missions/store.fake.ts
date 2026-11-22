@@ -7,7 +7,8 @@
 // answered once, a raise saved with its answer. The Omni Loop bug team's bugs and bug-fix jobs (PRD 3088), the database's cap of 3
 // tries held. At `alone` for a product roadmap (PRD omni-loop-21): a step's resumes under their own keys, the mission's branch
 // kept once per repository, an item committee's decision recorded once (escalated off `alone`, as mission_decide_item() does) and
-// every decision of the committee listed in order. No database, no model call.
+// every decision of the committee listed in order. A product PRD's events, repairs and item decisions kept under its id, read as the
+// store reads them (PRD omni-loop-21 s3b). No database, no model call.
 import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { bugFixOf, repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
@@ -16,11 +17,12 @@ import { stuckJobsOf, stuckKey, stuckSkillLine } from './stuck.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
-import { resumeKey, type FleetDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
+import { numberedOf, type MissionPrd } from './store.prd.ts';
+import { resumeKey, type NewStoredEvent, type StoredRepair, type FleetDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
 import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team.ts';
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
-import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type RoomRunner, type NewEvent, type PrdFacts, type Step } from './supervisor.ts';
+import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type RoomRunner, type PrdFacts, type Step } from './supervisor.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
 type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[]; resume: number };
@@ -28,8 +30,14 @@ type FakeJob = { id: string; line: string; key: string; toFleet: string | null; 
 /** `{ resume }` for a step's resume (PRD omni-loop-21), nothing for its first job, as the store reads it. */
 const resumedOf = (resume: number) => (resume === 0 ? {} : { resume });
 
-/** A recorded event, as its mission_events row. */
-type FakeEvent = Omit<NewEvent, 'kind'> & { kind: string; actor: string; at: string };
+/** A recorded event, as its mission_events row: its PRD a repository's number or a product's id (PRD omni-loop-21 s3b). */
+type FakeEvent = Omit<NewStoredEvent, 'kind'> & { kind: string; actor: string; at: string };
+
+/** A kept repair, as its mission_repairs row: its PRD a repository's number or a product's id (PRD omni-loop-21 s3b). */
+type FakeRepair = Omit<RepairRow, 'prd'> & { prd: MissionPrd | null };
+
+/** A kept repair as the store reads it: a product PRD's named as `product`, its `prd` null. */
+const storedRepairOf = ({ prd, ...row }: FakeRepair): StoredRepair => ({ ...row, ...numberedOf(prd) });
 
 const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
@@ -70,7 +78,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   /** The repair jobs it queued (PRD 2980): their key, line and log. */
   const repairs: (RepairJob & { key: string; line: string; toFleet: string | null; log: string | null })[] = [];
   /** The rows `mission_repairs` kept. */
-  const rows: RepairRow[] = [];
+  const rows: FakeRepair[] = [];
   /** The Omni Loop bugs `omni_bug_reports` holds, by fingerprint, where each stands (PRD 3088), and the jobs added to the App's ledger. */
   const bugs = new Map<string, { repo: string; issue: IssueNumber; state: string; fixedIn: string | null }>();
   const added: NewJob[] = [];
@@ -191,8 +199,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
         }
       });
     },
-    events: () => Promise.resolve(events.map(({ kind, prd, job }) => ({ kind, prd, job }))),
-    fleetEvents: () => Promise.resolve(events.filter(({ kind }) => kind === 'decided' || kind === 'overturned').map(({ kind, prd, sentence, link, actor }) => ({ kind, prd, sentence, link, actor }))),
+    events: () => Promise.resolve(events.map(({ kind, prd, job }) => ({ kind, ...numberedOf(prd), job }))),
+    fleetEvents: () => Promise.resolve(events.filter(({ kind }) => kind === 'decided' || kind === 'overturned').map(({ kind, prd, sentence, link, actor }) => ({ kind, ...numberedOf(prd), sentence, link, actor }))),
     fleetRunners: () => Promise.resolve(fleetRunners),
     room: () => Promise.resolve(runners.map((one) => ({ ...one }))),
     planRepository: () => Promise.resolve(planRepository),
@@ -251,7 +259,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       committees.push({ prd, round, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, decision: null, key, line: approveLine(prd, author), toFleet: toFleet ? sent.fleet : null, log: null, recorded: null, resume });
       return Promise.resolve(id);
     },
-    repairs: () => Promise.resolve({ jobs: repairs.map(({ prd, k, job, failedJob, attempts }) => ({ prd, k, job, failedJob, attempts: attempts.map((one) => ({ ...one })) })), rows: rows.map((one) => ({ ...one })) }),
+    repairs: () => Promise.resolve({ jobs: repairs.map(({ prd, k, job, failedJob, attempts }) => ({ prd, k, job, failedJob, attempts: attempts.map((one) => ({ ...one })) })), rows: rows.map(storedRepairOf) }),
     repair: ({ mission: sent, prd, k, failedJob, toFleet }) => {
       const key = repairKey(sent.id, prd, k);
       if (repairs.some((one) => one.key === key)) return Promise.resolve(null);
@@ -266,9 +274,9 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (counted.length >= 9) return Promise.resolve({ spent: 'mission' });
       const cause = counted.filter((one) => one.round === row.round && one.fingerprint === row.fingerprint).length;
       if (cause >= 3) return Promise.resolve({ spent: 'cause' });
-      const kept: RepairRow = { ...row, id: `repair-${String(rows.length + 1)}`, number: cause + 1, outcome: null };
+      const kept: FakeRepair = { ...row, id: `repair-${String(rows.length + 1)}`, number: cause + 1, outcome: null };
       rows.push(kept);
-      return Promise.resolve({ ...kept });
+      return Promise.resolve(storedRepairOf(kept));
     },
     endRepair: (id, outcome) => {
       const one = rows.find((each) => each.id === id);
@@ -457,8 +465,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       made += 1;
       one.attempts.push({ id: `job-${String(made)}`, status: 'queued', outcome: null, reason: null, prUrl: null });
     },
-    /** The rows `mission_repairs` kept, in order. */
-    repairRows: () => rows.map((one) => ({ ...one })),
+    /** The rows `mission_repairs` kept, in order, as the store reads them. */
+    repairRows: () => rows.map(storedRepairOf),
     /** The stuck repairs queued (PRD 3065), in order. */
     stuckJobs: () => stucks.map((one) => ({ ...one, attempts: one.attempts.map((each) => ({ ...each })) })),
     /** The latest stuck repair ends as `change` says, its log `log`. */

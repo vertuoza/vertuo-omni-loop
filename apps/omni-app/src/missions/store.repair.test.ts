@@ -38,7 +38,7 @@ const mission: MissionRecord = {
   scope: { prds: [parsePrd(7)], roadmaps: [] },
 };
 
-const repairRow = { id: 'row-1', prd: 7, fingerprint: FP, round: 1, number: 2, failed_job_id: 'job-1', job_id: 'job-2', retro: null, fix_pr: null, outcome: null };
+const repairRow = { id: 'row-1', prd_id: '7', fingerprint: FP, round: 1, number: 2, failed_job_id: 'job-1', job_id: 'job-2', retro: null, fix_pr: null, outcome: null };
 const jobRow = (over: Record<string, unknown> = {}) => ({ id: 'job-2', mission_key: `mission:${ID}:prd:7:repair:1`, resumes: null, status: 'running', outcome: null, reason: null, pr_url: null, limited_until: null, parts: null, line: '/omni:repair --mission 12 --prd 7 --job job-1', ...over });
 const refusal = (hint: string) => new Response(JSON.stringify({ code: '23514', message: 'A repair over its budget.', details: null, hint }), { status: 400, headers: { 'content-type': 'application/json' } });
 
@@ -62,7 +62,7 @@ describe('missionStore — a mission\'s repairs (PRD 2980)', () => {
     const row = { prd: parsePrd(7), fingerprint: FP, round: 2, failedJob: 'job-1', job: 'job-2', retro: null, fixPr: 'https://github.com/acme/widgets/pull/51' };
     const db = recordingFetch([[{ ...repairRow, round: 2, fix_pr: row.fixPr }]]);
     expect(await storeOn(db.fetch).keepRepair(mission, row)).toMatchObject({ id: 'row-1', number: 2, round: 2, fixPr: row.fixPr });
-    expect(db.requests[0]?.body).toEqual({ mission_id: ID, prd: 7, fingerprint: FP, round: 2, failed_job_id: 'job-1', job_id: 'job-2', retro: null, fix_pr: row.fixPr });
+    expect(db.requests[0]?.body).toEqual({ mission_id: ID, prd: 7, product_prd: null, fingerprint: FP, round: 2, failed_job_id: 'job-1', job_id: 'job-2', retro: null, fix_pr: row.fixPr });
     expect(await storeOn(recordingFetch([refusal('mission')]).fetch).keepRepair(mission, row)).toEqual({ spent: 'mission' });
     expect(await storeOn(recordingFetch([refusal('fingerprint')]).fetch).keepRepair(mission, row)).toEqual({ spent: 'cause' });
   });
