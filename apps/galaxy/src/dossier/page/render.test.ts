@@ -179,7 +179,7 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
 
   it('in the PRD stage, Approve spec opens the phase-0 PR; with none open yet, no button and the agents write the spec', () => {
     const html = page({ github: summary({ phase0: pr(220, 'open') }), stages: at('prd') });
-    expect(track(html)).toEqual(['Idea:done', 'PRD:current', 'Inbox:pending', 'Building:pending', 'Outbox:pending', 'Shipped:pending', 'Retro:pending']);
+    expect(track(html)).toEqual(['Idea:done', 'PRD:current', 'Ready:pending', 'Building:pending', 'Outbox:pending', 'Shipped:pending', 'Retro:pending']);
     expect(button(html)).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/220', 'Approve spec']);
     expect(lede(html)).toBe('You review the spec and merge its phase-0 pull request.');
     expect(links(html)).toEqual(['issue #216 open', 'phase-0 #220 open']);
@@ -190,7 +190,7 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
 
   it('in the inbox stage, Build it is a button carrying the command to copy', () => {
     const html = page({ github: summary({ phase0: pr(220, 'merged') }), stages: at('inbox') });
-    expect(currentStage(html)).toBe('Inbox');
+    expect(currentStage(html)).toBe('Ready');
     expect(html).toContain(PRIMARY('Build it', '/omni:yolo 216'));
     expect(html).toContain('<code class="stage-command">/omni:yolo 216</code>');
     expect(links(html)).toEqual(['issue #216 open', 'phase-0 #220 ✓']);
@@ -281,7 +281,7 @@ describe('the stage, said once (PRD 426, PRD 587, omni-loop-20 s6)', () => {
     expect(button(html)).toBeNull();
     expect(html).toContain(PITCH_BUTTON);
     const retro = page({ github: { ...shipped, retro: pr(230, 'open') }, stages: at('retro'), pick: tab('specifications') });
-    expect(track(retro)).toEqual(['Idea:done', 'PRD:done', 'Inbox:done', 'Building:done', 'Outbox:done', 'Shipped:done', 'Retro:current']);
+    expect(track(retro)).toEqual(['Idea:done', 'PRD:done', 'Ready:done', 'Building:done', 'Outbox:done', 'Shipped:done', 'Retro:current']);
     expect(button(retro)).toBeNull();
     expect(retro).toContain(PITCH_BUTTON);
     expect(links(retro)).toEqual(['issue #216 ✓', 'phase-0 #220 ✓', 'feature #221 ✓', 'retro #230 open']);

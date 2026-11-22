@@ -13,12 +13,12 @@ import { STAGES, type StageId } from './stage';
 import type { DossierView } from './view';
 
 /** The loop's stages as the stage track names them, in order. */
-const TRACK_STAGES = ['Idea', 'PRD', 'Inbox', 'Building', 'Outbox', 'Shipped', 'Retro'] as const;
+const TRACK_STAGES = ['Idea', 'PRD', 'Ready', 'Building', 'Outbox', 'Shipped', 'Retro'] as const;
 /** A fix's stages as its track names them, in order (the moments of its Timeline). */
 const FIX_TRACK_STAGES = ['Asked', 'Picked', 'Approved', 'Merged', 'Released'] as const;
 
 const TRACK_NAME: Readonly<Record<StageId, (typeof TRACK_STAGES)[number]>> = {
-  idea: 'Idea', prd: 'PRD', inbox: 'Inbox', building: 'Building', outbox: 'Outbox', shipped: 'Shipped', retro: 'Retro',
+  idea: 'Idea', prd: 'PRD', inbox: 'Ready', building: 'Building', outbox: 'Outbox', shipped: 'Shipped', retro: 'Retro',
 };
 const FIX_NAME: Readonly<Record<MomentId, (typeof FIX_TRACK_STAGES)[number]>> = {
   asked: 'Asked', picked: 'Picked', approved: 'Approved', merged: 'Merged', released: 'Released',
