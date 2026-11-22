@@ -67,7 +67,7 @@ export const ITEMS: readonly Item[] = [
   // 2 · The stage and the tab row
   row(2, 'Stage: Idea', HEAD(), ALL, 'Idea'),
   row(2, 'Stage: PRD', HEAD(), ALL, 'PRD'),
-  row(2, 'Stage: Inbox', HEAD(), ALL, 'Inbox'),
+  row(2, 'Stage: Ready', HEAD(), ALL, 'Ready'),
   row(2, 'Stage: Building', HEAD(), ALL, 'Building'),
   row(2, 'Stage: Outbox', HEAD(), ALL, 'Outbox'),
   row(2, 'Stage: Shipped', HEAD(), ALL, 'Shipped'),

@@ -421,7 +421,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     given.token = 'bob';
     const page = await html(numbered);
     expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
-    expect(page).toContain('<span class="omni-stage-track__name">Inbox</span><span class="omni-stage-track__state"> (current)</span>');
+    expect(page).toContain('<span class="omni-stage-track__name">Ready</span><span class="omni-stage-track__state"> (current)</span>');
     expect(page).toContain('type="button" title="/omni:yolo 7" data-primary="">Build it</button>');
     expect(page).toContain('>phase-0 #12</a></span></span><span class="omni-list-row__trailing"><span class="ask-hint">✓</span>');
   });
