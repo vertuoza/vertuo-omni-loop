@@ -1,0 +1,72 @@
+/* The Inbox (PRD omni-loop-22, s5), as its before/after page draws it (2.A, 3.A, 4.A, 4.B, 5.A): the
+   header (title, count, Alerts), the tabs, the kind chips, then the list beside the panel from 1280 px,
+   or full width below with the open item in place. Every value is a token of @omni/design. */
+
+.inbox { display: grid; gap: var(--space-4); min-width: 0; }
+
+.inbox-head { display: grid; gap: var(--space-3); }
+.inbox-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.inbox-title { margin: 0; font-size: var(--type-7-size); line-height: var(--type-7-line); }
+.inbox-count { color: var(--color-text-secondary); font-size: var(--type-4-size); }
+.inbox-alerts-button { margin-left: auto; }
+.inbox-alerts { display: grid; gap: var(--space-3); min-width: 0; }
+
+.inbox-open { display: grid; gap: var(--space-4); min-width: 0; }
+.inbox-chip-count { color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+
+.inbox-split { display: flex; align-items: flex-start; gap: var(--space-5); min-width: 0; }
+.inbox-split > .inbox-list { flex: 0 1 480px; }
+.inbox-side { flex: 1 1 420px; min-width: 0; position: sticky; top: var(--space-4); }
+.inbox-stack { display: grid; min-width: 0; }
+
+.inbox-list { display: grid; gap: var(--space-4); min-width: 0; }
+.inbox-section { display: grid; gap: var(--space-1); min-width: 0; }
+.inbox-section-title {
+  margin: 0; padding: 0 var(--space-3);
+  font-size: var(--type-2-size); line-height: var(--type-2-line); font-weight: var(--weight-bold); color: var(--color-text-secondary);
+}
+.inbox-section-count { font-weight: var(--weight-regular); color: var(--color-text-tertiary); }
+.inbox-item { display: grid; min-width: 0; }
+
+.inbox-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3);
+  padding: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-2);
+  color: var(--color-text-primary); text-decoration: none;
+}
+.inbox-row:hover { background: var(--color-sunken); }
+.inbox-row[aria-current='true'] { background: var(--color-raised); border-color: var(--color-border-strong); }
+.inbox-row:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.inbox-row-main { display: grid; gap: var(--space-1); min-width: 0; }
+.inbox-row-text { font-size: var(--type-3-size); line-height: var(--type-3-line); overflow-wrap: anywhere; }
+.inbox-row-end { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
+.inbox-age { font-size: var(--type-1-size); color: var(--color-text-tertiary); white-space: nowrap; }
+.inbox-context { margin: 0; font-size: var(--type-2-size); line-height: var(--type-2-line); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+
+.inbox-panel {
+  display: grid; gap: var(--space-4); min-width: 0; padding: var(--space-5);
+  background: var(--color-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-2);
+}
+.inbox-panel-head { display: grid; gap: var(--space-2); min-width: 0; }
+.inbox-panel-title { margin: 0; font-size: var(--type-6-size); line-height: var(--type-6-line); overflow-wrap: anywhere; }
+.inbox-badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.inbox-panel-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
+.inbox-closed { display: grid; gap: var(--space-2); }
+
+.inbox-muted { margin: 0; color: var(--color-text-secondary); }
+.inbox-strong { margin: 0; font-weight: var(--weight-bold); }
+.inbox-problem { margin: 0; padding: 0 var(--space-3); color: var(--color-danger); font-size: var(--type-3-size); }
+.inbox-panel .inbox-problem { padding: 0; }
+.inbox-notice { margin: 0; padding: 0 var(--space-3); color: var(--color-text-secondary); font-size: var(--type-3-size); }
+.inbox-hint { margin: 0; padding: var(--space-2) var(--space-3) 0; color: var(--color-text-tertiary); font-size: var(--type-2-size); }
+
+/* Below 1280 px the open item opens in place under its row, its options and Send at least 44 px tall
+   (spec 4, AC-10): 48 px less 4 px, both tokens. */
+.inbox-inplace { padding: var(--space-1) 0 var(--space-3); min-width: 0; }
+.inbox-inplace .inbox-panel { padding: var(--space-4); }
+.inbox-inplace .ask-opt,
+.inbox-inplace .ask-button { min-height: calc(var(--space-7) - var(--space-1)); }
+.inbox-inplace .ask-button { width: 100%; }
+
+/* The Workspace tab is the Waiting board unchanged: the Inbox's header names the page, so its own
+   heading is not drawn twice. */
+.inbox[data-tab='workspace'] .dash-name { display: none; }
