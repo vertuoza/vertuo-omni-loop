@@ -5,11 +5,16 @@
 //             nothing is cut and the answer names the setting; otherwise the branch is read, and cut from the default branch's head
 //             when it does not exist yet (../git-write/git-write.ts's `branchHead`, which never writes the default branch).
 //             A branch that exists is left as it is: the mission branch holds one commit per PRD, and this run never moves it.
+//   per repo  a mission whose scope holds product PRDs (PRD omni-loop-21 s7) cuts its branch in every repository the scope touches:
+//             the mission's own for a repository PRD, and each target a product PRD's plan names
 //
 // Throws when GitHub refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
+import { isProductPrdId, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { parsePlanRepositories } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { branchHead, refuseDefault } from '../git-write/git-write.ts';
 import { RefSchema, statusOf, type GitHubClient } from '../outbox-check/github-schema.ts';
+import type { MissionPrd } from './store.prd.ts';
 
 /** What the supervisor asks of GitHub: the branch ready, or why it cannot be. */
 export type MissionBranches = {
@@ -42,6 +47,43 @@ export function missionBranches({ octokitFor }: { octokitFor: (installation: num
       return { ok: true, cut: !existed };
     },
   };
+}
+
+/** GitHub names a repository whatever its case. */
+const sameRepo = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
+
+/**
+ * The repositories a product PRD's plan names (PRD omni-loop-21 s7): each row of its `## Repositories` table as `owner/name`, a bare
+ * name read under `owner`, the mission repository's owner. None for a plan with no such table.
+ */
+export const planTargets = (plan: string, owner: string): string[] => parsePlanRepositories(plan).map(({ repo }) => (repo.includes('/') ? repo : `${owner}/${repo}`));
+
+/**
+ * Every repository the scope touches (PRD omni-loop-21 s7, spec "2. One mission branch per repository"), once each, in order: the
+ * mission's own repository when a repository PRD is in scope, then each target of each product PRD's plan (`targets`, by PRD). A
+ * product PRD whose plan was not read names none yet.
+ */
+export function scopeRepos({ repo, prds, targets }: { repo: string; prds: readonly MissionPrd[]; targets: ReadonlyMap<ProductPrdId, readonly string[]> }): string[] {
+  const named = prds.flatMap((prd) => (isProductPrdId(prd) ? (targets.get(prd) ?? []) : [repo]));
+  return named.filter((one, at) => named.findIndex((other) => sameRepo(other, one)) === at);
+}
+
+/**
+ * The mission branch cut in each of `repos` (PRD omni-loop-21 s7): every repository is asked, in order, and the answer is ready only
+ * when each is, naming the ones cut now; else every refusal, joined, for the mission to wait on.
+ */
+export async function prepareAll(
+  branches: MissionBranches,
+  { installation, repos, branch }: { installation: number; repos: readonly string[]; branch: string },
+): Promise<{ ok: true; cut: string[] } | { ok: false; why: string }> {
+  const cut: string[] = [];
+  const refused: string[] = [];
+  for (const repo of repos) {
+    const prepared = await branches.prepare({ installation, repo, branch });
+    if (!prepared.ok) refused.push(prepared.why);
+    else if (prepared.cut) cut.push(repo);
+  }
+  return refused.length > 0 ? { ok: false, why: refused.join('; ') } : { ok: true, cut };
 }
 
 /** `GET /repos/{owner}/{repo}`: its default branch. */

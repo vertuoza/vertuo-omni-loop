@@ -50,7 +50,9 @@
 // `/omni:bug-fix #<issue> --base <feature branch>` per bug of its round 1 under `…:qa-fix:1:<k>`, one at a time, then QA's round 2
 // under `…:qa:2`. A pass sends the Reviewer's round 1; a bug still there after round 2 waits for a person to decide the bugs. A PRD
 // of a plan repository skips the pair, as it skips the Reviewer.
-import { PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isProductPrdId, PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { baseOfFlag, type BaseOfEntry } from 'omni-loop/kit/lib/ultra/base-of.ts';
+import { prdKeyPart, type MissionPrd } from './store.prd.ts';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
@@ -275,9 +277,12 @@ const ROUNDS = 2;
 
 const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1|qa:[12]|qa-fix:1:[1-5]))?$/;
 
-/** The key a mission's job is sent under: never twice for one PRD, run and step. The build's is the run's own. */
-export const missionKey = (mission: string, prd: PrdNumber, run: number, step: Step = 'build'): string =>
-  `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === 'build' ? '' : `:${step}`}`;
+/**
+ * The key a mission's job is sent under: never twice for one PRD, run and step. The build's is the run's own. A product PRD is keyed
+ * by its id (PRD omni-loop-21 s7, ./store.prd.ts): `mission:<id>:prd:omni-loop-15:run:1`.
+ */
+export const missionKey = (mission: string, prd: MissionPrd, run: number, step: Step = 'build'): string =>
+  `mission:${mission}:${prdKeyPart(prd)}:run:${String(run)}${step === 'build' ? '' : `:${step}`}`;
 
 const isStep = (text: string): text is Step => STEPS.some((step) => step === text);
 
@@ -297,10 +302,13 @@ export type BuildSkill = 'yolo' | 'ultra-yolo';
  * a plan repository is built with `/omni:ultra-yolo <n>` (PRD 2873), which takes no `--for-review`: it is sent
  * unchanged, so its run ends as a build without the Reviewer does; its fix, were one sent, is
  * `/omni:ultra-yolo-fix <n> --for-review`. QA's rounds, and the Engineer's fix of a bug, `fix` its bug and feature branch (PRD 3001).
+ * A product PRD (PRD omni-loop-21 s7) is built with `/omni:ultra-yolo <key>-<n>`, its `base` the mission branch of each repository
+ * it touches (`--base-of`): see `productLineOf`.
  */
-export function lineOf(prd: PrdNumber, step: Step, skill: BuildSkill = 'yolo', base: string | null = null, fix: Fix | null = null): string {
+export function lineOf(prd: MissionPrd, step: Step, skill: BuildSkill = 'yolo', base: Base = null, fix: Fix | null = null): string {
+  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === 'string' || base === null ? [] : base);
   const n = String(prd);
-  const onBase = base === null ? '' : ` --base ${base}`;
+  const onBase = typeof base === 'string' ? ` --base ${base}` : '';
   const round = qaRoundOf(step);
   if (round !== null) return qaSkillLine(prd, round);
   if (isFixStep(step)) {
@@ -310,6 +318,27 @@ export function lineOf(prd: PrdNumber, step: Step, skill: BuildSkill = 'yolo', b
   if (step === 'build') return skill === 'ultra-yolo' ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review${onBase}`;
   if (step === 'fix:1') return skill === 'ultra-yolo' ? `/omni:ultra-yolo-fix ${n} --for-review` : `/omni:yolo-fix ${n} --for-review${onBase}`;
   return `/omni:review ${n}`;
+}
+
+/**
+ * Where a step's pull requests go: the mission branch, for a repository's PRD (`--base`); the mission branch of each repository a
+ * product PRD touches (`--base-of`, PRD omni-loop-21 s7); none at `with-you`.
+ */
+export type Base = string | readonly BaseOfEntry[] | null;
+
+/** The mission branch `branch` in each of `repos`, as `--base-of` names them. */
+export const basesOf = (repos: readonly string[], branch: string): BaseOfEntry[] => repos.map((repo) => ({ repo, branch }));
+
+/**
+ * The line a step of a product PRD is sent as (PRD omni-loop-21 s7): built with `/omni:ultra-yolo <key>-<n> --base-of …`, each
+ * target pull request into its repository's mission branch, the fix with the same bases, the Reviewer by its id. No bases (at
+ * `with-you`) sends no flag. A product PRD skips the QA pair, as a plan repository's PRD does: no QA line is ever sent for one.
+ */
+function productLineOf(prd: ProductPrdId, step: Step, bases: readonly BaseOfEntry[]): string {
+  const flag = bases.length === 0 ? '' : ` ${baseOfFlag(bases)}`;
+  if (qaRoundOf(step) !== null || isFixStep(step)) throw new Error(`PRD ${prd} is a product PRD: it skips the QA pair, and ${step} is never sent for it`);
+  if (step === 'build') return `/omni:ultra-yolo ${prd}${flag}`;
+  return step === 'fix:1' ? `/omni:ultra-yolo-fix ${prd} --for-review${flag}` : `/omni:review ${prd}`;
 }
 
 /** What a mission may run at (PRD 2896): `with-you` changes nothing, the two others build on a branch of the mission's own. */
