@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { committeeLine } from 'omni-loop/kit/lib/committee/record.ts';
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
-import { approvalNext, approveLine, committeeKey, committeeOfKey, recordedOf, type Committee } from './committee.ts';
+import { parseOutboxItemId, parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { approvalNext, approveLine, committeeKey, committeeOfKey, goesOn, itemDecisionOf, recordedOf, routedOf, type Committee } from './committee.ts';
 import type { Attempt } from './supervisor.ts';
 
 // The fleet's committee in a mission's run (PRD 2896 s9), pure: when a PRD goes to its committee, and what the App records
@@ -77,8 +77,21 @@ describe('what the App records of a committee job', () => {
     expect(recordedOf(prd, committee(1, 'done'), line({ verdicts, outcome: 'carried' })).decision).toEqual({ outcome: 'escalated', why: ['the Architect answered unsure: No test named.'] });
   });
 
-  it('escalates on the list\'s reasons, whatever the members said', () => {
-    expect(recordedOf(prd, committee(1, 'done'), line({ escalations: ['it bears on the Legal entry L-GDPR-4'] })).decision).toEqual({ outcome: 'escalated', why: ['it bears on the Legal entry L-GDPR-4'] });
+  it('sends a case of the escalation list to the members: every yes carries it, a carried approval keeping no why (PRD omni-loop-21 s8)', () => {
+    expect(recordedOf(prd, committee(1, 'done'), line({ escalations: ['it bears on the Legal entry L-GDPR-4'] })).decision).toEqual({ outcome: 'carried', why: [] });
+  });
+
+  it('sends a person a PRD on the list the vote did not carry, each case it was on named before the verdicts', () => {
+    const verdicts = [yes[0], { role: 'architect', answer: 'no', sentence: 'It drops a column.' }, yes[2]];
+    expect(recordedOf(prd, committee(1, 'done'), line({ escalations: ['the migration x.sql drops or rewrites data'], verdicts })).decision).toEqual({
+      outcome: 'escalated',
+      why: ['on the escalation list: the migration x.sql drops or rewrites data', 'the Architect answered no: It drops a column.'],
+    });
+  });
+
+  it('sends a person a PRD approved by its phase-0 pull request, whatever the members said (N-PRODUCT-15)', () => {
+    const phase0 = 'it is approved by its phase-0 pull request, which only a person merges';
+    expect(recordedOf(prd, committee(1, 'done'), line({ escalations: [phase0, 'it bears on the Legal entry L-GDPR-4'] })).decision).toEqual({ outcome: 'escalated', why: [phase0] });
   });
 
   it('lets the author sit out: two yes carry', () => {
@@ -92,5 +105,55 @@ describe('what the App records of a committee job', () => {
     expect(failed.decision.why[0]).toBe('the PM failed, counted unsure: Its job failed.');
     expect(recordedOf(prd, committee(1, 'done'), 'no record here').decision.why[0]).toBe('the PM failed, counted unsure: Its job ended with no record of the vote.');
     expect(recordedOf(prd, committee(1, 'cancelled'), null).decision.why[0]).toBe('the PM failed, counted unsure: Its job was cancelled.');
+  });
+});
+
+describe('what the App decides of an item committee (PRD omni-loop-21 s8)', () => {
+  const ITEM = 's2-01-keep-the-cap';
+  const ask = (status: Attempt['status']) => ({ item: ITEM, attempt: attempt(status) });
+  const answer = (over: Record<string, unknown> = {}) =>
+    committeeLine({ v: 1, prd, kind: 'answer', item: parseOutboxItemId(ITEM), option: 'A', author: null, read, escalations: [], verdicts: yes, outcome: 'carried', ...over });
+  const law = 'it bears on the business law BL-QUOTES-1: a person decides';
+
+  it('carries an item on the list on every yes, its why the cases it was on', () => {
+    expect(itemDecisionOf(prd, ask('done'), answer({ escalations: [law] }))).toEqual({
+      verdicts: yes,
+      decision: { outcome: 'carried', why: [`on the escalation list: ${law}`], option: null },
+    });
+  });
+
+  it('carries an item off the list with the members\' yes as its why, never an empty one', () => {
+    expect(itemDecisionOf(prd, ask('done'), answer()).decision).toEqual({ outcome: 'carried', why: ['every member who sat answered yes: pm yes, architect yes, reviewer yes'], option: null });
+  });
+
+  it('defers an item the vote did not carry with option A, its why the cases then the verdicts', () => {
+    const verdicts = [yes[0], { role: 'architect', answer: 'unsure', sentence: 'No test named.' }, yes[2]];
+    expect(itemDecisionOf(prd, ask('done'), answer({ escalations: [law], verdicts, outcome: 'deferred' })).decision).toEqual({
+      outcome: 'deferred',
+      why: [`on the escalation list: ${law}`, 'the Architect answered unsure: No test named.'],
+      option: 'A',
+    });
+  });
+
+  it('lets the PRD go on carried or deferred, never escalated', () => {
+    expect([goesOn({ outcome: 'carried' }), goesOn({ outcome: 'deferred' }), goesOn({ outcome: 'escalated' })]).toEqual([true, true, false]);
+  });
+
+  it('escalates an item answered with another option than A, or whose job left no answer record', () => {
+    expect(itemDecisionOf(prd, ask('done'), answer({ option: 'B' })).decision).toEqual({
+      outcome: 'escalated',
+      why: ['it was answered with option B: the fleet settles an item with option A, as built, only'],
+      option: null,
+    });
+    const failed = itemDecisionOf(prd, ask('failed'), null);
+    expect(failed.decision).toMatchObject({ outcome: 'escalated', option: null });
+    expect(failed.verdicts.map((v) => v.answer)).toEqual(['failed', 'failed', 'failed']);
+    expect(itemDecisionOf(prd, { item: 's9-09-other', attempt: attempt('done') }, answer()).decision.outcome).toBe('escalated');
+  });
+
+  it('routes only a person\'s case to a person: the rest of the list goes to the members', () => {
+    const phase0 = 'it is approved by its phase-0 pull request, which only a person merges';
+    expect(routedOf([phase0, law])).toEqual({ person: [phase0], listed: [`on the escalation list: ${law}`] });
+    expect(routedOf([])).toEqual({ person: [], listed: [] });
   });
 });
