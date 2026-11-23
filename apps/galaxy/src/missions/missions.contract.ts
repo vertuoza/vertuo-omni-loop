@@ -106,6 +106,57 @@ export type ItemAnswerBody = z.infer<typeof ItemAnswerBodySchema>;
 export const AnsweredItemSchema = z.object({ item: z.object({ id: z.uuid(), answer: ItemAnswerSchema }) });
 export type AnsweredItem = z.infer<typeof AnsweredItemSchema>;
 
+/** What `omni mission get` asks (PRD 3194): the repository and the mission's number, in the query of `GET /api/missions/brief`. */
+export const BriefQuerySchema = z.object({
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
+  mission: z.coerce.number().int().positive(),
+});
+export type BriefQuery = z.infer<typeof BriefQuerySchema>;
+
+/** One sentence of a retro and what it cites. */
+const CitedSchema = z.object({ text: z.string(), cites: z.array(z.object({ kind: z.string(), ref: z.number().int() })) });
+
+/** A mission's retro as the page keeps it: one per milestone, written (what went well, what to change) or skipped (why), with its items. */
+export const RetroReadSchema = z.object({
+  milestone: z.string(),
+  retro: z.object({ wentWell: z.array(CitedSchema), toChange: z.array(CitedSchema) }).nullable(),
+  skipped: z.string().nullable(),
+  items: z.array(z.object({
+    number: z.number().int().positive(),
+    target: z.string(),
+    wording: z.string(),
+    evidence: z.array(z.string()),
+    answer: ItemAnswerSchema.nullable(),
+    note: z.string().nullable(),
+  })),
+});
+export type RetroRead = z.infer<typeof RetroReadSchema>;
+
+/** What `GET /api/missions/brief` answers (PRD 3194): the mission's number, the latest mission.md and mission.html as pushed, byte for byte, and each retro as the file `omni mission get` writes, with its items as files. */
+export const MissionBriefSchema = z.object({
+  mission: z.number().int().positive(),
+  record: z.string(),
+  brief: z.string(),
+  retros: z.array(z.object({
+    k: z.number().int().positive(),
+    milestone: z.string(),
+    content: z.string(),
+    items: z.array(z.object({ name: z.string(), content: z.string() })),
+  })),
+});
+export type MissionBrief = z.infer<typeof MissionBriefSchema>;
+
+/** What `omni ready` asks (PRD 3194): the repository and the PRD, in the query of `GET /api/missions/of-prd`. */
+export const OfPrdQuerySchema = z.object({
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
+  prd: z.coerce.number().pipe(PrdNumberSchema),
+});
+export type OfPrdQuery = z.infer<typeof OfPrdQuerySchema>;
+
+/** The numbers of the missions whose brief names the PRD, in order; empty when none does. */
+export const MissionsOfPrdSchema = z.object({ missions: z.array(z.number().int().positive()) });
+export type MissionsOfPrd = z.infer<typeof MissionsOfPrdSchema>;
+
 /**
  * A press of Start on the New mission box (PRD omni-loop-24): the workspace and the fleet, the goal as typed (word for word, 1 to
  * 300 characters, one line) and, when the fleet's runners hold several repositories, the one the mission is written in.

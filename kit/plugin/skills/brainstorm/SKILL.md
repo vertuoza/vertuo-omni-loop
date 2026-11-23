@@ -963,9 +963,10 @@ runner (PRD 2896, "7. The PM's own PRDs"). A runner refuses it on any other job,
 by hand. It writes at most one PRD for the mission's goal and asks nobody. The steps above run as
 written, with these differences.
 
-- **The idea** is the mission's goal and measures, read from `mission.md` in the folder of mission
-  `<m>` under `.omni-loop/delivery/missions/`. No such folder, or step 0 read `phase 0: pr`: write
-  nothing and go straight to the record line, with no PRD. A PRD the fleet adds is born on the
+- **The idea** is the mission's goal and measures, read from its page: run `omni mission get <m>`
+  first and read `mission.md` in the folder it prints. When it prints `mission <m> not read: <why>`
+  or `no mission #<m> on the page` and exits 1, stop on that line: write nothing and go straight to
+  the record line, with no PRD. Step 0 reading `phase 0: pr` does the same. A PRD the fleet adds is born on the
   server (◆), so its committee can approve it on its page: a phase-0 PR waits for a person.
 - **Asks nobody.** `OMNI_UNATTENDED` is set. Each question a step would ask a person (the design,
   the voice, the proof, the e2e question) takes its most reversible answer, and once the PRD has a

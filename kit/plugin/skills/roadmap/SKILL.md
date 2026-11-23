@@ -402,9 +402,10 @@ and `omni roadmap prereqs` did not). Its **What is next?** block reads:
 hand. It writes at most `<k>` PRDs for the mission's goal and asks nobody. The steps above run as
 written, with these differences.
 
-- **The source** is the mission's goal and measures, read from `mission.md` in the folder of mission
-  `<m>` under `.omni-loop/delivery/missions/`. No such folder, or step 0 read `phase 0: pr`: write
-  nothing and go straight to the record line, with no PRD.
+- **The source** is the mission's goal and measures, read from its page: run `omni mission get <m>`
+  first and read `mission.md` in the folder it prints. When it prints `mission <m> not read: <why>`
+  or `no mission #<m> on the page` and exits 1, stop on that line: write nothing and go straight to
+  the record line, with no PRD. Step 0 reading `phase 0: pr` does the same.
 - **The cap.** Step 2's map lists the PRDs in the roadmap's order; step 3 writes the first `<k>` and
   no other. The rows past the cap are not written: name each by its title in `unwritten`, and the
   mission page shows them as `not written: the cap is <k>`.

@@ -3,7 +3,7 @@
 // `mission.html` as its brief, whole, in that order. Its title is mission.md's front-matter `title`.
 // The folder is refused, every fault named and nothing sent, when either file is missing, mission.md
 // does not read or names another mission, or mission.html breaks the page rules.
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { MISSION_PAGE, MISSION_RECORD, parseBrief } from './brief.ts';
 import { pageFaults } from './page.ts';
@@ -35,20 +35,42 @@ function folderOf(checkout: string, root: string, mission: IssueNumber): string 
 /** Mission `mission`'s folder read, or every fault that refuses it; null when it has no folder. */
 export function readMissionFolder(ctx: { root: string; layout: Layout }, mission: IssueNumber): MissionRead | null {
   const dir = folderOf(ctx.root, ctx.layout.dirs.missions, mission);
-  if (!dir) return null;
-  const read = (name: string): string | null => {
-    const path = join(ctx.root, dir, name);
-    return existsSync(path) ? readFileSync(path, 'utf8') : null;
-  };
-  const record = read(MISSION_RECORD);
-  const page = read(MISSION_PAGE);
-  const errors = [[MISSION_RECORD, record], [MISSION_PAGE, page]].flatMap(([name, content]) => (content === null ? [`${dir} has no ${name}.`] : []));
+  return dir ? readFolderAt(join(ctx.root, dir), dir, mission) : null;
+}
+
+/** The folder `abs` (a mission's folder anywhere: `omni mission push --from`) read, or every fault that refuses it, naming it `label`; null when it is no folder. */
+export function readMissionFolderAt(abs: string, label: string, mission: IssueNumber): MissionRead | null {
+  return existsSync(abs) && statSync(abs).isDirectory() ? readFolderAt(abs, label, mission) : null;
+}
+
+/** What mission.md's parse says against the mission asked for, one line each. */
+function recordFaults(dir: string, parsed: ReturnType<typeof parseBrief>, mission: IssueNumber): string[] {
+  const file = `${dir}/${MISSION_RECORD}`;
+  if (!parsed.ok) return parsed.errors.map((error) => `${file}: ${error}`);
+  return parsed.brief.mission === mission ? [] : [`${file}: mission is #${parsed.brief.mission}, not #${mission}.`];
+}
+
+/** The text of `abs/name`, or null when there is no such file. */
+function readText(abs: string, name: string): string | null {
+  const path = join(abs, name);
+  return existsSync(path) ? readFileSync(path, 'utf8') : null;
+}
+
+/** Every fault of the folder's two files, one line each. */
+function faultsOf(dir: string, files: { record: string | null; page: string | null }, parsed: ReturnType<typeof parseBrief> | null, mission: IssueNumber): string[] {
+  const missing = Object.entries({ [MISSION_RECORD]: files.record, [MISSION_PAGE]: files.page }).flatMap(([name, content]) => (content === null ? [`${dir} has no ${name}.`] : []));
+  return [
+    ...missing,
+    ...(parsed ? recordFaults(dir, parsed, mission) : []),
+    ...(files.page === null ? [] : pageFaults(`${dir}/${MISSION_PAGE}`, files.page)),
+  ];
+}
+
+function readFolderAt(abs: string, dir: string, mission: IssueNumber): MissionRead {
+  const record = readText(abs, MISSION_RECORD);
+  const page = readText(abs, MISSION_PAGE);
   const parsed = record === null ? null : parseBrief(record);
-  if (parsed && !parsed.ok) errors.push(...parsed.errors.map((error) => `${dir}/${MISSION_RECORD}: ${error}`));
-  if (parsed?.ok && parsed.brief.mission !== mission) {
-    errors.push(`${dir}/${MISSION_RECORD}: mission is #${parsed.brief.mission}, not #${mission}.`);
-  }
-  if (page !== null) errors.push(...pageFaults(`${dir}/${MISSION_PAGE}`, page));
+  const errors = faultsOf(dir, { record, page }, parsed, mission);
   if (errors.length || !parsed?.ok || record === null || page === null) return { ok: false, dir, errors };
   return {
     ok: true,

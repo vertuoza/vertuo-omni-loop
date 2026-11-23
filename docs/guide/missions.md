@@ -18,10 +18,12 @@ wherever one is needed: an approval, an answer, a merge.
 | **Scope** | PRDs and roadmaps of this repository, in any mix: one PRD, four PRDs, a roadmap, two roadmaps |
 | **Mandate** | how many PRDs may run at once, 1 to 4, 2 by default; and its level, below |
 
-A mission is numbered by its GitHub issue, like a concept. It lives in two places: its page on the
-Omni app, the source of truth while it runs, with every version kept; and the repository, as plain
-files under `.omni-loop/delivery/missions/<nnnn>-<slug>/`, `mission.md` (the front matter the kit
-reads) and `mission.html` (the brief, a page anyone can open).
+A mission is numbered by its GitHub issue, like a concept. Its record is its page on the Omni app,
+with every version of its brief and every retro kept: no pull request holds a copy. To keep it as
+plain files, run `omni mission get <n>`: it writes `mission.md` (the front matter the kit reads),
+`mission.html` (the brief, a page anyone can open), each retro and each retro item, under
+`.omni-loop/delivery/missions/<nnnn>-<slug>/` or the folder you give with `--out`, and commits nothing.
+When the page cannot be read it says `mission <n> not read: <why>` and stops.
 
 ## Three levels
 
@@ -296,15 +298,14 @@ stuck.
 
 **Where a retro goes.** On the mission page, under **Retros**, each milestone retro is one card, reading
 `Roadmap #<n> delivered` or `Mission delivered`, with *Went well* and *To change*, and a link to its
-file. Above `with-you`, the file is `retros/<k>-<roadmap n | mission>.md` on the mission branch, and the
-mission's pull request carries it into the default branch for you to merge. At `with-you` there is no
-mission branch, so the retro is kept on the mission page only, and its card says so.
+file. At every level the retro is kept on the mission page only, and its card says so: a retro is never
+a commit or a pull request. `omni mission get <n>` writes it as `retros/<k>-<roadmap n | mission>.md`.
 
 **Where a proposed rule change goes.** A retro never edits a rule, a law or a playbook form. When a
 stuck repair or a milestone retro finds one of them wrong, it proposes the change as a mission item,
 always high. The item names what it would change, the wording it proposes and the evidence, citing the
-retro. Above `with-you`, each item is a file in `outbox/` on the mission branch, beside the retro that
-raised it. Under **Questions** on the mission page, each item is a card with **Adopt** or **Decline** and
+retro. Each item is kept on the mission page, and `omni mission get <n>` writes it under `outbox/`.
+Under **Questions** on the mission page, each item is a card with **Adopt** or **Decline** and
 an optional note. Your answer is written once and never changed.
 
 **Adopt applies nothing.** The card then shows the one line that applies the change. For a law, it is
@@ -324,8 +325,10 @@ You need a Virtual Fleet first: a member creates it from the Fleet section of th
 
 It asks one question at a time: the fleet, the goal, the measures, the scope and the mandate. Then it
 shows the brief whole and writes nothing before your yes. It opens the mission's issue, writes
-`mission.md` and `mission.html`, sends both to the mission's page with `omni mission push`, and opens
-a docs pull request you merge whenever you like.
+`mission.md` and `mission.html` in a folder outside the repository, and sends both to the mission's
+page with `omni mission push --from`. It opens no branch, commit or pull request. If the push fails,
+the folder is kept and the skill prints the line to run again,
+`omni mission push <n> --from <folder>`.
 
 For one PRD and no conversation, give the PRD and the goal:
 
@@ -362,7 +365,7 @@ A mission with no PRD is never shown as delivered.
 ## Starting never waits
 
 The mission starts from its page, when a person presses **Start**, the moment its brief is there.
-The docs pull request is the record in the repository: merging it is never a condition of starting.
+The page is the mission's record: there is no pull request to merge first.
 Until someone presses Start, the mission stays a draft and sends nothing.
 
 [Next → Repository flow](/docs/flow)

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { renderSettledEntry } from '../lib/outbox/settle.ts';
 import { makeRepo, realExec } from '../test/fixture.ts';
 import type { FakeExec } from '../test/fixture.ts';
+import type { Tokens } from '../lib/ask/schema.ts';
 import { main } from './omni.ts';
 
 const HEAD = 'a'.repeat(40);
@@ -15,7 +16,7 @@ const OUTBOX = '.omni-loop/delivery/outbox/2898-demo';
 const FENCE = '```';
 
 const CONFIG = '.omni-loop/config.yml';
-const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\nready:\n  checks: mission\n  full: [test, lint]\n';
+const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: https://omni.example\ndossier:\n  enabled: true\nready:\n  checks: mission\n  full: [test, lint]\n';
 
 const PLAN = ['# Plan', '', '| id | slice | territory | blocked by | wave | tier |', '| --- | --- | --- | --- | --- | --- |', '| s1 | The rule | `kit/lib/` | — | 1 | build |', ''].join('\n');
 
@@ -92,11 +93,30 @@ function gh(w: Required<World>): FakeExec {
   };
 }
 
-async function omni(args: string[], w: Required<World> = world(), extra: Record<string, string> = {}) {
-  const { root, ctx } = makeRepo({ git: true, files: { [CONFIG]: CONFIG_TEXT, [`${DIR}/plan.md`]: PLAN, ...extra } });
+const signedIn = (): { read: (host: string) => Tokens | null; write: () => void } => {
+  const tokens: Tokens = { access_token: 'access-1', refresh_token: 'refresh-1' };
+  return { read: (host) => (host === 'omni.example' ? tokens : null), write: () => undefined };
+};
+
+/** The Omni page, answering `GET /api/missions/of-prd` with `reply`: the missions naming the PRD, or an error. */
+type Page = { missions: number[] } | { status: number } | 'unreachable';
+
+function pageFetch(page: Page, asked: string[] = []) {
+  return (url: string): Promise<Response> => {
+    asked.push(url);
+    return new Promise<Response>((resolve, reject) => {
+      if (page === 'unreachable') reject(new Error('connect refused'));
+      else if ('status' in page) resolve(new Response(JSON.stringify({ error: 'no' }), { status: page.status }));
+      else resolve(new Response(JSON.stringify(page), { status: 200 }));
+    });
+  };
+}
+
+async function omni(args: string[], w: Required<World> = world(), page: Page = { missions: [] }, asked: string[] = []) {
+  const { root, ctx } = makeRepo({ git: true, files: { [CONFIG]: CONFIG_TEXT, [`${DIR}/plan.md`]: PLAN } });
   const out: string[] = [];
   const err: string[] = [];
-  const code = await main(['ready', ...args], { cwd: root, env: {}, exec: gh(w), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
+  const code = await main(['ready', ...args], { cwd: root, env: {}, exec: gh(w), tokens: signedIn(), fetch: pageFetch(page, asked), stdout: { write: (s: string) => out.push(s) }, stderr: { write: (s: string) => err.push(s) } });
   return { code, out: out.join(''), err: err.join(''), ctx };
 }
 
@@ -176,10 +196,26 @@ describe('omni ready', () => {
     expect(json).toMatchObject({ prd: 2898, pr: { number: 77, head: HEAD, draft: true }, gated: { scope: 'mission', inMission: false }, ready: true, state: 'ready', passed: 5, headline: 'Ready for review · 5 of 5' });
   });
 
-  it('says the PRD is in a mission when a mission record names it', async () => {
-    const record = ['---', 'mission: 5', 'title: A mission', 'fleet: demo-fleet', 'goal: Ship the demo', 'scope:', '  prds: [2898]', '  roadmaps: []', '---', ''].join('\n');
-    const { out } = await omni(['2898'], world(), { '.omni-loop/delivery/missions/0005-demo/mission.md': record });
+  it('says the PRD is in a mission when the page says a mission names it', async () => {
+    const asked: string[] = [];
+    const { out } = await omni(['2898'], world(), { missions: [5] }, asked);
     expect(lines(out)[0]).toContain('ready.checks is mission, PRD in mission #5');
+    expect(asked).toEqual(['https://omni.example/api/missions/of-prd?repo=acme%2Fwidgets&prd=2898']);
+  });
+
+  it('AC-4: holds with "mission membership not read" when the page cannot be read, never "in no mission"', async () => {
+    for (const [page, why] of [['unreachable', 'unreachable'], [{ status: 503 }, 'refused (503): no']] as const) {
+      const { code, out } = await omni(['2898'], world(), page);
+      expect(code).toBe(1);
+      expect(out.trimEnd()).toBe(`mission membership not read: ${why}`);
+      expect(out).not.toContain('in no mission');
+    }
+  });
+
+  it('holds with the same line, as JSON, when the page cannot be read', async () => {
+    const { code, out } = await omni(['2898', '--json'], world(), 'unreachable');
+    expect(code).toBe(1);
+    expect(JSON.parse(out)).toEqual({ prd: 2898, state: 'not judged', why: 'mission membership not read: unreachable' });
   });
 
   it('refuses a missing PRD number', async () => {

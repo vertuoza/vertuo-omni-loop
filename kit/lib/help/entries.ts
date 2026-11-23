@@ -1242,8 +1242,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mission',
     kind: 'command',
     who: 'skills',
-    usage: ['omni mission push <n>', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>', 'omni mission request <id>'],
-    summary: "send a mission's brief to its page, drop a PRD from its branch, overturn a decision of the fleet, or read a mission request",
+    usage: ['omni mission push <n> [--from <dir>]', 'omni mission get <n> [--out <dir>]', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>', 'omni mission request <id>'],
+    summary: "send a mission's brief to its page, read it back as files, drop a PRD from its branch, overturn a decision of the fleet, or read a mission request",
     detail:
       "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
       "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
@@ -1251,7 +1251,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '0 to 5 measures, scope and mandate), names another mission, or mission.html loads from the ' +
       'network or is over the size cap. The page keeps every version and adds one only of a file that ' +
       'changed; the mission waits in draft until a person starts it. Prints the page\'s link and the ' +
-      'versions added. drop <mission> <prd>, run by a person, asks the Omni app to take that PRD off ' +
+      'versions added. With --from <dir> it reads the folder from there, outside the repository, with the same checks. ' +
+      "get <n> reads the mission from its page and writes mission.md, mission.html, each retro as retros/<k>-<milestone>.md and each retro item under outbox/, into --out or the mission's folder under {delivery}/missions/, uncommitted, and prints the folder; " +
+      "when the page cannot be read it prints 'mission <n> not read: <why>' and exits 1, and 'no mission #<n> on the page' when it holds none. " +
+      'drop <mission> <prd>, run by a person, asks the Omni app to take that PRD off ' +
       "the mission's branch: its commit leaves by rebase on the mission's next run, its feature pull " +
       'request is reopened, and the default branch is never changed. The later PRDs on the branch that ' +
       'share its territory are named and dropped with it unless --keep. A branch whose checks go red ' +
@@ -1882,9 +1885,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'Settles a mission with you, one question at a time: the Virtual Fleet that takes it, its goal, ' +
       '1 to 5 measures, its scope of PRDs and roadmaps and how many may run at once. It writes the ' +
-      'brief, mission.md and mission.html, under {delivery}/missions/, opens the mission\'s issue and a ' +
-      'docs PR into {defaultBranch}, and sends the brief to its page with omni mission push. Starting ' +
-      'the mission is the button on its page and never waits for the PR. With --prd <n> and a goal it ' +
+      'brief, mission.md and mission.html, in a scratch folder outside the repository, opens the mission\'s ' +
+      'issue, and sends the brief to its page with omni mission push --from. The page is the mission\'s ' +
+      'record: no branch, commit or pull request is made, and omni mission get <n> writes the brief back ' +
+      'as plain files. Starting the mission is the button on its page. With --prd <n> and a goal it ' +
       'asks nothing and writes the minimal mission, that PRD as its scope. With --goal <goal> it asks ' +
       'only the fleet and writes a goal-only brief at alone, no scope: the PM of the fleet writes the PRDs. ' +
       "--request <id> is the same, the goal read from the Omni page's New mission box with omni mission " +
@@ -1894,7 +1898,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     when: 'Use it when you want a Virtual Fleet to deliver a goal, over one PRD or several, with you answering only where a person is needed.',
     example: {
       type: "/omni:mission --prd 2803 'dark mode for quotes on site'",
-      result: "a mission's brief on its page, ready for Start, and a docs PR",
+      result: "a mission's brief on its page, ready for Start, and no pull request",
     },
   },
   {
@@ -2539,15 +2543,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     summary: 'write a mission\'s retro at a milestone',
     detail:
       'Writes what went well and what to change when a roadmap of a mission\'s scope is delivered, or the mission is: ' +
-      '1 to 5 sentences each, every one citing an event, a PRD, a pull request or a repair. Above with-you it commits the retro ' +
-      'and each rule-change item it proposes on the mission branch; at with-you it keeps them on the mission page only. ' +
+      '1 to 5 sentences each, every one citing an event, a PRD, a pull request or a repair. At every level it commits and ' +
+      'pushes nothing: the mission page keeps the retro and each rule-change item it proposes, and omni mission get <m> ' +
+      'writes them as plain files. It reads the mission with omni mission get first. ' +
       'It never changes a rule, a law or a form, never pauses the mission and never touches the default branch. ' +
       'A mission sends it on a runner and it ends on one omni retro: line.',
     group: 'run-by-skills',
     when: "Use it when a mission reached a milestone: the mission sends it, you never run it by hand.",
     example: {
       type: '/omni:mission-retro --mission 12 --milestone 2950',
-      result: 'a retro file on the mission branch, its items, and the omni retro: record line',
+      result: 'a retro on the mission page, its items, and the omni retro: record line with "file": null',
     },
   },
   {

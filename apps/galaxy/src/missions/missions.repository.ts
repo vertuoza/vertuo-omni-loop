@@ -5,7 +5,7 @@ import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
-import { ItemAnswerSchema, MissionLevelSchema, MissionStatusSchema, StopAnswerSchema, type ItemAnswer, type MissionStatus, type StopAnswer } from './missions.contract';
+import { ItemAnswerSchema, MissionLevelSchema, RetroReadSchema, MissionStatusSchema, StopAnswerSchema, type ItemAnswer, type MissionStatus, type RetroRead, type StopAnswer } from './missions.contract';
 
 // The missions' reads and writes (PRD 2842 s5), on the clients they are given. A signed-in person reads
 // through their own session, so row-level security shows a mission to the members of its workspace and to
@@ -53,6 +53,14 @@ const DecisionRow = z.object({ kind: z.string(), prd: PrdNumberSchema.nullable()
 const BugsRow = z.object({ kind: z.string(), job_id: z.uuid().nullable(), actor: z.string(), sentence: z.string() });
 const PageRow = z.object({ id: z.uuid(), prd: PrdNumberSchema.nullable() });
 const PlanRow = z.object({ content: z.string() });
+const PageIdRow = z.object({ id: z.uuid() });
+const VersionRow = z.object({ kind: z.enum(['mission-record', 'brief']), content: z.string() });
+const RetroRow = z.object({ id: z.uuid(), milestone: z.string(), retro: RetroReadSchema.shape.retro, skipped: z.string().nullable() });
+const RetroItemRow = z.object({
+  retro_id: z.uuid().nullable(), number: z.number().int().positive(), target: z.string(), wording: z.string(),
+  evidence: z.array(z.string()), answer: ItemAnswerSchema.nullable(), note: z.string().nullable(),
+});
+const NumberRow = z.object({ number: z.number().int().positive() });
 const ProductRow = z.object({ plan_repository: z.string().nullable() });
 const Refreshed = z.enum(['added', 'updated', 'again', 'requeued']);
 
@@ -119,6 +127,40 @@ export function missionsReader(db: MissionsDb) {
       const { data, error } = await db.from('missions').select(MISSION).eq('repo', repo.toLowerCase()).eq('number', number).maybeSingle();
       if (error) throw new Error(`Supabase: could not read the mission (${error.message})`);
       return data === null ? null : toRecord(orThrow(parseRow(MissionRow, data, `${WHERE}: missions`)));
+    },
+
+    /** The mission's latest mission.md and mission.html as pushed (PRD 3194), or null when its page holds none. */
+    async page(mission: MissionRecord): Promise<{ record: string; brief: string } | null> {
+      const pages = await db.from('dossiers').select('id').eq('workspace_id', mission.workspace).eq('home_repo', mission.repo).eq('kind', 'mission').eq('prd', mission.number).maybeSingle();
+      if (pages.error) throw new Error(`Supabase: could not read the mission's page (${pages.error.message})`);
+      if (pages.data === null) return null;
+      const page = orThrow(parseRow(PageIdRow, pages.data, `${WHERE}: dossiers`));
+      const versions = await db.from('dossier_versions').select('kind, content').eq('dossier_id', page.id).in('kind', ['mission-record', 'brief']).order('created_at', { ascending: false });
+      if (versions.error) throw new Error(`Supabase: could not read the mission's brief (${versions.error.message})`);
+      const rows = orThrow(parseRows(VersionRow, versions.data, `${WHERE}: dossier_versions`));
+      const record = rows.find((row) => row.kind === 'mission-record');
+      const brief = rows.find((row) => row.kind === 'brief');
+      return record === undefined || brief === undefined ? null : { record: record.content, brief: brief.content };
+    },
+
+    /** Each retro of the mission, oldest first, with the items it raised (PRD 3194). */
+    async retros(id: string): Promise<RetroRead[]> {
+      const retros = await db.from('mission_retros').select('id, milestone, retro, skipped').eq('mission_id', id).order('created_at', { ascending: true });
+      if (retros.error) throw new Error(`Supabase: could not read the mission's retros (${retros.error.message})`);
+      const items = await db.from('mission_items').select('retro_id, number, target, wording, evidence, answer, note').eq('mission_id', id).not('retro_id', 'is', null).order('number', { ascending: true });
+      if (items.error) throw new Error(`Supabase: could not read the mission's items (${items.error.message})`);
+      const raised = orThrow(parseRows(RetroItemRow, items.data, `${WHERE}: mission_items`));
+      return orThrow(parseRows(RetroRow, retros.data, `${WHERE}: mission_retros`)).map((row) => ({
+        milestone: row.milestone, retro: row.retro, skipped: row.skipped,
+        items: raised.filter((item) => item.retro_id === row.id).map((item) => ({ number: item.number, target: item.target, wording: item.wording, evidence: item.evidence, answer: item.answer, note: item.note })),
+      }));
+    },
+
+    /** The numbers of the repository's missions whose brief names PRD `prd`, in order (PRD 3194). */
+    async ofPrd(repo: string, prd: PrdNumber): Promise<number[]> {
+      const { data, error } = await db.from('missions').select('number').eq('repo', repo.toLowerCase()).contains('scope', { prds: [prd] }).order('number', { ascending: true });
+      if (error) throw new Error(`Supabase: could not read the missions naming PRD ${String(prd)} (${error.message})`);
+      return orThrow(parseRows(NumberRow, data, `${WHERE}: missions`)).map((row) => row.number);
     },
 
     /** Each PRD's territory, every path its latest plan's slices declare; null for one with no plan, or one that cannot be read. */

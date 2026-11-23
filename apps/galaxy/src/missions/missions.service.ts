@@ -1,9 +1,10 @@
 import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from 'omni-loop/kit/lib/mission/overturn.ts';
-import { MOVES, type AnsweredItem, type ItemAnswerBody, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
+import { MOVES, type AnsweredItem, type ItemAnswerBody, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionBrief, type BriefQuery, type OfPrdQuery, type MissionsOfPrd, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import { levelRefusal as planRefusal, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { capWords } from './token-words';
+import { missionExport } from './missions.export';
 import { missionBranch } from './mission-branch';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
@@ -340,6 +341,19 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       const nothing = bugsRefusal(body.prd, waiting);
       if (nothing !== null || waiting === null) return { ok: false, kind: 'conflict', error: nothing ?? '' };
       return recordPick(write, { mission, login: caller.login, body, job: waiting.job, at: iso() });
+    },
+
+    /** Mission `query.mission`'s brief as pushed and its retros, as a member reads them (PRD 3194): a mission of another workspace, or none, is missing. */
+    async brief(query: BriefQuery, reader: MissionsReader): Promise<Served<MissionBrief>> {
+      const mission = await reader.byNumber(query.repo, query.mission);
+      const page = mission === null ? null : await reader.page(mission);
+      if (mission === null || page === null) return { ok: false, kind: 'missing', error: `There is no mission ${String(query.mission)} in ${query.repo}.` };
+      return { ok: true, value: missionExport(mission.number, page, await reader.retros(mission.id)) };
+    },
+
+    /** The numbers of the missions of `query.repo` whose brief names PRD `query.prd`, as a member reads them: empty when none does (PRD 3194). */
+    async ofPrd(query: OfPrdQuery, reader: MissionsReader): Promise<Served<MissionsOfPrd>> {
+      return { ok: true, value: { missions: await reader.ofPrd(query.repo, query.prd) } };
     },
 
     /** Wakes mission `id` at once (a job of it ended): its job is added or refreshed, due now. Nothing for a draft, delivered or stopped mission. */
