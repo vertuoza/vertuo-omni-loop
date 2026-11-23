@@ -6,7 +6,7 @@ import type { PullRead } from './gate.ts';
 import { MISSION_KIND, missionHandler } from './job.ts';
 import type { MissionJoins } from './join.ts';
 import type { KeptUp, MissionKeepUps } from './keep-up.ts';
-import type { BranchCommit, MissionLandings, MissionPull } from './landing.ts';
+import { landingAnswers, missionPullBody, type BranchCommit, type MissionLandings, type MissionPull } from './landing.ts';
 import { fakeMissionStore } from './store.fake.ts';
 import type { MissionRecord } from './store.ts';
 import type { PrdFacts } from './supervisor.ts';
@@ -228,5 +228,19 @@ describe('a landing: each PRD is shipped once the mission pull request carried i
     expect(next?.body).toContain('| 1 | PRD 2 | #42');
     expect(next?.body).not.toContain('PRD 1 |');
     expect(gh.mission.map((one) => one.number)).toEqual([pr(60), pr(61)]);
+  });
+});
+
+// PRD omni-loop-21 s12: what the store kept of the fleet's meeting is what the mission pull request lists as Deferred decisions.
+describe('the deferred decisions, as the store keeps them (AC-7)', () => {
+  it('AC-7: lists the carried and the deferred item the store recorded, each with its option, its PRD and the Agree and Overturn links', async () => {
+    const fake = fakeMissionStore({ mission: record({ level: 'alone' }), facts: [facts(1), facts(2)] });
+    const verdicts = [{ role: 'pm' as const, answer: 'yes' as const, sentence: 'In scope.' }];
+    await fake.store.decideItem(fake.mission(), { prd: p(1), item: 's1-01-colour', job: 'ask-1', verdicts, decision: { outcome: 'carried', why: ['on the escalation list: bears on business law BL-QUOTES-1'], option: null } });
+    await fake.store.decideItem(fake.mission(), { prd: p(2), item: 's2-01-shape', job: 'ask-2', verdicts, decision: { outcome: 'deferred', why: ['architect no: the shape is not settled'], option: 'A' } });
+    const answers = landingAnswers({ mission: fake.mission(), decisions: await fake.store.decisions(ID), events: await fake.store.fleetEvents(ID), galaxyUrl: GALAXY });
+    const body = missionPullBody({ mission: fake.mission(), branch: BRANCH, defaultBranch: 'main', rows: [], link: null, answers });
+    expect(body).toContain(`- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. [Agree](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=agree)`);
+    expect(body).toContain(`- s2-01-shape of PRD 2 · deferred, option A taken meanwhile · architect no: the shape is not settled. [Agree](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=agree) · [Overturn](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=overturn)`);
   });
 });

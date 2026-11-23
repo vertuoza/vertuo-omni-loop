@@ -51,6 +51,8 @@ function github({ files = {}, pull = {} }: { files?: Record<string, string>; pul
       return { truncated: false, tree: params.recursive === '1' ? recursiveOf(dir) : treeOf(dir) };
     },
     'GET /repos/{owner}/{repo}/git/blobs/{file_sha}': (params) => ({ content: Buffer.from(files[String(params.file_sha).replace(/^blob:/, '')] ?? '').toString('base64'), encoding: 'base64' }),
+    'GET /repos/{owner}/{repo}': () => ({ default_branch: 'main' }),
+    'GET /repos/{owner}/{repo}/git/ref/{ref}': () => ({ object: { sha: HEAD } }),
     'GET /repos/{owner}/{repo}/git/commits/{commit_sha}': () => ({ sha: HEAD, tree: { sha: 'tree-0' } }),
     'POST /repos/{owner}/{repo}/git/trees': () => ({ sha: 'tree-1' }),
     'POST /repos/{owner}/{repo}/git/commits': () => ({ sha: 'b'.repeat(40) }),
@@ -102,5 +104,42 @@ describe('missionAnswers.settle', () => {
     expect(await github({ pull: { state: 'closed' } }).answers.settle(at)).toEqual({ ok: false, why: '#45 is closed' });
     const human = github({ files: { ...CONFIG, [`${OUTBOX}/${ITEM}.md`]: item('human-action') } });
     expect(await human.answers.settle(at)).toEqual({ ok: false, why: `${ITEM}: the fleet answers a high item only, not a human-action one.` });
+  });
+});
+
+// PRD omni-loop-21 s12: a person's Agree on the mission pull request settles the item as theirs, on the mission branch, where the
+// PRD's squash carried the fleet's entry.
+describe('missionAnswers.agree (AC-8)', () => {
+  /** The ledger the fleet's settlement wrote on the feature branch, as the mission branch holds it once the PRD joined. */
+  async function fleetLedger(): Promise<string> {
+    const gh = github({ files: { ...CONFIG, [`${OUTBOX}/${ITEM}.md`]: item('high') } });
+    await gh.answers.settle(at);
+    const tree = gh.calls.find(({ route }) => route === 'POST /repos/{owner}/{repo}/git/trees')?.params.tree as { content?: string }[];
+    return tree[0]?.content ?? '';
+  }
+  const agreed = { installation: 7, repo: 'acme/widgets', branch: BRANCH, prd: parsePrd(7), item: ITEM, login: 'ada', at: '2027-01-23T10:00:00.000Z' };
+
+  it('AC-8: commits the person\'s entry after the fleet\'s on the mission branch, in their name', async () => {
+    const ledger = await fleetLedger();
+    const gh = github({ files: { ...CONFIG, [`${OUTBOX}/settled.md`]: ledger } });
+    expect(await gh.answers.agree(agreed)).toEqual({ ok: true, settled: true });
+    const tree = gh.calls.find(({ route }) => route === 'POST /repos/{owner}/{repo}/git/trees')?.params.tree as { path: string; content?: string }[];
+    expect(tree.map(({ path }) => path)).toEqual([`${OUTBOX}/settled.md`]);
+    expect(tree[0]?.content?.startsWith(ledger)).toBe(true);
+    expect(tree[0]?.content?.slice(ledger.length)).toContain('- Approved by: ada');
+    expect(gh.calls.find(({ route }) => route === 'POST /repos/{owner}/{repo}/git/commits')?.params.message).toBe(`docs(outbox): ${ITEM} agreed by ada\n\nPart of #7`);
+    expect(gh.calls.find(({ route }) => route === 'PATCH /repos/{owner}/{repo}/git/refs/{ref}')?.params).toMatchObject({ ref: `heads/${BRANCH}`, force: false });
+  });
+
+  it('writes nothing once a person answered it, or when the branch holds no entry of it', async () => {
+    const gh = github({ files: { ...CONFIG, [`${OUTBOX}/settled.md`]: '# Settled\n' } });
+    expect(await gh.answers.agree(agreed)).toEqual({ ok: true, settled: false });
+    expect(gh.calls.some(({ route }) => route.startsWith('POST') || route.startsWith('PATCH'))).toBe(false);
+  });
+
+  it('refuses the default branch before it reads the ledger: the App never writes there', async () => {
+    const gh = github({ files: CONFIG });
+    await expect(gh.answers.agree({ ...agreed, branch: 'main' })).rejects.toThrow(/default branch/);
+    expect(gh.calls.map(({ route }) => route)).toEqual(['GET /repos/{owner}/{repo}']);
   });
 });
