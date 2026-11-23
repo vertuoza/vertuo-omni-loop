@@ -774,7 +774,7 @@ function supabaseGithubStore(db) {
 }
 
 // apps/omni-app/src/jobs/sweep.ts
-import { z as z125 } from "zod";
+import { z as z127 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -932,10 +932,21 @@ function parsePrd(value) {
 function parseProductPrdId(value) {
   return parseId(ProductPrdIdSchema, value, "product PRD", value);
 }
+function parsePrdId(value) {
+  const product = ProductPrdIdSchema.safeParse(value);
+  if (product.success) return product.data;
+  const prd = PrdNumberSchema.safeParse(numeric(value));
+  if (prd.success) return prd.data;
+  throw new Error(`PRD ${JSON.stringify(value)}: a PRD is its number (12) or its product's key and its number (mobile-12).`);
+}
 var isProductPrdId = (id) => typeof id === "string";
 function productPrdParts(id) {
   const cut5 = id.lastIndexOf("-");
   return { key: id.slice(0, cut5), seq: Number(id.slice(cut5 + 1)) };
+}
+function productRoadmapParts(id) {
+  const cut5 = id.lastIndexOf("-R");
+  return { key: id.slice(0, cut5), seq: Number(id.slice(cut5 + 2)) };
 }
 function parsePr(value) {
   return parseId(PrNumberSchema, numeric(value), "pull request number", value);
@@ -2491,8 +2502,8 @@ function messageOf3(error) {
   return messageField(error) ?? error;
 }
 function firstLine2(reason2) {
-  const said3 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
-  return said3.split("\n")[0] || "unknown error";
+  const said4 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
+  return said4.split("\n")[0] || "unknown error";
 }
 var printed = (value) => String(value);
 
@@ -2535,8 +2546,8 @@ async function snapshot(octokit, {
   for (const segments of segmentsOf) {
     for (const file of await filesUnder(tree, ref, segments)) files.set(file.path, file);
   }
-  const listed4 = [...files.values()];
-  const list2 = listed4.filter((file) => fetchIf(file.path));
+  const listed5 = [...files.values()];
+  const list2 = listed5.filter((file) => fetchIf(file.path));
   if (list2.length > MAX_FILES) {
     throw new SnapshotBoundError(
       `The snapshot holds ${list2.length.toLocaleString("en-US")} files, over the bound of ${MAX_FILES.toLocaleString("en-US")} files.`
@@ -2549,7 +2560,7 @@ async function snapshot(octokit, {
     );
   }
   const folder = dest ?? mkdtempSync(join3(tmpdir(), "omni-snapshot-"));
-  for (const file of listed4) {
+  for (const file of listed5) {
     if (fetchIf(file.path)) continue;
     const target2 = join3(folder, ...repositoryPath(file.path));
     mkdirSync(dirname(target2), { recursive: true });
@@ -3526,7 +3537,7 @@ function idParts(id) {
 }
 function readFields(lines2) {
   const fields = {};
-  const counts = {};
+  const counts2 = {};
   let fieldAt = -1;
   let open = null;
   lines2.forEach((line3, index) => {
@@ -3536,8 +3547,8 @@ function readFields(lines2) {
       const name = group(match, 1);
       if (!isOneOf(FIELD_NAMES, name)) return;
       const key = FIELD_KEY[name];
-      counts[key] = (counts[key] ?? 0) + 1;
-      if (counts[key] === 1) {
+      counts2[key] = (counts2[key] ?? 0) + 1;
+      if (counts2[key] === 1) {
         fields[key] = (match[2] ?? "").trim();
         open = key;
       } else {
@@ -3551,7 +3562,7 @@ function readFields(lines2) {
     }
     if (open) fields[open] = `${fields[open]} ${line3.trim()}`.trim();
   });
-  return { fields, counts, fieldAt };
+  return { fields, counts: counts2, fieldAt };
 }
 var PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
 function readProposed(file, id, value) {
@@ -3644,7 +3655,7 @@ function splitEntries(text20) {
 }
 function parseEntryFile(file, text20, place2) {
   return splitEntries(text20).map(({ id, lines: lines2 }) => {
-    const { fields, counts, fieldAt } = readFields(lines2);
+    const { fields, counts: counts2, fieldAt } = readFields(lines2);
     const statement2 = (fieldAt === -1 ? lines2 : lines2.slice(0, fieldAt)).filter((line3) => line3.trim().length > 0).join(" ").trim();
     const kind = place2.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy2 = fields.enforcedBy ?? null;
@@ -3679,7 +3690,7 @@ function parseEntryFile(file, text20, place2) {
       pointsTo: readPointsTo(fields.pointsToLine),
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
-      fieldCounts: counts,
+      fieldCounts: counts2,
       problems: [...proposedProblems, ...pendingProblems, ...lockedProblems, ...governsProblems, ...layersProblems, ...proposedLawProblems]
     };
   });
@@ -5103,8 +5114,8 @@ function lawPaths(before2, after2, { compared }) {
 function lawsAwaitingOwners(fired, { ownersOf: ownersOf2, approvers, lawOwners = [] }) {
   const fallback = lawOwners.map((login) => `@${login.replace(/^@/, "")}`).filter(isPersonOwner);
   const files = fired.map(({ law, path }) => {
-    const listed4 = ownersOf2(path).filter(isPersonOwner);
-    const persons = listed4.length > 0 ? listed4 : fallback;
+    const listed5 = ownersOf2(path).filter(isPersonOwner);
+    const persons = listed5.length > 0 ? listed5 : fallback;
     return { law, path, persons, approved: approvers.filter((login) => isOwnedBy(persons, login)) };
   });
   const awaiting = [];
@@ -5942,11 +5953,11 @@ function upsertOutboxPrComment({ prd, ctx, now = () => (/* @__PURE__ */ new Date
   };
 }
 function countsByRank(items) {
-  const counts = {};
+  const counts2 = {};
   for (const item of items) {
-    counts[item.rank] = (counts[item.rank] ?? 0) + 1;
+    counts2[item.rank] = (counts2[item.rank] ?? 0) + 1;
   }
-  return counts;
+  return counts2;
 }
 var PrCommentResultSchema = z19.object({
   htmlUrl: z19.string().nullish(),
@@ -5966,7 +5977,7 @@ function upsertOutboxComment({
   const unaccounted = unaccountedChanges(prd, changes, { ctx });
   const unreworked = unreworkedDrift(prd, { ctx });
   const body = formatOutboxComment({ prd, owner, repo, branch, ref, items, unaccounted, unreworked, labels, ctx });
-  const counts = countsByRank(items);
+  const counts2 = countsByRank(items);
   const adoptedCount = adoptedEntriesForPrd(prd, { ctx }).length;
   const existing = findMarkerComment(client.listComments(), ctx.markers);
   const hasSomethingToList = items.length > 0 || unaccounted.length > 0;
@@ -5978,7 +5989,7 @@ function upsertOutboxComment({
       itemCount: 0,
       unaccountedCount: 0,
       newCount: 0,
-      counts,
+      counts: counts2,
       adoptedCount,
       body
     };
@@ -5998,7 +6009,7 @@ function upsertOutboxComment({
       itemCount: items.length,
       unaccountedCount: unaccounted.length,
       newCount,
-      counts,
+      counts: counts2,
       adoptedCount,
       body
     };
@@ -6011,7 +6022,7 @@ function upsertOutboxComment({
     itemCount: items.length,
     unaccountedCount: unaccounted.length,
     newCount,
-    counts,
+    counts: counts2,
     adoptedCount,
     body
   };
@@ -6373,14 +6384,14 @@ function referenced(screens) {
   return screens.flatMap((screen) => screen.ref !== null && REFERENCE.test(screen.ref) && screen.when !== null && SIDES.has(screen.when) ? [{ screen, ref: screen.ref, when: screen.when }] : []);
 }
 function pairViolations(screens) {
-  const counts = /* @__PURE__ */ new Map();
+  const counts2 = /* @__PURE__ */ new Map();
   const refs = /* @__PURE__ */ new Set();
   for (const { ref, when } of referenced(screens)) {
-    counts.set(`${ref} ${when}`, (counts.get(`${ref} ${when}`) ?? 0) + 1);
+    counts2.set(`${ref} ${when}`, (counts2.get(`${ref} ${when}`) ?? 0) + 1);
     refs.add(ref);
   }
-  const twice = [...counts].filter(([, count4]) => count4 > 1).map(([pair, count4]) => `reference ${pair} is written ${count4} times, not once`);
-  const missing = [...refs].filter((ref) => !counts.has(`${ref} after`)).map((ref) => `reference ${ref} has no after`);
+  const twice = [...counts2].filter(([, count4]) => count4 > 1).map(([pair, count4]) => `reference ${pair} is written ${count4} times, not once`);
+  const missing = [...refs].filter((ref) => !counts2.has(`${ref} after`)).map((ref) => `reference ${ref} has no after`);
   return [...twice, ...missing];
 }
 function collect(map, key, value) {
@@ -6618,6 +6629,10 @@ function repositoryPrd(cell4) {
   const match = PRD_CELL.exec(cell4);
   return match ? parsePrd(group(match, 1)) : null;
 }
+function anyPrd(cell4) {
+  const product = ProductPrdIdSchema.safeParse(cell4);
+  return product.success ? product.data : repositoryPrd(cell4);
+}
 function prdsOf(section4, readPrd, cellWords) {
   if (!section4) return { rows: [], repos: false, faults: ['sections: no "## PRDs" section.'] };
   const table = firstTable(section4.lines);
@@ -6783,6 +6798,36 @@ function parseRoadmap(text20) {
 function roadmapWaves(roadmap) {
   const waves = [...new Set(roadmap.prds.map((row) => row.wave))].sort((a, b) => a - b);
   return waves.map((wave) => ({ wave, rows: roadmap.prds.filter((row) => row.wave === wave) }));
+}
+function parseProductRoadmap(text20) {
+  const block = FRONT_MATTER_BLOCK4.exec(text20);
+  if (!block) return { ok: false, errors: ['no front matter: a roadmap.md opens with a "---" fenced header.'] };
+  const [, raw = "", body = ""] = block;
+  const front = frontMatter(raw, ProductFrontMatterSchema);
+  const sections = sectionsOf(body);
+  const prds = prdsOf(sections.find((section4) => section4.name === "PRDs"), anyPrd, "#<number> or a product PRD id such as mobile-12");
+  const questions = questionsOf(sections.find((section4) => section4.name === "Open questions"));
+  const prerequisites = prerequisitesOf(sections.find((section4) => section4.name === "Prerequisites"));
+  const errors = [...front.errors, ...prds.faults, ...questions.faults, ...prerequisites.faults];
+  const id = front.data?.roadmap === void 0 ? null : ProductRoadmapIdSchema.safeParse(front.data.roadmap);
+  if (id !== null && !id.success) errors.push(`front matter: roadmap is "${front.data?.roadmap}": it is left out, or is the roadmap's id such as mobile-R3.`);
+  if (errors.length > 0 || front.data === null) return { ok: false, errors };
+  const { title, milestone, product, target: target2, source } = front.data;
+  return {
+    ok: true,
+    roadmap: {
+      productId: id?.success ? id.data : null,
+      title,
+      milestone,
+      product: product ?? null,
+      target: target2 ?? null,
+      source: source ?? null,
+      repos: prds.repos,
+      prds: prds.rows,
+      questions: questions.questions,
+      prerequisites: prerequisites.prerequisites
+    }
+  };
 }
 
 // kit/lib/roadmap/grade.ts
@@ -9622,8 +9667,8 @@ async function gatherMega(octokit, scope) {
   return { bugs, mega: { plan, bugs: bugs.map((bug) => bug.number), planned, targets, unread: unread2 } };
 }
 async function megaIssues(octokit, scope, unread2) {
-  const { owner, repo, config, window, prd, listed: listed4, label: label2 } = scope;
-  const found = new Map(listed4.map((issue) => [issue.number, issue]));
+  const { owner, repo, config, window, prd, listed: listed5, label: label2 } = scope;
+  const found = new Map(listed5.map((issue) => [issue.number, issue]));
   if (config.labels.bug !== label2) {
     const more = await readOrRefused(
       () => paginate(
@@ -9719,15 +9764,15 @@ var afterMerge = Object.freeze({
     if (!mergedAt || !mergeSha || !prd?.number || !config) return null;
     const window = { from: new Date(mergedAt).toISOString(), to: followUpAt(mergedAt) };
     const unread2 = [];
-    const listed4 = await readOrRefused(
+    const listed5 = await readOrRefused(
       () => paginate(
         (page) => octokit.request(ISSUES3, { owner, repo, labels: BUG_LABEL2, state: "all", since: window.from, per_page: PER_PAGE, page }).then(({ data }) => IssueSchema2.array().parse(data))
       )
     );
-    if (listed4.status) unread2.push({ read: "bugs", status: listed4.status });
-    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed4.value ?? [], label: BUG_LABEL2 };
+    if (listed5.status) unread2.push({ read: "bugs", status: listed5.status });
+    const megaScope = { owner: owner ?? "", repo: repo ?? "", prd: prd.number, config, window, targets: targets ?? [], atMerge, listed: listed5.value ?? [], label: BUG_LABEL2 };
     const mega = await gatherMega(octokit, megaScope);
-    const bugs = withMegaBugs(bugsNaming(listed4.value ?? [], { window, names: namesPrd2(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
+    const bugs = withMegaBugs(bugsNaming(listed5.value ?? [], { window, names: namesPrd2(prd.number, `${owner}/${repo}`) }), mega?.bugs ?? []);
     const fixes = await closingFixes(octokit, { owner, repo, base: config.repo.defaultBranch, window, featurePr: pr?.number, bugs, unread: unread2 });
     const checks = await mergeJobs(octokit, { owner, repo, mergeSha, unread: unread2 });
     const churnAtMerge = parseOrThrow(ChurnAtMergeSchema, atMerge?.kinds.churn, "The merge run's churn facts are of an unexpected shape");
@@ -9786,8 +9831,8 @@ var afterMerge = Object.freeze({
     return lines2;
   }
 });
-function bugsNaming(listed4, { window, names }) {
-  return listed4.filter((issue) => !issue.pull_request && within3(window, issue.created_at) && names(`${issue.title ?? ""}
+function bugsNaming(listed5, { window, names }) {
+  return listed5.filter((issue) => !issue.pull_request && within3(window, issue.created_at) && names(`${issue.title ?? ""}
 ${issue.body ?? ""}`)).map((issue) => ({ number: issue.number, url: issue.html_url, createdAt: issue.created_at, closedAt: issue.closed_at ?? null })).sort((a, b) => a.number - b.number);
 }
 function withMegaBugs(bugs, mega) {
@@ -9870,9 +9915,9 @@ function checkLines(checks) {
   }
   if (checks.total === 0) return [`- No GitHub Actions job ran on the merge commit \`${checks.commit}\`.`];
   const red = checks.jobs.filter((job) => RED2.has(job.conclusion)).map((job) => `\`${job.name}\``);
-  const counts = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(", ")})` : ""}`];
-  if (checks.other > 0) counts.push(`${checks.other} neither`);
-  return [`- ${plural3(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts.join(", ")}.`];
+  const counts2 = [`${checks.green} green`, `${checks.red} red${red.length > 0 ? ` (${red.join(", ")})` : ""}`];
+  if (checks.other > 0) counts2.push(`${checks.other} neither`);
+  return [`- ${plural3(checks.total, "GitHub Actions job")} ran on the merge commit \`${checks.commit}\`: ${counts2.join(", ")}.`];
 }
 function happened(bug, facts) {
   const opened = `was opened ${daysText(bug.daysAfterMerge)} after the merge.`;
@@ -10080,14 +10125,14 @@ var churn = Object.freeze({
     const seen = /* @__PURE__ */ new Set();
     const read2 = [];
     for (const pull of merged) {
-      const listed4 = await unlessMissing([404], () => listPullCommits(octokit, { owner, repo, number: pull.number }));
+      const listed5 = await unlessMissing([404], () => listPullCommits(octokit, { owner, repo, number: pull.number }));
       const commits = [];
-      for (const item of listed4 ?? []) {
+      for (const item of listed5 ?? []) {
         if ((item.parents?.length ?? 0) > 1 || seen.has(item.sha)) continue;
         seen.add(item.sha);
         commits.push(await readCommit(octokit, { owner, repo, sha: item.sha }));
       }
-      read2.push({ number: pull.number, url: pull.url, headRef: pull.headRef, mergedAt: pull.mergedAt, commits: listed4 ? commits : null });
+      read2.push({ number: pull.number, url: pull.url, headRef: pull.headRef, mergedAt: pull.mergedAt, commits: listed5 ? commits : null });
     }
     return { gitattributes, final, pulls: read2 };
   },
@@ -10371,8 +10416,8 @@ function readTestLog(text20) {
   const lines2 = cleanLog(text20).split("\n");
   for (const reader of READERS) {
     if (!reader.detects(lines2)) continue;
-    const { tests, counts } = reader.read(lines2);
-    return { reporter: reader.id, tests: unique3(tests), counts };
+    const { tests, counts: counts2 } = reader.read(lines2);
+    return { reporter: reader.id, tests: unique3(tests), counts: counts2 };
   }
   return { reporter: null, tests: [], counts: null };
 }
@@ -10392,31 +10437,31 @@ var playwright = {
   id: "playwright",
   detects: (lines2) => lines2.some((line3) => /^Running \d+ tests? using \d+ workers?/.test(line3.trim()) || PLAYWRIGHT_HEADER.test(line3)),
   read(lines2) {
-    const { counts, listed: listed4 } = playwrightSummary(lines2);
-    const failed3 = Object.keys(counts).length > 0 ? listed4 : present(lines2.map((line3) => PLAYWRIGHT_HEADER.exec(line3)?.[1]));
-    return { tests: failed3.map(playwrightName), counts: Object.keys(counts).length > 0 ? counts : null };
+    const { counts: counts2, listed: listed5 } = playwrightSummary(lines2);
+    const failed3 = Object.keys(counts2).length > 0 ? listed5 : present(lines2.map((line3) => PLAYWRIGHT_HEADER.exec(line3)?.[1]));
+    return { tests: failed3.map(playwrightName), counts: Object.keys(counts2).length > 0 ? counts2 : null };
   }
 };
 function playwrightSummary(lines2) {
-  const counts = {};
-  const listed4 = [];
+  const counts2 = {};
+  const listed5 = [];
   let section4 = null;
   for (const line3 of lines2) {
     const count4 = PLAYWRIGHT_COUNT.exec(line3);
     if (count4) {
-      section4 = keptCount(counts, count4);
+      section4 = keptCount(counts2, count4);
       continue;
     }
     const entry = /^\s{2,}(\S.*? › .+?)\s*[─═=-]*\s*$/.exec(line3);
-    if (section4 === "failed" && entry?.[1] !== void 0) listed4.push(entry[1]);
+    if (section4 === "failed" && entry?.[1] !== void 0) listed5.push(entry[1]);
     else if (line3.trim() !== "") section4 = null;
   }
-  return { counts, listed: listed4 };
+  return { counts: counts2, listed: listed5 };
 }
-function keptCount(counts, count4) {
+function keptCount(counts2, count4) {
   const section4 = count4[2] ?? null;
   const key = section4 === null ? void 0 : COUNT_KEYS[section4];
-  if (key) counts[key] = Number(count4[1]);
+  if (key) counts2[key] = Number(count4[1]);
   return section4;
 }
 function playwrightName(title) {
@@ -10471,14 +10516,14 @@ function vitestCrosses(lines2) {
 }
 var READERS = Object.freeze([pytest, playwright, jest, vitest]);
 function countsIn(text20) {
-  const counts = {};
+  const counts2 = {};
   for (const [, number, word] of text20.matchAll(/(\d+) ([a-z]+)/g)) {
     const key = word === void 0 ? void 0 : COUNT_KEYS[word];
-    if (key && !(key in counts)) counts[key] = Number(number);
+    if (key && !(key in counts2)) counts2[key] = Number(number);
   }
   const total = /\((\d+)\)\s*$/.exec(text20.trim());
-  if (total && !("total" in counts)) counts.total = Number(total[1]);
-  return Object.keys(counts).length > 0 ? counts : null;
+  if (total && !("total" in counts2)) counts2.total = Number(total[1]);
+  return Object.keys(counts2).length > 0 ? counts2 : null;
 }
 function normalize2(name) {
   return name.replace(/\s+[›>]\s+/g, " > ").replace(/\s+/g, " ").trim();
@@ -10748,8 +10793,8 @@ function fromLog(run) {
   if (run.reporter === null) return "no test named: its last lines are kept as an excerpt";
   const name = REPORTERS[run.reporter];
   if (!run.counts) return `${name}, no count`;
-  const counts = run.counts;
-  return `${name}: ${COUNT_ORDER.filter((key) => key in counts).map((key) => `${counts[key]} ${key}`).join(", ")}`;
+  const counts2 = run.counts;
+  return `${name}: ${COUNT_ORDER.filter((key) => key in counts2).map((key) => `${counts2[key]} ${key}`).join(", ")}`;
 }
 function leafOf(test) {
   return test.split(/ > |::/).at(-1);
@@ -10850,14 +10895,14 @@ function decisionFacts({ prd, config, links }) {
   return { facts, findings };
 }
 function byRank(entries) {
-  const counts = /* @__PURE__ */ new Map();
+  const counts2 = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     const rank = entry.fields.Rank ?? "unknown";
-    counts.set(rank, (counts.get(rank) ?? 0) + 1);
+    counts2.set(rank, (counts2.get(rank) ?? 0) + 1);
   }
   const ranks = RANK_VALUES;
   const order = (rank) => ranks.includes(rank) ? ranks.indexOf(rank) : ranks.length;
-  return Object.fromEntries([...counts].sort(([a], [b]) => order(a) - order(b) || a.localeCompare(b)));
+  return Object.fromEntries([...counts2].sort(([a], [b]) => order(a) - order(b) || a.localeCompare(b)));
 }
 function overrideFacts({ pr, config }) {
   const label2 = config.labels.outboxGo;
@@ -10874,8 +10919,8 @@ function overrideFacts({ pr, config }) {
   return { facts: { label: label2, mergedUnder }, findings };
 }
 function territoryFacts({ prd, config, subs, read: read2 }) {
-  const counts = { graded: 0, breaches: 0, shared: 0, unread: 0, unplanned: 0 };
-  const ungraded = (reason2) => ({ facts: { reason: reason2, sharedGround: [], counts, pulls: [] }, findings: [] });
+  const counts2 = { graded: 0, breaches: 0, shared: 0, unread: 0, unplanned: 0 };
+  const ungraded = (reason2) => ({ facts: { reason: reason2, sharedGround: [], counts: counts2, pulls: [] }, findings: [] });
   if (typeof prd.plan !== "string") return ungraded("no plan at the merge");
   let slices;
   try {
@@ -10904,10 +10949,10 @@ function territoryFacts({ prd, config, subs, read: read2 }) {
   });
   for (const pull of pulls) {
     if (pull.status === "graded") {
-      counts.graded += 1;
-      counts.breaches += pull.breaches.length;
-      counts.shared += pull.shared.length;
-    } else counts[pull.status] += 1;
+      counts2.graded += 1;
+      counts2.breaches += pull.breaches.length;
+      counts2.shared += pull.shared.length;
+    } else counts2[pull.status] += 1;
   }
   const bySlice = groupBy(
     pulls.filter((pull) => pull.status === "graded" && pull.breaches.length > 0),
@@ -10923,7 +10968,7 @@ function territoryFacts({ prd, config, subs, read: read2 }) {
       evidence: withUrls(own.map((pull) => ({ label: `#${pull.pr}`, url: pull.url ? `${pull.url}/files` : null })))
     };
   });
-  return { facts: { reason: null, sharedGround: sharedGround2, counts, pulls }, findings };
+  return { facts: { reason: null, sharedGround: sharedGround2, counts: counts2, pulls }, findings };
 }
 function firstClause(message) {
   const clause = (message.split(/;|\.(\s|$)/)[0] ?? "").trim();
@@ -10931,7 +10976,7 @@ function firstClause(message) {
 }
 function frictionFacts({ subs, read: read2, config }) {
   const label2 = config.labels.needsFix;
-  const counts = { stuck: 0, needsFix: 0, reclaimed: 0, commentsUnread: 0, eventsUnread: 0 };
+  const counts2 = { stuck: 0, needsFix: 0, reclaimed: 0, commentsUnread: 0, eventsUnread: 0 };
   const urls = new Map(subs.map(({ pull }) => [pull.number, pull.url]));
   const slices = /* @__PURE__ */ new Map();
   for (const { pull, slice } of subs) {
@@ -10941,17 +10986,17 @@ function frictionFacts({ subs, read: read2, config }) {
     entry.claims += 1;
     const records = read2[pull.number] ?? {};
     const stuck = records.stuck ?? null;
-    if (stuck === null) counts.commentsUnread += 1;
+    if (stuck === null) counts2.commentsUnread += 1;
     else entry.stuck.push(...stuck.map((comment) => ({ pr: pull.number, ...comment })));
     const added = records.needsFix ?? null;
-    if (added === null) counts.eventsUnread += 1;
+    if (added === null) counts2.eventsUnread += 1;
     if (added && added.length > 0) entry.needsFix.push(...added.map((at4) => ({ pr: pull.number, at: at4 })));
     else if (pull.labels.includes(label2)) entry.needsFix.push({ pr: pull.number, at: null });
   }
   const all = [...slices.values()];
-  counts.stuck = all.filter((entry) => entry.stuck.length > 0).length;
-  counts.needsFix = all.filter((entry) => entry.needsFix.length > 0).length;
-  counts.reclaimed = all.filter((entry) => entry.claims > 1).length;
+  counts2.stuck = all.filter((entry) => entry.stuck.length > 0).length;
+  counts2.needsFix = all.filter((entry) => entry.needsFix.length > 0).length;
+  counts2.reclaimed = all.filter((entry) => entry.claims > 1).length;
   const findings = all.filter((entry) => entry.stuck.length > 0 || entry.needsFix.length > 0).map((entry) => {
     const parts = [];
     if (entry.needsFix.length > 0) parts.push(`was labelled \`${label2}\``);
@@ -10972,14 +11017,14 @@ function frictionFacts({ subs, read: read2, config }) {
       evidence: withUrls(evidence)
     };
   });
-  return { facts: { label: label2, counts, slices: all }, findings };
+  return { facts: { label: label2, counts: counts2, slices: all }, findings };
 }
 function reviewFacts({ pr, subs, read: read2 }) {
   const targets = [
     { pr: pr.number, slice: null, url: pr.url },
     ...mergedSlicePulls(subs).map(({ pull, slice }) => ({ pr: pull.number, slice, url: pull.url }))
   ];
-  const counts = {
+  const counts2 = {
     pulls: targets.length,
     reviews: 0,
     reviewsByPeople: 0,
@@ -10995,8 +11040,8 @@ function reviewFacts({ pr, subs, read: read2 }) {
   const pulls = targets.map((target2) => {
     const reviews = read2[target2.pr]?.reviews ?? null;
     const threads = read2[target2.pr]?.threads ?? null;
-    if (reviews === null) counts.reviewsUnread += 1;
-    if (threads === null) counts.threadsUnread += 1;
+    if (reviews === null) counts2.reviewsUnread += 1;
+    if (threads === null) counts2.threadsUnread += 1;
     const red = [
       ...(reviews ?? []).filter((review) => review.bot && review.red).map((review) => ({ url: review.url, author: review.author, path: null, resolved: null, text: review.text })),
       ...(threads ?? []).filter((thread) => thread.bot && thread.red).map((thread) => ({ url: thread.url, author: thread.author, path: thread.path, resolved: thread.resolved, text: thread.text }))
@@ -11005,17 +11050,17 @@ function reviewFacts({ pr, subs, read: read2 }) {
     const reviewsBy = reviews && byAuthorKind(reviews);
     const threadsBy = threads && byAuthorKind(threads);
     if (reviewsBy) {
-      counts.reviews += reviews.length;
-      counts.reviewsByPeople += reviewsBy.people;
-      counts.reviewsByBots += reviewsBy.bots;
+      counts2.reviews += reviews.length;
+      counts2.reviewsByPeople += reviewsBy.people;
+      counts2.reviewsByBots += reviewsBy.bots;
     }
     if (threadsBy) {
-      counts.threads += threads.length;
-      counts.threadsByPeople += threadsBy.people;
-      counts.threadsByBots += threadsBy.bots;
+      counts2.threads += threads.length;
+      counts2.threadsByPeople += threadsBy.people;
+      counts2.threadsByBots += threadsBy.bots;
     }
-    counts.red += red.length;
-    counts.unresolved += unresolved.length;
+    counts2.red += red.length;
+    counts2.unresolved += unresolved.length;
     return { ...target2, reviews: reviewsBy, threads: threadsBy, red, unresolved };
   });
   const findings = pulls.filter((pull) => pull.red.length > 0 || pull.unresolved.length > 0).map((pull) => {
@@ -11035,7 +11080,7 @@ function reviewFacts({ pr, subs, read: read2 }) {
       evidence: withUrls(evidence)
     };
   });
-  return { facts: { counts, pulls }, findings };
+  return { facts: { counts: counts2, pulls }, findings };
 }
 function byAuthorKind(items) {
   const bots = items.filter((item) => item.bot).length;
@@ -11661,14 +11706,14 @@ function knowledgeSummary({ ctx }) {
     knowledge: existsSync22(join29(ctx.root, ctx.layout.knowledgeRoot))
   };
   const knowledge = readKnowledge({ ctx });
-  const placeOf5 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
+  const placeOf6 = (entry) => entry.scope === "product" ? PRODUCT_PLACE : entry.domain;
   const domains = knowledge.domains.map((domain) => {
     const readme = join29(ctx.root, domainsDir(ctx), domain.name, "README.md");
     return { name: domain.name, firstLine: existsSync22(readme) ? firstLine4(readFileSync19(readme, "utf8")) : null };
   });
-  const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf5(entry), statement: entry.statement }));
+  const principles = knowledge.entries.filter((entry) => entry.kind === "principle" && entry.scope !== "cross-domain").map((entry) => ({ id: entry.id, place: placeOf6(entry), statement: entry.statement }));
   const laws = knowledge.entries.flatMap(
-    (entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain" ? [{ id: entry.id, kind: entry.kind, place: placeOf5(entry), statement: entry.statement }] : []
+    (entry) => (entry.kind === "rule" || entry.kind === "invariant") && entry.scope !== "cross-domain" ? [{ id: entry.id, kind: entry.kind, place: placeOf6(entry), statement: entry.statement }] : []
   );
   const decisions = places.adr ? readDecisions({ ctx }).records.map((record) => ({ number: record.number, title: record.title })) : [];
   return { places, domains, principles, decisions, laws };
@@ -11841,9 +11886,9 @@ function firstSentence2(text20) {
   return end === -1 ? text20 : text20.slice(0, end + 1);
 }
 function lineOf2(item) {
-  const flat = item.replace(/\s+/g, " ").trim();
-  const bold = BOLD_HEAD.exec(flat);
-  const line3 = bold ? `${bold[1] ?? ""} ${firstSentence2(flat.slice(bold[0].length))}`.trim() : firstSentence2(flat);
+  const flat2 = item.replace(/\s+/g, " ").trim();
+  const bold = BOLD_HEAD.exec(flat2);
+  const line3 = bold ? `${bold[1] ?? ""} ${firstSentence2(flat2.slice(bold[0].length))}`.trim() : firstSentence2(flat2);
   return line3.length > LINE_MAX ? `${line3.slice(0, LINE_MAX - 1)}\u2026` : line3;
 }
 function rulesOf(paragraph) {
@@ -12728,8 +12773,8 @@ function findOwningLibraryViolations(ctx, knowledge) {
     if (!existsSync30(join37(ctx.root, readme))) continue;
     const section4 = readFileSync25(join37(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
-    const listed4 = section4.split(/^## /m)[0] ?? "";
-    for (const match of listed4.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
+    const listed5 = section4.split(/^## /m)[0] ?? "";
+    for (const match of listed5.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = (match[1] ?? "").replace(/\/$/, "");
       if (!existsSync30(join37(ctx.root, path))) {
         violations.push(
@@ -14100,10 +14145,10 @@ async function takenElsewhere(octokit, { owner, repo, config, own }) {
 }
 var LAW_ISSUES_UNEXPECTED = "GitHub answered the open law issues unexpectedly";
 async function openLawIssue(octokit, { owner, repo, label: label2, issue }) {
-  const listed4 = await paginate(
+  const listed5 = await paginate(
     (page) => octokit.request("GET /repos/{owner}/{repo}/issues", { owner, repo, labels: label2, state: "open", per_page: PER_PAGE, page }).then(({ data: data2 }) => parsedOr(ListSchema, data2, LAW_ISSUES_UNEXPECTED))
   );
-  const open = parsedOr(ListedIssueSchema.array(), listed4, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
+  const open = parsedOr(ListedIssueSchema.array(), listed5, LAW_ISSUES_UNEXPECTED).find((found) => !found.pull_request && found.title === issue.title);
   if (open) return { number: open.number, created: false };
   const { data } = await octokit.request("POST /repos/{owner}/{repo}/issues", { owner, repo, title: issue.title, body: issue.body, labels: [label2] });
   return { number: parsedOr(ListedIssueSchema, data, "GitHub answered the new law issue unexpectedly").number, created: true };
@@ -15162,9 +15207,9 @@ function numberedAfter(sheet, count4) {
   return { ...sheet, findings: sheet.findings.map((finding, index) => ({ ...finding, ref: `F${count4 + index + 1}` })) };
 }
 function outcome({ sheet, record, published, comment, verdict, queued }) {
-  const counts = { findings: sheet.findings.length, issues: Object.keys(record.issues).length };
-  if (published) return { ...counts, ...published, ...queued ? { queued } : {} };
-  return { ...counts, verdict: verdict.judged ? NO_NEW_LESSON : NOT_JUDGED, comment };
+  const counts2 = { findings: sheet.findings.length, issues: Object.keys(record.issues).length };
+  if (published) return { ...counts2, ...published, ...queued ? { queued } : {} };
+  return { ...counts2, verdict: verdict.judged ? NO_NEW_LESSON : NOT_JUDGED, comment };
 }
 function retroFailureHook({ octokitFor }) {
   return failureCommentHook(octokitFor, { schema: RetroPayloadSchema, marker: FAILURE_MARKER, what: "The retro" });
@@ -18502,12 +18547,12 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
       if (verdict.gate) return verdict.gate;
       if (constituents.length === 0) return judged2({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said3 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
-      if (!said3.ok) {
-        return neutral(said3.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said3.reason})` : `judge error: ${said3.reason}`);
+      const said4 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      if (!said4.ok) {
+        return neutral(said4.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said4.reason})` : `judge error: ${said4.reason}`);
       }
-      const findings = counted2(verdict.findings, said3.answer === "true");
-      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said3.decidedBy, confidence: said3.confidence } });
+      const findings = counted2(verdict.findings, said4.answer === "true");
+      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said4.decidedBy, confidence: said4.confidence } });
     }
   };
 }
@@ -18544,8 +18589,8 @@ function constituentJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE
     const reply = await response.json().catch(() => null);
     if (!response.ok) {
       const refusal4 = RefusalSchema.safeParse(reply);
-      const said3 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
-      return failed("judge", `galaxy answered ${response.status}${said3}`);
+      const said4 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
+      return failed("judge", `galaxy answered ${response.status}${said4}`);
     }
     const verdict = VerdictSchema2.safeParse(reply);
     if (!verdict.success) return failed("judge", "galaxy answered no verdict");
@@ -19087,9 +19132,9 @@ function fleetBoardHandler({ octokitFor, store, now = () => /* @__PURE__ */ new 
     }
     const outcomes2 = [];
     for (const workspace of workspaces) outcomes2.push(await addCard({ octokitFor, store, now, data, workspace, fleet: fleets.get(workspace) ?? null }));
-    const said3 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
-    log2(`fleet board: ${said3}`);
-    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said3 };
+    const said4 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
+    log2(`fleet board: ${said4}`);
+    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said4 };
   };
 }
 async function addCard({
@@ -19546,9 +19591,9 @@ function targetFlows({ root, config }) {
 var COMMIT2 = /^[0-9a-f]{40}$/;
 var NO_COMMIT = /^[—–-]$/;
 function duplicateIds2(slices) {
-  const counts = /* @__PURE__ */ new Map();
-  for (const slice of slices) counts.set(slice.id, (counts.get(slice.id) ?? 0) + 1);
-  return [...counts.entries()].filter(([, count4]) => count4 > 1).map(([id]) => id);
+  const counts2 = /* @__PURE__ */ new Map();
+  for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
+  return [...counts2.entries()].filter(([, count4]) => count4 > 1).map(([id]) => id);
 }
 function blockedByViolations2(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
@@ -20577,7 +20622,7 @@ function answerText(option, answer) {
     `${option.letter}. ${option.text}`,
     "",
     `Answered by fleet ${answer.fleet} for ${answer.branch}: every member who sat answered yes.`,
-    ...answer.verdicts.map(({ role, answer: said3, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said3} \u2014 ${sentence2}`)
+    ...answer.verdicts.map(({ role, answer: said4, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said4} \u2014 ${sentence2}`)
   ].join("\n");
 }
 function openItem(ctx, prd, item) {
@@ -21347,8 +21392,8 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
   const budget = { ...before2 };
   try {
     const octokit = await octokitFor(installationId);
-    const listed4 = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
-    const taken = batchOf(listed4);
+    const listed5 = await pullsUpdatedAfter(octokit, budget, { owner, repo, since: cursor });
+    const taken = batchOf(listed5);
     const records = await readPullRecords(octokit, budget, { workspaceId, fullName, numbers: taken.map((item) => item.number) });
     const byNumber = new Map(records.map((record) => [record.row.number, record]));
     for (const [index, item] of taken.entries()) {
@@ -21359,7 +21404,7 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
       }
       if (taken[index + 1]?.updatedAt !== item.updatedAt) reached2 = item.updatedAt;
     }
-    const more = listed4.length > taken.length;
+    const more = listed5.length > taken.length;
     await store.updateRepository(
       workspaceId,
       fullName,
@@ -21380,17 +21425,17 @@ async function collectBatch({ store, octokitFor, repository, cursor, nowIso, bud
     return { saved, cursor: reached2, more: false, error: reason2, budget };
   }
 }
-function batchOf(listed4) {
-  let end = Math.min(BATCH, listed4.length);
-  while (end < listed4.length && listed4[end]?.updatedAt === listed4[end - 1]?.updatedAt) end += 1;
-  return listed4.slice(0, end);
+function batchOf(listed5) {
+  let end = Math.min(BATCH, listed5.length);
+  while (end < listed5.length && listed5[end]?.updatedAt === listed5[end - 1]?.updatedAt) end += 1;
+  return listed5.slice(0, end);
 }
 function describe2(error) {
   const failure2 = FailureSchema2.safeParse(error);
-  const { errors, message: said3, status: status2 } = failure2.success ? failure2.data : {};
+  const { errors, message: said4, status: status2 } = failure2.success ? failure2.data : {};
   const graphqlError = errors?.[0];
   if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
-  const message = printed2(said3 ?? error ?? "unknown error").split("\n")[0] ?? "";
+  const message = printed2(said4 ?? error ?? "unknown error").split("\n")[0] ?? "";
   return status2 ? `HTTP ${printed2(status2)}: ${message}` : message;
 }
 var printed2 = (value) => String(value);
@@ -21548,13 +21593,13 @@ function targetsReader(connection) {
 }
 
 // apps/omni-app/src/knowledge-harvest/landing.ts
-import { z as z87 } from "zod";
+import { z as z89 } from "zod";
 
 // apps/omni-app/src/missions/landing.ts
 import { mkdtempSync as mkdtempSync14, rmSync as rmSync18 } from "node:fs";
 import { tmpdir as tmpdir14 } from "node:os";
 import { join as join73 } from "node:path";
-import { z as z86 } from "zod";
+import { z as z88 } from "zod";
 
 // apps/omni-app/src/missions/branch.ts
 import { z as z85 } from "zod";
@@ -21576,6 +21621,22 @@ function missionBranches({ octokitFor }) {
     }
   };
 }
+var sameRepo = (a, b) => a.toLowerCase() === b.toLowerCase();
+var planTargets2 = (plan, owner) => parsePlanRepositories(plan).map(({ repo }) => repo.includes("/") ? repo : `${owner}/${repo}`);
+function scopeRepos({ repo, prds, targets }) {
+  const named = prds.flatMap((prd) => isProductPrdId(prd) ? targets.get(prd) ?? [] : [repo]);
+  return named.filter((one, at4) => named.findIndex((other) => sameRepo(other, one)) === at4);
+}
+async function prepareAll(branches, { installation, repos, branch }) {
+  const cut5 = [];
+  const refused10 = [];
+  for (const repo of repos) {
+    const prepared = await branches.prepare({ installation, repo, branch });
+    if (!prepared.ok) refused10.push(prepared.why);
+    else if (prepared.cut) cut5.push(repo);
+  }
+  return refused10.length > 0 ? { ok: false, why: refused10.join("; ") } : { ok: true, cut: cut5 };
+}
 var DefaultBranchSchema = z85.looseObject({ default_branch: z85.string() });
 async function missionRepo(octokitFor, { installation, repo: slug, branch }) {
   const [owner = "", repo = ""] = slug.split("/");
@@ -21593,6 +21654,10 @@ async function exists(octokit, { owner, repo, branch }) {
     throw error;
   }
 }
+
+// kit/lib/ultra/base-of.ts
+var BASE_OF_FLAG = "--base-of";
+var baseOfFlag = (bases) => bases.length === 0 ? "" : `${BASE_OF_FLAG} ${bases.map(({ repo, branch }) => `${repo}=${branch}`).join(",")}`;
 
 // kit/lib/mission/overturn.ts
 var OVERTURNED = "overturned";
@@ -21652,20 +21717,393 @@ function decisionLists(decisions) {
   ];
   return lists.flatMap(([title, ones]) => ones.length === 0 ? [] : [`**${title}**`, "", ...ones.map(lineOf4), ""]);
 }
+var AGREED = "agreed";
+var decisionName = (prd, item) => item === null ? String(prd) : `${String(prd)}/${item}`;
+var AGREE = /^\S+ agreed with fleet decision (\S+?)\.?$/;
+var LISTED = "on the escalation list";
+var isDeferred = (row) => row.kind === "answer" && row.item !== null && (row.outcome === "deferred" || row.outcome === "carried" && row.why.some((line3) => line3.startsWith(LISTED)));
+function answersOf(events) {
+  const answers = /* @__PURE__ */ new Map();
+  for (const event of events) {
+    const agreed = event.kind === AGREED ? AGREE.exec(event.sentence)?.[1] : void 0;
+    const overturned = event.kind === OVERTURNED ? OVERTURN.exec(event.sentence)?.[1] : void 0;
+    const by = event.actor ?? "a person";
+    if (agreed !== void 0) answers.set(agreed, { answer: "agree", by });
+    if (overturned !== void 0) answers.set(overturned, { answer: "overturn", by });
+  }
+  return answers;
+}
+function deferredOf(decisions, events) {
+  const answers = answersOf(events);
+  return decisions.filter(isDeferred).map((row) => ({
+    prd: row.prd,
+    item: row.item,
+    outcome: row.outcome,
+    option: row.option ?? "A",
+    why: [...row.why],
+    answer: answers.get(decisionName(row.prd, row.item)) ?? null
+  }));
+}
+function reworkLine(prd, base) {
+  if (isProductPrdId(prd)) {
+    const flag = "bases" in base ? baseOfFlag(base.bases) : "";
+    return flag === "" ? `/omni:ultra-yolo-fix ${prd}` : `/omni:ultra-yolo-fix ${prd} ${flag}`;
+  }
+  return "branch" in base ? `/omni:yolo-fix ${String(prd)} --base ${base.branch}` : `/omni:yolo-fix ${String(prd)}`;
+}
+var reworksOf = (deferred) => [...new Set(deferred.filter((one) => one.answer?.answer === "overturn").map((one) => one.prd))];
+var flat = (text20) => text20.replace(/\s+/g, " ").trim().replace(/\.$/, "");
+function answerWords(one, name, links) {
+  if (one.answer === null) return `[Agree](${links(name, "agree")}) \xB7 [Overturn](${links(name, "overturn")})`;
+  return one.answer.answer === "agree" ? `Agreed by ${one.answer.by}.` : `Overturned by ${one.answer.by}: the fleet reworks PRD ${String(one.prd)} on the mission branch.`;
+}
+function deferredLine(one, links) {
+  const name = decisionName(one.prd, one.item);
+  const what = one.outcome === "carried" ? `carried by the fleet, option ${one.option}` : `deferred, option ${one.option} taken meanwhile`;
+  const why = one.why.length === 0 ? "no why was kept" : one.why.map(flat).join("; ");
+  return `- ${one.item} of PRD ${String(one.prd)} \xB7 ${what} \xB7 ${why}. ${answerWords(one, name, links)}`;
+}
+function deferredLines(deferred, links) {
+  if (deferred.length === 0) return [];
+  return [
+    "**Deferred decisions**",
+    "",
+    "The fleet decided these for you so the mission could carry on. Agree settles one. Overturn records your answer beside it, and the fleet reworks the PRD on the mission branch.",
+    "",
+    ...deferred.map((one) => deferredLine(one, links)),
+    ""
+  ];
+}
+
+// kit/lib/repair/retro.ts
+import { z as z87 } from "zod";
+
+// kit/lib/repair/fingerprint.ts
+import { createHash as createHash7 } from "node:crypto";
+import { z as z86 } from "zod";
+var FingerprintSchema = z86.string().regex(/^[0-9a-f]{64}$/, "a fingerprint is 64 lowercase hex characters");
+var REPAIR_CLASSES = ["code", "omni-loop", "flake", "person"];
+var VARYING = [
+  [/(?:\/private)?\/(?:tmp|var\/folders)\/\S*/g, "<tmp>"],
+  [/\S*\/_temp\/\S*/g, "<tmp>"],
+  [/[A-Za-z]:\\\S*\\(?:Temp|tmp)\\\S*/g, "<tmp>"],
+  [/\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?/g, "<time>"],
+  [/\b\d{1,2}:\d{2}:\d{2}(?:\.\d+)?\b/g, "<time>"],
+  [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<id>"],
+  [/\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,}\b/gi, "<hash>"],
+  [/:\d+(?::\d+)?\b/g, ""],
+  [/\b(line) \d+\b/gi, "$1"],
+  [/\d+(?:\.\d+)?/g, "#"],
+  [/\s+/g, " "]
+];
+function normaliseCause(text20) {
+  return VARYING.reduce((out, [shape, replacement]) => out.replace(shape, replacement), text20).trim();
+}
+function fingerprint(cause) {
+  const text20 = [cause.class, normaliseCause(cause.place), normaliseCause(cause.signature)].join("\n");
+  return createHash7("sha256").update(text20, "utf8").digest("hex");
+}
+
+// kit/lib/repair/sensitive.ts
+var FILE_EXTENSIONS = "ts|tsx|mts|cts|js|jsx|mjs|cjs|json|jsonc|md|mdx|ya?ml|sql|sh|py|rb|go|rs|java|kt|php|cs|css|scss|html?|txt|lock|toml|env|log|csv|xml";
+var REMOVALS = [
+  ["an email", /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "<email>"],
+  ["a URL", /\b[a-z][a-z0-9+.-]*:\/\/\S+|\bwww\.\S+/gi, "<url>"],
+  ["a secret", /\b(password|passwd|secret|token|api[_-]?key)\s*[=:]\s*\S+/gi, "$1 <token>"],
+  ["a path", /[A-Za-z]:\\\S+/g, "<path>"],
+  ["a path", /(?<![\w>])(?:~|\.{1,2})?\/[^\s'"`()[\]{},;]+/g, "<path>"],
+  ["a path", /\b[\w.@-]+(?:\/[\w.@-]+)+/g, "<path>"],
+  ["a path", new RegExp(`\\b[\\w-]+(?:\\.[\\w-]+)*\\.(?:${FILE_EXTENSIONS})\\b`, "gi"), "<path>"],
+  ["a login", /(?<![\w.<])@[A-Za-z0-9][A-Za-z0-9-]{0,38}/g, "<login>"],
+  ["an id", /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<id>"],
+  ["a hash", /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,}\b/gi, "<hash>"]
+];
+var TOKEN_MIXED = 20;
+var TOKEN_LONG = 32;
+function isTokenRun(run) {
+  if (!/\d/.test(run)) return false;
+  if (run.length >= TOKEN_MIXED && /[a-z]/.test(run) && /[A-Z]/.test(run)) return true;
+  return run.split(/[-_]/).some((part) => part.length >= TOKEN_LONG && /[a-z]/i.test(part) && !/^[0-9a-f]+$/i.test(part));
+}
+function holdsToken(text20) {
+  if (maskSecrets(text20) !== text20) return true;
+  const runs = text20.match(/[A-Za-z0-9+=_-]+/g) ?? [];
+  return runs.some(isTokenRun);
+}
+var maskTokens = (text20) => maskSecrets(text20).replaceAll(MASK, "<token>");
+function sensitiveShape(text20) {
+  if (holdsToken(text20)) return "a token-shaped string";
+  for (const [name, shape] of REMOVALS) {
+    if (name === "a hash" || name === "an id") continue;
+    if (new RegExp(shape.source, shape.flags.replace("g", "")).test(text20)) return name;
+  }
+  return null;
+}
+
+// kit/lib/repair/retro.ts
+var SENTENCE_MAX = 240;
+var LINE_MAX2 = 400;
+var EVIDENCE_MAX = 8;
+var NEXT_SENTENCE = /[.!?]["')\]]?\s+[A-Z0-9`"'(]/;
+function isOneSentence(text20) {
+  const trimmed4 = text20.trim();
+  return trimmed4.length > 0 && trimmed4.length <= SENTENCE_MAX && !/[\r\n]/.test(trimmed4) && !NEXT_SENTENCE.test(trimmed4);
+}
+var NO_TOKEN = "a retro never holds a credential in clear";
+var SentenceSchema = z87.string().refine(isOneSentence, `one sentence, on one line, at most ${String(SENTENCE_MAX)} characters`).refine((text20) => !holdsToken(text20), NO_TOKEN);
+var LineSchema = z87.string().trim().min(1).max(LINE_MAX2).refine((text20) => !/[\r\n]/.test(text20), "on one line").refine((text20) => !holdsToken(text20), NO_TOKEN);
+var RepairClassSchema = z87.enum(REPAIR_CLASSES);
+var RepairRetroSchema = z87.object({
+  cause: SentenceSchema,
+  class: RepairClassSchema,
+  place: LineSchema,
+  signature: LineSchema,
+  evidence: z87.array(SentenceSchema).min(1).max(EVIDENCE_MAX),
+  proposedFix: LineSchema,
+  fingerprint: FingerprintSchema
+});
+
+// apps/omni-app/src/missions/bug-team.ts
+var BUG_TRIES = 3;
+var BUG_STATES2 = ["open", "fixing", "pr-opened", "asked", "merged", "fixed", "wont-fix"];
+var bugKey = (mission, issue, k) => `mission:${mission}:bug:${String(issue)}:run:${String(k)}`;
+var KEY = /^mission:[0-9a-f-]{36}:bug:([1-9][0-9]*):run:([1-9][0-9]*)$/;
+function bugOfKey(key) {
+  const match = KEY.exec(key);
+  const issue = IssueNumberSchema.safeParse(Number(match?.[1]));
+  return match && issue.success ? { issue: issue.data, k: Number(match[2]) } : null;
+}
+var bugFixLine = (issue) => `/omni:bug-fix #${String(issue)}`;
+var issueLink2 = (repo, issue) => `https://github.com/${repo}/issues/${String(issue)}`;
+var LOST = /* @__PURE__ */ new Set(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
+var lastOf = (job) => job.attempts.at(-1);
+var atWork = (job) => ["queued", "claimed", "running"].includes(lastOf(job)?.status ?? "done");
+var latestOf = (jobs, issue) => jobs.filter((one) => one.issue === issue).reduce((last, one) => last === void 0 || one.k > last.k ? one : last, void 0);
+var nextK = (jobs, issue) => (latestOf(jobs, issue)?.k ?? 0) + 1;
+function prOf(url) {
+  const pr = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)(?:[/#?].*)?$/.exec(url ?? "")?.[1]));
+  return pr.success ? pr.data : null;
+}
+var ASKED = { human: "need-human", "need-human": "need-human", "needs-brainstorm": "needs-brainstorm", "not-a-bug": "not-a-bug" };
+function bugEndOf(attempt3) {
+  if (attempt3.status === "failed" && (attempt3.limitedUntil != null || LOST.has(attempt3.reason ?? ""))) return { end: "lost" };
+  if (attempt3.status === "cancelled") return { end: "asked", word: "cancelled" };
+  if (attempt3.status !== "done") return { end: "spent", word: "failed" };
+  const word = attempt3.outcome ?? "";
+  if (word === "pr-opened") return { end: "pr-opened", pr: prOf(attempt3.prUrl) };
+  if (word === "already-fixed") return { end: "already-fixed", pr: prOf(attempt3.prUrl) };
+  const asked = ASKED[word];
+  if (asked !== void 0) return { end: "asked", word: asked };
+  return { end: "spent", word: word === "stuck" || word === "blocked" ? word : "unreadable" };
+}
+var byCount = (a, b) => b.count - a.count || a.createdAt.localeCompare(b.createdAt) || a.issue - b.issue;
+function candidatesOf(bugs, jobs) {
+  return bugs.filter((bug) => bug.state === "open" && !jobs.some((one) => one.issue === bug.issue && atWork(one))).sort(byCount);
+}
+var runningOf = (bugs, jobs) => bugs.filter((bug) => bug.state === "fixing" || jobs.some((one) => one.issue === bug.issue && atWork(one))).length;
+function pickBugs({ bugs, jobs, issues, parallel }) {
+  const slots = parallel - runningOf(bugs, jobs);
+  if (slots <= 0) return [];
+  return candidatesOf(bugs, jobs).filter((bug) => {
+    const read2 = issues.get(bug.issue);
+    return read2 !== void 0 && read2.open && read2.openFix === null;
+  }).slice(0, slots);
+}
+var countWords = (count4) => `reported ${String(count4)}\xD7`;
+var bugWords = (bug) => `Omni Loop bug #${String(bug.issue)} (${countWords(bug.count)})`;
+var ASKED_WHY = {
+  "need-human": "its bug fix needs a person, and its question waits for a person",
+  "needs-brainstorm": "it needs a product decision, and its question waits for a person",
+  "not-a-bug": "its bug fix says it may not be a bug, and its question waits for a person",
+  cancelled: "its bug fix was cancelled, and a person decides what comes next"
+};
+function triedOf(jobs, issue) {
+  return jobs.filter((one) => one.issue === issue && !atWork(one)).sort((a, b) => a.k - b.k).flatMap((one) => {
+    const last = lastOf(one);
+    const read2 = last === void 0 ? null : bugEndOf(last);
+    return read2?.end === "spent" ? [read2.word] : [];
+  });
+}
+var moveOf = (bug, change2) => ({ state: bug.state, attempts: bug.attempts, fixPr: bug.fixPr, askedJob: bug.askedJob, ...change2 });
+var said = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
+var pullLink = (repo, pr) => `https://github.com/${repo}/pull/${String(pr)}`;
+function spent(bug, job, word, { repo, jobs }) {
+  const attempts = Math.min(BUG_TRIES, bug.attempts + 1);
+  const link = issueLink2(repo, bug.issue);
+  if (attempts < BUG_TRIES) {
+    const left = `${String(attempts)} of ${String(BUG_TRIES)} tries spent`;
+    return { move: moveOf(bug, { state: "open", attempts }), event: said("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix ended ${word}, ${left}; it goes back in line.`) };
+  }
+  const tried = triedOf(jobs, bug.issue).slice(-BUG_TRIES);
+  const words = tried.length > 0 ? tried.join(", ") : word;
+  return { move: moveOf(bug, { state: "asked", attempts, askedJob: job.job }), event: said("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside after ${String(BUG_TRIES)} tries (${words}): it waits for a person.`) };
+}
+function bugAfter(bug, { repo, jobs }) {
+  const job = latestOf(jobs, bug.issue);
+  if (job === void 0) return { move: moveOf(bug, { state: "open" }), event: null };
+  const last = lastOf(job);
+  if (last === void 0 || atWork(job)) return null;
+  const read2 = bugEndOf(last);
+  const link = issueLink2(repo, bug.issue);
+  switch (read2.end) {
+    case "pr-opened":
+      return {
+        move: moveOf(bug, { state: "pr-opened", fixPr: read2.pr }),
+        event: said("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)}: ${read2.pr === null ? "its fix pull request" : `fix PR #${String(read2.pr)}`} is open; it waits for a person's merge.`)
+      };
+    case "already-fixed":
+      return {
+        move: moveOf(bug, { state: "merged", fixPr: read2.pr ?? bug.fixPr }),
+        event: said("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)} is already fixed${read2.pr === null ? "" : ` by PR #${String(read2.pr)}`}: it waits for its release.`)
+      };
+    case "asked":
+      return {
+        move: moveOf(bug, { state: "asked", askedJob: job.job }),
+        event: said("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read2.word]}.`)
+      };
+    case "lost":
+      return { move: moveOf(bug, { state: "open" }), event: said("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix's runner was lost; it goes back in line, no try spent.`) };
+    case "spent":
+      return spent(bug, job, read2.word, { repo, jobs });
+  }
+}
+var takenEvent = (bug, job, repo) => said("bug-taken", "supervisor", job, issueLink2(repo, bug.issue), `Took ${bugWords(bug)}: sent ${bugFixLine(bug.issue)}, try ${String(bug.attempts + 1)} of ${String(BUG_TRIES)}.`);
+function askedWords(bugs) {
+  return bugs.filter((bug) => bug.state === "asked").sort(byCount).map((bug) => `Omni Loop bug #${String(bug.issue)}: answer its question`);
+}
+
+// apps/omni-app/src/missions/outside-bug.ts
+var OUTSIDE_PER_JOB = 5;
+var OUTSIDE_JOBS = BUG_TRIES * 2;
+var STAMP = /^\d{2}:\d{2}:\d{2} /;
+var LINE = /^omni outside-bug: #([1-9][0-9]*) on ([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+): (.+)$/;
+function outsideLinesOf(log2) {
+  const found = [];
+  for (const raw of (log2 ?? "").split("\n")) {
+    const match = LINE.exec(raw.trim().replace(STAMP, ""));
+    const issue = IssueNumberSchema.safeParse(Number(match?.[1]));
+    const repo = match?.[2];
+    const sentence2 = match?.[3]?.trim();
+    if (!issue.success || repo === void 0 || sentence2 === void 0 || !isOneSentence(sentence2) || holdsToken(sentence2)) continue;
+    if (found.some((one) => one.repo === repo && one.issue === issue.data)) continue;
+    found.push({ repo, issue: issue.data, sentence: sentence2 });
+    if (found.length === OUTSIDE_PER_JOB) break;
+  }
+  return found;
+}
+var bugName = ({ repo, issue }) => `${repo}#${String(issue)}`;
+function namedOutside(namings, { repo, scope }) {
+  const bugs = [];
+  for (const naming2 of namings) {
+    for (const line3 of outsideLinesOf(naming2.log)) {
+      if (line3.repo === repo && scope.includes(line3.issue)) continue;
+      if (bugs.some((one) => one.repo === line3.repo && one.issue === line3.issue)) continue;
+      bugs.push({ ...line3, by: naming2.by, prd: naming2.prd, namedIn: naming2.job });
+    }
+  }
+  return bugs;
+}
+var outsideFixLine = (issue, branch) => `/omni:bug-fix #${String(issue)} --base ${branch}`;
+var brainstormLine = (bug) => `/omni:brainstorm ${bug.sentence.replace(/[.!?]+$/, "")} (${bugName(bug)})`;
+var ASKED2 = {
+  "needs-brainstorm": { why: "its fix is more than a bug fix", boundary: true },
+  "need-human": { why: "its fix needs a decision a bug fix does not take", boundary: true },
+  "not-a-bug": { why: "its bug fix says it is not a behaviour bug", boundary: false },
+  cancelled: { why: "a person stopped its bug fix", boundary: false }
+};
+function again2(bug, view, last) {
+  const tried = triedOf(view.jobs, bug.issue);
+  const k = (last?.k ?? 0) + 1;
+  if (tried.length >= BUG_TRIES) return { state: "listed", job: last?.job ?? null, why: `its bug fix ended ${tried.slice(-BUG_TRIES).join(", ")} in ${String(BUG_TRIES)} tries`, brainstorm: null };
+  if (k > OUTSIDE_JOBS) return { state: "listed", job: last?.job ?? null, why: `its bug fix was sent ${String(OUTSIDE_JOBS)} times without an end`, brainstorm: null };
+  return { state: "send", k, line: outsideFixLine(bug.issue, view.branch), tries: tried.length };
+}
+function joiningOf(job, pr, landing) {
+  if (landing?.state === "landed") return { state: "fixed", job: job.job, pr };
+  if (landing?.state === "refused") return { state: "listed", job: job.job, why: `its fix #${String(pr)} cannot join the mission branch: ${landing.why}`, brainstorm: null };
+  return { state: "joining", job: job.job, pr, lacks: landing?.state === "waits" ? landing.lacks : [] };
+}
+function outsideStateOf(bug, view) {
+  if (bug.repo !== view.repo) return { state: "listed", job: null, why: `the mission's Engineer works in ${view.repo} only`, brainstorm: null };
+  const { branch } = view;
+  if (branch === null) return { state: "listed", job: null, why: "the mission has no branch of its own to fix it on", brainstorm: null };
+  const last = latestOf(view.jobs, bug.issue);
+  const attempt3 = last?.attempts.at(-1);
+  if (last === void 0 || attempt3 === void 0) return again2(bug, { ...view, branch }, last);
+  if (atWork(last)) return { state: "fixing", job: last.job };
+  const end = bugEndOf(attempt3);
+  switch (end.end) {
+    case "pr-opened":
+      return end.pr === null ? { state: "listed", job: last.job, why: "its bug fix opened no pull request it names", brainstorm: null } : joiningOf(last, end.pr, view.landings.get(last.job));
+    case "already-fixed":
+      return { state: "fixed", job: last.job, pr: end.pr };
+    case "asked": {
+      const asked = ASKED2[end.word];
+      return { state: "listed", job: last.job, why: asked.why, brainstorm: asked.boundary ? brainstormLine(bug) : null };
+    }
+    case "lost":
+    case "spent":
+      return again2(bug, { ...view, branch }, last);
+  }
+}
+var outsideStates = (bugs, view) => bugs.map((bug) => ({ ...bug, ...outsideStateOf(bug, view) }));
+function outsidePicks(states) {
+  if (states.some((one) => one.state === "fixing" || one.state === "joining")) return [];
+  const first = states.find((one) => one.state === "send");
+  return first === void 0 ? [] : [first];
+}
+var NAMER = { reviewer: "the Reviewer", qa: "QA", repair: "a repair" };
+var issueLink3 = (bug) => `https://github.com/${bug.repo}/issues/${String(bug.issue)}`;
+var pullLink2 = (bug, pr) => `https://github.com/${bug.repo}/pull/${String(pr)}`;
+var said2 = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
+var takenEvent2 = (bug, job) => said2("bug-taken", "supervisor", job, issueLink3(bug), `${NAMER[bug.by]} named ${bugName(bug)} outside the mission's PRDs: sent ${bug.line}, try ${String(bug.tries + 1)} of ${String(BUG_TRIES)}.`);
+function eventsOfOne(bug) {
+  const name = bugName(bug);
+  switch (bug.state) {
+    case "joining":
+      return [said2("job-ended", "engineer", bug.job, pullLink2(bug, bug.pr), `${name}: fix PR #${String(bug.pr)} is open into the mission branch; it joins once green.`)];
+    case "fixed": {
+      if (bug.pr === null) return [said2("job-ended", "engineer", bug.job, issueLink3(bug), `${name} is already fixed.`)];
+      const link = pullLink2(bug, bug.pr);
+      return [said2("job-ended", "engineer", bug.job, link, `${name}: fix PR #${String(bug.pr)} joined the mission branch.`), said2("bug-fixed", "supervisor", bug.job, link, `${name} is fixed on the mission branch by #${String(bug.pr)}.`)];
+    }
+    case "listed":
+      return bug.job === null ? [] : [said2("bug-asked", "supervisor", bug.job, issueLink3(bug), `${name}: its bug fix ended, and the bug is listed for the person: ${bug.why}.`)];
+    case "send":
+    case "fixing":
+      return [];
+  }
+}
+var outsideEvents = (states) => states.flatMap(eventsOfOne);
+function outsideLandingLine(bug) {
+  const named = `${bugName(bug)} (named by ${NAMER[bug.by]}): ${bug.sentence.replace(/[.!?]+$/, "")}`;
+  switch (bug.state) {
+    case "fixed":
+      return bug.pr === null ? `Fixed already \xB7 ${named}` : `Fixed by #${String(bug.pr)} \xB7 ${named}`;
+    case "listed":
+      return `Not fixed, ${bug.why} \xB7 ${named}${bug.brainstorm === null ? "" : ` \xB7 design it first: \`${bug.brainstorm}\``}`;
+    case "joining":
+      return `Fix #${String(bug.pr)} not joined yet \xB7 ${named}`;
+    case "send":
+    case "fixing":
+      return `Being fixed \xB7 ${named}`;
+  }
+}
+var outsideLanding = (states) => states.map(outsideLandingLine);
 
 // apps/omni-app/src/missions/landing.ts
-var PullsSchema3 = z86.array(
-  z86.looseObject({
+var PullsSchema3 = z88.array(
+  z88.looseObject({
     number: PrNumberSchema,
-    html_url: z86.string(),
-    state: z86.string(),
-    title: z86.string(),
-    body: z86.string().nullish(),
-    merged_at: z86.string().nullish()
+    html_url: z88.string(),
+    state: z88.string(),
+    title: z88.string(),
+    body: z88.string().nullish(),
+    merged_at: z88.string().nullish()
   })
 );
-var CommitsSchema3 = z86.array(z86.looseObject({ sha: z86.string(), commit: z86.looseObject({ message: z86.string() }) }));
-var CompareSchema3 = z86.looseObject({ commits: z86.array(z86.looseObject({ sha: z86.string(), commit: z86.looseObject({ message: z86.string() }) })) });
+var CommitsSchema3 = z88.array(z88.looseObject({ sha: z88.string(), commit: z88.looseObject({ message: z88.string() }) }));
+var CompareSchema3 = z88.looseObject({ commits: z88.array(z88.looseObject({ sha: z88.string(), commit: z88.looseObject({ message: z88.string() }) })) });
 var PULLS_READ = 30;
 function prOfTitle(message) {
   const number = /\(#(\d+)\)\s*$/.exec(message.split("\n")[0] ?? "")?.[1];
@@ -21681,11 +22119,11 @@ function missionLandings({ octokitFor }) {
     async landings(at4) {
       const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, at4);
       const { branch } = at4;
-      const listed4 = PullsSchema3.parse(
+      const listed5 = PullsSchema3.parse(
         (await octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, head: `${owner}:${branch}`, base: defaultBranch, state: "all", per_page: PULLS_READ, page: 1 })).data
       ).sort((a, b) => b.number - a.number);
       const pulls = [];
-      for (const one of listed4) {
+      for (const one of listed5) {
         const merged = (one.merged_at ?? null) !== null;
         const commits = merged ? await paginate(async (page) => CommitsSchema3.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/commits", { owner, repo, pull_number: one.number, per_page: PER_PAGE, page })).data)) : [];
         const carried2 = commits.flatMap(({ commit }) => {
@@ -21748,23 +22186,63 @@ var rowLine = (row, n) => [
   passWords(row.pass),
   row.page === null ? "no page yet" : `[its page](${row.page})`
 ].map(cell2).reduce((line3, part) => `${line3} ${part} |`, "|");
+var answerLinks = ({ galaxyUrl, fleet, mission }) => (name, answer) => `${galaxyUrl}/app/fleet?fleet=${encodeURIComponent(fleet)}&tab=missions&mission=${String(mission)}&decision=${encodeURIComponent(name)}&answer=${answer}`;
+function othersLines(others) {
+  if (others.length === 0) return [];
+  const named = others.map(({ repo, number, url }) => number === null ? `${repo} (not opened yet)` : url === null ? `${repo}#${String(number)}` : `[${repo}#${String(number)}](${url})`);
+  return [`This mission has one pull request per repository. The others: ${named.join(", ")}.`, ""];
+}
+function proofWords(proof) {
+  const where = proof.proof === null ? "" : `, \`${proof.proof}\``;
+  const why = proof.why === void 0 ? "" : ` (${proof.why})`;
+  return `${proof.state}${where}${why}`;
+}
+function criterionLine(criterion, proofs) {
+  const mine = proofs.filter((proof) => proof.ac === criterion.number);
+  const said4 = mine.length === 0 ? "not proven yet" : mine.map(proofWords).join("; ");
+  return `- AC-${String(criterion.number)} \xB7 ${criterion.kind} \xB7 ${cell2(criterion.scenario ?? "no scenario named")}: ${said4}`;
+}
+var handLine = (criterion) => `- [ ] AC-${String(criterion.number)}: ${criterion.steps.map(({ keyword, text: text20 }) => cell2(`${keyword} ${text20}`)).join("; ")}`;
+function retestPrdLines({ prd, criteria, proofs, reworked }) {
+  const heading = `*PRD ${String(prd)}*${reworked === null ? "" : ` \xB7 reworked by [#${String(reworked.pr)}](${reworked.url}) after an overturn`}`;
+  if (criteria.length === 0) return [heading, "", "- No acceptance criteria were read for it: try what its page says.", ""];
+  return [heading, "", ...criteria.map((one) => criterionLine(one, proofs)), "", "Try by hand:", "", ...criteria.map(handLine), ""];
+}
+function retestLines(retest, branch) {
+  if (retest.prds.length === 0 && retest.outside.length === 0) return [];
+  const outside = outsideLanding(retest.outside);
+  return [
+    "**Re-test**",
+    "",
+    `Before you merge, try \`${branch}\`: per PRD, its acceptance criteria and what proved each, then the steps to try by hand.`,
+    "",
+    ...retest.prds.flatMap(retestPrdLines),
+    ...outside.length === 0 ? [] : ["*Outside bugs*", "", ...outside.map((line3) => `- ${line3}`), ""]
+  ];
+}
 function missionPullBody({
   mission,
   branch,
   defaultBranch,
   rows,
   link,
-  decisions = []
+  decisions = [],
+  answers = null,
+  others = [],
+  retest = null
 }) {
   const lines2 = [
     // What the fleet decided at `alone` opens the body: every approval and every answer, each with its verdicts (PRD 2896 s11).
     ...decisionLists(decisions),
+    ...answers === null ? [] : deferredLines(answers.deferred, answers.links),
     `Lands mission #${String(mission.number)}, ${cell2(mission.title)}, on \`${defaultBranch}\`: each PRD below joined \`${branch}\` as one commit, in this order.`,
     "",
     "| # | PRD | Its pull request | Commit | Reviewer | Page |",
     "|---|---|---|---|---|---|",
     ...rows.map((row, n) => rowLine(row, n + 1)),
     "",
+    ...othersLines(others),
+    ...retest === null ? [] : retestLines(retest, branch),
     `**Merge it with Rebase and merge**: \`${defaultBranch}\` then gets one commit per PRD, each revertible alone, and each PRD is shipped from that moment. A squash or a merge commit would land them as one.`,
     "",
     "Merge it at any time: it carries what has joined so far, and one knowledge pull request then covers every PRD it landed. The Omni app rewrites this list on every join and never merges it: a person does."
@@ -21775,7 +22253,7 @@ function missionPullBody({
 }
 
 // apps/omni-app/src/knowledge-harvest/landing.ts
-var CommitsSchema4 = z87.array(z87.looseObject({ commit: z87.looseObject({ message: z87.string() }) }));
+var CommitsSchema4 = z89.array(z89.looseObject({ commit: z89.looseObject({ message: z89.string() }) }));
 var literal = (text20) => text20.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function isMissionBranch(head, template) {
   const pattern2 = template.split(/(\{number\}|\{topic\})/).map((part) => part === "{number}" ? "[1-9][0-9]*" : part === "{topic}" ? "[a-z0-9][a-z0-9-]*" : literal(part)).join("");
@@ -22159,15 +22637,15 @@ function harvestFailureHook({ octokitFor }) {
 }
 
 // apps/omni-app/src/knowledge-harvest/law-judge.ts
-import { z as z88 } from "zod";
+import { z as z90 } from "zod";
 var LAW_JUDGE_SECRET_VAR = "LAW_JUDGE_SECRET";
 var JUDGE_TIMEOUT_MS3 = 55e3;
-var VerdictSchema4 = z88.looseObject({
-  answer: z88.enum(["true", "false"]),
-  confidence: z88.number().nullable().catch(null),
-  decidedBy: z88.string().nullable().catch(null)
+var VerdictSchema4 = z90.looseObject({
+  answer: z90.enum(["true", "false"]),
+  confidence: z90.number().nullable().catch(null),
+  decidedBy: z90.string().nullable().catch(null)
 });
-var RefusalSchema3 = z88.looseObject({ error: z88.string().optional().catch(void 0) });
+var RefusalSchema3 = z90.looseObject({ error: z90.string().optional().catch(void 0) });
 function lawJudgeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/laws/judge`;
 }
@@ -22201,13 +22679,13 @@ function lawJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE_TIMEOUT
 }
 
 // apps/omni-app/src/main-watch/store.ts
-import { z as z90 } from "zod";
+import { z as z92 } from "zod";
 
 // apps/omni-app/src/retro/runner-queue.ts
-import { z as z89 } from "zod";
+import { z as z91 } from "zod";
 var APP_SENDER = "omni-app";
-var IdRowSchema = z89.object({ id: z89.string().min(1) });
-var RemovedRowSchema = z89.object({ removed_at: z89.string().nullable() });
+var IdRowSchema = z91.object({ id: z91.string().min(1) });
+var RemovedRowSchema = z91.object({ removed_at: z91.string().nullable() });
 var RunnerRowSchema = IdRowSchema;
 function runnerQueue(connection) {
   const db = serviceDb(connection);
@@ -22215,8 +22693,8 @@ function runnerQueue(connection) {
     const repo = repository.toLowerCase();
     const [workspace] = rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1));
     if (!workspace) return { job: null, created: false, reason: `no workspace holds the installation ${String(installationId)}` };
-    const [listed4] = rowsOf(RemovedRowSchema, await db.from("repositories").select("removed_at").eq("workspace_id", workspace.id).eq("full_name", repo).limit(1));
-    if (listed4 && listed4.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
+    const [listed5] = rowsOf(RemovedRowSchema, await db.from("repositories").select("removed_at").eq("workspace_id", workspace.id).eq("full_name", repo).limit(1));
+    if (listed5 && listed5.removed_at !== null) return { job: null, created: false, reason: `the workspace removed ${repo}` };
     const [found] = rowsOf(
       IdRowSchema,
       await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line3).order("queued_at").limit(1)
@@ -22234,10 +22712,10 @@ function runnerQueue(connection) {
 }
 
 // apps/omni-app/src/main-watch/store.ts
-var LaneRowSchema = z90.object({ lane: z90.string().min(1) });
-var RepositoryRowSchema = z90.object({ repository: z90.string().min(1) });
-var KeyRowSchema = z90.object({ key: z90.string().min(1) });
-var SourceRowSchema = z90.object({ source: z90.string().min(1) });
+var LaneRowSchema = z92.object({ lane: z92.string().min(1) });
+var RepositoryRowSchema = z92.object({ repository: z92.string().min(1) });
+var KeyRowSchema = z92.object({ key: z92.string().min(1) });
+var SourceRowSchema = z92.object({ source: z92.string().min(1) });
 function mainWatchStore(connection) {
   const db = serviceDb(connection);
   const watchOf = ({ workspace, repository, prd, lane: lane2 }) => ({ workspace_id: workspace, repository: repository.toLowerCase(), prd, lane: lane2.toLowerCase() });
@@ -22280,17 +22758,17 @@ function mainWatchStore(connection) {
 }
 
 // apps/omni-app/src/checkpoints/store.ts
-import { z as z91 } from "zod";
+import { z as z93 } from "zod";
 var CHECKPOINT_BUCKET = "runner-checkpoints";
-var KeptRowSchema = z91.object({
-  id: z91.string().min(1),
-  job_id: z91.string().min(1),
-  storage_path: z91.string().min(1),
-  created_at: z91.string().min(1),
-  keep_until: z91.string().min(1)
+var KeptRowSchema = z93.object({
+  id: z93.string().min(1),
+  job_id: z93.string().min(1),
+  storage_path: z93.string().min(1),
+  created_at: z93.string().min(1),
+  keep_until: z93.string().min(1)
 });
-var ResumeRowSchema = z91.object({ id: z91.string().min(1), resumes: z91.string().min(1) });
-var StatusRowSchema = z91.object({ id: z91.string().min(1), status: z91.string().min(1) });
+var ResumeRowSchema = z93.object({ id: z93.string().min(1), resumes: z93.string().min(1) });
+var StatusRowSchema = z93.object({ id: z93.string().min(1), status: z93.string().min(1) });
 var OVER = ["done", "failed", "cancelled"];
 var MAX_RESUMES = 2;
 function refused7(error) {
@@ -22313,8 +22791,8 @@ function checkpointStore(connection) {
         if (tips2.length === 0) break;
         const next = rowsOf(ResumeRowSchema, await db.from("runner_jobs").select("id, resumes").in("resumes", tips2));
         if (next.length === 0) break;
-        const resumeOf = new Map(next.map((row) => [row.resumes, row.id]));
-        for (const [id, tip] of last) last.set(id, resumeOf.get(tip) ?? tip);
+        const resumeOf2 = new Map(next.map((row) => [row.resumes, row.id]));
+        for (const [id, tip] of last) last.set(id, resumeOf2.get(tip) ?? tip);
       }
       const tips = [...new Set(last.values())];
       if (tips.length === 0) return /* @__PURE__ */ new Set();
@@ -22337,13 +22815,13 @@ function checkpointStore(connection) {
 }
 
 // apps/omni-app/src/missions/drop.ts
-import { z as z93 } from "zod";
+import { z as z95 } from "zod";
 
 // apps/omni-app/src/missions/keep-up.ts
 import { mkdtempSync as mkdtempSync15, rmSync as rmSync19 } from "node:fs";
 import { tmpdir as tmpdir15 } from "node:os";
 import { join as join74 } from "node:path";
-import { z as z92 } from "zod";
+import { z as z94 } from "zod";
 
 // kit/lib/generated/stale.ts
 function splitGenerated(entries, paths) {
@@ -22353,22 +22831,22 @@ function splitGenerated(entries, paths) {
 
 // apps/omni-app/src/missions/keep-up.ts
 var MAX_COMMITS3 = 100;
-var CompareSchema4 = z92.looseObject({
-  merge_base_commit: z92.looseObject({ sha: z92.string() }),
-  ahead_by: z92.number(),
-  behind_by: z92.number(),
-  commits: z92.array(
-    z92.looseObject({
-      sha: z92.string(),
-      parents: z92.array(z92.looseObject({ sha: z92.string() })),
-      commit: z92.looseObject({ message: z92.string(), author: z92.looseObject({ name: z92.string(), email: z92.string(), date: z92.string() }).nullish() })
+var CompareSchema4 = z94.looseObject({
+  merge_base_commit: z94.looseObject({ sha: z94.string() }),
+  ahead_by: z94.number(),
+  behind_by: z94.number(),
+  commits: z94.array(
+    z94.looseObject({
+      sha: z94.string(),
+      parents: z94.array(z94.looseObject({ sha: z94.string() })),
+      commit: z94.looseObject({ message: z94.string(), author: z94.looseObject({ name: z94.string(), email: z94.string(), date: z94.string() }).nullish() })
     })
   ),
-  files: z92.array(z92.looseObject({ filename: z92.string(), status: z92.string(), sha: z92.string().nullish() })).nullish()
+  files: z94.array(z94.looseObject({ filename: z94.string(), status: z94.string(), sha: z94.string().nullish() })).nullish()
 });
-var CommitSchema3 = z92.looseObject({ tree: z92.looseObject({ sha: z92.string() }), committer: z92.looseObject({ date: z92.string() }).nullish() });
-var MergedSchema = z92.looseObject({ commit: z92.looseObject({ tree: z92.looseObject({ sha: z92.string() }) }) });
-var PullSchema4 = z92.looseObject({ state: z92.string(), base: z92.looseObject({ ref: z92.string() }), head: z92.looseObject({ sha: z92.string() }) });
+var CommitSchema3 = z94.looseObject({ tree: z94.looseObject({ sha: z94.string() }), committer: z94.looseObject({ date: z94.string() }).nullish() });
+var MergedSchema = z94.looseObject({ commit: z94.looseObject({ tree: z94.looseObject({ sha: z94.string() }) }) });
+var PullSchema4 = z94.looseObject({ state: z94.string(), base: z94.looseObject({ ref: z94.string() }), head: z94.looseObject({ sha: z94.string() }) });
 async function generatedAt(octokit, { owner, repo, ref }) {
   const folder = mkdtempSync15(join74(tmpdir15(), "omni-keep-up-"));
   try {
@@ -22531,7 +23009,7 @@ function keptWaits(kept3, branch) {
 var careLine = (prd, branch) => `/omni:pr-care ${String(prd)} --once --base ${branch}`;
 
 // apps/omni-app/src/missions/drop.ts
-var PullSchema5 = z93.looseObject({ number: PrNumberSchema, title: z93.string(), body: z93.string().nullish(), head: z93.looseObject({ ref: z93.string(), sha: z93.string() }) });
+var PullSchema5 = z95.looseObject({ number: PrNumberSchema, title: z95.string(), body: z95.string().nullish(), head: z95.looseObject({ ref: z95.string(), sha: z95.string() }) });
 var MAX_COMMITS4 = 100;
 async function listed(on, { branch, defaultBranch }) {
   const head = await on.head(branch);
@@ -22616,576 +23094,31 @@ function missionDrops({ octokitFor }) {
 import { mkdtempSync as mkdtempSync16, rmSync as rmSync20 } from "node:fs";
 import { tmpdir as tmpdir16 } from "node:os";
 import { join as join75 } from "node:path";
-import { z as z94 } from "zod";
-var PullSchema6 = z94.looseObject({
-  html_url: z94.string(),
-  title: z94.string(),
-  state: z94.string(),
-  draft: z94.boolean().nullish(),
-  merged: z94.boolean().nullish(),
-  merged_at: z94.string().nullish(),
-  base: z94.looseObject({ ref: z94.string(), repo: z94.looseObject({ default_branch: z94.string() }) }),
-  head: z94.looseObject({ sha: z94.string(), ref: z94.string().nullish() })
-});
-var CheckRunsSchema2 = z94.looseObject({
-  check_runs: z94.array(
-    z94.looseObject({ id: z94.number(), name: z94.string(), status: z94.string(), conclusion: z94.string().nullish(), output: z94.looseObject({ title: z94.string().nullish() }).nullish() })
-  )
-});
-var StatusSchema = z94.looseObject({ statuses: z94.array(z94.looseObject({ context: z94.string(), state: z94.string(), description: z94.string().nullish() })) });
-var ReviewsSchema = z94.array(z94.looseObject({ body: z94.string().nullish(), commit_id: z94.string().nullish() }));
-var REFUSED2 = /* @__PURE__ */ new Set([405, 409, 422]);
-var DefaultBranchMergeError = class extends Error {
-  constructor(branch) {
-    super(`refusing to merge into ${branch}, the default branch: only a person merges there`);
-    this.name = "DefaultBranchMergeError";
-  }
-};
-async function prdOutboxAt(octokit, { owner, repo, ref, prd, folder }) {
-  const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
-  if (!config) return { notRead: error ? `its .omni-loop/config.yml cannot be read: ${error.message.split("\n")[0] ?? ""}` : "its head has no .omni-loop/config.yml" };
-  const outbox = createContext(folder, config).layout.dirs.outbox;
-  const ofPrd = (path) => parseFolderName(path.slice(outbox.length + 1).split("/")[0] ?? "")?.prd === prd;
-  await snapshot(octokit, { owner, repo, ref, paths: [outbox], dest: folder, fetchIf: ofPrd });
-  return { ctx: createContext(folder, config) };
-}
-async function openItemsAt(octokit, { owner, repo, ref, prd }) {
-  const folder = mkdtempSync16(join75(tmpdir16(), "omni-join-"));
-  try {
-    const read2 = await prdOutboxAt(octokit, { owner, repo, ref, prd, folder });
-    if ("notRead" in read2) return read2;
-    const open = openItems(prd, read2).map(({ id, rank }) => ({ id, rank }));
-    return { ranks: open.map(({ rank }) => rank), open };
-  } finally {
-    rmSync20(folder, { recursive: true, force: true });
-  }
-}
-async function checksAt(octokit, { owner, repo, ref }) {
-  const runs = await paginate(
-    async (page) => CheckRunsSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref, per_page: PER_PAGE, page })).data).check_runs
-  );
-  const status2 = StatusSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/status", { owner, repo, ref, per_page: PER_PAGE })).data);
-  return {
-    runs: runs.map((one) => ({ id: one.id, name: one.name, status: one.status, conclusion: one.conclusion ?? null, title: one.output?.title ?? null })),
-    statuses: status2.statuses.map((one) => ({ context: one.context, state: one.state, description: one.description ?? null }))
-  };
-}
-function missionJoins({ octokitFor }) {
-  return {
-    async read({ installation, repo: slug, prd, pr }) {
-      const [owner = "", repo = ""] = slug.split("/");
-      const octokit = await octokitFor(installation);
-      const pull = PullSchema6.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { owner, repo, pull_number: pr })).data);
-      const ref = pull.head.sha;
-      const { runs, statuses } = await checksAt(octokit, { owner, repo, ref });
-      const reviews = await paginate(async (page) => ReviewsSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews", { owner, repo, pull_number: pr, per_page: PER_PAGE, page })).data));
-      const merged = pull.merged === true || (pull.merged_at ?? null) !== null;
-      return {
-        number: pr,
-        url: pull.html_url,
-        title: pull.title,
-        state: pull.state,
-        draft: pull.draft === true,
-        merged,
-        base: pull.base.ref,
-        defaultBranch: pull.base.repo.default_branch,
-        head: ref,
-        ...pull.head.ref == null ? {} : { branch: pull.head.ref },
-        runs,
-        statuses,
-        reviews: reviews.map((one) => ({ body: one.body ?? null, commit: one.commit_id ?? null })),
-        // A merged or closed pull request merges nothing, and a fix of no PRD has no outbox: neither is read.
-        items: merged || pull.state !== "open" || prd === null ? { ranks: [] } : await openItemsAt(octokit, { owner, repo, ref, prd })
-      };
-    },
-    async checks({ installation, repo: slug, branch }) {
-      const [owner = "", repo = ""] = slug.split("/");
-      const octokit = await octokitFor(installation);
-      const ref = RefSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` })).data).object.sha;
-      const { runs, statuses } = await checksAt(octokit, { owner, repo, ref });
-      return {
-        head: ref,
-        runs,
-        statuses
-      };
-    },
-    async merge({ installation, repo: slug, pr, head, title, base, defaultBranch }) {
-      if (base === defaultBranch) throw new DefaultBranchMergeError(base);
-      const [owner = "", repo = ""] = slug.split("/");
-      const octokit = await octokitFor(installation);
-      try {
-        await octokit.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", { owner, repo, pull_number: pr, merge_method: "squash", sha: head, commit_title: `${title} (#${String(pr)})` });
-        return { ok: true };
-      } catch (error) {
-        const status2 = statusOf(error);
-        if (typeof status2 === "number" && REFUSED2.has(status2)) return { ok: false, why: `GitHub refused the merge: ${String(messageOf3(error)).split("\n")[0] ?? ""}` };
-        throw error;
-      }
-    }
-  };
-}
-
-// apps/omni-app/src/missions/job.ts
-import { z as z108 } from "zod";
-
-// kit/lib/mission/brief.ts
-import { parse as parse4 } from "yaml";
-import { z as z95 } from "zod";
-var DEFAULT_PARALLEL = 2;
-var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
-var DEFAULT_LEVEL = "with-you";
-var PLAN_OWN_BRANCH_REFUSAL = "a mission branch holds one repository: use with-you or alone";
-function levelRefusal(level, inPlan) {
-  return inPlan && level === "own-branch" ? PLAN_OWN_BRANCH_REFUSAL : null;
-}
-var MISSION_KINDS = ["prds", "omni-bugs"];
-var DEFAULT_KIND = "prds";
-var DEFAULT_HARD_TO_REVERT = 0.6;
-var DEFAULT_OWN_PRDS = 0;
-var MAX_MISSION_TOKENS = 1e9;
-var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-var text18 = (max) => z95.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
-var distinct = (list2) => new Set(list2).size === list2.length;
-var MeasureSchema = z95.object({ sign: text18(200), read: text18(200), target: text18(200) }, { message: "must be {sign, read, target}" }).strict();
-var ScopeSchema = z95.object(
-  {
-    prds: z95.array(PrdNumberSchema, { message: "must be a list of PRD numbers" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
-    roadmaps: z95.array(IssueNumberSchema, { message: "must be a list of roadmap numbers" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
-  },
-  { message: "must be {prds, roadmaps}" }
-).strict();
-var NO_SCOPE = { prds: [], roadmaps: [] };
-var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
-var MandateSchema = z95.object(
-  {
-    parallel: z95.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
-    level: z95.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
-    hardToRevert: z95.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z95.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
-    tokens: z95.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
-  },
-  { message: "must be {parallel, level, hardToRevert, ownPrds, tokens}" }
-).strict().transform(({ tokens, ...mandate }) => tokens == null ? mandate : { ...mandate, tokens });
-var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS };
-var BriefSchema = z95.object({
-  mission: IssueNumberSchema,
-  title: text18(200),
-  fleet: text18(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
-  goal: text18(500),
-  measures: z95.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
-  kind: z95.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
-  scope: ScopeSchema.optional(),
-  mandate: MandateSchema.default(DEFAULT_MANDATE)
-}).strict().transform(({ scope, ...rest }, ctx) => {
-  const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
-  if (rest.kind === "omni-bugs") {
-    if (named > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
-  } else if (scope === void 0) {
-    ctx.addIssue({ code: "invalid_type", expected: "object", input: void 0, path: ["scope"], message: "missing" });
-  } else if (named === 0) {
-    ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
-  }
-  return { ...rest, scope: scope ?? NO_SCOPE };
-});
-
-// kit/lib/mission/drop.ts
-function territoryOf(plan) {
-  if (plan === null) return null;
-  try {
-    const paths = [...new Set(parsePlanSlices(plan).flatMap((slice) => slice.territory))];
-    return paths.length > 0 ? paths : null;
-  } catch {
-    return null;
-  }
-}
-var DROP_ASKED = "drop-asked";
-var DROP_ASKED_KEEP = "drop-asked-keep";
-function dropSet({
-  order,
-  prd,
-  keep: keep3,
-  territory
-}) {
-  const at4 = order.indexOf(prd);
-  if (at4 < 0) return null;
-  const sharing = [];
-  const ground = [];
-  const first = territory(prd);
-  if (first !== null) ground.push(first);
-  for (const later2 of order.slice(at4 + 1)) {
-    const mine = territory(later2);
-    if (mine === null || !ground.some((other) => sharedGround({ territory: [...other] }, { territory: [...mine] }).length > 0)) continue;
-    sharing.push(later2);
-    ground.push(mine);
-  }
-  return { prd, sharing, dropped: keep3 ? [prd] : [prd, ...sharing] };
-}
-function standingAsks(events) {
-  const on = /* @__PURE__ */ new Set();
-  const asks = /* @__PURE__ */ new Map();
-  for (const { kind, prd } of events) {
-    if (prd === null) continue;
-    if (kind === "prd-joined") {
-      on.add(prd);
-      asks.delete(prd);
-    } else if (kind === DROP_ASKED || kind === DROP_ASKED_KEEP) {
-      if (on.has(prd)) asks.set(prd, kind === DROP_ASKED_KEEP);
-    } else if (kind === "prd-dropped" || kind === "landed" || kind === "prd-merged") {
-      on.delete(prd);
-      asks.delete(prd);
-    }
-  }
-  return [...asks].map(([prd, keep3]) => ({ prd, keep: keep3 }));
-}
-function droppedOf(events) {
-  const dropped = /* @__PURE__ */ new Set();
-  for (const { kind, prd } of events) {
-    if (prd === null) continue;
-    if (kind === "prd-dropped") dropped.add(prd);
-    else if (kind === "prd-joined" || kind === "prd-merged" || kind === "landed") dropped.delete(prd);
-  }
-  return dropped;
-}
-var dropLine = (mission, prd) => `omni mission drop ${String(mission)} ${String(prd)}`;
-
-// kit/lib/committee/record.ts
 import { z as z97 } from "zod";
 
-// kit/lib/committee/vote.ts
-import { z as z96 } from "zod";
-var COMMITTEE_ROLES = Object.freeze(["pm", "architect", "reviewer"]);
-var CommitteeRoleSchema = z96.enum(COMMITTEE_ROLES);
-var VERDICT_ANSWERS = Object.freeze(["yes", "no", "unsure", "failed", "timeout"]);
-var SENTENCE_MAX = 200;
-var VerdictSchema5 = z96.object({
-  role: CommitteeRoleSchema,
-  answer: z96.enum(VERDICT_ANSWERS),
-  sentence: z96.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX, `sentence: ${String(SENTENCE_MAX)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
-});
-var NAMES2 = { pm: "PM", architect: "Architect", reviewer: "Reviewer" };
-var roleName = (role) => `the ${NAMES2[role]}`;
-var sitting = (author) => COMMITTEE_ROLES.filter((role) => role !== author);
-function whyOf({ role, answer, sentence: sentence2 }) {
-  if (answer === "failed") return `${roleName(role)} failed, counted unsure: ${sentence2}`;
-  if (answer === "timeout") return `${roleName(role)} timed out, counted unsure: ${sentence2}`;
-  return `${roleName(role)} answered ${answer}: ${sentence2}`;
-}
-var NO_VERDICT = "It gave no verdict.";
-function tally(verdicts, author) {
-  const why = [];
-  if (author !== null && verdicts.some((verdict) => verdict.role === author)) why.push(`${roleName(author)} wrote it and may not vote on it`);
-  for (const role of COMMITTEE_ROLES) if (verdicts.filter((verdict) => verdict.role === role).length > 1) why.push(`${roleName(role)} answered twice`);
-  const recorded = sitting(author).map((role) => verdicts.find((verdict) => verdict.role === role) ?? { role, answer: "failed", sentence: NO_VERDICT });
-  if (why.length === 0) why.push(...recorded.filter((verdict) => verdict.answer !== "yes").map(whyOf));
-  return { outcome: why.length === 0 ? "carried" : "escalated", why, verdicts: recorded };
-}
-var VotesSchema = z96.object({ verdicts: z96.array(VerdictSchema5).max(COMMITTEE_ROLES.length + 1) });
-
-// kit/lib/committee/record.ts
-var COMMITTEE_LINE = "omni committee: ";
-var REASONS_MAX = 10;
-var REASON_MAX = 300;
-var ReadFileSchema = z97.object({ kind: z97.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z97.string().regex(/^[0-9a-f]{64}$/) });
-var RECORD2 = {
-  v: z97.literal(1),
-  prd: PrdNumberSchema,
-  author: CommitteeRoleSchema.nullable(),
-  read: z97.array(ReadFileSchema).max(10),
-  escalations: z97.array(z97.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
-  verdicts: z97.array(VerdictSchema5).max(COMMITTEE_ROLES.length + 1),
-  outcome: z97.enum(["carried", "escalated"])
-};
-var CommitteeRecordSchema = z97.discriminatedUnion("kind", [
-  z97.object({ ...RECORD2, kind: z97.literal("approve") }),
-  z97.object({ ...RECORD2, kind: z97.literal("answer"), item: OutboxItemIdSchema, option: z97.string().regex(/^[A-Z]$/) })
-]);
-var STAMP = /^\d{2}:\d{2}:\d{2} /;
-function* recordsOf(log2) {
-  for (const raw of log2.split("\n").reverse()) {
-    const line3 = raw.trim().replace(STAMP, "");
-    if (!line3.startsWith(COMMITTEE_LINE)) continue;
-    let json3;
-    try {
-      json3 = JSON.parse(line3.slice(COMMITTEE_LINE.length));
-    } catch {
-      continue;
-    }
-    const parsed3 = CommitteeRecordSchema.safeParse(json3);
-    if (parsed3.success) yield parsed3.data;
-  }
-}
-function committeeOf(log2, prd) {
-  for (const record of recordsOf(log2)) if (record.kind === "approve" && record.prd === prd) return record;
-  return null;
-}
-function answerOf(log2, prd, item) {
-  for (const record of recordsOf(log2)) if (record.kind === "answer" && record.prd === prd && record.item === item) return record;
-  return null;
-}
-
-// apps/omni-app/src/missions/committee.ts
-var COMMITTEE_ROUNDS = 3;
-var verdictWords = (verdicts) => verdicts === void 0 || verdicts.length === 0 ? null : verdicts.map(({ role, answer }) => `${role} ${answer}`).join(", ");
-var KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):approve:([1-9][0-9]*)$/;
-var committeeKey = (mission, prd, round) => `mission:${mission}:prd:${String(prd)}:approve:${String(round)}`;
-function committeeOfKey(key) {
-  const match = KEY.exec(key);
-  const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
-  return match && prd.success ? { prd: prd.data, round: Number(match[3]) } : null;
-}
-var approveLine = (prd, author = null) => `/omni:committee ${String(prd)} --approve${author === null ? "" : ` --author ${author}`}`;
-var working = ({ status: status2 }) => status2 === "queued" || status2 === "claimed" || status2 === "running";
-function approvalNext(approval, committees, alone) {
-  if (approval === "standing") return { next: "standing" };
-  if (!alone) return { next: "person", why: null };
-  if (approval === "overturned") return { next: "person", why: "you overturned the fleet's approval" };
-  const latest = committees.reduce((last, one) => last === null || one.round > last.round ? one : last, null);
-  if (latest === null) return { next: "send", round: 1 };
-  if (working(latest.attempt) || latest.decision === null) return { next: "deciding", round: latest.round };
-  if (latest.decision.outcome === "escalated") return { next: "person", why: `the committee sent it to you: ${latest.decision.why.join("; ")}` };
-  if (latest.round >= COMMITTEE_ROUNDS) return { next: "person", why: `the fleet's approval was voided ${String(COMMITTEE_ROUNDS)} times` };
-  return { next: "send", round: latest.round + 1 };
-}
-var sendsCommittees = (status2) => status2 === "running" || status2 === "waiting";
-var failedAll = (sentence2) => COMMITTEE_ROLES.map((role) => ({ role, answer: "failed", sentence: sentence2 }));
-function noRecord(attempt3) {
-  const sentence2 = attempt3.status === "done" ? "Its job ended with no record of the vote." : `Its job ${attempt3.status === "cancelled" ? "was cancelled" : "failed"}.`;
-  const vote = tally(failedAll(sentence2), null);
-  return { verdicts: vote.verdicts, why: vote.why };
-}
-function recordedOf(prd, one, log2, author = null) {
-  const found = one.attempt.status === "done" && log2 !== null ? committeeOf(log2, prd) : null;
-  if (found === null) {
-    const vote2 = noRecord(one.attempt);
-    return { record: { author: null, read: [], verdicts: vote2.verdicts }, decision: { outcome: "escalated", why: vote2.why } };
-  }
-  const vote = found.escalations.length > 0 ? { outcome: "escalated", why: found.escalations, verdicts: found.verdicts } : tally(found.verdicts, author ?? found.author);
-  return { record: { author: author ?? found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why: vote.why } };
-}
-
-// apps/omni-app/src/missions/answers.ts
-var BUILT2 = "A";
-var DEFAULT_BOUND = 0.6;
-var LINE = /^\/omni:committee ([1-9][0-9]*) --item ([a-z0-9-]+)(?: --bound [0-9.]+)?$/;
-var askLine = (prd, item, bound) => `/omni:committee ${String(prd)} --item ${item} --bound ${String(bound)}`;
-var askPrefix = (prd, item) => `/omni:committee ${String(prd)} --item ${item}`;
-function itemOfLine(line3) {
-  const match = LINE.exec(line3);
-  const prd = PrdNumberSchema.safeParse(Number(match?.[1]));
-  return match && prd.success ? { prd: prd.data, item: match[2] ?? "" } : null;
-}
-function withDecisions(committees, recorded) {
-  return committees.map((one) => {
-    const kind = recorded.find((event) => event.job === one.job && (event.kind === "decided" || event.kind === "escalated"))?.kind;
-    const decision = kind === "decided" ? { outcome: "carried", why: [] } : kind === "escalated" ? { outcome: "escalated", why: [] } : null;
-    return { ...one, decision };
-  });
-}
-var latestOf = (committees, item) => committees.filter((one) => one.item === item).at(-1);
-function answersNext(open, committees) {
-  const next = { send: [], deciding: false, person: [] };
-  for (const { id, rank } of open) {
-    if (id === null || rank === null) next.person.push("an item of its outbox does not read");
-    else if (rank === "human-action") next.person.push(`${id} is a human-action item: only a person can act on it`);
-    else if (rank === "high") {
-      const latest = latestOf(committees, id);
-      if (latest === void 0) next.send.push(id);
-      else if (latest.decision?.outcome === "escalated") next.person.push(`the committee sent ${id} to you`);
-      else next.deciding = true;
-    }
-  }
-  return next;
-}
-var itemsOpen = (open) => open.some(({ rank }) => rank === null || rank === "high" || rank === "human-action");
-function answeredOf(prd, one, log2) {
-  const found = one.attempt.status === "done" && log2 !== null ? answerOf(log2, prd, one.item) : null;
-  if (found === null) {
-    const vote2 = noRecord(one.attempt);
-    return { verdicts: vote2.verdicts, decision: { outcome: "escalated", why: vote2.why } };
-  }
-  const vote = tally(found.verdicts, found.author);
-  if (found.escalations.length > 0) return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: found.escalations } };
-  if (found.option !== BUILT2) return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: [`it was answered with option ${found.option}: the fleet settles an item with option ${BUILT2}, as built, only`] } };
-  return { verdicts: vote.verdicts, decision: { outcome: vote.outcome, why: vote.why } };
-}
-var SENTENCE_MAX2 = 300;
-var cut2 = (text20) => text20.length <= SENTENCE_MAX2 ? text20 : `${text20.slice(0, SENTENCE_MAX2 - 1)}\u2026`;
-function answerEvents(committees, where) {
-  return committees.flatMap((one) => {
-    const n = `PRD ${String(one.prd)}`;
-    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: cut2(`Sent ${askPrefix(one.prd, one.item)} to ${where}.`) };
-    if (one.decision === null) return [sent];
-    const decided = one.decision.outcome === "carried" ? { kind: "decided", role: "pm", prd: one.prd, job: one.job, link: null, sentence: cut2(`The committee answered ${one.item} of ${n} with option ${BUILT2}: ${verdictWords(one.decision.verdicts) ?? "every member who sat answered yes"}.`) } : { kind: "escalated", role: "pm", prd: one.prd, job: one.job, link: null, sentence: cut2(`${one.item} of ${n} goes to a person: ${one.decision.why.join("; ") || "the committee sent it to you"}`) };
-    return [sent, decided];
-  });
-}
-
-// kit/lib/virtual-fleet/pm.ts
-import { z as z98 } from "zod";
-
-// kit/lib/runner/line.ts
-var RUNNABLE_SKILLS = Object.freeze([
-  "yolo",
-  "yolo-fix",
-  "pr-care",
-  "do-work",
-  "wave",
-  "bug-fix",
-  "mega-bug-fix",
-  "visual-fix",
-  "plan",
-  "pitch",
-  "prove",
-  "retro-apply",
-  "rewind",
-  "knowledge-add",
-  "rewind-apply",
-  "ultra-yolo",
-  "ultra-wave",
-  "ultra-yolo-fix",
-  "review",
-  "committee",
-  "brainstorm",
-  "roadmap",
-  "mega-brainstorm",
-  "mega-roadmap",
-  "repair",
-  "qa",
-  "mission-retro"
-]);
-var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
-var APP_SKILLS = Object.freeze(["acceptance"]);
-var RESUMABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "wave", "do-work", "pr-care", "bug-fix"]);
-var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "plan", "pitch", "prove", "ultra-yolo", "ultra-wave", "ultra-yolo-fix"]);
-
-// kit/lib/virtual-fleet/pm.ts
-var OWN_PRDS_MAX = 10;
-var TITLE_MAX2 = 120;
-var UNWRITTEN_MAX = 20;
-var PmSkillSchema = z98.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
-var PM_LINE = "omni pm: ";
-var PmRecordSchema = z98.object({
-  v: z98.literal(1),
-  mission: z98.number().int().positive(),
-  skill: PmSkillSchema,
-  cap: z98.number().int().min(1).max(OWN_PRDS_MAX),
-  prds: z98.array(PrdNumberSchema).max(OWN_PRDS_MAX),
-  unwritten: z98.array(z98.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
-});
-function pmSkillFor(left, planRepository) {
-  if (!Number.isInteger(left) || left < 1) return null;
-  const one = left === 1;
-  if (planRepository) return one ? "mega-brainstorm" : "mega-roadmap";
-  return one ? "brainstorm" : "roadmap";
-}
-var pmJobLine = (skill, mission, cap) => `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
-var isPmSkill = (skill) => PM_SKILLS.includes(skill);
-function fitCap(rows, cap) {
-  const room = Math.max(0, Math.floor(cap));
-  return { written: rows.slice(0, room), unwritten: rows.slice(room) };
-}
-var notWrittenWords = (cap) => `not written: the cap is ${String(cap)}`;
-var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
-function pmRecordOf(log2, mission) {
-  for (const raw of log2.split("\n").reverse()) {
-    const line3 = raw.trim().replace(STAMP2, "");
-    if (!line3.startsWith(PM_LINE)) continue;
-    let json3;
-    try {
-      json3 = JSON.parse(line3.slice(PM_LINE.length));
-    } catch {
-      continue;
-    }
-    const parsed3 = PmRecordSchema.safeParse(json3);
-    if (parsed3.success && parsed3.data.mission === mission) return parsed3.data;
-  }
-  return null;
-}
-function keptOf2(record, cap, held2) {
-  const fresh = [...new Set(record.prds)].filter((prd) => !held2.has(prd));
-  const { written, unwritten } = fitCap(fresh, Math.min(cap, record.cap));
-  return { added: written, unwritten: [...unwritten.map((prd) => `PRD ${String(prd)}`), ...record.unwritten] };
-}
-
-// apps/omni-app/src/missions/pm.ts
-var PM_ROUND = 1;
-var KEY2 = /^mission:([0-9a-f-]{36}):pm:([1-9][0-9]*)$/;
-var pmKey = (mission, round) => `mission:${mission}:pm:${String(round)}`;
-function pmRoundOfKey(key) {
-  const match = KEY2.exec(key);
-  return match ? Number(match[2]) : null;
-}
-function addedOf(recorded) {
-  const added = [];
-  for (const event of recorded) if (event.kind === "prd-added" && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
-  return added;
-}
-function pmNext({ mission, ownPrds, added, jobs, inPlan }) {
-  if (mission.level !== "alone" || !sendsCommittees(mission.status) || jobs.length > 0) return { next: "none" };
-  const left = ownPrds - added;
-  const skill = pmSkillFor(left, inPlan);
-  if (skill === null) return { next: "none" };
-  return { next: "send", round: PM_ROUND, skill, cap: left, line: pmJobLine(skill, mission.number, left) };
-}
-var pmWorking = ({ attempt: attempt3 }) => attempt3.status === "queued" || attempt3.status === "claimed" || attempt3.status === "running";
-var capOf = (line3) => Number(/ --cap ([1-9][0-9]*)/.exec(line3)?.[1] ?? 0);
-var skillWords = (line3) => {
-  const skill = /^\/omni:([a-z-]+)/.exec(line3)?.[1] ?? "";
-  return isPmSkill(skill) ? `/omni:${skill}` : "the PM's job";
-};
-function pmEvents(mission, one, log2, held2, recorded) {
-  if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== "dispatched")) return [];
-  const record = one.attempt.status === "done" && log2 !== null ? pmRecordOf(log2, mission.number) : null;
-  const cap = capOf(one.line);
-  if (record === null) {
-    const why = one.attempt.status === "done" ? "ended with no record" : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
-    return [{ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
-  }
-  const { added, unwritten } = keptOf2(record, cap, held2);
-  const events = added.map((prd) => ({ kind: "prd-added", role: "pm", prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
-  for (const title of unwritten) events.push({ kind: "not-written", role: "pm", prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
-  if (events.length === 0) events.push({ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
-  return events;
-}
-var pmDispatched = (job, next) => ({
-  kind: "dispatched",
-  role: "supervisor",
-  prd: null,
-  job,
-  link: null,
-  sentence: `Sent the PM /omni:${next.skill} for the mission's goal: ${String(next.cap)} PRD${next.cap === 1 ? "" : "s"} at most.`
-});
-function withAdded(scope, added) {
-  return [...scope, ...added.filter((prd) => !scope.includes(prd))];
-}
-function withPm(next, writing, wakeAt2) {
-  if (!writing || next.status === "paused" || next.status === "draft" || next.status === "running") return next;
-  return { status: "running", waitingOn: next.status === "waiting" ? next.waitingOn : null, nextWakeAt: wakeAt2 };
-}
-
 // kit/lib/review/verdict.ts
-import { z as z99 } from "zod";
+import { z as z96 } from "zod";
 var REVIEW_ROUNDS = 2;
 var MAX_FINDINGS = 5;
 var SEVERITIES = Object.freeze(["blocker", "major", "minor"]);
 var VERDICTS3 = Object.freeze(["pass", "changes"]);
 var ONE_LINE = "one line";
 var MAX_TEXT2 = 500;
-var line = (what) => z99.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text20) => !text20.includes("\n"), `${ONE_LINE}: ${what}`);
-var RepoPathSchema = z99.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
-var FindingSchema5 = z99.strictObject({
+var line = (what) => z96.string({ error: `${what}, as text` }).trim().min(1, `${what}, never empty`).max(MAX_TEXT2, `${what}, at most ${String(MAX_TEXT2)} characters`).refine((text20) => !text20.includes("\n"), `${ONE_LINE}: ${what}`);
+var RepoPathSchema = z96.string({ error: "the file the finding is on, a path from the repository root" }).trim().min(1, "the file the finding is on, never empty").refine((path) => !path.startsWith("/") && !path.split("/").includes(".."), "a path from the repository root, never absolute and never climbing out with ..");
+var FindingSchema5 = z96.strictObject({
   file: RepoPathSchema,
-  line: z99.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
-  severity: z99.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
+  line: z96.number({ error: "the line the finding is on, a whole number from 1" }).int("a whole number from 1").positive("a whole number from 1"),
+  severity: z96.enum(SEVERITIES, { error: `one of ${SEVERITIES.join(", ")}` }),
   rule: line("the rule it breaks: a law or rule id, a playbook form and section, or default \u203A <item>"),
   problem: line("what is wrong"),
   fix: line("what would fix it")
 });
-var VerdictSchema6 = z99.strictObject({
-  round: z99.union([z99.literal(1), z99.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
-  verdict: z99.enum(VERDICTS3, { error: `one of ${VERDICTS3.join(", ")}` }),
+var VerdictSchema5 = z96.strictObject({
+  round: z96.union([z96.literal(1), z96.literal(2)], { error: `the round, 1 to ${String(REVIEW_ROUNDS)}` }),
+  verdict: z96.enum(VERDICTS3, { error: `one of ${VERDICTS3.join(", ")}` }),
   summary: line("the summary").optional(),
-  findings: z99.array(FindingSchema5).default([])
+  findings: z96.array(FindingSchema5).default([])
 }).superRefine((verdict, context) => {
   const count4 = verdict.findings.length;
   if (verdict.verdict === "pass" && count4 > 0) {
@@ -23259,8 +23192,13 @@ function reviewLacks(reviews, head) {
   return latest.commit === head ? [] : ["the Reviewer passed an older commit, not its head"];
 }
 var count2 = (n, what) => `${String(n)} ${what} item${n === 1 ? "" : "s"}`;
-function itemLacks(items) {
-  if ("notRead" in items) return [`its outbox not judged: ${items.notRead}`];
+function stillOpen(items, answered) {
+  if (items.open === void 0 || answered.size === 0) return items.ranks;
+  return items.open.filter(({ id, rank }) => !(rank === "high" && id !== null && answered.has(id))).map(({ rank }) => rank);
+}
+function itemLacks(read2, answered) {
+  if ("notRead" in read2) return [`its outbox not judged: ${read2.notRead}`];
+  const items = { ranks: stillOpen(read2, answered) };
   const high = items.ranks.filter((rank) => rank === "high").length;
   const human = items.ranks.filter((rank) => rank === "human-action").length;
   const unread2 = items.ranks.filter((rank) => rank === null).length;
@@ -23270,7 +23208,7 @@ function itemLacks(items) {
     ...unread2 > 0 ? [`${count2(unread2, "unreadable")} in its outbox`] : []
   ];
 }
-function judge3(pull, branch) {
+function judge3(pull, branch, answered = /* @__PURE__ */ new Set()) {
   const pr = `#${String(pull.number)}`;
   if (pull.merged) return pull.base === branch ? { decision: "joined" } : { decision: "waits", lacks: [`${pr} was merged into ${pull.base}, not ${branch}`] };
   if (pull.base !== branch || pull.base === pull.defaultBranch) return { decision: "waits", lacks: [`${pr} targets ${pull.base}, not ${branch}`] };
@@ -23279,221 +23217,252 @@ function judge3(pull, branch) {
     ...pull.draft ? [`${pr} is a draft`] : [],
     ...checkLacks(checksOf2(pull.runs, pull.statuses)),
     ...reviewLacks(pull.reviews, pull.head),
-    ...itemLacks(pull.items)
+    ...itemLacks(pull.items, answered)
   ];
   return lacks.length === 0 ? { decision: "merge" } : { decision: "waits", lacks };
 }
 
-// kit/lib/repair/line.ts
-import { z as z103 } from "zod";
-
-// kit/lib/repair/fingerprint.ts
-import { createHash as createHash7 } from "node:crypto";
-import { z as z100 } from "zod";
-var FingerprintSchema = z100.string().regex(/^[0-9a-f]{64}$/, "a fingerprint is 64 lowercase hex characters");
-var REPAIR_CLASSES = ["code", "omni-loop", "flake", "person"];
-var VARYING = [
-  [/(?:\/private)?\/(?:tmp|var\/folders)\/\S*/g, "<tmp>"],
-  [/\S*\/_temp\/\S*/g, "<tmp>"],
-  [/[A-Za-z]:\\\S*\\(?:Temp|tmp)\\\S*/g, "<tmp>"],
-  [/\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?/g, "<time>"],
-  [/\b\d{1,2}:\d{2}:\d{2}(?:\.\d+)?\b/g, "<time>"],
-  [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<id>"],
-  [/\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,}\b/gi, "<hash>"],
-  [/:\d+(?::\d+)?\b/g, ""],
-  [/\b(line) \d+\b/gi, "$1"],
-  [/\d+(?:\.\d+)?/g, "#"],
-  [/\s+/g, " "]
-];
-function normaliseCause(text20) {
-  return VARYING.reduce((out, [shape, replacement]) => out.replace(shape, replacement), text20).trim();
-}
-function fingerprint(cause) {
-  const text20 = [cause.class, normaliseCause(cause.place), normaliseCause(cause.signature)].join("\n");
-  return createHash7("sha256").update(text20, "utf8").digest("hex");
-}
-
-// kit/lib/repair/retro.ts
-import { z as z101 } from "zod";
-
-// kit/lib/repair/sensitive.ts
-var FILE_EXTENSIONS = "ts|tsx|mts|cts|js|jsx|mjs|cjs|json|jsonc|md|mdx|ya?ml|sql|sh|py|rb|go|rs|java|kt|php|cs|css|scss|html?|txt|lock|toml|env|log|csv|xml";
-var REMOVALS = [
-  ["an email", /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "<email>"],
-  ["a URL", /\b[a-z][a-z0-9+.-]*:\/\/\S+|\bwww\.\S+/gi, "<url>"],
-  ["a secret", /\b(password|passwd|secret|token|api[_-]?key)\s*[=:]\s*\S+/gi, "$1 <token>"],
-  ["a path", /[A-Za-z]:\\\S+/g, "<path>"],
-  ["a path", /(?<![\w>])(?:~|\.{1,2})?\/[^\s'"`()[\]{},;]+/g, "<path>"],
-  ["a path", /\b[\w.@-]+(?:\/[\w.@-]+)+/g, "<path>"],
-  ["a path", new RegExp(`\\b[\\w-]+(?:\\.[\\w-]+)*\\.(?:${FILE_EXTENSIONS})\\b`, "gi"), "<path>"],
-  ["a login", /(?<![\w.<])@[A-Za-z0-9][A-Za-z0-9-]{0,38}/g, "<login>"],
-  ["an id", /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<id>"],
-  ["a hash", /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,}\b/gi, "<hash>"]
-];
-var TOKEN_MIXED = 20;
-var TOKEN_LONG = 32;
-function isTokenRun(run) {
-  if (!/\d/.test(run)) return false;
-  if (run.length >= TOKEN_MIXED && /[a-z]/.test(run) && /[A-Z]/.test(run)) return true;
-  return run.split(/[-_]/).some((part) => part.length >= TOKEN_LONG && /[a-z]/i.test(part) && !/^[0-9a-f]+$/i.test(part));
-}
-function holdsToken(text20) {
-  if (maskSecrets(text20) !== text20) return true;
-  const runs = text20.match(/[A-Za-z0-9+=_-]+/g) ?? [];
-  return runs.some(isTokenRun);
-}
-var maskTokens = (text20) => maskSecrets(text20).replaceAll(MASK, "<token>");
-function sensitiveShape(text20) {
-  if (holdsToken(text20)) return "a token-shaped string";
-  for (const [name, shape] of REMOVALS) {
-    if (name === "a hash" || name === "an id") continue;
-    if (new RegExp(shape.source, shape.flags.replace("g", "")).test(text20)) return name;
+// apps/omni-app/src/missions/join.ts
+var TargetPullsSchema = z97.array(z97.looseObject({ number: z97.number().int().positive(), body: z97.string().nullish() }));
+var partOf2 = (body, prd) => (body ?? "").split("\n").some((line3) => line3.trim() === `Part of ${prd}`);
+var PullSchema6 = z97.looseObject({
+  html_url: z97.string(),
+  title: z97.string(),
+  state: z97.string(),
+  draft: z97.boolean().nullish(),
+  merged: z97.boolean().nullish(),
+  merged_at: z97.string().nullish(),
+  base: z97.looseObject({ ref: z97.string(), repo: z97.looseObject({ default_branch: z97.string() }) }),
+  head: z97.looseObject({ sha: z97.string(), ref: z97.string().nullish() })
+});
+var CheckRunsSchema2 = z97.looseObject({
+  check_runs: z97.array(
+    z97.looseObject({ id: z97.number(), name: z97.string(), status: z97.string(), conclusion: z97.string().nullish(), output: z97.looseObject({ title: z97.string().nullish() }).nullish() })
+  )
+});
+var StatusSchema = z97.looseObject({ statuses: z97.array(z97.looseObject({ context: z97.string(), state: z97.string(), description: z97.string().nullish() })) });
+var ReviewsSchema = z97.array(z97.looseObject({ body: z97.string().nullish(), commit_id: z97.string().nullish() }));
+var REFUSED2 = /* @__PURE__ */ new Set([405, 409, 422]);
+var DefaultBranchMergeError = class extends Error {
+  constructor(branch) {
+    super(`refusing to merge into ${branch}, the default branch: only a person merges there`);
+    this.name = "DefaultBranchMergeError";
   }
-  return null;
+};
+async function prdOutboxAt(octokit, { owner, repo, ref, prd, folder }) {
+  const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha: ref, dest: folder, ignoreUnknownKeys: true });
+  if (!config) return { notRead: error ? `its .omni-loop/config.yml cannot be read: ${error.message.split("\n")[0] ?? ""}` : "its head has no .omni-loop/config.yml" };
+  const outbox = createContext(folder, config).layout.dirs.outbox;
+  const ofPrd = (path) => parseFolderName(path.slice(outbox.length + 1).split("/")[0] ?? "")?.prd === prd;
+  await snapshot(octokit, { owner, repo, ref, paths: [outbox], dest: folder, fetchIf: ofPrd });
+  return { ctx: createContext(folder, config) };
 }
-
-// kit/lib/repair/retro.ts
-var SENTENCE_MAX3 = 240;
-var LINE_MAX2 = 400;
-var EVIDENCE_MAX = 8;
-var NEXT_SENTENCE = /[.!?]["')\]]?\s+[A-Z0-9`"'(]/;
-function isOneSentence(text20) {
-  const trimmed4 = text20.trim();
-  return trimmed4.length > 0 && trimmed4.length <= SENTENCE_MAX3 && !/[\r\n]/.test(trimmed4) && !NEXT_SENTENCE.test(trimmed4);
-}
-var NO_TOKEN = "a retro never holds a credential in clear";
-var SentenceSchema = z101.string().refine(isOneSentence, `one sentence, on one line, at most ${String(SENTENCE_MAX3)} characters`).refine((text20) => !holdsToken(text20), NO_TOKEN);
-var LineSchema = z101.string().trim().min(1).max(LINE_MAX2).refine((text20) => !/[\r\n]/.test(text20), "on one line").refine((text20) => !holdsToken(text20), NO_TOKEN);
-var RepairClassSchema = z101.enum(REPAIR_CLASSES);
-var RepairRetroSchema = z101.object({
-  cause: SentenceSchema,
-  class: RepairClassSchema,
-  place: LineSchema,
-  signature: LineSchema,
-  evidence: z101.array(SentenceSchema).min(1).max(EVIDENCE_MAX),
-  proposedFix: LineSchema,
-  fingerprint: FingerprintSchema
-});
-
-// kit/lib/repair/scrub.ts
-import { z as z102 } from "zod";
-var MESSAGE_MAX = 300;
-var KitVersionSchema = z102.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/, "a kit version");
-var CommandSchema = z102.string().regex(/^(?:\/omni:[a-z][a-z0-9-]*|omni(?: [a-z][a-z0-9-]*){1,2})$/, "a skill or an omni command");
-var COMMAND = /^(?:\/omni:[a-z][a-z0-9-]*|omni(?: (?!-)[a-z][a-z0-9-]*){1,2}(?= |$))/;
-var PublicReportSchema = z102.object({
-  kitVersion: KitVersionSchema,
-  command: CommandSchema,
-  class: RepairClassSchema,
-  message: z102.string().min(1).max(MESSAGE_MAX).refine((text20) => sensitiveShape(text20) === null, "a public message holds no path, repository, login, email, URL or token"),
-  fingerprint: FingerprintSchema
-});
-var escape6 = (text20) => text20.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-function removeKnown(text20, known) {
-  const names = [...new Set(known.map((name) => name.trim()).filter((name) => name.length > 0))].sort((a, b) => b.length - a.length);
-  return names.reduce((out, name) => out.replace(new RegExp(`(?<![\\w-])${escape6(name)}(?![\\w-])`, "gi"), "<name>"), text20);
-}
-function scrubMessage(message, known) {
-  const masked = maskTokens(message.replace(/\s+/g, " ").trim());
-  return removeKnown(REMOVALS.reduce((out, [, shape, replacement]) => out.replace(shape, replacement), masked), known);
-}
-var cut3 = (text20) => text20.length <= MESSAGE_MAX ? text20 : `${text20.slice(0, MESSAGE_MAX - 1).trimEnd()}\u2026`;
-function scrub(input) {
-  if (!KitVersionSchema.safeParse(input.kitVersion).success) return { ok: false, reason: "the kit version is not a version" };
-  const command = COMMAND.exec(input.command.trim())?.[0];
-  if (command === void 0) return { ok: false, reason: "the command is not a skill or an omni command" };
-  if (!FingerprintSchema.safeParse(input.fingerprint).success) return { ok: false, reason: "the fingerprint is not one" };
-  const message = scrubMessage(input.message, input.known ?? []);
-  if (message.length === 0) return { ok: false, reason: "the message is empty" };
-  const left = sensitiveShape(message);
-  if (left !== null) return { ok: false, reason: `the message still holds ${left} after scrubbing` };
-  return { ok: true, report: { kitVersion: input.kitVersion, command, class: input.class, message: cut3(message), fingerprint: input.fingerprint } };
-}
-
-// kit/lib/repair/line.ts
-var REPAIR_LINE = "omni repair: ";
-var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
-var RepairRecordSchema = z103.object({
-  v: z103.literal(1),
-  mission: z103.number().int().positive(),
-  trigger: z103.enum(["failure", "stuck"]).optional(),
-  prd: PrdNumberSchema.nullable(),
-  fingerprint: FingerprintSchema,
-  class: RepairClassSchema,
-  retro: RepairRetroSchema,
-  fix: PrNumberSchema.nullable(),
-  report: PublicReportSchema.nullable()
-}).refine((record) => record.prd !== null || record.trigger === "stuck", "only a stuck repair may name no PRD").refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
-function withOwnFingerprint(record) {
-  const own = fingerprint(record.retro);
-  return {
-    ...record,
-    trigger: record.trigger ?? "failure",
-    fingerprint: own,
-    retro: { ...record.retro, fingerprint: own },
-    report: record.report === null ? null : { ...record.report, fingerprint: own }
-  };
-}
-function repairLine(log2) {
-  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP3, "")).findLast((line3) => line3.startsWith(REPAIR_LINE));
-  if (last === void 0) return { readable: false, reason: "missing" };
-  let json3;
+async function openItemsAt(octokit, { owner, repo, ref, prd }) {
+  const folder = mkdtempSync16(join75(tmpdir16(), "omni-join-"));
   try {
-    json3 = JSON.parse(last.slice(REPAIR_LINE.length));
-  } catch {
-    return { readable: false, reason: "malformed" };
+    const read2 = await prdOutboxAt(octokit, { owner, repo, ref, prd, folder });
+    if ("notRead" in read2) return read2;
+    const open = openItems(prd, read2).map(({ id, rank }) => ({ id, rank }));
+    return { ranks: open.map(({ rank }) => rank), open };
+  } finally {
+    rmSync20(folder, { recursive: true, force: true });
   }
-  const parsed3 = RepairRecordSchema.safeParse(json3);
-  return parsed3.success ? { readable: true, record: withOwnFingerprint(parsed3.data) } : { readable: false, reason: "malformed" };
+}
+async function checksAt(octokit, { owner, repo, ref }) {
+  const runs = await paginate(
+    async (page) => CheckRunsSchema2.parse((await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref, per_page: PER_PAGE, page })).data).check_runs
+  );
+  const status2 = StatusSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/status", { owner, repo, ref, per_page: PER_PAGE })).data);
+  return {
+    runs: runs.map((one) => ({ id: one.id, name: one.name, status: one.status, conclusion: one.conclusion ?? null, title: one.output?.title ?? null })),
+    statuses: status2.statuses.map((one) => ({ context: one.context, state: one.state, description: one.description ?? null }))
+  };
+}
+var lackOf = ({ repo, pr }, lack) => `${repo} #${String(pr)}: ${lack}`;
+async function joinProduct(joins, {
+  installation,
+  targets,
+  branch,
+  items,
+  answered = /* @__PURE__ */ new Set()
+}) {
+  if (targets.length === 0) return { joined: false, pulls: [], lacks: ["its target pull requests are not known to the mission"] };
+  const judged4 = [];
+  for (const target2 of targets) {
+    const pull = { ...await joins.read({ installation, repo: target2.repo, prd: null, pr: target2.pr }), items };
+    judged4.push({ target: target2, pull, gate: judge3(pull, branch, answered) });
+  }
+  const lacks = judged4.flatMap(({ target: target2, gate: gate2 }) => gate2.decision === "waits" ? gate2.lacks.map((lack) => lackOf(target2, lack)) : []);
+  if (lacks.length > 0) return { joined: false, pulls: [], lacks };
+  return mergeAll(joins, installation, judged4);
+}
+async function mergeAll(joins, installation, judged4) {
+  const pulls = [];
+  for (const { target: target2, pull, gate: gate2 } of judged4) {
+    const at4 = { installation, repo: target2.repo, prd: null, pr: target2.pr };
+    const merged = gate2.decision === "joined" ? { ok: true } : await joins.merge({ ...at4, head: pull.head, title: pull.title, base: pull.base, defaultBranch: pull.defaultBranch });
+    if (!merged.ok) return { joined: false, pulls, lacks: [lackOf(target2, merged.why)] };
+    pulls.push({ ...target2, url: pull.url });
+  }
+  return { joined: true, pulls };
+}
+function missionJoins({ octokitFor }) {
+  return {
+    async read({ installation, repo: slug, prd, pr }) {
+      const [owner = "", repo = ""] = slug.split("/");
+      const octokit = await octokitFor(installation);
+      const pull = PullSchema6.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { owner, repo, pull_number: pr })).data);
+      const ref = pull.head.sha;
+      const { runs, statuses } = await checksAt(octokit, { owner, repo, ref });
+      const reviews = await paginate(async (page) => ReviewsSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews", { owner, repo, pull_number: pr, per_page: PER_PAGE, page })).data));
+      const merged = pull.merged === true || (pull.merged_at ?? null) !== null;
+      return {
+        number: pr,
+        url: pull.html_url,
+        title: pull.title,
+        state: pull.state,
+        draft: pull.draft === true,
+        merged,
+        base: pull.base.ref,
+        defaultBranch: pull.base.repo.default_branch,
+        head: ref,
+        ...pull.head.ref == null ? {} : { branch: pull.head.ref },
+        runs,
+        statuses,
+        reviews: reviews.map((one) => ({ body: one.body ?? null, commit: one.commit_id ?? null })),
+        // A merged or closed pull request merges nothing, and a fix of no PRD has no outbox: neither is read.
+        items: merged || pull.state !== "open" || prd === null ? { ranks: [] } : await openItemsAt(octokit, { owner, repo, ref, prd })
+      };
+    },
+    async checks({ installation, repo: slug, branch }) {
+      const [owner = "", repo = ""] = slug.split("/");
+      const octokit = await octokitFor(installation);
+      const ref = RefSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` })).data).object.sha;
+      const { runs, statuses } = await checksAt(octokit, { owner, repo, ref });
+      return {
+        head: ref,
+        runs,
+        statuses
+      };
+    },
+    async merge({ installation, repo: slug, pr, head, title, base, defaultBranch }) {
+      if (base === defaultBranch) throw new DefaultBranchMergeError(base);
+      const [owner = "", repo = ""] = slug.split("/");
+      const octokit = await octokitFor(installation);
+      try {
+        await octokit.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", { owner, repo, pull_number: pr, merge_method: "squash", sha: head, commit_title: `${title} (#${String(pr)})` });
+        return { ok: true };
+      } catch (error) {
+        const status2 = statusOf(error);
+        if (typeof status2 === "number" && REFUSED2.has(status2)) return { ok: false, why: `GitHub refused the merge: ${String(messageOf3(error)).split("\n")[0] ?? ""}` };
+        throw error;
+      }
+    },
+    async targets({ installation, repos, prd, branch }) {
+      const octokit = await octokitFor(installation);
+      const found = [];
+      for (const slug of repos) {
+        const [owner = "", repo = ""] = slug.split("/");
+        const pulls = await paginate(
+          async (page) => TargetPullsSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/pulls", { owner, repo, base: branch, state: "all", per_page: PER_PAGE, page })).data)
+        );
+        for (const one of pulls) if (partOf2(one.body, prd)) found.push({ repo: slug, pr: PrNumberSchema.parse(one.number) });
+      }
+      return found;
+    }
+  };
 }
 
-// apps/omni-app/src/bug-reports/job.ts
-import { z as z104 } from "zod";
-var BUG_REPORT_KIND = "bug-report";
-var BUG_REPORT_LANE = "bug-report";
-var BugReportJobDataSchema = z104.object({ report: PublicReportSchema });
-async function submitBugReport({ input, attempt: attempt3, add }) {
-  const scrubbed = scrub(input);
-  if (!scrubbed.ok) return { ok: false, reason: scrubbed.reason };
-  const { report } = scrubbed;
-  await add({
-    kind: BUG_REPORT_KIND,
-    key: `bug-report:${report.fingerprint}:${attempt3}`,
-    subject: OMNI_LOOP_REPOSITORY,
-    payload: { report },
-    lane: BUG_REPORT_LANE
-  });
-  return { ok: true };
+// apps/omni-app/src/missions/job.ts
+import { z as z109 } from "zod";
+
+// apps/omni-app/src/missions/expand.ts
+function rowsOfRoadmap(text20) {
+  const read2 = parseProductRoadmap(text20);
+  if (!read2.ok) return { ok: false, why: read2.errors[0] ?? "the roadmap does not read" };
+  return { ok: true, rows: read2.roadmap.prds.map(({ id, prd, blockedBy, wave }) => ({ id, prd, blockedBy, wave })) };
 }
-var line2 = ({ kind, repo, issue, fingerprint: fingerprint2 }) => `bug report ${fingerprint2.slice(0, 8)}: ${kind === "filed" ? "filed" : "+1 on"} ${repo}#${String(issue)}`;
-function bugReportHandler({
-  issues,
-  store,
-  repo = OMNI_LOOP_REPOSITORY,
-  log: log2 = noteTo("bug-report"),
-  onFiled
-}) {
-  return async (job) => {
-    const { report } = checkPayloadOf(BugReportJobDataSchema, BUG_REPORT_KIND, job.payload);
-    const filed = await fileBugReport({ report, repo, store, issues });
-    log2(line2(filed));
-    await onFiled?.(filed, report);
-    return { outcome: "done" };
-  };
+function expandMissionScope(prds, roadmaps) {
+  const scope = new Map(prds.map((prd) => [prd, /* @__PURE__ */ new Set()]));
+  for (const rows of roadmaps) addRoadmap(scope, rows);
+  return [...scope].map(([prd, blockers]) => ({ prd, blockers: [...blockers] }));
 }
-function bugFollowHandler({
-  store,
-  github,
-  repo = OMNI_LOOP_REPOSITORY,
-  log: log2 = noteTo("bug-follow")
-}) {
-  return async (job) => {
-    const { event } = checkPayloadOf(BugFollowDataSchema, BUG_FOLLOW_KIND, job.payload);
-    const { moved } = await followBugEvent({ event, repo, store, github });
-    log2(`bug follow: ${event.kind} moved ${String(moved)} bug${moved === 1 ? "" : "s"}`);
-    return { outcome: "done" };
-  };
+function addRoadmap(scope, rows) {
+  const byRow = new Map(rows.map((row) => [row.id, row.prd]));
+  const inOrder = roadmapWaves({ prds: [...rows] }).flatMap((wave) => wave.rows);
+  for (const row of inOrder) {
+    const named = row.blockedBy.flatMap((one) => {
+      const blocker = byRow.get(one);
+      return blocker === void 0 || blocker === row.prd ? [] : [blocker];
+    });
+    scope.set(row.prd, /* @__PURE__ */ new Set([...scope.get(row.prd) ?? [], ...named]));
+  }
 }
+var heldWords = (prd, by, branch) => `PRD ${String(prd)} waits for ${by.map((one) => `PRD ${String(one)}`).join(", ")} to join ${branch ?? "the mission branch"}`;
+
+// kit/lib/mission/brief.ts
+import { parse as parse4 } from "yaml";
+import { z as z98 } from "zod";
+var DEFAULT_PARALLEL = 2;
+var MISSION_LEVELS = ["with-you", "own-branch", "alone"];
+var DEFAULT_LEVEL = "with-you";
+var PLAN_OWN_BRANCH_REFUSAL = "a mission branch holds one repository: use with-you or alone";
+function levelRefusal(level, inPlan) {
+  return inPlan && level === "own-branch" ? PLAN_OWN_BRANCH_REFUSAL : null;
+}
+var MISSION_KINDS = ["prds", "omni-bugs"];
+var DEFAULT_KIND = "prds";
+var DEFAULT_HARD_TO_REVERT = 0.6;
+var DEFAULT_OWN_PRDS = 0;
+var DEFAULT_RESUMES = 3;
+var MAX_MISSION_TOKENS = 1e9;
+var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var text18 = (max) => z98.string({ message: "must be text" }).trim().min(1, "is empty").max(max, `is over ${max} characters`);
+var distinct = (list2) => new Set(list2).size === list2.length;
+var MeasureSchema = z98.object({ sign: text18(200), read: text18(200), target: text18(200) }, { message: "must be {sign, read, target}" }).strict();
+var ScopeSchema = z98.object(
+  {
+    prds: z98.array(z98.union([PrdNumberSchema, ProductPrdIdSchema]), { message: "must be a list of PRD numbers or product PRD ids" }).max(50, "holds 50 PRDs at most").refine(distinct, "names a PRD twice").default([]),
+    roadmaps: z98.array(z98.union([IssueNumberSchema, ProductRoadmapIdSchema]), { message: "must be a list of roadmap numbers or product roadmap ids" }).max(10, "holds 10 roadmaps at most").refine(distinct, "names a roadmap twice").default([])
+  },
+  { message: "must be {prds, roadmaps}" }
+).strict();
+var REPOSITORY = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
+var NO_SCOPE = { prds: [], roadmaps: [] };
+var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
+var MandateSchema = z98.object(
+  {
+    parallel: z98.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
+    level: z98.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
+    hardToRevert: z98.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
+    ownPrds: z98.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
+    resumes: z98.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_RESUMES),
+    tokens: z98.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
+  },
+  { message: "must be {parallel, level, hardToRevert, ownPrds, resumes, tokens}" }
+).strict().transform(({ tokens, ...mandate }) => tokens == null ? mandate : { ...mandate, tokens });
+var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS, resumes: DEFAULT_RESUMES };
+var BriefSchema = z98.object({
+  mission: IssueNumberSchema,
+  title: text18(200),
+  fleet: text18(40).regex(FLEET_KEY, "is not a fleet's key (lowercase, dashes between words)"),
+  goal: text18(500),
+  measures: z98.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
+  kind: z98.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
+  scope: ScopeSchema.optional(),
+  repositories: z98.array(text18(200).regex(REPOSITORY, "is not owner/name"), { message: "must be a list of owner/name" }).max(20, "holds 20 repositories at most").refine(distinct, "names a repository twice").optional(),
+  mandate: MandateSchema.default(DEFAULT_MANDATE)
+}).strict().transform(({ scope, repositories, ...rest }, ctx) => {
+  const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
+  if (rest.kind === "omni-bugs") {
+    if (named > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
+  } else if (scope === void 0) {
+    ctx.addIssue({ code: "invalid_type", expected: "object", input: void 0, path: ["scope"], message: "missing" });
+  } else if (named === 0) {
+    ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
+  }
+  return { ...rest, scope: scope ?? NO_SCOPE, ...repositories === void 0 ? {} : { repositories } };
+});
 
 // apps/omni-app/src/missions/repair.ts
 import { createHash as createHash8 } from "node:crypto";
@@ -23525,10 +23494,10 @@ function bugFixOf(state, fixedIn) {
   return state === "wont-fix" ? { state: "wont-fix" } : { state: "open" };
 }
 var NO_REPAIRS = { budget: 0, round: 1, jobs: [], rows: [], stuck: [], refused: /* @__PURE__ */ new Map(), landings: /* @__PURE__ */ new Map(), reports: /* @__PURE__ */ new Map() };
-var KEY3 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
+var KEY2 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
 var repairKey = (mission, prd, k) => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
 function repairOfKey(key) {
-  const match = KEY3.exec(key);
+  const match = KEY2.exec(key);
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
   return match && prd.success ? { prd: prd.data, k: Number(match[3]) } : null;
 }
@@ -23579,10 +23548,10 @@ function spentWords(view, prd, refused10) {
   const tried = view.rows.filter((row) => row.prd === prd && row.round === view.round && row.fingerprint === refused10.fingerprint).sort((a, b) => a.number - b.number);
   return `its cause [${short2(refused10.fingerprint)}] was repaired ${String(CAUSE_REPAIRS)} times: ${cause} Tried: ${tried.map(triedWords).join(", ")}.${fix} ${resumeWords(view)}`;
 }
-var nextK = (view, prd) => Math.max(0, ...view.jobs.filter((job) => job.prd === prd).map((job) => job.k)) + 1;
+var nextK2 = (view, prd) => Math.max(0, ...view.jobs.filter((job) => job.prd === prd).map((job) => job.k)) + 1;
 function sendOrStop(view, prd, failedJob, failure2) {
   if (leftOf(view) === 0) return { next: "stops", why: `${failure2}, and the mission spent its ${String(view.budget)} repairs` };
-  return { next: "repair", k: nextK(view, prd), failedJob };
+  return { next: "repair", k: nextK2(view, prd), failedJob };
 }
 function numberOf(view, prd, row) {
   if (row !== void 0) return row.number;
@@ -23681,20 +23650,20 @@ var startedEvent = (job, { where, mission }) => ({
 function rowEvents(row) {
   const n = `PRD ${String(row.prd)}`;
   const cause = `[${short2(row.fingerprint)}]`;
-  const said3 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said3("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said4 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said4("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "not fixed: its record line could not be read." : `${row.outcome}.`;
-  return [...retro2, said3("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
+  return [...retro2, said4("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
 }
 function reportEvent(row, report, who = `PRD ${String(row.prd)}`) {
   if (report?.state !== "filed") return [];
   const link = linkOf(`https://github.com/${report.repo}/issues/${String(report.issue)}`);
   return [{ kind: "bug-reported", role: "supervisor", prd: row.prd, job: row.job, link, sentence: `${who} met an Omni Loop bug [${short2(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
 }
-function repairEvents(view, where, sentAfter = () => null) {
+function repairEvents(view, where, sentAfter2 = () => null) {
   const own = view.rows.filter((row) => !isStuckRow(row));
-  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))]), ...bugFixedEvents(view, sentAfter)];
+  return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))]), ...bugFixedEvents(view, sentAfter2)];
 }
 function toldWords(view, issue, fix) {
   if (fix.state === "wont-fix") return `${wontFixWords(issue)}.`;
@@ -23707,21 +23676,21 @@ function movedOf(view, row) {
   const filed = filedOf(view, row);
   return filed === null || filed.fix.state === "open" ? null : { ...filed, row: { ...row, job }, fix: filed.fix };
 }
-function resumedEvent(view, moved, sentAfter, said3) {
+function resumedEvent(view, moved, sentAfter2, said4) {
   if (moved.fix.state !== "fixed" || view.held === true || !runsFix(view.kit, moved.fix.version)) return [];
-  const job = sentAfter(moved.row);
-  return job === null ? [] : [said3(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
+  const job = sentAfter2(moved.row);
+  return job === null ? [] : [said4(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
 }
-function bugFixedEvents(view, sentAfter) {
+function bugFixedEvents(view, sentAfter2) {
   const told = /* @__PURE__ */ new Set();
   return view.rows.flatMap((row) => {
     const moved = movedOf(view, row);
     if (moved === null) return [];
     const link = linkOf(`https://github.com/${moved.repo}/issues/${String(moved.issue)}`);
-    const said3 = (job, sentence2) => ({ kind: "bug-fixed", role: "supervisor", prd: row.prd, job, link, sentence: sentence2 });
-    const first = told.has(row.fingerprint) ? [] : [said3(moved.row.job, toldWords(view, moved.issue, moved.fix))];
+    const said4 = (job, sentence2) => ({ kind: "bug-fixed", role: "supervisor", prd: row.prd, job, link, sentence: sentence2 });
+    const first = told.has(row.fingerprint) ? [] : [said4(moved.row.job, toldWords(view, moved.issue, moved.fix))];
     told.add(row.fingerprint);
-    return [...first, ...resumedEvent(view, moved, sentAfter, said3)];
+    return [...first, ...resumedEvent(view, moved, sentAfter2, said4)];
   });
 }
 function untold(rows, told) {
@@ -23860,9 +23829,9 @@ function fixEvent(prd, step, last, runs, view) {
   const landing = view.landings.get(last.id);
   if (fix !== null && (landing === void 0 || landing.state === "waits")) return null;
   const bug = issue === void 0 ? "its bug" : `#${String(issue)}`;
-  const said3 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
-  if (fix === null) return said3(`not fixed ${bug}: ${noFixWhy(last)}`);
-  return landing?.state === "landed" ? said3(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said3(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
+  const said4 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
+  if (fix === null) return said4(`not fixed ${bug}: ${noFixWhy(last)}`);
+  return landing?.state === "landed" ? said4(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said4(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
 }
 function sentPairWords(one, where, runs, view) {
   const round = qaRoundOf(one.step);
@@ -23874,6 +23843,536 @@ function sentPairWords(one, where, runs, view) {
   const feature = view.features.get(one.prd);
   const line3 = issue === void 0 ? "/omni:bug-fix" : feature !== void 0 && "branch" in feature ? fixLine({ issue, branch: feature.branch }) : `/omni:bug-fix #${String(issue)}`;
   return `Sent ${line3} to ${where} (run ${String(one.run)}, bug ${String(k)} of ${String(Math.max(k, bugs.length))}).`;
+}
+
+// apps/omni-app/src/missions/resume.ts
+var RESUMES_MAX = 10;
+var RESULT_WORDS = /* @__PURE__ */ new Set(["ready", "answers", "human", "held", "review", "changes"]);
+var endedHalfway = ({ status: status2, outcome: outcome3, checked: checked2 }) => status2 === "done" && checked2 == null && (outcome3 === null || !RESULT_WORDS.has(outcome3));
+var resumeOf = (job) => job.resume ?? 0;
+var onLimit = (attempt3) => attempt3.limitedUntil != null;
+var counts = (job) => {
+  const last = job.attempts.at(-1);
+  return last !== void 0 && !onLimit(last);
+};
+var resumeCap = ({ level, resumes }) => level === "alone" ? resumes ?? DEFAULT_RESUMES : null;
+var timesWords = (count4) => count4 === 1 ? "once" : `${String(count4)} times`;
+var spentWhy = (count4) => `it ended without its result line ${timesWords(count4)}`;
+function resumeNext(jobs, cap = DEFAULT_RESUMES) {
+  const latest = jobs.reduce((last, one) => last === null || resumeOf(one) > resumeOf(last) ? one : last, null);
+  const count4 = jobs.filter(counts).length;
+  if (latest === null || count4 > cap || resumeOf(latest) >= RESUMES_MAX) return { next: "repair", why: spentWhy(count4), count: count4 };
+  return { next: "resume", resume: resumeOf(latest) + 1, count: count4, cap, counted: counts(latest) };
+}
+var stepJobs = (runs, one) => runs.filter((other) => other.prd === one.prd && other.run === one.run && other.step === one.step && resumeOf(other) <= resumeOf(one));
+var halfwayAt = (one, cap) => {
+  const last = one.attempts.at(-1);
+  return cap !== null && last !== void 0 && endedHalfway(last) && !isQaStep(one.step) && !isFixStep(one.step);
+};
+function resumeStep(runs, latest, cap) {
+  return cap !== null && halfwayAt(latest, cap) ? resumeNext(stepJobs(runs, latest), cap) : null;
+}
+function halfwayWords(n, next) {
+  if (next.next === "repair") return `${n} ended without its result line ${timesWords(next.count)}: the mission sends a repair, while it has one left.`;
+  const which = next.counted ? `resume ${String(next.count)} of ${String(next.cap)}` : "a spend or rate limit counts none";
+  return `${n} ended without its result line: the mission sends it a fresh job (${which}).`;
+}
+function halfwayEvent(prd, one, runs, cap) {
+  const next = resumeStep(runs, one, cap);
+  const last = one.attempts.at(-1);
+  if (next === null || last === void 0) return null;
+  return { kind: "held", role: "supervisor", prd, job: last.id, link: null, sentence: halfwayWords(`PRD ${String(prd)}`, next) };
+}
+var resumeWords2 = (job) => resumeOf(job) === 0 ? "" : `, resume ${String(resumeOf(job))}`;
+
+// kit/lib/mission/drop.ts
+function territoryOf(plan) {
+  if (plan === null) return null;
+  try {
+    const paths = [...new Set(parsePlanSlices(plan).flatMap((slice) => slice.territory))];
+    return paths.length > 0 ? paths : null;
+  } catch {
+    return null;
+  }
+}
+var DROP_ASKED = "drop-asked";
+var DROP_ASKED_KEEP = "drop-asked-keep";
+function dropSet({
+  order,
+  prd,
+  keep: keep3,
+  territory
+}) {
+  const at4 = order.indexOf(prd);
+  if (at4 < 0) return null;
+  const sharing = [];
+  const ground = [];
+  const first = territory(prd);
+  if (first !== null) ground.push(first);
+  for (const later2 of order.slice(at4 + 1)) {
+    const mine = territory(later2);
+    if (mine === null || !ground.some((other) => sharedGround({ territory: [...other] }, { territory: [...mine] }).length > 0)) continue;
+    sharing.push(later2);
+    ground.push(mine);
+  }
+  return { prd, sharing, dropped: keep3 ? [prd] : [prd, ...sharing] };
+}
+function standingAsks(events) {
+  const on = /* @__PURE__ */ new Set();
+  const asks = /* @__PURE__ */ new Map();
+  for (const { kind, prd } of events) {
+    if (prd === null) continue;
+    if (kind === "prd-joined") {
+      on.add(prd);
+      asks.delete(prd);
+    } else if (kind === DROP_ASKED || kind === DROP_ASKED_KEEP) {
+      if (on.has(prd)) asks.set(prd, kind === DROP_ASKED_KEEP);
+    } else if (kind === "prd-dropped" || kind === "landed" || kind === "prd-merged") {
+      on.delete(prd);
+      asks.delete(prd);
+    }
+  }
+  return [...asks].map(([prd, keep3]) => ({ prd, keep: keep3 }));
+}
+function droppedOf(events) {
+  const dropped = /* @__PURE__ */ new Set();
+  for (const { kind, prd } of events) {
+    if (prd === null) continue;
+    if (kind === "prd-dropped") dropped.add(prd);
+    else if (kind === "prd-joined" || kind === "prd-merged" || kind === "landed") dropped.delete(prd);
+  }
+  return dropped;
+}
+var dropLine = (mission, prd) => `omni mission drop ${String(mission)} ${String(prd)}`;
+
+// kit/lib/committee/vote.ts
+import { z as z99 } from "zod";
+var COMMITTEE_ROLES = Object.freeze(["pm", "architect", "reviewer"]);
+var CommitteeRoleSchema = z99.enum(COMMITTEE_ROLES);
+var VERDICT_ANSWERS = Object.freeze(["yes", "no", "unsure", "failed", "timeout"]);
+var SENTENCE_MAX2 = 200;
+var VerdictSchema6 = z99.object({
+  role: CommitteeRoleSchema,
+  answer: z99.enum(VERDICT_ANSWERS),
+  sentence: z99.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX2, `sentence: ${String(SENTENCE_MAX2)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
+});
+var NAMES2 = { pm: "PM", architect: "Architect", reviewer: "Reviewer" };
+var roleName = (role) => `the ${NAMES2[role]}`;
+var sitting = (author) => COMMITTEE_ROLES.filter((role) => role !== author);
+function whyOf({ role, answer, sentence: sentence2 }) {
+  if (answer === "failed") return `${roleName(role)} failed, counted unsure: ${sentence2}`;
+  if (answer === "timeout") return `${roleName(role)} timed out, counted unsure: ${sentence2}`;
+  return `${roleName(role)} answered ${answer}: ${sentence2}`;
+}
+var NO_VERDICT = "It gave no verdict.";
+function tally(verdicts, author) {
+  const why = [];
+  if (author !== null && verdicts.some((verdict) => verdict.role === author)) why.push(`${roleName(author)} wrote it and may not vote on it`);
+  for (const role of COMMITTEE_ROLES) if (verdicts.filter((verdict) => verdict.role === role).length > 1) why.push(`${roleName(role)} answered twice`);
+  const recorded = sitting(author).map((role) => verdicts.find((verdict) => verdict.role === role) ?? { role, answer: "failed", sentence: NO_VERDICT });
+  if (why.length === 0) why.push(...recorded.filter((verdict) => verdict.answer !== "yes").map(whyOf));
+  return { outcome: why.length === 0 ? "carried" : "escalated", why, verdicts: recorded };
+}
+var VotesSchema = z99.object({ verdicts: z99.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1) });
+
+// kit/lib/committee/escalation.ts
+var listed2 = (ids) => ids.join(", ");
+var PHASE0_PR = "it is approved by its phase-0 pull request, which only a person merges";
+function whoActs(facts) {
+  if (facts.kind === "approve") return facts.phase0 === "server" ? [] : [PHASE0_PR];
+  return facts.rank === "human-action" ? ["it is a human-action item: only a person can act on it"] : [];
+}
+var naming = (ids, one, many) => ids.length === 0 ? [] : [ids.length === 1 ? one(listed2(ids)) : many(listed2(ids))];
+function lawsOf(facts) {
+  return [
+    ...naming(facts.lockedLaws, (id) => `it bears on the locked law ${id}: its owner decides`, (ids) => `it bears on the locked laws ${ids}: their owners decide`),
+    ...naming(facts.legal, (id) => `it bears on the Legal entry ${id}`, (ids) => `it bears on the Legal entries ${ids}`),
+    ...naming(facts.redBusinessLaws, (id) => `its spec breaks the business law ${id}`, (ids) => `its spec breaks the business laws ${ids}`),
+    ...naming(
+      facts.kind === "answer" ? facts.businessLaws ?? [] : [],
+      (id) => `it bears on the business law ${id}: a person decides`,
+      (ids) => `it bears on the business laws ${ids}: a person decides`
+    )
+  ];
+}
+function revertOf(facts) {
+  if (facts.kind === "approve") return [];
+  if (facts.hardToRevert === null) return ["its hard-to-revert score is unknown"];
+  return facts.hardToRevert >= facts.bound ? [`its hard-to-revert score ${String(facts.hardToRevert)} is at or above the mission's bound ${String(facts.bound)}`] : [];
+}
+var escalations = (facts) => [
+  ...whoActs(facts),
+  ...lawsOf(facts),
+  ...revertOf(facts),
+  ...facts.dataMigrations.map((file) => `the migration ${file} drops or rewrites data`)
+];
+var TO_THE_MEMBERS = "to the members, then to a person at landing";
+var TO_A_PERSON = "to a person";
+var routes = (facts) => escalations(facts).map((line3) => ({ case: line3, to: line3 === PHASE0_PR ? TO_A_PERSON : TO_THE_MEMBERS }));
+
+// kit/lib/committee/record.ts
+import { z as z100 } from "zod";
+var COMMITTEE_LINE = "omni committee: ";
+var REASONS_MAX = 10;
+var REASON_MAX = 300;
+var ReadFileSchema = z100.object({ kind: z100.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z100.string().regex(/^[0-9a-f]{64}$/) });
+var RECORD2 = {
+  v: z100.literal(1),
+  prd: PrdNumberSchema,
+  author: CommitteeRoleSchema.nullable(),
+  read: z100.array(ReadFileSchema).max(10),
+  escalations: z100.array(z100.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
+  verdicts: z100.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1),
+  /** `deferred` (PRD omni-loop-21 s2): an item the vote did not carry, settled meanwhile with option A, open for a person at landing. */
+  outcome: z100.enum(["carried", "deferred", "escalated"])
+};
+var CommitteeRecordSchema = z100.discriminatedUnion("kind", [
+  z100.object({ ...RECORD2, kind: z100.literal("approve") }),
+  z100.object({ ...RECORD2, kind: z100.literal("answer"), item: OutboxItemIdSchema, option: z100.string().regex(/^[A-Z]$/) })
+]);
+var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
+function* recordsOf(log2) {
+  for (const raw of log2.split("\n").reverse()) {
+    const line3 = raw.trim().replace(STAMP2, "");
+    if (!line3.startsWith(COMMITTEE_LINE)) continue;
+    let json3;
+    try {
+      json3 = JSON.parse(line3.slice(COMMITTEE_LINE.length));
+    } catch {
+      continue;
+    }
+    const parsed3 = CommitteeRecordSchema.safeParse(json3);
+    if (parsed3.success) yield parsed3.data;
+  }
+}
+function committeeOf(log2, prd) {
+  for (const record of recordsOf(log2)) if (record.kind === "approve" && record.prd === prd) return record;
+  return null;
+}
+function answerOf(log2, prd, item) {
+  for (const record of recordsOf(log2)) if (record.kind === "answer" && record.prd === prd && record.item === item) return record;
+  return null;
+}
+
+// apps/omni-app/src/missions/committee.ts
+var COMMITTEE_ROUNDS = 3;
+var verdictWords = (verdicts) => verdicts === void 0 || verdicts.length === 0 ? null : verdicts.map(({ role, answer }) => `${role} ${answer}`).join(", ");
+var KEY3 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):approve:([1-9][0-9]*)$/;
+var committeeKey = (mission, prd, round) => `mission:${mission}:prd:${String(prd)}:approve:${String(round)}`;
+function committeeOfKey(key) {
+  const match = KEY3.exec(key);
+  const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
+  return match && prd.success ? { prd: prd.data, round: Number(match[3]) } : null;
+}
+var approveLine = (prd, author = null) => `/omni:committee ${String(prd)} --approve${author === null ? "" : ` --author ${author}`}`;
+var working = ({ status: status2 }) => status2 === "queued" || status2 === "claimed" || status2 === "running";
+function approvalNext(approval, committees, alone) {
+  if (approval === "standing") return { next: "standing" };
+  if (!alone) return { next: "person", why: null };
+  if (approval === "overturned") return { next: "person", why: "you overturned the fleet's approval" };
+  const latest = committees.reduce((last, one) => last === null || one.round > last.round ? one : last, null);
+  if (latest === null) return { next: "send", round: 1 };
+  if (working(latest.attempt) || latest.decision === null) return { next: "deciding", round: latest.round };
+  if (latest.decision.outcome === "escalated") return { next: "person", why: `the committee sent it to you: ${latest.decision.why.join("; ")}` };
+  if (latest.round >= COMMITTEE_ROUNDS) return { next: "person", why: `the fleet's approval was voided ${String(COMMITTEE_ROUNDS)} times` };
+  return { next: "send", round: latest.round + 1 };
+}
+var sendsCommittees = (status2) => status2 === "running" || status2 === "waiting";
+var failedAll = (sentence2) => COMMITTEE_ROLES.map((role) => ({ role, answer: "failed", sentence: sentence2 }));
+function noRecord(attempt3) {
+  const sentence2 = attempt3.status === "done" ? "Its job ended with no record of the vote." : `Its job ${attempt3.status === "cancelled" ? "was cancelled" : "failed"}.`;
+  const vote = tally(failedAll(sentence2), null);
+  return { verdicts: vote.verdicts, why: vote.why };
+}
+function itemAnswerOf(prd, one, log2) {
+  return one.attempt.status === "done" && log2 !== null ? answerOf(log2, prd, one.item) : null;
+}
+function unanswered(attempt3) {
+  const vote = noRecord(attempt3);
+  return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: vote.why } };
+}
+var ON_THE_LIST = "on the escalation list";
+var PERSON_CASES = new Set(
+  routes({ kind: "approve", phase0: "pr", lockedLaws: [], legal: [], redBusinessLaws: [], dataMigrations: [] }).filter((route) => route.to === "to a person").map((route) => route.case)
+);
+function routedOf(escalations2) {
+  return {
+    person: escalations2.filter((line3) => PERSON_CASES.has(line3)),
+    listed: escalations2.filter((line3) => !PERSON_CASES.has(line3)).map((line3) => `${ON_THE_LIST}: ${line3}`)
+  };
+}
+function recordedOf(prd, one, log2, author = null) {
+  const found = one.attempt.status === "done" && log2 !== null ? committeeOf(log2, prd) : null;
+  if (found === null) {
+    const vote2 = noRecord(one.attempt);
+    return { record: { author: null, read: [], verdicts: vote2.verdicts }, decision: { outcome: "escalated", why: vote2.why } };
+  }
+  const { person, listed: listed5 } = routedOf(found.escalations);
+  const vote = person.length > 0 ? { outcome: "escalated", why: person, verdicts: found.verdicts } : tally(found.verdicts, author ?? found.author);
+  const why = vote.outcome === "carried" ? [] : person.length > 0 ? vote.why : [...listed5, ...vote.why];
+  return { record: { author: author ?? found.author, read: found.read, verdicts: vote.verdicts }, decision: { outcome: vote.outcome, why } };
+}
+var BUILT2 = "A";
+var allYes = (verdicts) => `every member who sat answered yes: ${verdictWords(verdicts) ?? "none sat"}`;
+function itemDecisionOf(prd, one, log2) {
+  const found = itemAnswerOf(prd, one, log2);
+  if (found === null) {
+    const none = unanswered(one.attempt);
+    return { verdicts: none.verdicts, decision: { ...none.decision, option: null } };
+  }
+  const vote = tally(found.verdicts, found.author);
+  const { person, listed: listed5 } = routedOf(found.escalations);
+  if (person.length > 0) return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: person, option: null } };
+  if (found.option !== BUILT2) {
+    const why = `it was answered with option ${found.option}: the fleet settles an item with option ${BUILT2}, as built, only`;
+    return { verdicts: vote.verdicts, decision: { outcome: "escalated", why: [why], option: null } };
+  }
+  if (vote.outcome === "carried") return { verdicts: vote.verdicts, decision: { outcome: "carried", why: listed5.length > 0 ? listed5 : [allYes(vote.verdicts)], option: null } };
+  return { verdicts: vote.verdicts, decision: { outcome: "deferred", why: [...listed5, ...vote.why], option: BUILT2 } };
+}
+
+// apps/omni-app/src/missions/answers.ts
+var BUILT3 = "A";
+var DEFAULT_BOUND = 0.6;
+var LINE2 = /^\/omni:committee ([1-9][0-9]*) --item ([a-z0-9-]+)(?: --bound [0-9.]+)?$/;
+var askLine = (prd, item, bound) => `/omni:committee ${String(prd)} --item ${item} --bound ${String(bound)}`;
+var askPrefix = (prd, item) => `/omni:committee ${String(prd)} --item ${item}`;
+function itemOfLine(line3) {
+  const match = LINE2.exec(line3);
+  const prd = PrdNumberSchema.safeParse(Number(match?.[1]));
+  return match && prd.success ? { prd: prd.data, item: match[2] ?? "" } : null;
+}
+var DECISION_KINDS = /* @__PURE__ */ new Set(["decided", "deferred", "escalated"]);
+function decisionOfKind(kind) {
+  if (kind === "decided") return { outcome: "carried", why: [] };
+  if (kind === "deferred") return { outcome: "deferred", why: [], option: BUILT3 };
+  return kind === "escalated" ? { outcome: "escalated", why: [] } : null;
+}
+function withDecisions(committees, recorded) {
+  return committees.map((one) => ({ ...one, decision: decisionOfKind(recorded.find((event) => event.job === one.job && DECISION_KINDS.has(event.kind))?.kind) }));
+}
+var latestOf3 = (committees, item) => committees.filter((one) => one.item === item).at(-1);
+function answersNext(open, committees) {
+  const next = { send: [], deciding: false, person: [] };
+  for (const { id, rank } of open) {
+    if (id === null || rank === null) next.person.push("an item of its outbox does not read");
+    else if (rank === "human-action") next.person.push(`${id} is a human-action item: only a person can act on it`);
+    else if (rank === "high") {
+      const latest = latestOf3(committees, id);
+      if (latest === void 0) next.send.push(id);
+      else if (latest.decision?.outcome === "escalated") next.person.push(`the committee sent ${id} to you`);
+      else next.deciding = true;
+    }
+  }
+  return next;
+}
+var itemsOpen = (open) => open.some(({ rank }) => rank === null || rank === "high" || rank === "human-action");
+var SENTENCE_MAX3 = 300;
+var cut2 = (text20) => text20.length <= SENTENCE_MAX3 ? text20 : `${text20.slice(0, SENTENCE_MAX3 - 1)}\u2026`;
+function answerEvents(committees, where) {
+  return committees.flatMap((one) => {
+    const n = `PRD ${String(one.prd)}`;
+    const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: cut2(`Sent ${askPrefix(one.prd, one.item)} to ${where}.`) };
+    if (one.decision === null) return [sent];
+    const words = decidedWords(one.item, n, one.decision);
+    return [sent, { role: "pm", prd: one.prd, job: one.job, link: null, kind: words.kind, sentence: cut2(words.sentence) }];
+  });
+}
+function decidedWords(item, n, decision) {
+  if (decision.outcome === "carried") return { kind: "decided", sentence: `The committee answered ${item} of ${n} with option ${BUILT3}: ${verdictWords(decision.verdicts) ?? "every member who sat answered yes"}.` };
+  if (decision.outcome === "deferred") {
+    const why = decision.why.join("; ") || "not every member who sat answered yes";
+    return { kind: "deferred", sentence: `The committee deferred ${item} of ${n}: option ${decision.option} meanwhile, open for a person on the mission pull request (${why}).` };
+  }
+  return { kind: "escalated", sentence: `${item} of ${n} goes to a person: ${decision.why.join("; ") || "the committee sent it to you"}` };
+}
+
+// kit/lib/virtual-fleet/pm.ts
+import { z as z101 } from "zod";
+
+// kit/lib/runner/line.ts
+var RUNNABLE_SKILLS = Object.freeze([
+  "yolo",
+  "yolo-fix",
+  "pr-care",
+  "do-work",
+  "wave",
+  "bug-fix",
+  "mega-bug-fix",
+  "visual-fix",
+  "plan",
+  "pitch",
+  "prove",
+  "retro-apply",
+  "rewind",
+  "knowledge-add",
+  "rewind-apply",
+  "ultra-yolo",
+  "ultra-wave",
+  "ultra-yolo-fix",
+  "review",
+  "committee",
+  "brainstorm",
+  "roadmap",
+  "mega-brainstorm",
+  "mega-roadmap",
+  "repair",
+  "qa",
+  "mission-retro"
+]);
+var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var APP_SKILLS = Object.freeze(["acceptance"]);
+var RESUMABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "wave", "do-work", "pr-care", "bug-fix"]);
+var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "plan", "pitch", "prove", "ultra-yolo", "ultra-wave", "ultra-yolo-fix"]);
+
+// kit/lib/virtual-fleet/pm.ts
+var OWN_PRDS_MAX = 10;
+var TITLE_MAX2 = 120;
+var UNWRITTEN_MAX = 20;
+var PmSkillSchema = z101.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var PM_LINE = "omni pm: ";
+var PmRecordSchema = z101.object({
+  v: z101.literal(1),
+  mission: z101.number().int().positive(),
+  skill: PmSkillSchema,
+  cap: z101.number().int().min(1).max(OWN_PRDS_MAX),
+  prds: z101.array(PrdNumberSchema).max(OWN_PRDS_MAX),
+  unwritten: z101.array(z101.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
+});
+function pmSkillFor(left, planRepository) {
+  if (!Number.isInteger(left) || left < 1) return null;
+  const one = left === 1;
+  if (planRepository) return one ? "mega-brainstorm" : "mega-roadmap";
+  return one ? "brainstorm" : "roadmap";
+}
+var pmJobLine = (skill, mission, cap) => `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+var isPmSkill = (skill) => PM_SKILLS.includes(skill);
+function fitCap(rows, cap) {
+  const room = Math.max(0, Math.floor(cap));
+  return { written: rows.slice(0, room), unwritten: rows.slice(room) };
+}
+var notWrittenWords = (cap) => `not written: the cap is ${String(cap)}`;
+var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
+function pmRecordOf(log2, mission) {
+  for (const raw of log2.split("\n").reverse()) {
+    const line3 = raw.trim().replace(STAMP3, "");
+    if (!line3.startsWith(PM_LINE)) continue;
+    let json3;
+    try {
+      json3 = JSON.parse(line3.slice(PM_LINE.length));
+    } catch {
+      continue;
+    }
+    const parsed3 = PmRecordSchema.safeParse(json3);
+    if (parsed3.success && parsed3.data.mission === mission) return parsed3.data;
+  }
+  return null;
+}
+function keptOf2(record, cap, held2) {
+  const fresh = [...new Set(record.prds)].filter((prd) => !held2.has(prd));
+  const { written, unwritten } = fitCap(fresh, Math.min(cap, record.cap));
+  return { added: written, unwritten: [...unwritten.map((prd) => `PRD ${String(prd)}`), ...record.unwritten] };
+}
+function planJobLine(prd, kind) {
+  const tail = kind === "replan" ? " --replan" : "";
+  if (isProductPrdId(prd)) return `/omni:mega-brainstorm --product ${productPrdParts(prd).key} --plan-only ${prd}${tail}`;
+  return `/omni:plan ${String(prd)}${tail}`;
+}
+var PLAN_LINE = /^\/omni:plan ([1-9][0-9]*)( --replan)?$/;
+var PLAN_ONLY_LINE = /^\/omni:mega-brainstorm --product ([a-z][a-z0-9-]*) --plan-only (\S+?)( --replan)?$/;
+function planOfLine(line3) {
+  const repository = PLAN_LINE.exec(line3);
+  const product = PLAN_ONLY_LINE.exec(line3);
+  const named = repository === null ? product?.[2] : Number(repository[1]);
+  const prd = named === void 0 ? null : idOf(named);
+  if (prd === null) return null;
+  const kind = (repository ?? product)?.at(-1) === void 0 ? "plan" : "replan";
+  if (repository !== null) return isProductPrdId(prd) ? null : { prd, kind };
+  return isProductPrdId(prd) && productPrdParts(prd).key === product?.[1] ? { prd, kind } : null;
+}
+function idOf(value) {
+  try {
+    return parsePrdId(value);
+  } catch {
+    return null;
+  }
+}
+
+// apps/omni-app/src/missions/pm.ts
+var PM_ROUND = 1;
+var KEY4 = /^mission:([0-9a-f-]{36}):pm:([1-9][0-9]*)$/;
+var pmKey = (mission, round) => `mission:${mission}:pm:${String(round)}`;
+function pmRoundOfKey(key) {
+  const match = KEY4.exec(key);
+  return match ? Number(match[2]) : null;
+}
+function addedOf(recorded) {
+  const added = [];
+  for (const event of recorded) if (event.kind === "prd-added" && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
+  return added;
+}
+var isOwnJob = ({ line: line3 }) => planOfLine(line3) === null;
+function pmNext({ mission, ownPrds, added, jobs, inPlan }) {
+  if (mission.level !== "alone" || !sendsCommittees(mission.status) || jobs.some(isOwnJob)) return { next: "none" };
+  const left = ownPrds - added;
+  const skill = pmSkillFor(left, inPlan);
+  if (skill === null) return { next: "none" };
+  return { next: "send", round: PM_ROUND, skill, cap: left, line: pmJobLine(skill, mission.number, left) };
+}
+var pmWorking = ({ attempt: attempt3 }) => attempt3.status === "queued" || attempt3.status === "claimed" || attempt3.status === "running";
+var capOf = (line3) => Number(/ --cap ([1-9][0-9]*)/.exec(line3)?.[1] ?? 0);
+var skillWords = (line3) => {
+  const skill = /^\/omni:([a-z-]+)/.exec(line3)?.[1] ?? "";
+  return isPmSkill(skill) ? `/omni:${skill}` : "the PM's job";
+};
+function pmEvents(mission, one, log2, held2, recorded) {
+  if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== "dispatched")) return [];
+  const record = one.attempt.status === "done" && log2 !== null ? pmRecordOf(log2, mission.number) : null;
+  const cap = capOf(one.line);
+  if (record === null) {
+    const why = one.attempt.status === "done" ? "ended with no record" : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
+    return [{ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
+  }
+  const { added, unwritten } = keptOf2(record, cap, held2);
+  const events = added.map((prd) => ({ kind: "prd-added", role: "pm", prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
+  for (const title of unwritten) events.push({ kind: "not-written", role: "pm", prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
+  if (events.length === 0) events.push({ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
+  return events;
+}
+var pmDispatched = (job, next) => ({
+  kind: "dispatched",
+  role: "supervisor",
+  prd: null,
+  job,
+  link: null,
+  sentence: `Sent the PM /omni:${next.skill} for the mission's goal: ${String(next.cap)} PRD${next.cap === 1 ? "" : "s"} at most.`
+});
+function withAdded(scope, added) {
+  return [...scope, ...added.filter((prd) => !scope.includes(prd))];
+}
+function withPm(next, writing, wakeAt2) {
+  if (!writing || next.status === "paused" || next.status === "draft" || next.status === "running") return next;
+  return { status: "running", waitingOn: next.status === "waiting" ? next.waitingOn : null, nextWakeAt: wakeAt2 };
+}
+
+// apps/omni-app/src/missions/store.prd.ts
+import { z as z102 } from "zod";
+var PrdIdSchema = z102.union([
+  ProductPrdIdSchema,
+  z102.string().regex(/^[1-9]\d{0,9}$/).transform(Number).pipe(PrdNumberSchema)
+]);
+function prdColumns(prd) {
+  if (prd === null) return { prd: null, product_prd: null };
+  return isProductPrdId(prd) ? { prd: null, product_prd: prd } : { prd, product_prd: null };
+}
+var prdKeyPart = (prd) => `prd:${String(prd)}`;
+function productRunOfKey(key) {
+  const match = /^mission:[0-9a-f-]{36}:prd:([^:]+):run:([1-9][0-9]*)$/.exec(key);
+  const prd = ProductPrdIdSchema.safeParse(match?.[1]);
+  return match !== null && prd.success ? { prd: prd.data, run: Number(match[2]) } : null;
+}
+function numberedOf(prd) {
+  return prd !== null && isProductPrdId(prd) ? { prd: null, product: prd } : { prd };
 }
 
 // apps/omni-app/src/missions/supervisor.ts
@@ -23899,18 +24398,19 @@ var WAKE_MS = 6e4;
 var WORDS_MAX = 300;
 var LAST_RUN = 2;
 var ROUNDS = 2;
-var KEY4 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1|qa:[12]|qa-fix:1:[1-5]))?$/;
-var missionKey = (mission, prd, run, step = "build") => `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === "build" ? "" : `:${step}`}`;
+var KEY5 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1|qa:[12]|qa-fix:1:[1-5]))?$/;
+var missionKey = (mission, prd, run, step = "build") => `mission:${mission}:${prdKeyPart(prd)}:run:${String(run)}${step === "build" ? "" : `:${step}`}`;
 var isStep = (text20) => STEPS.some((step) => step === text20);
 function runOfKey(key) {
-  const match = KEY4.exec(key);
+  const match = KEY5.exec(key);
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
   const step = match?.[4] ?? "build";
   return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
 }
 function lineOf5(prd, step, skill = "yolo", base = null, fix = null) {
+  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === "string" || base === null ? [] : base);
   const n = String(prd);
-  const onBase = base === null ? "" : ` --base ${base}`;
+  const onBase = typeof base === "string" ? ` --base ${base}` : "";
   const round = qaRoundOf(step);
   if (round !== null) return qaSkillLine(prd, round);
   if (isFixStep(step)) {
@@ -23920,6 +24420,13 @@ function lineOf5(prd, step, skill = "yolo", base = null, fix = null) {
   if (step === "build") return skill === "ultra-yolo" ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review${onBase}`;
   if (step === "fix:1") return skill === "ultra-yolo" ? `/omni:ultra-yolo-fix ${n} --for-review` : `/omni:yolo-fix ${n} --for-review${onBase}`;
   return `/omni:review ${n}`;
+}
+var basesOf = (repos, branch) => repos.map((repo) => ({ repo, branch }));
+function productLineOf(prd, step, bases) {
+  const flag = bases.length === 0 ? "" : ` ${baseOfFlag(bases)}`;
+  if (qaRoundOf(step) !== null || isFixStep(step)) throw new Error(`PRD ${prd} is a product PRD: it skips the QA pair, and ${step} is never sent for it`);
+  if (step === "build") return `/omni:ultra-yolo ${prd}${flag}`;
+  return step === "fix:1" ? `/omni:ultra-yolo-fix ${prd} --for-review${flag}` : `/omni:review ${prd}`;
 }
 var MISSION_BRANCH = "mission/{number}-{topic}";
 var TOPIC_MAX = 40;
@@ -24020,9 +24527,9 @@ function outcome2(end, run, reason2 = null, step = "build", withQa = true) {
       return { next: "stops", why: reason2 ? `its job failed: ${reason2}` : "its job failed" };
   }
 }
-var lastOf = (run) => run.attempts.at(-1);
+var lastOf2 = (run) => run.attempts.at(-1);
 var stepRank = (step) => STEPS.indexOf(step);
-var after = (a, b) => a.run > b.run || a.run === b.run && stepRank(a.step) > stepRank(b.step);
+var after = (a, b) => a.run > b.run || a.run === b.run && (stepRank(a.step) > stepRank(b.step) || a.step === b.step && resumeOf(a) > resumeOf(b));
 function prdStates(facts, runs, branch = NO_BRANCH, view = NO_COMMITTEE, fleet = NO_FLEET, repairs = NO_REPAIRS, qa = NO_QA) {
   const merged = /* @__PURE__ */ new Set([...facts.filter((fact) => fact.stage === "merged").map((fact) => fact.prd), ...branch.joined]);
   const of = (fact) => {
@@ -24030,7 +24537,7 @@ function prdStates(facts, runs, branch = NO_BRANCH, view = NO_COMMITTEE, fleet =
     if (fact.stage !== "merged" && branch.dropped?.has(fact.prd) === true) return { state: "dropped" };
     const answers = view.answers === void 0 ? void 0 : { open: view.answers.open, committees: view.answers.committees.filter((one) => one.prd === fact.prd) };
     const own = { alone: view.alone, committees: view.committees.filter((one) => one.prd === fact.prd), ...answers === void 0 ? {} : { answers } };
-    return stateOf2(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own, fleet, repairs, qa });
+    return stateOf2(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own, fleet, repairs, qa, resumes: view.resumes ?? null });
   };
   return new Map(facts.map((fact) => [fact.prd, of(fact)]));
 }
@@ -24053,7 +24560,7 @@ function stateOf2(fact, runs, outside) {
   const around = { ...outside, runs };
   if (fact.stage === "merged") return { state: "merged" };
   const latest = runs.reduce((last2, one) => last2 === null || after(one, last2) ? one : last2, null);
-  const last = latest ? lastOf(latest) : void 0;
+  const last = latest ? lastOf2(latest) : void 0;
   if (latest && last && endOf(last) === null) return runningAt(latest, around.fleet);
   if (fact.stage === "ready") return toMerge(fact.prd, around.branch);
   return latest && last ? afterEnd(fact, latest, last, around) : gate(fact, 1, "build", around);
@@ -24068,7 +24575,14 @@ function pairAfter(next, { fact, latest, last }, around) {
   if (next.next === "checked" && last.checked != null) return afterChecked(fact.prd, latest, last.checked, runs, around.qa);
   return next.next === "land" && isFixStep(latest.step) ? afterFix2(fact.prd, { ...latest, step: latest.step }, last, runs, around.qa) : null;
 }
+function resumed(fact, latest, last, around) {
+  const resume = resumeStep(around.runs ?? [], latest, around.resumes ?? null);
+  if (resume === null) return null;
+  return resume.next === "resume" ? { state: "startable", run: latest.run, step: latest.step, resume: resume.resume } : repaired(fact, latest, last, resume.why, around);
+}
 function afterEnd(fact, latest, last, around) {
+  const resume = resumed(fact, latest, last, around);
+  if (resume !== null) return resume;
   const next = outcome2(endOf(last) ?? "stopped", latest.run, last.reason, latest.step, !around.qa.skip);
   const pair = pairAfter(next, { fact, latest, last }, around);
   if (pair !== null) return pair;
@@ -24125,7 +24639,7 @@ function passOf(runs, prd) {
   let best = null;
   for (const one of runs) {
     const round = roundOf3(one.step);
-    const last = lastOf(one);
+    const last = lastOf2(one);
     if (one.prd !== prd || round === null || last === void 0 || endOf(last) !== "ready") continue;
     if (best === null || one.run > best.run || one.run === best.run && round > best.round) best = { round, run: one.run, url: reviewUrl(last.posted?.url ?? void 0) };
   }
@@ -24142,7 +24656,13 @@ function featurePrOf(runs, prd) {
   return null;
 }
 var AT_WORK = /* @__PURE__ */ new Set(["running", "repairable", "repairing"]);
-var sendOf = (prd, { run, step, fix }) => fix === void 0 ? { prd, run, step } : { prd, run, step, fix };
+var sendOf = (prd, { run, step, fix, resume }) => ({
+  prd,
+  run,
+  step,
+  ...fix === void 0 ? {} : { fix },
+  ...resume === void 0 ? {} : { resume }
+});
 function pick2({ mission, facts, states }) {
   if (mission.status === "draft" || mission.status === "paused" || mission.status === "delivered") return [];
   const running = facts.filter((fact) => AT_WORK.has(states.get(fact.prd)?.state ?? "paused"));
@@ -24198,7 +24718,7 @@ function fitted(parts, glue, max = WORDS_MAX) {
   }
   return text20;
 }
-var cut4 = (text20, max = WORDS_MAX) => text20.length <= max ? text20 : `${text20.slice(0, max - 1)}\u2026`;
+var cut3 = (text20, max = WORDS_MAX) => text20.length <= max ? text20 : `${text20.slice(0, max - 1)}\u2026`;
 function waitsOf(facts, states, branch) {
   const parts = facts.flatMap((fact) => {
     const state = states.get(fact.prd);
@@ -24219,7 +24739,7 @@ function stoppedWhy(facts, states) {
     return [];
   });
   const why = parts.length > 0 ? parts.join(" \xB7 ") : "no PRD of its scope can start";
-  return cut4(`${why}. ${CARRY_ON}`);
+  return cut3(`${why}. ${CARRY_ON}`);
 }
 var MOVING = /* @__PURE__ */ new Set(["running", "startable", "approvable", "deciding", "answering", "repairable", "repairing"]);
 function conclude({
@@ -24253,6 +24773,7 @@ var KEYS = {
   checked: (_prdKey, job) => jobKey2("end", job),
   decided: (_prdKey, job) => jobKey2("end", job),
   escalated: (_prdKey, job) => jobKey2("end", job),
+  deferred: (_prdKey, job) => jobKey2("end", job),
   "prd-ready": (prdKey, job) => [`ready:${prdKey ?? "mission"}`, ...jobKey2("end", job)],
   "prd-merged": (prdKey) => [`merged:${prdKey ?? "mission"}`],
   stopped: (prdKey) => prdKey === null ? [] : [`stopped:${prdKey}`],
@@ -24331,20 +24852,21 @@ function askedBefore(runs, one) {
   if (one.step !== "fix:1") return null;
   const rounds = runs.filter((other) => other.prd === one.prd && other.step === "review:1" && other.run <= one.run);
   const latest = rounds.reduce((last, other) => last === null || other.run > last.run ? other : last, null);
-  return (latest ? lastOf(latest)?.posted?.findings : null) ?? null;
+  return (latest ? lastOf2(latest)?.posted?.findings : null) ?? null;
 }
 function sentWords(one, where, { skill, base, runs, qa }) {
   const pair = sentPairWords(one, where, runs, qa);
   if (pair !== null) return pair;
   const round = roundOf3(one.step);
-  return `Sent ${lineOf5(one.prd, one.step, skill, base)} to ${where} (run ${String(one.run)}${round === null ? "" : `, round ${String(round)}`}).`;
+  return `Sent ${lineOf5(one.prd, one.step, skill, base)} to ${where} (run ${String(one.run)}${round === null ? "" : `, round ${String(round)}`}${resumeWords2(one)}).`;
 }
-function runEvents(runs, where, { skill, base, repairs = false, qa = NO_QA }) {
+function runEvents(runs, where, { skill, base, repairs = false, qa = NO_QA, resumes = null }) {
   return runs.flatMap((one) => {
-    const last = lastOf(one);
+    const last = lastOf2(one);
     const end = last ? endOf(last) : null;
     const sent = { kind: "dispatched", role: "supervisor", prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, { skill, base, runs, qa }) };
-    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base, repairs, runs, qa })] : [];
+    const halfway = halfwayEvent(one.prd, one, runs, resumes);
+    const ending = last && end !== null ? [halfway ?? endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base, repairs, runs, qa })] : [];
     const gone = one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, lost.limitedUntil == null ? "lost" : "limited"));
     return [sent, ...gone, ...ending].filter((event) => event !== null);
   });
@@ -24353,11 +24875,11 @@ function prdEvents(facts, states) {
   return facts.flatMap((fact) => {
     const n = `PRD ${String(fact.prd)}`;
     const state = states.get(fact.prd);
-    const said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
+    const said4 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
     return [
-      ...fact.stage === "merged" ? [said3("prd-merged", `${n} is merged: delivered.`)] : [],
-      ...fact.stage === "ready" ? [said3("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
-      ...state?.state === "stopped" ? [said3("stopped", `${n} stops: ${state.why}.`)] : []
+      ...fact.stage === "merged" ? [said4("prd-merged", `${n} is merged: delivered.`)] : [],
+      ...fact.stage === "ready" ? [said4("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
+      ...state?.state === "stopped" ? [said4("stopped", `${n} stops: ${state.why}.`)] : []
     ];
   });
 }
@@ -24387,11 +24909,11 @@ function committeeEvents(committees, where) {
   });
 }
 function missionEvents(mission, next) {
-  const said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
-  if (next.status === "delivered") return [said3("delivered", "Every PRD of the mission is merged: delivered.")];
-  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said3("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
+  const said4 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+  if (next.status === "delivered") return [said4("delivered", "Every PRD of the mission is merged: delivered.")];
+  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said4("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
   const waits = newWait(mission, next);
-  return waits === null ? [] : [said3("waits", `Waits on a person: ${waits}`)];
+  return waits === null ? [] : [said4("waits", `Waits on a person: ${waits}`)];
 }
 function newWait(mission, next) {
   if (next.status !== "running" && next.status !== "waiting") return null;
@@ -24412,7 +24934,8 @@ function eventsOf({
   committees = [],
   asks = [],
   repairs = NO_REPAIRS,
-  qa = NO_QA
+  qa = NO_QA,
+  resumes = null
 }) {
   const keys = new Set(recorded);
   const where = whereOf2(mission, toFleet);
@@ -24420,7 +24943,7 @@ function eventsOf({
   const all = [
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
-    ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa }),
+    ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa, resumes }),
     ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
     ...joinEvents(joins, base),
     ...landEvents(landings),
@@ -24429,13 +24952,309 @@ function eventsOf({
   ];
   return unrecorded(all, keys);
 }
+var latestProduct = (runs, prd) => runs.filter((one) => one.prd === prd).reduce((last, one) => last === null || one.run > last.run ? one : last, null);
+function productEnded(fact, latest, last) {
+  const end = endOf(last);
+  if (end === "ready") return { state: "ready", run: latest };
+  if (end === "lost" || end === "limited") return { state: "running" };
+  const why = end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
+  return { state: "waits", why: `PRD ${fact.prd}: ${why}; take it to ready by hand and the mission joins it` };
+}
+function productStateOf(fact, runs, { joined: joined2, done, branch }) {
+  if (joined2.has(fact.prd)) return { state: "joined" };
+  const latest = latestProduct(runs, fact.prd);
+  const last = latest?.attempts.at(-1);
+  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, latest, last);
+  const by = fact.blockers.filter((one) => !done.has(one));
+  if (by.length > 0) return { state: "blocked", by };
+  if (fact.approval !== "standing") return { state: "waits", why: `PRD ${fact.prd}: ${fact.approval === "voided" ? "approve it again" : "approve it"} on its page (${branch})` };
+  return { state: "startable", run: 1 };
+}
+function withProducts(next, products, now) {
+  if (next.status === "paused" || next.status === "draft" || !products.pending && products.waits.length === 0) return next;
+  const wake = new Date(now + WAKE_MS).toISOString();
+  if (!products.pending) return next.status === "stopped" ? { status: "waiting", waitingOn: fitted(products.waits, " \xB7 "), nextWakeAt: wake } : next;
+  const status2 = products.moving || next.status === "running" ? "running" : "waiting";
+  const own = next.status === "delivered" || next.status === "stopped" || next.waitingOn === null ? [] : [next.waitingOn];
+  const parts = [...products.waits, ...own];
+  return { status: status2, waitingOn: parts.length === 0 ? null : fitted(parts, " \xB7 "), nextWakeAt: wake };
+}
 function unrecorded(events, recorded) {
   return events.flatMap((event) => {
     const own = keysOf3(event);
     if (own.some((key) => recorded.has(key))) return [];
     for (const key of own) recorded.add(key);
-    return [{ ...event, sentence: cut4(event.sentence) }];
+    return [{ ...event, sentence: cut3(event.sentence) }];
   });
+}
+
+// apps/omni-app/src/missions/pm.plan.ts
+function planJobsOf(jobs) {
+  return jobs.flatMap((job) => {
+    const planned = planOfLine(job.line);
+    return planned === null || isProductPrdId(planned.prd) ? [] : [{ ...job, prd: planned.prd, kind: planned.kind }];
+  });
+}
+var nextPlanRound = (jobs) => Math.max(PM_ROUND, ...jobs.map((job) => job.round)) + 1;
+var plannedOf = (plans) => new Set(plans.filter((plan) => plan.attempt.status === "done").map((plan) => plan.prd));
+function repairsSpent(repairs, prd, failed3) {
+  if (repairs.budget === 0 || failed3 === void 0) return false;
+  const mine = repairs.jobs.filter((job) => job.prd === prd && job.failedJob === failed3);
+  const last = mine.reduce((latest, job) => latest === void 0 || job.k > latest.k ? job : latest, void 0);
+  return last === void 0 ? leftOf(repairs) === 0 : repairs.refused.has(last.job);
+}
+var latestJobOf = (runs, prd) => runs.filter((one) => one.prd === prd).reduce((latest, one) => latest === void 0 || after(one, latest) ? one : latest, void 0)?.attempts.at(-1)?.id;
+var latestPlan = (plans, prd, kind) => plans.filter((plan) => plan.prd === prd && plan.kind === kind).reduce((last, plan) => last === void 0 || plan.round > last.round ? plan : last, void 0);
+var roundOf4 = (committees) => Math.max(0, ...committees.map((one) => one.round));
+var placeOf5 = (recorded, job, kind) => recorded.findIndex((event) => event.job === job && event.kind === kind);
+var sentAfter = (recorded, job, place2) => {
+  const sent = placeOf5(recorded, job, "dispatched");
+  return sent === -1 || sent > place2;
+};
+function planFirst(fact, state, at4, committees) {
+  if (state.state !== "approvable" || fact.territory !== null) return null;
+  const plan = latestPlan(at4.plans, fact.prd, "plan");
+  const deciding = { state: "deciding", round: Math.max(1, roundOf4(committees)) };
+  if (plan === void 0) return { state: deciding, send: "plan" };
+  if (pmWorking(plan)) return { state: deciding };
+  return { state: { state: "waits", on: "approve", why: `the PM's /omni:plan ${String(fact.prd)} ended and no plan is on its page` } };
+}
+function afterReplan(fact, replan, at4, committees) {
+  const deciding = { state: "deciding", round: Math.max(1, roundOf4(committees)) };
+  if (pmWorking(replan)) return { state: deciding };
+  const ended7 = placeOf5(at4.recorded, replan.job, "job-ended");
+  if (ended7 === -1) return { state: deciding };
+  const runs = at4.runs.filter((one) => one.prd === fact.prd);
+  if (runs.some((one) => sentAfter(at4.recorded, one.job, ended7))) return null;
+  if (replan.attempt.status !== "done") return { state: { state: "stopped", why: `its repairs are spent, and the PM's replan ${replan.attempt.status === "cancelled" ? "was cancelled" : "failed"}` } };
+  return approvedAgain(committees.filter((one) => sentAfter(at4.recorded, one.job, ended7)), roundOf4(committees), runs);
+}
+function approvedAgain(since, round, runs) {
+  const latest = since.reduce((last, one) => last === void 0 || one.round > last.round ? one : last, void 0);
+  if (latest === void 0) return { state: { state: "approvable", round: round + 1 } };
+  if (latest.decision === null) return { state: { state: "deciding", round: latest.round } };
+  if (latest.decision.outcome === "carried") return { state: { state: "startable", run: Math.max(0, ...runs.map((one) => one.run)) + 1, step: "build" } };
+  const why = latest.decision.why.length > 0 ? `: ${latest.decision.why.join("; ")}` : "";
+  return { state: { state: "stopped", why: `the committee refused its new plan${why}` }, retro: true };
+}
+function replanned(fact, state, at4, committees) {
+  if (state.state !== "stopped") return null;
+  const replan = latestPlan(at4.plans, fact.prd, "replan");
+  if (replan !== void 0) return afterReplan(fact, replan, at4, committees);
+  if (!repairsSpent(at4.repairs, fact.prd, latestJobOf(at4.runs, fact.prd))) return null;
+  return { state: { state: "deciding", round: Math.max(1, roundOf4(committees)) }, send: "replan" };
+}
+function withPlans(states, at4) {
+  const out = new Map(states);
+  const send = [];
+  let retro2 = false;
+  if (!at4.alone) return { states: out, send, retro: retro2 };
+  for (const fact of at4.facts) {
+    const state = states.get(fact.prd);
+    if (state === void 0) continue;
+    const committees = at4.committees.filter((one) => one.prd === fact.prd);
+    const over = planFirst(fact, state, at4, committees) ?? replanned(fact, state, at4, committees);
+    if (over === null) continue;
+    out.set(fact.prd, over.state);
+    if (over.send !== void 0) send.push({ prd: fact.prd, kind: over.send });
+    retro2 ||= over.retro === true;
+  }
+  return { states: out, send, retro: retro2 };
+}
+function planDispatched(job, { prd, kind }) {
+  const n = `PRD ${String(prd)}`;
+  const sentence2 = kind === "plan" ? `Sent the PM ${planJobLine(prd, kind)}: ${n} has no plan on its page, so it is planned before its approval.` : `Sent the PM ${planJobLine(prd, kind)}: ${n}'s repairs are spent, so its slices not merged are planned again.`;
+  return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
+}
+function planEvents(one, recorded) {
+  if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== "dispatched")) return [];
+  const n = `PRD ${String(one.prd)}`;
+  const how = one.attempt.status === "done" ? null : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
+  const sentence2 = how !== null ? `The PM's ${one.kind === "plan" ? "plan" : "replan"} of ${n} ${how}.` : one.kind === "plan" ? `The PM planned ${n}: its committee approves it once the plan is on its page, the PM sitting out.` : `The PM replanned ${n}'s slices not merged: the committee approves the new plan version, the PM sitting out.`;
+  return [{ kind: "job-ended", role: "pm", prd: one.prd, job: one.job, link: null, sentence: sentence2 }];
+}
+
+// apps/omni-app/src/missions/milestone.ts
+var MISSION_MILESTONE = "mission";
+var KEY6 = /^mission:([0-9a-f-]{36}):retro:([1-9][0-9]*|mission)$/;
+var retroKey = (mission, milestone) => `mission:${mission}:retro:${milestone}`;
+var retroOfKey = (key) => KEY6.exec(key)?.[2] ?? null;
+var retroSkillLine = (mission, milestone) => `/omni:mission-retro --mission ${String(mission)} --milestone ${milestone}`;
+var milestoneWords = (milestone) => milestone === MISSION_MILESTONE ? "mission delivered" : `roadmap #${milestone} delivered`;
+function reachedOf(roadmaps, done, delivered) {
+  const roads = roadmaps.filter(({ prds }) => prds.length > 0 && prds.every(done)).map(({ roadmap }) => String(roadmap));
+  return delivered ? [...roads, MISSION_MILESTONE] : roads;
+}
+var ended2 = (job) => ["done", "failed", "cancelled"].includes(job.attempts.at(-1)?.status ?? "");
+function milestoneNext(view, { done, delivered, held: held2 }) {
+  const kept3 = new Set(view.rows.map((row) => row.milestone));
+  const sent = new Set(view.jobs.map((job) => job.milestone));
+  const atWork3 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended2(job));
+  const pending = reachedOf(view.roadmaps, done, delivered).filter((milestone) => !kept3.has(milestone) && !sent.has(milestone));
+  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork3 };
+  if (held2 !== null || atWork3) return { send: null, skip: [], atWork: atWork3 };
+  return { send: pending[0] ?? null, skip: [], atWork: atWork3 };
+}
+var FILE = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*\.md$/;
+function fileOf(path) {
+  if (path === null || path.length > 300 || !FILE.test(path)) return null;
+  return path.split("/").some((part) => part === "." || part === "..") ? null : path;
+}
+function targetWords(target2) {
+  if (target2.kind === "form") return `the ${target2.form} form: ${target2.section}`;
+  return `${target2.kind} ${target2.id}`;
+}
+var ITEMS_MAX = 20;
+var TARGET_MAX = 200;
+var EVIDENCE_MAX2 = 10;
+var itemRows = (record) => record.items.slice(0, ITEMS_MAX).map((item, n) => ({
+  number: n + 1,
+  target: targetWords(item.target).slice(0, TARGET_MAX),
+  wording: item.wording,
+  evidence: item.evidence.slice(0, EVIDENCE_MAX2).map((sentence2) => sentence2.text)
+}));
+function fileLink(file, { repo, branch }) {
+  if (file === null || branch === null) return null;
+  const link = `https://github.com/${repo}/blob/${branch}/${file}`;
+  return link.length <= 500 ? link : null;
+}
+function retroEvents(one, at4) {
+  const said4 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
+  const words = milestoneWords(one.milestone);
+  if (one.skipped !== null) return [said4("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
+  const retro2 = said4("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
+  return [retro2, ...one.targets.map((target2) => said4("item-proposed", `Proposes a change to ${target2}.`))];
+}
+var sentEvent = (job, { where, mission }) => ({
+  kind: "dispatched",
+  role: "supervisor",
+  prd: null,
+  job: job.job,
+  link: null,
+  sentence: `Sent ${retroSkillLine(mission, job.milestone)} to ${where} (${milestoneWords(job.milestone)}).`
+});
+
+// kit/lib/repair/line.ts
+import { z as z104 } from "zod";
+
+// kit/lib/repair/scrub.ts
+import { z as z103 } from "zod";
+var MESSAGE_MAX = 300;
+var KitVersionSchema = z103.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/, "a kit version");
+var CommandSchema = z103.string().regex(/^(?:\/omni:[a-z][a-z0-9-]*|omni(?: [a-z][a-z0-9-]*){1,2})$/, "a skill or an omni command");
+var COMMAND = /^(?:\/omni:[a-z][a-z0-9-]*|omni(?: (?!-)[a-z][a-z0-9-]*){1,2}(?= |$))/;
+var PublicReportSchema = z103.object({
+  kitVersion: KitVersionSchema,
+  command: CommandSchema,
+  class: RepairClassSchema,
+  message: z103.string().min(1).max(MESSAGE_MAX).refine((text20) => sensitiveShape(text20) === null, "a public message holds no path, repository, login, email, URL or token"),
+  fingerprint: FingerprintSchema
+});
+var escape6 = (text20) => text20.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function removeKnown(text20, known) {
+  const names = [...new Set(known.map((name) => name.trim()).filter((name) => name.length > 0))].sort((a, b) => b.length - a.length);
+  return names.reduce((out, name) => out.replace(new RegExp(`(?<![\\w-])${escape6(name)}(?![\\w-])`, "gi"), "<name>"), text20);
+}
+function scrubMessage(message, known) {
+  const masked = maskTokens(message.replace(/\s+/g, " ").trim());
+  return removeKnown(REMOVALS.reduce((out, [, shape, replacement]) => out.replace(shape, replacement), masked), known);
+}
+var cut4 = (text20) => text20.length <= MESSAGE_MAX ? text20 : `${text20.slice(0, MESSAGE_MAX - 1).trimEnd()}\u2026`;
+function scrub(input) {
+  if (!KitVersionSchema.safeParse(input.kitVersion).success) return { ok: false, reason: "the kit version is not a version" };
+  const command = COMMAND.exec(input.command.trim())?.[0];
+  if (command === void 0) return { ok: false, reason: "the command is not a skill or an omni command" };
+  if (!FingerprintSchema.safeParse(input.fingerprint).success) return { ok: false, reason: "the fingerprint is not one" };
+  const message = scrubMessage(input.message, input.known ?? []);
+  if (message.length === 0) return { ok: false, reason: "the message is empty" };
+  const left = sensitiveShape(message);
+  if (left !== null) return { ok: false, reason: `the message still holds ${left} after scrubbing` };
+  return { ok: true, report: { kitVersion: input.kitVersion, command, class: input.class, message: cut4(message), fingerprint: input.fingerprint } };
+}
+
+// kit/lib/repair/line.ts
+var REPAIR_LINE = "omni repair: ";
+var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
+var RepairRecordSchema = z104.object({
+  v: z104.literal(1),
+  mission: z104.number().int().positive(),
+  trigger: z104.enum(["failure", "stuck"]).optional(),
+  prd: PrdNumberSchema.nullable(),
+  fingerprint: FingerprintSchema,
+  class: RepairClassSchema,
+  retro: RepairRetroSchema,
+  fix: PrNumberSchema.nullable(),
+  report: PublicReportSchema.nullable()
+}).refine((record) => record.prd !== null || record.trigger === "stuck", "only a stuck repair may name no PRD").refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
+function withOwnFingerprint(record) {
+  const own = fingerprint(record.retro);
+  return {
+    ...record,
+    trigger: record.trigger ?? "failure",
+    fingerprint: own,
+    retro: { ...record.retro, fingerprint: own },
+    report: record.report === null ? null : { ...record.report, fingerprint: own }
+  };
+}
+function repairLine(log2) {
+  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP4, "")).findLast((line3) => line3.startsWith(REPAIR_LINE));
+  if (last === void 0) return { readable: false, reason: "missing" };
+  let json3;
+  try {
+    json3 = JSON.parse(last.slice(REPAIR_LINE.length));
+  } catch {
+    return { readable: false, reason: "malformed" };
+  }
+  const parsed3 = RepairRecordSchema.safeParse(json3);
+  return parsed3.success ? { readable: true, record: withOwnFingerprint(parsed3.data) } : { readable: false, reason: "malformed" };
+}
+
+// apps/omni-app/src/bug-reports/job.ts
+import { z as z105 } from "zod";
+var BUG_REPORT_KIND = "bug-report";
+var BUG_REPORT_LANE = "bug-report";
+var BugReportJobDataSchema = z105.object({ report: PublicReportSchema });
+async function submitBugReport({ input, attempt: attempt3, add }) {
+  const scrubbed = scrub(input);
+  if (!scrubbed.ok) return { ok: false, reason: scrubbed.reason };
+  const { report } = scrubbed;
+  await add({
+    kind: BUG_REPORT_KIND,
+    key: `bug-report:${report.fingerprint}:${attempt3}`,
+    subject: OMNI_LOOP_REPOSITORY,
+    payload: { report },
+    lane: BUG_REPORT_LANE
+  });
+  return { ok: true };
+}
+var line2 = ({ kind, repo, issue, fingerprint: fingerprint2 }) => `bug report ${fingerprint2.slice(0, 8)}: ${kind === "filed" ? "filed" : "+1 on"} ${repo}#${String(issue)}`;
+function bugReportHandler({
+  issues,
+  store,
+  repo = OMNI_LOOP_REPOSITORY,
+  log: log2 = noteTo("bug-report"),
+  onFiled
+}) {
+  return async (job) => {
+    const { report } = checkPayloadOf(BugReportJobDataSchema, BUG_REPORT_KIND, job.payload);
+    const filed = await fileBugReport({ report, repo, store, issues });
+    log2(line2(filed));
+    await onFiled?.(filed, report);
+    return { outcome: "done" };
+  };
+}
+function bugFollowHandler({
+  store,
+  github,
+  repo = OMNI_LOOP_REPOSITORY,
+  log: log2 = noteTo("bug-follow")
+}) {
+  return async (job) => {
+    const { event } = checkPayloadOf(BugFollowDataSchema, BUG_FOLLOW_KIND, job.payload);
+    const { moved } = await followBugEvent({ event, repo, store, github });
+    log2(`bug follow: ${event.kind} moved ${String(moved)} bug${moved === 1 ? "" : "s"}`);
+    return { outcome: "done" };
+  };
 }
 
 // apps/omni-app/src/missions/repair-run.ts
@@ -24486,12 +25305,12 @@ function stepAfter(runs, row) {
   const later2 = runs.filter((one) => one.prd === row.prd && after(one, failed3));
   return later2.reduce((first, one) => first === null || after(first, one) ? one : first, null);
 }
-var prOf = (url) => {
+var prOf2 = (url) => {
   const parsed3 = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)$/.exec(url)?.[1]));
   return parsed3.success ? parsed3.data : null;
 };
 async function land(at4, fixPr, prd) {
-  const pr = prOf(fixPr);
+  const pr = prOf2(fixPr);
   if (at4.branch === null) return { state: "refused", why: "the mission has no branch of its own to land it on" };
   if (pr === null) return { state: "refused", why: "its link names no pull request" };
   if (at4.joins === null || at4.installation === null) return { state: "waits", lacks: ["the app has no GitHub access here"] };
@@ -24585,6 +25404,50 @@ async function pinnedKit(at4) {
   if (at4.kits == null || at4.installation === null) return null;
   return at4.kits.pinned({ installation: at4.installation, repo: at4.mission.repo, ref: at4.branch });
 }
+var namerOf = (step) => step === "review:1" || step === "review:2" ? "reviewer" : step === "qa:1" || step === "qa:2" ? "qa" : null;
+var doneOf = (attempts) => {
+  const last = attempts.at(-1);
+  return last?.status === "done" ? last : null;
+};
+async function namingsOf(at4) {
+  const ended7 = [
+    ...at4.runs.flatMap((one) => {
+      const by = namerOf(one.step);
+      const done = doneOf(one.attempts);
+      return by === null || done === null ? [] : [{ by, prd: one.prd, job: done.id }];
+    }),
+    ...at4.repairs.flatMap((one) => {
+      const done = doneOf(one.attempts);
+      return done === null ? [] : [{ by: "repair", prd: one.prd, job: done.id }];
+    })
+  ];
+  const namings = [];
+  for (const one of ended7) namings.push({ ...one, log: await at4.logOf(one.job) });
+  return namings;
+}
+var openedFix = (job) => {
+  const last = job.attempts.at(-1);
+  return last?.status === "done" && last.outcome === "pr-opened" && last.prUrl !== null ? last.prUrl : null;
+};
+async function readOutsideBugs(at4) {
+  const bugs = namedOutside(await namingsOf(at4), { repo: at4.mission.repo, scope: at4.mission.scope.prds });
+  const view = { repo: at4.mission.repo, branch: at4.branch, jobs: at4.jobs, landings: /* @__PURE__ */ new Map() };
+  const first = outsideStates(bugs, view);
+  for (const bug of first) {
+    const job = bug.state === "joining" ? at4.jobs.find((one) => one.job === bug.job) : void 0;
+    const fix = job === void 0 ? null : openedFix(job);
+    if (job !== void 0 && fix !== null) view.landings.set(job.job, await land(at4, fix, null));
+  }
+  return view.landings.size === 0 ? first : outsideStates(bugs, view);
+}
+async function sendOutsideBugs(states, send) {
+  const events = [];
+  for (const bug of outsidePicks(states)) {
+    const job = await send({ issue: bug.issue, k: bug.k, line: bug.line });
+    if (job !== null) events.push(takenEvent2(bug, job));
+  }
+  return events;
+}
 
 // apps/omni-app/src/missions/qa-run.ts
 var NO_ACCESS = "the app has no GitHub access here";
@@ -24656,7 +25519,7 @@ function pausedWords(cap, limit, spent2) {
   return `Paused: budget reached \xB7 ${spentWords2(spent2)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
 }
 var clockOf2 = (iso2) => new Date(iso2).toISOString().slice(11, 16);
-var said = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+var said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
 var time2 = (iso2) => iso2 === null ? Number.NEGATIVE_INFINITY : Date.parse(iso2);
 function stopOf(read2) {
   const { named, open } = read2;
@@ -24669,7 +25532,7 @@ function pausedByBudget(read2, status2) {
   const budgetAt = Math.max(time2(read2.named?.createdAt ?? null), time2(read2.agentPausedAt));
   return budgetAt > Number.NEGATIVE_INFINITY && budgetAt > time2(read2.personPausedAt);
 }
-function resumeWords2(stop, read2) {
+function resumeWords3(stop, read2) {
   if (stop?.answer === "raised" && stop.raisedTo !== null) return `Resumed: ${WHOSE[stop.cap]} was raised to ${capWords(stop.raisedTo)}.`;
   if (stop?.answer === "tomorrow" && read2.fleetCap !== null) return `Resumed: this fleet's last 24 hours are back under its daily cap (${capWords(read2.fleetCap)}).`;
   return "Resumed: no cap is reached any more.";
@@ -24677,28 +25540,28 @@ function resumeWords2(stop, read2) {
 var against = (cap, read2) => cap === "fleet" ? { limit: read2.fleetCap ?? 0, spent: read2.fleetSpent24h } : { limit: read2.missionCap ?? 0, spent: read2.missionSpent };
 function sendAct(stop, read2, byBudget) {
   if (!byBudget) return { act: "none" };
-  return stop !== null && stop.answer === null ? { act: "quiet" } : { act: "resume", event: said("resumed", resumeWords2(stop, read2)) };
+  return stop !== null && stop.answer === null ? { act: "quiet" } : { act: "resume", event: said3("resumed", resumeWords3(stop, read2)) };
 }
 var pauseAct = ({ cap, limit, spent: spent2 }) => ({
   act: "pause",
   stop: { cap, capTokens: limit, spent: spent2 },
   words: pausedWords(cap, limit, spent2),
-  event: said("budget-stop", `Paused: ${WHOSE[cap]} reached (${capWords(limit)})`)
+  event: said3("budget-stop", `Paused: ${WHOSE[cap]} reached (${capWords(limit)})`)
 });
 function holdAct(cap, read2, moving2) {
   const { limit, spent: spent2 } = against(cap, read2);
-  const again2 = moving2 ? said("paused", `Paused again: ${WHOSE[cap]} is still reached (${capWords(limit)}); its question waits for an answer.`) : null;
-  return { act: "hold", words: pausedWords(cap, limit, spent2), event: again2 };
+  const again3 = moving2 ? said3("paused", `Paused again: ${WHOSE[cap]} is still reached (${capWords(limit)}); its question waits for an answer.`) : null;
+  return { act: "hold", words: pausedWords(cap, limit, spent2), event: again3 };
 }
 function wakeAct(at4, moving2) {
   const words = `Paused: budget reached \xB7 ${WHOSE.fleet} \xB7 resumes by itself at ${clockOf2(at4)} UTC`;
-  const again2 = moving2 ? said("paused", `Paused again: this fleet's daily cap is still reached; it resumes by itself at ${clockOf2(at4)} UTC.`) : null;
-  return { act: "wake", at: at4, words, event: again2 };
+  const again3 = moving2 ? said3("paused", `Paused again: this fleet's daily cap is still reached; it resumes by itself at ${clockOf2(at4)} UTC.`) : null;
+  return { act: "wake", at: at4, words, event: again3 };
 }
 function stopAct(cap, stop, status2) {
   if (status2 === "stopped") return { act: "quiet" };
   const why = `${WHOSE[cap]} reached (${capWords(stop?.capTokens ?? 0)}), and a person chose Stop the mission.`;
-  return { act: "stop", words: `Stopped by the budget: ${why}`, event: said("stopped", `The budget stopped the mission: ${why}`) };
+  return { act: "stop", words: `Stopped by the budget: ${why}`, event: said3("stopped", `The budget stopped the mission: ${why}`) };
 }
 var capReached = (read2, now) => budgetNext({ ...read2, stop: null, answer: null, now }).next !== "send";
 function budgetAct(read2, mission, now) {
@@ -24731,7 +25594,7 @@ async function recordStop(store, mission, act) {
   await store.pause(missions.filter((one) => one !== mission.id), act.words);
   return true;
 }
-var listed2 = (event) => event === null ? [] : [event];
+var listed3 = (event) => event === null ? [] : [event];
 var stopped = (mission, words, event) => ({
   ...held(mission, words, [event], null),
   said: "stopped",
@@ -24753,9 +25616,9 @@ function settled(mission, act, recorded) {
     case "pause":
       return held(mission, act.words, recorded ? [act.event] : [], null);
     case "hold":
-      return held(mission, act.words, listed2(act.event), null);
+      return held(mission, act.words, listed3(act.event), null);
     case "wake":
-      return held(mission, act.words, listed2(act.event), act.at);
+      return held(mission, act.words, listed3(act.event), act.at);
     case "stop":
       return stopped(mission, act.words, act.event);
     case "quiet":
@@ -24772,10 +25635,10 @@ var overCap = async (store, mission, now) => capReached(await store.budget(missi
 // apps/omni-app/src/missions/stuck.ts
 import { createHash as createHash9 } from "node:crypto";
 var STUCK_JOBS = 5;
-var KEY5 = /^mission:([0-9a-f-]{36}):stuck:([1-9][0-9]*)$/;
+var KEY7 = /^mission:([0-9a-f-]{36}):stuck:([1-9][0-9]*)$/;
 var stuckKey = (mission, k) => `mission:${mission}:stuck:${String(k)}`;
 function stuckOfKey(key) {
-  const match = KEY5.exec(key);
+  const match = KEY7.exec(key);
   return match ? Number(match[2]) : null;
 }
 var NAMED2 = 8;
@@ -24827,7 +25690,7 @@ function stuckSince(beats) {
 }
 var NO_STUCK = { round: 1, jobs: [], rows: [], refused: /* @__PURE__ */ new Map(), landings: /* @__PURE__ */ new Map(), reports: /* @__PURE__ */ new Map() };
 var status = (job) => job.attempts.at(-1)?.status;
-var ended2 = (job) => ["done", "failed", "cancelled"].includes(status(job) ?? "");
+var ended3 = (job) => ["done", "failed", "cancelled"].includes(status(job) ?? "");
 function pastOf(beats) {
   const past2 = /* @__PURE__ */ new Set();
   let since = [];
@@ -24841,14 +25704,14 @@ function pastOf(beats) {
   }
   return past2;
 }
-var resumeWords3 = (left) => `Resume gives each cause ${String(CAUSE_REPAIRS)} more (${String(left)} of ${String(MISSION_REPAIRS)} left in this mission)`;
+var resumeWords4 = (left) => `Resume gives each cause ${String(CAUSE_REPAIRS)} more (${String(left)} of ${String(MISSION_REPAIRS)} left in this mission)`;
 function pauseWords(view, { fingerprint: fingerprint2, retro: retro2 }, left, spent2) {
   const cause = retro2 === null ? "its stuck repairs left no record that could be read." : retro2.cause;
   const fix = retro2 === null ? "" : ` Proposed fix: ${retro2.proposedFix}`;
   if (spent2 === "mission") return bare3(`the mission spent its ${String(MISSION_REPAIRS)} repairs [${short2(fingerprint2)}]: ${cause}${fix}`);
   const tried = view.rows.filter((row) => row.round === view.round && row.fingerprint === fingerprint2).sort((a, b) => a.number - b.number);
   const head = spent2 === "cause" ? `its cause [${short2(fingerprint2)}] was repaired ${String(CAUSE_REPAIRS)} times: ${cause}` : cause;
-  return `${head} Tried: ${tried.length === 0 ? "nothing" : tried.map(triedWords).join(", ")}.${fix} ${resumeWords3(left)}`;
+  return `${head} Tried: ${tried.length === 0 ? "nothing" : tried.map(triedWords).join(", ")}.${fix} ${resumeWords4(left)}`;
 }
 function fixOnItsWay(view, row, left) {
   const fix = row.retro?.class === "code" && row.outcome === null ? prWords(row.fixPr) : null;
@@ -24871,7 +25734,7 @@ function stuckNext(view, beats, left, count4 = STUCK_JOBS) {
   if (count4 < 1) return { next: "none" };
   const past2 = pastOf(beats);
   const last = view.jobs.filter((job) => !past2.has(job.job)).sort((a, b) => a.k - b.k).at(-1);
-  if (last !== void 0 && !ended2(last)) return { next: "repairing", number: view.rows.find((row) => row.job === last.job)?.number ?? 1, left, why: null };
+  if (last !== void 0 && !ended3(last)) return { next: "repairing", number: view.rows.find((row) => row.job === last.job)?.number ?? 1, left, why: null };
   return (last === void 0 ? null : afterStuck(view, last, left)) ?? countNext(view, stuckSince(beats), left, count4);
 }
 function countNext(view, since, left, count4) {
@@ -24900,7 +25763,7 @@ function settleStuck(rows, beats, landings) {
   }
   return settled2;
 }
-var sentEvent = (job, { where, mission }) => ({
+var sentEvent2 = (job, { where, mission }) => ({
   kind: "stuck",
   role: "supervisor",
   prd: null,
@@ -24910,14 +25773,14 @@ var sentEvent = (job, { where, mission }) => ({
 });
 function rowEvents2(row) {
   const cause = `[${short2(row.fingerprint)}]`;
-  const said3 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said3("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said4 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said4("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "ended not fixed: its record line could not be read." : `${cause} ended ${row.outcome}.`;
-  return [...retro2, said3("repair-ended", "supervisor", `The stuck repair ${how}`)];
+  return [...retro2, said4("repair-ended", "supervisor", `The stuck repair ${how}`)];
 }
 function stuckEvents(view, where) {
-  return [...view.jobs.map((job) => sentEvent(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission")])];
+  return [...view.jobs.map((job) => sentEvent2(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission")])];
 }
 var pausedEvent = (why) => ({ kind: "stuck", role: "supervisor", prd: null, job: null, link: null, sentence: `Paused: stuck: ${why}` });
 var pausedWords2 = (why) => `Paused: stuck \xB7 ${why}`;
@@ -24980,7 +25843,7 @@ async function settleAll2(store, view, beats) {
 }
 var moving = (status2) => status2 === "running" || status2 === "waiting";
 var repairingNext = (next, words) => ({ ...withWaits(next, [words]), status: "running" });
-var pausedNext = (why) => ({ status: "paused", waitingOn: cut4(pausedWords2(why)), nextWakeAt: null, pausedBy: "stuck" });
+var pausedNext = (why) => ({ status: "paused", waitingOn: cut3(pausedWords2(why)), nextWakeAt: null, pausedBy: "stuck" });
 async function stuckStep(at4) {
   const timeline2 = [...at4.recorded, ...at4.events.map(({ kind, prd, job }) => ({ kind, prd, job }))];
   const beats = beatsOf(timeline2, at4.runs);
@@ -25002,64 +25865,64 @@ async function stuckStep(at4) {
 }
 
 // kit/lib/mission/retro.ts
-import { z as z107 } from "zod";
+import { z as z108 } from "zod";
 
 // kit/lib/mission/item.ts
-import { z as z106 } from "zod";
+import { z as z107 } from "zod";
 
 // kit/lib/mission/retro-cited.ts
-import { z as z105 } from "zod";
+import { z as z106 } from "zod";
 var CITE_KINDS = ["event", "prd", "pr", "repair"];
 var SENTENCES_MAX = 5;
 var LOG_STAMP = /^\d{2}:\d{2}:\d{2}\b/;
-var CiteSchema = z105.strictObject({
-  kind: z105.enum(CITE_KINDS),
-  ref: z105.number().int().positive()
+var CiteSchema = z106.strictObject({
+  kind: z106.enum(CITE_KINDS),
+  ref: z106.number().int().positive()
 });
-var CitedSentenceSchema = z105.strictObject({
-  text: z105.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
-  cites: z105.array(CiteSchema)
+var CitedSentenceSchema = z106.strictObject({
+  text: z106.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
+  cites: z106.array(CiteSchema)
 }).superRefine((sentence2, ctx) => {
   if (sentence2.cites.length === 0) {
     ctx.addIssue({ code: "custom", message: `the sentence "${sentence2.text}" cites no event, PRD, pull request or repair`, path: ["cites"] });
   }
 });
-var CitedSentencesSchema = z105.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
+var CitedSentencesSchema = z106.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
 
 // kit/lib/mission/item.ts
 var WORDING_MAX = 1200;
-var IdSchema = z106.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
-var NameSchema = z106.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
-var MissionItemTargetSchema = z106.discriminatedUnion("kind", [
-  z106.strictObject({ kind: z106.literal("rule"), id: IdSchema }),
-  z106.strictObject({ kind: z106.literal("law"), id: IdSchema }),
-  z106.strictObject({ kind: z106.literal("form"), form: NameSchema, section: NameSchema })
+var IdSchema = z107.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
+var NameSchema = z107.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
+var MissionItemTargetSchema = z107.discriminatedUnion("kind", [
+  z107.strictObject({ kind: z107.literal("rule"), id: IdSchema }),
+  z107.strictObject({ kind: z107.literal("law"), id: IdSchema }),
+  z107.strictObject({ kind: z107.literal("form"), form: NameSchema, section: NameSchema })
 ]);
-var MissionItemSchema = z106.strictObject({
+var MissionItemSchema = z107.strictObject({
   target: MissionItemTargetSchema,
-  wording: z106.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
+  wording: z107.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
   evidence: CitedSentencesSchema
 });
 
 // kit/lib/mission/retro.ts
 var RETRO_LINE = "omni retro: ";
-var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
-var MissionRetroSchema = z107.strictObject({
+var STAMP5 = /^\d{2}:\d{2}:\d{2} /;
+var MissionRetroSchema = z108.strictObject({
   wentWell: CitedSentencesSchema,
   toChange: CitedSentencesSchema
 });
-var MilestoneSchema = z107.union([z107.literal("mission"), z107.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
-var FileSchema2 = z107.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
-var RetroRecordSchema = z107.strictObject({
-  v: z107.literal(1),
-  mission: z107.number().int().positive(),
+var MilestoneSchema = z108.union([z108.literal("mission"), z108.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
+var FileSchema2 = z108.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
+var RetroRecordSchema = z108.strictObject({
+  v: z108.literal(1),
+  mission: z108.number().int().positive(),
   milestone: MilestoneSchema,
   retro: MissionRetroSchema,
   file: FileSchema2.nullable(),
-  items: z107.array(MissionItemSchema)
+  items: z108.array(MissionItemSchema)
 });
 function retroLine(log2) {
-  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP4, "")).findLast((line3) => line3.startsWith(RETRO_LINE));
+  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP5, "")).findLast((line3) => line3.startsWith(RETRO_LINE));
   if (last === void 0) return { readable: false, reason: "missing" };
   let json3;
   try {
@@ -25070,66 +25933,6 @@ function retroLine(log2) {
   const parsed3 = RetroRecordSchema.safeParse(json3);
   return parsed3.success ? { readable: true, record: parsed3.data } : { readable: false, reason: "malformed" };
 }
-
-// apps/omni-app/src/missions/milestone.ts
-var MISSION_MILESTONE = "mission";
-var KEY6 = /^mission:([0-9a-f-]{36}):retro:([1-9][0-9]*|mission)$/;
-var retroKey = (mission, milestone) => `mission:${mission}:retro:${milestone}`;
-var retroOfKey = (key) => KEY6.exec(key)?.[2] ?? null;
-var retroSkillLine = (mission, milestone) => `/omni:mission-retro --mission ${String(mission)} --milestone ${milestone}`;
-var milestoneWords = (milestone) => milestone === MISSION_MILESTONE ? "mission delivered" : `roadmap #${milestone} delivered`;
-function reachedOf(roadmaps, done, delivered) {
-  const roads = roadmaps.filter(({ prds }) => prds.length > 0 && prds.every(done)).map(({ roadmap }) => String(roadmap));
-  return delivered ? [...roads, MISSION_MILESTONE] : roads;
-}
-var ended3 = (job) => ["done", "failed", "cancelled"].includes(job.attempts.at(-1)?.status ?? "");
-function milestoneNext(view, { done, delivered, held: held2 }) {
-  const kept3 = new Set(view.rows.map((row) => row.milestone));
-  const sent = new Set(view.jobs.map((job) => job.milestone));
-  const atWork3 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended3(job));
-  const pending = reachedOf(view.roadmaps, done, delivered).filter((milestone) => !kept3.has(milestone) && !sent.has(milestone));
-  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork3 };
-  if (held2 !== null || atWork3) return { send: null, skip: [], atWork: atWork3 };
-  return { send: pending[0] ?? null, skip: [], atWork: atWork3 };
-}
-var FILE = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*\.md$/;
-function fileOf(path) {
-  if (path === null || path.length > 300 || !FILE.test(path)) return null;
-  return path.split("/").some((part) => part === "." || part === "..") ? null : path;
-}
-function targetWords(target2) {
-  if (target2.kind === "form") return `the ${target2.form} form: ${target2.section}`;
-  return `${target2.kind} ${target2.id}`;
-}
-var ITEMS_MAX = 20;
-var TARGET_MAX = 200;
-var EVIDENCE_MAX2 = 10;
-var itemRows = (record) => record.items.slice(0, ITEMS_MAX).map((item, n) => ({
-  number: n + 1,
-  target: targetWords(item.target).slice(0, TARGET_MAX),
-  wording: item.wording,
-  evidence: item.evidence.slice(0, EVIDENCE_MAX2).map((sentence2) => sentence2.text)
-}));
-function fileLink(file, { repo, branch }) {
-  if (file === null || branch === null) return null;
-  const link = `https://github.com/${repo}/blob/${branch}/${file}`;
-  return link.length <= 500 ? link : null;
-}
-function retroEvents(one, at4) {
-  const said3 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
-  const words = milestoneWords(one.milestone);
-  if (one.skipped !== null) return [said3("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
-  const retro2 = said3("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
-  return [retro2, ...one.targets.map((target2) => said3("item-proposed", `Proposes a change to ${target2}.`))];
-}
-var sentEvent2 = (job, { where, mission }) => ({
-  kind: "dispatched",
-  role: "supervisor",
-  prd: null,
-  job: job.job,
-  link: null,
-  sentence: `Sent ${retroSkillLine(mission, job.milestone)} to ${where} (${milestoneWords(job.milestone)}).`
-});
 
 // apps/omni-app/src/missions/milestone-run.ts
 var BUDGET_REACHED = "budget reached";
@@ -25185,7 +25988,7 @@ async function actOn(at4, view, next) {
     events.push(...retroEvents({ milestone, job: null, file: null, skipped: BUDGET_REACHED, targets: [] }, { repo: at4.mission.repo, branch: at4.branch }));
   }
   const sent = next.send === null ? null : await sendOne(at4, next.send);
-  if (sent !== null) events.push(sentEvent2(sent, { where: at4.where, mission: at4.mission.number }));
+  if (sent !== null) events.push(sentEvent(sent, { where: at4.where, mission: at4.mission.number }));
   return { view: { ...view, rows, jobs: sent === null ? view.jobs : [...view.jobs, sent] }, events };
 }
 async function sendOne(at4, milestone) {
@@ -25200,115 +26003,6 @@ async function milestoneStep(at4) {
   return { events: [...read2.events, ...acted.events], watching: retroAtWork(acted.view) };
 }
 
-// apps/omni-app/src/missions/bug-team.ts
-var BUG_TRIES = 3;
-var BUG_STATES2 = ["open", "fixing", "pr-opened", "asked", "merged", "fixed", "wont-fix"];
-var bugKey = (mission, issue, k) => `mission:${mission}:bug:${String(issue)}:run:${String(k)}`;
-var KEY7 = /^mission:[0-9a-f-]{36}:bug:([1-9][0-9]*):run:([1-9][0-9]*)$/;
-function bugOfKey(key) {
-  const match = KEY7.exec(key);
-  const issue = IssueNumberSchema.safeParse(Number(match?.[1]));
-  return match && issue.success ? { issue: issue.data, k: Number(match[2]) } : null;
-}
-var bugFixLine = (issue) => `/omni:bug-fix #${String(issue)}`;
-var issueLink2 = (repo, issue) => `https://github.com/${repo}/issues/${String(issue)}`;
-var LOST = /* @__PURE__ */ new Set(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
-var lastOf2 = (job) => job.attempts.at(-1);
-var atWork = (job) => ["queued", "claimed", "running"].includes(lastOf2(job)?.status ?? "done");
-var latestOf3 = (jobs, issue) => jobs.filter((one) => one.issue === issue).reduce((last, one) => last === void 0 || one.k > last.k ? one : last, void 0);
-var nextK2 = (jobs, issue) => (latestOf3(jobs, issue)?.k ?? 0) + 1;
-function prOf2(url) {
-  const pr = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)(?:[/#?].*)?$/.exec(url ?? "")?.[1]));
-  return pr.success ? pr.data : null;
-}
-var ASKED = { human: "need-human", "need-human": "need-human", "needs-brainstorm": "needs-brainstorm", "not-a-bug": "not-a-bug" };
-function bugEndOf(attempt3) {
-  if (attempt3.status === "failed" && (attempt3.limitedUntil != null || LOST.has(attempt3.reason ?? ""))) return { end: "lost" };
-  if (attempt3.status === "cancelled") return { end: "asked", word: "cancelled" };
-  if (attempt3.status !== "done") return { end: "spent", word: "failed" };
-  const word = attempt3.outcome ?? "";
-  if (word === "pr-opened") return { end: "pr-opened", pr: prOf2(attempt3.prUrl) };
-  if (word === "already-fixed") return { end: "already-fixed", pr: prOf2(attempt3.prUrl) };
-  const asked = ASKED[word];
-  if (asked !== void 0) return { end: "asked", word: asked };
-  return { end: "spent", word: word === "stuck" || word === "blocked" ? word : "unreadable" };
-}
-var byCount = (a, b) => b.count - a.count || a.createdAt.localeCompare(b.createdAt) || a.issue - b.issue;
-function candidatesOf(bugs, jobs) {
-  return bugs.filter((bug) => bug.state === "open" && !jobs.some((one) => one.issue === bug.issue && atWork(one))).sort(byCount);
-}
-var runningOf = (bugs, jobs) => bugs.filter((bug) => bug.state === "fixing" || jobs.some((one) => one.issue === bug.issue && atWork(one))).length;
-function pickBugs({ bugs, jobs, issues, parallel }) {
-  const slots = parallel - runningOf(bugs, jobs);
-  if (slots <= 0) return [];
-  return candidatesOf(bugs, jobs).filter((bug) => {
-    const read2 = issues.get(bug.issue);
-    return read2 !== void 0 && read2.open && read2.openFix === null;
-  }).slice(0, slots);
-}
-var countWords = (count4) => `reported ${String(count4)}\xD7`;
-var bugWords = (bug) => `Omni Loop bug #${String(bug.issue)} (${countWords(bug.count)})`;
-var ASKED_WHY = {
-  "need-human": "its bug fix needs a person, and its question waits for a person",
-  "needs-brainstorm": "it needs a product decision, and its question waits for a person",
-  "not-a-bug": "its bug fix says it may not be a bug, and its question waits for a person",
-  cancelled: "its bug fix was cancelled, and a person decides what comes next"
-};
-function triedOf(jobs, issue) {
-  return jobs.filter((one) => one.issue === issue && !atWork(one)).sort((a, b) => a.k - b.k).flatMap((one) => {
-    const last = lastOf2(one);
-    const read2 = last === void 0 ? null : bugEndOf(last);
-    return read2?.end === "spent" ? [read2.word] : [];
-  });
-}
-var moveOf = (bug, change2) => ({ state: bug.state, attempts: bug.attempts, fixPr: bug.fixPr, askedJob: bug.askedJob, ...change2 });
-var said2 = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
-var pullLink = (repo, pr) => `https://github.com/${repo}/pull/${String(pr)}`;
-function spent(bug, job, word, { repo, jobs }) {
-  const attempts = Math.min(BUG_TRIES, bug.attempts + 1);
-  const link = issueLink2(repo, bug.issue);
-  if (attempts < BUG_TRIES) {
-    const left = `${String(attempts)} of ${String(BUG_TRIES)} tries spent`;
-    return { move: moveOf(bug, { state: "open", attempts }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix ended ${word}, ${left}; it goes back in line.`) };
-  }
-  const tried = triedOf(jobs, bug.issue).slice(-BUG_TRIES);
-  const words = tried.length > 0 ? tried.join(", ") : word;
-  return { move: moveOf(bug, { state: "asked", attempts, askedJob: job.job }), event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside after ${String(BUG_TRIES)} tries (${words}): it waits for a person.`) };
-}
-function bugAfter(bug, { repo, jobs }) {
-  const job = latestOf3(jobs, bug.issue);
-  if (job === void 0) return { move: moveOf(bug, { state: "open" }), event: null };
-  const last = lastOf2(job);
-  if (last === void 0 || atWork(job)) return null;
-  const read2 = bugEndOf(last);
-  const link = issueLink2(repo, bug.issue);
-  switch (read2.end) {
-    case "pr-opened":
-      return {
-        move: moveOf(bug, { state: "pr-opened", fixPr: read2.pr }),
-        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)}: ${read2.pr === null ? "its fix pull request" : `fix PR #${String(read2.pr)}`} is open; it waits for a person's merge.`)
-      };
-    case "already-fixed":
-      return {
-        move: moveOf(bug, { state: "merged", fixPr: read2.pr ?? bug.fixPr }),
-        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)} is already fixed${read2.pr === null ? "" : ` by PR #${String(read2.pr)}`}: it waits for its release.`)
-      };
-    case "asked":
-      return {
-        move: moveOf(bug, { state: "asked", askedJob: job.job }),
-        event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read2.word]}.`)
-      };
-    case "lost":
-      return { move: moveOf(bug, { state: "open" }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix's runner was lost; it goes back in line, no try spent.`) };
-    case "spent":
-      return spent(bug, job, read2.word, { repo, jobs });
-  }
-}
-var takenEvent = (bug, job, repo) => said2("bug-taken", "supervisor", job, issueLink2(repo, bug.issue), `Took ${bugWords(bug)}: sent ${bugFixLine(bug.issue)}, try ${String(bug.attempts + 1)} of ${String(BUG_TRIES)}.`);
-function askedWords(bugs) {
-  return bugs.filter((bug) => bug.state === "asked").sort(byCount).map((bug) => `Omni Loop bug #${String(bug.issue)}: answer its question`);
-}
-
 // apps/omni-app/src/missions/bug-team-run.ts
 var NO_TEAM = {
   bugs: () => Promise.resolve([]),
@@ -25317,7 +26011,7 @@ var NO_TEAM = {
   move: () => Promise.resolve(false)
 };
 async function settleOne(team, mission, bug, jobs) {
-  const latest = latestOf3(jobs, bug.issue);
+  const latest = latestOf(jobs, bug.issue);
   if (bug.state === "open" && latest !== void 0 && atWork(latest)) {
     const moved = await team.move(bug, { ...bug, state: "fixing" });
     return moved ? { bug: { ...bug, state: "fixing" }, event: takenEvent(bug, latest.job, mission.repo) } : { bug, event: null };
@@ -25353,7 +26047,7 @@ async function take(at4, team, mission, state) {
   const events = [];
   let sent = 0;
   for (const bug of picks) {
-    const k = nextK2(state.jobs, bug.issue);
+    const k = nextK(state.jobs, bug.issue);
     const job = await team.send({ mission, issue: bug.issue, k, toFleet });
     if (job === null) continue;
     sent += 1;
@@ -25365,7 +26059,7 @@ async function take(at4, team, mission, state) {
 }
 function teamNext(mission, { running, waits, now }) {
   if (mission.status !== "running" && mission.status !== "waiting") return { status: mission.status, waitingOn: mission.waitingOn, nextWakeAt: null };
-  const waitingOn = waits.length > 0 ? cut4(waits.join(" \xB7 ")) : null;
+  const waitingOn = waits.length > 0 ? cut3(waits.join(" \xB7 ")) : null;
   return { status: running ? "running" : "waiting", waitingOn, nextWakeAt: new Date(now + WAKE_MS).toISOString() };
 }
 async function bugTeamRun(at4) {
@@ -25394,7 +26088,7 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z108.looseObject({ laters: z108.number().int().min(0).optional() });
+var ProgressSchema3 = z109.looseObject({ laters: z109.number().int().min(0).optional() });
 async function supervise(store, sought, now, github) {
   const first = await readRun(store, sought, now);
   const { read: read2, runs, recorded, toFleet, inPlan, decided, pm, fleet } = first;
@@ -25411,35 +26105,50 @@ async function supervise(store, sought, now, github) {
   const kept3 = await keepUp({ store, mission, inPlan, facts, runs, joined: joined2, off, toFleet, installation: ready.installation, keepUps: github.keepUps });
   const held2 = holdOf(kept3, await redBranch({ mission, at: at4, joined: joined2, joins: github.joins }));
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, off, installation: ready.installation, joins: github.joins, hold: held2.hold });
-  if (kept3.hold === null) await missionPull({ store, at: at4, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
-  const view = { alone: mission.level === "alone", committees: decided, answers: answered };
+  const view = { alone: mission.level === "alone", committees: decided, answers: answered, resumes: resumeCap(mission) };
   const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
-  const before2 = prdStates(facts, runs, branch, view, fleet, repairView, qa);
-  const { sent, approved, asked, repaired: repaired2 } = unready === null ? await sendEvery({ store, mission, facts, states: before2, toFleet, skill, added: pm.added, left: leftOf(repairView) }) : NOTHING_SENT;
+  const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
+  const planAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
+  const before2 = withPlans(prdStates(facts, runs, branch, view, fleet, repairView, qa), planAt);
+  const { sent, approved, asked, repaired: repaired2 } = unready === null ? await sendEvery({ store, mission, facts, states: before2.states, toFleet, skill, added: pm.authored, left: leftOf(repairView) }) : NOTHING_SENT;
   const repairs = { ...repairView, jobs: [...repairView.jobs, ...repaired2] };
-  const pmSent = unready === null ? await sendPm(store, mission, pm, inPlan, toFleet) : [];
+  const planned = await sendPlans({ store, mission, send: before2.send, jobs: pm.jobs, toFleet, sends: unready === null });
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const states = prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa);
+  const after2 = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs });
+  const states = after2.states;
+  const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after2.retro });
   const fresh = sent.length + approved.length + asked.length + repaired2.length;
-  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held2.waits]);
-  const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github });
+  const landed = await landingStep({ store, mission, at: at4, landing, hold: kept3.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
+  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held2.waits, ...landed.waits]);
+  const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString()), products, now);
   const finished = budget.finish(unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready });
-  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
+  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const retro2 = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro2.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...events, ...retro2.events], new Date(now));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...landed.events, ...events, ...retro2.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
-  return { next, running: atWork2(states, retro2.running), moved, sent: sent.length + repaired2.length, events: events.length + retro2.events.length };
+  const running = atWork2(states, retro2.running) || products.moving;
+  return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + landed.events.length };
 }
 var atWork2 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
 async function repairsOf(at4) {
   const read2 = await readRepairs(at4);
   const stuck = at4.store.retros === void 0 ? NO_STUCK : await readStuck({ ...at4, retros: at4.store.retros, rows: read2.rows });
   return { repairView: { ...read2, rows: [...read2.rows.filter((row) => !isStuckRow(row)), ...stuck.rows], stuck: stuck.jobs }, stuck };
+}
+async function outsideAll(at4) {
+  const team = at4.store.bugTeam;
+  if (at4.mission.level !== "alone" || at4.mission.kind === "omni-bugs" || team === void 0 || !at4.sends || !sendsCommittees(at4.mission.status)) return { events: [], states: [] };
+  const repairs = [...at4.repairs.jobs, ...at4.repairs.stuck.map(({ attempts }) => ({ prd: null, attempts }))];
+  const jobs = await team.jobs(at4.mission.id);
+  const states = await readOutsideBugs({ ...at4, repairs, jobs, logOf: (job) => at4.store.committeeLog(job) });
+  const taken = await sendOutsideBugs(states, ({ issue, k, line: line3 }) => team.send({ mission: at4.mission, issue, k, line: line3, toFleet: at4.toFleet }));
+  return { events: unrecorded([...taken, ...outsideEvents(states)], recordedKeys(at4.recorded)), states };
 }
 async function retrosOf(at4) {
   const retros = at4.store.retros;
@@ -25471,15 +26180,19 @@ async function readRun(store, sought, now) {
     store.committees(mission.id),
     store.fleetRunners(mission).then((to) => store.room(mission, to))
   ]);
-  const decided = await decideAll(store, mission, asked, pm.added);
+  const decided = await decideAll(store, mission, asked, pm.authored);
   const read2 = decided.carried ? await store.facts(mission) : first;
   return { mission, read: read2, runs, recorded: pm.recorded, toFleet, inPlan, decided: decided.committees, pm, fleet: { room: roomOn(runners, mission.repo, now), now } };
 }
 async function pmRead(store, mission, events, jobs, now) {
   const fresh = [];
+  const plans = planJobsOf(jobs);
   if (mission.level === "alone") {
     for (const one of jobs) {
       const known = [...events, ...fresh.map(asRecorded)];
+      const plan = plans.find((each) => each.job === one.job);
+      if (plan !== void 0) fresh.push(...planEvents(plan, known));
+      if (!isOwnJob(one)) continue;
       const held2 = /* @__PURE__ */ new Set([...mission.scope.prds, ...addedOf(known)]);
       const log2 = pmWorking(one) ? null : await store.committeeLog(one.job);
       fresh.push(...pmEvents(mission, one, log2, held2, events));
@@ -25488,7 +26201,35 @@ async function pmRead(store, mission, events, jobs, now) {
   }
   const recorded = [...events, ...fresh.map(asRecorded)];
   const added = addedOf(recorded);
-  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking) };
+  const authored = /* @__PURE__ */ new Set([...added, ...plannedOf(plans)]);
+  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking), plans, authored };
+}
+async function sendPlans({ store, mission, send, jobs, toFleet, sends }) {
+  const out = { events: [], jobs: [] };
+  if (!sends || !sendsCommittees(mission.status)) return out;
+  let round = nextPlanRound(jobs);
+  for (const one of send) {
+    const line3 = planJobLine(one.prd, one.kind);
+    const job = await store.pm({ mission, round, line: line3, toFleet });
+    round += 1;
+    if (job === null) continue;
+    out.events.push(planDispatched(job, one));
+    out.jobs.push({ round: round - 1, job, line: line3, attempt: { id: job, status: "queued", outcome: null, reason: null, prUrl: null }, prd: one.prd, kind: one.kind });
+  }
+  return out;
+}
+async function sendPmAll(at4) {
+  if (!at4.sends) return [];
+  const own = await sendPm(at4.store, at4.mission, at4.pm, at4.inPlan, at4.toFleet);
+  const retro2 = at4.retro ? await sendRetro(at4.store, at4.mission, at4.toFleet) : [];
+  return [...own, ...at4.planned, ...retro2];
+}
+async function sendRetro(store, mission, toFleet) {
+  const retros = store.retros;
+  if (retros === void 0 || !sendsCommittees(mission.status)) return [];
+  const job = await retros.retro({ mission, milestone: "mission", toFleet });
+  const sentence2 = `A new plan was refused: sent ${retroSkillLine(mission.number, "mission")} to ${whereOf2(mission, toFleet)}.`;
+  return job === null ? [] : [{ kind: "dispatched", role: "supervisor", prd: null, job, link: null, sentence: sentence2 }];
 }
 var asRecorded = ({ kind, prd, job }) => ({ kind, prd, job });
 async function sendPm(store, mission, pm, inPlan, toFleet) {
@@ -25506,9 +26247,10 @@ async function sendAll({
   skill
 }) {
   const sent = [];
-  for (const { prd, run, step, fix } of pick2({ mission, facts, states })) {
-    const made = await store.send({ mission, prd, run, step, toFleet, skill, ...fix === void 0 ? {} : { fix } });
-    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }] });
+  for (const { prd, run, step, fix, resume } of pick2({ mission, facts, states })) {
+    const again3 = resume === void 0 ? {} : { resume };
+    const made = await store.send({ mission, prd, run, step, toFleet, skill, ...fix === void 0 ? {} : { fix }, ...again3 });
+    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: "queued", outcome: null, reason: null, prUrl: null }], ...again3 });
   }
   return sent;
 }
@@ -25576,23 +26318,29 @@ async function openAtHeads({ mission, facts, runs, branch, installation, github 
   const first = prdStates(facts, runs, branch, { alone: true, committees: [], answers: { open, committees } });
   for (const { prd } of facts.filter((fact) => waitsOnAnswers(first.get(fact.prd)))) {
     const pr = featurePrOf(runs, prd);
-    const listed4 = pr === null ? void 0 : listedOf((await joins.read({ installation, repo: mission.repo, prd, pr })).items);
-    if (listed4 !== void 0) open.set(prd, listed4);
+    const listed5 = pr === null ? void 0 : listedOf((await joins.read({ installation, repo: mission.repo, prd, pr })).items);
+    if (listed5 !== void 0) open.set(prd, listed5);
   }
   return open;
 }
 var waitsOnAnswers = (state) => state?.state === "waits" && state.on === "answer";
 var listedOf = (items) => "notRead" in items ? void 0 : items.open;
-async function decideAsk({ store, mission, runs, branch, installation, now, github }, one) {
-  const log2 = one.attempt.status === "done" ? await store.committeeLog(one.job) : null;
-  const { verdicts, decision } = answeredOf(one.prd, one, log2);
-  if (decision.outcome === "escalated") return decision;
+async function decideAsk(run, one) {
+  const log2 = one.attempt.status === "done" ? await run.store.committeeLog(one.job) : null;
+  const { verdicts, decision } = itemDecisionOf(one.prd, one, log2);
+  const settled2 = decision.outcome === "escalated" ? null : await settleAsk(run, one, verdicts);
+  const taken = settled2 === null || settled2.ok ? decision : { outcome: "escalated", why: [settled2.why], option: null };
+  const kept3 = await run.store.decideItem(run.mission, { prd: one.prd, item: one.item, job: one.job, verdicts, decision: taken });
+  if (kept3.outcome === "deferred") return { outcome: "deferred", why: kept3.why, verdicts, option: kept3.option ?? "A" };
+  return { outcome: kept3.outcome, why: kept3.why, verdicts };
+}
+async function settleAsk({ mission, runs, branch, installation, now, github }, one, verdicts) {
   const pr = featurePrOf(runs, one.prd);
   const answers = github.answers;
-  if (pr === null || installation === null || answers === null || branch.branch === null) return { outcome: "escalated", why: ["the App cannot settle it here: no feature pull request or no GitHub access"] };
+  if (pr === null || installation === null || answers === null || branch.branch === null) return { ok: false, why: "the App cannot settle it here: no feature pull request or no GitHub access" };
   const answer = { fleet: mission.fleet, option: "A", branch: branch.branch, at: new Date(now).toISOString(), verdicts };
   const settled2 = await answers.settle({ installation, repo: mission.repo, prd: one.prd, pr, item: one.item, answer });
-  return settled2.ok ? { ...decision, verdicts } : { outcome: "escalated", why: [settled2.why] };
+  return settled2.ok ? { ok: true } : settled2;
 }
 async function askAll({ store, mission, facts, states, toFleet }) {
   if (!sendsCommittees(mission.status)) return [];
@@ -25713,15 +26461,120 @@ async function writeMissionPull({
 }) {
   if (landings === null || on.length === 0) return;
   const { commits, link } = await landings.branch({ ...at4, defaultBranch });
-  const rows = on.map((prd) => {
-    const pr = featurePrOf(runs, prd);
-    const page = facts.find((fact) => fact.prd === prd)?.page ?? null;
-    return { prd, pr, commit: commits.find((one) => pr !== null && one.pr === pr)?.sha ?? null, pass: passOf(runs, prd), page: page === null ? null : `${galaxyUrl}/prd/${encodeURIComponent(page)}` };
-  });
+  const rows = rowsOf3({ on, commits, facts, runs, galaxyUrl });
   const title = missionPullTitle(mission);
   const body = missionPullBody({ mission, branch: at4.branch, defaultBranch, rows, link, decisions });
   if (open !== null && open.title === title && open.body === body) return;
   await landings.write({ ...at4, defaultBranch, pull: open?.number ?? null, title, body });
+}
+function rowsOf3({ on, commits, facts, runs, galaxyUrl }) {
+  return on.map((prd) => {
+    const pr = featurePrOf(runs, prd);
+    const page = facts.find((fact) => fact.prd === prd)?.page ?? null;
+    return { prd, pr, commit: commits.find((one) => pr !== null && one.pr === pr)?.sha ?? null, pass: passOf(runs, prd), page: page === null ? null : `${galaxyUrl}/prd/${encodeURIComponent(page)}` };
+  });
+}
+var NO_RETEST = { criteria: [], proofs: [] };
+var SINCE_EVER = (/* @__PURE__ */ new Date(0)).toISOString();
+var NOT_LANDED = { events: [], waits: [] };
+async function landingStep(at4) {
+  if (at4.at === null) return NOT_LANDED;
+  const read2 = await decisionsRead(at4.store, at4.mission);
+  const waits = await agreeAll(at4, at4.at, read2.deferred);
+  const events = await reworkAll(at4, at4.at, read2.deferred);
+  if (at4.hold === null) {
+    if (everyRowJoined(at4)) await landEvery(at4, at4.at, read2);
+    else await missionPull({ store: at4.store, at: at4.at, mission: at4.mission, landing: at4.landing, on: at4.on, facts: at4.facts, runs: at4.runs, github: at4.github });
+  }
+  return { events, waits };
+}
+async function decisionsRead(store, mission) {
+  if (mission.level !== "alone") return { deferred: [], fleet: [] };
+  const [decisions, events] = await Promise.all([store.decisions(mission.id), store.fleetEvents(mission.id)]);
+  return { deferred: deferredOf(decisions, events), fleet: decisionsOf(events) };
+}
+function everyRowJoined({ on, facts, states, off, products }) {
+  if (products.pending || on.length + products.on.length === 0) return false;
+  return facts.every((fact) => off.has(fact.prd) || ["joined", "merged"].includes(states.get(fact.prd)?.state ?? ""));
+}
+async function agreeAll(at4, where, deferred) {
+  const answers = at4.github.answers;
+  if (answers?.agree === void 0) return [];
+  const waits = [];
+  for (const one of deferred) {
+    if (one.answer?.answer !== "agree" || isProductPrdId(one.prd)) continue;
+    const settled2 = await answers.agree({ installation: where.installation, repo: where.repo, branch: where.branch, prd: one.prd, item: one.item, login: one.answer.by, at: new Date(at4.now).toISOString() });
+    if (!settled2.ok) waits.push(cut3(`${one.item} of PRD ${String(one.prd)}: ${one.answer.by}'s Agree is not settled on ${where.branch} yet: ${settled2.why}`));
+  }
+  return waits;
+}
+var targetsOf = (at4, prd) => at4.products.rows.find((one) => one.prd === prd)?.targets ?? [at4.mission.repo];
+async function reworkAll(at4, where, deferred) {
+  const events = [];
+  for (const prd of reworksOf(deferred)) {
+    const line3 = reworkLine(prd, isProductPrdId(prd) ? { bases: basesOf(targetsOf(at4, prd), where.branch) } : { branch: where.branch });
+    const job = await at4.store.care({ mission: at4.mission, line: line3, since: SINCE_EVER, toFleet: at4.toFleet });
+    if (job === null) continue;
+    events.push({ kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: cut3(`A person overturned a decision of PRD ${String(prd)}: sent ${line3} to ${whereOf2(at4.mission, at4.toFleet)}.`) });
+  }
+  return events;
+}
+var sameRepo2 = (a, b) => a.toLowerCase() === b.toLowerCase();
+function repoPlans(at4) {
+  const home = at4.mission.repo;
+  const named = [home, ...at4.products.on.flatMap((prd) => targetsOf(at4, prd))];
+  const repos = named.filter((repo, n) => named.findIndex((one) => sameRepo2(one, repo)) === n);
+  return repos.map((repo) => ({ repo, prds: [...sameRepo2(repo, home) ? at4.on : [], ...at4.products.on.filter((prd) => targetsOf(at4, prd).some((one) => sameRepo2(one, repo)))] })).filter((plan) => plan.prds.length > 0);
+}
+async function landEvery(at4, where, read2) {
+  const landings = at4.github.landings;
+  if (landings === null) return;
+  const repos = [];
+  for (const plan of repoPlans(at4)) repos.push(await repoLanding(at4, landings, { ...where, repo: plan.repo }, plan.prds));
+  const title = missionPullTitle(at4.mission);
+  const bodyOf = (one) => landingBody2(at4, one, read2, repos);
+  for (const one of repos.filter((each) => each.open === null)) {
+    const body = bodyOf(one);
+    const written = await landings.write({ ...one.at, defaultBranch: one.defaultBranch, pull: null, title, body });
+    if (written.ok) one.open = { number: written.number, url: written.url, title, body };
+  }
+  for (const one of repos) {
+    const body = bodyOf(one);
+    if (one.open === null || one.open.title === title && one.open.body === body) continue;
+    await landings.write({ ...one.at, defaultBranch: one.defaultBranch, pull: one.open.number, title, body });
+    one.open = { ...one.open, title, body };
+  }
+}
+async function repoLanding(at4, landings, where, prds) {
+  const home = sameRepo2(where.repo, at4.mission.repo);
+  const known = home && at4.landing.defaultBranch !== null ? { defaultBranch: at4.landing.defaultBranch, open: at4.landing.open } : await openOf(landings, where);
+  const own = home ? await landings.branch({ ...where, defaultBranch: known.defaultBranch }) : { commits: [], link: null };
+  const rows = home ? rowsOf3({ on: at4.on, commits: own.commits, facts: at4.facts, runs: at4.runs, galaxyUrl: at4.github.galaxyUrl }) : [];
+  const retest = { prds: await retestsOf(at4, where, prds), outside: at4.outside.filter((bug) => sameRepo2(bug.repo, where.repo)) };
+  const open = known.open === null ? null : { number: known.open.number, url: known.open.url, title: known.open.title, body: known.open.body };
+  return { at: where, defaultBranch: known.defaultBranch, open, rows, link: own.link, prds, retest };
+}
+async function openOf(landings, where) {
+  const read2 = await landings.landings(where);
+  return { defaultBranch: read2.defaultBranch, open: read2.pulls.find((one) => one.open) ?? null };
+}
+async function retestsOf(at4, where, prds) {
+  const retests = at4.github.retests;
+  const out = [];
+  for (const prd of prds) {
+    const pr = isProductPrdId(prd) ? null : featurePrOf(at4.runs, prd);
+    const read2 = retests === null ? NO_RETEST : await retests.read({ installation: where.installation, repo: where.repo, prd, pr });
+    out.push({ prd, criteria: read2.criteria, proofs: read2.proofs, reworked: null });
+  }
+  return out;
+}
+function landingBody2(at4, one, read2, repos) {
+  const home = sameRepo2(one.at.repo, at4.mission.repo);
+  const others = repos.filter((each) => each !== one).map((each) => ({ repo: each.at.repo, number: each.open?.number ?? null, url: each.open?.url ?? null }));
+  const deferred = read2.deferred.filter((decision) => one.prds.includes(decision.prd));
+  const links = answerLinks({ galaxyUrl: at4.github.galaxyUrl, fleet: at4.mission.fleet, mission: at4.mission.number });
+  const answers = at4.mission.level === "alone" ? { deferred, links } : null;
+  return missionPullBody({ mission: at4.mission, branch: one.at.branch, defaultBranch: one.defaultBranch, rows: one.rows, link: one.link, decisions: home ? read2.fleet : [], answers, others, retest: one.retest });
 }
 async function dropAll({
   store,
@@ -25772,6 +26625,100 @@ async function redBranch({ mission, at: at4, joined: joined2, joins }) {
   if (failed3.length === 0) return NOT_KEPT;
   const why = `${at4.branch} is red (${failed3.map(({ name }) => name).join(", ")}) since PRD ${String(last)} joined: no further PRD joins; run ${dropLine(mission.number, last)} to take it off`;
   return { waits: [why], hold: why };
+}
+var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [] };
+function productsJoined(events) {
+  const on = /* @__PURE__ */ new Set();
+  for (const { kind, product } of events) {
+    if (product === void 0) continue;
+    if (kind === "prd-joined") on.add(product);
+    else if (kind === "prd-dropped" || kind === "prd-merged") on.delete(product);
+  }
+  return on;
+}
+function answeredOf(decisions) {
+  const answered = /* @__PURE__ */ new Map();
+  for (const one of decisions) {
+    if (one.kind !== "answer" || one.item === null || one.outcome === "escalated") continue;
+    answered.set(one.prd, /* @__PURE__ */ new Set([...answered.get(one.prd) ?? [], one.item]));
+  }
+  return answered;
+}
+async function productBranch(at4, facts) {
+  const branch = baseOf(at4.mission, at4.inPlan);
+  if (branch === null) return { ok: false, why: "a product PRD is built on mission branches: run the mission above with-you" };
+  if (!at4.sends || at4.installation === null) return { ok: false, why: `the mission branch ${branch} is not ready` };
+  if (at4.github.branches === null) return { ok: false, why: `the mission branch ${branch} cannot be cut: the app has no GitHub access here` };
+  const targets = new Map(facts.map((fact) => [fact.prd, fact.targets]));
+  const repos = scopeRepos({ repo: at4.mission.repo, prds: [...at4.mission.scope.prds, ...facts.map((fact) => fact.prd)], targets });
+  const others = repos.filter((repo) => repo.toLowerCase() !== at4.mission.repo.toLowerCase());
+  const prepared = await prepareAll(at4.github.branches, { installation: at4.installation, repos: others, branch });
+  if (!prepared.ok) return { ok: false, why: prepared.why };
+  for (const repo of repos) await at4.store.keepBranch(at4.mission, { repo, branch });
+  return { ok: true, branch, installation: at4.installation };
+}
+async function productAll(at4) {
+  const products = at4.store.products;
+  if (products === void 0 || at4.mission.products === void 0 || !sendsCommittees(at4.mission.status)) return NO_PRODUCTS;
+  const facts = await products.facts(at4.mission);
+  const joined2 = productsJoined(await at4.store.events(at4.mission.id));
+  if (facts.length === 0) return NO_PRODUCTS;
+  const branch = baseOf(at4.mission, at4.inPlan) ?? "the mission branch";
+  if (facts.every((fact) => joined2.has(fact.prd))) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], waits: [`every product PRD is on ${branch}: a person lands it`] };
+  const ready = await productBranch(at4, facts);
+  if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], pending: true, waits: [ready.why] };
+  const runs = await products.runs(at4.mission.id);
+  const answered = answeredOf(await at4.store.decisions(at4.mission.id));
+  return productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered }, facts);
+}
+async function productSteps(at4, facts) {
+  const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
+  const where = { joined: at4.joined, done, branch: at4.branch };
+  const step = { room: at4.mission.parallel - facts.filter((fact) => productStateOf(fact, at4.runs, where).state === "running").length, moving: false, waits: [], events: [] };
+  for (const fact of facts) {
+    await productStep(at4, fact, productStateOf(fact, at4.runs, where), step);
+    if (at4.joined.has(fact.prd)) done.add(fact.prd);
+  }
+  const sent = step.events.filter((one) => one.kind === "dispatched").length;
+  const pending = facts.some((fact) => !at4.joined.has(fact.prd));
+  return { pending, moving: step.moving, waits: pending ? step.waits : [`every product PRD is on ${at4.branch}: a person lands it`], events: step.events, sent, rows: facts, on: [...at4.joined] };
+}
+async function productStep(at4, fact, state, step) {
+  if (state.state === "running") step.moving = true;
+  else if (state.state === "blocked") step.waits.push(heldWords(fact.prd, state.by, at4.branch));
+  else if (state.state === "waits") step.waits.push(state.why);
+  else if (state.state === "startable" && step.room > 0) {
+    const sent = await sendProduct(at4, fact, state.run);
+    if (sent !== null) step.events.push(sent);
+    step.moving = true;
+    step.room -= 1;
+  } else if (state.state === "ready") {
+    const joined2 = await joinOneProduct(at4, fact);
+    if ("lacks" in joined2) step.waits.push(joined2.lacks);
+    else {
+      step.events.push(joined2.event);
+      at4.joined.add(fact.prd);
+      step.moving = true;
+    }
+  }
+}
+async function sendProduct(at4, fact, run) {
+  const line3 = lineOf5(fact.prd, "build", "ultra-yolo", basesOf(fact.targets, at4.branch));
+  const job = await at4.products.send({ mission: at4.mission, prd: fact.prd, run, line: line3, toFleet: at4.toFleet });
+  if (job === null) return null;
+  return { kind: "dispatched", role: "supervisor", prd: fact.prd, job, link: null, sentence: cut3(`Sent ${line3} to ${whereOf2(at4.mission, at4.toFleet)} (run ${String(run)}).`) };
+}
+async function joinOneProduct(at4, fact) {
+  const joins = at4.github.joins;
+  const lacks = (why) => ({ lacks: cut3(`PRD ${fact.prd} waits to join ${at4.branch}: ${why}`) });
+  if (joins?.targets === void 0) return lacks("the app has no GitHub access to its target pull requests here");
+  const targets = await joins.targets({ installation: at4.installation, repos: fact.targets, prd: fact.prd, branch: at4.branch });
+  const answered = at4.answered.get(fact.prd) ?? /* @__PURE__ */ new Set();
+  const joined2 = await joinProduct(joins, { installation: at4.installation, targets, branch: at4.branch, items: fact.items, answered });
+  if (!joined2.joined) return lacks(joined2.lacks.join("; "));
+  const named = joined2.pulls.map(({ repo, pr }) => `${repo} #${String(pr)}`).join(", ");
+  const link = joined2.pulls[0]?.url ?? null;
+  return { event: { kind: "prd-joined", role: "supervisor", prd: fact.prd, job: null, link, sentence: cut3(`PRD ${fact.prd} joined ${at4.branch}: ${named} squash-merged.`) } };
 }
 async function joinOne({ mission, base, prd, runs, installation, joins }) {
   const pr = featurePrOf(runs, prd);
@@ -25825,6 +26772,7 @@ function missionHandler({
   answers = null,
   bugIssues: bugIssues2 = null,
   kits = null,
+  retests = null,
   galaxyUrl = DEFAULT_GALAXY_URL,
   now = Date.now,
   log: log2 = noteTo("missions")
@@ -25839,7 +26787,7 @@ function missionHandler({
       return retros !== void 0 && await deliveredRun(mission.store, retros, mission, at4) ? laterOf({ job, refresh, mission, at: at4 }) : { outcome: "done" };
     }
     const team = mission.kind === "omni-bugs";
-    const run = team ? await teamRun({ store: mission.store, mission, now: at4, issues: bugIssues2 }, refresh) : await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, drops, answers, kits, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
+    const run = team ? await teamRun({ store: mission.store, mission, now: at4, issues: bugIssues2 }, refresh) : await supervise(mission.store, mission, at4, { branches, joins, keepUps, landings, drops, answers, kits, retests, galaxyUrl: galaxyUrl.replace(/\/+$/, "") });
     log2(`mission ${id}: ${team ? "the bug team " : ""}${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? "" : ", its status changed meanwhile"}`);
     return afterRun(run, { job, refresh, mission, at: at4 });
   };
@@ -25871,15 +26819,15 @@ async function laterOf({ job, refresh, mission, at: at4, until = null }) {
 }
 
 // apps/omni-app/src/missions/bug-team.github.ts
-import { z as z109 } from "zod";
+import { z as z110 } from "zod";
 var ISSUES_READ = 20;
 var LINKED = 10;
-var IssueSchema4 = z109.looseObject({
-  state: z109.enum(["OPEN", "CLOSED"]),
-  closedByPullRequestsReferences: z109.looseObject({ nodes: z109.array(z109.looseObject({ number: PrNumberSchema, state: z109.string() }).nullable()) }).nullable()
+var IssueSchema4 = z110.looseObject({
+  state: z110.enum(["OPEN", "CLOSED"]),
+  closedByPullRequestsReferences: z110.looseObject({ nodes: z110.array(z110.looseObject({ number: PrNumberSchema, state: z110.string() }).nullable()) }).nullable()
 });
-var AnswerSchema3 = z109.looseObject({
-  data: z109.looseObject({ repository: z109.record(z109.string(), IssueSchema4.nullable()).nullable() }).nullable()
+var AnswerSchema3 = z110.looseObject({
+  data: z110.looseObject({ repository: z110.record(z110.string(), IssueSchema4.nullable()).nullable() }).nullable()
 });
 function issuesQuery(issues) {
   const fields = issues.map((issue) => `i${String(issue)}: issue(number: ${String(issue)}) { state closedByPullRequestsReferences(first: ${String(LINKED)}, includeClosedPrs: false) { nodes { number state } } }`).join(" ");
@@ -25914,13 +26862,13 @@ function missionBugIssues({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/repair.github.ts
-import { z as z110 } from "zod";
-var STAMP5 = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
-var stampOf = (text20) => parseVersion(STAMP5.exec(text20)?.[1]);
+import { z as z111 } from "zod";
+var STAMP6 = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
+var stampOf = (text20) => parseVersion(STAMP6.exec(text20)?.[1]);
 var BIN = ".omni-loop/bin/omni.mjs";
 var HEAD_BYTES = 65535;
 var CONTENTS2 = "GET /repos/{owner}/{repo}/contents/{path}";
-var PackageSchema = z110.looseObject({ version: z110.unknown() });
+var PackageSchema = z111.looseObject({ version: z111.unknown() });
 function ownerAndName(full) {
   const match = /^([^/\s]+)\/([^/\s]+)$/.exec(full);
   const owner = match?.[1];
@@ -25974,15 +26922,36 @@ function missionKits({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/settle.ts
-import { mkdtempSync as mkdtempSync17, rmSync as rmSync21 } from "node:fs";
+import { existsSync as existsSync52, mkdtempSync as mkdtempSync17, readFileSync as readFileSync50, rmSync as rmSync21 } from "node:fs";
 import { tmpdir as tmpdir17 } from "node:os";
 import { join as join76 } from "node:path";
-import { z as z111 } from "zod";
-var PullSchema7 = z111.looseObject({
-  html_url: z111.string(),
-  state: z111.string(),
-  base: z111.looseObject({ ref: z111.string(), repo: z111.looseObject({ default_branch: z111.string() }) }),
-  head: z111.looseObject({ ref: z111.string(), sha: z111.string() })
+import { z as z112 } from "zod";
+
+// kit/lib/mission/overturn.agree.ts
+function agreeEntry({ settled: settled2, markers, item, login, at: at4 }) {
+  const latest = parseSettledEntries(settled2, markers).find((entry2) => entry2.id === item);
+  if (latest === void 0) return { ok: false, why: `${item}: it has no settled entry on the mission branch`, gone: true };
+  const by = latest.fields["Approved by"] ?? "";
+  if (!by.startsWith("fleet ")) return { ok: false, why: `${item}: ${by === "" ? "its latest entry names nobody" : `${by} answered it already`}`, gone: true };
+  const parsed3 = parseItem(latest.itemText, null);
+  if (!parsed3.ok) return { ok: false, why: `${item}: the item the ledger kept does not read: ${parsed3.errors.join("; ")}` };
+  const option = latest.answerText.split("\n")[0] ?? "";
+  const entry = renderSettledEntry({
+    item: parsed3.item,
+    itemText: latest.itemText,
+    answer: { text: [option, "", `${login} agreed with the answer ${by} gave, on the mission pull request.`].join("\n"), approvedBy: login, approvedAt: at4, channel: null },
+    judgement: { verdict: "agreed", basis: "person", reason: `${login} agreed with the answer ${by} gave for the mission branch` },
+    markers
+  });
+  return { ok: true, text: `${settled2}${settled2.endsWith("\n") ? "\n" : "\n\n"}${entry}`, entry };
+}
+
+// apps/omni-app/src/missions/settle.ts
+var PullSchema7 = z112.looseObject({
+  html_url: z112.string(),
+  state: z112.string(),
+  base: z112.looseObject({ ref: z112.string(), repo: z112.looseObject({ default_branch: z112.string() }) }),
+  head: z112.looseObject({ ref: z112.string(), sha: z112.string() })
 });
 var messageOf5 = (item, prd, fleet) => `docs(outbox): ${item} answered by fleet ${fleet}
 
@@ -26017,24 +26986,52 @@ function missionAnswers({ octokitFor }) {
       } finally {
         rmSync21(folder, { recursive: true, force: true });
       }
+    },
+    async agree({ installation, repo: slug, branch, prd, item, login, at: at4 }) {
+      const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, { installation, repo: slug, branch });
+      const tip = RefSchema.parse((await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo, ref: `heads/${branch}` })).data).object.sha;
+      const folder = mkdtempSync17(join76(tmpdir17(), "omni-agree-"));
+      try {
+        const read2 = await prdOutboxAt(octokit, { owner, repo, ref: tip, prd, folder });
+        if ("notRead" in read2) return { ok: false, why: `the tip of ${branch}: ${read2.notRead}` };
+        const outboxDir = read2.ctx.layout.outboxDir(prd);
+        const settledFile = outboxDir === null ? null : `${outboxDir}/${SETTLED_FILE}`;
+        if (settledFile === null || !existsSync52(join76(folder, settledFile))) return { ok: true, settled: false };
+        const agreed = agreeEntry({ settled: readFileSync50(join76(folder, settledFile), "utf8"), markers: read2.ctx.markers, item, login, at: at4 });
+        if (!agreed.ok) return agreed.gone === true ? { ok: true, settled: false } : { ok: false, why: agreed.why };
+        await addCommit(octokit, {
+          owner,
+          repo,
+          branch,
+          parent: tip,
+          message: `docs(outbox): ${item} agreed by ${login}
+
+Part of #${String(prd)}`,
+          defaultBranch,
+          files: [{ path: settledFile, content: agreed.text }]
+        });
+        return { ok: true, settled: true };
+      } finally {
+        rmSync21(folder, { recursive: true, force: true });
+      }
     }
   };
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z113 } from "zod";
+import { z as z114 } from "zod";
 
 // kit/lib/qa/verdict.ts
-import { z as z112 } from "zod";
+import { z as z113 } from "zod";
 var MAX_BUGS = 5;
-var QaRoundSchema = z112.union([z112.literal(1), z112.literal(2)]);
-var QaBugSchema = z112.strictObject({ issue: IssueNumberSchema });
-var QaVerdictSchema = z112.discriminatedUnion("verdict", [
-  z112.strictObject({ round: QaRoundSchema, verdict: z112.literal("pass") }),
-  z112.strictObject({
+var QaRoundSchema = z113.union([z113.literal(1), z113.literal(2)]);
+var QaBugSchema = z113.strictObject({ issue: IssueNumberSchema });
+var QaVerdictSchema = z113.discriminatedUnion("verdict", [
+  z113.strictObject({ round: QaRoundSchema, verdict: z113.literal("pass") }),
+  z113.strictObject({
     round: QaRoundSchema,
-    verdict: z112.literal("bugs"),
-    bugs: z112.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
+    verdict: z113.literal("bugs"),
+    bugs: z113.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
   })
 ]);
 var POSTED_PREFIX = "omni qa: posted ";
@@ -26055,6 +27052,15 @@ function qaLine(log2) {
 var commentUrl = (url) => url !== void 0 && COMMENT_URL.test(url) ? url : null;
 
 // apps/omni-app/src/missions/store.ts
+var ITEM_OPTIONS = ["A", "B", "C", "D"];
+var RESUMES_MAX2 = 10;
+var RESUME = /^(.+):resume:([1-9]|10)$/;
+var resumeKey = (key, resume = 0) => resume === 0 ? key : `${key}:resume:${String(resume)}`;
+function resumeOfKey(key) {
+  const match = RESUME.exec(key);
+  return match?.[1] === void 0 ? { key, resume: 0 } : { key: match[1], resume: Number(match[2]) };
+}
+var resumed2 = (resume) => resume === 0 ? {} : { resume };
 var APP_SENDER2 = "omni-app";
 var TAKEN = "23505";
 var MISSION = "id, workspace_id, repo, fleet, number, title, status, waiting_on, mandate, scope, paused_by, kind";
@@ -26064,20 +27070,20 @@ var ROADMAP_PRD = "roadmap_id, position, row_id, prd, blockers";
 var STAGE2 = "prd, stage";
 var DOSSIER = "id, prd";
 var APPROVAL2 = "id, dossier_id, mission_id, approved_at";
-var OVERTURN2 = "prd, at";
-var FLEET_EVENT = "kind, prd, sentence, link, actor";
+var OVERTURN2 = "prd_id, at";
+var FLEET_EVENT = "kind, prd_id, sentence, link, actor";
 var VOID3 = "approval_id";
 var PLAN = "content";
 var JOB2 = "id, mission_key, resumes, status, outcome, reason, pr_url, limited_until, parts";
 var JOB_LOG = "id, log_tail";
 var CARE = "id";
-var EVENT = "kind, prd, job_id";
+var EVENT = "kind, prd_id, job_id";
 var DECISION = "job_id, outcome, why";
 var RUNNER = "repos";
 var ROOM_RUNNER = "id, repos, slots, last_seen_at, health";
 var ROOM_JOB = "runner_id";
 var PRODUCT = "plan_repository";
-var REPAIR = "id, prd, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger";
+var REPAIR = "id, prd_id, fingerprint, round, number, failed_job_id, job_id, retro, fix_pr, outcome, trigger";
 var RETRO = "id, milestone, job_id, skipped, file";
 var BUG_REPORT = "repo, issue, state, fixed_in";
 var TEAM_BUG = "fingerprint, issue, count, created_at, state, attempts, fix_pr, fixed_in, asked_job";
@@ -26085,128 +27091,148 @@ var MOVED_BUG = "fingerprint";
 var HOLDER_REPAIR = "mission_id, job_id, fingerprint";
 var TOLD = "job_id";
 var HOLDER_MISSION = "id, repo";
-var REPOSITORY = "full_name";
+var REPOSITORY2 = "full_name";
 var ACTOR = "actor";
 var FLEET_CAP = "daily_tokens";
 var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at";
 var PAUSE_EVENT = "kind, actor, at";
 var FLEET_MISSION = "id";
-var text19 = z113.string().min(1);
-var MissionRowSchema = z113.object({
+var BRANCH2 = "repo, branch, cut_at";
+var FLEET_DECISION = "kind, prd_id, item, job_id, outcome, why, option, decided_at";
+var text19 = z114.string().min(1);
+var MissionRowSchema = z114.object({
   id: text19,
   workspace_id: text19,
   repo: text19,
   fleet: text19,
   number: IssueNumberSchema,
   title: text19,
-  status: z113.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z113.string().nullable(),
-  mandate: z113.object({
-    parallel: z113.number().int().min(1).max(4),
-    level: z113.enum(MISSION_LEVELS).default("with-you"),
-    hardToRevert: z113.number().min(0).max(1).default(DEFAULT_BOUND),
-    ownPrds: z113.number().int().min(0).max(10).default(0),
-    tokens: z113.number().int().min(1).nullable().default(null)
+  status: z114.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z114.string().nullable(),
+  mandate: z114.object({
+    parallel: z114.number().int().min(1).max(4),
+    level: z114.enum(MISSION_LEVELS).default("with-you"),
+    hardToRevert: z114.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z114.number().int().min(0).max(10).default(0),
+    resumes: z114.number().int().min(0).max(RESUMES_MAX2).default(DEFAULT_RESUMES),
+    tokens: z114.number().int().min(1).nullable().default(null)
   }),
-  scope: z113.object({ prds: z113.array(PrdNumberSchema), roadmaps: z113.array(IssueNumberSchema) }),
+  /** PRD omni-loop-21: a product's ids beside the repository's numbers. */
+  scope: z114.object({ prds: z114.array(z114.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z114.array(z114.union([IssueNumberSchema, ProductRoadmapIdSchema])) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
-  paused_by: z113.enum(["stuck"]).nullable().default(null),
+  paused_by: z114.enum(["stuck"]).nullable().default(null),
   /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
-  kind: z113.enum(["prds", "omni-bugs"]).default("prds")
+  kind: z114.enum(["prds", "omni-bugs"]).default("prds")
 });
-var WorkspaceRowSchema2 = z113.object({ github_installation_id: z113.number().int().positive().nullable() });
-var RoadmapRowSchema = z113.object({ id: text19, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z113.object({ roadmap_id: text19, position: z113.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z113.array(z113.string()) });
-var StageRowSchema = z113.object({ prd: PrdNumberSchema, stage: text19 });
-var DossierRowSchema5 = z113.object({ id: text19, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z113.object({ id: text19, dossier_id: text19, mission_id: z113.string().nullable(), approved_at: text19 });
-var FleetEventRowSchema = z113.object({ kind: text19, prd: PrdNumberSchema.nullable(), sentence: text19, link: z113.string().nullable(), actor: z113.string().nullable() });
-var OverturnRowSchema = z113.object({ prd: PrdNumberSchema.nullable(), at: text19 });
-var VoidRowSchema2 = z113.object({ approval_id: text19 });
-var PlanRowSchema = z113.object({ content: z113.string() });
-var JobRowSchema2 = z113.object({
+var WorkspaceRowSchema2 = z114.object({ github_installation_id: z114.number().int().positive().nullable() });
+var RoadmapRowSchema = z114.object({ id: text19, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z114.object({ roadmap_id: text19, position: z114.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z114.array(z114.string()) });
+var StageRowSchema = z114.object({ prd: PrdNumberSchema, stage: text19 });
+var DossierRowSchema5 = z114.object({ id: text19, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z114.object({ id: text19, dossier_id: text19, mission_id: z114.string().nullable(), approved_at: text19 });
+var FleetEventRowSchema = z114.object({ kind: text19, prd_id: PrdIdSchema.nullable(), sentence: text19, link: z114.string().nullable(), actor: z114.string().nullable() });
+var OverturnRowSchema = z114.object({ prd_id: PrdIdSchema.nullable(), at: text19 });
+var VoidRowSchema2 = z114.object({ approval_id: text19 });
+var PlanRowSchema = z114.object({ content: z114.string() });
+var JobRowSchema2 = z114.object({
   id: text19,
-  mission_key: z113.string().nullable(),
-  resumes: z113.string().nullable(),
-  status: z113.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z113.string().nullable(),
-  reason: z113.string().nullable(),
-  pr_url: z113.string().nullable(),
-  limited_until: z113.string().nullable().default(null),
+  mission_key: z114.string().nullable(),
+  resumes: z114.string().nullable(),
+  status: z114.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z114.string().nullable(),
+  reason: z114.string().nullable(),
+  pr_url: z114.string().nullable(),
+  limited_until: z114.string().nullable().default(null),
   /** The job's parts, read only for whether the runner guessed the reset (PRD 2949). */
-  parts: z113.array(z113.looseObject({ guessed: z113.boolean().optional() })).nullable().default(null)
+  parts: z114.array(z114.looseObject({ guessed: z114.boolean().optional() })).nullable().default(null)
 });
-var JobLogRowSchema = z113.object({ id: text19, log_tail: z113.string() });
+var JobLogRowSchema = z114.object({ id: text19, log_tail: z114.string() });
 var ASK2 = `${JOB2}, line`;
-var AskRowSchema = JobRowSchema2.extend({ line: z113.string() });
-var CareRowSchema = z113.object({ id: text19 });
-var EventRowSchema = z113.object({ kind: text19, prd: PrdNumberSchema.nullable(), job_id: z113.string().nullable() });
-var DecisionRowSchema = z113.object({ job_id: text19, outcome: z113.enum(["carried", "escalated"]), why: z113.array(z113.string()) });
-var DecidedSchema = z113.object({ outcome: z113.enum(["carried", "escalated"]), why: z113.array(z113.string()) });
-var RunnerRowSchema2 = z113.object({ repos: z113.array(z113.string()) });
-var RoomRunnerRowSchema = z113.object({
+var AskRowSchema = JobRowSchema2.extend({ line: z114.string() });
+var CareRowSchema = z114.object({ id: text19 });
+var EventRowSchema = z114.object({ kind: text19, prd_id: PrdIdSchema.nullable(), job_id: z114.string().nullable() });
+var DecisionRowSchema = z114.object({ job_id: text19, outcome: z114.enum(["carried", "escalated"]), why: z114.array(z114.string()) });
+var DecidedSchema = z114.object({ outcome: z114.enum(["carried", "escalated"]), why: z114.array(z114.string()) });
+var RunnerRowSchema2 = z114.object({ repos: z114.array(z114.string()) });
+var RoomRunnerRowSchema = z114.object({
   id: text19,
-  repos: z113.array(z113.string()),
-  slots: z113.number().int(),
+  repos: z114.array(z114.string()),
+  slots: z114.number().int(),
   last_seen_at: text19,
-  health: z113.looseObject({ at: text19, paused: z113.string().nullable().optional(), accounts: z113.array(z113.looseObject({ state: z113.string(), resetsAt: z113.string().optional() })).optional() }).nullable()
+  health: z114.looseObject({ at: text19, paused: z114.string().nullable().optional(), accounts: z114.array(z114.looseObject({ state: z114.string(), resetsAt: z114.string().optional() })).optional() }).nullable()
 });
-var RoomJobRowSchema = z113.object({ runner_id: z113.string().nullable() });
+var RoomJobRowSchema = z114.object({ runner_id: z114.string().nullable() });
 var CHAIN_MAX = 9;
-var ProductRowSchema3 = z113.object({ plan_repository: z113.string().nullable() });
-var RepairRowSchema = z113.object({
+var ProductRowSchema3 = z114.object({ plan_repository: z114.string().nullable() });
+var IdRowSchema2 = z114.object({ id: text19 });
+var PRODUCT_ITEM = "item, rank, outbox_settlements(verdict)";
+var ProductItemRowSchema = z114.object({ item: text19, rank: text19, outbox_settlements: z114.array(z114.looseObject({})) });
+var RepairRowSchema = z114.object({
   id: text19,
-  /** None only for a stuck repair whose cause is the mission's own (PRD 3065). */
-  prd: PrdNumberSchema.nullable(),
-  trigger: z113.enum(["failure", "stuck"]).default("failure"),
-  fingerprint: z113.string().regex(/^[0-9a-f]{64}$/),
-  round: z113.number().int().min(1),
-  number: z113.number().int().min(1).max(3),
+  /** None only for a stuck repair whose cause is the mission's own (PRD 3065); a product PRD's id (PRD omni-loop-21 s3b). */
+  prd_id: PrdIdSchema.nullable(),
+  trigger: z114.enum(["failure", "stuck"]).default("failure"),
+  fingerprint: z114.string().regex(/^[0-9a-f]{64}$/),
+  round: z114.number().int().min(1),
+  number: z114.number().int().min(1).max(3),
   failed_job_id: text19,
-  job_id: z113.string().nullable(),
+  job_id: z114.string().nullable(),
   /** A retro that no longer reads as one is read as none: the repair counts, its words are not shown. */
   retro: RepairRetroSchema.nullable().catch(null),
-  fix_pr: z113.string().nullable(),
-  outcome: z113.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
+  fix_pr: z114.string().nullable(),
+  outcome: z114.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
 });
-var BugReportRowSchema = z113.object({ repo: text19, issue: IssueNumberSchema, state: z113.enum(BUG_STATES2).default("open"), fixed_in: z113.string().nullable().default(null) });
-var TeamBugRowSchema = z113.object({
-  fingerprint: z113.string().regex(/^[0-9a-f]{64}$/),
+var BugReportRowSchema = z114.object({ repo: text19, issue: IssueNumberSchema, state: z114.enum(BUG_STATES2).default("open"), fixed_in: z114.string().nullable().default(null) });
+var TeamBugRowSchema = z114.object({
+  fingerprint: z114.string().regex(/^[0-9a-f]{64}$/),
   issue: IssueNumberSchema,
-  count: z113.number().int().min(1),
+  count: z114.number().int().min(1),
   created_at: text19,
-  state: z113.enum(BUG_STATES2),
-  attempts: z113.number().int().min(0).max(BUG_TRIES),
+  state: z114.enum(BUG_STATES2),
+  attempts: z114.number().int().min(0).max(BUG_TRIES),
   fix_pr: PrNumberSchema.nullable(),
-  fixed_in: z113.string().nullable(),
-  asked_job: z113.string().nullable()
+  fixed_in: z114.string().nullable(),
+  asked_job: z114.string().nullable()
 });
 var TEAM_STATES = ["open", "fixing", "asked"];
-var MovedBugRowSchema = z113.object({ fingerprint: z113.string().regex(/^[0-9a-f]{64}$/) });
-var HolderRepairRowSchema = z113.object({ mission_id: text19, job_id: text19, fingerprint: z113.string().regex(/^[0-9a-f]{64}$/) });
-var ToldRowSchema = z113.object({ job_id: z113.string().nullable() });
-var HolderMissionRowSchema = z113.object({ id: text19, repo: text19 });
+var MovedBugRowSchema = z114.object({ fingerprint: z114.string().regex(/^[0-9a-f]{64}$/) });
+var HolderRepairRowSchema = z114.object({ mission_id: text19, job_id: text19, fingerprint: z114.string().regex(/^[0-9a-f]{64}$/) });
+var ToldRowSchema = z114.object({ job_id: z114.string().nullable() });
+var HolderMissionRowSchema = z114.object({ id: text19, repo: text19 });
 var MOVED_STATES = ["fixed", "wont-fix"];
 var HELD_STATUSES = ["paused", "stopped"];
-var RetroRowSchema = z113.object({ id: text19, milestone: text19, job_id: z113.string().nullable(), skipped: z113.string().nullable(), file: z113.string().nullable() });
-var RepositoryRowSchema2 = z113.object({ full_name: text19 });
-var ActorRowSchema = z113.object({ actor: z113.string().nullable() });
-var FleetCapRowSchema = z113.object({ daily_tokens: z113.number().int().positive().nullable() });
-var StopRowSchema = z113.object({
+var RetroRowSchema = z114.object({ id: text19, milestone: text19, job_id: z114.string().nullable(), skipped: z114.string().nullable(), file: z114.string().nullable() });
+var RepositoryRowSchema2 = z114.object({ full_name: text19 });
+var ActorRowSchema = z114.object({ actor: z114.string().nullable() });
+var FleetCapRowSchema = z114.object({ daily_tokens: z114.number().int().positive().nullable() });
+var StopRowSchema = z114.object({
   id: text19,
-  cap: z113.enum(["mission", "fleet"]),
-  cap_tokens: z113.number().int().positive(),
-  spent: z113.number().int().min(0),
-  missions: z113.array(text19),
-  answer: z113.enum(["raised", "tomorrow", "stopped"]).nullable(),
-  raised_to: z113.number().int().positive().nullable(),
+  cap: z114.enum(["mission", "fleet"]),
+  cap_tokens: z114.number().int().positive(),
+  spent: z114.number().int().min(0),
+  missions: z114.array(text19),
+  answer: z114.enum(["raised", "tomorrow", "stopped"]).nullable(),
+  raised_to: z114.number().int().positive().nullable(),
   created_at: text19,
-  answered_at: z113.string().nullable()
+  answered_at: z114.string().nullable()
 });
-var PauseEventRowSchema = z113.object({ kind: z113.enum(["paused", "resumed"]), actor: z113.string().nullable(), at: text19 });
-var FleetMissionRowSchema = z113.object({ id: text19 });
-var CountSchema = z113.coerce.number().int().min(0);
-var FleetTokensRowSchema = z113.object({ tokens: CountSchema, oldest_end: z113.string().nullable() });
+var PauseEventRowSchema = z114.object({ kind: z114.enum(["paused", "resumed"]), actor: z114.string().nullable(), at: text19 });
+var FleetMissionRowSchema = z114.object({ id: text19 });
+var BranchRowSchema = z114.object({ repo: text19, branch: text19, cut_at: text19 });
+var ItemOutcomeSchema = z114.enum(["carried", "deferred", "escalated"]);
+var FleetDecisionRowSchema = z114.object({
+  kind: z114.enum(["approve", "answer"]),
+  prd_id: PrdIdSchema,
+  item: z114.string().nullable(),
+  job_id: text19,
+  outcome: ItemOutcomeSchema,
+  why: z114.array(z114.string()),
+  option: z114.enum(ITEM_OPTIONS).nullable(),
+  decided_at: text19
+});
+var ItemDecidedSchema = z114.object({ outcome: ItemOutcomeSchema, why: z114.array(z114.string()), option: z114.enum(ITEM_OPTIONS).nullable() });
+var CountSchema = z114.coerce.number().int().min(0);
+var FleetTokensRowSchema = z114.object({ tokens: CountSchema, oldest_end: z114.string().nullable() });
 var stopOf2 = (row) => ({
   id: row.id,
   cap: row.cap,
@@ -26226,14 +27252,14 @@ var STOP_MISSIONS = 100;
 var PAUSES_READ = 50;
 function madeOf(answer, none) {
   if (answer.error?.code === TAKEN) return null;
-  const [made] = rowsOf(z113.object({ id: text19 }), answer);
+  const [made] = rowsOf(z114.object({ id: text19 }), answer);
   if (!made) throw new Error(`the database ${none} and gave no reason`);
   return made.id;
 }
 var OVER_BUDGET2 = "23514";
 var repairOf = (row) => ({
   id: row.id,
-  prd: row.prd,
+  ...numberedOf(row.prd_id),
   ...row.trigger === "stuck" ? { trigger: "stuck" } : {},
   fingerprint: row.fingerprint,
   round: row.round,
@@ -26254,6 +27280,11 @@ var attemptOf = (row) => ({
 });
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 var isChecked = (step, attempt3) => isQaStep(step) && attempt3.status === "done";
+function scopeOf2(scope) {
+  const numbers2 = { prds: scope.prds.filter((prd) => typeof prd === "number"), roadmaps: scope.roadmaps.filter((roadmap) => typeof roadmap === "number") };
+  const products = { prds: scope.prds.filter((prd) => typeof prd === "string"), roadmaps: scope.roadmaps.filter((roadmap) => typeof roadmap === "string") };
+  return { numbers: numbers2, products: products.prds.length + products.roadmaps.length === 0 ? null : products };
+}
 function missionStore(connection) {
   const db = serviceDb(connection);
   async function roadmapsOf(mission) {
@@ -26277,8 +27308,8 @@ function missionStore(connection) {
   async function overturnedAmong(given, mission, pageOf) {
     const overturned = /* @__PURE__ */ new Set();
     if (given.length === 0) return overturned;
-    for (const event of rowsOf(OverturnRowSchema, await db.from("mission_events").select(OVERTURN2).eq("mission_id", mission).eq("kind", "overturned").not("prd", "is", null).order("at"))) {
-      const page = event.prd === null ? void 0 : pageOf.get(event.prd);
+    for (const event of rowsOf(OverturnRowSchema, await db.from("mission_events").select(OVERTURN2).eq("mission_id", mission).eq("kind", "overturned").not("prd_id", "is", null).order("at"))) {
+      const page = event.prd_id === null || isProductPrdId(event.prd_id) ? void 0 : pageOf.get(event.prd_id);
       const row = given.find((one) => one.dossier_id === page);
       if (row !== void 0 && Date.parse(event.at) > Date.parse(row.approved_at)) overturned.add(row.dossier_id);
     }
@@ -26415,10 +27446,10 @@ function missionStore(connection) {
         return key === null ? [] : [{ issue: key.issue, k: key.k, job: row.id, attempts }];
       });
     },
-    send: ({ mission, issue, k, toFleet }) => queue({ mission, toFleet, line: bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
+    send: ({ mission, issue, k, toFleet, line: line3 }) => queue({ mission, toFleet, line: line3 ?? bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
     async move(bug, { state, attempts, fixPr, askedJob }) {
       const moved = rowsOf(
-        z113.object({ fingerprint: text19 }),
+        z114.object({ fingerprint: text19 }),
         await db.from("omni_bug_reports").update({ state, attempts, fix_pr: fixPr, asked_job: askedJob, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("fingerprint", bug.fingerprint).eq("state", bug.state).eq("attempts", bug.attempts).select("fingerprint")
       );
       return moved.length > 0;
@@ -26437,12 +27468,64 @@ function missionStore(connection) {
       return rowsOf(HolderMissionRowSchema, await db.from("missions").select(HOLDER_MISSION).in("id", ids).in("status", [...HELD_STATUSES]));
     }
   };
+  async function productDossier(mission, { key, seq, kind }) {
+    const products2 = rowsOf(IdRowSchema2, await db.from("products").select("id").eq("workspace_id", mission.workspace).eq("key", key).is("archived_at", null).order("created_at"));
+    for (const { id } of products2) {
+      const [dossier] = rowsOf(IdRowSchema2, await db.from("dossiers").select("id").eq("product_id", id).eq("kind", kind).eq("product_seq", seq).limit(1));
+      if (dossier !== void 0) return dossier.id;
+    }
+    return null;
+  }
+  async function latestOf4(dossier, kind) {
+    if (dossier === null) return null;
+    const [version] = rowsOf(PlanRowSchema, await db.from("dossier_versions").select(PLAN).eq("dossier_id", dossier).eq("kind", kind).order("created_at", { ascending: false }).limit(1));
+    return version?.content ?? null;
+  }
+  async function productItems(dossier) {
+    if (dossier === null) return { notRead: "its page is not found on the Omni page" };
+    const rows = rowsOf(ProductItemRowSchema, await db.from("outbox_items").select(PRODUCT_ITEM).eq("dossier_id", dossier).order("raised_at").order("item"));
+    const open = rows.filter((row) => row.outbox_settlements.length === 0).map(({ item, rank }) => ({ id: item, rank }));
+    return { ranks: open.map(({ rank }) => rank), open };
+  }
+  async function productScope(mission, named) {
+    const roadmaps = [];
+    for (const id of named.roadmaps) {
+      const text20 = await latestOf4(await productDossier(mission, { ...productRoadmapParts(id), kind: "roadmap" }), "roadmap");
+      const read2 = text20 === null ? null : rowsOfRoadmap(text20);
+      if (read2?.ok === true) roadmaps.push(read2.rows);
+    }
+    return expandMissionScope([...named.prds], roadmaps).filter((entry) => isProductPrdId(entry.prd));
+  }
+  const products = {
+    async facts(mission) {
+      if (mission.products === void 0) return [];
+      const owner = mission.repo.split("/")[0] ?? "";
+      const out = [];
+      for (const { prd, blockers } of await productScope(mission, mission.products)) {
+        if (!isProductPrdId(prd)) continue;
+        const page = await productDossier(mission, { ...productPrdParts(prd), kind: "prd" });
+        const approved = page === null ? /* @__PURE__ */ new Map() : await approvals([page], mission.id, /* @__PURE__ */ new Map());
+        const plan = await latestOf4(page, "plan");
+        out.push({ prd, approval: approvalOf(page === null ? null : approved.get(page) ?? null), blockers, targets: plan === null ? [] : planTargets2(plan, owner), items: await productItems(page) });
+      }
+      return out;
+    },
+    async runs(id) {
+      return (await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }) => {
+        const key = row.mission_key === null ? null : productRunOfKey(row.mission_key);
+        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
+      });
+    },
+    send: ({ mission, prd, run, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: missionKey(mission.id, prd, run) })
+  };
   return {
     retros,
     bugTeam,
+    products,
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from("missions").select(MISSION).eq("id", id).limit(1));
       if (!row) return null;
+      const scope = scopeOf2(row.scope);
       return {
         id: row.id,
         workspace: row.workspace_id,
@@ -26454,9 +27537,11 @@ function missionStore(connection) {
         status: row.status,
         waitingOn: row.waiting_on,
         parallel: row.mandate.parallel,
-        scope: row.scope,
+        scope: scope.numbers,
         hardToRevert: row.mandate.hardToRevert,
         ownPrds: row.mandate.ownPrds,
+        resumes: row.mandate.resumes,
+        ...scope.products === null ? {} : { products: scope.products },
         ...row.mandate.tokens === null ? {} : { tokens: row.mandate.tokens },
         ...row.paused_by === "stuck" ? { pausedBy: "stuck" } : {},
         ...row.kind === "omni-bugs" ? { kind: row.kind } : {}
@@ -26488,16 +27573,17 @@ function missionStore(connection) {
       const jobs = rowsOf(JobRowSchema2, await db.from("runner_jobs").select(JOB2).eq("mission_id", id).order("queued_at"));
       const chains = await chainsOf(jobs);
       const runs = jobs.flatMap((job) => {
-        const key = job.mission_key === null ? null : runOfKey(job.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf) }];
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const key = step === null ? null : runOfKey(step.key);
+        return key === null || step === null ? [] : [{ prd: key.prd, run: key.run, step: key.step, job: job.id, attempts: (chains.get(job.id) ?? [job]).map(attemptOf), ...resumed2(step.resume) }];
       });
       return withPosted(runs);
     },
     async fleetEvents(id) {
-      return rowsOf(FleetEventRowSchema, await db.from("mission_events").select(FLEET_EVENT).eq("mission_id", id).in("kind", ["decided", "overturned"]).order("at")).map((row) => ({ kind: row.kind, prd: row.prd, sentence: row.sentence, link: row.link, actor: row.actor }));
+      return rowsOf(FleetEventRowSchema, await db.from("mission_events").select(FLEET_EVENT).eq("mission_id", id).in("kind", ["decided", "overturned"]).order("at")).map((row) => ({ kind: row.kind, ...numberedOf(row.prd_id), sentence: row.sentence, link: row.link, actor: row.actor }));
     },
     async events(id) {
-      return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id).order("at")).map((row) => ({ kind: row.kind, prd: row.prd, job: row.job_id }));
+      return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id).order("at")).map((row) => ({ kind: row.kind, ...numberedOf(row.prd_id), job: row.job_id }));
     },
     async fleetRunners(mission) {
       const runners = rowsOf(RunnerRowSchema2, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
@@ -26517,14 +27603,14 @@ function missionStore(connection) {
       }));
     },
     async planRepository(mission) {
-      const products = rowsOf(ProductRowSchema3, await db.from("products").select(PRODUCT).eq("workspace_id", mission.workspace).is("archived_at", null));
-      return products.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
+      const products2 = rowsOf(ProductRowSchema3, await db.from("products").select(PRODUCT).eq("workspace_id", mission.workspace).is("archived_at", null));
+      return products2.some((product) => product.plan_repository?.toLowerCase() === mission.repo.toLowerCase());
     },
     async installation(mission) {
       const [workspace] = rowsOf(WorkspaceRowSchema2, await db.from("workspaces").select(WORKSPACE2).eq("id", mission.workspace).limit(1));
       return workspace?.github_installation_id ?? null;
     },
-    send: ({ mission, prd, run, step, toFleet, skill, fix = null }) => queue({ mission, toFleet, line: lineOf5(prd, step, skill, baseOf(mission, skill === "ultra-yolo"), fix), key: missionKey(mission.id, prd, run, step) }),
+    send: ({ mission, prd, run, step, toFleet, skill, fix = null, resume = 0 }) => queue({ mission, toFleet, line: lineOf5(prd, step, skill, baseOf(mission, skill === "ultra-yolo"), fix), key: resumeKey(missionKey(mission.id, prd, run, step), resume) }),
     async care({ mission, line: line3, since, toFleet }) {
       const sent = rowsOf(CareRowSchema, await db.from("runner_jobs").select(CARE).eq("mission_id", mission.id).eq("line", line3).gte("queued_at", since).limit(1));
       return sent.length > 0 ? null : queue({ mission, toFleet, line: line3, key: null });
@@ -26532,11 +27618,12 @@ function missionStore(connection) {
     async committees(id) {
       const jobs = rowsOf(JobRowSchema2, await db.from("runner_jobs").select(JOB2).eq("mission_id", id).like("mission_key", `mission:${id}:prd:%:approve:%`).order("queued_at"));
       if (jobs.length === 0) return [];
-      const decided = rowsOf(DecisionRowSchema, await db.from("mission_decisions").select(DECISION).eq("mission_id", id));
+      const decided = rowsOf(DecisionRowSchema, await db.from("mission_decisions").select(DECISION).eq("mission_id", id).eq("kind", "approve"));
       return jobs.flatMap((job) => {
-        const key = job.mission_key === null ? null : committeeOfKey(job.mission_key);
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const key = step === null ? null : committeeOfKey(step.key);
         const decision = decided.find((row) => row.job_id === job.id);
-        return key === null ? [] : [{ prd: key.prd, round: key.round, job: job.id, attempt: attemptOf(job), decision: decision ? { outcome: decision.outcome, why: decision.why } : null }];
+        return key === null || step === null ? [] : [{ prd: key.prd, round: key.round, job: job.id, attempt: attemptOf(job), decision: decision ? { outcome: decision.outcome, why: decision.why } : null, ...resumed2(step.resume) }];
       });
     },
     async committeeLog(job) {
@@ -26555,15 +27642,16 @@ function missionStore(connection) {
       if (answer.error) throw new Error(`the database refused the committee's decision: ${answer.error.message}`);
       return DecidedSchema.parse(answer.data);
     },
-    approve: ({ mission, prd, round, toFleet, author = null }) => queue({ mission, toFleet, line: approveLine(prd, author), key: committeeKey(mission.id, prd, round) }),
+    approve: ({ mission, prd, round, toFleet, author = null, resume = 0 }) => queue({ mission, toFleet, line: approveLine(prd, author), key: resumeKey(committeeKey(mission.id, prd, round), resume) }),
     async pmJobs(id) {
       const jobs = rowsOf(AskRowSchema, await db.from("runner_jobs").select(ASK2).eq("mission_id", id).like("mission_key", `mission:${id}:pm:%`).order("queued_at"));
       return jobs.flatMap((job) => {
-        const round = job.mission_key === null ? null : pmRoundOfKey(job.mission_key);
-        return round === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job) }];
+        const step = job.mission_key === null ? null : resumeOfKey(job.mission_key);
+        const round = step === null ? null : pmRoundOfKey(step.key);
+        return round === null || step === null ? [] : [{ round, job: job.id, line: job.line, attempt: attemptOf(job), ...resumed2(step.resume) }];
       });
     },
-    pm: ({ mission, round, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: pmKey(mission.id, round) }),
+    pm: ({ mission, round, line: line3, toFleet, resume = 0 }) => queue({ mission, toFleet, line: line3, key: resumeKey(pmKey(mission.id, round), resume) }),
     async asks(id) {
       const rows = rowsOf(AskRowSchema, await db.from("runner_jobs").select(ASK2).eq("mission_id", id).is("mission_key", null).like("line", "/omni:committee % --item %").order("queued_at"));
       return rows.flatMap((row) => {
@@ -26586,14 +27674,14 @@ function missionStore(connection) {
     },
     repair: ({ mission, prd, k, failedJob, toFleet }) => queue({ mission, toFleet, line: repairSkillLine(mission.number, prd, failedJob), key: repairKey(mission.id, prd, k) }),
     async keepRepair(mission, { prd, fingerprint: fingerprint2, round, failedJob, job, retro: retro2, fixPr, trigger }) {
-      const answer = await db.from("mission_repairs").insert({ mission_id: mission.id, prd, fingerprint: fingerprint2, round, failed_job_id: failedJob, job_id: job, retro: retro2, fix_pr: fixPr, ...trigger === "stuck" ? { trigger } : {} }).select(REPAIR);
+      const answer = await db.from("mission_repairs").insert({ mission_id: mission.id, ...prdColumns(prd), fingerprint: fingerprint2, round, failed_job_id: failedJob, job_id: job, retro: retro2, fix_pr: fixPr, ...trigger === "stuck" ? { trigger } : {} }).select(REPAIR);
       if (answer.error?.code === OVER_BUDGET2) return { spent: answer.error.hint === "mission" ? "mission" : "cause" };
       const [kept3] = rowsOf(RepairRowSchema, answer);
       if (!kept3) throw new Error("the database kept no repair and gave no reason");
       return repairOf(kept3);
     },
     async endRepair(id, outcome3) {
-      rowsOf(z113.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
+      rowsOf(z114.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
     },
     async bugIssue(fingerprint2) {
       const [row] = rowsOf(BugReportRowSchema, await db.from("omni_bug_reports").select(BUG_REPORT).eq("fingerprint", fingerprint2).limit(1));
@@ -26601,7 +27689,7 @@ function missionStore(connection) {
     },
     addJob: (job) => jobLedger(connection).add(job),
     async names(mission) {
-      const repositories = rowsOf(RepositoryRowSchema2, await db.from("repositories").select(REPOSITORY).eq("workspace_id", mission.workspace));
+      const repositories = rowsOf(RepositoryRowSchema2, await db.from("repositories").select(REPOSITORY2).eq("workspace_id", mission.workspace));
       const actors = rowsOf(ActorRowSchema, await db.from("mission_events").select(ACTOR).eq("mission_id", mission.id).neq("actor", "agent"));
       const names = [mission.repo, ...repositories.map((row) => row.full_name)].flatMap((full) => [full, ...full.split("/")]);
       return [...new Set([...names, ...actors.flatMap((row) => row.actor === null ? [] : [row.actor])].filter((name) => name.length > 0))];
@@ -26614,17 +27702,17 @@ function missionStore(connection) {
         role: event.role,
         actor: "agent",
         kind: event.kind,
-        prd: event.prd,
+        ...prdColumns(event.prd),
         job_id: event.job,
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z113.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z114.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status: status2, waitingOn, nextWakeAt, pausedBy }) {
       const by = pausedBy === "stuck" ? { paused_by: pausedBy } : {};
       const moved = rowsOf(
-        z113.object({ id: text19 }),
+        z114.object({ id: text19 }),
         await db.from("missions").update({ status: status2, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString(), ...by }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -26634,7 +27722,7 @@ function missionStore(connection) {
       const spent2 = await missionSpent(mission);
       const fleet = await fleetSpent(mission, at4);
       const stops = await stopsOf(mission);
-      const pauses = rowsOf(PauseEventRowSchema, await db.from("mission_events").select(PAUSE_EVENT).eq("mission_id", mission.id).in("kind", ["paused", "resumed"]).is("prd", null).order("at", { ascending: false }).limit(PAUSES_READ));
+      const pauses = rowsOf(PauseEventRowSchema, await db.from("mission_events").select(PAUSE_EVENT).eq("mission_id", mission.id).in("kind", ["paused", "resumed"]).is("prd_id", null).order("at", { ascending: false }).limit(PAUSES_READ));
       return { missionSpent: spent2, missionCap: mission.tokens ?? null, fleetCap, ...fleet, ...stops, ...pausesOf(pauses) };
     },
     async fleetMissions(mission) {
@@ -26648,22 +27736,72 @@ function missionStore(connection) {
     async pause(ids, waitingOn) {
       if (ids.length === 0) return;
       rowsOf(
-        z113.unknown(),
+        z114.unknown(),
         await db.from("missions").update({ status: "paused", waiting_on: waitingOn, next_wake_at: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", [...ids]).in("status", ["running", "waiting"]).select("id")
       );
+    },
+    async branches(id) {
+      return rowsOf(BranchRowSchema, await db.from("mission_branches").select(BRANCH2).eq("mission_id", id).order("cut_at")).map((row) => ({ repo: row.repo, branch: row.branch, cutAt: row.cut_at }));
+    },
+    async keepBranch(mission, { repo, branch }) {
+      const answer = await db.from("mission_branches").insert({ mission_id: mission.id, repo: repo.toLowerCase(), branch }).select("repo");
+      if (answer.error?.code === TAKEN) return false;
+      if (rowsOf(z114.object({ repo: text19 }), answer).length === 0) throw new Error("the database kept no mission branch and gave no reason");
+      return true;
+    },
+    async decideItem(mission, { prd, item, job, verdicts, decision }) {
+      const answer = await db.rpc("mission_decide_item", {
+        p_mission: mission.id,
+        ...isProductPrdId(prd) ? { p_product_prd: prd } : { p_prd: prd },
+        p_job: job,
+        p_item: item,
+        p_verdicts: [...verdicts],
+        p_outcome: decision.outcome,
+        p_why: decision.why,
+        ...decision.option === null ? {} : { p_option: decision.option }
+      });
+      if (answer.error) throw new Error(`the database refused the item's decision: ${answer.error.message}`);
+      return ItemDecidedSchema.parse(answer.data);
+    },
+    async decisions(id) {
+      return rowsOf(FleetDecisionRowSchema, await db.from("mission_decisions").select(FLEET_DECISION).eq("mission_id", id).order("decided_at")).map((row) => ({
+        kind: row.kind,
+        prd: row.prd_id,
+        item: row.item,
+        job: row.job_id,
+        outcome: row.outcome,
+        why: row.why,
+        option: row.option,
+        decidedAt: row.decided_at
+      }));
     }
   };
 }
 
 // apps/omni-app/src/missions/notebook.ts
-import { z as z114 } from "zod";
+import { z as z116 } from "zod";
+
+// kit/lib/session/fleet-learned.ts
+import { readFileSync as readFileSync51, rmSync as rmSync22, writeFileSync as writeFileSync19 } from "node:fs";
+import { join as join77 } from "node:path";
+import { z as z115 } from "zod";
+var FLEET_LEARNED_FILE = join77(LOCAL_DIR, "fleet-learned.json");
+var MAX_LINES = 50;
+var MAX_EVENTS = 10;
+var LearnedEventSchema = z115.object({ at: z115.string().min(1).max(40), kind: z115.string().min(1).max(40), sentence: z115.string().max(2e3) });
+var LearnedLineSchema = z115.object({ day: z115.string().min(1).max(40), line: z115.string().min(1).max(300), events: z115.array(LearnedEventSchema).max(MAX_EVENTS).default([]) });
+var FleetLearnedSchema = z115.object({ role: z115.string().min(1).max(40), lines: z115.array(LearnedLineSchema).max(MAX_LINES) });
+var ESCAPED = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "|": "/" };
+var asData = (text20) => text20.replace(/\s+/g, " ").trim().replace(/[&<>|]/g, (mark) => ESCAPED[mark] ?? mark);
+
+// apps/omni-app/src/missions/notebook.ts
 var NOTEBOOK_KIND = "commander-notebook";
 var NOTEBOOK_MODEL = "anthropic/claude-sonnet-5.5";
 var LINE_MAX3 = 300;
 var EVENTS_PER_LINE = 10;
 var BATCH_MAX = 5;
-var NotebookReplySchema = z114.object({
-  lines: z114.array(z114.object({ text: z114.string(), refs: z114.array(z114.string()).default([]) })).max(20)
+var NotebookReplySchema = z116.object({
+  lines: z116.array(z116.object({ text: z116.string(), refs: z116.array(z116.string()).default([]) })).max(20)
 });
 var NOTEBOOK_REPLY_SCHEMA = {
   name: "notebook_lines",
@@ -26701,8 +27839,6 @@ var NOTEBOOK_SYSTEM = [
   "Never repeat a line the <notebook> block already holds. Never say that all is well.",
   'At most 5 lines, each under 300 characters. When nothing is worth keeping, answer {"lines": []}.'
 ].join("\n");
-var ESCAPED = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "|": "/" };
-var asData = (text20) => text20.replace(/\s+/g, " ").trim().replace(/[&<>|]/g, (mark) => ESCAPED[mark] ?? mark);
 function notebookPrompt(input) {
   const refs = /* @__PURE__ */ new Map();
   const events = [...input.events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)).map((e, n) => {
@@ -26794,12 +27930,95 @@ function screenLines(input) {
   }
   return { lines: lines2, dropped };
 }
+var LEARNED_MAX = 20 - BATCH_MAX;
+var DECISION_READS = [
+  {
+    kind: "decided",
+    pattern: /^The committee answered (?<item>\S+) of PRD (?<prd>\S+) with option (?<option>\S+?):/,
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet answered ${item} with option ${option}`, answer: true })
+  },
+  {
+    kind: "deferred",
+    pattern: /^The committee deferred (?<item>\S+) of PRD (?<prd>\S+?): option (?<option>\S+) meanwhile/,
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet deferred ${item}, taking option ${option} meanwhile`, answer: false })
+  },
+  { kind: "decided", pattern: /^The committee approved PRD (?<prd>\S+?):/, said: (_item, prdSaid) => ({ name: prdSaid, prdSaid, words: "the fleet approved the PRD", answer: false }) }
+];
+var OVERTURNED_BY = /^(\S+) overturned fleet decision ([^\s:]+):/;
+var REPAIR_FIXED = /^(?:(?<prd>.+?)'s repair|The (?<stuck>stuck) repair) \[(?<fingerprint>[0-9a-f]{1,8})\] ended fixed\.$/;
+var RETRO_READS = /retro \[([0-9a-f]{1,8})\] reads ([^:]+): (.+)$/;
+var RESUMED = /^PRD (\S+) ended without its result line: the mission sends it a fresh job \((.+)\)\.$/;
+function decidedOf(event) {
+  for (const read2 of DECISION_READS) {
+    const groups = read2.kind === event.kind ? read2.pattern.exec(event.sentence)?.groups : void 0;
+    if (groups) return { ...read2.said(groups.item ?? "", groups.prd ?? "", groups.option ?? ""), event: event.id };
+  }
+  return null;
+}
+function overturnLine(event, decisions) {
+  const [, login, name] = OVERTURNED_BY.exec(event.sentence) ?? [];
+  if (login === void 0 || name === void 0) return null;
+  const [prd = name, item] = name.split("/");
+  const decided = decisions.get(name);
+  if (decided === void 0) return { line: `PRD ${prd}: ${login} overturned the fleet's decision${item === void 0 ? "" : ` on ${item}`}.`, events: [event.id] };
+  const what = item === void 0 ? "approval" : decided.answer ? "answer" : "decision";
+  return { line: `PRD ${decided.prdSaid}: ${decided.words}; ${login} overturned that ${what}.`, events: [decided.event, event.id] };
+}
+function causeOf(cause, room) {
+  const flat2 = cause.replace(/\s+/g, " ").trim().replace(/\.$/, "");
+  if (flat2 === "" || readsAsInstruction(flat2) || LINK2.test(flat2) || maskSecrets(flat2) !== flat2) return null;
+  return flat2.length + 1 <= room ? `${flat2}.` : `${flat2.slice(0, Math.max(0, room - 1)).trimEnd()}\u2026`;
+}
+function repairLine2(event, retros) {
+  const groups = REPAIR_FIXED.exec(event.sentence)?.groups;
+  if (groups?.fingerprint === void 0) return null;
+  const stuck = groups.stuck !== void 0;
+  const words = stuck ? { who: "The mission", broke: "was stuck", fixer: "a stuck repair" } : { who: groups.prd ?? "A PRD", broke: "broke", fixer: "a repair" };
+  return retroLine2({ ...words, fingerprint: groups.fingerprint, event: event.id }, retros.get(groups.fingerprint));
+}
+function retroLine2(repair, retro2) {
+  const { who, fingerprint: fingerprint2 } = repair;
+  if (retro2 === void 0) return { line: `${who} broke [${fingerprint2}], and ${repair.fixer} fixed it.`, events: [repair.event] };
+  const fixer = `A${repair.fixer.slice(1)} fixed it.`;
+  const broke = `${who} ${repair.broke} on ${retro2.kind.trim()} [${fingerprint2}]`;
+  const cause = causeOf(retro2.cause, LINE_MAX3 - broke.length - fixer.length - 3);
+  return { line: cause === null ? `${broke}. ${fixer}` : `${broke}: ${cause} ${fixer}`, events: [retro2.event, repair.event] };
+}
+function resumeLine(event) {
+  const match = event.kind === "held" ? RESUMED.exec(event.sentence) : null;
+  return match?.[1] && match[2] ? { line: `PRD ${match[1]} ended without its result line; a fresh job of the same skill took it on (${match[2]}).`, events: [event.id] } : null;
+}
+function learnedOf(event, decisions, retros) {
+  if (event.kind === "overturned") return overturnLine(event, decisions);
+  if (event.kind === "repair-ended") return repairLine2(event, retros);
+  return resumeLine(event);
+}
+function learnedLines(input) {
+  const max = input.max ?? LEARNED_MAX;
+  const decisions = /* @__PURE__ */ new Map();
+  const retros = /* @__PURE__ */ new Map();
+  const seen = new Set(input.kept.map((line3) => line3.trim()));
+  const lines2 = [];
+  for (const event of [...input.events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))) {
+    const decided = decidedOf(event);
+    if (decided !== null) decisions.set(decided.name, decided);
+    const retro2 = event.kind === "retro" ? RETRO_READS.exec(event.sentence) : null;
+    if (retro2?.[1] && retro2[2] && retro2[3]) retros.set(retro2[1], { kind: retro2[2], cause: retro2[3], event: event.id });
+    const line3 = learnedOf(event, decisions, retros);
+    if (line3 === null || line3.line.length > LINE_MAX3 || seen.has(line3.line) || lines2.length >= max) continue;
+    seen.add(line3.line);
+    lines2.push(line3);
+  }
+  return lines2;
+}
 
 // apps/omni-app/src/missions/notebook-run.ts
 var BATCHES_PER_RUN = 6;
 var ENDED_WITHIN_MS = 3 * 24 * 60 * 60 * 1e3;
 var EVENTS_READ = 100;
 var LINES_SHOWN = 50;
+var LEARNED_EVENTS_READ = 500;
+var LEARNED_SHOWN = 200;
 var AGAIN_MS3 = 6e4;
 var PROGRESS_MAX = 300;
 function liveNotebookModel(openrouter, fetch2 = globalThis.fetch) {
@@ -26827,12 +28046,19 @@ async function batchesDue(store, now) {
     ...[...ended7].sort(byId).map((mission) => ({ notebook: "fleet", mission, day: utcDayOf(now), from: null, to: null }))
   ];
 }
-var rowsOf3 = (batch, lines2) => lines2.map((line3, n) => ({ workspace: batch.mission.workspace, fleet: batch.mission.fleet, notebook: batch.notebook, mission: batch.mission.id, day: batch.day, place: n + 1, line: line3.line, events: line3.events }));
-async function runBatch(store, model, batch, at4) {
+var rowsOf4 = (batch, lines2) => lines2.map((line3, n) => ({ workspace: batch.mission.workspace, fleet: batch.mission.fleet, notebook: batch.notebook, mission: batch.mission.id, day: batch.day, place: n + 1, line: line3.line, events: line3.events }));
+async function eventsToAsk(store, batch, at4) {
   const { mission, notebook } = batch;
   if (await store.written({ notebook, mission: mission.id, day: notebook === "mission" ? batch.day : null })) return { asked: false };
   const events = await store.events(mission.id, { from: batch.from, to: batch.to, limit: EVENTS_READ });
-  if (events.length === 0 || await store.over(mission.workspace, mission.fleet, at4)) return { asked: false };
+  if (events.length === 0) return { asked: false };
+  return await store.over(mission.workspace, mission.fleet, at4) ? { asked: false, over: true } : events;
+}
+async function runBatch(store, model, batch, at4) {
+  if (model === null) return { asked: false };
+  const { mission, notebook } = batch;
+  const events = await eventsToAsk(store, batch, at4);
+  if (!Array.isArray(events)) return events;
   const missionLines = await store.lines({ notebook: "mission", mission: mission.id }, LINES_SHOWN);
   const kept3 = notebook === "mission" ? missionLines : await store.lines({ notebook: "fleet", workspace: mission.workspace, fleet: mission.fleet }, LINES_SHOWN);
   const prompt = notebookPrompt({ notebook, mission, day: batch.day, events, kept: kept3, ...notebook === "fleet" ? { learned: missionLines } : {} });
@@ -26840,7 +28066,26 @@ async function runBatch(store, model, batch, at4) {
   if (!answer.ok) throw new Error(`the notebook's model gave no answer: ${answer.why}`);
   const screened = screenLines({ candidates: answer.lines, refs: prompt.refs, kept: kept3, max: BATCH_MAX });
   const dropped = Object.values(screened.dropped).reduce((sum, n) => sum + n, 0);
-  return { asked: true, written: screened.lines.length === 0 ? 0 : await store.write(rowsOf3(batch, screened.lines)), dropped };
+  return { asked: true, written: screened.lines.length === 0 ? 0 : await store.write(rowsOf4(batch, screened.lines)), dropped };
+}
+async function runLearned(store, batch) {
+  const { mission } = batch;
+  const events = await store.events(mission.id, { from: null, to: null, limit: LEARNED_EVENTS_READ });
+  if (events.length === 0) return 0;
+  const kept3 = await store.lines({ notebook: "fleet", workspace: mission.workspace, fleet: mission.fleet }, LEARNED_SHOWN);
+  const lines2 = learnedLines({ events, kept: kept3 });
+  if (lines2.length === 0) return 0;
+  return store.write(rowsOf4(batch, lines2).map((row) => ({ ...row, place: row.place + BATCH_MAX })));
+}
+async function runOne(store, model, batch, at4, summary2) {
+  const done = await runBatch(store, model, batch, at4);
+  if (batch.notebook === "fleet" && !("over" in done)) summary2.learned += await runLearned(store, batch);
+  if (!done.asked) return false;
+  summary2.dropped += done.dropped;
+  if (done.written === 0) summary2.empty += 1;
+  summary2.batches += done.written > 0 ? 1 : 0;
+  summary2.lines += done.written;
+  return true;
 }
 function readBefore(progress) {
   const read2 = progress?.read;
@@ -26857,54 +28102,47 @@ function notebookHandler({
   log: log2 = noteTo("commander-notebook")
 }) {
   return async (job) => {
-    if (model === null) return { outcome: "skipped", reason: "no model key: the notebooks write nothing" };
     const now = slotOf(job.payload, clock);
     const read2 = readBefore(job.progress);
-    const summary2 = { batches: 0, lines: 0, empty: 0, dropped: 0 };
+    const summary2 = { batches: 0, lines: 0, empty: 0, dropped: 0, learned: 0 };
+    const said4 = () => `commander notebook: ${String(summary2.batches)} batches, ${String(summary2.lines)} lines, ${String(summary2.empty)} empty, ${String(summary2.dropped)} dropped, ${String(summary2.learned)} learned`;
     let asked = 0;
     for (const batch of await batchesDue(store, now)) {
       const key = `${batch.notebook}:${batch.mission.id}`;
-      if (read2.has(key)) continue;
+      if (read2.has(key) || model === null && batch.notebook === "mission") continue;
       if (asked >= BATCHES_PER_RUN) {
-        log2(`commander notebook: ${String(summary2.batches)} batches, ${String(summary2.lines)} lines, ${String(summary2.empty)} empty, ${String(summary2.dropped)} dropped; more to read`);
+        log2(`${said4()}; more to read`);
         return { outcome: "later", at: new Date(clock() + AGAIN_MS3), progress: { read: [...read2].slice(-PROGRESS_MAX) } };
       }
-      const done = await runBatch(store, model, batch, new Date(clock()));
+      if (await runOne(store, model, batch, new Date(clock()), summary2)) asked += 1;
       read2.add(key);
-      if (!done.asked) continue;
-      asked += 1;
-      summary2.dropped += done.dropped;
-      if (done.written > 0) {
-        summary2.batches += 1;
-        summary2.lines += done.written;
-      } else summary2.empty += 1;
     }
-    log2(`commander notebook: ${String(summary2.batches)} batches, ${String(summary2.lines)} lines, ${String(summary2.empty)} empty, ${String(summary2.dropped)} dropped`);
-    return { outcome: "done" };
+    log2(said4());
+    return model === null ? { outcome: "skipped", reason: `no model key: only what the fleet learned is written (${String(summary2.learned)} lines)` } : { outcome: "done" };
   };
 }
 
 // apps/omni-app/src/missions/notebook-store.ts
-import { z as z115 } from "zod";
+import { z as z117 } from "zod";
 var NOTE_MISSION = "id, workspace_id, fleet, number, title, status, teams!inner(kind)";
 var NOTE_EVENT = "id, at, role, kind, prd, sentence";
 var NOTE_LINE = "line";
 var NOTE_BATCH = "id";
 var NOTE_CAP = "daily_tokens";
-var NoteMissionRowSchema = z115.object({
-  id: z115.uuid(),
-  workspace_id: z115.uuid(),
-  fleet: z115.string().min(1),
-  number: z115.number().int().positive(),
-  title: z115.string(),
-  status: z115.string(),
-  teams: z115.object({ kind: z115.string() })
+var NoteMissionRowSchema = z117.object({
+  id: z117.uuid(),
+  workspace_id: z117.uuid(),
+  fleet: z117.string().min(1),
+  number: z117.number().int().positive(),
+  title: z117.string(),
+  status: z117.string(),
+  teams: z117.object({ kind: z117.string() })
 });
-var NoteEventRowSchema = z115.object({ id: z115.uuid(), at: z115.string(), role: z115.string(), kind: z115.string(), prd: PrdNumberSchema.nullable(), sentence: z115.string() });
-var NoteLineRowSchema = z115.object({ line: z115.string() });
-var NoteBatchRowSchema = z115.object({ id: z115.uuid() });
-var NoteCapRowSchema = z115.object({ daily_tokens: z115.number().int().positive().nullable() });
-var SpentRowSchema = z115.object({ tokens: z115.coerce.number().int().min(0) });
+var NoteEventRowSchema = z117.object({ id: z117.uuid(), at: z117.string(), role: z117.string(), kind: z117.string(), prd: PrdNumberSchema.nullable(), sentence: z117.string() });
+var NoteLineRowSchema = z117.object({ line: z117.string() });
+var NoteBatchRowSchema = z117.object({ id: z117.uuid() });
+var NoteCapRowSchema = z117.object({ daily_tokens: z117.number().int().positive().nullable() });
+var SpentRowSchema = z117.object({ tokens: z117.coerce.number().int().min(0) });
 var missionOf = (row) => ({
   id: row.id,
   workspace: row.workspace_id,
@@ -27066,9 +28304,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z116 } from "zod";
+import { z as z118 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z116.looseObject({ category: z116.string().nullable() });
+var ReplySchema2 = z118.looseObject({ category: z118.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -27091,10 +28329,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z117 } from "zod";
-var UngroupedRowSchema = z117.object({ id: z117.string().min(1), product_id: z117.string().min(1), workspace_id: z117.string().min(1), query: z117.string().min(1) });
-var NearestRowSchema = z117.object({ group_id: z117.string().min(1), cosine: z117.number() });
-var GroupIdSchema = z117.object({ id: z117.string().min(1) });
+import { z as z119 } from "zod";
+var UngroupedRowSchema = z119.object({ id: z119.string().min(1), product_id: z119.string().min(1), workspace_id: z119.string().min(1), query: z119.string().min(1) });
+var NearestRowSchema = z119.object({ group_id: z119.string().min(1), cosine: z119.number() });
+var GroupIdSchema = z119.object({ id: z119.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -27112,7 +28350,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z117.array(NearestRowSchema).parse(data);
+      const [row] = z119.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -27132,13 +28370,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z118 } from "zod";
+import { z as z120 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z118.looseObject({
-  verdicts: z118.array(z118.looseObject({ entryId: z118.string().min(1), relevant: z118.boolean().nullable(), confidence: z118.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z120.looseObject({
+  verdicts: z120.array(z120.looseObject({ entryId: z120.string().min(1), relevant: z120.boolean().nullable(), confidence: z120.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z118.looseObject({ ids: z118.array(z118.string().min(1)) });
+var SearchSchema2 = z120.looseObject({ ids: z120.array(z120.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -27174,19 +28412,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z119 } from "zod";
+import { z as z121 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z119.object({ group_id: z119.string().min(1), product_id: z119.string().min(1), workspace_id: z119.string().min(1), category: z119.string().nullable() });
-var GroupRowSchema = z119.object({ group_id: z119.string().min(1) });
-var QuestionTextSchema = z119.object({ question: z119.string() });
-var OpenedRowSchema = z119.object({ opened_id: z119.string().min(1) });
-var ProductRowSchema4 = z119.object({ product_id: z119.string().min(1) });
-var HolderRowSchema5 = z119.object({ product_id: z119.string().min(1) });
-var LiveProductSchema = z119.object({ id: z119.string().min(1) });
-var QuestionRowSchema = z119.object({ id: z119.string().min(1), product_id: z119.string().min(1), workspace_id: z119.string().min(1), question: z119.string(), category: z119.string().nullable() });
-var AnswerRowSchema = z119.object({ question_id: z119.string().min(1), entry_id: z119.string().min(1) });
-var RunRowSchema = z119.object({ id: z119.string().min(1) });
+var LogRowSchema = z121.object({ group_id: z121.string().min(1), product_id: z121.string().min(1), workspace_id: z121.string().min(1), category: z121.string().nullable() });
+var GroupRowSchema = z121.object({ group_id: z121.string().min(1) });
+var QuestionTextSchema = z121.object({ question: z121.string() });
+var OpenedRowSchema = z121.object({ opened_id: z121.string().min(1) });
+var ProductRowSchema4 = z121.object({ product_id: z121.string().min(1) });
+var HolderRowSchema5 = z121.object({ product_id: z121.string().min(1) });
+var LiveProductSchema = z121.object({ id: z121.string().min(1) });
+var QuestionRowSchema = z121.object({ id: z121.string().min(1), product_id: z121.string().min(1), workspace_id: z121.string().min(1), question: z121.string(), category: z121.string().nullable() });
+var AnswerRowSchema = z121.object({ question_id: z121.string().min(1), entry_id: z121.string().min(1) });
+var RunRowSchema = z121.object({ id: z121.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -27221,7 +28459,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z119.string().min(1).nullable().parse(data);
+      return z121.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -27234,7 +28472,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant: relevant2, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant2, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z119.boolean().parse(data);
+      return z121.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -27267,7 +28505,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z119.string().min(1).nullable().parse(data);
+      return z121.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -27283,16 +28521,16 @@ function countGroups(searches) {
     if (category !== null) group2.categories.set(category, (group2.categories.get(category) ?? 0) + 1);
     byGroup.set(groupId, group2);
   }
-  const counts = [];
+  const counts2 = [];
   for (const [groupId, { productId, workspaceId, count: count4, categories }] of byGroup) {
     const best = [...categories].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
-    if (best) counts.push({ groupId, productId, workspaceId, category: best[0], count: count4 });
+    if (best) counts2.push({ groupId, productId, workspaceId, category: best[0], count: count4 });
   }
-  return counts;
+  return counts2;
 }
-function pickGroups(counts, joined2, top2 = TOP_GROUPS) {
+function pickGroups(counts2, joined2, top2 = TOP_GROUPS) {
   const buckets = /* @__PURE__ */ new Map();
-  for (const group2 of counts) {
+  for (const group2 of counts2) {
     const key = `${group2.productId}\0${group2.category}`;
     buckets.set(key, [...buckets.get(key) ?? [], group2]);
   }
@@ -27358,19 +28596,19 @@ function searchEvalPromoteHandler({
 }
 
 // kit/lib/ready/report.ts
-import { z as z120 } from "zod";
+import { z as z122 } from "zod";
 var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
 var ACCEPTANCE_CHECK_NAME = "acceptance";
 var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z120.object({
-  ac: z120.number().int().positive(),
-  kind: z120.enum(AC_KINDS),
-  state: z120.enum(RESULT_STATES),
+var ResultSchema = z122.object({
+  ac: z122.number().int().positive(),
+  kind: z122.enum(AC_KINDS),
+  state: z122.enum(RESULT_STATES),
   /** The test's title, `AC-<n>: …`. */
-  title: z120.string().min(1),
+  title: z122.string().min(1),
   /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z120.string().min(1).nullable().default(null),
-  why: z120.string().min(1).optional()
+  proof: z122.string().min(1).nullable().default(null),
+  why: z122.string().min(1).optional()
 }).strict().superRefine((result, issues) => {
   const proves = acNumberOfTitle(result.title);
   if (proves !== result.ac) {
@@ -27378,10 +28616,10 @@ var ResultSchema = z120.object({
     issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
   }
 });
-var ReportSchema = z120.object({
-  format: z120.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z120.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z120.array(ResultSchema)
+var ReportSchema = z122.object({
+  format: z122.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z122.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z122.array(ResultSchema)
 }).strict();
 function parseAcceptanceReport(text20) {
   let raw;
@@ -27411,21 +28649,21 @@ var ACCEPTANCE_MARK = "omni-acceptance:";
 function acceptanceOfLog(log2) {
   const line3 = log2.split("\n").reverse().find((each) => each.includes(ACCEPTANCE_MARK));
   if (line3 === void 0) return null;
-  const said3 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
-  if (!said3.startsWith("{")) return { ok: false, why: said3.replace(/^failed — /, "") || "the run said nothing" };
-  const read2 = parseAcceptanceReport(said3);
+  const said4 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
+  if (!said4.startsWith("{")) return { ok: false, why: said4.replace(/^failed — /, "") || "the run said nothing" };
+  const read2 = parseAcceptanceReport(said4);
   return read2.ok ? { ok: true, report: read2.report } : { ok: false, why: read2.why };
 }
 var READY_JOB_KIND = "pr-ready";
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { mkdtempSync as mkdtempSync18, rmSync as rmSync22 } from "node:fs";
+import { mkdtempSync as mkdtempSync18, rmSync as rmSync23 } from "node:fs";
 import { tmpdir as tmpdir18 } from "node:os";
-import { join as join79 } from "node:path";
+import { join as join80 } from "node:path";
 
 // kit/lib/outbox/excuses.ts
 import { statSync as statSync17 } from "node:fs";
-import { join as join77 } from "node:path";
+import { join as join78 } from "node:path";
 function itemExcuses(text20) {
   return readFrontMatterBlock(text20, null, OutboxItemFrontMatterSchema).data?.excuses ?? [];
 }
@@ -27438,8 +28676,8 @@ var EXCUSING_VERDICTS = {
 function excuseItems({ settled: settled2, open }) {
   const fromLedger = settled2.map((entry) => ({ item: entry.id, verdict: entry.verdict?.trim() ?? null, excuses: itemExcuses(entry.itemText) }));
   const settledIds2 = new Set(settled2.map((entry) => entry.id));
-  const stillOpen = open.filter((item) => !settledIds2.has(item.id)).map((item) => ({ item: item.id, verdict: null, excuses: itemExcuses(item.text) }));
-  return [...fromLedger, ...stillOpen];
+  const stillOpen2 = open.filter((item) => !settledIds2.has(item.id)).map((item) => ({ item: item.id, verdict: null, excuses: itemExcuses(item.text) }));
+  return [...fromLedger, ...stillOpen2];
 }
 function whyNot({ item, verdict }) {
   if (verdict === null) return `${item} names it, but is still open`;
@@ -27448,10 +28686,10 @@ function whyNot({ item, verdict }) {
   return `${item} names it, but its verdict reads "${verdict}"`;
 }
 function excuse(path, items, check) {
-  const naming = items.filter((item) => item.excuses.includes(path));
-  const excusing = naming.find((item) => item.verdict !== null && EXCUSING_VERDICTS[check].includes(item.verdict));
+  const naming2 = items.filter((item) => item.excuses.includes(path));
+  const excusing = naming2.find((item) => item.verdict !== null && EXCUSING_VERDICTS[check].includes(item.verdict));
   if (excusing) return { excused: true, item: excusing.item };
-  const [first] = naming;
+  const [first] = naming2;
   return { excused: false, note: first === void 0 ? null : whyNot(first) };
 }
 
@@ -27667,10 +28905,10 @@ var pass = (why, excused = []) => ({ state: "pass", why, excused });
 var fail = (why) => ({ state: "fail", why });
 var waiting = (why) => ({ state: "not finished", why });
 var unjudged = (why) => ({ state: "not judged", why });
-var LISTED = 3;
-function listed3(items, separator) {
-  const more = items.length - LISTED;
-  return [...items.slice(0, LISTED), ...more > 0 ? [`and ${String(more)} more`] : []].join(separator);
+var LISTED2 = 3;
+function listed4(items, separator) {
+  const more = items.length - LISTED2;
+  return [...items.slice(0, LISTED2), ...more > 0 ? [`and ${String(more)} more`] : []].join(separator);
 }
 var plural7 = (count4, word) => `${String(count4)} ${word}${count4 === 1 ? "" : "s"}`;
 var LEFT_OUT = /* @__PURE__ */ new Set(["skipped", "neutral"]);
@@ -27723,15 +28961,15 @@ function proofsCheck(criteria, report) {
   const proofs = criteria.map((criterion) => proofOf2(criterion, report));
   const failing = proofs.flatMap((proof) => proof.state === "failing" ? [proof.why] : []);
   const pending = proofs.flatMap((proof) => proof.state === "waiting" ? [proof.why] : []);
-  if (failing.length > 0) return fail(listed3([...failing, ...pending], "; "));
-  if (pending.length > 0) return waiting(listed3(pending, "; "));
+  if (failing.length > 0) return fail(listed4([...failing, ...pending], "; "));
+  if (pending.length > 0) return waiting(listed4(pending, "; "));
   const count4 = String(criteria.length);
   return pass(`${count4} of ${count4} ${criteria.length === 1 ? "criterion" : "criteria"} proven`);
 }
 function acceptanceCheck(facts) {
   const { criteria, report } = facts;
   if (!criteria.ok) return unjudged(criteria.why);
-  if (criteria.value.problems.length > 0) return fail(`the spec's criteria are malformed: ${listed3(criteria.value.problems.map(({ problem }) => problem), "; ")}`);
+  if (criteria.value.problems.length > 0) return fail(`the spec's criteria are malformed: ${listed4(criteria.value.problems.map(({ problem }) => problem), "; ")}`);
   if (criteria.value.criteria.length === 0) return fail("the spec has no criterion written ### AC-<n> \xB7 <kind>");
   if (!report.ok) return unjudged(report.why);
   if (report.value === null) return noReport(facts.runs);
@@ -27752,7 +28990,7 @@ function excuseAll(found, ledger, check) {
   }
   return { open, excused };
 }
-var excusedText = (excused) => listed3(excused.map(({ path, item }) => `${path} excused by ${item}`), "; ");
+var excusedText = (excused) => listed4(excused.map(({ path, item }) => `${path} excused by ${item}`), "; ");
 function looseningOptions(facts) {
   const ends = facts.criteria.ok && facts.baseCriteria.ok ? { base: facts.baseCriteria.value, head: facts.criteria.value.criteria } : null;
   return { ground: facts.ground ?? READY_LOOSENING_GROUND, criteria: ends, generated: facts.area.ok ? facts.area.value.generated : [] };
@@ -27762,8 +29000,8 @@ function looseningCheck(facts) {
   const read2 = loosenings(facts.diff.value, looseningOptions(facts));
   const judged4 = excuseAll(read2.findings.map(({ path, what }) => ({ path, text: `${path}: ${what}` })), facts.ledger, "loosening");
   if ("state" in judged4) return judged4;
-  if (judged4.open.length > 0) return fail(listed3(judged4.open, "; "));
-  if (read2.unjudged.length > 0) return unjudged(listed3(read2.unjudged, "; "));
+  if (judged4.open.length > 0) return fail(listed4(judged4.open, "; "));
+  if (read2.unjudged.length > 0) return unjudged(listed4(read2.unjudged, "; "));
   return pass(judged4.excused.length === 0 ? "no test was loosened" : excusedText(judged4.excused), judged4.excused);
 }
 function areaCheck(facts) {
@@ -27774,7 +29012,7 @@ function areaCheck(facts) {
   const outside = breaches(paths, [...territories, ...prdFolders, ...generated]);
   const judged4 = excuseAll(outside.map((path) => ({ path, text: path })), facts.ledger, "area");
   if ("state" in judged4) return judged4;
-  if (judged4.open.length > 0) return fail(`outside every territory: ${listed3(judged4.open, ", ")}`);
+  if (judged4.open.length > 0) return fail(`outside every territory: ${listed4(judged4.open, ", ")}`);
   const inArea = "every file sits in its area";
   return pass(judged4.excused.length === 0 ? inArea : `${inArea}; ${excusedText(judged4.excused)}`, judged4.excused);
 }
@@ -27805,25 +29043,25 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z123 } from "zod";
+import { z as z125 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
-import { existsSync as existsSync52, readFileSync as readFileSync50 } from "node:fs";
-import { join as join78 } from "node:path";
-import { z as z121 } from "zod";
+import { existsSync as existsSync53, readFileSync as readFileSync52 } from "node:fs";
+import { join as join79 } from "node:path";
+import { z as z123 } from "zod";
 var read = (value) => ({ ok: true, value });
 var unread = (why) => ({ ok: false, why });
-var RunSchema3 = z121.looseObject({
-  name: z121.string(),
-  status: z121.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
-  conclusion: z121.string().nullish(),
-  html_url: z121.string().nullish(),
-  output: z121.looseObject({ title: z121.string().nullish(), summary: z121.string().nullish(), text: z121.string().nullish() }).nullish()
+var RunSchema3 = z123.looseObject({
+  name: z123.string(),
+  status: z123.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
+  conclusion: z123.string().nullish(),
+  html_url: z123.string().nullish(),
+  output: z123.looseObject({ title: z123.string().nullish(), summary: z123.string().nullish(), text: z123.string().nullish() }).nullish()
 });
-var RunsPageSchema2 = z121.looseObject({ check_runs: z121.array(RunSchema3) });
-var ComparePageSchema2 = z121.looseObject({
-  merge_base_commit: z121.looseObject({ sha: z121.string() }).nullish(),
-  files: z121.array(z121.looseObject({ filename: z121.string(), status: z121.string(), previous_filename: z121.string().nullish() })).nullish()
+var RunsPageSchema2 = z123.looseObject({ check_runs: z123.array(RunSchema3) });
+var ComparePageSchema2 = z123.looseObject({
+  merge_base_commit: z123.looseObject({ sha: z123.string() }).nullish(),
+  files: z123.array(z123.looseObject({ filename: z123.string(), status: z123.string(), previous_filename: z123.string().nullish() })).nullish()
 });
 var STATUS2 = Object.freeze({
   added: "added",
@@ -27877,8 +29115,8 @@ async function compareOf(octokit, { owner, repo, pr }) {
   return { mergeBase: bases[0] ?? pr.baseSha, files };
 }
 function textAt(root, path) {
-  const file = join78(root, path);
-  return existsSync52(file) ? readFileSync50(file, "utf8") : null;
+  const file = join79(root, path);
+  return existsSync53(file) ? readFileSync52(file, "utf8") : null;
 }
 function reportText(run) {
   for (const text20 of [run.output?.text, run.output?.summary]) {
@@ -27910,7 +29148,7 @@ function ledgerOf3({ prd, ctx }) {
   const settledText = textAt(ctx.root, `${dir}/${SETTLED_FILE}`);
   const settled2 = settledText === null ? [] : parseSettledEntries(settledText, ctx.markers);
   const open = outboxItemFiles({ ctx }).filter((file) => file.startsWith(`${dir}/`)).flatMap((file) => {
-    const text20 = readFileSync50(join78(ctx.root, file), "utf8");
+    const text20 = readFileSync52(join79(ctx.root, file), "utf8");
     const parsed3 = parseOutboxItem(text20, { file });
     return parsed3.ok ? [{ id: parsed3.item.id, text: text20 }] : [];
   });
@@ -27991,7 +29229,7 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
 }
 
 // apps/omni-app/src/ready-check/runner-fallback.ts
-import { z as z122 } from "zod";
+import { z as z124 } from "zod";
 
 // apps/omni-app/src/ready-check/zip.ts
 import { inflateRawSync } from "node:zlib";
@@ -28049,11 +29287,11 @@ function unzipText(zip, name) {
 var KEPT_ARTIFACT = "acceptance-report";
 var KEPT_FILE = "report.json";
 var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
-var ArtifactsSchema = z122.looseObject({
-  artifacts: z122.array(z122.looseObject({ id: z122.number(), expired: z122.boolean().nullish(), workflow_run: z122.looseObject({ head_sha: z122.string().nullish() }).nullish() }))
+var ArtifactsSchema = z124.looseObject({
+  artifacts: z124.array(z124.looseObject({ id: z124.number(), expired: z124.boolean().nullish(), workflow_run: z124.looseObject({ head_sha: z124.string().nullish() }).nullish() }))
 });
-var RunSchema4 = z122.looseObject({ id: z122.number(), status: z122.string().nullish(), conclusion: z122.string().nullish(), output: z122.looseObject({ title: z122.string().nullish(), summary: z122.string().nullish(), text: z122.string().nullish() }).nullish() });
-var RunsSchema = z122.looseObject({ check_runs: z122.array(RunSchema4).nullish() });
+var RunSchema4 = z124.looseObject({ id: z124.number(), status: z124.string().nullish(), conclusion: z124.string().nullish(), output: z124.looseObject({ title: z124.string().nullish(), summary: z124.string().nullish(), text: z124.string().nullish() }).nullish() });
+var RunsSchema = z124.looseObject({ check_runs: z124.array(RunSchema4).nullish() });
 async function keptReport(octokit, { owner, repo, headSha }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
   const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
@@ -28070,16 +29308,16 @@ async function keptReport(octokit, { owner, repo, headSha }) {
 }
 var ended6 = (job) => job !== null && ["done", "failed", "cancelled"].includes(job.status);
 function noResult(job) {
-  const said3 = acceptanceOfLog(job.logTail);
-  const how = said3 !== null && !said3.ok ? said3.why : job.reason ?? `it ended ${job.status} with no result`;
+  const said4 = acceptanceOfLog(job.logTail);
+  const how = said4 !== null && !said4.ok ? said4.why : job.reason ?? `it ended ${job.status} with no result`;
   return `the runner's e2e run gave no result (${how}); a new commit runs it again`;
 }
 function standingReport(kept3, criteria, job) {
   if (!ended6(job)) return kept3;
   const e2e = new Set(criteria.filter((criterion) => criterion.kind === "e2e").map((criterion) => criterion.number));
   const others = kept3.results.filter((result) => result.kind !== "e2e" || !e2e.has(result.ac));
-  const said3 = acceptanceOfLog(job.logTail);
-  const ran = said3?.ok === true && said3.report.commit === kept3.commit ? said3.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
+  const said4 = acceptanceOfLog(job.logTail);
+  const ran = said4?.ok === true && said4.report.commit === kept3.commit ? said4.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
   return { ...kept3, results: [...others, ...ran].sort((a, b) => a.ac - b.ac) };
 }
 function standing(criterion, report) {
@@ -28186,12 +29424,12 @@ function notJudgedOutput(reason2) {
 async function readyTarget(octokit, { store, request, head }) {
   const { owner, repo, prNumber, installationId } = request;
   const pr = await readPull2(octokit, { owner, repo, prNumber });
-  const base = mkdtempSync18(join79(tmpdir18(), "omni-ready-config-"));
+  const base = mkdtempSync18(join80(tmpdir18(), "omni-ready-config-"));
   let config;
   try {
     ({ config } = await readBaseConfig(octokit, { owner, repo, baseSha: pr.baseSha, dest: base }));
   } finally {
-    rmSync22(base, { recursive: true, force: true });
+    rmSync23(base, { recursive: true, force: true });
   }
   if (!config || config.ready.checks === "off") return { skip: "the ready checks are off here, or the loop is not installed" };
   const kind = pullKind(pr, config);
@@ -28205,9 +29443,9 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema5 = z123.looseObject({ id: z123.number(), status: z123.string().nullish(), conclusion: z123.string().nullish(), html_url: z123.string().nullish(), output: z123.looseObject({ title: z123.string().nullish(), summary: z123.string().nullish() }).nullish() });
-var RunsSchema2 = z123.looseObject({ check_runs: z123.array(RunSchema5).nullish() });
-var WrittenSchema2 = z123.looseObject({ id: z123.number(), html_url: z123.string().nullish() });
+var RunSchema5 = z125.looseObject({ id: z125.number(), status: z125.string().nullish(), conclusion: z125.string().nullish(), html_url: z125.string().nullish(), output: z125.looseObject({ title: z125.string().nullish(), summary: z125.string().nullish() }).nullish() });
+var RunsSchema2 = z125.looseObject({ check_runs: z125.array(RunSchema5).nullish() });
+var WrittenSchema2 = z125.looseObject({ id: z125.number(), html_url: z125.string().nullish() });
 var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
@@ -28231,8 +29469,8 @@ function proofOf3(criterion, report) {
 }
 var criteriaRows = (criteria, report) => criteria.map((criterion) => ({ number: criterion.number, kind: criterion.kind, scenario: criterion.scenario, lines: criterion.lines, ...proofOf3(criterion, report) }));
 async function runReadyCheck(octokit, { store, request }) {
-  const head = mkdtempSync18(join79(tmpdir18(), "omni-ready-head-"));
-  const base = mkdtempSync18(join79(tmpdir18(), "omni-ready-base-"));
+  const head = mkdtempSync18(join80(tmpdir18(), "omni-ready-head-"));
+  const base = mkdtempSync18(join80(tmpdir18(), "omni-ready-base-"));
   try {
     const target2 = await readyTarget(octokit, { store, request, head });
     if ("skip" in target2) return { posted: false, reason: target2.skip };
@@ -28257,12 +29495,12 @@ async function runReadyCheck(octokit, { store, request }) {
     });
     return { posted: posted.posted, verdict: verdict.state, ...saved };
   } finally {
-    rmSync22(head, { recursive: true, force: true });
-    rmSync22(base, { recursive: true, force: true });
+    rmSync23(head, { recursive: true, force: true });
+    rmSync23(base, { recursive: true, force: true });
   }
 }
 async function postNotJudged(octokit, { store, request, reason: reason2 }) {
-  const head = mkdtempSync18(join79(tmpdir18(), "omni-ready-head-"));
+  const head = mkdtempSync18(join80(tmpdir18(), "omni-ready-head-"));
   try {
     let target2;
     try {
@@ -28273,7 +29511,7 @@ async function postNotJudged(octokit, { store, request, reason: reason2 }) {
     if ("skip" in target2) return false;
     return (await postReady(octokit, { owner: request.owner, repo: request.repo, headSha: target2.pr.headSha, output: notJudgedOutput(reason2) })).posted;
   } finally {
-    rmSync22(head, { recursive: true, force: true });
+    rmSync23(head, { recursive: true, force: true });
   }
 }
 
@@ -28301,15 +29539,15 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z124 } from "zod";
+import { z as z126 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var AppJobRowSchema = z124.object({
-  status: z124.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  log_tail: z124.string(),
-  reason: z124.string().nullable()
+var AppJobRowSchema = z126.object({
+  status: z126.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z126.string(),
+  reason: z126.string().nullable()
 });
-var MissionScopeRowSchema = z124.object({ scope: z124.object({ prds: z124.array(PrdNumberSchema), roadmaps: z124.array(z124.number().int().positive()) }) });
-var RoadmapRowOfSchema = z124.object({ roadmap_id: z124.string().min(1) });
+var MissionScopeRowSchema = z126.object({ scope: z126.object({ prds: z126.array(PrdNumberSchema), roadmaps: z126.array(z126.number().int().positive()) }) });
+var RoadmapRowOfSchema = z126.object({ roadmap_id: z126.string().min(1) });
 function readyStore(connection) {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
@@ -28500,11 +29738,11 @@ async function runDue({
   while (clock() - start < budgetMs && endsAt2 - clock() >= CLAIM_LEFT_MS) {
     const [job] = await ledger.claim({ limit: 1, leaseSeconds });
     if (!job) break;
-    if (await runOne(job, run) === "cut short") break;
+    if (await runOne2(job, run) === "cut short") break;
   }
   return summary2;
 }
-async function runOne(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt: endsAt2, log: log2, summary: summary2 }) {
+async function runOne2(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt: endsAt2, log: log2, summary: summary2 }) {
   const settling = settle2(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
   const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
@@ -28606,7 +29844,7 @@ function liveJobs(env, logger) {
     bugs: () => sweepBugs({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), log: noteTo("bug-follow", logger) })
   };
 }
-var ReplayBodySchema = z125.object({ replay: z125.string().min(1) });
+var ReplayBodySchema = z127.object({ replay: z127.string().min(1) });
 var json2 = (status2, body) => Response.json(body, { status: status2, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;

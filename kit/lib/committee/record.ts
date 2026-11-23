@@ -34,7 +34,8 @@ const RECORD = {
   read: z.array(ReadFileSchema).max(10),
   escalations: z.array(z.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
   verdicts: z.array(VerdictSchema).max(COMMITTEE_ROLES.length + 1),
-  outcome: z.enum(['carried', 'escalated']),
+  /** `deferred` (PRD omni-loop-21 s2): an item the vote did not carry, settled meanwhile with option A, open for a person at landing. */
+  outcome: z.enum(['carried', 'deferred', 'escalated']),
 };
 
 const CommitteeRecordSchema = z.discriminatedUnion('kind', [

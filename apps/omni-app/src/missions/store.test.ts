@@ -54,8 +54,8 @@ describe('missionStore — the mission as the service role, never calling Supaba
 
   it('reads the mission row as the supervisor sees it', async () => {
     const db = recordingFetch([[{ id: ID, workspace_id: 'ws-1', repo: 'acme/widgets', fleet: 'night-shift', number: 12, title: 'Faster quotes', status: 'running', waiting_on: null, mandate: { parallel: 3 }, scope: { prds: [7], roadmaps: [] } }]]);
-    // A brief with no hard-to-revert bound and no cap on the fleet's own PRDs reads their defaults (PRD 2896 s10, s12).
-    expect(await storeOn(db.fetch).mission(ID)).toEqual({ ...mission, parallel: 3, scope: { prds: [7], roadmaps: [] }, hardToRevert: 0.6, ownPrds: 0 });
+    // A brief with no hard-to-revert bound, no cap on the fleet's own PRDs and no resumes reads their defaults (PRD 2896 s10, s12; PRD omni-loop-21).
+    expect(await storeOn(db.fetch).mission(ID)).toEqual({ ...mission, parallel: 3, scope: { prds: [7], roadmaps: [] }, hardToRevert: 0.6, ownPrds: 0, resumes: 3 });
     expect(nth(db.requests, 0).query.get('id')).toBe(`eq.${ID}`);
     expect(await storeOn(recordingFetch([[]]).fetch).mission(ID)).toBeNull();
   });
@@ -109,7 +109,7 @@ describe('missionStore — the mission as the service role, never calling Supaba
         [{ id: 'd-8', prd: 8 }],
         [{ id: 'a-8f', dossier_id: 'd-8', mission_id: ID, approved_at: '2027-01-22T08:00:00Z' }],
         [],
-        [{ prd: 8, at: overturnedAt }],
+        [{ prd_id: '8', at: overturnedAt }],
       ]);
       const read = await storeOn(db.fetch).facts({ ...mission, scope: { prds: [parsePrd(8)], roadmaps: [] } });
       return { approval: read[0]?.approval, asked: nth(db.requests, 4) };
@@ -121,7 +121,7 @@ describe('missionStore — the mission as the service role, never calling Supaba
   });
 
   it('reads the fleet\'s decisions and the overturns of them, oldest first (PRD 2896 s11)', async () => {
-    const db = recordingFetch([[{ kind: 'decided', prd: 7, sentence: 'The committee approved PRD 7: pm yes.', link: null, actor: 'agent' }]]);
+    const db = recordingFetch([[{ kind: 'decided', prd_id: '7', sentence: 'The committee approved PRD 7: pm yes.', link: null, actor: 'agent' }]]);
     expect(await storeOn(db.fetch).fleetEvents(ID)).toEqual([{ kind: 'decided', prd: 7, sentence: 'The committee approved PRD 7: pm yes.', link: null, actor: 'agent' }]);
     expect(nth(db.requests, 0).query.get('kind')).toBe('in.(decided,overturned)');
   });
@@ -342,8 +342,8 @@ describe('missionStore — the mission as the service role, never calling Supaba
       { kind: 'waits', role: 'supervisor', prd: null, job: null, link: null, sentence: 'Waits.' },
     ], at);
     expect(nth(db.requests, 0).body).toEqual([
-      { mission_id: ID, at: '2027-01-22T09:00:00.000Z', role: 'supervisor', actor: 'agent', kind: 'dispatched', prd: 7, job_id: 'j-1', link: null, sentence: 'Sent.' },
-      { mission_id: ID, at: '2027-01-22T09:00:00.001Z', role: 'supervisor', actor: 'agent', kind: 'waits', prd: null, job_id: null, link: null, sentence: 'Waits.' },
+      { mission_id: ID, at: '2027-01-22T09:00:00.000Z', role: 'supervisor', actor: 'agent', kind: 'dispatched', prd: 7, product_prd: null, job_id: 'j-1', link: null, sentence: 'Sent.' },
+      { mission_id: ID, at: '2027-01-22T09:00:00.001Z', role: 'supervisor', actor: 'agent', kind: 'waits', prd: null, product_prd: null, job_id: null, link: null, sentence: 'Waits.' },
     ]);
     const none = recordingFetch();
     await storeOn(none.fetch).record(ID, [], at);

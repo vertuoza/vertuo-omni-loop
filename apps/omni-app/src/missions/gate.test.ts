@@ -82,6 +82,36 @@ describe('the merge gate of a mission branch (PRD 2896 s4, criterion 6)', () => 
   });
 });
 
+describe('a high item the fleet carried or deferred is answered on the mission branch only (PRD omni-loop-21 s8, BR-PRODUCT-145)', () => {
+  const open = (...items: [string | null, string | null][]) => ({ ranks: items.map(([, rank]) => rank), open: items.map(([id, rank]) => ({ id, rank })) });
+  const fleet = new Set(['s2-01-keep-the-cap', 's3-02-seed-the-quotes']);
+
+  it('merges once every open high item is one the fleet decided', () => {
+    expect(judge(pull({ items: open(['s2-01-keep-the-cap', 'high'], ['s1-04-name', 'medium']) }), BRANCH, fleet)).toEqual({ decision: 'merge' });
+    expect(judge(pull({ items: open(['s2-01-keep-the-cap', 'high'], ['s3-02-seed-the-quotes', 'high']) }), BRANCH, fleet)).toEqual({ decision: 'merge' });
+  });
+
+  it('still waits on a high item the fleet did not decide, and on any human-action or unreadable one', () => {
+    const gate = (items: ReturnType<typeof open>) => judge(pull({ items }), BRANCH, fleet);
+    expect(gate(open(['s2-01-keep-the-cap', 'high'], ['s4-01-other', 'high']))).toEqual({ decision: 'waits', lacks: ['1 high item open'] });
+    expect(gate(open(['s2-01-keep-the-cap', 'human-action']))).toEqual({ decision: 'waits', lacks: ['1 human-action item open'] });
+    expect(gate(open([null, null]))).toEqual({ decision: 'waits', lacks: ['1 unreadable item in its outbox'] });
+    // Ranks read with no ids name no item: each counts as it reads.
+    expect(judge(pull({ items: { ranks: ['high'] } }), BRANCH, fleet)).toEqual({ decision: 'waits', lacks: ['1 high item open'] });
+  });
+
+  it('counts nothing answered with no fleet decision, as before this PRD', () => {
+    expect(lacksOf(pull({ items: open(['s2-01-keep-the-cap', 'high']) }))).toEqual(['1 high item open']);
+  });
+
+  it('never merges a pull request into the default branch on the fleet\'s answer: a person answers it there', () => {
+    // The App's outbox check holds it too (../outbox-check/fleet-held.test.ts).
+    const items = open(['s2-01-keep-the-cap', 'high']);
+    expect(judge(pull({ base: 'main', items }), BRANCH, fleet)).toEqual({ decision: 'waits', lacks: ['#45 targets main, not mission/12-faster-quotes'] });
+    expect(judge(pull({ base: BRANCH, defaultBranch: BRANCH, items }), BRANCH, fleet).decision).toBe('waits');
+  });
+});
+
 describe('a check that did not decide is never a pass (BL-GATE-1)', () => {
   it('reads a neutral, skipped or cancelled end as not judged, with its reason', () => {
     expect(lacksOf(pull({ runs: [run(1, 'outbox', 'neutral', { title: 'not measured: the budget file is missing' })] }))).toEqual(['outbox not judged: not measured: the budget file is missing']);

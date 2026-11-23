@@ -12,15 +12,27 @@
 //            never writes to the default branch; a closed one; an item the kit refuses to settle. Each is an answer, never a throw.
 //            An item no longer open was settled already: nothing is written
 //
+// PRD omni-loop-21 s12, spec "7. Landing": a person's Agree with a deferred decision, on the mission pull request, settles that item
+// as theirs, on the mission branch, where the PRD's squash carried the fleet's entry:
+//
+//   agree    the mission branch's tip, its `.omni-loop/config.yml` and that PRD's outbox folder only; the kit's `agreeEntry`
+//            (kit/lib/mission/overturn.agree.ts): `settled.md` gains the person's entry, `Approved by: <login>`, after the fleet's, in one
+//            commit on the mission branch, moved without force. The outbox check into the default branch then no longer holds the
+//            item (BR-PRODUCT-145). The default branch is refused before the ledger is read; an item whose latest entry is no
+//            fleet's (a person answered it, or the branch holds none) writes nothing
+//
 // Throws when GitHub answers out of shape or fails otherwise: the run fails, and the worker retries it.
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { agreeEntry } from 'omni-loop/kit/lib/mission/overturn.agree.ts';
 import { settleByFleet, type FleetAnswer } from 'omni-loop/kit/lib/outbox/fleet.ts';
+import { SETTLED_FILE } from 'omni-loop/kit/lib/outbox/outbox.ts';
 import { addCommit } from '../git-write/git-write.ts';
-import type { GitHubClient } from '../outbox-check/github-schema.ts';
+import { RefSchema, type GitHubClient } from '../outbox-check/github-schema.ts';
+import { missionRepo } from './branch.ts';
 import { prdOutboxAt } from './join.ts';
 
 /** Where the item is: the installation, the repository (`owner/name`), the PRD, its feature pull request and the item's id. */
@@ -32,8 +44,14 @@ export type Answered = Omit<FleetAnswer, 'pr' | 'url'>;
 /** What a settlement did: written (`settled`), found settled already, or why it was not written. */
 export type Settled = { ok: true; settled: boolean } | { ok: false; why: string };
 
+/** Where a person agreed with the fleet: the mission branch, the PRD, the item, their login and when (PRD omni-loop-21 s12). */
+export type AgreeAt = { installation: number; repo: string; branch: string; prd: PrdNumber; item: string; login: string; at: string };
+
 /** What the supervisor asks of GitHub to settle an item the fleet answered. */
 export type MissionAnswers = { settle: (at: ItemAt & { answer: Answered }) => Promise<Settled> };
+
+/** What the supervisor asks of GitHub to settle an item a person agreed with, at landing (PRD omni-loop-21 s12). */
+export type MissionAgrees = { agree: (at: AgreeAt) => Promise<Settled> };
 
 /** `GET /repos/{owner}/{repo}/pulls/{pull_number}`: the fields a settlement reads. */
 const PullSchema = z.looseObject({
@@ -47,7 +65,7 @@ const PullSchema = z.looseObject({
 const messageOf = (item: string, prd: PrdNumber, fleet: string): string => `docs(outbox): ${item} answered by fleet ${fleet}\n\nPart of #${String(prd)}`;
 
 /** Settles items the fleet answered, through `octokitFor(installation)`. */
-export function missionAnswers({ octokitFor }: { octokitFor: (installation: number) => Promise<GitHubClient> | GitHubClient }): MissionAnswers {
+export function missionAnswers({ octokitFor }: { octokitFor: (installation: number) => Promise<GitHubClient> | GitHubClient }): MissionAnswers & MissionAgrees {
   return {
     async settle({ installation, repo: slug, prd, pr, item, answer }) {
       const [owner = '', repo = ''] = slug.split('/');
@@ -72,6 +90,33 @@ export function missionAnswers({ octokitFor }: { octokitFor: (installation: numb
           defaultBranch,
           files: [{ path: settled.settledFile, content: settled.text }],
           deletes: settled.deletes,
+        });
+        return { ok: true, settled: true };
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    },
+
+    async agree({ installation, repo: slug, branch, prd, item, login, at }) {
+      const { octokit, owner, repo, defaultBranch } = await missionRepo(octokitFor, { installation, repo: slug, branch });
+      const tip = RefSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', { owner, repo, ref: `heads/${branch}` })).data).object.sha;
+      const folder = mkdtempSync(join(tmpdir(), 'omni-agree-'));
+      try {
+        const read = await prdOutboxAt(octokit, { owner, repo, ref: tip, prd, folder });
+        if ('notRead' in read) return { ok: false, why: `the tip of ${branch}: ${read.notRead}` };
+        const outboxDir = read.ctx.layout.outboxDir(prd);
+        const settledFile = outboxDir === null ? null : `${outboxDir}/${SETTLED_FILE}`;
+        if (settledFile === null || !existsSync(join(folder, settledFile))) return { ok: true, settled: false };
+        const agreed = agreeEntry({ settled: readFileSync(join(folder, settledFile), 'utf8'), markers: read.ctx.markers, item, login, at });
+        if (!agreed.ok) return agreed.gone === true ? { ok: true, settled: false } : { ok: false, why: agreed.why };
+        await addCommit(octokit, {
+          owner,
+          repo,
+          branch,
+          parent: tip,
+          message: `docs(outbox): ${item} agreed by ${login}\n\nPart of #${String(prd)}`,
+          defaultBranch,
+          files: [{ path: settledFile, content: agreed.text }],
         });
         return { ok: true, settled: true };
       } finally {

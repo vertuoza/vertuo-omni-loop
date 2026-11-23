@@ -7,7 +7,9 @@
 //                  still queued or running is `not finished`; one that ended neutral, skipped or cancelled is `not judged`,
 //                  with its reason, never a pass (BL-GATE-1); no check at all on the head holds it too
 //   the Reviewer   its latest review carrying the marker `/omni:review` posts (PRD 2871) says `pass`, on the head itself
-//   the outbox     no open item ranked high or human-action at the head; an item that cannot be read holds it as one would
+//   the outbox     no open item ranked high or human-action at the head; an item that cannot be read holds it as one would.
+//                  A high item the fleet's committee carried or deferred counts as answered, here only (PRD omni-loop-21 s8,
+//                  BR-PRODUCT-145): a pull request into the default branch still waits for a person's answer
 //
 // A pull request already merged into the mission branch has joined (a replay, or a run that merged and failed before it
 // recorded). One that is closed, a draft, or into another branch never merges: the App merges into its mission's branch
@@ -127,9 +129,20 @@ function reviewLacks(reviews: readonly ListedReview[], head: string): string[] {
 /** `1 high item`, `2 high items`. */
 const count = (n: number, what: string): string => `${String(n)} ${what} item${n === 1 ? '' : 's'}`;
 
-/** What the outbox lacks, in words; none when no high or human-action item is open. */
-function itemLacks(items: OpenItems): string[] {
-  if ('notRead' in items) return [`its outbox not judged: ${items.notRead}`];
+/**
+ * The ranks of the items still open for the mission branch: a high item the fleet's committee carried or deferred (`answered`, by
+ * id: PRD omni-loop-21 s8) counts as answered here, as a person's answer would. A human-action item, and one that does not read,
+ * never do. Only `open` names an item by id: ranks with no id count as they read.
+ */
+function stillOpen(items: { ranks: readonly (string | null)[]; open?: readonly { id: string | null; rank: string | null }[] }, answered: ReadonlySet<string>): readonly (string | null)[] {
+  if (items.open === undefined || answered.size === 0) return items.ranks;
+  return items.open.filter(({ id, rank }) => !(rank === 'high' && id !== null && answered.has(id))).map(({ rank }) => rank);
+}
+
+/** What the outbox lacks, in words; none when no high or human-action item is open, the fleet's `answered` counted answered. */
+function itemLacks(read: OpenItems, answered: ReadonlySet<string>): string[] {
+  if ('notRead' in read) return [`its outbox not judged: ${read.notRead}`];
+  const items = { ranks: stillOpen(read, answered) };
   const high = items.ranks.filter((rank) => rank === 'high').length;
   const human = items.ranks.filter((rank) => rank === 'human-action').length;
   const unread = items.ranks.filter((rank) => rank === null).length;
@@ -140,8 +153,13 @@ function itemLacks(items: OpenItems): string[] {
   ];
 }
 
-/** Whether the pull request joins mission branch `branch`: already joined, merge it, or what it waits on. */
-export function judge(pull: PullRead, branch: string): Gate {
+/**
+ * Whether the pull request joins mission branch `branch`: already joined, merge it, or what it waits on. `answered` the ids of the
+ * PRD's high items the fleet's committee carried or deferred (PRD omni-loop-21 s8): answered for the mission branch only
+ * (BR-PRODUCT-145), since a pull request into the default branch never merges here, and the App's outbox check on one still holds
+ * each until a person answers it (../outbox-check/fleet-held.ts).
+ */
+export function judge(pull: PullRead, branch: string, answered: ReadonlySet<string> = new Set()): Gate {
   const pr = `#${String(pull.number)}`;
   if (pull.merged) return pull.base === branch ? { decision: 'joined' } : { decision: 'waits', lacks: [`${pr} was merged into ${pull.base}, not ${branch}`] };
   if (pull.base !== branch || pull.base === pull.defaultBranch) return { decision: 'waits', lacks: [`${pr} targets ${pull.base}, not ${branch}`] };
@@ -150,7 +168,7 @@ export function judge(pull: PullRead, branch: string): Gate {
     ...(pull.draft ? [`${pr} is a draft`] : []),
     ...checkLacks(checksOf(pull.runs, pull.statuses)),
     ...reviewLacks(pull.reviews, pull.head),
-    ...itemLacks(pull.items),
+    ...itemLacks(pull.items, answered),
   ];
   return lacks.length === 0 ? { decision: 'merge' } : { decision: 'waits', lacks };
 }

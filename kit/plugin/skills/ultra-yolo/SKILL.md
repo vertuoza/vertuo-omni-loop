@@ -1,6 +1,6 @@
 ---
 name: ultra-yolo
-description: Build a multi-repository PRD from its plan repository with nothing asked along the way — plan it first when it has no plan yet, as /omni:mega-brainstorm plans one, graded by omni plan check, then record each target that moved since the plan was read, clone every target and open its draft target feature PR, run /omni:ultra-wave until every slice is merged into its target's feature branch or nothing more can move, finish each target to ready with green CI, then run one outbox gate in the plan repository. Green gate — omni ship, commit, push, and the plan PR is marked ready last. Red gate — the plan PR stays draft with the questions posted, then, with answers.enabled on, it offers to take the answers here and carry on into /omni:ultra-yolo-fix. With a product PRD's id (<key>-<n>) it runs instead from any kitted checkout of a repository the product holds — waits on its approval, takes the plan through omni dossier get, opens one Part of <key>-<n> target PR per target, relays every item to the server, parks on held, refuses on drifted, and marks the target PRs ready once omni status <key>-<n> is green, with no plan PR. Never merges into any repository's default branch. Triggers on "ultra-yolo this PRD", "build it across the repositories", "/omni:ultra-yolo".
+description: Build a multi-repository PRD from its plan repository with nothing asked along the way — plan it first when it has no plan yet, as /omni:mega-brainstorm plans one, graded by omni plan check, then record each target that moved since the plan was read, clone every target and open its draft target feature PR, run /omni:ultra-wave until every slice is merged into its target's feature branch or nothing more can move, finish each target to ready with green CI, then run one outbox gate in the plan repository. Green gate — omni ship, commit, push, and the plan PR is marked ready last. Red gate — the plan PR stays draft with the questions posted, then, with answers.enabled on, it offers to take the answers here and carry on into /omni:ultra-yolo-fix. With a product PRD's id (<key>-<n>) it runs instead from any kitted checkout of a repository the product holds — waits on its approval, takes the plan through omni dossier get, opens one Part of <key>-<n> target PR per target, relays every item to the server, parks on held, refuses on drifted, and marks the target PRs ready once omni status <key>-<n> is green, with no plan PR. With --base-of <owner/repo>=<branch>,…, which a mission sends, each named target's feature PR opens into that branch instead of its default branch, and its finish and its gate read it there. Never merges into any repository's default branch. Triggers on "ultra-yolo this PRD", "build it across the repositories", "/omni:ultra-yolo".
 ---
 
 # Ultra-yolo: every repository, every wave, one gate
@@ -56,11 +56,36 @@ A PRD number, in a plan repository. Re-running is safe: the board is rebuilt fro
 the clones are fetched, the branches and pull requests are reused, and every step checks before it
 acts.
 
+**`--base-of <owner/repo>=<branch>,…`** (PRD omni-loop-21) is added by a mission job above `with-you`,
+for a product PRD or a PRD of a plan repository: each entry names a target repository and the
+mission's branch in it (`branches.mission`). **The target base** (`<target base>` below) is the
+branch the flag names for that target, else the target's default branch. Wherever this skill reads
+a target's default branch for its feature branch or its target feature PR, it reads `<target base>`:
+the feature branch is cut from `<clone remote>/<target base>`, the target feature PR opens against it
+(one already open against another base is retargeted), step 4 meets it and step 5's gate reads the
+pull request into it. A target the flag does not name keeps its default branch, as before. The plan
+PR keeps the plan repository's default branch. It is no stacked base: no pull request is waited on,
+the mission joins each target PR into its branch through the App's merge gate, and this skill never
+merges into it. Pass `--base-of` on to `/omni:ultra-wave`. Without it, every target keeps its default
+branch, as before.
+
+Its value is read before any branch, clone or pull request: one `<owner/repo>=<branch>` entry per
+target, separated by commas. A value that names no repository, an entry not of that shape, a
+repository that is no `owner/name`, a branch git refuses (`git check-ref-format --branch`) or a
+repository named twice stops the run in one line, `--base-of <value>: <why>`, `<why>` naming the
+entry. In step 2, an entry that names no target of the plan is said once,
+`--base-of names <slug>, which is no target of PRD <n>: left out`, and the run carries on. A named
+branch missing on the target's remote
+(`git -C <clone> ls-remote --exit-code --heads <clone remote> <target base>` fails) holds that
+target, `<slug>: base <target base> not found on <clone remote>`, its slices not claimed: a mission
+branch is the mission's to cut, never this skill's.
+
 ## Step 0
 
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the
-   JSON, as `/omni:yolo` step 0 keeps it. Given a product PRD's id (`<key>-<n>`, as `mobile-12`),
-   follow **From a product** below from here on, a plan section or not. Otherwise it must have a
+   JSON, as `/omni:yolo` step 0 keeps it. `--base-of`, when given, is read first (**Input**).
+   Given a product PRD's id (`<key>-<n>`, as `mobile-12`), follow **From a product** below from
+   here on, a plan section or not. Otherwise it must have a
    `plan` section; otherwise stop in one line:
    `not a plan repository: /omni:yolo <n> builds a PRD of this repository`.
 2. **An ordinary PRD stops here.** Run `node .omni-loop/bin/omni.mjs prd <n>`. When it prints no
@@ -155,6 +180,9 @@ on the server. Open it as written:
 gh pr create --repo <slug> --draft --base <target default branch> --head <feature branch> --body-file <file>
 ```
 
+Under `--base-of`, a named target's opens with `--base <target base>` in place of
+`--base <target default branch>` (**Input**), and step 2 item 4 retargets one already open.
+
 **Step 3, the waves,** run `/omni:ultra-wave <key>-<n>` (its **From a product**), the approval read
 again before each.
 
@@ -171,8 +199,9 @@ node .omni-loop/bin/omni.mjs status <key>-<n>     # exit 0 green, 1 red or held
 No outbox comment is posted (`omni comment` is not run): the questions are answered on the
 product's **Questions** tab, or here. There is no `omni ship`, no release note and no plan PR body.
 
-- **Green, every target's CI green:** mark each target feature PR ready, at point `yolo.ready` read
-  in its clone, as step 4 item 5 says: `gh pr ready <n> --repo <slug>`, in merge order. **This is the
+- **Green, every target's CI green:** **The gate reads each target PR's base** first, as step 5
+  says. Then mark each target feature PR ready, at point `yolo.ready` read in its clone, as step 4
+  item 5 says: `gh pr ready <n> --repo <slug>`, in merge order. **This is the
   only place a product PRD's target feature PR is marked ready,** and nothing in any plan repository
   is opened, edited or marked ready.
 - **Green, but a target's CI is not green:** every target PR stays draft; the run is **held** by
@@ -207,6 +236,19 @@ start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 
 The red ending names `<product> › Questions` and its last line is `/omni:ultra-yolo-fix <key>-<n>`;
 the held ending's is `/omni:ultra-yolo <key>-<n>`.
+
+**A stop on a person offers the mission** (PRD omni-loop-21). When the run stops on a person, the
+PRD having no plan on its page, still waiting for approval (`held: PRD <key>-<n> still waits for
+approval …`), drifted, refused, or its gate ended red, its stop line, as printed above, ends with the
+one command that hands the PRD to a fleet:
+
+```text
+<stop line> · or hand it to a fleet: /omni:mission --prd <key>-<n> --level alone
+```
+
+The reply's last line stays the ending's own. A stop no person resolves (`server unreachable · held,
+not failed`, a target's CI not green) offers nothing. The run stops as before and never runs
+`/omni:mission`: starting the mission stays the Start button on its page, pressed by a person.
 
 ## 1. The plan repository
 
@@ -292,16 +334,19 @@ each target row, the plan repository's own row excepted:
    the line `install the Omni GitHub App on <owner/name>`, naming that repository.
 2. **The default branch** is the target's own:
    `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`. Never
-   `repo.defaultBranch`.
+   `repo.defaultBranch`. Its **base**, `<target base>`, is the branch `--base-of` names for it, else
+   that default branch (**Input**).
 3. **The feature branch** is the plan repository's `branches.feature`, filled with the PRD's topic.
-   Reuse it when the clone's remote has it. Otherwise cut it from the target's default branch in a
+   Reuse it when the clone's remote has it. Otherwise cut it from `<clone remote>/<target base>` in a
    detached worktree of the clone, make one empty commit so a pull request can open
    (`git commit --allow-empty -m "chore(<topic>): open the feature branch of <plan slug>#<n>"`,
    signed as above), push it, and remove the worktree.
 4. **The target feature PR.** Reuse the open one
-   (`gh pr list --repo <slug> --head <feature branch> --state open --json number,isDraft,body`).
+   (`gh pr list --repo <slug> --head <feature branch> --state open --json number,isDraft,body,baseRefName`);
+   one whose `baseRefName` is not `<target base>` is retargeted,
+   `gh pr edit <n> --repo <slug> --base <target base>`.
    Otherwise open it as a draft, through `/omni:pr --repo <slug>` (the feature kind), with
-   `gh pr create --repo <slug> --draft --base <target default branch> --head <feature branch> --body-file <file>`.
+   `gh pr create --repo <slug> --draft --base <target base> --head <feature branch> --body-file <file>`.
    Its body starts with `Part of <plan slug>#<n>` (the plan repository's `repo.slug`), lists that
    target's slices as a **Slices** checklist, and ends with the `omni sign footer` line. Labels
    follow `/omni:pr --repo`: one missing there is a human step, never created. That `Part of` line
@@ -326,10 +371,10 @@ node .omni-loop/bin/omni.mjs plan landings <n> --repo <name> --json
 It keeps only the landings with a slice in that target, numbered within it: a target with slices in
 one landing has one feature branch, `branches.feature`, and one target feature PR with no suffix, as
 above; a landing with no slice in a target gets no branch and no pull request there. With more than
-one landing there, item 3 cuts each landing's `branch` (landing 1 from the target's default branch,
+one landing there, item 3 cuts each landing's `branch` (landing 1 from `<target base>`,
 landing k from landing k-1's branch, each with its empty commit when new), and item 4 opens one draft
-target feature PR per landing: base its `base`, title the PRD's title with its `titleSuffix`, body
-`Part of <plan slug>#<n>`, then its `mergeAfterLine` when it has one, then the **Slices** of that
+target feature PR per landing: base its `base` (`<target base>` for landing 1), title the PRD's
+title with its `titleSuffix`, body `Part of <plan slug>#<n>`, then its `mergeAfterLine` when it has one, then the **Slices** of that
 landing in that target, then the `## Landings` overview of that target's chain, then the
 `omni sign footer` line. Each is opened through `/omni:pr --repo <slug>`, so the target's own
 `pr.open` point (its flow, `pr.openWith` included), read in its clone, decides how it opens. A re-run reuses every branch and PR.
@@ -340,9 +385,9 @@ wait for a re-run.
 
 ## 3. Loop the waves
 
-As `/omni:yolo` step 3, with `/omni:ultra-wave <n>` in place of `/omni:wave <n>`, and the same stop
-table. A slice `unreadable` on the board (its repository could not be read) holds like a `blocked`
-one, naming its repository. Refresh the plan checkout, as `/omni:yolo` step 1 items 1–2, and fetch
+As `/omni:yolo` step 3, with `/omni:ultra-wave <n>` in place of `/omni:wave <n>`, `--base-of` passed
+on when given, and the same stop table. A slice `unreadable` on the board (its repository could not
+be read) holds like a `blocked` one, naming its repository. Refresh the plan checkout, as `/omni:yolo` step 1 items 1–2, and fetch
 each clone before every board read.
 
 ## 4. Finish each target
@@ -350,9 +395,9 @@ each clone before every board read.
 For each target with a slice merged into its feature branch, in a detached worktree of its clone at
 `<clone remote>/<feature branch>`:
 
-1. **Meet its default branch,** as `/omni:yolo` step 4 item 1: `git merge <clone remote>/<target
-   default branch>` when it is not an ancestor. A conflict you cannot resolve with confidence:
-   `git merge --abort`; the target is **stuck**, naming the files.
+1. **Meet its base,** as `/omni:yolo` step 4 item 1: `git merge <clone remote>/<target base>` when
+   it is not an ancestor (`<target base>` is its default branch unless `--base-of` names it). A
+   conflict you cannot resolve with confidence: `git merge --abort`; the target is **stuck**, naming the files.
 2. **Its setup, then its preflight,** only when it has a preflight (above): its committed setup
    first, when it has one, in this worktree. A red setup: the target is **stuck**, quoting the
    failing line, counting toward no attempt, the target never edited to make it pass. Then the
@@ -365,9 +410,9 @@ For each target with a slice merged into its feature branch, in a detached workt
    result, or `none — CI is the check`), **Risk and rollback** and **Reviewer focus**, in the shape
    `/omni:pr` owns (`gh pr edit <n> --repo <slug> --body-file <file>`), keeping the
    `Part of` line first and the `omni sign footer` line last.
-5. **Ready,** at point `yolo.ready` read in the target's clone (**Flow points**): every `before`
-   hook, then `gh pr ready <n> --repo <slug>` as `/omni:pr`'s **Ready after a push waits for the
-   push's run** says (item 3 just pushed), then every `after` hook; a `not ok` leaves the target
+5. **Ready,** once step 5's **The gate reads each target PR's base** holds, at point `yolo.ready`
+   read in the target's clone (**Flow points**): every `before` hook, then
+   `gh pr ready <n> --repo <slug>` as `/omni:pr`'s **Ready after a push waits for the push's run** says (item 3 just pushed), then every `after` hook; a `not ok` leaves the target
    PR in draft and the target **stuck**, naming the hook. Then follow `/omni:pr --repo <slug>`'s lifecycle until
    its CI is green or it is stuck. This is the only place a target feature PR is marked ready.
 
@@ -382,8 +427,8 @@ For each target with a slice merged into its feature branch, in a detached workt
    outbox item naming both pull requests, in the plan repository's outbox.
 
 **Landings in a target.** Each landing of a target's chain is finished on its own branch, items 1
-to 4 (item 1 meets its base: the previous landing's branch while that one is open, the target's
-default branch once it has merged), and item 5 marks it ready only under `/omni:yolo`'s ready rule,
+to 4 (item 1 meets its base: the previous landing's branch while that one is open,
+`<target base>` once it has merged), and item 5 marks it ready only under `/omni:yolo`'s ready rule,
 **within that target**: its slices merged into its branch, its CI green, and the previous landing's
 PR **in that target** merged (`gh pr view <previous> --repo <slug> --json state --jq .state` prints
 `MERGED`), never another target's. A landing whose previous one is still open stays in draft, its
@@ -395,6 +440,15 @@ in draft. The plan repository's own slices, when it has any, finish as `/omni:yo
 1–5 in a detached worktree of the plan feature branch.
 
 ## 5. One gate
+
+**The gate reads each target PR's base.** Before any target feature PR is marked ready (step 4
+item 5, or **From a product**'s step 5), and again at this gate,
+`gh pr view <n> --repo <slug> --json baseRefName --jq .baseRefName` must print `<target base>`
+(**Input**). One that prints another base is retargeted
+(`gh pr edit <n> --repo <slug> --base <target base>`), then its CI and its outbox check are read
+again on the pull request into that base: those are the ones the gate reads. Into a mission branch,
+the App's outbox check counts an item the fleet answered as answered; into a default branch, it
+holds that item until a person answers (BR-PRODUCT-145).
 
 In a detached worktree of the plan feature branch:
 
@@ -437,8 +491,10 @@ opening question.
 As `/omni:yolo` step 7: the report, then its three blocks. The report opens with the PRD's page:
 run `node .omni-loop/bin/omni.mjs dossier link <n>`; exit `0` prints `PRD <n>: <link>`, anything
 else `PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>` (the plan repository's).
-It adds, per target: its target PR, its state and CI, its slices merged out of total, and any target
-held or stuck with its reason.
+It adds, per target: its target PR, its base, its state and CI, its slices merged out of total, and
+any target held or stuck with its reason. Under `--base-of`, a target PR into a mission branch is the
+mission's to join, never a person's to merge: **What is next?** lists it as
+`<slug>#<n> (…): joined by the mission into <target base>`, and only the others as merges.
 
 **What is next?** differs in its steps and its last lines; the folder and **Where it is** blocks are
 `/omni:yolo`'s, read in the plan repository.
@@ -474,9 +530,10 @@ plan PR keeps its one line and prints no hand-off.
 
 ## Guardrails
 
-- **Never merge into any repository's default branch,** the plan repository's or a target's.
-  Sub-PRs merge into a target's feature branch through `/omni:ultra-wave`; a person merges every
-  target PR, then the plan PR.
+- **Never merge into any repository's default branch,** the plan repository's or a target's, nor
+  into a `--base-of` branch: the mission joins each target PR there. Sub-PRs merge into a target's
+  feature branch through `/omni:ultra-wave`; a person merges every target PR into a default branch,
+  then the plan PR.
 - **Never add `labels.outboxGo`,** in any repository.
 - **Never create a label in a target,** whatever `labels.autoCreate` says: a missing one is a human
   step.

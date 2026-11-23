@@ -23,19 +23,19 @@ const mandateOf = (text: string) => {
 
 describe("a mission's token budget, in its mandate (PRD 3040)", () => {
   it('reads tokens, a whole number from 1 to 10⁹', () => {
-    expect(mandateOf(record('tokens: 2000000'))).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0, tokens: 2_000_000 });
+    expect(mandateOf(record('tokens: 2000000'))).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0, resumes: 3, tokens: 2_000_000 });
     expect(mandateOf(record('tokens: 1'))).toMatchObject({ tokens: 1 });
     expect(MAX_MISSION_TOKENS).toBe(1_000_000_000);
     expect(mandateOf(record('tokens: 1000000000'))).toMatchObject({ tokens: 1_000_000_000 });
   });
 
   it('parses a brief without it as before: no tokens key, no budget', () => {
-    expect(mandateOf(record())).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 });
-    expect(mandateOf(record('parallel: 3'))).toEqual({ parallel: 3, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 });
+    expect(mandateOf(record())).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0, resumes: 3 });
+    expect(mandateOf(record('parallel: 3'))).toEqual({ parallel: 3, level: 'with-you', hardToRevert: 0.6, ownPrds: 0, resumes: 3 });
   });
 
   it('reads an empty tokens as no budget, leaving no key behind', () => {
-    expect(mandateOf(record('tokens:'))).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0 });
+    expect(mandateOf(record('tokens:'))).toEqual({ parallel: 2, level: 'with-you', hardToRevert: 0.6, ownPrds: 0, resumes: 3 });
     expect(mandateOf(record('tokens: null'))).not.toHaveProperty('tokens');
   });
 

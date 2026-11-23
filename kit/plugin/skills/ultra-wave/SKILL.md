@@ -45,6 +45,12 @@ says.
 A PRD number, in a plan repository, whose targets `/omni:ultra-yolo` step 2 has cloned, with a
 feature branch and a draft target feature PR each. Re-running picks up where the last run stopped.
 
+With `--base-of <owner/repo>=<branch>,…`, passed on by `/omni:ultra-yolo` (its **Input**, PRD
+omni-loop-21), each named target's feature branch was cut from that branch, a mission's, and its
+target feature PR opens into it. Nothing else here changes: a sub-PR still goes into the target's
+feature branch, and step 4's base check refuses one whose base is that branch, as it refuses the
+default branch.
+
 ## Step 0
 
 As `/omni:wave` step 0, with these differences:
@@ -164,7 +170,7 @@ Keep both: step 4 relays them.
 As `/omni:wave` step 4, with `--repo <slug>` on every `gh` call and git in the target's clone:
 
 1. **Base.** The base must be the target's feature branch. **Never merge a PR whose base is the
-   target's default branch.**
+   target's default branch,** or the branch `--base-of` names for it.
 2. **Territory.** `gh pr diff <n> --repo <slug> --name-only`, against the row's `territory`: paths
    in the target. A breach is reported and never fatal, as there.
 3. **Mergeable.** A conflict is resolved in a detached worktree of the clone, as there; the
@@ -284,8 +290,8 @@ with its reason. This is what `/omni:ultra-yolo` reads.
 ## Guardrails
 
 - Merge only into a target's feature branch, or its landing's branch (or, for the plan repository's
-  own slices, its feature branch), never into any repository's default branch, and never a landing
-  PR. Check the base before every merge.
+  own slices, its feature branch), never into any repository's default branch or a `--base-of`
+  branch, and never a landing PR. Check the base before every merge.
 - **Never add `labels.outboxGo`,** and **never create a label in a target**: a missing one is a human
   step.
 - **Never run a command in a target other than its own committed setup, then its own committed

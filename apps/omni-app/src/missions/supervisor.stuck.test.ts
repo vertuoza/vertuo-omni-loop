@@ -6,10 +6,13 @@ import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { fingerprint, type RepairClass } from 'omni-loop/kit/lib/repair/fingerprint.ts';
 import { repairRecordLine } from 'omni-loop/kit/lib/repair/line.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
+import type { MissionBranches } from './branch.ts';
 import { MISSION_KIND, missionHandler } from './job.ts';
+import { halfwayEvent, resumeCap, resumeOf, resumeStep } from './resume.ts';
 import { fakeMissionStore } from './store.fake.ts';
+import { beatsOf, stuckSince } from './stuck.ts';
 import type { MissionRecord } from './store.ts';
-import type { PrdFacts } from './supervisor.ts';
+import type { Attempt, PrdFacts } from './supervisor.ts';
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
 const NOW = Date.parse('2027-01-26T09:00:00Z');
@@ -189,5 +192,89 @@ describe('a stuck repair spends from the repair budget (AC-3)', () => {
     await run();
     expect(fake.stuckJobs()).toHaveLength(1);
     expect(fake.mission()).toMatchObject({ status: 'paused', pausedBy: 'stuck', waitingOn: 'Paused: stuck · 5 jobs ended and nothing moved, and the mission spent its 9 repairs' });
+  });
+});
+
+// ── The resume step (PRD omni-loop-21 s10) ──────────────────────────────────────
+// The resume step's decisions (./resume.ts) over the jobs the mission's store reads back: the build the real job handler sent at
+// `alone`, then each fresh job sent through the store under its `:resume:<k>` key, as the supervisor sends it.
+
+describe('a step that ended halfway at alone (AC-6)', () => {
+  const BRANCH = 'mission/12-faster-quotes';
+  const branches: MissionBranches = { prepare: () => Promise.resolve({ ok: true, cut: false }) };
+  const LIMITED = { limitedUntil: '2027-01-26T10:00:00Z' };
+
+  async function alone(over: Partial<MissionRecord> = {}) {
+    const mission = record({ level: 'alone', parallel: 1, scope: { prds: [p(1)], roadmaps: [] }, ...over });
+    const fake = fakeMissionStore({ mission, facts: [facts(1)], now: () => NOW });
+    await missionHandler({ store: fake.store, branches, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
+    const cap = resumeCap(mission);
+    /** The PRD's latest job ends done with no result line (a hand-back, the machine asleep), and the resume step reads it. */
+    const halfway = async (change: Partial<Attempt> = {}) => {
+      fake.end(p(1), { status: 'done', outcome: null, ...change });
+      const runs = await fake.store.runs(ID);
+      const latest = runs.reduce((last, one) => (resumeOf(one) > resumeOf(last) ? one : last));
+      return { next: resumeStep(runs, latest, cap), event: halfwayEvent(p(1), latest, runs, cap) };
+    };
+    /** The fresh job the resume step names, sent as the supervisor sends it: the same PRD, run and step, with its `resume`. */
+    const resume = (k: number) => fake.store.send({ mission, prd: p(1), run: 1, step: 'build', toFleet: true, skill: 'yolo', resume: k });
+    return { fake, halfway, resume };
+  }
+
+  it('AC-6: a step whose job ended without its result line gets one fresh job of the same skill', async () => {
+    const { fake, halfway, resume } = await alone();
+    const { next, event } = await halfway();
+    expect(next).toEqual({ next: 'resume', resume: 1, count: 1, cap: 3, counted: true });
+    expect(event).toMatchObject({ kind: 'held', role: 'supervisor', sentence: 'PRD 1 ended without its result line: the mission sends it a fresh job (resume 1 of 3).' });
+    expect(await resume(1)).not.toBeNull();
+    expect(await resume(1)).toBeNull();
+    expect(fake.jobs().map(({ key, line }) => [key, line])).toEqual([
+      [`mission:${ID}:prd:1:run:1`, `/omni:yolo 1 --for-review --base ${BRANCH}`],
+      [`mission:${ID}:prd:1:run:1:resume:1`, `/omni:yolo 1 --for-review --base ${BRANCH}`],
+    ]);
+    expect(await fake.store.runs(ID)).toEqual([expect.not.objectContaining({ resume: expect.anything() as unknown }), expect.objectContaining({ run: 1, step: 'build', resume: 1 })]);
+  });
+
+  it('AC-6: after mandate.resumes resumes the step goes to repair instead', async () => {
+    const { halfway, resume } = await alone();
+    for (let k = 1; k <= 3; k += 1) {
+      expect((await halfway()).next).toMatchObject({ next: 'resume', resume: k, count: k });
+      await resume(k);
+    }
+    const { next, event } = await halfway();
+    expect(next).toEqual({ next: 'repair', why: 'it ended without its result line 4 times', count: 4 });
+    expect(event?.sentence).toBe('PRD 1 ended without its result line 4 times: the mission sends a repair, while it has one left.');
+  });
+
+  it('AC-6: a mandate of 0 resumes sends the first halfway end to repair', async () => {
+    const { halfway } = await alone({ resumes: 0 });
+    expect((await halfway()).next).toMatchObject({ next: 'repair', count: 1 });
+  });
+
+  it('AC-6: a spend or rate limit counts no resume', async () => {
+    const { halfway, resume } = await alone({ resumes: 1 });
+    expect((await halfway()).next).toMatchObject({ next: 'resume', resume: 1, count: 1 });
+    await resume(1);
+    const limited = await halfway(LIMITED);
+    expect(limited.next).toMatchObject({ next: 'resume', resume: 2, count: 1, counted: false });
+    expect(limited.event?.sentence).toBe('PRD 1 ended without its result line: the mission sends it a fresh job (a spend or rate limit counts none).');
+    await resume(2);
+    expect((await halfway()).next).toMatchObject({ next: 'repair', count: 2 });
+  });
+
+  it('reads nothing below alone, nor for an end with its result line', async () => {
+    expect((await (await alone({ level: 'with-you' })).halfway()).next).toBeNull();
+    expect((await (await alone()).halfway({ outcome: 'held' })).next).toBeNull();
+  });
+
+  it('a resume moves nothing in the stuck count: its dispatch is no further step, and its end counts one', () => {
+    const runs = [
+      { prd: p(1), run: 1, step: 'build' as const, job: 'job-1', attempts: [{ id: 'job-1', status: 'done' as const, outcome: null, reason: null, prUrl: null }] },
+      { prd: p(1), run: 1, step: 'build' as const, job: 'job-2', resume: 1, attempts: [{ id: 'job-2', status: 'done' as const, outcome: null, reason: null, prUrl: null }] },
+    ];
+    const at = (kind: string, job: string) => ({ kind, prd: p(1), job });
+    const beats = beatsOf([at('dispatched', 'job-1'), at('held', 'job-1'), at('dispatched', 'job-2'), at('held', 'job-2')], runs);
+    expect(beats).toEqual([{ beat: 'moved' }, { beat: 'end', job: 'job-1' }, { beat: 'end', job: 'job-2' }]);
+    expect(stuckSince(beats)).toEqual(['job-1', 'job-2']);
   });
 });

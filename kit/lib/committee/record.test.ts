@@ -56,6 +56,20 @@ describe('the record line', () => {
     expect(answerOf(committeeLine(record()), prd, 's3-01-keep-the-cap')).toBeNull();
   });
 
+  it('reads back an answer deferred with option A, on the escalation list (PRD omni-loop-21 s2)', () => {
+    const deferred = {
+      ...record(),
+      kind: 'answer' as const,
+      item: parseOutboxItemId('s3-01-keep-the-cap'),
+      option: 'A',
+      read: [{ kind: 'item', sha256: sha('d') }],
+      escalations: ['it bears on the business law BL-GATE-1: a person decides'],
+      outcome: 'deferred' as const,
+    };
+    expect(answerOf(committeeLine(deferred), prd, 's3-01-keep-the-cap')).toEqual(deferred);
+    expect(answerOf(committeeLine({ ...deferred, outcome: 'adopted' as never }), prd, 's3-01-keep-the-cap')).toBeNull();
+  });
+
   it('refuses an answer whose option is no single capital letter, or whose item is no item id', () => {
     const answered = { ...record(), kind: 'answer' as const, item: parseOutboxItemId('s3-01-keep-the-cap'), option: 'AB' };
     expect(answerOf(committeeLine(answered), prd, 's3-01-keep-the-cap')).toBeNull();

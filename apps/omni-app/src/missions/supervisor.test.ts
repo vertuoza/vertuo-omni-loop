@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, parseProductPrdId, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   approvalOf,
   baseOf,
+  basesOf,
   conclude,
   endOf,
   eventsOf,
@@ -77,6 +78,42 @@ describe('the mission branch (PRD 2896)', () => {
     const next = conclude({ mission: m, facts: all, states, sent: 1, now: NOW });
     const [dispatched] = eventsOf({ mission: m, facts: all, states, runs, next, toFleet: true, recorded: recordedKeys([]) });
     expect(dispatched?.sentence).toContain('/omni:yolo 7 --for-review --base mission/12-faster-quotes');
+  });
+});
+
+describe('a product PRD\'s line (PRD omni-loop-21 s7)', () => {
+  const id = parseProductPrdId('omni-loop-15');
+  const BRANCH = 'mission/12-faster-quotes';
+
+  it('AC-2: sends a product PRD over two repositories /omni:ultra-yolo with --base-of naming both mission branches', () => {
+    const bases = basesOf(['acme/api', 'acme/mobile'], BRANCH);
+    expect(bases).toEqual([{ repo: 'acme/api', branch: BRANCH }, { repo: 'acme/mobile', branch: BRANCH }]);
+    expect(lineOf(id, 'build', 'ultra-yolo', bases)).toBe(`/omni:ultra-yolo omni-loop-15 --base-of acme/api=${BRANCH},acme/mobile=${BRANCH}`);
+  });
+
+  it('is built with ultra-yolo whatever skill is named, and sends no --base-of at with-you', () => {
+    expect(lineOf(id, 'build', 'yolo', basesOf(['acme/api'], BRANCH))).toBe(`/omni:ultra-yolo omni-loop-15 --base-of acme/api=${BRANCH}`);
+    expect(lineOf(id, 'build')).toBe('/omni:ultra-yolo omni-loop-15');
+    expect(lineOf(id, 'build', 'ultra-yolo', basesOf([], BRANCH))).toBe('/omni:ultra-yolo omni-loop-15');
+  });
+
+  it('takes no single --base: a product PRD\'s base is per repository', () => {
+    expect(lineOf(id, 'build', 'ultra-yolo', BRANCH)).toBe('/omni:ultra-yolo omni-loop-15');
+  });
+
+  it('sends its fix with the same bases, and the Reviewer by its id', () => {
+    expect(lineOf(id, 'fix:1', 'ultra-yolo', basesOf(['acme/api'], BRANCH))).toBe(`/omni:ultra-yolo-fix omni-loop-15 --for-review --base-of acme/api=${BRANCH}`);
+    expect(lineOf(id, 'review:1')).toBe('/omni:review omni-loop-15');
+  });
+
+  it('never sends a product PRD the QA pair, which it skips as a plan repository\'s PRD does', () => {
+    expect(() => lineOf(id, 'qa:1')).toThrow('omni-loop-15');
+    expect(() => lineOf(id, 'qa-fix:1:1')).toThrow('omni-loop-15');
+  });
+
+  it('keys its job by its id', () => {
+    expect(missionKey(ID, id, 1)).toBe(`mission:${ID}:prd:omni-loop-15:run:1`);
+    expect(missionKey(ID, id, 2, 'fix:1')).toBe(`mission:${ID}:prd:omni-loop-15:run:2:fix:1`);
   });
 });
 

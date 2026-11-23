@@ -11,6 +11,8 @@
 //           squash title), pinned to the head the gate judged: a push since then makes GitHub refuse it. A refusal (not
 //           mergeable, the head moved, a conflict) is an answer, never a throw: the PRD waits, and the next run reads again.
 //           A base that is the default branch is refused before any request (N-PRODUCT-15)
+//   product a product PRD (PRD omni-loop-21 s7) joins each repository's mission branch: every target pull request read and judged,
+//           its outbox the product PRD's items as the server holds them, then each merged only once every one passes
 //
 // Throws when GitHub answers out of shape or fails otherwise: the run fails, and the worker retries it.
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -18,14 +20,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { createContext, type Context } from 'omni-loop/kit/lib/context.ts';
-import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrNumberSchema, type PrdNumber, type PrNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { parseFolderName } from 'omni-loop/kit/lib/layout.ts';
 import { openItems } from 'omni-loop/kit/lib/outbox/status.ts';
 import { messageOf, RefSchema, statusOf, type GitHubClient } from '../outbox-check/github-schema.ts';
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { snapshot } from '../snapshot/snapshot.ts';
-import type { CheckRun, CommitStatus, OpenItems, PullRead } from './gate.ts';
+import { judge, type CheckRun, type CommitStatus, type Gate, type OpenItems, type PullRead } from './gate.ts';
 
 /**
  * Where a pull request is: the installation, the repository (`owner/name`), the PRD and its pull request. A stuck repair's fix whose
@@ -45,7 +47,18 @@ export type MissionJoins = {
   /** The checks on the mission branch's head (PRD 2896 s7); a GitHub that cannot say leaves it out, and no branch reads red. */
   checks?: (at: { installation: number; repo: string; branch: string }) => Promise<BranchChecks>;
   merge: (at: PullAt & { head: string; title: string; base: string; defaultBranch: string }) => Promise<Merged>;
+  /**
+   * A product PRD's target pull requests (PRD omni-loop-21 s9b): in each of `repos`, every pull request into the mission branch whose
+   * body says `Part of <id>`, as /omni:ultra-yolo opens them, in order. A GitHub that cannot say leaves it out: no product PRD joins.
+   */
+  targets?: (at: { installation: number; repos: readonly string[]; prd: ProductPrdId; branch: string }) => Promise<TargetPull[]>;
 };
+
+/** `GET /repos/{owner}/{repo}/pulls`: a product PRD's target pull requests, read by their body's `Part of <id>` (PRD omni-loop-21 s9b). */
+const TargetPullsSchema = z.array(z.looseObject({ number: z.number().int().positive(), body: z.string().nullish() }));
+
+/** Whether a pull request's body says it is part of product PRD `prd`: a `Part of <id>` line. */
+const partOf = (body: string | null | undefined, prd: ProductPrdId): boolean => (body ?? '').split('\n').some((line) => line.trim() === `Part of ${prd}`);
 
 /** `GET /repos/{owner}/{repo}/pulls/{pull_number}`: the fields the gate reads. */
 const PullSchema = z.looseObject({
@@ -125,6 +138,72 @@ async function checksAt(octokit: GitHubClient, { owner, repo, ref }: { owner: st
   };
 }
 
+/** One target pull request of a product PRD (PRD omni-loop-21 s7): its repository (`owner/name`) and its number. */
+export type TargetPull = { repo: string; pr: PrNumber };
+
+/** A target pull request on its repository's mission branch: merged now, or before. */
+export type TargetJoined = TargetPull & { url: string };
+
+/**
+ * What a product PRD's join did: every target pull request on its repository's mission branch, or what the gate or GitHub lacks
+ * for the rest, the ones on it already named.
+ */
+export type ProductJoin = { joined: true; pulls: TargetJoined[] } | { joined: false; pulls: TargetJoined[]; lacks: string[] };
+
+/** A target pull request read and judged: its read, and the gate's answer on it. */
+type Judged = { target: TargetPull; pull: PullRead; gate: Gate };
+
+/** `acme/api #12: <what it lacks>`. */
+const lackOf = ({ repo, pr }: TargetPull, lack: string): string => `${repo} #${String(pr)}: ${lack}`;
+
+/**
+ * A product PRD joins each repository's mission branch (PRD omni-loop-21 s7, spec "2. One mission branch per repository"): each of
+ * its target pull requests (`targets`) is read and judged by the merge gate into `branch`, the mission branch every repository holds,
+ * its outbox the product PRD's open items as the server holds them (`items`, given for every one: no repository outbox is read for a
+ * product PRD). Only once every one passes, or is merged into its branch already, is each squash-merged, in order; one that does not
+ * pass holds them all, so no repository's branch carries half a PRD. A merge GitHub refuses stops there: the ones merged before it
+ * are kept, and the next run reads them as joined. A pull request into the default branch never merges (N-PRODUCT-15).
+ */
+export async function joinProduct(
+  joins: MissionJoins,
+  {
+    installation,
+    targets,
+    branch,
+    items,
+    answered = new Set(),
+  }: {
+    installation: number;
+    targets: readonly TargetPull[];
+    branch: string;
+    items: OpenItems;
+    /** The ids of its high items the fleet's committee carried or deferred (PRD omni-loop-21 s8): answered for the mission branch only. */
+    answered?: ReadonlySet<string>;
+  },
+): Promise<ProductJoin> {
+  if (targets.length === 0) return { joined: false, pulls: [], lacks: ['its target pull requests are not known to the mission'] };
+  const judged: Judged[] = [];
+  for (const target of targets) {
+    const pull = { ...(await joins.read({ installation, repo: target.repo, prd: null, pr: target.pr })), items };
+    judged.push({ target, pull, gate: judge(pull, branch, answered) });
+  }
+  const lacks = judged.flatMap(({ target, gate }) => (gate.decision === 'waits' ? gate.lacks.map((lack) => lackOf(target, lack)) : []));
+  if (lacks.length > 0) return { joined: false, pulls: [], lacks };
+  return mergeAll(joins, installation, judged);
+}
+
+/** Each judged target pull request squash-merged into its branch, in order, one already on it kept; the first refusal stops there. */
+async function mergeAll(joins: MissionJoins, installation: number, judged: readonly Judged[]): Promise<ProductJoin> {
+  const pulls: TargetJoined[] = [];
+  for (const { target, pull, gate } of judged) {
+    const at = { installation, repo: target.repo, prd: null, pr: target.pr };
+    const merged = gate.decision === 'joined' ? { ok: true as const } : await joins.merge({ ...at, head: pull.head, title: pull.title, base: pull.base, defaultBranch: pull.defaultBranch });
+    if (!merged.ok) return { joined: false, pulls, lacks: [lackOf(target, merged.why)] };
+    pulls.push({ ...target, url: pull.url });
+  }
+  return { joined: true, pulls };
+}
+
 /** The joins of a mission, through `octokitFor(installation)`. */
 export function missionJoins({ octokitFor }: { octokitFor: (installation: number) => Promise<GitHubClient> | GitHubClient }): MissionJoins {
   return {
@@ -179,6 +258,19 @@ export function missionJoins({ octokitFor }: { octokitFor: (installation: number
         if (typeof status === 'number' && REFUSED.has(status)) return { ok: false, why: `GitHub refused the merge: ${String(messageOf(error)).split('\n')[0] ?? ''}` };
         throw error;
       }
+    },
+
+    async targets({ installation, repos, prd, branch }) {
+      const octokit = await octokitFor(installation);
+      const found: TargetPull[] = [];
+      for (const slug of repos) {
+        const [owner = '', repo = ''] = slug.split('/');
+        const pulls = await paginate(async (page) =>
+          TargetPullsSchema.parse((await octokit.request('GET /repos/{owner}/{repo}/pulls', { owner, repo, base: branch, state: 'all', per_page: PER_PAGE, page })).data),
+        );
+        for (const one of pulls) if (partOf(one.body, prd)) found.push({ repo: slug, pr: PrNumberSchema.parse(one.number) });
+      }
+      return found;
     },
   };
 }

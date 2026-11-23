@@ -24,7 +24,20 @@ import { messageOf, PullWrittenSchema, RefSchema, statusOf, type GitHubClient } 
 import { readBaseConfig } from '../outbox-check/github.ts';
 import { paginate, PER_PAGE } from '../retro/github.ts';
 import { missionRepo } from './branch.ts';
-import { decisionLists, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
+import {
+  decisionLists,
+  deferredLines,
+  deferredOf,
+  type AnswerLinks,
+  type DecisionEvent,
+  type DeferredDecision,
+  type FleetDecision,
+  type RecordedDecision,
+} from 'omni-loop/kit/lib/mission/overturn.ts';
+import type { Criterion } from 'omni-loop/kit/lib/ready/criteria.ts';
+import type { AcceptanceReport } from 'omni-loop/kit/lib/ready/report.ts';
+import { outsideLanding, type Outside } from './outside-bug.ts';
+import type { MissionPrd } from './store.prd.ts';
 import type { Landed } from './supervisor.ts';
 
 /** Where a mission branch is: the installation, the repository (`owner/name`) and the branch. */
@@ -174,9 +187,95 @@ const rowLine = (row: LandingRow, n: number): string =>
     .map(cell)
     .reduce((line, part) => `${line} ${part} |`, '|');
 
+// ── Landing, PRD omni-loop-21 s12 (spec "7. Landing") ──────────────────────────────────────────────────────────────────────────
+//
+//   others     one mission pull request per repository the mission touches, each naming the others
+//   deferred   **Deferred decisions**: what the fleet's meeting decided instead of a person, with Agree and Overturn
+//              (kit/lib/mission/overturn.ts), each link a page of the Missions tab where the person answers as themselves
+//   re-test    **Re-test**: per PRD on the branch, its acceptance criteria and what proved each (the `acceptance` report of its
+//              feature pull request's head, PRD 2898), then the steps to try by hand, one per criterion; a PRD an overturn reworked
+//              names the fix's pull request; the outside bugs, fixed or listed (./outside-bug.ts › outsideLanding), close it
+
+/** A mission pull request of the same mission in another repository: its number and link once it is open. */
+export type OtherPull = { repo: string; number: PrNumber | null; url: string | null };
+
+/** One proof of a criterion, as the `acceptance` report carries it. */
+export type Proof = AcceptanceReport['results'][number];
+
+/** One PRD to re-test: its criteria, the proofs its feature pull request's head carried, and the rework an overturn sent, if any. */
+export type RetestPrd = { prd: MissionPrd; criteria: readonly Criterion[]; proofs: readonly Proof[]; reworked: { pr: PrNumber; url: string } | null };
+
+/** What the person re-tests: each PRD on the branch, in the order it joined, then the outside bugs, in the order named. */
+export type Retest = { prds: readonly RetestPrd[]; outside: readonly Outside[] };
+
+/** The deferred decisions and where a person answers each. */
+export type Answers = { deferred: readonly DeferredDecision[]; links: AnswerLinks };
+
+/** Where a person agrees with or overturns a decision: the mission's own row of its fleet's Missions tab. */
+export const answerLinks =
+  ({ galaxyUrl, fleet, mission }: { galaxyUrl: string; fleet: string; mission: number }): AnswerLinks =>
+  (name, answer) =>
+    `${galaxyUrl}/app/fleet?fleet=${encodeURIComponent(fleet)}&tab=missions&mission=${String(mission)}&decision=${encodeURIComponent(name)}&answer=${answer}`;
+
+/**
+ * What a run passes for the **Deferred decisions** (`store.decisions` and `store.fleetEvents`, read at `alone` only): each deferred
+ * decision with the person's latest answer, and the links to answer the others.
+ */
+export const landingAnswers = ({ mission, decisions, events, galaxyUrl }: { mission: { fleet: string; number: number }; decisions: readonly RecordedDecision[]; events: readonly DecisionEvent[]; galaxyUrl: string }): Answers => ({
+  deferred: deferredOf(decisions, events),
+  links: answerLinks({ galaxyUrl, fleet: mission.fleet, mission: mission.number }),
+});
+
+/** The line naming the mission's pull requests in the other repositories; none when it touches one repository only. */
+function othersLines(others: readonly OtherPull[]): string[] {
+  if (others.length === 0) return [];
+  const named = others.map(({ repo, number, url }) => (number === null ? `${repo} (not opened yet)` : url === null ? `${repo}#${String(number)}` : `[${repo}#${String(number)}](${url})`));
+  return [`This mission has one pull request per repository. The others: ${named.join(', ')}.`, ''];
+}
+
+/** How one proof ended: its state, then where it lives or what it waits on. */
+function proofWords(proof: Proof): string {
+  const where = proof.proof === null ? '' : `, \`${proof.proof}\``;
+  const why = proof.why === undefined ? '' : ` (${proof.why})`;
+  return `${proof.state}${where}${why}`;
+}
+
+/** One criterion and what proved it. */
+function criterionLine(criterion: Criterion, proofs: readonly Proof[]): string {
+  const mine = proofs.filter((proof) => proof.ac === criterion.number);
+  const said = mine.length === 0 ? 'not proven yet' : mine.map(proofWords).join('; ');
+  return `- AC-${String(criterion.number)} · ${criterion.kind} · ${cell(criterion.scenario ?? 'no scenario named')}: ${said}`;
+}
+
+/** One step to try by hand: a criterion's scenario, its steps in order. */
+const handLine = (criterion: Criterion): string => `- [ ] AC-${String(criterion.number)}: ${criterion.steps.map(({ keyword, text }) => cell(`${keyword} ${text}`)).join('; ')}`;
+
+/** One PRD of the re-test: its heading, its criteria with their proof, then the steps to try by hand. */
+function retestPrdLines({ prd, criteria, proofs, reworked }: RetestPrd): string[] {
+  const heading = `*PRD ${String(prd)}*${reworked === null ? '' : ` · reworked by [#${String(reworked.pr)}](${reworked.url}) after an overturn`}`;
+  if (criteria.length === 0) return [heading, '', '- No acceptance criteria were read for it: try what its page says.', ''];
+  return [heading, '', ...criteria.map((one) => criterionLine(one, proofs)), '', 'Try by hand:', '', ...criteria.map(handLine), ''];
+}
+
+/** The **Re-test** section: per PRD its criteria and their proof, then the steps by hand, then the outside bugs; none without a PRD. */
+function retestLines(retest: Retest, branch: string): string[] {
+  if (retest.prds.length === 0 && retest.outside.length === 0) return [];
+  const outside = outsideLanding(retest.outside);
+  return [
+    '**Re-test**',
+    '',
+    `Before you merge, try \`${branch}\`: per PRD, its acceptance criteria and what proved each, then the steps to try by hand.`,
+    '',
+    ...retest.prds.flatMap(retestPrdLines),
+    ...(outside.length === 0 ? [] : ['*Outside bugs*', '', ...outside.map((line) => `- ${line}`), '']),
+  ];
+}
+
 /**
  * The mission pull request's body: the PRDs on the branch, in the order they joined, one commit each, how to merge it, and the
- * line that closes each PRD's issue on the default branch (`link`, `{prd}` filled; none when it was not read).
+ * line that closes each PRD's issue on the default branch (`link`, `{prd}` filled; none when it was not read). At landing (PRD
+ * omni-loop-21 s12) it also lists the deferred decisions, names the mission's pull requests in the other repositories, and says what
+ * to re-test.
  */
 export function missionPullBody({
   mission,
@@ -185,6 +284,9 @@ export function missionPullBody({
   rows,
   link,
   decisions = [],
+  answers = null,
+  others = [],
+  retest = null,
 }: {
   mission: { number: number; title: string };
   branch: string;
@@ -192,16 +294,22 @@ export function missionPullBody({
   rows: readonly LandingRow[];
   link: string | null;
   decisions?: readonly FleetDecision[];
+  answers?: Answers | null;
+  others?: readonly OtherPull[];
+  retest?: Retest | null;
 }): string {
   const lines = [
     // What the fleet decided at `alone` opens the body: every approval and every answer, each with its verdicts (PRD 2896 s11).
     ...decisionLists(decisions),
+    ...(answers === null ? [] : deferredLines(answers.deferred, answers.links)),
     `Lands mission #${String(mission.number)}, ${cell(mission.title)}, on \`${defaultBranch}\`: each PRD below joined \`${branch}\` as one commit, in this order.`,
     '',
     '| # | PRD | Its pull request | Commit | Reviewer | Page |',
     '|---|---|---|---|---|---|',
     ...rows.map((row, n) => rowLine(row, n + 1)),
     '',
+    ...othersLines(others),
+    ...(retest === null ? [] : retestLines(retest, branch)),
     `**Merge it with Rebase and merge**: \`${defaultBranch}\` then gets one commit per PRD, each revertible alone, and each PRD is shipped from that moment. A squash or a merge commit would land them as one.`,
     '',
     'Merge it at any time: it carries what has joined so far, and one knowledge pull request then covers every PRD it landed. The Omni app rewrites this list on every join and never merges it: a person does.',
