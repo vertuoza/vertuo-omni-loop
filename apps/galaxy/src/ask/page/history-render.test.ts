@@ -59,13 +59,13 @@ describe('the history page', () => {
     const html = page({ category: 'product', prd: parsePrd(71), search: 'host' });
     const form = html.match(/<form[^>]*>/)?.[0] ?? '';
     expect(form).toContain('method="get"');
-    expect(form).toContain('action="/ask/history"');
+    expect(form).toContain('action="/app/inbox/done"');
     for (const name of ['category', 'repo', 'prd', 'skill', 'asked', 'answered', 'q']) expect(html).toContain(`name="${name}"`);
     expect(html).toContain('name="category" value="product"');
     expect(html).toContain('name="prd" value="71"');
     expect(html).toContain('<span class="omni-select__value">PRD #71</span>');
     expect(html).toMatch(/<input[^>]*name="q"[^>]*value="host"/);
-    expect(html).toContain('<a class="ask-history-clear" href="/ask/history">Clear</a>');
+    expect(html).toContain('<a class="ask-history-clear" href="/app/inbox/done">Clear</a>');
   });
 
   it('offers no Clear while nothing is chosen', () => {

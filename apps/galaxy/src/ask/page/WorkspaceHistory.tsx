@@ -4,6 +4,12 @@ import { CATEGORIES, CATEGORY_LABELS } from '../classify';
 import { ContextLine } from './ContextLine';
 import { Screenshots } from './History';
 import { filtered, type HistoryChoices, type HistoryFilters, type HistoryItem } from './workspace-history';
+// Its own styles (bug #3167): it is drawn on the Inbox's Done tab, under the /app layout, which imports neither.
+import './history.css';
+import './share.css';
+
+/** Where the history lives since PRD omni-loop-22: the Inbox's Done tab, which its form and its Clear link stay on. */
+const DONE_PATH = '/app/inbox/done';
 
 // The workspace's history (PRD 144): a form of filters and a search, sent as a GET to this same page
 // so it works before any script runs, and the rounds that pass, newest first, each opening
@@ -25,7 +31,7 @@ function Pick({ name, label, value, options }: { name: string; label: string; va
 function Filters({ choices, filters }: { choices: HistoryChoices; filters: HistoryFilters }) {
   const plain = (values: string[]) => values.map((v) => ({ value: v, label: v }));
   return (
-    <form className="ask-history-filters" method="get" action="/ask/history" role="search">
+    <form className="ask-history-filters" method="get" action={DONE_PATH} role="search">
       <label className="ask-history-field ask-history-search">
         <span className="ask-hint">Search the questions and answers</span>
         <input className="ask-share-link" type="search" name="q" defaultValue={filters.search ?? ''} placeholder="a word of a question or its answer" />
@@ -41,7 +47,7 @@ function Filters({ choices, filters }: { choices: HistoryChoices; filters: Histo
       <Pick name="answered" label="Answered by" value={filters.answeredBy} options={choices.answeredBy.map((c) => ({ value: c.id, label: c.label }))} />
       <p className="ask-history-actions">
         <button type="submit" className="ask-button">Filter</button>
-        {filtered(filters) && <a className="ask-history-clear" href="/ask/history">Clear</a>}
+        {filtered(filters) && <a className="ask-history-clear" href={DONE_PATH}>Clear</a>}
       </p>
     </form>
   );
