@@ -66,7 +66,7 @@ describe('the Open tab, landing', () => {
     expect(side).toContain(`data-open="question:${ROUND_ID}"`);
     expect(side).toContain(FIRST_OPTION);
     expect(side).toMatch(/<input type="radio"/);
-    expect(html).toMatch(new RegExp(`<a class="inbox-row" href="/ask/q/${ROUND_ID}" data-key="question:${ROUND_ID}" aria-current="true"`));
+    expect(html).toMatch(new RegExp(`<a class="inbox-r" href="/ask/q/${ROUND_ID}" data-key="question:${ROUND_ID}" aria-current="true"`));
   });
 
   it('AC-3: with no question, the approval is open in the panel with a link to its PRD’s review', () => {
@@ -88,7 +88,7 @@ describe('the Open tab, landing', () => {
 
   it('marks each question Blocking and gives each row its own page', () => {
     const { html } = openTab({ list: { questions: [question(ROUND_ID, 2)], outbox: [] }, approvals: [approval] });
-    expect(html).toMatch(/<span class="omni-badge omni-badge--info">Blocking<\/span>/);
+    expect(html).toContain('<span class="inbox-r-flag">Blocking</span>');
     expect(html).toContain('href="/prd/dossier-41" data-key="approval:ap1"');
   });
 
