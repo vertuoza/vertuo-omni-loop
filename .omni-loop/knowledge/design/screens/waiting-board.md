@@ -36,6 +36,10 @@ waits on them.
 - omni-loop-22: the board is the Inbox's Workspace tab, under the Inbox title and its tabs Open · Done ·
   Workspace; its own tabs and rows are unchanged. /app/waiting redirects here, its ?tab= kept.
 
+- omni-loop-23 (round 3): the board drawn as the Inbox's shared rows; Late (more than 2 working days)
+  first, said as the word "Late" in the warning role, then Waiting; a Whose turn column of faces and
+  names; the views as pills, the product filter and the stale line on the toolbar line.
+
 ## States
 
 - **Workspace empty:** `Nothing waits on a person.`
@@ -69,3 +73,4 @@ PRDs waits on anyone. · Nothing waits on you.
 - /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html
 - /omni:visual-fix #2408, pick B by @pierrederval on 2026-10-22: .omni-loop/delivery/visual/2408-stale-pill/before-after.html
 /omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after) (the board as the Inbox › Workspace tab)
+/omni:brainstorm, PRD omni-loop-23: its before/after page, on the PRD's page (omni dossier get omni-loop-23 before-after)

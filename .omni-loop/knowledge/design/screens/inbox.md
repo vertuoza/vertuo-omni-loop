@@ -35,6 +35,15 @@ blocks an agent is open and ready to answer the moment they click Inbox.
   who asked and answered, the age and the category badge. Below 900 px the categories become one line
   that scrolls.
 
+- omni-loop-23 (round 3): no visible page title, the top bar's trail names the page and a visually
+  hidden h1 stays; the tabs Open · Done · Workspace sit right under the top bar, Open's count filled in
+  signal and named "<n> wait on you", the only filled signal shape; Alerts an icon button at the end of
+  the tabs line. One toolbar line per tab, 24 px under the tabs; one row anatomy for every tab: a 34 px
+  anchor (a face or a kind icon), a 16 px title (two lines at most), an optional 14 px line, one quiet
+  13 px line, the end column. Open: kind pills, the list (480) beside the panel (632). Done: the category
+  sidebar, the rows anchored on who answered, "✓ the answer", the details (branch, skill, model, tokens,
+  cost, time to answer) in a popover on hover, focus or `i`, day groups, "Show older".
+
 ## States
 
 - Landing: the first question open; with none, the first decision.
@@ -42,6 +51,11 @@ blocks an agent is open and ready to answer the moment they click Inbox.
 - Zero: the check sprite at 3×, `Nothing waits on you.`, and a link to the Workspace tab.
 - A part that could not be read: `<Part> couldn't be read — retrying.` in its section, its last rows kept.
 - Signed out: the Inbox's own sign-in card; signing in comes back to /app (item s5-05).
+
+- The selected state, everywhere a selection shows (a category, a kind pill, a view, the open row, the
+  picked option): a signal-soft tint, the label and its count semibold, the count in signal; no border,
+  bar or rule. Done lists answered and moved rounds only, 50 a page, with the true total and dimmed zero
+  categories (omni-loop-23).
 
 ## Words
 
@@ -64,7 +78,10 @@ blocks an agent is open and ready to answer the moment they click Inbox.
 - The Done tab's rows for approvals and merges: their exact words.
 - The `menu-inbox` sprite, pending its owner's approval.
 
+- omni-loop-23: Done's filter dropdowns list the values of the page shown (item s3-02, for its owner).
+
 ## Source
 
 /omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after)
 /omni:visual-fix #3169, pick A by @pierrederval on 2026-11-23: .omni-loop/delivery/visual/3169-done-tab-sidebar/before-after.html
+/omni:brainstorm, PRD omni-loop-23: its before/after page, on the PRD's page (omni dossier get omni-loop-23 before-after)
