@@ -90,10 +90,11 @@ import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
 import type { MissionBranches } from './branch.ts';
 import { levelRefusal } from 'omni-loop/kit/lib/mission/brief.ts';
+import { resumeCap } from './resume.ts';
 import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
-import { answeredOf, withDecisions, type ItemCommittee, type OpenAt } from './answers.ts';
-import { recordedOf, sendsCommittees, type Committee, type Decision } from './committee.ts';
+import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
+import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
 import { addedOf, isOwnJob, pmDispatched, pmEvents, pmNext, pmWorking, withAdded, withPm, type PmJob } from './pm.ts';
 import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
 import { planJobLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
@@ -224,7 +225,7 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, off, installation: ready.installation, joins: github.joins, hold: held.hold });
   if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
-  const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
+  const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered, resumes: resumeCap(mission) };
   const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   // The PM plans a PRD with no plan before its approval, and replans one stopped once its repairs are spent (PRD omni-loop-21 s9).
@@ -243,7 +244,7 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
   const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
   const finished: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
-  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
+  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const retro = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro.next;
   await store.record(mission.id, [...pmSent, ...budget.events, ...events, ...retro.events], new Date(now));
@@ -438,9 +439,11 @@ async function sendAll({
   skill: 'yolo' | 'ultra-yolo';
 }): Promise<Run[]> {
   const sent: Run[] = [];
-  for (const { prd, run, step, fix } of pick({ mission, facts, states })) {
-    const made = await store.send({ mission, prd, run, step, toFleet, skill, ...(fix === undefined ? {} : { fix }) });
-    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+  for (const { prd, run, step, fix, resume } of pick({ mission, facts, states })) {
+    // A step sent again after it ended without its result line goes under its `:resume:<k>` key (PRD omni-loop-21 s10).
+    const again = resume === undefined ? {} : { resume };
+    const made = await store.send({ mission, prd, run, step, toFleet, skill, ...(fix === undefined ? {} : { fix }), ...again });
+    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }], ...again });
   }
   return sent;
 }
@@ -576,17 +579,34 @@ const waitsOnAnswers = (state: PrdState | undefined): boolean => state?.state ==
 /** The items a head lists by id; none when they were not read, or were read by ranks alone. */
 const listedOf = (items: OpenItems): readonly OpenAt[] | undefined => ('notRead' in items ? undefined : items.open);
 
-/** An ended item committee's decision: escalated as its log reads, or carried once the App settled the item on the feature branch. */
-async function decideAsk({ store, mission, runs, branch, installation, now, github }: AnswerRun, one: ItemCommittee): Promise<Decision> {
-  const log = one.attempt.status === 'done' ? await store.committeeLog(one.job) : null;
-  const { verdicts, decision } = answeredOf(one.prd, one, log);
-  if (decision.outcome === 'escalated') return decision;
+/**
+ * An ended item committee's decision (PRD omni-loop-21 s8): the members' vote read again from its log (./committee.ts ›
+ * itemDecisionOf). Carried, or deferred with option A, the App settles the item on the feature branch with option A, answered for
+ * the mission branch only; escalated as its log reads, or when it cannot be settled. Recorded once as the service
+ * (mission_decide_item()), whose answer is the decision kept.
+ */
+async function decideAsk(run: AnswerRun, one: ItemCommittee): Promise<ItemVerdict> {
+  const log = one.attempt.status === 'done' ? await run.store.committeeLog(one.job) : null;
+  const { verdicts, decision } = itemDecisionOf(one.prd, one, log);
+  const settled = decision.outcome === 'escalated' ? null : await settleAsk(run, one, verdicts);
+  const taken = settled === null || settled.ok ? decision : { outcome: 'escalated' as const, why: [settled.why], option: null };
+  const kept = await run.store.decideItem(run.mission, { prd: one.prd, item: one.item, job: one.job, verdicts, decision: taken });
+  if (kept.outcome === 'deferred') return { outcome: 'deferred', why: kept.why, verdicts, option: kept.option ?? 'A' };
+  return { outcome: kept.outcome, why: kept.why, verdicts };
+}
+
+/** An item the fleet carried or deferred, settled with option A on its PRD's feature branch; why it cannot be, when it cannot. */
+async function settleAsk(
+  { mission, runs, branch, installation, now, github }: AnswerRun,
+  one: ItemCommittee,
+  verdicts: ReturnType<typeof itemDecisionOf>['verdicts'],
+): Promise<{ ok: true } | { ok: false; why: string }> {
   const pr = featurePrOf(runs, one.prd);
   const answers = github.answers;
-  if (pr === null || installation === null || answers === null || branch.branch === null) return { outcome: 'escalated', why: ['the App cannot settle it here: no feature pull request or no GitHub access'] };
+  if (pr === null || installation === null || answers === null || branch.branch === null) return { ok: false, why: 'the App cannot settle it here: no feature pull request or no GitHub access' };
   const answer = { fleet: mission.fleet, option: 'A', branch: branch.branch, at: new Date(now).toISOString(), verdicts };
   const settled = await answers.settle({ installation, repo: mission.repo, prd: one.prd, pr, item: one.item, answer });
-  return settled.ok ? { ...decision, verdicts } : { outcome: 'escalated', why: [settled.why] };
+  return settled.ok ? { ok: true } : settled;
 }
 
 /** The item committees this run sends (PRD 2896 s10): one per high item of a PRD that waits on its committee, while the mission runs or waits. */
