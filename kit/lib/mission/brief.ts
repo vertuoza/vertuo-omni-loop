@@ -181,7 +181,7 @@ const BriefSchema = z
     for (const fault of briefFaults(rest.kind, named, mandate)) ctx.addIssue({ code: 'custom', ...fault });
     const ownPrds = mandate.ownPrds ?? (isGoalOnly(rest.kind, named) ? GOAL_ONLY_OWN_PRDS : DEFAULT_OWN_PRDS);
     // No repositories and no request leave no key: a brief without them reads as it did before.
-    return { ...rest, mandate: { ...mandate, ownPrds }, scope: scope ?? NO_SCOPE, ...keyed({ repositories, request }) };
+    return { ...rest, mandate: { ...mandate, ownPrds }, scope: scope ?? NO_SCOPE, ...(repositories === undefined ? {} : { repositories }), ...(request === undefined ? {} : { request }) };
   });
 
 /** A goal-only brief (PRD omni-loop-24): not an `omni-bugs` one, and its scope names no PRD and no roadmap, or is missing. */
@@ -199,10 +199,6 @@ function briefFaults(kind: MissionKind, named: number, mandate: { level: Mission
   ];
 }
 
-/** `fields` without the keys that hold nothing. */
-function keyed<T extends Record<string, unknown>>(fields: T): { [K in keyof T]?: Exclude<T[K], undefined> } {
-  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as { [K in keyof T]?: Exclude<T[K], undefined> };
-}
 
 /** Where an issue is, as a person reads it: `measures[2].target`, counting from 1. */
 function placeOf(path: readonly PropertyKey[]): string {
