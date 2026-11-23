@@ -16,13 +16,15 @@ import { ItemAnswerSchema, MissionLevelSchema, RetroReadSchema, MissionStatusSch
 export type MissionsDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 const WHERE = 'missions/missions.repository';
-const MISSION = 'id, workspace_id, repo, status, number, title, mandate, paused_by';
+const MISSION = 'id, workspace_id, repo, status, number, title, mandate, paused_by, waiting_on';
 
 const MissionRow = z.object({
   id: z.uuid(), workspace_id: z.uuid(), repo: z.string().min(1), status: MissionStatusSchema,
   number: z.number().int().positive(), title: z.string(),
   // `stuck` while the supervisor holds the mission paused by stuck (PRD 3065); absent from a row an older read returns.
   paused_by: z.enum(['stuck']).nullable().default(null),
+  // What it waits on (a goal-only mission's PM that wrote no PRD is resumed from it, #3203); absent from a row an older read returns.
+  waiting_on: z.string().nullable().default(null),
   // A mission made before PRD 2896 holds no level: it reads `with-you`.
   mandate: z.object({ level: MissionLevelSchema.optional(), tokens: z.number().int().positive().optional() }).loose(),
 });
@@ -32,10 +34,10 @@ const StopRow = z.object({
 /** A budget stop as its answer left it: who it paused, and what the answer was (PRD 3040). */
 type AnsweredStopRow = { id: string; answer: StopAnswer; raisedTo: number | null; mission: string | null; missions: string[] };
 /** A mission as the repository reads it: its workspace, its repository, where it stands and the level it runs at. */
-export type MissionRecord = { id: string; workspace: string; repo: string; status: MissionStatus; number: number; title: string; level: MissionLevel; pausedBy: 'stuck' | null };
+export type MissionRecord = { id: string; workspace: string; repo: string; status: MissionStatus; number: number; title: string; level: MissionLevel; pausedBy: 'stuck' | null; waitingOn: string | null };
 
 const toRecord = (row: z.infer<typeof MissionRow>): MissionRecord =>
-  ({ id: row.id, workspace: row.workspace_id, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.mandate.level ?? 'with-you', pausedBy: row.paused_by });
+  ({ id: row.id, workspace: row.workspace_id, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.mandate.level ?? 'with-you', pausedBy: row.paused_by, waitingOn: row.waiting_on });
 
 const ItemRow = z.object({ id: z.uuid(), mission_id: z.uuid(), target: z.string(), answer: ItemAnswerSchema.nullable() });
 /** A mission item as its answer left it: its mission, what it proposes to change and the answer (PRD 3065). */

@@ -13,7 +13,9 @@
 //   the events        the dispatch, signed `supervisor`; what it added, signed `pm`; all by `agent`, never in a person's name
 //   goal-only         a mission whose scope names no PRD and no roadmap (PRD omni-loop-24) is sent the roadmap first, at any cap.
 //                     A job of it that ended with no PRD is sent once more under the next round, within `mandate.resumes`; then
-//                     the mission waits on a person with `the PM wrote no PRD for the goal: <why>`, never stopped or delivered
+//                     the mission waits on a person with `the PM wrote no PRD for the goal: <why>`, never stopped or delivered.
+//                     A person's Resume of it then (#3203) sends the same roadmap once more, one round each; with none again, it
+//                     waits again with its reason
 import { isPmSkill, keptOf, notWrittenWords, planOfLine, pmJobLine, pmRecordOf, pmSkillFor, type PmSkill } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { sendsCommittees } from './committee.ts';
@@ -58,6 +60,8 @@ export type PmView = {
   added: number;
   jobs: readonly PmJob[];
   inPlan: boolean;
+  /** The rounds a person asked for by resuming the mission once its PM's jobs were spent ({@link pmAsks}, #3203); none when absent. */
+  asks?: number;
 };
 
 const NONE: PmNext = { next: 'none' };
@@ -74,6 +78,26 @@ export function goalOnly({ scope, products, kind }: Pick<PmView['mission'], 'sco
 /** How many own jobs a goal-only mission's PM is sent: the first, and once more within `mandate.resumes` (none at 0). */
 const triesOf = (mission: PmView['mission']): number => 1 + Math.min(1, resumeCap(mission) ?? 0);
 
+/** The own jobs a goal-only mission's PM is sent in all: its tries, and one more for each round a person asked for (#3203). */
+const allowedOf = (mission: PmView['mission'], asks: number | undefined): number => triesOf(mission) + (asks ?? 0);
+
+/**
+ * The rounds a person asked of a goal-only mission's PM (#3203): each Resume of the mission (a `resumed` event of no PRD) recorded once
+ * every own PM job sent so far had ended and they were spent, so the mission waited on `the PM wrote no PRD for the goal`. A Resume
+ * while a job works, or before the tries are spent, asks nothing. `recorded` in the order the events were recorded.
+ */
+export function pmAsks(mission: PmView['mission'], recorded: readonly RecordedEvent[], jobs: readonly PmJob[]): number {
+  const own = new Set(ownOf(jobs).map((one) => one.job));
+  const sent = new Set<string>();
+  const ended = new Set<string>();
+  let asks = 0;
+  for (const { kind, prd, job } of recorded) {
+    if (job !== null && own.has(job)) (kind === 'dispatched' ? sent : ended).add(job);
+    else if (kind === 'resumed' && prd === null && sent.size > 0 && [...sent].every((one) => ended.has(one)) && ended.size >= triesOf(mission) + asks) asks += 1;
+  }
+  return asks;
+}
+
 /** The mission's own PM jobs: every PM job but a plan or a replan. */
 const ownOf = (jobs: readonly PmJob[]): PmJob[] => jobs.filter(isOwnJob);
 
@@ -85,11 +109,11 @@ export const isOwnJob = ({ line }: Pick<PmJob, 'line'>): boolean => planOfLine(l
  * goal-only mission's is the roadmap at any cap, sent once more under the next round when the last ended with no PRD (PRD
  * omni-loop-24).
  */
-export function pmNext({ mission, ownPrds, added, jobs, inPlan }: PmView): PmNext {
+export function pmNext({ mission, ownPrds, added, jobs, inPlan, asks }: PmView): PmNext {
   if (mission.level !== 'alone' || !sendsCommittees(mission.status)) return NONE;
   const own = ownOf(jobs);
   const goal = goalOnly(mission);
-  if (own.length > 0 && !(goal && added === 0 && own.length < triesOf(mission) && !own.some(pmWorking))) return NONE;
+  if (own.length > 0 && !(goal && added === 0 && own.length < allowedOf(mission, asks) && !own.some(pmWorking))) return NONE;
   const left = ownPrds - added;
   const skill = pmSkillFor(left, inPlan, goal);
   if (skill === null) return NONE;
@@ -114,11 +138,11 @@ const endWords = ({ status, reason }: Pick<Attempt, 'status' | 'reason'>): strin
  * What a goal-only mission waits on once its PM's jobs are spent and none wrote a PRD: `the PM wrote no PRD for the goal: <why>`,
  * its last job's end; null while a job works or is still to send, once its fleet added a PRD, or for any other mission.
  */
-export function pmWait({ mission, added, jobs }: PmView): string | null {
+export function pmWait({ mission, added, jobs, asks }: PmView): string | null {
   if (mission.level !== 'alone' || added > 0 || !goalOnly(mission)) return null;
   const own = ownOf(jobs);
   const last = own.reduce<PmJob | undefined>((latest, one) => (latest === undefined || one.round > latest.round ? one : latest), undefined);
-  if (last === undefined || own.some(pmWorking) || own.length < triesOf(mission)) return null;
+  if (last === undefined || own.some(pmWorking) || own.length < allowedOf(mission, asks)) return null;
   return cut(`${NO_PRD_WORDS}: ${skillWords(last.line)} ${endWords(last.attempt)}, sent ${timesWords(own.length)}.`);
 }
 

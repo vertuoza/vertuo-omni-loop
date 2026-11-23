@@ -100,7 +100,7 @@ import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mi
 import { decisionsOf, deferredOf, reworkLine, reworksOf, type DecisionPrd, type DeferredDecision, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
 import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
-import { addedOf, isOwnJob, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type PmJob, type PmView } from './pm.ts';
+import { addedOf, isOwnJob, pmAsks, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type PmJob, type PmView } from './pm.ts';
 import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
 import { planJobLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
 import { retroSkillLine } from './milestone.ts';
@@ -477,8 +477,8 @@ async function sendRetro(store: MissionStore, mission: MissionRecord, toFleet: b
 /** A new event as a run reads it back. */
 const asRecorded = ({ kind, prd, job }: NewEvent): RecordedEvent => ({ kind, prd, job });
 
-/** What a run decides the PM's job from (./pm.ts): the mission, its cap, the PRDs its fleet added, its PM jobs, and where it lives. */
-const pmView = (mission: MissionRecord, pm: PmRead, inPlan: boolean): PmView => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
+/** What a run decides the PM's job from (./pm.ts): the mission, its cap, the PRDs its fleet added, its PM jobs, where it lives, and the rounds a person asked for. */
+const pmView = (mission: MissionRecord, pm: PmRead, inPlan: boolean): PmView => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs) });
 
 /** The mission's PM job, when this run sends it (PRD 2896 s12): its dispatch, or nothing. */
 async function sendPm(store: MissionStore, mission: MissionRecord, pm: PmRead, inPlan: boolean, toFleet: boolean): Promise<NewEvent[]> {

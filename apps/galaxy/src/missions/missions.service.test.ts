@@ -71,7 +71,7 @@ describe('Pause and Resume', () => {
 
   it('refuses to resume a running mission, to pause a paused one and to start a delivered one', async () => {
     const { db, service } = setup();
-    expect(await service.move('resume', RUNNING, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict', error: 'Only a paused mission resumes. This one is running.' });
+    expect(await service.move('resume', RUNNING, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict', error: 'Only a paused mission, or one whose PM wrote no PRD for its goal, resumes. This one is running.' });
     expect(await service.move('pause', PAUSED, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict' });
     expect(await service.move('start', DELIVERED, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict' });
   });

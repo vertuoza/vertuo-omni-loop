@@ -52,7 +52,8 @@ runners while the laptop is closed.
 - **Writing the mission:** a request whose mission is not pushed yet; its goal and `Writing the mission`, no button.
 - **Writing the roadmap:** a goal-only mission running with no PRD yet: `Running`, `Writing the roadmap`, with `Pause`.
 - **No PRD written:** the PM wrote no PRD twice: `Waiting on you`, `No PRD written` and a `Why` link to the mission's brief, which
-  holds the PM's reason (`the PM wrote no PRD for the goal: <why>`); never `Delivered`.
+  holds the PM's reason (`the PM wrote no PRD for the goal: <why>`), with `Resume`, which sends the PM's roadmap once more (#3203);
+  never `Delivered`.
 - **Draft:** `Not started`, its level, with `Start`.
 - **Reviews with you:** as before PRD 2896, with the level's name on the row and no branch line.
 - **Branch behind with a conflict, or red:** the mission is `Waiting on you`, the branch line naming the

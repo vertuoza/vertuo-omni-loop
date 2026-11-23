@@ -24960,13 +24960,25 @@ function goalOnly({ scope, products, kind }) {
   return kind !== "omni-bugs" && named === 0;
 }
 var triesOf = (mission) => 1 + Math.min(1, resumeCap(mission) ?? 0);
+var allowedOf = (mission, asks) => triesOf(mission) + (asks ?? 0);
+function pmAsks(mission, recorded, jobs) {
+  const own = new Set(ownOf(jobs).map((one) => one.job));
+  const sent = /* @__PURE__ */ new Set();
+  const ended7 = /* @__PURE__ */ new Set();
+  let asks = 0;
+  for (const { kind, prd, job } of recorded) {
+    if (job !== null && own.has(job)) (kind === "dispatched" ? sent : ended7).add(job);
+    else if (kind === "resumed" && prd === null && sent.size > 0 && [...sent].every((one) => ended7.has(one)) && ended7.size >= triesOf(mission) + asks) asks += 1;
+  }
+  return asks;
+}
 var ownOf = (jobs) => jobs.filter(isOwnJob);
 var isOwnJob = ({ line: line3 }) => planOfLine(line3) === null;
-function pmNext({ mission, ownPrds, added, jobs, inPlan }) {
+function pmNext({ mission, ownPrds, added, jobs, inPlan, asks }) {
   if (mission.level !== "alone" || !sendsCommittees(mission.status)) return NONE;
   const own = ownOf(jobs);
   const goal = goalOnly(mission);
-  if (own.length > 0 && !(goal && added === 0 && own.length < triesOf(mission) && !own.some(pmWorking))) return NONE;
+  if (own.length > 0 && !(goal && added === 0 && own.length < allowedOf(mission, asks) && !own.some(pmWorking))) return NONE;
   const left = ownPrds - added;
   const skill = pmSkillFor(left, inPlan, goal);
   if (skill === null) return NONE;
@@ -24980,11 +24992,11 @@ var endWords = ({ status: status2, reason: reason2 }) => {
   if (status2 !== "done") return reason2 === null || reason2 === "" ? "failed" : `failed (${reason2})`;
   return "ended with no PRD in its record";
 };
-function pmWait({ mission, added, jobs }) {
+function pmWait({ mission, added, jobs, asks }) {
   if (mission.level !== "alone" || added > 0 || !goalOnly(mission)) return null;
   const own = ownOf(jobs);
   const last = own.reduce((latest, one) => latest === void 0 || one.round > latest.round ? one : latest, void 0);
-  if (last === void 0 || own.some(pmWorking) || own.length < triesOf(mission)) return null;
+  if (last === void 0 || own.some(pmWorking) || own.length < allowedOf(mission, asks)) return null;
   return cut3(`${NO_PRD_WORDS}: ${skillWords(last.line)} ${endWords(last.attempt)}, sent ${timesWords2(own.length)}.`);
 }
 var pmWorking = ({ attempt: attempt3 }) => attempt3.status === "queued" || attempt3.status === "claimed" || attempt3.status === "running";
@@ -26271,7 +26283,7 @@ async function sendRetro(store, mission, toFleet) {
   return job === null ? [] : [{ kind: "dispatched", role: "supervisor", prd: null, job, link: null, sentence: sentence2 }];
 }
 var asRecorded = ({ kind, prd, job }) => ({ kind, prd, job });
-var pmView = (mission, pm, inPlan) => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
+var pmView = (mission, pm, inPlan) => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs) });
 async function sendPm(store, mission, pm, inPlan, toFleet) {
   const next = pmNext(pmView(mission, pm, inPlan));
   if (next.next !== "send") return [];
