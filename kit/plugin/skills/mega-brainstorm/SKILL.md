@@ -369,8 +369,9 @@ a runner when the mission's PRDs live in this plan repository (PRD 2896, "7. The
 A runner refuses it on any other job, and nobody sends it by hand. It runs as `/omni:brainstorm`'s
 **For a mission's PM** says, in the plan repository, with these differences.
 
-- **The idea** is the mission's goal and measures, read from `mission.md` in the folder of mission
-  `<m>` under `.omni-loop/delivery/missions/` of the plan repository. Step 2 asks nobody: which
+- **The idea** is the mission's goal and measures, read from its page: run `omni mission get <m>`
+  first, in the plan repository, and read `mission.md` in the folder it prints; when it exits 1, stop
+  on its line (`mission <m> not read: <why>` or `no mission #<m> on the page`) and write no PRD. Step 2 asks nobody: which
   repository does what takes the most reversible answer, and becomes a high outbox item on the PRD
   like every other question.
 - **Born on the server, planned, never sent.** Step 8 plans it; step 9 opens no phase-0 PR, here or

@@ -1,6 +1,6 @@
 ---
 name: mission
-description: Settles a mission with a person — the Virtual Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), under the missions folder of the delivery folder, opens the mission's issue and its docs pull request, and sends the brief to the mission's page with omni mission push. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and starting the mission never waits for the pull request. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
+description: Settles a mission with a person — the Virtual Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), in a scratch folder outside the repository, opens the mission's issue, and sends the brief to the mission's page with omni mission push --from. It opens no branch, commit or pull request, since the page is the mission's record. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and presses no Start. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
 ---
 
 # Mission: a goal a Virtual Fleet delivers
@@ -15,12 +15,13 @@ person's; the fleet does the rest.
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
-adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
-prints as the message's last line, with no blank line between them. Every pull request or issue it
-opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
-your session's own attribution lines, and a body it rewrites keeps that line. Comments are never
-signed. A command that prints nothing means signing is off here: add nothing.
+**Signing.** The issue this skill opens ends its body with the line `omni sign footer` prints, as a
+paragraph of its own just above your session's own attribution lines. Comments are never signed. A
+command that prints nothing means signing is off here: add nothing. The skill makes no commit.
+
+**The page is the record.** A mission lives on its page, in every repository, whatever the phase-0
+flag (PRD 3194): the skill cuts no branch, makes no worktree, commits nothing and opens no pull
+request. The brief is written to a folder outside the repository and pushed from there.
 
 ## Inputs
 
@@ -60,8 +61,7 @@ a yes first.
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the Omni Loop
 kit is not installed in this repository. Keep the JSON; later steps read `repo.*`,
-`paths.delivery`, `worktrees`, `labels.autoCreate` and `limits.beforeAfterMaxBytes` from it.
-`<remote>` below is `repo.remote`.
+`labels.autoCreate` and `limits.beforeAfterMaxBytes` from it.
 
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. A form adds to the steps below; it never overrides this skill's rules.
@@ -124,15 +124,13 @@ nothing before the yes.
 A mission is numbered by its GitHub issue, as a concept is. `gh issue create --title "Mission:
 <title>" --body-file <file>`, the body a pointer (the goal, the fleet, the scope, and the folder
 the brief will live in) ending with the `omni sign footer` line. `<title>` is the goal cut to a
-short title of at most 200 characters. Add no label: the repository has none for a mission. The
-folder is `<nnnn>-<slug>`: `<n>` zero-padded to four digits and a short kebab-case slug of the
-title, under `<paths.delivery>/missions/`; `<folder>` below is its repository path.
+short title of at most 200 characters. Add no label: the repository has none for a mission. Then make
+the scratch folder outside the repository, `<folder>` below: `mktemp -d` (never a path under the
+repository). The issue's body names the page as the brief's home, not a repository folder.
 
 ## 3. Write the brief
 
-Make a worktree for the docs branch, cut from `<remote>/<repo.defaultBranch>`:
-`git worktree add -b mission/<nnnn>-<slug> <worktrees>/mission-<nnnn> <remote>/<repo.defaultBranch>`,
-and write both files there.
+Write both files in `<folder>`, the scratch folder outside the repository. No worktree, no branch.
 
 **`<folder>/mission.md`**, YAML front matter between `---` fences holding exactly these fields,
 then a short body saying the goal in the person's words:
@@ -172,34 +170,30 @@ page's own title and captions sit outside it. Then run
 `node .omni-loop/bin/omni.mjs design words <folder>/mission.html` before anyone sees the page, fix
 each finding in the page (never silence it by dropping a mark), and run it again.
 
-## 4. Push, then the docs PR
+## 4. Push
 
-1. `node .omni-loop/bin/omni.mjs mission push <n>` from the worktree. It refuses the folder whole,
-   every fault one line (`invalid mission: …`), and sends nothing: fix the file it names, run it
-   again. Exit 0 prints the mission's page and the versions added: say the link. Another failure
-   (not signed in, the app unreachable) is said in one line with its fix, and the run carries on to
-   the pull request: the push is run again later, and a second push of unchanged files adds nothing.
-2. Commit both files as `docs(mission): <title>`, signed (**Signing**), write the message to a
-   scratch file and commit with `git -C <worktree> commit -F <file>`.
-3. `git push -u <remote> mission/<nnnn>-<slug>`, then open the docs PR through `/omni:pr`'s
-   lifecycle: base `repo.defaultBranch`, a Conventional Commits title, a body that opens with the
-   mission's page link when step 4.1 printed one, then `Refs #<n>`, a Summary, and the
-   `omni sign footer` line. A person reviews and merges it whenever.
+Run `node .omni-loop/bin/omni.mjs mission push <n> --from <folder>`. It refuses the folder whole,
+every fault one line (`invalid mission: …`), and sends nothing: fix the file it names, run it again.
+Exit 0 prints the mission's page and the versions added: say the link. Another failure (not signed
+in, the app unreachable, a refusal) is said in one line with its fix, and the folder is kept: the
+hand-off prints `omni mission push <n> --from <folder>` to run again, and a second push of unchanged
+files adds nothing. No branch, commit or pull request is made, and none stands in for a failed push.
 
-**Starting never waits for that merge.** The mission starts from its page, on the server, the
-moment a person presses Start. Never merge the PR, never press Start for a person, and never
-answer a question that is theirs.
+**Starting is the person's.** The mission starts from its page, on the server, the moment a person
+presses Start. Never merge anything, never press Start for a person, and never answer a question
+that is theirs.
 
 ## 5. Hand off
 
-Say, in plain words and in this order: the mission's page link (or that it has none yet, and the
-`omni mission push <n>` line to run), the docs PR's link, and that **Start** on the mission's page
-sends its fleet to work. Name what the mission will wait for a person on (an approval, an answer, a
-merge), since it never does those itself.
+Say, in plain words and in this order: the mission's page link, its fleet's Missions tab (or, when
+the push failed, why, its fix and the `omni mission push <n> --from <folder>` line to run again), and
+that **Start** on that page sends its fleet to work. Name what the mission will wait for a person on
+(an approval, an answer, a merge), since it never does those itself. To keep the brief as plain files
+in the repository, `omni mission get <n>` writes them, uncommitted.
 
 ## Never
 
-- Never write code, merge a pull request, or press Start.
+- Never write code, cut a branch, make a commit, open a pull request, merge, or press Start.
 - Never write a field the schema does not take, or a measure the person did not give.
 - Never write a level above the fleet's for a person who is not an owner of the workspace: the app refuses it.
 - Never invent a Virtual Fleet's key, a PRD or a roadmap, a product id included: each is read from the person or checked.
