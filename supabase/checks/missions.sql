@@ -733,6 +733,232 @@ begin
 end $$;
 reset role;
 
+-- ── Mission requests (PRD omni-loop-24 s3) ──
+-- Oona owns Initech, Pete is a member; NIGHT SHIFT stays at with-you, DAY SHIFT works alone. NIGHT SHIFT's runner holds
+-- nimbus-apps (phase 0 on the server), DAY SHIFT's holds nimbus-apps and nimbus-brain; nimbus-plan keeps phase 0 on a pull request.
+select set_config('request.jwt.claims', '', true);
+insert into auth.users (id, email) values
+  ('00000000-0000-4000-8000-0000000024f1', 'oona@example.com'),
+  ('00000000-0000-4000-8000-0000000024f2', 'pete@example.com');
+insert into public.workspace_members (workspace_id, user_id, role)
+select w.id, m.user_id, m.role
+  from (values ('00000000-0000-4000-8000-0000000024f1'::uuid, 'owner'), ('00000000-0000-4000-8000-0000000024f2'::uuid, 'member')) as m (user_id, role)
+  join public.workspaces w on w.slug = 'initech';
+insert into public.players (workspace_id, user_id, display_name, hero, github_login)
+select w.id, p.user_id, p.name, '{"v":1,"body":"girl","skin":0,"hair":0,"suit":0,"cape":0}', p.login
+  from (values ('00000000-0000-4000-8000-0000000024f1'::uuid, 'OONA', 'oona-gh'), ('00000000-0000-4000-8000-0000000024f2'::uuid, 'PETE', 'pete-gh')) as p (user_id, name, login)
+  join public.workspaces w on w.slug = 'initech';
+-- Its PM, Architect and Reviewer are no matter here: the fleet's own guard is set aside for this one row.
+alter table public.teams disable trigger teams_level_guard;
+insert into public.teams (workspace_id, name, label, color, sort, kind, level)
+select w.id, 'day-shift', 'DAY SHIFT', '#8bd450', 120, 'virtual', 'alone' from public.workspaces w where w.slug = 'initech';
+alter table public.teams enable trigger teams_level_guard;
+update public.repositories set phase0 = 'server' where full_name in ('initech/nimbus-apps', 'initech/nimbus-brain');
+insert into public.runners (workspace_id, owner, name, fleet, repos)
+select w.id, '00000000-0000-4000-8000-0000000024f2', r.name, r.fleet, r.repos
+  from public.workspaces w,
+       (values ('night-box', 'night-shift', '{initech/nimbus-apps}'::text[]), ('day-box', 'day-shift', '{initech/nimbus-apps,initech/nimbus-brain}'::text[])) as r (name, fleet, repos)
+ where w.slug = 'initech';
+
+-- Runs a request that must be refused with `state` (and `field` as its hint, when one), and checks nothing was kept.
+create function pg_temp.request_refused(fleet text, goal text, repo text, state text, field text default null) returns void language plpgsql as $$
+declare
+  s text;
+  h text;
+begin
+  perform public.mission_request_make((select id from public.workspaces where slug = 'initech'), fleet, goal, repo);
+  raise exception 'FAIL: a request was not refused (%): % on %', state, goal, fleet;
+exception when others then
+  get stacked diagnostics s = returned_sqlstate, h = pg_exception_hint;
+  if s like 'FAIL%' or s = 'P0001' then raise; end if;
+  if s is distinct from state or (field is not null and h is distinct from field) then
+    raise exception 'FAIL: a request was refused with % (%) instead of % (%)', s, h, state, field;
+  end if;
+end;
+$$;
+grant execute on function pg_temp.request_refused(text, text, text, text, text) to authenticated;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000024f2');
+do $$
+begin
+  -- A member who is no owner, on a fleet below alone, is refused before anything is kept.
+  perform pg_temp.request_refused('night-shift', 'Dark mode for quotes.', null, '42501', 'level');
+  -- Several repositories held, none named; a goal blank, too long or over two lines; a fleet that is none.
+  perform pg_temp.request_refused('day-shift', 'Dark mode for quotes.', null, '22023', 'repo');
+  perform pg_temp.request_refused('day-shift', '   ', 'initech/nimbus-apps', '22023', 'goal');
+  perform pg_temp.request_refused('day-shift', repeat('a', 301), 'initech/nimbus-apps', '22023', 'goal');
+  perform pg_temp.request_refused('day-shift', E'Dark mode\nfor quotes.', 'initech/nimbus-apps', '22023', 'goal');
+  perform pg_temp.request_refused('acme-shift', 'Dark mode for quotes.', null, 'P0002', 'fleet');
+  -- A member writes no request and no job directly.
+  begin
+    insert into public.mission_requests (workspace_id, repo, fleet_key, goal, requested_login)
+    select id, 'initech/nimbus-apps', 'day-shift', 'Sneaky.', 'pete-gh' from public.workspaces where slug = 'initech';
+    raise exception 'FAIL: a member wrote a mission request directly';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+do $$
+begin
+  if exists (select 1 from public.mission_requests) or exists (select 1 from public.runner_jobs where line like '/omni:mission%') then
+    raise exception 'FAIL: a refused request kept a row';
+  end if;
+end $$;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000024f1');
+do $$
+declare
+  made jsonb;
+  job  public.runner_jobs%rowtype;
+begin
+  -- The owner: on a repository whose phase 0 is a pull request, refused; on NIGHT SHIFT, the one repository its runner holds.
+  perform pg_temp.request_refused('night-shift', 'Dark mode for quotes.', 'initech/nimbus-plan', '22023', 'phase0');
+  made := public.mission_request_make((select id from public.workspaces where slug = 'initech'), 'night-shift', ' Dark mode for quotes — à l''écran ', null);
+  if made ->> 'repo' is distinct from 'initech/nimbus-apps' or made ->> 'goal' is distinct from ' Dark mode for quotes — à l''écran ' then
+    raise exception 'FAIL: the request was not kept word for word on the fleet''s repository: %', made;
+  end if;
+  select j.* into job from public.runner_jobs j where j.id = (made ->> 'job')::uuid;
+  if job.line is distinct from '/omni:mission --request ' || (made ->> 'id') or job.to_fleet is distinct from 'night-shift'
+     or job.repo is distinct from 'initech/nimbus-apps' or job.sent_by is distinct from '00000000-0000-4000-8000-0000000024f1' or job.status <> 'queued' then
+    raise exception 'FAIL: the request''s job is not /omni:mission --request <id> for the fleet, sent by the owner: %', row_to_json(job);
+  end if;
+  if (select r.requested_login || ' ' || r.job_id::text from public.mission_requests r where r.id = (made ->> 'id')::uuid)
+     is distinct from 'oona-gh ' || (made ->> 'job') then
+    raise exception 'FAIL: the owner does not read the request with their login and its job';
+  end if;
+end $$;
+reset role;
+
+-- A member of DAY SHIFT at alone starts one on the repository they name; Carl, of Acme, reads none.
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000024f2');
+select public.mission_request_make((select id from public.workspaces where slug = 'initech'), 'day-shift', 'Invoices in every region.', 'initech/nimbus-brain');
+do $$
+begin
+  if (select count(*) from public.mission_requests) <> 2 then
+    raise exception 'FAIL: a member does not read their workspace''s two requests';
+  end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000028c1');
+do $$
+begin
+  if exists (select 1 from public.mission_requests) then
+    raise exception 'FAIL: a member of another workspace read a mission request';
+  end if;
+end $$;
+reset role;
+
+-- A request is never changed, but for its mission's number, filled once.
+do $$
+begin
+  begin
+    update public.mission_requests set goal = 'Something else.';
+    raise exception 'FAIL: a request''s goal was changed';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.mission_requests;
+    raise exception 'FAIL: a request was deleted';
+  exception when insufficient_privilege then null; end;
+end $$;
+
+-- The runner, as Pete (no owner), pushes the goal-only brief of Oona's request: mission 2901 starts as Oona's, at alone above
+-- NIGHT SHIFT's level, its job due on the App's ledger, the request taking its number. A second push starts nothing more.
+create function pg_temp.goal_brief(fleet text, request text, extra jsonb default '{}'::jsonb) returns jsonb language sql as $$
+  select jsonb_build_object('kind', 'prds', 'fleet', fleet, 'goal', 'Dark mode for quotes.', 'measures', '[]'::jsonb,
+    'scope', jsonb_build_object('prds', '[]'::jsonb, 'roadmaps', '[]'::jsonb),
+    'mandate', jsonb_build_object('parallel', 2, 'level', 'alone', 'hardToRevert', 0.6, 'ownPrds', 10, 'resumes', 3))
+    || case when request is null then '{}'::jsonb else jsonb_build_object('request', request) end || extra;
+$$;
+grant execute on function pg_temp.goal_brief(text, text, jsonb) to authenticated;
+create temporary table asked_ids on commit drop as select r.id, r.fleet_key from public.mission_requests r;
+grant select on asked_ids to authenticated;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000024f2');
+do $$
+declare
+  asked uuid := (select id from asked_ids where fleet_key = 'night-shift');
+  done  jsonb;
+  files jsonb := jsonb_build_array(jsonb_build_object('kind', 'mission-record', 'content', E'---\nmission: 2901\n---\n'));
+  h     text;
+begin
+  -- Without its request, Pete cannot file a mission at alone above NIGHT SHIFT's level.
+  begin
+    perform public.mission_push('initech/nimbus-apps', 2901, 'Dark mode', pg_temp.goal_brief('night-shift', null), files);
+    raise exception 'FAIL: a member filed a goal-only mission above the fleet''s level';
+  exception when insufficient_privilege then null; end;
+  -- A goal-only brief below alone, or with no PRD for the PM to write, is refused for its scope.
+  begin
+    perform public.mission_push('initech/nimbus-apps', 2901, 'Dark mode', pg_temp.goal_brief('day-shift', null, '{"mandate": {"parallel": 2, "level": "with-you", "ownPrds": 10}}'), files);
+    raise exception 'FAIL: a goal-only mission was filed below alone';
+  exception when invalid_parameter_value then
+    get stacked diagnostics h = pg_exception_hint;
+    if h is distinct from 'scope' then raise exception 'FAIL: a goal-only mission below alone was refused for %', h; end if;
+  end;
+  begin
+    perform public.mission_push('initech/nimbus-apps', 2901, 'Dark mode', pg_temp.goal_brief('day-shift', null, '{"mandate": {"parallel": 2, "level": "alone", "ownPrds": 0}}'), files);
+    raise exception 'FAIL: a goal-only mission was filed with ownPrds 0';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.mission_push('initech/nimbus-apps', 2901, 'Dark mode', pg_temp.goal_brief('night-shift', 'not-a-uuid'), files);
+    raise exception 'FAIL: a request that is no uuid was taken';
+  exception when invalid_parameter_value then null; end;
+
+  done := public.mission_push('initech/nimbus-apps', 2901, 'Dark mode', pg_temp.goal_brief('night-shift', asked::text), files);
+  if done #>> '{mission,status}' is distinct from 'running' or (done #>> '{mission,started}')::boolean is not true then
+    raise exception 'FAIL: the request''s mission did not start: %', done;
+  end if;
+  done := public.mission_push('initech/nimbus-apps', 2901, 'Dark mode', pg_temp.goal_brief('night-shift', asked::text), files);
+  if (done #>> '{mission,started}')::boolean is not false then
+    raise exception 'FAIL: a second push started the mission again: %', done;
+  end if;
+
+  -- DAY SHIFT's request names nimbus-brain: pushed from nimbus-apps, it is ignored, and the mission stays a draft.
+  done := public.mission_push('initech/nimbus-apps', 2902, 'Invoices', pg_temp.goal_brief('day-shift', (select id from asked_ids where fleet_key = 'day-shift')::text),
+                              jsonb_build_array(jsonb_build_object('kind', 'mission-record', 'content', E'---\nmission: 2902\n---\n')));
+  if done #>> '{mission,status}' is distinct from 'draft' then
+    raise exception 'FAIL: a request of another repository started a mission: %', done;
+  end if;
+  -- A request that is none (of another workspace, say) is ignored too.
+  done := public.mission_push('initech/nimbus-apps', 2903, 'Elsewhere', pg_temp.goal_brief('day-shift', '3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f'),
+                              jsonb_build_array(jsonb_build_object('kind', 'mission-record', 'content', E'---\nmission: 2903\n---\n')));
+  if done #>> '{mission,status}' is distinct from 'draft' then
+    raise exception 'FAIL: an unknown request started a mission: %', done;
+  end if;
+end $$;
+reset role;
+do $$
+declare
+  m public.missions%rowtype;
+begin
+  select x.* into m from public.missions x where x.repo = 'initech/nimbus-apps' and x.number = 2901;
+  if m.started_by is distinct from '00000000-0000-4000-8000-0000000024f1' or m.mandate ->> 'level' <> 'alone' or m.next_wake_at is null then
+    raise exception 'FAIL: the request''s mission is not started by Oona at alone: %', row_to_json(m);
+  end if;
+  if (select string_agg(e.actor || ': ' || e.sentence, ' | ') from public.mission_events e where e.mission_id = m.id and e.kind = 'started')
+     is distinct from 'oona-gh: oona-gh started the mission.' then
+    raise exception 'FAIL: the started event is not Oona''s, once';
+  end if;
+  if (select r.mission_number from public.mission_requests r join asked_ids a on a.id = r.id where a.fleet_key = 'night-shift') is distinct from 2901
+     or exists (select 1 from public.mission_requests r join asked_ids a on a.id = r.id where a.fleet_key = 'day-shift' and r.mission_number is not null) then
+    raise exception 'FAIL: the requests'' mission numbers are not what the pushes started';
+  end if;
+  if not exists (select 1 from public.background_jobs j where j.kind = 'mission' and j.key = 'mission:' || m.id::text) then
+    raise exception 'FAIL: the started mission has no job on the App''s ledger';
+  end if;
+  -- Its number is filled once.
+  begin
+    update public.mission_requests r set mission_number = 2999 from asked_ids a where a.id = r.id and a.fleet_key = 'night-shift';
+    raise exception 'FAIL: a request''s mission number was changed';
+  exception when insufficient_privilege then null; end;
+  -- A goal-only mission never goes below alone.
+  begin
+    update public.missions set mandate = mandate || '{"level": "with-you"}' where id = m.id;
+    raise exception 'FAIL: a goal-only mission went below alone';
+  exception when check_violation then null; end;
+end $$;
+
 -- A decision is never changed or deleted, even by the table's owner; a retired fleet's approval no longer reads as a member's.
 do $$
 begin
