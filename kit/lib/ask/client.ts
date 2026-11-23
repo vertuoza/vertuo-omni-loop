@@ -571,6 +571,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ mission: number, record: string, brief: string, retros: { k: number, milestone: string, content: string, items: { name: string, content: string }[] }[] }>} */
     getMission: ({ repo, mission }: { repo: string; mission: number }) =>
       call('GET', `/api/missions/brief?${new URLSearchParams({ repo, mission: String(mission) })}`),
+    /** PRD 3194 s3: the numbers of the missions of `repo` whose brief names PRD `prd` (`omni ready`); an empty list when none does.
+     * @returns {Promise<{ missions: number[] }>} */
+    missionsOfPrd: ({ repo, prd }: { repo: string; prd: PrdNumber }) =>
+      call('GET', `/api/missions/of-prd?${new URLSearchParams({ repo, prd: String(prd) })}`),
     /** PRD 2896 s7: asks for PRD `prd` to leave mission `mission`'s branch in `repo` (`omni mission drop`); with `keep`, the later PRDs
      * sharing its territory stay. @returns {Promise<{ drop: { mission: string, branch: string, prd: number, sharing: number[], dropped: number[], keep: boolean } }>} */
     dropMission: ({ repo, mission, prd, keep }: { repo: string; mission: number; prd: PrdNumber; keep: boolean }) =>
