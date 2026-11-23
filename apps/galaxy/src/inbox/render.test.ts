@@ -83,7 +83,7 @@ describe('the Open tab, landing', () => {
     expect(t).toContain('Updates 1 · not counted');
     expect(t).toContain('1 runner job waits for an answer');
     expect(text(head)).toContain('1 waits on you');
-    expect(head).toMatch(/Open<span class="omni-tab__count omni-tab__count--attention">1<\/span>/);
+    expect(head).toMatch(/Open<span class="omni-tab__count omni-tab__count--attention omni-tab__count--filled" aria-hidden="true">1<\/span>/);
   });
 
   it('marks each question Blocking and gives each row its own page', () => {
@@ -157,7 +157,7 @@ describe('the frame', () => {
 
   it('signed in, heads every tab with Inbox and the three tabs, the current one marked', () => {
     const html = renderToStaticMarkup(createElement(InboxScreen, { view: { kind: 'answering', source: { kind: 'demo' }, me: null }, tab: 'done', signinError: null }));
-    expect(html).toContain('<h1 class="inbox-title">Inbox</h1>');
+    expect(html).toContain('<h1 class="inbox-vh">Inbox</h1>');
     expect(html).toMatch(/href="\/app\/inbox">Open<\/a>/);
     expect(html).toMatch(/<a class="omni-tab omni-tab--current"(?=[^>]*aria-current="page")[^>]*href="\/app\/inbox\/done"[^>]*>Done<\/a>/);
     expect(html).toContain('href="/app/inbox/workspace">Workspace</a>');
@@ -184,7 +184,39 @@ describe('the Alerts popover', () => {
   it('sits in the header while the switches are kept, and is gone without them', () => {
     const alerts = { desktop: 'off' as const, chime: false, onDesktop: () => {}, onChime: () => {} };
     const html = renderToStaticMarkup(createElement(InboxHeadView, { tab: 'open', count: 0, words: 'Nothing waits on you', alerts }));
-    expect(html).toMatch(/<span class="inbox-alerts-button"><button[^>]*>Alerts<\/button><\/span>/);
+    expect(html).toMatch(/<span class="omni-tabs__end"><span class="inbox-alerts-button"><button[^>]*aria-label="Alerts"/);
     expect(renderToStaticMarkup(createElement(InboxHeadView, { tab: 'open', count: 0, words: 'x' }))).not.toContain('Alerts');
+  });
+});
+
+describe('the header (PRD omni-loop-23)', () => {
+  const alerts = { desktop: 'off' as const, chime: false, onDesktop: () => {}, onChime: () => {} };
+  const head = (count: number, tab: 'open' | 'done' | 'workspace' = 'open') => renderToStaticMarkup(createElement(InboxHeadView, { tab, count, words: `${count} wait on you`, alerts }));
+  const css = readFileSync(new URL('./inbox.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('AC-1: draws no visible title, names the Open count "12 wait on you" and ends the tabs line with Alerts as an icon button', () => {
+    const html = head(12);
+    expect(html).not.toContain('inbox-title');
+    expect(html).toContain('<h1 class="inbox-vh">Inbox</h1>');
+    expect(html).toMatch(/aria-hidden="true">12<\/span><span class="omni-tab__count-label"> 12 wait on you<\/span>/);
+    const nav = html.slice(html.indexOf('<nav'), html.indexOf('</nav>'));
+    expect(nav.lastIndexOf('Workspace')).toBeLessThan(nav.indexOf('omni-tabs__end'));
+    expect(nav.slice(nav.indexOf('omni-tabs__end'))).toMatch(/<button[^>]*omni-icon-button[^>]*aria-label="Alerts"|<button[^>]*aria-label="Alerts"[^>]*omni-icon-button/);
+    expect(css).not.toMatch(/\.inbox-title|\.inbox-count/);
+  });
+
+  it('AC-3: the Open tab’s count is the only filled signal shape, on every tab', () => {
+    for (const tab of ['open', 'done', 'workspace'] as const) {
+      const html = head(12, tab);
+      expect(html.match(/omni-tab__count--filled/g)).toHaveLength(1);
+    }
+    expect(css).not.toMatch(/background:\s*var\(--color-signal\)/);
+  });
+
+  it('shares one toolbar line and one row anatomy, with no raw colour', () => {
+    for (const name of ['inbox-toolbar', 'inbox-toolbar-end', 'inbox-r', 'inbox-r-anchor', 'inbox-r-main', 'inbox-r-title', 'inbox-r-line', 'inbox-r-quiet', 'inbox-r-end', 'inbox-group', 'inbox-group-head']) {
+      expect(css).toContain(`.${name}`);
+    }
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
   });
 });
