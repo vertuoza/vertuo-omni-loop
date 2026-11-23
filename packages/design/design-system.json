@@ -699,6 +699,7 @@
         "Make the whole row one link when it opens one thing."
       ],
       "dont": [
+        "Put a tertiary text on a selected row: it fails contrast on the tint.",
         "Put a second link or a button inside a linked row.",
         "Repeat the title in the trailing slot."
       ],
@@ -712,11 +713,24 @@
       ],
       "usage": "One row of a list of like things: a proof, a check, a pull request, each with its state at the end.",
       "variants": {
+        "clamp": [
+          "1",
+          "2",
+          "3"
+        ],
         "density": [
           "normal",
           "compact"
         ],
+        "leading": [
+          "true",
+          "false"
+        ],
         "link": [
+          "true",
+          "false"
+        ],
+        "selected": [
           "true",
           "false"
         ]
@@ -864,7 +878,7 @@
       ],
       "dont": [
         "Put a question the person must answer in it: that is a Dialog.",
-        "Open it on hover alone: a keyboard and a touch screen never hover."
+        "Open it on hover alone: a keyboard and a touch screen never hover. `openOn=\"hover\"` also opens on keyboard focus and on a click, for details that repeat what the page already holds."
       ],
       "example": "<Popover trigger=\"Who answers?\" title=\"Who answers\">The people of this PRD.</Popover>",
       "import": "@omni/ui",
@@ -875,6 +889,10 @@
       ],
       "usage": "A few lines or a couple of links beside the button that opens them, while the page goes on around them: who answers a question, what a badge means.",
       "variants": {
+        "openOn": [
+          "click",
+          "hover"
+        ],
         "side": [
           "bottom",
           "top"
@@ -1099,7 +1117,8 @@
       "dont": [
         "Use it to go to the sections of a page: that is Tabs. Never draw a second row of tabs inside a tab: use this.",
         "Mix options with and without an `href`.",
-        "Offer more than five options."
+        "Offer more than five options.",
+        "Put a tertiary text on the chosen pill's tint: it fails contrast."
       ],
       "example": "<SegmentedControl label=\"Show\" value=\"open\" onChange={setShow} options={[{ id: \"open\", label: \"Open\" }, { id: \"all\", label: \"All\" }]} />",
       "import": "@omni/ui",
@@ -1113,6 +1132,10 @@
         "size": [
           "md",
           "sm"
+        ],
+        "variant": [
+          "default",
+          "pills"
         ]
       }
     },
@@ -1354,6 +1377,10 @@
       ],
       "usage": "One row of links to the sections of one page, right under its header, the current one marked: Brainstorm, Specifications, Outbox. A tab may carry a count as a small mono pill, yellow only when it waits on the viewer; a tab with nothing yet stays, dimmed, with why on hover.",
       "variants": {
+        "filledCount": [
+          "true",
+          "false"
+        ],
         "size": [
           "md",
           "sm"

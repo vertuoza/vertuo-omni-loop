@@ -24,3 +24,23 @@
 .omni-segment:hover { background: var(--color-sunken); color: var(--color-text-primary); }
 .omni-segment--chosen { background: var(--color-raised); color: var(--color-text-primary); font-weight: var(--weight-bold); border-block-end-color: var(--color-text-primary); }
 .omni-segment:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+
+/* Opt-in `variant="pills"`: round, borderless segments; the chosen one is a soft signal tint, label and count semibold. No border, bar or rule. */
+.omni-segmented--pills { gap: var(--space-1); border: 0; border-radius: 0; background: transparent; overflow: visible; }
+.omni-segmented--pills .omni-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  min-block-size: 32px;
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  font-weight: var(--weight-regular);
+}
+.omni-segmented--pills .omni-segment:hover { background: var(--color-sunken); }
+.omni-segmented--pills .omni-segment--chosen { background: var(--color-signal-soft); color: var(--color-text-primary); font-weight: var(--weight-semibold); }
+.omni-segment__count { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: var(--type-1-size); line-height: var(--type-1-line); }
+.omni-segmented--pills .omni-segment--chosen .omni-segment__count { color: var(--color-signal); font-weight: var(--weight-semibold); }
+@media (max-width: 900px) { .omni-segmented--pills .omni-segment { min-block-size: 44px; } }

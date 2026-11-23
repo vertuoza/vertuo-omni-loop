@@ -18,3 +18,20 @@
 .omni-list-row__title { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
 .omni-list-row__detail { color: var(--color-text-secondary); font-size: var(--type-2-size); line-height: var(--type-2-line); }
 .omni-list-row__trailing { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+
+/* Opt-in `selected`: the row you are on, a soft signal tint with a heavier title and a lifted detail; no border, bar or rule. */
+.omni-list-row--selected, .omni-list-row--selected:hover { background: var(--color-signal-soft); border-radius: var(--radius-2); }
+.omni-list-row--selected .omni-list-row__title { font-weight: var(--weight-semibold); }
+.omni-list-row--selected .omni-list-row__detail { color: var(--color-text-secondary); }
+/* Opt-in `leading`: a face or icon box at the start of the row. */
+.omni-list-row__leading { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+/* Opt-in `clamp`: the title and the detail are cut at 1, 2 or 3 lines. */
+.omni-list-row__main--clamp { flex: 1 1 auto; display: block; overflow: hidden; }
+.omni-list-row__main--clamp .omni-list-row__title, .omni-list-row__main--clamp .omni-list-row__detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.omni-list-row__main--clamp-1 > span { -webkit-line-clamp: 1; line-clamp: 1; }
+.omni-list-row__main--clamp-2 > span { -webkit-line-clamp: 2; line-clamp: 2; }
+.omni-list-row__main--clamp-3 > span { -webkit-line-clamp: 3; line-clamp: 3; }

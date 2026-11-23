@@ -14,7 +14,9 @@ const items = [
 let drawn = 0;
 
 /** Tabs at each size: counts as pills, one waiting on the viewer, an empty one dimmed, Spec current. */
-export const tabsSpecimen: Specimen = (_prop, value) => {
+export const tabsSpecimen: Specimen = (prop, value) => {
   drawn += 1;
-  return <Tabs label={`PRD sections ${String(drawn)}`} items={items} current="spec" size={one(TABS_SIZES, value)} />;
+  const label = `PRD sections ${String(drawn)}`;
+  if (prop === 'filledCount') return <Tabs label={label} items={items} current="spec" filledCount={value === 'true'} />;
+  return <Tabs label={label} items={items} current="spec" size={one(TABS_SIZES, value)} />;
 };

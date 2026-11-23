@@ -16,6 +16,21 @@ const views = [
   { id: 'plan', label: 'Plan', href: '?view=plan' },
 ];
 
+describe('SegmentedControl pills', () => {
+  it('draws the pills variant with each count, the chosen one marked', () => {
+    const options = [{ id: 'all', label: 'All', count: '12' }, { id: 'q', label: 'Questions', count: '3' }];
+    const { container } = render(createElement(SegmentedControl, { label: 'Kind', options, defaultValue: 'q', variant: 'pills' }));
+    expect(screen.getByRole('radiogroup', { name: 'Kind' }).className).toContain('omni-segmented--pills');
+    expect([...container.querySelectorAll('.omni-segment__count')].map((c) => c.textContent)).toEqual(['12', '3']);
+    expect(screen.getByRole('radio', { name: /Questions/ }).getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('draws no pills class by default', () => {
+    render(createElement(SegmentedControl, { label: 'Kind', options: [{ id: 'a', label: 'A' }] }));
+    expect(screen.getByRole('radiogroup').className).not.toContain('pills');
+  });
+});
+
 describe('SegmentedControl as links', () => {
   it('draws one control of links, the current one marked aria-current', () => {
     render(createElement(SegmentedControl, { label: 'Specifications', options: views, value: 'spec' }));
