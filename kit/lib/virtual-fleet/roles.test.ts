@@ -104,7 +104,7 @@ describe('the count line', () => {
     expect(roleLine('engineer')).toEqual({ alone: true, line: 'Runs 11 of 14 skills alone' });
     // PRD 3001: QA runs /omni:qa, /omni:prove and /omni:bug-fix alone; /omni:validate-e2e still needs a person.
     expect(roleLine('qa')).toEqual({ alone: true, line: 'Runs 3 of 4 skills alone' });
-    expect(roleLine('pm').line).toBe('Runs 6 of 7 skills alone');
+    expect(roleLine('pm').line).toBe('Runs 7 of 7 skills alone');
     expect(roleOf('pm').limits).toContain('It never approves a PRD it wrote, nor one outside a mission\'s committee.');
     expect(roleLine('architect').line).toBe('Runs 1 of 2 skills alone');
     expect(roleLine('designer').line).toBe('Runs 1 of 3 skills alone');

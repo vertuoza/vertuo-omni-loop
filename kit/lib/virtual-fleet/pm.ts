@@ -61,11 +61,12 @@ export type PmRecord = z.infer<typeof PmRecordSchema>;
 
 /**
  * The skill the PM is sent, for `left` PRDs still under the cap, or null when none is left: a brainstorm writes one PRD, a roadmap
- * several; in a plan repository, their mega forms. A brainstorm that would pass the cap is never sent.
+ * several; in a plan repository, their mega forms. A brainstorm that would pass the cap is never sent. A goal-only mission
+ * (PRD omni-loop-24) is always sent the roadmap, even for one PRD left: the roadmap decides whether the goal is one PRD or several.
  */
-export function pmSkillFor(left: number, planRepository: boolean): PmSkill | null {
+export function pmSkillFor(left: number, planRepository: boolean, goalOnly = false): PmSkill | null {
   if (!Number.isInteger(left) || left < 1) return null;
-  const one = left === 1;
+  const one = left === 1 && !goalOnly;
   if (planRepository) return one ? 'mega-brainstorm' : 'mega-roadmap';
   return one ? 'brainstorm' : 'roadmap';
 }

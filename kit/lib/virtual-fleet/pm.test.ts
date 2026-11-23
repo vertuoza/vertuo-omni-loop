@@ -25,6 +25,21 @@ describe('pmSkillFor', () => {
   });
 });
 
+describe('pmSkillFor, a goal-only mission (PRD omni-loop-24)', () => {
+  it('AC-3: sends the roadmap first, at any cap, even for one PRD', () => {
+    expect(pmSkillFor(1, false, true)).toBe('roadmap');
+    expect(pmSkillFor(10, false, true)).toBe('roadmap');
+    expect(pmSkillFor(1, true, true)).toBe('mega-roadmap');
+    expect(pmSkillFor(10, true, true)).toBe('mega-roadmap');
+    expect(pmSkillFor(1, false, false)).toBe('brainstorm');
+  });
+
+  it('sends nothing when no PRD is left under the cap', () => {
+    expect(pmSkillFor(0, false, true)).toBeNull();
+    expect(pmSkillFor(Number.NaN, true, true)).toBeNull();
+  });
+});
+
 describe('pmJobLine', () => {
   it('is a line a runner takes, on a mission at alone only', () => {
     const line = pmJobLine('roadmap', 12, 3);

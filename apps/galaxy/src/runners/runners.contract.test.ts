@@ -86,7 +86,8 @@ describe('the line check', () => {
   });
 
   it('agrees with the runner’s own check at its limit, for every skill, so the app never queues a line a runner refuses', () => {
-    for (const skill of RUNNER_SKILLS) {
+    // `mission` takes `--request <uuid>` only (PRD omni-loop-24): no line of 200 characters is one.
+    for (const skill of RUNNER_SKILLS.filter((listed) => listed !== 'mission')) {
       const longest = `/omni:${skill} ${'a'.repeat(LINE_MAX - `/omni:${skill} `.length)}`;
       expect(longest).toHaveLength(LINE_MAX);
       expect([checkLine(longest).ok, checkRunnerLine(longest).ok], skill).toEqual([true, true]);
