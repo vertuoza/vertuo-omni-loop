@@ -132,9 +132,17 @@ export const RetroReadSchema = z.object({
 });
 export type RetroRead = z.infer<typeof RetroReadSchema>;
 
-/** What `GET /api/missions/brief` answers (PRD 3194): the latest mission.md and mission.html as pushed, byte for byte, and each retro of the mission with its items. */
+/** What `GET /api/missions/brief` answers (PRD 3194): the mission's number, the latest mission.md and mission.html as pushed, byte for byte, and each retro as the file `omni mission get` writes, with its items as files. */
 export const MissionBriefSchema = z.object({
-  mission: z.object({ number: z.number().int().positive(), record: z.string(), brief: z.string(), retros: z.array(RetroReadSchema) }),
+  mission: z.number().int().positive(),
+  record: z.string(),
+  brief: z.string(),
+  retros: z.array(z.object({
+    k: z.number().int().positive(),
+    milestone: z.string(),
+    content: z.string(),
+    items: z.array(z.object({ name: z.string(), content: z.string() })),
+  })),
 });
 export type MissionBrief = z.infer<typeof MissionBriefSchema>;
 

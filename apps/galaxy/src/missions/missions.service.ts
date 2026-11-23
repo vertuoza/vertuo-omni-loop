@@ -4,6 +4,7 @@ import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from
 import { MOVES, type AnsweredItem, type ItemAnswerBody, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionBrief, type BriefQuery, type OfPrdQuery, type MissionsOfPrd, type MissionAction, type MissionRefusal, type MovedMission } from './missions.contract';
 import { levelRefusal as planRefusal, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { capWords } from './token-words';
+import { missionExport } from './missions.export';
 import { missionBranch } from './mission-branch';
 import { missionJob, type MissionsReader, type MissionsWriter } from './missions.repository';
 
@@ -347,7 +348,7 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       const mission = await reader.byNumber(query.repo, query.mission);
       const page = mission === null ? null : await reader.page(mission);
       if (mission === null || page === null) return { ok: false, kind: 'missing', error: `There is no mission ${String(query.mission)} in ${query.repo}.` };
-      return { ok: true, value: { mission: { number: mission.number, ...page, retros: await reader.retros(mission.id) } } };
+      return { ok: true, value: missionExport(mission.number, page, await reader.retros(mission.id)) };
     },
 
     /** The numbers of the missions of `query.repo` whose brief names PRD `query.prd`, as a member reads them: empty when none does (PRD 3194). */

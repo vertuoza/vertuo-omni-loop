@@ -35,11 +35,18 @@ const get = (path: string, authorization: string | null = 'Bearer t') =>
   new Request(`https://omni.example/api/missions/${path}`, { headers: authorization === null ? {} : { authorization } });
 
 describe('GET /api/missions/brief', () => {
-  it('answers a member the brief as pushed, byte for byte, and each retro with its items, never cached', async () => {
+  it('answers a member the brief as pushed, byte for byte, and each retro as a file with its items as files, never cached', async () => {
     const res = await readMissionBrief(get('brief?repo=acme/shop&mission=42'), served(ADA));
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
-    expect(await res.json()).toEqual({ mission: { number: 42, record: RECORD, brief: BRIEF, retros: [RETRO] } });
+    expect(await res.json()).toEqual({
+      mission: 42, record: RECORD, brief: BRIEF,
+      retros: [{
+        k: 1, milestone: 'mission',
+        content: '# Mission retro\n\n## What went well\n\n- PRD 7 merged. (PRD 7)\n\n## What to change\n\n- PRD 8 stalled. (PRD 8)\n',
+        items: [{ name: '1.md', content: '# Item 1\n\n## Target\n\nBR-PRODUCT-1\n\n## Wording\n\nSay it twice.\n\n## Evidence\n\n- PRD 8 stalled.\n' }],
+      }],
+    });
   });
 
   it('AC-6: answers 404 to another workspace\'s member and to a mission that does not exist', async () => {
