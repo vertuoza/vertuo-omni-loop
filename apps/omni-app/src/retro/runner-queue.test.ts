@@ -30,11 +30,13 @@ const JOB = { installationId: 7, repository: 'Acme/Widgets', line: '/omni:retro-
 
 describe('runnerQueue — the retro’s job for a runner, never calling Supabase (PRD 2338)', () => {
   it('queues the line for the installation’s workspace and the repository, sent by the app and by no person', async () => {
-    const db = recordingFetch([[{ id: 'ws-1' }], [], [], [{ id: 'job-1' }]]);
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [], [{ id: 'runner-1' }], [{ id: 'job-1' }]]);
     const queued = await queueOn(db.fetch)(JOB);
 
     expect(queued).toEqual({ job: 'job-1', created: true, reason: null });
-    const [workspace, lookup, insert] = [nth(db.requests, 0), nth(db.requests, 2), nth(db.requests, 3)];
+    const [workspace, lookup, runners, insert] = [nth(db.requests, 0), nth(db.requests, 2), nth(db.requests, 3), nth(db.requests, 4)];
+    expect([runners.method, runners.path]).toEqual(['GET', '/rest/v1/runners']);
+    expect([runners.query.get('workspace_id'), runners.query.get('fleet'), runners.query.get('repos')]).toEqual(['eq.ws-1', 'is.null', 'cs.{acme/widgets}']);
     expect([workspace.method, workspace.path, workspace.query.get('github_installation_id')]).toEqual(['GET', '/rest/v1/workspaces', 'eq.7']);
     expect([lookup.method, lookup.path]).toEqual(['GET', '/rest/v1/runner_jobs']);
     expect([lookup.query.get('workspace_id'), lookup.query.get('repo'), lookup.query.get('line')]).toEqual(['eq.ws-1', 'eq.acme/widgets', 'eq./omni:retro-apply --retro 21']);
@@ -51,6 +53,12 @@ describe('runnerQueue — the retro’s job for a runner, never calling Supabase
     expect(db.requests.filter((request) => request.method === 'POST')).toEqual([]);
   });
 
+  it('queues nothing, and says why, when no runner of the workspace could take it', async () => {
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [], []]);
+    expect(await queueOn(db.fetch)(JOB)).toEqual({ job: null, created: false, reason: 'no runner of the workspace holds acme/widgets' });
+    expect(db.requests.filter((request) => request.method === 'POST')).toEqual([]);
+  });
+
   it('queues nothing, and says why, when no workspace holds the installation', async () => {
     const db = recordingFetch([[]]);
     expect(await queueOn(db.fetch)(JOB)).toEqual({ job: null, created: false, reason: 'no workspace holds the installation 7' });
@@ -62,7 +70,7 @@ describe('runnerQueue — the retro’s job for a runner, never calling Supabase
       status: 400,
       headers: { 'content-type': 'application/json' },
     });
-    const db = recordingFetch([[{ id: 'ws-1' }], [], [], refusal]);
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [], [{ id: 'runner-1' }], refusal]);
     await expect(queueOn(db.fetch)(JOB)).rejects.toThrow('the database refused: new row violates check constraint "runner_jobs_one_sender" (23514)');
   });
 
