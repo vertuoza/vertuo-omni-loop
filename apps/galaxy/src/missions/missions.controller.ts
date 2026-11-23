@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
-import { AnsweredItemSchema, ItemAnswerBodySchema, AnsweredStopSchema, BudgetedMissionSchema, StopAnswerBodySchema, TokensBodySchema, BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MovedMission, type MissionAction, type MissionRefusal } from './missions.contract';
+import { BriefQuerySchema, MissionBriefSchema, MissionsOfPrdSchema, OfPrdQuerySchema, AnsweredItemSchema, ItemAnswerBodySchema, AnsweredStopSchema, BudgetedMissionSchema, StopAnswerBodySchema, TokensBodySchema, BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MovedMission, type MissionAction, type MissionRefusal } from './missions.contract';
 import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
@@ -101,6 +101,40 @@ async function fromTerminal<B, T>(
   } catch (error) {
     return failed(error, deps);
   }
+}
+
+/** A read of the terminal: the bearer's person, the query read through `schema`, the service's answer served as the contract says. */
+async function readFromTerminal<Q, T>(
+  request: Request,
+  deps: MissionsDeps,
+  { schema, bad }: { schema: z.ZodType<Q>; bad: string },
+  serve: (service: MissionsService, query: Q, reader: MissionsReader) => Promise<Served<T>>,
+  parse: (value: T) => unknown,
+): Promise<Response> {
+  try {
+    if (!deps.bearer || !deps.service) return refuse('unavailable', NO_DATABASE);
+    const person = await deps.bearer(request.headers.get('authorization'));
+    if (!person) return refuse('signed-out', SIGNED_OUT);
+    const query = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    if (!query.success) return refuse('malformed', bad);
+    return answer(await serve(deps.service, query.data, person.reader), parse, deps);
+  } catch (error) {
+    return failed(error, deps);
+  }
+}
+
+const BAD_BRIEF = 'A brief names the repository as owner/name and the mission\'s number.';
+
+/** GET /api/missions/brief: a member, signed in at the terminal, reads a mission's brief and retros as pushed (PRD 3194). */
+export function readMissionBrief(request: Request, deps: MissionsDeps): Promise<Response> {
+  return readFromTerminal(request, deps, { schema: BriefQuerySchema, bad: BAD_BRIEF }, (service, query, reader) => service.brief(query, reader), (value) => MissionBriefSchema.parse(value));
+}
+
+const BAD_OF_PRD = 'A membership read names the repository as owner/name and the PRD\'s number.';
+
+/** GET /api/missions/of-prd: a member, signed in at the terminal, reads which missions of a repository name a PRD (PRD 3194). */
+export function readMissionsOfPrd(request: Request, deps: MissionsDeps): Promise<Response> {
+  return readFromTerminal(request, deps, { schema: OfPrdQuerySchema, bad: BAD_OF_PRD }, (service, query, reader) => service.ofPrd(query, reader), (value) => MissionsOfPrdSchema.parse(value));
 }
 
 const BAD_OVERTURN = 'An overturn names the repository as owner/name, the mission\'s number and the decision: a PRD\'s number, or <prd>/<item>.';
