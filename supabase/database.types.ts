@@ -2973,6 +2973,67 @@ export type Database = {
           },
         ]
       }
+      mission_requests: {
+        Row: {
+          created_at: string
+          fleet_key: string
+          goal: string
+          id: string
+          job_id: string | null
+          mission_number: number | null
+          repo: string
+          requested_by: string | null
+          requested_login: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          fleet_key: string
+          goal: string
+          id?: string
+          job_id?: string | null
+          mission_number?: number | null
+          repo: string
+          requested_by?: string | null
+          requested_login: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          fleet_key?: string
+          goal?: string
+          id?: string
+          job_id?: string | null
+          mission_number?: number | null
+          repo?: string
+          requested_by?: string | null
+          requested_login?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "runner_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_requests_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_requests_workspace_id_fleet_key_fkey"
+            columns: ["workspace_id", "fleet_key"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["workspace_id", "name"]
+          },
+        ]
+      }
       mission_retros: {
         Row: {
           created_at: string
@@ -7805,6 +7866,10 @@ export type Database = {
         }
         Returns: Json
       }
+      mission_goal_only_ok: {
+        Args: { p_mandate: Json; p_scope: Json }
+        Returns: boolean
+      }
       mission_job_role: { Args: { p_key: string }; Returns: string }
       mission_mandate_ok: { Args: { p_mandate: Json }; Returns: boolean }
       mission_measures_ok: { Args: { p_measures: Json }; Returns: boolean }
@@ -7823,6 +7888,15 @@ export type Database = {
         Returns: Json
       }
       mission_reasons_ok: { Args: { p_reasons: Json }; Returns: boolean }
+      mission_request_make: {
+        Args: {
+          p_fleet: string
+          p_goal: string
+          p_repo?: string
+          p_workspace: string
+        }
+        Returns: Json
+      }
       mission_scope_ok: { Args: { p_scope: Json }; Returns: boolean }
       mission_tokens: { Args: { p_mission: string }; Returns: number }
       mission_verdicts_ok: { Args: { p_verdicts: Json }; Returns: boolean }
