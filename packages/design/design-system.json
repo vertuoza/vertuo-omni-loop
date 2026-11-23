@@ -712,11 +712,24 @@
       ],
       "usage": "One row of a list of like things: a proof, a check, a pull request, each with its state at the end.",
       "variants": {
+        "clamp": [
+          "1",
+          "2",
+          "3"
+        ],
         "density": [
           "normal",
           "compact"
         ],
+        "leading": [
+          "true",
+          "false"
+        ],
         "link": [
+          "true",
+          "false"
+        ],
+        "selected": [
           "true",
           "false"
         ]
@@ -875,6 +888,10 @@
       ],
       "usage": "A few lines or a couple of links beside the button that opens them, while the page goes on around them: who answers a question, what a badge means.",
       "variants": {
+        "openOn": [
+          "click",
+          "hover"
+        ],
         "side": [
           "bottom",
           "top"
@@ -1113,6 +1130,10 @@
         "size": [
           "md",
           "sm"
+        ],
+        "variant": [
+          "default",
+          "pills"
         ]
       }
     },
@@ -1354,6 +1375,10 @@
       ],
       "usage": "One row of links to the sections of one page, right under its header, the current one marked: Brainstorm, Specifications, Outbox. A tab may carry a count as a small mono pill, yellow only when it waits on the viewer; a tab with nothing yet stays, dimmed, with why on hover.",
       "variants": {
+        "filledCount": [
+          "true",
+          "false"
+        ],
         "size": [
           "md",
           "sm"

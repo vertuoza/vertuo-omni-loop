@@ -5,7 +5,7 @@ export const TABS_SIZES = ['md', 'sm'] as const;
 
 export const tabsMeta = {
   name: 'Tabs',
-  variants: { size: TABS_SIZES },
+  variants: { size: TABS_SIZES, filledCount: ['true', 'false'] },
   usage: 'One row of links to the sections of one page, right under its header, the current one marked: Brainstorm, Specifications, Outbox. A tab may carry a count as a small mono pill, yellow only when it waits on the viewer; a tab with nothing yet stays, dimmed, with why on hover.',
   do: [
     'Name each tab with one or two words, and keep the same tabs in the same order on every item of a kind.',
@@ -28,6 +28,10 @@ export const tabsMeta = {
       ...onSurfaces('focus-ring', { edge: true }),
       { text: 'text-secondary', on: 'raised' },
       { text: 'signal', on: 'signal-soft' },
+    ],
+    'filledCount=true': [
+      { text: 'text-on-signal', on: 'signal' },
+      ...onSurfaces('signal', { edge: true }),
     ],
   },
   accessibility: [

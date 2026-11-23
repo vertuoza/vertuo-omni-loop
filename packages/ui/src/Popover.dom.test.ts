@@ -64,4 +64,29 @@ describe('Popover', () => {
     const live = await screen.findByRole('dialog');
     expect(shape(live)).toEqual(shape(still ?? live));
   });
+
+  it('opens on keyboard focus with openOn="hover", and closes when focus leaves', async () => {
+    const user = userEvent.setup();
+    render(createElement(Fragment, null,
+      createElement(Popover, { trigger: 'Details', title: 'Details of the round', openOn: 'hover', triggerIcon: 'tone-info' }, 'Branch, model'),
+      createElement('p', null, 'Outside')));
+    await user.tab();
+    expect(await screen.findByRole('dialog', { name: 'Details of the round' })).toBeTruthy();
+    await user.tab();
+    await waitFor(() => { expect(screen.queryByRole('dialog')).toBeNull(); });
+  });
+
+  it('opens on hover with openOn="hover"', async () => {
+    const user = userEvent.setup();
+    render(createElement(Popover, { trigger: 'Details', title: 'Details of the round', openOn: 'hover', triggerIcon: 'tone-info' }, 'Branch, model'));
+    await user.hover(screen.getByRole('button', { name: 'Details' }));
+    expect(await screen.findByRole('dialog', { name: 'Details of the round' })).toBeTruthy();
+  });
+
+  it('does not open on focus by default', async () => {
+    const user = userEvent.setup();
+    open();
+    await user.tab();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });

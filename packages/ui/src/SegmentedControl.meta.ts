@@ -2,10 +2,11 @@ import { onSurfaces } from './meta.ts';
 import type { ComponentMeta } from './meta.ts';
 
 export const SEGMENTED_SIZES = ['md', 'sm'] as const;
+export const SEGMENTED_VARIANTS = ['default', 'pills'] as const;
 
 export const segmentedControlMeta = {
   name: 'SegmentedControl',
-  variants: { size: SEGMENTED_SIZES },
+  variants: { size: SEGMENTED_SIZES, variant: SEGMENTED_VARIANTS },
   usage: 'Two to five options side by side, as one control, that change what this view shows: a filter (All, Open, Closed), or, given an `href` on each, the sub-views of a tab (Before/after, Spec, Plan) and its versions as links.',
   do: [
     'Keep each label to one or two words.',
@@ -19,12 +20,17 @@ export const segmentedControlMeta = {
   ],
   contrast: {
     base: [...onSurfaces('text-secondary'), ...onSurfaces('text-primary'), ...onSurfaces('border-strong', { edge: true }), ...onSurfaces('focus-ring', { edge: true })],
+    'variant=pills': [
+      { text: 'text-primary', on: 'signal-soft' },
+      { text: 'text-secondary', on: 'signal-soft' },
+      { text: 'signal', on: 'signal-soft' },
+    ],
   },
   accessibility: [
     'As a choice: a radio group named by `label`; each segment is a radio with aria-checked, and the arrow keys, Home and End move the choice and the focus.',
     'As links (every option has an `href`): a group named by `label`, one link per segment, the current one carrying aria-current="page"; the arrow keys, Home and End move the focus, and Enter follows the link.',
     'One tab stop either way: Tab enters on the chosen or current segment.',
-    'The chosen segment shows by a bar and weight, never by colour alone.',
+    'The chosen segment shows by a bar and weight, never by colour alone; in `pills` by a heavier label and count and a tint, with aria-checked or aria-current as ever; no tertiary text sits on the tint (it fails contrast).',
   ],
   replaces: ['segmented', 'filter-toggle'],
   example: '<SegmentedControl label="Show" value="open" onChange={setShow} options={[{ id: "open", label: "Open" }, { id: "all", label: "All" }]} />',
