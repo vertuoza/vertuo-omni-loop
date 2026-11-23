@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import type { ElementType, KeyboardEvent, ReactNode } from 'react';
 import './SegmentedControl.css';
-import type { SEGMENTED_SIZES } from './SegmentedControl.meta.ts';
+import type { SEGMENTED_SIZES, SEGMENTED_VARIANTS } from './SegmentedControl.meta.ts';
 
 export type SegmentOption = {
   id: string;
   label: ReactNode;
+  /** A short count after the label, mono, in signal when the option is chosen. Only drawn when given. */
+  count?: string;
   /** Where the segment leads: given on every option, the control is a set of links (sub-views, versions), not a choice. */
   href?: string;
 };
@@ -31,9 +33,22 @@ export type SegmentedControlProps = {
   defaultValue?: string;
   onChange?: (id: string) => void;
   size?: (typeof SEGMENTED_SIZES)[number];
+  /** `pills`: round, borderless segments, the chosen one a soft signal tint with its label and count semibold. `default` is the bordered control. */
+  variant?: (typeof SEGMENTED_VARIANTS)[number];
   /** The link each segment is drawn with when the options have an `href`: the app's router link. A plain `<a>` by default. */
   link?: ElementType<SegmentLinkAttributes>;
 };
+
+/** A segment's label, then its count when it has one. */
+function SegmentContent({ option }: { option: SegmentOption }) {
+  if (option.count === undefined) return option.label;
+  return (
+    <>
+      {option.label}
+      <span className="omni-segment__count">{option.count}</span>
+    </>
+  );
+}
 
 /** Where an arrow key, Home or End moves from `at` among `count` segments; null for any other key. */
 function nextIndex(key: string, at: number, count: number): number | null {
@@ -49,11 +64,11 @@ function nextIndex(key: string, at: number, count: number): number | null {
  * or, when every option has an `href`, a group of links whose arrow keys move the focus, the current
  * one marked aria-current.
  */
-export function SegmentedControl({ label, options, value: given, defaultValue, onChange, size = 'md', link: Link = 'a' }: SegmentedControlProps) {
+export function SegmentedControl({ label, options, value: given, defaultValue, onChange, size = 'md', variant = 'default', link: Link = 'a' }: SegmentedControlProps) {
   const [kept, setKept] = useState(defaultValue ?? options[0]?.id ?? '');
   const value = given ?? kept;
   const chosen = options.some((option) => option.id === value) ? value : options[0]?.id;
-  const className = `omni-segmented omni-segmented--${size}`;
+  const className = `omni-segmented omni-segmented--${size}${variant === 'pills' ? ' omni-segmented--pills' : ''}`;
   const segmentClass = (id: string) => (id === value ? 'omni-segment omni-segment--chosen' : 'omni-segment');
 
   if (options.length > 0 && options.every((option) => option.href !== undefined)) {
@@ -74,7 +89,7 @@ export function SegmentedControl({ label, options, value: given, defaultValue, o
             tabIndex={option.id === chosen ? 0 : -1}
             aria-current={option.id === value ? 'page' : undefined}
           >
-            {option.label}
+            <SegmentContent option={option} />
           </Link>
         ))}
       </div>
@@ -106,7 +121,7 @@ export function SegmentedControl({ label, options, value: given, defaultValue, o
           className={segmentClass(option.id)}
           onClick={() => { choose(option.id); }}
         >
-          {option.label}
+          <SegmentContent option={option} />
         </button>
       ))}
     </div>

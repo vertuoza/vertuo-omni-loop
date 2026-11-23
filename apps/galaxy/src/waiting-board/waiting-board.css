@@ -1,31 +1,56 @@
-/* The Waiting board (PRD 2377 s3), on the ask pages' reading surface, drawn with the other boards'
-   pieces (../dashboard/board/board.css) and these few of its own: the tabs, the stale line, a row's
-   turn as faces, and the age, red once a wait is late. Every colour is a token of src/ask/theme-tokens.ts.
-   Nothing is wider than the window: at 393 px the table scrolls inside its own box. */
+/* The Waiting board (PRD 2377 s3; PRD omni-loop-23 s7), drawn with the Inbox's shared pieces
+   (../inbox/inbox.css: the toolbar line, the row, the group heading) and these few of its own: the stale
+   line and the product filter on the toolbar line, a row's turn as a column of faces and names, and the
+   word Late. Every value is a token of @omni/design. Nothing is wider than the window: from 760 px down
+   the turn drops under the row's text. */
 
-.wait-tabs { display: flex; flex-wrap: wrap; gap: 4px 16px; border-bottom: 1px solid var(--ask-line); }
-.ask .wait-tab { padding: 6px 2px; color: var(--ask-muted); text-decoration: none; border-bottom: 2px solid transparent; }
-.ask .wait-tab:hover { color: var(--ask-ink); }
-.ask .wait-tab[aria-current='page'] { color: var(--ask-ink); font-weight: 700; border-bottom-color: var(--ask-plasma); }
+.dash.wait-board { gap: var(--space-5); min-width: 0; }
+.wait-toolbar { flex-wrap: wrap; }
 
-.wait-stale { margin: 0; color: var(--ask-muted); font-size: 14px; }
-.wait-stale > summary { display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px; border: 1px solid var(--ask-line-strong); border-radius: 999px; cursor: pointer; }
-.wait-stale > summary::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ask-plasma); }
-.wait-stale-list { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
-.wait-stale-list li { padding: 2px 10px; border: 1px solid var(--ask-line); border-radius: 999px; font-size: 13px; overflow-wrap: anywhere; }
+/* The stale line and the product filter, quiet, on the right of the toolbar line. */
+.wait-toolbar .inbox-toolbar-end { flex-wrap: wrap; justify-content: flex-end; white-space: normal; gap: var(--space-3); }
+.wait-stale { margin: 0; color: var(--color-text-secondary); font-size: var(--type-2-size); }
+.wait-stale > summary { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.wait-stale > summary::before { content: ''; inline-size: var(--space-2); block-size: var(--space-2); border-radius: var(--radius-full); background: var(--color-warning); }
+.wait-stale-list { margin: var(--space-2) 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.wait-stale-list li { padding: 0 var(--space-2); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-full); font-size: var(--type-1-size); overflow-wrap: anywhere; }
+.wait-toolbar .product-filter { margin: 0; gap: var(--space-2); font-size: var(--type-2-size); }
+.wait-toolbar .product-filter-label { font: inherit; font-weight: var(--weight-regular); color: var(--color-text-secondary); margin: 0; }
+.inbox .wait-toolbar a.product-filter-pick {
+  font: inherit; padding: var(--space-1) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-full);
+  background: transparent; color: var(--color-text-secondary);
+}
+.inbox .wait-toolbar a.product-filter-pick:hover { background: var(--color-sunken); }
+.inbox .wait-toolbar a.product-filter-pick[aria-current='page'] { background: var(--color-signal-soft); color: var(--color-text-primary); font-weight: var(--weight-semibold); border-color: transparent; }
 
-.ask .wait-table .board-name a { color: inherit; overflow-wrap: anywhere; }
-.wait-table td { overflow-wrap: anywhere; }
-.wait-sub { display: block; color: var(--ask-muted); font-size: 13px; font-weight: 400; }
-.wait-what { white-space: nowrap; }
-.wait-turn { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 12px; }
-.wait-anyone, .wait-team { color: var(--ask-muted); }
+/* The list: one group per heading, a row per wait. The row is the Inbox's, with a fourth column for the turn. */
+.wait-list { display: grid; gap: var(--space-6); min-width: 0; }
+.wait-rows { margin: 0; padding: 0; list-style: none; display: grid; }
+.wait-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.wait-group-count { font-variant-numeric: tabular-nums; }
+.wait-group-note { font-weight: var(--weight-regular); }
+.wait-group-col { inline-size: var(--wait-turn-col); font-weight: var(--weight-regular); }
+
+.wait-board { --wait-turn-col: calc(var(--space-8) * 3 + var(--space-5) + var(--space-4)); }
+.wait-r { grid-template-columns: calc(var(--space-6) + var(--radius-1) / 2) minmax(0, 1fr) var(--wait-turn-col) calc(var(--space-8) + var(--space-2)); }
+.wait-r a { color: inherit; overflow-wrap: anywhere; }
+.wait-what { color: var(--color-text-secondary); }
+.wait-turn-col { min-width: 0; align-self: center; }
+.wait-turn { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--type-3-size); line-height: var(--type-4-line); }
+.wait-anyone, .wait-team { color: var(--color-text-secondary); font-size: var(--type-3-size); }
 .wait-age { white-space: nowrap; }
-.wait-table tr.is-overdue .wait-age { color: var(--ask-red); font-weight: 700; }
-.wait-late { font-weight: 400; }
+.wait-late {
+  display: inline-block; padding: 0 var(--space-2); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-full);
+  background: var(--color-sunken); color: var(--color-warning); font-size: var(--type-1-size); line-height: var(--type-1-line); font-weight: var(--weight-semibold);
+}
+
+@media (max-width: 760px) {
+  .wait-r { grid-template-columns: calc(var(--space-6) + var(--radius-1) / 2) minmax(0, 1fr) auto; }
+  .wait-turn-col { grid-column: 2; grid-row: 2; margin-top: var(--space-2); }
+  .wait-group-col { display: none; }
+}
 
 @media (forced-colors: active) {
-  .wait-table tr.is-overdue .wait-age { color: Highlight; }
-  .ask .wait-tab[aria-current='page'] { border-bottom-color: Highlight; }
+  .wait-late { border-color: CanvasText; color: CanvasText; }
   .wait-stale > summary::before { background: Highlight; }
 }

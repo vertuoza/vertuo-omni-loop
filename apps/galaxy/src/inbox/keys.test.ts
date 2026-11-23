@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { WaitingQuestion, WaitingReview } from '../waiting/waiting';
 import { EMPTY_INBOX_INPUT, inboxOf } from './inbox';
-import { actionOf, CLEAR_REFUSED, listKey, moveFrom } from './keys';
+import { actionOf, CLEAR_REFUSED, detailsKey, listKey, moveFrom } from './keys';
 
 // The Inbox list's keys (PRD omni-loop-22, s5), as pure functions: what a key press means on the list,
 // where the focus moves, and what `e` does to the row in focus.
@@ -102,5 +102,15 @@ describe('what a key does to the rows', () => {
   it('leaves command-enter and the keys it does not know to the form', () => {
     expect(actionOf(listKey(key('Enter', { metaKey: true }), false), rows, null, 'question:r1')).toBeNull();
     expect(actionOf(null, rows, null, 'question:r1')).toBeNull();
+  });
+});
+
+describe('the key for a Done row\'s details', () => {
+  it('is a bare i, off while typing, composing or with a modifier', () => {
+    expect(detailsKey({ key: 'i' }, false)).toBe(true);
+    expect(detailsKey({ key: 'i' }, true)).toBe(false);
+    expect(detailsKey({ key: 'i', isComposing: true }, false)).toBe(false);
+    for (const modifier of ['metaKey', 'ctrlKey', 'altKey', 'shiftKey'] as const) expect(detailsKey({ key: 'i', [modifier]: true }, false)).toBe(false);
+    expect(detailsKey({ key: 'j' }, false)).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { Popover } from './Popover.tsx';
-import { POPOVER_SIDES } from './Popover.meta.ts';
+import { POPOVER_OPEN_ON, POPOVER_SIDES } from './Popover.meta.ts';
 import { one } from './meta.ts';
 import type { Specimen } from './meta.ts';
 
@@ -15,11 +15,12 @@ const words = {
  * show the panel drawn in place, inert, with the classes the open popover draws (Popover.dom.test.ts
  * holds them equal).
  */
-export const popoverSpecimen: Specimen = (_prop, value) => {
-  const side = one(POPOVER_SIDES, value);
+export const popoverSpecimen: Specimen = (prop, value) => {
+  const side = prop === 'side' ? one(POPOVER_SIDES, value) : 'bottom';
+  const openOn = prop === 'openOn' ? one(POPOVER_OPEN_ON, value) : 'click';
   return (
     <div className={`omni-popover-specimen omni-popover-specimen--${side}`}>
-      <Popover trigger={words.trigger} title={words.title} side={side}>{words.body}</Popover>
+      <Popover trigger={words.trigger} title={words.title} side={side} openOn={openOn}>{words.body}</Popover>
       <div className="omni-popover-still" inert>
         <div className={`omni-popover omni-popover--${side}`}>
           <p className="omni-popover__title">{words.title}</p>

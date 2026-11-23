@@ -2,14 +2,57 @@
    header (title, count, Alerts), the tabs, the kind chips, then the list beside the panel from 1280 px,
    or full width below with the open item in place. Every value is a token of @omni/design. */
 
-.inbox { display: grid; gap: var(--space-4); min-width: 0; }
+.inbox { display: grid; gap: var(--space-5); min-width: 0; }
 
-.inbox-head { display: grid; gap: var(--space-3); }
-.inbox-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
-.inbox-title { margin: 0; font-size: var(--type-7-size); line-height: var(--type-7-line); }
-.inbox-count { color: var(--color-text-secondary); font-size: var(--type-4-size); }
-.inbox-alerts-button { margin-left: auto; }
+/* The header (PRD omni-loop-23, s4): no visible title, the tabs line right under the top bar, Alerts an icon
+   button at its end. The one filled signal shape of the page is the Open tab's count (Tabs' filledCount). */
+.inbox-head { display: grid; min-width: 0; }
+.inbox-vh { position: absolute; inline-size: 1px; block-size: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.inbox-alerts-button { display: flex; align-items: center; }
 .inbox-alerts { display: grid; gap: var(--space-3); min-width: 0; }
+@media (max-width: 760px) {
+  /* On a phone the Alerts icon is a 44 px target (48 px less 4 px, both tokens). */
+  .inbox-alerts-button .omni-icon-button { min-inline-size: calc(var(--space-7) - var(--space-1)); min-block-size: calc(var(--space-7) - var(--space-1)); }
+}
+
+/* The shared toolbar line (s5, s6 and s7 reuse it): 24 px under the tabs line (the page gap), 40 px tall, the
+   same place on Open, Done and Workspace. Controls on its left, a quiet end group on its right. */
+.inbox-toolbar { display: flex; align-items: center; gap: var(--space-3); min-height: calc(var(--space-5) + var(--space-4)); min-width: 0; }
+.inbox-toolbar-end { display: flex; align-items: center; gap: var(--space-3); margin-inline-start: auto; color: var(--color-text-secondary); font-size: var(--type-2-size); white-space: nowrap; }
+
+/* The shared row (s5, s6 and s7 reuse it): a 34 px anchor (a face or a kind icon), the title (16 px, two lines
+   at most), an optional 14 px line, one quiet 13 px line, and an end column; 16 px inside the row, a hairline
+   between rows. The anchor is 32 px plus half a 4 px radius step, both tokens. The current row takes style C:
+   the signal tint, the title at 600, the quiet line lifted to secondary, no border, bar or rule. */
+.inbox-r {
+  display: grid; grid-template-columns: calc(var(--space-6) + var(--radius-1) / 2) minmax(0, 1fr) auto; align-items: start;
+  column-gap: var(--space-4); padding: var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle); color: var(--color-text-primary); text-decoration: none;
+  transition: background var(--motion-duration-fast) var(--motion-ease-out);
+}
+.inbox-r:hover { background: var(--color-sunken); }
+.inbox-r:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; border-radius: var(--radius-2); }
+.inbox-r-anchor { display: flex; align-items: center; justify-content: center; inline-size: calc(var(--space-6) + var(--radius-1) / 2); min-width: 0; }
+.inbox-r-main { display: grid; min-width: 0; }
+.inbox-r-title {
+  margin: 0; font-size: var(--type-4-size); line-height: var(--type-4-line); font-weight: var(--weight-medium); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.inbox-r-line { margin: var(--space-1) 0 0; font-size: var(--type-3-size); line-height: var(--type-3-line); overflow-wrap: anywhere; }
+.inbox-r-quiet {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-2); margin: var(--space-2) 0 0;
+  color: var(--color-text-tertiary); font-size: var(--type-2-size); line-height: var(--type-2-line);
+}
+.inbox-r:hover .inbox-r-quiet { color: var(--color-text-secondary); }
+.inbox-r-end { display: grid; justify-items: end; gap: var(--space-1); color: var(--color-text-secondary); font-size: var(--type-2-size); line-height: var(--type-4-line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inbox-r[aria-current='true'] { background: var(--color-signal-soft); border-radius: var(--radius-2); border-bottom-color: transparent; }
+.inbox-r[aria-current='true'] .inbox-r-title { font-weight: var(--weight-semibold); }
+.inbox-r[aria-current='true'] .inbox-r-quiet { color: var(--color-text-secondary); }
+
+/* A group of rows (a day, a section): 32 px between groups, a hairline under its heading. */
+.inbox-group { display: grid; min-width: 0; margin-top: var(--space-6); }
+.inbox-group:first-child { margin-top: 0; }
+.inbox-group-head { margin: 0; padding: 0 var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-border-subtle); font-size: var(--type-2-size); line-height: var(--type-2-line); font-weight: var(--weight-semibold); color: var(--color-text-secondary); }
 
 .inbox-open { display: grid; gap: var(--space-4); min-width: 0; }
 .inbox-chip-count { color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }

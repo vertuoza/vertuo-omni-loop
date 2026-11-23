@@ -2,7 +2,7 @@
 // Every dropdown of the Ask page and of the questions card is the designed Select: picking an option
 // calls the screen's save with that option's value, and the history's filters still post name=value
 // (PRD 3129, AC-5).
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +13,9 @@ import type { QuestionsHandlers } from '../../agent-connect/questions/QuestionsC
 import type { QuestionsState } from '../../agent-connect/questions/state';
 import { CategoryChip } from './CategoryChip';
 import { ShareButton } from './ShareButton';
+import { DEMO_MEMBERS, demoHistory } from './demo';
 import { WorkspaceHistory } from './WorkspaceHistory';
+import { historyChoices, historyItemsOf, historyPageOf } from './workspace-history';
 
 afterEach(cleanup);
 
@@ -78,5 +80,47 @@ describe('the Ask page and the questions card pick with the Select (AC-5)', () =
     await user.click(screen.getByRole('combobox', { name: 'Product' }));
     await user.click(await screen.findByRole('option', { name: 'Beta' }));
     expect(product).toHaveBeenCalledWith('p2');
+  });
+});
+
+describe('a Done row\'s details are one hover away (AC-10)', () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const items = historyItemsOf(historyPageOf(demoHistory(NOW), {}).rows, DEMO_MEMBERS);
+  const drawn = () => render(createElement(WorkspaceHistory, { items, choices: historyChoices([], []), filters: {}, now: NOW }));
+  const first = () => {
+    const button = screen.getAllByRole('button', { name: 'Details of this question' })[0];
+    if (button === undefined) throw new Error('no info button');
+    return button;
+  };
+
+  it('opens its popover on the focus of the info button, with branch, skill, model, tokens, cost and time', async () => {
+    drawn();
+    expect(screen.queryByText('Branch')).toBeNull();
+    await act(async () => { first().focus(); await Promise.resolve(); });
+    const popover = await screen.findByRole('dialog', { name: 'Details' });
+    for (const label of ['Branch', 'Skill', 'Model', 'Time to answer']) expect(within(popover).getByText(label)).toBeTruthy();
+    expect(popover.textContent).toContain('feat/ask-mode');
+    expect(popover.textContent).toContain('claude-opus-4-8');
+  });
+
+  it('opens on the pointer resting on the button', async () => {
+    const user = userEvent.setup();
+    drawn();
+    await user.hover(first());
+    expect(await screen.findByRole('dialog', { name: 'Details' })).toBeTruthy();
+  });
+
+  it('opens with i on the row under the pointer, and not while a text field has the focus', async () => {
+    const user = userEvent.setup();
+    const { container } = drawn();
+    const row = container.querySelector('[data-round]');
+    if (row === null) throw new Error('no row');
+    await user.click(screen.getByRole('searchbox'));
+    await user.keyboard('i');
+    expect(screen.queryByRole('dialog', { name: 'Details' })).toBeNull();
+    await user.click(document.body);
+    await user.hover(row);
+    await user.keyboard('i');
+    expect(await screen.findByRole('dialog', { name: 'Details' })).toBeTruthy();
   });
 });

@@ -16,6 +16,22 @@ const items = [
   { id: 'retro', label: 'Retro', href: '#r', empty: 'Written when the feature PR merges' },
 ];
 
+describe('Tabs, opt-in', () => {
+  it('draws a filled count and the end slot only when asked, and says the count in words', () => {
+    const waiting = [{ id: 'open', label: 'Open', href: '#o', count: '12', attention: true, countLabel: 'wait on you' }];
+    const { container } = render(createElement(Tabs, { label: 'Inbox', items: waiting, current: 'open', filledCount: true, endSlot: createElement('button', { type: 'button' }, 'Alerts') }));
+    expect(container.querySelector('.omni-tab__count--filled')?.textContent).toBe('12');
+    expect(screen.getByRole('link', { name: 'Open 12 wait on you' })).toBeTruthy();
+    expect(container.querySelector('.omni-tabs__end')?.textContent).toBe('Alerts');
+  });
+
+  it('leaves the count soft and the row without an end slot by default', () => {
+    const { container } = render(createElement(Tabs, { label: 'PRD', items, current: 'spec' }));
+    expect(container.querySelector('.omni-tab__count--filled')).toBeNull();
+    expect(container.querySelector('.omni-tabs__end')).toBeNull();
+  });
+});
+
 describe('Tabs', () => {
   it('draws a count as a mono pill, and turns it yellow when it waits on the viewer', () => {
     const { container } = render(createElement(Tabs, { label: 'PRD', items, current: 'spec' }));

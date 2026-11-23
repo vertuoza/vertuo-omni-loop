@@ -562,6 +562,7 @@ export type Database = {
           model: string | null
           prd: number | null
           questions: Json
+          search: unknown
           session_id: string
           skill: string | null
           status: string
@@ -582,6 +583,7 @@ export type Database = {
           model?: string | null
           prd?: number | null
           questions: Json
+          search?: unknown
           session_id: string
           skill?: string | null
           status?: string
@@ -602,6 +604,7 @@ export type Database = {
           model?: string | null
           prd?: number | null
           questions?: Json
+          search?: unknown
           session_id?: string
           skill?: string | null
           status?: string
@@ -6560,6 +6563,56 @@ export type Database = {
           purpose: string
         }[]
       }
+      ask_history_facets: {
+        Args: { filters?: Json }
+        Returns: {
+          category: string
+          matched: number
+          total: number
+        }[]
+      }
+      ask_history_filters: {
+        Args: { filters: Json }
+        Returns: {
+          answered_by: string
+          asked_by: string
+          category: string
+          prd: string
+          repo: string
+          skill: string
+          words: unknown
+        }[]
+      }
+      ask_history_page: {
+        Args: { before?: string; filters?: Json; page_size?: number }
+        Returns: {
+          answered_at: string | null
+          answered_by: string | null
+          answered_via: string | null
+          answers: Json | null
+          attachments: Json | null
+          category: string | null
+          category_by: string | null
+          cost_usd: number | null
+          created_at: string
+          id: string
+          lead: string | null
+          model: string | null
+          prd: number | null
+          questions: Json
+          search: unknown
+          session_id: string
+          skill: string | null
+          status: string
+          tokens: Json | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ask_rounds"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       ask_may_answer: { Args: { round: string }; Returns: boolean }
       ask_members: {
         Args: { workspace: string }
@@ -6584,6 +6637,10 @@ export type Database = {
       ask_round_share: {
         Args: { p_member: string; p_round_id: string }
         Returns: boolean
+      }
+      ask_round_words: {
+        Args: { answers: Json; questions: Json }
+        Returns: unknown
       }
       ask_shared_with_me: { Args: { round: string }; Returns: boolean }
       ask_sweep: { Args: never; Returns: number }
