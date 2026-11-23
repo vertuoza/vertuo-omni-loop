@@ -23414,6 +23414,9 @@ var MISSION_KINDS = ["prds", "omni-bugs"];
 var DEFAULT_KIND = "prds";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
+var GOAL_ONLY_OWN_PRDS = 10;
+var GOAL_ONLY_LEVEL_REFUSAL = "a goal-only mission works alone";
+var GOAL_ONLY_PM_REFUSAL = "a goal-only mission needs the PM: ownPrds is 1 to 10";
 var DEFAULT_RESUMES = 3;
 var MAX_MISSION_TOKENS = 1e9;
 var FLEET_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -23435,13 +23438,14 @@ var MandateSchema = z98.object(
     parallel: z98.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
     level: z98.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
     hardToRevert: z98.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: z98.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
+    ownPrds: z98.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").optional(),
     resumes: z98.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_RESUMES),
     tokens: z98.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
   },
   { message: "must be {parallel, level, hardToRevert, ownPrds, resumes, tokens}" }
 ).strict().transform(({ tokens, ...mandate }) => tokens == null ? mandate : { ...mandate, tokens });
-var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS, resumes: DEFAULT_RESUMES };
+var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, resumes: DEFAULT_RESUMES };
+var REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var BriefSchema = z98.object({
   mission: IssueNumberSchema,
   title: text18(200),
@@ -23451,18 +23455,23 @@ var BriefSchema = z98.object({
   kind: z98.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
   scope: ScopeSchema.optional(),
   repositories: z98.array(text18(200).regex(REPOSITORY, "is not owner/name"), { message: "must be a list of owner/name" }).max(20, "holds 20 repositories at most").refine(distinct, "names a repository twice").optional(),
-  mandate: MandateSchema.default(DEFAULT_MANDATE)
-}).strict().transform(({ scope, repositories, ...rest }, ctx) => {
+  mandate: MandateSchema.default(DEFAULT_MANDATE),
+  request: text18(36).regex(REQUEST_ID, "must be a uuid").optional()
+}).strict().transform(({ scope, repositories, request, mandate, ...rest }, ctx) => {
   const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
-  if (rest.kind === "omni-bugs") {
-    if (named > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
-  } else if (scope === void 0) {
-    ctx.addIssue({ code: "invalid_type", expected: "object", input: void 0, path: ["scope"], message: "missing" });
-  } else if (named === 0) {
-    ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
-  }
-  return { ...rest, scope: scope ?? NO_SCOPE, ...repositories === void 0 ? {} : { repositories } };
+  for (const fault of briefFaults(rest.kind, named, mandate)) ctx.addIssue({ code: "custom", ...fault });
+  const ownPrds = mandate.ownPrds ?? (isGoalOnly(rest.kind, named) ? GOAL_ONLY_OWN_PRDS : DEFAULT_OWN_PRDS);
+  return { ...rest, mandate: { ...mandate, ownPrds }, scope: scope ?? NO_SCOPE, ...repositories === void 0 ? {} : { repositories }, ...request === void 0 ? {} : { request } };
 });
+var isGoalOnly = (kind, named) => kind !== "omni-bugs" && named === 0;
+function briefFaults(kind, named, mandate) {
+  if (kind === "omni-bugs") return named > 0 ? [{ path: ["scope"], message: "is empty for an omni-bugs mission" }] : [];
+  if (named > 0) return [];
+  return [
+    ...mandate.level === "alone" ? [] : [{ path: ["mandate", "level"], message: GOAL_ONLY_LEVEL_REFUSAL }],
+    ...mandate.ownPrds === 0 ? [{ path: ["mandate", "ownPrds"], message: GOAL_ONLY_PM_REFUSAL }] : []
+  ];
+}
 
 // apps/omni-app/src/missions/repair.ts
 import { createHash as createHash8 } from "node:crypto";
@@ -24218,7 +24227,8 @@ var RUNNABLE_SKILLS = Object.freeze([
   "mega-roadmap",
   "repair",
   "qa",
-  "mission-retro"
+  "mission-retro",
+  "mission"
 ]);
 var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
 var APP_SKILLS = Object.freeze(["acceptance"]);
@@ -24239,9 +24249,9 @@ var PmRecordSchema = z101.object({
   prds: z101.array(PrdNumberSchema).max(OWN_PRDS_MAX),
   unwritten: z101.array(z101.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
 });
-function pmSkillFor(left, planRepository) {
+function pmSkillFor(left, planRepository, goalOnly = false) {
   if (!Number.isInteger(left) || left < 1) return null;
-  const one = left === 1;
+  const one = left === 1 && !goalOnly;
   if (planRepository) return one ? "mega-brainstorm" : "mega-roadmap";
   return one ? "brainstorm" : "roadmap";
 }

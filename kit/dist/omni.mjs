@@ -58857,6 +58857,9 @@ var MISSION_KINDS = ["prds", "omni-bugs"];
 var DEFAULT_KIND = "prds";
 var DEFAULT_HARD_TO_REVERT = 0.6;
 var DEFAULT_OWN_PRDS = 0;
+var GOAL_ONLY_OWN_PRDS = 10;
+var GOAL_ONLY_LEVEL_REFUSAL = "a goal-only mission works alone";
+var GOAL_ONLY_PM_REFUSAL = "a goal-only mission needs the PM: ownPrds is 1 to 10";
 var DEFAULT_RESUMES = 3;
 var MAX_MISSION_TOKENS = 1e9;
 var FRONT_MATTER6 = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
@@ -58879,13 +58882,14 @@ var MandateSchema = external_exports.object(
     parallel: external_exports.number({ message: "must be a number" }).int("must be a whole number").min(1, "is 1 to 4").max(4, "is 1 to 4").default(DEFAULT_PARALLEL),
     level: external_exports.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(", ")}` }).default(DEFAULT_LEVEL),
     hardToRevert: external_exports.number({ message: "must be a number" }).min(0, "is 0 to 1").max(1, "is 0 to 1").default(DEFAULT_HARD_TO_REVERT),
-    ownPrds: external_exports.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_OWN_PRDS),
+    ownPrds: external_exports.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").optional(),
     resumes: external_exports.number({ message: "must be a number" }).int("must be a whole number").min(0, "is 0 to 10").max(10, "is 0 to 10").default(DEFAULT_RESUMES),
     tokens: external_exports.number({ message: "must be a number" }).int("must be a whole number").min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE).nullish()
   },
   { message: "must be {parallel, level, hardToRevert, ownPrds, resumes, tokens}" }
 ).strict().transform(({ tokens: tokens2, ...mandate }) => tokens2 == null ? mandate : { ...mandate, tokens: tokens2 });
-var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS, resumes: DEFAULT_RESUMES };
+var DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, resumes: DEFAULT_RESUMES };
+var REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var BriefSchema = external_exports.object({
   mission: IssueNumberSchema,
   title: text14(200),
@@ -58895,18 +58899,23 @@ var BriefSchema = external_exports.object({
   kind: external_exports.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
   scope: ScopeSchema.optional(),
   repositories: external_exports.array(text14(200).regex(REPOSITORY, "is not owner/name"), { message: "must be a list of owner/name" }).max(20, "holds 20 repositories at most").refine(distinct, "names a repository twice").optional(),
-  mandate: MandateSchema.default(DEFAULT_MANDATE)
-}).strict().transform(({ scope, repositories, ...rest }, ctx) => {
+  mandate: MandateSchema.default(DEFAULT_MANDATE),
+  request: text14(36).regex(REQUEST_ID, "must be a uuid").optional()
+}).strict().transform(({ scope, repositories, request: request2, mandate, ...rest }, ctx) => {
   const named5 = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
-  if (rest.kind === "omni-bugs") {
-    if (named5 > 0) ctx.addIssue({ code: "custom", path: ["scope"], message: "is empty for an omni-bugs mission" });
-  } else if (scope === void 0) {
-    ctx.addIssue({ code: "invalid_type", expected: "object", input: void 0, path: ["scope"], message: "missing" });
-  } else if (named5 === 0) {
-    ctx.addIssue({ code: "custom", path: ["scope"], message: "names no PRD and no roadmap: one at least" });
-  }
-  return { ...rest, scope: scope ?? NO_SCOPE, ...repositories === void 0 ? {} : { repositories } };
+  for (const fault of briefFaults(rest.kind, named5, mandate)) ctx.addIssue({ code: "custom", ...fault });
+  const ownPrds = mandate.ownPrds ?? (isGoalOnly(rest.kind, named5) ? GOAL_ONLY_OWN_PRDS : DEFAULT_OWN_PRDS);
+  return { ...rest, mandate: { ...mandate, ownPrds }, scope: scope ?? NO_SCOPE, ...repositories === void 0 ? {} : { repositories }, ...request2 === void 0 ? {} : { request: request2 } };
 });
+var isGoalOnly = (kind2, named5) => kind2 !== "omni-bugs" && named5 === 0;
+function briefFaults(kind2, named5, mandate) {
+  if (kind2 === "omni-bugs") return named5 > 0 ? [{ path: ["scope"], message: "is empty for an omni-bugs mission" }] : [];
+  if (named5 > 0) return [];
+  return [
+    ...mandate.level === "alone" ? [] : [{ path: ["mandate", "level"], message: GOAL_ONLY_LEVEL_REFUSAL }],
+    ...mandate.ownPrds === 0 ? [{ path: ["mandate", "ownPrds"], message: GOAL_ONLY_PM_REFUSAL }] : []
+  ];
+}
 function placeOf5(path) {
   return path.reduce((place, key2) => typeof key2 === "number" ? `${place}[${key2 + 1}]` : place ? `${place}.${String(key2)}` : String(key2), "");
 }
@@ -58925,6 +58934,7 @@ function faultsOf(raw, error62) {
     if (issue2.code === "unrecognized_keys") return `${place ? `${place}: ` : ""}unexpected field${issue2.keys.length > 1 ? "s" : ""} ${issue2.keys.join(", ")}.`;
     if (issue2.code === "invalid_type" && valueAt(raw, issue2.path) === void 0) return `${place}: missing.`;
     if (place === "mission") return `${place}: must be a positive whole number.`;
+    if (place === "request") return `request: must be a uuid, not ${JSON.stringify(valueAt(raw, issue2.path))}.`;
     const listed4 = scopeFault(place, valueAt(raw, issue2.path));
     if (listed4 !== null) return listed4;
     return `${place}: ${issue2.message}.`;
@@ -65937,9 +65947,12 @@ var RUNNABLE_SKILLS = Object.freeze([
   "mega-roadmap",
   "repair",
   "qa",
-  "mission-retro"
+  "mission-retro",
+  "mission"
 ]);
 var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var MISSION_ARGS = /^--request [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+var MISSION_REFUSAL = "/omni:mission runs on a runner from the New mission box only";
 function missionRefusal(skill, mission2) {
   if (!PM_SKILLS.includes(skill) || mission2?.level === "alone") return null;
   return `/omni:${skill} runs on a runner for a mission's PM only`;
@@ -65964,6 +65977,7 @@ function checkRunnerLine(line3, allowed = []) {
 function checkFixed(skill, args) {
   if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
   if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  if (skill === "mission" && !MISSION_ARGS.test(args)) return { ok: false, reason: MISSION_REFUSAL };
   return { ok: true, kind: "omni", skill, args };
 }
 function checkOwn(skill, args, allowed) {
@@ -66047,6 +66061,7 @@ function roleOf2(role) {
   if (!found2) throw new Error(`no defaults for the role ${role}`);
   return found2;
 }
+var HERO_RUNNABLE = RUNNABLE_SKILLS.filter((skill) => skill !== "mission");
 
 // kit/bin/commands/committee.ts
 var USAGE45 = "usage: omni committee check <prd> --approve|--item <id> [--bound <0-1>] [--author <role>] [--json]\n       omni committee record <prd> --approve|--item <id> --file <votes.json> [--bound <0-1>] [--author <role>]";
