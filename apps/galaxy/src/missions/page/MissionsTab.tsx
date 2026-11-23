@@ -7,7 +7,7 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { MissionLevelSchema, type BugsPick, type ItemAnswer, type MissionAction, type StopAnswer } from '../missions.contract';
 import { tokensOf } from '../token-words';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
-import { ACTION_WORDS, LEVEL_WORDS, WORDS, type DailyView, type FleetPrds, type MissionsView, type StopView } from './missions-tab';
+import { ACTION_WORDS, LEVEL_WORDS, WORDS, type DailyView, type FleetPrds, type MissionsView, type NewMissionBox, type RequestLine, type StopView } from './missions-tab';
 import { RepairDetail, StoppedBlock } from '../RepairParts';
 import { RetroSection, StuckLine } from './RetroParts';
 import './missions-tab.css';
@@ -19,6 +19,8 @@ import './missions-tab.css';
 
 /** The busy and problem key of the fleet's own line, which belongs to no mission. */
 const FLEET = 'fleet';
+/** The busy and problem key of the New mission box. */
+const NEW = 'new';
 
 export interface MissionsTabProps {
   view: MissionsView;
@@ -211,6 +213,43 @@ function FleetPrdsLine({ fleet }: { fleet: FleetPrds }) {
   );
 }
 
+/** The New mission box (PRD omni-loop-24, `mission-start` 1.A to 1.D): one goal, one Start; a person who may not sees it disabled, with why. */
+function NewMission({ box, busy, problem, onStart }: { box: NewMissionBox; busy: boolean; problem: string | null; onStart: (goal: string) => Promise<boolean> }) {
+  const [goal, setGoal] = useState('');
+  const typed = goal.trim();
+  return (
+    <form
+      className="mission-new"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (typed === '' || !box.canStart) return;
+        void onStart(typed).then((started) => { if (started) setGoal(''); });
+      }}
+    >
+      <label htmlFor="new-mission-goal">{WORDS.newMission}</label>
+      <div className="mission-new-row">
+        <input id="new-mission-goal" type="text" value={goal} maxLength={300} disabled={busy || !box.canStart} onChange={(event) => { setGoal(event.target.value); }} />
+        <button type="submit" className="ask-button mission-action" data-primary="" disabled={busy || !box.canStart || typed === ''}>{WORDS.start}</button>
+      </div>
+      <p className="ask-muted mission-new-hint">{WORDS.boxHint}</p>
+      {box.refusal !== null && <p className="mission-problem" role="alert">{box.refusal}</p>}
+      {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
+    </form>
+  );
+}
+
+/** A press of Start whose mission is not pushed yet: its goal as typed, and `Writing the mission`. */
+function RequestItem({ request }: { request: RequestLine }) {
+  return (
+    <li className="mission" data-status="request">
+      <div className="mission-body">
+        <h3 className="mission-goal">{request.goal}</h3>
+        <p className="mission-line"><span className="mission-state" data-status="running">{request.words}</span></p>
+      </div>
+    </li>
+  );
+}
+
 /** The one move a status allows: `Start` is the primary action of a draft. */
 function ActionButton({ action, title, busy, disabled, onMove }: { action: MissionAction; title: string; busy: boolean; disabled: boolean; onMove: (action: MissionAction) => void }) {
   return (
@@ -238,6 +277,18 @@ function BudgetParts({ mission, busy, onBudget, onAnswer }: { mission: MissionsV
   );
 }
 
+/** A mission's status, its progress and its links: its brief, and Why when its PM wrote no PRD (PRD omni-loop-24). */
+function MissionLine({ mission }: { mission: MissionsView['missions'][number] }) {
+  return (
+    <p className="mission-line">
+      <span className="mission-state" data-status={mission.status}>{mission.statusWords}</span>
+      <span className="mission-progress">{mission.progress}</span>
+      {mission.noPrd !== null && <a href={mission.briefHref} title={mission.noPrd.why}>{WORDS.why}<span className="ask-sr">: {mission.noPrd.why}</span></a>}
+      <a href={mission.briefHref}>{WORDS.brief}<span className="ask-sr">: {mission.title}</span></a>
+    </p>
+  );
+}
+
 /** One mission's row: its words at the left, its one button at the right. */
 function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, onBudget, onAnswer, onStop, onItem }: {
   demo: boolean;
@@ -257,11 +308,7 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, on
       <li className="mission" data-status={mission.status}>
         <div className="mission-body">
           <h3 className="mission-goal">{mission.goal}</h3>
-          <p className="mission-line">
-            <span className="mission-state" data-status={mission.status}>{mission.statusWords}</span>
-            <span className="mission-progress">{mission.progress}</span>
-            <a href={mission.briefHref}>{WORDS.brief}<span className="ask-sr">: {mission.title}</span></a>
-          </p>
+          <MissionLine mission={mission} />
           <LevelLine
             words={mission.levelWords}
             level={mission.canChangeLevel ? mission.level : null}
@@ -377,6 +424,20 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
     router.refresh();
   }
 
+  async function startMission(goal: string): Promise<boolean> {
+    if (view.workspace === null) return false;
+    setBusy(NEW);
+    setProblem(null);
+    const done = await calls.startMission(view.workspace, view.fleet, goal);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission: NEW, message: done.message });
+      return false;
+    }
+    router.refresh();
+    return true;
+  }
+
   async function dailyCap(tokens: number | null) {
     if (view.workspace === null) return;
     setBusy(FLEET);
@@ -395,8 +456,10 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
       {view.daily !== undefined && <DailyLine daily={view.daily} busy={busy !== null} onSave={(tokens) => { void dailyCap(tokens); }} />}
       {view.daily?.notice != null && <FleetNotice notice={view.daily.notice} busy={busy !== null} onAnswer={(choice, tokens) => { void answer(FLEET, view.daily?.notice?.id ?? '', choice, tokens); }} />}
       {problem?.mission === FLEET && <p className="mission-problem" role="alert">{problem.message}</p>}
-      {view.missions.length === 0 && <p className="ask-muted missions-empty">{WORDS.empty}</p>}
+      {view.box !== undefined && <NewMission box={view.box} busy={busy !== null} problem={problem?.mission === NEW ? problem.message : null} onStart={startMission} />}
+      {view.missions.length === 0 && (view.requests ?? []).length === 0 && <p className="ask-muted missions-empty">{WORDS.empty}</p>}
       <ul className="missions-list">
+        {(view.requests ?? []).map((request) => <RequestItem key={request.id} request={request} />)}
         {view.missions.map((mission) => (
           <MissionItem
             key={mission.id}

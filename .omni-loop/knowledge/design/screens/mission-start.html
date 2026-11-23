@@ -327,6 +327,14 @@ body.is-phone .shell{display:none}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--plasma)}
 .note-top{padding:12px 24px;border-bottom:1px solid var(--line);background:var(--sunk);font-size:14px;color:var(--muted);margin:0}
 
+/* New mission box (PRD omni-loop-24 s6): one goal, one Start */
+.newm{margin:16px 0 0;padding:14px 16px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface)}
+.newm label{display:block;font-weight:700;margin:0 0 6px}
+.newm .row{display:flex;gap:10px}
+.newm input{flex:1;min-width:0;padding:9px 12px;border-radius:8px;border:1.5px solid var(--line-strong);background:var(--sunk);color:var(--ink);font:inherit}
+.hint{margin:6px 0 0;color:var(--muted);font-size:14px}
+.refuse{margin:10px 0 0;color:var(--red);font-size:15px}
+.empty{margin:18px 0 0;color:var(--muted)}
 .level{margin:10px 0 0}
 </style>
 </head>
@@ -335,7 +343,11 @@ body.is-phone .shell{display:none}
 <div class="wrap">
 <div class="fleet-head"><span class="mascot" aria-hidden="true"><svg class="px" aria-hidden="true" width="32" height="20" viewBox="0 0 16 10" fill="var(--fleet)"><rect x="13" y="0" width="2" height="1"/><rect x="12" y="1" width="2" height="1"/><rect x="3" y="2" width="7" height="1"/><rect x="12" y="2" width="2" height="1"/><rect x="2" y="3" width="11" height="1"/><rect x="1" y="4" width="13" height="1"/><rect x="0" y="5" width="5" height="1"/><rect x="6" y="5" width="8" height="1"/><rect x="0" y="6" width="13" height="1"/><rect x="0" y="7" width="12" height="1"/><rect x="1" y="8" width="10" height="1"/><rect x="3" y="9" width="6" height="1"/><rect x="5" y="5" width="1" height="1" fill="var(--ground)"/></svg></span><div><h2>Blue Fleet</h2><p class="fleet-meta">3 runners · 1 mission running</p></div></div><div class="tabs" role="tablist" aria-label="Fleet"><button type="button" class="tab" role="tab" aria-selected="false">Operation room</button><button type="button" class="tab" role="tab" aria-selected="true">Missions</button><button type="button" class="tab" role="tab" aria-selected="false">Heroes</button><button type="button" class="tab" role="tab" aria-selected="false">Board</button></div><section data-screen="mission-start" aria-label="Missions">
 <p class="fleet-meta level">Level: Works alone · <a href="#">Change</a></p>
+<form class="newm"><label for="goal">New mission</label><div class="row"><input id="goal" type="text" maxlength="300" value="Quotes on the phone"><button type="button" class="btn" data-primary>Start</button></div><p class="hint">Back as one pull request.</p></form>
 <ul class="mission-list" style="max-width:none">
+<li><span class="name">Quotes on the phone</span><span class="state">Writing the mission</span></li>
+<li><span class="name">Quotes by text message</span><span class="state go">Running</span><span>Writing the roadmap</span><span class="num">Works alone</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button></li>
+<li><span class="name">Quotes on the phone, again</span><span class="state you">Waiting on you</span><span>No PRD written</span><a href="#">Why</a><span class="num">Works alone</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button></li>
 <li><span class="name">Every quote can be paid online</span><span class="state go">Waiting on you</span><span class="num">2 of 4 on main · 1 joined</span><span class="num">Works alone</span><a href="#">Brief</a><button type="button" class="btn quiet">Pause</button>
 <ul style="flex-basis:100%;margin:6px 0 0;padding-left:18px">
 <li style="display:list-item;border:0;padding:0">Branch: 1 PRD · up to date · <a href="#">Mission PR #2901</a></li>

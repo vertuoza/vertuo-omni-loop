@@ -159,3 +159,42 @@ describe('the token caps (PRD 3040)', () => {
     expect(text(shown([row({ status: 'paused' })], reads({ owner: false, stops: [stop] })))).not.toContain('Raise the cap');
   });
 });
+
+// The New mission box and the goal-only rows as the server renders them (PRD omni-loop-24 s6, `mission-start` 1.A to 1.D).
+describe('the New mission box (PRD omni-loop-24, `mission-start` 1.A to 1.D)', () => {
+  const box = { canStart: true, refusal: null };
+  const shown = (over: Partial<MissionsView>, ...missions: MissionRow[]) => html({ workspace: WORKSPACE, fleet: 'night-shift', box, requests: [], missions: missions.map((m) => missionOf(m, [])), ...over });
+
+  it('1.B draws the box above No mission yet, with Start as its primary action and the hint', () => {
+    const out = shown({});
+    expect(text(out)).toContain('New mission Start Back as one pull request. No mission yet.');
+    expect(out).toMatch(/<button[^>]*data-primary[^>]*disabled[^>]*>Start/);
+    expect(text(out)).not.toContain('/omni:mission');
+  });
+
+  it('1.A lists a request not yet pushed as Writing the mission, and a goal-only mission as Writing the roadmap', () => {
+    const requests = [{ id: 'r1', goal: 'Quotes on the phone', words: 'Writing the mission' }];
+    const out = text(shown({ requests }, row({ goal: 'Quotes by text', status: 'running', level: 'alone', prds: [], goalOnly: true })));
+    expect(out).toContain('Quotes on the phone Writing the mission');
+    expect(out).toContain('Quotes by text Running Writing the roadmap Brief');
+    expect(out).not.toContain('No mission yet');
+  });
+
+  it('1.C disables Start for a member below Works alone and says why', () => {
+    const out = shown({ box: { canStart: false, refusal: 'Works alone only. Ask an owner.' } });
+    expect(out).toMatch(/<input[^>]*disabled/);
+    expect(out).toMatch(/<button[^>]*disabled[^>]*>Start/);
+    expect(text(out)).toContain('Works alone only. Ask an owner.');
+  });
+
+  it('1.D shows No PRD written with a Why link to the brief, and Waiting on you', () => {
+    const why = 'the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent twice.';
+    const out = shown({}, row({ goal: 'Quotes on the phone', status: 'waiting', level: 'alone', prds: [], goalOnly: true, waitingOn: why }));
+    expect(text(out)).toContain('Quotes on the phone Waiting on you No PRD written Why');
+    expect(out).toMatch(/<a href="https:\/\/github.com\/acme\/shop\/issues\/40" title="the PM wrote no PRD for the goal[^"]*">Why/);
+  });
+
+  it('has no box in the demo, which starts no mission', () => {
+    expect(html({ workspace: null, fleet: 'f', missions: [] })).not.toContain('New mission');
+  });
+});

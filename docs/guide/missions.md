@@ -95,7 +95,7 @@ Works alone needs the fleet to hold a PM, an Architect and a Reviewer.
 - **The PM's own PRDs.** Runners take `/omni:brainstorm`, `/omni:roadmap`,
   `/omni:mega-brainstorm` and `/omni:mega-roadmap` for a mission's job only, so the PM can write
   PRDs for the mission. This happens while the PRDs the fleet added are fewer than the mandate's
-  `ownPrds` (0 by default). The PM gets one job per mission. A roadmap writes only the PRDs that fit
+  `ownPrds` (0 by default, 10 for a mission started from a goal alone). The PM gets one job per mission. A roadmap writes only the PRDs that fit
   under the cap, in order, and the mission page names the rest as `not written: the cap is <k>`.
   The Architect and the Reviewer approve a PRD the PM wrote, and the PM sits out. These skills ask
   no question: each one becomes a high outbox item. Where phase 0 is a pull request, the PM writes
@@ -335,6 +335,29 @@ For one PRD and no conversation, give the PRD and the goal:
 
 Nothing is asked but the fleet's key, when you have not given it with `--fleet`. The scope is that
 PRD, there is no measure yet, and the mandate is the default.
+
+### From a goal alone
+
+You do not need a PRD or a roadmap. Give the fleet one goal and it writes the PRDs itself. A mission
+started this way runs at **Works alone** only: the PM turns the goal into a roadmap of 1 to 10 PRDs,
+the committee approves them, the fleet builds them on the mission branch, and you meet the mission
+at its pull request, which only you merge.
+
+- **On the Omni page.** Open the fleet's **Missions** tab. In the **New mission** box, type the goal
+  and press **Start**. Your press is the mission's Start: the mission is listed as **Writing the
+  mission** until a runner has written it, then as **Writing the roadmap** while the PM writes the
+  PRDs.
+- **In your agent.** Type `/omni:mission --goal 'dark mode for quotes on site'`. It asks only the
+  fleet, then gives you the mission's page, where you press **Start**.
+
+Both refuse in the same cases. A member who is not an owner can start one only when the fleet is
+already at Works alone: the box then reads `Works alone only. Ask an owner.` And a repository whose
+phase 0 is a pull request refuses with `A goal-only mission needs phase 0 on the server`, because
+the PM writes no PRD there.
+
+If the PM writes no PRD, it is sent once more. After a second try with none, the mission waits on
+you: its row reads **No PRD written**, and **Why** opens the mission's brief with the PM's reason.
+A mission with no PRD is never shown as delivered.
 
 ## Starting never waits
 

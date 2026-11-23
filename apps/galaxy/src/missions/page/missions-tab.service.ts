@@ -2,14 +2,14 @@ import { limitWaitsOf } from '../limit-wait';
 import type { LimitWaitRepository } from '../limit-wait.repository';
 import { repairLinesOf } from '../repair';
 import type { RepairRepository } from '../repair.repository';
-import { dailyOf, missionOf, type BudgetRead, type MissionsView } from './missions-tab';
+import { boxOf, dailyOf, missionOf, WORDS, type BudgetRead, type MissionsView } from './missions-tab';
 import type { MissionsTabRepository } from './missions-tab.repository';
 
 // The Missions tab's rules (PRD 2842 s7; ADR-0095), over the repository as the signed-in person: a virtual
 // fleet's missions with each one's progress, what it waits a person on and the move its status allows, and, since
 // PRD 3065, its stuck state, its milestone retros and the questions of its own outbox.
 
-type Port = Pick<MissionsTabRepository, 'missions' | 'events' | 'owner' | 'dailyCap' | 'fleetSpent' | 'spent' | 'openStops' | 'retros' | 'items'> & { waits: LimitWaitRepository['facts']; repairs: RepairRepository['facts'] };
+type Port = Pick<MissionsTabRepository, 'missions' | 'events' | 'owner' | 'dailyCap' | 'fleetSpent' | 'spent' | 'openStops' | 'retros' | 'items' | 'fleetLevel' | 'requests'> & { waits: LimitWaitRepository['facts']; repairs: RepairRepository['facts'] };
 
 export function missionsTabService(repository: Port) {
   return {
@@ -29,7 +29,8 @@ export function missionsTabService(repository: Port) {
         stops: await repository.openStops(workspace, fleet),
       };
       const retro = { repairs: repairFacts.rows, retros: await repository.retros(ids), items: await repository.items(ids) };
-      return { workspace, fleet, daily: dailyOf(budget), missions: rows.map((row) => missionOf(row, events.filter((event) => event.mission === row.id), waits, repairs, budget, retro)) };
+      const box = boxOf(await repository.fleetLevel(workspace, fleet), budget.owner);
+      return { workspace, fleet, daily: dailyOf(budget), box, requests: (await repository.requests(workspace, fleet)).map((request) => ({ ...request, words: WORDS.writingMission })), missions: rows.map((row) => missionOf(row, events.filter((event) => event.mission === row.id), waits, repairs, budget, retro)) };
     },
   };
 }
