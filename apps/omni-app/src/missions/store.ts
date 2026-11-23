@@ -186,8 +186,11 @@ export type FleetDecision = { kind: 'approve' | 'answer'; prd: MissionPrd; item:
 /** A step's resume (PRD omni-loop-21): its k-th fresh job after one that ended without its result line; absent on the step's first job. */
 export type Resumed = { resume?: number };
 
-/** A bug-fix job to send (PRD 3088): the mission, the bug's issue, its number among the bug's jobs, and where it goes. */
-export type BugSend = { mission: MissionRecord; issue: IssueNumber; k: number; toFleet: boolean };
+/**
+ * A bug-fix job to send (PRD 3088): the mission, the bug's issue, its number among the bug's jobs, and where it goes; `line`, the line it
+ * is sent as when not the bug team's own (an outside bug's, `/omni:bug-fix #<issue> --base <mission branch>`: PRD omni-loop-21 s9b).
+ */
+export type BugSend = { mission: MissionRecord; issue: IssueNumber; k: number; toFleet: boolean; line?: string };
 
 /**
  * An `omni-bugs` mission's bugs and their jobs (PRD 3088), as the service role. A store without them (a test's) reads no bug, and the
@@ -850,7 +853,7 @@ export function missionStore(connection: Connection): MissionStore {
       });
     },
 
-    send: ({ mission, issue, k, toFleet }) => queue({ mission, toFleet, line: bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
+    send: ({ mission, issue, k, toFleet, line }) => queue({ mission, toFleet, line: line ?? bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
 
     async move(bug, { state, attempts, fixPr, askedJob }) {
       const moved = rowsOf(

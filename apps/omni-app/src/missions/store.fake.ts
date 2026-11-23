@@ -160,12 +160,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const bugTeam: MissionBugTeam = {
     bugs: () => Promise.resolve(teamBugs.filter((one) => ['open', 'fixing', 'asked'].includes(one.state)).map((one) => ({ ...one }))),
     jobs: () => Promise.resolve(bugJobs.map(({ issue, k, job, attempts }) => ({ issue, k, job, attempts: attempts.map((one) => ({ ...one })) }))),
-    send: ({ mission: sent, issue, k, toFleet }) => {
+    send: ({ mission: sent, issue, k, toFleet, line = bugFixLine(issue) }) => {
       const key = bugKey(sent.id, issue, k);
       if (bugJobs.some((one) => one.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      bugJobs.push({ issue, k, job: id, attempts: [queued(id)], key, line: bugFixLine(issue), toFleet: toFleet ? sent.fleet : null });
+      bugJobs.push({ issue, k, job: id, attempts: [queued(id)], key, line, toFleet: toFleet ? sent.fleet : null });
       return Promise.resolve(id);
     },
     move: (bug, to) => {

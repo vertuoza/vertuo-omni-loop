@@ -106,7 +106,8 @@ import type { MissionJoins } from './join.ts';
 import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
 import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
 import type { MissionRecord, MissionRetros, MissionStore } from './store.ts';
-import { readRepairs, type RepairRunAt } from './repair-run.ts';
+import { readOutsideBugs, readRepairs, sendOutsideBugs, type RepairRunAt } from './repair-run.ts';
+import { outsideEvents } from './outside-bug.ts';
 import { readQa } from './qa-run.ts';
 import { overCap, runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
@@ -130,6 +131,7 @@ import {
   prdStates,
   recordedKeys,
   roomOn,
+  unrecorded,
   WAKE_MS,
   waitsForMerge,
   whereOf,
@@ -228,6 +230,7 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered, resumes: resumeCap(mission) };
   const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
+  const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
   // The PM plans a PRD with no plan before its approval, and replans one stopped once its repairs are spent (PRD omni-loop-21 s9).
   const planAt: PlanAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
   const before = withPlans(prdStates(facts, runs, branch, view, fleet, repairView, qa), planAt);
@@ -247,7 +250,7 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const retro = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...events, ...retro.events], new Date(now));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside, ...events, ...retro.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
   return { next, running: atWork(states, retro.running), moved, sent: sent.length + repaired.length, events: events.length + retro.events.length };
 }
@@ -263,6 +266,30 @@ async function repairsOf(at: RepairRunAt): Promise<{ repairView: RepairView; stu
   const read = await readRepairs(at);
   const stuck = at.store.retros === undefined ? NO_STUCK : await readStuck({ ...at, retros: at.store.retros, rows: read.rows });
   return { repairView: { ...read, rows: [...read.rows.filter((row) => !isStuckRow(row)), ...stuck.rows], stuck: stuck.jobs }, stuck };
+}
+
+/** What a run's outside bugs are read from (PRD omni-loop-21 s11): the mission, its runs and repairs, its branch and GitHub, where its jobs go. */
+type OutsideAt = Pick<RepairRunAt, 'store' | 'mission' | 'runs' | 'recorded' | 'branch' | 'installation' | 'joins'> & {
+  repairs: RepairView;
+  toFleet: boolean;
+  /** Whether the run may send at all: its PRDs can be built (the mission branch ready). */
+  sends: boolean;
+};
+
+/**
+ * The Engineer's outside bugs (PRD omni-loop-21 s11, ./repair-run.ts), at `alone` only and never in an `omni-bugs` mission, while it
+ * runs or waits with its branch ready: each bug a Reviewer's, QA's or repair's job (a stuck repair's too) named outside the mission's
+ * PRDs read with where it stands, each fix that opened landed once green, the next bug's `/omni:bug-fix #<issue> --base <branch>` sent
+ * under `…:bug:<issue>:run:<k>`; the events not recorded yet, once. A store without the bug team's jobs reads none.
+ */
+async function outsideAll(at: OutsideAt): Promise<NewEvent[]> {
+  const team = at.store.bugTeam;
+  if (at.mission.level !== 'alone' || at.mission.kind === 'omni-bugs' || team === undefined || !at.sends || !sendsCommittees(at.mission.status)) return [];
+  const repairs = [...at.repairs.jobs, ...at.repairs.stuck.map(({ attempts }) => ({ prd: null, attempts }))];
+  const jobs = await team.jobs(at.mission.id);
+  const states = await readOutsideBugs({ ...at, repairs, jobs, logOf: (job) => at.store.committeeLog(job) });
+  const taken = await sendOutsideBugs(states, ({ issue, k, line }) => team.send({ mission: at.mission, issue, k, line, toFleet: at.toFleet }));
+  return unrecorded([...taken, ...outsideEvents(states)], recordedKeys(at.recorded));
 }
 
 /** What the run's retro steps work from (PRD 3065), once its events are known. */

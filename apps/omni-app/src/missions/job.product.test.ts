@@ -49,8 +49,8 @@ const claimed: ClaimedJob = {
 
 const branches: MissionBranches = { prepare: () => Promise.resolve({ ok: true, cut: false }) };
 
-function setup({ mission = record(), all = [facts(1)], deps = {} }: { mission?: MissionRecord; all?: PrdFacts[]; deps?: Partial<MissionDeps> } = {}) {
-  const fake = fakeMissionStore({ mission, facts: all });
+function setup({ mission = record(), all = [facts(1)], deps = {}, team }: { mission?: MissionRecord; all?: PrdFacts[]; deps?: Partial<MissionDeps>; team?: { bugs: [] } } = {}) {
+  const fake = fakeMissionStore({ mission, facts: all, ...(team === undefined ? {} : { team }) });
   const run = () => missionHandler({ store: fake.store, branches, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined, ...deps })(claimed);
   const sentences = (kind: string) => fake.events().filter((event) => event.kind === kind).map((event) => event.sentence);
   return { fake, run, sentences };
@@ -183,5 +183,77 @@ describe('an escalation-list item, decided by the members in the run (AC-5)', ()
     expect(state.settled).toEqual([]);
     expect((await fake.store.decisions(ID)).map(({ outcome }) => outcome)).toEqual(['escalated']);
     expect(sentences('escalated')).toHaveLength(1);
+  });
+});
+
+// ── The Engineer's outside bugs (s11, item s11-04) ──────────────────────────────
+
+const FIX_URL = 'https://github.com/acme/widgets/pull/77';
+const OUTSIDE_LOG = '12:00:00 omni outside-bug: #44 on acme/widgets: The quote total rounds the tax twice.\n12:00:01 Done: ok';
+
+const fixPull = (merged: boolean): PullRead => ({
+  number: 77,
+  url: FIX_URL,
+  title: 'fix: round the tax once',
+  state: merged ? 'closed' : 'open',
+  draft: false,
+  merged,
+  base: BRANCH,
+  defaultBranch: 'main',
+  head: 'f1x',
+  runs: [{ id: 1, name: 'test', status: 'completed', conclusion: 'success', title: null }],
+  statuses: [],
+  reviews: [],
+  items: { ranks: [], open: [] },
+});
+
+function outsideSetup(mission = record()) {
+  const merges: number[] = [];
+  const joins: MissionJoins = {
+    read: () => Promise.resolve(fixPull(merges.length > 0)),
+    merge: ({ pr }) => {
+      merges.push(pr);
+      return Promise.resolve({ ok: true });
+    },
+  };
+  const made = setup({ mission, team: { bugs: [] }, deps: { joins } });
+  /** The build failed, its repair ran and named an outside bug in its log. */
+  const named = async () => {
+    await made.run();
+    made.fake.end(p(1), { status: 'failed', reason: 'tests red' });
+    await made.run();
+    made.fake.endRepairJob(p(1), { status: 'done', outcome: 'no-fix' }, OUTSIDE_LOG);
+    await made.run();
+  };
+  return { ...made, merges, named };
+}
+
+describe("a failure named outside the mission's PRDs, in the run (s11)", () => {
+  it('sends the Engineer /omni:bug-fix into the mission branch at alone, under the bug key, recorded once', async () => {
+    const { fake, run, sentences, named } = outsideSetup();
+    await named();
+    expect(fake.bugJobs().map(({ key, line, toFleet }) => [key, line, toFleet])).toEqual([[`mission:${ID}:bug:44:run:1`, `/omni:bug-fix #44 --base ${BRANCH}`, 'night-shift']]);
+    expect(sentences('bug-taken')).toEqual([`a repair named acme/widgets#44 outside the mission's PRDs: sent /omni:bug-fix #44 --base ${BRANCH}, try 1 of 3.`]);
+    await run();
+    expect(fake.bugJobs()).toHaveLength(1);
+    expect(sentences('bug-taken')).toHaveLength(1);
+  });
+
+  it("lands the fix on the mission branch once green, and says it is fixed, once", async () => {
+    const { fake, run, sentences, merges, named } = outsideSetup();
+    await named();
+    fake.endBug(44, { status: 'done', outcome: 'pr-opened', prUrl: FIX_URL });
+    await run();
+    expect(merges).toEqual([77]);
+    expect(sentences('bug-fixed')).toEqual(['acme/widgets#44 is fixed on the mission branch by #77.']);
+    await run();
+    expect(merges).toEqual([77]);
+    expect(sentences('bug-fixed')).toHaveLength(1);
+  });
+
+  it('sends no bug fix below alone', async () => {
+    const { fake, named } = outsideSetup(record({ level: 'own-branch' }));
+    await named();
+    expect(fake.bugJobs()).toEqual([]);
   });
 });
