@@ -145,7 +145,7 @@ describe('a mission\'s page (PRD 2842 s2)', () => {
   it('pushes through mission_push(), with the migration\'s parameters and the brief read from mission.md', async () => {
     const pushed = { id: 'd-1', added: [{ kind: 'mission-record', version: 1 }], unchanged: ['brief'], mission: { id: 'm-1', status: 'draft', created: true } };
     const { calls, db } = recording({ data: pushed, error: null });
-    expect(await dossierStore(db).push(push())).toEqual({ id: 'd-1', added: pushed.added, unchanged: ['brief'], product: null });
+    expect(await dossierStore(db).push(push())).toEqual({ id: 'd-1', added: pushed.added, unchanged: ['brief'], product: null, fleet: 'night-shift' });
     expect(calls).toEqual([{
       name: 'mission_push',
       args: {
