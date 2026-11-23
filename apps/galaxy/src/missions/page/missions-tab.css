@@ -39,6 +39,13 @@
 .mission-stop { display: grid; gap: 6px; justify-items: start; padding: 8px 10px; border: 1.5px solid var(--ask-plasma); border-radius: 8px; font-size: 15px; }
 .mission-fleet-stop { margin: 0; }
 
+/* The New mission box (PRD omni-loop-24 s6, the `mission-start` screen's 1.A to 1.D). */
+.mission-new { display: grid; gap: 6px; padding: 14px 16px; background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 10px; }
+.mission-new label { font-weight: 700; }
+.mission-new-row { display: flex; gap: 10px; }
+.mission-new-row input { flex: 1; min-width: 0; padding: 9px 12px; font: inherit; color: inherit; background: var(--ask-sunk); border: 1.5px solid var(--ask-line-strong); border-radius: 8px; }
+.mission-new-hint { margin: 0; font-size: 14px; }
+
 /* Stuck, retros and the mission's own outbox (PRD 3065 s7, the `mission-start` screen's 1.A to 1.E). */
 .mission-stuck { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 15px; }
 .mission-stuck small { flex-basis: 100%; }

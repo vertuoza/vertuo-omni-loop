@@ -21,7 +21,7 @@ describe('RESUMABLE_SKILLS (PRD 2809)', () => {
 
 describe('checkRunnerLine', () => {
   it('takes every listed skill, with and without arguments', () => {
-    for (const skill of RUNNABLE_SKILLS) {
+    for (const skill of RUNNABLE_SKILLS.filter((one) => one !== 'mission')) {
       expect(checkRunnerLine(`/omni:${skill} 1717`)).toEqual({ ok: true, kind: 'omni', skill, args: '1717' });
       expect(checkRunnerLine(`/omni:${skill}`)).toEqual({ ok: true, kind: 'omni', skill, args: '' });
     }
@@ -39,10 +39,21 @@ describe('checkRunnerLine', () => {
       .toEqual({ ok: true, kind: 'omni', skill: 'mega-bug-fix', args: 'https://github.com/acme/plan/issues/612' });
   });
 
-  it('takes the mission\'s /omni:mission-retro, last in the list (PRD 3065)', () => {
-    expect(RUNNABLE_SKILLS.at(-1)).toBe('mission-retro');
+  it('takes the mission\'s /omni:mission-retro (PRD 3065)', () => {
+    expect(RUNNABLE_SKILLS).toContain('mission-retro');
     expect(checkRunnerLine('/omni:mission-retro --mission 12 --milestone 2950')).toEqual({ ok: true, kind: 'omni', skill: 'mission-retro', args: '--mission 12 --milestone 2950' });
     expect(checkRunnerLine('/omni:mission-retro --mission 12 --milestone mission')).toEqual({ ok: true, kind: 'omni', skill: 'mission-retro', args: '--mission 12 --milestone mission' });
+  });
+
+  it('AC-5: takes /omni:mission from the New mission box only, with --request <uuid> (PRD omni-loop-24)', () => {
+    const uuid = '3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f';
+    expect(RUNNABLE_SKILLS.at(-1)).toBe('mission');
+    expect(checkRunnerLine(`/omni:mission --request ${uuid}`)).toEqual({ ok: true, kind: 'omni', skill: 'mission', args: `--request ${uuid}` });
+    const refusal = '/omni:mission runs on a runner from the New mission box only';
+    for (const line of ['/omni:mission', '/omni:mission --goal dark-mode', '/omni:mission --request', '/omni:mission --request nope', `/omni:mission --request ${uuid} --goal x`, `/omni:mission --request ${uuid.toUpperCase()}`, `/omni:mission  --request ${uuid}`, '/omni:mission 1']) {
+      expect(checkRunnerLine(line), line).toEqual({ ok: false, reason: refusal });
+    }
+    expect(checkRunnerLine('/omni:mission --goal a;b')).toEqual({ ok: false, reason: 'the arguments hold a character other than letters, digits, spaces and ._/:#-' });
   });
 
   it('takes QA\'s /omni:qa, round 1 and round 2 (PRD 3001)', () => {
@@ -52,7 +63,7 @@ describe('checkRunnerLine', () => {
   });
 
   it('refuses an unlisted skill, a conversational one and /omni:drive', () => {
-    for (const skill of ['think-big', 'drive', 'ask', 'mission', 'unknown']) {
+    for (const skill of ['think-big', 'drive', 'ask', 'unknown']) {
       expect(checkRunnerLine(`/omni:${skill} 1`)).toEqual({ ok: false, reason: `/omni:${skill} does not run on a runner` });
     }
   });

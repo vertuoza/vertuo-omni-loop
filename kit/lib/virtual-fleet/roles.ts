@@ -93,18 +93,22 @@ export function roleOf(role: HeroRole): RoleDefaults {
   return found;
 }
 
+/** The skills a hero runs alone, from the runner's list: `mission` is left out, a runner takes it from the New mission box only
+ * (PRD omni-loop-24), so no hero runs it. */
+const HERO_RUNNABLE: readonly string[] = RUNNABLE_SKILLS.filter((skill) => skill !== 'mission');
+
 /** A skill's one mark: `alone` when a runner runs it with nobody at it, `person` otherwise. No third. */
 export type SkillMark = 'alone' | 'person';
 
 /** Each skill with its mark, read from `runnable` (the runner's list), those that run alone first, each
  * group in the order given. */
-export function skillMarks(skills: readonly string[], runnable: readonly string[] = RUNNABLE_SKILLS): { skill: string; mark: SkillMark }[] {
+export function skillMarks(skills: readonly string[], runnable: readonly string[] = HERO_RUNNABLE): { skill: string; mark: SkillMark }[] {
   const marked = skills.map((skill): { skill: string; mark: SkillMark } => ({ skill, mark: runnable.includes(skill) ? 'alone' : 'person' }));
   return [...marked.filter((m) => m.mark === 'alone'), ...marked.filter((m) => m.mark === 'person')];
 }
 
 /** True when one of the skills is one a runner runs with nobody at it. */
-export function worksAlone(skills: readonly string[], runnable: readonly string[] = RUNNABLE_SKILLS): boolean {
+export function worksAlone(skills: readonly string[], runnable: readonly string[] = HERO_RUNNABLE): boolean {
   return skills.some((skill) => runnable.includes(skill));
 }
 
@@ -118,7 +122,7 @@ export interface RoleLine {
 export const PERSON_TODAY = 'A person does this today';
 
 /** A hero's count line, from its skills (its role's by default) and the runner's list. */
-export function roleLine(role: HeroRole, skills: readonly string[] = roleOf(role).skills, runnable: readonly string[] = RUNNABLE_SKILLS): RoleLine {
+export function roleLine(role: HeroRole, skills: readonly string[] = roleOf(role).skills, runnable: readonly string[] = HERO_RUNNABLE): RoleLine {
   const k = skills.filter((skill) => runnable.includes(skill)).length;
   if (k === 0) return { alone: false, line: PERSON_TODAY };
   return { alone: true, line: `Runs ${String(k)} of ${String(skills.length)} ${skills.length === 1 ? 'skill' : 'skills'} alone` };

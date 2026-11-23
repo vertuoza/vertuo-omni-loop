@@ -19,7 +19,15 @@ export const WORDS = {
   starting: 'Starting…',
   pausing: 'Pausing…',
   resuming: 'Resuming…',
-  empty: 'No mission yet. A mission is written with /omni:mission.',
+  empty: 'No mission yet.',
+  // The New mission box (PRD omni-loop-24 s6, `mission-start` 1.A to 1.D)
+  newMission: 'New mission',
+  boxHint: 'Back as one pull request.',
+  worksAloneOnly: 'Works alone only. Ask an owner.',
+  writingMission: 'Writing the mission',
+  writingRoadmap: 'Writing the roadmap',
+  noPrdWritten: 'No PRD written',
+  why: 'Why',
   brief: 'Brief',
   notStarted: 'Not started',
   noPrd: 'No PRD sent yet',
@@ -100,6 +108,30 @@ export interface MissionRow {
   tokens?: number | null;
   /** `stuck` while the supervisor holds it paused by stuck (PRD 3065); null or absent otherwise. */
   pausedBy?: 'stuck' | null;
+  /** Whether its scope names no PRD and no roadmap and it runs at `alone` (PRD omni-loop-24): the PM writes its PRDs from its goal. */
+  goalOnly?: boolean;
+}
+
+/** What a goal-only mission waits on once its PM wrote no PRD (the supervisor's own words, apps/omni-app/src/missions/pm.ts). */
+const NO_PRD_WORDS = 'the PM wrote no PRD for the goal';
+
+/** A press of Start whose mission is not pushed yet (PRD omni-loop-24): its goal as typed, `Writing the mission`. */
+export interface RequestLine {
+  id: string;
+  goal: string;
+  words: string;
+}
+
+/** The New mission box: whether this person may press Start, and why not in words (`Works alone only. Ask an owner.`). */
+export interface NewMissionBox {
+  canStart: boolean;
+  refusal: string | null;
+}
+
+/** The box a person gets: an owner always, any member on a fleet at `alone`; the database refuses the rest again (mission_request_make()). */
+export function boxOf(level: MissionLevel, owner: boolean): NewMissionBox {
+  const canStart = owner || level === 'alone';
+  return { canStart, refusal: canStart ? null : WORDS.worksAloneOnly };
 }
 
 /** One of its events, as far as the tab reads: which PRD reached which point. */
@@ -220,6 +252,8 @@ export interface MissionView {
   retros: RetroCard[];
   /** One card per question of the mission's own outbox (PRD 3065). */
   questions: ItemCard[];
+  /** `No PRD written` with the PM's reason, once a goal-only mission's PM wrote none twice (PRD omni-loop-24); null otherwise. */
+  noPrd: { why: string } | null;
 }
 
 /** What the fleet's PM added to the mission (PRD 2896 s12): `PRD 50, PRD 51 added by the fleet`, then each row the cap left. */
@@ -250,18 +284,22 @@ export interface MissionsView {
   missions: MissionView[];
   /** The fleet's daily token cap (PRD 3040); absent in the demo, which has none. */
   daily?: DailyView;
+  /** The New mission box (PRD omni-loop-24); absent in the demo, which starts no mission. */
+  box?: NewMissionBox;
+  /** The requests whose mission is not pushed yet, newest first (PRD omni-loop-24). */
+  requests?: readonly RequestLine[];
 }
 
 const issueHref = (repo: string, number: number) => `https://github.com/${repo}/issues/${String(number)}`;
 
 /** `2 of 4 merged · 1 ready`: the PRDs of the scope and those the mission has met, merged and ready counted once each. */
-export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly TabEvent[], level: MissionLevel = 'with-you'): string {
+export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly TabEvent[], level: MissionLevel = 'with-you', goalOnly = false): string {
   if (status === 'draft') return WORDS.notStarted;
   const merged = new Set(events.filter((e) => e.kind === 'prd-merged' && e.prd !== null).map((e) => e.prd));
   const ready = new Set(events.filter((e) => e.kind === 'prd-ready' && e.prd !== null && !merged.has(e.prd)).map((e) => e.prd));
   const known = new Set<PrdNumber>(prds);
   for (const event of events) if (event.prd !== null) known.add(event.prd);
-  if (known.size === 0) return WORDS.noPrd;
+  if (known.size === 0) return goalOnly && status === 'running' ? WORDS.writingRoadmap : WORDS.noPrd;
   // Above `with-you` a PRD is `joined` on the branch before it is `on main` (PRD 2896 s8).
   if (level !== 'with-you') return `${String(merged.size)} of ${String(known.size)} on main · ${String(onBranchOf(events).length)} joined`;
   return `${String(merged.size)} of ${String(known.size)} merged · ${String(ready.size)} ready`;
@@ -380,6 +418,13 @@ function retroParts(row: MissionRow, retro: RetroRead): Pick<MissionView, 'stuck
   };
 }
 
+/** The PM's reason a goal-only mission waits with no PRD, when its waiting line is the supervisor's `the PM wrote no PRD for the goal: <why>`. */
+function noPrdOf(row: MissionRow): MissionView['noPrd'] {
+  if (row.goalOnly !== true || row.status !== 'waiting' || row.waitingOn === null) return null;
+  const at = row.waitingOn.indexOf(NO_PRD_WORDS);
+  return at < 0 ? null : { why: row.waitingOn.slice(at) };
+}
+
 /** One mission as the tab shows it; `events` are its own, newest first. */
 export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWaits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = [], budget: BudgetRead = NO_BUDGET, retro: RetroRead = NO_RETROS): MissionView {
   const own = repairs.filter((line) => line.mission === row.id);
@@ -389,7 +434,8 @@ export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWai
     title: row.title,
     goal: row.goal,
     status: row.status,
-    progress: progressOf(row.status, row.prds, events, row.level),
+    progress: noPrdOf(row) === null ? progressOf(row.status, row.prds, events, row.level, row.goalOnly === true) : WORDS.noPrdWritten,
+    noPrd: noPrdOf(row),
     waits: waiting ? waitsOf(row.waitingOn, row.repo, events).filter((wait) => !isWaitWords(wait.on)) : [],
     limitWaits: waiting ? limitWaits.filter((wait) => wait.mission === row.id) : [],
     repairs: own,

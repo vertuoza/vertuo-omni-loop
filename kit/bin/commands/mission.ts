@@ -18,6 +18,8 @@
 // `<decision>` is a PRD's number (its approval) or `<prd>/<item>` (the answer to one of its items). The decision stays as recorded and
 // the person's is added beside it; the PRD leaves the mission branch when it had joined. A person runs it, with their sign-in.
 //
+// `omni mission request <id>` (PRD omni-loop-24 s5) prints a mission request's fleet and goal, read from the page, for `/omni:mission --request`.
+//
 // It never blocks the skill that runs it: every call has the contract's 5-second limit and one token
 // refresh, and anything that stops it is exit 1 with one line — `off`, `no sign-in (omni signin)`,
 // `unreachable`, `refused (<status>)` or `refused (<status>): <the server's reason>`. Exit 2 is the kit
@@ -36,6 +38,7 @@ import { parsePrd, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
 import { dropWords } from '../../lib/mission/drop.ts';
 import { folderName, readExport, writeExport } from '../../lib/mission/get.ts';
 import { overturnWords, parseRef } from '../../lib/mission/overturn.ts';
+import { isRequestId, readRequest, requestLines } from '../../lib/mission/request.ts';
 import { readMissionFolder, readMissionFolderAt } from '../../lib/mission/folder.ts';
 import type { MissionFolder } from '../../lib/mission/folder.ts';
 import { join, resolve } from 'node:path';
@@ -49,7 +52,7 @@ type Io = FreeIo & MissionOptions;
 /** Where a push goes: the signed-in client, and the repository. */
 type Target = { client: ReturnType<typeof askClient>; repo: string };
 
-const USAGE = 'usage: omni mission push <n> [--from <dir>] | omni mission get <n> [--out <dir>] | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision>';
+const USAGE = 'usage: omni mission push <n> [--from <dir>] | omni mission get <n> [--out <dir>] | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision> | omni mission request <id>';
 
 /** The one line a failed call is reported with: a refusal carries the server's reason when it gave one. */
 function skipLine(error: unknown): string {
@@ -81,6 +84,14 @@ function send(folder: MissionFolder, { client, repo }: Target): Promise<{ reply:
 function stopped(io: Io, lines: readonly string[]): number {
   for (const line of lines) println(io.stderr, line);
   return 1;
+}
+
+/** The app's reply to `call` on the signed-in client, or the exit code of the one line that says why there is none. */
+async function ask(io: Io, call: (target: Target) => Promise<unknown>): Promise<{ reply: unknown } | number> {
+  const target = connect(loadContext(io.cwd, { exec: io.exec }), io);
+  if (typeof target === 'string') return stopped(io, [target]);
+  const sent = await call(target).then((reply: unknown) => ({ reply }), skipLine);
+  return typeof sent === 'string' ? stopped(io, [sent]) : sent;
 }
 
 /** `push <n> [--from <dir>]`: mission n's folder (`dir`, or the repository's), read whole, then sent. */
@@ -121,11 +132,8 @@ const numbers = (value: unknown): number[] => (Array.isArray(value) ? value.filt
 
 /** `drop <mission> <prd> [--keep]`: the ask sent, then what leaves the branch and what shares its territory. */
 async function drop(mission: IssueNumber, prd: PrdNumber, keep: boolean, io: Io): Promise<number> {
-  const ctx = loadContext(io.cwd, { exec: io.exec });
-  const target = connect(ctx, io);
-  if (typeof target === 'string') return stopped(io, [target]);
-  const sent = await target.client.dropMission({ repo: target.repo, mission, prd, keep }).then((reply: unknown) => ({ reply }), skipLine);
-  if (typeof sent === 'string') return stopped(io, [sent]);
+  const sent = await ask(io, ({ client, repo }) => client.dropMission({ repo, mission, prd, keep }));
+  if (typeof sent === 'number') return sent;
   const dropped = field(sent.reply, 'drop');
   const branch = field(dropped, 'branch');
   if (!isText(branch)) return stopped(io, ['refused (no drop in the reply)']);
@@ -139,15 +147,23 @@ async function drop(mission: IssueNumber, prd: PrdNumber, keep: boolean, io: Io)
 async function overturn(mission: IssueNumber, decision: string, io: Io): Promise<number> {
   const ref = parseRef(decision);
   if (ref === null) throw usageError(`omni mission overturn: <decision> is a PRD's number (its approval) or <prd>/<item> (an item's answer), not "${decision}".`);
-  const ctx = loadContext(io.cwd, { exec: io.exec });
-  const target = connect(ctx, io);
-  if (typeof target === 'string') return stopped(io, [target]);
-  const sent = await target.client.overturnMission({ repo: target.repo, mission, decision }).then((reply: unknown) => ({ reply }), skipLine);
-  if (typeof sent === 'string') return stopped(io, [sent]);
+  const sent = await ask(io, ({ client, repo }) => client.overturnMission({ repo, mission, decision }));
+  if (typeof sent === 'number') return sent;
   const overturned = field(sent.reply, 'overturn');
   if (!isText(field(overturned, 'decision'))) return stopped(io, ['refused (no overturn in the reply)']);
   const branch = field(overturned, 'branch');
   for (const line of overturnWords({ ref, branch: isText(branch) ? branch : null, onBranch: field(overturned, 'onBranch') === true })) println(io.stdout, line);
+  return 0;
+}
+
+/** `request <id>`: the goal and fleet of a mission request the New mission box saved, as the page answers the caller. */
+async function request(id: string, io: Io): Promise<number> {
+  if (!isRequestId(id)) throw usageError(`omni mission request: <id> is a mission request's uuid, not "${id}".`);
+  const sent = await ask(io, ({ client }) => client.readMissionRequest(id));
+  if (typeof sent === 'number') return sent;
+  const read = readRequest(sent.reply);
+  if (read === null) return stopped(io, ['refused (no request in the reply)']);
+  for (const line of requestLines(read)) println(io.stdout, line);
   return 0;
 }
 
@@ -158,18 +174,15 @@ export const mission = {
     const [verb, ...operands] = positional;
     const keep = flags.keep === true;
     const { from = null, out = null } = flags;
-    switch (`${verb ?? ''} ${String(operands.length)}${flags.keep === undefined ? '' : ' keep'}`) {
-      case 'push 1':
-        return push(issueArg('mission push', '<n>', operands[0]), from, io);
-      case 'get 1':
-        return get(issueArg('mission get', '<n>', operands[0]), out, io);
-      case 'drop 2':
-      case 'drop 2 keep':
-        return drop(issueArg('mission drop', '<mission>', operands[0]), prdArg('mission drop', '<prd>', operands[1]), keep, io);
-      case 'overturn 2':
-        return overturn(issueArg('mission overturn', '<mission>', operands[0]), operands[1] ?? '', io);
-      default:
-        throw usageError(USAGE);
-    }
+    const verbs: Record<string, () => Promise<number>> = {
+      'push 1': () => push(issueArg('mission push', '<n>', operands[0]), typeof from === 'string' ? from : null, io),
+      'get 1': () => get(issueArg('mission get', '<n>', operands[0]), typeof out === 'string' ? out : null, io),
+      'drop 2': () => drop(issueArg('mission drop', '<mission>', operands[0]), prdArg('mission drop', '<prd>', operands[1]), keep, io),
+      'overturn 2': () => overturn(issueArg('mission overturn', '<mission>', operands[0]), operands[1] ?? '', io),
+      'request 1': () => request(operands[0] ?? '', io),
+    };
+    const run = verbs[`${verb ?? ''} ${String(operands.length)}`];
+    if (run === undefined || (keep && verb !== 'drop')) throw usageError(USAGE);
+    return run();
   },
 } satisfies FreeCommand;

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { CappedFleetSchema } from '../../virtual-fleets/virtual-fleets.contract';
-import { AnsweredItemSchema, AnsweredStopSchema, BudgetedMissionSchema, LeveledMissionSchema, MovedMissionSchema, PickedBugsSchema, type BugsPick, type ItemAnswer, type MissionAction, type StopAnswer } from '../missions.contract';
+import { AnsweredItemSchema, MadeRequestSchema, AnsweredStopSchema, BudgetedMissionSchema, LeveledMissionSchema, MovedMissionSchema, PickedBugsSchema, type BugsPick, type ItemAnswer, type MissionAction, type StopAnswer } from '../missions.contract';
 
 // The Missions tab's calls from the browser (PRD 2842 s7; ADR-0095): POST /api/missions/<id>/start | pause |
 // resume, as the signed-in person, the answer checked against the contract. A refusal comes back in its words.
@@ -25,6 +25,8 @@ export interface MissionsPort {
   stopStuck(mission: string): Promise<Moved>;
   /** Adopt or Decline a question of the mission's own outbox (PRD 3065), once; Adopt applies nothing. */
   answerItem(item: string, answer: ItemAnswer): Promise<Moved>;
+  /** Press Start on the New mission box (PRD omni-loop-24): the goal as typed, saved and sent to a runner to write the mission. */
+  startMission(workspace: string, fleet: string, goal: string): Promise<Moved>;
 }
 
 export const COULD_NOT = 'Couldn’t move the mission. Try again in a moment.';
@@ -53,6 +55,7 @@ export function httpMissionsPort(fetch: typeof globalThis.fetch = globalThis.fet
     setDailyCap: (workspace, fleet, tokens) => post(fetch, '/api/virtual-fleets/tokens', CappedFleetSchema, { workspace, fleet, tokens }),
     stopStuck: (mission) => post(fetch, `/api/missions/${mission}/stop`, MovedMissionSchema),
     answerItem: (item, answer) => post(fetch, `/api/missions/items/${item}`, AnsweredItemSchema, { answer }),
+    startMission: (workspace, fleet, goal) => post(fetch, '/api/missions', MadeRequestSchema, { workspace, fleet, goal }),
   };
 }
 
@@ -68,4 +71,5 @@ export const demoMissionsPort: MissionsPort = {
   setDailyCap: () => Promise.resolve(DEMO),
   stopStuck: () => Promise.resolve(DEMO),
   answerItem: () => Promise.resolve(DEMO),
+  startMission: () => Promise.resolve(DEMO),
 };

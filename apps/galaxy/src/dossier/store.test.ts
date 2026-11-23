@@ -164,6 +164,23 @@ describe('a mission\'s page (PRD 2842 s2)', () => {
     expect(firstArgs(calls).p_brief).toMatchObject({ kind: 'omni-bugs', fleet: 'night-shift' });
   });
 
+  it('sends a goal-only brief whole, with the mission request it came from, so mission_push() starts it as that request\'s person (PRD omni-loop-24)', async () => {
+    const { calls, db } = recording({ data: { id: 'd-3', added: [], unchanged: [] }, error: null });
+    const request = '3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f';
+    const goal = `---\nmission: 2850\ntitle: Dark mode\nfleet: night-shift\ngoal: Dark mode for quotes.\nrequest: ${request}\nmandate:\n  level: alone\n---\n`;
+    await dossierStore(db).push(push(files(goal)));
+    expect(firstArgs(calls).p_brief).toEqual({
+      kind: 'prds', fleet: 'night-shift', goal: 'Dark mode for quotes.', measures: [], scope: { prds: [], roadmaps: [] },
+      mandate: { parallel: 2, level: 'alone', hardToRevert: 0.6, ownPrds: 10, resumes: 3 }, request,
+    });
+  });
+
+  it('sends no request when the brief names none', async () => {
+    const { calls, db } = recording({ data: { id: 'd-1', added: [], unchanged: [] }, error: null });
+    await dossierStore(db).push(push());
+    expect(firstArgs(calls).p_brief).not.toHaveProperty('request');
+  });
+
   it('refuses, before the database is asked, a push with no mission.md, one that does not read, or one naming another mission', async () => {
     const { calls, db } = recording({ data: { id: 'd-1' }, error: null });
     const refusal = (artifacts: Parameters<typeof push>[0]) => dossierStore(db).push(push(artifacts)).catch((e: unknown) => e);

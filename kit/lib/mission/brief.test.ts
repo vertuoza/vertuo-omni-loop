@@ -70,7 +70,6 @@ describe('a mission.md, read through the brief\'s schema', () => {
 
   it('names each missing field', () => {
     expect(errorsOf(record(FRONT.filter((line) => !/^(fleet|goal):/.test(line))))).toEqual(['fleet: missing.', 'goal: missing.']);
-    expect(errorsOf(record(swap('scope', [])))).toEqual(['scope: missing.']);
   });
 
   it('refuses a mission number that is not a positive whole number', () => {
@@ -93,8 +92,7 @@ describe('a mission.md, read through the brief\'s schema', () => {
     expect(errorsOf(record(swap('measures', ['measures: three'])))).toEqual(['measures: must be a list.']);
   });
 
-  it('refuses a scope of nothing, a PRD named twice, a number that is none, and an unknown list', () => {
-    expect(errorsOf(record(swap('scope', ['scope:', '  prds: []'])))).toEqual(['scope: names no PRD and no roadmap: one at least.']);
+  it('refuses a PRD named twice, a number that is none, and an unknown list', () => {
     expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2803, 2803]'])))).toEqual(['scope.prds: names a PRD twice.']);
     expect(errorsOf(record(swap('scope', ['scope:', '  prds: [2803, -4]'])))).toEqual(['scope.prds[2]: must be a positive whole number or a product PRD id (omni-loop-15), not -4.']);
     expect(errorsOf(record(swap('scope', ['scope:', '  roadmaps: [12, 12]'])))).toEqual(['scope.roadmaps: names a roadmap twice.']);
@@ -208,9 +206,7 @@ describe('a brief\'s kind (PRD 3088)', () => {
     }
   });
 
-  it('still refuses a prds brief with an empty or missing scope, and an unknown kind', () => {
-    expect(errorsOf(record(swap('scope', ['scope:', '  prds: []'])))).toEqual(['scope: names no PRD and no roadmap: one at least.']);
-    expect(errorsOf(record(swap('scope', [])))).toEqual(['scope: missing.']);
+  it('refuses an unknown kind', () => {
     expect(errorsOf(record([...FRONT, 'kind: prds']))).toEqual([]);
     expect(errorsOf(record([...FRONT, 'kind: bugs']))).toEqual(['kind: is one of prds, omni-bugs.']);
   });
@@ -225,5 +221,38 @@ describe('a brief\'s kind (PRD 3088)', () => {
     expect(repositoryRefusal('omni-bugs', 'acme/shop-app', omni)).toBe(OMNI_BUGS_REPOSITORY_REFUSAL);
     expect(repositoryRefusal('omni-bugs', 'Vertuoza/Vertuo-Omni-Loop', omni)).toBeNull();
     expect(repositoryRefusal('prds', 'acme/shop-app', omni)).toBeNull();
+  });
+});
+
+const GOAL = ['mission: 2850', 'title: A goal alone', 'fleet: night-shift', 'goal: Every quote can be paid online.'];
+const goal = (...mandate: string[]) => record([...GOAL, ...(mandate.length > 0 ? ['mandate:', ...mandate.map((line) => `  ${line}`)] : [])]);
+
+describe('a goal-only brief (PRD omni-loop-24)', () => {
+  it('AC-1: reads at alone with ownPrds 10, and is refused at with-you and at ownPrds 0', () => {
+    const read = parseBrief(goal('level: alone'));
+    expect(read.ok && read.brief).toMatchObject({ scope: { prds: [], roadmaps: [] }, mandate: { level: 'alone', ownPrds: 10 } });
+    expect(errorsOf(goal('level: with-you'))).toEqual(['mandate.level: a goal-only mission works alone.']);
+    expect(errorsOf(goal('level: own-branch'))).toEqual(['mandate.level: a goal-only mission works alone.']);
+    expect(errorsOf(goal())).toEqual(['mandate.level: a goal-only mission works alone.']);
+    expect(errorsOf(goal('level: alone', 'ownPrds: 0'))).toEqual(['mandate.ownPrds: a goal-only mission needs the PM: ownPrds is 1 to 10.']);
+  });
+
+  it('reads an empty scope the same way, and keeps an ownPrds it is given', () => {
+    const empty = parseBrief(record([...GOAL, 'scope:', '  prds: []', 'mandate:', '  level: alone', '  ownPrds: 3']));
+    expect(empty.ok && empty.brief.mandate).toMatchObject({ level: 'alone', ownPrds: 3 });
+  });
+
+  it('AC-2: a brief naming a PRD and no mandate keeps ownPrds 0', () => {
+    const read = parseBrief(record([...GOAL, 'scope:', '  prds: [2896]']));
+    expect(read.ok && read.brief.mandate.ownPrds).toBe(0);
+  });
+
+  it('reads a request uuid, and refuses anything else naming it', () => {
+    const id = '3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f';
+    const read = parseBrief(record([...GOAL, `request: ${id}`, 'mandate:', '  level: alone']));
+    expect(read.ok && read.brief.request).toBe(id);
+    expect(errorsOf(record([...GOAL, 'request: dark-mode', 'mandate:', '  level: alone']))).toEqual(['request: must be a uuid, not "dark-mode".']);
+    const none = parseBrief(record());
+    expect(none.ok && 'request' in none.brief).toBe(false);
   });
 });

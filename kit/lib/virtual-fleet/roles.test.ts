@@ -84,7 +84,7 @@ describe('the roles of a Virtual Hero', () => {
 describe('skillMarks', () => {
   it('marks a skill `alone` exactly when the runner\'s list holds it, `person` otherwise', () => {
     for (const r of ROLES) {
-      for (const { skill, mark } of skillMarks(r.skills)) expect(mark).toBe(RUNNABLE_SKILLS.includes(skill) ? 'alone' : 'person');
+      for (const { skill, mark } of skillMarks(r.skills)) expect(mark).toBe(RUNNABLE_SKILLS.includes(skill) && skill !== 'mission' ? 'alone' : 'person');
     }
   });
 
