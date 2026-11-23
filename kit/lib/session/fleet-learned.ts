@@ -36,11 +36,11 @@ export type FleetLearned = z.input<typeof FleetLearnedSchema>;
 /** What a data block's markup and column mark become inside it. */
 const ESCAPED: Readonly<Record<string, string>> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '|': '/' };
 
-/** A record's text as data: one line, its markup escaped. */
-const asData = (text: string): string => text.replace(/\s+/g, ' ').trim().replace(/[&<>|]/g, (mark) => ESCAPED[mark] ?? mark);
+/** A record's text as data: one line, its markup escaped, so it can neither close its block nor open another (the notebook job's too). */
+export const asData = (text: string): string => text.replace(/\s+/g, ' ').trim().replace(/[&<>|]/g, (mark) => ESCAPED[mark] ?? mark);
 
 /** A time as `2026-11-21 09:20 UTC`; what is no time is printed as given. */
-function stampOf(at: string): string {
+export function stampOf(at: string): string {
   const time = new Date(at);
   return Number.isNaN(time.getTime()) ? at : `${time.toISOString().slice(0, 10)} ${time.toISOString().slice(11, 16)} UTC`;
 }

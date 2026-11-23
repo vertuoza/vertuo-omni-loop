@@ -5,9 +5,17 @@
 //                   day and that had events that day: one batch of at most 5 lines from them
 //   fleet lines     each mission delivered or stopped in the last 3 days whose fleet notebook holds no batch of it: one batch
 //                   of at most 5 lines from its last 100 events and its mission notebook
+//   learned lines   PRD omni-loop-21 s13 (spec "8. The fleet remembers", AC-8): right after each such mission's fleet batch, one
+//                   batch of what the fleet learned, with no model (./notebook.ts › learnedLines): a line per overturn and per
+//                   failure repaired or resumed, from its last 500 events, none the fleet notebook already holds; written for
+//                   the run's day at the places after the fleet batch's (6 to 20), so the two never meet. Only once the fleet
+//                   batch was written, asked or had nothing to read: a fleet over its cap gets neither, since a fleet line of
+//                   the mission would read as its fleet batch written. A mission overturned again later gets a new batch the
+//                   next day, its earlier lines kept
 //   the caps        a fleet that used up its daily tokens (fleet_tokens_24h(), teams.daily_tokens) is left for the next run
-//   the model       the App's own OpenRouter key (BR-PRODUCT-59): none, and the run is skipped. The model's answer is screened
-//                   (./notebook.ts › screenLines): what is left is written, citing its events; nothing left, nothing written
+//   the model       the App's own OpenRouter key (BR-PRODUCT-59): none, and only the learned lines are written. The model's
+//                   answer is screened (./notebook.ts › screenLines): what is left is written, citing its events; nothing left,
+//                   nothing written
 //   at most         6 batches a run: then it asks to run again in a minute, with the missions it read as its progress, so a
 //                   mission it read is never asked twice in a slot, and the next run carries on
 //
@@ -17,7 +25,7 @@ import { askModel, type OpenRouterSettings } from 'omni-loop/kit/lib/openrouter.
 import { noteTo } from '../run-log/run-log.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import {
-  BATCH_MAX, utcDayOf, NOTEBOOK_MODEL, NOTEBOOK_REPLY_SCHEMA, NOTEBOOK_SYSTEM, NotebookReplySchema, notebookPrompt, screenLines, yesterdayOf,
+  BATCH_MAX, learnedLines, utcDayOf, NOTEBOOK_MODEL, NOTEBOOK_REPLY_SCHEMA, NOTEBOOK_SYSTEM, NotebookReplySchema, notebookPrompt, screenLines, yesterdayOf,
   type Candidate, type Notebook, type NoteEvent, type NoteLine, type NoteMission,
 } from './notebook.ts';
 
@@ -28,6 +36,9 @@ const ENDED_WITHIN_MS = 3 * 24 * 60 * 60 * 1000;
 /** The most events a fleet batch reads, and the most lines of a notebook a batch is shown. */
 const EVENTS_READ = 100;
 const LINES_SHOWN = 50;
+/** The most events a learned batch reads (an overturn comes after landing), and the most fleet lines it checks its own against. */
+const LEARNED_EVENTS_READ = 500;
+const LEARNED_SHOWN = 200;
 /** How long a run that read its quota waits before the next. */
 const AGAIN_MS = 60_000;
 /** The most missions a run's progress keeps. */
@@ -74,7 +85,7 @@ export function liveNotebookModel(openrouter: OpenRouterSettings | null, fetch: 
 type Batch = { notebook: Notebook; mission: NoteMission; day: string; from: string | null; to: string | null };
 
 /** What one run did, counted: the batches written and their lines, those that wrote nothing, and the lines dropped. */
-type NotebookSummary = { batches: number; lines: number; empty: number; dropped: number };
+type NotebookSummary = { batches: number; lines: number; empty: number; dropped: number; learned: number };
 
 /** The batches due at `now`, missions in a steady order: each running mission's yesterday, then each mission that ended. */
 async function batchesDue(store: NotebookStore, now: Date): Promise<Batch[]> {
@@ -91,15 +102,24 @@ async function batchesDue(store: NotebookStore, now: Date): Promise<Batch[]> {
 const rowsOf = (batch: Batch, lines: readonly NoteLine[]): NotebookRow[] =>
   lines.map((line, n) => ({ workspace: batch.mission.workspace, fleet: batch.mission.fleet, notebook: batch.notebook, mission: batch.mission.id, day: batch.day, place: n + 1, line: line.line, events: line.events }));
 
-/** What one batch did: asked nothing (written already, no event, over the cap), or the lines it wrote and dropped. */
-type Done = { asked: false } | { asked: true; written: number; dropped: number };
+/** What one batch did: asked nothing (written already, no event, no model, or `over` its fleet's cap), or the lines it wrote and dropped. */
+type Done = { asked: false; over?: true } | { asked: true; written: number; dropped: number };
 
-/** One batch: read, asked, screened and written, once. */
-async function runBatch(store: NotebookStore, model: NotebookModel, batch: Batch, at: Date): Promise<Done> {
+/** The events a batch asks the model about; or why it asks nothing: written already, no event, or its fleet over its cap. */
+async function eventsToAsk(store: NotebookStore, batch: Batch, at: Date): Promise<NoteEvent[] | Done> {
   const { mission, notebook } = batch;
   if (await store.written({ notebook, mission: mission.id, day: notebook === 'mission' ? batch.day : null })) return { asked: false };
   const events = await store.events(mission.id, { from: batch.from, to: batch.to, limit: EVENTS_READ });
-  if (events.length === 0 || (await store.over(mission.workspace, mission.fleet, at))) return { asked: false };
+  if (events.length === 0) return { asked: false };
+  return (await store.over(mission.workspace, mission.fleet, at)) ? { asked: false, over: true } : events;
+}
+
+/** One batch: read, asked, screened and written, once. With no model, nothing is asked. */
+async function runBatch(store: NotebookStore, model: NotebookModel | null, batch: Batch, at: Date): Promise<Done> {
+  if (model === null) return { asked: false };
+  const { mission, notebook } = batch;
+  const events = await eventsToAsk(store, batch, at);
+  if (!Array.isArray(events)) return events;
   const missionLines = await store.lines({ notebook: 'mission', mission: mission.id }, LINES_SHOWN);
   const kept = notebook === 'mission' ? missionLines : await store.lines({ notebook: 'fleet', workspace: mission.workspace, fleet: mission.fleet }, LINES_SHOWN);
   const prompt = notebookPrompt({ notebook, mission, day: batch.day, events, kept, ...(notebook === 'fleet' ? { learned: missionLines } : {}) });
@@ -108,6 +128,35 @@ async function runBatch(store: NotebookStore, model: NotebookModel, batch: Batch
   const screened = screenLines({ candidates: answer.lines, refs: prompt.refs, kept, max: BATCH_MAX });
   const dropped = Object.values(screened.dropped).reduce((sum, n) => sum + n, 0);
   return { asked: true, written: screened.lines.length === 0 ? 0 : await store.write(rowsOf(batch, screened.lines)), dropped };
+}
+
+/**
+ * What the fleet learned from a mission that ended (PRD omni-loop-21 s13): one batch with no model, of the lines its last events give
+ * that the fleet notebook does not hold yet, at the places after its fleet batch's; the lines written.
+ */
+async function runLearned(store: NotebookStore, batch: Batch): Promise<number> {
+  const { mission } = batch;
+  const events = await store.events(mission.id, { from: null, to: null, limit: LEARNED_EVENTS_READ });
+  if (events.length === 0) return 0;
+  const kept = await store.lines({ notebook: 'fleet', workspace: mission.workspace, fleet: mission.fleet }, LEARNED_SHOWN);
+  const lines = learnedLines({ events, kept });
+  if (lines.length === 0) return 0;
+  return store.write(rowsOf(batch, lines).map((row) => ({ ...row, place: row.place + BATCH_MAX })));
+}
+
+/**
+ * One batch of a run, counted in `summary`: the model's batch, then, for a fleet batch whose fleet was not over its cap, what the
+ * fleet learned. Answers whether the model was asked.
+ */
+async function runOne(store: NotebookStore, model: NotebookModel | null, batch: Batch, at: Date, summary: NotebookSummary): Promise<boolean> {
+  const done = await runBatch(store, model, batch, at);
+  if (batch.notebook === 'fleet' && !('over' in done)) summary.learned += await runLearned(store, batch);
+  if (!done.asked) return false;
+  summary.dropped += done.dropped;
+  if (done.written === 0) summary.empty += 1;
+  summary.batches += done.written > 0 ? 1 : 0;
+  summary.lines += done.written;
+  return true;
 }
 
 /** The missions an earlier run of this slot read, from its progress. */
@@ -135,29 +184,22 @@ export function notebookHandler({
   log?: (line: string) => void;
 }): JobHandler {
   return async (job): Promise<JobResult> => {
-    if (model === null) return { outcome: 'skipped', reason: 'no model key: the notebooks write nothing' };
     const now = slotOf(job.payload, clock);
     const read = readBefore(job.progress);
-    const summary: NotebookSummary = { batches: 0, lines: 0, empty: 0, dropped: 0 };
+    const summary: NotebookSummary = { batches: 0, lines: 0, empty: 0, dropped: 0, learned: 0 };
+    const said = () => `commander notebook: ${String(summary.batches)} batches, ${String(summary.lines)} lines, ${String(summary.empty)} empty, ${String(summary.dropped)} dropped, ${String(summary.learned)} learned`;
     let asked = 0;
     for (const batch of await batchesDue(store, now)) {
       const key = `${batch.notebook}:${batch.mission.id}`;
-      if (read.has(key)) continue;
+      if (read.has(key) || (model === null && batch.notebook === 'mission')) continue;
       if (asked >= BATCHES_PER_RUN) {
-        log(`commander notebook: ${String(summary.batches)} batches, ${String(summary.lines)} lines, ${String(summary.empty)} empty, ${String(summary.dropped)} dropped; more to read`);
+        log(`${said()}; more to read`);
         return { outcome: 'later', at: new Date(clock() + AGAIN_MS), progress: { read: [...read].slice(-PROGRESS_MAX) } };
       }
-      const done = await runBatch(store, model, batch, new Date(clock()));
+      if (await runOne(store, model, batch, new Date(clock()), summary)) asked += 1;
       read.add(key);
-      if (!done.asked) continue;
-      asked += 1;
-      summary.dropped += done.dropped;
-      if (done.written > 0) {
-        summary.batches += 1;
-        summary.lines += done.written;
-      } else summary.empty += 1;
     }
-    log(`commander notebook: ${String(summary.batches)} batches, ${String(summary.lines)} lines, ${String(summary.empty)} empty, ${String(summary.dropped)} dropped`);
-    return { outcome: 'done' };
+    log(said());
+    return model === null ? { outcome: 'skipped', reason: `no model key: only what the fleet learned is written (${String(summary.learned)} lines)` } : { outcome: 'done' };
   };
 }
