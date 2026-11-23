@@ -24,7 +24,9 @@
 //                  already merged into the branch joins without a second merge); not passed, the PRD waits on what it lacks
 //   the mission PR then, while a PRD is on the branch and the branch follows, the mission pull request lists each PRD in the order
 //                  it joined, with its commit, the Reviewer's pass and its page: opened when none is open, rewritten when what it
-//                  lists changed, never merged by the App (a person merges it with Rebase and merge)
+//                  lists changed, never merged by the App (a person merges it with Rebase and merge). Once every row joined (PRD
+//                  omni-loop-21 s15), one per repository, each naming the others, with its Deferred decisions and its Re-test; a
+//                  person's Agree is settled on the mission branch, an Overturn reworked there (see "Landing in the run" below)
 //   the drops      a member's `omni mission drop` (PRD 2896 s7) is an event of the mission, `drop-asked`: while a PRD it names is on the
 //                  branch, the run takes it off (./drop.ts), and the later PRDs sharing its territory with it unless the ask said
 //                  `--keep`, reopens each one's feature pull request and records `prd-dropped`; the PRD is dropped from then, and
@@ -82,7 +84,8 @@
 // A replay, or two runs at once, insert one job: the key is unique (`runner_jobs.mission_key`), so a second insert is
 // refused and records nothing. The events read back give a dispatch whose event was lost its event on the next run.
 import { z } from 'zod';
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isProductPrdId, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Criterion } from 'omni-loop/kit/lib/ready/criteria.ts';
 import { DEFAULT_GALAXY_URL } from '../env.ts';
 import type { ClaimedJob, RefreshJob } from '../jobs/ledger.ts';
 import { checkPayloadOf, MissionJobDataSchema } from '../jobs/payloads.ts';
@@ -94,22 +97,35 @@ import type { MissionPrd } from './store.prd.ts';
 import { levelRefusal } from 'omni-loop/kit/lib/mission/brief.ts';
 import { resumeCap } from './resume.ts';
 import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mission/drop.ts';
-import { decisionsOf, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
+import { decisionsOf, deferredOf, reworkLine, reworksOf, type DecisionPrd, type DeferredDecision, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
 import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
 import { addedOf, isOwnJob, pmDispatched, pmEvents, pmNext, pmWorking, withAdded, withPm, type PmJob } from './pm.ts';
 import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
 import { planJobLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
 import { retroSkillLine } from './milestone.ts';
-import type { MissionAnswers } from './settle.ts';
+import type { MissionAgrees, MissionAnswers } from './settle.ts';
 import type { MissionDrops, Reopened } from './drop.ts';
 import { checksOf, judge, type OpenItems } from './gate.ts';
 import { joinProduct, type MissionJoins } from './join.ts';
 import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
-import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
+import {
+  answerLinks,
+  landedBy,
+  missionPullBody,
+  missionPullTitle,
+  type BranchCommit,
+  type LandingAt,
+  type LandingRow,
+  type MissionLandings,
+  type MissionPull,
+  type OtherPull,
+  type Proof,
+  type Retest,
+} from './landing.ts';
 import type { MissionDecision as StoredDecision, MissionProducts, MissionRecord, MissionRetros, MissionStore, NewStoredEvent, StoredEvent, StoredProduct } from './store.ts';
 import { readOutsideBugs, readRepairs, sendOutsideBugs, type RepairRunAt } from './repair-run.ts';
-import { outsideEvents } from './outside-bug.ts';
+import { outsideEvents, type Outside } from './outside-bug.ts';
 import { readQa } from './qa-run.ts';
 import { overCap, runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
@@ -186,8 +202,13 @@ export type MissionDeps = {
   drops?: MissionDrops | null;
   /** The mission pull request, opened and rewritten, and the landings read from it (PRD 2896 s6); null (no GitHub): none is opened or read. */
   landings?: MissionLandings | null;
-  /** A high item the fleet's committee answered, settled on its PRD's feature branch (PRD 2896 s10); null (no GitHub): it goes to a person. */
-  answers?: MissionAnswers | null;
+  /**
+   * A high item the fleet's committee answered, settled on its PRD's feature branch (PRD 2896 s10); null (no GitHub): it goes to a person.
+   * With `agree` (PRD omni-loop-21 s12), a person's Agree with a deferred decision is settled on the mission branch as theirs.
+   */
+  answers?: (MissionAnswers & Partial<MissionAgrees>) | null;
+  /** Each PRD's acceptance criteria and their proofs, for the mission pull request's Re-test (PRD omni-loop-21 s15); null: none read. */
+  retests?: MissionRetests | null;
   /** The Omni Loop bug team's read of its bugs' issues (PRD 3088); null (no GitHub): an `omni-bugs` mission takes no bug, saying why. */
   bugIssues?: MissionBugIssues | null;
   /** The kit a mission's repository pins (PRD 3088 s5); null (no GitHub): a PRD whose Omni Loop bug was fixed waits to update the kit. */
@@ -210,8 +231,9 @@ type GitHubDeps = {
   keepUps: MissionKeepUps | null;
   landings: MissionLandings | null;
   drops: MissionDrops | null;
-  answers: MissionAnswers | null;
+  answers: (MissionAnswers & Partial<MissionAgrees>) | null;
   kits: MissionKits | null;
+  retests: MissionRetests | null;
   galaxyUrl: string;
 };
 
@@ -234,7 +256,6 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const kept = await keepUp({ store, mission, inPlan, facts, runs, joined, off, toFleet, installation: ready.installation, keepUps: github.keepUps });
   const held = holdOf(kept, await redBranch({ mission, at, joined, joins: github.joins }));
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, off, installation: ready.installation, joins: github.joins, hold: held.hold });
-  if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered, resumes: resumeCap(mission) };
   const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
@@ -254,16 +275,18 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after.retro });
   const fresh = sent.length + approved.length + asked.length + repaired.length;
   const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github });
-  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
+  // The mission pull requests, then the landing once every row joined (PRD omni-loop-21 s15), and the person's Agree and Overturn.
+  const landed = await landingStep({ store, mission, at, landing, hold: kept.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
+  const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits, ...landed.waits]);
   const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString()), products, now);
   const finished: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const retro = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...outside, ...products.events, ...events, ...retro.events], new Date(now));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...landed.events, ...events, ...retro.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
   const running = atWork(states, retro.running) || products.moving;
-  return { next, running, moved, sent: sent.length + repaired.length + products.sent, events: events.length + retro.events.length + products.events.length };
+  return { next, running, moved, sent: sent.length + repaired.length + products.sent + landed.events.length, events: events.length + retro.events.length + products.events.length + landed.events.length };
 }
 
 /** Whether a PRD's job or its repair is at work, or a stuck repair or a milestone retro (`retros`, PRD 3065). */
@@ -291,16 +314,17 @@ type OutsideAt = Pick<RepairRunAt, 'store' | 'mission' | 'runs' | 'recorded' | '
  * The Engineer's outside bugs (PRD omni-loop-21 s11, ./repair-run.ts), at `alone` only and never in an `omni-bugs` mission, while it
  * runs or waits with its branch ready: each bug a Reviewer's, QA's or repair's job (a stuck repair's too) named outside the mission's
  * PRDs read with where it stands, each fix that opened landed once green, the next bug's `/omni:bug-fix #<issue> --base <branch>` sent
- * under `…:bug:<issue>:run:<k>`; the events not recorded yet, once. A store without the bug team's jobs reads none.
+ * under `…:bug:<issue>:run:<k>`; the events not recorded yet, once. A store without the bug team's jobs reads none. The bugs, where
+ * each stands, close the mission pull request's Re-test (PRD omni-loop-21 s15).
  */
-async function outsideAll(at: OutsideAt): Promise<NewEvent[]> {
+async function outsideAll(at: OutsideAt): Promise<{ events: NewEvent[]; states: Outside[] }> {
   const team = at.store.bugTeam;
-  if (at.mission.level !== 'alone' || at.mission.kind === 'omni-bugs' || team === undefined || !at.sends || !sendsCommittees(at.mission.status)) return [];
+  if (at.mission.level !== 'alone' || at.mission.kind === 'omni-bugs' || team === undefined || !at.sends || !sendsCommittees(at.mission.status)) return { events: [], states: [] };
   const repairs = [...at.repairs.jobs, ...at.repairs.stuck.map(({ attempts }) => ({ prd: null, attempts }))];
   const jobs = await team.jobs(at.mission.id);
   const states = await readOutsideBugs({ ...at, repairs, jobs, logOf: (job) => at.store.committeeLog(job) });
   const taken = await sendOutsideBugs(states, ({ issue, k, line }) => team.send({ mission: at.mission, issue, k, line, toFleet: at.toFleet }));
-  return unrecorded([...taken, ...outsideEvents(states)], recordedKeys(at.recorded));
+  return { events: unrecorded([...taken, ...outsideEvents(states)], recordedKeys(at.recorded)), states };
 }
 
 /** What the run's retro steps work from (PRD 3065), once its events are known. */
@@ -864,15 +888,218 @@ async function writeMissionPull({
 }): Promise<void> {
   if (landings === null || on.length === 0) return;
   const { commits, link } = await landings.branch({ ...at, defaultBranch });
-  const rows = on.map((prd): LandingRow => {
-    const pr = featurePrOf(runs, prd);
-    const page = facts.find((fact) => fact.prd === prd)?.page ?? null;
-    return { prd, pr, commit: commits.find((one) => pr !== null && one.pr === pr)?.sha ?? null, pass: passOf(runs, prd), page: page === null ? null : `${galaxyUrl}/prd/${encodeURIComponent(page)}` };
-  });
+  const rows = rowsOf({ on, commits, facts, runs, galaxyUrl });
   const title = missionPullTitle(mission);
   const body = missionPullBody({ mission, branch: at.branch, defaultBranch, rows, link, decisions });
   if (open !== null && open.title === title && open.body === body) return;
   await landings.write({ ...at, defaultBranch, pull: open?.number ?? null, title, body });
+}
+
+/** The PRDs on the branch as the mission pull request's table lists them: each with its feature pull request, its commit, the Reviewer's pass and its page. */
+function rowsOf({ on, commits, facts, runs, galaxyUrl }: { on: readonly PrdNumber[]; commits: readonly BranchCommit[]; facts: readonly PrdFacts[]; runs: readonly Run[]; galaxyUrl: string }): LandingRow[] {
+  return on.map((prd): LandingRow => {
+    const pr = featurePrOf(runs, prd);
+    const page = facts.find((fact) => fact.prd === prd)?.page ?? null;
+    return { prd, pr, commit: commits.find((one) => pr !== null && one.pr === pr)?.sha ?? null, pass: passOf(runs, prd), page: page === null ? null : `${galaxyUrl}/prd/${encodeURIComponent(page)}` };
+  });
+}
+
+// ── Landing in the run (PRD omni-loop-21 s15, item s12-01; spec "7. Landing") ────────────────────────────────────────────────────
+//
+//   the landing  once every row of the mission joined its branch (each repository PRD on it, merged or dropped, and every product PRD
+//                on it), one mission pull request per repository the joined PRDs touch, each naming the others (./landing.ts): its
+//                body gains the **Deferred decisions** (at `alone`, each with Agree and Overturn) and the **Re-test** (per PRD its
+//                acceptance criteria and their proofs, read through `retests`, then the steps by hand, then the outside bugs of that
+//                repository, from ./outside-bug.ts › outsideLanding). Until then, the mission's own repository's pull request is
+//                written on every join, as before. Opened when none is open, rewritten only when its body changed
+//   agree        each deferred decision a person agreed with (their `agreed` event), on a repository PRD, settled on the mission branch
+//                as theirs (./settle.ts › agree); one that cannot be settled waits on a person, saying why. A product PRD's items are
+//                the server's: nothing is written here
+//   overturn     each PRD with a decision a person overturned (their `overturned` event, BR-PRODUCT-146), reworked once on the mission
+//                branch: `/omni:yolo-fix <n> --base <branch>`, or `/omni:ultra-yolo-fix <key>-<n> --base-of …` into each repository
+//                its plan names, queued as a care job (no mission key) and recorded `dispatched`, once
+
+/** A PRD's acceptance criteria and the proofs its feature pull request's head carried (PRD 2898), as the Re-test lists them. */
+export type RetestRead = { criteria: readonly Criterion[]; proofs: readonly Proof[] };
+
+/** Where the Re-test reads a PRD's criteria and proofs: its repository, and its feature pull request when the mission knows it. */
+export type MissionRetests = { read: (at: { installation: number; repo: string; prd: DecisionPrd; pr: PrNumber | null }) => Promise<RetestRead> };
+
+const NO_RETEST: RetestRead = { criteria: [], proofs: [] };
+
+/** Since when a rework counts as sent: ever, so each PRD is reworked once per mission (a care job has no mission key). */
+const SINCE_EVER = new Date(0).toISOString();
+
+/** What a run's landing step works from. */
+type LandingStep = {
+  store: MissionStore;
+  mission: MissionRecord;
+  at: LandingAt | null;
+  landing: Landing;
+  /** Why the branch cannot follow the default branch: no mission pull request is written meanwhile. */
+  hold: string | null;
+  on: readonly PrdNumber[];
+  facts: readonly PrdFacts[];
+  runs: readonly Run[];
+  states: ReadonlyMap<PrdNumber, PrdState>;
+  off: ReadonlySet<PrdNumber>;
+  products: ProductsDone;
+  outside: readonly Outside[];
+  toFleet: boolean;
+  now: number;
+  github: GitHubDeps;
+};
+
+/** What the landing step leaves for the run: the reworks sent, and what a person must do. */
+type LandingDone = { events: NewStoredEvent[]; waits: string[] };
+
+const NOT_LANDED: LandingDone = { events: [], waits: [] };
+
+/** What the deferred decisions are read from at `alone`: the store's decisions and the fleet's and people's events. */
+type DecisionsRead = { deferred: readonly DeferredDecision[]; fleet: readonly FleetDecision[] };
+
+/**
+ * The run's landing step, while the mission runs or waits with its branch ready: the person's Agree and Overturn routed first, then the
+ * mission pull requests written: every repository's at landing, once every row joined; the mission's own repository's otherwise.
+ */
+async function landingStep(at: LandingStep): Promise<LandingDone> {
+  if (at.at === null) return NOT_LANDED;
+  const read = await decisionsRead(at.store, at.mission);
+  const waits = await agreeAll(at, at.at, read.deferred);
+  const events = await reworkAll(at, at.at, read.deferred);
+  if (at.hold === null) {
+    if (everyRowJoined(at)) await landEvery(at, at.at, read);
+    else await missionPull({ store: at.store, at: at.at, mission: at.mission, landing: at.landing, on: at.on, facts: at.facts, runs: at.runs, github: at.github });
+  }
+  return { events, waits };
+}
+
+/** The deferred decisions and the fleet's decisions, at `alone` only: none below it. */
+async function decisionsRead(store: MissionStore, mission: MissionRecord): Promise<DecisionsRead> {
+  if (mission.level !== 'alone') return { deferred: [], fleet: [] };
+  const [decisions, events] = await Promise.all([store.decisions(mission.id), store.fleetEvents(mission.id)]);
+  return { deferred: deferredOf(decisions, events), fleet: decisionsOf(events) };
+}
+
+/** Whether every row of the mission joined its branch: each repository PRD on it, merged or dropped, each product PRD on it, one at least. */
+function everyRowJoined({ on, facts, states, off, products }: LandingStep): boolean {
+  if (products.pending || on.length + products.on.length === 0) return false;
+  return facts.every((fact) => off.has(fact.prd) || ['joined', 'merged'].includes(states.get(fact.prd)?.state ?? ''));
+}
+
+/** Each deferred decision of a repository PRD a person agreed with, settled on the mission branch as theirs; why one was not. */
+async function agreeAll(at: LandingStep, where: LandingAt, deferred: readonly DeferredDecision[]): Promise<string[]> {
+  const answers = at.github.answers;
+  if (answers?.agree === undefined) return [];
+  const waits: string[] = [];
+  for (const one of deferred) {
+    if (one.answer?.answer !== 'agree' || isProductPrdId(one.prd)) continue;
+    const settled = await answers.agree({ installation: where.installation, repo: where.repo, branch: where.branch, prd: one.prd, item: one.item, login: one.answer.by, at: new Date(at.now).toISOString() });
+    if (!settled.ok) waits.push(cut(`${one.item} of PRD ${String(one.prd)}: ${one.answer.by}'s Agree is not settled on ${where.branch} yet: ${settled.why}`));
+  }
+  return waits;
+}
+
+/** The repositories a product PRD's plan names; the mission's own when it is not read. */
+const targetsOf = (at: Pick<LandingStep, 'mission' | 'products'>, prd: DecisionPrd): readonly string[] => at.products.rows.find((one) => one.prd === prd)?.targets ?? [at.mission.repo];
+
+/** Each PRD with an overturned decision, its rework queued once on the mission branch, and its dispatch. */
+async function reworkAll(at: LandingStep, where: LandingAt, deferred: readonly DeferredDecision[]): Promise<NewStoredEvent[]> {
+  const events: NewStoredEvent[] = [];
+  for (const prd of reworksOf(deferred)) {
+    const line = reworkLine(prd, isProductPrdId(prd) ? { bases: basesOf(targetsOf(at, prd), where.branch) } : { branch: where.branch });
+    const job = await at.store.care({ mission: at.mission, line, since: SINCE_EVER, toFleet: at.toFleet });
+    if (job === null) continue;
+    events.push({ kind: 'dispatched', role: 'supervisor', prd, job, link: null, sentence: cut(`A person overturned a decision of PRD ${String(prd)}: sent ${line} to ${whereOf(at.mission, at.toFleet)}.`) });
+  }
+  return events;
+}
+
+/** Whether two repositories are the same one, whatever their case. */
+const sameRepo = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
+
+/** The repositories the joined PRDs touch, the mission's own first, each with its PRDs in the order they joined. */
+function repoPlans(at: LandingStep): { repo: string; prds: DecisionPrd[] }[] {
+  const home = at.mission.repo;
+  const named = [home, ...at.products.on.flatMap((prd) => targetsOf(at, prd))];
+  const repos = named.filter((repo, n) => named.findIndex((one) => sameRepo(one, repo)) === n);
+  return repos
+    .map((repo) => ({ repo, prds: [...(sameRepo(repo, home) ? at.on : []), ...at.products.on.filter((prd) => targetsOf(at, prd).some((one) => sameRepo(one, repo)))] }))
+    .filter((plan) => plan.prds.length > 0);
+}
+
+/** One repository's mission pull request at landing: where, the open one, and what its body lists but the others. */
+type RepoLanding = {
+  at: LandingAt;
+  defaultBranch: string;
+  open: { number: PrNumber; url: string; title: string; body: string } | null;
+  rows: LandingRow[];
+  link: string | null;
+  prds: readonly DecisionPrd[];
+  retest: Retest;
+};
+
+/**
+ * The landing (PRD omni-loop-21 s15): one mission pull request per repository, each opened when none is open, then each rewritten
+ * once every one is known, naming the others, its Deferred decisions and its Re-test; one whose body did not change is not written.
+ */
+async function landEvery(at: LandingStep, where: LandingAt, read: DecisionsRead): Promise<void> {
+  const landings = at.github.landings;
+  if (landings === null) return;
+  const repos: RepoLanding[] = [];
+  for (const plan of repoPlans(at)) repos.push(await repoLanding(at, landings, { ...where, repo: plan.repo }, plan.prds));
+  const title = missionPullTitle(at.mission);
+  const bodyOf = (one: RepoLanding): string => landingBody(at, one, read, repos);
+  for (const one of repos.filter((each) => each.open === null)) {
+    const body = bodyOf(one);
+    const written = await landings.write({ ...one.at, defaultBranch: one.defaultBranch, pull: null, title, body });
+    if (written.ok) one.open = { number: written.number, url: written.url, title, body };
+  }
+  for (const one of repos) {
+    const body = bodyOf(one);
+    if (one.open === null || (one.open.title === title && one.open.body === body)) continue;
+    await landings.write({ ...one.at, defaultBranch: one.defaultBranch, pull: one.open.number, title, body });
+    one.open = { ...one.open, title, body };
+  }
+}
+
+/** What one repository's mission pull request is written from: its open one, its table (the mission's own repository's only), its Re-test. */
+async function repoLanding(at: LandingStep, landings: MissionLandings, where: LandingAt, prds: readonly DecisionPrd[]): Promise<RepoLanding> {
+  const home = sameRepo(where.repo, at.mission.repo);
+  const known = home && at.landing.defaultBranch !== null ? { defaultBranch: at.landing.defaultBranch, open: at.landing.open } : await openOf(landings, where);
+  const own = home ? await landings.branch({ ...where, defaultBranch: known.defaultBranch }) : { commits: [], link: null };
+  const rows = home ? rowsOf({ on: at.on, commits: own.commits, facts: at.facts, runs: at.runs, galaxyUrl: at.github.galaxyUrl }) : [];
+  const retest: Retest = { prds: await retestsOf(at, where, prds), outside: at.outside.filter((bug) => sameRepo(bug.repo, where.repo)) };
+  const open = known.open === null ? null : { number: known.open.number, url: known.open.url, title: known.open.title, body: known.open.body };
+  return { at: where, defaultBranch: known.defaultBranch, open, rows, link: own.link, prds, retest };
+}
+
+/** A repository's open mission pull request and its default branch. */
+async function openOf(landings: MissionLandings, where: LandingAt): Promise<{ defaultBranch: string; open: MissionPull | null }> {
+  const read = await landings.landings(where);
+  return { defaultBranch: read.defaultBranch, open: read.pulls.find((one) => one.open) ?? null };
+}
+
+/** Each PRD of a repository's Re-test: its criteria and proofs as `retests` reads them, none without it. */
+async function retestsOf(at: LandingStep, where: LandingAt, prds: readonly DecisionPrd[]): Promise<Retest['prds']> {
+  const retests = at.github.retests;
+  const out: Retest['prds'][number][] = [];
+  for (const prd of prds) {
+    const pr = isProductPrdId(prd) ? null : featurePrOf(at.runs, prd);
+    const read = retests === null ? NO_RETEST : await retests.read({ installation: where.installation, repo: where.repo, prd, pr });
+    out.push({ prd, criteria: read.criteria, proofs: read.proofs, reworked: null });
+  }
+  return out;
+}
+
+/** One repository's mission pull request body at landing: its table, the fleet's decisions on its PRDs, the others, its Re-test. */
+function landingBody(at: LandingStep, one: RepoLanding, read: DecisionsRead, repos: readonly RepoLanding[]): string {
+  const home = sameRepo(one.at.repo, at.mission.repo);
+  const others: OtherPull[] = repos.filter((each) => each !== one).map((each) => ({ repo: each.at.repo, number: each.open?.number ?? null, url: each.open?.url ?? null }));
+  const deferred = read.deferred.filter((decision) => one.prds.includes(decision.prd));
+  const links = answerLinks({ galaxyUrl: at.github.galaxyUrl, fleet: at.mission.fleet, mission: at.mission.number });
+  const answers = at.mission.level === 'alone' ? { deferred, links } : null;
+  return missionPullBody({ mission: at.mission, branch: one.at.branch, defaultBranch: one.defaultBranch, rows: one.rows, link: one.link, decisions: home ? read.fleet : [], answers, others, retest: one.retest });
 }
 
 /** What a run's drops left: the mission's events as the run reads them from then on, and what a person must do. */
@@ -954,10 +1181,10 @@ async function redBranch({ mission, at, joined, joins }: { mission: MissionRecor
 
 // ── Product PRDs (PRD omni-loop-21 s9b, item s7-05) ──────────────────────────────
 
-/** What a run did of the mission's product PRDs: what they leave for its conclusion, the events to record and the builds sent. */
-type ProductsDone = ProductsRun & { events: NewStoredEvent[]; sent: number };
+/** What a run did of the mission's product PRDs: what they leave for its conclusion, the events and builds sent, and, for the landing (s15), their rows and those on the branch, in the order they joined. */
+type ProductsDone = ProductsRun & { events: NewStoredEvent[]; sent: number; rows: readonly StoredProduct[]; on: readonly MissionPrd[] };
 
-const NO_PRODUCTS: ProductsDone = { pending: false, moving: false, waits: [], events: [], sent: 0 };
+const NO_PRODUCTS: ProductsDone = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [] };
 
 /** What a run's product PRDs are read from: the mission, its repository PRDs' states, its installation and GitHub. */
 type ProductAt = {
@@ -1029,9 +1256,9 @@ async function productAll(at: ProductAt): Promise<ProductsDone> {
   const joined = productsJoined(await at.store.events(at.mission.id));
   if (facts.length === 0) return NO_PRODUCTS;
   const branch = baseOf(at.mission, at.inPlan) ?? 'the mission branch';
-  if (facts.every((fact) => joined.has(fact.prd))) return { ...NO_PRODUCTS, waits: [`every product PRD is on ${branch}: a person lands it`] };
+  if (facts.every((fact) => joined.has(fact.prd))) return { ...NO_PRODUCTS, rows: facts, on: [...joined], waits: [`every product PRD is on ${branch}: a person lands it`] };
   const ready = await productBranch(at, facts);
-  if (!ready.ok) return { ...NO_PRODUCTS, pending: true, waits: [ready.why] };
+  if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined], pending: true, waits: [ready.why] };
   const runs = await products.runs(at.mission.id);
   const answered = answeredOf(await at.store.decisions(at.mission.id));
   return productSteps({ ...at, ...ready, products, runs, joined, answered }, facts);
@@ -1058,7 +1285,7 @@ async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): 
   }
   const sent = step.events.filter((one) => one.kind === 'dispatched').length;
   const pending = facts.some((fact) => !at.joined.has(fact.prd));
-  return { pending, moving: step.moving, waits: pending ? step.waits : [`every product PRD is on ${at.branch}: a person lands it`], events: step.events, sent };
+  return { pending, moving: step.moving, waits: pending ? step.waits : [`every product PRD is on ${at.branch}: a person lands it`], events: step.events, sent, rows: facts, on: [...at.joined] };
 }
 
 /** What a run's product steps add up to as they go: the slots left, whether one moved, what they wait on, the events. */
@@ -1190,6 +1417,7 @@ export function missionHandler({
   answers = null,
   bugIssues = null,
   kits = null,
+  retests = null,
   galaxyUrl = DEFAULT_GALAXY_URL,
   now = Date.now,
   log = noteTo('missions'),
@@ -1208,7 +1436,7 @@ export function missionHandler({
     const team = mission.kind === 'omni-bugs';
     const run = team
       ? await teamRun({ store: mission.store, mission, now: at, issues: bugIssues }, refresh)
-      : await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, kits, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
+      : await supervise(mission.store, mission, at, { branches, joins, keepUps, landings, drops, answers, kits, retests, galaxyUrl: galaxyUrl.replace(/\/+$/, '') });
     log(`mission ${id}: ${team ? 'the bug team ' : ''}${run.next.status}, sent ${String(run.sent)}, ${String(run.events)} events${run.moved ? '' : ', its status changed meanwhile'}`);
     return afterRun(run, { job, refresh, mission, at });
   };
