@@ -95,3 +95,25 @@ describe('the token calls', () => {
     for (const call of [demoMissionsPort.setBudget(ID, 1), demoMissionsPort.answerStop(ID, 'stopped'), demoMissionsPort.setDailyCap(ID, 'f', 1)]) expect(await call).toMatchObject({ ok: false });
   });
 });
+
+describe('the New mission box\'s call (PRD omni-loop-24 s6)', () => {
+  const WORKSPACE = '33333333-3333-4333-8333-333333333333';
+  const made = { request: { id: ID, repo: 'acme/shop', fleet: 'night-shift', goal: 'Quotes on the phone', job: ID } };
+
+  it('posts the goal as typed to /api/missions, with the workspace and the fleet', async () => {
+    const sent: { url: string; method: string | undefined; body: unknown }[] = [];
+    const fetch: typeof globalThis.fetch = (url, init) => {
+      sent.push({ url: typeof url === 'string' ? url : '', method: init?.method, body: JSON.parse(typeof init?.body === 'string' ? init.body : '{}') });
+      return Promise.resolve(new Response(JSON.stringify(made), { status: 201 }));
+    };
+    expect(await httpMissionsPort(fetch).startMission(WORKSPACE, 'night-shift', 'Quotes on the phone')).toEqual({ ok: true });
+    expect(sent).toEqual([{ url: '/api/missions', method: 'POST', body: { workspace: WORKSPACE, fleet: 'night-shift', goal: 'Quotes on the phone' } }]);
+  });
+
+  it('carries a refusal\'s words, and the demo starts nothing', async () => {
+    const { fetch } = fetchAnswering(409, { error: 'A goal-only mission needs phase 0 on the server.' });
+    expect(await httpMissionsPort(fetch).startMission(WORKSPACE, 'night-shift', 'x')).toEqual({ ok: false, message: 'A goal-only mission needs phase 0 on the server.' });
+    expect((await demoMissionsPort.startMission(WORKSPACE, 'night-shift', 'x')).ok).toBe(false);
+  });
+});
+
