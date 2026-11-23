@@ -13,12 +13,18 @@
  * only on a job of a mission at `alone`. */
 export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
   'yolo', 'yolo-fix', 'pr-care', 'do-work', 'wave', 'bug-fix', 'mega-bug-fix', 'visual-fix', 'plan', 'pitch', 'prove', 'retro-apply', 'rewind', 'knowledge-add',
-  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair', 'qa', 'mission-retro',
+  'rewind-apply', 'ultra-yolo', 'ultra-wave', 'ultra-yolo-fix', 'review', 'committee', 'brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap', 'repair', 'qa', 'mission-retro', 'mission',
 ]);
 
 /** The PM's writing skills (PRD 2896, spec "7. The PM's own PRDs"): a runner takes them for a mission's PM only, on a job of a
  * mission at `alone`. Outside one they need a person at the terminal, as before. */
 export const PM_SKILLS: readonly string[] = Object.freeze(['brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
+
+/** The one line `/omni:mission` takes on a runner (PRD omni-loop-24): `--request <uuid>`, from the New mission box. The goal never
+ * travels in the line; the skill reads it with `omni mission request <id>`. */
+const MISSION_ARGS = /^--request [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const MISSION_REFUSAL = '/omni:mission runs on a runner from the New mission box only';
 
 /** The mission a job belongs to, as far as a runner reads it: its level. `null` for a job no mission sent. */
 export type JobMission = { level: string } | null;
@@ -73,6 +79,7 @@ export function checkRunnerLine(line: string, allowed: readonly string[] = []): 
 function checkFixed(skill: string, args: string): RunnerLineCheck {
   if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
   if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  if (skill === 'mission' && !MISSION_ARGS.test(args)) return { ok: false, reason: MISSION_REFUSAL };
   return { ok: true, kind: 'omni', skill, args };
 }
 

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRow, parseRows } from '../../data/parse-rows';
+import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { MissionLevelSchema, MissionStatusSchema } from '../missions.contract';
 import type { OpenStop, TabEvent, MissionRow } from './missions-tab';
 import type { ItemRow, RetroRow } from './retros';
@@ -13,7 +14,9 @@ import type { ItemRow, RetroRow } from './retros';
 export type MissionsTabDb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 const WHERE = 'missions/page/missions-tab.repository';
-const MISSION = 'id, repo, number, title, goal, status, waiting_on, scope, mandate, paused_by';
+const MISSION = 'id, repo, number, title, goal, status, waiting_on, scope, mandate, paused_by, kind';
+/** The newest requests read: a request whose mission is not pushed yet is one of the last few presses. */
+const REQUESTS_MAX = 20;
 const EVENT = 'mission_id, kind, prd, link, sentence';
 /** The newest events read: enough to count a mission's PRDs and find what each waits on. */
 const EVENTS_MAX = 1000;
@@ -28,11 +31,16 @@ const MissionRowSchema = z.object({
   waiting_on: z.string().nullable(),
   // `stuck` while the supervisor holds the mission paused by stuck (PRD 3065).
   paused_by: z.enum(['stuck']).nullable().default(null),
-  scope: z.object({ prds: z.array(PrdNumberSchema) }).loose(),
+  kind: z.string().default('prds'),
+  scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(z.unknown()).default([]) }).loose(),
+  products: z.object({ prds: z.array(z.unknown()).default([]), roadmaps: z.array(z.unknown()).default([]) }).nullish(),
   // A mission made before PRD 2896 holds no level: it reads `with-you`.
   mandate: z.object({ level: MissionLevelSchema.optional(), tokens: z.number().int().positive().optional() }).loose(),
 });
 const CapRow = z.object({ daily_tokens: z.number().int().positive().nullable() });
+// A level it cannot read reads `with-you`, the one that asks the most of a person.
+const LevelRow = z.object({ level: MissionLevelSchema.catch('with-you') });
+const RequestRowSchema = z.object({ id: z.uuid(), goal: z.string() });
 const StopRowSchema = z.object({ id: z.uuid(), cap: z.enum(['mission', 'fleet']), cap_tokens: z.number().int().positive(), spent: z.number().int().nonnegative(), missions: z.array(z.uuid()) });
 const SpentRow = z.object({ tokens: z.number().int().nonnegative() });
 const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
@@ -60,6 +68,12 @@ async function planRepositories(db: MissionsTabDb, workspace: string): Promise<S
   return plans;
 }
 
+/** Whether a mission is goal-only (PRD omni-loop-24): it runs at `alone` and its scope names no PRD and no roadmap, a product's neither. */
+function goalOnlyOf(row: z.infer<typeof MissionRowSchema>): boolean {
+  const named = row.scope.prds.length + row.scope.roadmaps.length + (row.products?.prds.length ?? 0) + (row.products?.roadmaps.length ?? 0);
+  return row.kind !== 'omni-bugs' && (row.mandate.level ?? 'with-you') === 'alone' && named === 0;
+}
+
 export function missionsTabRepository(db: MissionsTabDb) {
   return {
 
@@ -69,7 +83,7 @@ export function missionsTabRepository(db: MissionsTabDb) {
       if (error) throw new Error(`Supabase: could not read the missions (${error.message})`);
       const plans = await planRepositories(db, workspace);
       return orThrow(parseRows(MissionRowSchema, data, `${WHERE}: missions`)).map((row) => ({
-        id: row.id, repo: row.repo, number: row.number, title: row.title, goal: row.goal, status: row.status, waitingOn: row.waiting_on, prds: row.scope.prds, level: row.mandate.level ?? 'with-you',
+        id: row.id, repo: row.repo, number: row.number, title: row.title, goal: row.goal, status: row.status, waitingOn: row.waiting_on, prds: row.scope.prds, level: row.mandate.level ?? 'with-you', goalOnly: goalOnlyOf(row),
         inPlan: plans.has(row.repo.toLowerCase()), tokens: row.mandate.tokens ?? null, pausedBy: row.paused_by,
       }));
     },
@@ -86,6 +100,20 @@ export function missionsTabRepository(db: MissionsTabDb) {
       const { data, error } = await db.from('teams').select('daily_tokens').eq('workspace_id', workspace).eq('name', fleet).maybeSingle();
       if (error) throw new Error(`Supabase: could not read the fleet's daily cap (${error.message})`);
       return data === null ? null : orThrow(parseRow(CapRow, data, `${WHERE}: teams`)).daily_tokens;
+    },
+
+    /** The fleet's own level (teams.level): the box starts a mission only for an owner, or on a fleet at Works alone (PRD omni-loop-24). */
+    async fleetLevel(workspace: string, fleet: string): Promise<MissionLevel> {
+      const { data, error } = await db.from('teams').select('level').eq('workspace_id', workspace).eq('name', fleet).maybeSingle();
+      if (error) throw new Error(`Supabase: could not read the fleet's level (${error.message})`);
+      return data === null ? 'with-you' : orThrow(parseRow(LevelRow, data, `${WHERE}: teams`)).level;
+    },
+
+    /** The presses of Start whose mission is not pushed yet, newest first (PRD omni-loop-24): the page says `Writing the mission`. */
+    async requests(workspace: string, fleet: string): Promise<{ id: string; goal: string }[]> {
+      const { data, error } = await db.from('mission_requests').select('id, goal').eq('workspace_id', workspace).eq('fleet_key', fleet).is('mission_number', null).order('created_at', { ascending: false }).limit(REQUESTS_MAX);
+      if (error) throw new Error(`Supabase: could not read the mission requests (${error.message})`);
+      return orThrow(parseRows(RequestRowSchema, data, `${WHERE}: mission_requests`)).map((row) => ({ id: row.id, goal: row.goal }));
     },
 
     /** What the fleet's missions spent in the last 24 hours up to `at` (fleet_tokens_24h(), counted tokens) (PRD 3040). */

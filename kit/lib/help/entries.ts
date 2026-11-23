@@ -1242,8 +1242,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mission',
     kind: 'command',
     who: 'skills',
-    usage: ['omni mission push <n>', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>'],
-    summary: "send a mission's brief to its page, drop a PRD from its branch, or overturn a decision of the fleet",
+    usage: ['omni mission push <n>', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>', 'omni mission request <id>'],
+    summary: "send a mission's brief to its page, drop a PRD from its branch, overturn a decision of the fleet, or read a mission request",
     detail:
       "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
       "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
@@ -1260,7 +1260,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "<prd>/<item> for the answer to one of its items (the mission pull request's lists name each): " +
       'the decision stays as it was recorded and yours is added beside it; an overturned approval no ' +
       'longer counts for the mission, an overturned answer is open for you again, and the PRD is ' +
-      'dropped from the mission branch when it had joined.',
+      'dropped from the mission branch when it had joined. request <id> prints the fleet and the goal ' +
+      "of a mission request the Omni page's New mission box saved, one line each, the goal word for word; " +
+      'with one line and exit 1 when the page cannot be read or refuses it.',
   },
   {
     name: 'sign',
@@ -1874,7 +1876,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mission',
     kind: 'skill',
     who: 'you',
-    usage: ['/omni:mission', "/omni:mission --prd <n> '<goal>'"],
+    usage: ['/omni:mission', "/omni:mission --prd <n> '<goal>'", "/omni:mission --goal '<goal>'", '/omni:mission --request <id>'],
     label: '/omni:mission',
     summary: 'a goal for a Virtual Fleet, as a brief on its page',
     detail:
@@ -1883,7 +1885,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'brief, mission.md and mission.html, under {delivery}/missions/, opens the mission\'s issue and a ' +
       'docs PR into {defaultBranch}, and sends the brief to its page with omni mission push. Starting ' +
       'the mission is the button on its page and never waits for the PR. With --prd <n> and a goal it ' +
-      'asks nothing and writes the minimal mission, that PRD as its scope. It writes no code and never ' +
+      'asks nothing and writes the minimal mission, that PRD as its scope. With --goal <goal> it asks ' +
+      'only the fleet and writes a goal-only brief at alone, no scope: the PM of the fleet writes the PRDs. ' +
+      "--request <id> is the same, the goal read from the Omni page's New mission box with omni mission " +
+      'request, nothing asked. A goal-only mission needs phase 0 on the server. It writes no code and never ' +
       'merges.',
     group: 'start',
     when: 'Use it when you want a Virtual Fleet to deliver a goal, over one PRD or several, with you answering only where a person is needed.',

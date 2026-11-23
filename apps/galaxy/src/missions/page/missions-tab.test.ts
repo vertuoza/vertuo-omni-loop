@@ -96,7 +96,7 @@ describe('missionOf', () => {
 });
 
 /** What the token caps read (PRD 3040): the person's role, the fleet's cap and spending, each mission's spending, the stops that wait. */
-type Caps = { owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[]; retros?: unknown[]; items?: unknown[]; players?: unknown[] };
+type Caps = { owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[]; retros?: unknown[]; items?: unknown[]; players?: unknown[]; level?: string; requests?: unknown[] };
 
 function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null, products: unknown[] = [], caps: Caps = {}): MissionsTabDb {
   const chain = (data: unknown[], fails: boolean) => {
@@ -106,7 +106,7 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
     return self;
   };
   const tables: Record<string, unknown[]> = {
-    missions, products, runner_jobs: [], mission_repairs: [], teams: [{ daily_tokens: caps.daily ?? null }], mission_budget_stops: caps.stops ?? [], mission_retros: caps.retros ?? [], mission_items: caps.items ?? [], players: caps.players ?? [],
+    missions, products, runner_jobs: [], mission_repairs: [], teams: [{ daily_tokens: caps.daily ?? null, ...(caps.level === undefined ? {} : { level: caps.level }) }], mission_requests: caps.requests ?? [], mission_budget_stops: caps.stops ?? [], mission_retros: caps.retros ?? [], mission_items: caps.items ?? [], players: caps.players ?? [],
   };
   const rpc = (name: string, args: { p_mission?: string }) => Promise.resolve({
     data: name === 'is_owner' ? caps.owner === true : name === 'fleet_tokens_24h' ? [{ tokens: caps.fleet ?? 0, oldest_end: null }] : (caps.spent?.[args.p_mission ?? ''] ?? 0),
@@ -312,5 +312,47 @@ describe('the token caps on the Missions tab (PRD 3040)', () => {
     const db = fakeDb([MISSION_ROW], []);
     const broken = { ...db, rpc: () => Promise.resolve({ data: null, error: { message: 'boom' } }) } as unknown as MissionsTabDb;
     await expect(missionsTabService(withWaits(broken)).view(WORKSPACE, 'f')).rejects.toThrow('could not read your role');
+  });
+});
+
+// The New mission box and the goal-only rows (PRD omni-loop-24 s6, `mission-start` 1.A to 1.D), read as the signed-in person.
+describe('the New mission box and a goal from nothing (PRD omni-loop-24)', () => {
+  const REQUEST = '77777777-7777-4777-8777-777777777777';
+  const view = (caps: Caps, missions: unknown[] = []) => missionsTabService(withWaits(fakeDb(missions, [], null, [], caps))).view(WORKSPACE, 'night-shift');
+  const goalOnly = { ...MISSION_ROW, scope: { prds: [], roadmaps: [] }, mandate: { level: 'alone', ownPrds: 10 } };
+
+  it('opens the box to an owner, and to any member on a fleet at Works alone, and to nobody else (1.C)', async () => {
+    expect((await view({ owner: true, level: 'with-you' })).box).toEqual({ canStart: true, refusal: null });
+    expect((await view({ owner: false, level: 'alone' })).box).toEqual({ canStart: true, refusal: null });
+    expect((await view({ owner: false, level: 'with-you' })).box).toEqual({ canStart: false, refusal: 'Works alone only. Ask an owner.' });
+    expect((await view({ owner: false })).box?.canStart).toBe(false);
+  });
+
+  it('lists a request whose mission is not pushed yet as Writing the mission, goal as typed', async () => {
+    const out = await view({ requests: [{ id: REQUEST, goal: '  Quotes on the phone ' }] });
+    expect(out.requests).toEqual([{ id: REQUEST, goal: '  Quotes on the phone ', words: 'Writing the mission' }]);
+    expect((await view({})).requests).toEqual([]);
+  });
+
+  it('reads Writing the roadmap while a goal-only mission has no PRD, and No PRD sent yet for a scoped one', async () => {
+    const out = await view({}, [goalOnly, { ...MISSION_ROW, id: OTHER, number: 41, scope: { prds: [], roadmaps: [7] }, mandate: { level: 'alone' } }]);
+    expect(out.missions.map((m) => m.progress)).toEqual(['Writing the roadmap', 'No PRD sent yet']);
+  });
+
+  it('reads No PRD written with the PM\'s reason once the mission waits on it, never a plain waiting row', async () => {
+    const why = 'the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent twice.';
+    const waiting = (await view({}, [{ ...goalOnly, status: 'waiting', waiting_on: why }])).missions[0];
+    expect(waiting).toMatchObject({ progress: 'No PRD written', noPrd: { why }, statusWords: 'Waiting on you', waits: [], action: 'pause' });
+    expect((await view({}, [{ ...MISSION_ROW, status: 'waiting', waiting_on: why }])).missions[0]?.noPrd).toBeNull();
+    expect(missionOf(row({ goalOnly: true, level: 'alone', status: 'running', prds: [] }), []).noPrd).toBeNull();
+  });
+
+  it('throws when the level or the requests cannot be read', async () => {
+    const failing = (table: string): MissionsTabDb => {
+      const db = fakeDb([], []);
+      return { ...db, from: (name: string) => (name === table ? { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: { message: 'boom' } }), is: () => ({ order: () => ({ limit: () => Promise.resolve({ data: null, error: { message: 'boom' } }) }) }) }) }) }) } : db.from(name)) } as unknown as MissionsTabDb;
+    };
+    await expect(missionsTabService(withWaits(failing('mission_requests'))).view(WORKSPACE, 'f')).rejects.toThrow('mission requests');
+    await expect(missionsTabRepository(failing('teams')).fleetLevel(WORKSPACE, 'f')).rejects.toThrow('fleet\'s level');
   });
 });

@@ -1,4 +1,4 @@
-import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
 import { z } from 'zod';
 
@@ -105,6 +105,46 @@ export const ItemAnswerBodySchema = z.object({ answer: ItemAnswerSchema, note: z
 export type ItemAnswerBody = z.infer<typeof ItemAnswerBodySchema>;
 export const AnsweredItemSchema = z.object({ item: z.object({ id: z.uuid(), answer: ItemAnswerSchema }) });
 export type AnsweredItem = z.infer<typeof AnsweredItemSchema>;
+
+/**
+ * A press of Start on the New mission box (PRD omni-loop-24): the workspace and the fleet, the goal as typed (word for word, 1 to
+ * 300 characters, one line) and, when the fleet's runners hold several repositories, the one the mission is written in.
+ */
+const REQUEST_GOAL_MAX = 300;
+/** Whether `goal` holds a control character (a newline, a tab), which mission_requests_goal_shape refuses: a goal is one line. */
+function hasControl(goal: string): boolean {
+  for (let i = 0; i < goal.length; i++) {
+    const code = goal.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+const RequestGoalSchema = z.string().min(1).max(REQUEST_GOAL_MAX).refine((goal) => goal.trim() !== '' && !hasControl(goal));
+export const RequestBodySchema = z.object({
+  workspace: z.uuid(),
+  fleet: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(40),
+  goal: RequestGoalSchema,
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200).optional(),
+}).strict();
+export type RequestBody = z.infer<typeof RequestBodySchema>;
+
+/** The runner line that writes a request's mission: the goal never travels in it (the line allows no person's words). */
+export const requestLine = (id: string): string => `/omni:mission --request ${id}`;
+
+/** The request as saved: its id, the repository the mission is written in, the fleet, the goal and the runner job queued. */
+export const MadeRequestSchema = z.object({
+  request: z.object({ id: z.uuid(), repo: z.string(), fleet: z.string(), goal: z.string(), job: z.uuid() }),
+});
+export type MadeRequest = z.infer<typeof MadeRequestSchema>;
+
+/** A request as `omni mission request <id>` reads it: the goal and the fleet, who pressed Start and the mission it became (null until pushed). */
+export const MissionRequestSchema = z.object({
+  request: z.object({
+    id: z.uuid(), repo: z.string(), fleet: z.string(), goal: z.string(), requestedBy: z.string(),
+    mission: IssueNumberSchema.nullable(), createdAt: z.string(),
+  }),
+});
+export type MissionRequest = z.infer<typeof MissionRequestSchema>;
 
 /** Each refusal's status. */
 export const MISSION_REFUSALS = {

@@ -30,9 +30,9 @@ A runner takes only these lines: `/omni:yolo`, `/omni:yolo-fix`, `/omni:pr-care`
 `/omni:wave`, `/omni:bug-fix`, `/omni:mega-bug-fix`, `/omni:visual-fix`, `/omni:plan`, `/omni:pitch`,
 `/omni:prove`, `/omni:retro-apply`, `/omni:rewind`, `/omni:knowledge-add`, `/omni:rewind-apply`,
 `/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix`, `/omni:review`, `/omni:committee`,
-`/omni:brainstorm`, `/omni:roadmap`, `/omni:mega-brainstorm`, `/omni:mega-roadmap`, `/omni:repair`, `/omni:qa` and `/omni:mission-retro`. The PM's four (`/omni:brainstorm`, `/omni:roadmap`,
+`/omni:brainstorm`, `/omni:roadmap`, `/omni:mega-brainstorm`, `/omni:mega-roadmap`, `/omni:repair`, `/omni:qa`, `/omni:mission-retro` and `/omni:mission`. The PM's four (`/omni:brainstorm`, `/omni:roadmap`,
 `/omni:mega-brainstorm`, `/omni:mega-roadmap`) run only when a mission at Works alone sends them, and
-`/omni:repair` only when a mission sends it to repair a failed step or a stuck mission, `/omni:mission-retro` only when a mission sends it at a milestone; you cannot send them from here. Run them in your own terminal, where they ask you their questions.
+`/omni:repair` only when a mission sends it to repair a failed step or a stuck mission, `/omni:mission-retro` only when a mission sends it at a milestone, `/omni:mission` only as `--request <id>` from the New mission box; you cannot send them from here. Run them in your own terminal, where they ask you their questions.
 
 ### Follow it on the Runners page
 

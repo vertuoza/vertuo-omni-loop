@@ -180,8 +180,10 @@ function briefOf(mission: IssueNumber, artifacts: readonly DossierArtifact[]): O
   if (parsed.brief.mission !== mission) throw refuse(`mission.md is mission #${parsed.brief.mission}, not #${mission}.`);
   // The brief's kind travels too (bug #3104): an Omni Loop bug team (`omni-bugs`, PRD 3088) takes no scope,
   // and mission_push() reads the kind to allow it; a brief with none is read as `prds`.
-  const { kind = 'prds', fleet, goal, measures, scope, mandate } = parsed.brief;
-  return { kind, fleet, goal, measures, scope, mandate };
+  // A brief from the New mission box names its request (PRD omni-loop-24): mission_push() starts that mission as the request's
+  // person, once, when the request is of the same workspace, fleet and repository; any other request is ignored there.
+  const { kind = 'prds', fleet, goal, measures, scope, mandate, request } = parsed.brief;
+  return { kind, fleet, goal, measures, scope, mandate, ...(request === undefined ? {} : { request }) };
 }
 
 /** PRD 2842: a mission's page and its row, through mission_push(); the page's id and which versions were added. */
