@@ -165,7 +165,7 @@ describe('the commander-notebook job', () => {
     const { store } = fakeStore({ active: [m3110], events: today });
     const broken: NotebookModel = () => Promise.resolve({ ok: false, why: 'model unavailable (503)' });
     await expect(run(store, broken)).rejects.toThrow('model unavailable (503)');
-    expect(await run(store, null)).toEqual({ outcome: 'skipped', reason: 'no model key: the notebooks write nothing' });
+    expect(await run(store, null)).toEqual({ outcome: 'skipped', reason: 'no model key: only what the fleet learned is written (0 lines)' });
     expect(liveNotebookModel(null)).toBeNull();
   });
 
@@ -178,5 +178,57 @@ describe('the commander-notebook job', () => {
     const model = liveNotebookModel({ key: 'test-key' }, fetch);
     expect(await model?.({ user: '<events>e1</events>' })).toEqual({ ok: true, lines: [{ text: 'PRD 2817 went to the runner.', refs: ['e1'] }] });
     expect(sent[0]).toMatchObject({ model: 'anthropic/claude-sonnet-5.5', temperature: 0 });
+  });
+});
+
+describe('the commander-notebook job: what the fleet learned (PRD omni-loop-21 s13)', () => {
+  const m3120 = mission(3120, 'delivered');
+  const said = (k: number, at: string, kind: string, sentence: string) => ({ ...event(m3120, k, at, sentence), kind, role: kind === 'overturned' ? 'supervisor' : 'pm' });
+  const ended = [
+    said(1, '2026-11-20T08:00:00Z', 'held', 'PRD 2817 ended without its result line: the mission sends it a fresh job (resume 1 of 3).'),
+    said(2, '2026-11-20T09:00:00Z', 'retro', 'PRD 2817\'s retro [abcd1234] reads code: the quotes total rounded half up.'),
+    said(3, '2026-11-20T10:00:00Z', 'repair-ended', 'PRD 2817\'s repair [abcd1234] ended fixed.'),
+    said(4, '2026-11-20T11:00:00Z', 'decided', 'The committee answered s2-01 of PRD 2817 with option A: pm yes, architect yes, reviewer yes.'),
+  ];
+  const overturn = said(5, '2026-11-21T00:00:30Z', 'overturned', 'ada overturned fleet decision 2817/s2-01: the totals round down.');
+  const learned = [
+    'PRD 2817 ended without its result line; a fresh job of the same skill took it on (resume 1 of 3).',
+    'PRD 2817 broke on code [abcd1234]: the quotes total rounded half up. A repair fixed it.',
+    'PRD 2817: the fleet answered s2-01 with option A; ada overturned that answer.',
+  ];
+
+  it('AC-8: a delivered mission\'s overturn, repair and resume each become a fleet notebook line citing its events, after its fleet batch', async () => {
+    const { store, rows } = fakeStore({ ended: [m3120], events: [...ended, overturn] });
+    const { model } = fakeModel(() => [{ text: 'PRD 2817 went back to the runner once.', refs: ['e1'] }]);
+    expect(await run(store, model)).toEqual({ outcome: 'done' });
+    const fleet = rows.filter((r) => r.notebook === 'fleet');
+    expect(fleet.map((r) => [r.place, r.line])).toEqual([[1, 'PRD 2817 went back to the runner once.'], [6, learned[0]], [7, learned[1]], [8, learned[2]]]);
+    expect(fleet.slice(1).map((r) => r.events)).toEqual([[ended[0]?.id], [ended[1]?.id, ended[2]?.id], [ended[3]?.id, overturn.id]]);
+    expect(fleet.every((r) => r.day === '2026-11-21' && r.mission === m3120.id)).toBe(true);
+    // The PM's, a committee member's and the Engineer's next jobs read them in the fleet notebook.
+    expect(await store.lines({ notebook: 'fleet', workspace: NORTHWIND, fleet: 'blue-fleet' }, 50)).toEqual(expect.arrayContaining(learned));
+    await run(store, model);
+    expect(rows.filter((r) => r.notebook === 'fleet')).toHaveLength(4);
+  });
+
+  it('writes what was learned with no model key, and a later overturn the next day, never a line twice', async () => {
+    const { store, rows } = fakeStore({ ended: [m3120], events: ended });
+    expect(await run(store, null)).toEqual({ outcome: 'skipped', reason: 'no model key: only what the fleet learned is written (2 lines)' });
+    expect(rows.map((r) => r.line)).toEqual(learned.slice(0, 2));
+    const later = fakeStore({ ended: [m3120], events: [...ended, overturn] });
+    later.rows.push(...rows);
+    const next = notebookHandler({ store: later.store, model: null, clock: () => NOW + 24 * 60 * 60 * 1000, log: () => undefined });
+    await next(job({ payload: { slot: '2026-11-22T00:00:00.000Z' } }));
+    expect(later.rows.map((r) => [r.day, r.place, r.line])).toEqual([['2026-11-21', 6, learned[0]], ['2026-11-21', 7, learned[1]], ['2026-11-22', 6, learned[2]]]);
+  });
+
+  it('writes nothing learned for a fleet over its cap, so its fleet batch still comes first, nor for a running mission', async () => {
+    const spent = fakeStore({ ended: [m3120], events: [...ended, overturn], over: true });
+    const { model } = fakeModel(() => []);
+    await run(spent.store, model);
+    expect(spent.rows).toEqual([]);
+    const running = fakeStore({ active: [{ ...m3120, status: 'running' }], events: [...ended, overturn] });
+    await run(running.store, model);
+    expect(running.rows.filter((r) => r.notebook === 'fleet')).toEqual([]);
   });
 });
