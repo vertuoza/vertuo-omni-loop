@@ -1,7 +1,8 @@
-/* The workspace's history (PRD 144) on the Inbox's Done tab (PRD omni-loop-22), as visual update #3169
-   draws it (pick A of round 3): the categories in a sidebar on the left, one line of search, More
-   filters and the count, then the rows grouped by day, as the Open tab draws its rows. Every value is
-   a token of @omni/design. */
+/* The workspace's history (PRD 144) on the Inbox's Done tab (PRD omni-loop-22), as PRD omni-loop-23 (s6)
+   draws it: the categories in a sidebar in style C (the signal tint, the label and its count semibold, no
+   border, bar or rule; a category with none dimmed), the shared toolbar line (.inbox-toolbar), then the
+   rows on the shared anatomy (.inbox-r, .inbox-group) grouped by day. The shared classes are inbox.css's;
+   only what is the Done tab's own is here. Every value is a token of @omni/design. */
 
 .done {
   display: grid;
@@ -22,19 +23,20 @@
 }
 .ask a.done-cat {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
-  padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-2);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-2);
   color: var(--color-text-secondary); font-size: var(--type-3-size); line-height: var(--type-3-line);
   text-decoration: none; white-space: nowrap;
 }
 .ask a.done-cat:hover { background: var(--color-sunken); color: var(--color-text-primary); }
 .ask a.done-cat:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-.ask a.done-cat[aria-current='page'] { color: var(--color-text-primary); background: var(--color-accent-soft); border-color: var(--color-accent); }
-.done-cat-count { font-size: var(--type-1-size); color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
-.ask a.done-cat[aria-current='page'] .done-cat-count { color: var(--color-accent); }
+.ask a.done-cat.is-none { color: var(--color-text-tertiary); }
+.ask a.done-cat[aria-current='page'] { color: var(--color-text-primary); background: var(--color-signal-soft); font-weight: var(--weight-semibold); }
+.done-cat-count { font-size: var(--type-2-size); color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+.ask a.done-cat[aria-current='page'] .done-cat-count { color: var(--color-signal); font-weight: var(--weight-semibold); }
 
-/* ── The line: search, More filters, the count ───────────────────────────── */
+/* ── The toolbar line: search, Filters, the count ────────────────────────── */
 
-.done-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-width: 0; position: relative; }
+.done-bar { flex-wrap: wrap; position: relative; }
 .done-search { width: min(100%, 320px); }
 .done-more { position: relative; }
 .done-more > summary { list-style: none; cursor: pointer; }
@@ -49,42 +51,31 @@
 .done-field { display: grid; gap: var(--space-1); min-width: 0; }
 .done-field-label { font-size: var(--type-2-size); color: var(--color-text-secondary); }
 .done-more-panel .omni-button--primary { justify-self: end; }
-.done-count {
-  margin-left: auto; font-size: var(--type-2-size); color: var(--color-text-tertiary);
-  white-space: nowrap; font-variant-numeric: tabular-nums;
-}
+.done-count { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 .ask .done-count a.ask-history-clear { color: var(--color-info); }
 
 /* ── The rows, grouped by day ────────────────────────────────────────────── */
 
-.done-days { display: grid; gap: var(--space-4); min-width: 0; }
-.done-day-group { display: grid; gap: var(--space-1); min-width: 0; }
-.done-day {
-  margin: 0; padding: 0 var(--space-3);
-  font-size: var(--type-2-size); line-height: var(--type-2-line); font-weight: var(--weight-bold); color: var(--color-text-secondary);
-}
+.done-days { display: grid; min-width: 0; }
 .done-day-count { font-weight: var(--weight-regular); color: var(--color-text-tertiary); }
-.done-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.ask a.done-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3);
-  padding: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-2);
-  color: var(--color-text-primary); text-decoration: none;
-}
-.ask a.done-row:hover { background: var(--color-sunken); }
-.ask a.done-row:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-.done-row-main { display: grid; gap: 2px; min-width: 0; }
-.done-context {
-  font-size: var(--type-2-size); line-height: var(--type-2-line); color: var(--color-text-secondary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.done-question { font-size: var(--type-3-size); line-height: var(--type-3-line); overflow-wrap: anywhere; }
-.done-more-count { color: var(--color-text-tertiary); }
-.done-answer { font-size: var(--type-3-size); line-height: var(--type-3-line); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.done-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.done-item { position: relative; min-width: 0; }
+.ask a.done-row { color: var(--color-text-primary); text-decoration: none; }
+/* The anchor is the face alone: its name is in the quiet line, so the chip's text is cut to nothing. */
+.done-anchor .person-chip { --chip-size: calc(var(--space-6) + var(--radius-1) / 2); gap: 0; font-size: 0; }
+.done-more-count { color: var(--color-text-tertiary); font-weight: var(--weight-regular); }
+.done-answer { color: var(--color-text-secondary); }
 .done-answer .ask-history-answer { color: var(--color-text-primary); font-weight: var(--weight-medium); white-space: pre-wrap; }
-.done-answer .ask-shots-count { margin-left: var(--space-2); font-size: var(--type-2-size); }
-.done-who { font-size: var(--type-2-size); color: var(--color-text-tertiary); }
-.done-row-end { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
-.done-age { font-size: var(--type-1-size); color: var(--color-text-tertiary); white-space: nowrap; }
+.done-answer .ask-shots-count { margin-inline-start: var(--space-2); font-size: var(--type-2-size); }
+.done-age { white-space: nowrap; }
+/* The info button sits at the row's end, under the time, outside the row's link. */
+.done-info { position: absolute; inset-inline-end: var(--space-3); inset-block-end: var(--space-3); display: inline-flex; }
+.done-details { display: grid; gap: var(--space-2); margin: 0; }
+.done-detail { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-3); }
+.done-detail dt { color: var(--color-text-tertiary); }
+.done-detail dd { margin: 0; overflow-wrap: anywhere; }
+.done-paging { display: flex; align-items: center; gap: var(--space-4); margin: 0; padding-top: var(--space-4); }
+.ask .done-newest { color: var(--color-info); font-size: var(--type-2-size); }
 
 .done-empty { display: grid; gap: var(--space-2); padding: var(--space-5) 0; }
 .done-empty-title { margin: 0; font-size: var(--type-5-size); line-height: var(--type-5-line); }
@@ -96,8 +87,10 @@
   .done { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
   .done-cats { position: static; display: flex; gap: var(--space-1); overflow-x: auto; padding-bottom: var(--space-1); }
   .done-cats-title { display: none; }
-  .ask a.done-cat { border-color: var(--color-border-subtle); }
+  .ask a.done-cat { border: 1px solid var(--color-border-subtle); }
+  .ask a.done-cat[aria-current='page'] { border-color: transparent; }
   .done-search { width: 100%; min-height: 44px; }
-  .done-count { margin-left: 0; }
+  .inbox-toolbar-end.done-count { margin-inline-start: 0; }
   .done-more-panel { left: auto; right: 0; width: min(280px, calc(100vw - var(--space-6))); }
+  .done-info { inset-block-end: var(--space-2); }
 }
