@@ -76,6 +76,12 @@ jobs:
         # Two accounts, each with its own JWT: neither reads, changes or removes the other's ask
         # sessions or rounds. A round only moves forward; the expiry is scheduled and ask-only.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/ask.sql
+      - name: What the Done tab's history reads, and who reads it
+        # ask_history_page() and ask_history_facets() run as the caller: a member reads only their
+        # workspaces' answered and moved rounds, never a session of no workspace nor a waiting round; the
+        # cursor neither skips nor repeats; a search needs every word; each category counts under the
+        # other filters (PRD omni-loop-23 s1, BR-PRODUCT-29, BR-PRODUCT-39).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/ask_history_page.sql
       - name: Who may read and write the dossiers
         # A member of the workspace reads its dossiers and their versions; an account of another
         # workspace, or of none, nothing. Only dossier_open() and dossier_push() write, and the service
