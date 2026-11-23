@@ -383,6 +383,11 @@ describe('conclude: the mission\'s status, what it waits on, and its next wake',
     expect(next(mission(), [facts(1, { stage: 'merged' }), facts(2, { stage: 'merged' })])).toEqual({ status: 'delivered', waitingOn: null, nextWakeAt: null });
   });
 
+  it('AC-4: is never delivered while it holds no PRD, as a goal-only mission before its PM wrote one (PRD omni-loop-24)', () => {
+    for (const level of ['alone', 'own-branch', 'with-you'] as const) expect(next(mission({ level }), []).status, level).not.toBe('delivered');
+    expect(next(mission({ level: 'alone' }), [], [], 1)).toEqual({ status: 'running', waitingOn: null, nextWakeAt: '2027-01-22T09:01:00.000Z' });
+  });
+
   it('stops when nothing can move and nobody is waited on, saying why and how to carry on', () => {
     const result = next(mission(), [facts(1), facts(2, { blockers: [p(1)] })], [run(1, 1, attempt('a', { status: 'failed', reason: 'timeout' }))]);
     expect(result.status).toBe('stopped');
