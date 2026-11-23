@@ -8,7 +8,8 @@
 
 ## Reproduction
 
-- **File:** `apps/omni-app/src/missions/mission.goal.e2e.test.ts`, `apps/galaxy/src/missions/missions.service.test.ts`, `apps/galaxy/src/missions/page/missions-tab.test.ts` (the `#3203` cases)
+- **File:** `apps/omni-app/src/missions/mission.goal.e2e.test.ts`
+- **Also:** the `#3203` cases of `apps/galaxy/src/missions/missions.service.test.ts` and `apps/galaxy/src/missions/page/missions-tab.test.ts`
 - **Level:** unit
 - **Red:** `AssertionError: expected [ …(2) ] to deeply equal [ …(3) ]` (the supervisor sent no third roadmap after the person's Resume); `AssertionError: expected { ok: false, kind: 'conflict', …(1) } to deeply equal { ok: true, …(1) }` (Resume refused a waiting mission); `AssertionError: expected 'pause' to be 'resume'` (the row)
 
