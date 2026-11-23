@@ -347,6 +347,12 @@ describe('the New mission box and a goal from nothing (PRD omni-loop-24)', () =>
     expect(missionOf(row({ goalOnly: true, level: 'alone', status: 'running', prds: [] }), []).noPrd).toBeNull();
   });
 
+  it('#3203: offers Resume, never Pause, on the row of a goal-only mission waiting on no PRD (1.D)', async () => {
+    const why = 'the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent twice.';
+    expect((await view({}, [{ ...goalOnly, status: 'waiting', waiting_on: why }])).missions[0]?.action).toBe('resume');
+    expect((await view({}, [{ ...goalOnly, status: 'waiting', waiting_on: 'PRD 50: approval' }])).missions[0]?.action).toBe('pause');
+  });
+
   it('throws when the level or the requests cannot be read', async () => {
     const failing = (table: string): MissionsTabDb => {
       const db = fakeDb([], []);
