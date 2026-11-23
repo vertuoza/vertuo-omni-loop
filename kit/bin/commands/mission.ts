@@ -6,6 +6,9 @@
 // only of a file that changed, and creates or updates the mission's row, in `draft` until a person
 // starts it. It prints the page's link and the versions it added, as `omni dossier push` does.
 //
+// `omni mission push <n> --from <dir>` reads the folder from outside the repository (PRD 3194); `omni mission get <n> [--out <dir>]`
+// reads a mission's brief and retros from its page and writes them as plain files, or says `mission <n> not read: <why>` (exit 1).
+//
 // `omni mission drop <mission> <prd> [--keep]` (PRD 2896 s7) asks the Omni app to take a PRD off its mission's branch: its commit leaves
 // the branch by rebase on the mission's next run, its feature pull request is reopened, and the default branch is never changed. It
 // prints what leaves and what shares the territory: the later PRDs on the branch that share the PRD's territory go with it unless
@@ -31,9 +34,11 @@ import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
 import { parsePrd, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
 import { dropWords } from '../../lib/mission/drop.ts';
+import { folderName, readExport, writeExport } from '../../lib/mission/get.ts';
 import { overturnWords, parseRef } from '../../lib/mission/overturn.ts';
-import { readMissionFolder } from '../../lib/mission/folder.ts';
+import { readMissionFolder, readMissionFolderAt } from '../../lib/mission/folder.ts';
 import type { MissionFolder } from '../../lib/mission/folder.ts';
+import { join, resolve } from 'node:path';
 import { issueArg, parseArgs, prdArg, println, usageError } from '../args.ts';
 import { addedLine } from './dossier.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
@@ -44,7 +49,7 @@ type Io = FreeIo & MissionOptions;
 /** Where a push goes: the signed-in client, and the repository. */
 type Target = { client: ReturnType<typeof askClient>; repo: string };
 
-const USAGE = 'usage: omni mission push <n> | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision>';
+const USAGE = 'usage: omni mission push <n> [--from <dir>] | omni mission get <n> [--out <dir>] | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision>';
 
 /** The one line a failed call is reported with: a refusal carries the server's reason when it gave one. */
 function skipLine(error: unknown): string {
@@ -78,11 +83,11 @@ function stopped(io: Io, lines: readonly string[]): number {
   return 1;
 }
 
-/** `push <n>`: mission n's folder, read whole, then sent. */
-async function push(issue: IssueNumber, io: Io): Promise<number> {
+/** `push <n> [--from <dir>]`: mission n's folder (`dir`, or the repository's), read whole, then sent. */
+async function push(issue: IssueNumber, from: string | null, io: Io): Promise<number> {
   const ctx = loadContext(io.cwd, { exec: io.exec });
-  const read = readMissionFolder(ctx, issue);
-  if (!read) throw usageError(`omni mission push: mission ${issue} has no folder under ${ctx.layout.dirs.missions}.`);
+  const read = from === null ? readMissionFolder(ctx, issue) : readMissionFolderAt(resolve(io.cwd, from), from, issue);
+  if (!read) throw usageError(from === null ? `omni mission push: mission ${issue} has no folder under ${ctx.layout.dirs.missions}.` : `omni mission push: ${from} is not a folder.`);
   if (!read.ok) return stopped(io, read.errors.map((error) => `invalid mission: ${error}`));
   const target = connect(ctx, io);
   if (typeof target === 'string') return stopped(io, [target]);
@@ -92,6 +97,23 @@ async function push(issue: IssueNumber, io: Io): Promise<number> {
   if (!isText(field(sent.reply, 'id')) || !isText(url)) return stopped(io, ['refused (no page in the reply)']);
   println(io.stdout, url);
   println(io.stdout, addedLine({ added: field(sent.reply, 'added'), unchanged: field(sent.reply, 'unchanged') }));
+  return 0;
+}
+
+/** `get <n> [--out <dir>]`: mission n read from its page and written as plain files, uncommitted; the folder is printed. */
+async function get(issue: IssueNumber, out: string | null, io: Io): Promise<number> {
+  const ctx = loadContext(io.cwd, { exec: io.exec });
+  const target = connect(ctx, io);
+  if (typeof target === 'string') return stopped(io, [`mission ${issue} not read: ${target}`]);
+  const sent = await target.client.getMission({ repo: target.repo, mission: issue })
+    .then((reply: unknown) => ({ reply }), (error: unknown) => (error instanceof AskCallError && error.status === 404 ? 'missing' : skipLine(error)));
+  if (sent === 'missing') return stopped(io, [`no mission #${issue} on the page`]);
+  if (typeof sent === 'string') return stopped(io, [`mission ${issue} not read: ${sent}`]);
+  const read = readExport(sent.reply);
+  if (!read) return stopped(io, [`mission ${issue} not read: refused (no mission in the reply)`]);
+  const dir = out === null ? join(ctx.root, ctx.layout.dirs.missions, folderName(issue, read.record)) : resolve(io.cwd, out);
+  writeExport(dir, read);
+  println(io.stdout, dir);
   return 0;
 }
 
@@ -132,12 +154,15 @@ async function overturn(mission: IssueNumber, decision: string, io: Io): Promise
 export const mission = {
   withoutContext: true,
   run(args: string[], io: Io) {
-    const { positional, flags } = parseArgs('mission', args, { booleans: ['keep'] });
+    const { positional, flags } = parseArgs('mission', args, { booleans: ['keep'], values: ['from', 'out'] });
     const [verb, ...operands] = positional;
     const keep = flags.keep === true;
+    const { from = null, out = null } = flags;
     switch (`${verb ?? ''} ${String(operands.length)}${flags.keep === undefined ? '' : ' keep'}`) {
       case 'push 1':
-        return push(issueArg('mission push', '<n>', operands[0]), io);
+        return push(issueArg('mission push', '<n>', operands[0]), from, io);
+      case 'get 1':
+        return get(issueArg('mission get', '<n>', operands[0]), out, io);
       case 'drop 2':
       case 'drop 2 keep':
         return drop(issueArg('mission drop', '<mission>', operands[0]), prdArg('mission drop', '<prd>', operands[1]), keep, io);

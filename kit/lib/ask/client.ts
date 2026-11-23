@@ -567,6 +567,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ answer: string | null, confidence: number | null, decidedBy: 'jev' | 'old' }>} */
     decide: ({ decision, repo, state, old, ref = null }: { decision: string; repo: unknown; state: unknown; old: unknown; ref?: unknown }) =>
       call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
+    /** PRD 3194 s2: mission `mission`'s latest record and brief as pushed, with each retro and its items, for `repo`; a 404 when the page holds none.
+     * @returns {Promise<{ mission: number, record: string, brief: string, retros: { k: number, milestone: string, content: string, items: { name: string, content: string }[] }[] }>} */
+    getMission: ({ repo, mission }: { repo: string; mission: number }) =>
+      call('GET', `/api/missions/brief?${new URLSearchParams({ repo, mission: String(mission) })}`),
     /** PRD 2896 s7: asks for PRD `prd` to leave mission `mission`'s branch in `repo` (`omni mission drop`); with `keep`, the later PRDs
      * sharing its territory stay. @returns {Promise<{ drop: { mission: string, branch: string, prd: number, sharing: number[], dropped: number[], keep: boolean } }>} */
     dropMission: ({ repo, mission, prd, keep }: { repo: string; mission: number; prd: PrdNumber; keep: boolean }) =>
