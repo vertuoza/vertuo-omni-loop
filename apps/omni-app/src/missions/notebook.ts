@@ -236,27 +236,27 @@ export function screenLines(input: { candidates: readonly Candidate[]; refs: Rea
 /** The most lines of what the fleet learned one batch writes: the places a batch has left after the end batch's (1 to 20). */
 const LEARNED_MAX = 20 - BATCH_MAX;
 
-/** One decision of the fleet, as its event says it, by the decision's name (`7/s2-01`, `9`). */
-type Decided = { name: string; prd: string; words: string; answer: boolean; event: string };
+/** One decision of the fleet, as its event says it, by the decision's name (`7/s2-01`, `9`); `prdSaid` is the PRD as the sentence wrote it. */
+type Decided = { name: string; prdSaid: string; words: string; answer: boolean; event: string };
 
 /** A retro that named a repair's cause: its class, its cause and its event. */
 type Retro = { kind: string; cause: string; event: string };
 
 /** How a decision's event reads: its kind, its sentence's shape, and what it says the fleet did. */
-type DecisionRead = { kind: string; pattern: RegExp; said: (item: string, prd: string, option: string) => Omit<Decided, 'event'> };
+type DecisionRead = { kind: string; pattern: RegExp; said: (item: string, prdSaid: string, option: string) => Omit<Decided, 'event'> };
 
 const DECISION_READS: readonly DecisionRead[] = [
   {
     kind: 'decided',
     pattern: /^The committee answered (?<item>\S+) of PRD (?<prd>\S+) with option (?<option>\S+?):/,
-    said: (item, prd, option) => ({ name: `${prd}/${item}`, prd, words: `the fleet answered ${item} with option ${option}`, answer: true }),
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet answered ${item} with option ${option}`, answer: true }),
   },
   {
     kind: 'deferred',
     pattern: /^The committee deferred (?<item>\S+) of PRD (?<prd>\S+?): option (?<option>\S+) meanwhile/,
-    said: (item, prd, option) => ({ name: `${prd}/${item}`, prd, words: `the fleet deferred ${item}, taking option ${option} meanwhile`, answer: false }),
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet deferred ${item}, taking option ${option} meanwhile`, answer: false }),
   },
-  { kind: 'decided', pattern: /^The committee approved PRD (?<prd>\S+?):/, said: (_item, prd) => ({ name: prd, prd, words: 'the fleet approved the PRD', answer: false }) },
+  { kind: 'decided', pattern: /^The committee approved PRD (?<prd>\S+?):/, said: (_item, prdSaid) => ({ name: prdSaid, prdSaid, words: 'the fleet approved the PRD', answer: false }) },
 ];
 
 const OVERTURNED_BY = /^(\S+) overturned fleet decision ([^\s:]+):/;
@@ -281,7 +281,7 @@ function overturnLine(event: NoteEvent, decisions: ReadonlyMap<string, Decided>)
   const decided = decisions.get(name);
   if (decided === undefined) return { line: `PRD ${prd}: ${login} overturned the fleet's decision${item === undefined ? '' : ` on ${item}`}.`, events: [event.id] };
   const what = item === undefined ? 'approval' : decided.answer ? 'answer' : 'decision';
-  return { line: `PRD ${decided.prd}: ${decided.words}; ${login} overturned that ${what}.`, events: [decided.event, event.id] };
+  return { line: `PRD ${decided.prdSaid}: ${decided.words}; ${login} overturned that ${what}.`, events: [decided.event, event.id] };
 }
 
 /** A retro's cause as a line holds it: one line, cut to `room`; null when it reads as an instruction or writes a link or a secret. */
