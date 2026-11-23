@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { missionStore, type MissionRecord } from './store.ts';
 import { fakeMissionStore } from './store.fake.ts';
-import { numberedOf, PrdIdSchema, prdColumns, prdKeyPart, prdOfKey } from './store.prd.ts';
+import { numberedOf, PrdIdSchema, prdColumns, prdKeyPart, prdOfKey, productRunOfKey } from './store.prd.ts';
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
 const PRODUCT = parseProductPrdId('omni-loop-15');
@@ -137,5 +137,27 @@ describe('fakeMissionStore keeps a product PRD (PRD omni-loop-21 s3b): what the 
     const fake = fakeMissionStore({ mission, facts: [facts] });
     await fake.store.decideItem(mission, { prd: PRODUCT, item: 'omni-loop-15-s1-01', job: 'job-7', verdicts, decision: { outcome: 'carried', why: [], option: null } });
     expect((await fake.store.decisions(ID)).map((one) => [one.prd, one.item, one.outcome])).toEqual([['omni-loop-15', 'omni-loop-15-s1-01', 'carried']]);
+  });
+});
+
+describe("the store reads and sends a mission's product PRDs (PRD omni-loop-21 s9b)", () => {
+  it('reads a product build back from its key, and no other key', () => {
+    expect(productRunOfKey(`mission:${ID}:prd:omni-loop-15:run:2`)).toEqual({ prd: 'omni-loop-15', run: 2 });
+    for (const other of [`mission:${ID}:prd:2896:run:1`, `mission:${ID}:prd:omni-loop-15:run:1:review:1`, `mission:${ID}:prd:omni-loop-15:approve:1`]) expect(productRunOfKey(other)).toBeNull();
+  });
+
+  it('queues a product build under its key, with the line it is given', async () => {
+    const db = recordingFetch([[{ id: 'job-9' }]]);
+    const line = '/omni:ultra-yolo omni-loop-15 --base-of acme/widgets=mission/21-alone';
+    expect(await storeOn(db.fetch).products?.send({ mission, prd: PRODUCT, run: 1, line, toFleet: true })).toBe('job-9');
+    expect(db.requests[0]).toMatchObject({ method: 'POST', path: '/rest/v1/runner_jobs', body: { line, mission_key: `mission:${ID}:prd:omni-loop-15:run:1`, to_fleet: 'night-shift' } });
+  });
+
+  it('reads no product PRD for a mission whose scope names none', async () => {
+    const db = recordingFetch();
+    const numbered: MissionRecord = { ...mission };
+    delete numbered.products;
+    expect(await storeOn(db.fetch).products?.facts(numbered)).toEqual([]);
+    expect(db.requests).toEqual([]);
   });
 });

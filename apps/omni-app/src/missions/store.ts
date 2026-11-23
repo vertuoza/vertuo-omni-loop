@@ -100,13 +100,16 @@ import {
   type ProductPrdId,
   type ProductRoadmapId,
 } from 'omni-loop/kit/lib/ids.ts';
-import { isProductPrdId } from 'omni-loop/kit/lib/ids.ts';
-import { numberedOf, PrdIdSchema, prdColumns, type MissionPrd, type ProductNamed } from './store.prd.ts';
+import { isProductPrdId, productPrdParts, productRoadmapParts } from 'omni-loop/kit/lib/ids.ts';
+import { planTargets } from './branch.ts';
+import { expandMissionScope, rowsOfRoadmap, type ScopeEntry, type ScopeRow } from './expand.ts';
+import { numberedOf, PrdIdSchema, prdColumns, productRunOfKey, type MissionPrd, type ProductNamed } from './store.prd.ts';
 import { DEFAULT_RESUMES, MISSION_LEVELS, type MissionKind } from 'omni-loop/kit/lib/mission/brief.ts';
 import { BUG_STATES, BUG_TRIES, bugFixLine, bugKey, bugOfKey, type Bug, type BugJob, type BugMove } from './bug-team.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { rowsOf, serviceDb } from '../server-event/service-db.ts';
+import type { OpenItems } from './gate.ts';
 import { approveLine, committeeKey, committeeOfKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } from './answers.ts';
 import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
@@ -136,6 +139,8 @@ import {
   type MissionStatus,
   type NewEvent,
   type PrdFacts,
+  type ProductFact,
+  type ProductRun,
   type RecordedEvent,
   type RoadmapRow,
   type RoomRunner,
@@ -365,6 +370,25 @@ export type MissionStore = {
   decideItem: (mission: MissionRecord, one: ItemDecide) => Promise<ItemDecision>;
   /** Every decision the mission's committee recorded, an approval's and an item's, in the order they were taken: what landing lists. */
   decisions: (id: string) => Promise<FleetDecision[]>;
+  /** The product PRDs of the scope, their builds and their sends (PRD omni-loop-21 s9b); absent, none is read or sent. */
+  products?: MissionProducts;
+};
+
+/** A product PRD of the scope as the store reads it (PRD omni-loop-21 s9b): its facts, and its open items as the server holds them. */
+export type StoredProduct = ProductFact & { items: OpenItems };
+
+/** A product PRD's build to send: the mission, the PRD, its run, its line (`/omni:ultra-yolo <id> --base-of …`) and where it goes. */
+export type ProductSend = { mission: MissionRecord; prd: ProductPrdId; run: number; line: string; toFleet: boolean };
+
+/**
+ * A mission's product PRDs (PRD omni-loop-21 s9b), as the service role: the scope's product PRDs and each product roadmap's rows in wave
+ * order (./expand.ts), each with its approval, its blockers, its plan's repositories and its open items; the builds sent for them
+ * (`mission:<id>:prd:<key>-<n>:run:<k>`); a build queued under its key, null when the key was held.
+ */
+export type MissionProducts = {
+  facts: (mission: MissionRecord) => Promise<StoredProduct[]>;
+  runs: (id: string) => Promise<ProductRun[]>;
+  send: (job: ProductSend) => Promise<string | null>;
 };
 
 /** The most times a step is sent again after ending halfway (`mandate.resumes`, 0 to 10: PRD omni-loop-21). */
@@ -497,6 +521,10 @@ export const RoomJobRowSchema = z.object({ runner_id: z.string().nullable() });
 /** The most resumes one job's chain holds: three tries and six waits, the first job apart (PRD 2949). */
 const CHAIN_MAX = 9;
 export const ProductRowSchema = z.object({ plan_repository: z.string().nullable() });
+/** PRD omni-loop-21 s9b: a product's or a dossier's id; an item of a product PRD, with its settlements (none: open). */
+const IdRowSchema = z.object({ id: text });
+const PRODUCT_ITEM = 'item, rank, outbox_settlements(verdict)';
+const ProductItemRowSchema = z.object({ item: text, rank: text, outbox_settlements: z.array(z.looseObject({})) });
 export const RepairRowSchema = z.object({
   id: text,
   /** None only for a stuck repair whose cause is the mission's own (PRD 3065); a product PRD's id (PRD omni-loop-21 s3b). */
@@ -885,9 +913,72 @@ export function missionStore(connection: Connection): MissionStore {
     },
   };
 
+  /** The dossier of a product's PRD (`prd`) or roadmap (`roadmap`), numbered `seq`, among the workspace's products keyed `key`; null when none. */
+  async function productDossier(mission: MissionRecord, { key, seq, kind }: { key: string; seq: number; kind: 'prd' | 'roadmap' }): Promise<string | null> {
+    const products = rowsOf(IdRowSchema, await db.from('products').select('id').eq('workspace_id', mission.workspace).eq('key', key).is('archived_at', null).order('created_at'));
+    for (const { id } of products) {
+      const [dossier] = rowsOf(IdRowSchema, await db.from('dossiers').select('id').eq('product_id', id).eq('kind', kind).eq('product_seq', seq).limit(1));
+      if (dossier !== undefined) return dossier.id;
+    }
+    return null;
+  }
+
+  /** The latest version of `kind` (`plan`, `roadmap`) a dossier holds; null when it holds none. */
+  async function latestOf(dossier: string | null, kind: 'plan' | 'roadmap'): Promise<string | null> {
+    if (dossier === null) return null;
+    const [version] = rowsOf(PlanRowSchema, await db.from('dossier_versions').select(PLAN).eq('dossier_id', dossier).eq('kind', kind).order('created_at', { ascending: false }).limit(1));
+    return version?.content ?? null;
+  }
+
+  /** A product PRD's open items as the server holds them: each with no settlement (PRD 1548 s7-03), in the order raised. */
+  async function productItems(dossier: string | null): Promise<OpenItems> {
+    if (dossier === null) return { notRead: 'its page is not found on the Omni page' };
+    const rows = rowsOf(ProductItemRowSchema, await db.from('outbox_items').select(PRODUCT_ITEM).eq('dossier_id', dossier).order('raised_at').order('item'));
+    const open = rows.filter((row) => row.outbox_settlements.length === 0).map(({ item, rank }) => ({ id: item, rank }));
+    return { ranks: open.map(({ rank }) => rank), open };
+  }
+
+  /** The scope's product PRDs in order (./expand.ts): those it names, then each product roadmap's rows in wave order, repository rows left out. */
+  async function productScope(mission: MissionRecord, named: { prds: readonly ProductPrdId[]; roadmaps: readonly ProductRoadmapId[] }): Promise<ScopeEntry[]> {
+    const roadmaps: ScopeRow[][] = [];
+    for (const id of named.roadmaps) {
+      const text = await latestOf(await productDossier(mission, { ...productRoadmapParts(id), kind: 'roadmap' }), 'roadmap');
+      const read = text === null ? null : rowsOfRoadmap(text);
+      if (read?.ok === true) roadmaps.push(read.rows);
+    }
+    return expandMissionScope([...named.prds], roadmaps).filter((entry) => isProductPrdId(entry.prd));
+  }
+
+  /** The mission's product PRDs (PRD omni-loop-21 s9b). */
+  const products: MissionProducts = {
+    async facts(mission) {
+      if (mission.products === undefined) return [];
+      const owner = mission.repo.split('/')[0] ?? '';
+      const out: StoredProduct[] = [];
+      for (const { prd, blockers } of await productScope(mission, mission.products)) {
+        if (!isProductPrdId(prd)) continue;
+        const page = await productDossier(mission, { ...productPrdParts(prd), kind: 'prd' });
+        const approved = page === null ? new Map<string, { voided: boolean; overturned: boolean }>() : await approvals([page], mission.id, new Map());
+        const plan = await latestOf(page, 'plan');
+        out.push({ prd, approval: approvalOf(page === null ? null : (approved.get(page) ?? null)), blockers, targets: plan === null ? [] : planTargets(plan, owner), items: await productItems(page) });
+      }
+      return out;
+    },
+
+    async runs(id) {
+      return (await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }): ProductRun[] => {
+        const key = row.mission_key === null ? null : productRunOfKey(row.mission_key);
+        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
+      });
+    },
+
+    send: ({ mission, prd, run, line, toFleet }) => queue({ mission, toFleet, line, key: missionKey(mission.id, prd, run) }),
+  };
+
   return {
     retros,
     bugTeam,
+    products,
 
     async mission(id) {
       const [row] = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('id', id).limit(1));

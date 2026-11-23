@@ -31,6 +31,13 @@ export function prdOfKey(key: string): MissionPrd | null {
 /** The part of a job key that names its PRD: `prd:2896` or `prd:omni-loop-15`. */
 export const prdKeyPart = (prd: MissionPrd): string => `prd:${String(prd)}`;
 
+/** The product PRD and run a build's key names (`mission:<id>:prd:<key>-<n>:run:<k>`, PRD omni-loop-21 s9b); null for any other key. */
+export function productRunOfKey(key: string): { prd: ProductPrdId; run: number } | null {
+  const match = /^mission:[0-9a-f-]{36}:prd:([^:]+):run:([1-9][0-9]*)$/.exec(key);
+  const prd = ProductPrdIdSchema.safeParse(match?.[1]);
+  return match !== null && prd.success ? { prd: prd.data, run: Number(match[2]) } : null;
+}
+
 /** A product PRD's id, beside a `prd` left null, on a row read for a reader that knows a repository PRD's number only. */
 export type ProductNamed = { product?: ProductPrdId };
 

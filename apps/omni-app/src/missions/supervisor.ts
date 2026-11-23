@@ -1213,6 +1213,74 @@ export function eventsOf({
   return unrecorded(all, keys);
 }
 
+// ── Product PRDs (PRD omni-loop-21 s9b, item s7-05) ──────────────────────────────
+// A product PRD of the scope (`<key>-<n>`, or a row of a product roadmap `<key>-R<n>`, expanded by ./expand.ts) runs beside the
+// repository's PRDs, on the mission branch of every repository its plan names: held until its blockers joined, built once its approval
+// stands with `/omni:ultra-yolo <id> --base-of …` (no QA pair, no Reviewer: its target pull requests carry its gate), joined through
+// ./join.ts › joinProduct once its build ended Ready. Any other end waits for a person: its resume, repair and committee are not read.
+
+/** A product PRD of the scope, as a run read it: its approval, the PRDs it waits on, and its plan's repositories. */
+export type ProductFact = { prd: ProductPrdId; approval: Approval; blockers: readonly MissionPrd[]; targets: readonly string[] };
+
+/** One build the mission sent for a product PRD: its run, its job and its attempts, the job's first. */
+export type ProductRun = { prd: ProductPrdId; run: number; job: string; attempts: Attempt[] };
+
+/** Where a product PRD is: on the branch, held by its blockers, waiting for a person, its build to send or at work, or to join. */
+export type ProductState =
+  | { state: 'joined' }
+  | { state: 'blocked'; by: readonly MissionPrd[] }
+  | { state: 'waits'; why: string }
+  | { state: 'startable'; run: number }
+  | { state: 'running' }
+  | { state: 'ready'; run: ProductRun };
+
+/** The product PRD's latest build, the one with the highest run. */
+const latestProduct = (runs: readonly ProductRun[], prd: ProductPrdId): ProductRun | null =>
+  runs.filter((one) => one.prd === prd).reduce<ProductRun | null>((last, one) => (last === null || one.run > last.run ? one : last), null);
+
+/** Where a product PRD stands once its build ended. */
+function productEnded(fact: ProductFact, latest: ProductRun, last: Attempt): ProductState {
+  const end = endOf(last);
+  if (end === 'ready') return { state: 'ready', run: latest };
+  if (end === 'lost' || end === 'limited') return { state: 'running' };
+  const why = end === 'failed' && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? 'without its result line'}`;
+  return { state: 'waits', why: `PRD ${fact.prd}: ${why}; take it to ready by hand and the mission joins it` };
+}
+
+/**
+ * Where product PRD `fact` is (PRD omni-loop-21 s9b): joined once recorded on the branch (`joined`), else held until each blocker is
+ * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join.
+ */
+export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch }: { joined: ReadonlySet<MissionPrd>; done: ReadonlySet<MissionPrd>; branch: string }): ProductState {
+  if (joined.has(fact.prd)) return { state: 'joined' };
+  const latest = latestProduct(runs, fact.prd);
+  const last = latest?.attempts.at(-1);
+  if (latest !== null && last !== undefined) return endOf(last) === null ? { state: 'running' } : productEnded(fact, latest, last);
+  const by = fact.blockers.filter((one) => !done.has(one));
+  if (by.length > 0) return { state: 'blocked', by };
+  if (fact.approval !== 'standing') return { state: 'waits', why: `PRD ${fact.prd}: ${fact.approval === 'voided' ? 'approve it again' : 'approve it'} on its page (${branch})` };
+  return { state: 'startable', run: 1 };
+}
+
+/** What the product PRDs left for the mission: whether one is not on the branch yet, one moved or is at work, and what they wait on. */
+export type ProductsRun = { pending: boolean; moving: boolean; waits: readonly string[] };
+
+/**
+ * The mission's conclusion once its product PRDs are read (PRD omni-loop-21 s9b): never delivered while one is not on the branch,
+ * running while one moved or is at work, else waiting on what they wait on. Paused or a draft: as it is.
+ */
+export function withProducts(next: Concluded, products: ProductsRun, now: number): Concluded {
+  if (next.status === 'paused' || next.status === 'draft' || (!products.pending && products.waits.length === 0)) return next;
+  const wake = new Date(now + WAKE_MS).toISOString();
+  // Every product PRD on the branch: a mission that would stop for want of a PRD to start waits for a person to land it instead.
+  if (!products.pending) return next.status === 'stopped' ? { status: 'waiting', waitingOn: fitted(products.waits, ' · '), nextWakeAt: wake } : next;
+  const status: MissionStatus = products.moving || next.status === 'running' ? 'running' : 'waiting';
+  // A stopped or delivered conclusion speaks of the repository's PRDs alone: what the product PRDs wait on replaces it.
+  const own = next.status === 'delivered' || next.status === 'stopped' || next.waitingOn === null ? [] : [next.waitingOn];
+  const parts = [...products.waits, ...own];
+  return { status, waitingOn: parts.length === 0 ? null : fitted(parts, ' · '), nextWakeAt: wake };
+}
+
 /** `events`, each whose keys none of `recorded` holds, in order, its sentence cut to what the database keeps; `recorded` gains their keys. */
 export function unrecorded(events: readonly NewEvent[], recorded: Set<string>): NewEvent[] {
   return events.flatMap((event) => {

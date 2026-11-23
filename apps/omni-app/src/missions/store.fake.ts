@@ -9,7 +9,7 @@
 // kept once per repository, an item committee's decision recorded once (escalated off `alone`, as mission_decide_item() does) and
 // every decision of the committee listed in order. A product PRD's events, repairs and item decisions kept under its id, read as the
 // store reads them (PRD omni-loop-21 s3b). No database, no model call.
-import { parseIssue, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, type IssueNumber, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { bugFixOf, repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
 import { retroKey, retroSkillLine, type ItemRow, type MissionRetro, type RetroJob, type RetroRow, type RoadmapScope } from './milestone.ts';
@@ -18,11 +18,11 @@ import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
 import { numberedOf, type MissionPrd } from './store.prd.ts';
-import { resumeKey, type NewStoredEvent, type StoredRepair, type FleetDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
+import { resumeKey, type MissionProducts, type StoredProduct, type NewStoredEvent, type StoredRepair, type FleetDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
 import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team.ts';
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
-import { baseOf, lineOf, missionKey, type Attempt, type MissionStatus, type RoomRunner, type PrdFacts, type Step } from './supervisor.ts';
+import { baseOf, lineOf, missionKey, type Attempt, type ProductRun, type MissionStatus, type RoomRunner, type PrdFacts, type Step } from './supervisor.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
 type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[]; resume: number };
@@ -42,7 +42,7 @@ const storedRepairOf = ({ prd, ...row }: FakeRepair): StoredRepair => ({ ...row,
 const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
-export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [], now = Date.now, retros: milestones, team }: {
+export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [], now = Date.now, retros: milestones, team, products: seeded }: {
   mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null;
   /** PRDs with a page that are in no scope yet (PRD 2896 s12): read as facts once the mission's scope names them, as a PRD its PM wrote. */
   pages?: PrdFacts[];
@@ -58,6 +58,11 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
    * team is to tell that a bug moved (s5). Absent, it has none.
    */
   team?: { bugs: Bug[]; holders?: { id: string; repo: string }[] };
+  /**
+   * PRD omni-loop-21 s9b: the store reads the scope's product PRDs, these (expanded from its product roadmaps, in order), and keeps the
+   * builds sent for them. Absent, it has none, and the mission runs its repository's PRDs only, as before.
+   */
+  products?: StoredProduct[];
 }) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
@@ -179,9 +184,26 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     holders: () => Promise.resolve((team?.holders ?? []).map((one) => ({ ...one }))),
   };
 
+  /** PRD omni-loop-21 s9b: the scope's product PRDs as the store reads them (expanded, in order), and the builds queued for them. */
+  let productFacts: StoredProduct[] = (seeded ?? []).map((one) => ({ ...one }));
+  const productJobs: (ProductRun & { key: string; line: string; toFleet: string | null })[] = [];
+  const productStore: MissionProducts = {
+    facts: () => Promise.resolve(productFacts.map((one) => ({ ...one, blockers: [...one.blockers], targets: [...one.targets] }))),
+    runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts }) => ({ prd, run, job, attempts: attempts.map((one) => ({ ...one })) }))),
+    send: ({ mission: sent, prd, run, line, toFleet }) => {
+      const key = missionKey(sent.id, prd, run);
+      if (productJobs.some((one) => one.key === key)) return Promise.resolve(null);
+      made += 1;
+      const id = `job-${String(made)}`;
+      productJobs.push({ prd, run, job: id, attempts: [queued(id)], key, line, toFleet: toFleet ? sent.fleet : null });
+      return Promise.resolve(id);
+    },
+  };
+
   const store: MissionStore = {
     ...(milestones === undefined ? {} : { retros }),
     ...(team === undefined ? {} : { bugTeam }),
+    ...(seeded === undefined ? {} : { products: productStore }),
     mission: (id) => Promise.resolve(id === record.id ? { ...record } : null),
     facts: (read) => Promise.resolve([...current, ...pages.filter((page) => read.scope.prds.includes(page.prd) && !current.some((fact) => fact.prd === page.prd))].map((fact) => ({ ...fact }))),
     runs: () => {
@@ -572,6 +594,18 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     /** The next `count` reads of the runs wait for one another, as two runs at once would read. */
     together: (count: number) => {
       together = count;
+    },
+    /** PRD omni-loop-21 s9b: the builds queued for the product PRDs, in order. */
+    productJobs: () => productJobs.map((one) => ({ ...one, attempts: one.attempts.map((each) => ({ ...each })) })),
+    /** PRD omni-loop-21 s9b: the product PRD's latest build ends (or runs) as `change` says. */
+    endProduct: (prd: ProductPrdId, change: Partial<Attempt>) => {
+      const attempt = productJobs.filter((one) => one.prd === prd).at(-1)?.attempts.at(-1);
+      if (!attempt) throw new Error(`no build of PRD ${prd} was sent`);
+      Object.assign(attempt, change);
+    },
+    /** PRD omni-loop-21 s9b: the product PRD's facts change, as its page would (an approval, an item answered). */
+    setProduct: (prd: ProductPrdId, change: Partial<StoredProduct>) => {
+      productFacts = productFacts.map((one) => (one.prd === prd ? { ...one, ...change } : one));
     },
   };
 }
