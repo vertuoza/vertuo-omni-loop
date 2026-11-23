@@ -1,5 +1,6 @@
 'use client';
-import { Badge, Button, EmptyState, Kbd, SegmentedControl } from '@omni/ui';
+import type { IconName } from '@omni/design';
+import { Badge, Button, EmptyState, Icon, Kbd, SegmentedControl } from '@omni/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode } from 'react';
 import type { QuestionSource } from '../ask/page/AskQuestion';
@@ -8,6 +9,7 @@ import { useWaiting, type Waiting } from '../waiting/WaitingProvider';
 import { inboxOf, type Inbox, type InboxFilter, type InboxRow, type InboxSectionId } from './inbox';
 import { drawnSections, hrefOf, inputOf, nextOpen, problemsOf, rowWords, unreadCounted, type InboxParts } from './InboxScreen.model';
 import { ItemPanel, QuestionPanel } from './InboxScreen.panel';
+import './inbox-open.css';
 import { actionOf, isTyping, listKey, ownsArrows, type KeyAction } from './keys';
 
 // The Inbox's Open tab (PRD omni-loop-22, s5): the kind chips, then one list in sections, each shown
@@ -36,18 +38,48 @@ type Counts = Pick<Waiting['counts'], 'questions' | 'approvals' | 'outbox' | 're
 const CHIP = (filter: InboxFilter) => (filter.shared ? 'shared' : filter.kind);
 
 function chipsOf(counts: Counts) {
-  const label = (words: string, n: number) => <>{words} <span className="inbox-chip-count">{n}</span></>;
+  const option = (id: string, label: string, n: number, href: string) => ({ id, label, count: String(n), href });
   return [
-    { id: 'all', label: label('All', counts.total), href: '/app/inbox' },
-    { id: 'question', label: label('Questions', counts.questions), href: '/app/inbox?kind=question' },
-    { id: 'approval', label: label('Approvals', counts.approvals), href: '/app/inbox?kind=approval' },
-    { id: 'outbox', label: label('Outbox', counts.outbox), href: '/app/inbox?kind=outbox' },
-    { id: 'review', label: label('Reviews', counts.reviews), href: '/app/inbox?kind=review' },
-    { id: 'shared', label: label('Shared with me', counts.shared), href: '/app/inbox?from=shared' },
+    option('all', 'All', counts.total, '/app/inbox'),
+    option('question', 'Questions', counts.questions, '/app/inbox?kind=question'),
+    option('approval', 'Approvals', counts.approvals, '/app/inbox?kind=approval'),
+    option('outbox', 'Outbox', counts.outbox, '/app/inbox?kind=outbox'),
+    option('review', 'Reviews', counts.reviews, '/app/inbox?kind=review'),
+    option('shared', 'Shared with me', counts.shared, '/app/inbox?from=shared'),
   ];
 }
 
-/** One row: a link to the item's page, its words, its age and badges; "✓ Answered" once sent here. */
+/** The pixel icon that anchors a row: what kind of wait it is (a face needs a person, which the waiting list does not name). */
+function anchorOf(row: InboxRow): IconName {
+  switch (row.kind) {
+    case 'question': return 'tone-info';
+    case 'approval': return 'check';
+    case 'outbox': return 'outbox';
+    case 'review': return row.item.kind === 'merge' ? 'roadmap' : row.item.kind === 'law' ? 'settings' : 'prds';
+    case 'runner': return 'runners';
+    case 'update': return 'home';
+  }
+}
+
+/** The row's quiet line: "Blocking" in the info role, then the kind as a word, then where it is from. */
+function QuietLine({ row, words }: { row: InboxRow; words: ReturnType<typeof rowWords> }) {
+  const kinds = words.badges.filter((b) => b !== 'Blocking' && b !== 'Shared').map((b) => (row.kind === 'outbox' ? `Outbox · ${b}` : b));
+  const where = row.kind === 'outbox' ? words.context.replace(/ · outbox item$/, '') : words.context;
+  const parts = [
+    ...(words.badges.includes('Blocking') ? [<span key="blocking" className="inbox-r-flag">Blocking</span>] : []),
+    ...kinds.map((k) => <span key={k} className="inbox-r-kind">{k}</span>),
+    <span key="where">{where}</span>,
+  ];
+  return (
+    <span className="inbox-r-quiet">
+      {parts.map((part, i) => (
+        <span key={i} className="inbox-r-part">{i > 0 && <span className="inbox-r-sep" aria-hidden="true">·</span>}{part}</span>
+      ))}
+    </span>
+  );
+}
+
+/** One row, on the shared anatomy: an icon, the title, one quiet line and the age; "✓ Answered" once sent here. */
 function Row({ row, now, open, sent, onChoose, onFocus }: { row: InboxRow; now: number; open: boolean; sent: boolean; onChoose: (key: string) => void; onFocus: (key: string) => void }) {
   const words = rowWords(row, now);
   const choose = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -56,14 +88,14 @@ function Row({ row, now, open, sent, onChoose, onFocus }: { row: InboxRow; now: 
     onChoose(row.key);
   };
   return (
-    <a className="inbox-row" href={hrefOf(row)} data-key={row.key} aria-current={open ? 'true' : undefined} onClick={choose} onFocus={() => { onFocus(row.key); }}>
-      <span className="inbox-row-main">
-        <span className="inbox-context">{words.context}</span>
-        <span className="inbox-row-text">{words.text}</span>
+    <a className="inbox-r" href={hrefOf(row)} data-key={row.key} aria-current={open ? 'true' : undefined} onClick={choose} onFocus={() => { onFocus(row.key); }}>
+      <span className="inbox-r-anchor"><span className="inbox-open-icon"><Icon name={anchorOf(row)} /></span></span>
+      <span className="inbox-r-main">
+        <span className="inbox-r-title">{words.text}</span>
+        <QuietLine row={row} words={words} />
       </span>
-      <span className="inbox-row-end">
-        {words.age && <span className="inbox-age" suppressHydrationWarning>{words.age}</span>}
-        {sent ? <Badge tone="success">✓ Answered</Badge> : words.badges.map((b) => <Badge key={b} tone={b === 'Blocking' ? 'info' : 'neutral'}>{b}</Badge>)}
+      <span className="inbox-r-end">
+        {sent ? <Badge tone="success">✓ Answered</Badge> : words.age && <span suppressHydrationWarning>{words.age}</span>}
       </span>
     </a>
   );
@@ -91,7 +123,12 @@ export function InboxOpenView({ inbox, problems, counts, filter, now, open, sent
   const zero = inbox.count === 0 && !unreadCounted(problems) && filter.kind === 'all' && !filter.shared;
   return (
     <div className="inbox-open">
-      <SegmentedControl label="Show" size="sm" options={chipsOf(counts)} value={CHIP(filter)} link={Link} />
+      <div className="inbox-toolbar">
+        <SegmentedControl label="Show" size="sm" variant="pills" options={chipsOf(counts)} value={CHIP(filter)} link={Link} />
+        {inbox.rows.length > 0 && (
+          <span className="inbox-toolbar-end"><Kbd size="small">j</Kbd> <Kbd size="small">k</Kbd> move · <Kbd size="small">↵</Kbd> open · <Kbd size="small">o</Kbd> its page · <Kbd size="small">e</Kbd> clears an update</span>
+        )}
+      </div>
       {zero && (
         <EmptyState title="Nothing waits on you." action={<Button variant="quiet" href="/app/inbox/workspace">See what waits on others →</Button>}>
           New questions land here the moment an agent asks.
@@ -100,8 +137,8 @@ export function InboxOpenView({ inbox, problems, counts, filter, now, open, sent
       <div className={wide ? 'inbox-split' : 'inbox-stack'}>
         <div className="inbox-list">
           {sections.map((section) => (
-            <section key={section.id} className="inbox-section" aria-label={section.title} data-section={section.id}>
-              <h2 className="inbox-section-title">
+            <section key={section.id} className="inbox-group" aria-label={section.title} data-section={section.id}>
+              <h2 className="inbox-group-head">
                 {section.title} <span className="inbox-section-count">{section.counted ? section.rows.length : `${section.rows.length} · not counted`}</span>
               </h2>
               {section.problem && <p className="inbox-problem" role="status">{section.problem}</p>}
@@ -114,9 +151,6 @@ export function InboxOpenView({ inbox, problems, counts, filter, now, open, sent
             </section>
           ))}
           {notice && <p className="inbox-notice" role="status">{notice}</p>}
-          {inbox.rows.length > 0 && (
-            <p className="inbox-hint"><Kbd size="small">j</Kbd> <Kbd size="small">k</Kbd> move · <Kbd size="small">↵</Kbd> open · <Kbd size="small">o</Kbd> its page · <Kbd size="small">e</Kbd> clears an update</p>
-          )}
         </div>
         {wide && openRow && <div className="inbox-side">{panelOf(openRow)}</div>}
       </div>
@@ -197,10 +231,11 @@ export function InboxOpen({ source, me, filter }: { source: QuestionSource; me: 
     return () => { window.removeEventListener('keydown', onKey); };
   }, [inbox, focus, open]);
 
+  const questions = inbox.rows.filter((r) => r.kind === 'question');
   const panelOf = (row: InboxRow): ReactNode => {
     if (row.kind !== 'question') return <ItemPanel key={row.key} row={row} now={now} />;
     if (sent.has(row.key)) return null;
-    return <QuestionPanel key={row.key} roundId={row.item.id} context={rowWords(row, now).context} source={source} me={me} onSent={onSent} />;
+    return <QuestionPanel key={row.key} roundId={row.item.id} context={rowWords(row, now).context} place={{ n: questions.findIndex((q) => q.key === row.key) + 1, of: questions.length }} source={source} me={me} onSent={onSent} />;
   };
 
   return (

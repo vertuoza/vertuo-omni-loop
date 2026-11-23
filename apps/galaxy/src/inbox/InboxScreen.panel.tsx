@@ -1,5 +1,5 @@
 'use client';
-import { Badge, Button } from '@omni/ui';
+import { Button, Kbd } from '@omni/ui';
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { emptyDraft, roundAnswers, type Draft } from '../ask/answer-model';
 import { askClient, AskSignedOut } from '../ask/ask.client';
@@ -149,6 +149,8 @@ type QuestionPanelProps = {
   initial?: QuestionState | null;
   /** The clock to start from: the render tests' fixed time. */
   now?: number;
+  /** Which of the open questions this one is: "Question 1 of 3". */
+  place?: { n: number; of: number };
 };
 
 /** Send, once the answers are whole and nothing is on its way: what came of it lands on the round read,
@@ -183,7 +185,7 @@ function ReadRound({ state, view, ...body }: Parameters<typeof RoundBody>[0]) {
 }
 
 /** A question, open in the panel: its round read, then today's answer form. */
-export function QuestionPanel({ roundId, context, source, me, onSent, initial = null, now: start }: QuestionPanelProps) {
+export function QuestionPanel({ roundId, context, source, me, onSent, initial = null, now: start, place }: QuestionPanelProps) {
   const port = useMemo(() => portOf(source, roundId), [source, roundId]);
   const [read, setRead] = useRound(port, initial);
   const now = useClock(start);
@@ -194,13 +196,17 @@ export function QuestionPanel({ roundId, context, source, me, onSent, initial = 
   useSendChord(send, ready);
   return (
     <section className="inbox-panel" aria-label="The open question" data-open={`question:${roundId}`}>
-      <div className="inbox-panel-head">
-        <p className="inbox-context">{context}</p>
-        <div className="inbox-badges"><Badge tone="info">Blocking: the agent waits</Badge></div>
+      <div className="inbox-panel-top">
+        <span className="inbox-r-flag">Blocking</span>
+        {place && <span>Question {place.n} of {place.of}</span>}
+        <span className="inbox-panel-page">
+          <Button variant="quiet" size="sm" href={`/ask/q/${encodeURIComponent(roundId)}`}>Open its page ↗</Button>
+          <Kbd size="small">o</Kbd>
+        </span>
       </div>
+      <p className="inbox-context">{context}</p>
       <StatusLine problem={problem} read={read} />
       {read.state && view && <ReadRound state={read.state} view={view} form={form} onDraft={setDraft} sending={sending} send={send} now={now} />}
-      <div className="inbox-panel-foot"><Button variant="quiet" size="sm" href={`/ask/q/${encodeURIComponent(roundId)}`}>Open full page</Button></div>
     </section>
   );
 }
@@ -226,10 +232,13 @@ export function ItemPanel({ row, now }: { row: Exclude<InboxRow, { kind: 'questi
   const words = rowWords(row, now);
   return (
     <section className="inbox-panel" aria-label="The open item" data-open={row.key}>
+      <div className="inbox-panel-top">
+        {words.badges.map((b) => <span key={b} className="inbox-r-kind">{b}</span>)}
+        {words.age && <span>{words.age}</span>}
+      </div>
       <div className="inbox-panel-head">
-        <p className="inbox-context">{words.context}</p>
         <h2 className="inbox-panel-title">{words.text}</h2>
-        <div className="inbox-badges">{words.badges.map((b) => <Badge key={b}>{b}</Badge>)}{words.age && <span className="inbox-muted">{words.age}</span>}</div>
+        <p className="inbox-context">{words.context}</p>
       </div>
       <p className="inbox-muted">{WHAT_WAITS[row.kind]}</p>
       <div className="inbox-panel-foot"><Button variant="primary" href={hrefOf(row)} external={row.kind === 'review'}>{OWN_PAGE[row.kind]}</Button></div>
