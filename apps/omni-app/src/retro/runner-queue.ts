@@ -12,6 +12,10 @@
 //   found       a job of that workspace, for that repository, with that line, whatever its sender or
 //               status: a replay of the retro, or its day-14 run on the same retro PR, finds it again
 //               and queues no second one
+//   no runner   no runner of the workspace could ever take it: none with no fleet holds the repository
+//               (`runner_claim()` gives a job sent to any runner only to those). Nothing is queued, so the
+//               runners page shows no job that Cannot run; the line stays in the retro PR's body for a
+//               person to run, and a replay of the retro once a runner holds the repository queues it
 //   insert      else the job, queued for any runner of the workspace that holds the repository
 //
 // The retro runs one at a time per repository (`CONCURRENCY` in ./retro.ts), so the lookup and the
@@ -39,6 +43,9 @@ export const IdRowSchema = z.object({ id: z.string().min(1) });
 /** A repository of a workspace, read for when its owner removed it: null while it is listed. */
 export const RemovedRowSchema = z.object({ removed_at: z.string().nullable() });
 
+/** A runner of the workspace that could take a job sent to any runner, read for its id. */
+export const RunnerRowSchema = IdRowSchema;
+
 /** The queue, as the service role on `connection`. */
 export function runnerQueue(connection: Connection): ApplyQueue {
   const db = serviceDb(connection);
@@ -55,6 +62,12 @@ export function runnerQueue(connection: Connection): ApplyQueue {
       await db.from('runner_jobs').select('id').eq('workspace_id', workspace.id).eq('repo', repo).eq('line', line).order('queued_at').limit(1),
     );
     if (found) return { job: found.id, created: false, reason: null };
+
+    const [able] = rowsOf(
+      RunnerRowSchema,
+      await db.from('runners').select('id').eq('workspace_id', workspace.id).is('fleet', null).contains('repos', [repo]).limit(1),
+    );
+    if (!able) return { job: null, created: false, reason: `no runner of the workspace holds ${repo}` };
 
     const [made] = rowsOf(IdRowSchema, await db.from('runner_jobs').insert({ workspace_id: workspace.id, repo, line, sent_by_app: APP_SENDER }).select('id'));
     if (!made) throw new Error('the database queued no job and gave no reason');
