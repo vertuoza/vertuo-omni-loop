@@ -4,7 +4,7 @@
 // every other workspace), the workspaces' members and the filters in the address. Each row opens
 // /ask/q/<round>.
 import { readQuestions } from '../answer-model';
-import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
+import { CATEGORIES, CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import { one, type Query } from '../../nav/query';
 import type { Face } from '../../people/face';
 import { faceOfMember, nameOf, type Member } from './question';
@@ -162,7 +162,7 @@ export function categoryCounts(rows: HistoryRow[], filters: HistoryFilters): Cat
     const id = isCategory(row.round.category) ? row.round.category : 'unsorted';
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
-  const order: Array<Category | 'unsorted'> = [...(Object.keys(CATEGORY_LABELS) as Category[]), 'unsorted'];
+  const order: Array<Category | 'unsorted'> = [...CATEGORIES, 'unsorted'];
   return order
     .filter((id) => (counts.get(id) ?? 0) > 0)
     .map((id) => ({ id, label: id === 'unsorted' ? 'Unsorted' : CATEGORY_LABELS[id], count: counts.get(id) ?? 0 }));
