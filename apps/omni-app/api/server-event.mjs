@@ -23075,9 +23075,9 @@ var PmRecordSchema = z92.object({
   prds: z92.array(PrdNumberSchema).max(OWN_PRDS_MAX),
   unwritten: z92.array(z92.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
 });
-function pmSkillFor(left, planRepository, goalOnly = false) {
+function pmSkillFor(left, planRepository, goalOnly2 = false) {
   if (!Number.isInteger(left) || left < 1) return null;
-  const one = left === 1 && !goalOnly;
+  const one = left === 1 && !goalOnly2;
   if (planRepository) return one ? "mega-brainstorm" : "mega-roadmap";
   return one ? "brainstorm" : "roadmap";
 }
@@ -23134,63 +23134,6 @@ function idOf(value) {
   }
 }
 
-// apps/omni-app/src/missions/pm.ts
-var PM_ROUND = 1;
-var KEY4 = /^mission:([0-9a-f-]{36}):pm:([1-9][0-9]*)$/;
-var pmKey = (mission, round) => `mission:${mission}:pm:${String(round)}`;
-function pmRoundOfKey(key) {
-  const match = KEY4.exec(key);
-  return match ? Number(match[2]) : null;
-}
-function addedOf(recorded) {
-  const added = [];
-  for (const event of recorded) if (event.kind === "prd-added" && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
-  return added;
-}
-var isOwnJob = ({ line: line3 }) => planOfLine(line3) === null;
-function pmNext({ mission, ownPrds, added, jobs, inPlan }) {
-  if (mission.level !== "alone" || !sendsCommittees(mission.status) || jobs.some(isOwnJob)) return { next: "none" };
-  const left = ownPrds - added;
-  const skill = pmSkillFor(left, inPlan);
-  if (skill === null) return { next: "none" };
-  return { next: "send", round: PM_ROUND, skill, cap: left, line: pmJobLine(skill, mission.number, left) };
-}
-var pmWorking = ({ attempt: attempt3 }) => attempt3.status === "queued" || attempt3.status === "claimed" || attempt3.status === "running";
-var capOf = (line3) => Number(/ --cap ([1-9][0-9]*)/.exec(line3)?.[1] ?? 0);
-var skillWords = (line3) => {
-  const skill = /^\/omni:([a-z-]+)/.exec(line3)?.[1] ?? "";
-  return isPmSkill(skill) ? `/omni:${skill}` : "the PM's job";
-};
-function pmEvents(mission, one, log2, held2, recorded) {
-  if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== "dispatched")) return [];
-  const record = one.attempt.status === "done" && log2 !== null ? pmRecordOf(log2, mission.number) : null;
-  const cap = capOf(one.line);
-  if (record === null) {
-    const why = one.attempt.status === "done" ? "ended with no record" : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
-    return [{ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
-  }
-  const { added, unwritten } = keptOf2(record, cap, held2);
-  const events = added.map((prd) => ({ kind: "prd-added", role: "pm", prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
-  for (const title of unwritten) events.push({ kind: "not-written", role: "pm", prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
-  if (events.length === 0) events.push({ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
-  return events;
-}
-var pmDispatched = (job, next) => ({
-  kind: "dispatched",
-  role: "supervisor",
-  prd: null,
-  job,
-  link: null,
-  sentence: `Sent the PM /omni:${next.skill} for the mission's goal: ${String(next.cap)} PRD${next.cap === 1 ? "" : "s"} at most.`
-});
-function withAdded(scope, added) {
-  return [...scope, ...added.filter((prd) => !scope.includes(prd))];
-}
-function withPm(next, writing, wakeAt2) {
-  if (!writing || next.status === "paused" || next.status === "draft" || next.status === "running") return next;
-  return { status: "running", waitingOn: next.status === "waiting" ? next.waitingOn : null, nextWakeAt: wakeAt2 };
-}
-
 // apps/omni-app/src/missions/store.prd.ts
 import { z as z93 } from "zod";
 var PrdIdSchema = z93.union([
@@ -23234,11 +23177,11 @@ var WAKE_MS = 6e4;
 var WORDS_MAX = 300;
 var LAST_RUN = 2;
 var ROUNDS = 2;
-var KEY5 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1|qa:[12]|qa-fix:1:[1-5]))?$/;
+var KEY4 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1|qa:[12]|qa-fix:1:[1-5]))?$/;
 var missionKey = (mission, prd, run, step = "build") => `mission:${mission}:${prdKeyPart(prd)}:run:${String(run)}${step === "build" ? "" : `:${step}`}`;
 var isStep = (text20) => STEPS.some((step) => step === text20);
 function runOfKey(key) {
-  const match = KEY5.exec(key);
+  const match = KEY4.exec(key);
   const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
   const step = match?.[4] ?? "build";
   return match && prd.success && isStep(step) ? { prd: prd.data, run: Number(match[3]), step } : null;
@@ -23822,6 +23765,92 @@ function unrecorded(events, recorded) {
     for (const key of own) recorded.add(key);
     return [{ ...event, sentence: cut3(event.sentence) }];
   });
+}
+
+// apps/omni-app/src/missions/pm.ts
+var PM_ROUND = 1;
+var KEY5 = /^mission:([0-9a-f-]{36}):pm:([1-9][0-9]*)$/;
+var pmKey = (mission, round) => `mission:${mission}:pm:${String(round)}`;
+function pmRoundOfKey(key) {
+  const match = KEY5.exec(key);
+  return match ? Number(match[2]) : null;
+}
+function addedOf(recorded) {
+  const added = [];
+  for (const event of recorded) if (event.kind === "prd-added" && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
+  return added;
+}
+var NONE = { next: "none" };
+function goalOnly({ scope, products, kind }) {
+  const named = scope.prds.length + scope.roadmaps.length + (products?.prds.length ?? 0) + (products?.roadmaps.length ?? 0);
+  return kind !== "omni-bugs" && named === 0;
+}
+var triesOf = (mission) => 1 + Math.min(1, resumeCap(mission) ?? 0);
+var ownOf = (jobs) => jobs.filter(isOwnJob);
+var isOwnJob = ({ line: line3 }) => planOfLine(line3) === null;
+function pmNext({ mission, ownPrds, added, jobs, inPlan }) {
+  if (mission.level !== "alone" || !sendsCommittees(mission.status)) return NONE;
+  const own = ownOf(jobs);
+  const goal = goalOnly(mission);
+  if (own.length > 0 && !(goal && added === 0 && own.length < triesOf(mission) && !own.some(pmWorking))) return NONE;
+  const left = ownPrds - added;
+  const skill = pmSkillFor(left, inPlan, goal);
+  if (skill === null) return NONE;
+  const round = own.length === 0 ? PM_ROUND : Math.max(PM_ROUND, ...jobs.map((one) => one.round)) + 1;
+  return { next: "send", round, skill, cap: left, line: pmJobLine(skill, mission.number, left) };
+}
+var NO_PRD_WORDS = "the PM wrote no PRD for the goal";
+var timesWords2 = (count4) => count4 === 1 ? "once" : count4 === 2 ? "twice" : `${String(count4)} times`;
+var endWords = ({ status: status2, reason: reason2 }) => {
+  if (status2 === "cancelled") return "was cancelled";
+  if (status2 !== "done") return reason2 === null || reason2 === "" ? "failed" : `failed (${reason2})`;
+  return "ended with no PRD in its record";
+};
+function pmWait({ mission, added, jobs }) {
+  if (mission.level !== "alone" || added > 0 || !goalOnly(mission)) return null;
+  const own = ownOf(jobs);
+  const last = own.reduce((latest, one) => latest === void 0 || one.round > latest.round ? one : latest, void 0);
+  if (last === void 0 || own.some(pmWorking) || own.length < triesOf(mission)) return null;
+  return cut3(`${NO_PRD_WORDS}: ${skillWords(last.line)} ${endWords(last.attempt)}, sent ${timesWords2(own.length)}.`);
+}
+var pmWorking = ({ attempt: attempt3 }) => attempt3.status === "queued" || attempt3.status === "claimed" || attempt3.status === "running";
+var capOf = (line3) => Number(/ --cap ([1-9][0-9]*)/.exec(line3)?.[1] ?? 0);
+var skillWords = (line3) => {
+  const skill = /^\/omni:([a-z-]+)/.exec(line3)?.[1] ?? "";
+  return isPmSkill(skill) ? `/omni:${skill}` : "the PM's job";
+};
+function pmEvents(mission, one, log2, held2, recorded) {
+  if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== "dispatched")) return [];
+  const record = one.attempt.status === "done" && log2 !== null ? pmRecordOf(log2, mission.number) : null;
+  const cap = capOf(one.line);
+  if (record === null) {
+    const why = one.attempt.status === "done" ? "ended with no record" : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
+    return [{ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
+  }
+  const { added, unwritten } = keptOf2(record, cap, held2);
+  const events = added.map((prd) => ({ kind: "prd-added", role: "pm", prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
+  for (const title of unwritten) events.push({ kind: "not-written", role: "pm", prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
+  if (events.length === 0) events.push({ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
+  return events;
+}
+var pmDispatched = (job, next) => ({
+  kind: "dispatched",
+  role: "supervisor",
+  prd: null,
+  job,
+  link: null,
+  sentence: next.round === PM_ROUND ? `Sent the PM /omni:${next.skill} for the mission's goal: ${String(next.cap)} PRD${next.cap === 1 ? "" : "s"} at most.` : `Sent the PM /omni:${next.skill} once more for the mission's goal: its last job wrote no PRD.`
+});
+function withAdded(scope, added) {
+  return [...scope, ...added.filter((prd) => !scope.includes(prd))];
+}
+function withPm(next, writing, wakeAt2, wait2 = null) {
+  if (next.status === "paused" || next.status === "draft") return next;
+  if (writing) return next.status === "running" ? next : { status: "running", waitingOn: next.status === "waiting" ? next.waitingOn : null, nextWakeAt: wakeAt2 };
+  if (wait2 === null) return next;
+  const also = next.status === "waiting" || next.status === "running" ? next.waitingOn : null;
+  const waitingOn = also === null ? wait2 : cut3(`${wait2} \xB7 ${also}`);
+  return next.status === "running" ? { ...next, waitingOn } : { status: "waiting", waitingOn, nextWakeAt: wakeAt2 };
 }
 
 // apps/omni-app/src/missions/pm.plan.ts
@@ -25085,7 +25114,7 @@ async function supervise(store, sought, now, github) {
   const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github });
   const landed = await landingStep({ store, mission, at: at4, landing, hold: kept3.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held2.waits, ...landed.waits]);
-  const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString()), products, now);
+  const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString(), pmWait(pmView(mission, pm, inPlan))), products, now);
   const finished = budget.finish(unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready });
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const retro2 = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
@@ -25192,8 +25221,9 @@ async function sendRetro(store, mission, toFleet) {
   return job === null ? [] : [{ kind: "dispatched", role: "supervisor", prd: null, job, link: null, sentence: sentence2 }];
 }
 var asRecorded = ({ kind, prd, job }) => ({ kind, prd, job });
+var pmView = (mission, pm, inPlan) => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
 async function sendPm(store, mission, pm, inPlan, toFleet) {
-  const next = pmNext({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
+  const next = pmNext(pmView(mission, pm, inPlan));
   if (next.next !== "send") return [];
   const job = await store.pm({ mission, round: next.round, line: next.line, toFleet });
   return job === null ? [] : [pmDispatched(job, next)];
