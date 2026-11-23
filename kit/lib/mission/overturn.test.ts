@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parsePrd, parseProductPrdId } from '../ids.ts';
 import { makeMarkers } from '../markers.ts';
 import { renderSettledEntry } from '../outbox/settle.ts';
 import {
-  agreeEntry,
   agreeSentence,
   decisionLists,
   decisionName,
@@ -21,6 +23,7 @@ import {
   type DecisionEvent,
   type RecordedDecision,
 } from './overturn.ts';
+import { agreeEntry } from './overturn.agree.ts';
 
 // What a decision of the fleet is called, how the mission's events say it, and the words that show it (PRD 2896 s11).
 
@@ -210,5 +213,23 @@ describe('Agree settles the item on the mission branch as the person\'s (AC-8)',
     if (!once.ok) throw new Error(once.why);
     expect(agreeEntry({ settled: once.text, markers, item: 's1-01-colour', login: 'ben', at: '2027-01-23T11:00:00Z' })).toEqual({ ok: false, why: 's1-01-colour: ada answered it already', gone: true });
     expect(agreeEntry({ settled, markers, item: 's9-01-other', login: 'ada', at: '2027-01-23T10:00:00Z' })).toEqual({ ok: false, why: 's9-01-other: it has no settled entry on the mission branch', gone: true });
+  });
+});
+
+describe('the browser bundles overturn.ts (the arcade\'s Missions tab)', () => {
+  it('reaches no node: module through its imports, so the arcade\'s build can bundle it', () => {
+    const seen = new Set<string>();
+    const reached: string[] = [];
+    const walk = (file: string): void => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      for (const [, spec] of readFileSync(file, 'utf8').matchAll(/^import (?!type )[^'"]*['"]([^'"]+)['"]/gm)) {
+        if (spec === undefined) continue;
+        if (spec.startsWith('node:')) reached.push(`${file} imports ${spec}`);
+        else if (spec.startsWith('.')) walk(join(dirname(file), spec));
+      }
+    };
+    walk(fileURLToPath(new URL('./overturn.ts', import.meta.url)));
+    expect(reached).toEqual([]);
   });
 });

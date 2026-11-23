@@ -16,7 +16,7 @@
 // as theirs, on the mission branch, where the PRD's squash carried the fleet's entry:
 //
 //   agree    the mission branch's tip, its `.omni-loop/config.yml` and that PRD's outbox folder only; the kit's `agreeEntry`
-//            (kit/lib/mission/overturn.ts): `settled.md` gains the person's entry, `Approved by: <login>`, after the fleet's, in one
+//            (kit/lib/mission/overturn.agree.ts): `settled.md` gains the person's entry, `Approved by: <login>`, after the fleet's, in one
 //            commit on the mission branch, moved without force. The outbox check into the default branch then no longer holds the
 //            item (BR-PRODUCT-145). The default branch is refused before the ledger is read; an item whose latest entry is no
 //            fleet's (a person answered it, or the branch holds none) writes nothing
@@ -27,7 +27,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { agreeEntry } from 'omni-loop/kit/lib/mission/overturn.ts';
+import { agreeEntry } from 'omni-loop/kit/lib/mission/overturn.agree.ts';
 import { settleByFleet, type FleetAnswer } from 'omni-loop/kit/lib/outbox/fleet.ts';
 import { SETTLED_FILE } from 'omni-loop/kit/lib/outbox/outbox.ts';
 import { addCommit } from '../git-write/git-write.ts';

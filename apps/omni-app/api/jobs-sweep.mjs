@@ -21774,23 +21774,6 @@ function deferredLines(deferred, links) {
     ""
   ];
 }
-function agreeEntry({ settled: settled2, markers, item, login, at: at4 }) {
-  const latest = parseSettledEntries(settled2, markers).find((entry2) => entry2.id === item);
-  if (latest === void 0) return { ok: false, why: `${item}: it has no settled entry on the mission branch`, gone: true };
-  const by = latest.fields["Approved by"] ?? "";
-  if (!by.startsWith("fleet ")) return { ok: false, why: `${item}: ${by === "" ? "its latest entry names nobody" : `${by} answered it already`}`, gone: true };
-  const parsed3 = parseItem(latest.itemText, null);
-  if (!parsed3.ok) return { ok: false, why: `${item}: the item the ledger kept does not read: ${parsed3.errors.join("; ")}` };
-  const option = latest.answerText.split("\n")[0] ?? "";
-  const entry = renderSettledEntry({
-    item: parsed3.item,
-    itemText: latest.itemText,
-    answer: { text: [option, "", `${login} agreed with the answer ${by} gave, on the mission pull request.`].join("\n"), approvedBy: login, approvedAt: at4, channel: null },
-    judgement: { verdict: "agreed", basis: "person", reason: `${login} agreed with the answer ${by} gave for the mission branch` },
-    markers
-  });
-  return { ok: true, text: `${settled2}${settled2.endsWith("\n") ? "\n" : "\n\n"}${entry}`, entry };
-}
 
 // kit/lib/repair/retro.ts
 import { z as z87 } from "zod";
@@ -26943,6 +26926,27 @@ import { existsSync as existsSync52, mkdtempSync as mkdtempSync17, readFileSync 
 import { tmpdir as tmpdir17 } from "node:os";
 import { join as join76 } from "node:path";
 import { z as z112 } from "zod";
+
+// kit/lib/mission/overturn.agree.ts
+function agreeEntry({ settled: settled2, markers, item, login, at: at4 }) {
+  const latest = parseSettledEntries(settled2, markers).find((entry2) => entry2.id === item);
+  if (latest === void 0) return { ok: false, why: `${item}: it has no settled entry on the mission branch`, gone: true };
+  const by = latest.fields["Approved by"] ?? "";
+  if (!by.startsWith("fleet ")) return { ok: false, why: `${item}: ${by === "" ? "its latest entry names nobody" : `${by} answered it already`}`, gone: true };
+  const parsed3 = parseItem(latest.itemText, null);
+  if (!parsed3.ok) return { ok: false, why: `${item}: the item the ledger kept does not read: ${parsed3.errors.join("; ")}` };
+  const option = latest.answerText.split("\n")[0] ?? "";
+  const entry = renderSettledEntry({
+    item: parsed3.item,
+    itemText: latest.itemText,
+    answer: { text: [option, "", `${login} agreed with the answer ${by} gave, on the mission pull request.`].join("\n"), approvedBy: login, approvedAt: at4, channel: null },
+    judgement: { verdict: "agreed", basis: "person", reason: `${login} agreed with the answer ${by} gave for the mission branch` },
+    markers
+  });
+  return { ok: true, text: `${settled2}${settled2.endsWith("\n") ? "\n" : "\n\n"}${entry}`, entry };
+}
+
+// apps/omni-app/src/missions/settle.ts
 var PullSchema7 = z112.looseObject({
   html_url: z112.string(),
   state: z112.string(),
