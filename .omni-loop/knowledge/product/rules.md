@@ -1091,3 +1091,15 @@ Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry 
 Enforced by: apps/omni-app/src/missions/repair.bug-fixed.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts
 Stated: 2026-11-19
 Decided: @pierrederval, 2026-11-19
+
+## BR-PRODUCT-177
+
+When omni ready cannot read which missions name a PRD (page off, signed out, unreachable or refusing), it prints that mission membership was not read, with why, and exits 1; it never reports the PRD as in no mission.
+
+Serves: P-PRODUCT-5
+Source: .omni-loop/delivery/shipped/3194-mission-on-server/outbox/settled.md, entry s3-01-ready-membership-client-call, PRD #3194
+Enforced by: kit/bin/ready.test.ts
+Stated: 2026-11-23
+Decided: nobody — adopted when raised (medium), 2026-11-23
+Merged: @pierrederval, 2026-11-23, PR #3195
+Proposed: harvest 2026-11-23

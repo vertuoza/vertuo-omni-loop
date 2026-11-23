@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-23
 - Slice: s2
 - Wave: 1
+- Stays here: An API reply shape between two slices, pinned by both sides' tests and cheap to extend; a local contract choice, not a lasting product guarantee or architecture decision.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ A field added later is cheap; renaming one means changing the route and get.ts t
 - Raised: 2026-11-23
 - Slice: s1
 - Wave: 1
+- Stays here: A file-naming and rendering choice inside missions.export.ts, cheap to change and guaranteeing nothing lasting beyond P-PRODUCT-131, which already covers retros never being lost.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Renaming the files is a change in missions.export.ts and its tests only.
 - Raised: 2026-11-23
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-177
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ If a person prefers the call elsewhere, moving one method is a few lines.
 - Raised: 2026-11-23
 - Slice: s4
 - Wave: 2
+- Stays here: A local, reversible choice about how the skill numbers missions for now, made pending a server-side numbering change; no lasting guarantee or rule to keep.
 
 ### The answer, as it was given
 
