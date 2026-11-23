@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, pushDossier, type DossierDeps } from './api';
+import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, PAGE_ROUTES, pushDossier, type DossierDeps } from './api';
 import { ARTIFACT_MAX_BYTES } from './store';
 import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
@@ -713,4 +713,37 @@ describe('the dossier routes', () => {
       expect(source).toContain('dossierDeps()');
     });
   }
+});
+
+describe('POST /api/dossiers/push: a mission links to where the app shows it (bug #3190)', () => {
+  const RECORD = '---\nmission: 3189\ntitle: Inbox skeletons\nfleet: night-shift\ngoal: Inbox skeletons and empty states.\nscope:\n  prds: [3184]\n---\n';
+  const MISSION = {
+    repo: 'acme/widgets', prd: 3189, kind: 'mission', title: 'Inbox skeletons',
+    artifacts: [{ kind: 'mission-record', content: RECORD }, { kind: 'brief', content: '<p>brief</p>' }],
+  };
+
+  it('answers the fleet\'s Missions tab, the page that lists the mission and starts it, never /missions/<id>, which the app does not serve', async () => {
+    const w = world();
+    // The fake answers no mission_push(): this one call is stubbed, every other goes to the fake.
+    const connect = (token: string) => {
+      const client = w.fake.client(token);
+      const rpc = (name: string, args: Record<string, unknown>) => name === 'mission_push'
+        ? Promise.resolve({ data: { id: 'm-dossier', added: [{ kind: 'mission-record', version: 1 }], unchanged: [] }, error: null })
+        : client.rpc(name, args);
+      return { ...client, rpc } as unknown as ReturnType<NonNullable<DossierDeps['connect']>>;
+    };
+    const deps: DossierDeps = { connect, installLink: INSTALL };
+    const { status, body } = await w.read(await pushDossier(w.request('/api/dossiers/push', { body: MISSION }), deps));
+
+    expect(status).toBe(200);
+    expect(body.url).toBe('https://omni.example/app/fleet?fleet=night-shift&tab=missions');
+  });
+});
+
+describe('every page link a push answers is a page the app serves (bug #3190 guard)', () => {
+  it('has a page at app/<route>/[id] for each kind\'s route', () => {
+    for (const route of Object.values(PAGE_ROUTES)) {
+      expect(existsSync(fileURLToPath(new URL(`../../app/${route}/[id]/page.tsx`, import.meta.url))), `app/${route}/[id]/page.tsx`).toBe(true);
+    }
+  });
 });

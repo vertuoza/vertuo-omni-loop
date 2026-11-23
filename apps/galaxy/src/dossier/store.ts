@@ -107,6 +107,8 @@ export type DossierProduct = { id: string; name: string } | null;
  * dossier's product after it (PRD 1364). */
 export type DossierPushed = {
   id: string; added: Array<{ kind: PushedArtifactKind; version: number }>; unchanged: PushedArtifactKind[]; product: DossierProduct;
+  /** A mission's fleet, read from its mission.md (bug #3190): its page is that fleet's Missions tab. */
+  fleet?: string;
 };
 
 /** A product as an answer carries it, `{id, name}`, or null when it is not one. */
@@ -191,7 +193,7 @@ async function pushMission(
     p_repo: repo, p_mission: mission, p_title: title, p_brief: brief, p_artifacts: artifacts,
   }));
   if (!pushed || typeof pushed.id !== 'string') throw new DossierStoreError('push the mission', undefined, 'no mission came back');
-  return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [], product: null };
+  return { id: pushed.id, added: pushed.added ?? [], unchanged: pushed.unchanged ?? [], product: null, fleet: brief.fleet };
 }
 
 /** A push to a product PRD (PRD 1548): its product's key, its number (null: the next, created), the
