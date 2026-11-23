@@ -10,7 +10,14 @@ import type { DoneView } from './inbox.controller';
 const UNREAD = { unavailable: AskNotOpen, unreachable: AskUnreachable } as const;
 
 export function InboxDone({ view, signinError }: { view: DoneView; signinError: string | null }) {
-  if (view.kind === 'history') return <WorkspaceHistory items={view.items} choices={view.choices} filters={view.filters} categories={view.categories} all={view.all} now={view.now} />;
+  if (view.kind === 'history') {
+    return (
+      <WorkspaceHistory
+        items={view.items} choices={view.choices} filters={view.filters} categories={view.categories}
+        all={view.all} matched={view.matched ?? view.all} next={view.next ?? null} now={view.now}
+      />
+    );
+  }
   if (view.kind === 'signed-out') return <SignInCard supabase={view.supabase} returnPath={HISTORY_CALLBACK} error={signinError} />;
   const Unread = UNREAD[view.kind];
   return <Unread />;

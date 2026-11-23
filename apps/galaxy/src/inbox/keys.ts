@@ -41,6 +41,13 @@ export function listKey(press: Press, typing: boolean, arrowsOwned = false): Lis
   return null;
 }
 
+/** Whether a key press asks for the details of the Done row in focus (or under the pointer): a bare `i`,
+ * off while a text field has the focus (PRD omni-loop-23, s6). */
+export function detailsKey(press: Press, typing: boolean): boolean {
+  if (press.isComposing || typing || press.metaKey || press.ctrlKey || press.altKey || press.shiftKey) return false;
+  return press.key === 'i';
+}
+
 /** The row the focus moves to: one step from `at`, held at either end; the first row when `at` is not listed. */
 export function moveFrom(keys: readonly string[], at: string | null, by: 1 | -1): string | null {
   const i = at === null ? -1 : keys.indexOf(at);
