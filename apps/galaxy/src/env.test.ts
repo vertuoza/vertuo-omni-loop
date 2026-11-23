@@ -25,7 +25,7 @@ describe('readEnv, the arcade server\'s environment', () => {
       production: false, building: false, mode: 'demo',
       supabase: null, serviceRole: null, githubApp: null, githubAppSlug: null, githubOAuth: null, openrouter: null,
       stagesSyncSecret: null, stageEventSecret: null, secretsMasterKey: null, constituentJudgeSecret: null,
-      lawJudgeSecret: null, businessLawsJudgeSecret: null, businessRecheckSecret: null, searchCategorizeSecret: null, webPush: null, resend: null, kitTokenKey: null, demo: null, galaxyUrl: null,
+      lawJudgeSecret: null, businessLawsJudgeSecret: null, businessRecheckSecret: null, searchCategorizeSecret: null, webPush: null, resend: null, kitTokenKey: null, demo: null, demoNow: null, galaxyUrl: null,
       commit: null,
     });
   });
@@ -110,6 +110,12 @@ describe('readEnv, the arcade server\'s environment', () => {
   it('keeps the arcade\'s mode rule: a build that asks for the demo by name gets it', () => {
     expect(readEnv({ NODE_ENV: 'production', OMNI_LOOP_DEMO: '1' }).mode).toBe('demo');
     expect(readEnv({ NODE_ENV: 'production', OMNI_LOOP_DEMO: 'true' }).mode).toBe('closed');
+  });
+
+  it('gives the demo\'s pinned clock as epoch ms, or refuses a time that is not one naming the variable (#3204)', () => {
+    expect(readEnv({ OMNI_LOOP_DEMO_NOW: '2026-11-22T12:20:00.000Z' }).demoNow).toBe(Date.UTC(2026, 10, 22, 12, 20));
+    expect(readEnv({ OMNI_LOOP_DEMO_NOW: ' ' }).demoNow).toBeNull();
+    expect(thrown({ OMNI_LOOP_DEMO_NOW: 'yesterday' }).problems[0]?.variables).toEqual(['OMNI_LOOP_DEMO_NOW']);
   });
 
   it('gives the deployed commit Vercel sets, or null (PRD 1723)', () => {

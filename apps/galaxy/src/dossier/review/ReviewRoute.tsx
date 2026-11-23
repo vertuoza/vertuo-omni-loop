@@ -2,6 +2,7 @@ import 'server-only';
 import type { ReactNode } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { serverEnv } from '../../env';
+import { demoNow } from '../../data/demo-clock';
 import { approvalView } from '../page/approval';
 import { demoReview } from '../page/demo';
 import { gated, markdownOf, type DossierRouteProps, type Gated } from '../page/DossierRoute';
@@ -101,7 +102,7 @@ async function screenOf(db: Db, read: DossierRead, at: { decision: ReviewKind; f
 export async function reviewRoute({ params, searchParams }: ReviewRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const mode = serverEnv().mode;
-  if (mode === 'demo') return <ReviewPage {...demoReview(Date.now())} />;
+  if (mode === 'demo') return <ReviewPage {...demoReview(demoNow())} />;
   const gate = gated(await dossierSession(mode), id, query);
   if ('page' in gate) return gate.page;
   const read = await prdOf(gate.member, id);

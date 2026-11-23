@@ -13,7 +13,8 @@
 //
 //   pnpm --filter @omni/galaxy-app visual                 compares; exit 1 on a difference
 //   pnpm --filter @omni/galaxy-app visual --update        writes the baselines: the explicit command
-//   pnpm --filter @omni/galaxy-app visual --url http://localhost:3000/   uses a dev server already running
+//   pnpm --filter @omni/galaxy-app visual --url http://localhost:3000/   uses a dev server already running,
+//     started with OMNI_LOOP_DEMO=1 OMNI_LOOP_DEMO_NOW=<DEMO_NOW below> for its dates to compare
 //
 // The baselines are CI's shots (ubuntu-24.04): fonts render differently on a Mac, by about 5% of pixels,
 // so a local run compares only on Linux; take new ones from the `visual` workflow's artifact.
@@ -44,6 +45,14 @@ const SCREENS = [
   ...TABS.map((tab) => ({ folder: tab, route: `${ROUTE}?tab=${tab}` })),
   { folder: 'review', route: `${ROUTE}/review` },
 ];
+/**
+ * The demo's moment and the kit's release, pinned for every shot (#3204): the demo PRD's dates count
+ * back from the clock, and the sidebar names the release, so unpinned both moved from one run to the
+ * next. They are the moment and the release the committed baselines were shot at. The server's clock is
+ * pinned through OMNI_LOOP_DEMO_NOW (src/data/demo-clock.ts), the browser's through Playwright's clock.
+ */
+const DEMO_NOW = '2026-11-22T12:20:00.000Z';
+const RELEASE = 'Omni Loop v0.0.686';
 /** The key the ask pages keep the theme under (src/ask/theme.ts, THEME_KEY). */
 const THEME_KEY = 'omni-ask-theme';
 
@@ -75,7 +84,7 @@ async function startServer(): Promise<{ base: string; stop: () => void }> {
   if (given) return { base: given, stop: () => undefined };
   const port = 3217;
   const base = `http://localhost:${port}/`;
-  const child = spawn('env', ['OMNI_LOOP_DEMO=1', 'pnpm', 'exec', 'next', 'dev', '--port', String(port)], {
+  const child = spawn('env', ['OMNI_LOOP_DEMO=1', `OMNI_LOOP_DEMO_NOW=${DEMO_NOW}`, 'pnpm', 'exec', 'next', 'dev', '--port', String(port)], {
     cwd: APP, detached: true, stdio: 'ignore',
   });
   const stop = (): void => {
@@ -107,6 +116,7 @@ async function open(page: Page, base: string, route: string): Promise<void> {
   if (!text.includes(HEADING)) {
     throw new Error(`/${route} should show the demo PRD ("${HEADING}"); ${page.url()} shows: ${text.slice(0, 600)}`);
   }
+  await page.locator('.app-sidebar-version').evaluateAll((els, release) => { for (const el of els) el.textContent = release; }, RELEASE);
   await settle(page);
 }
 
@@ -165,6 +175,7 @@ function compareInPage(args: { a: string; b: string; channel: number }): Promise
 async function shoot(browser: Browser, base: string, route: string, size: { width: number; height: number }, theme: string): Promise<Buffer> {
   const context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
   try {
+    await context.clock.setFixedTime(DEMO_NOW);
     await context.addInitScript(({ key, value }) => { try { localStorage.setItem(key, value); } catch { /* none */ } }, { key: THEME_KEY, value: theme });
     const page = await context.newPage();
     await open(page, base, route);

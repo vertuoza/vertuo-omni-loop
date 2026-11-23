@@ -41,6 +41,41 @@ describe('the screenshot test\'s wait before a shot', () => {
     expect(log).toEqual(['page fonts', 'navigated', 'loaded', 'frame fonts', 'shot']);
   });
 
+  it('fails, naming the frame, when a frame never leaves about:blank, rather than shooting it blank', async () => {
+    const log: string[] = [];
+    const never = fakePage(log, [fakeFrame(log, { navigateAt: 10_000, loadAt: 10_000 })]);
+    await expect(settle(never, { beat: 0, timeout: 50 })).rejects.toThrow('an iframe never left about:blank within 50 ms');
+    expect(log).toEqual(['page fonts']);
+  });
+
+  it('asks again for an iframe a render replaced before its frame could be read', async () => {
+    const log: string[] = [];
+    const frame = fakeFrame(log, { navigateAt: 10, loadAt: 20 });
+    let asked = 0;
+    const page = {
+      ...fakePage(log, [frame]),
+      locator: () => ({ elementHandles: () => Promise.resolve([{ contentFrame: () => Promise.resolve(++asked === 1 ? null : frame) }]) }),
+    };
+    await settle(page, { beat: 0 });
+    log.push('shot');
+    expect(log).toEqual(['page fonts', 'navigated', 'loaded', 'frame fonts', 'shot']);
+  });
+
+  it('fails when an iframe never gets a frame', async () => {
+    const page = { ...fakePage([], []), locator: () => ({ elementHandles: () => Promise.resolve([{ contentFrame: () => Promise.resolve(null) }]) }) };
+    await expect(settle(page, { beat: 0, timeout: 50 })).rejects.toThrow('an iframe had no frame within 50 ms');
+  });
+
+  it('waits for every frame, one after the other', async () => {
+    const log: string[] = [];
+    await settle(fakePage(log, [fakeFrame(log, { navigateAt: 10, loadAt: 20 }), fakeFrame(log, { navigateAt: 40, loadAt: 70 })]), { beat: 0 });
+    log.push('shot');
+    expect(log.at(-1)).toBe('shot');
+    expect(log.filter((step) => step === 'loaded')).toHaveLength(2);
+    expect(log.filter((step) => step === 'frame fonts')).toHaveLength(2);
+    expect(log.lastIndexOf('loaded')).toBeLessThan(log.lastIndexOf('frame fonts'));
+  });
+
   it('shoots a page with no frame once its fonts are ready', async () => {
     const log: string[] = [];
     await settle(fakePage(log, []), { beat: 0 });

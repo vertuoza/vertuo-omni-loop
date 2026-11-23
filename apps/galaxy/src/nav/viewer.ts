@@ -1,6 +1,7 @@
 import 'server-only';
 import { readForMeLive } from '../ask/page/for-me-live';
 import { DEMO_YOU } from '../dashboard/demo';
+import { demoNow } from '../data/demo-clock';
 import { viewer } from '../data/viewer';
 import { loadFleets, loadMe } from '../data/load-galaxy';
 import { DEMO_REPO } from '../ideas/demo';
@@ -109,7 +110,7 @@ async function demoQuestions(now: number): Promise<WaitingQuestion[]> {
 export async function viewerLive(): Promise<Viewer> {
   const seen = await settle(() => viewer(), null);
   if (seen?.kind === 'demo') {
-    return { ...SIGNED_OUT, signedIn: true, name: DEMO_YOU.name, login: DEMO_YOU.login, ideasBoard: DEMO_REPO, waiting: { questions: await demoQuestions(Date.now()), unread: false, source: { kind: 'demo' } } };
+    return { ...SIGNED_OUT, signedIn: true, name: DEMO_YOU.name, login: DEMO_YOU.login, ideasBoard: DEMO_REPO, waiting: { questions: await demoQuestions(demoNow()), unread: false, source: { kind: 'demo' } } };
   }
   if (seen?.kind !== 'signed-in') return SIGNED_OUT;
   const { env, user } = seen;

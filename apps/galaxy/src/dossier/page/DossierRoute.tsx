@@ -12,6 +12,7 @@ import { readBugRows } from '../../fixes/bug-rows.repository';
 import { fixFacts } from './fix-facts';
 import { Notice } from '../../ask/page/Notice';
 import { serverEnv } from '../../env';
+import { demoNow } from '../../data/demo-clock';
 import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../../fixes/timeline';
 import { dossierGithub } from '../github/server';
 import { UNREAD } from '../github/summary';
@@ -271,7 +272,8 @@ function runsOf(db: Parameters<typeof proofStore>[0], id: string, pick: ReturnTy
 async function demoPage(route: WorkKind, id: string, query: Query, pick: ReturnType<typeof readPick>) {
   const elsewhere = elsewhereOf('prd', route, id, query);
   if (elsewhere) redirect(elsewhere);
-  const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
+  const now = demoNow();
+  const view = dossierView(demoDossier(now), DEMO_VIEWER, pick, now);
   const content = (shownId: string) => Promise.resolve(demoContent(shownId));
   const [markdown, voice] = await Promise.all([shownMarkdown(view, content), shownVoice(view, content, () => Promise.resolve(DEMO_VOICE_CAST))]);
   return <DossierPage view={view} markdown={markdown} voice={voice} supabase={null} />;
