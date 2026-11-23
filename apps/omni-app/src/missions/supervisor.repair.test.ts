@@ -2,7 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RepairRetro } from 'omni-loop/kit/lib/repair/retro.ts';
+import type { BugJob } from './bug-team.ts';
 import type { PullRead } from './gate.ts';
+import type { Merged, MissionJoins } from './join.ts';
+import { outsideBugLine, outsideEvents, outsideLanding, outsidePicks } from './outside-bug.ts';
 import {
   judgeFix,
   MISSION_REPAIRS,
@@ -17,6 +20,7 @@ import {
   type RepairRow,
   type RepairView,
 } from './repair.ts';
+import { readOutsideBugs, sendOutsideBugs, type OutsideRunAt } from './repair-run.ts';
 import { conclude, eventsOf, pick, prdStates, recordedKeys, type Attempt, type Mission, type PrdFacts, type Run } from './supervisor.ts';
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
@@ -241,5 +245,122 @@ describe('the repair events: one sentence and one link each, recorded once', () 
     const next = conclude({ mission: mission(), facts: [facts(1)], states, sent: 0, now: NOW });
     const events = eventsOf({ mission: mission(), facts: [facts(1)], states, runs, next, toFleet: false, recorded: recordedKeys([]), repairs });
     expect(events.filter((event) => event.kind === 'repair-ended').map((event) => event.sentence)).toEqual(["PRD 1's repair ended not fixed: its record line could not be read."]);
+  });
+});
+
+// ── Outside bugs (PRD omni-loop-21 s11) ─────────────────────────────────────────
+// A failure the Reviewer, QA or a repair names outside the mission's PRDs: the run reads it from their logs, sends the Engineer's bug
+// fix into the mission branch, and joins its pull request through the gate a repair's fix lands by.
+
+describe("the Engineer's outside bugs (PRD omni-loop-21 s11)", () => {
+  const REPO = 'acme/widgets';
+  const BRANCH = 'mission/12-faster-quotes';
+  const record = { repo: REPO, scope: { prds: [p(1)], roadmaps: [] } };
+  const named = (issue: number, sentence: string, repo = REPO): string => `12:00:01 ${outsideBugLine({ repo, issue: parseIssue(issue), sentence })}`;
+  const logs: Record<string, string> = {
+    'qa-1': named(40, 'The default branch is red on the invoice sum test.'),
+    'rev-1': `${named(1, 'PRD 1 itself is not outside.')}\n${named(41, 'The settings page crashes in the demo.')}`,
+    r1: named(42, 'The shared logger drops lines.', 'acme/other'),
+  };
+  const step = (k: string, s: Run['step'], status: Attempt['status'] = 'done'): Run => ({ prd: p(1), run: 1, step: s, job: k, attempts: [attempt(k, { status })] });
+  const runs = [run(1, 1, attempt('a', { status: 'done', outcome: 'review' })), step('qa-1', 'qa:1'), step('rev-1', 'review:1'), step('rev-2', 'review:2', 'running')];
+  const repairs = [{ prd: p(1), attempts: [attempt('r1', { status: 'done' })] }];
+  const pull = (number: number, over: Partial<PullRead> = {}): PullRead => ({
+    number,
+    url: `https://github.com/${REPO}/pull/${String(number)}`,
+    title: 'fix: the invoice sum',
+    state: 'open',
+    draft: false,
+    merged: false,
+    base: BRANCH,
+    defaultBranch: 'main',
+    head: 'f'.repeat(40),
+    runs: [{ id: 1, name: 'test', status: 'completed', conclusion: 'success', title: null }],
+    statuses: [],
+    reviews: [],
+    items: { ranks: [] },
+    ...over,
+  });
+  function hub(pulls: Record<number, PullRead>) {
+    const merges: { pr: number; base: string }[] = [];
+    const joins: MissionJoins = {
+      read: (at) => {
+        const one = pulls[at.pr];
+        return one ? Promise.resolve({ ...one }) : Promise.reject(new Error(`no pull request #${String(at.pr)}`));
+      },
+      merge: (at): Promise<Merged> => {
+        merges.push({ pr: at.pr, base: at.base });
+        const one = pulls[at.pr];
+        if (one) pulls[at.pr] = { ...one, merged: true, state: 'closed' };
+        return Promise.resolve({ ok: true });
+      },
+    };
+    return { joins, merges };
+  }
+  const bugJob = (issue: number, k: number, over: Partial<Attempt> = {}): BugJob => ({ issue: parseIssue(issue), k, job: `bug-${String(issue)}-${String(k)}`, attempts: [attempt(`bug-${String(issue)}-${String(k)}`, { status: 'done', ...over })] });
+  const opened = (pr: number): BugJob[] => [bugJob(40, 1, { outcome: 'pr-opened', prUrl: `https://github.com/${REPO}/pull/${String(pr)}` })];
+  const at = (over: Partial<OutsideRunAt> = {}): OutsideRunAt => ({
+    mission: record,
+    runs,
+    repairs,
+    jobs: [],
+    branch: BRANCH,
+    installation: 1,
+    joins: null,
+    logOf: (job) => Promise.resolve(logs[job] ?? null),
+    ...over,
+  });
+
+  it('reads the bugs QA, the Reviewer and a repair named, never the PRD itself, and sends the first its bug fix on the mission branch', async () => {
+    const states = await readOutsideBugs(at());
+    expect(states.map(({ repo, issue, by, state }) => [repo, issue, by, state])).toEqual([
+      [REPO, 40, 'qa', 'send'],
+      [REPO, 41, 'reviewer', 'send'],
+      ['acme/other', 42, 'repair', 'listed'],
+    ]);
+    const sent: { issue: number; k: number; line: string }[] = [];
+    const events = await sendOutsideBugs(states, (job) => {
+      sent.push(job);
+      return Promise.resolve('job-7');
+    });
+    expect(sent).toEqual([{ issue: 40, k: 1, line: `/omni:bug-fix #40 --base ${BRANCH}` }]);
+    expect(events.map(({ kind, job, sentence }) => [kind, job, sentence])).toEqual([['bug-taken', 'job-7', `QA named acme/widgets#40 outside the mission's PRDs: sent /omni:bug-fix #40 --base ${BRANCH}, try 1 of 3.`]]);
+    expect(await sendOutsideBugs(states, () => Promise.resolve(null))).toEqual([]);
+  });
+
+  it('joins its pull request into the mission branch once green, then takes the next bug, its events recorded once', async () => {
+    const gh = hub({ 15: pull(15) });
+    const states = await readOutsideBugs(at({ jobs: opened(15), joins: gh.joins }));
+    expect(gh.merges).toEqual([{ pr: 15, base: BRANCH }]);
+    expect(states[0]).toMatchObject({ issue: 40, state: 'fixed', pr: 15 });
+    expect(outsidePicks(states).map((one) => one.issue)).toEqual([41]);
+    const events = outsideEvents(states);
+    expect(events.map(({ kind, job }) => [kind, job])).toEqual([
+      ['job-ended', 'bug-40-1'],
+      ['bug-fixed', 'bug-40-1'],
+    ]);
+    const recorded = recordedKeys(events.map(({ kind, prd, job }) => ({ kind, prd, job })));
+    expect(recorded).toEqual(new Set(['end:bug-40-1', 'bug-fixed:bug-40-1']));
+  });
+
+  it('waits on a fix that is not green yet, and never joins one into the default branch', async () => {
+    const pending = hub({ 15: pull(15, { runs: [{ id: 1, name: 'test', status: 'in_progress', conclusion: null, title: null }] }) });
+    expect((await readOutsideBugs(at({ jobs: opened(15), joins: pending.joins })))[0]).toMatchObject({ state: 'joining', lacks: ['test not finished'] });
+    expect(pending.merges).toEqual([]);
+    const intoMain = hub({ 15: pull(15, { base: 'main' }) });
+    expect((await readOutsideBugs(at({ jobs: opened(15), joins: intoMain.joins })))[0]).toMatchObject({ state: 'listed', why: `its fix #15 cannot join the mission branch: #15 targets main, not ${BRANCH}` });
+    expect(intoMain.merges).toEqual([]);
+  });
+
+  it('lists a fix that stopped at the boundary for landing, with its /omni:brainstorm line', async () => {
+    const states = await readOutsideBugs(at({ jobs: [bugJob(40, 1, { outcome: 'needs-brainstorm' })] }));
+    expect(outsideLanding(states)[0]).toBe(
+      'Not fixed, its fix is more than a bug fix · acme/widgets#40 (named by QA): The default branch is red on the invoice sum test · design it first: `/omni:brainstorm The default branch is red on the invoice sum test (acme/widgets#40)`',
+    );
+    expect(outsidePicks(states).map((one) => one.issue)).toEqual([41]);
+  });
+
+  it('fixes nothing with no mission branch of its own: every bug is listed', async () => {
+    expect((await readOutsideBugs(at({ branch: null }))).map((one) => one.state)).toEqual(['listed', 'listed', 'listed']);
   });
 });

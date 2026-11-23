@@ -62,10 +62,10 @@ describe('missionStore — a mission\'s stuck repairs (PRD 3065)', () => {
   });
 
   it('keeps its row with its trigger, and reads a stuck row back with no PRD', async () => {
-    const row = { id: 'row-1', prd: null, fingerprint: FP, round: 1, number: 1, failed_job_id: JOB, job_id: 'job-2', retro: null, fix_pr: null, outcome: null, trigger: 'stuck' };
+    const row = { id: 'row-1', prd_id: null, fingerprint: FP, round: 1, number: 1, failed_job_id: JOB, job_id: 'job-2', retro: null, fix_pr: null, outcome: null, trigger: 'stuck' };
     const db = recordingFetch([[row]]);
     expect(await storeOn(db.fetch).keepRepair(mission, { prd: null, fingerprint: FP, round: 1, failedJob: JOB, job: 'job-2', retro: null, fixPr: null, trigger: 'stuck' })).toMatchObject({ id: 'row-1', prd: null, trigger: 'stuck' });
-    expect(db.requests[0]?.body).toEqual({ mission_id: ID, prd: null, fingerprint: FP, round: 1, failed_job_id: JOB, job_id: 'job-2', retro: null, fix_pr: null, trigger: 'stuck' });
+    expect(db.requests[0]?.body).toEqual({ mission_id: ID, prd: null, product_prd: null, fingerprint: FP, round: 1, failed_job_id: JOB, job_id: 'job-2', retro: null, fix_pr: null, trigger: 'stuck' });
   });
 
   it('reads the mission paused by stuck, and pauses it so', async () => {

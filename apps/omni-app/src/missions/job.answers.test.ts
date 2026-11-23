@@ -13,8 +13,9 @@ import type { PrdFacts } from './supervisor.ts';
 
 // The committee answers a high item at `alone` (PRD 2896 s10, criteria 14 to 16): a PRD whose build ended Waiting on answers sends
 // each high item open at its head to its fleet's committee; carried, the App settles it on the feature branch as answered by the
-// fleet, and once none is open the PRD's run is sent again; anything else waits for a person, why attached. Below `alone`,
-// nothing changes.
+// fleet, and once none is open the PRD's run is sent again. Since PRD omni-loop-21 s8, the members decide an escalation-list
+// item in the run too, and a no defers it with option A, its why attached, open for a person on the mission pull request.
+// Below `alone`, nothing changes.
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
 const NOW = Date.parse('2027-01-22T09:00:00Z');
@@ -134,26 +135,28 @@ describe('at alone, a high item goes to the committee', () => {
     expect(fake.events().filter((event) => event.kind === 'decided')).toHaveLength(1);
   });
 
-  it('sends a no to a person with the verdict, settles nothing and sends nothing (criterion 16)', async () => {
+  it('defers an item a member answered no to, with option A and the verdict as its why (criterion 16, as PRD omni-loop-21 s8 reads it)', async () => {
     const { fake, run, state, builtWaitingOnAnswers } = setup();
     await builtWaitingOnAnswers();
     await run();
     fake.endAsk(ITEM, { status: 'done' }, logOf({ verdicts: [yes[0], { role: 'architect', answer: 'no', sentence: 'B is safer.' }, yes[2]] }));
     await run();
-    expect(state.settled).toEqual([]);
-    expect(fake.jobs()).toHaveLength(1);
-    expect(fake.events().filter((event) => event.kind === 'escalated').map((event) => event.sentence)).toEqual([`${ITEM} of PRD 1 goes to a person: the Architect answered no: B is safer.`]);
-    expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: `PRD 1: answer its questions (the committee sent ${ITEM} to you)` });
+    expect(state.settled.map(({ item, answer }) => [item, answer.option])).toEqual([[ITEM, 'A']]);
+    expect(fake.events().filter((event) => event.kind === 'deferred').map((event) => event.sentence)).toEqual([
+      `The committee deferred ${ITEM} of PRD 1: option A meanwhile, open for a person on the mission pull request (the Architect answered no: B is safer.).`,
+    ]);
+    expect(fake.events().filter((event) => event.kind === 'escalated')).toEqual([]);
   });
 
-  it('sends a person what the list named, although three members answered yes (criterion 15)', async () => {
+  it('decides an item the list named in the run: three yes carry it (criterion 15, as PRD omni-loop-21 s8 reads it)', async () => {
     const { fake, run, state, builtWaitingOnAnswers } = setup();
     await builtWaitingOnAnswers();
     await run();
     fake.endAsk(ITEM, { status: 'done' }, logOf({ escalations: ['its hard-to-revert score is unknown'] }));
     await run();
-    expect(state.settled).toEqual([]);
-    expect(fake.events().find((event) => event.kind === 'escalated')?.sentence).toBe(`${ITEM} of PRD 1 goes to a person: its hard-to-revert score is unknown`);
+    expect(state.settled.map(({ item, answer }) => [item, answer.option])).toEqual([[ITEM, 'A']]);
+    expect(fake.events().filter((event) => event.kind === 'decided').map((event) => event.sentence)).toEqual([`The committee answered ${ITEM} of PRD 1 with option A: pm yes, architect yes, reviewer yes.`]);
+    expect(fake.events().filter((event) => event.kind === 'escalated')).toEqual([]);
   });
 
   it('sends a person an answer GitHub would not let the App settle, with its reason', async () => {

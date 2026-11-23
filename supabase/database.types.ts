@@ -2599,6 +2599,35 @@ export type Database = {
           },
         ]
       }
+      mission_branches: {
+        Row: {
+          branch: string
+          cut_at: string
+          mission_id: string
+          repo: string
+        }
+        Insert: {
+          branch: string
+          cut_at?: string
+          mission_id: string
+          repo: string
+        }
+        Update: {
+          branch?: string
+          cut_at?: string
+          mission_id?: string
+          repo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_branches_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mission_budget_stops: {
         Row: {
           answer: string | null
@@ -2683,7 +2712,9 @@ export type Database = {
           mission_id: string
           option: string | null
           outcome: string
-          prd: number
+          prd: number | null
+          prd_id: string | null
+          product_prd: string | null
           role: string
           verdicts: Json
           why: Json
@@ -2701,7 +2732,9 @@ export type Database = {
           mission_id: string
           option?: string | null
           outcome: string
-          prd: number
+          prd?: number | null
+          prd_id?: string | null
+          product_prd?: string | null
           role?: string
           verdicts: Json
           why?: Json
@@ -2719,7 +2752,9 @@ export type Database = {
           mission_id?: string
           option?: string | null
           outcome?: string
-          prd?: number
+          prd?: number | null
+          prd_id?: string | null
+          product_prd?: string | null
           role?: string
           verdicts?: Json
           why?: Json
@@ -2745,6 +2780,8 @@ export type Database = {
           message_id: string | null
           mission_id: string
           prd: number | null
+          prd_id: string | null
+          product_prd: string | null
           role: string
           sentence: string
         }
@@ -2758,6 +2795,8 @@ export type Database = {
           message_id?: string | null
           mission_id: string
           prd?: number | null
+          prd_id?: string | null
+          product_prd?: string | null
           role: string
           sentence: string
         }
@@ -2771,6 +2810,8 @@ export type Database = {
           message_id?: string | null
           mission_id?: string
           prd?: number | null
+          prd_id?: string | null
+          product_prd?: string | null
           role?: string
           sentence?: string
         }
@@ -2876,6 +2917,8 @@ export type Database = {
           number: number
           outcome: string | null
           prd: number | null
+          prd_id: string | null
+          product_prd: string | null
           retro: Json | null
           round: number
           started_at: string
@@ -2892,6 +2935,8 @@ export type Database = {
           number?: number
           outcome?: string | null
           prd?: number | null
+          prd_id?: string | null
+          product_prd?: string | null
           retro?: Json | null
           round?: number
           started_at?: string
@@ -2908,6 +2953,8 @@ export type Database = {
           number?: number
           outcome?: string | null
           prd?: number | null
+          prd_id?: string | null
+          product_prd?: string | null
           retro?: Json | null
           round?: number
           started_at?: string
@@ -7660,9 +7707,54 @@ export type Database = {
         }
         Returns: Json
       }
+      mission_decide_item:
+        | {
+            Args: {
+              p_item: string
+              p_job: string
+              p_mission: string
+              p_option?: string
+              p_outcome: string
+              p_prd: number
+              p_verdicts: Json
+              p_why: Json
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_item: string
+              p_job: string
+              p_mission: string
+              p_option?: string
+              p_outcome: string
+              p_product_prd: string
+              p_verdicts: Json
+              p_why: Json
+            }
+            Returns: Json
+          }
+      mission_decide_item_of: {
+        Args: {
+          p_item: string
+          p_job: string
+          p_mission: string
+          p_option: string
+          p_outcome: string
+          p_prd: number
+          p_product_prd: string
+          p_verdicts: Json
+          p_why: Json
+        }
+        Returns: Json
+      }
       mission_job_role: { Args: { p_key: string }; Returns: string }
       mission_mandate_ok: { Args: { p_mandate: Json }; Returns: boolean }
       mission_measures_ok: { Args: { p_measures: Json }; Returns: boolean }
+      mission_product_id_ok: {
+        Args: { p_id: string; p_list: string }
+        Returns: boolean
+      }
       mission_push: {
         Args: {
           p_artifacts: Json

@@ -3,10 +3,13 @@ import { parseIssue, parsePr, parsePrd, type PrdNumber, type PrNumber } from 'om
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import type { MissionBranches } from './branch.ts';
 import type { PullRead } from './gate.ts';
-import { MISSION_KIND, missionHandler } from './job.ts';
+import { agreeSentence, overturnSentence } from 'omni-loop/kit/lib/mission/overturn.ts';
+import type { Criterion } from 'omni-loop/kit/lib/ready/criteria.ts';
+import { MISSION_KIND, missionHandler, type MissionRetests } from './job.ts';
 import type { MissionJoins } from './join.ts';
 import type { KeptUp, MissionKeepUps } from './keep-up.ts';
-import type { BranchCommit, MissionLandings, MissionPull } from './landing.ts';
+import { landingAnswers, missionPullBody, type BranchCommit, type MissionLandings, type MissionPull } from './landing.ts';
+import type { AgreeAt, MissionAgrees, MissionAnswers } from './settle.ts';
 import { fakeMissionStore } from './store.fake.ts';
 import type { MissionRecord } from './store.ts';
 import type { PrdFacts } from './supervisor.ts';
@@ -228,5 +231,187 @@ describe('a landing: each PRD is shipped once the mission pull request carried i
     expect(next?.body).toContain('| 1 | PRD 2 | #42');
     expect(next?.body).not.toContain('PRD 1 |');
     expect(gh.mission.map((one) => one.number)).toEqual([pr(60), pr(61)]);
+  });
+});
+
+// PRD omni-loop-21 s12: what the store kept of the fleet's meeting is what the mission pull request lists as Deferred decisions.
+describe('the deferred decisions, as the store keeps them (AC-7)', () => {
+  it('AC-7: lists the carried and the deferred item the store recorded, each with its option, its PRD and the Agree and Overturn links', async () => {
+    const fake = fakeMissionStore({ mission: record({ level: 'alone' }), facts: [facts(1), facts(2)] });
+    const verdicts = [{ role: 'pm' as const, answer: 'yes' as const, sentence: 'In scope.' }];
+    await fake.store.decideItem(fake.mission(), { prd: p(1), item: 's1-01-colour', job: 'ask-1', verdicts, decision: { outcome: 'carried', why: ['on the escalation list: bears on business law BL-QUOTES-1'], option: null } });
+    await fake.store.decideItem(fake.mission(), { prd: p(2), item: 's2-01-shape', job: 'ask-2', verdicts, decision: { outcome: 'deferred', why: ['architect no: the shape is not settled'], option: 'A' } });
+    const answers = landingAnswers({ mission: fake.mission(), decisions: await fake.store.decisions(ID), events: await fake.store.fleetEvents(ID), galaxyUrl: GALAXY });
+    const body = missionPullBody({ mission: fake.mission(), branch: BRANCH, defaultBranch: 'main', rows: [], link: null, answers });
+    expect(body).toContain(`- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. [Agree](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=agree)`);
+    expect(body).toContain(`- s2-01-shape of PRD 2 · deferred, option A taken meanwhile · architect no: the shape is not settled. [Agree](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=agree) · [Overturn](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=overturn)`);
+  });
+});
+
+// ── PRD omni-loop-21 s15 (item s12-01): the landing, in the run ──────────────────────────────────────────────────────────────────
+//
+// The mission job lands the mission once every row joined its branch: the mission pull request then carries the Deferred decisions
+// and the Re-test. A person's Agree reaches ./settle.ts › agree; an Overturn queues the PRD's rework on the mission branch.
+
+const CRITERION: Criterion = { number: 1, kind: 'test', scenario: 'A quote total is rounded once', steps: [{ keyword: 'Given', text: 'a quote of 10.005' }, { keyword: 'Then', text: 'its total reads 10.01' }], lines: [] };
+
+/** Reads PRD `n`'s one criterion, proven by a test on its feature pull request's head. */
+function retestsOf() {
+  const asked: { repo: string; prd: string; pr: PrNumber | null }[] = [];
+  const retests: MissionRetests = {
+    read: ({ repo, prd, pr: feature }) => {
+      asked.push({ repo, prd: String(prd), pr: feature });
+      return Promise.resolve({ criteria: [CRITERION], proofs: [{ ac: 1, kind: 'test', state: 'passed', title: 'AC-1: rounds once', proof: `apps/area-${String(prd)}/total.test.ts` }] });
+    },
+  };
+  return { retests, asked };
+}
+
+/** What the route records of a person's answer, signed with their login: the fake store signs every event it records `agent`. */
+type PersonEvent = { kind: 'agreed' | 'overturned'; prd: PrdNumber; sentence: string; actor: string };
+
+function alone({ agreeFails = false } = {}) {
+  const gh = githubOf();
+  const fake = fakeMissionStore({ mission: record({ level: 'alone' }), facts: [facts(1), facts(2, { blockers: [p(1)] })] });
+  const people: PersonEvent[] = [];
+  // The store reads a person's `agreed` and `overturned` events beside the fleet's (item s12-02 stores the first).
+  const store = { ...fake.store, fleetEvents: async (id: string) => [...(await fake.store.fleetEvents(id)), ...people.map((one) => ({ ...one, link: null }))] };
+  const agreed: AgreeAt[] = [];
+  const answers: MissionAnswers & MissionAgrees = {
+    settle: () => Promise.resolve({ ok: true, settled: true }),
+    agree: (at) => {
+      agreed.push(at);
+      return Promise.resolve(agreeFails ? { ok: false, why: 'the ledger moved since it was read' } : { ok: true, settled: true });
+    },
+  };
+  const { retests, asked } = retestsOf();
+  const run = () => missionHandler({ store, branches, joins: gh.joins, landings: gh.landings, answers, retests, galaxyUrl: GALAXY, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
+  const verdicts = [{ role: 'pm' as const, answer: 'yes' as const, sentence: 'In scope.' }];
+  /** The fleet carried PRD 1's item off the escalation list and deferred PRD 2's, as the members' meeting records them. */
+  const decide = async () => {
+    await fake.store.decideItem(fake.mission(), { prd: p(1), item: 's1-01-colour', job: 'ask-1', verdicts, decision: { outcome: 'carried', why: ['on the escalation list: bears on business law BL-QUOTES-1'], option: null } });
+    await fake.store.decideItem(fake.mission(), { prd: p(2), item: 's2-01-shape', job: 'ask-2', verdicts, decision: { outcome: 'deferred', why: ['architect no: the shape is not settled'], option: 'A' } });
+  };
+  /** Both PRDs ended Ready and joined, one run each. */
+  const joinBoth = async () => {
+    await run();
+    readyOn(fake, 1);
+    await run();
+    readyOn(fake, 2);
+    await run();
+  };
+  return { fake, gh, run, people, agreed, asked, decide, joinBoth };
+}
+
+const link = (name: string, answer: string): string => `${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=${encodeURIComponent(name)}&answer=${answer}`;
+
+describe('the landing, in the mission run (PRD omni-loop-21 s15, AC-7)', () => {
+  it('AC-7: lands once every row joined: the mission pull request lists the carried and the deferred decision, each with Agree and Overturn, and the Re-test per PRD', async () => {
+    const { gh, run, asked, decide, fake } = alone();
+    await decide();
+    await run();
+    readyOn(fake, 1);
+    await run();
+    // One row joined: the pull request lists it, and no landing yet.
+    expect(gh.writes).toHaveLength(1);
+    expect(gh.writes[0]?.body).not.toContain('**Re-test**');
+    expect(asked).toEqual([]);
+    readyOn(fake, 2);
+    await run();
+    const body = gh.writes.at(-1)?.body ?? '';
+    expect(gh.writes.at(-1)?.pull).toBe(pr(60));
+    expect(body).toContain('**Deferred decisions**');
+    expect(body).toContain(`- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. [Agree](${link('1/s1-01-colour', 'agree')}) · [Overturn](${link('1/s1-01-colour', 'overturn')})`);
+    expect(body).toContain(`- s2-01-shape of PRD 2 · deferred, option A taken meanwhile · architect no: the shape is not settled. [Agree](${link('2/s2-01-shape', 'agree')})`);
+    expect(body).toContain(`**Re-test**\n\nBefore you merge, try \`${BRANCH}\``);
+    expect(body).toContain('*PRD 1*\n\n- AC-1 · test · A quote total is rounded once: passed, `apps/area-1/total.test.ts`');
+    expect(body).toContain('*PRD 2*\n\n- AC-1 · test · A quote total is rounded once: passed, `apps/area-2/total.test.ts`');
+    expect(body).toContain('Try by hand:\n\n- [ ] AC-1: Given a quote of 10.005; Then its total reads 10.01');
+    // The criteria are read from each PRD's own feature pull request.
+    expect(asked).toEqual([
+      { repo: 'acme/widgets', prd: '1', pr: pr(41) },
+      { repo: 'acme/widgets', prd: '2', pr: pr(42) },
+    ]);
+    // The table and the Rebase and merge line stay: one mission pull request, never a second one for one repository.
+    expect(body).toContain('| 2 | PRD 2 | #42');
+    expect(gh.mission).toHaveLength(1);
+  });
+
+  it('AC-7: writes the landed body once, and again only when what it lists changed', async () => {
+    const { gh, run, joinBoth } = alone();
+    await joinBoth();
+    const writes = gh.writes.length;
+    await run();
+    await run();
+    expect(gh.writes).toHaveLength(writes);
+  });
+
+  it('AC-7: lists no Deferred decisions below alone, and still lands with the Re-test', async () => {
+    const gh = githubOf();
+    const fake = fakeMissionStore({ mission: record(), facts: [facts(1)] });
+    const { retests } = retestsOf();
+    const run = () => missionHandler({ store: fake.store, branches, joins: gh.joins, landings: gh.landings, retests, galaxyUrl: GALAXY, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
+    await run();
+    readyOn(fake, 1);
+    await run();
+    const body = gh.writes.at(-1)?.body ?? '';
+    expect(body).not.toContain('**Deferred decisions**');
+    expect(body).toContain('*PRD 1*\n\n- AC-1 · test');
+  });
+
+  it('AC-7: with no reader of the criteria, says so per PRD rather than inventing a proof', async () => {
+    const gh = githubOf();
+    const fake = fakeMissionStore({ mission: record(), facts: [facts(1)] });
+    const run = () => missionHandler({ store: fake.store, branches, joins: gh.joins, landings: gh.landings, galaxyUrl: GALAXY, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
+    await run();
+    readyOn(fake, 1);
+    await run();
+    expect(gh.writes.at(-1)?.body).toContain('*PRD 1*\n\n- No acceptance criteria were read for it: try what its page says.');
+  });
+});
+
+describe('Agree and Overturn reach the run (PRD omni-loop-21 s15, AC-8)', () => {
+  it('AC-8: an Agree settles the item on the mission branch in the person\'s name, and the pull request says who agreed', async () => {
+    const { run, people, agreed, decide, joinBoth, gh } = alone();
+    await decide();
+    await joinBoth();
+    people.push({ kind: 'agreed', prd: p(1), sentence: agreeSentence('ada', '1/s1-01-colour'), actor: 'ada' });
+    await run();
+    expect(agreed).toEqual([{ installation: 1, repo: 'acme/widgets', branch: BRANCH, prd: p(1), item: 's1-01-colour', login: 'ada', at: new Date(NOW).toISOString() }]);
+    expect(gh.writes.at(-1)?.body).toContain('- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. Agreed by ada.');
+  });
+
+  it('AC-8: an Agree that cannot be settled waits on a person, saying why, and is tried again on the next run', async () => {
+    const { fake, run, people, agreed, decide, joinBoth } = alone({ agreeFails: true });
+    await decide();
+    await joinBoth();
+    people.push({ kind: 'agreed', prd: p(1), sentence: agreeSentence('ada', '1/s1-01-colour'), actor: 'ada' });
+    await run();
+    expect(fake.mission().waitingOn).toContain(`s1-01-colour of PRD 1: ada's Agree is not settled on ${BRANCH} yet: the ledger moved since it was read`);
+    await run();
+    expect(agreed).toHaveLength(2);
+  });
+
+  it('AC-8: an Overturn queues the PRD\'s rework on the mission branch, once, and the pull request says the fleet reworks it', async () => {
+    const { fake, run, people, decide, joinBoth, gh } = alone();
+    await decide();
+    await joinBoth();
+    people.push({ kind: 'overturned', prd: p(2), sentence: overturnSentence('ada', { prd: p(2), item: 's2-01-shape' }, 'keep the old shape'), actor: 'ada' });
+    await run();
+    await run();
+    expect(fake.cares().map(({ line, toFleet }) => [line, toFleet])).toEqual([[`/omni:yolo-fix 2 --base ${BRANCH}`, 'night-shift']]);
+    expect(fake.events().filter((event) => event.kind === 'dispatched' && event.prd === p(2)).map((event) => event.sentence).at(-1)).toBe(
+      `A person overturned a decision of PRD 2: sent /omni:yolo-fix 2 --base ${BRANCH} to the night-shift fleet's runners.`,
+    );
+    expect(gh.writes.at(-1)?.body).toContain('Overturned by ada: the fleet reworks PRD 2 on the mission branch.');
+  });
+
+  it('AC-8: sends no rework and settles nothing while nobody answered', async () => {
+    const { fake, run, agreed, decide, joinBoth } = alone();
+    await decide();
+    await joinBoth();
+    await run();
+    expect(fake.cares()).toEqual([]);
+    expect(agreed).toEqual([]);
   });
 });

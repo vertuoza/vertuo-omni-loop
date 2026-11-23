@@ -1,5 +1,5 @@
 // The mission store's reads (./store.ts), for `pnpm schemas:verify` (PRD 1030): the mission, its roadmaps and their
-// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs and their logs (PRD 2871), its events and its fleet's runners, its token budget's caps, stops and pauses (PRD 3040), the bug team's bugs and the missions it tells (PRD 3088), each parsed
+// PRDs, the PRDs' stages, pages, approvals, voids and plans, its jobs and their logs (PRD 2871), its events and its fleet's runners, its token budget's caps, stops and pauses (PRD 3040), the bug team's bugs and the missions it tells (PRD 3088), its branches and every decision of its committee (PRD omni-loop-21), each parsed
 // with the schema the store parses it with. Its send, record and update are not here: they write, and the check only
 // reads.
 import type { Boundary } from '../boundary.ts';
@@ -74,6 +74,10 @@ import {
   PauseEventRowSchema,
   FLEET_MISSION,
   FleetMissionRowSchema,
+  BRANCH,
+  BranchRowSchema,
+  FLEET_DECISION,
+  FleetDecisionRowSchema,
 } from './store.ts';
 
 export const boundaries: Boundary[] = [
@@ -92,7 +96,7 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: fleet decisions and overturns', read: (db) => db.from('mission_events').select(FLEET_EVENT).in('kind', ['decided', 'overturned']).limit(5), schema: FleetEventRowSchema, shape: 'rows' },
   { name: 'missions/store: overturned approvals', read: (db) => db.from('mission_events').select(OVERTURN).eq('kind', 'overturned').limit(5), schema: OverturnRowSchema, shape: 'rows' },
   { name: 'missions/store: item committee jobs', read: (db) => db.from('runner_jobs').select(ASK).is('mission_key', null).limit(5), schema: AskRowSchema, shape: 'rows' },
-  { name: 'missions/store: committee decisions', read: (db) => db.from('mission_decisions').select(DECISION).limit(5), schema: DecisionRowSchema, shape: 'rows' },
+  { name: 'missions/store: committee decisions', read: (db) => db.from('mission_decisions').select(DECISION).eq('kind', 'approve').limit(5), schema: DecisionRowSchema, shape: 'rows' },
   { name: 'missions/store: products', read: (db) => db.from('products').select(PRODUCT).limit(5), schema: ProductRowSchema, shape: 'rows' },
   { name: 'missions/store: workspaces', read: (db) => db.from('workspaces').select(WORKSPACE).limit(5), schema: WorkspaceRowSchema, shape: 'rows' },
   { name: 'missions/store: runners', read: (db) => db.from('runners').select(RUNNER).limit(5), schema: RunnerRowSchema, shape: 'rows' },
@@ -108,8 +112,10 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: event actors', read: (db) => db.from('mission_events').select(ACTOR).neq('actor', 'agent').limit(5), schema: ActorRowSchema, shape: 'rows' },
   { name: 'missions/store: fleet daily caps', read: (db) => db.from('teams').select(FLEET_CAP).limit(5), schema: FleetCapRowSchema, shape: 'rows' },
   { name: 'missions/store: budget stops', read: (db) => db.from('mission_budget_stops').select(STOP).limit(5), schema: StopRowSchema, shape: 'rows' },
-  { name: 'missions/store: pauses and resumes', read: (db) => db.from('mission_events').select(PAUSE_EVENT).in('kind', ['paused', 'resumed']).is('prd', null).limit(5), schema: PauseEventRowSchema, shape: 'rows' },
+  { name: 'missions/store: pauses and resumes', read: (db) => db.from('mission_events').select(PAUSE_EVENT).in('kind', ['paused', 'resumed']).is('prd_id', null).limit(5), schema: PauseEventRowSchema, shape: 'rows' },
   { name: 'missions/store: fleet missions', read: (db) => db.from('missions').select(FLEET_MISSION).limit(5), schema: FleetMissionRowSchema, shape: 'rows' },
   { name: 'missions/store: room jobs', read: (db) => db.from('runner_jobs').select(ROOM_JOB).in('status', ['claimed', 'running']).limit(5), schema: RoomJobRowSchema, shape: 'rows' },
   { name: 'missions/store: milestone retros', read: (db) => db.from('mission_retros').select(RETRO).limit(5), schema: RetroRowSchema, shape: 'rows' },
+  { name: 'missions/store: mission branches', read: (db) => db.from('mission_branches').select(BRANCH).limit(5), schema: BranchRowSchema, shape: 'rows' },
+  { name: 'missions/store: every committee decision', read: (db) => db.from('mission_decisions').select(FLEET_DECISION).limit(5), schema: FleetDecisionRowSchema, shape: 'rows' },
 ];

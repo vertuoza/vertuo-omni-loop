@@ -17,6 +17,7 @@
 import { z } from 'zod';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { maskSecrets } from 'omni-loop/kit/lib/openrouter.ts';
+import { asData } from 'omni-loop/kit/lib/session/fleet-learned.ts';
 
 export const NOTEBOOK_KIND = 'commander-notebook';
 
@@ -95,12 +96,6 @@ export const NOTEBOOK_SYSTEM = [
   'Never repeat a line the <notebook> block already holds. Never say that all is well.',
   'At most 5 lines, each under 300 characters. When nothing is worth keeping, answer {"lines": []}.',
 ].join('\n');
-
-/** What a data block's markup and column mark become inside it. */
-const ESCAPED: Readonly<Record<string, string>> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '|': '/' };
-
-/** A record's text as data: one line, its markup escaped, so it can neither close its block nor open another. */
-const asData = (text: string): string => text.replace(/\s+/g, ' ').trim().replace(/[&<>|]/g, (mark) => ESCAPED[mark] ?? mark);
 
 /** What the model reads for one batch: the data, and the event each reference names. */
 export type NotebookPrompt = { user: string; refs: Map<string, NoteEvent> };
@@ -221,4 +216,134 @@ export function screenLines(input: { candidates: readonly Candidate[]; refs: Rea
     lines.push({ line, events: [...new Set(events)] });
   }
   return { lines, dropped };
+}
+
+// ── What the fleet learned (PRD omni-loop-21 s13, spec "8. The fleet remembers", AC-8) ──────────────────────────────────────────
+//
+// Lines the notebook job writes to the fleet notebook from the mission's events alone, with no model: they say what happened, in
+// the kit's own words, each citing its events.
+//
+//   an overturn       one line per `overturned` event: the PRD, what the fleet decided (the `decided` or `deferred` event before it
+//                     that names the same decision, cited too) and that the person overturned it, by their login. Never their why:
+//                     a line holds no person's words (L-GDPR-2)
+//   a repair          one line per `repair-ended` event that ended `fixed`: what broke (its retro's class and cause, cited too, when
+//                     the retro was read) and that a repair fixed it. A cause that reads as an instruction, writes a link or a secret
+//                     is left out; a long one is cut
+//   a resume          one line per `held` event of the resume step that sent a fresh job (./resume.ts › halfwayWords): the PRD ended
+//                     without its result line, and a fresh job of the same skill took it on
+//   at most           `max` lines, none the notebook holds already or the batch wrote before it, each at most 300 characters
+
+/** The most lines of what the fleet learned one batch writes: the places a batch has left after the end batch's (1 to 20). */
+const LEARNED_MAX = 20 - BATCH_MAX;
+
+/** One decision of the fleet, as its event says it, by the decision's name (`7/s2-01`, `9`); `prdSaid` is the PRD as the sentence wrote it. */
+type Decided = { name: string; prdSaid: string; words: string; answer: boolean; event: string };
+
+/** A retro that named a repair's cause: its class, its cause and its event. */
+type Retro = { kind: string; cause: string; event: string };
+
+/** How a decision's event reads: its kind, its sentence's shape, and what it says the fleet did. */
+type DecisionRead = { kind: string; pattern: RegExp; said: (item: string, prdSaid: string, option: string) => Omit<Decided, 'event'> };
+
+const DECISION_READS: readonly DecisionRead[] = [
+  {
+    kind: 'decided',
+    pattern: /^The committee answered (?<item>\S+) of PRD (?<prd>\S+) with option (?<option>\S+?):/,
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet answered ${item} with option ${option}`, answer: true }),
+  },
+  {
+    kind: 'deferred',
+    pattern: /^The committee deferred (?<item>\S+) of PRD (?<prd>\S+?): option (?<option>\S+) meanwhile/,
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet deferred ${item}, taking option ${option} meanwhile`, answer: false }),
+  },
+  { kind: 'decided', pattern: /^The committee approved PRD (?<prd>\S+?):/, said: (_item, prdSaid) => ({ name: prdSaid, prdSaid, words: 'the fleet approved the PRD', answer: false }) },
+];
+
+const OVERTURNED_BY = /^(\S+) overturned fleet decision ([^\s:]+):/;
+const REPAIR_FIXED = /^(?:(?<prd>.+?)'s repair|The (?<stuck>stuck) repair) \[(?<fingerprint>[0-9a-f]{1,8})\] ended fixed\.$/;
+const RETRO_READS = /retro \[([0-9a-f]{1,8})\] reads ([^:]+): (.+)$/;
+const RESUMED = /^PRD (\S+) ended without its result line: the mission sends it a fresh job \((.+)\)\.$/;
+
+/** The decision a `decided` or `deferred` event records; null for any other. */
+function decidedOf(event: NoteEvent): Decided | null {
+  for (const read of DECISION_READS) {
+    const groups = read.kind === event.kind ? read.pattern.exec(event.sentence)?.groups : undefined;
+    if (groups) return { ...read.said(groups.item ?? '', groups.prd ?? '', groups.option ?? ''), event: event.id };
+  }
+  return null;
+}
+
+/** The line of an overturn, beside the fleet's decision it names when that was read before it. */
+function overturnLine(event: NoteEvent, decisions: ReadonlyMap<string, Decided>): NoteLine | null {
+  const [, login, name] = OVERTURNED_BY.exec(event.sentence) ?? [];
+  if (login === undefined || name === undefined) return null;
+  const [prd = name, item] = name.split('/');
+  const decided = decisions.get(name);
+  if (decided === undefined) return { line: `PRD ${prd}: ${login} overturned the fleet's decision${item === undefined ? '' : ` on ${item}`}.`, events: [event.id] };
+  const what = item === undefined ? 'approval' : decided.answer ? 'answer' : 'decision';
+  return { line: `PRD ${decided.prdSaid}: ${decided.words}; ${login} overturned that ${what}.`, events: [decided.event, event.id] };
+}
+
+/** A retro's cause as a line holds it: one line, cut to `room`; null when it reads as an instruction or writes a link or a secret. */
+function causeOf(cause: string, room: number): string | null {
+  const flat = cause.replace(/\s+/g, ' ').trim().replace(/\.$/, '');
+  if (flat === '' || readsAsInstruction(flat) || LINK.test(flat) || maskSecrets(flat) !== flat) return null;
+  return flat.length + 1 <= room ? `${flat}.` : `${flat.slice(0, Math.max(0, room - 1)).trimEnd()}…`;
+}
+
+/** The line of a repair that ended fixed, beside the retro that named its cause when that was read before it. */
+function repairLine(event: NoteEvent, retros: ReadonlyMap<string, Retro>): NoteLine | null {
+  const groups = REPAIR_FIXED.exec(event.sentence)?.groups;
+  if (groups?.fingerprint === undefined) return null;
+  const stuck = groups.stuck !== undefined;
+  const words = stuck
+    ? { who: 'The mission', broke: 'was stuck', fixer: 'a stuck repair' }
+    : { who: groups.prd ?? 'A PRD', broke: 'broke', fixer: 'a repair' };
+  return retroLine({ ...words, fingerprint: groups.fingerprint, event: event.id }, retros.get(groups.fingerprint));
+}
+
+/** A repair's line: what broke, from its retro when one was read, and what fixed it. */
+function retroLine(repair: { who: string; broke: string; fixer: string; fingerprint: string; event: string }, retro: Retro | undefined): NoteLine {
+  const { who, fingerprint } = repair;
+  if (retro === undefined) return { line: `${who} broke [${fingerprint}], and ${repair.fixer} fixed it.`, events: [repair.event] };
+  const fixer = `A${repair.fixer.slice(1)} fixed it.`;
+  const broke = `${who} ${repair.broke} on ${retro.kind.trim()} [${fingerprint}]`;
+  const cause = causeOf(retro.cause, LINE_MAX - broke.length - fixer.length - 3);
+  return { line: cause === null ? `${broke}. ${fixer}` : `${broke}: ${cause} ${fixer}`, events: [retro.event, repair.event] };
+}
+
+/** The line of a step the resume step sent a fresh job. */
+function resumeLine(event: NoteEvent): NoteLine | null {
+  const match = event.kind === 'held' ? RESUMED.exec(event.sentence) : null;
+  return match?.[1] && match[2] ? { line: `PRD ${match[1]} ended without its result line; a fresh job of the same skill took it on (${match[2]}).`, events: [event.id] } : null;
+}
+
+/** The line one event adds to what the fleet learned, read over the decisions and retros before it; null for most events. */
+function learnedOf(event: NoteEvent, decisions: ReadonlyMap<string, Decided>, retros: ReadonlyMap<string, Retro>): NoteLine | null {
+  if (event.kind === 'overturned') return overturnLine(event, decisions);
+  if (event.kind === 'repair-ended') return repairLine(event, retros);
+  return resumeLine(event);
+}
+
+/**
+ * What the fleet learned from `events`: one line per overturn and per failure the fleet repaired or resumed, in the order they
+ * happened, each citing its events; at most `max`, none of `kept` written again.
+ */
+export function learnedLines(input: { events: readonly NoteEvent[]; kept: readonly string[]; max?: number }): NoteLine[] {
+  const max = input.max ?? LEARNED_MAX;
+  const decisions = new Map<string, Decided>();
+  const retros = new Map<string, Retro>();
+  const seen = new Set(input.kept.map((line) => line.trim()));
+  const lines: NoteLine[] = [];
+  for (const event of [...input.events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))) {
+    const decided = decidedOf(event);
+    if (decided !== null) decisions.set(decided.name, decided);
+    const retro = event.kind === 'retro' ? RETRO_READS.exec(event.sentence) : null;
+    if (retro?.[1] && retro[2] && retro[3]) retros.set(retro[1], { kind: retro[2], cause: retro[3], event: event.id });
+    const line = learnedOf(event, decisions, retros);
+    if (line === null || line.line.length > LINE_MAX || seen.has(line.line) || lines.length >= max) continue;
+    seen.add(line.line);
+    lines.push(line);
+  }
+  return lines;
 }

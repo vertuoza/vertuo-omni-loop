@@ -8,7 +8,8 @@
 //                  approval for the mission, reopens an answered item for that person, and takes the PRD off the branch
 //   the lists      the mission pull request's body opens with **Approved by the fleet** and **Answered by the fleet**, each line with
 //                  the verdicts; the Missions tab shows the trust line, `<n> decisions by the fleet · <k> overturned`
-import { PrdNumberSchema, type PrdNumber } from '../ids.ts';
+import { isProductPrdId, PrdNumberSchema, ProductPrdIdSchema, type PrdNumber, type ProductPrdId } from '../ids.ts';
+import { baseOfFlag, type BaseOfEntry } from '../ultra/base-of.ts';
 
 /** The event a person's overturn is recorded as. */
 const OVERTURNED = 'overturned';
@@ -126,4 +127,144 @@ export function overturnWords({ ref, branch, onBranch }: { ref: DecisionRef; bra
       : `${ref.item} of PRD ${String(ref.prd)} is open again for you: answer it on the PRD's feature pull request.`;
   const dropped = onBranch && branch !== null ? [`PRD ${String(ref.prd)} leaves ${branch} on the mission's next run, and the default branch is never changed.`] : [];
   return [`Overturned fleet decision ${refOf(ref)}. The decision stays as it was recorded; yours is added beside it.`, what, ...dropped];
+}
+
+// ── Landing: the deferred decisions, Agree and Overturn (PRD omni-loop-21 s12, spec "7. Landing") ──────────────────────────────
+//
+//   the list    every item the fleet's meeting deferred, or carried off the escalation list (s2, s8), with the option taken, its
+//               PRD, why it was on the list, and two links, Agree and Overturn; a product PRD's named `omni-loop-15/s2-01`, a
+//               repository's `2901/s2-01`
+//   agree       a person's own `agreed` event, signed with their login, beside the fleet's decision, which stays as it was
+//               (BL-ASK-1); on a repository PRD it also settles the item on the mission branch as theirs ({@link agreeEntry}): one
+//               more ledger entry, `Approved by: <login>`, after the fleet's, so the outbox check into the default branch no longer
+//               holds it (BR-PRODUCT-145)
+//   overturn    their `overturned` event (BR-PRODUCT-146), and the PRD's rework on the mission branch ({@link reworkLine}):
+//               `/omni:yolo-fix <n> --base <branch>`, or `/omni:ultra-yolo-fix <key>-<n> --base-of …` for a product PRD
+
+/** The event a person's Agree is recorded as. */
+const AGREED = 'agreed';
+
+/** A PRD a decision names: a repository's number or a product's id (`omni-loop-15`). */
+export type DecisionPrd = PrdNumber | ProductPrdId;
+
+/** The name a decision goes by on the mission pull request: `2901/s2-01`, `omni-loop-15/s2-01`; the PRD alone for an approval. */
+export const decisionName = (prd: DecisionPrd, item: string | null): string => (item === null ? String(prd) : `${String(prd)}/${item}`);
+
+const NAMED = /^([^/]+)(?:\/([a-z0-9][a-z0-9-]*))?$/;
+
+/** The decision a name stands for, a product PRD's too; null for anything else. */
+export function parseDecisionName(text: string): { prd: DecisionPrd; item: string | null } | null {
+  const match = NAMED.exec(text);
+  const head = match?.[1] ?? '';
+  const number = PrdNumberSchema.safeParse(/^[1-9][0-9]*$/.test(head) ? Number(head) : null);
+  const product = ProductPrdIdSchema.safeParse(head);
+  const prd = number.success ? number.data : product.success ? product.data : null;
+  return match === null || prd === null ? null : { prd, item: match[2] ?? null };
+}
+
+/** What a person's Agree says in the mission's events: who, and which decision. Read back by {@link deferredOf}. */
+export const agreeSentence = (login: string, name: string): string => `${login} agreed with fleet decision ${name}.`;
+
+const AGREE = /^\S+ agreed with fleet decision (\S+?)\.?$/;
+
+/** A decision the mission's committee recorded, as the store reads it (`mission_decisions`). */
+export type RecordedDecision = {
+  kind: 'approve' | 'answer';
+  prd: DecisionPrd;
+  item: string | null;
+  outcome: 'carried' | 'deferred' | 'escalated';
+  why: readonly string[];
+  option: string | null;
+};
+
+/** A person's answer to a deferred decision: Agree or Overturn, and who gave it. */
+export type PersonAnswer = { answer: 'agree' | 'overturn'; by: string };
+
+/** One deferred decision, as the mission pull request lists it. */
+export type DeferredDecision = { prd: DecisionPrd; item: string; outcome: 'carried' | 'deferred'; option: string; why: string[]; answer: PersonAnswer | null };
+
+/** How a case of the escalation list starts in a decision's why (apps/omni-app/src/missions/committee.ts). */
+const LISTED = 'on the escalation list';
+
+/** Whether an item's decision is one the meeting took instead of a person: deferred, or carried off the escalation list. */
+const isDeferred = (row: RecordedDecision): row is RecordedDecision & { item: string; outcome: 'carried' | 'deferred' } =>
+  row.kind === 'answer' && row.item !== null && (row.outcome === 'deferred' || (row.outcome === 'carried' && row.why.some((line) => line.startsWith(LISTED))));
+
+/** The person's latest answer to each decision, by its name, from the mission's events (oldest first). */
+function answersOf(events: readonly DecisionEvent[]): Map<string, PersonAnswer> {
+  const answers = new Map<string, PersonAnswer>();
+  for (const event of events) {
+    const agreed = event.kind === AGREED ? AGREE.exec(event.sentence)?.[1] : undefined;
+    const overturned = event.kind === OVERTURNED ? OVERTURN.exec(event.sentence)?.[1] : undefined;
+    const by = event.actor ?? 'a person';
+    if (agreed !== undefined) answers.set(agreed, { answer: 'agree', by });
+    if (overturned !== undefined) answers.set(overturned, { answer: 'overturn', by });
+  }
+  return answers;
+}
+
+/**
+ * The deferred decisions of a mission, in the order they were taken: each item the meeting deferred or carried off the escalation
+ * list, with the option it took (A, as built, when none was kept) and the person's latest answer, read from the events.
+ */
+export function deferredOf(decisions: readonly RecordedDecision[], events: readonly DecisionEvent[]): DeferredDecision[] {
+  const answers = answersOf(events);
+  return decisions.filter(isDeferred).map((row) => ({
+    prd: row.prd,
+    item: row.item,
+    outcome: row.outcome,
+    option: row.option ?? 'A',
+    why: [...row.why],
+    answer: answers.get(decisionName(row.prd, row.item)) ?? null,
+  }));
+}
+
+/** Where a rework goes: the mission branch of a repository PRD, or each repository's mission branch for a product PRD. */
+export type ReworkBase = { branch: string } | { bases: readonly BaseOfEntry[] };
+
+/** The line that reworks a PRD on the mission branch once a person overturned one of its decisions. */
+export function reworkLine(prd: DecisionPrd, base: ReworkBase): string {
+  if (isProductPrdId(prd)) {
+    const flag = 'bases' in base ? baseOfFlag(base.bases) : '';
+    return flag === '' ? `/omni:ultra-yolo-fix ${prd}` : `/omni:ultra-yolo-fix ${prd} ${flag}`;
+  }
+  return 'branch' in base ? `/omni:yolo-fix ${String(prd)} --base ${base.branch}` : `/omni:yolo-fix ${String(prd)}`;
+}
+
+/** The PRDs to rework, each once, in the order their decisions were taken: those with a decision a person overturned. */
+export const reworksOf = (deferred: readonly DeferredDecision[]): DecisionPrd[] => [...new Set(deferred.filter((one) => one.answer?.answer === 'overturn').map((one) => one.prd))];
+
+/** The Agree or Overturn link of one decision, by its name: the caller knows where a person answers. */
+export type AnswerLinks = (name: string, answer: PersonAnswer['answer']) => string;
+
+const flat = (text: string): string => text.replace(/\s+/g, ' ').trim().replace(/\.$/, '');
+
+/** What the person did with a decision, or the two links while they did nothing. */
+function answerWords(one: DeferredDecision, name: string, links: AnswerLinks): string {
+  if (one.answer === null) return `[Agree](${links(name, 'agree')}) · [Overturn](${links(name, 'overturn')})`;
+  return one.answer.answer === 'agree' ? `Agreed by ${one.answer.by}.` : `Overturned by ${one.answer.by}: the fleet reworks PRD ${String(one.prd)} on the mission branch.`;
+}
+
+/** One line of the list: the item, its PRD, carried or deferred with the option taken, why, then the links or the person's answer. */
+function deferredLine(one: DeferredDecision, links: AnswerLinks): string {
+  const name = decisionName(one.prd, one.item);
+  const what = one.outcome === 'carried' ? `carried by the fleet, option ${one.option}` : `deferred, option ${one.option} taken meanwhile`;
+  const why = one.why.length === 0 ? 'no why was kept' : one.why.map(flat).join('; ');
+  return `- ${one.item} of PRD ${String(one.prd)} · ${what} · ${why}. ${answerWords(one, name, links)}`;
+}
+
+/**
+ * The **Deferred decisions** section of a mission pull request: every decision the fleet's meeting took instead of a person, with
+ * the option taken, its PRD, why it was on the escalation list, and Agree and Overturn. Empty when there is none.
+ */
+export function deferredLines(deferred: readonly DeferredDecision[], links: AnswerLinks): string[] {
+  if (deferred.length === 0) return [];
+  return [
+    '**Deferred decisions**',
+    '',
+    'The fleet decided these for you so the mission could carry on. Agree settles one. Overturn records your answer beside it, and the fleet reworks the PRD on the mission branch.',
+    '',
+    ...deferred.map((one) => deferredLine(one, links)),
+    '',
+  ];
 }

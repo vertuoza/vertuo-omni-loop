@@ -5,9 +5,10 @@
  * sits out and never votes on it. Each member answers `yes`, `no` or `unsure` with one sentence; a member whose
  * agent failed is recorded `failed`, one that gave no verdict in time `timeout`, and both count as `unsure`.
  *
- * Every member who sits must answer `yes`: three `yes`, or two when one sits out. Anything else escalates to a
- * person, the verdicts attached, each reason in one line. A verdict from the author, or two from one member,
- * escalates too: a vote that cannot be read whole is never carried.
+ * Every member who sits must answer `yes`: three `yes`, or two when one sits out. Anything else is not carried
+ * (`escalated` here), the verdicts attached, each reason in one line; `decide` (./escalation.ts) says where it goes:
+ * an item is deferred, a PRD goes to a person (PRD omni-loop-21 s2). A verdict from the author, or two from one
+ * member, is not carried either: a vote that cannot be read whole is never carried.
  *
  * Pure: no filesystem, no network, no clock. The App reads the same function, so the job's own word on its
  * outcome is never what carries a decision.

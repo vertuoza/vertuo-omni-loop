@@ -88,6 +88,21 @@ why, its wave. Then:
   roadmap's page.
 - **The pool** is `limits.parallelSteps` steps at once, with every other step this session runs.
 
+**A park offers the mission** (PRD omni-loop-21). Every park this run prints, for the roadmap or one
+of its rows, keeps its `why` and its link as above and ends with the one command that hands the
+roadmap to a fleet: a row whose PRD has no plan on its page, waits for approval, is drifted or
+refused, waits on answers on `<product> › Questions` or on a person, and the roadmap itself waiting
+for approval. Its line reads
+
+```text
+<why> · <link> · or hand it to a fleet: /omni:mission --roadmap <key>-R<n> --level alone
+```
+
+Step 5's stop list ends each parked row's line the same way. A `wait` (the server unreachable) and a
+`hold` (a blocker not merged yet) offer nothing: they move again without a person. Drive still parks
+as before and never runs `/omni:mission`: starting the mission stays the Start button on its page,
+pressed by a person.
+
 The step agents never write the roadmap: only this session's tick prints where each row stands. The
 loop stops itself once nothing runs and every row is parked or done, listing what waits on whom. The
 prerequisites of a product roadmap are not checked by `omni roadmap prereqs` yet: the list names the

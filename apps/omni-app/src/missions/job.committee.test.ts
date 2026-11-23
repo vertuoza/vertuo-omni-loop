@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { committeeLine } from 'omni-loop/kit/lib/committee/record.ts';
-import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parseOutboxItemId, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { reviewMarker } from 'omni-loop/kit/lib/review/verdict.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import type { MissionBranches } from './branch.ts';
+import { goesOn, itemDecisionOf } from './committee.ts';
+import { judge, type PullRead } from './gate.ts';
 import { MISSION_KIND, missionHandler } from './job.ts';
 import { fakeMissionStore } from './store.fake.ts';
 import type { MissionRecord } from './store.ts';
@@ -104,13 +107,35 @@ describe('at alone, a PRD waiting for approval goes to its committee', () => {
     expect(fake.committees()).toHaveLength(1);
   });
 
-  it('sends a person what the escalation list names, although three members answered yes (criterion 15)', async () => {
+  it('AC-5: carries a PRD on the escalation list on three yes, and builds it towards the mission branch (PRD omni-loop-21 s8)', async () => {
+    // Before omni-loop-21 the list sent it to a person whatever the members said (PRD 2896 criterion 15); now the members decide it.
     const { fake, run } = setup();
     await run();
     fake.endCommittee(p(1), { status: 'done' }, logOf({ escalations: ['it bears on the locked law N-PRODUCT-15: its owner decides'] }));
     await run();
+    expect(fake.committees()[0]?.recorded?.decision).toEqual({ outcome: 'carried', why: [] });
+    expect(fake.jobs().map((job) => job.line)).toEqual([`/omni:yolo 1 --for-review --base ${BRANCH}`]);
+    expect(fake.mission().status).toBe('running');
+  });
+
+  it('sends a person a PRD on the escalation list the vote did not carry, the case named first', async () => {
+    const { fake, run } = setup();
+    await run();
+    const verdicts = [yes[0], { role: 'architect', answer: 'no', sentence: 'It drops a column.' }, yes[2]];
+    fake.endCommittee(p(1), { status: 'done' }, logOf({ escalations: ['the migration x.sql drops or rewrites data'], verdicts }));
+    await run();
     expect(fake.jobs()).toEqual([]);
-    expect(fake.committees()[0]?.recorded?.decision).toEqual({ outcome: 'escalated', why: ['it bears on the locked law N-PRODUCT-15: its owner decides'] });
+    expect(fake.committees()[0]?.recorded?.decision.why).toEqual(['on the escalation list: the migration x.sql drops or rewrites data', 'the Architect answered no: It drops a column.']);
+  });
+
+  it('sends a person a PRD approved by its phase-0 pull request, although three members answered yes (N-PRODUCT-15)', async () => {
+    const phase0 = 'it is approved by its phase-0 pull request, which only a person merges';
+    const { fake, run } = setup();
+    await run();
+    fake.endCommittee(p(1), { status: 'done' }, logOf({ escalations: [phase0] }));
+    await run();
+    expect(fake.jobs()).toEqual([]);
+    expect(fake.committees()[0]?.recorded?.decision).toEqual({ outcome: 'escalated', why: [phase0] });
   });
 
   it('sends a person what the database escalates itself, as a phase-0 PRD', async () => {
@@ -144,6 +169,65 @@ describe('at alone, a PRD waiting for approval goes to its committee', () => {
     await run();
     expect(fake.committees().map(({ key }) => key)).toEqual([`mission:${ID}:prd:1:approve:1`, `mission:${ID}:prd:1:approve:2`]);
     expect(fake.jobs()).toHaveLength(1);
+  });
+});
+
+describe('AC-5: the meeting decides a high item on the escalation list, and the PRD goes on (PRD omni-loop-21 s8)', () => {
+  const ITEM = 's2-01-keep-the-cap';
+  const law = 'it bears on the business law BL-QUOTES-1: a person decides';
+  const answerLog = (over: Record<string, unknown> = {}) =>
+    `12:00:00 Done: ok\n${committeeLine({ v: 1, prd: p(1), kind: 'answer', item: parseOutboxItemId(ITEM), option: 'A', author: null, read: [{ kind: 'item', sha256: 'b'.repeat(64) }], escalations: [law], verdicts: yes, outcome: 'carried', ...over })}`;
+  /** The PRD's feature pull request into the mission branch, green and passed, the item open at its head. */
+  const pullWith = (base = BRANCH): PullRead => ({
+    number: 45,
+    url: 'https://github.com/acme/widgets/pull/45',
+    title: 'feat(quotes): a faster quote page',
+    state: 'open',
+    draft: false,
+    merged: false,
+    base,
+    defaultBranch: 'main',
+    head: 'a'.repeat(40),
+    runs: [{ id: 1, name: 'test', status: 'completed', conclusion: 'success', title: null }],
+    statuses: [],
+    reviews: [{ body: `${reviewMarker(1, 'pass')}\n**Round 1 of 2: pass**`, commit: 'a'.repeat(40) }],
+    items: { ranks: ['high'], open: [{ id: ITEM, rank: 'high' }] },
+  });
+
+  /** The item's committee decided, recorded once as the database keeps it, and what the merge gate then says of its PRD. */
+  async function decideAndJudge(log: string, base = BRANCH) {
+    const { fake } = setup();
+    const { verdicts, decision } = itemDecisionOf(p(1), { item: ITEM, attempt: { status: 'done' } }, log);
+    const kept = await fake.store.decideItem(record(), { prd: p(1), item: ITEM, job: 'job-ask-1', verdicts, decision });
+    const answered = new Set(goesOn(kept) ? [ITEM] : []);
+    return { kept, decisions: await fake.store.decisions(ID), gate: judge(pullWith(base), BRANCH, answered) };
+  }
+
+  it('AC-5: records the item as decided by the fleet, on the escalation list, on every yes, and the PRD joins the mission branch', async () => {
+    const { kept, decisions, gate } = await decideAndJudge(answerLog());
+    expect(kept).toEqual({ outcome: 'carried', why: [`on the escalation list: ${law}`], option: null });
+    expect(decisions).toEqual([expect.objectContaining({ kind: 'answer', prd: p(1), item: ITEM, outcome: 'carried', why: [`on the escalation list: ${law}`] })]);
+    expect(gate).toEqual({ decision: 'merge' });
+  });
+
+  it('AC-5: records the most reversible option as deferred when a member answers no, and the PRD still joins', async () => {
+    const verdicts = [yes[0], { role: 'architect', answer: 'no', sentence: 'It changes the quote total.' }, yes[2]];
+    const { kept, decisions, gate } = await decideAndJudge(answerLog({ verdicts, outcome: 'deferred' }));
+    expect(kept).toEqual({ outcome: 'deferred', why: [`on the escalation list: ${law}`, 'the Architect answered no: It changes the quote total.'], option: 'A' });
+    expect(decisions[0]).toMatchObject({ outcome: 'deferred', option: 'A' });
+    expect(gate).toEqual({ decision: 'merge' });
+  });
+
+  it('keeps the item open for a person when its committee failed: the PRD waits', async () => {
+    const { kept, gate } = await decideAndJudge('no record here');
+    expect(kept.outcome).toBe('escalated');
+    expect(gate).toEqual({ decision: 'waits', lacks: ['1 high item open'] });
+  });
+
+  it('never lets the fleet\'s answer carry a pull request into the default branch (BR-PRODUCT-145)', async () => {
+    const { kept, gate } = await decideAndJudge(answerLog(), 'main');
+    expect(kept.outcome).toBe('carried');
+    expect(gate).toEqual({ decision: 'waits', lacks: [`#45 targets main, not ${BRANCH}`] });
   });
 });
 

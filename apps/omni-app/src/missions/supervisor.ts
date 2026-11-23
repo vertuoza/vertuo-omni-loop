@@ -12,7 +12,10 @@
 //                   Changes                round 1 sends the fix; round 2 waits for a person to decide the findings
 //                   Waiting on answers     waits for a person to answer; the page's auto-fix carries on
 //                   Need human             waits for a person to act on its runner job
-//                   Held, Stopped mid-way  sent again once (run 2, at the same step); a second time stops that PRD
+//                   Held, Stopped mid-way  sent again once (run 2, at the same step); a second time stops that PRD. At `alone`
+//                                          (PRD omni-loop-21 s10, ./resume.ts) a build, Reviewer or fix that ended without its
+//                                          result line gets a fresh job of the same step (`:resume:<k>`), at most
+//                                          `mandate.resumes` times, then goes to repair; a spend or rate limit counts none
 //                   Runner lost            recorded: PRD 2809's resume carries it
 //                   Provider limit         recorded: its resume waits for the reset and spends no try (PRD 2949); the PRD stays running, waiting
 //                   Cancelled              never sent again: that PRD is paused
@@ -50,10 +53,13 @@
 // `/omni:bug-fix #<issue> --base <feature branch>` per bug of its round 1 under `…:qa-fix:1:<k>`, one at a time, then QA's round 2
 // under `…:qa:2`. A pass sends the Reviewer's round 1; a bug still there after round 2 waits for a person to decide the bugs. A PRD
 // of a plan repository skips the pair, as it skips the Reviewer.
-import { PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isProductPrdId, PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { baseOfFlag, type BaseOfEntry } from 'omni-loop/kit/lib/ultra/base-of.ts';
+import { prdKeyPart, type MissionPrd } from './store.prd.ts';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
+import { halfwayEvent, resumeOf, resumeStep, resumeWords } from './resume.ts';
 import { approvalNext, approveLine, verdictWords, type Committee } from './committee.ts';
 import { answerEvents, answersNext, itemsOpen, type ItemCommittee, type OpenAt } from './answers.ts';
 import { NO_REPAIRS, repairEvents, repairingWords, repairNext, type RepairView, type SentAfter } from './repair.ts';
@@ -154,8 +160,11 @@ export function roomOn(runners: readonly RoomRunner[], repo: string, now: number
 export type Step = 'build' | 'qa:1' | QaFixStep | 'qa:2' | 'review:1' | 'fix:1' | 'review:2';
 const STEPS: readonly Step[] = ['build', 'qa:1', ...FIX_STEPS, 'qa:2', 'review:1', 'fix:1', 'review:2'];
 
-/** One job the mission sent for a PRD: its key's run number and step, its job, and its attempts in order, the job's first. */
-export type Run = { prd: PrdNumber; run: number; step: Step; job: string; attempts: Attempt[] };
+/**
+ * One job the mission sent for a PRD: its key's run number and step, its job, and its attempts in order, the job's first; `resume`, which
+ * fresh job of its step it is (PRD omni-loop-21 s10, `:resume:<k>`), absent for the step's first.
+ */
+export type Run = { prd: PrdNumber; run: number; step: Step; job: string; attempts: Attempt[]; resume?: number };
 
 /** How a runner job ended, as the table reads it. */
 export type JobEnd = 'ready' | 'answers' | 'human' | 'held' | 'stopped' | 'review' | 'changes' | 'checked' | 'lost' | 'limited' | 'cancelled' | 'failed';
@@ -194,7 +203,8 @@ export type PrdState =
   | { state: 'stopped'; why: string }
   | { state: 'paused' }
   /** `fix`: the bug and the feature branch of an Engineer's fix of QA's bug (PRD 3001). */
-  | { state: 'startable'; run: number; step: Step; fix?: Fix }
+  /** `resume`: the fresh job of its step it is sent as (PRD omni-loop-21 s10), absent for the step's first. */
+  | { state: 'startable'; run: number; step: Step; fix?: Fix; resume?: number }
   /** At `alone` (PRD 2896 s9): its committee to send, or at work. Neither takes a slot of `mandate.parallel`: no code runs. */
   | { state: 'approvable'; round: number }
   | { state: 'deciding'; round: number }
@@ -214,7 +224,13 @@ export type AnswersView = { open: ReadonlyMap<PrdNumber, readonly OpenAt[]>; com
  * The committees a run read (PRD 2896 s9), and whether the mission is at `alone`, where a PRD not approved goes to its committee;
  * and its items' committees (s10), where a PRD waiting on answers goes to its committee item by item.
  */
-export type CommitteeView = { alone: boolean; committees: readonly Committee[]; answers?: AnswersView };
+export type CommitteeView = {
+  alone: boolean;
+  committees: readonly Committee[];
+  answers?: AnswersView;
+  /** The resumes a step gets at `alone` (PRD omni-loop-21 s10, ./resume.ts › resumeCap); null or absent: none, as before. */
+  resumes?: number | null;
+};
 
 /** Below `alone`, or no committee read: a PRD not approved waits for a person, as before. */
 const NO_COMMITTEE: CommitteeView = { alone: false, committees: [] };
@@ -237,8 +253,11 @@ export const NO_BRANCH: OnBranch = { branch: null, joined: new Set(), lacks: new
 /** A PRD that joined the mission branch in this run: its pull request, squash-merged. */
 export type Joined = { prd: PrdNumber; pr: PrNumber; url: string };
 
-/** A PRD to send: the run it is, and its step; for an Engineer's fix of QA's bug, the bug and its feature branch (PRD 3001). */
-export type Send = { prd: PrdNumber; run: number; step: Step; fix?: Fix };
+/**
+ * A PRD to send: the run it is, and its step; for an Engineer's fix of QA's bug, the bug and its feature branch (PRD 3001); for a step
+ * sent again after it ended without its result line, the fresh job it is (PRD omni-loop-21 s10).
+ */
+export type Send = { prd: PrdNumber; run: number; step: Step; fix?: Fix; resume?: number };
 
 /** What a run sets on the mission; `pausedBy` stuck when the run pauses it by stuck (PRD 3065). */
 export type Concluded = { status: MissionStatus; waitingOn: string | null; nextWakeAt: string | null; pausedBy?: 'stuck' };
@@ -254,7 +273,9 @@ export type EventKind =
    * PRD 3088: the Omni Loop bug team sent a bug-fix job, or set a bug aside on its question or its third try; a bug a PRD of the mission
    * stopped on is fixed (or will not be), or that PRD went again on a kit that runs the fix.
    */
-  | 'bug-taken' | 'bug-asked' | 'bug-fixed';
+  | 'bug-taken' | 'bug-asked' | 'bug-fixed'
+  /** PRD omni-loop-21 s8: the fleet's committee deferred an item, the option it took meanwhile, open for a person at landing. */
+  | 'deferred';
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa';
 
 /** An event to record, signed by its role and `agent`. */
@@ -275,9 +296,12 @@ const ROUNDS = 2;
 
 const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):run:([1-9][0-9]*)(?::(review:[12]|fix:1|qa:[12]|qa-fix:1:[1-5]))?$/;
 
-/** The key a mission's job is sent under: never twice for one PRD, run and step. The build's is the run's own. */
-export const missionKey = (mission: string, prd: PrdNumber, run: number, step: Step = 'build'): string =>
-  `mission:${mission}:prd:${String(prd)}:run:${String(run)}${step === 'build' ? '' : `:${step}`}`;
+/**
+ * The key a mission's job is sent under: never twice for one PRD, run and step. The build's is the run's own. A product PRD is keyed
+ * by its id (PRD omni-loop-21 s7, ./store.prd.ts): `mission:<id>:prd:omni-loop-15:run:1`.
+ */
+export const missionKey = (mission: string, prd: MissionPrd, run: number, step: Step = 'build'): string =>
+  `mission:${mission}:${prdKeyPart(prd)}:run:${String(run)}${step === 'build' ? '' : `:${step}`}`;
 
 const isStep = (text: string): text is Step => STEPS.some((step) => step === text);
 
@@ -297,10 +321,13 @@ export type BuildSkill = 'yolo' | 'ultra-yolo';
  * a plan repository is built with `/omni:ultra-yolo <n>` (PRD 2873), which takes no `--for-review`: it is sent
  * unchanged, so its run ends as a build without the Reviewer does; its fix, were one sent, is
  * `/omni:ultra-yolo-fix <n> --for-review`. QA's rounds, and the Engineer's fix of a bug, `fix` its bug and feature branch (PRD 3001).
+ * A product PRD (PRD omni-loop-21 s7) is built with `/omni:ultra-yolo <key>-<n>`, its `base` the mission branch of each repository
+ * it touches (`--base-of`): see `productLineOf`.
  */
-export function lineOf(prd: PrdNumber, step: Step, skill: BuildSkill = 'yolo', base: string | null = null, fix: Fix | null = null): string {
+export function lineOf(prd: MissionPrd, step: Step, skill: BuildSkill = 'yolo', base: Base = null, fix: Fix | null = null): string {
+  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === 'string' || base === null ? [] : base);
   const n = String(prd);
-  const onBase = base === null ? '' : ` --base ${base}`;
+  const onBase = typeof base === 'string' ? ` --base ${base}` : '';
   const round = qaRoundOf(step);
   if (round !== null) return qaSkillLine(prd, round);
   if (isFixStep(step)) {
@@ -310,6 +337,27 @@ export function lineOf(prd: PrdNumber, step: Step, skill: BuildSkill = 'yolo', b
   if (step === 'build') return skill === 'ultra-yolo' ? `/omni:ultra-yolo ${n}` : `/omni:yolo ${n} --for-review${onBase}`;
   if (step === 'fix:1') return skill === 'ultra-yolo' ? `/omni:ultra-yolo-fix ${n} --for-review` : `/omni:yolo-fix ${n} --for-review${onBase}`;
   return `/omni:review ${n}`;
+}
+
+/**
+ * Where a step's pull requests go: the mission branch, for a repository's PRD (`--base`); the mission branch of each repository a
+ * product PRD touches (`--base-of`, PRD omni-loop-21 s7); none at `with-you`.
+ */
+export type Base = string | readonly BaseOfEntry[] | null;
+
+/** The mission branch `branch` in each of `repos`, as `--base-of` names them. */
+export const basesOf = (repos: readonly string[], branch: string): BaseOfEntry[] => repos.map((repo) => ({ repo, branch }));
+
+/**
+ * The line a step of a product PRD is sent as (PRD omni-loop-21 s7): built with `/omni:ultra-yolo <key>-<n> --base-of …`, each
+ * target pull request into its repository's mission branch, the fix with the same bases, the Reviewer by its id. No bases (at
+ * `with-you`) sends no flag. A product PRD skips the QA pair, as a plan repository's PRD does: no QA line is ever sent for one.
+ */
+function productLineOf(prd: ProductPrdId, step: Step, bases: readonly BaseOfEntry[]): string {
+  const flag = bases.length === 0 ? '' : ` ${baseOfFlag(bases)}`;
+  if (qaRoundOf(step) !== null || isFixStep(step)) throw new Error(`PRD ${prd} is a product PRD: it skips the QA pair, and ${step} is never sent for it`);
+  if (step === 'build') return `/omni:ultra-yolo ${prd}${flag}`;
+  return step === 'fix:1' ? `/omni:ultra-yolo-fix ${prd} --for-review${flag}` : `/omni:review ${prd}`;
 }
 
 /** What a mission may run at (PRD 2896): `with-you` changes nothing, the two others build on a branch of the mission's own. */
@@ -481,8 +529,9 @@ const lastOf = (run: Run): Attempt | undefined => run.attempts.at(-1);
 /** A step's place in a run, the build's 0: a later step is further on (PRD 3065: reaching one is moving). */
 export const stepRank = (step: Step): number => STEPS.indexOf(step);
 
-/** Whether job `a` comes after job `b`: a later run, or a later step of the same run. */
-export const after = (a: Run, b: Run): boolean => a.run > b.run || (a.run === b.run && stepRank(a.step) > stepRank(b.step));
+/** Whether job `a` comes after job `b`: a later run, a later step of the same run, or a later resume of the same step (PRD omni-loop-21 s10). */
+export const after = (a: Run, b: Run): boolean =>
+  a.run > b.run || (a.run === b.run && (stepRank(a.step) > stepRank(b.step) || (a.step === b.step && resumeOf(a) > resumeOf(b))));
 
 /**
  * Where each PRD of the scope is, by PRD. On a mission branch (PRD 2896), a PRD on it is `joined` and unblocks the PRDs
@@ -503,7 +552,7 @@ export function prdStates(
     if (fact.stage !== 'merged' && branch.dropped?.has(fact.prd) === true) return { state: 'dropped' };
     const answers = view.answers === undefined ? undefined : { open: view.answers.open, committees: view.answers.committees.filter((one) => one.prd === fact.prd) };
     const own = { alone: view.alone, committees: view.committees.filter((one) => one.prd === fact.prd), ...(answers === undefined ? {} : { answers }) };
-    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own, fleet, repairs, qa });
+    return stateOf(fact, runs.filter((one) => one.prd === fact.prd), { merged, branch, view: own, fleet, repairs, qa, resumes: view.resumes ?? null });
   };
   return new Map(facts.map((fact) => [fact.prd, of(fact)]));
 }
@@ -518,7 +567,7 @@ const toMerge = (prd: PrdNumber, branch: OnBranch): PrdState => {
  * What a PRD's state is read against: the PRDs merged (or on the branch), the mission branch, the PRD's committees, and the QA pair as
  * the run read it (PRD 3001), with the PRD's own runs.
  */
-type Around = { merged: ReadonlySet<PrdNumber>; branch: OnBranch; view: CommitteeView; fleet: Fleet; repairs: RepairView; qa: QaView; runs?: readonly Run[] };
+type Around = { merged: ReadonlySet<PrdNumber>; branch: OnBranch; view: CommitteeView; fleet: Fleet; repairs: RepairView; qa: QaView; runs?: readonly Run[]; resumes?: number | null };
 
 /** What the target's runners let a queued job do (PRD 2949): whether one can take it, at `now`. */
 export type Fleet = { room: boolean; now: number };
@@ -569,7 +618,19 @@ function pairAfter(next: Next, { fact, latest, last }: { fact: PrdFacts; latest:
   return next.next === 'land' && isFixStep(latest.step) ? afterFix(fact.prd, { ...latest, step: latest.step }, last, runs, around.qa) : null;
 }
 
+/**
+ * At `alone` (PRD omni-loop-21 s10, ./resume.ts), a step whose latest job ended without its result line: a fresh job of the same step,
+ * or its repair once its resumes are spent; null when the resume step does not read its end.
+ */
+function resumed(fact: PrdFacts, latest: Run, last: Attempt, around: Around): PrdState | null {
+  const resume = resumeStep(around.runs ?? [], latest, around.resumes ?? null);
+  if (resume === null) return null;
+  return resume.next === 'resume' ? { state: 'startable', run: latest.run, step: latest.step, resume: resume.resume } : repaired(fact, latest, last, resume.why, around);
+}
+
 function afterEnd(fact: PrdFacts, latest: Run, last: Attempt, around: Around): PrdState {
+  const resume = resumed(fact, latest, last, around);
+  if (resume !== null) return resume;
   const next = outcome(endOf(last) ?? 'stopped', latest.run, last.reason, latest.step, !around.qa.skip);
   const pair = pairAfter(next, { fact, latest, last }, around);
   if (pair !== null) return pair;
@@ -693,7 +754,13 @@ export function featurePrOf(runs: readonly Run[], prd: PrdNumber): PrNumber | nu
 const AT_WORK: ReadonlySet<PrdState['state']> = new Set(['running', 'repairable', 'repairing']);
 
 /** A startable PRD as sent: its run and step, and the bug an Engineer's fix of QA's bug is for (PRD 3001). */
-const sendOf = (prd: PrdNumber, { run, step, fix }: Extract<PrdState, { state: 'startable' }>): Send => (fix === undefined ? { prd, run, step } : { prd, run, step, fix });
+const sendOf = (prd: PrdNumber, { run, step, fix, resume }: Extract<PrdState, { state: 'startable' }>): Send => ({
+  prd,
+  run,
+  step,
+  ...(fix === undefined ? {} : { fix }),
+  ...(resume === undefined ? {} : { resume }),
+});
 
 /** The PRDs this run sends, in scope order. */
 export function pick({ mission, facts, states }: { mission: Mission; facts: readonly PrdFacts[]; states: ReadonlyMap<PrdNumber, PrdState> }): Send[] {
@@ -852,6 +919,7 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
   checked: (_prdKey, job) => jobKey('end', job),
   decided: (_prdKey, job) => jobKey('end', job),
   escalated: (_prdKey, job) => jobKey('end', job),
+  deferred: (_prdKey, job) => jobKey('end', job),
   'prd-ready': (prdKey, job) => [`ready:${prdKey ?? 'mission'}`, ...jobKey('end', job)],
   'prd-merged': (prdKey) => [`merged:${prdKey ?? 'mission'}`],
   stopped: (prdKey) => (prdKey === null ? [] : [`stopped:${prdKey}`]),
@@ -990,16 +1058,22 @@ function sentWords(one: Run, where: string, { skill, base, runs, qa }: { skill: 
   const pair = sentPairWords(one, where, runs, qa);
   if (pair !== null) return pair;
   const round = roundOf(one.step);
-  return `Sent ${lineOf(one.prd, one.step, skill, base)} to ${where} (run ${String(one.run)}${round === null ? '' : `, round ${String(round)}`}).`;
+  return `Sent ${lineOf(one.prd, one.step, skill, base)} to ${where} (run ${String(one.run)}${round === null ? '' : `, round ${String(round)}`}${resumeWords(one)}).`;
 }
 
 /** What each job says: its dispatch, each runner lost along the way, and its end. */
-function runEvents(runs: readonly Run[], where: string, { skill, base, repairs = false, qa = NO_QA }: { skill: BuildSkill; base: string | null; repairs?: boolean; qa?: QaView }): NewEvent[] {
+function runEvents(
+  runs: readonly Run[],
+  where: string,
+  { skill, base, repairs = false, qa = NO_QA, resumes = null }: { skill: BuildSkill; base: string | null; repairs?: boolean; qa?: QaView; resumes?: number | null },
+): NewEvent[] {
   return runs.flatMap((one) => {
     const last = lastOf(one);
     const end = last ? endOf(last) : null;
     const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: sentWords(one, where, { skill, base, runs, qa }) };
-    const ending = last && end !== null ? [endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base, repairs, runs, qa })] : [];
+    // At `alone` a halfway end says what the resume step makes of it (PRD omni-loop-21 s10), under the same key as its plain end.
+    const halfway = halfwayEvent(one.prd, one, runs, resumes);
+    const ending = last && end !== null ? [halfway ?? endEvent(one.prd, one, last, end, { asked: askedBefore(runs, one), branch: base, repairs, runs, qa })] : [];
     const gone = one.attempts.slice(0, -1).map((lost) => endEvent(one.prd, one, lost, lost.limitedUntil == null ? 'lost' : 'limited'));
     return [sent, ...gone, ...ending].filter((event): event is NewEvent => event !== null);
   });
@@ -1098,6 +1172,7 @@ export function eventsOf({
   asks = [],
   repairs = NO_REPAIRS,
   qa = NO_QA,
+  resumes = null,
 }: {
   mission: Mission;
   facts: readonly PrdFacts[];
@@ -1119,6 +1194,8 @@ export function eventsOf({
   repairs?: RepairView;
   /** The QA pair as the run read it (PRD 3001): each fix's feature branch and landing. */
   qa?: QaView;
+  /** The resumes a step gets at `alone` (PRD omni-loop-21 s10, ./resume.ts › resumeCap); null below it. */
+  resumes?: number | null;
 }): NewEvent[] {
   const keys = new Set(recorded);
   const where = whereOf(mission, toFleet);
@@ -1126,7 +1203,7 @@ export function eventsOf({
   const all = [
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
-    ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa }),
+    ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa, resumes }),
     ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
     ...joinEvents(joins, base),
     ...landEvents(landings),
@@ -1134,6 +1211,74 @@ export function eventsOf({
     ...missionEvents(mission, next),
   ];
   return unrecorded(all, keys);
+}
+
+// ── Product PRDs (PRD omni-loop-21 s9b, item s7-05) ──────────────────────────────
+// A product PRD of the scope (`<key>-<n>`, or a row of a product roadmap `<key>-R<n>`, expanded by ./expand.ts) runs beside the
+// repository's PRDs, on the mission branch of every repository its plan names: held until its blockers joined, built once its approval
+// stands with `/omni:ultra-yolo <id> --base-of …` (no QA pair, no Reviewer: its target pull requests carry its gate), joined through
+// ./join.ts › joinProduct once its build ended Ready. Any other end waits for a person: its resume, repair and committee are not read.
+
+/** A product PRD of the scope, as a run read it: its approval, the PRDs it waits on, and its plan's repositories. */
+export type ProductFact = { prd: ProductPrdId; approval: Approval; blockers: readonly MissionPrd[]; targets: readonly string[] };
+
+/** One build the mission sent for a product PRD: its run, its job and its attempts, the job's first. */
+export type ProductRun = { prd: ProductPrdId; run: number; job: string; attempts: Attempt[] };
+
+/** Where a product PRD is: on the branch, held by its blockers, waiting for a person, its build to send or at work, or to join. */
+export type ProductState =
+  | { state: 'joined' }
+  | { state: 'blocked'; by: readonly MissionPrd[] }
+  | { state: 'waits'; why: string }
+  | { state: 'startable'; run: number }
+  | { state: 'running' }
+  | { state: 'ready'; run: ProductRun };
+
+/** The product PRD's latest build, the one with the highest run. */
+const latestProduct = (runs: readonly ProductRun[], prd: ProductPrdId): ProductRun | null =>
+  runs.filter((one) => one.prd === prd).reduce<ProductRun | null>((last, one) => (last === null || one.run > last.run ? one : last), null);
+
+/** Where a product PRD stands once its build ended. */
+function productEnded(fact: ProductFact, latest: ProductRun, last: Attempt): ProductState {
+  const end = endOf(last);
+  if (end === 'ready') return { state: 'ready', run: latest };
+  if (end === 'lost' || end === 'limited') return { state: 'running' };
+  const why = end === 'failed' && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? 'without its result line'}`;
+  return { state: 'waits', why: `PRD ${fact.prd}: ${why}; take it to ready by hand and the mission joins it` };
+}
+
+/**
+ * Where product PRD `fact` is (PRD omni-loop-21 s9b): joined once recorded on the branch (`joined`), else held until each blocker is
+ * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join.
+ */
+export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch }: { joined: ReadonlySet<MissionPrd>; done: ReadonlySet<MissionPrd>; branch: string }): ProductState {
+  if (joined.has(fact.prd)) return { state: 'joined' };
+  const latest = latestProduct(runs, fact.prd);
+  const last = latest?.attempts.at(-1);
+  if (latest !== null && last !== undefined) return endOf(last) === null ? { state: 'running' } : productEnded(fact, latest, last);
+  const by = fact.blockers.filter((one) => !done.has(one));
+  if (by.length > 0) return { state: 'blocked', by };
+  if (fact.approval !== 'standing') return { state: 'waits', why: `PRD ${fact.prd}: ${fact.approval === 'voided' ? 'approve it again' : 'approve it'} on its page (${branch})` };
+  return { state: 'startable', run: 1 };
+}
+
+/** What the product PRDs left for the mission: whether one is not on the branch yet, one moved or is at work, and what they wait on. */
+export type ProductsRun = { pending: boolean; moving: boolean; waits: readonly string[] };
+
+/**
+ * The mission's conclusion once its product PRDs are read (PRD omni-loop-21 s9b): never delivered while one is not on the branch,
+ * running while one moved or is at work, else waiting on what they wait on. Paused or a draft: as it is.
+ */
+export function withProducts(next: Concluded, products: ProductsRun, now: number): Concluded {
+  if (next.status === 'paused' || next.status === 'draft' || (!products.pending && products.waits.length === 0)) return next;
+  const wake = new Date(now + WAKE_MS).toISOString();
+  // Every product PRD on the branch: a mission that would stop for want of a PRD to start waits for a person to land it instead.
+  if (!products.pending) return next.status === 'stopped' ? { status: 'waiting', waitingOn: fitted(products.waits, ' · '), nextWakeAt: wake } : next;
+  const status: MissionStatus = products.moving || next.status === 'running' ? 'running' : 'waiting';
+  // A stopped or delivered conclusion speaks of the repository's PRDs alone: what the product PRDs wait on replaces it.
+  const own = next.status === 'delivered' || next.status === 'stopped' || next.waitingOn === null ? [] : [next.waitingOn];
+  const parts = [...products.waits, ...own];
+  return { status, waitingOn: parts.length === 0 ? null : fitted(parts, ' · '), nextWakeAt: wake };
 }
 
 /** `events`, each whose keys none of `recorded` holds, in order, its sentence cut to what the database keeps; `recorded` gains their keys. */
