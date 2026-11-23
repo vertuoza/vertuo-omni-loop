@@ -47,16 +47,17 @@ describe('the Ask page and the questions card pick with the Select (AC-5)', () =
     expect(onShare).toHaveBeenCalledWith('ux');
   });
 
-  it('the history filters post the category picked', async () => {
+  it('the history filters keep the category and post the repository picked', async () => {
     const user = userEvent.setup();
-    const choices = { repos: [], prds: [], skills: [], askedBy: [], answeredBy: [] };
-    const { container } = render(createElement(WorkspaceHistory, { items: [], choices, filters: { category: 'product' } }));
+    const choices = { repos: ['demo-org/nimbus-app', 'demo-org/nimbus-api'], prds: [], skills: [], askedBy: [], answeredBy: [] };
+    const { container } = render(createElement(WorkspaceHistory, { items: [], choices, filters: { category: 'product', repo: 'demo-org/nimbus-app' } }));
     const form = container.querySelector('form');
     if (form === null) throw new Error('no form');
     expect(new FormData(form).get('category')).toBe('product');
-    await user.click(screen.getByRole('combobox', { name: 'Category' }));
-    await user.click(await screen.findByRole('option', { name: 'Architecture' }));
-    expect(new FormData(form).get('category')).toBe('architecture');
+    expect(new FormData(form).get('repo')).toBe('demo-org/nimbus-app');
+    await user.click(screen.getByRole('combobox', { name: 'Repository' }));
+    await user.click(await screen.findByRole('option', { name: 'demo-org/nimbus-api' }));
+    expect(new FormData(form).get('repo')).toBe('demo-org/nimbus-api');
   });
 
   it('the questions card saves the kind and the product picked', async () => {

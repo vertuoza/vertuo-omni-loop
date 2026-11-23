@@ -3,7 +3,7 @@ screen: inbox
 status: draft
 kind: page
 mock: inbox.html
-implements: [apps/galaxy/app/app/inbox/page.tsx, apps/galaxy/app/app/inbox/done/page.tsx, apps/galaxy/app/app/inbox/workspace/page.tsx, apps/galaxy/src/inbox/InboxScreen.tsx, apps/galaxy/src/inbox/InboxScreen.header.tsx, apps/galaxy/src/inbox/InboxScreen.open.tsx, apps/galaxy/src/inbox/InboxScreen.panel.tsx, apps/galaxy/src/inbox/InboxScreen.done.tsx, apps/galaxy/src/inbox/InboxScreen.signin.tsx, apps/galaxy/src/inbox/inbox.css]
+implements: [apps/galaxy/src/ask/page/WorkspaceHistory.tsx, apps/galaxy/src/ask/page/history.css, apps/galaxy/app/app/inbox/page.tsx, apps/galaxy/app/app/inbox/done/page.tsx, apps/galaxy/app/app/inbox/workspace/page.tsx, apps/galaxy/src/inbox/InboxScreen.tsx, apps/galaxy/src/inbox/InboxScreen.header.tsx, apps/galaxy/src/inbox/InboxScreen.open.tsx, apps/galaxy/src/inbox/InboxScreen.panel.tsx, apps/galaxy/src/inbox/InboxScreen.done.tsx, apps/galaxy/src/inbox/InboxScreen.signin.tsx, apps/galaxy/src/inbox/inbox.css]
 reads: [apps/galaxy/src/inbox/inbox.ts, apps/galaxy/src/inbox/InboxScreen.model.ts, apps/galaxy/src/inbox/keys.ts, apps/galaxy/src/inbox/inbox.controller.ts, apps/galaxy/src/waiting/, apps/galaxy/src/ask/page/AskQuestion.tsx, apps/galaxy/src/ask/page/RoundForm.tsx, apps/galaxy/src/waiting-board/, apps/galaxy/src/nav/]
 routes: [/app/inbox, /app/inbox/done, /app/inbox/workspace]
 supersedes: questions
@@ -26,6 +26,14 @@ blocks an agent is open and ready to answer the moment they click Inbox.
 - From 1280 px, the panel beside the list: the open item whole; for a question, today's answer form,
   its options, Other and the one primary action, Send answer.
 - Below 1280 px: the list full width; a question opens in place, its options and Send at least 44 px tall.
+
+- The Done tab (visual update #3169): a 200 px sidebar of the categories on the left, `All` first, each a
+  link with its count under the other filters, the chosen one marked; beside it one line of the search,
+  More filters (Repository, PRD, Skill, Asked by, Answered by, each only when it offers a choice, and
+  Apply) and the count (`<n> questions`, or `<n> of <all> · Clear filters`); then the rows grouped under
+  day titles (Today, Yesterday, then the date), each row the context line, the question, `→ the answer`,
+  who asked and answered, the age and the category badge. Below 900 px the categories become one line
+  that scrolls.
 
 ## States
 
@@ -50,9 +58,13 @@ blocks an agent is open and ready to answer the moment they click Inbox.
 
 ## Open questions
 
+- The Done tab still lists rounds that are waiting; whether they leave Done is a logic change, not a visual one.
+- This screen's mockup draws the Open tab; the Done tab's is the pick in `.omni-loop/delivery/visual/3169-done-tab-sidebar/before-after.html`.
+
 - The Done tab's rows for approvals and merges: their exact words.
 - The `menu-inbox` sprite, pending its owner's approval.
 
 ## Source
 
 /omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after)
+/omni:visual-fix #3169, pick A by @pierrederval on 2026-11-23: .omni-loop/delivery/visual/3169-done-tab-sidebar/before-after.html

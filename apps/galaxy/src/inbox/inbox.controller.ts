@@ -3,7 +3,7 @@ import type { MemberSession } from '../data/member-session';
 import { DEMO_TEAMMATE } from '../ask/page/demo';
 import type { QuestionSource } from '../ask/page/AskQuestion';
 import { readHistoryLive, type HistoryRead } from '../ask/page/history-live';
-import { historyChoices, historyList, readHistoryFilters, type HistoryChoices, type HistoryFilters, type HistoryItem } from '../ask/page/workspace-history';
+import { categoryCounts, historyChoices, historyList, readHistoryFilters, type CategoryCount, type HistoryChoices, type HistoryFilters, type HistoryItem } from '../ask/page/workspace-history';
 
 // The Inbox's controller (PRD omni-loop-22, s5; ADR-0095): who reads /app/inbox decides what it draws,
 // checked first. The demo in development (or OMNI_LOOP_DEMO=1) answers as the demo's teammate; with no
@@ -28,7 +28,7 @@ type Query = Readonly<Record<string, string | string[] | undefined>>;
 
 /** What the Done tab draws: the history under the query's filters, or why it could not be read. */
 export type DoneView =
-  | { kind: 'history'; items: HistoryItem[]; choices: HistoryChoices; filters: HistoryFilters }
+  | { kind: 'history'; items: HistoryItem[]; choices: HistoryChoices; filters: HistoryFilters; categories: CategoryCount[]; all: number; now: number }
   | Exclude<HistoryRead, { kind: 'rows' }>
   | { kind: 'unreachable' };
 
@@ -40,5 +40,13 @@ export async function doneViewOf(query: Query, now: number, read: (now: number) 
   if (history === null) return { kind: 'unreachable' };
   if (history.kind !== 'rows') return history;
   const filters = readHistoryFilters(query);
-  return { kind: 'history', items: historyList(history.rows, filters, history.members), choices: historyChoices(history.rows, history.members), filters };
+  return {
+    kind: 'history',
+    items: historyList(history.rows, filters, history.members),
+    choices: historyChoices(history.rows, history.members),
+    filters,
+    categories: categoryCounts(history.rows, filters),
+    all: history.rows.length,
+    now,
+  };
 }

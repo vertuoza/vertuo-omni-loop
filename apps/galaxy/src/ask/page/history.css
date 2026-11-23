@@ -1,51 +1,103 @@
-/* The workspace's history (PRD 144). Every colour is a token of src/ask/theme-tokens.ts, as in
-   src/ask/ask.css, so light, dark and system follow the theme switch. */
+/* The workspace's history (PRD 144) on the Inbox's Done tab (PRD omni-loop-22), as visual update #3169
+   draws it (pick A of round 3): the categories in a sidebar on the left, one line of search, More
+   filters and the count, then the rows grouped by day, as the Open tab draws its rows. Every value is
+   a token of @omni/design. */
 
-/* ── The filters and the search ──────────────────────────────────────────── */
-
-.ask-history-filters {
+.done {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
-  padding: 16px;
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 12px;
-}
-.ask-history-field { display: grid; gap: 4px; min-width: 0; }
-.ask-history-field .ask-share-link { width: 100%; }
-.ask-history-search { grid-column: 1 / -1; }
-.ask-history-actions { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 16px; }
-.ask a.ask-history-clear { color: var(--ask-muted); font-size: 15px; }
-
-/* ── The rounds, newest first ─────────────────────────────────────────────── */
-
-.ask-history-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.ask-history-list > li { display: grid; gap: 4px; }
-.ask-history-list .ask-context { padding: 0 18px; }
-.ask a.ask-history-link {
-  display: grid;
-  gap: 6px;
-  padding: 14px 18px;
-  color: var(--ask-ink);
-  text-decoration: none;
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 12px;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
   min-width: 0;
 }
-.ask a.ask-history-link:hover { border-color: var(--ask-plasma); }
-.ask a.ask-history-link:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
-.ask-history-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.ask-history-answer { font-weight: 700; overflow-wrap: anywhere; white-space: pre-wrap; }
-.ask-category-tag {
-  font: 700 12px/1 var(--ask-body);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ask-ink);
-  background: var(--ask-sunk);
-  border: 1px solid var(--ask-line-strong);
-  border-radius: 4px;
-  padding: 5px 8px;
+.done-main { display: grid; gap: var(--space-4); min-width: 0; }
+
+/* ── The categories ──────────────────────────────────────────────────────── */
+
+.done-cats { display: grid; gap: 2px; align-content: start; position: sticky; top: var(--space-4); }
+.done-cats-title {
+  margin: 0 0 var(--space-2); padding: 0 var(--space-3);
+  font-size: var(--type-1-size); line-height: var(--type-1-line); font-weight: var(--weight-bold);
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-tertiary);
 }
-.ask-category-tag[data-category="unsorted"] { color: var(--ask-muted); border-style: dashed; }
+.ask a.done-cat {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-2);
+  color: var(--color-text-secondary); font-size: var(--type-3-size); line-height: var(--type-3-line);
+  text-decoration: none; white-space: nowrap;
+}
+.ask a.done-cat:hover { background: var(--color-sunken); color: var(--color-text-primary); }
+.ask a.done-cat:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.ask a.done-cat[aria-current='page'] { color: var(--color-text-primary); background: var(--color-accent-soft); border-color: var(--color-accent); }
+.done-cat-count { font-size: var(--type-1-size); color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; }
+.ask a.done-cat[aria-current='page'] .done-cat-count { color: var(--color-accent); }
+
+/* ── The line: search, More filters, the count ───────────────────────────── */
+
+.done-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); min-width: 0; position: relative; }
+.done-search { width: min(100%, 320px); }
+.done-more { position: relative; }
+.done-more > summary { list-style: none; cursor: pointer; }
+.done-more > summary::-webkit-details-marker { display: none; }
+.done-more[open] > summary { border-color: var(--color-accent); }
+.done-more-panel {
+  position: absolute; top: calc(100% + var(--space-2)); left: 0; z-index: var(--layer-overlay);
+  display: grid; gap: var(--space-3); width: 280px; padding: var(--space-3);
+  background: var(--color-raised); border: 1px solid var(--color-border-strong); border-radius: var(--radius-2);
+  box-shadow: var(--elevation-overlay);
+}
+.done-field { display: grid; gap: var(--space-1); min-width: 0; }
+.done-field-label { font-size: var(--type-2-size); color: var(--color-text-secondary); }
+.done-more-panel .omni-button--primary { justify-self: end; }
+.done-count {
+  margin-left: auto; font-size: var(--type-2-size); color: var(--color-text-tertiary);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.ask .done-count a.ask-history-clear { color: var(--color-info); }
+
+/* ── The rows, grouped by day ────────────────────────────────────────────── */
+
+.done-days { display: grid; gap: var(--space-4); min-width: 0; }
+.done-day-group { display: grid; gap: var(--space-1); min-width: 0; }
+.done-day {
+  margin: 0; padding: 0 var(--space-3);
+  font-size: var(--type-2-size); line-height: var(--type-2-line); font-weight: var(--weight-bold); color: var(--color-text-secondary);
+}
+.done-day-count { font-weight: var(--weight-regular); color: var(--color-text-tertiary); }
+.done-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ask a.done-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3);
+  padding: var(--space-3); border: 1px solid transparent; border-radius: var(--radius-2);
+  color: var(--color-text-primary); text-decoration: none;
+}
+.ask a.done-row:hover { background: var(--color-sunken); }
+.ask a.done-row:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.done-row-main { display: grid; gap: 2px; min-width: 0; }
+.done-context {
+  font-size: var(--type-2-size); line-height: var(--type-2-line); color: var(--color-text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.done-question { font-size: var(--type-3-size); line-height: var(--type-3-line); overflow-wrap: anywhere; }
+.done-more-count { color: var(--color-text-tertiary); }
+.done-answer { font-size: var(--type-3-size); line-height: var(--type-3-line); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.done-answer .ask-history-answer { color: var(--color-text-primary); font-weight: var(--weight-medium); white-space: pre-wrap; }
+.done-answer .ask-shots-count { margin-left: var(--space-2); font-size: var(--type-2-size); }
+.done-who { font-size: var(--type-2-size); color: var(--color-text-tertiary); }
+.done-row-end { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
+.done-age { font-size: var(--type-1-size); color: var(--color-text-tertiary); white-space: nowrap; }
+
+.done-empty { display: grid; gap: var(--space-2); padding: var(--space-5) 0; }
+.done-empty-title { margin: 0; font-size: var(--type-5-size); line-height: var(--type-5-line); }
+.done-muted { margin: 0; color: var(--color-text-secondary); }
+
+/* ── Below 900 px: the categories become one line that scrolls ──────────── */
+
+@media (max-width: 899px) {
+  .done { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .done-cats { position: static; display: flex; gap: var(--space-1); overflow-x: auto; padding-bottom: var(--space-1); }
+  .done-cats-title { display: none; }
+  .ask a.done-cat { border-color: var(--color-border-subtle); }
+  .done-search { width: 100%; min-height: 44px; }
+  .done-count { margin-left: 0; }
+  .done-more-panel { left: auto; right: 0; width: min(280px, calc(100vw - var(--space-6))); }
+}
