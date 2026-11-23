@@ -56,6 +56,11 @@ The parts live in `packages/ui` and are built on omni-loop-12's components and t
   reading in order (what changed, the verdict, the body), and the decision row at the foot, with no
   tabs and nothing else on it. Its breadcrumb ends at the review.
 
+- The trail header (omni-loop-23), for hub pages whose tabs are the page, as the Inbox: no visible
+  32 px title, the top bar's trail is the title and a visually hidden h1 stays; the tabs sit right under
+  the top bar, the one count that says who acts is the filled count of its tab, and the actions sit in
+  the tabs line's end slot. Every other page keeps the full header.
+
 ## Width
 
 Every page spans the full app width (`apps/galaxy/src/page-width.test.ts`). Only running prose,
@@ -93,9 +98,12 @@ sentence. "Slices", not "tasks", is the word for a plan's unit of work.
 - How many facts a meta row takes on a narrow phone before a fact moves into the About block.
 - Whether `SegmentedControl` on a phone becomes a select, and at what width.
 
+- omni-loop-23: whether the trail header becomes a variant of PageHeader, or stays the Tabs' own layout.
+
 ## Source
 
 - omni-loop-20 spec, section 1 "The page anatomy, as parts in `@omni/ui`"
 - omni-loop-20 spec, section 2 "Every page spans the full app width"
 - apps/galaxy/src/page-width.test.ts
 - packages/ui/src/ (the parts of omni-loop-10 and omni-loop-12)
+/omni:brainstorm, PRD omni-loop-23: its before/after page, on the PRD's page (omni dossier get omni-loop-23 before-after)
