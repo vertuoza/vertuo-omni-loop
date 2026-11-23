@@ -100,7 +100,7 @@ import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mi
 import { decisionsOf, deferredOf, reworkLine, reworksOf, type DecisionPrd, type DeferredDecision, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
 import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
-import { addedOf, isOwnJob, pmDispatched, pmEvents, pmNext, pmWorking, withAdded, withPm, type PmJob } from './pm.ts';
+import { addedOf, isOwnJob, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type PmJob, type PmView } from './pm.ts';
 import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
 import { planJobLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
 import { retroSkillLine } from './milestone.ts';
@@ -278,7 +278,8 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   // The mission pull requests, then the landing once every row joined (PRD omni-loop-21 s15), and the person's Agree and Overturn.
   const landed = await landingStep({ store, mission, at, landing, hold: kept.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits, ...landed.waits]);
-  const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString()), products, now);
+  // A goal-only mission whose PM wrote no PRD, its jobs spent, waits on a person with that line (PRD omni-loop-24, ./pm.ts › pmWait).
+  const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString(), pmWait(pmView(mission, pm, inPlan))), products, now);
   const finished: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const retro = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
@@ -476,9 +477,12 @@ async function sendRetro(store: MissionStore, mission: MissionRecord, toFleet: b
 /** A new event as a run reads it back. */
 const asRecorded = ({ kind, prd, job }: NewEvent): RecordedEvent => ({ kind, prd, job });
 
+/** What a run decides the PM's job from (./pm.ts): the mission, its cap, the PRDs its fleet added, its PM jobs, and where it lives. */
+const pmView = (mission: MissionRecord, pm: PmRead, inPlan: boolean): PmView => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
+
 /** The mission's PM job, when this run sends it (PRD 2896 s12): its dispatch, or nothing. */
 async function sendPm(store: MissionStore, mission: MissionRecord, pm: PmRead, inPlan: boolean, toFleet: boolean): Promise<NewEvent[]> {
-  const next = pmNext({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan });
+  const next = pmNext(pmView(mission, pm, inPlan));
   if (next.next !== 'send') return [];
   const job = await store.pm({ mission, round: next.round, line: next.line, toFleet });
   return job === null ? [] : [pmDispatched(job, next)];

@@ -11,10 +11,15 @@
 //   after             a PRD added joins the mission's scope, read from those events, and goes to the committee like any other at
 //                     `alone`, but with the PM sitting out: the Architect and the Reviewer approve it (`--author pm`)
 //   the events        the dispatch, signed `supervisor`; what it added, signed `pm`; all by `agent`, never in a person's name
+//   goal-only         a mission whose scope names no PRD and no roadmap (PRD omni-loop-24) is sent the roadmap first, at any cap.
+//                     A job of it that ended with no PRD is sent once more under the next round, within `mandate.resumes`; then
+//                     the mission waits on a person with `the PM wrote no PRD for the goal: <why>`, never stopped or delivered
 import { isPmSkill, keptOf, notWrittenWords, planOfLine, pmJobLine, pmRecordOf, pmSkillFor, type PmSkill } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { sendsCommittees } from './committee.ts';
-import type { Attempt, Concluded, Mission, NewEvent, RecordedEvent } from './supervisor.ts';
+import { resumeCap } from './resume.ts';
+import type { MissionRecord } from './store.ts';
+import { cut, type Attempt, type Concluded, type Mission, type NewEvent, type RecordedEvent } from './supervisor.ts';
 
 /** The PM job for the mission's own PRDs: its round in the key. A plan job takes a later one (./pm.plan.ts). */
 export const PM_ROUND = 1;
@@ -43,19 +48,78 @@ export function addedOf(recorded: readonly RecordedEvent[]): PrdNumber[] {
 /** What the mission's PM is sent this run, or nothing. */
 export type PmNext = { next: 'none' } | { next: 'send'; round: number; skill: PmSkill; cap: number; line: string };
 
-/** What a run reads to decide on the PM's job: the mission, its cap, the PRDs its fleet added, its PM jobs, and whether its repository is a plan repository. */
-export type PmView = { mission: Pick<Mission, 'level' | 'status' | 'number'>; ownPrds: number; added: number; jobs: readonly PmJob[]; inPlan: boolean };
+/**
+ * What a run reads to decide on the PM's job: the mission (its scope, its resumes, its kind), its cap, the PRDs its fleet added, its
+ * PM jobs, and whether its repository is a plan repository.
+ */
+export type PmView = {
+  mission: Pick<MissionRecord, 'level' | 'status' | 'number' | 'scope' | 'resumes' | 'kind' | 'products'>;
+  ownPrds: number;
+  added: number;
+  jobs: readonly PmJob[];
+  inPlan: boolean;
+};
+
+const NONE: PmNext = { next: 'none' };
+
+/**
+ * Whether a mission is goal-only (PRD omni-loop-24): a mission of PRDs whose scope names no PRD and no roadmap, a product's neither.
+ * Its scope as a run reads it holds the PRDs its fleet added, so a goal-only mission whose PM wrote one reads goal-only no more.
+ */
+export function goalOnly({ scope, products, kind }: Pick<PmView['mission'], 'scope' | 'products' | 'kind'>): boolean {
+  const named = scope.prds.length + scope.roadmaps.length + (products?.prds.length ?? 0) + (products?.roadmaps.length ?? 0);
+  return kind !== 'omni-bugs' && named === 0;
+}
+
+/** How many own jobs a goal-only mission's PM is sent: the first, and once more within `mandate.resumes` (none at 0). */
+const triesOf = (mission: PmView['mission']): number => 1 + Math.min(1, resumeCap(mission) ?? 0);
+
+/** The mission's own PM jobs: every PM job but a plan or a replan. */
+const ownOf = (jobs: readonly PmJob[]): PmJob[] => jobs.filter(isOwnJob);
 
 /** Whether a PM job is the one for the mission's own PRDs: any PM job but a plan or a replan of a PRD (PRD omni-loop-21 s9). */
 export const isOwnJob = ({ line }: Pick<PmJob, 'line'>): boolean => planOfLine(line) === null;
 
-/** Whether the mission sends its PM a job: at `alone`, under its cap, while it runs or waits, and once (a plan job counts none). */
+/**
+ * Whether the mission sends its PM a job: at `alone`, under its cap, while it runs or waits, and once (a plan job counts none). A
+ * goal-only mission's is the roadmap at any cap, sent once more under the next round when the last ended with no PRD (PRD
+ * omni-loop-24).
+ */
 export function pmNext({ mission, ownPrds, added, jobs, inPlan }: PmView): PmNext {
-  if (mission.level !== 'alone' || !sendsCommittees(mission.status) || jobs.some(isOwnJob)) return { next: 'none' };
+  if (mission.level !== 'alone' || !sendsCommittees(mission.status)) return NONE;
+  const own = ownOf(jobs);
+  const goal = goalOnly(mission);
+  if (own.length > 0 && !(goal && added === 0 && own.length < triesOf(mission) && !own.some(pmWorking))) return NONE;
   const left = ownPrds - added;
-  const skill = pmSkillFor(left, inPlan);
-  if (skill === null) return { next: 'none' };
-  return { next: 'send', round: PM_ROUND, skill, cap: left, line: pmJobLine(skill, mission.number, left) };
+  const skill = pmSkillFor(left, inPlan, goal);
+  if (skill === null) return NONE;
+  const round = own.length === 0 ? PM_ROUND : Math.max(PM_ROUND, ...jobs.map((one) => one.round)) + 1;
+  return { next: 'send', round, skill, cap: left, line: pmJobLine(skill, mission.number, left) };
+}
+
+/** What the mission waits on once its PM wrote no PRD for its goal (PRD omni-loop-24). */
+const NO_PRD_WORDS = 'the PM wrote no PRD for the goal';
+
+/** `once`, `twice`, `3 times`. */
+const timesWords = (count: number): string => (count === 1 ? 'once' : count === 2 ? 'twice' : `${String(count)} times`);
+
+/** How a PM job that added nothing ended. */
+const endWords = ({ status, reason }: Pick<Attempt, 'status' | 'reason'>): string => {
+  if (status === 'cancelled') return 'was cancelled';
+  if (status !== 'done') return reason === null || reason === '' ? 'failed' : `failed (${reason})`;
+  return 'ended with no PRD in its record';
+};
+
+/**
+ * What a goal-only mission waits on once its PM's jobs are spent and none wrote a PRD: `the PM wrote no PRD for the goal: <why>`,
+ * its last job's end; null while a job works or is still to send, once its fleet added a PRD, or for any other mission.
+ */
+export function pmWait({ mission, added, jobs }: PmView): string | null {
+  if (mission.level !== 'alone' || added > 0 || !goalOnly(mission)) return null;
+  const own = ownOf(jobs);
+  const last = own.reduce<PmJob | undefined>((latest, one) => (latest === undefined || one.round > latest.round ? one : latest), undefined);
+  if (last === undefined || own.some(pmWorking) || own.length < triesOf(mission)) return null;
+  return cut(`${NO_PRD_WORDS}: ${skillWords(last.line)} ${endWords(last.attempt)}, sent ${timesWords(own.length)}.`);
 }
 
 /** Whether a job is still to end: queued, claimed or running. */
@@ -90,10 +154,12 @@ export function pmEvents(mission: Pick<Mission, 'number'>, one: PmJob, log: stri
   return events;
 }
 
-/** The dispatch of a PM job, signed `supervisor`. */
+/** The dispatch of a PM job, signed `supervisor`: a goal-only mission's second says it is sent once more (PRD omni-loop-24). */
 export const pmDispatched = (job: string, next: Extract<PmNext, { next: 'send' }>): NewEvent => ({
   kind: 'dispatched', role: 'supervisor', prd: null, job, link: null,
-  sentence: `Sent the PM /omni:${next.skill} for the mission's goal: ${String(next.cap)} PRD${next.cap === 1 ? '' : 's'} at most.`,
+  sentence: next.round === PM_ROUND
+    ? `Sent the PM /omni:${next.skill} for the mission's goal: ${String(next.cap)} PRD${next.cap === 1 ? '' : 's'} at most.`
+    : `Sent the PM /omni:${next.skill} once more for the mission's goal: its last job wrote no PRD.`,
 });
 
 /** The PRDs of `scope` with those the fleet added after them, once each. */
@@ -101,9 +167,16 @@ export function withAdded(scope: readonly PrdNumber[], added: readonly PrdNumber
   return [...scope, ...added.filter((prd) => !scope.includes(prd))];
 }
 
-/** A run's conclusion while its PM writes: a mission is never delivered or stopped while its PM's job is at work; it runs. */
-export function withPm(next: Concluded, writing: boolean, wakeAt: string): Concluded {
-  if (!writing || next.status === 'paused' || next.status === 'draft' || next.status === 'running') return next;
-  return { status: 'running', waitingOn: next.status === 'waiting' ? next.waitingOn : null, nextWakeAt: wakeAt };
+/**
+ * A run's conclusion while its PM writes: a mission is never delivered or stopped while its PM's job is at work; it runs. Once a
+ * goal-only mission's PM wrote no PRD (`wait`, {@link pmWait}), it waits on a person with that line first, never delivered or stopped.
+ */
+export function withPm(next: Concluded, writing: boolean, wakeAt: string, wait: string | null = null): Concluded {
+  if (next.status === 'paused' || next.status === 'draft') return next;
+  if (writing) return next.status === 'running' ? next : { status: 'running', waitingOn: next.status === 'waiting' ? next.waitingOn : null, nextWakeAt: wakeAt };
+  if (wait === null) return next;
+  const also = next.status === 'waiting' || next.status === 'running' ? next.waitingOn : null;
+  const waitingOn = also === null ? wait : cut(`${wait} · ${also}`);
+  return next.status === 'running' ? { ...next, waitingOn } : { status: 'waiting', waitingOn, nextWakeAt: wakeAt };
 }
 

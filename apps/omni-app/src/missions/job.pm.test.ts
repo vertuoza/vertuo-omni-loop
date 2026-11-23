@@ -294,3 +294,65 @@ describe('the PM replans a PRD stuck once its repairs are spent (AC-4)', () => {
     expect(fake.mission().status).toBe('stopped');
   });
 });
+
+// A mission from a goal alone (PRD omni-loop-24): its scope names nothing, so the PM's first job is a roadmap at any cap; a PM job
+// that wrote no PRD is sent once more within mandate.resumes, then the mission waits on a person, and it is never delivered empty.
+
+/** A goal-only mission at `alone`: no PRD and no roadmap in its scope, `ownPrds` PRDs for its PM to write. */
+const goalOnly = (over: Partial<MissionRecord> = {}) => setup({ mission: record({ scope: { prds: [], roadmaps: [] }, ownPrds: 1, ...over }), all: [] });
+
+describe('a goal-only mission\'s PM (PRD omni-loop-24)', () => {
+  it('AC-3: is sent the roadmap at once with its cap, even at 1, its mega form in a plan repository, and the mission runs', async () => {
+    const one = goalOnly();
+    await one.run();
+    expect(one.fake.pms().map(({ line, key }) => [line, key])).toEqual([['/omni:roadmap --mission 12 --cap 1', `mission:${ID}:pm:1`]]);
+    expect(one.fake.mission().status).toBe('running');
+    const ten = goalOnly({ ownPrds: 10 });
+    await ten.run();
+    expect(ten.fake.pms().map((job) => job.line)).toEqual(['/omni:roadmap --mission 12 --cap 10']);
+    const plan = setup({ mission: record({ scope: { prds: [], roadmaps: [] }, ownPrds: 1 }), all: [], planRepository: true });
+    await plan.run();
+    expect(plan.fake.pms().map((job) => job.line)).toEqual(['/omni:mega-roadmap --mission 12 --cap 1']);
+  });
+
+  it('AC-4: a job that named no PRD is sent once more, then the mission waits with its line, never delivered', async () => {
+    const { fake, run } = goalOnly();
+    await run();
+    fake.endPm({ status: 'done' }, wrote([], [], 1));
+    await run();
+    expect(fake.pms().map(({ line, key }) => [line, key])).toEqual([
+      ['/omni:roadmap --mission 12 --cap 1', `mission:${ID}:pm:1`],
+      ['/omni:roadmap --mission 12 --cap 1', `mission:${ID}:pm:2`],
+    ]);
+    expect(fake.mission().status).toBe('running');
+    expect(kinds(fake, 'dispatched').map((event) => event.sentence)).toContain('Sent the PM /omni:roadmap once more for the mission\'s goal: its last job wrote no PRD.');
+    fake.endPm({ status: 'failed', reason: 'exit code 1' });
+    await run();
+    await run();
+    expect(fake.pms()).toHaveLength(2);
+    expect(fake.mission().status).toBe('waiting');
+    expect(fake.mission().waitingOn).toBe('the PM wrote no PRD for the goal: /omni:roadmap failed (exit code 1), sent twice.');
+    expect(kinds(fake, 'prd-added')).toEqual([]);
+  });
+
+  it('waits after one job when mandate.resumes is 0', async () => {
+    const { fake, run } = goalOnly({ resumes: 0 });
+    await run();
+    fake.endPm({ status: 'done' }, '12:00:00 Done');
+    await run();
+    expect(fake.pms()).toHaveLength(1);
+    expect(fake.mission().status).toBe('waiting');
+    expect(fake.mission().waitingOn).toBe('the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent once.');
+  });
+
+  it('a job that wrote a PRD adds it to the scope and is not sent again', async () => {
+    const { fake, run } = goalOnly();
+    await run();
+    fake.endPm({ status: 'done' }, wrote([50], [], 1));
+    await run();
+    await run();
+    expect(kinds(fake, 'prd-added').map((event) => event.prd)).toEqual([p(50)]);
+    expect(fake.pms()).toHaveLength(1);
+    expect(fake.mission().status).not.toBe('delivered');
+  });
+});
