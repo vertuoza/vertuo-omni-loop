@@ -97,7 +97,7 @@ export type AskHistoryDb = Pick<SupabaseClient, 'from' | 'rpc'>;
  * apart. */
 type AskHistoryFilters = Omit<HistoryFilters, 'before'>;
 
-/** The Done tab's history (PRD omni-loop-23, 20270129090000_ask_history_page.sql; ADR-0171), read in the
+/** The Done tab's history (PRD omni-loop-23, 20270129110000_ask_history_page.sql; ADR-0171), read in the
  * database as the caller: row-level security decides which rounds are read, and the functions page,
  * search and count them. A failed read throws AskStoreError. */
 export function askHistoryRepository(db: AskHistoryDb) {
