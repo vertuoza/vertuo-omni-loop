@@ -1,6 +1,6 @@
 # ADR-0049 — The history filters and searches only the newest thousand questions, in the app
 
-**Status:** adopted · **Date:** 2026-09-27 · **PRD:** #144 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-27, PR #147 · **Layers:** ui · **Domain:** ask
+**Status:** superseded · **Date:** 2026-09-27 · **PRD:** #144 · **Superseded by:** ADR-0171 (PRD omni-loop-23), 2026-11-23 · **Decided:** nobody — adopted when raised (medium), 2026-09-26 · **Merged:** @pierrederval, 2026-09-27, PR #147 · **Layers:** ui · **Domain:** ask
 
 ## Context
 

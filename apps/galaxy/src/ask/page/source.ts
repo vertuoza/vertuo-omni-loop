@@ -8,8 +8,9 @@
 // areas that still import them (the bell, the dashboard's counts).
 // Any member sorts a round into one of six (PRD 144), through the database's own function for it.
 // The owner shares a round with another member (PRD 144), who then answers it at /ask/q/<round>
-// while it is open; /ask/for-me lists the rounds shared with the caller; /ask/history reads every
-// round of the caller's workspaces.
+// while it is open; /ask/for-me lists the rounds shared with the caller; the Inbox's Done tab reads
+// the caller's workspaces' history one page at a time, with its counts, through the database's own
+// functions (PRD omni-loop-23, ADR-0171).
 // An answer's screenshots (PRD 620) go to the bucket first, as the same person: see attachments.ts.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadPeople, type People } from '../../people/load';
@@ -19,11 +20,11 @@ import { sendWithShots, trayOf, type Bucket } from './attachments';
 import type { ForMeRow, Member, QuestionState } from './question';
 import type { TabRow } from './tabs';
 import type { RoundRow, SessionRow, SessionState } from './view';
-import { askAttachments, askReadRepository, askShares, askStore, type RoundWithSession } from '../ask.repository';
+import { askAttachments, askHistoryRepository, askReadRepository, askShares, askStore, type RoundWithSession } from '../ask.repository';
 import { askReadService } from '../ask.service';
 import type { WorkingPing } from '../../working/state';
 import { workingReader } from '../../working/store';
-import type { HistoryRow } from './workspace-history';
+import { HISTORY_PAGE, narrowing, readFacets, type HistoryFacet, type HistoryFilters, type HistoryPageRows } from './workspace-history';
 
 export type Db = Pick<SupabaseClient, 'from'>;
 /** What uploading a round's screenshots needs (PRD 620): the storage client. */
@@ -129,13 +130,28 @@ export async function readForMe(db: Db & SortDb, me: string): Promise<ForMeRow[]
   });
 }
 
-/** How many of the newest rounds the history reads; filters and search narrow within them. */
-export const HISTORY_LIMIT = 1000;
+/** A round's id, as the database keys it: a cursor of any other shape names no round. */
+const ROUND_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The newest rounds of every workspace the caller belongs to (row-level security reads no other),
- * each with its session, newest first. */
-export async function readHistory(db: Db, limit = HISTORY_LIMIT): Promise<HistoryRow[]> {
-  return withSessions(db, await askReadRepository(db).newestRounds(limit));
+/** One page of the history, its counts, and the cursor of the next page (null on the last). */
+export type HistoryPage = HistoryPageRows & { facets: HistoryFacet[] };
+
+/** One page of the history of every workspace the caller belongs to (row-level security reads no
+ * other), under the filters, each round with its session, newest first, after the round
+ * `filters.before` names; and each category's counts (PRD omni-loop-23, ADR-0171). One more round
+ * than a page is asked for, to tell whether an older page follows. A cursor that names no round gives
+ * an empty page, as the database's own function does. */
+export async function readHistory(db: Db & SortDb, filters: HistoryFilters = {}, size = HISTORY_PAGE): Promise<HistoryPage> {
+  const repo = askHistoryRepository(db);
+  const narrow = narrowing(filters);
+  const before = filters.before ?? null;
+  const [rounds, facets] = await Promise.all([
+    before === null || ROUND_ID.test(before) ? repo.page(narrow, before, size + 1) : Promise.resolve([]),
+    repo.facets(narrow),
+  ]);
+  const page = rounds.slice(0, size);
+  const next = rounds.length > size ? page.at(-1)?.id ?? null : null;
+  return { rows: await withSessions(db, page), next, facets: readFacets(facets) };
 }
 
 /** What the page needs from wherever its session lives: the database, or the demo in the browser. */

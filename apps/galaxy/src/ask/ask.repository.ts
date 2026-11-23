@@ -14,6 +14,7 @@ import {
   type AskRoundStatus, type AskSession, type AskShare,
 } from './rows';
 import type { RoundRow, SessionRow } from './page/view';
+import type { HistoryFilters, RawFacet } from './page/workspace-history';
 import type { WorkingPing } from '../working/state';
 import { workingReader } from '../working/store';
 import { dossierRounds, type DossierRoundRow } from '../dossier/store';
@@ -80,11 +81,6 @@ export function askReadRepository(db: AskReadDb) {
       return settle<RoundWithSession[]>('read the rounds', await db.from('ask_rounds').select(`${ROUND}, session_id`).in('id', ids).eq('status', 'open')) ?? [];
     },
 
-    /** The newest `limit` rounds the caller may read, newest first, each with its session id. */
-    async newestRounds(limit: number): Promise<RoundWithSession[]> {
-      return settle<RoundWithSession[]>('read the history', await db.from('ask_rounds').select(`${ROUND}, session_id`).order('created_at', { ascending: false }).limit(limit)) ?? [];
-    },
-
     /** The latest heartbeat of a Claude session (PRD 757), or null. */
     async ping(claudeSessionId: string): Promise<WorkingPing | null> {
       return workingReader(db).forSession(claudeSessionId);
@@ -93,6 +89,36 @@ export function askReadRepository(db: AskReadDb) {
 }
 
 export type AskReadRepository = ReturnType<typeof askReadRepository>;
+
+/** What the history's reads need: its two functions, and the sessions' table. */
+export type AskHistoryDb = Pick<SupabaseClient, 'from' | 'rpc'>;
+
+/** The filters as the history's functions read them: the keys of the app's HistoryFilters, the cursor
+ * apart. */
+type AskHistoryFilters = Omit<HistoryFilters, 'before'>;
+
+/** The Done tab's history (PRD omni-loop-23, 20270129090000_ask_history_page.sql; ADR-0171), read in the
+ * database as the caller: row-level security decides which rounds are read, and the functions page,
+ * search and count them. A failed read throws AskStoreError. */
+export function askHistoryRepository(db: AskHistoryDb) {
+  return {
+    /** Up to `size` answered or moved rounds under the filters, newest first, after the round `before`
+     * names (none from the newest), each with its session id. The search column is never read. */
+    async page(filters: AskHistoryFilters, before: string | null, size: number): Promise<RoundWithSession[]> {
+      // The client knows no function's columns: the select names the row, and the answer is a list.
+      const rows = settle('read the history', await db.rpc('ask_history_page', { filters, before, page_size: size }).select<string, RoundWithSession>(`${ROUND}, session_id`));
+      return Array.isArray(rows) ? rows : [];
+    },
+
+    /** Each category's rounds under every filter but the category (`matched`) and under none (`total`). */
+    async facets(filters: AskHistoryFilters): Promise<RawFacet[]> {
+      return settle<RawFacet[]>('count the history', await db.rpc('ask_history_facets', { filters })) ?? [];
+    },
+
+    /** These sessions, as the caller may read them. */
+    sessionsIn: (ids: string[]): Promise<SessionRow[]> => askReadRepository(db).sessionsIn(ids),
+  };
+}
 
 /** What the way back's read needs (PRD 384): the database's functions. */
 export type WayBackDb = Pick<SupabaseClient, 'rpc'>;

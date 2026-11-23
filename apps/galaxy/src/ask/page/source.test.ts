@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
 import { askCategories, askStore, AskStoreError } from '../store';
 import {
-  readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, sendAnswers, shareRound, tabsReader, withFaces,
+  readForMe, readMembers, readQuestion, readSession, readTabs, sendAnswers, shareRound, tabsReader, withFaces,
   type Db, type SortDb, type StorageDb,
 } from './source';
 import { stageShots, type Bucket } from './attachments';
@@ -356,39 +356,8 @@ describe('members\' faces (PRD 652)', () => {
   });
 });
 
-describe('the workspace history (PRD 144)', () => {
-  it('reads every round of my workspaces with its session, newest first, and nothing of another workspace', async () => {
-    const w = await world();
-    const first = await w.ask();
-    const second = await w.ask();
-    const carl = w.fake.client('carl');
-    const { data: elsewhere } = await carl.from('ask_sessions').insert({ title: 'elsewhere' }).select('id').single() as { data: { id: string } };
-    w.clock.now += 1000;
-    await carl.from('ask_rounds').insert({ session_id: elsewhere.id, questions: QUESTIONS }).select('id').single();
-
-    for (const token of ['ada', 'bob']) {
-      const rows = await readHistory(w.as(token));
-      expect(rows.map((r) => [r.round.id, r.session.id]), token).toEqual([[second, w.sessionId], [first, w.sessionId]]);
-      expect(item(rows, 0).round).not.toHaveProperty('session_id');
-    }
-    expect((await readHistory(w.as('carl'))).map((r) => r.session.title)).toEqual(['elsewhere']);
-  });
-
-  it('reads the newest rounds up to its limit', async () => {
-    const w = await world();
-    await w.ask();
-    const second = await w.ask();
-    const third = await w.ask();
-    expect((await readHistory(w.as('ada'), 2)).map((r) => r.round.id)).toEqual([third, second]);
-  });
-
-  it('reads nothing when there is nothing, and throws when the database fails', async () => {
-    const w = await world();
-    expect(await readHistory(w.as('ada'))).toEqual([]);
-    w.fake.state.fail = { code: '08006', message: 'connection lost' };
-    await expect(readHistory(w.as('ada'))).rejects.toBeInstanceOf(AskStoreError);
-  });
-});
+// The workspace history's read (PRD omni-loop-23) is proved in src/ask/ask.repository.test.ts and, at the
+// database, by supabase/checks/ask_history_page.sql.
 
 describe('reading the tab list', () => {
   /** Ada's sessions: two open, one closed, one idle for 12 hours; and one of Bob's. */

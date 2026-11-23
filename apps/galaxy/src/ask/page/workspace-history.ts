@@ -3,6 +3,9 @@
 // or its answer. Pure functions of the rows the caller may read (row-level security already left out
 // every other workspace), the workspaces' members and the filters in the address. Each row opens
 // /ask/q/<round>.
+// Since PRD omni-loop-23 (ADR-0171) the database pages and counts the history (ask_history_page and
+// ask_history_facets): the Done tab draws one page of 50 and the counts it is given. The same reads,
+// done here over rows in memory, serve the demo (historyPageOf, historyFacetsOf).
 import { readQuestions } from '../answer-model';
 import { CATEGORIES, CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import { one, type Query } from '../../nav/query';
@@ -24,7 +27,12 @@ export type HistoryFilters = {
   answeredBy?: string;
   /** Words, each of which must appear in the round's questions or answers. */
   search?: string;
+  /** Not a filter: the page's cursor, the id of the last round the page before showed (`?before=`). */
+  before?: string;
 };
+
+/** How many rounds one page of the history holds (PRD omni-loop-23). */
+export const HISTORY_PAGE = 50;
 
 export type HistoryItem = {
   roundId: string;
@@ -49,7 +57,11 @@ export type HistoryItem = {
   context: string[];
 };
 
-/** The filters an address carries: `category`, `repo`, `prd`, `skill`, `asked`, `answered`, `q`. */
+/** A cursor as an address carries it: a round's id, never more than an id's characters. */
+const CURSOR = /^[\w-]{1,64}$/;
+
+/** The filters an address carries: `category`, `repo`, `prd`, `skill`, `asked`, `answered`, `q`, and
+ * the page's cursor, `before`. */
 export function readHistoryFilters(query: Query): HistoryFilters {
   const filters: HistoryFilters = {};
   const category = one(query.category);
@@ -66,7 +78,16 @@ export function readHistoryFilters(query: Query): HistoryFilters {
   if (answered) filters.answeredBy = answered;
   const search = one(query.q);
   if (search) filters.search = search;
+  const before = one(query.before);
+  if (before && CURSOR.test(before)) filters.before = before;
   return filters;
+}
+
+/** The filters without the page's cursor: what the history is narrowed to. */
+export function narrowing(filters: HistoryFilters): HistoryFilters {
+  const narrow = { ...filters };
+  delete narrow.before;
+  return narrow;
 }
 
 /** Everything a search looks through: each question, its header, and every answer. */
@@ -95,7 +116,13 @@ const newestFirst = (a: HistoryRow, b: HistoryRow) =>
 
 /** The rounds the filters let through, newest first, as the history lists them. */
 export function historyList(rows: HistoryRow[], filters: HistoryFilters, members: Member[]): HistoryItem[] {
-  return rows.filter((row) => passes(row, filters)).sort(newestFirst).map(({ round, session }) => {
+  return historyItemsOf(rows.filter((row) => passes(row, filters)).sort(newestFirst), members);
+}
+
+/** Each row as the history lists it, in the order given: a page the database already narrowed and
+ * ordered is drawn as it came. */
+export function historyItemsOf(rows: HistoryRow[], members: Member[]): HistoryItem[] {
+  return rows.map(({ round, session }) => {
     const { lines } = entry(round, session);
     const answers = lines.map((line) => line.answer).filter((a): a is string => a !== null);
     const category = isCategory(round.category) ? CATEGORY_LABELS[round.category] : 'unsorted';
@@ -131,18 +158,38 @@ const distinct = <T>(values: Array<T | null | undefined>) => [...new Set(values.
 const people = (ids: string[], members: Member[]): Choice[] =>
   ids.map((id) => ({ id, label: nameOf(id, members) })).sort((a, b) => a.label.localeCompare(b.label));
 
-export function historyChoices(rows: HistoryRow[], members: Member[]): HistoryChoices {
+/** What each filter offers: the values the rows hold, and the one chosen, so a page that holds none of
+ * it still offers it back. */
+export function historyChoices(rows: HistoryRow[], members: Member[], chosen: HistoryFilters = {}): HistoryChoices {
   return {
-    repos: distinct(rows.map((r) => r.session.repo)).sort(),
-    prds: distinct(rows.map((r) => r.round.prd)).sort((a, b) => a - b),
-    skills: distinct(rows.map((r) => r.round.skill)).sort(),
-    askedBy: people(distinct(rows.map((r) => r.session.owner)), members),
-    answeredBy: people(distinct(rows.map((r) => r.round.answered_by)), members),
+    repos: distinct([...rows.map((r) => r.session.repo), chosen.repo]).sort(),
+    prds: distinct([...rows.map((r) => r.round.prd), chosen.prd]).sort((a, b) => a - b),
+    skills: distinct([...rows.map((r) => r.round.skill), chosen.skill]).sort(),
+    askedBy: people(distinct([...rows.map((r) => r.session.owner), chosen.askedBy]), members),
+    answeredBy: people(distinct([...rows.map((r) => r.round.answered_by), chosen.answeredBy]), members),
   };
 }
 
-/** Whether any filter is set: the page then offers to clear them. */
-export const filtered = (filters: HistoryFilters) => Object.keys(filters).length > 0;
+/** Whether any filter is set: the page then offers to clear them. The cursor is no filter. */
+export const filtered = (filters: HistoryFilters) => Object.keys(narrowing(filters)).length > 0;
+
+/** Whether a round is history: answered, or moved to the terminal. A waiting round is on Open. */
+const done = ({ round }: HistoryRow) => round.status === 'answered' || round.status === 'abandoned';
+
+/** One page of the history and the cursor of the next, or null when it is the last. */
+export type HistoryPageRows = { rows: HistoryRow[]; next: string | null };
+
+/** One page, as ask_history_page reads it, over rows in memory (the demo): the answered and moved rounds
+ * the filters let through, newest first, after the round `filters.before` names; a cursor that names no
+ * round gives an empty page. */
+export function historyPageOf(rows: HistoryRow[], filters: HistoryFilters, size = HISTORY_PAGE): HistoryPageRows {
+  const listed = rows.filter((row) => done(row) && passes(row, filters)).sort(newestFirst);
+  const cursor = filters.before === undefined ? null : rows.find((row) => row.round.id === filters.before);
+  if (cursor === undefined) return { rows: [], next: null };
+  const after = cursor === null ? listed : listed.filter((row) => newestFirst(cursor, row) < 0);
+  const page = after.slice(0, size);
+  return { rows: page, next: after.length > size ? page.at(-1)?.round.id ?? null : null };
+}
 
 /** Where the history lives since PRD omni-loop-22: the Inbox's Done tab. */
 export const DONE_PATH = '/app/inbox/done';
@@ -151,30 +198,78 @@ export const DONE_PATH = '/app/inbox/done';
  * it holds under the other filters. `id` is the category, or `unsorted`. */
 export type CategoryCount = { id: Category | 'unsorted'; label: string; count: number };
 
-/** The categories the rows hold under every filter but the category itself, in the categories'
- * order, unsorted last; a category with no row is left out. */
-export function categoryCounts(rows: HistoryRow[], filters: HistoryFilters): CategoryCount[] {
-  const others: HistoryFilters = { ...filters };
+/** The categories in the sidebar's order, unsorted last. */
+const ORDER: Array<Category | 'unsorted'> = [...CATEGORIES, 'unsorted'];
+
+const labelOf = (id: Category | 'unsorted') => (id === 'unsorted' ? 'Unsorted' : CATEGORY_LABELS[id]);
+
+const categoryOf = ({ round }: HistoryRow): Category | 'unsorted' => (isCategory(round.category) ? round.category : 'unsorted');
+
+/** How many of the rows each category holds under every filter but the category itself. */
+function countBy(rows: HistoryRow[], filters: HistoryFilters): Map<string, number> {
+  const others = narrowing(filters);
   delete others.category;
   const counts = new Map<string, number>();
   for (const row of rows) {
     if (!passes(row, others)) continue;
-    const id = isCategory(row.round.category) ? row.round.category : 'unsorted';
+    const id = categoryOf(row);
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
-  const order: Array<Category | 'unsorted'> = [...CATEGORIES, 'unsorted'];
-  return order
-    .filter((id) => (counts.get(id) ?? 0) > 0)
-    .map((id) => ({ id, label: id === 'unsorted' ? 'Unsorted' : CATEGORY_LABELS[id], count: counts.get(id) ?? 0 }));
+  return counts;
 }
 
+/** The categories the rows hold under every filter but the category itself, in the categories'
+ * order, unsorted last; a category with no row is left out. */
+export function categoryCounts(rows: HistoryRow[], filters: HistoryFilters): CategoryCount[] {
+  const counts = countBy(rows, filters);
+  return ORDER.filter((id) => (counts.get(id) ?? 0) > 0).map((id) => ({ id, label: labelOf(id), count: counts.get(id) ?? 0 }));
+}
+
+/** One category of the history, as ask_history_facets counts it: `matched`, its rounds under every
+ * filter but the category; `total`, its rounds under none. */
+export type HistoryFacet = { id: Category | 'unsorted'; matched: number; total: number };
+
+/** The counts, as ask_history_facets reads them, over rows in memory (the demo): every category,
+ * unsorted last, zeros kept, over the answered and moved rounds. */
+export function historyFacetsOf(rows: HistoryRow[], filters: HistoryFilters): HistoryFacet[] {
+  const history = rows.filter(done);
+  const matched = countBy(history, filters);
+  const total = countBy(history, {});
+  return ORDER.map((id) => ({ id, matched: matched.get(id) ?? 0, total: total.get(id) ?? 0 }));
+}
+
+/** A category's counts as the database answers them: a bigint may come as text. */
+export type RawFacet = { category: string; matched: number | string; total: number | string };
+
+/** The counts as the database answers them, read: a category it does not know is left out, and a
+ * category it left out counts none, so the sidebar always holds every one. */
+export function readFacets(raw: readonly RawFacet[]): HistoryFacet[] {
+  const known = new Map(raw.map((r) => [r.category, r]));
+  return ORDER.map((id) => {
+    const found = known.get(id);
+    return { id, matched: Number(found?.matched ?? 0), total: Number(found?.total ?? 0) };
+  });
+}
+
+/** The sidebar's lines: each category's count under the other filters, a category with none kept. */
+export const categoriesOf = (facets: HistoryFacet[]): CategoryCount[] =>
+  facets.map(({ id, matched }) => ({ id, label: labelOf(id), count: matched }));
+
+/** How many rounds the history holds before any filter: the true total, never capped. */
+export const historyTotal = (facets: HistoryFacet[]) => facets.reduce((sum, f) => sum + f.total, 0);
+
+/** How many rounds every filter lets through, the category's included. */
+export const historyMatched = (facets: HistoryFacet[], filters: HistoryFilters) =>
+  facets.filter((f) => !filters.category || f.id === filters.category).reduce((sum, f) => sum + f.matched, 0);
+
 const PARAMS: Array<[keyof HistoryFilters, string]> = [
-  ['search', 'q'], ['category', 'category'], ['repo', 'repo'], ['prd', 'prd'], ['skill', 'skill'], ['askedBy', 'asked'], ['answeredBy', 'answered'],
+  ['search', 'q'], ['category', 'category'], ['repo', 'repo'], ['prd', 'prd'], ['skill', 'skill'], ['askedBy', 'asked'], ['answeredBy', 'answered'], ['before', 'before'],
 ];
 
-/** The Done tab's address for these filters with `patch` laid over them; a key patched to undefined is dropped. */
+/** The Done tab's address for these filters with `patch` laid over them; a key patched to undefined is
+ * dropped. The cursor is kept only when the patch names it: any other change starts from the newest. */
 export function historyHref(filters: HistoryFilters, patch: { [K in keyof HistoryFilters]?: HistoryFilters[K] | undefined }): string {
-  const merged: { [K in keyof HistoryFilters]?: HistoryFilters[K] | undefined } = { ...filters, ...patch };
+  const merged: { [K in keyof HistoryFilters]?: HistoryFilters[K] | undefined } = { ...narrowing(filters), ...patch };
   const params = new URLSearchParams();
   for (const [key, name] of PARAMS) {
     const value = merged[key];
