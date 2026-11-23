@@ -1,6 +1,9 @@
 // `omni mission push <n>` (PRD 2842 s2), through `main()` on a fixture repository, against a stubbed
 // fetch that follows the dossier push's contract (`POST /api/dossiers/push`, kind `mission`). The sign-in
 // is an in-memory token store and the environment is passed in, so nothing real is read or written.
+import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.ts';
 import { main } from './omni.ts';
@@ -204,5 +207,59 @@ describe('omni mission overturn (PRD 2896 s11)', () => {
     expect(await mission(['overturn', '12', '7'], { root, fetch: recordingFetch(down).fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
     expect(await mission(['overturn', '12', '7'], { root: checkout({ enabled: false }).root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'off\n' });
     expect(await mission(['overturn', '12', '7'], { root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'refused (no overturn in the reply)\n' });
+  });
+});
+
+describe('omni mission get and push --from (PRD 3194 s2)', () => {
+  const page = {
+    mission: 2850, record: RECORD, brief: PAGE,
+    retros: [{ k: 1, milestone: 'first-prd', content: '# Retro 1\n', items: [{ name: 's1-01.md', content: 'an item\n' }] }],
+  };
+
+  it('writes the record, the brief, each retro and its items into the mission\'s folder, and prints the folder', async () => {
+    const { root } = checkout({ files: { [`${FOLDER}/mission.md`]: undefined, [`${FOLDER}/mission.html`]: undefined } });
+    const { calls, fetch } = recordingFetch(() => json(200, page));
+    const done = await mission(['get', '2850'], { root, fetch });
+    const dir = join(realpathSync(root), '.omni-loop/delivery/missions/2850-every-quote-can-be-paid-online');
+    expect(done).toEqual({ code: 0, out: `${dir}\n`, err: '' });
+    expect(readFileSync(join(dir, 'mission.md'), 'utf8')).toBe(RECORD);
+    expect(readFileSync(join(dir, 'mission.html'), 'utf8')).toBe(PAGE);
+    expect(readFileSync(join(dir, 'retros/1-first-prd.md'), 'utf8')).toBe('# Retro 1\n');
+    expect(readFileSync(join(dir, 'outbox/1-first-prd-s1-01.md'), 'utf8')).toBe('an item\n');
+    expect(calls).toEqual([{ url: `${BASE}/api/missions/brief?repo=acme%2Fwidgets&mission=2850`, method: 'GET', body: undefined }]);
+  });
+
+  it('writes into --out when given', async () => {
+    const { root } = checkout();
+    const out = join(root, 'export');
+    const done = await mission(['get', '2850', '--out', out], { root, fetch: recordingFetch(() => json(200, page)).fetch });
+    expect(done).toEqual({ code: 0, out: `${out}\n`, err: '' });
+    expect(existsSync(join(out, 'mission.html'))).toBe(true);
+  });
+
+  it('holds with one line when the page cannot be read, and says when it holds no such mission', async () => {
+    const { root } = checkout();
+    const down = () => { throw new TypeError('fetch failed'); };
+    expect(await mission(['get', '2850'], { root, fetch: recordingFetch(down).fetch })).toEqual({ code: 1, out: '', err: 'mission 2850 not read: unreachable\n' });
+    expect(await mission(['get', '2850'], { root, fetch: recordingFetch(() => json(403, { error: 'no' })).fetch })).toEqual({ code: 1, out: '', err: 'mission 2850 not read: refused (403): no\n' });
+    expect(await mission(['get', '2850'], { root, fetch: recordingFetch(() => json(404, {})).fetch })).toEqual({ code: 1, out: '', err: 'no mission #2850 on the page\n' });
+    expect(await mission(['get', '2850'], { root: checkout({ enabled: false }).root, fetch: recordingFetch(() => json(200, page)).fetch })).toEqual({ code: 1, out: '', err: 'mission 2850 not read: off\n' });
+    expect(await mission(['get', '2850'], { root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'mission 2850 not read: refused (no mission in the reply)\n' });
+  });
+
+  it('push --from reads a folder outside the repository, with the same checks', async () => {
+    const { root } = checkout({ files: { [`${FOLDER}/mission.md`]: undefined, [`${FOLDER}/mission.html`]: undefined } });
+    const scratch = mkdtempSync(join(tmpdir(), 'mission-from-'));
+    writeFileSync(join(scratch, 'mission.md'), RECORD);
+    writeFileSync(join(scratch, 'mission.html'), PAGE);
+    const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-1', url: `${BASE}/missions/d-1`, added: [{ kind: 'brief', version: 1 }], unchanged: [] }));
+    expect((await mission(['push', '2850', '--from', scratch], { root, fetch })).code).toBe(0);
+    expect(calls[0]?.body).toMatchObject({ prd: 2850, kind: 'mission', artifacts: [{ kind: 'mission-record', content: RECORD }, { kind: 'brief', content: PAGE }] });
+    writeFileSync(join(scratch, 'mission.html'), '<img src="https://evil.example/x.png">');
+    const refused = await mission(['push', '2850', '--from', scratch], { root, fetch });
+    expect(refused.code).toBe(1);
+    expect(refused.err).toContain('invalid mission:');
+    expect(refused.err).toContain('loads from the network');
+    expect((await mission(['push', '2850', '--from', join(scratch, 'nope')], { root, fetch })).code).toBe(2);
   });
 });
