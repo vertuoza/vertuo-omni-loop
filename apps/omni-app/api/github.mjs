@@ -27143,14 +27143,14 @@ var DECISION_READS = [
   {
     kind: "decided",
     pattern: /^The committee answered (?<item>\S+) of PRD (?<prd>\S+) with option (?<option>\S+?):/,
-    said: (item, prd, option) => ({ name: `${prd}/${item}`, prd, words: `the fleet answered ${item} with option ${option}`, answer: true })
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet answered ${item} with option ${option}`, answer: true })
   },
   {
     kind: "deferred",
     pattern: /^The committee deferred (?<item>\S+) of PRD (?<prd>\S+?): option (?<option>\S+) meanwhile/,
-    said: (item, prd, option) => ({ name: `${prd}/${item}`, prd, words: `the fleet deferred ${item}, taking option ${option} meanwhile`, answer: false })
+    said: (item, prdSaid, option) => ({ name: `${prdSaid}/${item}`, prdSaid, words: `the fleet deferred ${item}, taking option ${option} meanwhile`, answer: false })
   },
-  { kind: "decided", pattern: /^The committee approved PRD (?<prd>\S+?):/, said: (_item, prd) => ({ name: prd, prd, words: "the fleet approved the PRD", answer: false }) }
+  { kind: "decided", pattern: /^The committee approved PRD (?<prd>\S+?):/, said: (_item, prdSaid) => ({ name: prdSaid, prdSaid, words: "the fleet approved the PRD", answer: false }) }
 ];
 var OVERTURNED_BY = /^(\S+) overturned fleet decision ([^\s:]+):/;
 var REPAIR_FIXED = /^(?:(?<prd>.+?)'s repair|The (?<stuck>stuck) repair) \[(?<fingerprint>[0-9a-f]{1,8})\] ended fixed\.$/;
@@ -27170,7 +27170,7 @@ function overturnLine(event, decisions) {
   const decided = decisions.get(name);
   if (decided === void 0) return { line: `PRD ${prd}: ${login} overturned the fleet's decision${item === void 0 ? "" : ` on ${item}`}.`, events: [event.id] };
   const what = item === void 0 ? "approval" : decided.answer ? "answer" : "decision";
-  return { line: `PRD ${decided.prd}: ${decided.words}; ${login} overturned that ${what}.`, events: [decided.event, event.id] };
+  return { line: `PRD ${decided.prdSaid}: ${decided.words}; ${login} overturned that ${what}.`, events: [decided.event, event.id] };
 }
 function causeOf(cause, room) {
   const flat2 = cause.replace(/\s+/g, " ").trim().replace(/\.$/, "");
