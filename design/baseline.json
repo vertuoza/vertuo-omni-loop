@@ -161,7 +161,6 @@
     "apps/galaxy/src/virtual-fleets/drawer/new-fleet.css declaration-property-value-allowed-list",
     "apps/galaxy/src/virtual-fleets/heroes/HeroesTab.tsx raw-component",
     "apps/galaxy/src/virtual-fleets/heroes/heroes.css declaration-property-value-allowed-list",
-    "apps/galaxy/src/waiting-board/WaitingScreen.tsx raw-component",
     "apps/galaxy/src/waiting-board/waiting-board.css declaration-property-value-allowed-list"
   ]
 }
