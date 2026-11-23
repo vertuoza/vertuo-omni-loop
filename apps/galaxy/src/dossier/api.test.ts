@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, pushDossier, type DossierDeps } from './api';
+import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, PAGE_ROUTES, pushDossier, type DossierDeps } from './api';
 import { ARTIFACT_MAX_BYTES } from './store';
 import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
 import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
@@ -737,5 +737,13 @@ describe('POST /api/dossiers/push: a mission links to where the app shows it (bu
 
     expect(status).toBe(200);
     expect(body.url).toBe('https://omni.example/app/fleet?fleet=night-shift&tab=missions');
+  });
+});
+
+describe('every page link a push answers is a page the app serves (bug #3190 guard)', () => {
+  it('has a page at app/<route>/[id] for each kind\'s route', () => {
+    for (const route of Object.values(PAGE_ROUTES)) {
+      expect(existsSync(fileURLToPath(new URL(`../../app/${route}/[id]/page.tsx`, import.meta.url))), `app/${route}/[id]/page.tsx`).toBe(true);
+    }
   });
 });

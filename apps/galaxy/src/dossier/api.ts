@@ -83,9 +83,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const bytesOf = (text: string) => new TextEncoder().encode(text).length;
 
 /** Where each kind of dossier is read. */
-const ROUTES: Record<PushKind, string> = { prd: 'prd', visual: 'visual', bug: 'bugs', concept: 'concepts', mission: 'missions' };
+/** Where each kind's page is served, at /<route>/<id>; a mission has no such page: its link is its fleet's Missions tab (bug #3190). */
+export const PAGE_ROUTES: Record<Exclude<PushKind, 'mission'>, string> = { prd: 'prd', visual: 'visual', bug: 'bugs', concept: 'concepts' };
 
-const linkTo = (request: Request, id: string, kind: PushKind = 'prd') => `${origin(request)}/${ROUTES[kind]}/${id}`;
+const linkTo = (request: Request, id: string, kind: PushKind = 'prd') => kind === 'mission' ? `${origin(request)}/app/fleet?tab=missions` : `${origin(request)}/${PAGE_ROUTES[kind]}/${id}`;
+
+/** A pushed page's link: a mission's is its fleet's Missions tab, which lists it and starts it (bug #3190);
+ * the app serves no /missions/<id>. */
+const pushedLink = (request: Request, pushed: { id: string; fleet?: string | undefined }, kind: PushKind) =>
+  kind === 'mission' && pushed.fleet ? `${origin(request)}/app/fleet?fleet=${encodeURIComponent(pushed.fleet)}&tab=missions` : linkTo(request, pushed.id, kind);
 
 const KIND_PROBLEM = `\`kind\`, when sent, is one of ${PUSH_KINDS.join(', ')}.`;
 
@@ -271,7 +277,7 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     const pushed = await store.push({ repo, prd, kind, title, draftId, artifacts: read.artifacts, product });
     await tellVoidsOf(deps, client, request, kind, pushed);
     return reply(200, {
-      id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged, product: nameOf(pushed.product),
+      id: pushed.id, url: pushedLink(request, pushed, kind), added: pushed.added, unchanged: pushed.unchanged, product: nameOf(pushed.product),
     });
   });
 }
