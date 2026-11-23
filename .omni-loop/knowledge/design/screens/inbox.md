@@ -49,6 +49,17 @@ blocks an agent is open and ready to answer the moment they click Inbox.
 - Landing: the first question open; with none, the first decision.
 - Answered: the row reads ✓ Answered, leaves, and the next question opens.
 - Zero: the check sprite at 3×, `Nothing waits on you.`, and a link to the Workspace tab.
+- Loading (PRD 3184): each tab's loading screen is its own shape in `@omni/ui` Skeleton bones: the
+  tabs line (a bone for the Open count), the pills (bones for their counts), the rows (`shape="row"`),
+  the panel's box; Done adds the categories column and the search. A part still read keeps its
+  section heading with two row bones; the Open count is a bone, never 0. The panel reads its round
+  in its final box, "Reading the question…" its label.
+- Zero (PRD 3184): an `EmptyState` with the `check` icon, `Nothing waits on you.`, "New questions land
+  here as agents ask.", and the link to the Workspace tab; only once no part is still read.
+- A pill with nothing in it (PRD 3184): an inline `EmptyState`, `No <kind> waits on you.` (Shared:
+  `Nothing is shared with you.`), its kind's row icon, and "Show all".
+- Done empty (PRD 3184): `No question yet` at page size (icon `tone-info`, "Questions asked in ask mode
+  land here."); `No question matches` inline (icon `search`) with "Clear the filters".
 - A part that could not be read: `<Part> couldn't be read — retrying.` in its section, its last rows kept.
 - Signed out: the Inbox's own sign-in card; signing in comes back to /app (item s5-05).
 
@@ -85,3 +96,4 @@ blocks an agent is open and ready to answer the moment they click Inbox.
 /omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after)
 /omni:visual-fix #3169, pick A by @pierrederval on 2026-11-23: .omni-loop/delivery/visual/3169-done-tab-sidebar/before-after.html
 /omni:brainstorm, PRD omni-loop-23: its before/after page, on the PRD's page (omni dossier get omni-loop-23 before-after)
+/omni:brainstorm, PRD 3184: .omni-loop/delivery/inbox/3184-inbox-loading-empty/before-after.html

@@ -45,6 +45,11 @@ waits on them.
 - **Workspace empty:** `Nothing waits on a person.`
 - **My PRDs empty:** `None of your PRDs waits on anyone.`
 - **My reviews empty:** `Nothing waits on you.`
+- **Empty, PRD 3184:** each view's sentence is an `EmptyState` at page size under the toolbar (icon
+  `roadmap`, `prds` for My PRDs), "Waits on members show here, oldest first."; with a product filter
+  on it names the product and offers "Show every product".
+- **Loading, PRD 3184:** the view pills and the product filter as bones, a group heading with its
+  "Whose turn" column, then row bones with `aside`.
 - **Unreadable:** the page says it could not load, as Engineering does.
 - **Signed out / no workspace:** the app shell's sign-in card or notice.
 - **Phone, below 900 px:** the table becomes one card per row, the four cells stacked.
@@ -74,3 +79,4 @@ PRDs waits on anyone. · Nothing waits on you.
 - /omni:visual-fix #2408, pick B by @pierrederval on 2026-10-22: .omni-loop/delivery/visual/2408-stale-pill/before-after.html
 /omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after) (the board as the Inbox › Workspace tab)
 /omni:brainstorm, PRD omni-loop-23: its before/after page, on the PRD's page (omni dossier get omni-loop-23 before-after)
+- /omni:brainstorm, PRD 3184: .omni-loop/delivery/inbox/3184-inbox-loading-empty/before-after.html
