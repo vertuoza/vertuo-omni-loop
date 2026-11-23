@@ -237,6 +237,19 @@ start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 The red ending names `<product> › Questions` and its last line is `/omni:ultra-yolo-fix <key>-<n>`;
 the held ending's is `/omni:ultra-yolo <key>-<n>`.
 
+**A stop on a person offers the mission** (PRD omni-loop-21). When the run stops on a person, the
+PRD having no plan on its page, still waiting for approval (`held: PRD <key>-<n> still waits for
+approval …`), drifted, refused, or its gate ended red, its stop line, as printed above, ends with the
+one command that hands the PRD to a fleet:
+
+```text
+<stop line> · or hand it to a fleet: /omni:mission --prd <key>-<n> --level alone
+```
+
+The reply's last line stays the ending's own. A stop no person resolves (`server unreachable · held,
+not failed`, a target's CI not green) offers nothing. The run stops as before and never runs
+`/omni:mission`: starting the mission stays the Start button on its page, pressed by a person.
+
 ## 1. The plan repository
 
 As `/omni:yolo` steps 1 and 2, on the plan repository: find the draft **plan PR** (the feature PR
