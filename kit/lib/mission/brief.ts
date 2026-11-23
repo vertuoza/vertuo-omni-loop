@@ -16,9 +16,11 @@
  * - `measures`: 0 to 5 observable signs it worked, each `{sign, read, target}` (how it is read, and
  *   the target), each 1 to 200 characters. None yet is a one-line mission's (`/omni:mission --prd`);
  * - `kind`: `prds` (when absent) or `omni-bugs`, the standing Omni Loop bug team (PRD 3088), which takes no scope;
+ * - `request`: optional, the uuid of the mission request (the Omni page's New mission box) the brief came from (PRD omni-loop-24);
  * - `scope`: `{prds, roadmaps}`, 50 PRDs and 10 roadmaps at most, one of either at least; a PRD is a
  *   repository's number (`2896`) or a product PRD's id (`omni-loop-15`), a roadmap a repository's number
- *   or a product roadmap's id (`omni-loop-R3`) (PRD omni-loop-21);
+ *   or a product roadmap's id (`omni-loop-R3`) (PRD omni-loop-21). A brief with no scope, or one naming nothing, is
+ *   **goal-only** (PRD omni-loop-24): it reads at `alone` only, and its `ownPrds` is 10 when it does not say;
  * - `repositories`: optional, the `owner/name` of every repository the scope touches (20 at most); a
  *   brief with several reads at `own-branch` and `alone`;
  * - `mandate`: `{parallel, level, hardToRevert, ownPrds, resumes}`: how many PRDs may run at once (1 to 4, 2 when not
@@ -78,6 +80,11 @@ export function repositoryRefusal(kind: MissionKind, repository: string, omniLoo
 /** The mandate's two bounds under the level, when the brief says nothing. */
 const DEFAULT_HARD_TO_REVERT = 0.6;
 const DEFAULT_OWN_PRDS = 0;
+/** What a goal-only brief's `ownPrds` is when it does not say: the most the schema allows (PRD omni-loop-24). */
+const GOAL_ONLY_OWN_PRDS = 10;
+/** Why a goal-only brief is refused below `alone`, and with no PM to write its PRDs. */
+const GOAL_ONLY_LEVEL_REFUSAL = 'a goal-only mission works alone';
+const GOAL_ONLY_PM_REFUSAL = 'a goal-only mission needs the PM: ownPrds is 1 to 10';
 /** How many times a step that ended halfway is resumed, when the mandate says nothing. */
 export const DEFAULT_RESUMES = 3;
 /** The highest token budget a mandate takes (PRD 3040). */
@@ -98,6 +105,8 @@ export type Brief = {
   scope: { prds: (PrdNumber | ProductPrdId)[]; roadmaps: (IssueNumber | ProductRoadmapId)[] };
   /** Every repository the scope touches, `owner/name`, only when the brief lists them. */
   repositories?: string[];
+  /** The mission request this brief came from (a uuid), only when the brief names one (PRD omni-loop-24). */
+  request?: string;
   /** `tokens`, the mission's token budget, only when the brief gives one: absent, the mission has none (PRD 3040). */
   mandate: { parallel: number; level: MissionLevel; hardToRevert: number; ownPrds: number; resumes: number; tokens?: number };
 };
@@ -136,7 +145,7 @@ const MandateSchema = z
       parallel: z.number({ message: 'must be a number' }).int('must be a whole number').min(1, 'is 1 to 4').max(4, 'is 1 to 4').default(DEFAULT_PARALLEL),
       level: z.enum(MISSION_LEVELS, { message: `is one of ${MISSION_LEVELS.join(', ')}` }).default(DEFAULT_LEVEL),
       hardToRevert: z.number({ message: 'must be a number' }).min(0, 'is 0 to 1').max(1, 'is 0 to 1').default(DEFAULT_HARD_TO_REVERT),
-      ownPrds: z.number({ message: 'must be a number' }).int('must be a whole number').min(0, 'is 0 to 10').max(10, 'is 0 to 10').default(DEFAULT_OWN_PRDS),
+      ownPrds: z.number({ message: 'must be a number' }).int('must be a whole number').min(0, 'is 0 to 10').max(10, 'is 0 to 10').optional(),
       resumes: z.number({ message: 'must be a number' }).int('must be a whole number').min(0, 'is 0 to 10').max(10, 'is 0 to 10').default(DEFAULT_RESUMES),
       tokens: z.number({ message: 'must be a number' }).int('must be a whole number').min(1, TOKENS_RANGE).max(MAX_MISSION_TOKENS, TOKENS_RANGE)
         .nullish(),
@@ -147,7 +156,9 @@ const MandateSchema = z
   // No budget leaves no key: a brief without one reads as it did before PRD 3040.
   .transform(({ tokens, ...mandate }) => (tokens == null ? mandate : { ...mandate, tokens }));
 
-const DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, ownPrds: DEFAULT_OWN_PRDS, resumes: DEFAULT_RESUMES };
+const DEFAULT_MANDATE = { parallel: DEFAULT_PARALLEL, level: DEFAULT_LEVEL, hardToRevert: DEFAULT_HARD_TO_REVERT, resumes: DEFAULT_RESUMES };
+/** A mission request's id, a uuid. */
+const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const BriefSchema = z
   .object({
@@ -161,21 +172,37 @@ const BriefSchema = z
     repositories: z.array(text(200).regex(REPOSITORY, 'is not owner/name'), { message: 'must be a list of owner/name' }).max(20, 'holds 20 repositories at most')
       .refine(distinct, 'names a repository twice').optional(),
     mandate: MandateSchema.default(DEFAULT_MANDATE),
+    request: text(36).regex(REQUEST_ID, 'must be a uuid').optional(),
   })
   .strict()
-  // A `prds` mission names a PRD or a roadmap; an `omni-bugs` one names none (its scope is empty).
-  .transform(({ scope, repositories, ...rest }, ctx) => {
+  // A `prds` mission names a PRD or a roadmap, or is goal-only; an `omni-bugs` one names none (its scope is empty).
+  .transform(({ scope, repositories, request, mandate, ...rest }, ctx) => {
     const named = (scope?.prds.length ?? 0) + (scope?.roadmaps.length ?? 0);
-    if (rest.kind === 'omni-bugs') {
-      if (named > 0) ctx.addIssue({ code: 'custom', path: ['scope'], message: 'is empty for an omni-bugs mission' });
-    } else if (scope === undefined) {
-      ctx.addIssue({ code: 'invalid_type', expected: 'object', input: undefined, path: ['scope'], message: 'missing' });
-    } else if (named === 0) {
-      ctx.addIssue({ code: 'custom', path: ['scope'], message: 'names no PRD and no roadmap: one at least' });
-    }
-    // No repositories leaves no key: a brief without them reads as it did before.
-    return { ...rest, scope: scope ?? NO_SCOPE, ...(repositories === undefined ? {} : { repositories }) };
+    for (const fault of briefFaults(rest.kind, named, mandate)) ctx.addIssue({ code: 'custom', ...fault });
+    const ownPrds = mandate.ownPrds ?? (isGoalOnly(rest.kind, named) ? GOAL_ONLY_OWN_PRDS : DEFAULT_OWN_PRDS);
+    // No repositories and no request leave no key: a brief without them reads as it did before.
+    return { ...rest, mandate: { ...mandate, ownPrds }, scope: scope ?? NO_SCOPE, ...keyed({ repositories, request }) };
   });
+
+/** A goal-only brief (PRD omni-loop-24): not an `omni-bugs` one, and its scope names no PRD and no roadmap, or is missing. */
+const isGoalOnly = (kind: MissionKind, named: number): boolean => kind !== 'omni-bugs' && named === 0;
+
+type Fault = { path: string[]; message: string };
+
+/** What a brief's kind and scope refuse: an `omni-bugs` brief naming a PRD; a goal-only one below `alone`, or with no PM to write its PRDs. */
+function briefFaults(kind: MissionKind, named: number, mandate: { level: MissionLevel; ownPrds?: number | undefined }): Fault[] {
+  if (kind === 'omni-bugs') return named > 0 ? [{ path: ['scope'], message: 'is empty for an omni-bugs mission' }] : [];
+  if (named > 0) return [];
+  return [
+    ...(mandate.level === 'alone' ? [] : [{ path: ['mandate', 'level'], message: GOAL_ONLY_LEVEL_REFUSAL }]),
+    ...(mandate.ownPrds === 0 ? [{ path: ['mandate', 'ownPrds'], message: GOAL_ONLY_PM_REFUSAL }] : []),
+  ];
+}
+
+/** `fields` without the keys that hold nothing. */
+function keyed<T extends Record<string, unknown>>(fields: T): { [K in keyof T]?: Exclude<T[K], undefined> } {
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as { [K in keyof T]?: Exclude<T[K], undefined> };
+}
 
 /** Where an issue is, as a person reads it: `measures[2].target`, counting from 1. */
 function placeOf(path: readonly PropertyKey[]): string {
@@ -202,6 +229,7 @@ function faultsOf(raw: unknown, error: z.ZodError): string[] {
     if (issue.code === 'unrecognized_keys') return `${place ? `${place}: ` : ''}unexpected field${issue.keys.length > 1 ? 's' : ''} ${issue.keys.join(', ')}.`;
     if (issue.code === 'invalid_type' && valueAt(raw, issue.path) === undefined) return `${place}: missing.`;
     if (place === 'mission') return `${place}: must be a positive whole number.`;
+    if (place === 'request') return `request: must be a uuid, not ${JSON.stringify(valueAt(raw, issue.path))}.`;
     const listed = scopeFault(place, valueAt(raw, issue.path));
     if (listed !== null) return listed;
     return `${place}: ${issue.message}.`;
