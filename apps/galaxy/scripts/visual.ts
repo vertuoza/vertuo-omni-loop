@@ -30,6 +30,7 @@ import axe from 'axe-core';
 import type { Browser, Page } from 'playwright';
 import { BOX, baselineName } from './catalogue.ts';
 import type { Box } from './catalogue.ts';
+import { settle } from './settle.ts';
 
 /** One part's article on /design: its heading, usage, do and don't, and its themed boxes. */
 const PART = 'article.ds-part';
@@ -102,12 +103,11 @@ async function open(page: Page, base: string, route: string): Promise<void> {
   // The page loads the PRD in the browser ("Loading the PRD…"): a cold dev server compiles that
   // first, so wait for the PRD itself, up to two minutes.
   await page.getByText(HEADING).first().waitFor({ timeout: 120_000 }).catch(() => undefined);
-  await page.evaluate(() => document.fonts.ready.then(() => true));
   const text = await page.evaluate(() => document.body.innerText);
   if (!text.includes(HEADING)) {
     throw new Error(`/${route} should show the demo PRD ("${HEADING}"); ${page.url()} shows: ${text.slice(0, 600)}`);
   }
-  await sleep(500);
+  await settle(page);
 }
 
 /** The pixels of two PNGs compared in the browser, which decodes them: no image library needed. */
