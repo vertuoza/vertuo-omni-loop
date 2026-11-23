@@ -58820,6 +58820,11 @@ function dropWords({ branch, set: set3, keep: keep3 }) {
 
 // kit/lib/mission/overturn.ts
 init_define_OMNI_BUNDLE();
+
+// kit/lib/ultra/base-of.ts
+init_define_OMNI_BUNDLE();
+
+// kit/lib/mission/overturn.ts
 var REF = /^([1-9][0-9]*)(?:\/([a-z0-9][a-z0-9-]*))?$/;
 var refOf2 = ({ prd: prd2, item: item2 }) => item2 === null ? String(prd2) : `${String(prd2)}/${item2}`;
 function parseRef(text20) {

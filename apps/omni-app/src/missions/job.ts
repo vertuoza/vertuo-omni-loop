@@ -107,7 +107,7 @@ import { checksOf, judge, type OpenItems } from './gate.ts';
 import { joinProduct, type MissionJoins } from './join.ts';
 import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
 import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
-import type { FleetDecision as StoredDecision, MissionProducts, MissionRecord, MissionRetros, MissionStore, NewStoredEvent, StoredEvent, StoredProduct } from './store.ts';
+import type { MissionDecision as StoredDecision, MissionProducts, MissionRecord, MissionRetros, MissionStore, NewStoredEvent, StoredEvent, StoredProduct } from './store.ts';
 import { readOutsideBugs, readRepairs, sendOutsideBugs, type RepairRunAt } from './repair-run.ts';
 import { outsideEvents } from './outside-bug.ts';
 import { readQa } from './qa-run.ts';

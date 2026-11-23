@@ -18,7 +18,7 @@ import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { pmKey, type PmJob } from './pm.ts';
 import { numberedOf, type MissionPrd } from './store.prd.ts';
-import { resumeKey, type MissionProducts, type StoredProduct, type NewStoredEvent, type StoredRepair, type FleetDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
+import { resumeKey, type MissionProducts, type StoredProduct, type NewStoredEvent, type StoredRepair, type MissionDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
 import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team.ts';
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
@@ -100,7 +100,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const copyOf = (job: FakeJob) => ({ prd: job.prd, run: job.run, step: job.step, job: job.id, attempts: job.attempts.map((one) => ({ ...one })), ...resumedOf(job.resume) });
   /** PRD omni-loop-21: the mission's branches `mission_branches` kept, and every decision the committee recorded, in order. */
   const branches: MissionBranch[] = [];
-  const decided: FleetDecision[] = [];
+  const decided: MissionDecision[] = [];
   const decidedAt = (): string => new Date(NOW_OF_ASKS + decided.length).toISOString();
 
   /** PRD 3065: the stuck repairs and milestone retros it queued, their key, line and log; the retros and items the database kept. */

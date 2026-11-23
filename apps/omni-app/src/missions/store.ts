@@ -186,7 +186,7 @@ export type ItemDecision = { outcome: 'carried' | 'deferred' | 'escalated'; why:
 export type ItemDecide = { prd: MissionPrd; item: string; job: string; verdicts: readonly MemberVerdict[]; decision: ItemDecision };
 
 /** One decision the mission's committee recorded (PRD omni-loop-21): an approval's (`approve`, no item) or an item's (`answer`). */
-export type FleetDecision = { kind: 'approve' | 'answer'; prd: MissionPrd; item: string | null; job: string } & ItemDecision & { decidedAt: string };
+export type MissionDecision = { kind: 'approve' | 'answer'; prd: MissionPrd; item: string | null; job: string } & ItemDecision & { decidedAt: string };
 
 /** A step's resume (PRD omni-loop-21): its k-th fresh job after one that ended without its result line; absent on the step's first job. */
 export type Resumed = { resume?: number };
@@ -369,7 +369,7 @@ export type MissionStore = {
   /** An item committee's decision recorded once, as the database kept it (PRD omni-loop-21). */
   decideItem: (mission: MissionRecord, one: ItemDecide) => Promise<ItemDecision>;
   /** Every decision the mission's committee recorded, an approval's and an item's, in the order they were taken: what landing lists. */
-  decisions: (id: string) => Promise<FleetDecision[]>;
+  decisions: (id: string) => Promise<MissionDecision[]>;
   /** The product PRDs of the scope, their builds and their sends (PRD omni-loop-21 s9b); absent, none is read or sent. */
   products?: MissionProducts;
 };
