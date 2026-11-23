@@ -17,7 +17,6 @@ export const segmentedControlMeta = {
     'Use it to go to the sections of a page: that is Tabs. Never draw a second row of tabs inside a tab: use this.',
     'Mix options with and without an `href`.',
     'Offer more than five options.',
-    'Put a tertiary text on the chosen pill\'s tint: it fails contrast.',
   ],
   contrast: {
     base: [...onSurfaces('text-secondary'), ...onSurfaces('text-primary'), ...onSurfaces('border-strong', { edge: true }), ...onSurfaces('focus-ring', { edge: true })],
@@ -31,7 +30,7 @@ export const segmentedControlMeta = {
     'As a choice: a radio group named by `label`; each segment is a radio with aria-checked, and the arrow keys, Home and End move the choice and the focus.',
     'As links (every option has an `href`): a group named by `label`, one link per segment, the current one carrying aria-current="page"; the arrow keys, Home and End move the focus, and Enter follows the link.',
     'One tab stop either way: Tab enters on the chosen or current segment.',
-    'The chosen segment shows by a bar and weight, never by colour alone; in `pills` by a heavier label and count and a tint, with aria-checked or aria-current as ever.',
+    'The chosen segment shows by a bar and weight, never by colour alone; in `pills` by a heavier label and count and a tint, with aria-checked or aria-current as ever; no tertiary text sits on the tint (it fails contrast).',
   ],
   replaces: ['segmented', 'filter-toggle'],
   example: '<SegmentedControl label="Show" value="open" onChange={setShow} options={[{ id: "open", label: "Open" }, { id: "all", label: "All" }]} />',

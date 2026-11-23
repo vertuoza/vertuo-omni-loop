@@ -699,7 +699,6 @@
         "Make the whole row one link when it opens one thing."
       ],
       "dont": [
-        "Put a tertiary text on a selected row: it fails contrast on the tint.",
         "Put a second link or a button inside a linked row.",
         "Repeat the title in the trailing slot."
       ],
@@ -878,7 +877,7 @@
       ],
       "dont": [
         "Put a question the person must answer in it: that is a Dialog.",
-        "Open it on hover alone: a keyboard and a touch screen never hover. `openOn=\"hover\"` also opens on keyboard focus and on a click, for details that repeat what the page already holds."
+        "Open it on hover alone: a keyboard and a touch screen never hover."
       ],
       "example": "<Popover trigger=\"Who answers?\" title=\"Who answers\">The people of this PRD.</Popover>",
       "import": "@omni/ui",
@@ -1117,8 +1116,7 @@
       "dont": [
         "Use it to go to the sections of a page: that is Tabs. Never draw a second row of tabs inside a tab: use this.",
         "Mix options with and without an `href`.",
-        "Offer more than five options.",
-        "Put a tertiary text on the chosen pill's tint: it fails contrast."
+        "Offer more than five options."
       ],
       "example": "<SegmentedControl label=\"Show\" value=\"open\" onChange={setShow} options={[{ id: \"open\", label: \"Open\" }, { id: \"all\", label: \"All\" }]} />",
       "import": "@omni/ui",
