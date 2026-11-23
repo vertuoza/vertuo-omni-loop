@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@omni/ui';
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../../../../../supabase/database.types.ts';
 import { PersonChip } from '../../people/PersonChip';
@@ -68,13 +69,13 @@ export function QuickAnswer({ supabase, roundId, quick }: Props) {
       <ul className="dossier-quick-choices" aria-label="Answer with one click">
         {quick.choices.map((choice) => (
           <li key={choice.value}>
-            <button type="button" className="dossier-quick-choice" disabled={busy} onClick={() => void answer(choice.value)}>
+            <Button variant="secondary" disabled={busy} onClick={() => void answer(choice.value)}>
               <span className="dossier-option-label">
                 {choice.label}
                 {choice.recommended && <span className="ask-rec">Recommended</span>}
               </span>
               {choice.description && <span className="dossier-option-desc">{choice.description}</span>}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

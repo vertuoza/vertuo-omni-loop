@@ -176,7 +176,7 @@ describe('the page to share', () => {
   it('shows a member of the workspace the dossier', async () => {
     given.token = 'bob';
     const page = await html(numbered);
-    expect(page).toContain('<a class="dossier-number" href="https://github.com/acme/widgets/issues/7" target="_blank" rel="noopener noreferrer">PRD #7 ↗</a>');
+    expect(page).toContain('<p class="omni-page-header__eyebrow">PRD #7</p>');
     expect(page).toContain('Team inbox');
     expect(page).toContain(REPO_CHIP('acme/widgets'));
     expect(textOf(page)).toContain('opened by ADA · ');
@@ -211,7 +211,7 @@ describe('the page to share', () => {
 
   it('renders the Spec tab\'s markdown, raw HTML as text, the front matter above', async () => {
     given.token = 'bob';
-    const page = await html(numbered, { tab: 'spec' });
+    const page = await html(numbered, { tab: 'specifications', segment: 'spec' });
     expect(page).toContain('<p class="dossier-front">prd: 7 · title: Team inbox</p>');
     expect(page).toContain('<h1>Team inbox</h1>');
     expect(page).toContain('&lt;b&gt;raw&lt;/b&gt;');
@@ -225,13 +225,13 @@ describe('the page to share', () => {
       { created_at: later(5), prd: parsePrd(8) },
     ]);
     given.token = 'bob';
-    const page = await html(numbered, { tab: 'questions' });
-    expect(page).toContain('Questions<small>1/2</small><span class="omni-badge omni-badge--warning">1 to answer</span>');
+    const page = await html(numbered, { tab: 'brainstorm' });
+    expect(page).toContain('Brainstorm<span class="omni-tab__count">1/2</span>');
     expect([...page.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['delivery', 'delivery']);
     expect(textOf(page)).toContain('answered by ADA after 2 min 0 s, in the terminal');
     expect(page).toContain('not answered yet');
     given.token = 'carl';
-    await expect(open(numbered, { tab: 'questions' })).rejects.toMatchObject(notFound);
+    await expect(open(numbered, { tab: 'brainstorm' })).rejects.toMatchObject(notFound);
   });
 
   it('decides on the server who may answer a quick round on the list: its owner and a member it is shared with (PRD 384)', async () => {
@@ -240,30 +240,30 @@ describe('the page to share', () => {
       { created_at: new Date(Date.now() - 60_000).toISOString(), prd: parsePrd(7), questions: quick },
     ]);
     assertDefined(round, 'the quick round');
-    const buttons = (page: string) => [...page.matchAll(/class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
+    const buttons = (page: string) => [...page.matchAll(/class="omni-button[^"]*"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
 
     given.token = 'ada';
-    const owner = await html(numbered, { tab: 'questions' });
+    const owner = await html(numbered, { tab: 'brainstorm' });
     expect(buttons(owner)).toEqual(['Yes', 'No']);
     expect(owner).toContain(`<li id="${round.id}" class="dossier-round"`);
 
     given.token = 'bob';
-    const other = await html(numbered, { tab: 'questions' });
+    const other = await html(numbered, { tab: 'brainstorm' });
     expect(buttons(other)).toEqual([]);
     expect(textOf(other)).toContain('Waiting for ADA');
 
     given.fake.seedShare(round.id, BOB.id, ADA.id);
-    expect(buttons(await html(numbered, { tab: 'questions' }))).toEqual(['Yes', 'No']);
+    expect(buttons(await html(numbered, { tab: 'brainstorm' }))).toEqual(['Yes', 'No']);
   });
 
   it('shows the questions of the brainstorm that opened a draft, in its Claude session', async () => {
     const opened = (await given.fake.client('ada').rpc('dossier_open', { p_title: 'Offline quotes', p_repo: 'acme/widgets', p_claude_session_id: 'sess-a' })).data as string;
     given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: new Date(Date.now() + 60_000).toISOString() }]);
     given.token = 'bob';
-    const page = await html(opened, { tab: 'questions' });
+    const page = await html(opened, { tab: 'brainstorm' });
     expect(page).toContain('<span class="dossier-rule">brainstorm</span>');
-    expect(page).toContain('Questions<small>0/1</small><span class="omni-badge omni-badge--warning">1 to answer</span>');
-    expect(await html(draft, { tab: 'questions' })).toContain('No question yet.');
+    expect(page).toContain('Brainstorm<span class="omni-tab__count">0/1</span>');
+    expect(await html(draft, { tab: 'brainstorm' })).toContain('No question yet.');
   });
 
   it('still shows the dossier when its questions cannot be read', async () => {
@@ -271,7 +271,7 @@ describe('the page to share', () => {
     given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
       name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) };
     given.token = 'bob';
-    const page = await html(numbered, { tab: 'questions' });
+    const page = await html(numbered, { tab: 'brainstorm' });
     expect(page).toContain('PRD #7');
     expect(page).toContain('The questions could not be read.');
   });
@@ -282,7 +282,7 @@ describe('the page to share', () => {
       { created_at: new Date(Date.now() + 180_000).toISOString(), prd: parsePrd(7) },
     ]);
     given.token = 'bob';
-    const page = await open(numbered, { tab: 'spec', v: '1' });
+    const page = await open(numbered, { tab: 'specifications', segment: 'spec', v: '1' });
     const live = liveOf(page);
     expect(live?.type).toBe(LiveRefresh);
     expect(live?.props).toEqual({
@@ -314,18 +314,33 @@ describe('the page to share', () => {
 
   it('says an artifact with no version yet has none', async () => {
     given.token = 'bob';
-    expect(await html(numbered, { tab: 'plan' })).toContain('The plan has no version yet.');
+    expect(await html(numbered, { tab: 'specifications', segment: 'plan' })).toContain('The plan has no version yet.');
+  });
+
+  it('AC-4: sends an old tab id to its new tab and segment, or its Feature or Retro section, keeping v and the rest (omni-loop-20 s7)', async () => {
+    given.token = 'bob';
+    const redirectTo = (path: string) => ({ digest: expect.stringContaining(`;${path};`) as unknown });
+    const at = `/prd/${numbered}`;
+    await expect(open(numbered, { tab: 'questions' })).rejects.toMatchObject(redirectTo(`${at}?tab=brainstorm`));
+    await expect(open(numbered, { tab: 'spec', v: '1' })).rejects.toMatchObject(redirectTo(`${at}?tab=specifications&segment=spec&v=1`));
+    await expect(open(numbered, { tab: 'plan' })).rejects.toMatchObject(redirectTo(`${at}?tab=specifications&segment=plan`));
+    await expect(open(numbered, { tab: 'before-after', v: '1' })).rejects.toMatchObject(redirectTo(`${at}?tab=specifications&segment=before-after&v=1`));
+    await expect(open(numbered, { tab: 'care' })).rejects.toMatchObject(redirectTo(`${at}?tab=feature#pr-care`));
+    await expect(open(numbered, { tab: 'proof', v: '2' })).rejects.toMatchObject(redirectTo(`${at}?tab=feature&v=2#proof`));
+    await expect(open(numbered, { tab: 'main' })).rejects.toMatchObject(redirectTo(`${at}?tab=feature#after-merge`));
+    await expect(open(numbered, { tab: 'pitch' })).rejects.toMatchObject(redirectTo(`${at}?tab=retro#pitch`));
   });
 
   it('offers the opener of a draft Delete draft, and nobody else', async () => {
     given.token = 'ada';
+    // omni-loop-20 s6: Delete draft is an action of the head's Actions menu, drawn once it opens.
     const mine = await html(draft);
-    expect(mine).toContain('<span class="omni-badge omni-badge--warning">DRAFT</span>');
-    expect(mine).toContain('Delete draft');
+    expect(mine).toContain('<p class="omni-page-header__eyebrow">Draft</p>');
+    expect(mine).toContain('>Actions<');
     given.token = 'bob';
-    expect(await html(draft)).not.toContain('Delete draft');
+    expect(await html(draft)).not.toContain('>Actions<');
     given.token = 'ada';
-    expect(await html(numbered)).not.toContain('Delete draft');
+    expect(await html(numbered)).not.toContain('>Actions<');
   });
 
   it('is not found for a member of another workspace', async () => {
@@ -371,11 +386,12 @@ describe('the page to share', () => {
     const page = await html('anything');
     expect(page).toContain('PRD #71');
     expect(page).not.toContain('Delete draft');
-    expect(await html('anything', { tab: 'spec' })).toContain('<p class="dossier-front">');
-    const questions = await html('anything', { tab: 'questions' });
+    expect(await html('anything', { tab: 'specifications', segment: 'spec' })).toContain('<p class="dossier-front">');
+    const questions = await html('anything', { tab: 'brainstorm' });
     expect(questions).toContain('<span class="dossier-rule">brainstorm</span>');
     expect(questions).toContain('<span class="dossier-rule">delivery</span>');
-    expect(questions).toMatch(/Questions<small>\d+\/\d+( answered)?<\/small>/);
+    expect(questions).toMatch(/Brainstorm<span class="omni-tab__count[^"]*">\d+\/\d+( answered)?<\/span>/);
+    await expect(open('anything', { tab: 'questions' })).rejects.toMatchObject({ digest: expect.stringContaining(';/prd/anything?tab=brainstorm;') as unknown });
     expect(liveOf(await open('anything'))).toBeUndefined();
   });
 });
@@ -405,7 +421,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     given.token = 'bob';
     const page = await html(numbered);
     expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
-    expect(page).toContain('<strong>Stage: inbox</strong>');
+    expect(page).toContain('<span class="omni-stage-track__name">Ready</span><span class="omni-stage-track__state"> (current)</span>');
     expect(page).toContain('type="button" title="/omni:yolo 7" data-primary="">Build it</button>');
     expect(page).toContain('>phase-0 #12</a></span></span><span class="omni-list-row__trailing"><span class="ask-hint">✓</span>');
   });
@@ -425,20 +441,21 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     given.summary.mockRejectedValue(new Error('GitHub is down'));
     await stored('shipped');
     given.token = 'bob';
-    const page = await html(numbered);
-    expect(page).toContain('<strong>Stage: shipped</strong>');
-    expect(page).toContain('title="last synced 29 Sep 2026, 09:15 UTC"');
+    const page = await html(numbered, { tab: 'specifications' });
+    expect(page).toContain('<span class="omni-stage-track__name">Shipped</span><span class="omni-stage-track__state"> (current)</span>');
+    expect(page).toContain('· last synced 29 Sep 2026, 09:15 UTC"');
     expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
   });
 
   it('says Syncing… for a PRD with no stored stage yet, or whose stages could not be read', async () => {
     given.summary.mockResolvedValue(inbox);
     given.token = 'bob';
-    expect(await html(numbered)).toContain('<strong>Syncing…</strong>');
+    const syncing = 'Its stages are being read from GitHub.';
+    expect(await html(numbered)).toContain(syncing);
     given.stages.fail = 'down';
     const page = await html(numbered);
-    expect(page).toContain('<strong>Syncing…</strong>');
-    expect(page).toContain('PRD #7 ↗');
+    expect(page).toContain(syncing);
+    expect(page).toContain('<p class="omni-page-header__eyebrow">PRD #7</p>');
   });
 
   const keepSnapshot = (summary: object, staleSince: string | null = null) => {
@@ -492,7 +509,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
     await html(numbered);
     given.token = 'ada';
     const page = await html(draft);
-    expect(page).toContain('<strong>Brainstorming</strong></p>');
+    expect(page).toContain('<span class="omni-stage-track__name">Idea · brainstorm in progress</span>');
     given.mode = 'demo';
     await html('anything');
     expect(given.summary).not.toHaveBeenCalled();
@@ -507,15 +524,20 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     Object.assign(row, { birthplace: 'server' });
   };
   const APPROVE = /<button[^>]*>Approve<\/button>/;
+  /** Review and approve, leading to the review screen, where Approve sits since omni-loop-20 s7. */
+  const REVIEW = /href="\/prd\/[^"]+\/review"[^>]*>Review and approve<\/a>/;
+  /** The Specifications tab's Approval record: the seals and the business laws' verdict. */
+  const RECORD = { segment: 'approval' };
 
-  it('reads the approval in force as the member and shows a ◆ PRD waiting for approval, with the Approve button', async () => {
+  it('reads the approval in force as the member and shows a ◆ PRD waiting for approval, with Review and approve', async () => {
     bornOnServer();
     given.token = 'bob';
     const page = await html(numbered);
     expect(given.approval).toHaveBeenCalledWith(expect.anything(), numbered);
-    expect(page).toContain('<dt>Approval</dt>');
+    expect(page).toContain('<dt class="omni-definition-list__label">Approval</dt>');
     expect(page).toContain('<strong>waiting for approval</strong>');
-    expect(page).toMatch(APPROVE);
+    expect(page).toMatch(REVIEW);
+    expect(page).not.toMatch(APPROVE);
   });
 
   it('shows who approved it and when, with no button', async () => {
@@ -542,28 +564,26 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     findings: [{ law: 'BL-QUOTES-1', statement: 'A quote is sent only with a total above zero.', why: 'An empty quote loses the customer.', quote: 'zero total', domain: 'quotes', file: 'k/domains/quotes/business-laws.md', owners: ['ana'] }],
   };
 
-  it('shows a red business law verdict above Approve, turned off and saying why', async () => {
+  it('shows a red business law verdict in the Approval record, and no Approve on the page (omni-loop-20 s7)', async () => {
     bornOnServer();
     given.laws = { show: 'verdict', verdict: RED };
     given.token = 'bob';
-    const page = await html(numbered);
-    const screen = /<section class="dossier-approve-screen"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
+    const page = await html(numbered, RECORD);
     expect(given.lawsAsked).toEqual([null]);
-    expect(textOf(screen)).toContain('Business laws ✗ 1');
-    expect(screen).toContain('BL-QUOTES-1');
-    expect(screen).toContain('Ask to amend this law');
-    expect(screen).toMatch(/<button[^>]*disabled=""[^>]*>Approve<\/button>/);
-    expect(screen).toContain('Change the spec, or amend the law.');
-    expect(screen.indexOf('Business laws')).toBeLessThan(screen.search(APPROVE));
+    expect(textOf(page)).toContain('Business laws ✗ 1');
+    expect(page).toContain('BL-QUOTES-1');
+    expect(page).toContain('Ask to amend this law');
+    expect(page).not.toContain('dossier-approve-screen');
+    expect(page).not.toMatch(APPROVE);
   });
 
-  it('keeps Approve on beside a business law verdict that is not red', async () => {
+  it('shows a business law verdict that is not red in the Approval record, with Review and approve', async () => {
     bornOnServer();
     given.laws = { show: 'not-judged', why: 'the law home has no knowledge pack yet' };
     given.token = 'bob';
-    const page = await html(numbered);
+    const page = await html(numbered, RECORD);
     expect(page).toContain('Business laws not judged');
-    expect(page).toMatch(/<button type="button" class="ask-button dossier-approve-button">Approve<\/button>/);
+    expect(page).toMatch(REVIEW);
   });
 
   it('shows the approved spec\'s business law verdict under the seal', async () => {
@@ -573,7 +593,7 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     given.approval.mockResolvedValue({ id: 'a-1', approver_login: 'ada', approved_at: '2026-10-09T09:12:00Z', files: [{ kind: 'spec', path: 'spec.md', version_id: spec.id }] });
     given.laws = { show: 'verdict', verdict: { ...RED, state: 'neutral', reason: 'no model key on this deployment', findings: [] } };
     given.token = 'bob';
-    const page = await html(numbered);
+    const page = await html(numbered, RECORD);
     expect(given.lawsAsked).toEqual([spec.id]);
     expect(page).toContain('<strong>approved</strong>');
     expect(textOf(page)).toContain('Business laws not judgedNo model key on this deployment.');
@@ -586,7 +606,7 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     const page = await html(numbered);
     expect(page).toContain('The approval could not be read');
     expect(page).not.toMatch(APPROVE);
-    expect(page).toContain('PRD #7 ↗');
+    expect(page).toContain('<p class="omni-page-header__eyebrow">PRD #7 · Product PRD</p>');
   });
 
   // PRD 1322 s7: the approve screen.
@@ -598,19 +618,17 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
   };
   const versionsOf = (kind: string) => given.fake.tables.dossier_versions.filter((v) => v.dossier_id === numbered && v.kind === kind);
 
-  it('opens the approve screen with the spec\'s Problem and Solution above Approve', async () => {
+  it('leaves the spec\'s Problem and Solution to the review screen: no approve screen on any tab of the page (omni-loop-20 s7)', async () => {
     bornOnServer();
     await pushSpec(PROBLEM_SPEC);
     given.token = 'bob';
-    const page = await html(numbered);
-    const screen = /<section class="dossier-approve-screen"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
-    expect(screen).toContain('<h2>Problem</h2>');
-    expect(screen).toContain('Nobody is told it waits.');
-    expect(screen).toContain('<h2>Solution</h2>');
-    expect(screen).toContain('Ask the approvers.');
-    expect(screen).not.toContain('Scope');
-    expect(screen.indexOf('Ask the approvers.')).toBeLessThan(screen.search(APPROVE));
-    expect(page.match(new RegExp(APPROVE, 'g'))).toHaveLength(1);
+    for (const tab of ['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline']) {
+      const page = await html(numbered, { tab });
+      expect(page, tab).not.toContain('dossier-approve-screen');
+      expect(page, tab).not.toContain('<h2>Problem</h2>');
+      expect(page, tab).not.toMatch(APPROVE);
+      expect(page, tab).toMatch(REVIEW);
+    }
   });
 
   it('shows no Approve and no screen to a member the product does not ask, once it asks someone', async () => {
@@ -620,17 +638,17 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     given.token = 'bob';
     const page = await html(numbered);
     expect(page).toContain('<strong>waiting for approval</strong>');
-    expect(page).not.toMatch(APPROVE);
+    expect(page).not.toMatch(REVIEW);
     expect(page).not.toContain('dossier-approve-screen');
     given.token = 'ada';
-    expect(await html(numbered)).toMatch(APPROVE);
+    expect(await html(numbered)).toMatch(REVIEW);
   });
 
   it('leaves Approve to any member when the product\'s approvers cannot be read', async () => {
     bornOnServer();
     given.asked.mockRejectedValue(new Error('down'));
     given.token = 'bob';
-    expect(await html(numbered)).toMatch(APPROVE);
+    expect(await html(numbered)).toMatch(REVIEW);
   });
 
   it('says the approval could not be read when its voids cannot be', async () => {
@@ -642,7 +660,7 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     expect(page).not.toMatch(APPROVE);
   });
 
-  it('shows a voided approval as voided · approve again, with only the changed file\'s diff above Approve', async () => {
+  it('shows a voided approval as voided · approve again, with Review and approve and no diff on the page (omni-loop-20 s7)', async () => {
     bornOnServer();
     const [spec] = versionsOf('spec');
     const [page_] = versionsOf('before-after');
@@ -660,12 +678,9 @@ describe('the approval of a PRD born on the server (PRD 1299 s3)', () => {
     const page = await html(numbered);
     expect(page).toContain('<strong>voided · approve again</strong>');
     expect(page).toContain('voided by bob&#x27;s push aaaaaaa→bbbbbbb · 9 Oct 2026, 10:00 UTC');
-    const screen = /<section class="dossier-approve-screen"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
-    expect(screen).toContain('<h3>spec.md</h3>');
-    expect(screen).not.toContain('before-after.html');
-    expect(screen).toContain('+ ## Problem');
-    expect(screen.indexOf('<h3>spec.md</h3>')).toBeLessThan(screen.indexOf('<h2>Problem</h2>'));
-    expect(screen).toMatch(APPROVE);
+    expect(page).not.toContain('dossier-approve-screen');
+    expect(page).not.toContain('+ ## Problem');
+    expect(page).toMatch(REVIEW);
   });
 
   it('reads no approval for a PRD born in the repository, and shows none', async () => {
@@ -917,8 +932,8 @@ describe('the stylesheet', () => {
   it('outlines chips, badges, cards, controls and the tab bar with --ask-line-strong, and keeps --ask-line for dividers (PRD 476)', () => {
     const outlined = [
       '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-empty', '.dossier-frame iframe',
-      '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
-      '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
+      '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-settled', '.outbox-context',
+      '.dossier-history-filters', '.dossier-history-whos', '.dossier-history-more',
       '.ask a.dossier-history-row', '.dossier-history-artifact',
     ];
     for (const selector of outlined) {
@@ -954,20 +969,21 @@ describe('the page of a product PRD', () => {
     return (pushed.data as { id: string }).id;
   }
 
-  it('offers Approve to a member', async () => {
+  it('offers a member Review and approve, leading to the review screen (omni-loop-20 s7)', async () => {
     const id = await productPrd();
     given.token = 'bob';
     const page = await html(id);
-    expect(page).toContain('dossier-approve-button');
+    expect(page).toContain(`<a href="/prd/${id}/review">Review and approve</a>`);
+    expect(page).not.toContain('dossier-approve-button');
   });
 
-  it('shows a red business laws verdict above Approve, and turns Approve off', async () => {
+  it('shows a red business laws verdict in the Approval record, with no Approve on the page', async () => {
     const id = await productPrd();
     given.token = 'bob';
     given.laws = { show: 'verdict', verdict: RED };
-    const page = await html(id);
+    const page = await html(id, { segment: 'approval' });
     expect(textOf(page)).toContain('Business laws ✗ 1');
-    expect(page).toMatch(/<button[^>]*dossier-approve-button[^>]*disabled/);
+    expect(page).not.toContain('dossier-approve-button');
   });
 
   it('seals an approval under the product PRD\'s id', async () => {
@@ -976,7 +992,7 @@ describe('the page of a product PRD', () => {
     const versions = await given.fake.client('bob').from('dossier_versions').select('id, kind').eq('dossier_id', id);
     const files = (versions.data as { id: string; kind: string }[]).map((version) => ({ kind: version.kind, path: `${version.kind}.md`, version_id: version.id, sha256: '9c41aa00e07b' }));
     given.approval = vi.fn(() => Promise.resolve({ id: 'a-1', approver_login: 'ada', approved_at: '2026-11-09T09:12:00Z', files }));
-    expect(await html(id)).toContain('Seal of PRD mobile-1');
+    expect(await html(id, { segment: 'approval' })).toContain('Seal of PRD mobile-1');
   });
 
   it('offers no Approve on a draft', async () => {

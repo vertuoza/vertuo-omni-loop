@@ -7,7 +7,10 @@ import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { peopleOf } from '../../people/load';
 import { REPLIES_UNREAD, SEND_OFF, SIGN_IN_TO_ANSWER } from './outbox-view';
 import type { CareState } from '../github/care';
-import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, watcherOf, wayBack } from './view';
+import type { StageRow } from '../../stages/stage';
+import {
+  anchorPath, dossierView, GITHUB_UNREAD, isQuick, mayOpen, oldTabPath, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, watcherOf, wayBack,
+} from './view';
 import { parseIssue, parsePr, parsePrd } from 'omni-loop/kit/lib/ids.ts';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
@@ -148,58 +151,50 @@ describe('who may delete', () => {
   });
 });
 
-describe('the tabs', () => {
-  it('reads Questions, questions answered out of asked and how many are left, then Before/after, Spec, Plan, each with its latest version, then User voice, Outbox, PR care and Retro, dimmed while empty', () => {
+const PULL = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221';
+/** A numbered PRD's GitHub summary with one decision open in its outbox. */
+const gh = (more: Partial<GithubSummary> = {}): GithubSummary => ({
+  repo: 'vertuoza/vertuo-omni-loop', prd: parsePrd(216), folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+  phase0: { number: parsePr(220), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+  feature: { number: parsePr(221), url: PULL, state: 'open', draft: true },
+  mergedSlices: 1, outboxComment: `${PULL}#issuecomment-7`,
+  outbox: { open: [{ id: 's1-01-x', rank: 'high', question: 'x?', decision: 'Did x.', options: [{ letter: 'A', text: 'Built.' }, { letter: 'B', text: 'Other.' }], personSteps: null }], settled: [] },
+  ...more,
+});
+const storedAt = (stage: 'outbox' | 'shipped'): StageRow[] => [{ stage, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
+
+describe('the tabs (omni-loop-20 s7)', () => {
+  const VOICE_WHY = 'No voice yet: it appears once a brainstorm runs with personas.';
+
+  it('AC-1: reads Brainstorm, Specifications, User voice, Outbox, Feature, Retro, Timeline, always all seven in that order, each with its pill, dimmed with its reason while empty', () => {
     expect(view().tabs).toEqual([
-      { kind: 'questions', label: 'Questions', badge: '2/4', alert: '1 to answer', href: `/prd/${ID}`, current: true, empty: false },
-      { kind: 'before-after', label: 'Before/after', badge: 'v2', alert: null, href: `/prd/${ID}?tab=before-after`, current: false, empty: false },
-      { kind: 'spec', label: 'Spec', badge: 'v3', alert: null, href: `/prd/${ID}?tab=spec`, current: false, empty: false },
-      { kind: 'plan', label: 'Plan', badge: null, alert: null, href: `/prd/${ID}?tab=plan`, current: false, empty: false },
-      { kind: 'timeline', label: 'Timeline', badge: null, alert: null, href: `/prd/${ID}?tab=timeline`, current: false, empty: false },
-      { kind: 'voice', label: 'User voice', badge: null, alert: null, href: `/prd/${ID}?tab=voice`, current: false, empty: true },
-      { kind: 'outbox', label: 'Outbox', badge: null, alert: null, href: `/prd/${ID}?tab=outbox`, current: false, empty: true },
-      { kind: 'care', label: 'PR care', badge: null, alert: null, href: `/prd/${ID}?tab=care`, current: false, empty: true },
-      { kind: 'retro', label: 'Retro', badge: null, alert: null, href: `/prd/${ID}?tab=retro`, current: false, empty: true },
+      { kind: 'brainstorm', label: 'Brainstorm', badge: '2/4', attention: false, href: `/prd/${ID}?tab=brainstorm`, current: false, empty: false, why: null },
+      { kind: 'specifications', label: 'Specifications', badge: 'v3', attention: false, href: `/prd/${ID}`, current: true, empty: false, why: null },
+      { kind: 'voice', label: 'User voice', badge: null, attention: false, href: `/prd/${ID}?tab=voice`, current: false, empty: true, why: VOICE_WHY },
+      { kind: 'outbox', label: 'Outbox', badge: null, attention: false, href: `/prd/${ID}?tab=outbox`, current: false, empty: true, why: OUTBOX_EMPTY },
+      { kind: 'feature', label: 'Feature', badge: null, attention: false, href: `/prd/${ID}?tab=feature`, current: false, empty: false, why: null },
+      { kind: 'retro', label: 'Retro', badge: null, attention: false, href: `/prd/${ID}?tab=retro`, current: false, empty: true, why: RETRO_EMPTY },
+      { kind: 'timeline', label: 'Timeline', badge: null, attention: false, href: `/prd/${ID}?tab=timeline`, current: false, empty: false, why: null },
     ]);
   });
 
-  it('opens on Questions when at least one round was asked, its link naming no tab', () => {
-    const fourth = rounds[3];
-    assertDefined(fourth, 'the fourth round');
-    const one = view(readPick({}), numbered, PIERRE.user_id, versions, [fourth]);
-    expect(one.tab).toBe('questions');
-    expect(one.tabs.find((t) => t.current)).toMatchObject({ kind: 'questions', href: `/prd/${ID}` });
+  it('AC-1: keeps all seven for a draft, for a PRD with no feature PR and for one with a proof run, a pitch and a watch on main', () => {
+    const kinds = (v: ReturnType<typeof view>) => v.tabs.map((t) => t.kind);
+    const seven = ['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline'];
+    expect(kinds(view(readPick({}), draft))).toEqual(seven);
+    const noFeature = dossierView({ dossier: numbered, versions, members: MEMBERS, rounds, github: gh({ feature: null }) }, PIERRE.user_id, readPick({}));
+    expect(kinds(noFeature)).toEqual(seven);
+    expect(noFeature.tabs.find((t) => t.kind === 'feature')).toMatchObject({ empty: true, why: 'The feature PR opens once the first slice is built.' });
   });
 
-  it('opens on Before/after when no round was asked, or none could be read, its link naming no tab', () => {
-    for (const asked of [[], null]) {
-      const v = view(readPick({}), numbered, PIERRE.user_id, versions, asked);
-      expect(v.tab, String(asked)).toBe('before-after');
-      expect(v.tabs.map((t) => [t.kind, t.href, t.current]), String(asked)).toEqual([
-        ['questions', `/prd/${ID}?tab=questions`, false],
-        ['before-after', `/prd/${ID}`, true],
-        ['spec', `/prd/${ID}?tab=spec`, false],
-        ['plan', `/prd/${ID}?tab=plan`, false],
-        ['timeline', `/prd/${ID}?tab=timeline`, false],
-        ['voice', `/prd/${ID}?tab=voice`, false],
-        ['outbox', `/prd/${ID}?tab=outbox`, false],
-        ['care', `/prd/${ID}?tab=care`, false],
-        ['retro', `/prd/${ID}?tab=retro`, false],
-      ]);
-    }
+  it('dims Brainstorm with its reason when no question was asked, and counts none when they could not be read', () => {
+    const none = view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0];
+    const unread = view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs[0];
+    expect(none).toMatchObject({ kind: 'brainstorm', badge: null, empty: true, why: 'No question was asked yet.' });
+    expect(unread).toMatchObject({ kind: 'brainstorm', badge: null, empty: false });
   });
 
-  it('counts no question when none was asked, or when they could not be read', () => {
-    const [none] = view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs;
-    const [unread] = view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs;
-    assertDefined(none, 'the first tab with no round');
-    assertDefined(unread, 'the first tab with the rounds unread');
-    expect(none.badge).toBeNull();
-    expect(unread.badge).toBeNull();
-    expect(none.alert).toBeNull();
-  });
-
-  it('counts questions, not rounds (PRD 498): 3 + 1 answered, 2 open and 1 moved read 4/7 · 2 to answer', () => {
+  it('counts questions, not rounds (PRD 498): 3 + 1 answered, 2 open and 1 moved read 4/7, yellow only while the viewer may answer one', () => {
     const q = (n: number) => ({ ...SHAPE, question: `Question ${n}?`, header: `H${n}` });
     const answers = (...ns: number[]) => Object.fromEntries(ns.map((n) => [`Question ${n}?`, 'Hexagonal']));
     const answered = { status: 'answered' as const, answered_via: 'page' as const, answered_by: PIERRE.user_id, answered_at: '2026-09-27T10:00:00Z' };
@@ -211,10 +206,12 @@ describe('the tabs', () => {
     ];
     const v = view(readPick({}), numbered, PIERRE.user_id, versions, mixed);
     expect(v.questions).toMatchObject({ asked: 7, answered: 4, open: 2 });
-    expect(v.tabs[0]).toMatchObject({ badge: '4/7', alert: '2 to answer' });
+    expect(v.tabs[0]).toMatchObject({ badge: '4/7', attention: false });
+    const mine = dossierView({ dossier: numbered, versions, members: MEMBERS, rounds: mixed, answerable: ['o2'] }, PIERRE.user_id, readPick({}));
+    expect(mine.tabs[0]).toMatchObject({ badge: '4/7', attention: true });
     const settled = view(readPick({}), numbered, PIERRE.user_id, versions, mixed.slice(0, 2));
     expect(settled.questions).toMatchObject({ asked: 4, answered: 4, open: 0 });
-    expect(settled.tabs[0]).toMatchObject({ badge: '4/4 answered', alert: null });
+    expect(settled.tabs[0]).toMatchObject({ badge: '4/4 answered', attention: false });
   });
 
   it('gives each round its line: its state, its headers in lower case, its count and when it was asked (PRD 498)', () => {
@@ -230,7 +227,7 @@ describe('the tabs', () => {
 
   it('opens the tab the address names, whatever the default', () => {
     for (const asked of [rounds, []]) {
-      for (const tab of ['questions', 'before-after', 'spec', 'plan', 'outbox', 'retro'] as const) {
+      for (const tab of ['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline'] as const) {
         const v = view(readPick({ tab }), numbered, PIERRE.user_id, versions, asked);
         expect(v.tab, `${tab}, ${asked.length} rounds`).toBe(tab);
         expect(v.tabs.find((t) => t.current)?.kind).toBe(tab);
@@ -238,9 +235,130 @@ describe('the tabs', () => {
     }
   });
 
-  it('falls back to the default for a tab it does not know', () => {
-    expect(view(readPick({ tab: 'elsewhere' })).tab).toBe('questions');
-    expect(view(readPick({ tab: 'elsewhere' }), numbered, PIERRE.user_id, versions, []).tab).toBe('before-after');
+  it('falls back to the default for a tab it does not know, or a tab only a fix has', () => {
+    for (const tab of ['elsewhere', 'variations', 'bug-record']) expect(view(readPick({ tab })).tab, tab).toBe('specifications');
+  });
+});
+
+describe('the tab a PRD opens on (omni-loop-20 s7)', () => {
+  const opened = (read: Partial<Parameters<typeof dossierView>[0]>, me: string | null = PIERRE.user_id) =>
+    dossierView({ dossier: numbered, versions, members: MEMBERS, rounds, ...read }, me, readPick({}));
+
+  it('AC-2: opens on Specifications while the viewer\'s approval waits, its link naming no tab, its pill yellow', () => {
+    const waiting = opened({ dossier: { ...numbered, birthplace: 'server' }, approval: null, github: gh() });
+    expect(waiting.approval?.canApprove).toBe(true);
+    expect(waiting.tab).toBe('specifications');
+    expect(waiting.tabs.find((t) => t.kind === 'specifications')).toMatchObject({ current: true, href: `/prd/${ID}`, attention: true });
+    expect(opened({ dossier: { ...numbered, birthplace: 'server' }, approval: null, github: gh() }, null).tab).toBe('outbox');
+  });
+
+  it('opens on Outbox while items wait, on Feature when ready to merge, on Retro once shipped', () => {
+    expect(opened({ github: gh() }).tab).toBe('outbox');
+    const ready = gh({ outbox: null, feature: { number: parsePr(221), url: PULL, state: 'open', draft: false } });
+    const atOutbox = opened({ github: ready, stages: storedAt('outbox') });
+    expect(atOutbox.stage?.action?.label).toBe('Review & merge');
+    expect(atOutbox.tab).toBe('feature');
+    expect(atOutbox.tabs.find((t) => t.kind === 'feature')).toMatchObject({ attention: true, current: true });
+    expect(opened({ github: gh({ outbox: null }), stages: storedAt('shipped') }).tab).toBe('retro');
+  });
+
+  it('opens on Feature while main is broken, whatever else waits', () => {
+    const broke = { watches: [{ lane: 'ci', merge_sha: 'a'.repeat(40), merged_at: '2026-09-27T00:00:00Z', watch_until: '2026-10-04T00:00:00Z', status: 'broke' as const, unread: [] }], breaks: [] };
+    const v = opened({ github: gh(), mainWatch: broke });
+    expect(v.mainWatch?.state).toBe('broke');
+    expect(v.tab).toBe('feature');
+    expect(v.tabs.find((t) => t.kind === 'feature')).toMatchObject({ attention: true, current: true, href: `/prd/${ID}` });
+  });
+
+  it('opens a draft on Brainstorm, and a numbered PRD that waits on nobody on Specifications', () => {
+    expect(view(readPick({}), draft).tab).toBe('brainstorm');
+    expect(view().tab).toBe('specifications');
+  });
+});
+
+describe('the Specifications tab (omni-loop-20 s7)', () => {
+  it('holds Before/after, Spec and Plan on a segmented control, the segment in the address, Before/after first when it has a version', () => {
+    const v = view(readPick({ tab: 'specifications' }));
+    expect(v.segment).toBe('before-after');
+    expect(v.segments).toEqual([
+      { id: 'before-after', label: 'Before/after', href: `/prd/${ID}`, current: true },
+      { id: 'spec', label: 'Spec', href: `/prd/${ID}?segment=spec`, current: false },
+      { id: 'plan', label: 'Plan', href: `/prd/${ID}?segment=plan`, current: false },
+    ]);
+    expect(view(readPick({ segment: 'plan' })).segment).toBe('plan');
+    expect(view(readPick({ tab: 'outbox', segment: 'plan' })).segments).toEqual([]);
+  });
+
+  it('adds Approval record for a ◆ PRD, and only for one', () => {
+    const server = dossierView({ dossier: { ...numbered, birthplace: 'server' }, versions, members: MEMBERS, rounds, approval: null }, PIERRE.user_id, readPick({ segment: 'approval' }));
+    expect(server.segments.map((s) => s.label)).toEqual(['Before/after', 'Spec', 'Plan', 'Approval record']);
+    expect(server).toMatchObject({ segment: 'approval', shown: null, versions: [] });
+    expect(view(readPick({ segment: 'approval' })).segment).toBe('before-after');
+  });
+
+  it('opens on the Spec when the before/after page has no version yet', () => {
+    const specs = versions.filter((v) => v.kind === 'spec');
+    const v = view(readPick({}), numbered, PIERRE.user_id, specs, rounds);
+    expect(v).toMatchObject({ tab: 'specifications', segment: 'spec' });
+    expect(v.segments.find((s) => s.id === 'before-after')?.href).toBe(`/prd/${ID}?segment=before-after`);
+  });
+
+  it('is dimmed with its reason when nothing is written yet', () => {
+    expect(view(readPick({}), draft, PIERRE.user_id, []).tabs.find((t) => t.kind === 'specifications'))
+      .toMatchObject({ empty: true, why: 'Nothing is written yet: the before/after page, the spec and the plan show here once pushed.' });
+  });
+
+  it('gives the seen signature each kept artifact\'s version count', () => {
+    expect(view().latest).toEqual({ 'before-after': 2, spec: 3, plan: 0 });
+  });
+});
+
+describe('the old tab ids (omni-loop-20 s7)', () => {
+  it('AC-4: sends questions, before-after, spec, plan, care, proof, main and pitch to their new tab and segment or section, keeping v and the rest', () => {
+    const at = (query: Record<string, string | string[]>) => oldTabPath(ID, query);
+    expect(at({ tab: 'questions' })).toBe(`/prd/${ID}?tab=brainstorm`);
+    expect(at({ tab: 'before-after', v: '1' })).toBe(`/prd/${ID}?tab=specifications&segment=before-after&v=1`);
+    expect(at({ tab: 'spec', v: '2' })).toBe(`/prd/${ID}?tab=specifications&segment=spec&v=2`);
+    expect(at({ tab: 'plan', context: 'spec', segment: 'approval' })).toBe(`/prd/${ID}?tab=specifications&segment=plan&context=spec`);
+    expect(at({ tab: 'care' })).toBe(`/prd/${ID}?tab=feature#pr-care`);
+    expect(at({ tab: 'proof', v: '1' })).toBe(`/prd/${ID}?tab=feature&v=1#proof`);
+    expect(at({ tab: 'main' })).toBe(`/prd/${ID}?tab=feature#after-merge`);
+    expect(at({ tab: 'pitch', pitch: 'p-1', send: ['a', 'b'] })).toBe(`/prd/${ID}?tab=retro&pitch=p-1&send=a&send=b#pitch`);
+  });
+
+  it('sends nothing for a tab of today, an unknown one, or none', () => {
+    for (const tab of ['brainstorm', 'specifications', 'feature', 'retro', 'outbox', 'voice', 'timeline', 'elsewhere', undefined]) {
+      expect(oldTabPath(ID, { tab }), String(tab)).toBeNull();
+    }
+  });
+
+  it('opens what an old id names, should it reach the page: its tab and its segment', () => {
+    expect(view(readPick({ tab: 'questions' }))).toMatchObject({ tab: 'brainstorm' });
+    expect(view(readPick({ tab: 'plan' }))).toMatchObject({ tab: 'specifications', segment: 'plan' });
+    expect(view(readPick({ tab: 'care' }))).toMatchObject({ tab: 'feature' });
+    expect(view(readPick({ tab: 'pitch' }))).toMatchObject({ tab: 'retro' });
+  });
+
+  it('AC-4: sends #approve to the review screen while a decision waits, else to the Approval record, and #attestation to the Approval record when the page lacks it', () => {
+    const record = `/prd/${ID}?segment=approval`;
+    const at = (hash: string, review: string | null, onPage = false, here = `/prd/${ID}`) =>
+      anchorPath(hash, { review, record, here, onPage: () => onPage });
+    expect(at('#approve', `/prd/${ID}/review`)).toBe(`/prd/${ID}/review`);
+    expect(at('#approve', null)).toBe(`${record}#approval`);
+    expect(at('#attestation', null)).toBe(`${record}#attestation`);
+    expect(at('#approval', null)).toBe(`${record}#approval`);
+    expect(at('#attestation', null, true)).toBeNull();
+    expect(at('#attestation', null, false, record)).toBeNull();
+    expect(at('#round-1', null)).toBeNull();
+    expect(at('', null)).toBeNull();
+  });
+
+  it('signs a tab\'s files ahead whenever the address may open it: named, by an old id, or by default', () => {
+    expect(mayOpen(readPick({}), 'feature')).toBe(true);
+    expect(mayOpen(readPick({ tab: 'feature' }), 'feature')).toBe(true);
+    expect(mayOpen(readPick({ tab: 'proof' }), 'feature')).toBe(true);
+    expect(mayOpen(readPick({ tab: 'pitch' }), 'retro')).toBe(true);
+    expect(mayOpen(readPick({ tab: 'outbox' }), 'feature')).toBe(false);
   });
 });
 
@@ -329,10 +447,12 @@ describe('the version picker', () => {
     expect(view(readPick({}), draft, PIERRE.user_id, []).shown).toBeNull();
   });
 
-  it('points each version of the before/after page at its sandboxed route', () => {
+  it('points each version of the before/after page at its sandboxed route, and names each segment\'s version in its link', () => {
     const page = view(readPick({ tab: 'before-after' }));
     expect(page.shown).toMatchObject({ number: 2, frame: `/prd/${ID}/v/2/page` });
-    expect(page.versions.map((v) => v.href)).toEqual([`/prd/${ID}?tab=before-after&v=2`, `/prd/${ID}?tab=before-after&v=1`]);
+    expect(page.versions.map((v) => v.href)).toEqual([`/prd/${ID}?v=2`, `/prd/${ID}?v=1`]);
+    expect(view(readPick({ tab: 'spec' })).versions.map((v) => v.href)).toEqual([`/prd/${ID}?segment=spec&v=3`, `/prd/${ID}?segment=spec&v=2`, `/prd/${ID}?segment=spec&v=1`]);
+    expect(view(readPick({ tab: 'outbox', segment: 'spec' })).versions).toEqual([]);
   });
 
   it('names no tab in a version\'s link when Before/after is the default', () => {
@@ -341,13 +461,13 @@ describe('the version picker', () => {
   });
 });
 
-describe('the Questions tab', () => {
-  const questions = () => view(readPick({ tab: 'questions' }));
+describe('the Brainstorm tab (was Questions)', () => {
+  const questions = () => view(readPick({ tab: 'brainstorm' }));
 
   it('opens from the address, with no version picker', () => {
     const v = questions();
-    expect(v.tab).toBe('questions');
-    expect(v.tabs.find((t) => t.current)?.kind).toBe('questions');
+    expect(v.tab).toBe('brainstorm');
+    expect(v.tabs.find((t) => t.current)?.kind).toBe('brainstorm');
     expect(v.versions).toEqual([]);
     expect(v.shown).toBeNull();
   });
@@ -527,7 +647,7 @@ describe('the way back from a question answered on its own page (PRD 384)', () =
   const SESSION = '00000000-0000-4000-8000-0000000000a5';
   const back = (from: string | null, asked: DossierRoundRow[] | null = rounds, roundId = 'r1') => wayBack({ from, sessionId: SESSION, roundId, rounds: asked });
 
-  it('goes to the Questions tab of the dossier it came from, at the next round still open', () => {
+  it('goes to the questions of the dossier it came from, at the next round still open', () => {
     expect(back(ID)).toBe(`/prd/${ID}?tab=questions#r4`);
   });
 
@@ -537,7 +657,7 @@ describe('the way back from a question answered on its own page (PRD 384)', () =
     expect(back(ID, [...rounds, early, answeredNow], 'r5')).toBe(`/prd/${ID}?tab=questions#r0`);
   });
 
-  it('goes to the Questions tab alone when no round is left open, or the rounds cannot be read', () => {
+  it('goes to the questions alone when no round is left open, or the rounds cannot be read', () => {
     const settled = rounds.filter((r) => r.status !== 'open');
     expect(back(ID, settled)).toBe(`/prd/${ID}?tab=questions`);
     expect(back(ID, [])).toBe(`/prd/${ID}?tab=questions`);
@@ -712,9 +832,9 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
     expect(outbox.context).toEqual({
       current: 'before-after',
       links: [
-        { kind: 'before-after', label: 'Before/after', href: `/prd/${ID}?tab=outbox`, current: true },
-        { kind: 'spec', label: 'Spec', href: `/prd/${ID}?tab=outbox&context=spec`, current: false },
-        { kind: 'brainstorm', label: 'Brainstorm', href: `/prd/${ID}?tab=outbox&context=brainstorm`, current: false },
+        { kind: 'before-after', label: 'Before/after', href: `/prd/${ID}`, current: true },
+        { kind: 'spec', label: 'Spec', href: `/prd/${ID}?context=spec`, current: false },
+        { kind: 'brainstorm', label: 'Brainstorm', href: `/prd/${ID}?context=brainstorm`, current: false },
       ],
       frame: sandboxPath(ID, 2),
       spec: 3,
@@ -809,7 +929,7 @@ describe('the faces of the people it names (PRD 652)', () => {
   });
 });
 
-describe('the PR care tab (PRD 790, s4)', () => {
+describe('the Feature tab\'s PR care (PRD 790, s4; omni-loop-20 s7)', () => {
   const NOW = Date.parse('2026-09-30T12:00:00Z');
   const FEATURE = { number: parsePr(221), url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: false };
   const thread = (verdict: CareState['threads'][number]['verdict'], n: number, more: Partial<CareState['threads'][number]> = {}) => ({
@@ -826,28 +946,28 @@ describe('the PR care tab (PRD 790, s4)', () => {
     phase0: null, feature: FEATURE, mergedSlices: 1, outbox: null, outboxComment: null, care: CARE, ...more,
   });
   const careOf = (summary: GithubSummary | null | undefined, dossier = numbered) =>
-    dossierView({ dossier, versions, members: MEMBERS, rounds, github: summary }, PIERRE.user_id, readPick({ tab: 'care' }), NOW);
+    dossierView({ dossier, versions, members: MEMBERS, rounds, github: summary }, PIERRE.user_id, readPick({ tab: 'feature' }), NOW);
 
-  it('comes after Outbox, badged with the threads still waiting; left out once GitHub says there is no feature PR, and for a draft', () => {
+  it('sits in Feature, after Outbox, badged with the threads still waiting; none once GitHub says there is no feature PR, and for a draft', () => {
     const v = careOf(github());
-    expect(v.tabs.map((t) => t.kind)).toEqual(['questions', 'before-after', 'spec', 'plan', 'timeline', 'voice', 'outbox', 'care', 'retro']);
-    expect(v.tabs.find((t) => t.kind === 'care')).toEqual({
-      kind: 'care', label: 'PR care', badge: '2 open', alert: null, href: `/prd/${ID}?tab=care`, current: true, empty: false,
+    expect(v.tabs.map((t) => t.kind)).toEqual(['brainstorm', 'specifications', 'voice', 'outbox', 'feature', 'retro', 'timeline']);
+    expect(v.tabs.find((t) => t.kind === 'feature')).toEqual({
+      kind: 'feature', label: 'Feature', badge: '2 open', attention: false, href: `/prd/${ID}?tab=feature`, current: true, empty: false, why: null,
     });
-    expect(v.tab).toBe('care');
+    expect(v.tab).toBe('feature');
     for (const none of [careOf(github({ feature: null })), careOf(github(), draft)]) {
-      expect(none.tabs.map((t) => t.kind)).not.toContain('care');
-      expect(none.tab).toBe('questions');
+      expect(none.tabs.find((t) => t.kind === 'feature')).toMatchObject({ empty: true, why: 'The feature PR opens once the first slice is built.' });
+      expect(none.tab).toBe('feature');
       expect(none.care).toBeNull();
     }
   });
 
-  it('stays, dimmed, while GitHub is being read or did not answer, so the tab bar does not move', () => {
+  it('stays while GitHub is being read or did not answer, saying so, so the tab bar does not move', () => {
     const pending = careOf(undefined);
-    expect(pending.tabs.find((t) => t.kind === 'care')).toMatchObject({ empty: true, badge: null });
+    expect(pending.tabs.find((t) => t.kind === 'feature')).toMatchObject({ empty: false, badge: null });
     expect(pending.care).toMatchObject({ state: 'pending', words: 'Reading GitHub…', prUrl: null });
     for (const summary of [null, github({ feature: UNREAD })]) {
-      expect(careOf(summary).tabs.find((t) => t.kind === 'care')).toMatchObject({ empty: true, badge: null });
+      expect(careOf(summary).tabs.find((t) => t.kind === 'feature')).toMatchObject({ empty: false, badge: null });
       expect(careOf(summary).care).toMatchObject({ state: 'unread', words: GITHUB_UNREAD, prUrl: null });
     }
   });
@@ -875,7 +995,7 @@ describe('the PR care tab (PRD 790, s4)', () => {
   it('reads CI green or running with no link, and no conflict, or GitHub still checking', () => {
     const green = careOf(github({ care: { ...CARE, ci: 'green', failedUrl: null, conflict: false, threads: [] } }));
     expect(green.care).toMatchObject({ ci: { state: 'green', words: 'green', href: null }, conflict: { state: 'none', words: 'none' } });
-    expect(green.tabs.find((t) => t.kind === 'care')?.badge).toBeNull();
+    expect(green.tabs.find((t) => t.kind === 'feature')?.badge).toBeNull();
     const { care: running } = careOf(github({ care: { ...CARE, ci: 'running', failedUrl: null, conflict: null } }));
     expect(running).toMatchObject({ ci: { state: 'running', href: null }, conflict: { state: 'unknown', words: 'GitHub is still checking' } });
   });
@@ -891,7 +1011,7 @@ describe('the PR care tab (PRD 790, s4)', () => {
   it('has nothing to look after once the feature PR is merged, and says when GitHub did not answer', () => {
     const merged = careOf(github({ feature: { ...FEATURE, state: 'merged' }, care: null }));
     expect(merged.care).toMatchObject({ state: 'done', words: 'The feature PR is merged: nothing is left to look after.', prUrl: FEATURE.url });
-    expect(merged.tabs.find((t) => t.kind === 'care')).toMatchObject({ empty: true, badge: null });
+    expect(merged.tabs.find((t) => t.kind === 'feature')).toMatchObject({ empty: false, badge: null });
     for (const care of [UNREAD, null, undefined] as const) {
       expect(careOf(github({ care })).care).toMatchObject({ state: 'unread', words: GITHUB_UNREAD });
     }

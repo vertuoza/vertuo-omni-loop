@@ -12,14 +12,14 @@ import { useWaiting } from '../../waiting/WaitingProvider';
 // me: the decisions agents took alone, at /ask/outbox. Only that page knows how many are open (`open`),
 // so only it shows the count.
 
-const INBOX = '/ask';
-const OUTBOX = '/ask/outbox';
+const INBOX = '/app/inbox';
+const OUTBOX = '/app/inbox?kind=outbox';
 
 /** The tabs in the page's order: Inbox, Shared with me, Outbox, History. */
 function tabsOf(counted: readonly SectionTab[], open: number | undefined): SectionTab[] {
   const named = counted.map((tab) => (tab.href === INBOX ? { ...tab, label: 'Inbox' } : tab));
   const outbox: SectionTab = open === undefined ? { href: OUTBOX, label: 'Outbox' } : { href: OUTBOX, label: 'Outbox', count: open };
-  const history = named.findIndex((tab) => tab.href === '/ask/history');
+  const history = named.findIndex((tab) => tab.href === '/app/inbox/done');
   return [...named.slice(0, history), outbox, ...named.slice(history)];
 }
 

@@ -4,7 +4,7 @@
 // every other workspace), the workspaces' members and the filters in the address. Each row opens
 // /ask/q/<round>.
 import { readQuestions } from '../answer-model';
-import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
+import { CATEGORIES, CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import { one, type Query } from '../../nav/query';
 import type { Face } from '../../people/face';
 import { faceOfMember, nameOf, type Member } from './question';
@@ -143,3 +143,43 @@ export function historyChoices(rows: HistoryRow[], members: Member[]): HistoryCh
 
 /** Whether any filter is set: the page then offers to clear them. */
 export const filtered = (filters: HistoryFilters) => Object.keys(filters).length > 0;
+
+/** Where the history lives since PRD omni-loop-22: the Inbox's Done tab. */
+export const DONE_PATH = '/app/inbox/done';
+
+/** One line of the Done tab's sidebar (visual update #3169): a category, its label and how many rows
+ * it holds under the other filters. `id` is the category, or `unsorted`. */
+export type CategoryCount = { id: Category | 'unsorted'; label: string; count: number };
+
+/** The categories the rows hold under every filter but the category itself, in the categories'
+ * order, unsorted last; a category with no row is left out. */
+export function categoryCounts(rows: HistoryRow[], filters: HistoryFilters): CategoryCount[] {
+  const others: HistoryFilters = { ...filters };
+  delete others.category;
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!passes(row, others)) continue;
+    const id = isCategory(row.round.category) ? row.round.category : 'unsorted';
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const order: Array<Category | 'unsorted'> = [...CATEGORIES, 'unsorted'];
+  return order
+    .filter((id) => (counts.get(id) ?? 0) > 0)
+    .map((id) => ({ id, label: id === 'unsorted' ? 'Unsorted' : CATEGORY_LABELS[id], count: counts.get(id) ?? 0 }));
+}
+
+const PARAMS: Array<[keyof HistoryFilters, string]> = [
+  ['search', 'q'], ['category', 'category'], ['repo', 'repo'], ['prd', 'prd'], ['skill', 'skill'], ['askedBy', 'asked'], ['answeredBy', 'answered'],
+];
+
+/** The Done tab's address for these filters with `patch` laid over them; a key patched to undefined is dropped. */
+export function historyHref(filters: HistoryFilters, patch: { [K in keyof HistoryFilters]?: HistoryFilters[K] | undefined }): string {
+  const merged: { [K in keyof HistoryFilters]?: HistoryFilters[K] | undefined } = { ...filters, ...patch };
+  const params = new URLSearchParams();
+  for (const [key, name] of PARAMS) {
+    const value = merged[key];
+    if (value !== undefined && value !== '') params.set(name, String(value));
+  }
+  const query = params.toString();
+  return query ? `${DONE_PATH}?${query}` : DONE_PATH;
+}

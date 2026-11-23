@@ -18,7 +18,7 @@ function tableFetch(rows: Record<string, unknown[]>) {
 
 const queueOn = (fetch: typeof globalThis.fetch) => runnerQueue({ url: 'https://db.example', key: 'service-key', fetch });
 const JOB = { installationId: 7, repository: 'Acme/Widgets', line: '/omni:retro-apply --retro 21' };
-const WORKSPACE = { 'GET workspaces': [{ id: 'ws-1' }], 'POST runner_jobs': [{ id: 'job-1' }] };
+const WORKSPACE = { 'GET workspaces': [{ id: 'ws-1' }], 'GET runners': [{ id: 'runner-1' }], 'POST runner_jobs': [{ id: 'job-1' }] };
 
 describe('runnerQueue — a repository the workspace removed gets no job from the app (#2693)', () => {
   it('queues nothing, and says why, for a repository the workspace removed', async () => {

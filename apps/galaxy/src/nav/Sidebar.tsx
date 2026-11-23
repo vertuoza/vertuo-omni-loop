@@ -11,20 +11,20 @@ import type { ShellMode } from '../anti/anti';
 import { BrandLogo } from './BrandLogo';
 import { useDrawer } from './drawer-context';
 import { setMenu, type MenuState } from './menu-rail';
-import { ANTI_SIDEBAR, OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, hrefOf, type SidebarId, type SidebarItem } from './sidebar.ts';
+import { ANTI_SIDEBAR, OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, hrefOf, isQuiet, type SidebarId, type SidebarItem } from './sidebar.ts';
 import type { ViewerView } from './viewer-view';
 import './sidebar.css';
 import './drawer.css';
 
 // The app's sidebar (PRD 438), on /app, /prd, /ask and /knowledge: the crest and OMNI LOOP, linked to
-// /app, the workspace's name under it, then the Dashboard and Work groups (PRD 572), and at the foot one
+// /app, the workspace's name under it, then Inbox with no group label (omni-loop-22), the Dashboard and Work groups (PRD 572), and at the foot one
 // Settings entry, then Omni's Docs and Release notes (PRD 733; src/nav/sidebar.ts). No entry has nested
-// lines: Questions' and Settings' own pages show as tabs on those pages. Work › Ideas opens the board
+// lines: Inbox's and Settings' own pages show as tabs on those pages. Work › Ideas opens the board
 // of the workspace's repository the viewer read (PRD 1246; sidebar.ts, hrefOf).
-// The entry the page falls under carries aria-current="page"; Questions carries how many questions
-// wait there, shared ones included, and PRDs how many outbox items, live from the waiting provider
-// (PRD 499). Runners carries how many of the workspace's jobs wait for an answer, spoken "Runners: <n>
-// waiting" and gone at 0 (PRD 2255; src/waiting/runners.ts). Each Dashboard and Work section, and Settings, shows its arcade sprite before its name
+// The entry the page falls under carries aria-current="page"; Inbox carries the waiting total, live from
+// the waiting provider (PRD 499), the only filled badge. Runners carries how many of the workspace's jobs
+// wait for an answer as quiet grey digits, spoken "Runners: <n> waiting" and gone at 0 (PRD 2255;
+// src/waiting/runners.ts); in the rail only Inbox shows a dot. Each Dashboard and Work section, and Settings, shows its arcade sprite before its name
 // (issue 653, PRD 733).
 // Docs and Release notes open in a new tab, and say so with the new-tab icon and their name (issue 548).
 // They sit at the sidebar's foot, under Settings, in one small row without a label, above the release running
@@ -57,7 +57,7 @@ const NEW_TAB = (
 function spokenLabel(item: SidebarItem, waiting: number | null): string | undefined {
   if (item.leavesApp) return `${item.label} (opens in a new tab)`;
   if (waiting === null) return undefined;
-  return item.id === 'waiting' ? `${item.label}: ${waiting} yours` : `${item.label}: ${waiting} waiting`;
+  return `${item.label}: ${waiting} waiting`;
 }
 
 /** An item that leaves the app opens in a new tab and is never prefetched. */
@@ -70,7 +70,7 @@ function Item({ item, current, counts, choose, ideasBoard = null }: { item: Side
       <Link className="app-sidebar-item" href={hrefOf(item, ideasBoard)} title={item.sprite ? item.label : undefined} aria-label={spokenLabel(item, waiting)} aria-current={item.id === current ? 'page' : undefined} {...(item.leavesApp ? LEAVES_APP : {})} onClick={choose}>
         <SectionSprite name={item.sprite} />
         <span className="app-sidebar-text">{item.label}</span>
-        {waiting !== null && <span className="app-sidebar-badge" aria-hidden="true">{waiting}</span>}
+        {waiting !== null && <span className={isQuiet(item.id) ? 'app-sidebar-badge app-sidebar-badge-quiet' : 'app-sidebar-badge'} aria-hidden="true">{waiting}</span>}
         {item.leavesApp && <span className="app-sidebar-out" aria-hidden="true">{NEW_TAB}</span>}
       </Link>
     </li>
@@ -103,8 +103,8 @@ export function Sidebar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: 
         <nav className="app-sidebar-nav" aria-label="Sections">
           {(mode === 'anti' ? ANTI_SIDEBAR : SIDEBAR).map((group) => (
             <div key={group.id} className="app-sidebar-group">
-              <p className="app-sidebar-label" id={`app-sidebar-${group.id}`}>{group.label}</p>
-              <ul className="app-sidebar-items" aria-labelledby={`app-sidebar-${group.id}`}>
+              {group.label ? <p className="app-sidebar-label" id={`app-sidebar-${group.id}`}>{group.label}</p> : null}
+              <ul className="app-sidebar-items" {...(group.label ? { 'aria-labelledby': `app-sidebar-${group.id}` } : { 'aria-label': 'Inbox' })}>
                 {group.items.map((item) => <Item key={item.id} item={item} current={current} counts={counts} choose={choose} ideasBoard={viewer.ideasBoard} />)}
               </ul>
             </div>

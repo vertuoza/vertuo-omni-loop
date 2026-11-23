@@ -54,26 +54,29 @@ const OF_NO_PRODUCT = { ...FACTS, productPrd: null };
 const read = (approval: DossierRead['approval'], approvalFacts: ApprovalFacts): DossierRead =>
   ({ dossier: NO_REPOSITORY_NUMBER, versions: VERSIONS, members: [ADA], rounds: [], approval, approvalFacts });
 
-const page = (r: DossierRead) =>
-  renderToStaticMarkup(createElement(DossierPage, { view: dossierView(r, ADA.user_id, readPick({})), markdown: null, supabase: null }));
+const page = (r: DossierRead, query: Record<string, string> = {}) =>
+  renderToStaticMarkup(createElement(DossierPage, { view: dossierView(r, ADA.user_id, readPick(query)), markdown: null, supabase: null }));
+/** The Specifications tab's Approval record, where the seals and the verdict sit since omni-loop-20 s7. */
+const RECORD = { segment: 'approval' };
 
 describe('the approval area of a product PRD', () => {
   it('offers Approve while it waits', () => {
     const view = approvalView(read(null, OF_PRODUCT), ADA.user_id);
     expect(view).toMatchObject({ state: 'waiting', canApprove: true, dossier: ID });
-    expect(page(read(null, OF_PRODUCT))).toContain('Approve');
+    // omni-loop-20 s7: Approve is on the review screen; the Specifications tab's one line leads there.
+    expect(page(read(null, OF_PRODUCT))).toContain(`<a href="/prd/${ID}/review">Review and approve</a>`);
   });
 
   it('shows a red business laws verdict above Approve, and turns Approve off', () => {
     const facts = { ...OF_PRODUCT, laws: { show: 'verdict' as const, verdict: RED } };
     const view = approvalView(read(null, facts), ADA.user_id);
     expect(view && approveOff(view)).toBe(LAWS_HOLD);
-    expect(page(read(null, facts))).toContain('Business laws ✗ 1');
+    expect(page(read(null, facts), RECORD)).toContain('Business laws ✗ 1');
   });
 
   it('seals the approval under the product PRD\'s id', () => {
     expect(approvalView(read(APPROVED, OF_PRODUCT), ADA.user_id)?.seal?.prd).toBe('mobile-12');
-    expect(page(read(APPROVED, OF_PRODUCT))).toContain('PRD mobile-12');
+    expect(page(read(APPROVED, OF_PRODUCT), RECORD)).toContain('PRD mobile-12');
   });
 
   it('stays away from a draft, which is numbered nowhere', () => {

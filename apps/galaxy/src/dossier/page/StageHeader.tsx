@@ -1,16 +1,15 @@
-import { Badge, Button, ListRow, Stack } from '@omni/ui';
+import { Badge, Button, ListRow, Stack, StageTrack } from '@omni/ui';
+import type { TrackView } from './next-step';
 import type { StageView } from './stage';
 import { PitchAction } from './PitchAction';
 import { StageHeaderCopy } from './StageHeaderCopy';
 
-// The stage's pieces of /prd/<id>'s header box (PRD 426, laid out by PRD 476), rendered on the server:
-// the title ("PRD #n ↗" linking to its issue, or DRAFT), the one button for the title row, the track
-// idea ─ PRD ─ inbox ─ building ─ outbox ─ shipped ─ retro (PRD 587) with the stages passed filled, the
-// current one bold and the later ones faded, written in words for the Stage cell, with the questions
-// badge beside the pills at building, and the issue and pull requests that exist for the On GitHub cell.
-// Hovering the stage says when it was last synced. A draft with no answer and a PRD not synced yet light
-// nothing, and say Brainstorming or Syncing…. A fix's title (PRD 627) reads `#n ↗` after its kind's
-// badge; a fix has no stage track. The open feature PR's link carries its health chip (PRD 790, s2).
+// The stage's pieces of /prd/<id>'s head (PRD 426, laid out on the page anatomy by omni-loop-20 s6),
+// rendered on the server: the stage's one button, the track Idea ─ PRD ─ Inbox ─ Building ─ Outbox ─
+// Shipped ─ Retro (PRD 587) on @omni/ui's StageTrack, the stage said once, and the issue and pull
+// requests that exist for About this PRD. Hovering a stage says when it was reached, and the current one
+// when it was last synced. A fix's track is Asked ─ Picked ─ Approved ─ Merged ─ Released. The open
+// feature PR's link carries its health chip (PRD 790, s2).
 
 /** The title of a page that has no PageHeader yet (the concept page): the same marks, in the old h1. */
 export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: {
@@ -26,23 +25,6 @@ export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: 
       )}{' '}
       <span>{title}</span>
     </h1>
-  );
-}
-
-/** What stands beside the page's title (the PageHeader's status): a fix's kind, then the PRD's number
- * linking its issue, or DRAFT. */
-export function DossierMarks({ heading, draft, issueUrl, badge = null }: {
-  heading: string; draft: boolean; issueUrl: string | null; badge?: string | null;
-}) {
-  return (
-    <>
-      {badge && <Badge tone="neutral">{badge}</Badge>}
-      {draft || !issueUrl ? (
-        <Badge tone="warning">DRAFT</Badge>
-      ) : (
-        <a className="dossier-number" href={issueUrl} target="_blank" rel="noopener noreferrer">{heading} ↗</a>
-      )}
-    </>
   );
 }
 
@@ -68,26 +50,17 @@ export function StageAction({ stage, demo = false }: { stage: StageView | null; 
   return null;
 }
 
-/** The Stage cell's value: the track and its badge, then the stage in words and its caption. */
-export function StageTrack({ stage }: { stage: StageView }) {
-  const synced = stage.synced ?? undefined;
+/** The stage said once (omni-loop-20 s6): @omni/ui's StageTrack, the current stage bold with its progress,
+ * in the signal tone while it waits on the viewer, each stage's time on hover. */
+export function HeadTrack({ track }: { track: TrackView }) {
   return (
-    <>
-      <ol className="stage-track" aria-label="Stages" title={synced}>
-        {stage.track.map((stop) => (
-          <li key={stop.id} className={`stage-stop stage-${stop.state}`} aria-current={stop.state === 'current' ? 'step' : undefined}>
-            {stop.label}
-          </li>
-        ))}
-      </ol>
-      {stage.badge && (
-        <a className="stage-badge" href={stage.badge.href} target="_blank" rel="noopener noreferrer">{stage.badge.label} →</a>
-      )}
-      <p className="stage-words" title={synced}>
-        <strong>{stage.words}</strong>
-        {stage.caption && <span className="ask-hint"> · {stage.caption}</span>}
-      </p>
-    </>
+    <StageTrack
+      stages={track.stages}
+      stage={track.stage}
+      tone={track.tone}
+      times={track.times}
+      {...(track.progress === undefined ? {} : { progress: track.progress })}
+    />
   );
 }
 

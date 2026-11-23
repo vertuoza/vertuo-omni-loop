@@ -1,3 +1,4 @@
+import { EmptyState } from '@omni/ui';
 import { QuestionsList } from '../../questions/QuestionsList';
 import { PRODUCT_OUTBOX_EMPTY, type ProductOutboxView } from './outbox-product';
 import '../../product-home/product-home.css';
@@ -8,7 +9,7 @@ import '../../product-home/product-home.css';
 // repository PRD's tab is OutboxPane's, read from GitHub.
 
 export function OutboxPaneProduct({ outbox }: { outbox: ProductOutboxView }) {
-  if (outbox.open.length === 0 && outbox.settled.length === 0) return <p className="dossier-empty">{PRODUCT_OUTBOX_EMPTY}</p>;
+  if (outbox.open.length === 0 && outbox.settled.length === 0) return <EmptyState size="inline" title={PRODUCT_OUTBOX_EMPTY} />;
   return (
     <div className="outbox outbox-product">
       {outbox.open.length > 0 && <QuestionsList label="Open outbox questions" questions={outbox.open} demo={false} />}

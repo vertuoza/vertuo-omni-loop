@@ -49,17 +49,19 @@ const github: GithubSummary = {
   phase0: null, feature: FEATURE, mergedSlices: 1, outbox: null, outboxComment: null, care: CARE,
 };
 const OUTBOX = [{ stage: 'outbox' as const, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
-const page = () => {
-  const view = dossierView({ dossier, versions: [], members: [PIERRE], rounds: [], github, stages: OUTBOX }, PIERRE.user_id, readPick({}), Date.parse('2026-09-30T12:00:00Z'));
+const page = (query: Record<string, string> = {}) => {
+  const view = dossierView({ dossier, versions: [], members: [PIERRE], rounds: [], github, stages: OUTBOX }, PIERRE.user_id, readPick(query), Date.parse('2026-09-30T12:00:00Z'));
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: null, supabase: null }));
 };
 const SETUP: SendSetup = { repo: 'acme/widgets', options: [{ key: 'any', group: 'any', label: 'Any runner', state: null, target: { kind: 'any' } }] };
 
 describe('the PRD page after its rebuild on @omni/ui (bug #3011)', () => {
-  it('switches tabs in the app: every tab is a next/link (PRD 2401)', () => {
+  it('switches tabs in the app: every tab is a next/link, an empty one dimmed and no link (PRD 2401, omni-loop-20 s7)', () => {
     const nav = /<nav[^>]*aria-label="Artifacts"[^>]*>([\s\S]*?)<\/nav>/.exec(page())?.[1] ?? '';
     const tabs = [...nav.matchAll(/<a [^>]*>/g)].map(([tag]) => tag);
-    expect(tabs.length).toBeGreaterThan(3);
+    const dimmed = [...nav.matchAll(/<span class="omni-tab omni-tab--empty"/g)];
+    expect(tabs.length).toBeGreaterThanOrEqual(2);
+    expect(tabs.length + dimmed.length).toBe(7);
     for (const tab of tabs) expect(tab).toContain('data-next-link');
   });
 
@@ -87,7 +89,7 @@ describe('the PRD page after its rebuild on @omni/ui (bug #3011)', () => {
   });
 
   it('keeps the hover titles: PR care on the health chip, the command on Build it', () => {
-    expect(page()).toMatch(/<span class="omni-badge[^"]*" title="PR care">CI ✓/);
+    expect(page({ tab: 'specifications' })).toMatch(/<span class="omni-badge[^"]*" title="PR care">CI ✓/);
     expect(renderToStaticMarkup(createElement(StageHeaderCopy, { label: 'Build it', command: '/omni:yolo 216' })))
       .toMatch(/<button [^>]*title="\/omni:yolo 216"[^>]*>Build it<\/button>/);
   });

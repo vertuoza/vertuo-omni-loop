@@ -74,8 +74,9 @@ describe('the Questions tab, on a desktop width', () => {
     expect(desktop('.dossier-progress', 'margin-bottom')).toEqual(['var(--space-1)']);
   });
 
-  it("pads a round's line 16px above and below and 24px at the sides", () => {
-    expect(desktop('.dossier-round-line', 'padding')).toEqual(['var(--space-4) var(--space-5)']);
+  it("pads a round's line 24px at the sides, its list row carrying the 16px above and below", () => {
+    expect(desktop('.dossier-round-line', 'padding')).toEqual(['0 var(--space-5)']);
+    expect(desktop('.dossier-round-line .omni-list-row', 'padding')).toEqual(['var(--space-4) 0']);
   });
 
   it("moves an open round's line 8px right too, so its dot stays under the folded rounds' ✓", () => {
@@ -101,8 +102,9 @@ describe('the Questions tab, under 720px', () => {
     expect(mediaBlocks(CSS, PHONE_QUERY).length).toBeGreaterThan(0);
   });
 
-  it("keeps a round's line at 10px 12px, and an open one's left at 12px", () => {
-    expect(phone('.dossier-round-line', 'padding')).toEqual(['var(--space-2) var(--space-3)']);
+  it("keeps a round's line at 12px at the sides, its row 8px above and below, and an open one's left at 12px", () => {
+    expect(phone('.dossier-round-line', 'padding')).toEqual(['0 var(--space-3)']);
+    expect(phone('.dossier-round-line .omni-list-row', 'padding')).toEqual(['var(--space-2) 0']);
     expect(phone(OPEN_LINE, 'padding-left')).toEqual(['var(--space-3)']);
   });
 

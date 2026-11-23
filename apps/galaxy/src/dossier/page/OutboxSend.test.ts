@@ -35,7 +35,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '
 describe('Send on the tab', () => {
   it('is open once the deployment may send: no reason shown beside it', () => {
     const html = render(true);
-    expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send 0 answers<\/button>/);
+    expect(html).toMatch(/<button class="omni-button omni-button--secondary omni-button--md" type="button" disabled="">Send 0 answers<\/button>/);
     expect(html).not.toContain(SEND_OFF.notYet);
   });
 
@@ -52,7 +52,7 @@ describe('Send on the tab', () => {
     const html = renderToStaticMarkup(createElement(OutboxSend, {
       dossierId: 'd1', questions, picks: { 1: { pick: 'B', reason: '' } }, count: 1, sendOff: null, onDrop: () => {},
     }));
-    expect(html).toBe('<button type="button" class="ask-button">Send 1 answer</button>');
+    expect(html).toBe('<button class="omni-button omni-button--secondary omni-button--md" type="button">Send 1 answer</button>');
   });
 });
 

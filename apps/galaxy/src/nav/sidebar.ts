@@ -1,27 +1,22 @@
-// The app's sidebar (PRD 438): where a person can go from any app page (/app, /prd, /ask,
-// /knowledge). Since PRD 733 it has two groups, then the foot: Dashboard (the boards: Home, your
-// fleet's, since PRD 1139 the workspace's loops beside it, at /app/loop, since PRD 1830 its runners after them, at
-// /app/runners, the workspace's, and since PRD 612
-// Engineering's, at /app/engineering), Work (the workspace's
-// work: since PRD 1364 Products first, the workspace's products, at /app/products, then since PRD 1162 Roadmaps, the milestones its PRDs deliver, since PRD 1246 Ideas, the workspace's
-// ideas board (its public page, /ideas/<owner>/<repo>, read from the viewer; Settings › Repositories while
-// the workspace lists none), since PRD 1272 Concepts, the vast ideas /omni:think-big recorded, then PRDs, then, since PRD 2377, Waiting (what waits on a person, at /app/waiting), then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), and at
-// the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING), then Omni's
-// own pages, Docs and Release notes, which leave the app for the public ones. Since issue 653 each
-// Dashboard and Work section names its sprite, and since PRD 733 Settings too. A new section is one
-// entry here. An entry's pages (Questions' Shared with me and History, Settings' Fleets and
-// Repositories) are not menu lines: their pages show them as tabs, and they only fall under the entry.
-// Two pure reads of a path: the entry it falls under, by the longest matching path (so /app/fleet is
-// Fleet, not Home, and /app/settings/fleets is Settings), and the top bar's trail (issue 704): the
-// group (the foot has none), the entry, then the page, with the entry's sprite. The query and the hash
-// never count. An entry that counts what waits for the person (PRD 499) carries its count as a badge,
-// none at 0: Questions, PRDs, since PRD 2255 Runners (the workspace's jobs waiting for an answer) and, since PRD 2377,
-// Waiting (the reviews, merges and laws whose turn is the person's).
+// The app's sidebar (PRD 438): where a person can go from any app page (/app, /prd, /ask, /knowledge).
+// Since omni-loop-22 it opens on Inbox (/app/inbox, no group label: everything that waits on the person;
+// its Done and Workspace pages, and the question rounds under /ask, fall under it), then two groups, then
+// the foot. Dashboard: the boards (Home, Fleet, the workspace's Loop, its Runners, Workspace, Engineering).
+// Work: the workspace's work (Products, Roadmaps, Ideas, Concepts, PRDs, Bug Fixes, Visual Updates,
+// Knowledge). At the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING),
+// then Omni's own pages, Docs and Release notes, which leave the app for the public ones. Each section
+// names its sprite. A new section is one entry here. An entry's pages (Inbox's Done and Workspace,
+// Settings' Fleets and Repositories) are not menu lines: their pages show them as tabs, and they only
+// fall under the entry. Two pure reads of a path: the entry it falls under, by the longest matching path
+// (so /app/fleet is Fleet, not Home), and the top bar's trail (issue 704): the group (the Inbox and the
+// foot have none), the entry, then the page, with the entry's sprite. The query and the hash never count.
+// Only two entries carry a badge (badgeOf): Inbox, the waiting total, the only filled one, and Runners
+// (PRD 2255), the workspace's jobs waiting for an answer, as quiet grey digits.
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'waiting' | 'bugs' | 'visual' | 'questions' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
+export type SidebarId = 'inbox' | 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -38,6 +33,9 @@ export interface SidebarItem {
   path: string;
   /** The pages that fall under it, in order: the trail names them, the menu does not. */
   pages?: readonly SidebarPage[];
+  /** Other paths that fall under the entry, with no page of their own in the menu: a question round's
+   * page sits under the Inbox (omni-loop-22). */
+  alsoUnder?: readonly string[];
   /** It opens one of Omni's public pages, outside the app. */
   leavesApp?: boolean;
   /** The 16×16 sprite of @omni/design drawn before its name (issue 653): every entry but Omni's. */
@@ -45,8 +43,9 @@ export interface SidebarItem {
 }
 
 export interface SidebarGroup {
-  id: 'dashboard' | 'work' | 'anti';
-  label: string;
+  id: 'inbox' | 'dashboard' | 'work' | 'anti';
+  /** The group's name, or null for the Inbox's, which has none (omni-loop-22). */
+  label: string | null;
   items: readonly SidebarItem[];
 }
 
@@ -58,6 +57,24 @@ const REPOSITORIES_PATH = '/app/settings/repositories';
 
 /** The sidebar's two groups, in order. */
 export const SIDEBAR: readonly SidebarGroup[] = [
+  {
+    id: 'inbox',
+    label: null,
+    items: [
+      {
+        id: 'inbox',
+        label: 'Inbox',
+        path: '/app/inbox',
+        sprite: 'menu-inbox',
+        pages: [
+          { label: 'Done', path: '/app/inbox/done' },
+          { label: 'Workspace', path: '/app/inbox/workspace' },
+        ],
+        // A question round's page, and a terminal session's: they sit under the Inbox.
+        alsoUnder: ['/ask'],
+      },
+    ],
+  },
   {
     id: 'dashboard',
     label: 'Dashboard',
@@ -79,19 +96,8 @@ export const SIDEBAR: readonly SidebarGroup[] = [
       { id: 'ideas', label: 'Ideas', path: IDEAS_PATH, sprite: 'tile-block' },
       { id: 'concepts', label: 'Concepts', path: '/concepts', sprite: 'menu-concepts' },
       { id: 'prds', label: 'PRDs', path: '/prd', sprite: 'menu-prds' },
-      { id: 'waiting', label: 'Waiting', path: '/app/waiting', sprite: 'menu-waiting' },
       { id: 'bugs', label: 'Bug Fixes', path: '/bugs', sprite: 'menu-bugs' },
       { id: 'visual', label: 'Visual Updates', path: '/visual', sprite: 'menu-visual' },
-      {
-        id: 'questions',
-        label: 'Questions',
-        path: '/ask',
-        sprite: 'menu-questions',
-        pages: [
-          { label: 'Shared with me', path: '/ask/for-me' },
-          { label: 'History', path: '/ask/history' },
-        ],
-      },
       { id: 'knowledge', label: 'Knowledge', path: '/knowledge', sprite: 'menu-knowledge' },
     ],
   },
@@ -148,6 +154,7 @@ const ENTRIES: readonly Entry[] = [
   ...[SETTINGS, ...OMNI].map((item) => ({ item, group: null })),
 ].flatMap(({ item, group }) => [
   { item, page: null, group, path: item.path },
+  ...(item.alsoUnder ?? []).map((path) => ({ item, page: null, group, path })),
   ...(item.pages ?? []).map((page) => ({ item, page, group, path: page.path })),
 ]);
 
@@ -181,30 +188,59 @@ export interface Trail {
   sprite: string | null;
 }
 
+/** The noun of an item page under an entry (omni-loop-20 s6): what the trail's last crumb says until the
+ * page names its item. */
+const ITEM_NOUNS: Partial<Record<SidebarId, string>> = { prds: 'PRD', bugs: 'Bug fix', visual: 'Visual update' };
+
+/** A dossier's id, as its page's address carries it. */
+const ITEM_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The page of a PRD's review screen, after the PRD in the trail. */
+const REVIEW_CRUMB = 'Review for approval';
+
+/** The crumbs of an item page under an entry: `/prd/<id>` names the item, `/prd/<id>/review` the item
+ * then the review screen; none for any other path. */
+function itemCrumbs(entry: Entry, path: string, item: string | null): Crumb[] {
+  const noun = ITEM_NOUNS[entry.item.id];
+  const [id = '', ...rest] = path.slice(entry.path.length + 1).split('/');
+  if (!noun || !ITEM_ID.test(id)) return [];
+  const name = item ?? noun;
+  const sub = rest.join('/');
+  if (sub === '') return [{ label: name }];
+  return entry.item.id === 'prds' && sub === 'review' ? [{ label: name, path: `${entry.path}/${id}` }, { label: REVIEW_CRUMB }] : [];
+}
+
 /** The top bar's trail for the path ("Work › Questions › Shared with me", "Settings › Fleets"), or null
  * when it falls under no entry. A group has no page to link; the entry and its page each link back only
- * from a page under them. */
-export function pageTrail(pathname: string | null | undefined): Trail | null {
+ * from a page under them. An item's page (a PRD's, a fix's) ends on the item, named `item` once its page
+ * gave its name, and a PRD's review screen on Review for approval (omni-loop-20 s6). */
+export function pageTrail(pathname: string | null | undefined, item: string | null = null): Trail | null {
   const entry = entryOf(pathname);
   if (!entry) return null;
-  const { item, page, group } = entry;
-  const here = bare(defined(pathname, 'the path')) === entry.path;
-  const last = page ?? item;
+  const { item: section, page, group } = entry;
+  const path = bare(defined(pathname, 'the path'));
+  const here = path === entry.path;
+  const last = page ?? section;
+  const items = here || page ? [] : itemCrumbs(entry, path, item);
   return {
     crumbs: [
-      ...(group ? [{ label: group.label }] : []),
-      ...(page ? [{ label: item.label, path: item.path }] : []),
+      ...(group?.label ? [{ label: group.label }] : []),
+      ...(page ? [{ label: section.label, path: section.path }] : []),
       here ? { label: last.label } : { label: last.label, path: last.path },
+      ...items,
     ],
-    sprite: item.sprite ?? null,
+    sprite: section.sprite ?? null,
   };
 }
 
-/** The badge an entry carries: Questions the Questions part, the shared ones included, PRDs the Outbox
- * part, Runners the workspace's jobs waiting for an answer (PRD 2255), Waiting the reviews, merges and laws
- * waiting on the person (PRD 2377 s5); null at 0, and for an entry that
- * counts nothing. */
+/** The badge an entry carries: Inbox the waiting total (questions, approvals, outbox items, reviews: the
+ * number the tab's title shows, omni-loop-22), the only filled one; Runners the workspace's jobs waiting for
+ * an answer (PRD 2255), quiet; null at 0, and for an entry that counts nothing. */
 export function badgeOf(id: SidebarId, counts: WaitingCounts): number | null {
-  const count = id === 'questions' ? counts.questions : id === 'prds' ? counts.outbox : id === 'runners' ? counts.runners : id === 'waiting' ? counts.reviews : 0;
+  const count = id === 'inbox' ? counts.total : id === 'runners' ? counts.runners : 0;
   return count > 0 ? count : null;
 }
+
+/** Whether an entry's badge is quiet grey digits with no fill, and no dot in the rail: every count but the
+ * Inbox's. */
+export const isQuiet = (id: SidebarId): boolean => id !== 'inbox';

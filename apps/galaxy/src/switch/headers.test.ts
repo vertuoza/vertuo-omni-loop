@@ -63,10 +63,9 @@ const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/roadmaps/<id>', RoadmapsLayout, '/roadmaps', 'Work › Roadmaps'],
   ['/prd', DossierLayout, '/prd', 'Work › PRDs'],
   ['/prd/<id>', DossierLayout, '/prd', 'Work › PRDs'],
-  ['/ask', AskLayout, '/ask', 'Work › Questions'],
-  ['/ask/<session>', AskLayout, '/ask', 'Work › Questions'],
-  ['/ask/for-me', AskLayout, '/ask', 'Work › Questions › Shared with me'],
-  ['/ask/history', AskLayout, '/ask', 'Work › Questions › History'],
+  ['/ask', AskLayout, '/app/inbox', 'Inbox'],
+  ['/ask/<session>', AskLayout, '/app/inbox', 'Inbox'],
+  ['/app/inbox/done', AskLayout, '/app/inbox', 'Inbox › Done'],
   ['/knowledge', KnowledgeLayout, '/knowledge', 'Work › Knowledge'],
 ];
 const pathOf = (name: string) => name.replace('<id>', '3f2a').replace('<session>', '7c1e');
@@ -86,7 +85,7 @@ describe('every app page', () => {
   it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists « and » (PRD 733), Dashboard, Work, then Settings and Omni at the foot', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="brand-logo app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', 'Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Waiting', 'Bug Fixes', 'Visual Updates', expect.stringMatching(/^Questions( \d+)?$/), 'Knowledge', 'Settings', 'Docs', 'Release notes']);
+    expect(controls(side)).toEqual(['OMNI LOOP', '«', '»', expect.stringMatching(/^Inbox( \d+)?$/), 'Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Knowledge', 'Settings', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {
@@ -101,16 +100,15 @@ describe('every app page', () => {
     const crumbs = part(bar, '<nav class="app-bar-trail"', '</nav>');
     expect(text(crumbs)).toBe(trail);
     // The user menu's own items left out: it is closed until the avatar opens it.
-    // The bell's panel left out too (PRD 499): it is closed until the bell opens it.
-    const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').replace(/<div [^>]*class="bell-panel"[\s\S]*?<\/div>(?=<\/div><\/span><span class="app-bar-you">)/, '');
+    const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '');
     // ☰ opens the bar for a phone only (PRD 438 s3): the stylesheet hides it from 900px. The trail's
     // links, back up to the page's section, follow it (issue 704).
     const up = controls(crumbs);
     expect(controls(shown).slice(0, 1 + up.length)).toEqual(['☰', ...up]);
-    // Signed in, the bell (PRD 499) sits after Game mode, before you.
+    // Signed in, the phone's Inbox button (omni-loop-22 s7) sits after Game mode, before you; its count is its badge.
     const count: unknown = expect.stringMatching(/^\d*$/);
-    const bell = /class="bell-button"/.test(shown) ? [count] : [];
-    expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, 'Anti-loop', ...bell]);
+    const inbox = /class="app-bar-inbox"/.test(shown) ? [count] : [];
+    expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, 'Anti-loop', ...inbox]);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);

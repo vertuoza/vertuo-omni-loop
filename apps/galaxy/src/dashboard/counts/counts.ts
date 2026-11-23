@@ -10,9 +10,9 @@ import { needsYou, tabsOf, type TabRow } from '../../ask/page/tabs';
 // shared with you, since that page lists them all; to /ask, your own sessions, otherwise.
 
 /** Your own sessions' questions, as tabs. */
-export const ASK = '/ask';
+export const ASK = '/app/inbox';
 /** The questions teammates shared with you. */
-export const FOR_ME = '/ask/for-me';
+export const FOR_ME = '/app/inbox?from=shared';
 
 /** What waits for you now, and where the tile links. */
 export interface Waiting {

@@ -4,10 +4,9 @@
    page on the surface, over a 2 px strong rule (PRD 498, T1). Its end wraps rather than push the page
    sideways.
    Below 900 px (src/nav/drawer.ts) the sidebar is a drawer: the first row holds ☰, the tile, the
-   trail and you; the theme switch and Game mode wrap to a second row. */
+   trail and you; the theme switch, Game mode and the Inbox button wrap to a second row. */
 
 .app-bar {
-  /* The bell's panel hangs from the bar on a phone (bell.css). */
   position: relative;
   display: flex;
   align-items: center;
@@ -96,7 +95,37 @@
 }
 .app-bar-menu[aria-expanded='true'] { border-color: var(--ask-ink); }
 
+/* The Inbox button (omni-loop-22 s7), the phone's: the bell's old 36 × 36 slot, the sprite and the plasma
+   count. From 900 px the sidebar's Inbox row is the way in, so the bar shows no button there. */
+.app-bar-inbox {
+  position: relative;
+  display: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 6px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  line-height: 0;
+}
+.app-bar-inbox-sprite { display: inline-flex; line-height: 0; }
+.app-bar-inbox-sprite svg { image-rendering: pixelated; }
+.app-bar-inbox-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  font: 700 11px/1 var(--ask-body);
+  text-align: center;
+  color: var(--ask-on-plasma);
+  background: var(--ask-plasma);
+}
+
 @media (max-width: 899.98px) {
+  .app-bar-inbox { display: inline-grid; }
   .app-bar {
     display: grid;
     grid-template-columns: auto auto minmax(0, 1fr) auto;

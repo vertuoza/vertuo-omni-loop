@@ -18447,6 +18447,7 @@ import { z as z77 } from "zod";
 var APP_SENDER = "omni-app";
 var IdRowSchema = z77.object({ id: z77.string().min(1) });
 var RemovedRowSchema = z77.object({ removed_at: z77.string().nullable() });
+var RunnerRowSchema = IdRowSchema;
 function runnerQueue(connection) {
   const db = serviceDb(connection);
   return async ({ installationId, repository, line: line3 }) => {
@@ -18460,6 +18461,11 @@ function runnerQueue(connection) {
       await db.from("runner_jobs").select("id").eq("workspace_id", workspace.id).eq("repo", repo).eq("line", line3).order("queued_at").limit(1)
     );
     if (found) return { job: found.id, created: false, reason: null };
+    const [able] = rowsOf(
+      RunnerRowSchema,
+      await db.from("runners").select("id").eq("workspace_id", workspace.id).is("fleet", null).contains("repos", [repo]).limit(1)
+    );
+    if (!able) return { job: null, created: false, reason: `no runner of the workspace holds ${repo}` };
     const [made] = rowsOf(IdRowSchema, await db.from("runner_jobs").insert({ workspace_id: workspace.id, repo, line: line3, sent_by_app: APP_SENDER }).select("id"));
     if (!made) throw new Error("the database queued no job and gave no reason");
     return { job: made.id, created: true, reason: null };
@@ -26212,7 +26218,7 @@ var CareRowSchema = z108.object({ id: text19 });
 var EventRowSchema = z108.object({ kind: text19, prd_id: PrdIdSchema.nullable(), job_id: z108.string().nullable() });
 var DecisionRowSchema = z108.object({ job_id: text19, outcome: z108.enum(["carried", "escalated"]), why: z108.array(z108.string()) });
 var DecidedSchema = z108.object({ outcome: z108.enum(["carried", "escalated"]), why: z108.array(z108.string()) });
-var RunnerRowSchema = z108.object({ repos: z108.array(z108.string()) });
+var RunnerRowSchema2 = z108.object({ repos: z108.array(z108.string()) });
 var RoomRunnerRowSchema = z108.object({
   id: text19,
   repos: z108.array(z108.string()),
@@ -26645,7 +26651,7 @@ function missionStore(connection) {
       return rowsOf(EventRowSchema, await db.from("mission_events").select(EVENT).eq("mission_id", id).order("at")).map((row) => ({ kind: row.kind, ...numberedOf(row.prd_id), job: row.job_id }));
     },
     async fleetRunners(mission) {
-      const runners = rowsOf(RunnerRowSchema, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
+      const runners = rowsOf(RunnerRowSchema2, await db.from("runners").select(RUNNER).eq("workspace_id", mission.workspace).eq("fleet", mission.fleet));
       return runners.some((runner) => runner.repos.some((repo) => repo.toLowerCase() === mission.repo));
     },
     async room(mission, toFleet) {

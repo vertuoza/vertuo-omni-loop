@@ -16,15 +16,15 @@ export const SETTINGS_TABS: readonly SectionTab[] = [
 ];
 
 export const QUESTIONS_TABS: readonly SectionTab[] = [
-  { href: '/ask', label: 'Open questions' },
-  { href: '/ask/for-me', label: 'Shared with me' },
-  { href: '/ask/history', label: 'History' },
+  { href: '/app/inbox', label: 'Open questions' },
+  { href: '/app/inbox?from=shared', label: 'Shared with me' },
+  { href: '/app/inbox/done', label: 'History' },
 ];
 
 /** The Questions tabs with their waiting counts: every open question the person may answer, less
  * the ones shared with them, on Open questions; the shared ones on Shared with me. */
 export function withCounts(tabs: readonly SectionTab[], { questions, shared }: { questions: number; shared: number }): SectionTab[] {
-  const counts: Record<string, number> = { '/ask': Math.max(0, questions - shared), '/ask/for-me': shared };
+  const counts: Record<string, number> = { '/app/inbox': Math.max(0, questions - shared), '/app/inbox?from=shared': shared };
   return tabs.map((tab) => {
     const count = counts[tab.href];
     return count === undefined ? tab : { ...tab, count };

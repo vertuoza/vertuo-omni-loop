@@ -1,0 +1,7 @@
+/* The review screen at /prd/<id>/review (PRD omni-loop-20 s5): its lists of checks and criteria are rows of
+   @omni/ui's ListRow, without the list's own marks. It sets no page width: the screen spans the app's. */
+.dossier-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

@@ -51,9 +51,9 @@ function html(voiceText: string | null, versions = [version('v1', 'voice')], mor
 }
 
 describe('the User voice tab', () => {
-  it('sits beside Spec, Plan and Before/after on a PRD, and on no fix', () => {
+  it('sits after Brainstorm and Specifications on a PRD (omni-loop-20 s7), and on no fix', () => {
     const tabs = dossierView(read([]), PIERRE.user_id, { tab: null, version: null }).tabs.map((t) => t.label);
-    expect(tabs.slice(0, 5)).toEqual(['Questions', 'Before/after', 'Spec', 'Plan', 'Timeline']);
+    expect(tabs.slice(0, 3)).toEqual(['Brainstorm', 'Specifications', 'User voice']);
     const bug = dossierView(read([], { kind: 'bug' }), PIERRE.user_id, { tab: null, version: null });
     expect(bug.tabs.map((t) => t.kind)).not.toContain('voice');
   });
@@ -72,7 +72,7 @@ describe('the User voice tab', () => {
     expect(page).toContain('aria-label="Sofia">S</span>');
     expect(page).toContain('data-stance="skeptical">Skeptical</span>');
     expect(page).toContain('Marc gives 3.');
-    expect(page).toContain('<th scope="col">Design<small>30 Sep</small></th>');
+    expect(page).toContain('>Design<small>30 Sep</small></th>');
     expect(page).toContain('<strong>3/5</strong>');
     expect(page).not.toContain('voice-move');
   });
@@ -143,7 +143,7 @@ describe('the layout at 393 px', () => {
   it('keeps a persona\'s column narrow enough for a phone, the reactions wrapping', () => {
     expect(rule('.voice-who')).toContain('min-width: 0');
     expect(rule('.voice-latest')).toContain('overflow-wrap: anywhere');
-    expect(rule('.voice-grid th[scope=\'row\']')).toMatch(/max-width: min\(\d+px, \d+vw\)/);
+    expect(rule('.voice-persona')).toMatch(/max-width: min\(\d+px, \d+vw\)/);
   });
 });
 

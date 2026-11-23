@@ -2,7 +2,8 @@
    pages' reading surface: their tokens, faces and theme switch. Every colour is a token of
    src/ask/theme-tokens.ts, as in src/ask/ask.css, so light, dark and system follow the switch; nothing
    here names a colour. The whole content area (PRD 476): a before/after page and the question cards
-   use the width, and the spec and the plan keep a 900 px reading measure inside it. */
+   use the width, and the spec and the plan keep a 900 px reading measure inside it. Every app page spans
+   the full width (omni-loop-20 s6), the PRD page included: only running prose keeps its measure. */
 
 .dossier {
   /* The head's pulls, against .ask-main's padding: 28 px on top (src/ask/ask.css) and the page gutter
@@ -15,12 +16,54 @@
   --dossier-tabs-pad: max(0px, calc(var(--dossier-gutter) - var(--space-3)));
   --dossier-strip-pull: calc(-1 * (var(--space-4) + 1px));
   width: 100%;
+  justify-self: start;
   min-width: 0;
   display: grid;
   gap: var(--space-4);
 }
 
-/* ── The header box (PRD 476): the title row with its actions, the facts strip, the tabs ── */
+/* ── The PRD page's head on the page anatomy (omni-loop-20 s6): PageHeader, then the stage track. It
+   scrolls away; only the tab row under it pins. ── */
+
+.dossier-top { display: grid; gap: var(--space-3); min-width: 0; }
+.dossier-top .dossier-request-tech { min-width: 0; }
+
+/* The tab row, its rule across the whole page: pulled out to the edges by the page gutter, the tabs keeping
+   the gutter less a tab's own padding. Pinned while the page scrolls, from where the sidebar stops being a
+   drawer (src/nav/drawer.ts) and on a screen tall enough; on the page's ground, so the pane passes under
+   it. Above the content, under the user menu, the drawer and its scrim. */
+.dossier-tabbar {
+  margin: 0 var(--dossier-gutter-pull);
+  padding: 0 var(--dossier-tabs-pad);
+  background: var(--ask-ground);
+  border-bottom: 1px solid var(--color-border-subtle);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+@media (min-width: 900px) and (min-height: 700px) {
+  .dossier-tabbar { position: sticky; top: 0; z-index: var(--layer-sticky); }
+}
+.dossier-tabbar .omni-tabs { flex-wrap: nowrap; border-bottom: 0; }
+.dossier-tabbar .omni-tab { white-space: nowrap; }
+
+/* About this PRD: the facts the head has no room for, side by side, wrapping. */
+.dossier-about { display: flex; flex-wrap: wrap; align-items: start; gap: var(--space-3) var(--space-6); min-width: 0; }
+.dossier-about > .omni-definition-list { flex-direction: row; flex-wrap: wrap; gap: var(--space-3) var(--space-6); min-width: 0; }
+/* omni-loop-20 s11: in Specifications, About this PRD is a column of side facts beside the segment. */
+.dossier-specifications { display: grid; gap: var(--space-5); min-width: 0; }
+.dossier-specifications__main { display: grid; gap: var(--space-4); min-width: 0; align-content: start; }
+@media (min-width: 900px) {
+  .dossier-specifications { grid-template-columns: minmax(0, 1fr) 280px; align-items: start; }
+}
+.dossier-specifications .dossier-about { display: grid; gap: var(--space-3); }
+.dossier-specifications .dossier-about > .omni-definition-list { flex-direction: column; flex-wrap: nowrap; gap: var(--space-3); }
+.dossier-about .dossier-repo { font: inherit; background: transparent; border: 0; padding: 0; }
+.dossier-about .stage-links { display: grid; gap: 0; }
+.dossier-about .stage-links li + li::before { content: none; }
+.dossier-about .dossier-approval { display: grid; gap: var(--space-1); }
+.dossier-about .dossier-approval p { margin: 0; }
+
+/* ── The header box of a concept's page (PRD 476): the title row with its actions, the facts strip, the tabs ── */
 
 /* Edge to edge (PRD 498): no box on the page but the page's top. Negative margins against .ask-main's
    padding pull it up to the top bar (28 px, .ask-main's top padding in src/ask/ask.css) and out to the
@@ -100,7 +143,6 @@
 }
 .dossier-fact dt { font: 700 11px/1 var(--ask-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ask-muted); }
 .dossier-fact dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.dossier-fact-stage dd { display: flex; align-items: center; gap: var(--space-1) var(--space-3); flex-wrap: wrap; }
 
 /* ── The stage (PRD 426, PRD 587): the track, its badge, the stage in words, one button, the links ── */
 
@@ -122,23 +164,12 @@
 }
 .stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
 .stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); font-weight: 800; }
-.stage-badge {
-  font: 700 12px/1 var(--ask-body);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-1);
-  color: var(--ask-on-yellow);
-  background: var(--ask-yellow);
-  text-decoration: none;
-  white-space: nowrap;
-}
-.stage-badge:hover { text-decoration: underline; }
 .stage-ahead { color: var(--ask-muted); }
-.stage-words { margin: 0; overflow-wrap: anywhere; }
 .stage-copy { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .stage-fixes { font-size: var(--type-2-size); }
 .stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
 /* Pitch (PRD 859): the button, and under it a small panel of two choices, the command and Copy. */
-.pitch-action { position: relative; display: inline-flex; }
+.pitch-anchor { position: relative; display: inline-flex; }
 /* One look for the two small panels under a button: Pitch's and Send to terminal's. */
 .pitch-panel,
 .send-pick {
@@ -155,12 +186,6 @@
 }
 .pitch-panel { width: min(360px, calc(100vw - 32px)); }
 .send-pick { width: min(320px, calc(100vw - 32px)); }
-.pitch-choices { display: flex; gap: var(--space-3); align-items: center; margin: 0; padding: 0; border: 0; }
-.pitch-choices legend { float: left; margin-right: var(--space-1); }
-.pitch-choice { display: inline-flex; gap: var(--space-1); align-items: center; cursor: pointer; }
-.pitch-choices:disabled .pitch-choice { cursor: not-allowed; color: var(--ask-muted); }
-.pitch-command { overflow-wrap: anywhere; }
-.pitch-hint { margin: 0; }
 .stage-links {
   list-style: none;
   margin: 0;
@@ -186,8 +211,7 @@
 /* On the PRD page the chip is a Badge: the item draws nothing of its own. */
 .dossier-facts .dossier-repo { font: inherit; background: transparent; border: 0; padding: 0; }
 .dossier-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; min-width: 0; }
-.dossier-copy,
-.dossier-delete { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.dossier-copy { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 /* PRD 1299 s3: Approve, on a ◆ PRD's page, and its Approval cell. */
 .dossier-approve { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .dossier-approval dd p { margin: var(--space-1) 0 0; }
@@ -232,6 +256,11 @@
   .dossier-approve-screen .dossier-approve { display: grid; }
   .dossier-approve-screen .dossier-approve-button { width: 100%; padding-block: var(--space-3); font-size: var(--type-4-size); }
 }
+/* omni-loop-20 s11: the attestation of a product PRD, a heading over a card holding a table of pinned files. */
+.dossier-attestation { display: grid; gap: var(--space-2); min-width: 0; margin: var(--space-4) 0; scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.dossier-attestation > .omni-card { display: grid; gap: var(--space-2); min-width: 0; overflow-x: auto; }
+.dossier-attestation p { margin: 0; }
+.dossier-attestation code { font: 12px/1.4 var(--ask-mono); color: var(--ask-cyan); }
 /* #1351: the seal of an approval in force, where the approve screen was. */
 .dossier-seal-card {
   min-width: 0; margin: var(--space-4) 0; text-align: center;
@@ -273,16 +302,37 @@
 }
 .dossier-tabs .omni-tabs { flex-wrap: nowrap; border-bottom: 0; }
 .dossier-tabs .omni-tab { white-space: nowrap; }
-.dossier-tab-label { display: inline-flex; align-items: baseline; gap: var(--space-1); }
 /* An empty tab read from GitHub stays in the bar, muted, so the journey reads left to right (PRD 426);
    muted rather than faded, so it still passes contrast (PRD 476). */
 .dossier-tab-empty { color: var(--color-text-tertiary); }
-.dossier-tab-label small { font: 600 12px/1 var(--ask-mono); color: var(--color-text-tertiary); }
 
 /* ── A tab's pane: the version picker, then the frame or the rendered markdown ── */
 
 .dossier-pane { display: grid; gap: var(--space-4); min-width: 0; }
+/* omni-loop-20 s7: a section of the Feature or the Retro tab (PR care, Proof, After merge, Pitch), its heading over it. */
+.dossier-pane > section[id] { display: grid; gap: var(--space-3); min-width: 0; }
 .dossier-picker { display: flex; align-items: end; gap: var(--space-2); flex-wrap: wrap; margin: 0; }
+/* omni-loop-20 s11: the version picker is one button (version, date, who) opening the list of versions. */
+.dossier-version { position: relative; flex: none; max-width: 100%; }
+.dossier-version__button {
+  display: inline-flex; align-items: baseline; gap: var(--space-2); max-width: 100%; padding: var(--space-2) var(--space-3);
+  list-style: none; cursor: pointer; color: var(--color-text-primary);
+  background: var(--color-surface); border: 1px solid var(--color-border-strong); border-radius: var(--radius-2);
+}
+.dossier-version__button::-webkit-details-marker { display: none; }
+.dossier-version__button::after { content: '▾'; color: var(--color-text-secondary); }
+.dossier-version__noun { color: var(--color-text-secondary); font-size: var(--type-3-size); }
+.dossier-version__label { overflow-wrap: anywhere; }
+.dossier-version__list {
+  position: absolute; z-index: var(--layer-overlay); inset-inline-start: 0; margin: var(--space-1) 0 0; padding: var(--space-1); list-style: none;
+  min-width: 100%; width: max-content; max-width: min(520px, 90vw);
+  background: var(--color-raised); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-2); box-shadow: var(--elevation-raised);
+}
+.dossier-version__list a { display: block; padding: var(--space-1) var(--space-2); border-radius: var(--radius-1); color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.dossier-version__list a:hover,
+.dossier-version__list a[aria-current='true'] { background: var(--color-sunken); }
+.dossier-version-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; min-width: 0; }
+.dossier-version-row .dossier-front { flex: 1 1 280px; min-width: 0; }
 .dossier-picker-field { display: grid; gap: var(--space-1); min-width: 0; }
 .dossier-empty { margin: 0; padding: var(--space-4); color: var(--ask-muted); background: var(--ask-surface); border: 1px dashed var(--ask-line-strong); border-radius: var(--radius-2); }
 
@@ -392,9 +442,11 @@
   align-items: center;
   gap: var(--space-1) var(--space-3);
   flex-wrap: wrap;
-  padding: var(--space-4) var(--space-5);
+  padding: 0 var(--space-5);
   min-width: 0;
 }
+.dossier-round-line .omni-list-row { flex: 1 1 100%; border-bottom: 0; padding: var(--space-4) 0; }
+.dossier-round-line .omni-list-row__main { flex: 1 1 280px; }
 summary.dossier-round-line { cursor: pointer; list-style: none; }
 summary.dossier-round-line::-webkit-details-marker { display: none; }
 summary.dossier-round-line::before { content: '▸'; color: var(--ask-muted); width: 12px; flex: none; transition: transform 0.15s; }
@@ -488,17 +540,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 }
 .outbox-context > summary { cursor: pointer; font-weight: 700; }
 .outbox-context[open] > summary { margin-bottom: var(--space-2); }
-.outbox-switch { display: flex; gap: var(--space-1); flex-wrap: wrap; margin-bottom: var(--space-3); }
-.ask a.outbox-switch-link {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  border: 1.5px solid var(--ask-line-strong);
-  color: var(--ask-muted);
-  font-weight: 700;
-  font-size: var(--type-3-size);
-  text-decoration: none;
-}
-.ask a.outbox-switch-link[aria-current='page'] { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.outbox-context > .omni-segmented { margin-bottom: var(--space-3); }
 .outbox-context-body { min-width: 0; overflow-wrap: anywhere; }
 .outbox-frame iframe { height: 70vh; min-height: 360px; }
 .outbox-brainstorm { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-3); }
@@ -522,49 +564,20 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 
 .outbox-answers { display: grid; gap: var(--space-3); min-width: 0; }
 .outbox-toolbar { display: flex; align-items: center; gap: var(--space-2) var(--space-3); flex-wrap: wrap; }
-.outbox-note,
-.outbox-nothing {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-2);
-  background: var(--ask-sunk);
-  border: 1.5px solid var(--ask-line-strong);
-}
-.outbox-nothing { font-weight: 700; }
+.outbox-toolbar .omni-notice,
+.outbox-sent { flex-basis: 100%; min-width: 0; }
+.outbox-sent { display: grid; gap: var(--space-2); }
 .outbox-cards { display: grid; gap: var(--space-3); min-width: 0; }
 .outbox-group > summary { cursor: pointer; font-weight: 700; padding: var(--space-2) 0; }
 .outbox-group[open] > summary { margin-bottom: var(--space-2); }
 
-.outbox-card {
-  display: grid;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-4);
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-left: 4px solid var(--ask-plasma);
-  border-radius: var(--radius-2);
-  overflow-wrap: anywhere;
-  scroll-margin-top: 16px;
-}
-.outbox-card[data-kind='action'] { border-left-color: var(--ask-red); }
-.outbox-card[data-adopted='true'] { border-left-color: var(--ask-line); }
-.outbox-card-head { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+.outbox-entry { min-width: 0; overflow-wrap: anywhere; scroll-margin-top: 16px; }
+.outbox-entry-body { display: grid; gap: var(--space-2); min-width: 0; }
+.outbox-entry-head { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
 .outbox-number { margin: 0; font-size: var(--type-4-size); }
-.outbox-rank {
-  font: 700 12px/1 var(--ask-body);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ask-muted);
-  background: var(--ask-sunk);
-  border-radius: var(--radius-1);
-  padding: var(--space-1) var(--space-2);
-}
-.outbox-rank[data-rank='high'] { color: var(--ask-on-plasma); background: var(--ask-plasma); }
-.outbox-rank[data-rank='human-action'] { color: var(--ask-red); background: var(--ask-surface); outline: 1px solid var(--ask-red); outline-offset: -1px; }
 .outbox-fun { margin: 0; font-style: italic; color: var(--ask-muted); }
-.outbox-card .dossier-md { max-width: none; }
-.outbox-card .dossier-md > :last-child { margin-bottom: 0; }
+.outbox-entry .dossier-md { max-width: none; }
+.outbox-entry .dossier-md > :last-child { margin-bottom: 0; }
 .outbox-decision { display: grid; gap: var(--space-1); }
 .outbox-pending {
   display: grid;
@@ -577,36 +590,6 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .outbox-pending-label { font-weight: 700; }
 .outbox-options { margin: 0; padding: 0; border: 0; display: grid; gap: var(--space-1); min-width: 0; }
 .outbox-options legend { margin-bottom: var(--space-1); }
-.outbox-option {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  padding: var(--space-2) var(--space-2);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: var(--radius-2);
-  cursor: pointer;
-}
-.outbox-option[data-picked='true'] { border-color: var(--ask-plasma); }
-.outbox-option .ask-rec { grid-column: 3; justify-self: start; }
-.outbox-option-letter { font-weight: 700; }
-.outbox-option-text { grid-column: 3; min-width: 0; }
-.outbox-option-text > p { margin: 0; }
-.outbox-option input { margin: 0; }
-.outbox-reason { display: grid; gap: var(--space-1); }
-.outbox-reason textarea {
-  width: 100%;
-  font: inherit;
-  color: var(--ask-ink);
-  background: var(--ask-ground);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: var(--radius-2);
-  padding: var(--space-2) var(--space-2);
-  resize: vertical;
-}
-.outbox-card .ask-button.quiet { justify-self: start; }
-.outbox-chips { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-1); flex-wrap: wrap; }
-.ask .outbox-chips a.ask-chip { text-decoration: none; }
 .outbox-details > summary { cursor: pointer; color: var(--ask-muted); font-size: var(--type-3-size); }
 .outbox-details h4 { margin: var(--space-3) 0 var(--space-1); font-size: var(--type-3-size); }
 
@@ -619,22 +602,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 
 .dossier-quick { display: grid; gap: var(--space-2); min-width: 0; }
 .dossier-quick-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
-.ask .dossier-quick-choice {
-  display: grid;
-  gap: var(--space-1);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  text-align: left;
-  font: inherit;
-  color: var(--ask-ink);
-  background: var(--ask-surface);
-  border: 1.5px solid var(--ask-plasma);
-  border-radius: var(--radius-2);
-  cursor: pointer;
-  min-width: 0;
-}
-.ask .dossier-quick-choice:hover:not(:disabled) { background: var(--ask-plasma-soft); }
-.ask .dossier-quick-choice:disabled { border-color: var(--ask-line-strong); cursor: default; }
+.dossier-quick-choices .omni-button { display: grid; gap: var(--space-1); width: 100%; height: auto; text-align: left; justify-content: stretch; white-space: normal; padding: var(--space-2) var(--space-3); }
 .dossier-quick-note { margin: 0; font-size: var(--type-3-size); color: var(--ask-muted); }
 
 /* ── The history, /prd: the filters and the search, then a card per dossier, newest activity first ── */
@@ -722,10 +690,10 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   .dossier-facts { display: grid; gap: var(--space-3); margin: 0; clip-path: none; }
   .dossier-fact { padding: 0; border-left: 0; }
   .dossier-frame iframe { height: 70vh; min-height: 360px; }
-  .dossier-round-line { padding: var(--space-2) var(--space-3); }
+  .dossier-round-line { padding: 0 var(--space-3); }
+  .dossier-round-line .omni-list-row { padding: var(--space-2) 0; }
   .dossier-round[data-state='open'] .dossier-round-line { padding-left: var(--space-3); }
   .dossier-round-body { padding: var(--space-1) var(--space-3) var(--space-3); }
-  .outbox-card { padding: var(--space-3); }
 }
 
 /* A fix's state and Timeline (PRD 627, s5): the pill on its list row and in its header, the risk and
@@ -777,46 +745,31 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .fix-moment-label { font-weight: 700; }
 .fix-moment:not(.fix-moment-done) .fix-moment-label { color: var(--ask-muted); }
 
-/* The PR care tab (PRD 790, s4): the CI, Conflicts and Review rows, one line per review thread (asked
-   first, its verdict in red), then the watcher line. */
-.care-rows { display: grid; gap: var(--space-1); margin: 0 0 var(--space-4); }
-.care-row { display: flex; gap: var(--space-3); align-items: baseline; }
-.care-row dt { width: 88px; flex: none; font-weight: 600; color: var(--ask-muted); }
-.care-row dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.care-ci-red dd, .care-conflict-conflict dd { color: var(--ask-red); font-weight: 600; }
-.care-ci-green dd { color: var(--ask-green); font-weight: 600; }
-.care-threads { list-style: none; margin: 0 0 var(--space-4); padding: 0; border-top: 1px solid var(--ask-line); }
+/* PR care, a section of the Feature tab (PRD 790, s4; Calm 2, omni-loop-20 s13): the facts, one line per
+   review thread (asked first), then the watcher line. */
+.care-open { margin: 0 0 var(--space-3); }
+.care-threads { list-style: none; margin: var(--space-4) 0; padding: 0; border-top: 1px solid var(--ask-line); }
 .care-thread {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-1) var(--space-3);
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--ask-line);
 }
 .care-first, .care-verdict { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
-.care-verdict-asked .care-verdict strong { color: var(--ask-red); }
-.care-watcher { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); color: var(--ask-muted); }
-.care-watcher.care-watching { color: var(--ask-ink); }
+.care-watcher { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 
 /* The User voice tab (PRD 822, s3): the Rework button, then a grid of personas by rounds that scrolls
    inside its own box at 393 px, never the page, each score a <details> holding its
    reaction; then each round with its fit line and its objection, outlined. */
 .voice { display: grid; gap: var(--space-4); min-width: 0; }
 .voice-rework { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.voice-scroll { max-width: 100%; overflow-x: auto; border: 1.5px solid var(--ask-line-strong); border-radius: var(--radius-2); background: var(--ask-surface); }
-.voice-grid { border-collapse: collapse; min-width: 100%; }
-.voice-grid th,
-.voice-grid td { padding: var(--space-2) var(--space-3); text-align: left; vertical-align: top; border-bottom: 1px solid var(--ask-line); }
-.voice-grid thead th { font-weight: 700; white-space: nowrap; color: var(--ask-muted); }
-.voice-grid thead th small { display: block; font-weight: 400; }
-.voice-grid th[scope='row'] {
-  width: 280px;
-  max-width: min(280px, 55vw);
-  font-weight: 400;
-  background: var(--ask-surface);
-}
-.voice-persona { display: flex; gap: var(--space-2); align-items: flex-start; min-width: 0; }
+.voice-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-2); background: var(--color-surface); }
+.voice-scroll .omni-table { min-width: 100%; }
+.voice-scroll .omni-table__cell { vertical-align: top; }
+.voice-scroll thead small { display: block; font-weight: 400; }
+.voice-persona { display: flex; gap: var(--space-2); align-items: flex-start; min-width: 0; width: 280px; max-width: min(280px, 55vw); }
 .voice-portrait { flex: none; line-height: 0; border-radius: var(--radius-2); background: var(--ask-sunk); }
 .voice-portrait svg { display: block; image-rendering: pixelated; }
 .voice-portrait-none { display: grid; place-items: center; width: 32px; height: 32px; font: 700 14px/32px var(--ask-mono); color: var(--ask-muted); }
@@ -853,17 +806,9 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
    its note, a player at most 960 px wide (a 1280 × 720 clip, scaled to the width on a phone) and its
    script behind a fold that scrolls sideways rather than widen the page. ── */
 
-.proof-facts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: 0; }
-.proof-facts > div { display: grid; gap: var(--space-1); min-width: 0; }
-.proof-facts dt { font-size: var(--type-1-size); color: var(--ask-muted); }
-.proof-facts dd { margin: 0; overflow-wrap: anywhere; }
-.proof-counts { display: flex; gap: var(--space-3); }
-.proof-mark { font-weight: 700; flex: none; }
-.proof-mark.proof-pass { color: var(--ask-green); }
-.proof-mark.proof-fail { color: var(--ask-red); }
-.proof-mark.proof-unfilmable { color: var(--ask-muted); }
-.proof-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); max-width: 960px; min-width: 0; }
-.proof-row {
+.proof-counts { display: inline-flex; gap: var(--space-2); }
+.proof-rows { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-3); max-width: 960px; min-width: 0; }
+.proof-item {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
@@ -873,23 +818,13 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   border-left-width: 4px;
   border-radius: var(--radius-2);
 }
-.proof-row.proof-pass { border-left-color: var(--ask-green); }
-.proof-row.proof-fail { border-left-color: var(--ask-red); }
-.proof-criterion { display: flex; gap: var(--space-2); margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.proof-note { margin: 0; color: var(--ask-muted); font: 13px/1.5 var(--ask-mono); overflow-wrap: anywhere; }
+.proof-item.proof-pass { border-left-color: var(--ask-green); }
+.proof-item.proof-fail { border-left-color: var(--ask-red); }
+.proof-criterion { display: flex; align-items: center; gap: var(--space-2); margin: 0; overflow-wrap: anywhere; }
 .proof-video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--ask-sunk); border-radius: var(--radius-2); }
 .proof-script { min-width: 0; }
 .proof-script > summary { cursor: pointer; font-weight: 700; }
 .proof-script[open] > summary { margin-bottom: var(--space-2); }
-.proof-script pre {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  max-height: 480px;
-  overflow: auto;
-  font: 12px/1.5 var(--ask-mono);
-  background: var(--ask-sunk);
-  border-radius: var(--radius-2);
-}
 
 /* ── The Pitch tab (PRD 859, s3): the latest pitch per audience, Customers first, each in its own card —
    its picker, facts, the slide and the 16:9 player side by side from 900 px (stacked on a phone), its
@@ -906,16 +841,11 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   border-radius: var(--radius-2);
 }
 .pitch-run-head { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; justify-content: space-between; }
-.pitch-run-head h2 { margin: 0; font-size: var(--type-4-size); }
 .pitch-media { display: grid; gap: var(--space-3); min-width: 0; }
 @media (min-width: 900px) { .pitch-media { grid-template-columns: 1fr 1fr; } }
 .pitch-slide, .pitch-video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--ask-sunk); border-radius: var(--radius-2); }
-.pitch-words { display: grid; gap: var(--space-1); overflow-wrap: anywhere; }
-.pitch-words p { margin: 0; }
-.pitch-kicker { font: 700 12px/1.4 var(--ask-mono); letter-spacing: 0.08em; color: var(--ask-muted); }
-.pitch-hook { font-weight: 700; font-size: var(--type-4-size); }
+.pitch-words { display: grid; gap: var(--space-2); overflow-wrap: anywhere; }
 .pitch-downloads { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
-.pitch-downloads [aria-disabled='true'] { color: var(--ask-muted); cursor: not-allowed; }
 /* Send to terminal (PRD 1830 s4): beside a copy button, and under it a small picker of where to send the
    line, each target with its state, then Send. */
 .send-terminal { position: relative; display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
@@ -928,9 +858,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .stage-copy:has(.send-pick) > .stage-action { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); }
 
 /* A PRD's time line and Timeline tab (PRD 2370, s5): the line under the stage words, the gaps between milestones, the longest marked. */
-.prd-timeline-line { margin: var(--space-1) 0 0; }
 .prd-timeline { display: grid; gap: var(--space-4); }
-.prd-timeline-title { font-size: var(--type-3-size); margin: 0 0 var(--space-1); }
 .prd-gap { padding-left: var(--space-4); }
 .prd-gap-longest .prd-gap-mark { color: var(--ask-ink); }
 
@@ -938,49 +866,33 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-main a { text-decoration: none; }
 .dossier-main-broke strong { color: var(--ask-red); }
 .dossier-main-clean strong { color: var(--ask-green); }
-.main-status { margin: 0 0 var(--space-3); overflow-wrap: anywhere; }
-.main-broke strong { color: var(--ask-red); }
-.main-clean strong { color: var(--ask-green); }
-.main-unread { margin: 0 0 var(--space-3); padding-left: var(--space-4); }
-.main-breaks { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: grid; gap: var(--space-2); max-width: 960px; min-width: 0; }
-.main-break { margin: 0; padding: var(--space-2) var(--space-3); background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-red); border-radius: var(--radius-2); overflow-wrap: anywhere; }
-.main-break p { margin: 0; }
-.main-break-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: baseline; }
-.main-kind { font: 700 12px/1 var(--ask-body); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ask-red); }
-.main-rewind h2 { margin: var(--space-4) 0 var(--space-2); font-size: var(--type-3-size); }
+.main-unread { margin: var(--space-3) 0; padding-left: var(--space-4); }
+.main-breaks { list-style: none; margin: var(--space-3) 0 var(--space-4); padding: 0; display: grid; gap: var(--space-2); max-width: 960px; min-width: 0; }
+.main-break { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3); background: var(--ask-surface); border: 1px solid var(--ask-line-strong); border-left: 4px solid var(--ask-red); border-radius: var(--radius-2); overflow-wrap: anywhere; }
+.main-break-head, .main-finding-head { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: center; margin: 0; }
+.main-rewind { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.main-findings { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); max-width: 960px; }
+.main-finding-body { display: grid; gap: var(--space-2); overflow-wrap: anywhere; }
+.main-finding-evidence { margin: 0; padding-left: var(--space-4); }
+.retro-open { margin: 0 0 var(--space-3); }
 .ready { display:grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); background:var(--ask-surface); border:1px solid var(--ask-line-strong); border-left-width:4px; border-radius: var(--radius-2); }
 .ready-pass { border-left-color:var(--ask-green); }
 .ready-fail { border-left-color:var(--ask-red); }
 .ready-wait { border-left-color:var(--ask-line-strong); border-style:solid dashed dashed solid; }
 .ready-top { display:flex; flex-wrap:wrap; align-items:baseline; gap: var(--space-1) var(--space-3); }
-.ready-lab { margin: 0; font-size: var(--type-1-size); font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ask-muted); }
-.ready-title { margin: 0; font-size: var(--type-5-size); line-height:1.3; }
-.ready-sign { margin-left: auto; font:13px/1.5 var(--ask-mono); color:var(--ask-muted); }
-.ready-named { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-2); background:var(--ask-sunk); overflow-wrap:anywhere; }
-.ready-named p { margin: 0; }
-.ready-named strong { color:var(--ask-red); }
+.ready-sign { margin-left: auto; }
+.ready-named { display:grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-2); background:var(--ask-sunk); overflow-wrap:anywhere; }
 .ready-checks { list-style:none; margin: 0; padding: 0; border-top:1px solid var(--ask-line); }
 .ready-check { display:grid; gap: var(--space-1); padding: var(--space-2) 0; border-bottom:1px solid var(--ask-line); }
-.ready-row { display:flex; flex-wrap:wrap; align-items:baseline; gap: var(--space-1) var(--space-3); }
+.ready-line { display:flex; flex-wrap:wrap; align-items:center; gap: var(--space-1) var(--space-3); }
 .ready-mark { flex:none; width:20px; font-weight:700; }
 .ready-check.is-pass .ready-mark { color:var(--ask-green); }
 .ready-check.is-fail .ready-mark { color:var(--ask-red); }
 .ready-check.is-wait .ready-mark { color:var(--ask-muted); }
-.ready-name { flex:1 1 300px; font-weight:600; }
-.ready-state { font:600 12px/1 var(--ask-mono); border:1px solid var(--ask-green); border-radius: var(--radius-full); padding: var(--space-1) var(--space-2); white-space:nowrap; }
-.ready-note { margin: 0 0 0 var(--space-6); color:var(--ask-muted); font:13px/1.5 var(--ask-mono); overflow-wrap:anywhere; }
+.ready-name { flex:1 1 300px; }
+.ready-detail { margin-left: var(--space-6); overflow-wrap:anywhere; }
 .ready-acs { list-style:none; margin: 0 0 0 var(--space-6); padding: 0; display:grid; gap: var(--space-2); }
 .ready-ac { display:grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-2); background:var(--ask-sunk); }
-.ready-ac-head { display:flex; flex-wrap:wrap; align-items:baseline; gap: var(--space-1) var(--space-2); font-size: var(--type-3-size); }
-.ready-ac-id { font:600 12px/1.4 var(--ask-mono); color:var(--ask-plasma); }
-.ready-kind { font:600 12px/1 var(--ask-mono); color:var(--ask-muted); }
-.ready-ac-head a { margin-left: auto; }
-.ready-ac p { margin: 0; font-size: var(--type-3-size); }
-.ready-ac p b { color:var(--ask-muted); font-weight:700; }
+.ready-ac-head { display:flex; flex-wrap:wrap; align-items:center; gap: var(--space-1) var(--space-2); }
+.ready-ac-proof { margin-left: auto; }
 .ready-foot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap: var(--space-2) var(--space-4); }
-.ready-foot p { margin: 0; }
-.ready-ac-pass { border-color:var(--ask-green); color:var(--ask-ink); }
-.ready-ac-fail { border-color:var(--ask-red); color:var(--ask-red); }
-.ready-ac-wait { border-color:var(--ask-line-strong); color:var(--ask-muted); }
-.is-fail .ready-state { border-color:var(--ask-red); color:var(--ask-red); }
-.is-wait .ready-state { border-color:var(--ask-line-strong); color:var(--ask-muted); }

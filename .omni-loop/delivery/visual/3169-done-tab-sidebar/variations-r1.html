@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox › Done: today and five variations (round 1)</title>
+<style>
+:root{
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;--space-7:48px;
+  --radius-1:4px;--radius-2:8px;--radius-full:9999px;
+  --t1:12px;--t2:13px;--t3:14px;--t4:16px;--t6:24px;--t7:32px;
+  --canvas:#07061c;--surface:#120f3a;--raised:#1a1749;--sunken:#0e0d33;
+  --text:#f2f4ff;--text-2:#8a90d6;--text-3:#7c82c4;
+  --border:#1a2170;--border-strong:#5a60c4;--accent:#8f9bff;--accent-soft:#1e2160;
+  --signal:#ffd84a;--on-signal:#07061c;--info:#6ff0ff;--success:#4ee08a;
+  --body:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 16px 64px;background:#03020f;color:var(--text);font:15px/1.5 var(--body)}
+.page-title{max-width:1180px;margin:0 auto 8px;font-size:22px}
+.page-note{max-width:1180px;margin:0 auto 24px;color:var(--text-2);font-size:14px}
+.variant{max-width:1180px;margin:0 auto 40px}
+.variant > h2{margin:0 0 4px;font-size:18px;display:flex;gap:10px;align-items:baseline}
+.variant > h2 .letter{font:700 14px var(--mono);background:var(--signal);color:var(--on-signal);border-radius:4px;padding:2px 8px}
+.variant > p.why{margin:0 0 10px;color:var(--text-2);font-size:14px;max-width:80ch}
+.frame{background:var(--canvas);border:1px solid var(--border);border-radius:10px;padding:24px;overflow:hidden}
+
+/* The Inbox header, as shipped */
+.inbox-title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.inbox-title{margin:0;font-size:var(--t7);line-height:1.2}
+.inbox-count{color:var(--text-2);font-size:var(--t4)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:16px 0 20px}
+.tab{padding:8px 12px;color:var(--info);font-size:var(--t3);text-decoration:none;border-bottom:3px solid transparent;display:inline-flex;gap:8px;align-items:center}
+.tab.on{color:var(--text);font-weight:700;border-bottom-color:var(--accent)}
+.pill{font:600 12px/1 var(--body);padding:3px 7px;border-radius:999px;background:var(--signal-soft,#2a2350);color:var(--signal)}
+
+/* Parts: Input, Select (sm), Button, Badge, SegmentedControl, as @omni/ui draws them */
+.input{font:var(--t3)/20px var(--body);color:var(--text);background:var(--surface);padding:8px 12px;border:1px solid var(--border-strong);border-radius:var(--radius-2);min-width:0}
+.input::placeholder{color:var(--text-2)}
+.search{display:flex;align-items:center;gap:8px;padding:0 12px;height:38px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-2);color:var(--text-2);font-size:var(--t3)}
+.search svg{flex:none}
+.select{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;height:38px;padding:0 10px 0 12px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-2);color:var(--text);font-size:var(--t3);white-space:nowrap}
+.select.set{border-color:var(--accent);background:var(--accent-soft)}
+.select .chev{width:12px;height:12px;flex:none}
+.btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:1px solid var(--border-strong);border-radius:var(--radius-2);background:var(--surface);color:var(--text);font:500 var(--t3) var(--body);text-decoration:none;white-space:nowrap}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--text-2)}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border:1px solid var(--border);border-radius:999px;background:var(--sunken);color:var(--text-2);font:500 var(--t1)/1.5 var(--body);white-space:nowrap}
+.badge.accent{color:var(--accent);background:var(--accent-soft)}
+.badge.success{color:var(--success)}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:var(--radius-2);background:var(--surface);overflow:hidden;max-width:100%}
+.seg a{padding:7px 12px;border-left:1px solid var(--border-strong);color:var(--text-2);font:500 var(--t2) var(--body);text-decoration:none;white-space:nowrap;border-bottom:3px solid transparent}
+.seg a:first-child{border-left:0}
+.seg a.on{color:var(--text);background:var(--accent-soft);border-bottom-color:var(--accent)}
+.seg .n{color:var(--text-3);margin-left:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px dashed var(--border-strong);border-radius:999px;color:var(--text-2);font:500 var(--t2) var(--body);white-space:nowrap}
+.chip.set{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
+.chip .x{color:var(--text-3)}
+.count{color:var(--text-3);font-size:var(--t2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.count a{color:var(--info)}
+
+/* Open-tab rows */
+.day{margin:20px 0 6px;padding:0 12px;font:700 var(--t2)/1.45 var(--body);color:var(--text-2)}
+.day:first-child{margin-top:0}
+.day .n{font-weight:400;color:var(--text-3)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px;border:1px solid transparent;border-radius:var(--radius-2);color:var(--text);text-decoration:none}
+.row:hover{background:var(--sunken)}
+.row-main{display:grid;gap:3px;min-width:0}
+.ctx{font-size:var(--t2);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q{font-size:var(--t3);line-height:1.45}
+.a{font-size:var(--t3);color:var(--text-2)}
+.a b{color:var(--text);font-weight:500}
+.end{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.age{font-size:var(--t1);color:var(--text-3);white-space:nowrap}
+
+/* Today: the History form and cards, with their stylesheet loaded (#3168) */
+.t-filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:16px;background:var(--surface);border:1.5px solid var(--border-strong);border-radius:12px}
+.t-field{display:grid;gap:4px}
+.t-field span{color:var(--text-2);font-size:13px}
+.t-search{grid-column:1/-1}
+.t-search .input{font-family:var(--mono);width:100%}
+.t-actions{grid-column:1/-1;display:flex}
+.t-filter{background:var(--signal);color:var(--on-signal);font:700 16px var(--body);padding:10px 18px;border-radius:8px;border:0}
+.t-list{display:grid;gap:10px;margin-top:24px}
+.t-card{display:grid;gap:6px;padding:14px 18px;background:var(--surface);border:1.5px solid var(--border-strong);border-radius:12px;color:var(--text);text-decoration:none;font-size:17px}
+.t-top{display:flex;justify-content:space-between}
+.t-tag{font:700 12px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;background:var(--sunken);border:1px solid var(--border-strong);border-radius:4px;padding:5px 8px}
+.t-time{font:13px var(--mono);color:var(--text-2)}
+.t-q{font-weight:700}
+.t-ans{font-weight:700}
+.t-who{color:var(--text-2);font-size:14px}
+.t-ctx{padding:0 18px;color:var(--text-2);font-size:14px}
+
+/* Layout helpers */
+.bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grow{flex:1 1 auto}
+.split{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start}
+.rail{display:grid;gap:14px;padding:4px 0}
+.rail h3{margin:0;font:700 var(--t2) var(--body);color:var(--text-2)}
+.rail .opt{display:flex;justify-content:space-between;font-size:var(--t3);color:var(--text-2);padding:4px 8px;border-radius:6px}
+.rail .opt.on{background:var(--accent-soft);color:var(--text)}
+.pop{position:relative}
+.popover{position:absolute;top:44px;right:0;width:280px;padding:12px;display:grid;gap:10px;background:var(--raised);border:1px solid var(--border-strong);border-radius:var(--radius-2);box-shadow:0 8px 24px rgb(0 0 0/.32);z-index:2}
+.popover label{display:grid;gap:4px;font-size:var(--t2);color:var(--text-2)}
+.table{width:100%;border-collapse:collapse;font-size:var(--t3)}
+.table th{text-align:left;font:600 var(--t1) var(--body);color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;padding:8px 12px;border-bottom:1px solid var(--border)}
+.table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.table td.q a{color:var(--text);text-decoration:none}
+.table td.a{color:var(--text-2)}
+.table td.age{white-space:nowrap}
+</style>
+</head>
+<body>
+<h1 class="page-title">Inbox › Done: today and five variations</h1>
+<p class="page-note">Issue #3169 · round 1 · each drawn at desktop width in the Omni theme from the app's tokens (@omni/design) and parts (@omni/ui). The data is the demo's. Pick one letter, or ask for another round.</p>
+
+<!-- TODAY -->
+<section class="variant">
+<h2><span class="letter">Today</span> The History page under the Inbox header</h2>
+<p class="why">As shipped after #3168: a 290 px filter card (search, six labelled selects, a yellow Filter button), then 118 px bordered cards at 17 px; three results fit on a laptop screen.</p>
+<div class="frame" data-screen="today">
+  <div class="inbox-title-row"><h1 class="inbox-title">Inbox</h1><span class="inbox-count">1 waits on you</span></div>
+  <nav class="tabs"><a class="tab" href="#">Open <span class="pill">1</span></a><a class="tab on" href="#">Done</a><a class="tab" href="#">Workspace</a></nav>
+  <form class="t-filters">
+    <label class="t-field t-search"><span>Search the questions and answers</span><input class="input" placeholder="a word of a question or its answer"></label>
+    <div class="t-field"><span>Category</span><span class="select">Any <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span></div>
+    <div class="t-field"><span>Repository</span><span class="select">Any <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span></div>
+    <div class="t-field"><span>PRD</span><span class="select">Any <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span></div>
+    <div class="t-field"><span>Skill</span><span class="select">Any <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span></div>
+    <div class="t-field"><span>Asked by</span><span class="select">Any <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span></div>
+    <div class="t-field"><span>Answered by</span><span class="select">Any <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span></div>
+    <p class="t-actions"><button class="t-filter" type="button" data-primary>Filter</button></p>
+  </form>
+  <div class="t-list">
+    <a class="t-card" href="#"><span class="t-top"><span class="t-tag">Product</span><span class="t-time">2026-11-23 05:50 UTC</span></span><span class="t-q">Where should the page live?</span><span class="t-ans">The galaxy app</span><span class="t-who">asked by ADA · answered by ADA, in the terminal</span></a>
+    <p class="t-ctx">vertuoza/vertuo-omni-loop · feat/ask-mode · PRD #71 · /omni:brainstorm · claude-opus-4-8 · 420k tokens · $0.52</p>
+    <a class="t-card" href="#"><span class="t-top"><span class="t-tag">Architecture</span><span class="t-time">2026-11-23 05:44 UTC</span></span><span class="t-q">How should the questions reach the page?</span><span class="t-ans">Hook mode + nudge (Recommended)</span><span class="t-who">asked by ADA · answered by PAULA, on the page</span></a>
+  </div>
+</div>
+</section>
+
+<!-- A -->
+<section class="variant">
+<h2><span class="letter">A</span> One quiet row, rows like Open</h2>
+<p class="why">The designer's proposal: one 38 px row with no card: search, then Category, Repository and PRD, then More filters (Skill, Asked by, Answered by). A filter applies on its own. The count sits at the right. Rows reuse the Open tab's row, grouped under day titles.</p>
+<div class="frame" data-screen="A">
+  <div class="inbox-title-row"><h1 class="inbox-title">Inbox</h1><span class="inbox-count">1 waits on you</span></div>
+  <nav class="tabs"><a class="tab" href="#">Open <span class="pill">1</span></a><a class="tab on" href="#">Done</a><a class="tab" href="#">Workspace</a></nav>
+  <div class="bar" role="search">
+    <span class="search" style="width:320px"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="currentColor" fill="none" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6"/></svg>Search questions and answers</span>
+    <span class="select" style="width:168px">All categories <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span>
+    <span class="select set" style="width:168px">vertuo-omni-loop <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span>
+    <span class="select" style="width:168px">All PRDs <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span>
+    <span class="btn ghost">More filters <svg class="chev" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span>
+    <span class="grow"></span>
+    <span class="count">3 of 4 · <a href="#">Clear filters</a></span>
+  </div>
+  <div style="margin-top:16px">
+    <p class="day">Today <span class="n">3</span></p>
+    <a class="row" href="#" data-primary><span class="row-main"><span class="ctx">vertuo-omni-loop · PRD 71 · /omni:brainstorm</span><span class="q">Where should the page live?</span><span class="a">→ <b>The galaxy app</b> · ADA, in the terminal</span></span><span class="end"><span class="age">2 h ago</span><span class="badge">Product</span></span></a>
+    <a class="row" href="#"><span class="row-main"><span class="ctx">vertuo-omni-loop · PRD 71 · /omni:brainstorm</span><span class="q">How should the questions reach the page?</span><span class="a">→ <b>Hook mode + nudge</b> · PAULA, on the page</span></span><span class="end"><span class="age">2 h ago</span><span class="badge">Architecture</span></span></a>
+    <a class="row" href="#"><span class="row-main"><span class="ctx">vertuo-omni-loop · PRD 71 · /omni:brainstorm</span><span class="q">Which sign-in should the page use?</span><span class="a">→ <b>Google sign-in through the galaxy</b> · ADA, on the page</span></span><span class="end"><span class="age">3 h ago</span><span class="badge">Access</span></span></a>
+    <p class="day">Nov 20 <span class="n">1</span></p>
+    <a class="row" href="#"><span class="row-main"><span class="ctx">nimbus-app · PRD 94 · /omni:yolo · 2 screenshots</span><span class="q">How long should the free trial last?</span><span class="a">→ <b>14 days</b> · ADA, on the page</span></span><span class="end"><span class="age">3 days ago</span><span class="badge">Business</span></span></a>
+  </div>
+</div>
+</section>
+
+<!-- B -->
+<section class="variant">
+<h2><span class="letter">B</span> Filter chips, like GitHub's</h2>
+<p class="why">A full-width search, then a line of dashed chips, one per filter. A chip opens its choices, turns solid once set, and has an × to clear it. Nothing to submit. Rows like Open, with the answer on its own line.</p>
+<div class="frame" data-screen="B">
+  <div class="inbox-title-row"><h1 class="inbox-title">Inbox</h1><span class="inbox-count">1 waits on you</span></div>
+  <nav class="tabs"><a class="tab" href="#">Open <span class="pill">1</span></a><a class="tab on" href="#">Done</a><a class="tab" href="#">Workspace</a></nav>
+  <div style="display:grid;gap:10px" role="search">
+    <span class="search"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="currentColor" fill="none" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6"/></svg>Search questions and answers</span>
+    <div class="bar">
+      <span class="chip">+ Category</span><span class="chip set">Repository: vertuo-omni-loop <span class="x">×</span></span><span class="chip">+ PRD</span><span class="chip">+ Skill</span><span class="chip">+ Asked by</span><span class="chip">+ Answered by</span>
+      <span class="grow"></span><span class="count">3 answered</span>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <p class="day">Today <span class="n">3</span></p>
+    <a class="row" href="#" data-primary><span class="row-main"><span class="ctx">Product · vertuo-omni-loop · PRD 71</span><span class="q">Where should the page live?</span><span class="a"><b>The galaxy app</b></span></span><span class="end"><span class="age">05:50</span><span class="badge">ADA</span></span></a>
+    <a class="row" href="#"><span class="row-main"><span class="ctx">Architecture · vertuo-omni-loop · PRD 71</span><span class="q">How should the questions reach the page?</span><span class="a"><b>Hook mode + nudge</b></span></span><span class="end"><span class="age">05:44</span><span class="badge">PAULA</span></span></a>
+    <a class="row" href="#"><span class="row-main"><span class="ctx">Access · vertuo-omni-loop · PRD 71</span><span class="q">Which sign-in should the page use?</span><span class="a"><b>Google sign-in through the galaxy</b></span></span><span class="end"><span class="age">05:12</span><span class="badge">ADA</span></span></a>
+  </div>
+</div>
+</section>
+
+<!-- C -->
+<section class="variant">
+<h2><span class="letter">C</span> Categories as tabs, like Open's kinds</h2>
+<p class="why">The Open tab already filters with a segmented control. Done does the same for its categories, with counts. The search and two selects sit beside it on one line, and the rest go under More. The two tabs then read as one page.</p>
+<div class="frame" data-screen="C">
+  <div class="inbox-title-row"><h1 class="inbox-title">Inbox</h1><span class="inbox-count">1 waits on you</span></div>
+  <nav class="tabs"><a class="tab" href="#">Open <span class="pill">1</span></a><a class="tab on" href="#">Done</a><a class="tab" href="#">Workspace</a></nav>
+  <div style="display:grid;gap:12px" role="search">
+    <div class="seg"><a class="on" href="#">All<span class="n">4</span></a><a href="#">Product<span class="n">1</span></a><a href="#">Architecture<span class="n">1</span></a><a href="#">Access<span class="n">1</span></a><a href="#">Business<span class="n">1</span></a></div>
+    <div class="bar">
+      <span class="search" style="width:300px"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="currentColor" fill="none" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6"/></svg>Search</span>
+      <span class="select" style="width:180px">All repositories <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span>
+      <span class="select" style="width:150px">Anyone answered <svg class="chev" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4" stroke="currentColor" fill="none" stroke-width="1.6"/></svg></span>
+      <span class="btn ghost">More</span>
+      <span class="grow"></span><span class="count">4 answered</span>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <p class="day">Today <span class="n">3</span></p>
+    <a class="row" href="#" data-primary><span class="row-main"><span class="ctx">vertuo-omni-loop · PRD 71 · asked by ADA</span><span class="q">Where should the page live?</span><span class="a">→ <b>The galaxy app</b></span></span><span class="end"><span class="age">2 h ago</span><span class="badge success">answered in the terminal</span></span></a>
+    <a class="row" href="#"><span class="row-main"><span class="ctx">vertuo-omni-loop · PRD 71 · asked by ADA</span><span class="q">How should the questions reach the page?</span><span class="a">→ <b>Hook mode + nudge</b></span></span><span class="end"><span class="age">2 h ago</span><span class="badge success">answered by PAULA</span></span></a>
+    <p class="day">Nov 20 <span class="n">1</span></p>
+    <a class="row" href="#"><span class="row-main"><span class="ctx">nimbus-app · PRD 94 · asked by PAULA</span><span class="q">How long should the free trial last?</span><span class="a">→ <b>14 days</b></span></span><span class="end"><span class="age">3 days ago</span><span class="badge success">answered by ADA</span></span></a>
+  </div>
+</div>
+</section>
+
+<!-- D -->
+<section class="variant">
+<h2><span class="letter">D</span> A filter rail beside the list</h2>
+<p class="why">The filters move into a 220 px column on the left, each a short list of values with counts, as in an email client. The results start at the top, right under the tabs. On a phone, the rail folds into one Filters button.</p>
+<div class="frame" data-screen="D">
+  <div class="inbox-title-row"><h1 class="inbox-title">Inbox</h1><span class="inbox-count">1 waits on you</span></div>
+  <nav class="tabs"><a class="tab" href="#">Open <span class="pill">1</span></a><a class="tab on" href="#">Done</a><a class="tab" href="#">Workspace</a></nav>
+  <div class="split">
+    <aside class="rail" aria-label="Filters">
+      <span class="search"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="currentColor" fill="none" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6"/></svg>Search</span>
+      <div><h3>Category</h3><div class="opt on"><span>All</span><span>4</span></div><div class="opt"><span>Product</span><span>1</span></div><div class="opt"><span>Architecture</span><span>1</span></div><div class="opt"><span>Business</span><span>1</span></div></div>
+      <div><h3>Repository</h3><div class="opt on"><span>All</span><span>4</span></div><div class="opt"><span>vertuo-omni-loop</span><span>3</span></div><div class="opt"><span>nimbus-app</span><span>1</span></div></div>
+      <div><h3>Answered by</h3><div class="opt on"><span>Anyone</span><span>4</span></div><div class="opt"><span>ADA</span><span>3</span></div><div class="opt"><span>PAULA</span><span>1</span></div></div>
+    </aside>
+    <div>
+      <p class="day">Today <span class="n">3</span></p>
+      <a class="row" href="#" data-primary><span class="row-main"><span class="ctx">vertuo-omni-loop · PRD 71 · /omni:brainstorm</span><span class="q">Where should the page live?</span><span class="a">→ <b>The galaxy app</b> · ADA</span></span><span class="end"><span class="age">2 h ago</span><span class="badge">Product</span></span></a>
+      <a class="row" href="#"><span class="row-main"><span class="ctx">vertuo-omni-loop · PRD 71 · /omni:brainstorm</span><span class="q">How should the questions reach the page?</span><span class="a">→ <b>Hook mode + nudge</b> · PAULA</span></span><span class="end"><span class="age">2 h ago</span><span class="badge">Architecture</span></span></a>
+      <p class="day">Nov 20 <span class="n">1</span></p>
+      <a class="row" href="#"><span class="row-main"><span class="ctx">nimbus-app · PRD 94 · /omni:yolo</span><span class="q">How long should the free trial last?</span><span class="a">→ <b>14 days</b> · ADA</span></span><span class="end"><span class="age">3 days ago</span><span class="badge">Business</span></span></a>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- E -->
+<section class="variant">
+<h2><span class="letter">E</span> Search first, filters in one popover, a table</h2>
+<p class="why">Just a search box and one Filters button with a count. It opens all six filters in a popover, and each filter that is set shows as a removable chip. The results are a dense table: question, answer, who, category, when. That is the most rows per screen. (The word pass notes that each question's link is a whole sentence: the question is the link on purpose here.)</p>
+<div class="frame" data-screen="E">
+  <div class="inbox-title-row"><h1 class="inbox-title">Inbox</h1><span class="inbox-count">1 waits on you</span></div>
+  <nav class="tabs"><a class="tab" href="#">Open <span class="pill">1</span></a><a class="tab on" href="#">Done</a><a class="tab" href="#">Workspace</a></nav>
+  <div class="bar pop" role="search">
+    <span class="search grow" style="max-width:520px"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" stroke="currentColor" fill="none" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6"/></svg>Search questions and answers</span>
+    <span class="btn">Filters <span class="badge accent">1</span></span>
+    <span class="chip set">Repository: vertuo-omni-loop <span class="x">×</span></span>
+    <span class="grow"></span><span class="count">3 of 4</span>
+  </div>
+  <table class="table" style="margin-top:16px">
+    <thead><tr><th>Question</th><th>Answer</th><th>Answered by</th><th>Category</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td class="q"><a href="#" data-primary>Where should the page live?</a></td><td class="a">The galaxy app</td><td class="a">ADA · terminal</td><td><span class="badge">Product</span></td><td class="age">2 h ago</td></tr>
+      <tr><td class="q"><a href="#">How should the questions reach the page?</a></td><td class="a">Hook mode + nudge</td><td class="a">PAULA · page</td><td><span class="badge">Architecture</span></td><td class="age">2 h ago</td></tr>
+      <tr><td class="q"><a href="#">Which sign-in should the page use?</a></td><td class="a">Google sign-in through the galaxy</td><td class="a">ADA · page</td><td><span class="badge">Access</span></td><td class="age">3 h ago</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+</body>
+</html>
