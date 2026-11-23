@@ -99,9 +99,9 @@ describe('readyStore — the e2e fallback\'s runner job, sent by the App (PRD 28
   });
 
   it('queues the line sent by the app, never in a person\'s name', async () => {
-    const db = recordingFetch([[{ id: 'ws-1' }], [], [], [{ id: 'job-1' }]]);
+    const db = recordingFetch([[{ id: 'ws-1' }], [], [], [{ id: 'runner-1' }], [{ id: 'job-1' }]]);
     expect(await storeOn(db.fetch).queueApp(ASKED)).toEqual({ job: 'job-1', created: true, reason: null });
-    const insert = nth(db.requests, 3);
+    const insert = nth(db.requests, 4);
     expect([insert.method, insert.path]).toEqual(['POST', '/rest/v1/runner_jobs']);
     expect(insert.body).toEqual({ workspace_id: 'ws-1', repo: 'acme/widgets', line: LINE, sent_by_app: 'omni-app' });
   });
