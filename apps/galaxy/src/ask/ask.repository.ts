@@ -105,10 +105,9 @@ export function askHistoryRepository(db: AskHistoryDb) {
     /** Up to `size` answered or moved rounds under the filters, newest first, after the round `before`
      * names (none from the newest), each with its session id. The search column is never read. */
     async page(filters: AskHistoryFilters, before: string | null, size: number): Promise<RoundWithSession[]> {
-      // The client knows no function's columns (it types a select on one as nulls): the rows are read as
-      // the migration returns them, as every rpc's here is.
-      const rows = settle<unknown>('read the history', await db.rpc('ask_history_page', { filters, before, page_size: size }).select(`${ROUND}, session_id`));
-      return Array.isArray(rows) ? (rows as RoundWithSession[]) : [];
+      // The client knows no function's columns: the select names the row, and the answer is a list.
+      const rows = settle('read the history', await db.rpc('ask_history_page', { filters, before, page_size: size }).select<string, RoundWithSession>(`${ROUND}, session_id`));
+      return Array.isArray(rows) ? rows : [];
     },
 
     /** Each category's rounds under every filter but the category (`matched`) and under none (`total`). */

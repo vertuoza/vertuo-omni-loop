@@ -6,12 +6,18 @@ vi.mock('../ask/page/history-live', () => ({ readHistoryLive: () => Promise.reje
 import type { User } from '@supabase/supabase-js';
 import { DEMO_TEAMMATE } from '../ask/page/demo';
 import type { HistoryRead } from '../ask/page/history-live';
-import { readHistory } from '../ask/page/source';
+import { readHistory, type Db, type SortDb } from '../ask/page/source';
 import type { RoundRow, SessionRow } from '../ask/page/view';
 import { historyDatabase } from '../ask/page/workspace-history.fake';
 import type { HistoryFilters, HistoryRow } from '../ask/page/workspace-history';
 import type { MemberSession } from '../data/member-session';
 import { doneViewOf, inboxViewOf, type DoneView } from './inbox.controller';
+
+/** The stub of the history's two functions, as the client it stands in for. */
+function stubbed(rows: HistoryRow[]) {
+  const stub = historyDatabase(rows);
+  return { ...stub, db: stub.db as unknown as Db & SortDb };
+}
 
 // The Inbox's controller (PRD omni-loop-22, s5): who reads the page decides what it draws, and the Done
 // tab's history, or why it could not be read. Since PRD omni-loop-23 the history is read a page at a
@@ -57,7 +63,7 @@ function answered(n: number, session: SessionRow = API, patch: Partial<RoundRow>
 
 /** The Done tab read from `rows` as the database would page and count them. */
 function done(rows: HistoryRow[]) {
-  const database = historyDatabase(rows);
+  const database = stubbed(rows);
   const read = async (filters: HistoryFilters): Promise<HistoryRead> => ({ kind: 'page', ...(await readHistory(database.db, filters)), members: [] });
   const view = async (query: Record<string, string>) => {
     const drawn = await doneViewOf(query, NOW, read);
@@ -91,7 +97,7 @@ describe('the Done tab', () => {
   });
 
   it('says the history is unreachable when the database refuses its read', async () => {
-    const database = historyDatabase([answered(1)]);
+    const database = stubbed([answered(1)]);
     database.state.fail = { code: '08006', message: 'connection lost' };
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     const failing = async (filters: HistoryFilters): Promise<HistoryRead> => ({ kind: 'page', ...(await readHistory(database.db, filters)), members: [] });

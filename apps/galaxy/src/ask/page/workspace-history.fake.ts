@@ -3,7 +3,6 @@
 // sessions they belong to. What the two functions read in the database (row-level security, the
 // search's words, the cursor) is proved by supabase/checks/ask_history_page.sql, not here: this proves
 // what the app asks of them and what it makes of their answers. Every call is recorded.
-import type { Db, SortDb } from './source';
 import { historyFacetsOf, historyPageOf, type HistoryFilters, type HistoryRow } from './workspace-history';
 
 type Args = { filters?: HistoryFilters; before?: string | null; page_size?: number };
@@ -49,6 +48,7 @@ export function historyDatabase(rows: HistoryRow[]) {
       }),
     }),
   };
-  // The stub answers only the calls the history's read sends, so it is not a whole Supabase client.
-  return { db: db as unknown as Db & SortDb, calls, state };
+  // The stub answers only the calls the history's read sends, so it is not a whole Supabase client: a
+  // test casts it to the one it stands in for.
+  return { db, calls, state };
 }

@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { AskStoreError } from './rows';
-import { readHistory } from './page/source';
+import { readHistory, type Db, type SortDb } from './page/source';
 import type { RoundRow, SessionRow } from './page/view';
 import { historyDatabase } from './page/workspace-history.fake';
 import type { HistoryRow } from './page/workspace-history';
+
+/** The stub of the two functions, as the client it stands in for. */
+function stubbed(rows: HistoryRow[]) {
+  const stub = historyDatabase(rows);
+  return { ...stub, db: stub.db as unknown as Db & SortDb };
+}
 
 // The history's read (PRD omni-loop-23, ADR-0171): one page and the counts, asked of the database's
 // two functions (ask_history_page, ask_history_facets) as the caller, in place of the newest thousand
@@ -21,7 +27,7 @@ const round = (n: number, patch: Partial<RoundRow> = {}): HistoryRow => ({
 
 describe('the history, read in the database', () => {
   it('asks for one round more than a page, to tell whether an older page follows, and never reads the search column', async () => {
-    const database = historyDatabase([round(1), round(2), round(3)]);
+    const database = stubbed([round(1), round(2), round(3)]);
     const page = await readHistory(database.db, { repo: 'acme/api' }, 2);
     expect(database.calls.map((c) => [c.name, c.args])).toEqual([
       ['ask_history_page', { filters: { repo: 'acme/api' }, before: null, page_size: 3 }],
@@ -36,7 +42,7 @@ describe('the history, read in the database', () => {
   });
 
   it('sends the cursor apart from the filters, and reads the last page with no cursor after it', async () => {
-    const database = historyDatabase([round(1), round(2), round(3)]);
+    const database = stubbed([round(1), round(2), round(3)]);
     const page = await readHistory(database.db, { before: uuid(2) }, 2);
     expect(database.calls[0]?.args).toEqual({ filters: {}, before: uuid(2), page_size: 3 });
     expect(page.rows.map((r) => r.round.id)).toEqual([uuid(1)]);
@@ -44,7 +50,7 @@ describe('the history, read in the database', () => {
   });
 
   it('reads an empty page, and still the counts, for a cursor that is no round\'s id', async () => {
-    const database = historyDatabase([round(1)]);
+    const database = stubbed([round(1)]);
     const page = await readHistory(database.db, { before: 'demo-round-trial' });
     expect(database.calls.map((c) => c.name)).toEqual(['ask_history_facets']);
     expect(page).toMatchObject({ rows: [], next: null });
@@ -52,7 +58,7 @@ describe('the history, read in the database', () => {
   });
 
   it('reads nothing when there is nothing, and throws when the database fails', async () => {
-    const database = historyDatabase([]);
+    const database = stubbed([]);
     expect(await readHistory(database.db)).toMatchObject({ rows: [], next: null });
     database.state.fail = { code: '08006', message: 'connection lost' };
     await expect(readHistory(database.db)).rejects.toBeInstanceOf(AskStoreError);
