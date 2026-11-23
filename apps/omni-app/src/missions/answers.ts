@@ -27,8 +27,14 @@ const BUILT = 'A';
 /** `mandate.hardToRevert`'s default (kit/lib/mission/brief.ts): the bound of a mission whose brief names none. */
 export const DEFAULT_BOUND = 0.6;
 
+/**
+ * An item committee's decision once recorded: carried or escalated, as an approval's; or deferred (PRD omni-loop-21 s8), with the
+ * option it takes meanwhile, open for a person on the mission pull request. A deferred item lets its PRD go on, as a carried one does.
+ */
+export type ItemVerdict = Decision | { outcome: 'deferred'; why: string[]; verdicts?: Decision['verdicts']; option: string };
+
 /** One item committee the mission sent: its PRD, the item, its job and the job's attempt, and its decision once recorded. */
-export type ItemCommittee = { prd: PrdNumber; item: string; job: string; attempt: Attempt; decision: Decision | null };
+export type ItemCommittee = { prd: PrdNumber; item: string; job: string; attempt: Attempt; decision: ItemVerdict | null };
 
 /** An item open at a feature pull request's head: its id and its rank, both null for one that does not read. */
 export type OpenAt = { id: string | null; rank: string | null };
@@ -48,13 +54,19 @@ export function itemOfLine(line: string): { prd: PrdNumber; item: string } | nul
   return match && prd.success ? { prd: prd.data, item: match[2] ?? '' } : null;
 }
 
-/** Each item committee's decision as its events recorded it: `decided` carried, `escalated` escalated; none while neither is. */
+/** The kinds of event an item committee's decision is recorded as. */
+const DECISION_KINDS: ReadonlySet<string> = new Set(['decided', 'deferred', 'escalated']);
+
+/** A decision as its event names it: `decided` carried, `deferred` deferred with option A (PRD omni-loop-21 s8), `escalated` escalated. */
+function decisionOfKind(kind: string | undefined): ItemVerdict | null {
+  if (kind === 'decided') return { outcome: 'carried', why: [] };
+  if (kind === 'deferred') return { outcome: 'deferred', why: [], option: BUILT };
+  return kind === 'escalated' ? { outcome: 'escalated', why: [] } : null;
+}
+
+/** Each item committee's decision as its events recorded it: carried, deferred or escalated; none while none is. */
 export function withDecisions(committees: readonly Omit<ItemCommittee, 'decision'>[], recorded: readonly RecordedEvent[]): ItemCommittee[] {
-  return committees.map((one) => {
-    const kind = recorded.find((event) => event.job === one.job && (event.kind === 'decided' || event.kind === 'escalated'))?.kind;
-    const decision: Decision | null = kind === 'decided' ? { outcome: 'carried', why: [] } : kind === 'escalated' ? { outcome: 'escalated', why: [] } : null;
-    return { ...one, decision };
-  });
+  return committees.map((one) => ({ ...one, decision: decisionOfKind(recorded.find((event) => event.job === one.job && DECISION_KINDS.has(event.kind))?.kind) }));
 }
 
 /** What a PRD's open items come to at `alone`: the items to send to the committee, whether one is being decided, and why a person is needed. */
@@ -104,7 +116,8 @@ const cut = (text: string): string => (text.length <= SENTENCE_MAX ? text : `${t
 
 /**
  * What each item committee says: its dispatch, signed `supervisor`; then, once recorded, its decision, signed `pm` (the chair) and
- * `agent`: `decided` when the fleet answered the item, `escalated` with why when it went to a person. A decision read back from the
+ * `agent`: `decided` when the fleet answered the item, `deferred` with the option it took meanwhile, `escalated` with why when it went
+ * to a person. A decision read back from the
  * events carries no why: its event is already recorded, and the run records nothing twice.
  */
 export function answerEvents(committees: readonly ItemCommittee[], where: string): NewEvent[] {
@@ -112,10 +125,17 @@ export function answerEvents(committees: readonly ItemCommittee[], where: string
     const n = `PRD ${String(one.prd)}`;
     const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: cut(`Sent ${askPrefix(one.prd, one.item)} to ${where}.`) };
     if (one.decision === null) return [sent];
-    const decided: NewEvent =
-      one.decision.outcome === 'carried'
-        ? { kind: 'decided', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: cut(`The committee answered ${one.item} of ${n} with option ${BUILT}: ${verdictWords(one.decision.verdicts) ?? 'every member who sat answered yes'}.`) }
-        : { kind: 'escalated', role: 'pm', prd: one.prd, job: one.job, link: null, sentence: cut(`${one.item} of ${n} goes to a person: ${one.decision.why.join('; ') || 'the committee sent it to you'}`) };
-    return [sent, decided];
+    const words = decidedWords(one.item, n, one.decision);
+    return [sent, { role: 'pm', prd: one.prd, job: one.job, link: null, kind: words.kind, sentence: cut(words.sentence) }];
   });
+}
+
+/** What a recorded decision says, signed `pm` (the chair): `decided`, `deferred` with the option it took meanwhile (PRD omni-loop-21 s8), or `escalated`. */
+function decidedWords(item: string, n: string, decision: ItemVerdict): Pick<NewEvent, 'kind' | 'sentence'> {
+  if (decision.outcome === 'carried') return { kind: 'decided', sentence: `The committee answered ${item} of ${n} with option ${BUILT}: ${verdictWords(decision.verdicts) ?? 'every member who sat answered yes'}.` };
+  if (decision.outcome === 'deferred') {
+    const why = decision.why.join('; ') || 'not every member who sat answered yes';
+    return { kind: 'deferred', sentence: `The committee deferred ${item} of ${n}: option ${decision.option} meanwhile, open for a person on the mission pull request (${why}).` };
+  }
+  return { kind: 'escalated', sentence: `${item} of ${n} goes to a person: ${decision.why.join('; ') || 'the committee sent it to you'}` };
 }

@@ -88,12 +88,15 @@ import type { ClaimedJob, RefreshJob } from '../jobs/ledger.ts';
 import { checkPayloadOf, MissionJobDataSchema } from '../jobs/payloads.ts';
 import type { JobHandler, JobResult } from '../jobs/worker.ts';
 import { noteTo } from '../run-log/run-log.ts';
-import type { MissionBranches } from './branch.ts';
+import { prepareAll, scopeRepos, type MissionBranches } from './branch.ts';
+import { heldWords } from './expand.ts';
+import type { MissionPrd } from './store.prd.ts';
 import { levelRefusal } from 'omni-loop/kit/lib/mission/brief.ts';
+import { resumeCap } from './resume.ts';
 import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
-import { answeredOf, withDecisions, type ItemCommittee, type OpenAt } from './answers.ts';
-import { recordedOf, sendsCommittees, type Committee, type Decision } from './committee.ts';
+import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
+import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
 import { addedOf, isOwnJob, pmDispatched, pmEvents, pmNext, pmWorking, withAdded, withPm, type PmJob } from './pm.ts';
 import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
 import { planJobLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
@@ -101,11 +104,12 @@ import { retroSkillLine } from './milestone.ts';
 import type { MissionAnswers } from './settle.ts';
 import type { MissionDrops, Reopened } from './drop.ts';
 import { checksOf, judge, type OpenItems } from './gate.ts';
-import type { MissionJoins } from './join.ts';
+import { joinProduct, type MissionJoins } from './join.ts';
 import { careLine, keptWaits, type FeatureAt, type MissionKeepUps } from './keep-up.ts';
 import { landedBy, missionPullBody, missionPullTitle, type LandingAt, type LandingRow, type MissionLandings, type MissionPull } from './landing.ts';
-import type { MissionRecord, MissionRetros, MissionStore } from './store.ts';
-import { readRepairs, type RepairRunAt } from './repair-run.ts';
+import type { FleetDecision as StoredDecision, MissionProducts, MissionRecord, MissionRetros, MissionStore, NewStoredEvent, StoredEvent, StoredProduct } from './store.ts';
+import { readOutsideBugs, readRepairs, sendOutsideBugs, type RepairRunAt } from './repair-run.ts';
+import { outsideEvents } from './outside-bug.ts';
 import { readQa } from './qa-run.ts';
 import { overCap, runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
@@ -118,7 +122,14 @@ import type { MissionBugIssues } from './bug-team.github.ts';
 import type { MissionKits } from './repair.github.ts';
 import {
   baseOf,
+  basesOf,
   conclude,
+  cut,
+  lineOf,
+  productStateOf,
+  withProducts,
+  type ProductRun,
+  type ProductsRun,
   eventsOf,
   featurePrOf,
   landedOf,
@@ -129,6 +140,7 @@ import {
   prdStates,
   recordedKeys,
   roomOn,
+  unrecorded,
   WAKE_MS,
   waitsForMerge,
   whereOf,
@@ -224,9 +236,10 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, off, installation: ready.installation, joins: github.joins, hold: held.hold });
   if (kept.hold === null) await missionPull({ store, at, mission, landing, on: [...branch.joined], facts, runs, github });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
-  const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered };
+  const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered, resumes: resumeCap(mission) };
   const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
+  const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
   // The PM plans a PRD with no plan before its approval, and replans one stopped once its repairs are spent (PRD omni-loop-21 s9).
   const planAt: PlanAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
   const before = withPlans(prdStates(facts, runs, branch, view, fleet, repairView, qa), planAt);
@@ -240,15 +253,17 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const states = after.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after.retro });
   const fresh = sent.length + approved.length + asked.length + repaired.length;
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits]);
-  const concluded = withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString());
+  const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString()), products, now);
   const finished: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
-  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa });
+  const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const retro = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...events, ...retro.events], new Date(now));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside, ...products.events, ...events, ...retro.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
-  return { next, running: atWork(states, retro.running), moved, sent: sent.length + repaired.length, events: events.length + retro.events.length };
+  const running = atWork(states, retro.running) || products.moving;
+  return { next, running, moved, sent: sent.length + repaired.length + products.sent, events: events.length + retro.events.length + products.events.length };
 }
 
 /** Whether a PRD's job or its repair is at work, or a stuck repair or a milestone retro (`retros`, PRD 3065). */
@@ -262,6 +277,30 @@ async function repairsOf(at: RepairRunAt): Promise<{ repairView: RepairView; stu
   const read = await readRepairs(at);
   const stuck = at.store.retros === undefined ? NO_STUCK : await readStuck({ ...at, retros: at.store.retros, rows: read.rows });
   return { repairView: { ...read, rows: [...read.rows.filter((row) => !isStuckRow(row)), ...stuck.rows], stuck: stuck.jobs }, stuck };
+}
+
+/** What a run's outside bugs are read from (PRD omni-loop-21 s11): the mission, its runs and repairs, its branch and GitHub, where its jobs go. */
+type OutsideAt = Pick<RepairRunAt, 'store' | 'mission' | 'runs' | 'recorded' | 'branch' | 'installation' | 'joins'> & {
+  repairs: RepairView;
+  toFleet: boolean;
+  /** Whether the run may send at all: its PRDs can be built (the mission branch ready). */
+  sends: boolean;
+};
+
+/**
+ * The Engineer's outside bugs (PRD omni-loop-21 s11, ./repair-run.ts), at `alone` only and never in an `omni-bugs` mission, while it
+ * runs or waits with its branch ready: each bug a Reviewer's, QA's or repair's job (a stuck repair's too) named outside the mission's
+ * PRDs read with where it stands, each fix that opened landed once green, the next bug's `/omni:bug-fix #<issue> --base <branch>` sent
+ * under `…:bug:<issue>:run:<k>`; the events not recorded yet, once. A store without the bug team's jobs reads none.
+ */
+async function outsideAll(at: OutsideAt): Promise<NewEvent[]> {
+  const team = at.store.bugTeam;
+  if (at.mission.level !== 'alone' || at.mission.kind === 'omni-bugs' || team === undefined || !at.sends || !sendsCommittees(at.mission.status)) return [];
+  const repairs = [...at.repairs.jobs, ...at.repairs.stuck.map(({ attempts }) => ({ prd: null, attempts }))];
+  const jobs = await team.jobs(at.mission.id);
+  const states = await readOutsideBugs({ ...at, repairs, jobs, logOf: (job) => at.store.committeeLog(job) });
+  const taken = await sendOutsideBugs(states, ({ issue, k, line }) => team.send({ mission: at.mission, issue, k, line, toFleet: at.toFleet }));
+  return unrecorded([...taken, ...outsideEvents(states)], recordedKeys(at.recorded));
 }
 
 /** What the run's retro steps work from (PRD 3065), once its events are known. */
@@ -438,9 +477,11 @@ async function sendAll({
   skill: 'yolo' | 'ultra-yolo';
 }): Promise<Run[]> {
   const sent: Run[] = [];
-  for (const { prd, run, step, fix } of pick({ mission, facts, states })) {
-    const made = await store.send({ mission, prd, run, step, toFleet, skill, ...(fix === undefined ? {} : { fix }) });
-    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }] });
+  for (const { prd, run, step, fix, resume } of pick({ mission, facts, states })) {
+    // A step sent again after it ended without its result line goes under its `:resume:<k>` key (PRD omni-loop-21 s10).
+    const again = resume === undefined ? {} : { resume };
+    const made = await store.send({ mission, prd, run, step, toFleet, skill, ...(fix === undefined ? {} : { fix }), ...again });
+    if (made !== null) sent.push({ prd, run, step, job: made, attempts: [{ id: made, status: 'queued', outcome: null, reason: null, prUrl: null }], ...again });
   }
   return sent;
 }
@@ -576,17 +617,34 @@ const waitsOnAnswers = (state: PrdState | undefined): boolean => state?.state ==
 /** The items a head lists by id; none when they were not read, or were read by ranks alone. */
 const listedOf = (items: OpenItems): readonly OpenAt[] | undefined => ('notRead' in items ? undefined : items.open);
 
-/** An ended item committee's decision: escalated as its log reads, or carried once the App settled the item on the feature branch. */
-async function decideAsk({ store, mission, runs, branch, installation, now, github }: AnswerRun, one: ItemCommittee): Promise<Decision> {
-  const log = one.attempt.status === 'done' ? await store.committeeLog(one.job) : null;
-  const { verdicts, decision } = answeredOf(one.prd, one, log);
-  if (decision.outcome === 'escalated') return decision;
+/**
+ * An ended item committee's decision (PRD omni-loop-21 s8): the members' vote read again from its log (./committee.ts ›
+ * itemDecisionOf). Carried, or deferred with option A, the App settles the item on the feature branch with option A, answered for
+ * the mission branch only; escalated as its log reads, or when it cannot be settled. Recorded once as the service
+ * (mission_decide_item()), whose answer is the decision kept.
+ */
+async function decideAsk(run: AnswerRun, one: ItemCommittee): Promise<ItemVerdict> {
+  const log = one.attempt.status === 'done' ? await run.store.committeeLog(one.job) : null;
+  const { verdicts, decision } = itemDecisionOf(one.prd, one, log);
+  const settled = decision.outcome === 'escalated' ? null : await settleAsk(run, one, verdicts);
+  const taken = settled === null || settled.ok ? decision : { outcome: 'escalated' as const, why: [settled.why], option: null };
+  const kept = await run.store.decideItem(run.mission, { prd: one.prd, item: one.item, job: one.job, verdicts, decision: taken });
+  if (kept.outcome === 'deferred') return { outcome: 'deferred', why: kept.why, verdicts, option: kept.option ?? 'A' };
+  return { outcome: kept.outcome, why: kept.why, verdicts };
+}
+
+/** An item the fleet carried or deferred, settled with option A on its PRD's feature branch; why it cannot be, when it cannot. */
+async function settleAsk(
+  { mission, runs, branch, installation, now, github }: AnswerRun,
+  one: ItemCommittee,
+  verdicts: ReturnType<typeof itemDecisionOf>['verdicts'],
+): Promise<{ ok: true } | { ok: false; why: string }> {
   const pr = featurePrOf(runs, one.prd);
   const answers = github.answers;
-  if (pr === null || installation === null || answers === null || branch.branch === null) return { outcome: 'escalated', why: ['the App cannot settle it here: no feature pull request or no GitHub access'] };
+  if (pr === null || installation === null || answers === null || branch.branch === null) return { ok: false, why: 'the App cannot settle it here: no feature pull request or no GitHub access' };
   const answer = { fleet: mission.fleet, option: 'A', branch: branch.branch, at: new Date(now).toISOString(), verdicts };
   const settled = await answers.settle({ installation, repo: mission.repo, prd: one.prd, pr, item: one.item, answer });
-  return settled.ok ? { ...decision, verdicts } : { outcome: 'escalated', why: [settled.why] };
+  return settled.ok ? { ok: true } : settled;
 }
 
 /** The item committees this run sends (PRD 2896 s10): one per high item of a PRD that waits on its committee, while the mission runs or waits. */
@@ -892,6 +950,161 @@ async function redBranch({ mission, at, joined, joins }: { mission: MissionRecor
   if (failed.length === 0) return NOT_KEPT;
   const why = `${at.branch} is red (${failed.map(({ name }) => name).join(', ')}) since PRD ${String(last)} joined: no further PRD joins; run ${dropLine(mission.number, last)} to take it off`;
   return { waits: [why], hold: why };
+}
+
+// ── Product PRDs (PRD omni-loop-21 s9b, item s7-05) ──────────────────────────────
+
+/** What a run did of the mission's product PRDs: what they leave for its conclusion, the events to record and the builds sent. */
+type ProductsDone = ProductsRun & { events: NewStoredEvent[]; sent: number };
+
+const NO_PRODUCTS: ProductsDone = { pending: false, moving: false, waits: [], events: [], sent: 0 };
+
+/** What a run's product PRDs are read from: the mission, its repository PRDs' states, its installation and GitHub. */
+type ProductAt = {
+  store: MissionStore;
+  mission: MissionRecord;
+  inPlan: boolean;
+  states: ReadonlyMap<PrdNumber, PrdState>;
+  installation: number | null;
+  toFleet: boolean;
+  /** Whether the run may send at all: its own branch ready. */
+  sends: boolean;
+  github: GitHubDeps;
+};
+
+/** The product PRDs on the mission branch, from the mission's events in order: joined, until dropped or landed. */
+function productsJoined(events: readonly StoredEvent[]): Set<MissionPrd> {
+  const on = new Set<MissionPrd>();
+  for (const { kind, product } of events) {
+    if (product === undefined) continue;
+    if (kind === 'prd-joined') on.add(product);
+    else if (kind === 'prd-dropped' || kind === 'prd-merged') on.delete(product);
+  }
+  return on;
+}
+
+/** The ids of each product PRD's items the fleet's committee carried or deferred (PRD omni-loop-21 s8): answered for the mission branch only. */
+function answeredOf(decisions: readonly StoredDecision[]): Map<MissionPrd, Set<string>> {
+  const answered = new Map<MissionPrd, Set<string>>();
+  for (const one of decisions) {
+    if (one.kind !== 'answer' || one.item === null || one.outcome === 'escalated') continue;
+    answered.set(one.prd, new Set([...(answered.get(one.prd) ?? []), one.item]));
+  }
+  return answered;
+}
+
+/** Where a run's product PRDs go: the mission branch, cut in every repository the scope touches, and the installation; or why not. */
+type ProductBranch = { ok: true; branch: string; installation: number } | { ok: false; why: string };
+
+/**
+ * The mission branch cut in each repository the scope touches (./branch.ts › scopeRepos, prepareAll), each kept once; why the product
+ * PRDs wait otherwise: no mission branch at `with-you`, the mission's own branch not ready, no GitHub.
+ */
+async function productBranch(at: ProductAt, facts: readonly StoredProduct[]): Promise<ProductBranch> {
+  const branch = baseOf(at.mission, at.inPlan);
+  if (branch === null) return { ok: false, why: 'a product PRD is built on mission branches: run the mission above with-you' };
+  if (!at.sends || at.installation === null) return { ok: false, why: `the mission branch ${branch} is not ready` };
+  if (at.github.branches === null) return { ok: false, why: `the mission branch ${branch} cannot be cut: the app has no GitHub access here` };
+  const targets = new Map(facts.map((fact) => [fact.prd, fact.targets] as const));
+  const repos = scopeRepos({ repo: at.mission.repo, prds: [...at.mission.scope.prds, ...facts.map((fact) => fact.prd)], targets });
+  // The mission's own repository was prepared before anything ran (branchReady): the others are cut here.
+  const others = repos.filter((repo) => repo.toLowerCase() !== at.mission.repo.toLowerCase());
+  const prepared = await prepareAll(at.github.branches, { installation: at.installation, repos: others, branch });
+  if (!prepared.ok) return { ok: false, why: prepared.why };
+  for (const repo of repos) await at.store.keepBranch(at.mission, { repo, branch });
+  return { ok: true, branch, installation: at.installation };
+}
+
+/**
+ * The mission's product PRDs (PRD omni-loop-21 s9b): the scope's product PRDs and each product roadmap's rows, read with the store's
+ * products, while one is not on the branch yet. Each held until its blockers joined, built once its approval stands with
+ * `/omni:ultra-yolo <id> --base-of …` into the mission branch of every repository its plan names, while the mission has a slot of
+ * `mandate.parallel` for it, and joined through the merge gate once its build ended Ready (./join.ts › joinProduct). A store or a
+ * mission with no product reads none, and the mission runs as before.
+ */
+async function productAll(at: ProductAt): Promise<ProductsDone> {
+  const products = at.store.products;
+  if (products === undefined || at.mission.products === undefined || !sendsCommittees(at.mission.status)) return NO_PRODUCTS;
+  const facts = await products.facts(at.mission);
+  const joined = productsJoined(await at.store.events(at.mission.id));
+  if (facts.length === 0) return NO_PRODUCTS;
+  const branch = baseOf(at.mission, at.inPlan) ?? 'the mission branch';
+  if (facts.every((fact) => joined.has(fact.prd))) return { ...NO_PRODUCTS, waits: [`every product PRD is on ${branch}: a person lands it`] };
+  const ready = await productBranch(at, facts);
+  if (!ready.ok) return { ...NO_PRODUCTS, pending: true, waits: [ready.why] };
+  const runs = await products.runs(at.mission.id);
+  const answered = answeredOf(await at.store.decisions(at.mission.id));
+  return productSteps({ ...at, ...ready, products, runs, joined, answered }, facts);
+}
+
+/** What a run's product steps work from, once the branch is ready. */
+type ProductSteps = ProductAt & {
+  branch: string;
+  installation: number;
+  products: MissionProducts;
+  runs: readonly ProductRun[];
+  joined: Set<MissionPrd>;
+  answered: ReadonlyMap<MissionPrd, ReadonlySet<string>>;
+};
+
+/** Each product PRD in scope order: its build sent, at work, joined, or what it waits on. */
+async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): Promise<ProductsDone> {
+  const done = new Set<MissionPrd>([...at.joined, ...[...at.states].flatMap(([prd, state]) => (state.state === 'merged' || state.state === 'joined' ? [prd] : []))]);
+  const where = { joined: at.joined, done, branch: at.branch };
+  const step: ProductStep = { room: at.mission.parallel - facts.filter((fact) => productStateOf(fact, at.runs, where).state === 'running').length, moving: false, waits: [], events: [] };
+  for (const fact of facts) {
+    await productStep(at, fact, productStateOf(fact, at.runs, where), step);
+    if (at.joined.has(fact.prd)) done.add(fact.prd);
+  }
+  const sent = step.events.filter((one) => one.kind === 'dispatched').length;
+  const pending = facts.some((fact) => !at.joined.has(fact.prd));
+  return { pending, moving: step.moving, waits: pending ? step.waits : [`every product PRD is on ${at.branch}: a person lands it`], events: step.events, sent };
+}
+
+/** What a run's product steps add up to as they go: the slots left, whether one moved, what they wait on, the events. */
+type ProductStep = { room: number; moving: boolean; waits: string[]; events: NewStoredEvent[] };
+
+/** One product PRD's step: its build sent while a slot is left, at work, joined once Ready, or what it waits on. */
+async function productStep(at: ProductSteps, fact: StoredProduct, state: ReturnType<typeof productStateOf>, step: ProductStep): Promise<void> {
+  if (state.state === 'running') step.moving = true;
+  else if (state.state === 'blocked') step.waits.push(heldWords(fact.prd, state.by, at.branch));
+  else if (state.state === 'waits') step.waits.push(state.why);
+  else if (state.state === 'startable' && step.room > 0) {
+    const sent = await sendProduct(at, fact, state.run);
+    if (sent !== null) step.events.push(sent);
+    step.moving = true;
+    step.room -= 1;
+  } else if (state.state === 'ready') {
+    const joined = await joinOneProduct(at, fact);
+    if ('lacks' in joined) step.waits.push(joined.lacks);
+    else {
+      step.events.push(joined.event);
+      at.joined.add(fact.prd);
+      step.moving = true;
+    }
+  }
+}
+
+/** A product PRD's build sent under its key, and its dispatch; null when its key was held already. */
+async function sendProduct(at: ProductSteps, fact: StoredProduct, run: number): Promise<NewStoredEvent | null> {
+  const line = lineOf(fact.prd, 'build', 'ultra-yolo', basesOf(fact.targets, at.branch));
+  const job = await at.products.send({ mission: at.mission, prd: fact.prd, run, line, toFleet: at.toFleet });
+  if (job === null) return null;
+  return { kind: 'dispatched', role: 'supervisor', prd: fact.prd, job, link: null, sentence: cut(`Sent ${line} to ${whereOf(at.mission, at.toFleet)} (run ${String(run)}).`) };
+}
+
+/** A product PRD whose build ended Ready, at the merge gate of every repository's mission branch: its `prd-joined`, or what it lacks. */
+async function joinOneProduct(at: ProductSteps, fact: StoredProduct): Promise<{ event: NewStoredEvent } | { lacks: string }> {
+  const joins = at.github.joins;
+  const lacks = (why: string): { lacks: string } => ({ lacks: cut(`PRD ${fact.prd} waits to join ${at.branch}: ${why}`) });
+  if (joins?.targets === undefined) return lacks('the app has no GitHub access to its target pull requests here');
+  const targets = await joins.targets({ installation: at.installation, repos: fact.targets, prd: fact.prd, branch: at.branch });
+  const answered = at.answered.get(fact.prd) ?? new Set<string>();
+  const joined = await joinProduct(joins, { installation: at.installation, targets, branch: at.branch, items: fact.items, answered });
+  if (!joined.joined) return lacks(joined.lacks.join('; '));
+  const named = joined.pulls.map(({ repo, pr }) => `${repo} #${String(pr)}`).join(', ');
+  const link = joined.pulls[0]?.url ?? null;
+  return { event: { kind: 'prd-joined', role: 'supervisor', prd: fact.prd, job: null, link, sentence: cut(`PRD ${fact.prd} joined ${at.branch}: ${named} squash-merged.`) } };
 }
 
 /** A PRD the merge gate judged: joined (merged now, or already), or what it lacks. */
