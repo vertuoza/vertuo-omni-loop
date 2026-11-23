@@ -170,7 +170,7 @@ describe('the Done tab', () => {
 
   it('is today’s Questions history', () => {
     const filters = {};
-    expect(done({ kind: 'history', items: [], choices: { repos: [], prds: [], skills: [], askedBy: [], answeredBy: [] }, filters })).not.toBe('');
+    expect(done({ kind: 'history', items: [], choices: { repos: [], prds: [], skills: [], askedBy: [], answeredBy: [] }, filters, categories: [], all: 0, now: 0 })).not.toBe('');
   });
 
   it('says why it could not be read', () => {
