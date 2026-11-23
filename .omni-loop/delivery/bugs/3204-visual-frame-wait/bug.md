@@ -18,7 +18,8 @@ The harness shot a screen once its heading and fonts were ready, without waiting
 the Specifications tab, the before/after page is a sandboxed iframe that a cold dev server compiles on
 its first request, so the first such shot sometimes caught it blank (23.86% of pixels). The wait
 (`apps/galaxy/scripts/settle.ts`) now waits for each iframe to leave about:blank, load and ready its
-fonts, and fails the run if one does not within two minutes. The demo's dates and the sidebar's
+fonts, starts over when a render replaces an iframe meanwhile (the Outbox tab's rail frames the same
+page), and fails the run if the frames are not ready within two minutes. The demo's dates and the sidebar's
 release also moved on every run: the harness now starts the demo with a pinned clock
 (`OMNI_LOOP_DEMO_NOW`, read by `src/data/demo-clock.ts`), pins the browser's clock to the same moment,
 and pins the release line, both to what the committed baselines show. No threshold or baseline changed.
