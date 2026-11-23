@@ -112,6 +112,59 @@
       ],
       "objection": null,
       "fit": "Fits every persona."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The readers hold on one line when the page is down, and the tests pin it; no quiet failure.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "Two reads and one export command, and it merged cleanly with the goal-only missions.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "I write a mission and press Start; nothing waits on me in git.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One record for a mission, and the hold covers the case I worried about.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Retros where I already look, and files when I ask for them.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "Fits every persona."
     }
   ]
 }
