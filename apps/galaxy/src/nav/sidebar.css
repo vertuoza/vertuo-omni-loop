@@ -111,6 +111,14 @@
   color: var(--ask-on-plasma);
   background: var(--ask-plasma);
 }
+/* A quiet count (Runners, omni-loop-22): grey digits, no fill. */
+.app-sidebar-badge-quiet {
+  min-width: 0;
+  padding: 0;
+  font-weight: 600;
+  color: var(--ask-muted);
+  background: none;
+}
 /* A section's sprite (issue 653): its own pixels at 16 px, never smoothed. */
 .app-sidebar-sprite { display: inline-flex; flex: none; line-height: 0; }
 .app-sidebar-sprite svg { image-rendering: pixelated; }
@@ -180,6 +188,9 @@
   .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-workspace,
   .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-links,
   .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-version { display: none; }
+
+  /* Only the Inbox's count shows in the rail, as a dot: a quiet count stays in the spoken name. */
+  .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-badge-quiet { display: none; }
 
   /* Dashboard and Work apart by a thin line. */
   .app-shell[data-menu='rail'] > .app-sidebar .app-sidebar-nav { gap: 12px; }

@@ -5,7 +5,7 @@ kind: page
 mock: waiting-board.html
 implements: [apps/galaxy/app/app/waiting/page.tsx, apps/galaxy/src/waiting-board/WaitingBoard.tsx, apps/galaxy/src/waiting-board/waiting-board.css, apps/galaxy/src/waiting-board/board.ts]
 reads: [apps/galaxy/src/waiting-board/load.ts, apps/galaxy/src/stages/sync/waits.ts, apps/galaxy/src/people/, apps/galaxy/src/nav/SectionTabs.tsx, apps/galaxy/src/product-filter/, apps/galaxy/src/nav/]
-routes: [/app/waiting]
+routes: [/app/inbox/workspace]
 supersedes: null
 ---
 
@@ -32,6 +32,9 @@ waits on them.
   - **For:** working days (Monday to Friday, UTC), `today` under one; red past
     `limits.escalationWorkingDays`.
 - The product filter, as on the other Work pages.
+
+- omni-loop-22: the board is the Inbox's Workspace tab, under the Inbox title and its tabs Open · Done ·
+  Workspace; its own tabs and rows are unchanged. /app/waiting redirects here, its ?tab= kept.
 
 ## States
 
@@ -65,3 +68,4 @@ PRDs waits on anyone. · Nothing waits on you.
 
 - /omni:brainstorm, PRD 2377: .omni-loop/delivery/shipped/2377-waiting-board/before-after.html
 - /omni:visual-fix #2408, pick B by @pierrederval on 2026-10-22: .omni-loop/delivery/visual/2408-stale-pill/before-after.html
+/omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after) (the board as the Inbox › Workspace tab)

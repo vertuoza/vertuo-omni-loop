@@ -7,8 +7,8 @@ import { pixelSvg } from '../design/pixel-svg';
 import type { ShellMode } from '../anti/anti';
 import { AntiLoopButton } from '../switch/AntiLoopButton';
 import { GameModeButton } from '../switch/GameModeButton';
+import { useWaiting } from '../waiting/WaitingProvider';
 import { useTrailItem } from './AppBarItem.tsx';
-import { Bell } from './Bell.tsx';
 import { useDrawer } from './drawer-context';
 import { pageTrail } from './sidebar.ts';
 import { SignInButton, UserMenu } from './UserMenu.tsx';
@@ -20,8 +20,8 @@ import './app-bar.css';
 // the page (issue 704): its group, a nested item's section, then the page, the crumbs above it links
 // back (next/link, PRD 657: no document load); a PRD's or a fix's page ends on its item, named by the
 // page (AppBarItem.tsx), and a PRD's review screen on Review for approval (omni-loop-20 s6). Then the theme switch and Game mode, both unchanged
-// (PRD 284, PRD 238), then, signed in, the bell that says what waits for you (PRD 499,
-// src/nav/Bell.tsx), then you: signed in, the avatar that opens the user menu; signed out, Sign in
+// (PRD 284, PRD 238), then, signed in, below 900 px only, the Inbox button that says what waits for you
+// (omni-loop-22 s7; the bell of PRD 499 is gone, the sidebar's Inbox row is the desktop's), then you: signed in, the avatar that opens the user menu; signed out, Sign in
 // with GitHub in its place. A section without a sprite, and a path under no item, show the OMNI LOOP
 // mark in the tile; the crest, linked home, is the sidebar's.
 // Below 900 px the sidebar hides: the bar opens with ☰, which opens it as a drawer.
@@ -31,6 +31,23 @@ import './app-bar.css';
 const MARK = logoSvg('mark', { scale: 1, title: null });
 /** The tile's picture: the section's sprite at 2×, or the mark. Decoration: the trail says the same. */
 const tileSvg = (sprite: string | null) => (sprite ? pixelSvg(spritePixels(sprite), { scale: 2, title: '' }) : MARK);
+
+/** What the Inbox button reads aloud: the total, or just Inbox when nothing waits. */
+const inboxName = (total: number) => (total > 0 ? `Inbox: ${total} waiting` : 'Inbox');
+
+/** The phone's Inbox button, in the bell's old 36 × 36 slot: the `menu-inbox` sprite, the plasma count (the
+ * waiting total, the one the sidebar's Inbox row, the tab's title and its icon dot show), linking to the
+ * Inbox. From 900 px the sidebar's row is the way in and CSS hides it (app-bar.css). */
+function InboxButton() {
+  const { counts } = useWaiting();
+  const total = counts.total;
+  return (
+    <Link className="app-bar-inbox" href="/app/inbox" aria-label={inboxName(total)}>
+      <span className="app-bar-inbox-sprite" aria-hidden="true" dangerouslySetInnerHTML={{ __html: pixelSvg(spritePixels('menu-inbox'), { scale: 2, title: '' }) }} />
+      {total > 0 && <span className="app-bar-inbox-badge" aria-hidden="true">{total}</span>}
+    </Link>
+  );
+}
 
 export function AppBar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: ShellMode }) {
   const trail = pageTrail(usePathname(), useTrailItem());
@@ -72,7 +89,7 @@ export function AppBar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: S
           <ThemeSwitch />
           <GameModeButton />
           <AntiLoopButton mode={mode} />
-          {viewer.signedIn && <Bell />}
+          {viewer.signedIn && <InboxButton />}
         </span>
         <span className="app-bar-you">
           {viewer.signedIn ? <UserMenu viewer={viewer} /> : <SignInButton />}

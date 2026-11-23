@@ -203,7 +203,7 @@ describe('one read failing', () => {
       { kind: 'question' as const, id: 'r2', sessionTitle: 'feat/both', question: 'Who reads it?', askedAt: 2, sharedBy: 'BOTH' },
     ]));
     const load = await loadDashboard(db, authUser(PEOPLE.ada) as unknown as User, '7d', NOW, questions);
-    expect(load).toMatchObject({ kind: 'dashboard', dashboard: { waiting: { count: 2, href: '/ask' } } });
+    expect(load).toMatchObject({ kind: 'dashboard', dashboard: { waiting: { count: 2, href: '/app/inbox' } } });
     expect(questions).toHaveBeenCalledTimes(1);
     expect(parts.waiting).not.toHaveBeenCalled();
   });

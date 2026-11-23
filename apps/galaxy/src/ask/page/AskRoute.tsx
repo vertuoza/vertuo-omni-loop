@@ -32,7 +32,7 @@ export type AskQuery = Record<string, string | string[] | undefined>;
 /** The person's own page: the Questions tabs above what it shows. */
 const tabbed = (node: ReactNode) => (
   <>
-    <QuestionsTabs current="/ask" />
+    <QuestionsTabs current="/app/inbox" />
     {node}
   </>
 );

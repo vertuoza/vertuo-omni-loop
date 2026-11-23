@@ -173,11 +173,21 @@ describe('the stage track', () => {
       { stage: 'inbox', reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' },
     ];
     const track = prdTrack(view({ ...born, approval: null, github: summary({ phase0: pr(220, 'merged') }), stages: rows }));
-    expect(track).toMatchObject({ stage: 'Inbox', progress: 'waits for your approval', tone: 'waiting' });
+    expect(track).toMatchObject({ stage: 'Ready', progress: 'waits for your approval', tone: 'waiting' });
     expect(track?.times).toEqual({
       PRD: 'PRD since 27 Sep 10:00 UTC · 24.0 h',
-      Inbox: 'Inbox since 28 Sep 10:00 UTC · 23.3 h · last synced 29 Sep 2026, 09:15 UTC',
+      Ready: 'Ready since 28 Sep 10:00 UTC · 23.3 h · last synced 29 Sep 2026, 09:15 UTC',
     });
+  });
+
+  it('AC-12: the app says Ready for the approved stage', () => {
+    const rows: StageRow[] = [
+      { stage: 'prd', reached_at: '2026-09-27T10:00:00Z', synced_at: '2026-09-27T10:00:00Z' },
+      { stage: 'inbox', reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-28T10:00:00Z' },
+    ];
+    const track = prdTrack(view({ ...born, approval: null, github: summary({ phase0: pr(220, 'merged') }), stages: rows }));
+    expect(track?.stages).toEqual(['Idea', 'PRD', 'Ready', 'Building', 'Outbox', 'Shipped', 'Retro']);
+    expect(track?.stages).not.toContain('Inbox');
   });
 
   it('words a span in days from 48 hours on, and a stage with no end as since alone', () => {

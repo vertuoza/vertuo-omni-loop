@@ -1,6 +1,6 @@
 import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
-import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
+import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, isQuiet, pageTrail, type SidebarItem } from './sidebar';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 
@@ -13,21 +13,23 @@ vi.mock('next/navigation', () => ({ redirect: (to: string) => void redirected.pu
 // the shell makes of a path, the item it falls under and the top bar's trail (issue 704).
 
 describe('SIDEBAR', () => {
-  it('holds Dashboard and Work, and no Settings group (PRD 733)', () => {
+  it('holds Inbox with no label, Dashboard and Work, and no Settings group (PRD 733, omni-loop-22)', () => {
     expect(SIDEBAR.map((g) => [g.id, g.label])).toEqual([
+      ['inbox', null],
       ['dashboard', 'Dashboard'],
       ['work', 'Work'],
     ]);
   });
 
   it('gives every Dashboard and Work section and Settings its own 16 px sprite, and Docs and Release notes none (issue 653, PRD 733)', () => {
-    const [dashboard, work] = SIDEBAR;
+    const [inbox, dashboard, work] = SIDEBAR;
+    assertDefined(inbox, 'the Inbox group');
     assertDefined(dashboard, 'the Dashboard group');
     assertDefined(work, 'the Work group');
-    const drawn = [...dashboard.items, ...work.items, SETTINGS];
+    const drawn = [...inbox.items, ...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
-      ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['runners', 'item-box'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
-      ['products', 'coin'], ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['waiting', 'menu-waiting'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
+      ['inbox', 'menu-inbox'], ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['runners', 'item-box'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
+      ['products', 'coin'], ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
     for (const item of drawn) expect([SPRITE_DEFS[present(item.sprite, item.id)]?.w, SPRITE_DEFS[present(item.sprite, item.id)]?.h], item.id).toEqual([16, 16]);
@@ -37,7 +39,7 @@ describe('SIDEBAR', () => {
   const rows = (items: readonly SidebarItem[]) => items.map((i) => [i.id, i.label, i.path, (i.pages ?? []).map((p) => [p.label, p.path])]);
 
   it('holds Home, Fleet, Loop beside it (PRD 1139), Runners after Loop (PRD 1830), Workspace, then Engineering (PRD 612), under Dashboard, in that order', () => {
-    const [dashboard] = SIDEBAR;
+    const [, dashboard] = SIDEBAR;
     assertDefined(dashboard, 'the Dashboard group');
     expect(rows(dashboard.items)).toEqual([
       ['home', 'Home', '/app', []],
@@ -50,8 +52,14 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds Products first (PRD 1364), Roadmaps (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Waiting (PRD 2377), Bug Fixes, Visual Updates, Questions and Knowledge under Work, Questions\' pages not drawn as menu lines (PRD 733)', () => {
-    const [, work] = SIDEBAR;
+  it('holds the Inbox alone, first, at /app/inbox, its pages Done and Workspace not drawn as menu lines (omni-loop-22)', () => {
+    const [inbox] = SIDEBAR;
+    assertDefined(inbox, 'the Inbox group');
+    expect(rows(inbox.items)).toEqual([['inbox', 'Inbox', '/app/inbox', [['Done', '/app/inbox/done'], ['Workspace', '/app/inbox/workspace']]]]);
+  });
+
+  it('holds Products first (PRD 1364), Roadmaps (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Bug Fixes, Visual Updates and Knowledge under Work: Questions and Waiting left for the Inbox (omni-loop-22)', () => {
+    const [, , work] = SIDEBAR;
     assertDefined(work, 'the Work group');
     expect(work.items[0]?.id).toBe('products');
     expect(rows(work.items)).toEqual([
@@ -60,10 +68,8 @@ describe('SIDEBAR', () => {
       ['ideas', 'Ideas', '/ideas', []],
       ['concepts', 'Concepts', '/concepts', []],
       ['prds', 'PRDs', '/prd', []],
-      ['waiting', 'Waiting', '/app/waiting', []],
       ['bugs', 'Bug Fixes', '/bugs', []],
       ['visual', 'Visual Updates', '/visual', []],
-      ['questions', 'Questions', '/ask', [['Shared with me', '/ask/for-me'], ['History', '/ask/history']]],
       ['knowledge', 'Knowledge', '/knowledge', []],
     ]);
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
@@ -129,19 +135,18 @@ describe('currentItem and pageTrail', () => {
     ['/prd', 'prds', 'Work › PRDs'],
     ['/prd/3f2a', 'prds', 'Work › PRDs'],
     ['/prd?who=all', 'prds', 'Work › PRDs'],
-    ['/app/waiting', 'waiting', 'Work › Waiting'],
-    ['/app/waiting?tab=mine', 'waiting', 'Work › Waiting'],
+    ['/app/inbox', 'inbox', 'Inbox'],
+    ['/app/inbox?kind=outbox', 'inbox', 'Inbox'],
+    ['/app/inbox/done', 'inbox', 'Inbox › Done'],
+    ['/app/inbox/workspace', 'inbox', 'Inbox › Workspace'],
+    ['/app/inboxes', 'home', 'Dashboard › Home'],
     ['/bugs', 'bugs', 'Work › Bug Fixes'],
     ['/bugs/3f2a', 'bugs', 'Work › Bug Fixes'],
     ['/visual', 'visual', 'Work › Visual Updates'],
     ['/visual/3f2a?tab=variations', 'visual', 'Work › Visual Updates'],
     ['/visualise', null, null],
-    ['/ask', 'questions', 'Work › Questions'],
-    ['/ask/7c1e', 'questions', 'Work › Questions'],
-    ['/ask/q/42', 'questions', 'Work › Questions'],
-    ['/ask/for-me', 'questions', 'Work › Questions › Shared with me'],
-    ['/ask/history', 'questions', 'Work › Questions › History'],
-    ['/ask/history?page=2', 'questions', 'Work › Questions › History'],
+    ['/ask/7c1e', 'inbox', 'Inbox'],
+    ['/ask/q/42', 'inbox', 'Inbox'],
     ['/knowledge', 'knowledge', 'Work › Knowledge'],
     ['/ideas/acme/widgets', 'ideas', 'Work › Ideas'],
     ['/ideasx', null, null],
@@ -166,17 +171,17 @@ describe('currentItem and pageTrail', () => {
   });
 
   it('links a page\'s section, and never its group, which has no page of its own', () => {
-    expect(pageTrail('/ask/for-me')?.crumbs).toEqual([
-      { label: 'Work' },
-      { label: 'Questions', path: '/ask' },
-      { label: 'Shared with me' },
+    expect(pageTrail('/app/inbox/done')?.crumbs).toEqual([
+      { label: 'Inbox', path: '/app/inbox' },
+      { label: 'Done' },
     ]);
+    expect(pageTrail('/ask/q/42')?.crumbs).toEqual([{ label: 'Inbox', path: '/app/inbox' }]);
   });
 
   it('links the last crumb back to its page from a page under it, and not on the page itself, whatever the query', () => {
     expect(pageTrail('/prd/3f2a')?.crumbs.at(-1)).toEqual({ label: 'PRDs', path: '/prd' });
     expect(pageTrail('/app/engineering/demo-org/pdf-builder')?.crumbs.at(-1)).toEqual({ label: 'Engineering', path: '/app/engineering' });
-    expect(pageTrail('/ask/history')?.crumbs.at(-1)).toEqual({ label: 'History' });
+    expect(pageTrail('/app/inbox/done')?.crumbs.at(-1)).toEqual({ label: 'Done' });
     expect(pageTrail('/prd')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
     expect(pageTrail('/prd/?who=all')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
     expect(pageTrail('/app/workspace#top')?.crumbs.at(-1)).toEqual({ label: 'Workspace' });
@@ -214,37 +219,29 @@ describe('currentItem and pageTrail', () => {
   it('carries the section\'s sprite, a page its section\'s, and none for an entry without one', () => {
     expect(pageTrail('/app/workspace')?.sprite).toBe('menu-workspace');
     expect(pageTrail('/prd/3f2a')?.sprite).toBe('menu-prds');
-    expect(pageTrail('/ask/history')?.sprite).toBe('menu-questions');
+    expect(pageTrail('/ask/q/42')?.sprite).toBe('menu-inbox');
     expect(pageTrail('/app/settings/fleets')?.sprite).toBe('menu-settings');
     expect(pageTrail('/docs')?.sprite).toBeNull();
   });
 });
 
 describe('badgeOf', () => {
-  const counts = { questions: 3, shared: 1, outbox: 2, approvals: 0, runners: 4, reviews: 6, total: 11 };
+  const counts = { questions: 3, shared: 1, outbox: 2, approvals: 1, runners: 4, reviews: 6, total: 12 };
 
-  it('gives Questions the Questions part, the shared ones included', () => {
-    expect(badgeOf('questions', counts)).toBe(3);
+  it('AC-1: gives Inbox the waiting total, the only filled count', () => {
+    expect(badgeOf('inbox', counts)).toBe(12);
+    expect(isQuiet('inbox')).toBe(false);
+    expect(badgeOf('inbox', { ...counts, total: 0 })).toBeNull();
   });
 
-  it('gives PRDs the Outbox part', () => {
-    expect(badgeOf('prds', counts)).toBe(2);
-    expect(badgeOf('prds', { ...counts, outbox: 0 })).toBeNull();
-  });
-
-  it('gives Runners the jobs waiting for an answer, none at 0 (PRD 2255)', () => {
+  it('gives Runners the jobs waiting for an answer as a quiet count, none at 0 (PRD 2255)', () => {
     expect(badgeOf('runners', counts)).toBe(4);
+    expect(isQuiet('runners')).toBe(true);
     expect(badgeOf('runners', { ...counts, runners: 0 })).toBeNull();
   });
 
-  it('gives Waiting the reviews, merges and laws whose turn is the person\'s, none at 0 (PRD 2377 s5)', () => {
-    expect(badgeOf('waiting', counts)).toBe(6);
-    expect(badgeOf('waiting', { ...counts, reviews: 0 })).toBeNull();
-  });
-
-  it('gives no badge at 0, nor to any other entry: only Questions, PRDs, Runners and Waiting count (PRD 733, PRD 2255, PRD 2377)', () => {
-    expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+  it('gives no badge to any other entry, PRDs included', () => {
+    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'prds', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });
 
