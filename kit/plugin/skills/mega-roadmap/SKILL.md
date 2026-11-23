@@ -232,8 +232,9 @@ runner when the mission's PRDs live in this plan repository (PRD 2896, "7. The P
 runner refuses it on any other job, and nobody sends it by hand. It runs as `/omni:roadmap`'s
 **For a mission's PM** says, in the plan repository, with these differences.
 
-- **The source** is the mission's goal and measures, read from `mission.md` in the folder of mission
-  `<m>` under `.omni-loop/delivery/missions/` of the plan repository.
+- **The source** is the mission's goal and measures, read from its page: run `omni mission get <m>`
+  first, in the plan repository, and read `mission.md` in the folder it prints; when it exits 1, stop
+  on its line (`mission <m> not read: <why>` or `no mission #<m> on the page`) and write no PRD.
 - **The cap.** Step 3 writes the first `<k>` PRDs of the map, in its order, and no other; the rest
   are named by their titles in `unwritten`.
 - **Born on the server, each planned, never sent.** Each PRD is planned once written; step 5 opens

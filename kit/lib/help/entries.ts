@@ -1883,16 +1883,17 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     detail:
       'Settles a mission with you, one question at a time: the Virtual Fleet that takes it, its goal, ' +
       '1 to 5 measures, its scope of PRDs and roadmaps and how many may run at once. It writes the ' +
-      'brief, mission.md and mission.html, under {delivery}/missions/, opens the mission\'s issue and a ' +
-      'docs PR into {defaultBranch}, and sends the brief to its page with omni mission push. Starting ' +
-      'the mission is the button on its page and never waits for the PR. With --prd <n> and a goal it ' +
+      'brief, mission.md and mission.html, in a scratch folder outside the repository, opens the mission\'s ' +
+      'issue, and sends the brief to its page with omni mission push --from. The page is the mission\'s ' +
+      'record: no branch, commit or pull request is made, and omni mission get <n> writes the brief back ' +
+      'as plain files. Starting the mission is the button on its page. With --prd <n> and a goal it ' +
       'asks nothing and writes the minimal mission, that PRD as its scope. It writes no code and never ' +
       'merges.',
     group: 'start',
     when: 'Use it when you want a Virtual Fleet to deliver a goal, over one PRD or several, with you answering only where a person is needed.',
     example: {
       type: "/omni:mission --prd 2803 'dark mode for quotes on site'",
-      result: "a mission's brief on its page, ready for Start, and a docs PR",
+      result: "a mission's brief on its page, ready for Start, and no pull request",
     },
   },
   {
@@ -2537,15 +2538,16 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     summary: 'write a mission\'s retro at a milestone',
     detail:
       'Writes what went well and what to change when a roadmap of a mission\'s scope is delivered, or the mission is: ' +
-      '1 to 5 sentences each, every one citing an event, a PRD, a pull request or a repair. Above with-you it commits the retro ' +
-      'and each rule-change item it proposes on the mission branch; at with-you it keeps them on the mission page only. ' +
+      '1 to 5 sentences each, every one citing an event, a PRD, a pull request or a repair. At every level it commits and ' +
+      'pushes nothing: the mission page keeps the retro and each rule-change item it proposes, and omni mission get <m> ' +
+      'writes them as plain files. It reads the mission with omni mission get first. ' +
       'It never changes a rule, a law or a form, never pauses the mission and never touches the default branch. ' +
       'A mission sends it on a runner and it ends on one omni retro: line.',
     group: 'run-by-skills',
     when: "Use it when a mission reached a milestone: the mission sends it, you never run it by hand.",
     example: {
       type: '/omni:mission-retro --mission 12 --milestone 2950',
-      result: 'a retro file on the mission branch, its items, and the omni retro: record line',
+      result: 'a retro on the mission page, its items, and the omni retro: record line with "file": null',
     },
   },
   {

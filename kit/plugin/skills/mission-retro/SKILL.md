@@ -1,6 +1,6 @@
 ---
 name: mission-retro
-description: Writes a mission's retro at a milestone, on a runner and never by hand — when a roadmap of the mission's scope is delivered, or the mission is, it reads the mission's events, repairs, PRDs, outbox items, verdicts and jobs for that milestone only, writes what went well and what to change (1 to 5 sentences each, every sentence citing an event, a PRD, a pull request or a repair) checked by the kit, commits it as retros/<k>-<milestone>.md and each rule-change item under outbox/ on the mission branch (above with-you; at with-you the page keeps them), and ends on one record line, omni retro. Never changes a rule, a law or a form, never pauses the mission, never sends a repair, never touches the default branch, never merges. Triggers on "/omni:mission-retro --mission <m> --milestone <roadmap n | mission>" sent by a mission.
+description: Writes a mission's retro at a milestone, on a runner and never by hand — when a roadmap of the mission's scope is delivered, or the mission is, it reads the mission's events, repairs, PRDs, outbox items, verdicts and jobs for that milestone only, writes what went well and what to change (1 to 5 sentences each, every sentence citing an event, a PRD, a pull request or a repair) checked by the kit, commits and pushes nothing at any level (the mission's page keeps the retro and its items), and ends on one record line, omni retro, whose file is null. Never changes a rule, a law or a form, never pauses the mission, never sends a repair, never touches the default branch, never merges. Triggers on "/omni:mission-retro --mission <m> --milestone <roadmap n | mission>" sent by a mission.
 ---
 
 # Mission retro: what went well, what to change, at a milestone
@@ -14,12 +14,8 @@ default branch, and **never pauses anything or sends a repair**.
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
-**Signing.** Every commit this skill makes ends with the co-author trailer your agent adds, if it
-adds one (in Claude: the `Co-Authored-By` line its session gives), then the line `omni sign trailer`
-prints as the message's last line, with no blank line between them. Every pull request or issue it
-opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
-your session's own attribution lines. Comments are never signed. A command that prints nothing means
-signing is off here: add nothing.
+**No commit.** This skill makes no commit, push, branch or pull request, at any level: the mission's
+page is the record of its retros (PRD 3194).
 
 ## Input
 
@@ -36,11 +32,12 @@ runner, and stop.
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the Omni Loop kit
-is not installed in this repository. Keep the JSON; later steps read `repo.*` and `branches.*` from
-it. Then print the briefing, `node .omni-loop/bin/omni.mjs session start`: its rules bind every step
-below. Read the mission's folder and its level (`with-you`, `own-branch` or `alone`) from its
-`mission.md`. The mission branch is the `--base <branch>` the job's line carries, or the mission's
-branch (`branches.mission`); at `with-you` there is none.
+kit is not installed in this repository. Then print the briefing,
+`node .omni-loop/bin/omni.mjs session start`: its rules bind every step below. Then read the mission
+from its page: `node .omni-loop/bin/omni.mjs mission get <m>` writes its brief and retros as plain
+files and prints their folder. When it prints `mission <m> not read: <why>` or `no mission #<m> on
+the page` and exits 1, stop on that line: write no retro and print no record line. Read the mission's
+level from the `mission.md` it wrote.
 
 ## 1. Read, for this milestone only
 
@@ -85,15 +82,9 @@ request; a member answers it on the mission page, and a person applies an adopte
 
 ## 4. Keep it
 
-- **Above `with-you`:** on the mission branch (never the default branch), commit the retro as
-  `<mission folder>/retros/<k>-<milestone>.md` (`<k>` is the milestone as given, a roadmap number or
-  `mission`): the two sides as headings, each sentence a bullet with its citations. Commit each
-  item as its own file under `<mission folder>/outbox/`, beside the retro, named
-  `<k>-<milestone>-<n>.md` with its target, wording and evidence. Sign each commit, push the mission
-  branch, and name the retro's path as `file`. A file that already holds the same retro is kept as it
-  is: running again adds no second one.
-- **At `with-you`:** there is no mission branch. Commit nothing, push nothing, and write `"file": null`:
-  the mission page keeps the retro and its items, and says so.
+Commit nothing and push nothing, at `with-you`, `own-branch` and `alone` alike: the mission's page
+keeps the retro and its items, and the record line below is how it reads them. Write `"file": null`.
+Never write a file of the retro into the repository.
 
 Never edit a rule, a law, a form, a decision record or any file of the knowledge or the playbook.
 
@@ -102,17 +93,17 @@ Never edit a rule, a law, a form, a decision record or any file of the knowledge
 The last output of the skill is one line, with no text after it:
 
 ```
-omni retro: {"v":1,"mission":<m>,"milestone":"<roadmap n | mission>","retro":{…},"file":"<path>"|null,"items":[…]}
+omni retro: {"v":1,"mission":<m>,"milestone":"<roadmap n | mission>","retro":{…},"file":null,"items":[…]}
 ```
 
-`retro` is step 2's JSON, `items` step 3's list, `file` the path of step 4 or `null` at `with-you`.
+`retro` is step 2's JSON, `items` step 3's list, `file` always `null`.
 Print the JSON on one line, after the kit's schemas accept it. A line the App cannot read is
 recorded as `Retro skipped: <why>`, never as done, so never print a partial one.
 
 ## Never
 
 - Never ask a person.
-- Never merge, never touch the default branch, never open a pull request into it.
+- Never commit, push, merge or touch the default branch.
 - Never change a rule, a law or a playbook form: propose it as an item.
 - Never pause the mission and never send a repair.
 - Never put a log excerpt, a credential or a person's words in the retro, an item or the record.
