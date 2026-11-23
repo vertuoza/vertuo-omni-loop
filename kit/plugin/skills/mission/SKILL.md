@@ -1,6 +1,6 @@
 ---
 name: mission
-description: Settles a mission with a person — the Virtual Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), under the missions folder of the delivery folder, opens the mission's issue and its docs pull request, and sends the brief to the mission's page with omni mission push. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and starting the mission never waits for the pull request. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
+description: Settles a mission with a person — the Virtual Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), under the missions folder of the delivery folder, opens the mission's issue and its docs pull request, and sends the brief to the mission's page with omni mission push. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. With --goal and a goal it asks only the fleet and writes a goal-only brief at alone, no scope, for the fleet's PM to turn into PRDs; --request reads that goal from the Omni page's New mission box and asks nothing. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and starting the mission never waits for the pull request. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
 ---
 
 # Mission: a goal a Virtual Fleet delivers
@@ -30,6 +30,8 @@ signed. A command that prints nothing means signing is off here: add nothing.
 | `--prd <n>` or `--prd <key>-<n>` `'<goal>'` | `/omni:mission --prd 2803 'dark mode for quotes on site'`, `/omni:mission --prd omni-loop-15 'a mission takes a roadmap'` | the one-line mission: no conversation. That PRD, a repository's number or a product PRD's id, is its scope, the goal is as given, no measure yet, the default mandate |
 | `--roadmap <n>` or `--roadmap <key>-R<n>` `'<goal>'` | `/omni:mission --roadmap omni-loop-R3 'the roadmap, delivered'` | the same one-line mission for a roadmap, a repository's number or a product roadmap's id. With `--prd` too, both are the scope |
 | `--fleet <key>` | `--fleet crew-bots` | the Virtual Fleet's key, when it is already known; saves the question |
+| `--goal '<goal>'` | `/omni:mission --goal 'quotes get a dark mode'` | the goal-only mission: no scope, the goal as given, asking only the fleet (nothing with `--fleet`). See **Goal-only: `--goal` and `--request`** |
+| `--request <id>` | `/omni:mission --request 3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f` | the same mission, started from the Omni page's New mission box: the goal and the fleet are read with `omni mission request <id>`, nothing is asked. A runner takes only this form |
 | `--omni-bugs` | `/omni:mission --omni-bugs` | the Omni Loop bug team: a standing mission of kind `omni-bugs`, written in one line (see below). Only on the Omni Loop repository |
 | `--level <key>` | `--level own-branch` | the level the mission runs at, `with-you`, `own-branch` or `alone`; overrides the fleet's. A member who is not an owner can take it only up to the fleet's own level |
 
@@ -55,6 +57,36 @@ one-line form takes the goal, and stop.
 
 Then run steps 0, 2, 3, 4 and 5 as for any mission (step 1 is this section), showing the brief for
 a yes first.
+
+## Goal-only: `--goal` and `--request`
+
+A **goal-only** mission is a brief with a goal and a fleet and no `scope`: the fleet's PM turns the
+goal into a roadmap of PRDs, up to 10, the committee approves them and the fleet builds them
+(PRD omni-loop-24). It runs at `alone` only, with no measure and the default mandate.
+
+- **`--goal '<goal>'`** takes the goal as the person gave it, word for word, and asks only the
+  fleet's key (nothing with `--fleet`).
+- **`--request <id>`** reads the goal and the fleet with `node .omni-loop/bin/omni.mjs mission request <id>`
+  (two lines, `fleet: <key>` then `goal: <the goal>`); when that verb exits 1, say its one line and
+  stop. It asks nothing, under `OMNI_UNATTENDED` or not, and the goal is written as the request holds it.
+
+Before anything is written, both forms stop, saying the line and nothing more, when:
+
+- `node .omni-loop/bin/omni.mjs approval flag` prints `phase 0: pr` (or `phase 0: pr · the flag could
+  not be read: <why>`): `a goal-only mission needs phase 0 on the server`. The PM writes no PRD there.
+- the person is not an owner of the workspace and the fleet's own level, as the fleet's Missions tab
+  shows it, is below `alone`: `a goal-only mission works alone: an owner starts it, or raises the
+  fleet to Works alone`. (From the New mission box the page has already refused this before saving.)
+
+Then write the brief as step 3 says, with `level: alone`, `measures: []`, **no `scope` key**, no
+`mandate` bounds beyond `parallel: 2` and the level, and, with `--request`, the line `request: <id>`
+in the front matter (the page starts a pushed brief that names its request as the person who made it).
+`--goal` shows the brief for a yes first, as step 1 does; `--request` shows nothing and asks nothing.
+Run steps 2 to 4 as for any mission, then:
+
+- With `--goal`, hand off as step 5 does: the mission's page, where **Start** is pressed as today.
+- With `--request`, the push starts the mission: say the page's link and that the mission is running,
+  not that it waits for **Start**. Never press Start yourself.
 
 ## Step 0
 
@@ -144,6 +176,7 @@ title: <title>
 fleet: <fleet key>
 goal: <the goal, one sentence>
 kind: <prds | omni-bugs>
+request: <id>   # only with --request
 measures:
   - { sign: <the sign>, read: <how it is read>, target: <its target> }
 scope:
@@ -204,3 +237,5 @@ merge), since it never does those itself.
 - Never write a level above the fleet's for a person who is not an owner of the workspace: the app refuses it.
 - Never invent a Virtual Fleet's key, a PRD or a roadmap, a product id included: each is read from the person or checked.
 - Never ask more than one question at a time, or any under `--prd` or `--roadmap` beyond the fleet's key.
+- Never ask any under `--request`, or beyond the fleet's key under `--goal`.
+- Never write a goal-only brief below `alone`, or on `phase 0: pr`, or put the goal in a runner line.

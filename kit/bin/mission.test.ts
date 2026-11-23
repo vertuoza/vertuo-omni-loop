@@ -206,3 +206,32 @@ describe('omni mission overturn (PRD 2896 s11)', () => {
     expect(await mission(['overturn', '12', '7'], { root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'refused (no overturn in the reply)\n' });
   });
 });
+
+describe('omni mission request (PRD omni-loop-24 s5)', () => {
+  const ID = '3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f';
+  const reply = { request: { id: ID, repo: 'acme/widgets', fleet: 'night-shift', goal: 'Quotes get a dark mode', requestedBy: 'ada', mission: null, createdAt: '2026-11-23T10:00:00Z' } };
+
+  it('prints the fleet and the goal of the request the page holds', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = recordingFetch(() => json(200, reply));
+    expect(await mission(['request', ID], { root, fetch })).toEqual({ code: 0, out: 'fleet: night-shift\ngoal: Quotes get a dark mode\n', err: '' });
+    expect(calls).toEqual([{ url: `${BASE}/api/missions/requests/${ID}`, method: 'GET', body: undefined }]);
+  });
+
+  it('says one line and exits 1 when the page refuses, is down, or answers no request', async () => {
+    const { root } = checkout();
+    const refused = recordingFetch(() => json(404, { error: 'No such mission request.' }));
+    expect((await mission(['request', ID], { root, fetch: refused.fetch })).code).toBe(1);
+    expect((await mission(['request', ID], { root, fetch: refused.fetch })).err).toMatch(/^refused \(404\)/);
+    const down = (): Response => { throw new TypeError('fetch failed'); };
+    expect(await mission(['request', ID], { root, fetch: recordingFetch(down).fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
+    expect(await mission(['request', ID], { root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'refused (no request in the reply)\n' });
+  });
+
+  it('refuses an id that is not a uuid before any call', async () => {
+    const { root } = checkout();
+    const none = recordingFetch(() => json(200, reply));
+    expect((await mission(['request', 'dark-mode'], { root, fetch: none.fetch })).code).toBe(2);
+    expect(none.calls).toEqual([]);
+  });
+});

@@ -575,6 +575,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * carried (`omni mission overturn`). @returns {Promise<{ overturn: { mission: string, branch: string | null, decision: string, prd: number, onBranch: boolean } }>} */
     overturnMission: ({ repo, mission, decision }: { repo: string; mission: number; decision: string }) =>
       call('POST', '/api/missions/overturn', { body: { repo, mission, decision } }),
+    /** PRD omni-loop-24 s5: the mission request `id` (the New mission box's goal and fleet), as the caller (`omni mission request`).
+     * @returns {Promise<{ request: { id: string, repo: string, fleet: string, goal: string, requestedBy: string, mission: number | null, createdAt: string } }>} */
+    readMissionRequest: (id: string) => call('GET', `/api/missions/requests/${segment(id)}`),
     /** PRD 1139: one push of a loop (`../loop/body.ts` shapes it), sent as it is.
      * @returns {Promise<{ loopId: string, state: 'running' | 'parked' | 'stopped', planVersion: number }>} */
     pushLoop: (body: unknown) => call('POST', '/api/loops', { body }),
