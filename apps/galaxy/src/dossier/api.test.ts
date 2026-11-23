@@ -714,3 +714,28 @@ describe('the dossier routes', () => {
     });
   }
 });
+
+describe('POST /api/dossiers/push: a mission links to where the app shows it (bug #3190)', () => {
+  const RECORD = '---\nmission: 3189\ntitle: Inbox skeletons\nfleet: night-shift\ngoal: Inbox skeletons and empty states.\nscope:\n  prds: [3184]\n---\n';
+  const MISSION = {
+    repo: 'acme/widgets', prd: 3189, kind: 'mission', title: 'Inbox skeletons',
+    artifacts: [{ kind: 'mission-record', content: RECORD }, { kind: 'brief', content: '<p>brief</p>' }],
+  };
+
+  it('answers the fleet\'s Missions tab, the page that lists the mission and starts it, never /missions/<id>, which the app does not serve', async () => {
+    const w = world();
+    // The fake answers no mission_push(): this one call is stubbed, every other goes to the fake.
+    const connect = (token: string) => {
+      const client = w.fake.client(token);
+      const rpc = (name: string, args: Record<string, unknown>) => name === 'mission_push'
+        ? Promise.resolve({ data: { id: 'm-dossier', added: [{ kind: 'mission-record', version: 1 }], unchanged: [] }, error: null })
+        : client.rpc(name, args);
+      return { ...client, rpc } as unknown as ReturnType<NonNullable<DossierDeps['connect']>>;
+    };
+    const deps: DossierDeps = { connect, installLink: INSTALL };
+    const { status, body } = await w.read(await pushDossier(w.request('/api/dossiers/push', { body: MISSION }), deps));
+
+    expect(status).toBe(200);
+    expect(body.url).toBe('https://omni.example/app/fleet?fleet=night-shift&tab=missions');
+  });
+});
