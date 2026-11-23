@@ -1,3 +1,5 @@
+import type { IconName } from '@omni/design';
+import { Icon, SegmentedControl } from '@omni/ui';
 import type { ReactNode } from 'react';
 import { Notice } from '../ask/page/Notice';
 import { supabaseEnv } from '../data/supabase-server';
@@ -6,10 +8,14 @@ import { PersonChip } from '../people/PersonChip';
 import { ProductFilter } from '../product-filter/ProductFilter';
 import { EMPTY_BY_TAB, STALE_TITLE, staleSummary, TABS, UNREADABLE_BOARD, type BoardRow, type TabId, type Turn } from './board';
 import type { WaitingView } from './waiting-board.controller';
-import '../dashboard/board/board.css';
+import '../inbox/inbox.css';
 import '../product-filter/product-filter.css';
 import './waiting-board.css';
 
+// PRD omni-loop-23 s7: the board is drawn as the Inbox's shared rows, not a table: Late (past the
+// escalation limit) first, as a word, then Waiting; a Whose turn column of faces and names; the views as
+// pills, the product filter and the stale line on the toolbar line.
+//
 // /app/waiting in each situation (PRD 2377 s3), decided once by the page, as /app/engineering decides its
 // own: the demo and any member get the workspace's Waiting board, headed by Waiting and its tabs (Workspace, My PRDs, My reviews with its
 // count), the product filter, the stale line, then the tab's waits, oldest first; a deployment
@@ -55,44 +61,62 @@ function Subject({ row }: { row: BoardRow }): ReactNode {
   return <span>{pr ? `Pull request ${pr.number}` : row.repo}</span>;
 }
 
-function Rows({ rows, tab }: { rows: BoardRow[]; tab: TabId }) {
-  if (rows.length === 0) return <p className="dash-note">{EMPTY_BY_TAB[tab]}</p>;
+const KIND_ICON: Readonly<Record<BoardRow['kind'], IconName>> = { approval: 'check', review: 'prds', merge: 'roadmap', outbox: 'outbox', law: 'settings' };
+
+function WaitRow({ row }: { row: BoardRow }) {
   return (
-    <div className="board-scroll">
-      <table className="board-table wait-table">
-        <thead>
-          <tr>
-            <th scope="col">PRD</th>
-            <th scope="col">Pull request</th>
-            <th scope="col">Waits on</th>
-            <th scope="col">Whose turn</th>
-            <th scope="col" className="is-num">Waiting</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className={row.overdue ? 'is-overdue' : undefined}>
-              <th scope="row" className="board-name"><Subject row={row} />{row.prd ? null : <span className="wait-sub">{row.repo}</span>}</th>
-              <td>{row.pr ? <a href={row.pr.href}>{`${row.pr.repo}#${row.pr.number}`}</a> : <span className="wait-sub">none yet</span>}</td>
-              <td className="wait-what">{row.what}</td>
-              <td><TurnCell row={row} /></td>
-              <td className="is-num wait-age">{row.age}{row.overdue ? <span className="wait-late"> · late</span> : null}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <li className="inbox-r wait-r">
+      <span className="inbox-r-anchor"><Icon name={KIND_ICON[row.kind]} /></span>
+      <span className="inbox-r-main">
+        <p className="inbox-r-title"><Subject row={row} /></p>
+        <p className="inbox-r-line wait-what">{row.what}</p>
+        <p className="inbox-r-quiet">
+          {row.pr ? <a href={row.pr.href}>{`${row.pr.repo}#${row.pr.number}`}</a> : <span>{row.prd ? `${row.repo} · no pull request yet` : row.repo}</span>}
+        </p>
+      </span>
+      <span className="wait-turn-col"><TurnCell row={row} /></span>
+      <span className="inbox-r-end">
+        <span className="wait-age">{row.age}</span>
+        {row.overdue ? <span className="wait-late">Late</span> : null}
+      </span>
+    </li>
   );
 }
 
-function Tabs({ tab, reviews }: { tab: TabId; reviews: number }) {
+/** One group of waits under its heading, with the column the turn sits in named at its end. */
+function Group({ label, count, note, rows }: { label: string; count: number; note?: string; rows: BoardRow[] }) {
   return (
-    <nav className="wait-tabs" aria-label="Waiting views">
-      {TABS.map((t) => (
-        <a key={t.id} className="wait-tab" aria-current={t.id === tab ? 'page' : undefined} href={`/app/waiting?tab=${t.id}`}>{t.id === 'reviews' && reviews > 0 ? `${t.label} (${reviews})` : t.label}</a>
-      ))}
-    </nav>
+    <section className="inbox-group" aria-label={label}>
+      <h3 className="inbox-group-head wait-group-head">
+        <span>{label} <span className="wait-group-count">{count}</span>{note ? <span className="wait-group-note">{` · ${note}`}</span> : null}</span>
+        <span className="wait-group-col">Whose turn</span>
+      </h3>
+      <ol className="wait-rows">{rows.map((row) => <WaitRow key={row.id} row={row} />)}</ol>
+    </section>
   );
+}
+
+/** Late waits (past the escalation limit) first, then the rest, each oldest first as the board gave them. */
+function Rows({ rows, tab }: { rows: BoardRow[]; tab: TabId }) {
+  if (rows.length === 0) return <p className="dash-note">{EMPTY_BY_TAB[tab]}</p>;
+  const late = rows.filter((row) => row.overdue);
+  const waiting = rows.filter((row) => !row.overdue);
+  return (
+    <>
+      {late.length > 0 ? <Group label="Late" count={late.length} note="more than 2 working days" rows={late} /> : null}
+      {waiting.length > 0 ? <Group label="Waiting" count={waiting.length} rows={waiting} /> : null}
+    </>
+  );
+}
+
+function Views({ tab, reviews }: { tab: TabId; reviews: number }) {
+  const options = TABS.map((t) => ({
+    id: t.id,
+    label: t.label,
+    href: `/app/waiting?tab=${t.id}`,
+    ...(t.id === 'reviews' && reviews > 0 ? { count: String(reviews) } : {}),
+  }));
+  return <SegmentedControl label="Waiting views" variant="pills" options={options} value={tab} />;
 }
 
 export function WaitingScreen({ view, tab, signinError }: WaitingScreenProps) {
@@ -109,17 +133,21 @@ export function WaitingScreen({ view, tab, signinError }: WaitingScreenProps) {
   }
   const stale = staleSummary(view.board.stale);
   return (
-    <div className="dash" data-screen="waiting">
-      <h1 className="dash-name">Waiting</h1>
-      <Tabs tab={tab} reviews={view.board.reviews} />
-      <ProductFilter filter={view.filter} unreadable={view.productsUnreadable} />
-      {stale ? (
-        <details className="wait-stale" role="status">
-          <summary title={STALE_TITLE}>{stale}</summary>
-          <ul className="wait-stale-list">{view.board.stale.map((repo) => <li key={repo}>{repo}</li>)}</ul>
-        </details>
-      ) : null}
-      <section className="board-card" aria-label={SECTION_LABEL[tab]}>
+    <div className="dash wait-board" data-screen="waiting">
+      <h2 className="dash-name">Waiting</h2>
+      <div className="inbox-toolbar wait-toolbar">
+        <Views tab={tab} reviews={view.board.reviews} />
+        <div className="inbox-toolbar-end">
+          {stale ? (
+            <details className="wait-stale" role="status">
+              <summary title={STALE_TITLE}>{stale}</summary>
+              <ul className="wait-stale-list">{view.board.stale.map((repo) => <li key={repo}>{repo}</li>)}</ul>
+            </details>
+          ) : null}
+          <ProductFilter filter={view.filter} unreadable={view.productsUnreadable} />
+        </div>
+      </div>
+      <section className="wait-list" aria-label={SECTION_LABEL[tab]}>
         <Rows rows={view.board.rows} tab={tab} />
       </section>
     </div>

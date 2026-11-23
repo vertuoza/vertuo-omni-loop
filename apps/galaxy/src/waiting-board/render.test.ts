@@ -22,14 +22,14 @@ describe('the Waiting board, with waits', () => {
   const html = render(demo());
   const t = text(html);
 
-  it('is headed Waiting, with the Workspace tab current', () => {
-    expect(html).toContain('<h1 class="dash-name">Waiting</h1>');
-    expect(html).toMatch(/<a class="wait-tab" aria-current="page" href="\/app\/waiting\?tab=workspace">Workspace<\/a>/);
+  it('is headed Waiting, its views as pills with the Workspace one current', () => {
+    expect(html).toContain('<h2 class="dash-name">Waiting</h2>');
+    expect(html).toContain('omni-segmented--pills');
+    expect(html).toMatch(/<a class="omni-segment omni-segment--chosen" href="\/app\/waiting\?tab=workspace" tabindex="0" aria-current="page">Workspace<\/a>/);
   });
 
   it('lists every wait, oldest first', () => {
-    const order = [...html.matchAll(/<tr[ >]/g)].length - 1;
-    expect(order).toBe(6);
+    expect([...html.matchAll(/<li class="inbox-r wait-r"/g)]).toHaveLength(6);
     expect(t.indexOf('Reusable widget themes')).toBeLessThan(t.indexOf('Export a widget as an image'));
     expect(t.indexOf('Export a widget as an image')).toBeLessThan(t.indexOf('Faster gear ratios'));
   });
@@ -49,10 +49,22 @@ describe('the Waiting board, with waits', () => {
     expect(t).toContain('any approver');
   });
 
-  it('counts the age in working days, today under one, and reads a late wait red', () => {
+  it('counts the age in working days, and says today under one', () => {
     expect(t).toContain('today');
-    expect(html).toMatch(/<tr class="is-overdue">.*?5 days/s);
-    expect(html.match(/class="is-overdue"/g)?.length).toBe(2);
+    expect(t).toContain('5 days');
+  });
+
+  it('AC-11: lists a wait older than two working days first, under Late, with the word Late beside it', () => {
+    const late = html.indexOf('aria-label="Late"');
+    const waiting = html.indexOf('aria-label="Waiting"');
+    expect(late).toBeGreaterThan(-1);
+    expect(late).toBeLessThan(waiting);
+    const lateHtml = html.slice(late, waiting);
+    expect([...lateHtml.matchAll(/<span class="wait-late">Late<\/span>/g)]).toHaveLength(2);
+    expect(lateHtml).toContain('Reusable widget themes');
+    expect(lateHtml).toContain('Export a widget as an image');
+    expect(html.slice(waiting)).not.toContain('wait-late');
+    expect(text(html)).toContain('Whose turn');
   });
 
   it('counts the repositories last synced more than 30 minutes ago in a pill, their names behind it (visual #2408)', () => {
@@ -65,14 +77,14 @@ describe('the Waiting board, with waits', () => {
 describe('the My PRDs and My reviews tabs', () => {
   it('draws all three tabs, the current one marked, My reviews with its count', () => {
     const html = render(demo('reviews'), 'reviews');
-    expect(html).toMatch(/<a class="wait-tab" aria-current="page" href="\/app\/waiting\?tab=reviews">My reviews \(2\)<\/a>/);
-    expect(html).toContain('href="/app/waiting?tab=mine">My PRDs</a>');
-    expect(html).toContain('href="/app/waiting?tab=workspace">Workspace</a>');
+    expect(html).toMatch(/aria-current="page">My reviews<span class="omni-segment__count">2<\/span><\/a>/);
+    expect(html).toContain('>My PRDs</a>');
+    expect(html).toContain('href="/app/waiting?tab=workspace"');
   });
 
   it('lists only the viewer\'s PRDs on My PRDs, their own turn first', () => {
     const html = render(demo('mine'), 'mine');
-    expect([...html.matchAll(/<tr[ >]/g)].length - 1).toBe(2);
+    expect([...html.matchAll(/<li class="inbox-r wait-r"/g)]).toHaveLength(2);
     expect(text(html)).toContain('Reusable widget themes');
     expect(text(html)).not.toContain('Faster gear ratios');
     expect(text(html)).not.toContain('Nothing waits on you.');
@@ -80,7 +92,7 @@ describe('the My PRDs and My reviews tabs', () => {
 
   it('lists only what waits on the viewer on My reviews, never by a team', () => {
     const html = render(demo('reviews'), 'reviews');
-    expect([...html.matchAll(/<tr[ >]/g)].length - 1).toBe(2);
+    expect([...html.matchAll(/<li class="inbox-r wait-r"/g)]).toHaveLength(2);
     expect(text(html)).not.toContain('acme/maintainers');
   });
 
@@ -89,7 +101,7 @@ describe('the My PRDs and My reviews tabs', () => {
     expect(text(render(empty, 'mine'))).toContain('None of your PRDs waits on anyone.');
     expect(text(render(empty, 'reviews'))).toContain('Nothing waits on you.');
     expect(text(render(empty, 'workspace'))).toContain('Nothing waits on a person.');
-    expect(text(render(empty, 'reviews'))).not.toContain('(0)');
+    expect(render(empty, 'reviews')).not.toContain('omni-segment__count');
   });
 });
 
@@ -100,10 +112,12 @@ describe('the Waiting board, in its other states', () => {
     expect(html).not.toContain('wait-stale');
   });
 
-  it('draws the product filter above the rows, and says when the products cannot be read', () => {
+  it('draws the product filter on the toolbar line, above the rows, and says when the products cannot be read', () => {
     const filter = { options: [{ label: 'All', href: '/app/waiting', current: true }, { label: 'Mobile', href: '/app/waiting?product=p', current: false }] };
     const html = render({ kind: 'board', board: { rows: [], stale: [], reviews: 0 }, filter, productsUnreadable: false });
     expect(html).toContain('class="product-filter"');
+    expect(html.indexOf('inbox-toolbar')).toBeLessThan(html.indexOf('class="product-filter"'));
+    expect(html.indexOf('class="product-filter"')).toBeLessThan(html.indexOf('wait-list'));
     expect(text(render({ kind: 'board', board: { rows: [], stale: [], reviews: 0 }, filter: null, productsUnreadable: true }))).toContain('could not be read');
   });
 
