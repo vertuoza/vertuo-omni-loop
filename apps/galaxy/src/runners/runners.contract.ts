@@ -44,6 +44,11 @@ export const RUNNER_SKILLS = [
 ] as const;
 export type RunnerSkill = (typeof RUNNER_SKILLS)[number];
 
+/** The skills a runner takes for a mission's fleet only (PRD omni-loop-26): `tech-review`, the Architect's review of a product PRD's
+ * plan, as `/omni:tech-review <key>-<n> --mission <m>`. Never Sent by a person, so it is not in {@link RUNNER_SKILLS}; the database's
+ * fixed list holds it so a repository's own skill never takes its name. The kit's own `FLEET_SKILLS`, which a test holds to this one. */
+export const FLEET_RUNNER_SKILLS = ['tech-review'] as const;
+
 /** The lines only the Omni App sends (PRD 2898 s8): `acceptance`, a gated feature PR's e2e scenarios on its preview, which the runner
  * runs with no agent. The App queues it itself; Send never takes it, and a runner receives it as any job. The kit's own `APP_SKILLS`,
  * which a test holds to this one. */
