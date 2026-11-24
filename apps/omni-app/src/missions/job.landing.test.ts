@@ -243,8 +243,8 @@ describe('the deferred decisions, as the store keeps them (AC-7)', () => {
     await fake.store.decideItem(fake.mission(), { prd: p(2), item: 's2-01-shape', job: 'ask-2', verdicts, decision: { outcome: 'deferred', why: ['architect no: the shape is not settled'], option: 'A' } });
     const answers = landingAnswers({ mission: fake.mission(), decisions: await fake.store.decisions(ID), events: await fake.store.fleetEvents(ID), galaxyUrl: GALAXY });
     const body = missionPullBody({ mission: fake.mission(), branch: BRANCH, defaultBranch: 'main', rows: [], link: null, answers });
-    expect(body).toContain(`- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. [Agree](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=agree)`);
-    expect(body).toContain(`- s2-01-shape of PRD 2 · deferred, option A taken meanwhile · architect no: the shape is not settled. [Agree](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=agree) · [Overturn](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=overturn)`);
+    expect(body).toContain(`- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. [Agree](${GALAXY}/app/ai-fleet?fleet=night-shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=agree)`);
+    expect(body).toContain(`- s2-01-shape of PRD 2 · deferred, option A taken meanwhile · architect no: the shape is not settled. [Agree](${GALAXY}/app/ai-fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=agree) · [Overturn](${GALAXY}/app/ai-fleet?fleet=night-shift&tab=missions&mission=12&decision=2%2Fs2-01-shape&answer=overturn)`);
   });
 });
 
@@ -303,7 +303,7 @@ function alone({ agreeFails = false } = {}) {
   return { fake, gh, run, people, agreed, asked, decide, joinBoth };
 }
 
-const link = (name: string, answer: string): string => `${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=${encodeURIComponent(name)}&answer=${answer}`;
+const link = (name: string, answer: string): string => `${GALAXY}/app/ai-fleet?fleet=night-shift&tab=missions&mission=12&decision=${encodeURIComponent(name)}&answer=${answer}`;
 
 describe('the landing, in the mission run (PRD omni-loop-21 s15, AC-7)', () => {
   it('AC-7: lands once every row joined: the mission pull request lists the carried and the deferred decision, each with Agree and Overturn, and the Re-test per PRD', async () => {

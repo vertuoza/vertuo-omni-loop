@@ -4,7 +4,7 @@ import { fakeCommanderDb, fakeModel, GUS, MIRA, NO_RAIL, NORTHWIND, NOW } from '
 
 // A member's message to the fleet (PRD 3107 s3) over the fake database: stored signed by its author and tagged for the
 // fleet, a `messaged` event in each running mission and none elsewhere, holding none of its words (AC-5); refused for a
-// stranger, an empty or long text and a fleet that is no Virtual Fleet; sent with the Commander off or out of tokens,
+// stranger, an empty or long text and a fleet that is no AI Fleet; sent with the Commander off or out of tokens,
 // since no model reads it; and read back in the thread beside the questions.
 
 const SEND = { workspace: NORTHWIND, fleet: 'blue-fleet', text: 'the design review moved to Thursday' };
@@ -49,7 +49,7 @@ describe('messaging the fleet', () => {
     expect(await setup(GUS).service.send(SEND)).toMatchObject({ ok: false, kind: 'forbidden' });
     expect(await setup().service.send({ ...SEND, text: '   ' })).toMatchObject({ ok: false, kind: 'invalid', error: 'Message: 1 to 2000 characters.' });
     expect(await setup().service.send({ ...SEND, text: 'x'.repeat(2001) })).toMatchObject({ ok: false, kind: 'invalid' });
-    expect(await setup().service.send({ ...SEND, fleet: 'beaver' })).toMatchObject({ ok: false, kind: 'invalid', error: 'Fleet: only a Virtual Fleet has a Commander.' });
+    expect(await setup().service.send({ ...SEND, fleet: 'beaver' })).toMatchObject({ ok: false, kind: 'invalid', error: 'Fleet: only a AI Fleet has a Commander.' });
   });
 
   it('needs no model: with the Commander off, it is sent', async () => {

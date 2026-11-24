@@ -37,7 +37,7 @@ export function fakeRequestsDb(options: { failing?: boolean } = {}) {
     const member = members.get(person);
     if (member?.workspace !== body.workspace) return no('42501', null, 'Only a member of the workspace starts its fleet\'s missions.');
     const fleet = fleets.get(body.fleet);
-    if (fleet === undefined) return no('P0002', 'fleet', `Fleet: ${body.fleet} is no Virtual Fleet of this workspace.`);
+    if (fleet === undefined) return no('P0002', 'fleet', `Fleet: ${body.fleet} is no AI Fleet of this workspace.`);
     if (fleet.level !== 'alone' && !member.owner) return no('42501', 'level', 'A goal-only mission works alone: an owner starts it, or raises the fleet to Works alone.');
     return { repos: fleet.repos };
   }

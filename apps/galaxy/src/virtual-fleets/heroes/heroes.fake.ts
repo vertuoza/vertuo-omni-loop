@@ -5,7 +5,7 @@ import type { HeroesRepository, Written } from './heroes.repository';
 // The Heroes' database in memory (PRD 2842 s6), for the service's and the controller's tests: the rules of
 // add_virtual_hero() and remove_virtual_hero() (supabase/migrations/20270122095000_virtual_hero_edit.sql),
 // answered with their codes, hints and words, as one person reads it. Northwind's owner is Ada, Ben is a
-// member and its virtual fleet NIGHT-SHIFT holds an Engineer and a QA.
+// member and its AI fleet NIGHT-SHIFT holds an Engineer and a QA.
 
 export const NORTHWIND = '11111111-1111-4111-8111-111111111111';
 export const ADA = 'ada';
@@ -35,7 +35,7 @@ export function fakeHeroesDb(workspace = NORTHWIND) {
         owns: (workspace) => Promise.resolve(owns(workspace)),
         add(request: AddHeroRequest): Promise<Written<Hero>> {
           if (!owns(request.workspace)) return Promise.resolve(refused('42501', 'Only an owner of the workspace adds a hero.'));
-          if (request.fleet !== 'night-shift') return Promise.resolve(refused('22023', 'Fleet: not a virtual fleet of this workspace.', 'fleet'));
+          if (request.fleet !== 'night-shift') return Promise.resolve(refused('22023', 'Fleet: not a AI fleet of this workspace.', 'fleet'));
           if (heroes.some((h) => h.fleet === request.fleet && h.role === request.role)) return Promise.resolve(refused('22023', 'Role: this fleet already has that hero.', 'role'));
           made += 1;
           const hero = heroOf(`33333333-3333-4333-8333-33333333333${made}`, request.fleet, request.role, Math.max(...heroes.filter((h) => h.fleet === request.fleet).map((h) => h.position), -1) + 1);

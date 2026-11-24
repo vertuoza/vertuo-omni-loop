@@ -24,7 +24,7 @@ const record = (over: Partial<FleetRecord> = {}): FleetRecord => ({
 describe('the record a question reads', () => {
   it('gives each record a reference and builds its link: a mission, an event, a PRD and a job', () => {
     const turn = turnOf(record(), 'What waits?');
-    expect(turn.refs.get('m1')).toEqual({ label: 'mission 3110', href: '/app/fleet?fleet=blue-fleet&tab=missions', line: 'mission 3110 · waiting · Quotes export · waiting on: review of PRD 2817' });
+    expect(turn.refs.get('m1')).toEqual({ label: 'mission 3110', href: '/app/ai-fleet?fleet=blue-fleet&tab=missions', line: 'mission 3110 · waiting · Quotes export · waiting on: review of PRD 2817' });
     expect(turn.refs.get('e1')).toEqual({ label: 'event 08:41', href: 'https://github.com/northwind/quotes/pull/2817', line: '2026-11-21 08:41 · reviewer · waits · PRD 2817 · Event 0.' });
     expect(turn.refs.get('p2817')).toEqual({ label: 'PRD 2817', href: '/prd/at/northwind/quotes/2817?to=page', line: 'PRD 2817 of northwind/quotes' });
     expect(turn.refs.get('j1')).toEqual({ label: 'job 4f2a1b2c', href: '/app/runners#job-4f2a1b2c-0000-4000-8000-000000000001', line: '2026-11-21 06:00 · /omni:yolo 2817 · done · ready' });
@@ -33,7 +33,7 @@ describe('the record a question reads', () => {
 
   it('links an event to its mission in the room when its own link is neither the app\'s nor GitHub\'s', () => {
     const turn = turnOf(record({ events: [event(0, { link: 'https://evil.example/2817' })] }), 'What waits?');
-    expect(turn.refs.get('e1')?.href).toBe(`/app/fleet?fleet=blue-fleet&tab=room&mission=${MISSION.id}`);
+    expect(turn.refs.get('e1')?.href).toBe(`/app/ai-fleet?fleet=blue-fleet&tab=room&mission=${MISSION.id}`);
   });
 
   it('writes the record as data blocks after the instructions, a sentence escaped so it closes none of them', () => {

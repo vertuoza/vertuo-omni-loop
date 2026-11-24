@@ -14,7 +14,7 @@ import {
 import '../../runners/page/need-human.css';
 import './new-fleet.css';
 
-// The New virtual fleet drawer (PRD 2842 s1, PRD 2873 s3, PRD 2896 s1, the `fleet-new` screen): `+ New virtual fleet` in the Fleet
+// The New AI fleet drawer (PRD 2842 s1, PRD 2873 s3, PRD 2896 s1, the `fleet-new` screen): `+ New AI fleet` in the Fleet
 // section opens it over the right of the page, the page behind dimmed, the whole width under 720 px, as
 // the Runners page's Need human drawer opens. Name first and focused, then Icon (the fleet mascots, the
 // first selected), then Heroes (the six roles, each a yes/no switch, all on, each with its count line:

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { StreamedProps } from '../../skeleton/Streamed';
 import type { FleetScreenProps } from '../../dashboard/fleet/FleetScreen';
 
-// /app/fleet's Missions block (PRD 2842 s7): a virtual fleet's Missions tab streams its own block, read as the
+// /app/fleet's Missions block (PRD 2842 s7): a AI fleet's Missions tab streams its own block, read as the
 // signed-in person; any other tab, or an ordinary fleet, has none.
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 const db = vi.hoisted(() => ({ auth: { getClaims: () => Promise.resolve({ data: { claims: { sub: 'u1' } }, error: null }) } }));
@@ -34,7 +34,7 @@ async function missionsOf(query: Record<string, string>, virtualNames: string[])
 }
 
 describe('/app/fleet\'s Missions block', () => {
-  it('reads the fleet\'s missions as the signed-in person on the Missions tab of a virtual fleet', async () => {
+  it('reads the fleet\'s missions as the signed-in person on the Missions tab of a AI fleet', async () => {
     const block = await missionsOf({ tab: 'missions' }, ['night-shift']) as ReactElement<StreamedProps<unknown>>;
     expect(block.type).toBe(Streamed);
     await block.props.read;

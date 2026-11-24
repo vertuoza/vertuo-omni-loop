@@ -58,7 +58,7 @@
 //                  person, naming the PRD that joined last and the drop line (`omni mission drop <mission> <prd>`)
 //   each run       reads the mission (./store.ts); a draft runs nothing, delivered is done. Then, in order: check
 //                  first (its jobs and their resumes, each PRD's approval, stage, blockers and plan), pick
-//                  (./supervisor.ts), send each pick to the mission's Virtual Fleet (its runners when one holds the
+//                  (./supervisor.ts), send each pick to the mission's AI Fleet (its runners when one holds the
 //                  repository, else any runner of the workspace) under its mission key (the build, `/omni:ultra-yolo`
 //                  when the repository is a product's plan repository (PRD 2873), else `/omni:yolo --for-review`; or
 //                  the Reviewer and the fix after it, PRD 2871), record each decision as an event, and set the

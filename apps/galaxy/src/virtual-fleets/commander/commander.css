@@ -1,4 +1,4 @@
-/* The Commander tab of a Virtual Fleet (PRD 3107 s1), as the `fleet-commander` screen draws it: the status line, then
+/* The Commander tab of a AI Fleet (PRD 3107 s1), as the `fleet-commander` screen draws it: the status line, then
    the thread (a member's message set in, the Commander's reply flush with its glyph, a bold verdict, one row per claim
    with its source chip at the right, a muted footer), then the box; beside them, the Waiting on you rail (s2), sticky,
    one card per question. Every value is a token of @omni/design. At 393 px a claim's chip goes under its sentence, and
