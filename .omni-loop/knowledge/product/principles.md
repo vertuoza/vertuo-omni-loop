@@ -1033,3 +1033,12 @@ Why: People rely on a mission's retros to learn from it, so a missing retro must
 Source: .omni-loop/delivery/shipped/3065-mission-retros/outbox/settled.md, entry s4-03-milestone-retros-run-and-shape, PRD #3065
 Merged: @pierrederval, 2026-11-19, PR #3066
 Proposed: harvest 2026-11-19
+
+## P-PRODUCT-134
+
+A live count of what is in use reflects only what is reachable now; stale last-known values never inflate it.
+
+Why: People size and trust their runner capacity from this count, so counting offline machines would overstate what is actually working.
+Source: .omni-loop/delivery/shipped/3232-runners-redesign/outbox/settled.md, entry s3-01-slots-in-use-count-online-runners, PRD #3232
+Merged: @pierrederval, 2026-11-24, PR #3234
+Proposed: harvest 2026-11-24

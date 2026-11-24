@@ -1091,3 +1091,15 @@ Source: .omni-loop/delivery/shipped/3088-omni-bug-team/outbox/settled.md, entry 
 Enforced by: apps/omni-app/src/missions/repair.bug-fixed.test.ts, apps/omni-app/src/missions/supervisor.bug-fixed.test.ts
 Stated: 2026-11-19
 Decided: @pierrederval, 2026-11-19
+
+## BR-PRODUCT-178
+
+On the Runners page, the summary's count of slots in use includes only the slots of runners that are online; an offline runner's last known slots never add to the total.
+
+Serves: P-PRODUCT-134
+Source: .omni-loop/delivery/shipped/3232-runners-redesign/outbox/settled.md, entry s3-01-slots-in-use-count-online-runners, PRD #3232
+Enforced by: apps/galaxy/src/runners/page/health.render.test.ts
+Stated: 2026-11-24
+Decided: nobody — adopted when raised (medium), 2026-11-24
+Merged: @pierrederval, 2026-11-24, PR #3234
+Proposed: harvest 2026-11-24
