@@ -87,9 +87,18 @@ export function checkRunnerLine(line: string, allowed: readonly string[] = []): 
   return checkOwn(own[1] ?? '', own[2] ?? '', allowed);
 }
 
+/** The ultra skills a mission sends with `--base-of` (PRD omni-loop-21): its value is the one place a line may hold `=`. */
+const BASE_OF_SKILLS: readonly string[] = ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix'];
+
+/** `--base-of <owner/repo>=<branch>,…` as a mission writes it: each entry a repository and a branch, nothing else (item s6-01). */
+const BASE_OF = /(^| )--base-of [A-Za-z0-9._-]+\/[A-Za-z0-9._-]+=[A-Za-z0-9._\/-]+(?:,[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+=[A-Za-z0-9._\/-]+)*(?= |$)/;
+
+/** The arguments the character rule reads: an ultra skill's `--base-of` value set aside, since it holds `=` by design. */
+const argsToCheck = (skill: string, args: string): string => (BASE_OF_SKILLS.includes(skill) ? args.replace(BASE_OF, '$1--base-of') : args);
+
 function checkFixed(skill: string, args: string): RunnerLineCheck {
   if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill) && !FLEET_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
-  if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
+  if (!ARGS.test(argsToCheck(skill, args))) return { ok: false, reason: BAD_ARGS };
   if (skill === 'mission' && !MISSION_ARGS.test(args)) return { ok: false, reason: MISSION_REFUSAL };
   if (skill === 'tech-review' && !TECH_REVIEW_ARGS.test(args)) return { ok: false, reason: TECH_REVIEW_REFUSAL };
   return { ok: true, kind: 'omni', skill, args };

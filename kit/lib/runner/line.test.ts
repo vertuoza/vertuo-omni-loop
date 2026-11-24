@@ -172,3 +172,18 @@ describe('the Architect\'s /omni:tech-review (PRD omni-loop-26)', () => {
     expect(checkRunnerLine('/tech-review omni-loop-31', ['tech-review'])).toEqual({ ok: false, reason: '/tech-review is the loop\'s own skill: send /omni:tech-review' });
   });
 });
+
+describe('a mission\'s build line with --base-of (PRD omni-loop-26, item s6-01)', () => {
+  it('takes /omni:ultra-yolo and /omni:ultra-wave with --base-of <owner/repo>=<branch>, one target or several', () => {
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=mission/12-settings').ok).toBe(true);
+    expect(checkRunnerLine('/omni:ultra-wave omni-loop-31 --base-of acme/widgets=mission/12-settings,acme/api=mission/12-settings').ok).toBe(true);
+    expect(checkRunnerLine('/omni:ultra-yolo-fix omni-loop-31 --base-of acme/widgets=mission/12-settings').ok).toBe(true);
+  });
+
+  it('still refuses = anywhere else, and on any other skill', () => {
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 a=b').ok).toBe(false);
+    expect(checkRunnerLine('/omni:yolo 12 --base-of acme/widgets=mission/12').ok).toBe(false);
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=mission/12;rm').ok).toBe(false);
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 --base-of widgets=mission/12').ok).toBe(false);
+  });
+});
