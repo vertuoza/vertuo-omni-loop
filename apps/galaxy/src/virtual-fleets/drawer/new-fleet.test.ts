@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { canCreate, canWorkAlone, demoPort, landingOf, levelDisabled, LEVELS, newFleetReducer, openedWith, refusalUnder, requestOf, roleSwitch, WORDS, type NewFleetState } from './new-fleet';
 
-// The New virtual fleet drawer's rules (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen).
+// The New AI fleet drawer's rules (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen).
 
 const MASCOTS = ['beaver', 'octopod', 'robot'];
 const named = (name: string): NewFleetState => newFleetReducer(openedWith(MASCOTS), { type: 'name', value: name });
 
-describe('the New virtual fleet drawer', () => {
+describe('the New AI fleet drawer', () => {
   it('opens with Name empty, the first icon selected and every role on, Create fleet disabled until it has a name', () => {
     const opened = openedWith(MASCOTS);
     expect(opened).toEqual({ name: '', mascot: 'beaver', roles: ['engineer', 'qa', 'reviewer', 'pm', 'architect', 'designer'], level: 'with-you', owner: false, busy: false, refusal: null });
@@ -59,8 +59,8 @@ describe('the New virtual fleet drawer', () => {
   });
 
   it('lands on the new fleet in the Fleet section', () => {
-    expect(landingOf('night-shift')).toBe('/app/fleet?fleet=night-shift');
-    expect(landingOf('a&b')).toBe('/app/fleet?fleet=a%26b');
+    expect(landingOf('night-shift')).toBe('/app/ai-fleet?fleet=night-shift');
+    expect(landingOf('a&b')).toBe('/app/ai-fleet?fleet=a%26b');
   });
 
   it('gives each role its count line, by its role\'s name', () => {
@@ -75,7 +75,7 @@ describe('the New virtual fleet drawer', () => {
   });
 });
 
-describe('the New virtual fleet drawer, once the fleet is made (#2866)', () => {
+describe('the New AI fleet drawer, once the fleet is made (#2866)', () => {
   it('stops being busy and names where it lands, so the drawer closes on the new fleet instead of staying on Creating…', () => {
     const busy = newFleetReducer(named('Invincibles'), { type: 'busy' });
     expect(busy.busy).toBe(true);
@@ -84,7 +84,7 @@ describe('the New virtual fleet drawer, once the fleet is made (#2866)', () => {
   });
 });
 
-describe('the New virtual fleet drawer\'s level (PRD 2896 s1)', () => {
+describe('the New AI fleet drawer\'s level (PRD 2896 s1)', () => {
   const owned = (): NewFleetState => newFleetReducer(openedWith(MASCOTS, true), { type: 'name', value: 'Night Shift' });
 
   it('offers the three levels with their lines, Reviews with you selected as it opens', () => {

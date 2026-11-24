@@ -117,7 +117,7 @@ export const openCount = (cards: readonly Card[]): number => cards.filter((c) =>
 
 // ── Links ────────────────────────────────────────────────────────────────────
 
-const missionsTab = (fleet: string): string => `/app/fleet?fleet=${encodeURIComponent(fleet)}&tab=missions`;
+const missionsTab = (fleet: string): string => `/app/ai-fleet?fleet=${encodeURIComponent(fleet)}&tab=missions`;
 const cut = (text: string, max: number): string => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 
 // ── The cards ────────────────────────────────────────────────────────────────

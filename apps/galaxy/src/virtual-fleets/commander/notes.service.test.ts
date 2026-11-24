@@ -34,10 +34,10 @@ describe('the notebooks in the Commander tab', () => {
     const view = await setup().service.view({ workspace: NORTHWIND, fleet: 'blue-fleet' });
     if (!view.ok) throw new Error(view.error);
     expect(view.value.notebooks).toEqual({
-      fleet: [{ id: FLEET_LINE, day: '2026-11-19', line: 'The e2e suite timed out on the quotes page.', events: 2, href: `/app/fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3098}` }],
+      fleet: [{ id: FLEET_LINE, day: '2026-11-19', line: 'The e2e suite timed out on the quotes page.', events: 2, href: `/app/ai-fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3098}` }],
       missions: [
-        { mission: MISSION_3110, number: 3110, title: 'Quotes export', status: 'waiting', lines: [{ id: MISSION_LINE, day: '2026-11-20', line: 'PRD 2817 waited one day.', events: 1, href: `/app/fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3110}` }] },
-        { mission: MISSION_3098, number: 3098, title: 'Invoices', status: 'delivered', lines: [{ id: ENDED_LINE, day: '2026-11-18', line: 'Invoices shipped.', events: 1, href: `/app/fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3098}` }] },
+        { mission: MISSION_3110, number: 3110, title: 'Quotes export', status: 'waiting', lines: [{ id: MISSION_LINE, day: '2026-11-20', line: 'PRD 2817 waited one day.', events: 1, href: `/app/ai-fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3110}` }] },
+        { mission: MISSION_3098, number: 3098, title: 'Invoices', status: 'delivered', lines: [{ id: ENDED_LINE, day: '2026-11-18', line: 'Invoices shipped.', events: 1, href: `/app/ai-fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3098}` }] },
       ],
       count: 3,
     });
@@ -51,7 +51,7 @@ describe('the notebooks in the Commander tab', () => {
     expect(data).toContain('notebooks, newest first (ref | notebook | day | line):\nn1 | fleet | 2026-11-19 | The e2e suite timed out on the quotes page.\nn2 | mission 3110 | 2026-11-20 | PRD 2817 waited one day.');
     expect(data.indexOf('n1 | fleet')).toBeLessThan(data.indexOf('</fleet_record>'));
     expect(served.value.reply.reply.claims[0]?.sources).toEqual([
-      { label: 'note 11-19', href: `/app/fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3098}`, line: '2026-11-19 · The e2e suite timed out on the quotes page.' },
+      { label: 'note 11-19', href: `/app/ai-fleet?fleet=blue-fleet&tab=room&mission=${MISSION_3098}`, line: '2026-11-19 · The e2e suite timed out on the quotes page.' },
     ]);
   });
 

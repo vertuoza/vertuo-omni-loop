@@ -26,7 +26,7 @@ const R1: Message = {
 const Q2: Message = { kind: 'question', id: 'cccccccc-0000-4000-8000-000000000003', at: '2026-11-21T09:11:00Z', login: 'paul-n', text: 'Why did PRD 2809 stop?' };
 const R2: Message = {
   kind: 'reply', id: 'cccccccc-0000-4000-8000-000000000004', at: '2026-11-21T09:11:20Z', replyTo: Q2.id,
-  reply: { verdict: 'QA found two bugs.', read: 12, removed: 1, claims: [{ text: 'QA sent PRD 2809 back.', sources: [{ label: 'event 08:41', href: '/app/fleet?fleet=blue-fleet&tab=room', line: '2026-11-21 08:41 · qa · held · PRD 2809 · QA sent PRD 2809 back.' }] }] },
+  reply: { verdict: 'QA found two bugs.', read: 12, removed: 1, claims: [{ text: 'QA sent PRD 2809 back.', sources: [{ label: 'event 08:41', href: '/app/ai-fleet?fleet=blue-fleet&tab=room', line: '2026-11-21 08:41 · qa · held · PRD 2809 · QA sent PRD 2809 back.' }] }] },
 };
 const view = (over: Partial<CommanderView> = {}): CommanderView => ({
   workspace: NORTHWIND, fleet: 'blue-fleet', state: { kind: 'ready' },
@@ -41,7 +41,7 @@ describe('the Commander tab', () => {
     const html = render(view());
     const t = text(html);
     expect(t).toContain('2 running · 1 waiting · 0 paused · tokens 41% today');
-    expect(html).toContain('href="/app/fleet?fleet=blue-fleet&amp;tab=missions"');
+    expect(html).toContain('href="/app/ai-fleet?fleet=blue-fleet&amp;tab=missions"');
     expect(t).toContain('Today mira-k · 09:02 What is waiting on me? Commander agent · 09:02 2 things wait on a person.');
     expect(t).toContain('PRD 2817 waits on its Engineer. job 4f2a1b2c PRD 2820 waits on approval. PRD 2820 Read 100 events · 09:02');
     expect(t).toContain('paul-n · 09:11 Why did PRD 2809 stop? Commander agent · 09:11 QA found two bugs. QA sent PRD 2809 back. event 08:41 Read 12 events · 09:11 1 sentence removed: no link.');

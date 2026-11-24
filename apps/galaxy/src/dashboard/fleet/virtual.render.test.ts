@@ -7,11 +7,9 @@ import type { VirtualOf } from './fleet';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, refresh: () => undefined }) }));
-const { demoFleetBoard } = await import('./fleet');
 
-// /app/fleet makes Virtual Fleets (PRD 2842 s1): `+ New virtual fleet` closes the row of fleet chips, and
-// is the page's main button when the workspace has no fleet yet; a virtual fleet's chip says so. The
-// Fleet section still cannot make a players' fleet: that stays in Settings › Fleets.
+// /app/fleet keeps the players' fleets (PRD 3233 s3, AC-1): its picker leaves AI fleets out and has no New AI fleet button, which
+// lives on AI Fleet. An AI fleet's board, drawn here, links on /app/ai-fleet and has no picker. A players' fleet is made in Settings › Fleets.
 
 const NOW = new Date('2026-09-26T10:00:00Z');
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
@@ -30,38 +28,30 @@ const screen = (view: FleetView) => renderToStaticMarkup(createElement(FleetScre
 const board = (asked: string | null, teams = READ.galaxy.teams) =>
   ({ ...fleetOf({ ...READ, galaxy: { ...READ.galaxy, teams } }, { asked, viewerId: 'u-ada', period: '7d', now: NOW }), virtual: VIRTUAL });
 
-describe('/app/fleet and Virtual Fleets', () => {
-  it('closes the row of fleet chips with `+ New virtual fleet`, a quiet button', () => {
+describe('/app/fleet and AI fleets (PRD 3233 s3)', () => {
+  it('lists the players\' fleets only in its picker, with no New AI fleet button', () => {
     const html = screen(board('beaver'));
     const picker = /<nav class="fleet-picker"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? '';
-    expect(picker).toMatch(/<li><button type="button" class="ask-button quiet vf-open">\+ New virtual fleet<\/button><\/li><\/ul><\/nav>$/);
+    expect(text(picker)).toContain('BEAVER');
+    expect(text(picker)).not.toContain('Night Shift');
+    expect(html).not.toContain('New AI fleet');
   });
 
-  it('marks a virtual fleet\'s chip, and only its', () => {
-    const t = text(screen(board('night-shift')));
-    expect(t).toContain('Night Shift · virtual');
-    expect(t).not.toContain('BEAVER · virtual');
+  it('lists no AI fleet in the picker either', () => {
+    expect(text(screen(board(null)))).not.toContain('Night Shift');
+    expect(screen(board(null))).not.toContain('New AI fleet');
   });
 
-  it('shows the button on the picker too', () => {
-    expect(screen(board(null))).toContain('+ New virtual fleet');
+  it('draws an AI fleet\'s page with no picker and no season place, its tabs on /app/ai-fleet', () => {
+    const html = screen(board('night-shift'));
+    expect(html).not.toContain('fleet-picker');
+    expect(text(html)).not.toContain('place');
+    expect(html).toContain('href="/app/ai-fleet?tab=missions"');
   });
 
-  it('makes it the page\'s main button when the workspace has no fleet yet, Settings › Fleets kept for a players\' fleet', () => {
+  it('says a workspace has no fleet yet, Settings › Fleets kept, with no New AI fleet button', () => {
     const html = screen(board(null, []));
-    const t = text(html);
-    expect(t).toContain('Fleet No fleet yet. + New virtual fleet Settings › Fleets for a players’ fleet');
-    expect(html).toContain('<button type="button" class="ask-button vf-open" data-primary="">+ New virtual fleet</button>');
-  });
-
-  it('shows no button when the read does not say where to make the fleet', () => {
-    const bare: FleetView = fleetOf({ ...READ, galaxy: { ...READ.galaxy, teams: [] } }, { asked: null, viewerId: 'u-ada', period: '7d', now: NOW });
-    expect(screen(bare)).not.toContain('New virtual fleet');
-  });
-
-  it('offers it in the demo too, whose drawer makes none', () => {
-    const demo = demoFleetBoard(null, '7d', NOW);
-    expect(demo.kind === 'no-workspace' ? null : demo.virtual?.workspace).toBeNull();
-    expect(screen(demo)).toContain('+ New virtual fleet');
+    expect(text(html)).toContain('Fleet This workspace has no fleet yet. Settings › Fleets');
+    expect(html).not.toContain('New AI fleet');
   });
 });

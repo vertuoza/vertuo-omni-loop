@@ -2,14 +2,14 @@ import { HERO_ROLES, roleLine, roleOf, type HeroRole } from 'omni-loop/kit/lib/v
 import type { Created, NewFleet, VirtualFleetsPort } from '../virtual-fleets.client';
 import { FLEET_NAME_MAX, type FleetLevel, type RefusalField } from '../virtual-fleets.contract';
 
-// The New virtual fleet drawer's rules (PRD 2842 s1, PRD 2873 s3, PRD 2896 s1, the `fleet-new` screen), pure so each is tested
+// The New AI fleet drawer's rules (PRD 2842 s1, PRD 2873 s3, PRD 2896 s1, the `fleet-new` screen), pure so each is tested
 // without a browser: what it holds as it opens (Name empty, the first icon, every role on, `Reviews with you`), what each
 // change does, when Create fleet is enabled, where a refusal is shown and when it goes, where the drawer
 // lands once the fleet is made, and the demo's port. NewVirtualFleet.tsx draws it.
 
 export const WORDS = {
-  open: '+ New virtual fleet',
-  title: 'New virtual fleet',
+  open: '+ New AI fleet',
+  title: 'New AI fleet',
   name: 'Name',
   placeholder: 'Night Shift',
   icon: 'Icon',
@@ -130,7 +130,7 @@ export const requestOf = (state: NewFleetState): NewFleet => ({ name: state.name
 export const refusalUnder = (state: NewFleetState, field: RefusalField): string | null => (state.refusal?.field === field ? state.refusal.message : null);
 
 /** Where Create fleet lands: the new fleet in the Fleet section. */
-export const landingOf = (fleet: string): string => `/app/fleet?fleet=${encodeURIComponent(fleet)}`;
+export const landingOf = (fleet: string): string => `/app/ai-fleet?fleet=${encodeURIComponent(fleet)}`;
 
 /** A role's switch as the drawer draws it: its name and its count line (`Runs <k> of <n> skills alone`). */
 export function roleSwitch(role: HeroRole): { role: HeroRole; name: string; line: string } {
