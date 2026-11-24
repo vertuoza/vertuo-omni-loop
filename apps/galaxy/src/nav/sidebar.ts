@@ -14,6 +14,7 @@
 // (PRD 2255), the workspace's jobs waiting for an answer, as quiet grey digits.
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
+import { SETTINGS_LANDING_PATH, SETTINGS_MAP } from '../settings/map';
 import type { WaitingCounts } from '../waiting/waiting';
 
 export type SidebarId = 'inbox' | 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
@@ -116,22 +117,17 @@ export const ANTI_SIDEBAR: readonly SidebarGroup[] = [
   },
 ];
 
-/** Where /app/settings lands (PRD 733): its Fleets page. */
-export const SETTINGS_LANDING = '/app/settings/fleets';
+/** Where /app/settings lands (PRD 733): its Fleets page, the first of the settings map (PRD 3216). */
+export const SETTINGS_LANDING = SETTINGS_LANDING_PATH;
 
-/** The foot's Settings entry (PRD 733), above Docs and Release notes; Playbook last (PRD 2417, issue 2538). */
+/** The foot's Settings entry (PRD 733), above Docs and Release notes; its pages are the settings map's,
+ * section by section (PRD 3216). */
 export const SETTINGS: SidebarItem = {
   id: 'settings',
   label: 'Settings',
   path: '/app/settings',
   sprite: 'menu-settings',
-  pages: [
-    { label: 'Fleets', path: SETTINGS_LANDING },
-    { label: 'Repositories', path: REPOSITORIES_PATH },
-    { label: 'Business', path: '/app/settings/business' },
-    { label: 'Jev', path: '/app/settings/jev' },
-    { label: 'Playbook', path: '/app/settings/playbook' },
-  ],
+  pages: SETTINGS_MAP.flatMap((section) => section.pages.map((page) => ({ label: page.label, path: page.path, section: section.label }))),
 };
 
 /** Where an entry's link goes: its path, but for Ideas (PRD 1246) the board of the workspace's
@@ -226,6 +222,7 @@ export function pageTrail(pathname: string | null | undefined, item: string | nu
     crumbs: [
       ...(group?.label ? [{ label: group.label }] : []),
       ...(page ? [{ label: section.label, path: section.path }] : []),
+      ...(page?.section ? [{ label: page.section }] : []),
       here ? { label: last.label } : { label: last.label, path: last.path },
       ...items,
     ],

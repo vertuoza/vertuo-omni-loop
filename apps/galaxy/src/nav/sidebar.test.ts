@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, isQuiet, pageTrail, type SidebarItem } from './sidebar';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
+import { SETTINGS_MAP, settingsPages } from '../settings/map';
 
 // /app/settings' page only redirects: next/navigation's redirect, recorded instead of thrown.
 const redirected = vi.hoisted((): string[] => []);
@@ -75,11 +76,15 @@ describe('SIDEBAR', () => {
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business, Jev and Playbook (PRD 733, PRD 748, PRD 859, PRD 812, PRD 2417)', () => {
+  it('holds one Settings entry at /app/settings, its pages the settings map\'s, API keys included (PRD 733, PRD 3216)', () => {
     expect(rows([SETTINGS])).toEqual([
-      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev'], ['Playbook', '/app/settings/playbook']]],
+      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev'], ['Playbook', '/app/settings/playbook'], ['API keys', '/app/settings/api-keys']]],
     ]);
     expect(SETTINGS.leavesApp).toBeFalsy();
+  });
+
+  it('AC-1: lists the map\'s pages, in the map\'s order', () => {
+    expect((SETTINGS.pages ?? []).map((p) => [p.label, p.path])).toEqual(settingsPages().map((p) => [p.label, p.path]));
   });
 
   it('lands /app/settings on its Fleets page (PRD 733)', () => {
@@ -118,12 +123,13 @@ describe('currentItem and pageTrail', () => {
     ['/app/engineering/demo-org/pdf-builder', 'engineering', 'Dashboard › Engineering'],
     ['/app/engineering/demo-org/pdf-builder?period=30d', 'engineering', 'Dashboard › Engineering'],
     ['/app/settings', 'settings', 'Settings'],
-    ['/app/settings/fleets', 'settings', 'Settings › Fleets'],
-    ['/app/settings/fleets?fleet=beaver', 'settings', 'Settings › Fleets'],
-    ['/app/settings/repositories', 'settings', 'Settings › Repositories'],
-    ['/app/settings/business', 'settings', 'Settings › Business'],
-    ['/app/settings/jev', 'settings', 'Settings › Jev'],
-    ['/app/settings/playbook', 'settings', 'Settings › Playbook'],
+    ['/app/settings/fleets', 'settings', 'Settings › Workspace › Fleets'],
+    ['/app/settings/fleets?fleet=beaver', 'settings', 'Settings › Workspace › Fleets'],
+    ['/app/settings/repositories', 'settings', 'Settings › Workspace › Repositories'],
+    ['/app/settings/business', 'settings', 'Settings › Workspace › Business'],
+    ['/app/settings/jev', 'settings', 'Settings › Agents › Jev'],
+    ['/app/settings/playbook', 'settings', 'Settings › Agents › Playbook'],
+    ['/app/settings/api-keys', 'settings', 'Settings › Developers › API keys'],
     ['/app/settingsx', 'home', 'Dashboard › Home'],
     ['/app/products', 'products', 'Work › Products'],
     ['/app/products/p-1', 'products', 'Work › Products'],
@@ -187,19 +193,21 @@ describe('currentItem and pageTrail', () => {
     expect(pageTrail('/app/workspace#top')?.crumbs.at(-1)).toEqual({ label: 'Workspace' });
   });
 
-  it('gives the foot\'s Settings no group crumb: "Settings › Fleets", Settings linked (PRD 733)', () => {
-    expect(pageTrail('/app/settings/fleets')?.crumbs).toEqual([
+  it('AC-5: reads each Settings page\'s section from the map between Settings and the page (PRD 3216)', () => {
+    expect(pageTrail('/app/settings/api-keys')?.crumbs).toEqual([
       { label: 'Settings', path: '/app/settings' },
-      { label: 'Fleets' },
+      { label: 'Developers' },
+      { label: 'API keys' },
     ]);
-    expect(pageTrail('/app/settings/repositories')?.crumbs).toEqual([
-      { label: 'Settings', path: '/app/settings' },
-      { label: 'Repositories' },
-    ]);
-    expect(pageTrail('/app/settings/business')?.crumbs).toEqual([
-      { label: 'Settings', path: '/app/settings' },
-      { label: 'Business' },
-    ]);
+    for (const section of SETTINGS_MAP) {
+      for (const page of section.pages) {
+        expect(pageTrail(page.path)?.crumbs).toEqual([
+          { label: 'Settings', path: '/app/settings' },
+          { label: section.label },
+          { label: page.label },
+        ]);
+      }
+    }
   });
 
   it('ends a PRD\'s and a fix\'s page on its item, named once the page names it, and a PRD\'s review screen on Review for approval (omni-loop-20 s6)', () => {
