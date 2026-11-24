@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Board } from '../../runners/runners.contract';
+import type { Board, Job } from '../../runners/runners.contract';
 import { DEMO_FLEETS, DEMO_MISSIONS, DEMO_PRDS, demoFleetBoard } from './runners-view.demo';
 import { fleetRunnersView } from './runners-view';
 import { fleetHeadOf, runnersTabOf } from './runners-tab';
@@ -9,6 +9,11 @@ const NOW = new Date('2027-02-01T12:00:00.000Z');
 const board = demoFleetBoard(NOW);
 const mission = (id: string, progress = '3 of 6 merged · 2 ready', waits: unknown[] = []) =>
   ({ id, title: 'Checkout rework', status: 'running' as const, progress, waits: waits as never[] });
+const jobAt = (i: number): Job => {
+  const found = board.jobs[i];
+  if (found === undefined) throw new Error('no such demo job');
+  return found;
+};
 const viewOf = (name: keyof typeof DEMO_MISSIONS, b: Board = board) => {
   const fleet = DEMO_FLEETS.find((f) => f.name === name) ?? { name, label: name };
   return fleetRunnersView(b, fleet, [DEMO_MISSIONS[name]], NOW, DEMO_PRDS, DEMO_FLEETS);
@@ -48,7 +53,7 @@ describe('the Runners tab', () => {
   });
 
   it('a job waiting on the viewer is listed with Answer', () => {
-    const asking = { ...board.jobs[0]!, id: 'a1', status: 'done' as const, outcome: 'human' as const, endedAt: NOW.toISOString() };
+    const asking = { ...jobAt(0), id: 'a1', status: 'done' as const, outcome: 'human' as const, endedAt: NOW.toISOString() };
     expect(runnersTabOf(viewOf('orion', { ...board, jobs: [...board.jobs, asking] }), board).answers.map((j) => j.id)).toEqual(['a1']);
   });
 
@@ -61,7 +66,7 @@ describe('the Runners tab', () => {
   });
 
   it('every runner out of tokens reads Out of tokens until hh:mm above the waiting jobs', () => {
-    const queued = { ...board.jobs[3]!, id: 'q', toFleet: 'orion', repo: 'acme/storefront-api', missionId: DEMO_MISSIONS.orion };
+    const queued = { ...jobAt(3), id: 'q', toFleet: 'orion', repo: 'acme/storefront-api', missionId: DEMO_MISSIONS.orion };
     const health = { cpu: 1, load1: 0, cores: 8, memUsed: 1, memTotal: 2, diskFree: 1, diskTotal: 2, paused: 'no tokens left', at: NOW.toISOString(), accounts: [{ id: 'a', agent: 'claude', state: 'out' as const, resetsAt: '2027-02-01T14:00:00.000Z' }] };
     const paused: Board = { ...board, jobs: [...board.jobs, queued], runners: board.runners.map((r) => (r.id === 'r-orbit-1' ? { ...r, state: 'online', used: 0, health } : r)) };
     expect(runnersTabOf(viewOf('orion', paused), paused).tokens).toBe('Out of tokens until 14:00');

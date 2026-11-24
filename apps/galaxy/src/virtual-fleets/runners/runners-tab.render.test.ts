@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { Board } from '../../runners/runners.contract';
+import type { Board, Job } from '../../runners/runners.contract';
 import { DEMO_FLEETS, DEMO_MISSIONS, DEMO_PRDS, demoFleetBoard } from './runners-view.demo';
 import { fleetRunnersView } from './runners-view';
 import { fleetHeadOf, runnersTabOf } from './runners-tab';
@@ -16,6 +16,11 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, r
 const NOW = new Date('2027-02-01T12:00:00.000Z');
 const board = demoFleetBoard(NOW);
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+const jobAt = (i: number): Job => {
+  const found = board.jobs[i];
+  if (found === undefined) throw new Error('no such demo job');
+  return found;
+};
 const viewOf = (name: keyof typeof DEMO_MISSIONS, b: Board = board) =>
   fleetRunnersView(b, DEMO_FLEETS.find((f) => f.name === name) ?? { name, label: name }, [DEMO_MISSIONS[name]], NOW, DEMO_PRDS, DEMO_FLEETS);
 const tabHtml = (name: keyof typeof DEMO_MISSIONS, b: Board = board) =>
@@ -60,7 +65,7 @@ describe('the Runners tab as the server renders it', () => {
   });
 
   it('a job waiting on the viewer carries Answer, which opens the Need human drawer', () => {
-    const asking = { ...board.jobs[0]!, id: 'a1', status: 'done' as const, outcome: 'human' as const, endedAt: NOW.toISOString() };
+    const asking = { ...jobAt(0), id: 'a1', status: 'done' as const, outcome: 'human' as const, endedAt: NOW.toISOString() };
     const b: Board = { ...board, jobs: [...board.jobs, asking] };
     expect(tabHtml('orion', b)).toContain('data-answer="a1"');
   });
