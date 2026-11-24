@@ -39,11 +39,11 @@ const number = (value: unknown): number => (typeof value === 'number' && Number.
 const two = (value: number): string => String(value).padStart(2, '0');
 /**
  * The record lines the App reads back from a job's log (bug #3244): a committee's vote, a PM's PRDs, a
- * mission's retro and a repair. Each is one JSON object its schema bounds, which runs past
+ * mission's retro and a repair; a PM's plan approval and an Architect's tech review (PRD omni-loop-26). Each is one JSON object its schema bounds, which runs past
  * {@link LINE_CUT} once its sentences are long, and a cut one reads as no record at all. Such a line
  * keeps up to {@link RECORD_CUT} characters.
  */
-const RECORD_LINES = ['omni committee: ', 'omni pm: ', 'omni retro: ', 'omni repair: '];
+const RECORD_LINES = ['omni committee: ', 'omni pm: ', 'omni retro: ', 'omni repair: ', 'omni plan: ', 'omni tech: '];
 /** The most characters a record line holds, its time included: well under a job's 16 KB log tail. */
 const RECORD_CUT = 8000;
 const STAMPED = /^\d{2}:\d{2}:\d{2} /;

@@ -20,6 +20,15 @@ export const RUNNABLE_SKILLS: readonly string[] = Object.freeze([
  * mission at `alone`. Outside one they need a person at the terminal, as before. */
 export const PM_SKILLS: readonly string[] = Object.freeze(['brainstorm', 'roadmap', 'mega-brainstorm', 'mega-roadmap']);
 
+/** The skills a runner takes for a mission's fleet only (PRD omni-loop-26), each in one shape: `tech-review`, the Architect's review
+ * of a product PRD's plan, as `/omni:tech-review <key>-<n> --mission <m>`. Never in {@link RUNNABLE_SKILLS}: a person's Send, the
+ * Heroes' marks and an account's `takes` read that list, and outside a mission the skill needs a person at the terminal. */
+export const FLEET_SKILLS: readonly string[] = Object.freeze(['tech-review']);
+
+const TECH_REVIEW_ARGS = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-[1-9]\d{0,9} --mission [1-9]\d*$/;
+
+const TECH_REVIEW_REFUSAL = '/omni:tech-review runs on a runner for a mission\'s Architect only, as /omni:tech-review <key>-<n> --mission <m>';
+
 /** The one line `/omni:mission` takes on a runner (PRD omni-loop-24): `--request <uuid>`, from the New mission box. The goal never
  * travels in the line; the skill reads it with `omni mission request <id>`. */
 const MISSION_ARGS = /^--request [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -31,8 +40,10 @@ export type JobMission = { level: string } | null;
 
 /** Why fixed skill `skill` may not run on a job of `mission`, or null when it may: a PM skill runs for a mission at `alone` only. */
 export function missionRefusal(skill: string, mission: JobMission): string | null {
-  if (!PM_SKILLS.includes(skill) || mission?.level === 'alone') return null;
-  return `/omni:${skill} runs on a runner for a mission's PM only`;
+  if (mission?.level === 'alone') return null;
+  if (PM_SKILLS.includes(skill)) return `/omni:${skill} runs on a runner for a mission's PM only`;
+  if (FLEET_SKILLS.includes(skill)) return `/omni:${skill} runs on a runner for a mission's Architect only`;
+  return null;
 }
 
 /** The lines only the Omni App sends, each run by the job's process with no agent and no plugin skill: `acceptance`, a gated
@@ -77,16 +88,17 @@ export function checkRunnerLine(line: string, allowed: readonly string[] = []): 
 }
 
 function checkFixed(skill: string, args: string): RunnerLineCheck {
-  if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
+  if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill) && !FLEET_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
   if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
   if (skill === 'mission' && !MISSION_ARGS.test(args)) return { ok: false, reason: MISSION_REFUSAL };
+  if (skill === 'tech-review' && !TECH_REVIEW_ARGS.test(args)) return { ok: false, reason: TECH_REVIEW_REFUSAL };
   return { ok: true, kind: 'omni', skill, args };
 }
 
 function checkOwn(skill: string, args: string, allowed: readonly string[]): RunnerLineCheck {
   if (skill.length > SKILL_NAME_MAX) return { ok: false, reason: `a skill's name is ${String(SKILL_NAME_MAX)} characters at most` };
   if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
-  if (RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` };
+  if (RUNNABLE_SKILLS.includes(skill) || FLEET_SKILLS.includes(skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` };
   if (!allowed.includes(skill)) return { ok: false, reason: `/${skill} is not allowed on a runner for this repository` };
   return { ok: true, kind: 'repository', skill, args };
 }
