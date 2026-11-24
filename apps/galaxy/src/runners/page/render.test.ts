@@ -104,10 +104,11 @@ describe('the board', () => {
     expect(jobRow(html, '/omni:bug-fix Issue 548 totals')).not.toContain('/prd/at/');
   });
 
-  it('is the marked runners screen, titled Runners, with its two tables', () => {
+  it('is the marked runners screen, titled Runners once, with its runner cards and its jobs table', () => {
     expect(html).toContain('data-screen="runners"');
     expect(html).toContain('<h1 class="dash-name">Runners</h1>');
-    expect(t).toContain('Runner State Fleet Slots Repositories Kit');
+    expect(html.match(/>Runners</g)).toHaveLength(1);
+    expect(t).toContain('3 runners · 2 online · 1 of 3 slots in use');
     expect(t).toContain('Line Repository Sent by Where Status');
   });
 
@@ -116,15 +117,16 @@ describe('the board', () => {
   });
 
   it('shows each runner state: Busy, Online, and Offline with when it was last seen', () => {
-    expect(t).toContain('acme-agents Paused: memory 91%'); // Busy, until its last report names a pressure (PRD 2102)
-    expect(t).toContain('mac-mini-office Online');
-    expect(t).toContain('ada-laptop Offline, 3 h ago');
+    expect(t).toContain('Paused: memory 91%'); // Busy, until its last report names a pressure (PRD 2102)
+    expect(t).toContain('Online 0 of 2 slots');
+    expect(t).toContain('Offline, 3 h ago 0 of 1 slot');
     for (const state of ['paused', 'online', 'offline']) expect(html).toContain(`runners-state is-${state}`);
   });
 
   it('shows slots used out of slots, the repositories and the kit version', () => {
-    expect(t).toContain('1 of 1');
-    expect(t).toContain('0 of 2 widgets · mobile 0.0.388');
+    expect(t).toContain('1 of 1 slot Used by acme-agents');
+    expect(t).toContain('0 of 2 slots');
+    expect(t).toContain('widgets · mobile 0.0.388');
     expect(t).toContain('0.0.385');
   });
 
@@ -237,8 +239,8 @@ describe('the board', () => {
   it('gives a member who is not an owner each fleet as text, with no picker', () => {
     const member = render(withBoard((board) => ({ ...board, viewer: { ...board.viewer, owner: false } })));
     expect(member).not.toContain('<select');
-    expect(text(member)).toContain('acme-agents Paused: memory 91% Comets 1 of 1');
-    expect(text(member)).toContain('mac-mini-office Online Shared 0 of 2');
+    expect(text(member)).toContain('acme-agents Comets Terminal');
+    expect(text(member)).toContain('mac-mini-office Shared Terminal');
   });
 
   it('hides Cancel on a running job once a cancel was asked for', () => {

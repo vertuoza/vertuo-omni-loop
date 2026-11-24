@@ -8,7 +8,7 @@ import {
   afterAnswersWords, answeredOf, bucketCounts, bucketsOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, JOB_TABS, jobTabOf, lastJobWords, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type JobBucket, type JobTab, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
-import { accountChips, asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
+import { accountChips, asOfWords, gaugesOf, jobTokensWords, kitBlocks, OLD_RUNNER_WORDS, slotFleets, stateTone, summaryWords, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { listedAnswer } from './need-human';
 import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
 import { cameBackWords, keepsWords, lossOf, lostThrice, resumeWords, type Loss } from './loss';
@@ -65,8 +65,13 @@ function GaugeView({ gauge }: { gauge: Gauge }) {
   return (
     <div className={`runners-gauge${gauge.over ? ' is-over' : ''}`} data-gauge={gauge.key}>
       <div className="runners-gauge-k">{gauge.label}</div>
-      <div className="runners-gauge-v" data-content {...(gauge.title === null ? {} : { title: gauge.title })}>{gauge.value}</div>
-      {gauge.fill !== null && <div className="runners-gauge-fill"><i style={{ width: `${String(Math.round(gauge.fill))}%` }} /></div>}
+      <div className="runners-gauge-v" data-content {...(gauge.title === null ? {} : { title: gauge.title })}>{gauge.over && <i className="runners-icon" aria-hidden="true">▲ </i>}{gauge.value}</div>
+      {gauge.fill !== null && (
+        <div className="runners-gauge-fill">
+          <i style={{ width: `${String(Math.round(gauge.fill))}%` }} />
+          {gauge.limit !== null && <b className="runners-gauge-limit" title="This runner's limit" style={{ left: `${String(Math.round(gauge.limit))}%` }} />}
+        </div>
+      )}
       {gauge.spark !== null && (
         <svg viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><polyline points={gauge.spark} /></svg>
       )}
@@ -74,7 +79,7 @@ function GaugeView({ gauge }: { gauge: Gauge }) {
   );
 }
 
-/** A runner's accounts under its gauges (PRD 2537): one chip each in the file's order, its state in its colour. */
+/** A runner's accounts (PRD 2537): one chip each in the file's order, its state in its colour. */
 function AccountChips({ runner }: { runner: Runner }) {
   const chips = accountChips(runner);
   if (chips.length === 0) return null;
@@ -85,6 +90,7 @@ function AccountChips({ runner }: { runner: Runner }) {
   );
 }
 
+/** A runner card's health, in the spec's order (PRD 3232): its accounts and tokens, then CPU, Memory and Disk with their limit ticks. */
 function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
   const gauges = gaugesOf(runner);
   if (gauges === null) {
@@ -98,28 +104,64 @@ function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
   const asOf = asOfWords(runner, now);
   return (
     <div className={`runners-health${asOf === null ? '' : ' is-grey'}`}>
-      {gauges.map((gauge) => <GaugeView key={gauge.key} gauge={gauge} />)}
-      {asOf !== null && <span className="runners-asof">{asOf}</span>}
       <AccountChips runner={runner} />
+      {gauges.filter((gauge) => gauge.key === 'tokens').map((gauge) => <GaugeView key={gauge.key} gauge={gauge} />)}
+      {gauges.filter((gauge) => gauge.key !== 'tokens').map((gauge) => <GaugeView key={gauge.key} gauge={gauge} />)}
+      {asOf !== null && <span className="runners-asof">{asOf}</span>}
+    </div>
+  );
+}
+
+/** Can the runner take work: its state, one pip per slot (a busy one titled with the fleet of the job using it), how many are used, and who uses them. */
+function SlotsLine({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
+  const used = slotFleets(runner, board.jobs, board.runners, fleets);
+  const tone = stateTone(runner);
+  return (
+    <div className="runners-can">
+      <span className={`runners-state is-${tone}`}><i className="runners-dot" aria-hidden="true" />{tone === 'paused' && <i className="runners-icon" aria-hidden="true">▲ </i>}{stateWords(runner, now)}</span>
+      <span className="runners-pips" aria-hidden="true">
+        {Array.from({ length: runner.slots }, (_, at) => <i key={at} className={`runners-pip${at < runner.used ? ' is-used' : ''}`} {...(at < runner.used && used[at] !== undefined ? { title: used[at] } : {})} />)}
+      </span>
+      <span data-content>{runner.used} of {runner.slots} {runner.slots === 1 ? 'slot' : 'slots'}</span>
+      {used.length > 0 && <span className="runners-muted runners-used-by" data-content>Used by {[...new Set(used)].join(', ')}</span>}
+    </div>
+  );
+}
+
+/** The foot of a runner card: its repositories, then its kit, in red with what it blocks only when a queued job waits on it. */
+function CardFoot({ runner, blocks }: { runner: Runner; blocks: number }) {
+  return (
+    <div className="runners-card-foot">
+      <span className="runners-repos" data-content title={runner.repos.join(', ')}>{runner.repos.map(repoName).join(' · ')}</span>
+      <span className={`runners-kit${blocks > 0 ? ' is-blocking' : ' runners-muted'}`} data-content>
+        {blocks > 0 && <i className="runners-icon" aria-hidden="true">▲ </i>}{runner.version}{blocks > 0 && ` · blocks ${String(blocks)} ${blocks === 1 ? 'job' : 'jobs'}`}
+      </span>
+    </div>
+  );
+}
+
+/** The head of a runner card: its name, its fleet (a picker for a workspace owner, text for everyone else) and its Terminal. */
+function CardHead({ runner, board, fleets }: { runner: Runner; board: Board; fleets: readonly Fleet[] }) {
+  const fleet = fleetCell(runner, board.viewer, fleets);
+  const keeps = keepsWords(runner.name, board.saves ?? []);
+  return (
+    <div className="runners-card-head">
+      <span className="runners-name" data-content>{runner.name}{keeps !== null && <small className="runners-keeps runners-muted">{keeps}</small>}</span>
+      {fleet.kind === 'picker'
+        ? <FleetPicker runner={runner.id} name={runner.name} value={fleet.value} options={fleet.options} />
+        : <span data-content>{fleet.label}</span>}
+      <TerminalButton job={runnerJob(runner, board.jobs)?.id ?? null} />
     </div>
   );
 }
 
 function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
-  const fleet = fleetCell(runner, board.viewer, fleets);
-  const keeps = keepsWords(runner.name, board.saves ?? []);
   return (
-    <div className="runners-row">
-      <span className="runners-name" data-content>{runner.name}{keeps !== null && <small className="runners-keeps runners-muted">{keeps}</small>}</span>
-      <span className={`runners-state is-${stateTone(runner)}`}><i className="runners-dot" aria-hidden="true" />{stateWords(runner, now)}</span>
-      {fleet.kind === 'picker'
-        ? <FleetPicker runner={runner.id} name={runner.name} value={fleet.value} options={fleet.options} />
-        : <span data-content>{fleet.label}</span>}
-      <span data-content>{runner.used} of {runner.slots}</span>
-      <span className="runners-repos" data-content title={runner.repos.join(', ')}>{runner.repos.map(repoName).join(' · ')}</span>
-      <span className="runners-muted" data-content>{runner.version}</span>
-      <TerminalButton job={runnerJob(runner, board.jobs)?.id ?? null} />
+    <div className="runners-row runners-card">
+      <CardHead runner={runner} board={board} fleets={fleets} />
+      <SlotsLine runner={runner} board={board} fleets={fleets} now={now} />
       <HealthLine runner={runner} now={now} />
+      <CardFoot runner={runner} blocks={kitBlocks(runner, board.jobs, board.runners, fleets)} />
     </div>
   );
 }
@@ -355,13 +397,14 @@ function Start() {
 function Board({ board, fleets, prds, retros, now, answered, tab }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[]; tab: JobTab }) {
   return (
     <div className="dash runners" data-screen="runners">
-      <h1 className="dash-name">Runners</h1>
+      <header>
+        <h1 className="dash-name">Runners</h1>
+        {board.runners.length > 0 && <p className="runners-muted runners-summary" data-content>{summaryWords(board.runners)}</p>}
+      </header>
       {board.runners.length === 0 ? <Start /> : (
         <>
-          <section className="runners-section">
-            <h2>Runners</h2>
-            <div className="runners-table runners-runners">
-              <div className="runners-row runners-head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span><span /></div>
+          <section className="runners-section" aria-label="Runners">
+            <div className="runners-cards">
               {board.runners.map((runner) => <RunnerRow key={runner.id} runner={runner} board={board} fleets={fleets} now={now} />)}
             </div>
           </section>
