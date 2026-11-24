@@ -1,3 +1,4 @@
+import { ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -17,8 +18,10 @@ const M1 = '11111111-1111-4111-8111-111111111111';
 const M2 = '22222222-2222-4222-8222-222222222222';
 const A = 'a'.repeat(64);
 const B = 'b'.repeat(64);
+const P31 = ProductPrdIdSchema.parse('omni-loop-31');
+const P32 = ProductPrdIdSchema.parse('omni-loop-32');
 const decision = (over: Partial<PlanDecisionRow>): PlanDecisionRow => ({
-  mission: M1, prd: 'omni-loop-31', kind: 'plan', outcome: 'approved', plan: A, settled: [], why: [], at: '2026-11-24T09:00:00Z', ...over,
+  mission: M1, prd: P31, kind: 'plan', outcome: 'approved', plan: A, settled: [], why: [], at: '2026-11-24T09:00:00Z', ...over,
 });
 
 describe('reviewLinesOf', () => {
@@ -62,7 +65,7 @@ describe('reviewLinesOf', () => {
   });
 
   it('gives one line per PRD and mission, in the order each was first decided, and keeps only the mission the filter names', () => {
-    const rows = [decision({}), decision({ prd: 'omni-loop-32', at: '2026-11-24T09:30:00Z' }), decision({ mission: M2, at: '2026-11-24T08:00:00Z' })];
+    const rows = [decision({}), decision({ prd: P32, at: '2026-11-24T09:30:00Z' }), decision({ mission: M2, at: '2026-11-24T08:00:00Z' })];
     expect(reviewLinesOf(rows).map((l) => [l.mission, l.prd])).toEqual([[M2, 'omni-loop-31'], [M1, 'omni-loop-31'], [M1, 'omni-loop-32']]);
     expect(reviewLinesOf(rows, M2).map((l) => l.mission)).toEqual([M2]);
   });
@@ -70,7 +73,7 @@ describe('reviewLinesOf', () => {
 
 describe('waitingOf', () => {
   it('lists each open point under its PRD, signed by the Architect', () => {
-    const lines = reviewLinesOf([decision({}), decision({ kind: 'tech', outcome: 'escalated', why: ['which queue holds the retries'] }), decision({ prd: 'omni-loop-32' })]);
+    const lines = reviewLinesOf([decision({}), decision({ kind: 'tech', outcome: 'escalated', why: ['which queue holds the retries'] }), decision({ prd: P32 })]);
     expect(waitingOf(lines)).toEqual([{ id: `${M1}:omni-loop-31:0`, prd: 'omni-loop-31', by: 'Architect · agent', point: 'which queue holds the retries' }]);
   });
 });

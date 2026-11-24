@@ -1,3 +1,4 @@
+import type { ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { roleOf } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { timeOf } from './room';
 
@@ -20,7 +21,7 @@ export const REVIEW_WORDS = {
 export interface PlanDecisionRow {
   mission: string;
   /** The product PRD's id, `omni-loop-31`. */
-  prd: string;
+  prd: ProductPrdId;
   kind: 'plan' | 'tech';
   outcome: 'approved' | 'escalated';
   /** The sha256 of the plan version it names; null for an escalated one whose job left no record. */
@@ -41,7 +42,7 @@ export interface ReviewRow {
 /** One PRD of the PM's: its plan row, its tech row, and the Architect's open points while its newest review is escalated. */
 export interface ReviewLine {
   mission: string;
-  prd: string;
+  prd: ProductPrdId;
   plan: ReviewRow;
   tech: ReviewRow;
   open: readonly string[];
@@ -50,7 +51,7 @@ export interface ReviewLine {
 /** One open point under Waiting on you. */
 export interface WaitingPoint {
   id: string;
-  prd: string;
+  prd: ProductPrdId;
   by: string;
   point: string;
 }
