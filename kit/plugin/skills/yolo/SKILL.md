@@ -57,7 +57,10 @@ squash-merges the PRD into it, and this skill never merges into it. Pass `--base
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON;
 `<remote>` below is `repo.remote`, and `<feature branch>` is `branches.feature` with `{topic}`
-filled by the PRD folder's topic (the folder `omni prd` names is `<n>-<topic>`).
+filled by the PRD folder's topic (the folder `omni prd` names is `<n>-<topic>`). When this checkout
+has no folder and `omni prd` prints `omni prd: its folder is on <remote>/<branch>: read it there.` (a
+PRD a mission's PM wrote lives on its feature branch only, bug #3236), `<branch>` is the feature
+branch.
 
 Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs session start`. Its
 rules bind every step below. Each `omni kb show <form>` prints one form of the repository's

@@ -21,7 +21,7 @@ import { prdState } from '../../lib/approval/prd-state.ts';
 import { loadContext } from '../../lib/context.ts';
 import { isPrdKind, PRD_KINDS } from '../../lib/dossier/product-prd.ts';
 import { productLine } from '../../lib/dossier/product.ts';
-import { gateApproval, heldWhy, prdLines, whereIs } from '../../lib/delivery/prd.ts';
+import { featureBranchHolding, gateApproval, heldWhy, prdLines, whereIs } from '../../lib/delivery/prd.ts';
 import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { isProductPrdId, parsePrdId } from '../../lib/ids.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
@@ -64,6 +64,8 @@ export const prd = {
     const where = whereIs(ctx, id);
     if (!where) {
       println(stderr, `omni prd: PRD ${id} is in neither ${ctx.layout.dirs.inbox} nor ${ctx.layout.dirs.shipped}.`);
+      const branch = featureBranchHolding(ctx, id, exec);
+      if (branch !== null) println(stderr, `omni prd: its folder is on ${branch}: read it there.`);
       return 1;
     }
     const state = await prdState(ctx, id, { approval: gateApproval(ctx, { tokens, home, fetch, callMs }) });

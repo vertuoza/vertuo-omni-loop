@@ -14,7 +14,8 @@ import { lawsLines } from '../approval/laws.ts';
 import type { Fetch, TokenStore } from '../ask/client.ts';
 import { parsePlanRepositories, parsePlanSlices } from '../inbox/territory.ts';
 import { openItemFiles } from '../outbox/status.ts';
-import type { Context } from '../context.ts';
+import type { Context, ExecText } from '../context.ts';
+import { padPrd } from '../layout.ts';
 import type { PrdNumber } from '../ids.ts';
 import type { PRD } from '../types.ts';
 
@@ -37,6 +38,39 @@ export function whereIs(ctx: Context, prd: PrdNumber): PRD | null {
     openItems: openItemFiles(prd, { ctx }),
     repos: planRepos(join(absolute, 'plan.md')),
   };
+}
+
+/**
+ * The remote feature branch that holds PRD `prd`'s inbox folder, as `<repo.remote>/<branch>`, when
+ * this checkout has none (bug #3236). A mission's PM writes each PRD it plans on that PRD's feature
+ * branch only, so a skill sent the number alone (the committee) reads the folder there. A remote
+ * branch counts when `branches.feature` with `{topic}` names it and it holds `<nnnn>-<topic>` in its
+ * inbox. `null` when none does, or git cannot list the branches.
+ */
+export function featureBranchHolding(ctx: Context, prd: PrdNumber, exec: ExecText): string | null {
+  const { remote } = ctx.config.repo;
+  const [head = '', tail = ''] = ctx.config.branches.feature.split('{topic}');
+  if (!ctx.config.branches.feature.includes('{topic}')) return null;
+  const git = (args: string[]): string => exec('git', args, { cwd: ctx.root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const prefix = `refs/remotes/${remote}/`;
+  let refs: string[];
+  try {
+    refs = git(['for-each-ref', '--format=%(refname)', prefix]).split('\n').filter(Boolean);
+  } catch {
+    return null;
+  }
+  for (const ref of refs) {
+    const branch = ref.slice(prefix.length);
+    if (branch.length <= head.length + tail.length || !branch.startsWith(head) || !branch.endsWith(tail)) continue;
+    const topic = branch.slice(head.length, branch.length - tail.length);
+    const folder = `${ctx.layout.dirs.inbox}/${padPrd(prd)}-${topic}`;
+    try {
+      if (git(['ls-tree', '--name-only', ref, '--', `${folder}/`]).trim()) return `${remote}/${branch}`;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 /**
