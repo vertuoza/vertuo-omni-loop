@@ -7,12 +7,12 @@ const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
 type Repo = { default_branch: string; allow_rebase_merge?: boolean };
 
 /** A GitHub that holds `branches` (name to sha) and answers the repository as `repo`; every call is kept. */
-function github({ repo = { default_branch: 'main', allow_rebase_merge: true }, branches = { main: SHA } }: { repo?: Repo; branches?: Record<string, string> } = {}) {
+function github({ repo = { default_branch: 'main', allow_rebase_merge: true }, branches = { main: SHA } }: { repo?: Repo | null; branches?: Record<string, string> } = {}) {
   const calls: string[] = [];
   const octokit = {
     request: (route: string, params: Record<string, unknown> = {}) => {
       calls.push(route);
-      if (route === 'GET /repos/{owner}/{repo}') return Promise.resolve({ data: repo });
+      if (route === 'GET /repos/{owner}/{repo}') return repo === null ? Promise.reject(Object.assign(new Error('Not Found - https://docs.github.com/rest/repos/repos#get-a-repository'), { status: 404 })) : Promise.resolve({ data: repo });
       if (route === 'GET /repos/{owner}/{repo}/git/ref/{ref}') {
         const sha = branches[String(params.ref).replace('heads/', '')];
         return sha === undefined ? Promise.reject(Object.assign(new Error('Not Found'), { status: 404 })) : Promise.resolve({ data: { object: { sha } } });
@@ -146,5 +146,21 @@ describe('prepareAll: the mission branch cut in each repository', () => {
 
   it('cuts nothing for a scope that touches no repository yet', async () => {
     expect(await prepareAll(branches(), { installation: 7, repos: [], branch: 'mission/12-q' })).toEqual({ ok: true, cut: [] });
+  });
+});
+
+describe('a target GitHub cannot find (bug #3271)', () => {
+  it('reads no repository from a Repositories cell that names none, such as "omni-loop (this repository)"', () => {
+    const plan = ['## Repositories', '', '| repo | role | read at |', '| --- | --- | --- |', '| omni-loop (this repository) | product | — |', '| demo-org/widgets | app | — |', ''].join('\n');
+    expect(planTargets(plan, 'demo-org')).toEqual(['demo-org/widgets']);
+  });
+
+  it('waits, naming the repository, when GitHub does not find it, and cuts nothing', async () => {
+    const gh = github({ repo: null });
+    await expect(gh.prepare({ ...where, repo: 'demo-org/omni-loop' })).resolves.toEqual({
+      ok: false,
+      why: 'demo-org/omni-loop is not found on GitHub, or the app is not installed on it: nothing was cut',
+    });
+    expect(gh.calls).toEqual(['GET /repos/{owner}/{repo}']);
   });
 });

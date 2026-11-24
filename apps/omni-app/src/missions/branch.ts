@@ -30,13 +30,22 @@ const RepoSchema = z.looseObject({ default_branch: z.string(), allow_rebase_merg
 export const rebaseWhy = (repo: string): string =>
   `${repo} does not allow rebase merges: turn on "Allow rebase merging" in its settings, so the mission branch can land on the default branch; nothing was cut`;
 
+/** What a mission waits on when GitHub does not find a repository its scope names (bug #3271): never a silent retry. */
+const notFoundWhy = (repo: string): string => `${repo} is not found on GitHub, or the app is not installed on it: nothing was cut`;
+
 /** The branches of a mission, through `octokitFor(installation)`. */
 export function missionBranches({ octokitFor }: { octokitFor: (installation: number) => Promise<GitHubClient> | GitHubClient }): MissionBranches {
   return {
     async prepare({ installation, repo, branch }) {
       const [owner = '', name = ''] = repo.split('/');
       const octokit = await octokitFor(installation);
-      const { data } = await octokit.request('GET /repos/{owner}/{repo}', { owner, repo: name });
+      let data: unknown;
+      try {
+        ({ data } = await octokit.request('GET /repos/{owner}/{repo}', { owner, repo: name }));
+      } catch (error) {
+        if (statusOf(error) === 404) return { ok: false, why: notFoundWhy(repo) };
+        throw error;
+      }
       const read = RepoSchema.parse(data);
       // Only `true` is a yes: a repository GitHub does not say it of is never cut a branch it could not land.
       if (read.allow_rebase_merge !== true) return { ok: false, why: rebaseWhy(repo) };
@@ -56,7 +65,14 @@ const sameRepo = (a: string, b: string): boolean => a.toLowerCase() === b.toLowe
  * The repositories a product PRD's plan names (PRD omni-loop-21 s7): each row of its `## Repositories` table as `owner/name`, a bare
  * name read under `owner`, the mission repository's owner. None for a plan with no such table.
  */
-export const planTargets = (plan: string, owner: string): string[] => parsePlanRepositories(plan).map(({ repo }) => (repo.includes('/') ? repo : `${owner}/${repo}`));
+export const planTargets = (plan: string, owner: string): string[] =>
+  parsePlanRepositories(plan)
+    .map(({ repo }) => repo.trim())
+    .filter((repo) => REPOSITORY.test(repo))
+    .map((repo) => (repo.includes('/') ? repo : `${owner}/${repo}`));
+
+/** A Repositories cell that names a repository, `owner/name` or a bare `name`: a cell such as `omni-loop (this repository)` names none (bug #3271). */
+const REPOSITORY = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)?$/;
 
 /**
  * Every repository the scope touches (PRD omni-loop-21 s7, spec "2. One mission branch per repository"), once each, in order: the
