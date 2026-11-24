@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { supabaseEnv } from '../../../src/data/supabase-server';
 import { viewer } from '../../../src/data/viewer';
 import { periodOf } from '../../../src/dashboard/board/period';
 import { fleetPageOf, missionsBlock, one, roomBlock } from '../../../src/dashboard/fleet/blocks';
@@ -34,8 +33,7 @@ type Screen = (view: FleetView, missions?: ReactNode, room?: ReactNode) => React
 type Seen = Awaited<ReturnType<typeof viewer>>;
 
 /** The page before anyone is signed in: the demo's list or fleet, the closed notice, or the sign-in card. */
-function unsigned(seen: Exclude<Seen, { kind: 'signed-in' }>, asked: string | null, query: Query, screen: Screen): ReactNode {
-  const supabase = supabaseEnv();
+function unsigned(seen: Exclude<Seen, { kind: 'signed-in' }>, asked: string | null, query: Query, screen: Screen, supabase: { url: string; key: string } | null): ReactNode {
   if (seen.kind === 'sign-in' && supabase) return <DashboardSignIn supabase={supabase} returnPath={APP_CALLBACK} error={one(query.signin_error)} />;
   return seen.kind === 'demo' ? demo(asked, query, screen) : screen({ kind: 'closed' });
 }
@@ -70,9 +68,9 @@ function fleet(seen: Extract<Seen, { kind: 'signed-in' }>, asked: string, query:
 }
 
 export default async function AiFleetPage({ searchParams }: { searchParams: Promise<Query> }) {
-  const { query, asked, screen } = await fleetPageOf(searchParams);
+  const { query, asked, screen, supabase } = await fleetPageOf(searchParams);
   const seen = await viewer();
-  if (seen.kind !== 'signed-in') return unsigned(seen, asked, query, screen);
+  if (seen.kind !== 'signed-in') return unsigned(seen, asked, query, screen, supabase);
   const moved = fleetRedirect(AI_FLEET_PATH, asked, await aiFleetNames(seen.db, seen.user), query);
   if (moved !== null) redirect(moved);
   return asked === null ? list(seen, screen) : fleet(seen, asked, query, screen);

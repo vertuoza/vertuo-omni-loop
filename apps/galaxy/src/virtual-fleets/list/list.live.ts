@@ -37,7 +37,7 @@ export async function loadAiFleets(db: SupabaseClient<Database>, user: Pick<User
   const reads = runnersPageReads(db, user);
   if (!reads) return { kind: 'unreadable' };
   const [names, owner, looks, page] = await Promise.all([
-    soft(() => virtualFleetsServiceAs(db).names(workspace.id), [] as string[], 'the AI fleets'),
+    soft<string[]>(() => virtualFleetsServiceAs(db).names(workspace.id), [], 'the AI fleets'),
     soft(() => heroesServiceAs(db).owns(workspace.id, user.id), false, 'the workspace\'s owners'),
     soft(() => loadFleets(db, workspace.id), [], 'the fleets'),
     loadRunnersPage(reads, now),

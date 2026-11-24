@@ -3,7 +3,6 @@
     "apps/galaxy/app/app/callback/route.ts controller-import",
     "apps/galaxy/app/app/engineering/[owner]/[repo]/page.tsx controller-import",
     "apps/galaxy/app/app/engineering/page.tsx controller-import",
-    "apps/galaxy/app/app/fleet/page.tsx controller-import",
     "apps/galaxy/app/app/loop/[id]/page.tsx controller-import",
     "apps/galaxy/app/app/loop/page.tsx controller-import",
     "apps/galaxy/app/app/page.tsx controller-import",

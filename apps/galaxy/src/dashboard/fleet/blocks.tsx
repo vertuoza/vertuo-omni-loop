@@ -41,5 +41,5 @@ export async function fleetPageOf(searchParams: Promise<Record<string, string | 
   const screen = (view: FleetView, missions?: ReactNode, room?: ReactNode) => (
     <FleetScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} query={query} missions={missions} room={room} />
   );
-  return { query, asked: one(query.fleet), screen };
+  return { query, asked: one(query.fleet), screen, supabase: supabaseEnv() };
 }
