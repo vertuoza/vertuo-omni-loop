@@ -70,7 +70,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   const members = new Map([[ADA.id, [NORTHWIND]], [BEN.id, [NORTHWIND]], [DAN.id, [OTHER]]]);
 
   const record = (row: (typeof missions extends Map<string, infer R> ? R : never) | undefined): MissionRecord | null =>
-    (row ? { id: row.id, workspace: row.workspace, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.level, pausedBy: row.status === 'paused' ? row.pausedBy : null } : null);
+    (row ? { id: row.id, workspace: row.workspace, repo: row.repo, status: row.status, number: row.number, title: row.title, level: row.level, pausedBy: row.status === 'paused' ? row.pausedBy : null, waitingOn: row.waitingOn } : null);
   const writer: MissionsWriter = {
     mission: (id) => Promise.resolve(record(missions.get(id))),
     watching: (repo) => Promise.resolve([...missions.values()].filter((m) => m.repo === repo && ['running', 'waiting', 'paused'].includes(m.status)).map((m) => record(m)).filter((m): m is MissionRecord => m !== null)),

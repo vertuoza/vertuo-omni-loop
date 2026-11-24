@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { pmLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
-import { addedOf, goalOnly, pmEvents, pmKey, pmNext, pmRoundOfKey, pmWait, withAdded, withPm, type PmJob, type PmView } from './pm.ts';
-import type { Concluded } from './supervisor.ts';
+import { addedOf, goalOnly, pmAsks, pmEvents, pmKey, pmNext, pmRoundOfKey, pmWait, withAdded, withPm, type PmJob, type PmView } from './pm.ts';
+import type { Concluded, RecordedEvent } from './supervisor.ts';
 
 // The PM's own PRDs in a mission's run (PRD 2896 s12), pure: its key, when it is sent, what it added, and the mission while it writes.
 
@@ -95,6 +95,40 @@ describe('a goal-only mission\'s PM (PRD omni-loop-24)', () => {
     const long = pmWait({ ...view, jobs: [first(), again({ status: 'failed', reason: 'x'.repeat(400) })] });
     expect(long?.length).toBe(300);
     expect(long?.endsWith('…')).toBe(true);
+  });
+});
+
+describe('a person\'s Resume of a goal-only mission whose PM wrote no PRD (#3203)', () => {
+  const roadmap = '/omni:roadmap --mission 12 --cap 1';
+  const nth = (round: number, over: Partial<PmJob['attempt']> = {}): PmJob => ({ ...job(over, roadmap), round, job: `job-${String(round)}`, attempt: { ...job(over).attempt, id: `job-${String(round)}` } });
+  const sent = (round: number): RecordedEvent => ({ kind: 'dispatched', prd: null, job: `job-${String(round)}` });
+  const ended = (round: number): RecordedEvent => ({ kind: 'job-ended', prd: null, job: `job-${String(round)}` });
+  const resumed: RecordedEvent = { kind: 'resumed', prd: null, job: null };
+  const spent: RecordedEvent[] = [sent(1), ended(1), sent(2), ended(2)];
+  const view: PmView = { mission: goal, ownPrds: 1, added: 0, jobs: [nth(1), nth(2)], inPlan: false };
+
+  it('asks one round for each Resume once the PM\'s jobs were spent, two Resumes in one wait asking one', () => {
+    expect(pmAsks(goal, [...spent, resumed], view.jobs)).toBe(1);
+    expect(pmAsks(goal, [...spent, resumed, resumed], view.jobs)).toBe(1);
+    expect(pmAsks(goal, [...spent, resumed, sent(3), ended(3), resumed], [...view.jobs, nth(3)])).toBe(2);
+    expect(pmAsks({ ...goal, resumes: 0 }, [sent(1), ended(1), resumed], [nth(1)])).toBe(1);
+  });
+
+  it('asks nothing for a Resume while a job works, before the tries are spent, of a PRD, or of a plan job alone', () => {
+    expect(pmAsks(goal, spent, view.jobs)).toBe(0);
+    expect(pmAsks(goal, [sent(1), ended(1), sent(2), resumed, ended(2)], view.jobs)).toBe(0);
+    expect(pmAsks(goal, [sent(1), ended(1), resumed], [nth(1)])).toBe(0);
+    expect(pmAsks(goal, [...spent, { kind: 'resumed', prd: p(50), job: 'job-qa' }], view.jobs)).toBe(0);
+    expect(pmAsks(goal, [resumed], [])).toBe(0);
+  });
+
+  it('sends the same roadmap under the next round once a person asked, then waits again once that one wrote none', () => {
+    expect(pmNext(view)).toEqual({ next: 'none' });
+    expect(pmNext({ ...view, asks: 1 })).toEqual({ next: 'send', round: 3, skill: 'roadmap', cap: 1, line: roadmap });
+    expect(pmWait({ ...view, asks: 1 })).toBeNull();
+    expect(pmNext({ ...view, asks: 1, jobs: [...view.jobs, nth(3, { status: 'running' })] })).toEqual({ next: 'none' });
+    expect(pmWait({ ...view, asks: 1, jobs: [...view.jobs, nth(3)] })).toBe('the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent 3 times.');
+    expect(pmNext({ ...view, asks: 1, jobs: [...view.jobs, nth(3)] })).toEqual({ next: 'none' });
   });
 });
 

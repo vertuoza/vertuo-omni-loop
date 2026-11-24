@@ -71,9 +71,24 @@ describe('Pause and Resume', () => {
 
   it('refuses to resume a running mission, to pause a paused one and to start a delivered one', async () => {
     const { db, service } = setup();
-    expect(await service.move('resume', RUNNING, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict', error: 'Only a paused mission resumes. This one is running.' });
+    expect(await service.move('resume', RUNNING, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict', error: 'Only a paused mission, or one whose PM wrote no PRD for its goal, resumes. This one is running.' });
     expect(await service.move('pause', PAUSED, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict' });
     expect(await service.move('start', DELIVERED, ADA, db.reader(ADA))).toMatchObject({ kind: 'conflict' });
+  });
+
+  it('#3203: Resume moves a goal-only mission waiting on no PRD to running and wakes it, a mission waiting on anything else never', async () => {
+    const { db, service } = setup();
+    const waiting = (waitingOn: string) => {
+      const row = db.missions.get(RUNNING);
+      if (row) db.missions.set(RUNNING, { ...row, status: 'waiting', waitingOn });
+    };
+    waiting('the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent twice.');
+    expect(await service.move('resume', RUNNING, BEN, db.reader(BEN))).toEqual({ ok: true, value: { mission: { id: RUNNING, status: 'running' } } });
+    expect(db.events.map((e) => [e.kind, e.actor, e.sentence])).toEqual([['resumed', 'ben', 'ben resumed the mission: the PM is sent the goal once more.']]);
+    expect(db.jobs).toEqual([JOB(RUNNING)]);
+    waiting('PRD 50: approval');
+    expect(await service.move('resume', RUNNING, BEN, db.reader(BEN))).toMatchObject({ kind: 'conflict', error: 'Only a paused mission, or one whose PM wrote no PRD for its goal, resumes. This one is waiting.' });
+    expect(db.events).toHaveLength(1);
   });
 
   it('never overwrites a move that landed between the read and the write', async () => {

@@ -255,4 +255,29 @@ describe('a mission from a goal alone, from the New mission box to the mission p
     expect(github.opened).toEqual([]);
     expect(fake.mission().status).not.toBe('delivered');
   });
+
+  it('#3203: a person\'s Resume of the mission waiting on no PRD sends the PM\'s roadmap once more, then it waits again with its reason', async () => {
+    const { fake, run, said } = fleetOf(started(written(GOAL, 'night-shift')), [written50()]);
+    await run();
+    fake.endPm({ status: 'done' }, roadmapWrote([]));
+    await run();
+    fake.endPm({ status: 'done' }, '12:00:00 Done');
+    await run();
+    await run();
+    expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent twice.' });
+
+    // The person presses Resume on the row: one more round of the same roadmap line, the mission running while the PM writes.
+    fake.resume();
+    await run();
+    expect(fake.pms().map((one) => one.line)).toEqual(['/omni:roadmap --mission 12 --cap 10', '/omni:roadmap --mission 12 --cap 10', '/omni:roadmap --mission 12 --cap 10']);
+    expect(said('dispatched').filter((one) => one.includes('once more'))).toHaveLength(2);
+    expect(fake.mission().status).toBe('running');
+
+    // It writes none again: the mission waits again with its reason, and nothing more is sent until a person resumes it again.
+    fake.endPm({ status: 'done' }, roadmapWrote([]));
+    await run();
+    await run();
+    expect(fake.pms()).toHaveLength(3);
+    expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'the PM wrote no PRD for the goal: /omni:roadmap ended with no PRD in its record, sent 3 times.' });
+  });
 });

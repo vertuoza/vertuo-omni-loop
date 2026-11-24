@@ -3,7 +3,7 @@ import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/missi
 import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { isWaitWords, type WaitLine } from '../limit-wait';
 import type { RepairLine } from '../repair';
-import type { MissionAction, MissionStatus } from '../missions.contract';
+import { NO_PRD_WORDS, waitsOnNoPrd, type MissionAction, type MissionStatus } from '../missions.contract';
 import { capWords, spentWords } from '../token-words';
 import { itemCardsOf, NO_RETROS, RETRO_WORDS, retroCardsOf, stuckGoingOf, stuckPausedOf, type ItemCard, type RetroCard, type RetroRead, type StuckGoing, type StuckPaused } from './retros';
 
@@ -111,9 +111,6 @@ export interface MissionRow {
   /** Whether its scope names no PRD and no roadmap and it runs at `alone` (PRD omni-loop-24): the PM writes its PRDs from its goal. */
   goalOnly?: boolean;
 }
-
-/** What a goal-only mission waits on once its PM wrote no PRD (the supervisor's own words, apps/omni-app/src/missions/pm.ts). */
-const NO_PRD_WORDS = 'the PM wrote no PRD for the goal';
 
 /** A press of Start whose mission is not pushed yet (PRD omni-loop-24): its goal as typed, `Writing the mission`. */
 export interface RequestLine {
@@ -401,9 +398,13 @@ export function dailyOf(read: BudgetRead): DailyView {
   };
 }
 
-/** A mission's status in words, the one move it allows and the budget stop that paused it. A mission paused by stuck asks one question, with its own Resume and Stop (PRD 3065). */
+/**
+ * A mission's status in words, the one move it allows and the budget stop that paused it. A mission paused by stuck asks one question,
+ * with its own Resume and Stop (PRD 3065). A goal-only mission whose PM wrote no PRD offers Resume, which sends the PM once more (#3203).
+ */
 function statusParts(row: MissionRow, budget: BudgetRead): Pick<MissionView, 'statusWords' | 'action' | 'stop'> {
   if (row.status === 'paused' && row.pausedBy === 'stuck') return { statusWords: RETRO_WORDS.pausedStuck, action: null, stop: null };
+  if (noPrdOf(row) !== null) return { statusWords: STATUS_WORDS[row.status], action: 'resume', stop: null };
   // A stopped mission with repairs has its Resume in the Stopped block (PRD 2980), not here.
   return { statusWords: STATUS_WORDS[row.status], action: ACTION[row.status], stop: row.status === 'paused' ? stopOf(row.id, budget) : null };
 }
@@ -420,9 +421,8 @@ function retroParts(row: MissionRow, retro: RetroRead): Pick<MissionView, 'stuck
 
 /** The PM's reason a goal-only mission waits with no PRD, when its waiting line is the supervisor's `the PM wrote no PRD for the goal: <why>`. */
 function noPrdOf(row: MissionRow): MissionView['noPrd'] {
-  if (row.goalOnly !== true || row.status !== 'waiting' || row.waitingOn === null) return null;
-  const at = row.waitingOn.indexOf(NO_PRD_WORDS);
-  return at < 0 ? null : { why: row.waitingOn.slice(at) };
+  if (row.goalOnly !== true || row.waitingOn === null || !waitsOnNoPrd(row)) return null;
+  return { why: row.waitingOn.slice(row.waitingOn.indexOf(NO_PRD_WORDS)) };
 }
 
 /** One mission as the tab shows it; `events` are its own, newest first. */

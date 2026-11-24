@@ -8,7 +8,8 @@ import { z } from 'zod';
 //
 //   POST /api/missions/<id>/start    a draft goes running
 //   POST /api/missions/<id>/pause    a running or waiting mission goes paused
-//   POST /api/missions/<id>/resume   a paused mission goes running; so does a stopped one (PRD 2980: Resume opens a new round of repairs)
+//   POST /api/missions/<id>/resume   a paused mission goes running; so does a stopped one (PRD 2980: Resume opens a new round of repairs),
+//                                    and a goal-only one waiting on `the PM wrote no PRD for the goal` (#3203: its PM is sent the goal once more)
 //   POST /api/missions/<id>/level    {level}: Change for this mission (PRD 2896), the level it runs at
 //   POST /api/missions/<id>/tokens   {tokens}: the mission's token budget, or null for none (PRD 3040)
 //   POST /api/missions/stops/<stop>  {answer, tokens?}: a budget stop answered once (PRD 3040)
@@ -21,6 +22,13 @@ export type MissionAction = 'start' | 'pause' | 'resume';
 const MISSION_STATUSES = ['draft', 'running', 'waiting', 'paused', 'delivered', 'stopped'] as const;
 export const MissionStatusSchema = z.enum(MISSION_STATUSES);
 export type MissionStatus = z.infer<typeof MissionStatusSchema>;
+
+/** What a goal-only mission waits on once its PM wrote no PRD (the supervisor's own words, apps/omni-app/src/missions/pm.ts). */
+export const NO_PRD_WORDS = 'the PM wrote no PRD for the goal';
+
+/** Whether a mission waits on its PM having written no PRD for its goal (PRD omni-loop-24): Resume sends the PM once more (#3203). */
+export const waitsOnNoPrd = ({ status, waitingOn }: { status: MissionStatus; waitingOn: string | null }): boolean =>
+  status === 'waiting' && waitingOn !== null && waitingOn.includes(NO_PRD_WORDS);
 
 /** What each action does: the statuses it leaves, the one it goes to, the event it records and whether it wakes the supervisor. */
 export const MOVES: Record<MissionAction, { from: readonly MissionStatus[]; to: MissionStatus; event: 'started' | 'paused' | 'resumed'; wakes: boolean }> = {
