@@ -77,7 +77,11 @@ and the PRD or the item goes to a person.
    step below runs there; with no feature branch, it runs in this checkout. An item is read on the
    feature branch only: with `--item` and no feature branch, stop with
    `committee: PRD <n> has no feature branch to read <id> on`.
-2. `node .omni-loop/bin/omni.mjs prd <n>`. A `repos:` line, or no folder: stop with
+2. `node .omni-loop/bin/omni.mjs prd <n>`. When it finds no folder here and prints
+   `omni prd: its folder is on <remote>/<branch>: read it there.` (a PRD a mission's PM wrote lives
+   on its feature branch only, bug #3236), check that branch out as step 1 does
+   (`git worktree add --detach <path> <remote>/<branch>`), run every step below there, and run
+   `omni prd <n>` again in it. A `repos:` line, or still no folder: stop with
    `committee: PRD <n> has no folder here to read`.
 
 ## 2. The escalation list, before any member runs
