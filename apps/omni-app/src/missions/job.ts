@@ -1309,8 +1309,11 @@ function answeredOf(decisions: readonly StoredDecision[]): Map<MissionPrd, Set<s
   return answered;
 }
 
-/** Where a run's product PRDs go: the mission branch, cut in every repository the scope touches, and the installation; or why not. */
-type ProductBranch = { ok: true; branch: string; installation: number } | { ok: false; why: string };
+/**
+ * Where a run's product PRDs go: the mission branch, cut in every repository the scope touches that allows it, the installation, and
+ * each product PRD a plan of which names a repository refused, with why (bug #3275: held alone); or why none can go.
+ */
+type ProductBranch = { ok: true; branch: string; installation: number; held: ReadonlyMap<MissionPrd, string> } | { ok: false; why: string };
 
 /**
  * The mission branch cut in each repository the scope touches (./branch.ts › scopeRepos, prepareAll), each kept once; why the product
@@ -1325,10 +1328,19 @@ async function productBranch(at: ProductAt, facts: readonly StoredProduct[]): Pr
   const repos = scopeRepos({ repo: at.mission.repo, prds: [...at.mission.scope.prds, ...facts.map((fact) => fact.prd)], targets });
   // The mission's own repository was prepared before anything ran (branchReady): the others are cut here.
   const others = repos.filter((repo) => repo.toLowerCase() !== at.mission.repo.toLowerCase());
-  const prepared = await prepareAll(at.github.branches, { installation: at.installation, repos: others, branch });
-  if (!prepared.ok) return { ok: false, why: prepared.why };
-  for (const repo of repos) await at.store.keepBranch(at.mission, { repo, branch });
-  return { ok: true, branch, installation: at.installation };
+  const { refused } = await prepareAll(at.github.branches, { installation: at.installation, repos: others, branch });
+  for (const repo of repos.filter((one) => !refused.has(one.toLowerCase()))) await at.store.keepBranch(at.mission, { repo, branch });
+  return { ok: true, branch, installation: at.installation, held: heldByTarget(facts, refused) };
+}
+
+/** Each product PRD whose plan names a repository the mission branch was refused in, with every refusal it waits on, joined. */
+function heldByTarget(facts: readonly StoredProduct[], refused: ReadonlyMap<string, string>): Map<MissionPrd, string> {
+  const held = new Map<MissionPrd, string>();
+  for (const fact of facts) {
+    const whys = fact.targets.flatMap((repo) => refused.get(repo.toLowerCase()) ?? []);
+    if (whys.length > 0) held.set(fact.prd, `${fact.prd} waits: ${whys.join('; ')}`);
+  }
+  return held;
 }
 
 /**
@@ -1359,6 +1371,8 @@ async function productAll(at: ProductAt): Promise<ProductsDone> {
 type ProductSteps = ProductAt & {
   branch: string;
   installation: number;
+  /** The product PRDs a plan of which names a repository the mission branch was refused in, each with why: held alone. */
+  held: ReadonlyMap<MissionPrd, string>;
   products: MissionProducts;
   runs: readonly ProductRun[];
   joined: Set<MissionPrd>;
@@ -1399,6 +1413,11 @@ async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): 
   const where = { joined: at.joined, done, branch: at.branch };
   const step: ProductStep = { room: at.mission.parallel - facts.filter((fact) => productStateOf(fact, at.runs, where).state === 'running').length, moving: false, waits: [], events: [] };
   for (const fact of facts) {
+    const held = at.held.get(fact.prd);
+    if (held !== undefined && !at.joined.has(fact.prd)) {
+      step.waits.push(held);
+      continue;
+    }
     const review = reviewOf(at, fact);
     if (review.state !== 'build') await reviewStep(at, fact, review, step);
     else await productStep(at, fact, productStateOf(fact, at.runs, where), step);

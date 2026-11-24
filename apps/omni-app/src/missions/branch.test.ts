@@ -128,24 +128,24 @@ describe('prepareAll: the mission branch cut in each repository', () => {
 
   it('AC-2: cuts a mission branch in each of the two repositories a product PRD\'s plan names', async () => {
     const two = branches();
-    expect(await prepareAll(two, { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-faster-quotes' })).toEqual({ ok: true, cut: ['acme/api', 'acme/mobile'] });
+    expect(await prepareAll(two, { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-faster-quotes' })).toEqual({ cut: ['acme/api', 'acme/mobile'], refused: new Map() });
     expect(two.asked).toEqual(['acme/api', 'acme/mobile']);
   });
 
   it('names only the repositories it cut, a branch already there left as it is', async () => {
-    expect(await prepareAll(branches({}, ['acme/api']), { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' })).toEqual({ ok: true, cut: ['acme/mobile'] });
+    expect(await prepareAll(branches({}, ['acme/api']), { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' })).toEqual({ cut: ['acme/mobile'], refused: new Map() });
   });
 
-  it('asks every repository, and waits on each that refused, naming it', async () => {
+  it('asks every repository, cuts each that allows it, and names why each other one refused, by repository (bug #3275)', async () => {
     const one = branches({ 'acme/api': rebaseWhy('acme/api') });
-    expect(await prepareAll(one, { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' })).toEqual({ ok: false, why: rebaseWhy('acme/api') });
+    expect(await prepareAll(one, { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' })).toEqual({ cut: ['acme/mobile'], refused: new Map([['acme/api', rebaseWhy('acme/api')]]) });
     expect(one.asked).toEqual(['acme/api', 'acme/mobile']);
-    const both = await prepareAll(branches({ 'acme/api': 'no', 'acme/mobile': 'not either' }), { installation: 7, repos: ['acme/api', 'acme/mobile'], branch: 'mission/12-q' });
-    expect(both).toEqual({ ok: false, why: 'no; not either' });
+    const both = await prepareAll(branches({ 'Acme/API': 'no', 'acme/mobile': 'not either' }), { installation: 7, repos: ['Acme/API', 'acme/mobile'], branch: 'mission/12-q' });
+    expect(both).toEqual({ cut: [], refused: new Map([['acme/api', 'no'], ['acme/mobile', 'not either']]) });
   });
 
   it('cuts nothing for a scope that touches no repository yet', async () => {
-    expect(await prepareAll(branches(), { installation: 7, repos: [], branch: 'mission/12-q' })).toEqual({ ok: true, cut: [] });
+    expect(await prepareAll(branches(), { installation: 7, repos: [], branch: 'mission/12-q' })).toEqual({ cut: [], refused: new Map() });
   });
 });
 

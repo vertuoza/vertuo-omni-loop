@@ -152,6 +152,19 @@ rewritten: this run never changes the spec, the before/after page or the voice.
    (a folder of the scratch folder). When the PRD already has a plan, `dossier get <key>-<n> plan`
    reads it first and the new one replaces it only where the spec asks for it. A plan that would need
    a changed spec is not written: say so in one line and stop.
+
+   **Its `## Repositories` table is always written** (bug #3275), even for one repository: a
+   mission cuts its branch in each repository it names, and holds the PRD on a name it cannot find.
+   One row per repository a slice names, and its `repo` cell is that repository's full `owner/name`:
+   the one `omni targets --json` lists when the config has `plan.product`, else the one the spec's
+   `## Repositories` names (this checkout's own repository is `repo.slug`), never the product's key,
+   a short name or a sentence. The slice table's `repo` column names the same `owner/name`.
+
+   ```markdown
+   | repo | role | read at | knowledge |
+   | --- | --- | --- | --- |
+   | <owner>/<name> | <the role> | <40-character commit> | <knowledge> |
+   ```
 4. **Push it:** `node .omni-loop/bin/omni.mjs dossier push <key>-<n> --from <prd folder>` adds `plan.md`
    as a new plan version on the PRD's page, and a file that did not change adds none. A new plan
    version voids the PRD's approval (BL-APPROVALS-1): it is approved again on its page; in a mission,

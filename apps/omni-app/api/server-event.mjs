@@ -15956,13 +15956,13 @@ function scopeRepos({ repo, prds, targets }) {
 }
 async function prepareAll(branches, { installation, repos, branch }) {
   const cut5 = [];
-  const refused10 = [];
+  const refused10 = /* @__PURE__ */ new Map();
   for (const repo of repos) {
     const prepared = await branches.prepare({ installation, repo, branch });
-    if (!prepared.ok) refused10.push(prepared.why);
+    if (!prepared.ok) refused10.set(repo.toLowerCase(), prepared.why);
     else if (prepared.cut) cut5.push(repo);
   }
-  return refused10.length > 0 ? { ok: false, why: refused10.join("; ") } : { ok: true, cut: cut5 };
+  return { cut: cut5, refused: refused10 };
 }
 var DefaultBranchSchema = z63.looseObject({ default_branch: z63.string() });
 async function missionRepo(octokitFor, { installation, repo: slug, branch }) {
@@ -25840,10 +25840,17 @@ async function productBranch(at4, facts) {
   const targets = new Map(facts.map((fact) => [fact.prd, fact.targets]));
   const repos = scopeRepos({ repo: at4.mission.repo, prds: [...at4.mission.scope.prds, ...facts.map((fact) => fact.prd)], targets });
   const others = repos.filter((repo) => repo.toLowerCase() !== at4.mission.repo.toLowerCase());
-  const prepared = await prepareAll(at4.github.branches, { installation: at4.installation, repos: others, branch });
-  if (!prepared.ok) return { ok: false, why: prepared.why };
-  for (const repo of repos) await at4.store.keepBranch(at4.mission, { repo, branch });
-  return { ok: true, branch, installation: at4.installation };
+  const { refused: refused10 } = await prepareAll(at4.github.branches, { installation: at4.installation, repos: others, branch });
+  for (const repo of repos.filter((one) => !refused10.has(one.toLowerCase()))) await at4.store.keepBranch(at4.mission, { repo, branch });
+  return { ok: true, branch, installation: at4.installation, held: heldByTarget(facts, refused10) };
+}
+function heldByTarget(facts, refused10) {
+  const held2 = /* @__PURE__ */ new Map();
+  for (const fact of facts) {
+    const whys = fact.targets.flatMap((repo) => refused10.get(repo.toLowerCase()) ?? []);
+    if (whys.length > 0) held2.set(fact.prd, `${fact.prd} waits: ${whys.join("; ")}`);
+  }
+  return held2;
 }
 async function productAll(at4) {
   const products = at4.store.products;
@@ -25885,6 +25892,11 @@ async function productSteps(at4, facts) {
   const where = { joined: at4.joined, done, branch: at4.branch };
   const step = { room: at4.mission.parallel - facts.filter((fact) => productStateOf(fact, at4.runs, where).state === "running").length, moving: false, waits: [], events: [] };
   for (const fact of facts) {
+    const held2 = at4.held.get(fact.prd);
+    if (held2 !== void 0 && !at4.joined.has(fact.prd)) {
+      step.waits.push(held2);
+      continue;
+    }
     const review = reviewOf(at4, fact);
     if (review.state !== "build") await reviewStep(at4, fact, review, step);
     else await productStep(at4, fact, productStateOf(fact, at4.runs, where), step);
