@@ -90,6 +90,19 @@
 .runners-row > .runners-ghost { justify-self: start; }
 .runners-actions { display: flex; flex-wrap: wrap; align-items: start; gap: 6px; }
 
+/* The jobs' tabs and the Needs you band (PRD 3232). */
+.runners-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; width: fit-content; max-width: 100%; border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-sunk); }
+.runners-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font: 600 14px/1 var(--ask-body); color: var(--ask-muted); text-decoration: none; }
+.runners-tab b { font-weight: 700; }
+.runners-tab.is-selected { background: var(--ask-surface); color: inherit; box-shadow: 0 0 0 1px var(--ask-line-strong); }
+.runners-tab.is-red { color: var(--ask-red); }
+.runners-icon { font-style: normal; font-size: 10px; }
+.runners-needs { display: grid; gap: 8px; min-width: 0; }
+.runners-needs h3 { margin: 0; font-size: 15px; color: var(--ask-plasma); }
+.runners-empty { display: grid; gap: 4px; padding: 16px; border: 1px dashed var(--ask-line-strong); border-radius: 12px; }
+.runners-empty p { margin: 0; }
+.runners-section > .runners-tabs, .runners-section > .runners-needs { margin-bottom: 12px; }
+
 .runners-start { display: grid; gap: 8px; }
 .runners-start h2 { margin: 0; }
 .runners-start .roadmap-command, .terminal-old .roadmap-command { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
