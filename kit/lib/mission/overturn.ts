@@ -94,9 +94,12 @@ function namedBy(sentence: string): { ref: DecisionRef; option: string | null } 
   return prd.success ? { ref: { prd: prd.data, item: answered?.[1] ?? null }, option: answered?.[3] ?? null } : null;
 }
 
-/** `14 decisions by the fleet · 1 overturned`: what the fleet decided, and how often a person overturned it. */
-export const trustLine = (decisions: readonly FleetDecision[]): string =>
-  `${String(decisions.length)} decisions by the fleet · ${String(decisions.filter((one) => one.overturnedBy !== null).length)} overturned`;
+/**
+ * `14 decisions by the fleet · 1 overturned`: what the fleet decided, and how often a person overturned it. `more` counts the
+ * fleet's other decisions no overturn names, the `plan` and `tech` decisions on its PM's product PRDs (PRD omni-loop-26).
+ */
+export const trustLine = (decisions: readonly FleetDecision[], more = 0): string =>
+  `${String(decisions.length + more)} decisions by the fleet · ${String(decisions.filter((one) => one.overturnedBy !== null).length)} overturned`;
 
 /** One line of a list: the decision, its verdicts, a link, and who overturned it. */
 function lineOf(one: FleetDecision): string {

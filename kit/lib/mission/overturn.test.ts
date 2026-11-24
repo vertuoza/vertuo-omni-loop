@@ -66,6 +66,7 @@ describe('what a person sees', () => {
   it('counts decisions and overturns in the trust line', () => {
     expect(trustLine([])).toBe('0 decisions by the fleet · 0 overturned');
     expect(trustLine(decisionsOf([approved(5), answered(5, 'a-1'), overturned('5')]))).toBe('2 decisions by the fleet · 1 overturned');
+    expect(trustLine(decisionsOf([approved(5), overturned('5')]), 3)).toBe('4 decisions by the fleet · 1 overturned');
   });
 
   it('opens the pull request with the two lists, each line with its verdicts and link', () => {

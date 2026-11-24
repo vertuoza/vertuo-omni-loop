@@ -98,7 +98,7 @@ describe('missionOf', () => {
 /** What the token caps read (PRD 3040): the person's role, the fleet's cap and spending, each mission's spending, the stops that wait. */
 type Caps = { decisions?: unknown[]; owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[]; retros?: unknown[]; items?: unknown[]; players?: unknown[]; level?: string; requests?: unknown[] };
 
-function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null, products: unknown[] = [], caps: Caps = {}): MissionsTabDb {
+function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | 'mission_decisions' | null = null, products: unknown[] = [], caps: Caps = {}): MissionsTabDb {
   const chain = (data: unknown[], fails: boolean) => {
     const answer = Promise.resolve(fails ? { data: null, error: { message: 'boom' } } : { data, error: null });
     const self: Record<string, unknown> = { then: answer.then.bind(answer), maybeSingle: () => Promise.resolve({ data: data[0] ?? null, error: null }) };
@@ -380,5 +380,17 @@ describe('#3276: a goal-only mission whose PM wrote product PRDs', () => {
   it('follows its PRDs once they are planned and reviewed, and counts the plan and tech decisions the fleet took', async () => {
     const one = (await missionsTabService(withWaits(fakeDb([goalOnly], events, null, [], { decisions }))).view(WORKSPACE, 'night-shift')).missions[0];
     expect({ progress: one?.progress, trust: one?.trust }).toEqual({ progress: '0 of 2 on main · 0 joined', trust: '3 decisions by the fleet · 0 overturned' });
+  });
+
+  it('counts each mission\'s own approved plan and tech decisions, and throws when they cannot be read', async () => {
+    const db = fakeDb([], [], null, [], { decisions: [...decisions, { mission_id: OTHER, kind: 'plan', product_prd: 'omni-loop-29', outcome: 'escalated' }, { mission_id: OTHER, kind: 'tech', product_prd: 'omni-loop-29', outcome: 'approved' }] });
+    expect(await missionsTabRepository(db).planDecisions([ID, OTHER])).toEqual(new Map([[ID, 3], [OTHER, 1]]));
+    expect(await missionsTabRepository(db).planDecisions([])).toEqual(new Map());
+    await expect(missionsTabRepository(fakeDb([], [], 'mission_decisions')).planDecisions([ID])).rejects.toThrow('plan and tech decisions');
+  });
+
+  it('reads a product PRD\'s events by its id, beside a repository PRD\'s number', async () => {
+    const read = await missionsTabRepository(fakeDb([], [...events.slice(4), { mission_id: ID, kind: 'prd-merged', prd: 3, link: null, sentence: '' }])).events([ID]);
+    expect(read.map((one) => one.prd)).toEqual(['omni-loop-28', 'omni-loop-27', 3]);
   });
 });

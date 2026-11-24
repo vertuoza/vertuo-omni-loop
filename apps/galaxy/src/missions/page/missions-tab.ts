@@ -1,6 +1,6 @@
-import { parseIssue, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isProductPrdId, parseIssue, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
-import { decisionsOf, trustLine } from 'omni-loop/kit/lib/mission/overturn.ts';
+import { decisionsOf, trustLine, type DecisionPrd } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { isWaitWords, type WaitLine } from '../limit-wait';
 import type { RepairLine } from '../repair';
 import { NO_PRD_WORDS, waitsOnNoPrd, type MissionAction, type MissionStatus } from '../missions.contract';
@@ -110,6 +110,8 @@ export interface MissionRow {
   pausedBy?: 'stuck' | null;
   /** Whether its scope names no PRD and no roadmap and it runs at `alone` (PRD omni-loop-24): the PM writes its PRDs from its goal. */
   goalOnly?: boolean;
+  /** The `plan` and `tech` decisions the fleet took and approved on its PM's product PRDs (PRD omni-loop-26); absent, none. */
+  planDecisions?: number;
 }
 
 /** A press of Start whose mission is not pushed yet (PRD omni-loop-24): its goal as typed, `Writing the mission`. */
@@ -131,11 +133,11 @@ export function boxOf(level: MissionLevel, owner: boolean): NewMissionBox {
   return { canStart, refusal: canStart ? null : WORDS.worksAloneOnly };
 }
 
-/** One of its events, as far as the tab reads: which PRD reached which point. */
+/** One of its events, as far as the tab reads: which PRD reached which point, a repository's number or a product's id (`omni-loop-27`). */
 export interface TabEvent {
   mission: string;
   kind: string;
-  prd: PrdNumber | null;
+  prd: DecisionPrd | null;
   link: string | null;
   /** What it says: a join names the mission branch it went onto. */
   sentence: string;
@@ -255,7 +257,7 @@ export interface MissionView {
 
 /** What the fleet's PM added to the mission (PRD 2896 s12): `PRD 50, PRD 51 added by the fleet`, then each row the cap left. */
 export interface FleetPrds {
-  added: PrdNumber[];
+  added: DecisionPrd[];
   /** `PRD 50, PRD 51 added by the fleet`; null when it added none. */
   words: string | null;
   /** Each row of its roadmap the cap left, as the supervisor wrote it: `Refunds by card: not written: the cap is 2.` */
@@ -265,7 +267,7 @@ export interface FleetPrds {
 /** The mission branch as the Missions tab says it: the PRDs on it, whether it follows the default branch, the mission pull request. */
 export interface BranchLine {
   /** The PRDs on the branch, in the order they joined. */
-  prds: PrdNumber[];
+  prds: DecisionPrd[];
   upToDate: boolean;
   /** Why the branch waits on a person (it cannot follow the default branch, or it is red), as the supervisor wrote it. */
   hold: string | null;
@@ -294,7 +296,7 @@ export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], ev
   if (status === 'draft') return WORDS.notStarted;
   const merged = new Set(events.filter((e) => e.kind === 'prd-merged' && e.prd !== null).map((e) => e.prd));
   const ready = new Set(events.filter((e) => e.kind === 'prd-ready' && e.prd !== null && !merged.has(e.prd)).map((e) => e.prd));
-  const known = new Set<PrdNumber>(prds);
+  const known = new Set<DecisionPrd>(prds);
   for (const event of events) if (event.prd !== null) known.add(event.prd);
   if (known.size === 0) return goalOnly && status === 'running' ? WORDS.writingRoadmap : WORDS.noPrd;
   // Above `with-you` a PRD is `joined` on the branch before it is `on main` (PRD 2896 s8).
@@ -303,8 +305,8 @@ export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], ev
 }
 
 /** The PRDs on the mission branch, in join order: joined, until dropped or on main. `events` are newest first. */
-export function onBranchOf(events: readonly TabEvent[]): PrdNumber[] {
-  const on: PrdNumber[] = [];
+export function onBranchOf(events: readonly TabEvent[]): DecisionPrd[] {
+  const on: DecisionPrd[] = [];
   for (const event of events.toReversed()) {
     if (event.prd === null) continue;
     if (event.kind === 'prd-joined' && !on.includes(event.prd)) on.push(event.prd);
@@ -355,7 +357,7 @@ export function waitsOf(waitingOn: string | null, repo: string, events: readonly
 /** What the fleet's PM added and left unwritten (PRD 2896 s12), oldest first; null when neither. `events` are newest first. */
 export function fleetPrdsOf(events: readonly TabEvent[]): FleetPrds | null {
   const oldest = events.toReversed();
-  const added: PrdNumber[] = [];
+  const added: DecisionPrd[] = [];
   for (const event of oldest) if (event.kind === 'prd-added' && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
   const notWritten = oldest.filter((event) => event.kind === 'not-written').map((event) => event.sentence);
   if (added.length === 0 && notWritten.length === 0) return null;
@@ -425,6 +427,16 @@ function noPrdOf(row: MissionRow): MissionView['noPrd'] {
   return { why: row.waitingOn.slice(row.waitingOn.indexOf(NO_PRD_WORDS)) };
 }
 
+/** A repository PRD's number, or null for a product PRD's id: the committee's decisions name a number. */
+const numbered = (prd: DecisionPrd | null): PrdNumber | null => (prd === null || isProductPrdId(prd) ? null : prd);
+
+/**
+ * The trust line: the committee's decisions read from the events, then the `plan` and `tech` decisions the fleet approved on its
+ * PM's product PRDs (PRD omni-loop-26), which no person overturns there.
+ */
+const trustOf = (events: readonly TabEvent[], plans: number): string =>
+  trustLine(decisionsOf(events.toReversed().map((event) => ({ ...event, prd: numbered(event.prd) }))), plans);
+
 /** One mission as the tab shows it; `events` are its own, newest first. */
 export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWaits: readonly WaitLine[] = [], repairs: readonly RepairLine[] = [], budget: BudgetRead = NO_BUDGET, retro: RetroRead = NO_RETROS): MissionView {
   const own = repairs.filter((line) => line.mission === row.id);
@@ -447,7 +459,7 @@ export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWai
     committeeOnly: row.inPlan && row.level === 'alone' ? COMMITTEE_ONLY_WORDS : null,
     canChangeLevel: row.status === 'draft',
     branch: row.level === 'with-you' || row.status === 'draft' ? null : branchOf(row, events),
-    trust: row.level === 'alone' && row.status !== 'draft' ? trustLine(decisionsOf(events.toReversed())) : null,
+    trust: row.level === 'alone' && row.status !== 'draft' ? trustOf(events, row.planDecisions ?? 0) : null,
     fleetPrds: fleetPrdsOf(events),
     budget: budgetOf(row, budget.spent.get(row.id) ?? 0),
     ...statusParts(row, budget),
