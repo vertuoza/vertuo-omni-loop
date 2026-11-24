@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { StreamedProps } from '../../skeleton/Streamed';
 import type { FleetScreenProps } from '../../dashboard/fleet/FleetScreen';
 
-// /app/fleet's Operation room block (PRD 2842 s7): a AI fleet's Operation room streams its own block, read as the
+// /app/fleet's Operation room block (PRD 2842 s7): an AI fleet's Operation room streams its own block, read as the
 // signed-in person; any other tab, or an ordinary fleet, has none.
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 const db = vi.hoisted(() => ({ auth: { getClaims: () => Promise.resolve({ data: { claims: { sub: 'u1' } }, error: null }) } }));
@@ -34,7 +34,7 @@ async function roomOf(query: Record<string, string>, virtualNames: string[]) {
 }
 
 describe('/app/fleet\'s Operation room block', () => {
-  it('reads the fleet\'s missions as the signed-in person on the Operation room of a AI fleet', async () => {
+  it('reads the fleet\'s missions as the signed-in person on the Operation room of an AI fleet', async () => {
     const block = await roomOf({ tab: 'room' }, ['night-shift']) as ReactElement<StreamedProps<unknown>>;
     expect(block.type).toBe(Streamed);
     await block.props.read;

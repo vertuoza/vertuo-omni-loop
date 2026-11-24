@@ -2,7 +2,7 @@
  * **A mission's brief** (PRD 2842, s2): the one parser for a mission's `mission.md`, and the rules its
  * `mission.html` keeps.
  *
- * A mission is a goal a AI Fleet delivers on its own. `/omni:mission` writes its folder,
+ * A mission is a goal an AI Fleet delivers on its own. `/omni:mission` writes its folder,
  * `<delivery>/missions/<nnnn>-<slug>/`, and `omni mission push <n>` sends both files to its page; the
  * Omni app reads `mission.md` with this same parser before it stores the mission. Pure: text in, a
  * typed brief or every fault out, each fault naming its field.
@@ -11,7 +11,7 @@
  *
  * - `mission`: the mission's issue number;
  * - `title`: 1 to 200 characters;
- * - `fleet`: the key of a AI Fleet of the workspace (the app checks it is one);
+ * - `fleet`: the key of an AI Fleet of the workspace (the app checks it is one);
  * - `goal`: one sentence, 1 to 500 characters: what changes, and for whom;
  * - `measures`: 0 to 5 observable signs it worked, each `{sign, read, target}` (how it is read, and
  *   the target), each 1 to 200 characters. None yet is a one-line mission's (`/omni:mission --prd`);

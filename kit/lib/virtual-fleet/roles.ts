@@ -1,7 +1,7 @@
 /**
  * **The six roles of a Virtual Hero** (PRD 2842, slice s1; PRD 2873, slice s3; PRD 2871, the Reviewer's review).
  *
- * A AI Fleet is a fleet whose members are Virtual Heroes: agents, one per role, never players. A
+ * An AI Fleet is a fleet whose members are Virtual Heroes: agents, one per role, never players. A
  * hero is a role with its skills. This module is the one list of the roles, in the order the New
  * AI fleet drawer shows them, each with what a new hero of that role starts with: its name (its
  * role, never a person's first name), every kit skill of its role, its preferred agent and model

@@ -21,7 +21,7 @@ import type { RailService } from './rail.service';
 type Served<T> = { ok: true; value: T } | { ok: false; kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; card?: Card; cause?: string };
 
 export const ONLY_MEMBERS = 'Only a member of the workspace reads its fleet’s Commander.';
-export const NOT_VIRTUAL = 'Fleet: only a AI Fleet has a Commander.';
+export const NOT_VIRTUAL = 'Fleet: only an AI Fleet has a Commander.';
 const NOT_HERE = 'The Commander is not available here: this deployment cannot keep its replies.';
 const FAILED = 'The Commander could not answer. Try again.';
 const ONLY_MEMBERS_MESSAGE = 'Only a member of the workspace messages its fleet.';
@@ -61,7 +61,7 @@ function refusal({ code, message }: Refused): Served<never> {
 export function commanderService(deps: CommanderServiceDeps) {
   const { reader } = deps;
 
-  /** The fleet, when the person may read its Commander: a member, on a AI Fleet. */
+  /** The fleet, when the person may read its Commander: a member, on an AI Fleet. */
   async function fleetOf(query: ViewQuery): Promise<Served<{ cap: number | null }>> {
     const fleet = await reader.fleet(query.workspace, query.fleet);
     if (fleet === null) return { ok: false, kind: 'forbidden', error: ONLY_MEMBERS };
@@ -81,7 +81,7 @@ export function commanderService(deps: CommanderServiceDeps) {
     return read.flat().sort((a, b) => b.at.localeCompare(a.at));
   }
 
-  /** The model and the writer, when the Commander may answer this question now: a member, a AI Fleet, a key, tokens left. */
+  /** The model and the writer, when the Commander may answer this question now: a member, an AI Fleet, a key, tokens left. */
   async function readyFor(request: AskRequest, now: Date): Promise<Served<{ model: CommanderModel; writer: Pick<CommanderWriter, 'reply'> }>> {
     const fleet = await fleetOf(request);
     if (!fleet.ok) return fleet;

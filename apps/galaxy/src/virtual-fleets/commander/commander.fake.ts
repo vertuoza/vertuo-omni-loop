@@ -87,7 +87,7 @@ export function fakeCommanderDb() {
         fleetMessages: (workspace, fleet, limit) => Promise.resolve(told.filter((m) => sees(m.workspace) && m.workspace === workspace && m.fleet === fleet).slice(-limit)),
         send(workspace, fleet, text): Promise<Written<Message>> {
           if (!sees(workspace)) return Promise.resolve({ ok: false, code: '42501', hint: null, message: 'Only a member of the workspace messages its fleet.' });
-          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not a AI fleet of this workspace.' });
+          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not an AI fleet of this workspace.' });
           if (text.trim() === '' || text.trim().length > 2000) return Promise.resolve({ ok: false, code: '22023', hint: 'text', message: 'Message: 1 to 2000 characters.' });
           const message = { kind: 'fleet' as const, id: id(), at: NOW.toISOString(), login: person, text: text.trim(), reads: [] };
           told.push({ ...message, workspace, fleet });
@@ -102,7 +102,7 @@ export function fakeCommanderDb() {
         },
         ask(workspace, fleet, text): Promise<Written<Message>> {
           if (!sees(workspace)) return Promise.resolve({ ok: false, code: '42501', hint: null, message: 'Only a member of the workspace asks its fleet\'s Commander.' });
-          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not a AI fleet of this workspace.' });
+          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not an AI fleet of this workspace.' });
           const question: Message = { kind: 'question', id: id(), at: NOW.toISOString(), login: person, text };
           messages.push({ ...question, workspace, fleet, tokens: 0 });
           return Promise.resolve({ ok: true, value: question });

@@ -49,7 +49,7 @@ describe('messaging the fleet', () => {
     expect(await setup(GUS).service.send(SEND)).toMatchObject({ ok: false, kind: 'forbidden' });
     expect(await setup().service.send({ ...SEND, text: '   ' })).toMatchObject({ ok: false, kind: 'invalid', error: 'Message: 1 to 2000 characters.' });
     expect(await setup().service.send({ ...SEND, text: 'x'.repeat(2001) })).toMatchObject({ ok: false, kind: 'invalid' });
-    expect(await setup().service.send({ ...SEND, fleet: 'beaver' })).toMatchObject({ ok: false, kind: 'invalid', error: 'Fleet: only a AI Fleet has a Commander.' });
+    expect(await setup().service.send({ ...SEND, fleet: 'beaver' })).toMatchObject({ ok: false, kind: 'invalid', error: 'Fleet: only an AI Fleet has a Commander.' });
   });
 
   it('needs no model: with the Commander off, it is sent', async () => {

@@ -35,7 +35,7 @@ export function fakeHeroesDb(workspace = NORTHWIND) {
         owns: (workspace) => Promise.resolve(owns(workspace)),
         add(request: AddHeroRequest): Promise<Written<Hero>> {
           if (!owns(request.workspace)) return Promise.resolve(refused('42501', 'Only an owner of the workspace adds a hero.'));
-          if (request.fleet !== 'night-shift') return Promise.resolve(refused('22023', 'Fleet: not a AI fleet of this workspace.', 'fleet'));
+          if (request.fleet !== 'night-shift') return Promise.resolve(refused('22023', 'Fleet: not an AI fleet of this workspace.', 'fleet'));
           if (heroes.some((h) => h.fleet === request.fleet && h.role === request.role)) return Promise.resolve(refused('22023', 'Role: this fleet already has that hero.', 'role'));
           made += 1;
           const hero = heroOf(`33333333-3333-4333-8333-33333333333${made}`, request.fleet, request.role, Math.max(...heroes.filter((h) => h.fleet === request.fleet).map((h) => h.position), -1) + 1);

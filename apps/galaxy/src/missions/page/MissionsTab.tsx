@@ -12,7 +12,7 @@ import { RepairDetail, StoppedBlock } from '../RepairParts';
 import { RetroSection, StuckLine } from './RetroParts';
 import './missions-tab.css';
 
-// The Missions tab of a AI Fleet (PRD 2842 s7, the `mission-start` screen): each mission's goal, its
+// The Missions tab of an AI Fleet (PRD 2842 s7, the `mission-start` screen): each mission's goal, its
 // status, its progress (`2 of 4 merged · 1 ready`), each PRD that waits for a person with what it waits on and
 // its link, its brief linked; `Start` on a draft, `Pause` on a running or waiting mission, `Resume` on a paused
 // one. The rules live in ./missions-tab.ts; this file draws them and makes the calls.

@@ -1,7 +1,7 @@
 // The `commander-notebook` job (PRD 3107 s4, spec "Long-term memory: two notebooks", AC-6, AC-7, AC-15): a schedule of the
 // ledger (../jobs/schedule.ts), once a day, 3 tries, around ./notebook.ts's rules. Each run, for the day before its slot (UTC):
 //
-//   mission lines   each running, waiting or paused mission of a AI Fleet whose mission notebook holds no batch of that
+//   mission lines   each running, waiting or paused mission of an AI Fleet whose mission notebook holds no batch of that
 //                   day and that had events that day: one batch of at most 5 lines from them
 //   fleet lines     each mission delivered or stopped in the last 3 days whose fleet notebook holds no batch of it: one batch
 //                   of at most 5 lines from its last 100 events and its mission notebook

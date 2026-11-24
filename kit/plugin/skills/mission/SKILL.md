@@ -3,7 +3,7 @@ name: mission
 description: Settles a mission with a person — the AI Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), in a scratch folder outside the repository, opens the mission's issue, and sends the brief to the mission's page with omni mission push --from. It opens no branch, commit or pull request, since the page is the mission's record. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. With --goal and a goal it asks only the fleet and writes a goal-only brief at alone, no scope, for the fleet's PM to turn into PRDs; --request reads that goal from the Omni page's New mission box and asks nothing. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and presses no Start. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
 ---
 
-# Mission: a goal a AI Fleet delivers
+# Mission: a goal an AI Fleet delivers
 
 A **mission** is a goal, not a container: one sentence of what changes and for whom, 1 to 5
 measures that tell it worked once deployed, the AI Fleet that takes it, a scope of PRDs and
@@ -229,7 +229,7 @@ in the repository, `omni mission get <n>` writes them, uncommitted.
 - Never write code, cut a branch, make a commit, open a pull request, merge, or press Start.
 - Never write a field the schema does not take, or a measure the person did not give.
 - Never write a level above the fleet's for a person who is not an owner of the workspace: the app refuses it.
-- Never invent a AI Fleet's key, a PRD or a roadmap, a product id included: each is read from the person or checked.
+- Never invent an AI Fleet's key, a PRD or a roadmap, a product id included: each is read from the person or checked.
 - Never ask more than one question at a time, or any under `--prd` or `--roadmap` beyond the fleet's key.
 - Never ask any under `--request`, or beyond the fleet's key under `--goal`.
 - Never write a goal-only brief below `alone`, or on `phase 0: pr`, or put the goal in a runner line.

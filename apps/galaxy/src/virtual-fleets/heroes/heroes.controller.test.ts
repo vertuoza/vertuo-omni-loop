@@ -37,10 +37,10 @@ describe('POST /api/virtual-fleets/heroes', () => {
     expect(await res.json()).toEqual({ error: 'Role: this fleet already has that hero.', field: 'role' });
   });
 
-  it('refuses a fleet that is not a AI fleet of the workspace in the foot', async () => {
+  it('refuses a fleet that is not an AI fleet of the workspace in the foot', async () => {
     const res = await postHero(add({ fleet: 'beaver' }), deps(ADA).deps);
     expect(res.status).toBe(422);
-    expect(await res.json()).toEqual({ error: 'Fleet: not a AI fleet of this workspace.', field: 'form' });
+    expect(await res.json()).toEqual({ error: 'Fleet: not an AI fleet of this workspace.', field: 'form' });
   });
 
   it('refuses a member who is no owner, and changes nothing', async () => {

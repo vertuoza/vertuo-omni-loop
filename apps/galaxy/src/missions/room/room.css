@@ -1,4 +1,4 @@
-/* The Operation room of a AI Fleet (PRD 2842 s8), as the `fleet-room` screen draws it: now lines, the
+/* The Operation room of an AI Fleet (PRD 2842 s8), as the `fleet-room` screen draws it: now lines, the
    clean-up line, then the ledger, one row per event. At 393 px a row stacks. Every colour is a token of
    src/ask/theme-tokens.ts. */
 

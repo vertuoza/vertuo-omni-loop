@@ -99,7 +99,7 @@ escalation list`. The members never see the list.
 For each member of `sitting`, in order, start one sub-agent of its agent and model (in Claude, the
 Agent tool with that model), never two at once, and give it only:
 
-- its role: `You are the <role> of a AI Fleet's committee`, and the files `read` names, to
+- its role: `You are the <role> of an AI Fleet's committee`, and the files `read` names, to
   read whole: the spec, the plan and the before/after for `--approve`; the item for `--item`, with
   the spec and the plan beside it for context;
 - what it decides, for `--approve`: `Would you approve this PRD to be built as written, with no

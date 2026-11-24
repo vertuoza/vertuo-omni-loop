@@ -1,4 +1,4 @@
-/* The Heroes tab of a AI Fleet (PRD 2842 s6, PRD 2873 s3), as the `fleet-seats` screen draws it: one row per
+/* The Heroes tab of an AI Fleet (PRD 2842 s6, PRD 2873 s3), as the `fleet-seats` screen draws it: one row per
    hero, its sprite at the left, its words beside it, each skill with its mark, Remove at the right; Add a hero
    under the rows. At 393 px the row stacks. Every colour is a token of src/ask/theme-tokens.ts. */
 

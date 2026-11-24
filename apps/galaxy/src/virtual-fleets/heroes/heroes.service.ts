@@ -31,7 +31,7 @@ type Port = Pick<HeroesRepository, 'add' | 'remove' | 'heroes' | 'owns'>;
 
 export function heroesService(repository: Port) {
   return {
-    /** A AI fleet's heroes. */
+    /** An AI fleet's heroes. */
     heroes: (workspace: string, fleet: string): Promise<Hero[]> => repository.heroes(workspace, fleet),
 
     /** True when the person owns the workspace: the tab shows its buttons to them alone. */

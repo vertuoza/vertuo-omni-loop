@@ -1,6 +1,6 @@
 ---
 title: Missions
-description: A goal a AI Fleet delivers while you are away — what a mission is, its three levels, what you still do at each, how to go back, and how to start one with /omni:mission.
+description: A goal an AI Fleet delivers while you are away — what a mission is, its three levels, what you still do at each, how to go back, and how to start one with /omni:mission.
 ---
 
 A PRD is one change; a roadmap is a milestone of PRDs. A **mission** is the goal behind them: one
@@ -27,7 +27,7 @@ When the page cannot be read it says `mission <n> not read: <why>` and stops.
 
 ## Three levels
 
-A AI Fleet has a **level**. A mission takes its fleet's level when it starts. The level
+An AI Fleet has a **level**. A mission takes its fleet's level when it starts. The level
 decides how much the fleet does alone. A person still does the rest.
 
 | level | key | what the fleet does | what you still do |
@@ -315,7 +315,7 @@ pull request.
 
 ## Start one
 
-You need a AI Fleet first: a member creates it from the Fleet section of the Omni page, with
+You need an AI Fleet first: a member creates it from the Fleet section of the Omni page, with
 **+ New AI fleet**. Then type the skill in your agent's form
 ([Any coding agent](/docs/any-agent#set-up-your-agent)).
 

@@ -31,11 +31,11 @@ const MAX_BODY_CHARS = 8 * 1024;
 const NO_DATABASE = 'The Commander is not available here: this deployment has no database.';
 const SIGNED_OUT = 'Sign in first.';
 const FAILED = 'The Commander could not answer. Try again.';
-const BAD_VIEW = 'The query must be ?workspace=<id>&fleet=<a AI fleet\'s key>.';
-const BAD_ANSWER = 'The body must be {"workspace": "<id>", "fleet": "<a AI fleet\'s key>", "source": "job" or "item", "id": "<the card\'s id>", "choice": "<one of its choices>"}.';
-const BAD_MESSAGE = 'The body must be {"workspace": "<id>", "fleet": "<a AI fleet\'s key>", "text": "<1 to 2000 characters>"}.';
-const BAD_NOTE = 'The body must be {"workspace": "<id>", "fleet": "<a AI fleet\'s key>", "note": "<a line\'s id>"}.';
-const BAD_ASK = 'The body must be {"workspace": "<id>", "fleet": "<a AI fleet\'s key>", "text": "<1 to 2000 characters>"}.';
+const BAD_VIEW = 'The query must be ?workspace=<id>&fleet=<an AI fleet\'s key>.';
+const BAD_ANSWER = 'The body must be {"workspace": "<id>", "fleet": "<an AI fleet\'s key>", "source": "job" or "item", "id": "<the card\'s id>", "choice": "<one of its choices>"}.';
+const BAD_MESSAGE = 'The body must be {"workspace": "<id>", "fleet": "<an AI fleet\'s key>", "text": "<1 to 2000 characters>"}.';
+const BAD_NOTE = 'The body must be {"workspace": "<id>", "fleet": "<an AI fleet\'s key>", "note": "<a line\'s id>"}.';
+const BAD_ASK = 'The body must be {"workspace": "<id>", "fleet": "<an AI fleet\'s key>", "text": "<1 to 2000 characters>"}.';
 
 type Refusal = { kind: CommanderRefusalKind; error: string; question?: Message; state?: CommanderState; card?: Card };
 

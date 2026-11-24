@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 
-// The Heroes tab's contract (PRD 2842 s6; ADR-0095): what a AI Fleet's heroes are as the tab reads
+// The Heroes tab's contract (PRD 2842 s6; ADR-0095): what an AI Fleet's heroes are as the tab reads
 // them, and what its two buttons send, safe for the browser. An owner of the workspace adds a hero of a
 // role the fleet lacks, or removes one; every refusal is `{error, field}`: its words, and the field they
 // belong to (`role`, `hero`), or `form`.

@@ -77,7 +77,7 @@ function goalOnlyOf(row: z.infer<typeof MissionRowSchema>): boolean {
 export function missionsTabRepository(db: MissionsTabDb) {
   return {
 
-    /** A AI fleet's missions, the most recently moved first. */
+    /** An AI fleet's missions, the most recently moved first. */
     async missions(workspace: string, fleet: string): Promise<MissionRow[]> {
       const { data, error } = await db.from('missions').select(MISSION).eq('workspace_id', workspace).eq('fleet', fleet).order('updated_at', { ascending: false });
       if (error) throw new Error(`Supabase: could not read the missions (${error.message})`);
