@@ -4,7 +4,7 @@
 
 .room { display: grid; gap: 14px; margin-top: 14px; min-width: 0; }
 .room-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--ask-muted); }
-.room-nows { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.room-nows, .room-points { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
 .room-nows li[data-state='working'], .room-nows li[data-state='checking'] { color: var(--ask-green); font-weight: 700; }
 .room-hero { font-weight: 700; }
 .room-nows li[data-state='waiting'], .room-nows li[data-state='repairing'] { color: inherit; }
@@ -28,6 +28,10 @@
 .room-state {
   padding: 1px 9px; border: 1.5px solid var(--ask-line-strong); border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap;
 }
+
+/* The PM's plans and the Architect's reviews (PRD omni-loop-26 s5): Waiting on you, then one block per PRD, its two rows. */
+.room-review { display: grid; gap: 6px; margin-top: 8px; }
+.room-review-prd { margin: 0; font-size: 15px; font-weight: 700; }
 
 @media (max-width: 719px) {
   .room-row { grid-template-columns: minmax(0, 1fr) auto; }

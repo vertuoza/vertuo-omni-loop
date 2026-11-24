@@ -136,7 +136,7 @@ describe('roomService', () => {
       events: () => Promise.resolve([event({})]),
       kept: () => Promise.resolve([]),
       tokens: () => Promise.resolve(new Map([[JOB, null]])),
-      qaJobs: () => Promise.resolve([]),
+      qaJobs: () => Promise.resolve([]), decisions: () => Promise.resolve([]),
       waits: () => Promise.resolve({ queued: [], limited: [], waitingOn: new Map() }),
       repairs: () => Promise.resolve({ rows: [], events: [], statuses: new Map() }),
     };
@@ -149,7 +149,7 @@ describe('roomService', () => {
     const repository = {
       heroes: () => Promise.resolve(HEROES), missions: () => Promise.resolve([{ id: M1, title: 'Pay online' }]),
       events: () => Promise.resolve([event({ kind: 'job-ended', sentence: 'Ended.' }), event({ kind: 'dispatched', sentence: 'Sent.' })]),
-      kept: () => Promise.resolve([]), tokens: () => Promise.resolve(new Map()), qaJobs: () => Promise.resolve([]),
+      kept: () => Promise.resolve([]), tokens: () => Promise.resolve(new Map()), qaJobs: () => Promise.resolve([]), decisions: () => Promise.resolve([]),
       waits: () => Promise.resolve({ queued: [], limited: [], waitingOn: new Map() }), repairs: () => Promise.resolve({ rows: [], events: [], statuses: new Map() }),
     };
     const view = await roomService(repository).view('w', 'night', null, {}, new Date());

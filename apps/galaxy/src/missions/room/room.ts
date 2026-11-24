@@ -2,6 +2,7 @@ import { IssueNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/k
 import { HERO_ROLES, roleOf, worksAlone, type HeroRole } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import type { WaitLine } from '../limit-wait';
 import { prOfLink, qaNowWords, tokensWords, type JobTokens, type QaJob } from './qa';
+import type { ReviewLine, WaitingPoint } from './review';
 import { bugMoveOf, repairLinkLabel, repairStateWord, type RepairLine } from '../repair';
 
 // The Operation room's rules (PRD 2842 s8, PRD 2873 s3, the `fleet-room` screen), pure so each is tested without a
@@ -141,7 +142,7 @@ const signedBy = (row: Pick<EventRow, 'role' | 'actor'>): string =>
   row.actor === 'agent' ? `${roleName(row.role)} · ${ROOM_WORDS.agent}` : row.actor;
 
 /** `2026-11-14 09:12 UTC`: fixed, so the server and the browser write the same words. */
-function timeOf(at: string): string {
+export function timeOf(at: string): string {
   const date = new Date(at);
   return Number.isNaN(date.getTime()) ? at : `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
@@ -321,6 +322,10 @@ export interface RoomView {
   /** The PRDs that stopped after repairs (PRD 2980): the block under the now lines. */
   stopped: RepairLine[];
   ledger: LedgerRow[];
+  /** Per product PRD the mission's PM wrote, its plan row and tech row (PRD omni-loop-26 s5), as the filter's mission keeps them; absent, none. */
+  reviews?: ReviewLine[];
+  /** The Architect's open points, under Waiting on you (PRD omni-loop-26 s5); absent, none. */
+  waiting?: WaitingPoint[];
   missions: { id: string; title: string }[];
   filter: Filter;
   /** True when no mission of the fleet has an event yet. */
