@@ -99,7 +99,8 @@ function statusFrom(job: Job): string | null {
     case 'claimed': return job.claimedAt;
     case 'running': return job.runningAt ?? job.claimedAt;
     case 'done': return job.endedAt;
-    default: return null;
+    case 'cancelled':
+    case 'failed': return null;
   }
 }
 

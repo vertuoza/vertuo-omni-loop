@@ -5,7 +5,12 @@ import { fleetRunnersView } from './runners-view';
 
 const NOW = new Date('2027-02-01T12:00:00.000Z');
 const board = demoFleetBoard(NOW);
-const fleet = (name: string) => DEMO_FLEETS.find((f) => f.name === name) ?? DEMO_FLEETS[0]!;
+const fleet = (name: string) => DEMO_FLEETS.find((f) => f.name === name) ?? { name, label: name };
+const jobAt = (i: number): Job => {
+  const found = board.jobs[i];
+  if (found === undefined) throw new Error('no such demo job');
+  return found;
+};
 const viewOf = (name: keyof typeof DEMO_MISSIONS, b: Board = board) => fleetRunnersView(b, fleet(name), [DEMO_MISSIONS[name]], NOW, DEMO_PRDS, DEMO_FLEETS);
 
 describe('the fleet runners view', () => {
@@ -56,19 +61,19 @@ describe('the fleet runners view', () => {
   });
 
   it('a queued job says which busy runner it waits for', () => {
-    const queued: Job = { ...board.jobs[3]!, id: 'q1', toFleet: 'orion', repo: 'acme/storefront-api', missionId: DEMO_MISSIONS.orion };
+    const queued: Job = { ...jobAt(3), id: 'q1', toFleet: 'orion', repo: 'acme/storefront-api', missionId: DEMO_MISSIONS.orion };
     const view = viewOf('orion', { ...board, jobs: [...board.jobs, queued] });
     expect(view.waiting.map((j) => j.reason)).toEqual(['Waits for orbit-1: 3 of 3 busy']);
   });
 
   it('a queued job no runner holds reads Cannot run', () => {
-    const queued: Job = { ...board.jobs[3]!, id: 'q2', toFleet: 'orion', repo: 'acme/ghost', missionId: DEMO_MISSIONS.orion };
+    const queued: Job = { ...jobAt(3), id: 'q2', toFleet: 'orion', repo: 'acme/ghost', missionId: DEMO_MISSIONS.orion };
     const view = viewOf('orion', { ...board, jobs: [...board.jobs, queued] });
     expect(view.waiting[0]).toMatchObject({ reason: 'Cannot run: No runner of Orion holds acme/ghost', status: 'Cannot run', tone: 'fail' });
   });
 
   it('runners paused or out of tokens wait in a few words', () => {
-    const queued: Job = { ...board.jobs[3]!, id: 'q3', toFleet: 'orion', repo: 'acme/storefront-api', missionId: DEMO_MISSIONS.orion };
+    const queued: Job = { ...jobAt(3), id: 'q3', toFleet: 'orion', repo: 'acme/storefront-api', missionId: DEMO_MISSIONS.orion };
     const health = (paused: string, resetsAt?: string) => ({
       cpu: 1, load1: 0, cores: 8, memUsed: 1, memTotal: 2, diskFree: 1, diskTotal: 2, paused, at: NOW.toISOString(),
       ...(resetsAt === undefined ? {} : { accounts: [{ id: 'a', agent: 'claude', state: 'out' as const, resetsAt }] }),
@@ -81,7 +86,7 @@ describe('the fleet runners view', () => {
   });
 
   it('a job that waits on the viewer carries Answer', () => {
-    const asking: Job = { ...board.jobs[0]!, id: 'a1', status: 'done', outcome: 'human', endedAt: NOW.toISOString() };
+    const asking: Job = { ...jobAt(0), id: 'a1', status: 'done', outcome: 'human', endedAt: NOW.toISOString() };
     const view = viewOf('orion', { ...board, jobs: [...board.jobs, asking] });
     expect(view.answers.map((j) => [j.id, j.canAnswer])).toEqual([['a1', true]]);
   });
