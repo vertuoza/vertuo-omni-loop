@@ -3,6 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { committeeOf } from '../committee/record.ts';
+import type { PrdNumber } from '../ids.ts';
 import { LINE_CUT, stepLine, STEP_OUTPUT_LINES } from './steps.ts';
 
 const STREAM = readFileSync(join(import.meta.dirname, 'fixtures', 'stream.jsonl'), 'utf8').split('\n').filter(Boolean);
@@ -116,5 +118,30 @@ describe('stepLine, what it leaves out and passes through', () => {
     const all = readable();
     expect(all[0]).toBe(`${T}› I will start with the plan.`);
     expect(all.at(-3)).toBe(`${T}Done: ok · 12 turns · $1.23 · 12m 34s`);
+  });
+});
+
+describe('stepLine, a record line the App reads back (bug #3244)', () => {
+  /** A committee's record line as `omni committee record` prints it, three verdicts at full length. */
+  const sentence = (role: string) => `${role}: ${'the plan settles the design kit before any page moves onto it, and its slices stay inside their territory '.repeat(2)}`.slice(0, 200);
+  const record = {
+    v: 1, prd: 3217, kind: 'approve', author: null,
+    read: [{ kind: 'spec', sha256: 'a'.repeat(64) }, { kind: 'plan', sha256: 'b'.repeat(64) }, { kind: 'before-after', sha256: 'c'.repeat(64) }],
+    escalations: [],
+    verdicts: [{ role: 'pm', answer: 'yes', sentence: sentence('pm') }, { role: 'architect', answer: 'yes', sentence: sentence('architect') }, { role: 'reviewer', answer: 'yes', sentence: sentence('reviewer') }],
+    outcome: 'carried',
+  };
+  const line = `omni committee: ${JSON.stringify(record)}`;
+  const resultEvent = JSON.stringify({ type: 'result', subtype: 'success', is_error: false, num_turns: 10, total_cost_usd: 0.7, duration_ms: 95_000, result: `The committee voted.\n\n${line}` });
+
+  it('keeps the whole committee record line, so the App reads the vote', () => {
+    expect(line.length).toBeGreaterThan(LINE_CUT);
+    const lines = stepLine(resultEvent, { now: NOW });
+    expect(committeeOf(lines.join('\n'), 3217 as PrdNumber)?.verdicts.map((verdict) => verdict.answer)).toEqual(['yes', 'yes', 'yes']);
+  });
+
+  it('still cuts an ordinary long line to LINE_CUT', () => {
+    const long = JSON.stringify({ type: 'result', subtype: 'success', is_error: false, num_turns: 1, total_cost_usd: 0, duration_ms: 1000, result: 'x'.repeat(2 * LINE_CUT) });
+    expect(stepLine(long, { now: NOW }).every((each) => each.length <= LINE_CUT)).toBe(true);
   });
 });

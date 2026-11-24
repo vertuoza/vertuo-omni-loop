@@ -3,7 +3,7 @@
 // `stepLine` turns one of those lines into what a person reads: a tool call as its name and its
 // target, assistant text as its first line, a failed tool result with its output, each pull request
 // the job opened or handed off on once, and the run's end. Each line is prefixed with the runner's local time and cut to 500
-// characters. A line that is not JSON is passed through; anything else gives nothing.
+// characters, save a record line the App reads back, kept up to 8,000 (bug #3244). A line that is not JSON is passed through; anything else gives nothing.
 
 /** The most characters a readable line holds, its time included. */
 export const LINE_CUT = 500;
@@ -37,7 +37,24 @@ const isObject = (value: unknown): value is Json => typeof value === 'object' &&
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
 const number = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
 const two = (value: number): string => String(value).padStart(2, '0');
-const cut = (line: string): string => (line.length > LINE_CUT ? line.slice(0, LINE_CUT) : line);
+/**
+ * The record lines the App reads back from a job's log (bug #3244): a committee's vote, a PM's PRDs, a
+ * mission's retro and a repair. Each is one JSON object its schema bounds, which runs past
+ * {@link LINE_CUT} once its sentences are long, and a cut one reads as no record at all. Such a line
+ * keeps up to {@link RECORD_CUT} characters.
+ */
+const RECORD_LINES = ['omni committee: ', 'omni pm: ', 'omni retro: ', 'omni repair: '];
+/** The most characters a record line holds, its time included: well under a job's 16 KB log tail. */
+const RECORD_CUT = 8000;
+const STAMPED = /^\d{2}:\d{2}:\d{2} /;
+const isRecord = (line: string): boolean => {
+  const bare = line.replace(STAMPED, '');
+  return RECORD_LINES.some((prefix) => bare.startsWith(prefix));
+};
+const cut = (line: string): string => {
+  const most = isRecord(line) ? RECORD_CUT : LINE_CUT;
+  return line.length > most ? line.slice(0, most) : line;
+};
 const firstLine = (value: string): string => value.split('\n').find((line) => line.trim() !== '')?.trim() ?? '';
 
 /** `hh:mm:ss`, in the runner's local time. */
