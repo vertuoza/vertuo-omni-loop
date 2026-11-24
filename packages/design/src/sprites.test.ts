@@ -56,6 +56,8 @@ const FORGED: Record<string, string> = {
   'menu-waiting': '6f9508f2eed3f3d7',
   // The Inbox entry (omni-loop-22, s1), pinned as first drawn.
   'menu-inbox': '4e5ef2f1608bff04',
+  // The AI Fleet entry (PRD 3233, s3), pinned as first drawn.
+  'menu-ai-fleet': '99e5ef99ac8e4df1',
   // Starhop's tiles (PRD 817), pinned as first drawn.
   'tile-ground': 'edf856e91ad82ad1', 'tile-soil': 'd30e24cd67c0e2c4', 'tile-brick': '4a7786aef594b279',
   'tile-block': '069bbba61b3e2d1b', 'tile-block-empty': '03a9ee17e8723994', 'tile-pipe-top-l': '0763de80ab794672',
