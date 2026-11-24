@@ -115,4 +115,4 @@ Anti-work.
 - /omni:visual-fix #2505, pick B by @pierrederval on 2026-10-23: .omni-loop/delivery/visual/2505-anti-loop-button-colours/before-after.html
 - /omni:visual-fix #2511, pick A by @pierrederval on 2026-10-23: .omni-loop/delivery/visual/2511-pages-full-width/before-after.html
 /omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after)
-/omni:brainstorm, PRD 3233: .omni-loop/delivery/inbox/3233-ai-fleet/before-after.html (the AI Fleet entry)
+/omni:brainstorm, PRD 3233: .omni-loop/delivery/shipped/3233-ai-fleet/before-after.html (the AI Fleet entry)

@@ -53,4 +53,4 @@ doing, what waits on the viewer, and which runners run its work, without opening
 
 ## Source
 
-/omni:brainstorm, PRD 3233: .omni-loop/delivery/inbox/3233-ai-fleet/before-after.html
+/omni:brainstorm, PRD 3233: .omni-loop/delivery/shipped/3233-ai-fleet/before-after.html
