@@ -147,7 +147,7 @@ health · no tokens left · until · out of tokens · usage limit · since · us
 
 ## Source
 
-/omni:brainstorm, PRD 3232: .omni-loop/delivery/inbox/3232-runners-redesign/before-after.html
+/omni:brainstorm, PRD 3232: .omni-loop/delivery/shipped/3232-runners-redesign/before-after.html
 
 /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html
 /omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
