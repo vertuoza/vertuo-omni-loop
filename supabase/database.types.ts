@@ -2715,10 +2715,13 @@ export type Database = {
           mission_id: string
           option: string | null
           outcome: string
+          plan: string | null
           prd: number | null
           prd_id: string | null
           product_prd: string | null
           role: string
+          settled: Json
+          tech_approval_id: string | null
           verdicts: Json
           why: Json
         }
@@ -2735,10 +2738,13 @@ export type Database = {
           mission_id: string
           option?: string | null
           outcome: string
+          plan?: string | null
           prd?: number | null
           prd_id?: string | null
           product_prd?: string | null
           role?: string
+          settled?: Json
+          tech_approval_id?: string | null
           verdicts: Json
           why?: Json
         }
@@ -2755,10 +2761,13 @@ export type Database = {
           mission_id?: string
           option?: string | null
           outcome?: string
+          plan?: string | null
           prd?: number | null
           prd_id?: string | null
           product_prd?: string | null
           role?: string
+          settled?: Json
+          tech_approval_id?: string | null
           verdicts?: Json
           why?: Json
         }
@@ -7863,6 +7872,17 @@ export type Database = {
           p_product_prd: string
           p_verdicts: Json
           p_why: Json
+        }
+        Returns: Json
+      }
+      mission_decide_plan: {
+        Args: {
+          p_job: string
+          p_kind: string
+          p_mission: string
+          p_product_prd: string
+          p_record: Json
+          p_why?: Json
         }
         Returns: Json
       }
