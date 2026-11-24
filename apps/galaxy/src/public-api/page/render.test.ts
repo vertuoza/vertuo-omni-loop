@@ -263,12 +263,12 @@ describe('the page in each situation', () => {
     demoApiKeysView(),
   ];
 
-  it('starts with the Fleets · Repositories · Business · Products · API keys · Jev · Playbook tabs, API keys marked', () => {
+  it('starts with the Fleets · Repositories · Business · Products · Jev · Playbook · API keys tabs, API keys marked', () => {
     for (const v of situations) {
       const html = page(v);
       expect(html.indexOf('class="section-tabs"'), v.kind).toBeGreaterThanOrEqual(0);
       const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, v.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['API keys', true], ['Jev', false], ['Playbook', false]]);
+      expect(tabs, v.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['Jev', false], ['Playbook', false], ['API keys', true]]);
     }
   });
 

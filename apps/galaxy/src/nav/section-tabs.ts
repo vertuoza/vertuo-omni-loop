@@ -1,19 +1,14 @@
-// The rows of section tabs (PRD 733): the pages a menu entry opens, one tab each. Settings opens
-// Fleets, Repositories, Business (PRD 748), API keys (PRD 2022), Jev (PRD 812) and Playbook (PRD 2417,
-// issue 2538); Questions opens Open questions, Shared with me and History. The tab rows
+// The rows of section tabs (PRD 733): the pages a menu entry opens, one tab each. Settings opens the
+// pages of the settings map (PRD 3216), in its order; Questions opens Open questions, Shared with me and History. The tab rows
 // are drawn by SectionTabs.tsx; the counts are the ones the menu's badges carried (PRD 499).
+
+import { settingsPages } from '../settings/map';
 
 /** One tab: a link to its page, and how many things wait there (shown only above 0). */
 export type SectionTab = { href: string; label: string; count?: number };
 
-export const SETTINGS_TABS: readonly SectionTab[] = [
-  { href: '/app/settings/fleets', label: 'Fleets' },
-  { href: '/app/settings/repositories', label: 'Repositories' },
-  { href: '/app/settings/business', label: 'Business' },
-  { href: '/app/settings/api-keys', label: 'API keys' },
-  { href: '/app/settings/jev', label: 'Jev' },
-  { href: '/app/settings/playbook', label: 'Playbook' },
-];
+/** The Settings tabs, one per page of the settings map, in its order (PRD 3216): the menu lists the same. */
+export const SETTINGS_TABS: readonly SectionTab[] = settingsPages().map((page) => ({ href: page.path, label: page.label }));
 
 export const QUESTIONS_TABS: readonly SectionTab[] = [
   { href: '/app/inbox', label: 'Open questions' },
