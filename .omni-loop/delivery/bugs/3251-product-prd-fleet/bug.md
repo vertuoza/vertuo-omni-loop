@@ -22,4 +22,4 @@ none — the reproduction is the cheap check for this row shape; a check matchin
 
 ## Mutation
 
-not set here — `pnpm mutation:changed` mutates the kit's delivery core only, and this fix changes none of it
+mutation: no changed core file against origin/main (ee027cfd): nothing to mutate
