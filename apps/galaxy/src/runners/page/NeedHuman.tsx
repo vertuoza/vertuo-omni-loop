@@ -9,8 +9,9 @@ import { answerRunnerJob, dismissRunnerJob, readJobQuestions, type Called } from
 import { ANSWER_CHARS, type JobQuestions } from '../runners.contract';
 import { repoName } from './model';
 import {
-  answersOf, closed, closedAfter, demoPort, drawerMove, issueUrl, LOADING, NONE, opened, readingOf, refusedAsClosed, withAnswer, WORDS, type AnswerState, type NeedHumanPort, type Reading,
+  answersOf, closed, closedAfter, demoPort, issueUrl, LOADING, NONE, opened, readingOf, refusedAsClosed, withAnswer, WORDS, type AnswerState, type NeedHumanPort, type Reading,
 } from './need-human';
+import { useDrawerKeys } from './useDrawerKeys';
 import './need-human.css';
 
 // The Need human drawer (PRD 2255 s3, the `runner-need-human` screen): a job that ended with questions open reads
@@ -83,8 +84,6 @@ export function NeedHumanProvider({ initial, jobs, demo, children }: { initial: 
   );
 }
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled])';
-
 /** The drawer on one job, live: its read, its answers, its keys and its focus. */
 function NeedHumanDrawer({ id, repo, port, seed, onClose, onSent }: {
   id: string; repo: string; port: NeedHumanPort; seed: JobQuestions | null; onClose: () => void; onSent: () => void;
@@ -109,19 +108,7 @@ function NeedHumanDrawer({ id, repo, port, seed, onClose, onSent }: {
   }, [id, port, onClose]);
 
   useEffect(() => { panel.current?.focus(); }, []);
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const root = panel.current;
-      if (root === null) return;
-      const move = drawerMove(event.key, event.shiftKey, [...root.querySelectorAll<HTMLElement>(FOCUSABLE)], document.activeElement);
-      if (move.kind === 'none') return;
-      event.preventDefault();
-      if (move.kind === 'close') onClose();
-      else move.item.focus();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
+  useDrawerKeys(panel, onClose);
 
   const asked = reading.kind === 'open' ? reading.asked : null;
   const current = asked === null ? null : draft ?? emptyDraft(asked);

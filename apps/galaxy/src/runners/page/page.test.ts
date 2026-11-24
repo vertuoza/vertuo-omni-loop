@@ -61,6 +61,12 @@ describe('/app/runners', () => {
     expect((await props()).answer).toBeNull();
   });
 
+  it('passes the ?jobs= tab on, read on the server (PRD 3232)', async () => {
+    given.session = { kind: 'demo' };
+    expect((await props({ jobs: 'failed' })).jobs).toBe('failed');
+    expect((await props()).jobs).toBeNull();
+  });
+
   it('loads the board as the signed-in person', async () => {
     given.session = { kind: 'signed-in', db: { db: true }, user: { id: 'u1' } };
     expect((await props()).view).toEqual({ kind: 'board', loaded: true });

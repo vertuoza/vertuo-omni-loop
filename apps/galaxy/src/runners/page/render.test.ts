@@ -14,8 +14,8 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined
 
 const NOW = new Date('2026-10-13T14:00:00Z');
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
-const render = (view: RunnersPageView, terminal: string | null = null, answer: string | null = null) =>
-  renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, terminal, answer }));
+const render = (view: RunnersPageView, terminal: string | null = null, answer: string | null = null, jobs: string | null = 'all') =>
+  renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, terminal, answer, jobs }));
 
 function demo(): Extract<RunnersPageView, { kind: 'board' }> {
   const view = demoRunnersPage(NOW);
@@ -31,8 +31,8 @@ const actionsOf = (row: string): (string | undefined)[] => [...row.matchAll(/<bu
 function jobRow(html: string, line: string): string {
   const start = html.indexOf(`>${line}<`);
   expect(start, line).toBeGreaterThan(-1);
-  const next = html.indexOf('runners-job"', start + 1);
-  return html.slice(start, next < 0 ? undefined : next);
+  const next = Math.min(...['runners-job"', 'runners-tabs'].map((mark) => html.indexOf(mark, start + 1)).filter((at) => at > -1));
+  return html.slice(start, Number.isFinite(next) ? next : undefined);
 }
 
 describe('the board', () => {
@@ -104,10 +104,11 @@ describe('the board', () => {
     expect(jobRow(html, '/omni:bug-fix Issue 548 totals')).not.toContain('/prd/at/');
   });
 
-  it('is the marked runners screen, titled Runners, with its two tables', () => {
+  it('is the marked runners screen, titled Runners once, with its runner cards and its jobs table', () => {
     expect(html).toContain('data-screen="runners"');
     expect(html).toContain('<h1 class="dash-name">Runners</h1>');
-    expect(t).toContain('Runner State Fleet Slots Repositories Kit');
+    expect(html.match(/>Runners</g)).toHaveLength(1);
+    expect(t).toContain('3 runners · 2 online · 1 of 3 slots in use');
     expect(t).toContain('Line Repository Sent by Where Status');
   });
 
@@ -116,15 +117,16 @@ describe('the board', () => {
   });
 
   it('shows each runner state: Busy, Online, and Offline with when it was last seen', () => {
-    expect(t).toContain('acme-agents Paused: memory 91%'); // Busy, until its last report names a pressure (PRD 2102)
-    expect(t).toContain('mac-mini-office Online');
-    expect(t).toContain('ada-laptop Offline, 3 h ago');
+    expect(t).toContain('Paused: memory 91%'); // Busy, until its last report names a pressure (PRD 2102)
+    expect(t).toContain('Online 0 of 2 slots');
+    expect(t).toContain('Offline, 3 h ago 0 of 1 slot');
     for (const state of ['paused', 'online', 'offline']) expect(html).toContain(`runners-state is-${state}`);
   });
 
   it('shows slots used out of slots, the repositories and the kit version', () => {
-    expect(t).toContain('1 of 1');
-    expect(t).toContain('0 of 2 widgets · mobile 0.0.388');
+    expect(t).toContain('1 of 1 slot Used by acme-agents');
+    expect(t).toContain('0 of 2 slots');
+    expect(t).toContain('2 repositories · 1 with jobs 0.0.388');
     expect(t).toContain('0.0.385');
   });
 
@@ -141,8 +143,22 @@ describe('the board', () => {
     expect(text(row)).toContain('Cannot run No runner holds acme/gadgets');
     expect(row).toContain('runners-status is-fail');
     expect(row).not.toContain('Queued');
-    expect(actionsOf(row)).toEqual(['Cancel']);
+    expect(actionsOf(row)).toEqual(['Cancel', 'Copy runner command']);
     expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('Cannot run');
+  });
+
+  it('AC-6: a gone runner offers Send to any runner, an old kit offers omni update, beside Cancel (PRD 3232)', () => {
+    const queued = demo().board.jobs.find((job) => job.status === 'queued' && job.toRunner === null && job.toFleet === null);
+    if (queued === undefined) throw new Error('the demo has a queued job');
+    const job = (id: string, line: string, over: Partial<Job>): Job => ({ ...queued, id, line, ...over });
+    const view = withBoard((board) => ({
+      ...board,
+      jobs: [...board.jobs, job('00000000-0000-4000-8000-00000000f001', '/omni:gone-runner', { toRunner: '00000000-0000-4000-8000-00000000ffff', repo: 'acme/widgets' })],
+    }));
+    const gone = render(view);
+    expect(actionsOf(jobRow(gone, '/omni:gone-runner'))).toEqual(['Cancel', 'Send to any runner']);
+    const oldKit = render(withBoard((board) => ({ ...board, runners: board.runners.map((r) => ({ ...r, githubApp: false })) })));
+    expect(actionsOf(jobRow(oldKit, '/omni:pr-care 1801'))).toContain('Copy omni update');
   });
 
   it('names who sent each job and where it went', () => {
@@ -223,8 +239,8 @@ describe('the board', () => {
   it('gives a member who is not an owner each fleet as text, with no picker', () => {
     const member = render(withBoard((board) => ({ ...board, viewer: { ...board.viewer, owner: false } })));
     expect(member).not.toContain('<select');
-    expect(text(member)).toContain('acme-agents Paused: memory 91% Comets 1 of 1');
-    expect(text(member)).toContain('mac-mini-office Online Shared 0 of 2');
+    expect(text(member)).toContain('acme-agents Comets Terminal');
+    expect(text(member)).toContain('mac-mini-office Shared Terminal');
   });
 
   it('hides Cancel on a running job once a cancel was asked for', () => {
