@@ -13,6 +13,8 @@ import { listedAnswer } from './need-human';
 import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
 import { cameBackWords, keepsWords, lossOf, lostThrice, resumeWords, type Loss } from './loss';
 import { jobAgentWords, partLines } from './parts';
+import { ReposButton, RepositoriesProvider } from './ReposDrawer';
+import { repositoryRows, reposWords, type RepoRow, type RunnerRepos } from './repositories';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
 import '../../dashboard/board/board.css';
@@ -51,6 +53,8 @@ export interface RunnersPageProps {
   answer?: string | null;
   /** The jobs tab the URL names (`?jobs=running|cannot|failed|done|all`, PRD 3232); any other value reads Running. */
   jobs?: string | null;
+  /** The runner whose repositories drawer the URL opens (`?repos=<runner name>`, PRD 3232); an unknown name opens nothing. */
+  repos?: string | null;
 }
 
 function Closed() {
@@ -129,10 +133,10 @@ function SlotsLine({ runner, board, fleets, now }: { runner: Runner; board: Boar
 }
 
 /** The foot of a runner card: its repositories, then its kit, in red with what it blocks only when a queued job waits on it. */
-function CardFoot({ runner, blocks }: { runner: Runner; blocks: number }) {
+function CardFoot({ runner, blocks, rows }: { runner: Runner; blocks: number; rows: readonly RepoRow[] }) {
   return (
     <div className="runners-card-foot">
-      <span className="runners-repos" data-content title={runner.repos.join(', ')}>{runner.repos.map(repoName).join(' · ')}</span>
+      <ReposButton runner={runner.name} words={reposWords(rows)} />
       <span className={`runners-kit${blocks > 0 ? ' is-blocking' : ' runners-muted'}`} data-content>
         {blocks > 0 && <i className="runners-icon" aria-hidden="true">▲ </i>}{runner.version}{blocks > 0 && ` · blocks ${String(blocks)} ${blocks === 1 ? 'job' : 'jobs'}`}
       </span>
@@ -156,12 +160,13 @@ function CardHead({ runner, board, fleets }: { runner: Runner; board: Board; fle
 }
 
 function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
+  const rows = repositoryRows(runner, board, fleets, now);
   return (
     <div className="runners-row runners-card">
       <CardHead runner={runner} board={board} fleets={fleets} />
       <SlotsLine runner={runner} board={board} fleets={fleets} now={now} />
       <HealthLine runner={runner} now={now} />
-      <CardFoot runner={runner} blocks={kitBlocks(runner, board.jobs, board.runners, fleets)} />
+      <CardFoot runner={runner} blocks={kitBlocks(runner, board.jobs, board.runners, fleets)} rows={rows} />
     </div>
   );
 }
@@ -419,7 +424,7 @@ function Board({ board, fleets, prds, retros, now, answered, tab }: { board: Boa
   );
 }
 
-export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null, jobs: jobsTab = null }: RunnersPageProps) {
+export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null, jobs: jobsTab = null, repos = null }: RunnersPageProps) {
   if (view.kind === 'closed' || view.kind === 'sign-in' || view.kind === 'no-workspace') {
     return <MemberGate kind={view.kind} closed={<Closed />} board="The Runners page" supabase={supabase} signinError={signinError} />;
   }
@@ -431,10 +436,14 @@ export function RunnersPage({ view, supabase, signinError, terminal = null, answ
   // The job `?answer=` opens, once the board lists it; with it, the Terminal panel stays shut, so two panels never stack.
   const asked = listedAnswer(answer, view.board.jobs);
   const needJobs: NeedJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo }));
+  const now = new Date(view.now);
+  const drawers: RunnerRepos[] = view.board.runners.map((runner) => ({ name: runner.name, rows: repositoryRows(runner, view.board, view.fleets, now) }));
   return (
     <TerminalProvider initial={terminalOf(asked === null ? terminal : null)} jobs={jobs}>
       <NeedHumanProvider initial={asked} jobs={needJobs} demo={view.demoQuestions ?? null}>
-        <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={new Date(view.now)} answered={view.answered} tab={jobTabOf(jobsTab)} />
+        <RepositoriesProvider initial={repos} runners={drawers}>
+          <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={now} answered={view.answered} tab={jobTabOf(jobsTab)} />
+        </RepositoriesProvider>
       </NeedHumanProvider>
     </TerminalProvider>
   );

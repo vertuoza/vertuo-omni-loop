@@ -30,5 +30,5 @@ async function viewOf(now: Date): Promise<RunnersPageView> {
 
 export default async function RunnersRoute({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
-  return <RunnersPage view={await viewOf(new Date())} supabase={runnersPageSupabase()} signinError={one(query.signin_error)} terminal={one(query.terminal)} answer={one(query.answer)} jobs={one(query.jobs)} />;
+  return <RunnersPage view={await viewOf(new Date())} supabase={runnersPageSupabase()} signinError={one(query.signin_error)} terminal={one(query.terminal)} answer={one(query.answer)} jobs={one(query.jobs)} repos={one(query.repos)} />;
 }

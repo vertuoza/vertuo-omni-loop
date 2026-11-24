@@ -45,6 +45,12 @@ function spanOf(ms: number): string {
 
 const since = (iso: string, now: Date) => Math.max(0, now.getTime() - Date.parse(iso));
 
+/** How long ago `iso` was, in the page's short words: `3 h ago`, or `now` under a minute. */
+export function agoWords(iso: string, now: Date): string {
+  const age = spanOf(since(iso, now));
+  return age === 'now' ? 'now' : `${age} ago`;
+}
+
 /** A runner's state in words: Online, Busy, or Offline with when it was last seen. */
 export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { health?: Pick<RunnerHealth, 'paused'> | null | undefined }, now: Date): string {
   if (runner.state !== 'offline' && runner.health?.paused) return `Paused: ${runner.health.paused}`;
