@@ -442,6 +442,10 @@ export type SendRequest = z.infer<typeof SendRequestSchema>;
 /** A runner's fleet, set or cleared by a workspace owner. */
 export const FleetRequestSchema = z.object({ fleet: FleetSchema.nullable() }).strict();
 
+/** The part a mission's job plays (PRD 3233), as `public.mission_job_role` names it. */
+const MISSION_JOB_ROLES = ['pm', 'engineer', 'qa', 'reviewer', 'architect', 'supervisor'] as const;
+export type MissionJobRole = (typeof MISSION_JOB_ROLES)[number];
+
 /** A job, as the browser reads it. */
 const JobSchema = z.object({
   id: IdSchema,
@@ -478,6 +482,10 @@ const JobSchema = z.object({
   slicesTotal: z.number().int().nullable().optional(),
   /** The job it continues (PRD 2270): a `/omni:yolo-fix` queued once that job's answers were in; null for any other. */
   continues: IdSchema.nullable().optional(),
+  /** The mission that sent it (PRD 3233); null for a job of no mission. */
+  missionId: IdSchema.nullable().optional(),
+  /** Its part in that mission, worked out from the mission's key (PRD 3233); null for a job of no mission. */
+  role: z.enum(MISSION_JOB_ROLES).nullable().optional(),
   /** The job it resumes, which its runner lost (PRD 2809); null for any other job. */
   resumes: IdSchema.nullable().optional(),
   /** Which attempt of its chain it is, 1 to 3 (PRD 2809): 1 for a job someone sent. */

@@ -103,6 +103,7 @@ import {
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
 import type { AppCredentials, AppInstallation, MintedToken } from '../public-api/keys/github-app';
+import { missionJobRole } from './mission-role';
 import { shouldContinue, unansweredWhy } from './continue';
 import type { AppOfJob, ProductPlanReads, CheckpointRow, CheckpointsRepository, ContinuationsRepository, JobPatch, JobRow, JobRowStatus, KeyStart, NewJob, NewRelaunch, QuestionsRefusal, QuestionsRow, RunnerRow, RunnersRepository, SampleRow } from './runners.repository';
 
@@ -379,13 +380,19 @@ function resumeFields(row: JobRow): Pick<Job, 'resumes' | 'attempt' | 'resumeAft
   return { resumes: row.resumes ?? null, attempt: row.attempt ?? 1, resumeAfter: row.resume_after ?? null };
 }
 
-function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
+/** What the page reads of a job's mission (PRD 3233): its id and its part, null for a job of no mission. */
+function missionFields(row: JobRow): Pick<Job, 'missionId' | 'role'> {
+  const missionId = row.mission_id ?? null;
+  return { missionId, role: missionId !== null && row.mission_key ? missionJobRole(row.mission_key) : null };
+}
+
+export function jobOf(row: JobRow, logins: Map<string, string>, keys: Map<string, string> = new Map()): Job {
   return {
     id: row.id, line: row.line, repo: row.repo, toRunner: row.to_runner, toFleet: row.to_fleet, ...senderFields(row, logins, keys), ...keyActionFields(row, keys),
     status: row.status, runner: row.runner_id, cancelRequested: row.cancel_requested,
     logTail: row.log_tail, prUrl: row.pr_url, exitCode: row.exit_code, reason: row.reason, tokens: row.tokens ?? null, parts: row.parts ?? null,
     released: row.released ?? null, releaseError: row.release_error ?? null, outcome: pageOutcome(row.outcome), slicesMerged: row.slices_merged ?? null, slicesTotal: row.slices_total ?? null, continues: row.continues ?? null,
-    ...resumeFields(row), queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
+    ...missionFields(row), ...resumeFields(row), queuedAt: row.queued_at, claimedAt: row.claimed_at, runningAt: row.running_at, endedAt: row.ended_at,
   };
 }
 
