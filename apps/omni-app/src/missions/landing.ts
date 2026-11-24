@@ -215,7 +215,7 @@ export type Answers = { deferred: readonly DeferredDecision[]; links: AnswerLink
 export const answerLinks =
   ({ galaxyUrl, fleet, mission }: { galaxyUrl: string; fleet: string; mission: number }): AnswerLinks =>
   (name, answer) =>
-    `${galaxyUrl}/app/fleet?fleet=${encodeURIComponent(fleet)}&tab=missions&mission=${String(mission)}&decision=${encodeURIComponent(name)}&answer=${answer}`;
+    `${galaxyUrl}/app/ai-fleet?fleet=${encodeURIComponent(fleet)}&tab=missions&mission=${String(mission)}&decision=${encodeURIComponent(name)}&answer=${answer}`;
 
 /**
  * What a run passes for the **Deferred decisions** (`store.decisions` and `store.fleetEvents`, read at `alone` only): each deferred

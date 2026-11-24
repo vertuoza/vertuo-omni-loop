@@ -74,6 +74,8 @@ describe('the fixtures', () => {
 describe('the checks', () => {
   it('knows a fleet\'s links from another fleet\'s', () => {
     expect(isOfFleet('/app/fleet?fleet=harbor-fleet&tab=room&mission=mission-4101', harbor)).toBe(true);
+    expect(isOfFleet('/app/ai-fleet?fleet=harbor-fleet&tab=room&mission=mission-4101', harbor)).toBe(true);
+    expect(isOfFleet('/app/ai-fleet?fleet=orchard-fleet&tab=room', harbor)).toBe(false);
     expect(isOfFleet('/app/runners#job-job-h-0001', harbor)).toBe(true);
     expect(isOfFleet('https://github.com/acme/billing/pull/4150', harbor)).toBe(true);
     expect(isOfFleet('/prd/at/acme/billing/4150?to=page', harbor)).toBe(true);

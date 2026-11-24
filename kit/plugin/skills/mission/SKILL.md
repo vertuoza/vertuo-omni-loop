@@ -1,12 +1,12 @@
 ---
 name: mission
-description: Settles a mission with a person — the Virtual Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), in a scratch folder outside the repository, opens the mission's issue, and sends the brief to the mission's page with omni mission push --from. It opens no branch, commit or pull request, since the page is the mission's record. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. With --goal and a goal it asks only the fleet and writes a goal-only brief at alone, no scope, for the fleet's PM to turn into PRDs; --request reads that goal from the Omni page's New mission box and asks nothing. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and presses no Start. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
+description: Settles a mission with a person — the AI Fleet that takes it, its goal, its measures, its scope of PRDs and roadmaps and its mandate, one question at a time — then writes its brief, mission.md (the front matter the kit's schema reads) and mission.html (self-contained, under the before/after page rules, marks and word pass included), in a scratch folder outside the repository, opens the mission's issue, and sends the brief to the mission's page with omni mission push --from. It opens no branch, commit or pull request, since the page is the mission's record. With --prd and a goal it asks nothing and writes the minimal mission, that PRD as its scope; --roadmap does the same for a roadmap. With --goal and a goal it asks only the fleet and writes a goal-only brief at alone, no scope, for the fleet's PM to turn into PRDs; --request reads that goal from the Omni page's New mission box and asks nothing. A scope takes repository numbers and product ids, --prd <key>-<n> for a product PRD, --roadmap <key>-R<n> for a product roadmap. Writes no code, never merges, and presses no Start. Triggers on "start a mission", "give this goal to a fleet", "a mission for PRD 2803", "/omni:mission".
 ---
 
-# Mission: a goal a Virtual Fleet delivers
+# Mission: a goal an AI Fleet delivers
 
 A **mission** is a goal, not a container: one sentence of what changes and for whom, 1 to 5
-measures that tell it worked once deployed, the Virtual Fleet that takes it, a scope of PRDs and
+measures that tell it worked once deployed, the AI Fleet that takes it, a scope of PRDs and
 roadmaps (of this repository, or of a product) in any mix, and a mandate (how many PRDs may run at once). This skill is
 the lead's seat, a person's today: it settles those with a person as `/omni:brainstorm` settles a
 design, writes the brief, and sends it to the mission's page. The page's Start button is the
@@ -30,7 +30,7 @@ request. The brief is written to a folder outside the repository and pushed from
 | nothing, or the goal | `/omni:mission 'dark mode for quotes'` | the conversation of step 1; a goal given is the first answer, still shown for a yes |
 | `--prd <n>` or `--prd <key>-<n>` `'<goal>'` | `/omni:mission --prd 2803 'dark mode for quotes on site'`, `/omni:mission --prd omni-loop-15 'a mission takes a roadmap'` | the one-line mission: no conversation. That PRD, a repository's number or a product PRD's id, is its scope, the goal is as given, no measure yet, the default mandate |
 | `--roadmap <n>` or `--roadmap <key>-R<n>` `'<goal>'` | `/omni:mission --roadmap omni-loop-R3 'the roadmap, delivered'` | the same one-line mission for a roadmap, a repository's number or a product roadmap's id. With `--prd` too, both are the scope |
-| `--fleet <key>` | `--fleet crew-bots` | the Virtual Fleet's key, when it is already known; saves the question |
+| `--fleet <key>` | `--fleet crew-bots` | the AI Fleet's key, when it is already known; saves the question |
 | `--goal '<goal>'` | `/omni:mission --goal 'quotes get a dark mode'` | the goal-only mission: no scope, the goal as given, asking only the fleet (nothing with `--fleet`). See **Goal-only: `--goal` and `--request`** |
 | `--request <id>` | `/omni:mission --request 3f2a9c1e-7b4d-4e8a-9c2f-1a2b3c4d5e6f` | the same mission, started from the Omni page's New mission box: the goal and the fleet are read with `omni mission request <id>`, nothing is asked. A runner takes only this form |
 | `--omni-bugs` | `/omni:mission --omni-bugs` | the Omni Loop bug team: a standing mission of kind `omni-bugs`, written in one line (see below). Only on the Omni Loop repository |
@@ -48,7 +48,7 @@ one-line form takes the goal, and stop.
   roadmap in it is refused. It never ends delivered.
 - The goal is fixed: `Fix the Omni Loop bugs missions report`. No measure (`measures: []`) and the
   default mandate (`parallel: 2`, the fleet's level).
-- The fleet is `--fleet` when given, else the workspace's Virtual Fleet that has an Engineer. With
+- The fleet is `--fleet` when given, else the workspace's AI Fleet that has an Engineer. With
   several, ask which one: that is its one question. With none, say that a member creates it from the
   Fleet section and stop. Under `OMNI_UNATTENDED` with several, ask nothing: stop and say the fleet's
   key is the one thing it cannot guess.
@@ -111,7 +111,7 @@ given, `measures: []`, `mandate.parallel: 2` and the level as question 5 says. C
 a repository PRD with `omni prd <n>` (it must print its folder), a product PRD with
 `omni prd <key>-<n>` (it must print its state), a repository roadmap with `omni roadmap check <n>`,
 a product roadmap with `omni dossier get <key>-R<n> roadmap` (it must print the roadmap's file);
-else stop and say which PRD or roadmap it could not find. The Virtual Fleet is `--fleet` when
+else stop and say which PRD or roadmap it could not find. The AI Fleet is `--fleet` when
 given; else ask the one question of this form, the fleet's key, as the Fleet section of the Omni
 page shows it. Under `OMNI_UNATTENDED` with no `--fleet`, ask nothing: stop and say that the fleet's
 key is the one thing the one-line form cannot guess.
@@ -119,10 +119,10 @@ key is the one thing the one-line form cannot guess.
 Otherwise, a conversation, **one question at a time** (in Claude: `AskUserQuestion`; see the
 briefing's Any agent section for the rest), each with its recommended answer first:
 
-1. **The Virtual Fleet** that takes it: its key (lowercase, dashes between words), as the Fleet
+1. **The AI Fleet** that takes it: its key (lowercase, dashes between words), as the Fleet
    section of the Omni page shows it. Skip when `--fleet` gave it. Its heroes are the mission's
    team, and its jobs go to that fleet's runners. When the person does not have one, say that a
-   member creates it from the Fleet section (`+ New virtual fleet`) and stop: a mission needs a fleet.
+   member creates it from the Fleet section (`+ New AI fleet`) and stop: a mission needs a fleet.
 2. **The goal**: one sentence, what changes and for whom, at most 500 characters. Push back on a
    goal that names a task ("refactor X"), and ask what changes for whom.
 3. **The measures**: 1 to 5 observable signs it worked once deployed, each with a sign, how it is
@@ -229,7 +229,7 @@ in the repository, `omni mission get <n>` writes them, uncommitted.
 - Never write code, cut a branch, make a commit, open a pull request, merge, or press Start.
 - Never write a field the schema does not take, or a measure the person did not give.
 - Never write a level above the fleet's for a person who is not an owner of the workspace: the app refuses it.
-- Never invent a Virtual Fleet's key, a PRD or a roadmap, a product id included: each is read from the person or checked.
+- Never invent an AI Fleet's key, a PRD or a roadmap, a product id included: each is read from the person or checked.
 - Never ask more than one question at a time, or any under `--prd` or `--roadmap` beyond the fleet's key.
 - Never ask any under `--request`, or beyond the fleet's key under `--goal`.
 - Never write a goal-only brief below `alone`, or on `phase 0: pr`, or put the goal in a runner line.

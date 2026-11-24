@@ -1,5 +1,5 @@
 // The notebook job's store (PRD 3107 s4, ./notebook-run.ts), as the service role (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`):
-// the App has no person's session. It reads the missions of Virtual Fleets, their events, the notebooks' lines that are not
+// the App has no person's session. It reads the missions of AI Fleets, their events, the notebooks' lines that are not
 // deleted and the fleet's spending, and writes a batch of lines to commander_notes
 // (supabase/migrations/20270128092000_commander_notes.sql), whose trigger refuses a line citing no event of its mission. A
 // batch already written (the unique batch index, 23505) writes nothing. Throws when the database refuses or answers out of

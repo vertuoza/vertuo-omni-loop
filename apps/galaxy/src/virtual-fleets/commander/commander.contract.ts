@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
 
-// The Commander tab's contract (PRD 3107 s1; ADR-0095): what a Virtual Fleet's Commander thread is as the tab reads it,
+// The Commander tab's contract (PRD 3107 s1; ADR-0095): what an AI Fleet's Commander thread is as the tab reads it,
 // and what its box sends, safe for the browser. Every refusal is `{error}` in plain words, with the thread's state when
 // the Commander cannot answer (off, tokens used up).
 //

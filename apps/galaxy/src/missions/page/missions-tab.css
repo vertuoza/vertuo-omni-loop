@@ -1,4 +1,4 @@
-/* The Missions tab of a Virtual Fleet (PRD 2842 s7), as the `mission-start` screen draws it: one row per
+/* The Missions tab of an AI Fleet (PRD 2842 s7), as the `mission-start` screen draws it: one row per
    mission, its words at the left, its one button at the right. At 393 px the row stacks. Every colour is a
    token of src/ask/theme-tokens.ts. */
 

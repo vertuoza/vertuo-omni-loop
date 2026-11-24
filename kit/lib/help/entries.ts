@@ -1889,9 +1889,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     who: 'you',
     usage: ['/omni:mission', "/omni:mission --prd <n> '<goal>'", "/omni:mission --goal '<goal>'", '/omni:mission --request <id>'],
     label: '/omni:mission',
-    summary: 'a goal for a Virtual Fleet, as a brief on its page',
+    summary: 'a goal for an AI Fleet, as a brief on its page',
     detail:
-      'Settles a mission with you, one question at a time: the Virtual Fleet that takes it, its goal, ' +
+      'Settles a mission with you, one question at a time: the AI Fleet that takes it, its goal, ' +
       '1 to 5 measures, its scope of PRDs and roadmaps and how many may run at once. It writes the ' +
       'brief, mission.md and mission.html, in a scratch folder outside the repository, opens the mission\'s ' +
       'issue, and sends the brief to its page with omni mission push --from. The page is the mission\'s ' +
@@ -1903,7 +1903,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'request, nothing asked. A goal-only mission needs phase 0 on the server. It writes no code and never ' +
       'merges.',
     group: 'start',
-    when: 'Use it when you want a Virtual Fleet to deliver a goal, over one PRD or several, with you answering only where a person is needed.',
+    when: 'Use it when you want an AI Fleet to deliver a goal, over one PRD or several, with you answering only where a person is needed.',
     example: {
       type: "/omni:mission --prd 2803 'dark mode for quotes on site'",
       result: "a mission's brief on its page, ready for Start, and no pull request",

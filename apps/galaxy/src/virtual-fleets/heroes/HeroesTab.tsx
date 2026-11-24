@@ -7,7 +7,7 @@ import { demoHeroesPort, httpHeroesPort, type Changed, type HeroesPort } from '.
 import { heroSvg, missingRoles, rowOf, WORDS, type HeroesView } from './heroes';
 import './heroes.css';
 
-// The Heroes tab of a Virtual Fleet (PRD 2842 s6, PRD 2873 s3, the `fleet-seats` screen): one row per hero, its
+// The Heroes tab of an AI Fleet (PRD 2842 s6, PRD 2873 s3, the `fleet-seats` screen): one row per hero, its
 // sprite in the fleet's colour, its name and `Role · agent`, its count line, every skill of its role marked
 // `runs alone` or `needs a person` (those that run alone first), its agent and model (recorded: the runner's
 // accounts still decide) and its limits in sentences.

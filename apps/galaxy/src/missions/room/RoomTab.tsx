@@ -9,7 +9,7 @@ import { RepairDetail, StoppedBlock } from '../RepairParts';
 import { REVIEW_WORDS, type ReviewRow } from './review';
 import './room.css';
 
-// The Operation room of a Virtual Fleet (PRD 2842 s8, the `fleet-room` screen): one now line per hero, the
+// The Operation room of an AI Fleet (PRD 2842 s8, the `fleet-room` screen): one now line per hero, the
 // clean-up line, and the ledger of the missions' events, newest first, filtered by role and by mission in the
 // address. One motion: a row that arrives after the page is shown slides in at the top, once; never on load,
 // and none under reduced motion (room.css). The page re-reads every 30 seconds while it is open.

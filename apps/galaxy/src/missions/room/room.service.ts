@@ -8,7 +8,7 @@ import { withTokens } from './qa';
 import { reviewLinesOf, waitingOf } from './review';
 
 // The Operation room's rules over the repository (PRD 2842 s8; ADR-0095): the heroes' now lines, the clean-up
-// line and the ledger of a virtual fleet's missions, as the signed-in person reads them.
+// line and the ledger of an AI fleet's missions, as the signed-in person reads them.
 
 type Port = Pick<RoomRepository, 'heroes' | 'missions' | 'events' | 'kept' | 'tokens' | 'qaJobs' | 'decisions'> & { waits: LimitWaitRepository['facts']; repairs: RepairRepository['facts'] };
 

@@ -1,0 +1,12 @@
+/* The AI Fleet list (PRD 3233 s3). */
+.ai-list-wrap { margin-top: var(--space-3); }
+.ai-cell p { margin: 0; }
+.ai-muted { color: var(--ask-muted); font-size: var(--type-2-size); }
+.ai-runs { list-style: none; margin: 0; padding: 0; }
+.ai-runs li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.ai-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ask-muted); flex: none; }
+.ai-dot.is-online { background: var(--ask-green); }
+.ai-dot.is-busy { background: var(--ask-plasma); }
+.ai-dot.is-paused { background: var(--ask-red); }
+.ai-shared { font-size: var(--type-1-size); color: var(--ask-muted); }
+.ai-warning { margin: 0; color: var(--ask-red); font-size: var(--type-2-size); }

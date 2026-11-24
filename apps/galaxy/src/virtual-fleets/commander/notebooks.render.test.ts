@@ -13,7 +13,7 @@ import { notebooksAfter, NotebooksBody, undoQueue, UNDO_MS, type NotebooksProps 
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#x27;/g, '\'').replace(/\s+/g, ' ').trim();
 const NOW = new Date('2026-11-21T09:30:00Z');
-const ROOM = '/app/fleet?fleet=blue-fleet&tab=room&mission=aaaaaaaa-0000-4000-8000-000000003110';
+const ROOM = '/app/ai-fleet?fleet=blue-fleet&tab=room&mission=aaaaaaaa-0000-4000-8000-000000003110';
 const line = (n: number, day: string, words: string, events = 1) => ({ id: `dddddddd-0000-4000-8000-00000000000${String(n)}`, day, line: words, events, href: ROOM });
 const BOOKS: Notebooks = {
   fleet: [line(1, '2026-11-19', 'Quotes e2e needs the long timeout.', 3), line(2, '2026-11-14', 'Reviewer sent back loosened tests twice.', 2)],

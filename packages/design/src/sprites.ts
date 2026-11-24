@@ -614,6 +614,12 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.ellipse(8, 3.5, 1.5, 1.2, 'E').rect(1, 6, 2, 1, 'R', 1).rect(13, 6, 2, 1, 'R', 1);
     d.rect(1, 8, 1, 7, 'C', f ? 0 : 1).rect(14, 8, 1, 7, 'C', f ? 0 : 1);
   } },
+  // The AI Fleet entry (PRD 3233, s3): a robot head, an antenna on top lighting in turn, two eyes.
+  'menu-ai-fleet': { w: 16, h: 16, draw(d, f) { // a robot head: an antenna, a square face, two eyes, a mouth grille, side ears
+    d.rect(7, 2, 2, 3, 'L').px(7, 1, f ? 'e' : 'R').px(8, 1, f ? 'R' : 'e');
+    d.rect(3, 5, 10, 8, 'L').rect(1, 7, 2, 4, 'L').rect(13, 7, 2, 4, 'L');
+    d.rect(5, 7, 2, 2, 'E').rect(9, 7, 2, 2, 'E').rect(5, 11, 6, 1, 'R', 1);
+  } },
   'menu-loop': { w: 16, h: 16, draw(d, f) { // a probe on its orbit: a ring around a core, the probe moving on
     d.ellipse(8, 8, 6.5, 6.5, 'C').ellipse(8, 8, 4.5, 4.5, 'X').ellipse(8, 8, 2, 2, f ? 'O' : 'Y');
     d.rect(f ? 12 : 1, f ? 1 : 12, 3, 3, 'L').px(f ? 13 : 2, f ? 2 : 13, 'R', 1);

@@ -49,7 +49,7 @@ const SaveRowSchema = z.object({ bytes: z.number(), keep_until: z.string() });
 export function roomRepository(db: RoomDb) {
   return {
 
-    /** A virtual fleet's heroes, in the order the fleet keeps them. */
+    /** An AI fleet's heroes, in the order the fleet keeps them. */
     async heroes(workspace: string, fleet: string): Promise<HeroLine[]> {
       const { data, error } = await db.from('virtual_heroes').select('id, name, role, skills').eq('workspace_id', workspace).eq('fleet', fleet).order('position');
       if (error) throw new Error(`Supabase: could not read the heroes (${error.message})`);

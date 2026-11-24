@@ -7,7 +7,7 @@ import { NewFleetView, NewVirtualFleet } from './NewVirtualFleet';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => undefined, refresh: () => undefined }) }));
 
-// The New virtual fleet drawer as drawn (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen): its title, then Name,
+// The New AI fleet drawer as drawn (PRD 2842 s1, PRD 2873 s3, the `fleet-new` screen): its title, then Name,
 // Icon and Heroes in that order, the six switches all on, each with its count line, the foot with Cancel and Create fleet, and each
 // state the screen names.
 
@@ -15,13 +15,13 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, 
 const view = (state: NewFleetState) => renderToStaticMarkup(createElement(NewFleetView, { state, mascots: MASCOTS }));
 const opened = () => openedWith(MASCOTS);
 
-describe('the New virtual fleet drawer', () => {
+describe('the New AI fleet drawer', () => {
   it('draws Name, Icon and Heroes in order, under its title, as a dialog of the fleet-new screen', () => {
     const html = view(opened());
     expect(html).toContain('data-screen="fleet-new"');
     expect(html).toMatch(/role="dialog" aria-modal="true"/);
     const t = text(html);
-    expect(t.indexOf('New virtual fleet')).toBeLessThan(t.indexOf('Name'));
+    expect(t.indexOf('New AI fleet')).toBeLessThan(t.indexOf('Name'));
     expect(t.indexOf('Name')).toBeLessThan(t.indexOf('Icon'));
     expect(t.indexOf('Icon')).toBeLessThan(t.indexOf('Heroes'));
     expect(t).toMatch(/Cancel Create fleet$/);
@@ -71,13 +71,13 @@ describe('the New virtual fleet drawer', () => {
 
   it('is closed until its button is pressed, the button the page\'s main one when asked', () => {
     const quiet = renderToStaticMarkup(createElement(NewVirtualFleet, { workspace: null, mascots: MASCOTS }));
-    expect(quiet).toBe('<button type="button" class="ask-button quiet vf-open">+ New virtual fleet</button>');
+    expect(quiet).toBe('<button type="button" class="ask-button quiet vf-open">+ New AI fleet</button>');
     const primary = renderToStaticMarkup(createElement(NewVirtualFleet, { workspace: null, mascots: MASCOTS, primary: true }));
-    expect(primary).toBe('<button type="button" class="ask-button vf-open" data-primary="">+ New virtual fleet</button>');
+    expect(primary).toBe('<button type="button" class="ask-button vf-open" data-primary="">+ New AI fleet</button>');
   });
 });
 
-describe('the New virtual fleet drawer\'s Level (PRD 2896 s1)', () => {
+describe('the New AI fleet drawer\'s Level (PRD 2896 s1)', () => {
   const radios = (html: string) => [...html.matchAll(/<input type="radio"[^>]*name="[^"]*-level"[^>]*>/g)].map((m) => ({ level: /value="([^"]+)"/.exec(m[0])?.[1], checked: m[0].includes('checked'), disabled: m[0].includes('disabled') }));
 
   it('draws Level after Heroes, as one choice of three with its lines, Reviews with you selected', () => {

@@ -1,0 +1,15 @@
+/* An AI fleet's Runners tab and Runs on line (PRD 3233 s4). */
+.frt-head { display: grid; gap: var(--space-1); margin-top: var(--space-1); }
+.frt-mission, .frt-runs { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.frt-waits { color: var(--ask-plasma); }
+.frt-chip { display: inline-flex; align-items: center; gap: var(--space-1); }
+.frt-tab { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
+.frt-section { display: grid; gap: var(--space-1); min-width: 0; }
+.frt-section h2 { margin: 0; }
+.frt-runner { border: 1px solid var(--ask-line-strong); border-radius: var(--radius-2); background: var(--ask-surface); padding: var(--space-2) var(--space-3); display: grid; gap: var(--space-2); min-width: 0; }
+.frt-runner-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.frt-jobs { display: grid; gap: var(--space-1); }
+.frt-job { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.frt-job > * { min-width: 0; overflow-wrap: anywhere; }
+.frt-reason { color: var(--ask-red); font-size: var(--type-1-size); margin: 0; }
+.frt-tokens { margin: 0; color: var(--ask-red); }

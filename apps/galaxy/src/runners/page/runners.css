@@ -17,7 +17,6 @@
 .runners-runners .runners-row { grid-template-columns: minmax(140px, 1.2fr) 150px 140px 70px minmax(0, 2fr) 70px 90px; }
 .runners-jobs .runners-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 110px minmax(0, 1.5fr) 130px 200px; }
 .runners-name { font-weight: 700; }
-.runners-repos { font: 500 13px/1.6 var(--ask-mono); }
 .runners-made-by { display: block; font-size: 12px; }
 .runners-jobs code { font: 500 13px/1.5 var(--ask-mono); }
 
@@ -90,6 +89,19 @@
 .runners-row > .runners-ghost { justify-self: start; }
 .runners-actions { display: flex; flex-wrap: wrap; align-items: start; gap: 6px; }
 
+/* The jobs' tabs and the Needs you band (PRD 3232). */
+.runners-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; width: fit-content; max-width: 100%; border: 1px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-sunk); }
+.runners-tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font: 600 14px/1 var(--ask-body); color: var(--ask-muted); text-decoration: none; }
+.runners-tab b { font-weight: 700; }
+.runners-tab.is-selected { background: var(--ask-surface); color: inherit; box-shadow: 0 0 0 1px var(--ask-line-strong); }
+.runners-tab.is-red { color: var(--ask-red); }
+.runners-icon { font-style: normal; font-size: 10px; }
+.runners-needs { display: grid; gap: 8px; min-width: 0; }
+.runners-needs h3 { margin: 0; font-size: 15px; color: var(--ask-plasma); }
+.runners-empty { display: grid; gap: 4px; padding: 16px; border: 1px dashed var(--ask-line-strong); border-radius: 12px; }
+.runners-empty p { margin: 0; }
+.runners-section > .runners-tabs, .runners-section > .runners-needs { margin-bottom: 12px; }
+
 .runners-start { display: grid; gap: 8px; }
 .runners-start h2 { margin: 0; }
 .runners-start .roadmap-command, .terminal-old .roadmap-command { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -105,3 +117,31 @@
 }
 .runners-keeps { display: block; font-size: 12px; font-weight: 400; }
 .runners-came { display: block; font-size: 12px; margin-top: 4px; }
+
+/* The runner card (PRD 3232): its name, can it take work, its accounts and tokens, its gauges, then its repositories and kit. */
+.runners-summary { margin-top: 4px; }
+.runners-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.runners-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; border: 1px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+.runners-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.runners-card-head .runners-name { margin-right: auto; }
+.runners-can { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.runners-pips { display: inline-flex; gap: 4px; }
+.runners-pip { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--ask-line-strong); background: none; }
+.runners-pip.is-used { background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.runners-used-by { flex-basis: 100%; }
+.runners-card .runners-health { grid-template-columns: minmax(0, 1fr); }
+.runners-gauge-fill { position: relative; }
+.runners-gauge-limit { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--ask-ink); }
+.runners-card-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; }
+.runners-kit { font-size: 13px; }
+.runners-kit.is-blocking { color: var(--ask-red); font-weight: 700; }
+
+/* The repositories button on a runner's card and its drawer (PRD 3232 s4); the drawer's frame is ./need-human.css. */
+.runners-repos-button { justify-self: start; }
+.repos-search { width: 100%; }
+.repos-search input { width: 100%; box-sizing: border-box; }
+.repos-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.repos-row { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--ask-line); border-radius: 8px; background: var(--ask-surface); min-width: 0; overflow-wrap: anywhere; }
+.repos-name { font: 600 14px/1.4 var(--ask-mono); }
+.repos-counts { font-size: 14px; }
+.repos-counts.has-cannot { color: var(--ask-red); }

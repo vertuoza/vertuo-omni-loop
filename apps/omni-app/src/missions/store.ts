@@ -18,7 +18,7 @@
 //                tail, or none when it reads none (PRD 3001)
 //   events       the events already recorded, in the order they happened, read back as keys, so nothing is
 //                recorded twice, and as the PRDs on the mission branch (PRD 2896)
-//   fleetRunners whether a runner of the mission's Virtual Fleet holds its repository
+//   fleetRunners whether a runner of the mission's AI Fleet holds its repository
 //   installation the GitHub installation of the mission's workspace (`workspaces.github_installation_id`), for the mission
 //                branch the App cuts (PRD 2896); null when the workspace has none
 //   planRepository whether the mission's repository is a live product's plan repository (`products.plan_repository`)

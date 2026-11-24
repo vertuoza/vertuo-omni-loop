@@ -7,7 +7,7 @@ import type { RailService } from './rail.service';
 
 // The Commander's database in memory (PRD 3107 s1), for the service's and the controller's tests: two workspaces as one
 // person reads them, under the rules of row-level security and commander_ask()
-// (supabase/migrations/20270128090000_fleet_commander.sql). Northwind's virtual fleet blue-fleet runs mission 3110,
+// (supabase/migrations/20270128090000_fleet_commander.sql). Northwind's AI fleet blue-fleet runs mission 3110,
 // which waits on PRD 2817's review; Globex's red-fleet runs mission 9001. Mira and Paul are Northwind's members, Gus is
 // Globex's. A fake model answers what the test gives it and keeps every turn it was handed.
 
@@ -87,7 +87,7 @@ export function fakeCommanderDb() {
         fleetMessages: (workspace, fleet, limit) => Promise.resolve(told.filter((m) => sees(m.workspace) && m.workspace === workspace && m.fleet === fleet).slice(-limit)),
         send(workspace, fleet, text): Promise<Written<Message>> {
           if (!sees(workspace)) return Promise.resolve({ ok: false, code: '42501', hint: null, message: 'Only a member of the workspace messages its fleet.' });
-          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not a virtual fleet of this workspace.' });
+          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not an AI fleet of this workspace.' });
           if (text.trim() === '' || text.trim().length > 2000) return Promise.resolve({ ok: false, code: '22023', hint: 'text', message: 'Message: 1 to 2000 characters.' });
           const message = { kind: 'fleet' as const, id: id(), at: NOW.toISOString(), login: person, text: text.trim(), reads: [] };
           told.push({ ...message, workspace, fleet });
@@ -102,7 +102,7 @@ export function fakeCommanderDb() {
         },
         ask(workspace, fleet, text): Promise<Written<Message>> {
           if (!sees(workspace)) return Promise.resolve({ ok: false, code: '42501', hint: null, message: 'Only a member of the workspace asks its fleet\'s Commander.' });
-          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not a virtual fleet of this workspace.' });
+          if (spaces.get(workspace)?.fleets.get(fleet)?.virtual !== true) return Promise.resolve({ ok: false, code: '22023', hint: 'fleet', message: 'Fleet: not an AI fleet of this workspace.' });
           const question: Message = { kind: 'question', id: id(), at: NOW.toISOString(), login: person, text };
           messages.push({ ...question, workspace, fleet, tokens: 0 });
           return Promise.resolve({ ok: true, value: question });

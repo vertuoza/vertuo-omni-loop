@@ -22,7 +22,7 @@ const refusedBy = (error: NonNullable<Answer['error']>) => ({ ok: false as const
 
 export function heroesRepository(db: HeroesDb) {
   return {
-    /** A virtual fleet's heroes, in the order the fleet keeps them. */
+    /** An AI fleet's heroes, in the order the fleet keeps them. */
     async heroes(workspace: string, fleet: string): Promise<Hero[]> {
       const { data, error } = await db.from('virtual_heroes').select(COLUMNS).eq('workspace_id', workspace).eq('fleet', fleet).order('position');
       if (error) throw new Error(`Supabase: could not read the heroes (${error.message})`);
