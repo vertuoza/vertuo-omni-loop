@@ -4,6 +4,14 @@ import { MissionsTab } from '../../missions/page/MissionsTab';
 import { loadRoom } from '../../missions/room/room.live';
 import { RoomTab } from '../../missions/room/RoomTab';
 import { Streamed } from '../../skeleton/Streamed';
+import { CouldNotLoad } from '../Notes';
+import { listedAnswer } from '../../runners/page/need-human';
+import { terminalOf } from '../../runners/page/terminal-model';
+import { FleetHeadLines } from '../../virtual-fleets/runners/RunsOn';
+import { RunnersTabScreen } from '../../virtual-fleets/runners/RunnersTab';
+import type { FleetRunnersRead } from '../../virtual-fleets/runners/runners-tab.live';
+import { AI_FLEET_PATH } from './redirect';
+import { hrefWith } from '../board/links';
 import { supabaseEnv } from '../../data/supabase-server';
 import { FleetScreen, type FleetView } from './FleetScreen';
 import { tabOf } from './tabs';
@@ -34,12 +42,40 @@ export function roomBlock(db: Parameters<typeof loadRoom>[0], view: FleetView, q
   );
 }
 
+/** PRD 3233 s4: the head under an AI fleet's name (its mission line and Runs on) and, on the Runners tab, the tab itself, both from one read of the board. */
+export function runnersBlocks(read: Promise<FleetRunnersRead>, query: Record<string, string | string[] | undefined>): { head: ReactNode; runners: ReactNode } {
+  const head = (
+    <Streamed read={read} skeleton={<p className="fleet-line ask-muted">Loading the runners…</p>}>
+      {(value) => (value.kind === 'ok' ? <FleetHeadLines head={value.head} href={hrefWith(AI_FLEET_PATH, query, { tab: 'runners' })} /> : <CouldNotLoad />)}
+    </Streamed>
+  );
+  if (tabOf(query.tab) !== 'runners') return { head, runners: undefined };
+  const runners = (
+    <Streamed read={read} skeleton={<p className="fleet-line ask-muted">Loading the runners…</p>}>
+      {(value) => {
+        if (value.kind !== 'ok') return <CouldNotLoad />;
+        const asked = listedAnswer(one(query.answer), value.board.jobs);
+        const names = new Map(value.board.runners.map((runner) => [runner.id, runner.name]));
+        return (
+          <RunnersTabScreen
+            tab={value.tab}
+            terminal={value.board.jobs.map((job) => ({ id: job.id, repo: job.repo, runner: job.runner === null ? null : names.get(job.runner) ?? null, status: job.status }))}
+            need={value.board.jobs.map((job) => ({ id: job.id, repo: job.repo }))}
+            openTerminal={terminalOf(one(query.terminal))}
+            openAnswer={asked}
+          />
+        );
+      }}
+    </Streamed>
+  );
+  return { head, runners };
+}
 
 /** What both fleet pages start from (PRD 3233 s3): the query, the fleet asked for and the screen drawn for a view. */
 export async function fleetPageOf(searchParams: Promise<Record<string, string | string[] | undefined>>) {
   const query = await searchParams;
-  const screen = (view: FleetView, missions?: ReactNode, room?: ReactNode) => (
-    <FleetScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} query={query} missions={missions} room={room} />
+  const screen = (view: FleetView, missions?: ReactNode, room?: ReactNode, runs?: { head: ReactNode; runners: ReactNode }) => (
+    <FleetScreen view={view} supabase={supabaseEnv()} signinError={one(query.signin_error)} query={query} missions={missions} room={room} head={runs?.head} runners={runs?.runners} />
   );
   return { query, asked: one(query.fleet), screen, supabase: supabaseEnv() };
 }

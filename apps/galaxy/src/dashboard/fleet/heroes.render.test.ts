@@ -46,7 +46,7 @@ describe('the Fleet\'s tabs', () => {
   it('reads Operation room · Missions · Heroes · Board · Commander on a virtual fleet, the Operation room first (PRD 3107 s1)', () => {
     const html = screen(board('night-shift', HEROES(true)));
     const nav = /<nav class="fleet-tabs"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? '';
-    expect(text(nav)).toBe('Operation room Missions Heroes Board Commander');
+    expect(text(nav)).toBe('Operation room Missions Heroes Runners Board Commander');
     expect(nav).toContain('href="/app/ai-fleet?tab=commander"');
     expect(nav).toMatch(/href="\/app\/ai-fleet\?tab=room" aria-current="page"/);
     expect(nav).toContain('href="/app/ai-fleet?tab=heroes"');

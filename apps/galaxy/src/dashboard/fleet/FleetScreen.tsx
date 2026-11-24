@@ -55,6 +55,10 @@ export interface FleetScreenProps {
   missions?: ReactNode;
   /** The Operation room's block (PRD 2842 s8), streamed by the page; absent, the tab is not open. */
   room?: ReactNode;
+  /** An AI fleet's head under its name (PRD 3233 s4): its mission line and Runs on, on every tab. */
+  head?: ReactNode;
+  /** The Runners tab's block (PRD 3233 s4); absent, the tab is not open. */
+  runners?: ReactNode;
 }
 
 function Closed() {
@@ -106,13 +110,13 @@ function TabBody({ tab, view }: { tab: Exclude<FleetTab, 'board'>; view: Extract
 }
 
 /** The block of a tab read on its own: the page streams Missions and the Operation room, the Commander reads its thread itself. */
-const blockOf = (tab: FleetTab, blocks: Record<'missions' | 'room' | 'commander', ReactNode>): ReactNode =>
-  (tab === 'missions' || tab === 'room' || tab === 'commander' ? blocks[tab] : undefined);
+const blockOf = (tab: FleetTab, blocks: Record<'missions' | 'room' | 'commander' | 'runners', ReactNode>): ReactNode =>
+  (tab === 'missions' || tab === 'room' || tab === 'commander' || tab === 'runners' ? blocks[tab] : undefined);
 
 type BoardOf = Extract<FleetBoard, { kind: 'board' }>;
 
 /** An AI fleet's page on AI Fleet (PRD 3233 s3): its name in the trail, its tabs, the tab asked for. */
-function AiBoardScreen({ view, query, missions, room }: { view: BoardOf; query: Query; missions: ReactNode; room: ReactNode }) {
+function AiBoardScreen({ view, query, missions, room, head, runners }: { view: BoardOf; query: Query; missions: ReactNode; room: ReactNode; head: ReactNode; runners: ReactNode }) {
   const tab = tabOf(query.tab);
   const commander = <CommanderTab workspace={view.virtual?.workspace ?? null} fleet={view.fleet.name} />;
   return (
@@ -120,9 +124,10 @@ function AiBoardScreen({ view, query, missions, room }: { view: BoardOf; query: 
       <TrailItem name={view.fleet.label} />
       <header className="fleet-head">
         <h1 className="dash-name"><FleetChip fleet={view.fleet} link={false} /></h1>
+        {head}
       </header>
       <FleetTabs current={tab} query={query} path={AI_FLEET_PATH} />
-      {tab === 'board' ? <Board board={view.board} path={AI_FLEET_PATH} query={query} /> : blockOf(tab, { missions, room, commander }) ?? <TabBody tab={tab} view={view} />}
+      {tab === 'board' ? <Board board={view.board} path={AI_FLEET_PATH} query={query} /> : blockOf(tab, { missions, room, commander, runners }) ?? <TabBody tab={tab} view={view} />}
     </div>
   );
 }
@@ -141,7 +146,7 @@ function PlayersBoardScreen({ view, query }: { view: BoardOf; query: Query }) {
   );
 }
 
-export function FleetScreen({ view, supabase, signinError, query, missions, room }: FleetScreenProps) {
+export function FleetScreen({ view, supabase, signinError, query, missions, room, head, runners }: FleetScreenProps) {
   switch (view.kind) {
     case 'closed':
       return <Closed />;
@@ -165,6 +170,6 @@ export function FleetScreen({ view, supabase, signinError, query, missions, room
         </div>
       );
     case 'board':
-      return view.virtual?.names.includes(view.fleet.name) === true ? <AiBoardScreen view={view} query={query} missions={missions} room={room} /> : <PlayersBoardScreen view={view} query={query} />;
+      return view.virtual?.names.includes(view.fleet.name) === true ? <AiBoardScreen view={view} query={query} missions={missions} room={room} head={head} runners={runners} /> : <PlayersBoardScreen view={view} query={query} />;
   }
 }

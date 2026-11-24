@@ -1,11 +1,12 @@
 // A Virtual Fleet's tabs (PRD 2842 s6, the `fleet-frame` screen): Operation room · Missions · Heroes · Board,
 // chosen by `?tab=`, the Operation room when it names none. An ordinary fleet has no tabs: its board, as
-// before. PRD 3107 s1: a fifth, Commander, after Board.
+// before. PRD 3107 s1: a fifth, Commander, after Board. PRD 3233 s4: Runners, after Heroes.
 
 export const FLEET_TABS = [
   { id: 'room', label: 'Operation room' },
   { id: 'missions', label: 'Missions' },
   { id: 'heroes', label: 'Heroes' },
+  { id: 'runners', label: 'Runners' },
   { id: 'board', label: 'Board' },
   { id: 'commander', label: 'Commander' },
 ] as const;
