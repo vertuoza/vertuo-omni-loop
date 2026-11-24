@@ -22,4 +22,4 @@ The reproduction is the guard: four unit tests that a GET (with a link or none) 
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (d2aa7219): nothing to mutate
