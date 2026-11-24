@@ -4,6 +4,7 @@
 // `omni tech:` record line the App reads (kit/lib/virtual-fleet/tech-record.ts). Read as text from SKILL.md.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { parseProductPrdId } from '../lib/ids.ts';
 import { techLine } from '../lib/virtual-fleet/tech-record.ts';
 import { COMMAND_TABLE } from '../bin/commands/index.ts';
 
@@ -100,7 +101,7 @@ describe("/omni:tech-review <key>-<n> --mission <m>, the mission's Architect (PR
     expect(record).toBe('omni tech: {"v":1,"prd":"<key>-<n>","plan":"<sha256>","settled":["…"],"open":["…"],"outcome":"approved|escalated"}');
     expect(FLAT).toContain("the run's last output");
     expect(FLAT).toContain('`approved` only when `open` is empty');
-    expect(techLine({ v: 1, prd: 'omni-loop-31', plan: SHA, settled: ['one'], open: [], outcome: 'approved' })).toMatch(/^omni tech: \{"v":1,"prd":"omni-loop-31","plan":"a{64}","settled":\["one"\],"open":\[\],"outcome":"approved"\}$/);
+    expect(techLine({ v: 1, prd: parseProductPrdId('omni-loop-31'), plan: SHA, settled: ['one'], open: [], outcome: 'approved' })).toMatch(/^omni tech: \{"v":1,"prd":"omni-loop-31","plan":"a{64}","settled":\["one"\],"open":\[\],"outcome":"approved"\}$/);
   });
 
   it('never gives the Tech Approval itself: the App gives it from the record, as the fleet\'s Architect', () => {

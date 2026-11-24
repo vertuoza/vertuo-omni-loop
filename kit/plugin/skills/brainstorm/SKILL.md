@@ -30,6 +30,7 @@ signed. A command that prints nothing means signing is off here: add nothing.
 |---|---|---|
 | the idea | `/omni:brainstorm 'a line or a paragraph'` | what someone wants changed, in their words |
 | `--mission <m> --cap <k>` | `/omni:brainstorm --mission 12 --cap 1` | sent by a mission at Works alone to its PM, on a runner: in place of the idea, its goal, as **For a mission's PM** says |
+| `--mission <m> --cap <k> --product <key>` | `/omni:brainstorm --mission 12 --cap 1 --product omni-loop` | the same, on a repository whose phase 0 is on the server: the PRD is the product's, as **For a mission's PM** says |
 | `--concept <n> <area>` | `/omni:brainstorm --concept 712 day-view` | in place of the idea: one area of a concept that `/omni:think-big` recorded and a person merged into the inbox, read as **From a concept** says |
 
 | `--rework <n>` | `/omni:brainstorm --rework 822` | in place of the idea: rework PRD `<n>`'s spec and before/after from what its personas said, as **Rework** says; the User voice tab on the PRD's page copies this line |
@@ -959,28 +960,51 @@ rewritten to answer it, before anyone builds. `<folder>`, `<topic>`, `<feature b
 ## For a mission's PM
 
 `/omni:brainstorm --mission <m> --cap <k>` is the line a mission at Works alone sends its PM on a
-runner (PRD 2896, "7. The PM's own PRDs"). A runner refuses it on any other job, and nobody sends it
+runner (PRD 2896, "7. The PM's own PRDs"), with `--product <key>` last on a repository whose phase 0
+is on the server (PRD omni-loop-26). A runner refuses it on any other job, and nobody sends it
 by hand. It writes at most one PRD for the mission's goal and asks nobody. The steps above run as
 written, with these differences.
 
 - **The idea** is the mission's goal and measures, read from its page: run `omni mission get <m>`
   first and read `mission.md` in the folder it prints. When it prints `mission <m> not read: <why>`
   or `no mission #<m> on the page` and exits 1, stop on that line: write nothing and go straight to
-  the record line, with no PRD. Step 0 reading `phase 0: pr` does the same. A PRD the fleet adds is born on the
-  server (◆), so its committee can approve it on its page: a phase-0 PR waits for a person.
+  the record line, with no PRD. Step 0 reading `phase 0: pr` does the same.
+- **On the product, never in the repository.** On `phase 0: server` (step 0's flag) the PRD is a
+  product PRD (◆, PRD 1548), born on the product's page. The product is the line's
+  `--product <key>`, remembered with `node .omni-loop/bin/omni.mjs product use <key>`. Without it,
+  `node .omni-loop/bin/omni.mjs product which`: one product is taken as if the line named it; none
+  (or exit 1) stops the run in exactly one line, writing nothing, then the record line with no PRD:
+
+  ```text
+  this repository has no product: a goal-only mission needs one
+  ```
+
+  A repository in several products stops the same way on
+  `this repository is in several products: the mission's line names one with --product`. Never fall
+  back to a PRD of the repository's own.
+- **Its files go to the server.** Steps 4 and 5 write `spec.md` (its front matter `phase0: server`)
+  and `before-after.html` into one folder of a scratch folder (`mktemp -d`, outside the repository),
+  `<prd folder>`, and the PRD is created with
+  `node .omni-loop/bin/omni.mjs dossier push --product <key> --new --from <prd folder>`, which prints
+  its id, `<key>-<n>`; the filled `prd:` line is saved with `dossier push <key>-<n> --from <prd folder>`.
+  A refusal is printed as is, and the run goes to the record line with no PRD. Steps 2, 3, 6, 7, 8
+  and 9 are not made: no issue, no branch, no commit, no pull request, nothing in the repository.
+  The scratch folder is deleted when the skill ends.
 - **Asks nobody.** `OMNI_UNATTENDED` is set. Each question a step would ask a person (the design,
-  the voice, the proof, the e2e question) takes its most reversible answer, and once the PRD has a
-  number becomes one outbox item on it through `omni item new --prd <n>`, with `hardToRevert: true`,
-  its question and the answer taken: a high item, which the fleet's committee settles or sends to a
-  person. No Tech Approval is asked.
-- **Planned, never sent.** Step 8 plans it (`/omni:plan`), so its page holds the spec, the plan and
-  the before/after the committee reads. Step 9 opens no phase-0 PR. Step 10 hands off no
-  `/omni:yolo` line: the mission builds it once its committee approves, the PM sitting out.
+  the voice, the proof, the e2e question) takes its most reversible answer, and once the PRD has its
+  id becomes one outbox item on it through
+  `omni item new --prd <key>-<n> --file <file> --out <scratch> --json`, then
+  `omni item relay <scratch> --prd <key>-<n>`, with `hardToRevert: true`, its question and the answer
+  taken: a high item on the PRD's page, which a person settles. No Tech Approval is asked.
+- **No plan, no committee vote.** No plan is written here. The mission plans it next with
+  `/omni:mega-brainstorm --product <key> --plan-only <key>-<n>`; the PM approves each plan version it
+  pushed, the fleet's Architect reviews it with `/omni:tech-review <key>-<n> --mission <m>`, and the
+  mission builds it once both name its latest plan version. Step 10 hands off no `/omni:yolo` line.
 - **At most `<k>`.** One PRD, whatever `<k>` is.
 - **The record line,** the run's last output, one line exactly, `prds` empty when it wrote none:
 
   ```
-  omni pm: {"v":1,"mission":<m>,"skill":"brainstorm","cap":<k>,"prds":[<n>],"unwritten":[]}
+  omni pm: {"v":1,"mission":<m>,"skill":"brainstorm","cap":<k>,"prds":["<key>-<n>"],"unwritten":[]}
   ```
 
   The Omni app reads it from the job's log, and only it: the PRD joins the mission as

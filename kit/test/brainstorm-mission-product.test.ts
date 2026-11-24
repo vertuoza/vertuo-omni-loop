@@ -5,6 +5,7 @@
 // (kit/lib/virtual-fleet/plan-record.ts reads it). Read as text from each SKILL.md.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { parseProductPrdId } from '../lib/ids.ts';
 import { planRecordOf } from '../lib/virtual-fleet/plan-record.ts';
 import { pmRecordOf } from '../lib/virtual-fleet/pm.ts';
 
@@ -79,7 +80,7 @@ describe('/omni:mega-brainstorm --plan-only on a mission (PRD omni-loop-26)', ()
     const line = lineOf(PLAN_ONLY, 'omni plan: ');
     expect(line).toBe('omni plan: {"v":1,"prd":"<key>-<n>","plan":"<sha256>","outcome":"approved"}');
     const filled = line.replace('<key>-<n>', 'omni-loop-31').replace('<sha256>', 'b'.repeat(64));
-    expect(planRecordOf(filled, 'omni-loop-31')?.plan).toBe('b'.repeat(64));
+    expect(planRecordOf(filled, parseProductPrdId('omni-loop-31'))?.plan).toBe('b'.repeat(64));
   });
 
   it('takes the hash from dossier get after the push, and writes no record on a stop', () => {
