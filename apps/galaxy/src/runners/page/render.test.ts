@@ -126,7 +126,7 @@ describe('the board', () => {
   it('shows slots used out of slots, the repositories and the kit version', () => {
     expect(t).toContain('1 of 1 slot Used by acme-agents');
     expect(t).toContain('0 of 2 slots');
-    expect(t).toContain('widgets · mobile 0.0.388');
+    expect(t).toContain('2 repositories · 1 with jobs 0.0.388');
     expect(t).toContain('0.0.385');
   });
 
