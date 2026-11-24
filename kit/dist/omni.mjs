@@ -66107,11 +66107,16 @@ var RUNNABLE_SKILLS = Object.freeze([
   "mission"
 ]);
 var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var FLEET_SKILLS = Object.freeze(["tech-review"]);
+var TECH_REVIEW_ARGS = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-[1-9]\d{0,9} --mission [1-9]\d*$/;
+var TECH_REVIEW_REFUSAL = "/omni:tech-review runs on a runner for a mission's Architect only, as /omni:tech-review <key>-<n> --mission <m>";
 var MISSION_ARGS = /^--request [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 var MISSION_REFUSAL = "/omni:mission runs on a runner from the New mission box only";
 function missionRefusal(skill, mission2) {
-  if (!PM_SKILLS.includes(skill) || mission2?.level === "alone") return null;
-  return `/omni:${skill} runs on a runner for a mission's PM only`;
+  if (mission2?.level === "alone") return null;
+  if (PM_SKILLS.includes(skill)) return `/omni:${skill} runs on a runner for a mission's PM only`;
+  if (FLEET_SKILLS.includes(skill)) return `/omni:${skill} runs on a runner for a mission's Architect only`;
+  return null;
 }
 var APP_SKILLS = Object.freeze(["acceptance"]);
 var RESUMABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "wave", "do-work", "pr-care", "bug-fix"]);
@@ -66131,15 +66136,16 @@ function checkRunnerLine(line3, allowed = []) {
   return checkOwn(own2[1] ?? "", own2[2] ?? "", allowed);
 }
 function checkFixed(skill, args) {
-  if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
+  if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill) && !FLEET_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
   if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
   if (skill === "mission" && !MISSION_ARGS.test(args)) return { ok: false, reason: MISSION_REFUSAL };
+  if (skill === "tech-review" && !TECH_REVIEW_ARGS.test(args)) return { ok: false, reason: TECH_REVIEW_REFUSAL };
   return { ok: true, kind: "omni", skill, args };
 }
 function checkOwn(skill, args, allowed) {
   if (skill.length > SKILL_NAME_MAX) return { ok: false, reason: `a skill's name is ${String(SKILL_NAME_MAX)} characters at most` };
   if (!ARGS.test(args)) return { ok: false, reason: BAD_ARGS };
-  if (RUNNABLE_SKILLS.includes(skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` };
+  if (RUNNABLE_SKILLS.includes(skill) || FLEET_SKILLS.includes(skill)) return { ok: false, reason: `/${skill} is the loop's own skill: send /omni:${skill}` };
   if (!allowed.includes(skill)) return { ok: false, reason: `/${skill} is not allowed on a runner for this repository` };
   return { ok: true, kind: "repository", skill, args };
 }
@@ -68204,7 +68210,7 @@ var isObject2 = (value) => typeof value === "object" && value !== null && !Array
 var text20 = (value) => typeof value === "string" ? value : "";
 var number4 = (value) => typeof value === "number" && Number.isFinite(value) ? value : 0;
 var two = (value) => String(value).padStart(2, "0");
-var RECORD_LINES = ["omni committee: ", "omni pm: ", "omni retro: ", "omni repair: "];
+var RECORD_LINES = ["omni committee: ", "omni pm: ", "omni retro: ", "omni repair: ", "omni plan: ", "omni tech: "];
 var RECORD_CUT = 8e3;
 var STAMPED = /^\d{2}:\d{2}:\d{2} /;
 var isRecord13 = (line3) => {

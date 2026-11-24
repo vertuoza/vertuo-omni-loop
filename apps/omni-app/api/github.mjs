@@ -5682,14 +5682,14 @@ function collect(map, key, value) {
 }
 function numberViolations(screens) {
   const namesOf = /* @__PURE__ */ new Map();
-  const numbersOf = /* @__PURE__ */ new Map();
+  const numbersOf2 = /* @__PURE__ */ new Map();
   for (const { screen, ref } of referenced(screens)) {
     const number = ref.slice(0, ref.indexOf("."));
     collect(namesOf, number, screen.name);
-    collect(numbersOf, screen.name, number);
+    collect(numbersOf2, screen.name, number);
   }
   const mixed = [...namesOf].filter(([, names]) => names.size > 1).map(([number, names]) => `number ${number} carries ${[...names].map(quote).join(" and ")}, not one screen`);
-  const spread = [...numbersOf].filter(([, numbers2]) => numbers2.size > 1).map(([name, numbers2]) => `screen ${quote(name)} sits under numbers ${[...numbers2].join(" and ")}, not one`);
+  const spread = [...numbersOf2].filter(([, numbers2]) => numbers2.size > 1).map(([name, numbers2]) => `screen ${quote(name)} sits under numbers ${[...numbers2].join(" and ")}, not one`);
   return [...mixed, ...spread];
 }
 function namedScreens(text20) {
@@ -7490,11 +7490,11 @@ function capInput(input, sources, budget) {
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
     const text20 = entry.item.excerpt ?? "";
-    let keep3 = Math.max(0, text20.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text20, keep3);
-    while (keep3 > 0 && size - cost(text20) + cost(next) > budget) {
-      keep3 = Math.max(0, keep3 - (size - cost(text20) + cost(next) - budget));
-      next = lastLines(text20, keep3);
+    let keep4 = Math.max(0, text20.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text20, keep4);
+    while (keep4 > 0 && size - cost(text20) + cost(next) > budget) {
+      keep4 = Math.max(0, keep4 - (size - cost(text20) + cost(next) - budget));
+      next = lastLines(text20, keep4);
     }
     size += cost(next) - cost(text20);
     entry.item.excerpt = next;
@@ -7513,8 +7513,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text20, keep3) {
-  let tail = keep3 > 0 ? text20.slice(-keep3) : "";
+function lastLines(text20, keep4) {
+  let tail = keep4 > 0 ? text20.slice(-keep4) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -16994,15 +16994,15 @@ function loopPaths(ctx) {
   const { paths } = ctx.config;
   return [paths.delivery, paths.knowledge, paths.adr, paths.playbook, paths.glossary].filter((path) => typeof path === "string" && path.length > 0).map((path) => path.replace(/\/+$/, ""));
 }
-function overlay(root, keep3) {
+function overlay(root, keep4) {
   const scratch = mkdtempSync11(join70(tmpdir11(), "omni-harvest-"));
   const walk3 = (dir) => {
     for (const name of readdirSync21(join70(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === ".git") continue;
-      if (keep3.includes(rel)) {
+      if (keep4.includes(rel)) {
         cpSync(join70(root, rel), join70(scratch, rel), { recursive: true });
-      } else if (keep3.some((path) => path.startsWith(`${rel}/`)) && statSync14(join70(root, rel)).isDirectory()) {
+      } else if (keep4.some((path) => path.startsWith(`${rel}/`)) && statSync14(join70(root, rel)).isDirectory()) {
         mkdirSync13(join70(scratch, rel), { recursive: true });
         walk3(rel);
       } else {
@@ -17171,12 +17171,12 @@ function finishHarvest({
     const replies = new Map(classified.map((entry) => [entry.id, entry]));
     const candidates = harvestCandidates({ ctx: scratch, prd: prepared.prd });
     const dropped = /* @__PURE__ */ new Map();
-    const attempt3 = (keep3) => {
+    const attempt3 = (keep4) => {
       const input = candidates.map((candidate) => {
         const given = replies.get(candidate.id);
         if (dropped.has(candidate.id)) return { candidate, reply: null, reason: dropped.get(candidate.id) };
         if (!given) return { candidate, reply: null, reason: "not classified" };
-        if (keep3 && !keep3.includes(candidate.id)) return null;
+        if (keep4 && !keep4.includes(candidate.id)) return null;
         return { candidate, reply: given.reply ?? null, reason: given.reason ?? void 0, worth: given.worth ?? null };
       });
       return writeKnowledge({
@@ -22968,7 +22968,7 @@ var DROP_ASKED_KEEP = "drop-asked-keep";
 function dropSet({
   order,
   prd,
-  keep: keep3,
+  keep: keep4,
   territory
 }) {
   const at4 = order.indexOf(prd);
@@ -22983,7 +22983,7 @@ function dropSet({
     sharing.push(later2);
     ground.push(mine);
   }
-  return { prd, sharing, dropped: keep3 ? [prd] : [prd, ...sharing] };
+  return { prd, sharing, dropped: keep4 ? [prd] : [prd, ...sharing] };
 }
 function standingAsks(events) {
   const on = /* @__PURE__ */ new Set();
@@ -23000,7 +23000,7 @@ function standingAsks(events) {
       asks.delete(prd);
     }
   }
-  return [...asks].map(([prd, keep3]) => ({ prd, keep: keep3 }));
+  return [...asks].map(([prd, keep4]) => ({ prd, keep: keep4 }));
 }
 function droppedOf(events) {
   const dropped = /* @__PURE__ */ new Set();
@@ -23290,6 +23290,7 @@ var RUNNABLE_SKILLS = Object.freeze([
   "mission"
 ]);
 var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var FLEET_SKILLS = Object.freeze(["tech-review"]);
 var APP_SKILLS = Object.freeze(["acceptance"]);
 var RESUMABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "wave", "do-work", "pr-care", "bug-fix"]);
 var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "plan", "pitch", "prove", "ultra-yolo", "ultra-wave", "ultra-yolo-fix"]);
@@ -23305,16 +23306,39 @@ var PmRecordSchema = z92.object({
   mission: z92.number().int().positive(),
   skill: PmSkillSchema,
   cap: z92.number().int().min(1).max(OWN_PRDS_MAX),
-  prds: z92.array(PrdNumberSchema).max(OWN_PRDS_MAX),
+  /** One kind per record: the PRD numbers of a repository, or the ids of a product's PRDs (PRD omni-loop-26). */
+  prds: z92.union([z92.array(PrdNumberSchema).max(OWN_PRDS_MAX), z92.array(ProductPrdIdSchema).max(OWN_PRDS_MAX)]),
   unwritten: z92.array(z92.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
 });
+function mixedOf(prds) {
+  if (!Array.isArray(prds) || prds.length === 0) return void 0;
+  const items = prds;
+  const kind = typeof items[0];
+  return items.find((entry) => typeof entry !== kind);
+}
+function readPmRecord(json2) {
+  const prds = typeof json2 === "object" && json2 !== null && "prds" in json2 ? json2.prds : void 0;
+  const mixed = mixedOf(prds);
+  if (mixed !== void 0) return { ok: false, reason: `prds mixes PRD numbers and product ids: ${JSON.stringify(mixed)}` };
+  const parsed3 = PmRecordSchema.safeParse(json2);
+  if (parsed3.success) return { ok: true, record: parsed3.data };
+  const issue = parsed3.error.issues[0];
+  return { ok: false, reason: issue === void 0 ? "the record does not read" : `${issue.path.join(".") || "the record"}: ${issue.message}` };
+}
 function pmSkillFor(left, planRepository, goalOnly2 = false) {
   if (!Number.isInteger(left) || left < 1) return null;
   const one = left === 1 && !goalOnly2;
   if (planRepository) return one ? "mega-brainstorm" : "mega-roadmap";
   return one ? "brainstorm" : "roadmap";
 }
-var pmJobLine = (skill, mission, cap) => `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+var PRODUCT_KEY = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/;
+var PRODUCT_KEY_MAX = 40;
+function pmJobLine(skill, mission, cap, product = null) {
+  const line3 = `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+  if (product === null) return line3;
+  if (!PRODUCT_KEY.test(product) || product.length > PRODUCT_KEY_MAX) throw new Error(`not a product key: ${JSON.stringify(product)}`);
+  return `${line3} --product ${product}`;
+}
 var isPmSkill = (skill) => PM_SKILLS.includes(skill);
 function fitCap(rows, cap) {
   const room = Math.max(0, Math.floor(cap));
@@ -23322,25 +23346,40 @@ function fitCap(rows, cap) {
 }
 var notWrittenWords = (cap) => `not written: the cap is ${String(cap)}`;
 var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
-function pmRecordOf(log2, mission) {
+function lastRecordOf(log2, prefix, schema, match2) {
   for (const raw of log2.split("\n").reverse()) {
     const line3 = raw.trim().replace(STAMP3, "");
-    if (!line3.startsWith(PM_LINE)) continue;
+    if (!line3.startsWith(prefix)) continue;
     let json2;
     try {
-      json2 = JSON.parse(line3.slice(PM_LINE.length));
+      json2 = JSON.parse(line3.slice(prefix.length));
     } catch {
       continue;
     }
-    const parsed3 = PmRecordSchema.safeParse(json2);
-    if (parsed3.success && parsed3.data.mission === mission) return parsed3.data;
+    const parsed3 = schema.safeParse(json2);
+    if (parsed3.success && match2(parsed3.data)) return parsed3.data;
   }
   return null;
 }
-function keptOf2(record, cap, held2) {
-  const fresh = [...new Set(record.prds)].filter((prd) => !held2.has(prd));
+var ReadPmRecordSchema = z92.unknown().transform((json2, context) => {
+  const read2 = readPmRecord(json2);
+  if (read2.ok) return read2.record;
+  context.addIssue({ code: "custom", message: read2.reason });
+  return z92.NEVER;
+});
+function pmRecordOf(log2, mission) {
+  return lastRecordOf(log2, PM_LINE, ReadPmRecordSchema, (record) => record.mission === mission);
+}
+function keep(ids, record, cap, held2) {
+  const fresh = [...new Set(ids)].filter((prd) => !held2.has(prd));
   const { written, unwritten } = fitCap(fresh, Math.min(cap, record.cap));
   return { added: written, unwritten: [...unwritten.map((prd) => `PRD ${String(prd)}`), ...record.unwritten] };
+}
+var numbersOf = (record) => record.prds.filter((prd) => typeof prd === "number");
+function keptOf2(record, cap, held2) {
+  const numbers2 = numbersOf(record);
+  if (numbers2.length === 0 && record.prds.length > 0) return { added: [], unwritten: [] };
+  return keep(numbers2, record, cap, held2);
 }
 function planJobLine(prd, kind) {
   const tail = kind === "replan" ? " --replan" : "";
@@ -24586,7 +24625,7 @@ async function keepRow(at4, one, { round, rows }) {
   const kept3 = await at4.store.keepRepair(at4.mission, { prd: one.prd, fingerprint: fingerprint2, round, failedJob: one.failedJob, job: one.job, retro: retro2, fixPr: fixUrlOf(at4, one.record), ...trigger });
   return "spent" in kept3 ? { spent: kept3.spent, fingerprint: fingerprint2, retro: retro2 } : endedAtOnce(at4, kept3);
 }
-async function keep(at4, job, held2) {
+async function keep2(at4, job, held2) {
   return keepRow(at4, { record: await jobRecord2(at4, job), prd: job.prd, failedJob: job.failedJob, job: job.job, unreadable: unreadableFingerprint(job.prd) }, held2);
 }
 var failedRunOf = (runs, row) => runs.find((one) => one.prd === row.prd && one.attempts.some((attempt3) => attempt3.id === row.failedJob));
@@ -24669,7 +24708,7 @@ async function readRepairs(at4) {
   const refused10 = /* @__PURE__ */ new Map();
   for (const job of read2.jobs) {
     if (!spends(job) || rows.some((row) => row.job === job.job)) continue;
-    const kept3 = await keep(at4, job, { round, rows });
+    const kept3 = await keep2(at4, job, { round, rows });
     if ("spent" in kept3) refused10.set(job.job, kept3);
     else rows.push(kept3);
   }
@@ -25882,8 +25921,8 @@ async function dropAll({
   const asks = standingAsks(recorded);
   if (at4 === null || drops === null || asks.length === 0) return { recorded: current, waits: [] };
   const waits = [];
-  for (const { prd, keep: keep3 } of asks) {
-    const set = dropSet({ order: [...onBranchOf(current)], prd, keep: keep3, territory: (one) => facts.find((fact) => fact.prd === one)?.territory ?? null });
+  for (const { prd, keep: keep4 } of asks) {
+    const set = dropSet({ order: [...onBranchOf(current)], prd, keep: keep4, territory: (one) => facts.find((fact) => fact.prd === one)?.territory ?? null });
     if (set === null) continue;
     const prds = set.dropped.flatMap((one) => {
       const pr = featurePrOf(runs, one);
@@ -28743,9 +28782,9 @@ function suppressionFindings(ends) {
 }
 function timeouts(text20, positional) {
   const out = /* @__PURE__ */ new Map();
-  const keep3 = (key, raw) => out.set(key, Math.max(out.get(key) ?? -Infinity, Number(raw.replace(/_/g, ""))));
-  for (const match2 of text20.matchAll(KEYED_TIMEOUT)) keep3(match2[1] ?? "", match2[2] ?? "0");
-  if (positional) for (const match2 of text20.matchAll(POSITIONAL_TIMEOUT)) keep3(POSITIONAL_NAME, match2[1] ?? "0");
+  const keep4 = (key, raw) => out.set(key, Math.max(out.get(key) ?? -Infinity, Number(raw.replace(/_/g, ""))));
+  for (const match2 of text20.matchAll(KEYED_TIMEOUT)) keep4(match2[1] ?? "", match2[2] ?? "0");
+  if (positional) for (const match2 of text20.matchAll(POSITIONAL_TIMEOUT)) keep4(POSITIONAL_NAME, match2[1] ?? "0");
   return out;
 }
 function timeoutFindings(ends, positional) {
@@ -29751,7 +29790,7 @@ async function runOne2(job, { ledger, handlers, failures, clock, leaseSeconds, e
   const settling = settle2(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
   const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
-  const kept3 = await keep2(ledger, job, settled2, log2);
+  const kept3 = await keep3(ledger, job, settled2, log2);
   const ended7 = settled2.outcome === "later" && kept3 === "failed" ? { ...settled2, outcome: "failed", reason: TOO_MANY_LATERS } : settled2;
   if (kept3 === "stale") summary2.stale += 1;
   else if (kept3 !== null) summary2[ended7.outcome] += 1;
@@ -29805,7 +29844,7 @@ function settledOf2(result) {
   if (result.outcome === "later") return { outcome: "later", reason: null, retryAt: result.at.toISOString(), progress: result.progress };
   return { outcome: "skipped", reason: firstLine4(result.reason), retryAt: null };
 }
-async function keep2(ledger, job, settled2, log2) {
+async function keep3(ledger, job, settled2, log2) {
   const name = `job ${job.kind} ${job.key}`;
   let answer;
   try {
