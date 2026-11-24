@@ -141,8 +141,22 @@ describe('the board', () => {
     expect(text(row)).toContain('Cannot run No runner holds acme/gadgets');
     expect(row).toContain('runners-status is-fail');
     expect(row).not.toContain('Queued');
-    expect(actionsOf(row)).toEqual(['Cancel']);
+    expect(actionsOf(row)).toEqual(['Cancel', 'Copy runner command']);
     expect(text(jobRow(html, '/omni:pr-care 1801'))).not.toContain('Cannot run');
+  });
+
+  it('AC-6: a gone runner offers Send to any runner, an old kit offers omni update, beside Cancel (PRD 3232)', () => {
+    const queued = demo().board.jobs.find((job) => job.status === 'queued' && job.toRunner === null && job.toFleet === null);
+    if (queued === undefined) throw new Error('the demo has a queued job');
+    const job = (id: string, line: string, over: Partial<Job>): Job => ({ ...queued, id, line, ...over });
+    const view = withBoard((board) => ({
+      ...board,
+      jobs: [...board.jobs, job('00000000-0000-4000-8000-00000000f001', '/omni:gone-runner', { toRunner: '00000000-0000-4000-8000-00000000ffff', repo: 'acme/widgets' })],
+    }));
+    const gone = render(view);
+    expect(actionsOf(jobRow(gone, '/omni:gone-runner'))).toEqual(['Cancel', 'Send to any runner']);
+    const oldKit = render(withBoard((board) => ({ ...board, runners: board.runners.map((r) => ({ ...r, githubApp: false })) })));
+    expect(actionsOf(jobRow(oldKit, '/omni:pr-care 1801'))).toContain('Copy omni update');
   });
 
   it('names who sent each job and where it went', () => {
