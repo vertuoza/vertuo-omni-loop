@@ -86,6 +86,11 @@
 //                id (`product_prd`) where a repository's is named by its number (`prd`), and are read back from `prd_id`, either
 //                as text (./store.prd.ts); a product PRD's reaches a reader of numbers only as `product`, its `prd` null, and an
 //                item's decision on one goes through mission_decide_item() named by its id
+//   reviews      PRD omni-loop-26: the PM product PRDs' plan versions (the latest `dossier_versions` sha256 of kind plan on each
+//                page), the Architect's reviews the mission sent (`mission:<id>:prd:<product id>:tech:<k>`) and one queued, the
+//                `plan` and `tech` decisions recorded through mission_decide_plan() as the service role (BR-PRODUCT-94), read
+//                back in order, and the mission's repository's phase 0 (`repositories.phase0`) and its one live product
+//                (`product_repositories`, `products.key`)
 //
 // Throws when the database refuses or answers out of shape: the run fails, and the worker retries it.
 import { z } from 'zod';
@@ -112,7 +117,10 @@ import { rowsOf, serviceDb } from '../server-event/service-db.ts';
 import type { OpenItems } from './gate.ts';
 import { approveLine, committeeKey, committeeOfKey, type Committee, type Decision, type Recorded } from './committee.ts';
 import { askLine, askPrefix, DEFAULT_BOUND, itemOfLine, type ItemCommittee } from './answers.ts';
-import { pmKey, pmRoundOfKey, type PmJob } from './pm.ts';
+import { pmKey, pmRoundOfKey, type Home, type PmJob } from './pm.ts';
+import { techKey, techOfKey, type PlanDecision, type TechJob } from './tech.ts';
+import type { PlanRecord } from 'omni-loop/kit/lib/virtual-fleet/plan-record.ts';
+import type { TechRecord } from 'omni-loop/kit/lib/virtual-fleet/tech-record.ts';
 import { RepairRetroSchema } from 'omni-loop/kit/lib/repair/retro.ts';
 import { jobLedger, type NewJob } from '../jobs/ledger.ts';
 import { bugFixOf, failedJobOf, repairKey, repairSkillLine, repairOfKey, untold, type BugFix, type RepairJob, type RepairOutcome, type RepairRow, type StuckJob } from './repair.ts';
@@ -374,8 +382,20 @@ export type MissionStore = {
   products?: MissionProducts;
 };
 
-/** A product PRD of the scope as the store reads it (PRD omni-loop-21 s9b): its facts, and its open items as the server holds them. */
-export type StoredProduct = ProductFact & { items: OpenItems };
+/**
+ * A product PRD of the scope as the store reads it (PRD omni-loop-21 s9b): its facts, and its open items as the server holds them;
+ * `plan` the sha256 of the latest plan version on its page (PRD omni-loop-26), null when it has none.
+ */
+export type StoredProduct = ProductFact & { items: OpenItems; plan?: string | null };
+
+/** The Architect's review of a product PRD to send (PRD omni-loop-26): its k-th, its line (`/omni:tech-review <id> --mission <m>`). */
+export type TechSend = { mission: MissionRecord; prd: ProductPrdId; k: number; line: string; toFleet: boolean };
+
+/** A `plan` or `tech` decision to record (PRD omni-loop-26): the job's record as the App read it, null when it left none, and the App's own reasons. */
+export type PlanDecide = { prd: ProductPrdId; job: string; kind: PlanDecision['kind']; record: PlanRecord | TechRecord | null; why: readonly string[] };
+
+/** What mission_decide_plan() answers: the decision kept, and whether it names the PRD's latest plan version. */
+export type PlanDecided = { outcome: PlanDecision['outcome']; why: string[]; plan: string | null; latest: boolean | null };
 
 /** A product PRD's build to send: the mission, the PRD, its run, its line (`/omni:ultra-yolo <id> --base-of …`) and where it goes. */
 export type ProductSend = { mission: MissionRecord; prd: ProductPrdId; run: number; line: string; toFleet: boolean };
@@ -389,6 +409,14 @@ export type MissionProducts = {
   facts: (mission: MissionRecord) => Promise<StoredProduct[]>;
   runs: (id: string) => Promise<ProductRun[]>;
   send: (job: ProductSend) => Promise<string | null>;
+  /** PRD omni-loop-26: the Architect's reviews the mission sent, and its `plan` and `tech` decisions, in the order recorded. */
+  reviews: (id: string) => Promise<{ techs: TechJob[]; decisions: PlanDecision[] }>;
+  /** PRD omni-loop-26: the Architect's review queued under its key: its id, or null when the key was already held. */
+  review: (job: TechSend) => Promise<string | null>;
+  /** PRD omni-loop-26: a plan or tech job's decision recorded once, as the database kept it. */
+  decidePlan: (mission: MissionRecord, one: PlanDecide) => Promise<PlanDecided>;
+  /** PRD omni-loop-26: where the mission's repository approves its phase 0, and the one product it belongs to. */
+  home: (mission: MissionRecord) => Promise<Home>;
 };
 
 /** The most times a step is sent again after ending halfway (`mandate.resumes`, 0 to 10: PRD omni-loop-21). */
@@ -582,6 +610,23 @@ export const PauseEventRowSchema = z.object({ kind: z.enum(['paused', 'resumed']
 export const FleetMissionRowSchema = z.object({ id: text });
 export const BranchRowSchema = z.object({ repo: text, branch: text, cut_at: text });
 const ItemOutcomeSchema = z.enum(['carried', 'deferred', 'escalated']);
+export const PLAN_DECISION = 'kind, product_prd, job_id, plan, outcome, why, settled';
+export const PlanDecisionRowSchema = z.object({
+  kind: z.enum(['plan', 'tech']),
+  product_prd: ProductPrdIdSchema,
+  job_id: text,
+  plan: z.string().regex(/^[0-9a-f]{64}$/).nullable(),
+  outcome: z.enum(['approved', 'escalated']),
+  why: z.array(z.string()),
+  settled: z.array(z.string()),
+});
+const PlanDecidedSchema = z.object({ outcome: z.enum(['approved', 'escalated']), why: z.array(z.string()), plan: z.string().nullable(), latest: z.boolean().nullable() });
+export const PLAN_VERSION = 'sha256';
+export const PlanVersionRowSchema = z.object({ sha256: z.string().regex(/^[0-9a-f]{64}$/) });
+export const PHASE0 = 'phase0';
+export const Phase0RowSchema = z.object({ phase0: z.enum(['pr', 'server']) });
+export const HOME_PRODUCT = 'product_id, products!inner(key, archived_at)';
+export const HomeProductRowSchema = z.object({ product_id: text, products: z.object({ key: text, archived_at: z.string().nullable() }) });
 export const FleetDecisionRowSchema = z.object({
   kind: z.enum(['approve', 'answer']),
   prd_id: PrdIdSchema,
@@ -930,6 +975,13 @@ export function missionStore(connection: Connection): MissionStore {
     return version?.content ?? null;
   }
 
+  /** The sha256 of the latest plan version a dossier holds; null when it holds none. */
+  async function latestPlanSha(dossier: string | null): Promise<string | null> {
+    if (dossier === null) return null;
+    const [version] = rowsOf(PlanVersionRowSchema, await db.from('dossier_versions').select(PLAN_VERSION).eq('dossier_id', dossier).eq('kind', 'plan').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1));
+    return version?.sha256 ?? null;
+  }
+
   /** A product PRD's open items as the server holds them: each with no settlement (PRD 1548 s7-03), in the order raised. */
   async function productItems(dossier: string | null): Promise<OpenItems> {
     if (dossier === null) return { notRead: 'its page is not found on the Omni page' };
@@ -960,7 +1012,7 @@ export function missionStore(connection: Connection): MissionStore {
         const page = await productDossier(mission, { ...productPrdParts(prd), kind: 'prd' });
         const approved = page === null ? new Map<string, { voided: boolean; overturned: boolean }>() : await approvals([page], mission.id, new Map());
         const plan = await latestOf(page, 'plan');
-        out.push({ prd, approval: approvalOf(page === null ? null : (approved.get(page) ?? null)), blockers, targets: plan === null ? [] : planTargets(plan, owner), items: await productItems(page) });
+        out.push({ prd, approval: approvalOf(page === null ? null : (approved.get(page) ?? null)), blockers, targets: plan === null ? [] : planTargets(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
       }
       return out;
     },
@@ -973,6 +1025,31 @@ export function missionStore(connection: Connection): MissionStore {
     },
 
     send: ({ mission, prd, run, line, toFleet }) => queue({ mission, toFleet, line, key: missionKey(mission.id, prd, run) }),
+
+    async reviews(id) {
+      const techs = (await keyedJobs(id, `mission:${id}:prd:%:tech:%`)).flatMap(({ row, attempts }): TechJob[] => {
+        const key = row.mission_key === null ? null : techOfKey(row.mission_key);
+        const attempt = attempts.at(-1);
+        return key === null || attempt === undefined ? [] : [{ prd: key.prd, k: key.k, job: row.id, attempt }];
+      });
+      const decisions = rowsOf(PlanDecisionRowSchema, await db.from('mission_decisions').select(PLAN_DECISION).eq('mission_id', id).in('kind', ['plan', 'tech']).order('decided_at').order('id'));
+      return { techs, decisions: decisions.map((row) => ({ kind: row.kind, prd: row.product_prd, job: row.job_id, plan: row.plan, outcome: row.outcome, why: row.why, settled: row.settled })) };
+    },
+
+    review: ({ mission, prd, k, line, toFleet }) => queue({ mission, toFleet, line, key: techKey(mission.id, prd, k) }),
+
+    async decidePlan(mission, { prd, job, kind, record, why }) {
+      const answer = await db.rpc('mission_decide_plan', { p_mission: mission.id, p_product_prd: prd, p_job: job, p_kind: kind, p_record: record, p_why: [...why] });
+      if (answer.error) throw new Error(`the database refused the ${kind} decision: ${answer.error.message}`);
+      return PlanDecidedSchema.parse(answer.data);
+    },
+
+    async home(mission) {
+      const [repository] = rowsOf(Phase0RowSchema, await db.from('repositories').select(PHASE0).eq('workspace_id', mission.workspace).eq('full_name', mission.repo.toLowerCase()).limit(1));
+      const links = rowsOf(HomeProductRowSchema, await db.from('product_repositories').select(HOME_PRODUCT).eq('workspace_id', mission.workspace).eq('repository', mission.repo.toLowerCase()));
+      const live = links.filter((row) => row.products.archived_at === null);
+      return { phase0: repository?.phase0 ?? 'pr', product: live.length === 1 ? (live[0]?.products.key ?? null) : null };
+    },
   };
 
   return {
@@ -1255,7 +1332,7 @@ export function missionStore(connection: Connection): MissionStore {
     },
 
     async decisions(id) {
-      return rowsOf(FleetDecisionRowSchema, await db.from('mission_decisions').select(FLEET_DECISION).eq('mission_id', id).order('decided_at')).map((row) => ({
+      return rowsOf(FleetDecisionRowSchema, await db.from('mission_decisions').select(FLEET_DECISION).eq('mission_id', id).in('kind', ['approve', 'answer']).order('decided_at')).map((row) => ({
         kind: row.kind,
         prd: row.prd_id,
         item: row.item,

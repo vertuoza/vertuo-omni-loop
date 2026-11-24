@@ -77,6 +77,14 @@ import {
   BRANCH,
   BranchRowSchema,
   FLEET_DECISION,
+  PLAN_DECISION,
+  PlanDecisionRowSchema,
+  PLAN_VERSION,
+  PlanVersionRowSchema,
+  PHASE0,
+  Phase0RowSchema,
+  HOME_PRODUCT,
+  HomeProductRowSchema,
   FleetDecisionRowSchema,
 } from './store.ts';
 
@@ -117,5 +125,9 @@ export const boundaries: Boundary[] = [
   { name: 'missions/store: room jobs', read: (db) => db.from('runner_jobs').select(ROOM_JOB).in('status', ['claimed', 'running']).limit(5), schema: RoomJobRowSchema, shape: 'rows' },
   { name: 'missions/store: milestone retros', read: (db) => db.from('mission_retros').select(RETRO).limit(5), schema: RetroRowSchema, shape: 'rows' },
   { name: 'missions/store: mission branches', read: (db) => db.from('mission_branches').select(BRANCH).limit(5), schema: BranchRowSchema, shape: 'rows' },
-  { name: 'missions/store: every committee decision', read: (db) => db.from('mission_decisions').select(FLEET_DECISION).limit(5), schema: FleetDecisionRowSchema, shape: 'rows' },
+  { name: 'missions/store: every committee decision', read: (db) => db.from('mission_decisions').select(FLEET_DECISION).in('kind', ['approve', 'answer']).limit(5), schema: FleetDecisionRowSchema, shape: 'rows' },
+  { name: 'missions/store: plan and tech decisions', read: (db) => db.from('mission_decisions').select(PLAN_DECISION).in('kind', ['plan', 'tech']).limit(5), schema: PlanDecisionRowSchema, shape: 'rows' },
+  { name: 'missions/store: a plan version', read: (db) => db.from('dossier_versions').select(PLAN_VERSION).eq('kind', 'plan').limit(5), schema: PlanVersionRowSchema, shape: 'rows' },
+  { name: 'missions/store: a repository\'s phase 0', read: (db) => db.from('repositories').select(PHASE0).limit(5), schema: Phase0RowSchema, shape: 'rows' },
+  { name: 'missions/store: a repository\'s product', read: (db) => db.from('product_repositories').select(HOME_PRODUCT).limit(5), schema: HomeProductRowSchema, shape: 'rows' },
 ];

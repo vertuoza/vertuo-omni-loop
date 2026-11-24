@@ -45,6 +45,10 @@
 //                  before its committee, which is sent once a plan is on the page; a PRD stopped once its repairs are spent is replanned
 //                  (`--replan`), once, and built again only once a committee approved the new plan version. The PM sits out both
 //                  committees. A refused replan stops the PRD and sends the mission's retro (PRD 3065)
+//   PM products    at `alone` on a repository whose phase 0 is on the server (PRD omni-loop-26, ./tech.ts) the PM writes product PRDs
+//                  (`--product <key>`); each it wrote is planned by the PM, its plan approved by it (`omni plan:`), reviewed by the
+//                  fleet's Architect (`/omni:tech-review`, `omni tech:`), each decision recorded through mission_decide_plan(), and
+//                  built only once both name its latest plan version. No committee is sent for it
 //   the repairs    each run reads the mission's repairs first (PRD 2980, ./repair-run.ts): each repair that ended kept, each code
 //                  repair's fix landed on the mission branch once green, each step sent again settled, each Omni Loop bug report
 //                  sent. Then, where the table stops a PRD, a repair is sent first in line while the mission has repairs left,
@@ -100,7 +104,11 @@ import { dropLine, dropSet, droppedOf, standingAsks } from 'omni-loop/kit/lib/mi
 import { decisionsOf, deferredOf, reworkLine, reworksOf, type DecisionPrd, type DeferredDecision, type FleetDecision } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
 import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
-import { addedOf, isOwnJob, pmAsks, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type PmJob, type PmView } from './pm.ts';
+import { addedOf, isOwnJob, pmAsks, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type Home, type PmEvent, type PmJob, type PmView } from './pm.ts';
+import { addedProductsOf, decisionEvent, productPlansOf, reviewDispatched, reviewStateOf, type PlanDecision, type ReviewState, type TechJob } from './tech.ts';
+import { planRecordOf } from 'omni-loop/kit/lib/virtual-fleet/plan-record.ts';
+import { techJobLine, techRecordOf } from 'omni-loop/kit/lib/virtual-fleet/tech-record.ts';
+import type { ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
 import { planJobLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
 import { retroSkillLine } from './milestone.ts';
@@ -163,6 +171,7 @@ import {
   withLanded,
   withWaits,
   type AnswersView,
+  type Attempt,
   type CommitteeView,
   type Concluded,
   type Joined,
@@ -274,7 +283,7 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const states = after.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after.retro });
   const fresh = sent.length + approved.length + asked.length + repaired.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products } });
   // The mission pull requests, then the landing once every row joined (PRD omni-loop-21 s15), and the person's Agree and Overturn.
   const landed = await landingStep({ store, mission, at, landing, hold: kept.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits, ...landed.waits]);
@@ -403,33 +412,65 @@ async function readRun(store: MissionStore, sought: MissionRecord, now: number) 
  * PRDs, its PM jobs, and whether one is at work; its plan jobs (PRD omni-loop-21 s9), and the PRDs the PM wrote or planned, whose
  * committees it sits out.
  */
-type PmRead = { mission: MissionRecord; recorded: RecordedEvent[]; added: ReadonlySet<PrdNumber>; jobs: readonly PmJob[]; writing: boolean; plans: PlanJob[]; authored: ReadonlySet<PrdNumber> };
+type PmRead = {
+  mission: MissionRecord;
+  recorded: RecordedEvent[];
+  added: ReadonlySet<PrdNumber>;
+  jobs: readonly PmJob[];
+  writing: boolean;
+  plans: PlanJob[];
+  authored: ReadonlySet<PrdNumber>;
+  /** PRD omni-loop-26: the product PRDs the PM wrote, in the order its fleet added them, and where its repository approves its phase 0. */
+  products: ReadonlySet<ProductPrdId>;
+  home: Home;
+};
+
+/**
+ * What each PM job that ended records, once: a repository plan job's end (./pm.plan.ts), and what an own job wrote (./pm.ts). A product
+ * PRD's plan job records its decision with the product steps (./tech.ts).
+ */
+async function pmJobEvents(store: MissionStore, mission: MissionRecord, events: readonly StoredEvent[], jobs: readonly PmJob[], plans: readonly PlanJob[]): Promise<PmEvent[]> {
+  const fresh: PmEvent[] = [];
+  for (const one of jobs) {
+    const known = [...events, ...fresh.map(asRecorded)];
+    const plan = plans.find((each) => each.job === one.job);
+    if (plan !== undefined) fresh.push(...planEvents(plan, known));
+    if (!isOwnJob(one)) continue;
+    const log = pmWorking(one) ? null : await store.committeeLog(one.job);
+    fresh.push(...pmEvents(mission, one, log, heldOf(mission, known), events));
+  }
+  return fresh;
+}
+
+/** The PRDs a mission holds: its scope's numbers and product ids, and those its fleet added. */
+const heldOf = (mission: MissionRecord, known: readonly StoredEvent[]): Set<MissionPrd> =>
+  new Set<MissionPrd>([...mission.scope.prds, ...(mission.products?.prds ?? []), ...addedOf(known), ...addedProductsOf(known)]);
+
+/** The mission's product PRDs widened by those its PM wrote (PRD omni-loop-26), after its own; nothing when it wrote none. */
+function withProductsAdded(mission: MissionRecord, added: readonly ProductPrdId[]): Pick<MissionRecord, 'products'> {
+  if (added.length === 0) return {};
+  const named = mission.products ?? { prds: [], roadmaps: [] };
+  return { products: { ...named, prds: [...named.prds, ...added.filter((prd) => !named.prds.includes(prd))] } };
+}
+
+/** Today's path: a repository whose phase 0 is a pull request, as a store with no product PRDs reads every repository. */
+const PR_HOME: Home = { phase0: 'pr', product: null };
 
 /**
  * Each PM job of a mission at `alone` that ended, what it wrote recorded once, a second before this run's events (./pm.ts): the PRDs it
  * added and the rows its cap left unwritten; a plan job's end (./pm.plan.ts). Then the mission's scope holds the PRDs its fleet added,
  * after its own.
  */
-async function pmRead(store: MissionStore, mission: MissionRecord, events: readonly RecordedEvent[], jobs: readonly PmJob[], now: number): Promise<PmRead> {
-  const fresh: NewEvent[] = [];
+async function pmRead(store: MissionStore, mission: MissionRecord, events: readonly StoredEvent[], jobs: readonly PmJob[], now: number): Promise<PmRead> {
   const plans = planJobsOf(jobs);
-  if (mission.level === 'alone') {
-    for (const one of jobs) {
-      const known = [...events, ...fresh.map(asRecorded)];
-      const plan = plans.find((each) => each.job === one.job);
-      if (plan !== undefined) fresh.push(...planEvents(plan, known));
-      // A product PRD's plan job is read once the run takes products (PRD omni-loop-21 s9b).
-      if (!isOwnJob(one)) continue;
-      const held = new Set([...mission.scope.prds, ...addedOf(known)]);
-      const log = pmWorking(one) ? null : await store.committeeLog(one.job);
-      fresh.push(...pmEvents(mission, one, log, held, events));
-    }
-    if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now - 1000));
-  }
+  const fresh = mission.level === 'alone' ? await pmJobEvents(store, mission, events, jobs, plans) : [];
+  if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now - 1000));
   const recorded = [...events, ...fresh.map(asRecorded)];
   const added = addedOf(recorded);
   const authored = new Set([...added, ...plannedOf(plans)]);
-  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking), plans, authored };
+  const products = addedProductsOf(recorded);
+  const home = mission.level === 'alone' && store.products !== undefined ? await store.products.home(mission) : PR_HOME;
+  return { mission: { ...mission, ...withProductsAdded(mission, products), scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking), plans, authored, products: new Set(products), home };
 }
 
 /** What a run sent its PM to plan (PRD omni-loop-21 s9): each dispatch, and each job as the run reads it from then on. */
@@ -474,11 +515,11 @@ async function sendRetro(store: MissionStore, mission: MissionRecord, toFleet: b
   return job === null ? [] : [{ kind: 'dispatched', role: 'supervisor', prd: null, job, link: null, sentence }];
 }
 
-/** A new event as a run reads it back. */
-const asRecorded = ({ kind, prd, job }: NewEvent): RecordedEvent => ({ kind, prd, job });
+/** A new event as a run reads it back: a product PRD's named as `product`, its `prd` null (PRD omni-loop-26). */
+const asRecorded = ({ kind, prd, job }: Pick<PmEvent, 'kind' | 'prd' | 'job'>): StoredEvent => (typeof prd === 'string' ? { kind, prd: null, product: prd, job } : { kind, prd, job });
 
 /** What a run decides the PM's job from (./pm.ts): the mission, its cap, the PRDs its fleet added, its PM jobs, where it lives, and the rounds a person asked for. */
-const pmView = (mission: MissionRecord, pm: PmRead, inPlan: boolean): PmView => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs) });
+const pmView = (mission: MissionRecord, pm: PmRead, inPlan: boolean): PmView => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size + pm.products.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs), home: pm.home });
 
 /** The mission's PM job, when this run sends it (PRD 2896 s12): its dispatch, or nothing. */
 async function sendPm(store: MissionStore, mission: MissionRecord, pm: PmRead, inPlan: boolean, toFleet: boolean): Promise<NewEvent[]> {
@@ -1201,7 +1242,51 @@ type ProductAt = {
   /** Whether the run may send at all: its own branch ready. */
   sends: boolean;
   github: GitHubDeps;
+  /** PRD omni-loop-26: the PM's jobs, this run's plan jobs among them, and the product PRDs it wrote, which ./tech.ts takes to their build. */
+  pm: { jobs: readonly PmJob[]; authored: ReadonlySet<ProductPrdId> };
 };
+
+/** What a run read of the PM product PRDs' plan jobs, reviews and decisions (PRD omni-loop-26), each ended job's decision recorded. */
+type Reviews = { techs: readonly TechJob[]; decisions: readonly PlanDecision[]; events: NewStoredEvent[] };
+
+const NO_REVIEWS: Reviews = { techs: [], decisions: [], events: [] };
+
+/** A plan job's or a review's end, as its decision reads it: its kind, its PRD, its job and attempt. */
+type Reviewed = { kind: PlanDecision['kind']; prd: ProductPrdId; job: string; attempt: Attempt };
+
+/** Why a job that did not end done decided nothing, beside the database's own `no record of …`. */
+const notDoneWhy = ({ status }: Pick<Attempt, 'status'>): string[] => (status === 'done' ? [] : [status === 'cancelled' ? 'its job was cancelled' : 'its job failed']);
+
+/** One ended plan job's or review's decision, recorded once as the service from its job's record line, null when it left none (BL-GATE-1). */
+async function decideReviewed(at: ProductAt, products: MissionProducts, one: Reviewed): Promise<PlanDecision> {
+  const log = one.attempt.status === 'done' ? await at.store.committeeLog(one.job) : null;
+  const record = log === null ? null : one.kind === 'plan' ? planRecordOf(log, one.prd) : techRecordOf(log, one.prd);
+  const kept = await products.decidePlan(at.mission, { prd: one.prd, job: one.job, kind: one.kind, record, why: notDoneWhy(one.attempt) });
+  const settled = record !== null && 'settled' in record && kept.outcome === 'approved' ? record.settled : [];
+  return { kind: one.kind, prd: one.prd, job: one.job, plan: kept.plan, outcome: kept.outcome, why: kept.why, settled };
+}
+
+/**
+ * The PM product PRDs' reviews (PRD omni-loop-26, ./tech.ts): the Architect's jobs and the `plan` and `tech` decisions, each plan job
+ * and review of a PRD the PM wrote that ended with no decision yet recorded once, its event beside it. None when the PM wrote none.
+ */
+async function reviewAll(at: ProductAt, products: MissionProducts): Promise<Reviews> {
+  if (at.pm.authored.size === 0) return NO_REVIEWS;
+  const read = await products.reviews(at.mission.id);
+  const decided = new Set(read.decisions.map((one) => one.job));
+  const ended: Reviewed[] = [
+    ...productPlansOf(at.pm.jobs).map((one) => ({ kind: 'plan' as const, prd: one.prd, job: one.job, attempt: one.attempt })),
+    ...read.techs.map((one) => ({ kind: 'tech' as const, prd: one.prd, job: one.job, attempt: one.attempt })),
+  ].filter((one) => at.pm.authored.has(one.prd) && !pmWorking(one) && !decided.has(one.job));
+  const decisions = [...read.decisions];
+  const events: NewStoredEvent[] = [];
+  for (const one of ended) {
+    const decision = await decideReviewed(at, products, one);
+    decisions.push(decision);
+    events.push(decisionEvent(decision));
+  }
+  return { techs: read.techs, decisions, events };
+}
 
 /** The product PRDs on the mission branch, from the mission's events in order: joined, until dropped or landed. */
 function productsJoined(events: readonly StoredEvent[]): Set<MissionPrd> {
@@ -1256,16 +1341,18 @@ async function productBranch(at: ProductAt, facts: readonly StoredProduct[]): Pr
 async function productAll(at: ProductAt): Promise<ProductsDone> {
   const products = at.store.products;
   if (products === undefined || at.mission.products === undefined || !sendsCommittees(at.mission.status)) return NO_PRODUCTS;
+  const reviews = await reviewAll(at, products);
   const facts = await products.facts(at.mission);
   const joined = productsJoined(await at.store.events(at.mission.id));
   if (facts.length === 0) return NO_PRODUCTS;
   const branch = baseOf(at.mission, at.inPlan) ?? 'the mission branch';
   if (facts.every((fact) => joined.has(fact.prd))) return { ...NO_PRODUCTS, rows: facts, on: [...joined], waits: [`every product PRD is on ${branch}: a person lands it`] };
   const ready = await productBranch(at, facts);
-  if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined], pending: true, waits: [ready.why] };
+  if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined], pending: true, waits: [ready.why], events: reviews.events };
   const runs = await products.runs(at.mission.id);
   const answered = answeredOf(await at.store.decisions(at.mission.id));
-  return productSteps({ ...at, ...ready, products, runs, joined, answered }, facts);
+  const done = await productSteps({ ...at, ...ready, products, runs, joined, answered, reviews, rounds: nextPlanRound(at.pm.jobs) }, facts);
+  return { ...done, events: [...reviews.events, ...done.events] };
 }
 
 /** What a run's product steps work from, once the branch is ready. */
@@ -1276,7 +1363,35 @@ type ProductSteps = ProductAt & {
   runs: readonly ProductRun[];
   joined: Set<MissionPrd>;
   answered: ReadonlyMap<MissionPrd, ReadonlySet<string>>;
+  reviews: Reviews;
+  /** The round the next plan job goes under: after every PM job's, one more for each sent this run. */
+  rounds: number;
 };
+
+/** Where a product PRD is before its build: a PRD the PM wrote by its reviews (./tech.ts), any other built as before. */
+function reviewOf(at: ProductSteps, fact: StoredProduct): ReviewState {
+  if (!at.pm.authored.has(fact.prd)) return { state: 'build' };
+  const plans = productPlansOf(at.pm.jobs).filter((one) => one.prd === fact.prd);
+  const techs = at.reviews.techs.filter((one) => one.prd === fact.prd);
+  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at.reviews.decisions });
+}
+
+/** A PM product PRD's step before its build: its plan job or the Architect's review sent, at work, or what it waits on. */
+async function reviewStep(at: ProductSteps, fact: StoredProduct, state: Exclude<ReviewState, { state: 'build' }>, step: ProductStep): Promise<void> {
+  if (state.state === 'waits') {
+    step.waits.push(cut(state.why));
+    return;
+  }
+  step.moving = true;
+  if (state.state === 'working') return;
+  const line = state.state === 'plan' ? planJobLine(fact.prd, 'plan') : techJobLine(fact.prd, at.mission.number);
+  const job = state.state === 'plan'
+    ? await at.store.pm({ mission: at.mission, round: at.rounds++, line, toFleet: at.toFleet })
+    : await at.products.review({ mission: at.mission, prd: fact.prd, k: state.k, line, toFleet: at.toFleet });
+  if (job === null) return;
+  const sent = reviewDispatched(fact.prd, job, line, state);
+  step.events.push({ ...sent, sentence: cut(sent.sentence) });
+}
 
 /** Each product PRD in scope order: its build sent, at work, joined, or what it waits on. */
 async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): Promise<ProductsDone> {
@@ -1284,7 +1399,9 @@ async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): 
   const where = { joined: at.joined, done, branch: at.branch };
   const step: ProductStep = { room: at.mission.parallel - facts.filter((fact) => productStateOf(fact, at.runs, where).state === 'running').length, moving: false, waits: [], events: [] };
   for (const fact of facts) {
-    await productStep(at, fact, productStateOf(fact, at.runs, where), step);
+    const review = reviewOf(at, fact);
+    if (review.state !== 'build') await reviewStep(at, fact, review, step);
+    else await productStep(at, fact, productStateOf(fact, at.runs, where), step);
     if (at.joined.has(fact.prd)) done.add(fact.prd);
   }
   const sent = step.events.filter((one) => one.kind === 'dispatched').length;
