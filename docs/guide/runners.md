@@ -34,6 +34,8 @@ A runner takes only these lines: `/omni:yolo`, `/omni:yolo-fix`, `/omni:pr-care`
 `/omni:mega-brainstorm`, `/omni:mega-roadmap`) run only when a mission at Works alone sends them, and
 `/omni:repair` only when a mission sends it to repair a failed step or a stuck mission, `/omni:mission-retro` only when a mission sends it at a milestone, `/omni:mission` only as `--request <id>` from the New mission box; you cannot send them from here. Run them in your own terminal, where they ask you their questions.
 
+A runner also takes `/omni:tech-review`, for a mission's Architect only, as `/omni:tech-review <key>-<n> --mission <m>`: the Architect's review of a product PRD's plan, sent by a mission at Works alone. You cannot send it from here either.
+
 ### Follow it on the Runners page
 
 The Runners page, under Dashboard in the sidebar (`/app/runners`), lists:
