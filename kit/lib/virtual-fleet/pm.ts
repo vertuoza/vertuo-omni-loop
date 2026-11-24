@@ -200,16 +200,18 @@ export type PlanKind = 'plan' | 'replan';
 
 /**
  * The line the PM is sent to plan PRD `prd`: `/omni:plan <n>` for a repository's PRD, `/omni:mega-brainstorm --product <key>
- * --plan-only <key>-<n>` for a product's; a replan's ends with `--replan`.
+ * --plan-only <key>-<n>` for a product's; a replan's ends with `--replan`. A product PRD's line sent by mission `mission` ends with
+ * `--mission <m>`, which tells the skill to print the PM's plan approval, its `omni plan:` record (bug #3273): it never has to guess.
  */
-export function planJobLine(prd: PrdNumber | ProductPrdId, kind: PlanKind): string {
+export function planJobLine(prd: PrdNumber | ProductPrdId, kind: PlanKind, mission?: number): string {
   const tail = kind === 'replan' ? ' --replan' : '';
-  if (isProductPrdId(prd)) return `/omni:mega-brainstorm --product ${productPrdParts(prd).key} --plan-only ${prd}${tail}`;
+  const sent = mission === undefined ? '' : ` --mission ${String(mission)}`;
+  if (isProductPrdId(prd)) return `/omni:mega-brainstorm --product ${productPrdParts(prd).key} --plan-only ${prd}${tail}${sent}`;
   return `/omni:plan ${String(prd)}${tail}`;
 }
 
 const PLAN_LINE = /^\/omni:plan ([1-9][0-9]*)( --replan)?$/;
-const PLAN_ONLY_LINE = /^\/omni:mega-brainstorm --product ([a-z][a-z0-9-]*) --plan-only (\S+?)( --replan)?$/;
+const PLAN_ONLY_LINE = /^\/omni:mega-brainstorm --product ([a-z][a-z0-9-]*) --plan-only (\S+?)( --replan)?(?: --mission [1-9][0-9]*)?$/;
 
 /** The PRD and kind a plan job's line names; null for any other line, the PM's own PRDs' job included. */
 export function planOfLine(line: string): { prd: PrdNumber | ProductPrdId; kind: PlanKind } | null {

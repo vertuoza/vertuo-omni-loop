@@ -1634,8 +1634,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       '--product <key>, it runs from any checkout of a repository the product holds, a plan ' +
       'repository or not, and makes a product PRD (mobile-12) on the Omni page instead: no issue, ' +
       'no branch and no PR in any repository, every repository it lands in on phase 0 on the server. ' +
-      "With --plan-only <key>-<n> it writes only that product PRD's plan and pushes it to its page; on a " +
-      "mission's runner it ends on the omni plan: record, the PM's approval of the plan version it pushed.",
+      "With --plan-only <key>-<n> it writes only that product PRD's plan and pushes it to its page; sent by a " +
+      "mission with --mission <m>, it ends on the omni plan: record, the PM's approval of the plan version it pushed.",
     group: 'multi-repo',
     when: 'Use it when one idea needs changes in several repositories and this is their plan repository.',
     example: {

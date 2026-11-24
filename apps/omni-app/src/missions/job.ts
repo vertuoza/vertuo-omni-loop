@@ -485,7 +485,7 @@ async function sendPlans({ store, mission, send, jobs, toFleet, sends }: { store
   if (!sends || !sendsCommittees(mission.status)) return out;
   let round = nextPlanRound(jobs);
   for (const one of send) {
-    const line = planJobLine(one.prd, one.kind);
+    const line = planJobLine(one.prd, one.kind, mission.number);
     const job = await store.pm({ mission, round, line, toFleet });
     round += 1;
     if (job === null) continue;
@@ -1384,7 +1384,7 @@ async function reviewStep(at: ProductSteps, fact: StoredProduct, state: Exclude<
   }
   step.moving = true;
   if (state.state === 'working') return;
-  const line = state.state === 'plan' ? planJobLine(fact.prd, 'plan') : techJobLine(fact.prd, at.mission.number);
+  const line = state.state === 'plan' ? planJobLine(fact.prd, 'plan', at.mission.number) : techJobLine(fact.prd, at.mission.number);
   const job = state.state === 'plan'
     ? await at.store.pm({ mission: at.mission, round: at.rounds++, line, toFleet: at.toFleet })
     : await at.products.review({ mission: at.mission, prd: fact.prd, k: state.k, line, toFleet: at.toFleet });

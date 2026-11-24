@@ -1,6 +1,6 @@
 ---
 name: mega-brainstorm
-description: The brainstorm of a plan repository — turns one idea into one PRD whose plan says which slice lands in which target repository. Surveys the targets through omni targets, designs with the person (which repository does what is asked, never assumed), reads each repository the design touches from a shallow read-only clone in the scratch folder (nothing runs in it), then writes the PRD issue, the spec with its Repositories section, a before/after page grouped by repository, a multi-repository plan graded by omni plan check, the draft feature PR and one phase-0 PR with a What lands where table, all in the plan repository. Writes nothing in any target, merges nothing. With --product <key>, runs instead from any kitted checkout of a product's repository, remembers the product, and ends with a product PRD on its page, no issue and no PR. With --product <key> --plan-only <key>-<n>, writes only the plan of an existing product PRD from its spec and pushes it to its page, and on a mission's runner ends on the omni plan record naming the pushed plan's sha256. Ends with the /omni:ultra-yolo line. Triggers on "mega-brainstorm", "brainstorm across repositories", "one PRD for the back-end and the front-end", "plan this across the targets", "/omni:mega-brainstorm".
+description: The brainstorm of a plan repository — turns one idea into one PRD whose plan says which slice lands in which target repository. Surveys the targets through omni targets, designs with the person (which repository does what is asked, never assumed), reads each repository the design touches from a shallow read-only clone in the scratch folder (nothing runs in it), then writes the PRD issue, the spec with its Repositories section, a before/after page grouped by repository, a multi-repository plan graded by omni plan check, the draft feature PR and one phase-0 PR with a What lands where table, all in the plan repository. Writes nothing in any target, merges nothing. With --product <key>, runs instead from any kitted checkout of a product's repository, remembers the product, and ends with a product PRD on its page, no issue and no PR. With --product <key> --plan-only <key>-<n>, writes only the plan of an existing product PRD from its spec and pushes it to its page, and, sent by a mission with --mission <m>, ends on the omni plan record naming the pushed plan's sha256. Ends with the /omni:ultra-yolo line. Triggers on "mega-brainstorm", "brainstorm across repositories", "one PRD for the back-end and the front-end", "plan this across the targets", "/omni:mega-brainstorm".
 ---
 
 # Mega-brainstorm: one idea into one PRD across repositories
@@ -168,8 +168,9 @@ the PRD, as **For a mission's PM** does. The run's last line, printed with no qu
 plan-only <key>-<n>: plan pushed · <page link>
 ```
 
-**The PM's plan approval** (PRD omni-loop-26). On a runner this line runs for a mission's PM only,
-and the PM approves the plan it pushed: after the push and the read-back,
+**The PM's plan approval** (PRD omni-loop-26). A line that ends `--mission <m>` is a mission's PM's
+(bug #3273: the mission names itself, never guessed from being on a runner), and the PM approves the
+plan it pushed: after the push and the read-back,
 `node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan` prints the latest plan version's sha256,
 the one pushed or, when nothing changed, the one already there. Then the record line, the run's
 last output, after the line above, one line exactly:

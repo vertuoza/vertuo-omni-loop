@@ -2,7 +2,7 @@
 // The PM's plan and replan (PRD omni-loop-21 s9): the line each is sent as, and the line read back.
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { parseProductPrdId, PrdNumberSchema, type PrdNumber } from '../ids.ts';
+import { parseProductPrdId, PrdNumberSchema, type PrdNumber, type ProductPrdId } from '../ids.ts';
 import { checkRunnerLine, missionRefusal } from '../runner/line.ts';
 import { fitCap, isPmSkill, keptIdsOf, keptOf, lastRecordOf, notWrittenWords, planJobLine, planOfLine, pmJobLine, pmLine, pmRecordOf, pmSkillFor, readPmRecord, type PmRecord } from './pm.ts';
 
@@ -175,5 +175,24 @@ describe('lastRecordOf', () => {
     expect(lastRecordOf(log, 'omni x: ', schema, () => true)).toEqual({ n: 2 });
     expect(lastRecordOf(log, 'omni x: ', schema, (one) => one.n === 1)).toEqual({ n: 1 });
     expect(lastRecordOf(log, 'omni z: ', schema, () => true)).toBeNull();
+  });
+});
+
+describe('the plan line names its mission (bug #3273)', () => {
+  const product = parseProductPrdId('omni-loop-15');
+  /** The plan line with the mission it is sent for (bug #3273). */
+  const lineFor = planJobLine as (prd: ProductPrdId, kind: 'plan' | 'replan', mission?: number) => string;
+
+  it('ends a product PRD\'s plan line with --mission <m>, so the PM knows to print its plan approval', () => {
+    expect(lineFor(product, 'plan', 12)).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-15 --mission 12');
+    expect(lineFor(product, 'replan', 12)).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-15 --replan --mission 12');
+  });
+
+  it('reads that line back, and a runner takes it', () => {
+    for (const kind of ['plan', 'replan'] as const) {
+      const line = lineFor(product, kind, 12);
+      expect(planOfLine(line), line).toEqual({ prd: product, kind });
+      expect(checkRunnerLine(line), line).toMatchObject({ ok: true });
+    }
   });
 });
