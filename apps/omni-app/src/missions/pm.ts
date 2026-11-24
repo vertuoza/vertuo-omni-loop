@@ -16,10 +16,15 @@
 //                     the mission waits on a person with `the PM wrote no PRD for the goal: <why>`, never stopped or delivered.
 //                     A person's Resume of it then (#3203) sends the same roadmap once more, one round each; with none again, it
 //                     waits again with its reason
-import { isPmSkill, keptOf, notWrittenWords, planOfLine, pmJobLine, pmRecordOf, pmSkillFor, type PmSkill } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+//   on a product     a repository whose phase 0 is on the server and that belongs to a product (PRD omni-loop-26): the PM's line ends
+//                    with `--product <key>`, its record names product ids, each added as a product PRD of the mission, planned,
+//                    approved and reviewed (./tech.ts) before its build. Such a repository that belongs to no product sends no PM
+//                    job: the mission waits with `this repository has no product: a goal-only mission needs one`
+import { isPmSkill, keptIdsOf, keptOf, notWrittenWords, planOfLine, pmJobLine, pmRecordOf, pmSkillFor, type PmSkill } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
+import type { PrdNumber, ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { sendsCommittees } from './committee.ts';
 import { resumeCap } from './resume.ts';
+import type { MissionPrd } from './store.prd.ts';
 import type { MissionRecord } from './store.ts';
 import { cut, type Attempt, type Concluded, type Mission, type NewEvent, type RecordedEvent } from './supervisor.ts';
 
@@ -62,7 +67,18 @@ export type PmView = {
   inPlan: boolean;
   /** The rounds a person asked for by resuming the mission once its PM's jobs were spent ({@link pmAsks}, #3203); none when absent. */
   asks?: number;
+  /** Where the mission's repository approves its phase 0, and the product it belongs to (PRD omni-loop-26); absent, `pr` and none. */
+  home?: Home;
 };
+
+/** Where a repository approves its phase 0 (`pr`, `server`), and the key of the one product it belongs to, null when none. */
+export type Home = { phase0: 'pr' | 'server'; product: string | null };
+
+/** What a mission waits on when its repository is on `phase 0: server` and belongs to no product (PRD omni-loop-26). */
+const NO_PRODUCT_WORDS = 'this repository has no product: a goal-only mission needs one';
+
+/** Whether the PM writes on a product: its repository on `phase 0: server`, with the product's key, null when it belongs to none. */
+const serverOf = (home: Home | undefined): { product: string | null } | null => (home?.phase0 === 'server' ? { product: home.product } : null);
 
 const NONE: PmNext = { next: 'none' };
 
@@ -109,11 +125,24 @@ export const isOwnJob = ({ line }: Pick<PmJob, 'line'>): boolean => planOfLine(l
  * goal-only mission's is the roadmap at any cap, sent once more under the next round when the last ended with no PRD (PRD
  * omni-loop-24).
  */
-export function pmNext({ mission, ownPrds, added, jobs, inPlan, asks }: PmView): PmNext {
+export function pmNext(view: PmView): PmNext {
+  const next = pmWanted(view);
+  const server = serverOf(view.home);
+  if (next.next !== 'send' || server === null) return next;
+  if (server.product === null) return NONE;
+  return { ...next, line: pmJobLine(next.skill, view.mission.number, next.cap, server.product) };
+}
+
+/** Whether a goal-only mission whose PM's own jobs wrote no PRD sends it once more: within its tries, none at work (PRD omni-loop-24). */
+const sendsAgain = ({ mission, added, asks }: { mission: PmView['mission']; added: number; asks: number | undefined }, own: readonly PmJob[], goal: boolean): boolean =>
+  goal && added === 0 && own.length < allowedOf(mission, asks) && !own.some(pmWorking);
+
+/** The PM job the mission would send, wherever its repository approves its phase 0. */
+function pmWanted({ mission, ownPrds, added, jobs, inPlan, asks }: PmView): PmNext {
   if (mission.level !== 'alone' || !sendsCommittees(mission.status)) return NONE;
   const own = ownOf(jobs);
   const goal = goalOnly(mission);
-  if (own.length > 0 && !(goal && added === 0 && own.length < allowedOf(mission, asks) && !own.some(pmWorking))) return NONE;
+  if (own.length > 0 && !sendsAgain({ mission, added, asks }, own, goal)) return NONE;
   const left = ownPrds - added;
   const skill = pmSkillFor(left, inPlan, goal);
   if (skill === null) return NONE;
@@ -138,8 +167,10 @@ const endWords = ({ status, reason }: Pick<Attempt, 'status' | 'reason'>): strin
  * What a goal-only mission waits on once its PM's jobs are spent and none wrote a PRD: `the PM wrote no PRD for the goal: <why>`,
  * its last job's end; null while a job works or is still to send, once its fleet added a PRD, or for any other mission.
  */
-export function pmWait({ mission, added, jobs, asks }: PmView): string | null {
+export function pmWait(view: PmView): string | null {
+  const { mission, added, jobs, asks } = view;
   if (mission.level !== 'alone' || added > 0 || !goalOnly(mission)) return null;
+  if (serverOf(view.home)?.product === null && pmWanted(view).next === 'send') return NO_PRODUCT_WORDS;
   const own = ownOf(jobs);
   const last = own.reduce<PmJob | undefined>((latest, one) => (latest === undefined || one.round > latest.round ? one : latest), undefined);
   if (last === undefined || own.some(pmWorking) || own.length < allowedOf(mission, asks)) return null;
@@ -158,12 +189,15 @@ const skillWords = (line: string): string => {
   return isPmSkill(skill) ? `/omni:${skill}` : 'the PM\'s job';
 };
 
+/** An event a PM job's end records: its PRD a repository's number or, on a product, its id (PRD omni-loop-26). */
+export type PmEvent = Omit<NewEvent, 'prd'> & { prd: MissionPrd | null };
+
 /**
  * The events a PM job that ended records, once (none when it is still at work, or any event already names it): each PRD its record
  * adds, at most the cap it was sent with and never one the mission holds, then each row it left unwritten. `held` the mission's
  * PRDs, its scope and what its fleet added.
  */
-export function pmEvents(mission: Pick<Mission, 'number'>, one: PmJob, log: string | null, held: ReadonlySet<PrdNumber>, recorded: readonly RecordedEvent[]): NewEvent[] {
+export function pmEvents(mission: Pick<Mission, 'number'>, one: PmJob, log: string | null, held: ReadonlySet<MissionPrd>, recorded: readonly RecordedEvent[]): PmEvent[] {
   if (pmWorking(one) || recorded.some((event) => event.job === one.job && event.kind !== 'dispatched')) return [];
   const record = one.attempt.status === 'done' && log !== null ? pmRecordOf(log, mission.number) : null;
   const cap = capOf(one.line);
@@ -171,8 +205,11 @@ export function pmEvents(mission: Pick<Mission, 'number'>, one: PmJob, log: stri
     const why = one.attempt.status === 'done' ? 'ended with no record' : one.attempt.status === 'cancelled' ? 'was cancelled' : 'failed';
     return [{ kind: 'job-ended', role: 'pm', prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
   }
-  const { added, unwritten } = keptOf(record, cap, held);
-  const events: NewEvent[] = added.map((prd) => ({ kind: 'prd-added', role: 'pm', prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
+  const numbers = keptOf(record, cap, new Set([...held].filter((prd): prd is PrdNumber => typeof prd === 'number')));
+  const ids = keptIdsOf(record, cap, new Set([...held].filter((prd): prd is ProductPrdId => typeof prd === 'string')));
+  const added: MissionPrd[] = [...numbers.added, ...ids.added];
+  const unwritten = [...new Set([...numbers.unwritten, ...ids.unwritten])];
+  const events: PmEvent[] = added.map((prd) => ({ kind: 'prd-added', role: 'pm', prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
   for (const title of unwritten) events.push({ kind: 'not-written', role: 'pm', prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
   if (events.length === 0) events.push({ kind: 'job-ended', role: 'pm', prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
   return events;

@@ -1,6 +1,6 @@
 ---
 name: mega-brainstorm
-description: The brainstorm of a plan repository — turns one idea into one PRD whose plan says which slice lands in which target repository. Surveys the targets through omni targets, designs with the person (which repository does what is asked, never assumed), reads each repository the design touches from a shallow read-only clone in the scratch folder (nothing runs in it), then writes the PRD issue, the spec with its Repositories section, a before/after page grouped by repository, a multi-repository plan graded by omni plan check, the draft feature PR and one phase-0 PR with a What lands where table, all in the plan repository. Writes nothing in any target, merges nothing. With --product <key>, runs instead from any kitted checkout of a product's repository, remembers the product, and ends with a product PRD on its page, no issue and no PR. With --product <key> --plan-only <key>-<n>, writes only the plan of an existing product PRD from its spec and pushes it to its page. Ends with the /omni:ultra-yolo line. Triggers on "mega-brainstorm", "brainstorm across repositories", "one PRD for the back-end and the front-end", "plan this across the targets", "/omni:mega-brainstorm".
+description: The brainstorm of a plan repository — turns one idea into one PRD whose plan says which slice lands in which target repository. Surveys the targets through omni targets, designs with the person (which repository does what is asked, never assumed), reads each repository the design touches from a shallow read-only clone in the scratch folder (nothing runs in it), then writes the PRD issue, the spec with its Repositories section, a before/after page grouped by repository, a multi-repository plan graded by omni plan check, the draft feature PR and one phase-0 PR with a What lands where table, all in the plan repository. Writes nothing in any target, merges nothing. With --product <key>, runs instead from any kitted checkout of a product's repository, remembers the product, and ends with a product PRD on its page, no issue and no PR. With --product <key> --plan-only <key>-<n>, writes only the plan of an existing product PRD from its spec and pushes it to its page, and on a mission's runner ends on the omni plan record naming the pushed plan's sha256. Ends with the /omni:ultra-yolo line. Triggers on "mega-brainstorm", "brainstorm across repositories", "one PRD for the back-end and the front-end", "plan this across the targets", "/omni:mega-brainstorm".
 ---
 
 # Mega-brainstorm: one idea into one PRD across repositories
@@ -154,8 +154,9 @@ rewritten: this run never changes the spec, the before/after page or the voice.
    a changed spec is not written: say so in one line and stop.
 4. **Push it:** `node .omni-loop/bin/omni.mjs dossier push <key>-<n> --from <prd folder>` adds `plan.md`
    as a new plan version on the PRD's page, and a file that did not change adds none. A new plan
-   version voids the PRD's approval (BL-APPROVALS-1): it is approved again on its page, by the
-   committee in a mission. `omni plan check` reads a repository's PRD only: the hand-off names it as
+   version voids the PRD's approval (BL-APPROVALS-1): it is approved again on its page; in a mission,
+   by the committee for a PRD a person wrote, and for a PRD the mission's PM wrote by the PM's plan
+   record below and the fleet's Architect's tech review (PRD omni-loop-26). `omni plan check` reads a repository's PRD only: the hand-off names it as
    not run.
 5. **Read it back** with `node .omni-loop/bin/omni.mjs prd <key>-<n>`, and print the page link.
 
@@ -166,6 +167,21 @@ the PRD, as **For a mission's PM** does. The run's last line, printed with no qu
 ```text
 plan-only <key>-<n>: plan pushed · <page link>
 ```
+
+**The PM's plan approval** (PRD omni-loop-26). On a runner this line runs for a mission's PM only,
+and the PM approves the plan it pushed: after the push and the read-back,
+`node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan` prints the latest plan version's sha256,
+the one pushed or, when nothing changed, the one already there. Then the record line, the run's
+last output, after the line above, one line exactly:
+
+```text
+omni plan: {"v":1,"prd":"<key>-<n>","plan":"<sha256>","outcome":"approved"}
+```
+
+The Omni app reads it from the job's log, as the service, and records the PM's approval of that
+plan version; it ignores it for a PRD a person wrote, which its committee approves. A run that
+stops before the push (a `state:` other than `inbox`, no spec, a plan that needs a changed spec)
+prints no record, and nothing is approved.
 
 The scratch folder is deleted when the skill ends, as step 0 says.
 

@@ -26,10 +26,15 @@
  * Neither ends on a record line: what it wrote is read from the PRD's page, and the committee approves each plan version, the PM
  * sitting out. {@link planOfLine} reads a job's line back, so the App tells a plan job from the PM's own PRDs' job.
  *
+ * **On a product** (PRD omni-loop-26). On a repository whose phase 0 is on the server and that belongs to a product, the PM's line
+ * ends with `--product <key>` ({@link pmJobLine}) and its PRDs are born on the product: its record's `prds` are product ids
+ * (`["omni-loop-31","omni-loop-32"]`), never PRD numbers and product ids mixed ({@link readPmRecord} names the entry that mixes).
+ * {@link keptIdsOf} keeps a product record's ids as {@link keptOf} keeps numbers.
+ *
  * Pure: no filesystem, no network, no clock.
  */
 import { z } from 'zod';
-import { isProductPrdId, parsePrdId, PrdNumberSchema, productPrdParts, type PrdNumber, type ProductPrdId } from '../ids.ts';
+import { isProductPrdId, parsePrdId, PrdNumberSchema, ProductPrdIdSchema, productPrdParts, type PrdNumber, type ProductPrdId } from '../ids.ts';
 import { PM_SKILLS } from '../runner/line.ts';
 
 /** The most PRDs a mission's fleet may add (`mandate.ownPrds` is 0 to 10). */
@@ -52,12 +57,35 @@ const PmRecordSchema = z.object({
   mission: z.number().int().positive(),
   skill: PmSkillSchema,
   cap: z.number().int().min(1).max(OWN_PRDS_MAX),
-  prds: z.array(PrdNumberSchema).max(OWN_PRDS_MAX),
+  /** One kind per record: the PRD numbers of a repository, or the ids of a product's PRDs (PRD omni-loop-26). */
+  prds: z.union([z.array(PrdNumberSchema).max(OWN_PRDS_MAX), z.array(ProductPrdIdSchema).max(OWN_PRDS_MAX)]),
   unwritten: z.array(z.string().trim().min(1).max(TITLE_MAX).refine((text) => !/[\r\n]/.test(text))).max(UNWRITTEN_MAX),
 });
 
 /** What a PM job wrote for its mission. */
 export type PmRecord = z.infer<typeof PmRecordSchema>;
+
+/** A record read: the record, or why it does not read, in one line. */
+export type PmRecordRead = { ok: true; record: PmRecord } | { ok: false; reason: string };
+
+/** The entry of `prds` that is not of its first entry's kind, a PRD number among product ids or the other way round; undefined when none. */
+function mixedOf(prds: unknown): unknown {
+  if (!Array.isArray(prds) || prds.length === 0) return undefined;
+  const items: readonly unknown[] = prds;
+  const kind = typeof items[0];
+  return items.find((entry) => typeof entry !== kind);
+}
+
+/** Whether `json` reads as a PM record, and why not: a record mixing PRD numbers and product ids is refused, naming the entry. */
+export function readPmRecord(json: unknown): PmRecordRead {
+  const prds = typeof json === 'object' && json !== null && 'prds' in json ? json.prds : undefined;
+  const mixed = mixedOf(prds);
+  if (mixed !== undefined) return { ok: false, reason: `prds mixes PRD numbers and product ids: ${JSON.stringify(mixed)}` };
+  const parsed = PmRecordSchema.safeParse(json);
+  if (parsed.success) return { ok: true, record: parsed.data };
+  const issue = parsed.error.issues[0];
+  return { ok: false, reason: issue === undefined ? 'the record does not read' : `${issue.path.join('.') || 'the record'}: ${issue.message}` };
+}
 
 /**
  * The skill the PM is sent, for `left` PRDs still under the cap, or null when none is left: a brainstorm writes one PRD, a roadmap
@@ -71,8 +99,21 @@ export function pmSkillFor(left: number, planRepository: boolean, goalOnly = fal
   return one ? 'brainstorm' : 'roadmap';
 }
 
-/** The line a mission's PM job is sent as: the skill, the mission's number and the cap it writes under. */
-export const pmJobLine = (skill: PmSkill, mission: number, cap: number): string => `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+/** A product's key, as a product PRD's id spells it before its number (`omni-loop` of `omni-loop-31`). */
+const PRODUCT_KEY = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/;
+const PRODUCT_KEY_MAX = 40;
+
+/**
+ * The line a mission's PM job is sent as: the skill, the mission's number and the cap it writes under; with `product`, the key of the
+ * product the mission's repository belongs to when its phase 0 is on the server, `--product <key>` last (PRD omni-loop-26). Throws on
+ * a key that does not read.
+ */
+export function pmJobLine(skill: PmSkill, mission: number, cap: number, product: string | null = null): string {
+  const line = `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+  if (product === null) return line;
+  if (!PRODUCT_KEY.test(product) || product.length > PRODUCT_KEY_MAX) throw new Error(`not a product key: ${JSON.stringify(product)}`);
+  return `${line} --product ${product}`;
+}
 
 /** Whether a runner's skill is one of the PM's (the runner's own list, {@link PM_SKILLS}). */
 export const isPmSkill = (skill: string): skill is PmSkill => PM_SKILLS.includes(skill);
@@ -91,31 +132,67 @@ export const pmLine = (record: PmRecord): string => `${PM_LINE}${JSON.stringify(
 
 const STAMP = /^\d{2}:\d{2}:\d{2} /;
 
-/** The last record `log` holds for mission `mission` that reads whole; null when it holds none. */
-export function pmRecordOf(log: string, mission: number): PmRecord | null {
+/**
+ * The last record line of `log` that starts with `prefix` (a time stamp before it or not), reads whole under `schema` and that `match`
+ * takes; null when it holds none. A line cut short reads as none. The record lines of a mission's jobs read through it: the PM's,
+ * its plan approval's (`omni plan:`) and its Architect's (`omni tech:`).
+ */
+export function lastRecordOf<T>(log: string, prefix: string, schema: z.ZodType<T>, match: (record: T) => boolean): T | null {
   for (const raw of log.split('\n').reverse()) {
     const line = raw.trim().replace(STAMP, '');
-    if (!line.startsWith(PM_LINE)) continue;
+    if (!line.startsWith(prefix)) continue;
     let json: unknown;
     try {
-      json = JSON.parse(line.slice(PM_LINE.length));
+      json = JSON.parse(line.slice(prefix.length));
     } catch {
       continue;
     }
-    const parsed = PmRecordSchema.safeParse(json);
-    if (parsed.success && parsed.data.mission === mission) return parsed.data;
+    const parsed = schema.safeParse(json);
+    if (parsed.success && match(parsed.data)) return parsed.data;
   }
   return null;
 }
 
-/**
- * What the App keeps of a record, for a job sent under cap `cap`: its PRDs once each, at most the cap, in order, never one the
- * mission already holds; the rest of what it wrote counts as unwritten, by number.
- */
-export function keptOf(record: PmRecord, cap: number, held: ReadonlySet<PrdNumber>): { added: PrdNumber[]; unwritten: string[] } {
-  const fresh = [...new Set(record.prds)].filter((prd) => !held.has(prd));
+/** A schema that reads a PM record as {@link readPmRecord} does: a mix of PRD numbers and product ids reads as none. */
+const ReadPmRecordSchema = z.unknown().transform((json, context) => {
+  const read = readPmRecord(json);
+  if (read.ok) return read.record;
+  context.addIssue({ code: 'custom', message: read.reason });
+  return z.NEVER;
+});
+
+/** The last record `log` holds for mission `mission` that reads whole; null when it holds none. */
+export function pmRecordOf(log: string, mission: number): PmRecord | null {
+  return lastRecordOf(log, PM_LINE, ReadPmRecordSchema, (record) => record.mission === mission);
+}
+
+/** `ids` kept as {@link keptOf} keeps them: once each, at most the cap, in order, never one held, the rest unwritten by id. */
+function keep<P extends PrdNumber | ProductPrdId>(ids: readonly P[], record: PmRecord, cap: number, held: ReadonlySet<P>): { added: P[]; unwritten: string[] } {
+  const fresh = [...new Set(ids)].filter((prd) => !held.has(prd));
   const { written, unwritten } = fitCap(fresh, Math.min(cap, record.cap));
   return { added: written, unwritten: [...unwritten.map((prd) => `PRD ${String(prd)}`), ...record.unwritten] };
+}
+
+/** A record's PRD numbers, or its product ids: never both, the record holding one kind. */
+const numbersOf = (record: PmRecord): PrdNumber[] => record.prds.filter((prd): prd is PrdNumber => typeof prd === 'number');
+const idsOf = (record: PmRecord): ProductPrdId[] => record.prds.filter((prd): prd is ProductPrdId => typeof prd === 'string');
+
+/**
+ * What the App keeps of a record, for a job sent under cap `cap`: its PRDs once each, at most the cap, in order, never one the
+ * mission already holds; the rest of what it wrote counts as unwritten, by number. A product's record keeps none here: its ids are
+ * {@link keptIdsOf}'s.
+ */
+export function keptOf(record: PmRecord, cap: number, held: ReadonlySet<PrdNumber>): { added: PrdNumber[]; unwritten: string[] } {
+  const numbers = numbersOf(record);
+  if (numbers.length === 0 && record.prds.length > 0) return { added: [], unwritten: [] };
+  return keep(numbers, record, cap, held);
+}
+
+/** What the App keeps of a product's record (PRD omni-loop-26), as {@link keptOf} keeps numbers: a record of PRD numbers keeps none here. */
+export function keptIdsOf(record: PmRecord, cap: number, held: ReadonlySet<ProductPrdId>): { added: ProductPrdId[]; unwritten: string[] } {
+  const ids = idsOf(record);
+  if (ids.length === 0 && record.prds.length > 0) return { added: [], unwritten: [] };
+  return keep(ids, record, cap, held);
 }
 
 /** A plan job of the PM (PRD omni-loop-21 s9): a PRD's first plan, or a new version of it once its repairs are spent. */

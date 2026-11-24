@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { checkRunnerLine, LINE_MAX, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
+import { checkRunnerLine, FLEET_SKILLS, LINE_MAX, RUNNABLE_SKILLS } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   AnswerRequestSchema, AskRequestSchema, checkLine, checkLineShape, HealthReportSchema, JOB_OUTCOMES, JobLinesQuerySchema, JobQuestionsSchema, JobReplySchema, JobUpdateSchema,
-  GithubTokenReplySchema, KitRunnersSchema, linePrd, PARTS_MAX, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RunnerReplySchema, RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
+  GithubTokenReplySchema, KitRunnersSchema, linePrd, PARTS_MAX, PrdJobsQuerySchema, PrdJobsSchema, RegisterRequestSchema, RunnerJobSchema, RunnerReplySchema, RUNNER_SKILLS, FLEET_RUNNER_SKILLS, RunnersQuerySchema, SendRequestSchema, TargetSchema,
 } from './runners.contract';
 
 // The line check (PRD 1830 s1): a runner runs only `/omni:<skill> <args>` lines of 200 characters at
@@ -32,6 +32,7 @@ describe('the line check', () => {
 
   it('lists exactly the skills `omni runner` runs, so the app never queues a line a runner refuses', () => {
     expect([...RUNNER_SKILLS]).toEqual([...RUNNABLE_SKILLS]);
+    expect([...FLEET_RUNNER_SKILLS]).toEqual([...FLEET_SKILLS]);
   });
 
   it('lets the ultra skills through, and reads the PRD they name (PRD 2873)', () => {

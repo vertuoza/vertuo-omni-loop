@@ -8,7 +8,10 @@
 // tries held. At `alone` for a product roadmap (PRD omni-loop-21): a step's resumes under their own keys, the mission's branch
 // kept once per repository, an item committee's decision recorded once (escalated off `alone`, as mission_decide_item() does) and
 // every decision of the committee listed in order. A product PRD's events, repairs and item decisions kept under its id, read as the
-// store reads them (PRD omni-loop-21 s3b). No database, no model call.
+// store reads them (PRD omni-loop-21 s3b). The PM's own product PRDs (PRD omni-loop-26): their pages read once the mission names them,
+// the Architect's reviews under their keys, the `plan` and `tech` decisions kept once per job as mission_decide_plan() keeps them
+// (escalated with no record, the pair on the latest plan version approving the PRD in the fleet's name), and where the mission's
+// repository approves its phase 0. No database, no model call.
 import { parseIssue, type IssueNumber, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import type { NewJob } from '../jobs/ledger.ts';
 import { bugFixOf, repairKey, repairSkillLine, type RepairJob, type RepairRow, type StuckJob } from './repair.ts';
@@ -16,9 +19,10 @@ import { retroKey, retroSkillLine, type ItemRow, type MissionRetro, type RetroJo
 import { stuckJobsOf, stuckKey, stuckSkillLine } from './stuck.ts';
 import { askLine, DEFAULT_BOUND, type ItemCommittee } from './answers.ts';
 import { approveLine, committeeKey, type Committee, type Decision, type Recorded } from './committee.ts';
-import { pmKey, type PmJob } from './pm.ts';
+import { pmKey, type Home, type PmJob } from './pm.ts';
+import { techKey, type PlanDecision, type TechJob } from './tech.ts';
 import { numberedOf, type MissionPrd } from './store.prd.ts';
-import { resumeKey, type MissionProducts, type StoredProduct, type NewStoredEvent, type StoredRepair, type MissionDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore } from './store.ts';
+import { resumeKey, type MissionProducts, type StoredProduct, type NewStoredEvent, type StoredRepair, type MissionDecision, type MissionBranch, type MissionBugTeam, type MissionRecord, type MissionRetros, type MissionStore, type PlanDecide } from './store.ts';
 import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team.ts';
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
@@ -41,8 +45,17 @@ const storedRepairOf = ({ prd, ...row }: FakeRepair): StoredRepair => ({ ...row,
 
 const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
+/** A plan or tech decision as mission_decide_plan() reads it: no record escalates, and an approved one off `alone` escalates too. */
+function fakeDecided(mission: MissionRecord, { kind, record, why }: PlanDecide): { reasons: string[]; outcome: PlanDecision['outcome']; plan: string | null; settled: string[] } {
+  if (record === null) return { reasons: [`no record of the ${kind === 'plan' ? 'plan approval' : 'tech review'}`, ...why], outcome: 'escalated', plan: null, settled: [] };
+  const reasons = [...('open' in record ? record.open : []), ...why];
+  if (record.outcome === 'approved' && mission.level !== 'alone') reasons.push('the mission is not at alone: a person approves its PRDs');
+  const outcome = record.outcome === 'approved' && reasons.length === 0 ? 'approved' : 'escalated';
+  return { reasons, outcome, plan: record.plan, settled: 'settled' in record ? record.settled : [] };
+}
+
 /** The mission's store in memory, seeded with `mission` and the facts of its PRDs. */
-export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [], now = Date.now, retros: milestones, team, products: seeded }: {
+export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepository = false, installation = 1, pages = [], now = Date.now, retros: milestones, team, products: seeded, productPages = [], home: seededHome }: {
   mission: MissionRecord; facts: PrdFacts[]; fleetRunners?: boolean; planRepository?: boolean; installation?: number | null;
   /** PRDs with a page that are in no scope yet (PRD 2896 s12): read as facts once the mission's scope names them, as a PRD its PM wrote. */
   pages?: PrdFacts[];
@@ -63,6 +76,10 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
    * builds sent for them. Absent, it has none, and the mission runs its repository's PRDs only, as before.
    */
   products?: StoredProduct[];
+  /** PRD omni-loop-26: product PRDs with a page that are in no scope yet, read once the mission's products name them, as a PRD its PM wrote. */
+  productPages?: StoredProduct[];
+  /** PRD omni-loop-26: where the mission's repository approves its phase 0, and its product; absent, `pr` and none. */
+  home?: Home;
 }) {
   let record: MissionRecord & { nextWakeAt: string | null } = { ...mission, nextWakeAt: null };
   let current = facts.map((fact) => ({ ...fact }));
@@ -112,7 +129,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
 
   /** The log of job `job`: a committee's, an item's, a PM's by its job; a repair's, a stuck repair's or a retro's by any attempt. */
   const logOf = (job: string): string | null => {
-    const own = [...committees, ...asks, ...pms].find((one) => one.job === job);
+    const own = [...committees, ...asks, ...pms, ...techs].find((one) => one.job === job);
     if (own !== undefined) return own.log;
     return [...repairs, ...stucks, ...retroJobs].find((one) => one.attempts.some((each) => each.id === job))?.log ?? null;
   };
@@ -185,10 +202,15 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   };
 
   /** PRD omni-loop-21 s9b: the scope's product PRDs as the store reads them (expanded, in order), and the builds queued for them. */
-  let productFacts: StoredProduct[] = (seeded ?? []).map((one) => ({ ...one }));
+  let productFacts: StoredProduct[] = [...(seeded ?? []), ...productPages].map((one) => ({ ...one }));
+  const pagedOnly = new Set(productPages.map((one) => one.prd));
+  /** PRD omni-loop-26: the Architect's reviews queued, their key, line and log, and the plan and tech decisions kept, in order. */
+  const techs: (TechJob & { key: string; line: string; toFleet: string | null; log: string | null })[] = [];
+  const planDecisions: (PlanDecision & { techApproval: boolean; approval: boolean })[] = [];
+  let home: Home = seededHome ?? { phase0: 'pr', product: null };
   const productJobs: (ProductRun & { key: string; line: string; toFleet: string | null })[] = [];
   const productStore: MissionProducts = {
-    facts: () => Promise.resolve(productFacts.map((one) => ({ ...one, blockers: [...one.blockers], targets: [...one.targets] }))),
+    facts: (read) => Promise.resolve(productFacts.filter((one) => !pagedOnly.has(one.prd) || (read.products?.prds ?? []).includes(one.prd)).map((one) => ({ ...one, blockers: [...one.blockers], targets: [...one.targets] }))),
     runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts }) => ({ prd, run, job, attempts: attempts.map((one) => ({ ...one })) }))),
     send: ({ mission: sent, prd, run, line, toFleet }) => {
       const key = missionKey(sent.id, prd, run);
@@ -198,6 +220,31 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       productJobs.push({ prd, run, job: id, attempts: [queued(id)], key, line, toFleet: toFleet ? sent.fleet : null });
       return Promise.resolve(id);
     },
+    reviews: () => Promise.resolve({
+      techs: techs.map(({ prd, k, job, attempt }) => ({ prd, k, job, attempt: { ...attempt } })),
+      decisions: planDecisions.map(({ kind, prd, job, plan, outcome, why, settled }) => ({ kind, prd, job, plan, outcome, why: [...why], settled: [...settled] })),
+    }),
+    review: ({ mission: sent, prd, k, line, toFleet }) => {
+      const key = techKey(sent.id, prd, k);
+      if (techs.some((one) => one.key === key)) return Promise.resolve(null);
+      made += 1;
+      const id = `job-${String(made)}`;
+      techs.push({ prd, k, job: id, attempt: queued(id), key, line, toFleet: toFleet ? sent.fleet : null, log: null });
+      return Promise.resolve(id);
+    },
+    decidePlan: (sent, one) => {
+      const { prd, job, kind } = one;
+      const kept = planDecisions.find((each) => each.job === job);
+      const latest = productFacts.find((each) => each.prd === prd)?.plan ?? null;
+      if (kept !== undefined) return Promise.resolve({ outcome: kept.outcome, why: [...kept.why], plan: kept.plan, latest: null });
+      const { reasons, outcome, plan, settled } = fakeDecided(sent, one);
+      const onLatest = outcome === 'approved' && plan === latest;
+      const pair = onLatest && planDecisions.some((each) => each.prd === prd && each.kind !== kind && each.outcome === 'approved' && each.plan === latest);
+      planDecisions.push({ kind, prd, job, plan, outcome, why: reasons, settled, techApproval: onLatest && kind === 'tech', approval: pair });
+      if (pair) productFacts = productFacts.map((one) => (one.prd === prd ? { ...one, approval: 'standing' } : one));
+      return Promise.resolve({ outcome, why: [...reasons], plan, latest: plan === null ? false : plan === latest });
+    },
+    home: () => Promise.resolve({ ...home }),
   };
 
   const store: MissionStore = {
@@ -602,6 +649,21 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       const attempt = productJobs.filter((one) => one.prd === prd).at(-1)?.attempts.at(-1);
       if (!attempt) throw new Error(`no build of PRD ${prd} was sent`);
       Object.assign(attempt, change);
+    },
+    /** PRD omni-loop-26: the Architect's reviews queued, in order. */
+    techJobs: () => techs.map((one) => ({ ...one, attempt: { ...one.attempt } })),
+    /** PRD omni-loop-26: the product PRD's latest review ends as `change` says, its log `log`. */
+    endTech: (prd: ProductPrdId, change: Partial<Attempt>, log: string | null = null) => {
+      const one = techs.filter((each) => each.prd === prd).at(-1);
+      if (!one) throw new Error(`no review of PRD ${prd} was sent`);
+      Object.assign(one.attempt, change);
+      one.log = log;
+    },
+    /** PRD omni-loop-26: the plan and tech decisions kept, in order, with whether each gave the Tech Approval or the product approval. */
+    planDecisions: () => planDecisions.map((one) => ({ ...one, why: [...one.why], settled: [...one.settled] })),
+    /** PRD omni-loop-26: where the mission's repository approves its phase 0 from now on. */
+    setHome: (next: Home) => {
+      home = next;
     },
     /** PRD omni-loop-21 s9b: the product PRD's facts change, as its page would (an approval, an item answered). */
     setProduct: (prd: ProductPrdId, change: Partial<StoredProduct>) => {

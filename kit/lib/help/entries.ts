@@ -1606,7 +1606,11 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'merges before any code is written. It writes no code and merges nothing, and ends with the ' +
       '/omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a ' +
       "concept in the inbox: the area's brief, the vision and the verdict. Once it fills the area's " +
-      "PRD cell, it pushes the concept again, so the concept's page links that area to its PRD.",
+      "PRD cell, it pushes the concept again, so the concept's page links that area to its PRD. " +
+      "With --mission <m> --cap <k> --product <key>, the line a mission sends its PM on a runner, it writes " +
+      "one product PRD on the product's page for the mission's goal, asking nobody: no issue, branch, commit " +
+      'or pull request, and it ends on the omni pm: record naming its id. A repository whose phase 0 is on ' +
+      'the server and that belongs to no product stops it in one line.',
     group: 'start',
     when: 'Use it when you have an idea for a change and want it designed before any code is written.',
     example: {
@@ -1629,7 +1633,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'never writes in a target. It ends with the /omni:ultra-yolo line that builds it. With ' +
       '--product <key>, it runs from any checkout of a repository the product holds, a plan ' +
       'repository or not, and makes a product PRD (mobile-12) on the Omni page instead: no issue, ' +
-      'no branch and no PR in any repository, every repository it lands in on phase 0 on the server.',
+      'no branch and no PR in any repository, every repository it lands in on phase 0 on the server. ' +
+      "With --plan-only <key>-<n> it writes only that product PRD's plan and pushes it to its page; on a " +
+      "mission's runner it ends on the omni plan: record, the PM's approval of the plan version it pushed.",
     group: 'multi-repo',
     when: 'Use it when one idea needs changes in several repositories and this is their plan repository.',
     example: {
@@ -1652,7 +1658,9 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'reaches it), the roadmap issue and roadmap.md, checked by omni roadmap check, in one phase-0 PR ' +
       "a person merges, and pushes the roadmap's page. It ends with the /loop /omni:drive --roadmap <n> " +
       'line. In a plan repository it prints the /omni:mega-roadmap line and stops. It writes no code ' +
-      'and merges nothing.',
+      'and merges nothing. With --mission <m> --cap <k> --product <key>, the line a mission sends its PM ' +
+      "on a runner, it writes at most k product PRDs and a product roadmap on the product's pages, asking " +
+      'nobody and writing nothing in the repository, and ends on the omni pm: record naming their ids.',
     group: 'start',
     when: 'Use it when a milestone needs many PRDs and a plan already says what they are and in which order.',
     example: {
@@ -2347,7 +2355,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'again with omni plan check, and records each settled question under ### Tech review in the spec. A ' +
       "question only the PM can settle becomes a comment on the PRD's issue naming the author. It pushes one " +
       "signed commit and the PRD's dossier, and ends on the page's link. It gives no approval: only the person " +
-      'a request names presses Give Tech Approval there, and it never merges. A runner never runs it.',
+      'a request names presses Give Tech Approval there, and it never merges. A runner never runs it, save as ' +
+      "/omni:tech-review <key>-<n> --mission <m>, the line a mission's Architect is sent: it asks nobody, changes only the " +
+      "plan's coding parts as a new plan version on the product PRD's page, writes nothing in the repository, " +
+      'and ends on the omni tech: record, approved or escalated with the points only a person can settle.',
     group: 'everyday',
     when: "Use it when you were named for a PRD's Tech Approval, or to review any plan not approved yet.",
     example: {

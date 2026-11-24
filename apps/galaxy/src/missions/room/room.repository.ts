@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 import { HERO_ROLES, HeroRoleSchema } from 'omni-loop/kit/lib/virtual-fleet/roles.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import { qaJobOf, type JobTokens, type QaJob } from './qa';
+import type { PlanDecisionRow } from './review';
 import type { EventRow, HeroLine, KeptSave } from './room';
 
 // The Operation room's reads (PRD 2842 s8; ADR-0095), on the signed-in person's own client: row-level security
@@ -33,6 +34,16 @@ const EventRowSchema = z.object({
 const TokensSchema = z.object({ input: z.number().int().min(0), output: z.number().int().min(0), cacheRead: z.number().int().min(0), cacheWrite: z.number().int().min(0) });
 const TokenRowSchema = z.object({ id: z.uuid(), tokens: TokensSchema.nullable().catch(null) });
 const QaRowSchema = z.object({ mission_id: z.uuid(), mission_key: z.string().nullable(), log_tail: z.string().nullable() });
+const DecisionRowSchema = z.object({
+  mission_id: z.uuid(),
+  product_prd: ProductPrdIdSchema,
+  kind: z.enum(['plan', 'tech']),
+  outcome: z.enum(['approved', 'escalated']),
+  plan: z.string().nullable(),
+  settled: z.array(z.string()),
+  why: z.array(z.string()),
+  decided_at: z.string(),
+});
 const SaveRowSchema = z.object({ bytes: z.number(), keep_until: z.string() });
 
 export function roomRepository(db: RoomDb) {
@@ -76,6 +87,16 @@ export function roomRepository(db: RoomDb) {
       const { data, error } = await db.from('runner_jobs').select('mission_id, mission_key, log_tail').in('mission_id', [...missions]).in('status', ['claimed', 'running']).like('mission_key', '%:qa:_');
       if (error) throw new Error(`Supabase: could not read the QA jobs (${error.message})`);
       return orThrow(parseRows(QaRowSchema, data, `${WHERE}: runner_jobs`)).flatMap((row) => qaJobOf({ mission: row.mission_id, key: row.mission_key, logTail: row.log_tail ?? '' }) ?? []);
+    },
+
+    /** These missions' plan and tech decisions (PRD omni-loop-26), oldest first: the PM's plan approvals and the Architect's reviews. */
+    async decisions(missions: readonly string[]): Promise<PlanDecisionRow[]> {
+      if (missions.length === 0) return [];
+      const { data, error } = await db.from('mission_decisions').select('mission_id, product_prd, kind, outcome, plan, settled, why, decided_at').in('mission_id', [...missions]).in('kind', ['plan', 'tech']).order('decided_at', { ascending: true });
+      if (error) throw new Error(`Supabase: could not read the plan and tech decisions (${error.message})`);
+      return orThrow(parseRows(DecisionRowSchema, data, `${WHERE}: mission_decisions`)).map((row) => ({
+        mission: row.mission_id, prd: row.product_prd, kind: row.kind, outcome: row.outcome, plan: row.plan, settled: row.settled, why: row.why, at: row.decided_at,
+      }));
     },
 
     /** The saves a workspace's runners still keep (PRD 2809): not deleted, not past their day. */

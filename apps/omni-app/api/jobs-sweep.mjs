@@ -774,7 +774,7 @@ function supabaseGithubStore(db) {
 }
 
 // apps/omni-app/src/jobs/sweep.ts
-import { z as z127 } from "zod";
+import { z as z129 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -6399,14 +6399,14 @@ function collect(map, key, value) {
 }
 function numberViolations(screens) {
   const namesOf = /* @__PURE__ */ new Map();
-  const numbersOf = /* @__PURE__ */ new Map();
+  const numbersOf2 = /* @__PURE__ */ new Map();
   for (const { screen, ref } of referenced(screens)) {
     const number = ref.slice(0, ref.indexOf("."));
     collect(namesOf, number, screen.name);
-    collect(numbersOf, screen.name, number);
+    collect(numbersOf2, screen.name, number);
   }
   const mixed = [...namesOf].filter(([, names]) => names.size > 1).map(([number, names]) => `number ${number} carries ${[...names].map(quote).join(" and ")}, not one screen`);
-  const spread = [...numbersOf].filter(([, numbers2]) => numbers2.size > 1).map(([name, numbers2]) => `screen ${quote(name)} sits under numbers ${[...numbers2].join(" and ")}, not one`);
+  const spread = [...numbersOf2].filter(([, numbers2]) => numbers2.size > 1).map(([name, numbers2]) => `screen ${quote(name)} sits under numbers ${[...numbers2].join(" and ")}, not one`);
   return [...mixed, ...spread];
 }
 function namedScreens(text20) {
@@ -8064,11 +8064,11 @@ function capInput(input, sources, budget) {
   for (const entry of [...latest].sort(leastSevereFirst)) {
     if (size <= budget) return;
     const text20 = entry.item.excerpt ?? "";
-    let keep3 = Math.max(0, text20.length - (size - budget) - CUT_MARK.length);
-    let next = lastLines(text20, keep3);
-    while (keep3 > 0 && size - cost(text20) + cost(next) > budget) {
-      keep3 = Math.max(0, keep3 - (size - cost(text20) + cost(next) - budget));
-      next = lastLines(text20, keep3);
+    let keep4 = Math.max(0, text20.length - (size - budget) - CUT_MARK.length);
+    let next = lastLines(text20, keep4);
+    while (keep4 > 0 && size - cost(text20) + cost(next) > budget) {
+      keep4 = Math.max(0, keep4 - (size - cost(text20) + cost(next) - budget));
+      next = lastLines(text20, keep4);
     }
     size += cost(next) - cost(text20);
     entry.item.excerpt = next;
@@ -8087,8 +8087,8 @@ function capInput(input, sources, budget) {
   }
   if (size > budget) input.prd.problem = input.prd.problem.slice(0, Math.max(0, input.prd.problem.length - (size - budget)));
 }
-function lastLines(text20, keep3) {
-  let tail = keep3 > 0 ? text20.slice(-keep3) : "";
+function lastLines(text20, keep4) {
+  let tail = keep4 > 0 ? text20.slice(-keep4) : "";
   const newline = tail.indexOf("\n");
   if (newline !== -1 && newline < tail.length - 1) tail = tail.slice(newline + 1);
   return `${CUT_MARK}${tail}`;
@@ -10236,10 +10236,10 @@ function walk2(records, { sliceOf: sliceOf2, leftOut }) {
     const slice = sliceOf2(pull.headRef) ?? `#${pull.number}`;
     for (const commit of pull.commits) {
       if (commits.has(commit.sha)) continue;
-      const short3 = commit.sha.slice(0, SHORT2);
-      commits.set(commit.sha, { short: short3, url: commit.url, slice, index: commits.size });
+      const short4 = commit.sha.slice(0, SHORT2);
+      commits.set(commit.sha, { short: short4, url: commit.url, slice, index: commits.size });
       if (commit.files === null) {
-        unread2.commits.push(short3);
+        unread2.commits.push(short4);
         continue;
       }
       read2 += 1;
@@ -10259,7 +10259,7 @@ function walk2(records, { sliceOf: sliceOf2, leftOut }) {
           const before2 = file.status === "added" ? [] : lines2.get(file.path) ?? [];
           lines2.set(file.path, followLines(before2, file.blocks, commit.sha));
         } else if (file.additions + file.deletions > 0) {
-          noPatch.push({ path: file.path, commit: short3, slice, additions: file.additions, deletions: file.deletions });
+          noPatch.push({ path: file.path, commit: short4, slice, additions: file.additions, deletions: file.deletions });
           lines2.delete(file.path);
         }
       }
@@ -13678,15 +13678,15 @@ function loopPaths(ctx) {
   const { paths } = ctx.config;
   return [paths.delivery, paths.knowledge, paths.adr, paths.playbook, paths.glossary].filter((path) => typeof path === "string" && path.length > 0).map((path) => path.replace(/\/+$/, ""));
 }
-function overlay(root, keep3) {
+function overlay(root, keep4) {
   const scratch = mkdtempSync6(join40(tmpdir6(), "omni-harvest-"));
   const walk3 = (dir) => {
     for (const name of readdirSync14(join40(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === ".git") continue;
-      if (keep3.includes(rel)) {
+      if (keep4.includes(rel)) {
         cpSync(join40(root, rel), join40(scratch, rel), { recursive: true });
-      } else if (keep3.some((path) => path.startsWith(`${rel}/`)) && statSync8(join40(root, rel)).isDirectory()) {
+      } else if (keep4.some((path) => path.startsWith(`${rel}/`)) && statSync8(join40(root, rel)).isDirectory()) {
         mkdirSync8(join40(scratch, rel), { recursive: true });
         walk3(rel);
       } else {
@@ -13855,12 +13855,12 @@ function finishHarvest({
     const replies = new Map(classified.map((entry) => [entry.id, entry]));
     const candidates = harvestCandidates({ ctx: scratch, prd: prepared.prd });
     const dropped = /* @__PURE__ */ new Map();
-    const attempt3 = (keep3) => {
+    const attempt3 = (keep4) => {
       const input = candidates.map((candidate) => {
         const given = replies.get(candidate.id);
         if (dropped.has(candidate.id)) return { candidate, reply: null, reason: dropped.get(candidate.id) };
         if (!given) return { candidate, reply: null, reason: "not classified" };
-        if (keep3 && !keep3.includes(candidate.id)) return null;
+        if (keep4 && !keep4.includes(candidate.id)) return null;
         return { candidate, reply: given.reply ?? null, reason: given.reason ?? void 0, worth: given.worth ?? null };
       });
       return writeKnowledge({
@@ -15698,11 +15698,11 @@ async function pack(octokit, store, { owner, repo, repository, sha, committedAt,
   };
 }
 function packLines(what, sha, packed) {
-  const short3 = sha.slice(0, 7);
+  const short4 = sha.slice(0, 7);
   const kept3 = packed.packs.filter((one) => one.created).length;
   return [
-    ...packed.left.map((line3) => `knowledge pack: ${what} left out of pack ${short3}: ${line3}`),
-    `knowledge pack: ${what} pack ${short3} of ${String(packed.files)} files, new in ${String(kept3)} of ${String(packed.packs.length)} workspaces`
+    ...packed.left.map((line3) => `knowledge pack: ${what} left out of pack ${short4}: ${line3}`),
+    `knowledge pack: ${what} pack ${short4} of ${String(packed.files)} files, new in ${String(kept3)} of ${String(packed.packs.length)} workspaces`
   ];
 }
 
@@ -23374,7 +23374,7 @@ function missionJoins({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/job.ts
-import { z as z109 } from "zod";
+import { z as z111 } from "zod";
 
 // apps/omni-app/src/missions/expand.ts
 function rowsOfRoadmap(text20) {
@@ -23909,7 +23909,7 @@ var DROP_ASKED_KEEP = "drop-asked-keep";
 function dropSet({
   order,
   prd,
-  keep: keep3,
+  keep: keep4,
   territory
 }) {
   const at4 = order.indexOf(prd);
@@ -23924,7 +23924,7 @@ function dropSet({
     sharing.push(later2);
     ground.push(mine);
   }
-  return { prd, sharing, dropped: keep3 ? [prd] : [prd, ...sharing] };
+  return { prd, sharing, dropped: keep4 ? [prd] : [prd, ...sharing] };
 }
 function standingAsks(events) {
   const on = /* @__PURE__ */ new Set();
@@ -23941,7 +23941,7 @@ function standingAsks(events) {
       asks.delete(prd);
     }
   }
-  return [...asks].map(([prd, keep3]) => ({ prd, keep: keep3 }));
+  return [...asks].map(([prd, keep4]) => ({ prd, keep: keep4 }));
 }
 function droppedOf(events) {
   const dropped = /* @__PURE__ */ new Set();
@@ -24231,6 +24231,7 @@ var RUNNABLE_SKILLS = Object.freeze([
   "mission"
 ]);
 var PM_SKILLS = Object.freeze(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var FLEET_SKILLS = Object.freeze(["tech-review"]);
 var APP_SKILLS = Object.freeze(["acceptance"]);
 var RESUMABLE_SKILLS = Object.freeze(["yolo", "yolo-fix", "wave", "do-work", "pr-care", "bug-fix"]);
 var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave", "plan", "pitch", "prove", "ultra-yolo", "ultra-wave", "ultra-yolo-fix"]);
@@ -24246,16 +24247,39 @@ var PmRecordSchema = z101.object({
   mission: z101.number().int().positive(),
   skill: PmSkillSchema,
   cap: z101.number().int().min(1).max(OWN_PRDS_MAX),
-  prds: z101.array(PrdNumberSchema).max(OWN_PRDS_MAX),
+  /** One kind per record: the PRD numbers of a repository, or the ids of a product's PRDs (PRD omni-loop-26). */
+  prds: z101.union([z101.array(PrdNumberSchema).max(OWN_PRDS_MAX), z101.array(ProductPrdIdSchema).max(OWN_PRDS_MAX)]),
   unwritten: z101.array(z101.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
 });
+function mixedOf(prds) {
+  if (!Array.isArray(prds) || prds.length === 0) return void 0;
+  const items = prds;
+  const kind = typeof items[0];
+  return items.find((entry) => typeof entry !== kind);
+}
+function readPmRecord(json3) {
+  const prds = typeof json3 === "object" && json3 !== null && "prds" in json3 ? json3.prds : void 0;
+  const mixed = mixedOf(prds);
+  if (mixed !== void 0) return { ok: false, reason: `prds mixes PRD numbers and product ids: ${JSON.stringify(mixed)}` };
+  const parsed3 = PmRecordSchema.safeParse(json3);
+  if (parsed3.success) return { ok: true, record: parsed3.data };
+  const issue = parsed3.error.issues[0];
+  return { ok: false, reason: issue === void 0 ? "the record does not read" : `${issue.path.join(".") || "the record"}: ${issue.message}` };
+}
 function pmSkillFor(left, planRepository, goalOnly2 = false) {
   if (!Number.isInteger(left) || left < 1) return null;
   const one = left === 1 && !goalOnly2;
   if (planRepository) return one ? "mega-brainstorm" : "mega-roadmap";
   return one ? "brainstorm" : "roadmap";
 }
-var pmJobLine = (skill, mission, cap) => `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+var PRODUCT_KEY = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/;
+var PRODUCT_KEY_MAX = 40;
+function pmJobLine(skill, mission, cap, product = null) {
+  const line3 = `/omni:${skill} --mission ${String(mission)} --cap ${String(cap)}`;
+  if (product === null) return line3;
+  if (!PRODUCT_KEY.test(product) || product.length > PRODUCT_KEY_MAX) throw new Error(`not a product key: ${JSON.stringify(product)}`);
+  return `${line3} --product ${product}`;
+}
 var isPmSkill = (skill) => PM_SKILLS.includes(skill);
 function fitCap(rows, cap) {
   const room = Math.max(0, Math.floor(cap));
@@ -24263,25 +24287,46 @@ function fitCap(rows, cap) {
 }
 var notWrittenWords = (cap) => `not written: the cap is ${String(cap)}`;
 var STAMP3 = /^\d{2}:\d{2}:\d{2} /;
-function pmRecordOf(log2, mission) {
+function lastRecordOf(log2, prefix, schema, match) {
   for (const raw of log2.split("\n").reverse()) {
     const line3 = raw.trim().replace(STAMP3, "");
-    if (!line3.startsWith(PM_LINE)) continue;
+    if (!line3.startsWith(prefix)) continue;
     let json3;
     try {
-      json3 = JSON.parse(line3.slice(PM_LINE.length));
+      json3 = JSON.parse(line3.slice(prefix.length));
     } catch {
       continue;
     }
-    const parsed3 = PmRecordSchema.safeParse(json3);
-    if (parsed3.success && parsed3.data.mission === mission) return parsed3.data;
+    const parsed3 = schema.safeParse(json3);
+    if (parsed3.success && match(parsed3.data)) return parsed3.data;
   }
   return null;
 }
-function keptOf2(record, cap, held2) {
-  const fresh = [...new Set(record.prds)].filter((prd) => !held2.has(prd));
+var ReadPmRecordSchema = z101.unknown().transform((json3, context) => {
+  const read2 = readPmRecord(json3);
+  if (read2.ok) return read2.record;
+  context.addIssue({ code: "custom", message: read2.reason });
+  return z101.NEVER;
+});
+function pmRecordOf(log2, mission) {
+  return lastRecordOf(log2, PM_LINE, ReadPmRecordSchema, (record) => record.mission === mission);
+}
+function keep(ids, record, cap, held2) {
+  const fresh = [...new Set(ids)].filter((prd) => !held2.has(prd));
   const { written, unwritten } = fitCap(fresh, Math.min(cap, record.cap));
   return { added: written, unwritten: [...unwritten.map((prd) => `PRD ${String(prd)}`), ...record.unwritten] };
+}
+var numbersOf = (record) => record.prds.filter((prd) => typeof prd === "number");
+var idsOf = (record) => record.prds.filter((prd) => typeof prd === "string");
+function keptOf2(record, cap, held2) {
+  const numbers2 = numbersOf(record);
+  if (numbers2.length === 0 && record.prds.length > 0) return { added: [], unwritten: [] };
+  return keep(numbers2, record, cap, held2);
+}
+function keptIdsOf(record, cap, held2) {
+  const ids = idsOf(record);
+  if (ids.length === 0 && record.prds.length > 0) return { added: [], unwritten: [] };
+  return keep(ids, record, cap, held2);
 }
 function planJobLine(prd, kind) {
   const tail = kind === "replan" ? " --replan" : "";
@@ -24954,6 +24999,8 @@ function addedOf(recorded) {
   for (const event of recorded) if (event.kind === "prd-added" && event.prd !== null && !added.includes(event.prd)) added.push(event.prd);
   return added;
 }
+var NO_PRODUCT_WORDS = "this repository has no product: a goal-only mission needs one";
+var serverOf = (home) => home?.phase0 === "server" ? { product: home.product } : null;
 var NONE = { next: "none" };
 function goalOnly({ scope, products, kind }) {
   const named = scope.prds.length + scope.roadmaps.length + (products?.prds.length ?? 0) + (products?.roadmaps.length ?? 0);
@@ -24974,11 +25021,19 @@ function pmAsks(mission, recorded, jobs) {
 }
 var ownOf = (jobs) => jobs.filter(isOwnJob);
 var isOwnJob = ({ line: line3 }) => planOfLine(line3) === null;
-function pmNext({ mission, ownPrds, added, jobs, inPlan, asks }) {
+function pmNext(view) {
+  const next = pmWanted(view);
+  const server = serverOf(view.home);
+  if (next.next !== "send" || server === null) return next;
+  if (server.product === null) return NONE;
+  return { ...next, line: pmJobLine(next.skill, view.mission.number, next.cap, server.product) };
+}
+var sendsAgain = ({ mission, added, asks }, own, goal) => goal && added === 0 && own.length < allowedOf(mission, asks) && !own.some(pmWorking);
+function pmWanted({ mission, ownPrds, added, jobs, inPlan, asks }) {
   if (mission.level !== "alone" || !sendsCommittees(mission.status)) return NONE;
   const own = ownOf(jobs);
   const goal = goalOnly(mission);
-  if (own.length > 0 && !(goal && added === 0 && own.length < allowedOf(mission, asks) && !own.some(pmWorking))) return NONE;
+  if (own.length > 0 && !sendsAgain({ mission, added, asks }, own, goal)) return NONE;
   const left = ownPrds - added;
   const skill = pmSkillFor(left, inPlan, goal);
   if (skill === null) return NONE;
@@ -24992,8 +25047,10 @@ var endWords = ({ status: status2, reason: reason2 }) => {
   if (status2 !== "done") return reason2 === null || reason2 === "" ? "failed" : `failed (${reason2})`;
   return "ended with no PRD in its record";
 };
-function pmWait({ mission, added, jobs, asks }) {
+function pmWait(view) {
+  const { mission, added, jobs, asks } = view;
   if (mission.level !== "alone" || added > 0 || !goalOnly(mission)) return null;
+  if (serverOf(view.home)?.product === null && pmWanted(view).next === "send") return NO_PRODUCT_WORDS;
   const own = ownOf(jobs);
   const last = own.reduce((latest, one) => latest === void 0 || one.round > latest.round ? one : latest, void 0);
   if (last === void 0 || own.some(pmWorking) || own.length < allowedOf(mission, asks)) return null;
@@ -25013,7 +25070,10 @@ function pmEvents(mission, one, log2, held2, recorded) {
     const why = one.attempt.status === "done" ? "ended with no record" : one.attempt.status === "cancelled" ? "was cancelled" : "failed";
     return [{ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} ${why}: the fleet added no PRD.` }];
   }
-  const { added, unwritten } = keptOf2(record, cap, held2);
+  const numbers2 = keptOf2(record, cap, new Set([...held2].filter((prd) => typeof prd === "number")));
+  const ids = keptIdsOf(record, cap, new Set([...held2].filter((prd) => typeof prd === "string")));
+  const added = [...numbers2.added, ...ids.added];
+  const unwritten = [.../* @__PURE__ */ new Set([...numbers2.unwritten, ...ids.unwritten])];
   const events = added.map((prd) => ({ kind: "prd-added", role: "pm", prd, job: one.job, link: null, sentence: `PRD ${String(prd)} added by the fleet.` }));
   for (const title of unwritten) events.push({ kind: "not-written", role: "pm", prd: null, job: one.job, link: null, sentence: `${title}: ${notWrittenWords(cap)}.`.slice(0, 300) });
   if (events.length === 0) events.push({ kind: "job-ended", role: "pm", prd: null, job: one.job, link: null, sentence: `${skillWords(one.line)} wrote no PRD: the fleet added none.` });
@@ -25038,6 +25098,87 @@ function withPm(next, writing, wakeAt2, wait2 = null) {
   const waitingOn = also === null ? wait2 : cut3(`${wait2} \xB7 ${also}`);
   return next.status === "running" ? { ...next, waitingOn } : { status: "waiting", waitingOn, nextWakeAt: wakeAt2 };
 }
+
+// apps/omni-app/src/missions/tech.ts
+var ROUNDS2 = 2;
+var TECH_KEY = /^mission:[0-9a-f-]{36}:prd:([^:]+):tech:([1-9][0-9]*)$/;
+var techKey = (mission, prd, k) => `mission:${mission}:prd:${prd}:tech:${String(k)}`;
+function techOfKey(key) {
+  const match = TECH_KEY.exec(key);
+  const prd = ProductPrdIdSchema.safeParse(match?.[1]);
+  return match !== null && prd.success ? { prd: prd.data, k: Number(match[2]) } : null;
+}
+function productPlansOf(jobs) {
+  return jobs.flatMap((job) => {
+    const planned = planOfLine(job.line);
+    return planned === null || planned.kind !== "plan" || !isProductPrdId(planned.prd) ? [] : [{ ...job, prd: planned.prd }];
+  });
+}
+function addedProductsOf(recorded) {
+  const added = [];
+  for (const { kind, product, prd } of recorded) {
+    const id = product ?? (typeof prd === "string" ? prd : void 0);
+    if (kind === "prd-added" && id !== void 0 && !added.includes(id)) added.push(id);
+  }
+  return added;
+}
+var working2 = ({ status: status2 }) => status2 === "queued" || status2 === "claimed" || status2 === "running";
+var approvedOn = (decisions, kind, latest) => latest !== null && decisions.some((one) => one.kind === kind && one.outcome === "approved" && one.plan === latest);
+function escalatedWords(prd, decision) {
+  const why = decision.why.length > 0 ? decision.why.join("; ") : "it sent it to you";
+  return decision.kind === "tech" ? `PRD ${prd}: the Architect left it to you: ${why}; approve it on its page` : `PRD ${prd}: the PM's plan approval went to you: ${why}; approve it on its page`;
+}
+var spentWords2 = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS2)} rounds; approve it on its page`;
+function reviewStateOf(view) {
+  const mine = view.decisions.filter((one) => one.prd === view.prd);
+  if (approvedOn(mine, "plan", view.latest) && approvedOn(mine, "tech", view.latest)) return { state: "build" };
+  if (view.plans.some((one) => working2(one.attempt)) || view.techs.some((one) => working2(one.attempt))) return { state: "working" };
+  const last = mine.at(-1);
+  if (last?.outcome === "escalated") return view.approval === "standing" ? { state: "build" } : { state: "waits", why: escalatedWords(view.prd, last) };
+  if (!approvedOn(mine, "plan", view.latest)) return view.plans.length < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
+  return view.techs.length < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
+}
+var short3 = (plan) => plan === null ? "no version" : `version ${plan.slice(0, 7)}`;
+function decisionEvent(decision) {
+  const n = `PRD ${decision.prd}`;
+  const why = decision.why.join("; ");
+  const settled2 = decision.settled.length > 0 ? `, settling: ${decision.settled.join("; ")}` : "";
+  const sentence2 = decision.kind === "plan" ? decision.outcome === "approved" ? `The PM approved the plan of ${n} (${short3(decision.plan)}).` : `The PM's plan approval of ${n} went to a person: ${why}.` : decision.outcome === "approved" ? `The Architect approved the plan of ${n} (${short3(decision.plan)})${settled2}.` : `The Architect left ${n} to a person: ${why}.`;
+  return { kind: "job-ended", role: decision.kind === "tech" ? "architect" : "pm", prd: decision.prd, job: decision.job, link: null, sentence: sentence2 };
+}
+function reviewDispatched(prd, job, line3, state) {
+  const sentence2 = state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+  return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
+}
+
+// kit/lib/virtual-fleet/plan-record.ts
+import { z as z103 } from "zod";
+var PLAN_LINE2 = "omni plan: ";
+var PlanShaSchema = z103.string().regex(/^[0-9a-f]{64}$/);
+var PlanRecordSchema = z103.object({
+  v: z103.literal(1),
+  prd: ProductPrdIdSchema,
+  plan: PlanShaSchema,
+  outcome: z103.enum(["approved"])
+});
+var planRecordOf = (log2, prd) => lastRecordOf(log2, PLAN_LINE2, PlanRecordSchema, (record) => record.prd === prd);
+
+// kit/lib/virtual-fleet/tech-record.ts
+import { z as z104 } from "zod";
+var TECH_LINE = "omni tech: ";
+var POINTS_MAX = 10;
+var POINT_MAX = 300;
+var PointSchema = z104.string().trim().min(1).max(POINT_MAX).refine((text20) => !/[\r\n]/.test(text20));
+var TechRecordSchema = z104.object({
+  v: z104.literal(1),
+  prd: ProductPrdIdSchema,
+  plan: PlanShaSchema,
+  settled: z104.array(PointSchema).max(POINTS_MAX),
+  open: z104.array(PointSchema).max(POINTS_MAX),
+  outcome: z104.enum(["approved", "escalated"])
+}).refine((record) => record.outcome === "escalated" || record.open.length === 0, { message: "an approved review leaves no open point", path: ["open"] });
+var techRecordOf = (log2, prd) => lastRecordOf(log2, TECH_LINE, TechRecordSchema, (record) => record.prd === prd);
+var techJobLine = (prd, mission) => `/omni:tech-review ${prd} --mission ${String(mission)}`;
 
 // apps/omni-app/src/missions/pm.plan.ts
 function planJobsOf(jobs) {
@@ -25186,19 +25327,19 @@ var sentEvent = (job, { where, mission }) => ({
 });
 
 // kit/lib/repair/line.ts
-import { z as z104 } from "zod";
+import { z as z106 } from "zod";
 
 // kit/lib/repair/scrub.ts
-import { z as z103 } from "zod";
+import { z as z105 } from "zod";
 var MESSAGE_MAX = 300;
-var KitVersionSchema = z103.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/, "a kit version");
-var CommandSchema = z103.string().regex(/^(?:\/omni:[a-z][a-z0-9-]*|omni(?: [a-z][a-z0-9-]*){1,2})$/, "a skill or an omni command");
+var KitVersionSchema = z105.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/, "a kit version");
+var CommandSchema = z105.string().regex(/^(?:\/omni:[a-z][a-z0-9-]*|omni(?: [a-z][a-z0-9-]*){1,2})$/, "a skill or an omni command");
 var COMMAND = /^(?:\/omni:[a-z][a-z0-9-]*|omni(?: (?!-)[a-z][a-z0-9-]*){1,2}(?= |$))/;
-var PublicReportSchema = z103.object({
+var PublicReportSchema = z105.object({
   kitVersion: KitVersionSchema,
   command: CommandSchema,
   class: RepairClassSchema,
-  message: z103.string().min(1).max(MESSAGE_MAX).refine((text20) => sensitiveShape(text20) === null, "a public message holds no path, repository, login, email, URL or token"),
+  message: z105.string().min(1).max(MESSAGE_MAX).refine((text20) => sensitiveShape(text20) === null, "a public message holds no path, repository, login, email, URL or token"),
   fingerprint: FingerprintSchema
 });
 var escape6 = (text20) => text20.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25226,10 +25367,10 @@ function scrub(input) {
 // kit/lib/repair/line.ts
 var REPAIR_LINE = "omni repair: ";
 var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
-var RepairRecordSchema = z104.object({
-  v: z104.literal(1),
-  mission: z104.number().int().positive(),
-  trigger: z104.enum(["failure", "stuck"]).optional(),
+var RepairRecordSchema = z106.object({
+  v: z106.literal(1),
+  mission: z106.number().int().positive(),
+  trigger: z106.enum(["failure", "stuck"]).optional(),
   prd: PrdNumberSchema.nullable(),
   fingerprint: FingerprintSchema,
   class: RepairClassSchema,
@@ -25261,10 +25402,10 @@ function repairLine(log2) {
 }
 
 // apps/omni-app/src/bug-reports/job.ts
-import { z as z105 } from "zod";
+import { z as z107 } from "zod";
 var BUG_REPORT_KIND = "bug-report";
 var BUG_REPORT_LANE = "bug-report";
-var BugReportJobDataSchema = z105.object({ report: PublicReportSchema });
+var BugReportJobDataSchema = z107.object({ report: PublicReportSchema });
 async function submitBugReport({ input, attempt: attempt3, add }) {
   const scrubbed = scrub(input);
   if (!scrubbed.ok) return { ok: false, reason: scrubbed.reason };
@@ -25346,7 +25487,7 @@ async function keepRow(at4, one, { round, rows }) {
   const kept3 = await at4.store.keepRepair(at4.mission, { prd: one.prd, fingerprint: fingerprint2, round, failedJob: one.failedJob, job: one.job, retro: retro2, fixPr: fixUrlOf(at4, one.record), ...trigger });
   return "spent" in kept3 ? { spent: kept3.spent, fingerprint: fingerprint2, retro: retro2 } : endedAtOnce(at4, kept3);
 }
-async function keep(at4, job, held2) {
+async function keep2(at4, job, held2) {
   return keepRow(at4, { record: await jobRecord2(at4, job), prd: job.prd, failedJob: job.failedJob, job: job.job, unreadable: unreadableFingerprint(job.prd) }, held2);
 }
 var failedRunOf = (runs, row) => runs.find((one) => one.prd === row.prd && one.attempts.some((attempt3) => attempt3.id === row.failedJob));
@@ -25429,7 +25570,7 @@ async function readRepairs(at4) {
   const refused10 = /* @__PURE__ */ new Map();
   for (const job of read2.jobs) {
     if (!spends(job) || rows.some((row) => row.job === job.job)) continue;
-    const kept3 = await keep(at4, job, { round, rows });
+    const kept3 = await keep2(at4, job, { round, rows });
     if ("spent" in kept3) refused10.set(job.job, kept3);
     else rows.push(kept3);
   }
@@ -25562,12 +25703,12 @@ function budgetNext(state) {
 
 // apps/omni-app/src/missions/budget.ts
 var trimmed3 = (n) => n.toFixed(1).replace(/\.0$/, "");
-var spentWords2 = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${trimmed3(n / 1e3)}k` : String(n);
+var spentWords3 = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${trimmed3(n / 1e3)}k` : String(n);
 var capWords = (n) => n >= 1e6 ? `${trimmed3(n / 1e6)}M` : n >= 1e3 ? `${trimmed3(n / 1e3)}k` : String(n);
 var WHOSE = { mission: "this mission's budget", fleet: "this fleet's daily cap" };
 function pausedWords(cap, limit, spent2) {
   const window = cap === "fleet" ? " in the last 24 hours" : "";
-  return `Paused: budget reached \xB7 ${spentWords2(spent2)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
+  return `Paused: budget reached \xB7 ${spentWords3(spent2)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
 }
 var clockOf2 = (iso2) => new Date(iso2).toISOString().slice(11, 16);
 var said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
@@ -25916,61 +26057,61 @@ async function stuckStep(at4) {
 }
 
 // kit/lib/mission/retro.ts
-import { z as z108 } from "zod";
+import { z as z110 } from "zod";
 
 // kit/lib/mission/item.ts
-import { z as z107 } from "zod";
+import { z as z109 } from "zod";
 
 // kit/lib/mission/retro-cited.ts
-import { z as z106 } from "zod";
+import { z as z108 } from "zod";
 var CITE_KINDS = ["event", "prd", "pr", "repair"];
 var SENTENCES_MAX = 5;
 var LOG_STAMP = /^\d{2}:\d{2}:\d{2}\b/;
-var CiteSchema = z106.strictObject({
-  kind: z106.enum(CITE_KINDS),
-  ref: z106.number().int().positive()
+var CiteSchema = z108.strictObject({
+  kind: z108.enum(CITE_KINDS),
+  ref: z108.number().int().positive()
 });
-var CitedSentenceSchema = z106.strictObject({
-  text: z106.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
-  cites: z106.array(CiteSchema)
+var CitedSentenceSchema = z108.strictObject({
+  text: z108.string().refine(isOneSentence, "one sentence, on one line, at most 240 characters").refine((text20) => !LOG_STAMP.test(text20.trim()), "a retro never holds a log excerpt").refine((text20) => !holdsToken(text20), "a retro never holds a credential in clear"),
+  cites: z108.array(CiteSchema)
 }).superRefine((sentence2, ctx) => {
   if (sentence2.cites.length === 0) {
     ctx.addIssue({ code: "custom", message: `the sentence "${sentence2.text}" cites no event, PRD, pull request or repair`, path: ["cites"] });
   }
 });
-var CitedSentencesSchema = z106.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
+var CitedSentencesSchema = z108.array(CitedSentenceSchema).min(1).max(SENTENCES_MAX);
 
 // kit/lib/mission/item.ts
 var WORDING_MAX = 1200;
-var IdSchema = z107.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
-var NameSchema = z107.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
-var MissionItemTargetSchema = z107.discriminatedUnion("kind", [
-  z107.strictObject({ kind: z107.literal("rule"), id: IdSchema }),
-  z107.strictObject({ kind: z107.literal("law"), id: IdSchema }),
-  z107.strictObject({ kind: z107.literal("form"), form: NameSchema, section: NameSchema })
+var IdSchema = z109.string().trim().min(1).max(120).regex(/^[^\s]+$/, "an id has no space");
+var NameSchema = z109.string().trim().min(1).max(120).refine((text20) => !/[\r\n]/.test(text20), "on one line");
+var MissionItemTargetSchema = z109.discriminatedUnion("kind", [
+  z109.strictObject({ kind: z109.literal("rule"), id: IdSchema }),
+  z109.strictObject({ kind: z109.literal("law"), id: IdSchema }),
+  z109.strictObject({ kind: z109.literal("form"), form: NameSchema, section: NameSchema })
 ]);
-var MissionItemSchema = z107.strictObject({
+var MissionItemSchema = z109.strictObject({
   target: MissionItemTargetSchema,
-  wording: z107.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
+  wording: z109.string().trim().min(1).max(WORDING_MAX).refine((text20) => !holdsToken(text20), "an item never holds a credential in clear"),
   evidence: CitedSentencesSchema
 });
 
 // kit/lib/mission/retro.ts
 var RETRO_LINE = "omni retro: ";
 var STAMP5 = /^\d{2}:\d{2}:\d{2} /;
-var MissionRetroSchema = z108.strictObject({
+var MissionRetroSchema = z110.strictObject({
   wentWell: CitedSentencesSchema,
   toChange: CitedSentencesSchema
 });
-var MilestoneSchema = z108.union([z108.literal("mission"), z108.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
-var FileSchema2 = z108.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
-var RetroRecordSchema = z108.strictObject({
-  v: z108.literal(1),
-  mission: z108.number().int().positive(),
+var MilestoneSchema = z110.union([z110.literal("mission"), z110.string().regex(/^[1-9]\d*$/, 'a roadmap number or "mission"')]);
+var FileSchema2 = z110.string().min(1).max(300).refine((path) => !path.startsWith("/") && !path.split("/").includes("..") && !/[\r\n\\]/.test(path), "a path inside the mission folder");
+var RetroRecordSchema = z110.strictObject({
+  v: z110.literal(1),
+  mission: z110.number().int().positive(),
   milestone: MilestoneSchema,
   retro: MissionRetroSchema,
   file: FileSchema2.nullable(),
-  items: z108.array(MissionItemSchema)
+  items: z110.array(MissionItemSchema)
 });
 function retroLine(log2) {
   const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP5, "")).findLast((line3) => line3.startsWith(RETRO_LINE));
@@ -26139,7 +26280,7 @@ function missionJob(id, repo) {
   const subject = repo.toLowerCase();
   return { kind: MISSION_KIND, key: `mission:${id}`, subject, payload: { mission: id }, lane: `mission:${id}`, delaySeconds: 0 };
 }
-var ProgressSchema3 = z109.looseObject({ laters: z109.number().int().min(0).optional() });
+var ProgressSchema3 = z111.looseObject({ laters: z111.number().int().min(0).optional() });
 async function supervise(store, sought, now, github) {
   const first = await readRun(store, sought, now);
   const { read: read2, runs, recorded, toFleet, inPlan, decided, pm, fleet } = first;
@@ -26173,7 +26314,7 @@ async function supervise(store, sought, now, github) {
   const states = after2.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after2.retro });
   const fresh = sent.length + approved.length + asked.length + repaired2.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products } });
   const landed = await landingStep({ store, mission, at: at4, landing, hold: kept3.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held2.waits, ...landed.waits]);
   const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString(), pmWait(pmView(mission, pm, inPlan))), products, now);
@@ -26235,25 +26376,35 @@ async function readRun(store, sought, now) {
   const read2 = decided.carried ? await store.facts(mission) : first;
   return { mission, read: read2, runs, recorded: pm.recorded, toFleet, inPlan, decided: decided.committees, pm, fleet: { room: roomOn(runners, mission.repo, now), now } };
 }
-async function pmRead(store, mission, events, jobs, now) {
+async function pmJobEvents(store, mission, events, jobs, plans) {
   const fresh = [];
-  const plans = planJobsOf(jobs);
-  if (mission.level === "alone") {
-    for (const one of jobs) {
-      const known = [...events, ...fresh.map(asRecorded)];
-      const plan = plans.find((each) => each.job === one.job);
-      if (plan !== void 0) fresh.push(...planEvents(plan, known));
-      if (!isOwnJob(one)) continue;
-      const held2 = /* @__PURE__ */ new Set([...mission.scope.prds, ...addedOf(known)]);
-      const log2 = pmWorking(one) ? null : await store.committeeLog(one.job);
-      fresh.push(...pmEvents(mission, one, log2, held2, events));
-    }
-    if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now - 1e3));
+  for (const one of jobs) {
+    const known = [...events, ...fresh.map(asRecorded)];
+    const plan = plans.find((each) => each.job === one.job);
+    if (plan !== void 0) fresh.push(...planEvents(plan, known));
+    if (!isOwnJob(one)) continue;
+    const log2 = pmWorking(one) ? null : await store.committeeLog(one.job);
+    fresh.push(...pmEvents(mission, one, log2, heldOf(mission, known), events));
   }
+  return fresh;
+}
+var heldOf = (mission, known) => /* @__PURE__ */ new Set([...mission.scope.prds, ...mission.products?.prds ?? [], ...addedOf(known), ...addedProductsOf(known)]);
+function withProductsAdded(mission, added) {
+  if (added.length === 0) return {};
+  const named = mission.products ?? { prds: [], roadmaps: [] };
+  return { products: { ...named, prds: [...named.prds, ...added.filter((prd) => !named.prds.includes(prd))] } };
+}
+var PR_HOME = { phase0: "pr", product: null };
+async function pmRead(store, mission, events, jobs, now) {
+  const plans = planJobsOf(jobs);
+  const fresh = mission.level === "alone" ? await pmJobEvents(store, mission, events, jobs, plans) : [];
+  if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now - 1e3));
   const recorded = [...events, ...fresh.map(asRecorded)];
   const added = addedOf(recorded);
   const authored = /* @__PURE__ */ new Set([...added, ...plannedOf(plans)]);
-  return { mission: { ...mission, scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking), plans, authored };
+  const products = addedProductsOf(recorded);
+  const home = mission.level === "alone" && store.products !== void 0 ? await store.products.home(mission) : PR_HOME;
+  return { mission: { ...mission, ...withProductsAdded(mission, products), scope: { ...mission.scope, prds: withAdded(mission.scope.prds, added) } }, recorded, added: new Set(added), jobs, writing: jobs.some(pmWorking), plans, authored, products: new Set(products), home };
 }
 async function sendPlans({ store, mission, send, jobs, toFleet, sends }) {
   const out = { events: [], jobs: [] };
@@ -26282,8 +26433,8 @@ async function sendRetro(store, mission, toFleet) {
   const sentence2 = `A new plan was refused: sent ${retroSkillLine(mission.number, "mission")} to ${whereOf2(mission, toFleet)}.`;
   return job === null ? [] : [{ kind: "dispatched", role: "supervisor", prd: null, job, link: null, sentence: sentence2 }];
 }
-var asRecorded = ({ kind, prd, job }) => ({ kind, prd, job });
-var pmView = (mission, pm, inPlan) => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs) });
+var asRecorded = ({ kind, prd, job }) => typeof prd === "string" ? { kind, prd: null, product: prd, job } : { kind, prd, job };
+var pmView = (mission, pm, inPlan) => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size + pm.products.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs), home: pm.home });
 async function sendPm(store, mission, pm, inPlan, toFleet) {
   const next = pmNext(pmView(mission, pm, inPlan));
   if (next.next !== "send") return [];
@@ -26642,8 +26793,8 @@ async function dropAll({
   const asks = standingAsks(recorded);
   if (at4 === null || drops === null || asks.length === 0) return { recorded: current, waits: [] };
   const waits = [];
-  for (const { prd, keep: keep3 } of asks) {
-    const set = dropSet({ order: [...onBranchOf(current)], prd, keep: keep3, territory: (one) => facts.find((fact) => fact.prd === one)?.territory ?? null });
+  for (const { prd, keep: keep4 } of asks) {
+    const set = dropSet({ order: [...onBranchOf(current)], prd, keep: keep4, territory: (one) => facts.find((fact) => fact.prd === one)?.territory ?? null });
     if (set === null) continue;
     const prds = set.dropped.flatMap((one) => {
       const pr = featurePrOf(runs, one);
@@ -26679,6 +26830,32 @@ async function redBranch({ mission, at: at4, joined: joined2, joins }) {
   return { waits: [why], hold: why };
 }
 var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [] };
+var NO_REVIEWS = { techs: [], decisions: [], events: [] };
+var notDoneWhy = ({ status: status2 }) => status2 === "done" ? [] : [status2 === "cancelled" ? "its job was cancelled" : "its job failed"];
+async function decideReviewed(at4, products, one) {
+  const log2 = one.attempt.status === "done" ? await at4.store.committeeLog(one.job) : null;
+  const record = log2 === null ? null : one.kind === "plan" ? planRecordOf(log2, one.prd) : techRecordOf(log2, one.prd);
+  const kept3 = await products.decidePlan(at4.mission, { prd: one.prd, job: one.job, kind: one.kind, record, why: notDoneWhy(one.attempt) });
+  const settled2 = record !== null && "settled" in record && kept3.outcome === "approved" ? record.settled : [];
+  return { kind: one.kind, prd: one.prd, job: one.job, plan: kept3.plan, outcome: kept3.outcome, why: kept3.why, settled: settled2 };
+}
+async function reviewAll(at4, products) {
+  if (at4.pm.authored.size === 0) return NO_REVIEWS;
+  const read2 = await products.reviews(at4.mission.id);
+  const decided = new Set(read2.decisions.map((one) => one.job));
+  const ended7 = [
+    ...productPlansOf(at4.pm.jobs).map((one) => ({ kind: "plan", prd: one.prd, job: one.job, attempt: one.attempt })),
+    ...read2.techs.map((one) => ({ kind: "tech", prd: one.prd, job: one.job, attempt: one.attempt }))
+  ].filter((one) => at4.pm.authored.has(one.prd) && !pmWorking(one) && !decided.has(one.job));
+  const decisions = [...read2.decisions];
+  const events = [];
+  for (const one of ended7) {
+    const decision = await decideReviewed(at4, products, one);
+    decisions.push(decision);
+    events.push(decisionEvent(decision));
+  }
+  return { techs: read2.techs, decisions, events };
+}
 function productsJoined(events) {
   const on = /* @__PURE__ */ new Set();
   for (const { kind, product } of events) {
@@ -26712,23 +26889,46 @@ async function productBranch(at4, facts) {
 async function productAll(at4) {
   const products = at4.store.products;
   if (products === void 0 || at4.mission.products === void 0 || !sendsCommittees(at4.mission.status)) return NO_PRODUCTS;
+  const reviews = await reviewAll(at4, products);
   const facts = await products.facts(at4.mission);
   const joined2 = productsJoined(await at4.store.events(at4.mission.id));
   if (facts.length === 0) return NO_PRODUCTS;
   const branch = baseOf(at4.mission, at4.inPlan) ?? "the mission branch";
   if (facts.every((fact) => joined2.has(fact.prd))) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], waits: [`every product PRD is on ${branch}: a person lands it`] };
   const ready = await productBranch(at4, facts);
-  if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], pending: true, waits: [ready.why] };
+  if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], pending: true, waits: [ready.why], events: reviews.events };
   const runs = await products.runs(at4.mission.id);
   const answered = answeredOf(await at4.store.decisions(at4.mission.id));
-  return productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered }, facts);
+  const done = await productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered, reviews, rounds: nextPlanRound(at4.pm.jobs) }, facts);
+  return { ...done, events: [...reviews.events, ...done.events] };
+}
+function reviewOf(at4, fact) {
+  if (!at4.pm.authored.has(fact.prd)) return { state: "build" };
+  const plans = productPlansOf(at4.pm.jobs).filter((one) => one.prd === fact.prd);
+  const techs = at4.reviews.techs.filter((one) => one.prd === fact.prd);
+  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions });
+}
+async function reviewStep(at4, fact, state, step) {
+  if (state.state === "waits") {
+    step.waits.push(cut3(state.why));
+    return;
+  }
+  step.moving = true;
+  if (state.state === "working") return;
+  const line3 = state.state === "plan" ? planJobLine(fact.prd, "plan") : techJobLine(fact.prd, at4.mission.number);
+  const job = state.state === "plan" ? await at4.store.pm({ mission: at4.mission, round: at4.rounds++, line: line3, toFleet: at4.toFleet }) : await at4.products.review({ mission: at4.mission, prd: fact.prd, k: state.k, line: line3, toFleet: at4.toFleet });
+  if (job === null) return;
+  const sent = reviewDispatched(fact.prd, job, line3, state);
+  step.events.push({ ...sent, sentence: cut3(sent.sentence) });
 }
 async function productSteps(at4, facts) {
   const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
   const where = { joined: at4.joined, done, branch: at4.branch };
   const step = { room: at4.mission.parallel - facts.filter((fact) => productStateOf(fact, at4.runs, where).state === "running").length, moving: false, waits: [], events: [] };
   for (const fact of facts) {
-    await productStep(at4, fact, productStateOf(fact, at4.runs, where), step);
+    const review = reviewOf(at4, fact);
+    if (review.state !== "build") await reviewStep(at4, fact, review, step);
+    else await productStep(at4, fact, productStateOf(fact, at4.runs, where), step);
     if (at4.joined.has(fact.prd)) done.add(fact.prd);
   }
   const sent = step.events.filter((one) => one.kind === "dispatched").length;
@@ -26871,15 +27071,15 @@ async function laterOf({ job, refresh, mission, at: at4, until = null }) {
 }
 
 // apps/omni-app/src/missions/bug-team.github.ts
-import { z as z110 } from "zod";
+import { z as z112 } from "zod";
 var ISSUES_READ = 20;
 var LINKED = 10;
-var IssueSchema4 = z110.looseObject({
-  state: z110.enum(["OPEN", "CLOSED"]),
-  closedByPullRequestsReferences: z110.looseObject({ nodes: z110.array(z110.looseObject({ number: PrNumberSchema, state: z110.string() }).nullable()) }).nullable()
+var IssueSchema4 = z112.looseObject({
+  state: z112.enum(["OPEN", "CLOSED"]),
+  closedByPullRequestsReferences: z112.looseObject({ nodes: z112.array(z112.looseObject({ number: PrNumberSchema, state: z112.string() }).nullable()) }).nullable()
 });
-var AnswerSchema3 = z110.looseObject({
-  data: z110.looseObject({ repository: z110.record(z110.string(), IssueSchema4.nullable()).nullable() }).nullable()
+var AnswerSchema3 = z112.looseObject({
+  data: z112.looseObject({ repository: z112.record(z112.string(), IssueSchema4.nullable()).nullable() }).nullable()
 });
 function issuesQuery(issues) {
   const fields = issues.map((issue) => `i${String(issue)}: issue(number: ${String(issue)}) { state closedByPullRequestsReferences(first: ${String(LINKED)}, includeClosedPrs: false) { nodes { number state } } }`).join(" ");
@@ -26914,13 +27114,13 @@ function missionBugIssues({ octokitFor }) {
 }
 
 // apps/omni-app/src/missions/repair.github.ts
-import { z as z111 } from "zod";
+import { z as z113 } from "zod";
 var STAMP6 = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
 var stampOf = (text20) => parseVersion(STAMP6.exec(text20)?.[1]);
 var BIN = ".omni-loop/bin/omni.mjs";
 var HEAD_BYTES = 65535;
 var CONTENTS2 = "GET /repos/{owner}/{repo}/contents/{path}";
-var PackageSchema = z111.looseObject({ version: z111.unknown() });
+var PackageSchema = z113.looseObject({ version: z113.unknown() });
 function ownerAndName(full) {
   const match = /^([^/\s]+)\/([^/\s]+)$/.exec(full);
   const owner = match?.[1];
@@ -26977,7 +27177,7 @@ function missionKits({ octokitFor }) {
 import { existsSync as existsSync52, mkdtempSync as mkdtempSync17, readFileSync as readFileSync50, rmSync as rmSync21 } from "node:fs";
 import { tmpdir as tmpdir17 } from "node:os";
 import { join as join76 } from "node:path";
-import { z as z112 } from "zod";
+import { z as z114 } from "zod";
 
 // kit/lib/mission/overturn.agree.ts
 function agreeEntry({ settled: settled2, markers, item, login, at: at4 }) {
@@ -26999,11 +27199,11 @@ function agreeEntry({ settled: settled2, markers, item, login, at: at4 }) {
 }
 
 // apps/omni-app/src/missions/settle.ts
-var PullSchema7 = z112.looseObject({
-  html_url: z112.string(),
-  state: z112.string(),
-  base: z112.looseObject({ ref: z112.string(), repo: z112.looseObject({ default_branch: z112.string() }) }),
-  head: z112.looseObject({ ref: z112.string(), sha: z112.string() })
+var PullSchema7 = z114.looseObject({
+  html_url: z114.string(),
+  state: z114.string(),
+  base: z114.looseObject({ ref: z114.string(), repo: z114.looseObject({ default_branch: z114.string() }) }),
+  head: z114.looseObject({ ref: z114.string(), sha: z114.string() })
 });
 var messageOf5 = (item, prd, fleet) => `docs(outbox): ${item} answered by fleet ${fleet}
 
@@ -27071,19 +27271,19 @@ Part of #${String(prd)}`,
 }
 
 // apps/omni-app/src/missions/store.ts
-import { z as z114 } from "zod";
+import { z as z116 } from "zod";
 
 // kit/lib/qa/verdict.ts
-import { z as z113 } from "zod";
+import { z as z115 } from "zod";
 var MAX_BUGS = 5;
-var QaRoundSchema = z113.union([z113.literal(1), z113.literal(2)]);
-var QaBugSchema = z113.strictObject({ issue: IssueNumberSchema });
-var QaVerdictSchema = z113.discriminatedUnion("verdict", [
-  z113.strictObject({ round: QaRoundSchema, verdict: z113.literal("pass") }),
-  z113.strictObject({
+var QaRoundSchema = z115.union([z115.literal(1), z115.literal(2)]);
+var QaBugSchema = z115.strictObject({ issue: IssueNumberSchema });
+var QaVerdictSchema = z115.discriminatedUnion("verdict", [
+  z115.strictObject({ round: QaRoundSchema, verdict: z115.literal("pass") }),
+  z115.strictObject({
     round: QaRoundSchema,
-    verdict: z113.literal("bugs"),
-    bugs: z113.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
+    verdict: z115.literal("bugs"),
+    bugs: z115.array(QaBugSchema).min(1).max(MAX_BUGS).refine((bugs) => new Set(bugs.map((bug) => bug.issue)).size === bugs.length, "each bug is its own issue")
   })
 ]);
 var POSTED_PREFIX = "omni qa: posted ";
@@ -27151,140 +27351,157 @@ var PAUSE_EVENT = "kind, actor, at";
 var FLEET_MISSION = "id";
 var BRANCH2 = "repo, branch, cut_at";
 var FLEET_DECISION = "kind, prd_id, item, job_id, outcome, why, option, decided_at";
-var text19 = z114.string().min(1);
-var MissionRowSchema = z114.object({
+var text19 = z116.string().min(1);
+var MissionRowSchema = z116.object({
   id: text19,
   workspace_id: text19,
   repo: text19,
   fleet: text19,
   number: IssueNumberSchema,
   title: text19,
-  status: z114.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
-  waiting_on: z114.string().nullable(),
-  mandate: z114.object({
-    parallel: z114.number().int().min(1).max(4),
-    level: z114.enum(MISSION_LEVELS).default("with-you"),
-    hardToRevert: z114.number().min(0).max(1).default(DEFAULT_BOUND),
-    ownPrds: z114.number().int().min(0).max(10).default(0),
-    resumes: z114.number().int().min(0).max(RESUMES_MAX2).default(DEFAULT_RESUMES),
-    tokens: z114.number().int().min(1).nullable().default(null)
+  status: z116.enum(["draft", "running", "waiting", "paused", "delivered", "stopped"]),
+  waiting_on: z116.string().nullable(),
+  mandate: z116.object({
+    parallel: z116.number().int().min(1).max(4),
+    level: z116.enum(MISSION_LEVELS).default("with-you"),
+    hardToRevert: z116.number().min(0).max(1).default(DEFAULT_BOUND),
+    ownPrds: z116.number().int().min(0).max(10).default(0),
+    resumes: z116.number().int().min(0).max(RESUMES_MAX2).default(DEFAULT_RESUMES),
+    tokens: z116.number().int().min(1).nullable().default(null)
   }),
   /** PRD omni-loop-21: a product's ids beside the repository's numbers. */
-  scope: z114.object({ prds: z114.array(z114.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z114.array(z114.union([IssueNumberSchema, ProductRoadmapIdSchema])) }),
+  scope: z116.object({ prds: z116.array(z116.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z116.array(z116.union([IssueNumberSchema, ProductRoadmapIdSchema])) }),
   /** PRD 3065: `stuck` while paused by stuck. A row read before the column was added has none. */
-  paused_by: z114.enum(["stuck"]).nullable().default(null),
+  paused_by: z116.enum(["stuck"]).nullable().default(null),
   /** PRD 3088: `omni-bugs` for the Omni Loop bug team. A row read before the column was added is a mission of PRDs. */
-  kind: z114.enum(["prds", "omni-bugs"]).default("prds")
+  kind: z116.enum(["prds", "omni-bugs"]).default("prds")
 });
-var WorkspaceRowSchema2 = z114.object({ github_installation_id: z114.number().int().positive().nullable() });
-var RoadmapRowSchema = z114.object({ id: text19, number: IssueNumberSchema.nullable() });
-var RoadmapPrdRowSchema = z114.object({ roadmap_id: text19, position: z114.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z114.array(z114.string()) });
-var StageRowSchema = z114.object({ prd: PrdNumberSchema, stage: text19 });
-var DossierRowSchema5 = z114.object({ id: text19, prd: PrdNumberSchema.nullable() });
-var ApprovalRowSchema2 = z114.object({ id: text19, dossier_id: text19, mission_id: z114.string().nullable(), approved_at: text19 });
-var FleetEventRowSchema = z114.object({ kind: text19, prd_id: PrdIdSchema.nullable(), sentence: text19, link: z114.string().nullable(), actor: z114.string().nullable() });
-var OverturnRowSchema = z114.object({ prd_id: PrdIdSchema.nullable(), at: text19 });
-var VoidRowSchema2 = z114.object({ approval_id: text19 });
-var PlanRowSchema = z114.object({ content: z114.string() });
-var JobRowSchema2 = z114.object({
+var WorkspaceRowSchema2 = z116.object({ github_installation_id: z116.number().int().positive().nullable() });
+var RoadmapRowSchema = z116.object({ id: text19, number: IssueNumberSchema.nullable() });
+var RoadmapPrdRowSchema = z116.object({ roadmap_id: text19, position: z116.number().int(), row_id: text19, prd: PrdNumberSchema.nullable(), blockers: z116.array(z116.string()) });
+var StageRowSchema = z116.object({ prd: PrdNumberSchema, stage: text19 });
+var DossierRowSchema5 = z116.object({ id: text19, prd: PrdNumberSchema.nullable() });
+var ApprovalRowSchema2 = z116.object({ id: text19, dossier_id: text19, mission_id: z116.string().nullable(), approved_at: text19 });
+var FleetEventRowSchema = z116.object({ kind: text19, prd_id: PrdIdSchema.nullable(), sentence: text19, link: z116.string().nullable(), actor: z116.string().nullable() });
+var OverturnRowSchema = z116.object({ prd_id: PrdIdSchema.nullable(), at: text19 });
+var VoidRowSchema2 = z116.object({ approval_id: text19 });
+var PlanRowSchema = z116.object({ content: z116.string() });
+var JobRowSchema2 = z116.object({
   id: text19,
-  mission_key: z114.string().nullable(),
-  resumes: z114.string().nullable(),
-  status: z114.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z114.string().nullable(),
-  reason: z114.string().nullable(),
-  pr_url: z114.string().nullable(),
-  limited_until: z114.string().nullable().default(null),
+  mission_key: z116.string().nullable(),
+  resumes: z116.string().nullable(),
+  status: z116.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z116.string().nullable(),
+  reason: z116.string().nullable(),
+  pr_url: z116.string().nullable(),
+  limited_until: z116.string().nullable().default(null),
   /** The job's parts, read only for whether the runner guessed the reset (PRD 2949). */
-  parts: z114.array(z114.looseObject({ guessed: z114.boolean().optional() })).nullable().default(null)
+  parts: z116.array(z116.looseObject({ guessed: z116.boolean().optional() })).nullable().default(null)
 });
-var JobLogRowSchema = z114.object({ id: text19, log_tail: z114.string() });
+var JobLogRowSchema = z116.object({ id: text19, log_tail: z116.string() });
 var ASK2 = `${JOB2}, line`;
-var AskRowSchema = JobRowSchema2.extend({ line: z114.string() });
-var CareRowSchema = z114.object({ id: text19 });
-var EventRowSchema = z114.object({ kind: text19, prd_id: PrdIdSchema.nullable(), job_id: z114.string().nullable() });
-var DecisionRowSchema = z114.object({ job_id: text19, outcome: z114.enum(["carried", "escalated"]), why: z114.array(z114.string()) });
-var DecidedSchema = z114.object({ outcome: z114.enum(["carried", "escalated"]), why: z114.array(z114.string()) });
-var RunnerRowSchema2 = z114.object({ repos: z114.array(z114.string()) });
-var RoomRunnerRowSchema = z114.object({
+var AskRowSchema = JobRowSchema2.extend({ line: z116.string() });
+var CareRowSchema = z116.object({ id: text19 });
+var EventRowSchema = z116.object({ kind: text19, prd_id: PrdIdSchema.nullable(), job_id: z116.string().nullable() });
+var DecisionRowSchema = z116.object({ job_id: text19, outcome: z116.enum(["carried", "escalated"]), why: z116.array(z116.string()) });
+var DecidedSchema = z116.object({ outcome: z116.enum(["carried", "escalated"]), why: z116.array(z116.string()) });
+var RunnerRowSchema2 = z116.object({ repos: z116.array(z116.string()) });
+var RoomRunnerRowSchema = z116.object({
   id: text19,
-  repos: z114.array(z114.string()),
-  slots: z114.number().int(),
+  repos: z116.array(z116.string()),
+  slots: z116.number().int(),
   last_seen_at: text19,
-  health: z114.looseObject({ at: text19, paused: z114.string().nullable().optional(), accounts: z114.array(z114.looseObject({ state: z114.string(), resetsAt: z114.string().optional() })).optional() }).nullable()
+  health: z116.looseObject({ at: text19, paused: z116.string().nullable().optional(), accounts: z116.array(z116.looseObject({ state: z116.string(), resetsAt: z116.string().optional() })).optional() }).nullable()
 });
-var RoomJobRowSchema = z114.object({ runner_id: z114.string().nullable() });
+var RoomJobRowSchema = z116.object({ runner_id: z116.string().nullable() });
 var CHAIN_MAX = 9;
-var ProductRowSchema3 = z114.object({ plan_repository: z114.string().nullable() });
-var IdRowSchema2 = z114.object({ id: text19 });
+var ProductRowSchema3 = z116.object({ plan_repository: z116.string().nullable() });
+var IdRowSchema2 = z116.object({ id: text19 });
 var PRODUCT_ITEM = "item, rank, outbox_settlements(verdict)";
-var ProductItemRowSchema = z114.object({ item: text19, rank: text19, outbox_settlements: z114.array(z114.looseObject({})) });
-var RepairRowSchema = z114.object({
+var ProductItemRowSchema = z116.object({ item: text19, rank: text19, outbox_settlements: z116.array(z116.looseObject({})) });
+var RepairRowSchema = z116.object({
   id: text19,
   /** None only for a stuck repair whose cause is the mission's own (PRD 3065); a product PRD's id (PRD omni-loop-21 s3b). */
   prd_id: PrdIdSchema.nullable(),
-  trigger: z114.enum(["failure", "stuck"]).default("failure"),
-  fingerprint: z114.string().regex(/^[0-9a-f]{64}$/),
-  round: z114.number().int().min(1),
-  number: z114.number().int().min(1).max(3),
+  trigger: z116.enum(["failure", "stuck"]).default("failure"),
+  fingerprint: z116.string().regex(/^[0-9a-f]{64}$/),
+  round: z116.number().int().min(1),
+  number: z116.number().int().min(1).max(3),
   failed_job_id: text19,
-  job_id: z114.string().nullable(),
+  job_id: z116.string().nullable(),
   /** A retro that no longer reads as one is read as none: the repair counts, its words are not shown. */
   retro: RepairRetroSchema.nullable().catch(null),
-  fix_pr: z114.string().nullable(),
-  outcome: z114.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
+  fix_pr: z116.string().nullable(),
+  outcome: z116.enum(["fixed", "not fixed", "stopped", "lost"]).nullable()
 });
-var BugReportRowSchema = z114.object({ repo: text19, issue: IssueNumberSchema, state: z114.enum(BUG_STATES2).default("open"), fixed_in: z114.string().nullable().default(null) });
-var TeamBugRowSchema = z114.object({
-  fingerprint: z114.string().regex(/^[0-9a-f]{64}$/),
+var BugReportRowSchema = z116.object({ repo: text19, issue: IssueNumberSchema, state: z116.enum(BUG_STATES2).default("open"), fixed_in: z116.string().nullable().default(null) });
+var TeamBugRowSchema = z116.object({
+  fingerprint: z116.string().regex(/^[0-9a-f]{64}$/),
   issue: IssueNumberSchema,
-  count: z114.number().int().min(1),
+  count: z116.number().int().min(1),
   created_at: text19,
-  state: z114.enum(BUG_STATES2),
-  attempts: z114.number().int().min(0).max(BUG_TRIES),
+  state: z116.enum(BUG_STATES2),
+  attempts: z116.number().int().min(0).max(BUG_TRIES),
   fix_pr: PrNumberSchema.nullable(),
-  fixed_in: z114.string().nullable(),
-  asked_job: z114.string().nullable()
+  fixed_in: z116.string().nullable(),
+  asked_job: z116.string().nullable()
 });
 var TEAM_STATES = ["open", "fixing", "asked"];
-var MovedBugRowSchema = z114.object({ fingerprint: z114.string().regex(/^[0-9a-f]{64}$/) });
-var HolderRepairRowSchema = z114.object({ mission_id: text19, job_id: text19, fingerprint: z114.string().regex(/^[0-9a-f]{64}$/) });
-var ToldRowSchema = z114.object({ job_id: z114.string().nullable() });
-var HolderMissionRowSchema = z114.object({ id: text19, repo: text19 });
+var MovedBugRowSchema = z116.object({ fingerprint: z116.string().regex(/^[0-9a-f]{64}$/) });
+var HolderRepairRowSchema = z116.object({ mission_id: text19, job_id: text19, fingerprint: z116.string().regex(/^[0-9a-f]{64}$/) });
+var ToldRowSchema = z116.object({ job_id: z116.string().nullable() });
+var HolderMissionRowSchema = z116.object({ id: text19, repo: text19 });
 var MOVED_STATES = ["fixed", "wont-fix"];
 var HELD_STATUSES = ["paused", "stopped"];
-var RetroRowSchema = z114.object({ id: text19, milestone: text19, job_id: z114.string().nullable(), skipped: z114.string().nullable(), file: z114.string().nullable() });
-var RepositoryRowSchema2 = z114.object({ full_name: text19 });
-var ActorRowSchema = z114.object({ actor: z114.string().nullable() });
-var FleetCapRowSchema = z114.object({ daily_tokens: z114.number().int().positive().nullable() });
-var StopRowSchema = z114.object({
+var RetroRowSchema = z116.object({ id: text19, milestone: text19, job_id: z116.string().nullable(), skipped: z116.string().nullable(), file: z116.string().nullable() });
+var RepositoryRowSchema2 = z116.object({ full_name: text19 });
+var ActorRowSchema = z116.object({ actor: z116.string().nullable() });
+var FleetCapRowSchema = z116.object({ daily_tokens: z116.number().int().positive().nullable() });
+var StopRowSchema = z116.object({
   id: text19,
-  cap: z114.enum(["mission", "fleet"]),
-  cap_tokens: z114.number().int().positive(),
-  spent: z114.number().int().min(0),
-  missions: z114.array(text19),
-  answer: z114.enum(["raised", "tomorrow", "stopped"]).nullable(),
-  raised_to: z114.number().int().positive().nullable(),
+  cap: z116.enum(["mission", "fleet"]),
+  cap_tokens: z116.number().int().positive(),
+  spent: z116.number().int().min(0),
+  missions: z116.array(text19),
+  answer: z116.enum(["raised", "tomorrow", "stopped"]).nullable(),
+  raised_to: z116.number().int().positive().nullable(),
   created_at: text19,
-  answered_at: z114.string().nullable()
+  answered_at: z116.string().nullable()
 });
-var PauseEventRowSchema = z114.object({ kind: z114.enum(["paused", "resumed"]), actor: z114.string().nullable(), at: text19 });
-var FleetMissionRowSchema = z114.object({ id: text19 });
-var BranchRowSchema = z114.object({ repo: text19, branch: text19, cut_at: text19 });
-var ItemOutcomeSchema = z114.enum(["carried", "deferred", "escalated"]);
-var FleetDecisionRowSchema = z114.object({
-  kind: z114.enum(["approve", "answer"]),
+var PauseEventRowSchema = z116.object({ kind: z116.enum(["paused", "resumed"]), actor: z116.string().nullable(), at: text19 });
+var FleetMissionRowSchema = z116.object({ id: text19 });
+var BranchRowSchema = z116.object({ repo: text19, branch: text19, cut_at: text19 });
+var ItemOutcomeSchema = z116.enum(["carried", "deferred", "escalated"]);
+var PLAN_DECISION = "kind, product_prd, job_id, plan, outcome, why, settled";
+var PlanDecisionRowSchema = z116.object({
+  kind: z116.enum(["plan", "tech"]),
+  product_prd: ProductPrdIdSchema,
+  job_id: text19,
+  plan: z116.string().regex(/^[0-9a-f]{64}$/).nullable(),
+  outcome: z116.enum(["approved", "escalated"]),
+  why: z116.array(z116.string()),
+  settled: z116.array(z116.string())
+});
+var PlanDecidedSchema = z116.object({ outcome: z116.enum(["approved", "escalated"]), why: z116.array(z116.string()), plan: z116.string().nullable(), latest: z116.boolean().nullable() });
+var PLAN_VERSION = "sha256";
+var PlanVersionRowSchema = z116.object({ sha256: z116.string().regex(/^[0-9a-f]{64}$/) });
+var PHASE0 = "phase0";
+var Phase0RowSchema = z116.object({ phase0: z116.enum(["pr", "server"]) });
+var HOME_PRODUCT = "product_id, products!inner(key, archived_at)";
+var HomeProductRowSchema = z116.object({ product_id: text19, products: z116.object({ key: text19, archived_at: z116.string().nullable() }) });
+var FleetDecisionRowSchema = z116.object({
+  kind: z116.enum(["approve", "answer"]),
   prd_id: PrdIdSchema,
-  item: z114.string().nullable(),
+  item: z116.string().nullable(),
   job_id: text19,
   outcome: ItemOutcomeSchema,
-  why: z114.array(z114.string()),
-  option: z114.enum(ITEM_OPTIONS).nullable(),
+  why: z116.array(z116.string()),
+  option: z116.enum(ITEM_OPTIONS).nullable(),
   decided_at: text19
 });
-var ItemDecidedSchema = z114.object({ outcome: ItemOutcomeSchema, why: z114.array(z114.string()), option: z114.enum(ITEM_OPTIONS).nullable() });
-var CountSchema = z114.coerce.number().int().min(0);
-var FleetTokensRowSchema = z114.object({ tokens: CountSchema, oldest_end: z114.string().nullable() });
+var ItemDecidedSchema = z116.object({ outcome: ItemOutcomeSchema, why: z116.array(z116.string()), option: z116.enum(ITEM_OPTIONS).nullable() });
+var CountSchema = z116.coerce.number().int().min(0);
+var FleetTokensRowSchema = z116.object({ tokens: CountSchema, oldest_end: z116.string().nullable() });
 var stopOf2 = (row) => ({
   id: row.id,
   cap: row.cap,
@@ -27304,7 +27521,7 @@ var STOP_MISSIONS = 100;
 var PAUSES_READ = 50;
 function madeOf(answer, none) {
   if (answer.error?.code === TAKEN) return null;
-  const [made] = rowsOf(z114.object({ id: text19 }), answer);
+  const [made] = rowsOf(z116.object({ id: text19 }), answer);
   if (!made) throw new Error(`the database ${none} and gave no reason`);
   return made.id;
 }
@@ -27501,7 +27718,7 @@ function missionStore(connection) {
     send: ({ mission, issue, k, toFleet, line: line3 }) => queue({ mission, toFleet, line: line3 ?? bugFixLine(issue), key: bugKey(mission.id, issue, k) }),
     async move(bug, { state, attempts, fixPr, askedJob }) {
       const moved = rowsOf(
-        z114.object({ fingerprint: text19 }),
+        z116.object({ fingerprint: text19 }),
         await db.from("omni_bug_reports").update({ state, attempts, fix_pr: fixPr, asked_job: askedJob, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("fingerprint", bug.fingerprint).eq("state", bug.state).eq("attempts", bug.attempts).select("fingerprint")
       );
       return moved.length > 0;
@@ -27533,6 +27750,11 @@ function missionStore(connection) {
     const [version] = rowsOf(PlanRowSchema, await db.from("dossier_versions").select(PLAN).eq("dossier_id", dossier).eq("kind", kind).order("created_at", { ascending: false }).limit(1));
     return version?.content ?? null;
   }
+  async function latestPlanSha(dossier) {
+    if (dossier === null) return null;
+    const [version] = rowsOf(PlanVersionRowSchema, await db.from("dossier_versions").select(PLAN_VERSION).eq("dossier_id", dossier).eq("kind", "plan").order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1));
+    return version?.sha256 ?? null;
+  }
   async function productItems(dossier) {
     if (dossier === null) return { notRead: "its page is not found on the Omni page" };
     const rows = rowsOf(ProductItemRowSchema, await db.from("outbox_items").select(PRODUCT_ITEM).eq("dossier_id", dossier).order("raised_at").order("item"));
@@ -27558,7 +27780,7 @@ function missionStore(connection) {
         const page = await productDossier(mission, { ...productPrdParts(prd), kind: "prd" });
         const approved = page === null ? /* @__PURE__ */ new Map() : await approvals([page], mission.id, /* @__PURE__ */ new Map());
         const plan = await latestOf4(page, "plan");
-        out.push({ prd, approval: approvalOf(page === null ? null : approved.get(page) ?? null), blockers, targets: plan === null ? [] : planTargets2(plan, owner), items: await productItems(page) });
+        out.push({ prd, approval: approvalOf(page === null ? null : approved.get(page) ?? null), blockers, targets: plan === null ? [] : planTargets2(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
       }
       return out;
     },
@@ -27568,7 +27790,28 @@ function missionStore(connection) {
         return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
       });
     },
-    send: ({ mission, prd, run, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: missionKey(mission.id, prd, run) })
+    send: ({ mission, prd, run, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: missionKey(mission.id, prd, run) }),
+    async reviews(id) {
+      const techs = (await keyedJobs(id, `mission:${id}:prd:%:tech:%`)).flatMap(({ row, attempts }) => {
+        const key = row.mission_key === null ? null : techOfKey(row.mission_key);
+        const attempt3 = attempts.at(-1);
+        return key === null || attempt3 === void 0 ? [] : [{ prd: key.prd, k: key.k, job: row.id, attempt: attempt3 }];
+      });
+      const decisions = rowsOf(PlanDecisionRowSchema, await db.from("mission_decisions").select(PLAN_DECISION).eq("mission_id", id).in("kind", ["plan", "tech"]).order("decided_at").order("id"));
+      return { techs, decisions: decisions.map((row) => ({ kind: row.kind, prd: row.product_prd, job: row.job_id, plan: row.plan, outcome: row.outcome, why: row.why, settled: row.settled })) };
+    },
+    review: ({ mission, prd, k, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: techKey(mission.id, prd, k) }),
+    async decidePlan(mission, { prd, job, kind, record, why }) {
+      const answer = await db.rpc("mission_decide_plan", { p_mission: mission.id, p_product_prd: prd, p_job: job, p_kind: kind, p_record: record, p_why: [...why] });
+      if (answer.error) throw new Error(`the database refused the ${kind} decision: ${answer.error.message}`);
+      return PlanDecidedSchema.parse(answer.data);
+    },
+    async home(mission) {
+      const [repository] = rowsOf(Phase0RowSchema, await db.from("repositories").select(PHASE0).eq("workspace_id", mission.workspace).eq("full_name", mission.repo.toLowerCase()).limit(1));
+      const links = rowsOf(HomeProductRowSchema, await db.from("product_repositories").select(HOME_PRODUCT).eq("workspace_id", mission.workspace).eq("repository", mission.repo.toLowerCase()));
+      const live = links.filter((row) => row.products.archived_at === null);
+      return { phase0: repository?.phase0 ?? "pr", product: live.length === 1 ? live[0]?.products.key ?? null : null };
+    }
   };
   return {
     retros,
@@ -27733,7 +27976,7 @@ function missionStore(connection) {
       return repairOf(kept3);
     },
     async endRepair(id, outcome3) {
-      rowsOf(z114.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
+      rowsOf(z116.unknown(), await db.from("mission_repairs").update({ outcome: outcome3 }).eq("id", id).is("outcome", null).select("id"));
     },
     async bugIssue(fingerprint2) {
       const [row] = rowsOf(BugReportRowSchema, await db.from("omni_bug_reports").select(BUG_REPORT).eq("fingerprint", fingerprint2).limit(1));
@@ -27759,12 +28002,12 @@ function missionStore(connection) {
         link: event.link,
         sentence: event.sentence
       }));
-      rowsOf(z114.unknown(), await db.from("mission_events").insert(rows).select("id"));
+      rowsOf(z116.unknown(), await db.from("mission_events").insert(rows).select("id"));
     },
     async update(id, from, { status: status2, waitingOn, nextWakeAt, pausedBy }) {
       const by = pausedBy === "stuck" ? { paused_by: pausedBy } : {};
       const moved = rowsOf(
-        z114.object({ id: text19 }),
+        z116.object({ id: text19 }),
         await db.from("missions").update({ status: status2, waiting_on: waitingOn, next_wake_at: nextWakeAt, updated_at: (/* @__PURE__ */ new Date()).toISOString(), ...by }).eq("id", id).eq("status", from).select("id")
       );
       return moved.length > 0;
@@ -27788,7 +28031,7 @@ function missionStore(connection) {
     async pause(ids, waitingOn) {
       if (ids.length === 0) return;
       rowsOf(
-        z114.unknown(),
+        z116.unknown(),
         await db.from("missions").update({ status: "paused", waiting_on: waitingOn, next_wake_at: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).in("id", [...ids]).in("status", ["running", "waiting"]).select("id")
       );
     },
@@ -27798,7 +28041,7 @@ function missionStore(connection) {
     async keepBranch(mission, { repo, branch }) {
       const answer = await db.from("mission_branches").insert({ mission_id: mission.id, repo: repo.toLowerCase(), branch }).select("repo");
       if (answer.error?.code === TAKEN) return false;
-      if (rowsOf(z114.object({ repo: text19 }), answer).length === 0) throw new Error("the database kept no mission branch and gave no reason");
+      if (rowsOf(z116.object({ repo: text19 }), answer).length === 0) throw new Error("the database kept no mission branch and gave no reason");
       return true;
     },
     async decideItem(mission, { prd, item, job, verdicts, decision }) {
@@ -27816,7 +28059,7 @@ function missionStore(connection) {
       return ItemDecidedSchema.parse(answer.data);
     },
     async decisions(id) {
-      return rowsOf(FleetDecisionRowSchema, await db.from("mission_decisions").select(FLEET_DECISION).eq("mission_id", id).order("decided_at")).map((row) => ({
+      return rowsOf(FleetDecisionRowSchema, await db.from("mission_decisions").select(FLEET_DECISION).eq("mission_id", id).in("kind", ["approve", "answer"]).order("decided_at")).map((row) => ({
         kind: row.kind,
         prd: row.prd_id,
         item: row.item,
@@ -27831,18 +28074,18 @@ function missionStore(connection) {
 }
 
 // apps/omni-app/src/missions/notebook.ts
-import { z as z116 } from "zod";
+import { z as z118 } from "zod";
 
 // kit/lib/session/fleet-learned.ts
 import { readFileSync as readFileSync51, rmSync as rmSync22, writeFileSync as writeFileSync19 } from "node:fs";
 import { join as join77 } from "node:path";
-import { z as z115 } from "zod";
+import { z as z117 } from "zod";
 var FLEET_LEARNED_FILE = join77(LOCAL_DIR, "fleet-learned.json");
 var MAX_LINES = 50;
 var MAX_EVENTS = 10;
-var LearnedEventSchema = z115.object({ at: z115.string().min(1).max(40), kind: z115.string().min(1).max(40), sentence: z115.string().max(2e3) });
-var LearnedLineSchema = z115.object({ day: z115.string().min(1).max(40), line: z115.string().min(1).max(300), events: z115.array(LearnedEventSchema).max(MAX_EVENTS).default([]) });
-var FleetLearnedSchema = z115.object({ role: z115.string().min(1).max(40), lines: z115.array(LearnedLineSchema).max(MAX_LINES) });
+var LearnedEventSchema = z117.object({ at: z117.string().min(1).max(40), kind: z117.string().min(1).max(40), sentence: z117.string().max(2e3) });
+var LearnedLineSchema = z117.object({ day: z117.string().min(1).max(40), line: z117.string().min(1).max(300), events: z117.array(LearnedEventSchema).max(MAX_EVENTS).default([]) });
+var FleetLearnedSchema = z117.object({ role: z117.string().min(1).max(40), lines: z117.array(LearnedLineSchema).max(MAX_LINES) });
 var ESCAPED = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "|": "/" };
 var asData = (text20) => text20.replace(/\s+/g, " ").trim().replace(/[&<>|]/g, (mark) => ESCAPED[mark] ?? mark);
 
@@ -27852,8 +28095,8 @@ var NOTEBOOK_MODEL = "anthropic/claude-sonnet-5.5";
 var LINE_MAX3 = 300;
 var EVENTS_PER_LINE = 10;
 var BATCH_MAX = 5;
-var NotebookReplySchema = z116.object({
-  lines: z116.array(z116.object({ text: z116.string(), refs: z116.array(z116.string()).default([]) })).max(20)
+var NotebookReplySchema = z118.object({
+  lines: z118.array(z118.object({ text: z118.string(), refs: z118.array(z118.string()).default([]) })).max(20)
 });
 var NOTEBOOK_REPLY_SCHEMA = {
   name: "notebook_lines",
@@ -28175,26 +28418,26 @@ function notebookHandler({
 }
 
 // apps/omni-app/src/missions/notebook-store.ts
-import { z as z117 } from "zod";
+import { z as z119 } from "zod";
 var NOTE_MISSION = "id, workspace_id, fleet, number, title, status, teams!inner(kind)";
 var NOTE_EVENT = "id, at, role, kind, prd, sentence";
 var NOTE_LINE = "line";
 var NOTE_BATCH = "id";
 var NOTE_CAP = "daily_tokens";
-var NoteMissionRowSchema = z117.object({
-  id: z117.uuid(),
-  workspace_id: z117.uuid(),
-  fleet: z117.string().min(1),
-  number: z117.number().int().positive(),
-  title: z117.string(),
-  status: z117.string(),
-  teams: z117.object({ kind: z117.string() })
+var NoteMissionRowSchema = z119.object({
+  id: z119.uuid(),
+  workspace_id: z119.uuid(),
+  fleet: z119.string().min(1),
+  number: z119.number().int().positive(),
+  title: z119.string(),
+  status: z119.string(),
+  teams: z119.object({ kind: z119.string() })
 });
-var NoteEventRowSchema = z117.object({ id: z117.uuid(), at: z117.string(), role: z117.string(), kind: z117.string(), prd: PrdNumberSchema.nullable(), sentence: z117.string() });
-var NoteLineRowSchema = z117.object({ line: z117.string() });
-var NoteBatchRowSchema = z117.object({ id: z117.uuid() });
-var NoteCapRowSchema = z117.object({ daily_tokens: z117.number().int().positive().nullable() });
-var SpentRowSchema = z117.object({ tokens: z117.coerce.number().int().min(0) });
+var NoteEventRowSchema = z119.object({ id: z119.uuid(), at: z119.string(), role: z119.string(), kind: z119.string(), prd: PrdNumberSchema.nullable(), sentence: z119.string() });
+var NoteLineRowSchema = z119.object({ line: z119.string() });
+var NoteBatchRowSchema = z119.object({ id: z119.uuid() });
+var NoteCapRowSchema = z119.object({ daily_tokens: z119.number().int().positive().nullable() });
+var SpentRowSchema = z119.object({ tokens: z119.coerce.number().int().min(0) });
 var missionOf = (row) => ({
   id: row.id,
   workspace: row.workspace_id,
@@ -28356,9 +28599,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z118 } from "zod";
+import { z as z120 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z118.looseObject({ category: z118.string().nullable() });
+var ReplySchema2 = z120.looseObject({ category: z120.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -28381,10 +28624,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z119 } from "zod";
-var UngroupedRowSchema = z119.object({ id: z119.string().min(1), product_id: z119.string().min(1), workspace_id: z119.string().min(1), query: z119.string().min(1) });
-var NearestRowSchema = z119.object({ group_id: z119.string().min(1), cosine: z119.number() });
-var GroupIdSchema = z119.object({ id: z119.string().min(1) });
+import { z as z121 } from "zod";
+var UngroupedRowSchema = z121.object({ id: z121.string().min(1), product_id: z121.string().min(1), workspace_id: z121.string().min(1), query: z121.string().min(1) });
+var NearestRowSchema = z121.object({ group_id: z121.string().min(1), cosine: z121.number() });
+var GroupIdSchema = z121.object({ id: z121.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -28402,7 +28645,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z119.array(NearestRowSchema).parse(data);
+      const [row] = z121.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -28422,13 +28665,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z120 } from "zod";
+import { z as z122 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z120.looseObject({
-  verdicts: z120.array(z120.looseObject({ entryId: z120.string().min(1), relevant: z120.boolean().nullable(), confidence: z120.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z122.looseObject({
+  verdicts: z122.array(z122.looseObject({ entryId: z122.string().min(1), relevant: z122.boolean().nullable(), confidence: z122.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z120.looseObject({ ids: z120.array(z120.string().min(1)) });
+var SearchSchema2 = z122.looseObject({ ids: z122.array(z122.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -28464,19 +28707,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z121 } from "zod";
+import { z as z123 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z121.object({ group_id: z121.string().min(1), product_id: z121.string().min(1), workspace_id: z121.string().min(1), category: z121.string().nullable() });
-var GroupRowSchema = z121.object({ group_id: z121.string().min(1) });
-var QuestionTextSchema = z121.object({ question: z121.string() });
-var OpenedRowSchema = z121.object({ opened_id: z121.string().min(1) });
-var ProductRowSchema4 = z121.object({ product_id: z121.string().min(1) });
-var HolderRowSchema5 = z121.object({ product_id: z121.string().min(1) });
-var LiveProductSchema = z121.object({ id: z121.string().min(1) });
-var QuestionRowSchema = z121.object({ id: z121.string().min(1), product_id: z121.string().min(1), workspace_id: z121.string().min(1), question: z121.string(), category: z121.string().nullable() });
-var AnswerRowSchema = z121.object({ question_id: z121.string().min(1), entry_id: z121.string().min(1) });
-var RunRowSchema = z121.object({ id: z121.string().min(1) });
+var LogRowSchema = z123.object({ group_id: z123.string().min(1), product_id: z123.string().min(1), workspace_id: z123.string().min(1), category: z123.string().nullable() });
+var GroupRowSchema = z123.object({ group_id: z123.string().min(1) });
+var QuestionTextSchema = z123.object({ question: z123.string() });
+var OpenedRowSchema = z123.object({ opened_id: z123.string().min(1) });
+var ProductRowSchema4 = z123.object({ product_id: z123.string().min(1) });
+var HolderRowSchema5 = z123.object({ product_id: z123.string().min(1) });
+var LiveProductSchema = z123.object({ id: z123.string().min(1) });
+var QuestionRowSchema = z123.object({ id: z123.string().min(1), product_id: z123.string().min(1), workspace_id: z123.string().min(1), question: z123.string(), category: z123.string().nullable() });
+var AnswerRowSchema = z123.object({ question_id: z123.string().min(1), entry_id: z123.string().min(1) });
+var RunRowSchema = z123.object({ id: z123.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -28511,7 +28754,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z121.string().min(1).nullable().parse(data);
+      return z123.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -28524,7 +28767,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant: relevant2, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant2, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z121.boolean().parse(data);
+      return z123.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -28557,7 +28800,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z121.string().min(1).nullable().parse(data);
+      return z123.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -28648,19 +28891,19 @@ function searchEvalPromoteHandler({
 }
 
 // kit/lib/ready/report.ts
-import { z as z122 } from "zod";
+import { z as z124 } from "zod";
 var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
 var ACCEPTANCE_CHECK_NAME = "acceptance";
 var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z122.object({
-  ac: z122.number().int().positive(),
-  kind: z122.enum(AC_KINDS),
-  state: z122.enum(RESULT_STATES),
+var ResultSchema = z124.object({
+  ac: z124.number().int().positive(),
+  kind: z124.enum(AC_KINDS),
+  state: z124.enum(RESULT_STATES),
   /** The test's title, `AC-<n>: …`. */
-  title: z122.string().min(1),
+  title: z124.string().min(1),
   /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z122.string().min(1).nullable().default(null),
-  why: z122.string().min(1).optional()
+  proof: z124.string().min(1).nullable().default(null),
+  why: z124.string().min(1).optional()
 }).strict().superRefine((result, issues) => {
   const proves = acNumberOfTitle(result.title);
   if (proves !== result.ac) {
@@ -28668,10 +28911,10 @@ var ResultSchema = z122.object({
     issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
   }
 });
-var ReportSchema = z122.object({
-  format: z122.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z122.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z122.array(ResultSchema)
+var ReportSchema = z124.object({
+  format: z124.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z124.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z124.array(ResultSchema)
 }).strict();
 function parseAcceptanceReport(text20) {
   let raw;
@@ -28811,9 +29054,9 @@ function suppressionFindings(ends) {
 }
 function timeouts(text20, positional) {
   const out = /* @__PURE__ */ new Map();
-  const keep3 = (key, raw) => out.set(key, Math.max(out.get(key) ?? -Infinity, Number(raw.replace(/_/g, ""))));
-  for (const match of text20.matchAll(KEYED_TIMEOUT)) keep3(match[1] ?? "", match[2] ?? "0");
-  if (positional) for (const match of text20.matchAll(POSITIONAL_TIMEOUT)) keep3(POSITIONAL_NAME, match[1] ?? "0");
+  const keep4 = (key, raw) => out.set(key, Math.max(out.get(key) ?? -Infinity, Number(raw.replace(/_/g, ""))));
+  for (const match of text20.matchAll(KEYED_TIMEOUT)) keep4(match[1] ?? "", match[2] ?? "0");
+  if (positional) for (const match of text20.matchAll(POSITIONAL_TIMEOUT)) keep4(POSITIONAL_NAME, match[1] ?? "0");
   return out;
 }
 function timeoutFindings(ends, positional) {
@@ -29095,25 +29338,25 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z125 } from "zod";
+import { z as z127 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
 import { existsSync as existsSync53, readFileSync as readFileSync52 } from "node:fs";
 import { join as join79 } from "node:path";
-import { z as z123 } from "zod";
+import { z as z125 } from "zod";
 var read = (value) => ({ ok: true, value });
 var unread = (why) => ({ ok: false, why });
-var RunSchema3 = z123.looseObject({
-  name: z123.string(),
-  status: z123.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
-  conclusion: z123.string().nullish(),
-  html_url: z123.string().nullish(),
-  output: z123.looseObject({ title: z123.string().nullish(), summary: z123.string().nullish(), text: z123.string().nullish() }).nullish()
+var RunSchema3 = z125.looseObject({
+  name: z125.string(),
+  status: z125.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
+  conclusion: z125.string().nullish(),
+  html_url: z125.string().nullish(),
+  output: z125.looseObject({ title: z125.string().nullish(), summary: z125.string().nullish(), text: z125.string().nullish() }).nullish()
 });
-var RunsPageSchema2 = z123.looseObject({ check_runs: z123.array(RunSchema3) });
-var ComparePageSchema2 = z123.looseObject({
-  merge_base_commit: z123.looseObject({ sha: z123.string() }).nullish(),
-  files: z123.array(z123.looseObject({ filename: z123.string(), status: z123.string(), previous_filename: z123.string().nullish() })).nullish()
+var RunsPageSchema2 = z125.looseObject({ check_runs: z125.array(RunSchema3) });
+var ComparePageSchema2 = z125.looseObject({
+  merge_base_commit: z125.looseObject({ sha: z125.string() }).nullish(),
+  files: z125.array(z125.looseObject({ filename: z125.string(), status: z125.string(), previous_filename: z125.string().nullish() })).nullish()
 });
 var STATUS2 = Object.freeze({
   added: "added",
@@ -29281,7 +29524,7 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
 }
 
 // apps/omni-app/src/ready-check/runner-fallback.ts
-import { z as z124 } from "zod";
+import { z as z126 } from "zod";
 
 // apps/omni-app/src/ready-check/zip.ts
 import { inflateRawSync } from "node:zlib";
@@ -29339,11 +29582,11 @@ function unzipText(zip, name) {
 var KEPT_ARTIFACT = "acceptance-report";
 var KEPT_FILE = "report.json";
 var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
-var ArtifactsSchema = z124.looseObject({
-  artifacts: z124.array(z124.looseObject({ id: z124.number(), expired: z124.boolean().nullish(), workflow_run: z124.looseObject({ head_sha: z124.string().nullish() }).nullish() }))
+var ArtifactsSchema = z126.looseObject({
+  artifacts: z126.array(z126.looseObject({ id: z126.number(), expired: z126.boolean().nullish(), workflow_run: z126.looseObject({ head_sha: z126.string().nullish() }).nullish() }))
 });
-var RunSchema4 = z124.looseObject({ id: z124.number(), status: z124.string().nullish(), conclusion: z124.string().nullish(), output: z124.looseObject({ title: z124.string().nullish(), summary: z124.string().nullish(), text: z124.string().nullish() }).nullish() });
-var RunsSchema = z124.looseObject({ check_runs: z124.array(RunSchema4).nullish() });
+var RunSchema4 = z126.looseObject({ id: z126.number(), status: z126.string().nullish(), conclusion: z126.string().nullish(), output: z126.looseObject({ title: z126.string().nullish(), summary: z126.string().nullish(), text: z126.string().nullish() }).nullish() });
+var RunsSchema = z126.looseObject({ check_runs: z126.array(RunSchema4).nullish() });
 async function keptReport(octokit, { owner, repo, headSha }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
   const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
@@ -29495,9 +29738,9 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema5 = z125.looseObject({ id: z125.number(), status: z125.string().nullish(), conclusion: z125.string().nullish(), html_url: z125.string().nullish(), output: z125.looseObject({ title: z125.string().nullish(), summary: z125.string().nullish() }).nullish() });
-var RunsSchema2 = z125.looseObject({ check_runs: z125.array(RunSchema5).nullish() });
-var WrittenSchema2 = z125.looseObject({ id: z125.number(), html_url: z125.string().nullish() });
+var RunSchema5 = z127.looseObject({ id: z127.number(), status: z127.string().nullish(), conclusion: z127.string().nullish(), html_url: z127.string().nullish(), output: z127.looseObject({ title: z127.string().nullish(), summary: z127.string().nullish() }).nullish() });
+var RunsSchema2 = z127.looseObject({ check_runs: z127.array(RunSchema5).nullish() });
+var WrittenSchema2 = z127.looseObject({ id: z127.number(), html_url: z127.string().nullish() });
 var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
@@ -29591,15 +29834,15 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z126 } from "zod";
+import { z as z128 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var AppJobRowSchema = z126.object({
-  status: z126.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  log_tail: z126.string(),
-  reason: z126.string().nullable()
+var AppJobRowSchema = z128.object({
+  status: z128.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z128.string(),
+  reason: z128.string().nullable()
 });
-var MissionScopeRowSchema = z126.object({ scope: z126.object({ prds: z126.array(PrdNumberSchema), roadmaps: z126.array(z126.number().int().positive()) }) });
-var RoadmapRowOfSchema = z126.object({ roadmap_id: z126.string().min(1) });
+var MissionScopeRowSchema = z128.object({ scope: z128.object({ prds: z128.array(PrdNumberSchema), roadmaps: z128.array(z128.number().int().positive()) }) });
+var RoadmapRowOfSchema = z128.object({ roadmap_id: z128.string().min(1) });
 function readyStore(connection) {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
@@ -29798,7 +30041,7 @@ async function runOne2(job, { ledger, handlers, failures, clock, leaseSeconds, e
   const settling = settle2(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
   const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
-  const kept3 = await keep2(ledger, job, settled2, log2);
+  const kept3 = await keep3(ledger, job, settled2, log2);
   const ended7 = settled2.outcome === "later" && kept3 === "failed" ? { ...settled2, outcome: "failed", reason: TOO_MANY_LATERS } : settled2;
   if (kept3 === "stale") summary2.stale += 1;
   else if (kept3 !== null) summary2[ended7.outcome] += 1;
@@ -29852,7 +30095,7 @@ function settledOf2(result) {
   if (result.outcome === "later") return { outcome: "later", reason: null, retryAt: result.at.toISOString(), progress: result.progress };
   return { outcome: "skipped", reason: firstLine6(result.reason), retryAt: null };
 }
-async function keep2(ledger, job, settled2, log2) {
+async function keep3(ledger, job, settled2, log2) {
   const name = `job ${job.kind} ${job.key}`;
   let answer;
   try {
@@ -29896,7 +30139,7 @@ function liveJobs(env, logger) {
     bugs: () => sweepBugs({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), log: noteTo("bug-follow", logger) })
   };
 }
-var ReplayBodySchema = z127.object({ replay: z127.string().min(1) });
+var ReplayBodySchema = z129.object({ replay: z129.string().min(1) });
 var json2 = (status2, body) => Response.json(body, { status: status2, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;

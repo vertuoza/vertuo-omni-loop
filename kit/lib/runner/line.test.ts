@@ -2,7 +2,7 @@
 // repository's own skills (PRD 2313): `/<name> <args>`, when the job's allowed skills name it; the app
 // runs the shared table through both checks (apps/galaxy/src/runners/runners.contract.test.ts).
 import { describe, expect, it } from 'vitest';
-import { checkRunnerLine, LINE_MAX, missionRefusal, PM_SKILLS, prdOfRunnerLine, RESUMABLE_SKILLS, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
+import { checkRunnerLine, FLEET_SKILLS, LINE_MAX, missionRefusal, PM_SKILLS, prdOfRunnerLine, RESUMABLE_SKILLS, RUNNABLE_SKILLS, SKILL_NAME_MAX } from './line.ts';
 
 describe('RESUMABLE_SKILLS (PRD 2809)', () => {
   it('names the skills that pick up from what GitHub holds, and no other', () => {
@@ -149,5 +149,41 @@ describe('prdOfRunnerLine (#2592)', () => {
     for (const line of ['/omni:bug-fix 612', '/omni:visual-fix 7', '/omni:retro-apply 7', '/validate-prd 347', '/omni:yolo', '/omni:yolo s1 7', '/omni:yolo 0', '/omni:yolo 7x', '/omni:brainstorm 7']) {
       expect(prdOfRunnerLine(line), line).toBeNull();
     }
+  });
+});
+
+describe('the Architect\'s /omni:tech-review (PRD omni-loop-26)', () => {
+  it('is taken as /omni:tech-review <key>-<n> --mission <m> only', () => {
+    expect([...FLEET_SKILLS]).toEqual(['tech-review']);
+    expect(checkRunnerLine('/omni:tech-review omni-loop-31 --mission 12')).toEqual({ ok: true, kind: 'omni', skill: 'tech-review', args: 'omni-loop-31 --mission 12' });
+    const refusal = '/omni:tech-review runs on a runner for a mission\'s Architect only, as /omni:tech-review <key>-<n> --mission <m>';
+    for (const line of ['/omni:tech-review omni-loop-31', '/omni:tech-review', '/omni:tech-review 2608 --mission 12', '/omni:tech-review omni-loop-31 --mission 0', '/omni:tech-review omni-loop-31 --mission 12 --cap 1', '/omni:tech-review --mission 12 omni-loop-31']) {
+      expect(checkRunnerLine(line), line).toEqual({ ok: false, reason: refusal });
+    }
+  });
+
+  it('runs on a job of a mission at alone only, and stays out of the runner\'s list a person\'s Send reads', () => {
+    expect(RUNNABLE_SKILLS).not.toContain('tech-review');
+    expect(missionRefusal('tech-review', { level: 'alone' })).toBeNull();
+    for (const mission of [null, { level: 'with-you' }]) expect(missionRefusal('tech-review', mission)).toBe('/omni:tech-review runs on a runner for a mission\'s Architect only');
+  });
+
+  it('is never a repository\'s own skill\'s name', () => {
+    expect(checkRunnerLine('/tech-review omni-loop-31', ['tech-review'])).toEqual({ ok: false, reason: '/tech-review is the loop\'s own skill: send /omni:tech-review' });
+  });
+});
+
+describe('a mission\'s build line with --base-of (PRD omni-loop-26, item s6-01)', () => {
+  it('takes /omni:ultra-yolo and /omni:ultra-wave with --base-of <owner/repo>=<branch>, one target or several', () => {
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=mission/12-settings').ok).toBe(true);
+    expect(checkRunnerLine('/omni:ultra-wave omni-loop-31 --base-of acme/widgets=mission/12-settings,acme/api=mission/12-settings').ok).toBe(true);
+    expect(checkRunnerLine('/omni:ultra-yolo-fix omni-loop-31 --base-of acme/widgets=mission/12-settings').ok).toBe(true);
+  });
+
+  it('still refuses = anywhere else, and on any other skill', () => {
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 a=b').ok).toBe(false);
+    expect(checkRunnerLine('/omni:yolo 12 --base-of acme/widgets=mission/12').ok).toBe(false);
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=mission/12;rm').ok).toBe(false);
+    expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 --base-of widgets=mission/12').ok).toBe(false);
   });
 });

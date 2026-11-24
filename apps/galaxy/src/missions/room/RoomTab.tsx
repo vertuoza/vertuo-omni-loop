@@ -6,6 +6,7 @@ import { heroSvg } from '../../virtual-fleets/heroes/heroes';
 import { decorative } from '../../people/face';
 import { EVENT_ROLES, roleName, ROOM_WORDS, type EventRole, type RoomView } from './room';
 import { RepairDetail, StoppedBlock } from '../RepairParts';
+import { REVIEW_WORDS, type ReviewRow } from './review';
 import './room.css';
 
 // The Operation room of an AI Fleet (PRD 2842 s8, the `fleet-room` screen): one now line per hero, the
@@ -50,6 +51,48 @@ function RepairingNow({ line, repair }: { line: RoomView['now'][number]; repair:
   );
 }
 
+/** One row of a PRD's plan and review (PRD omni-loop-26 s5): when, who, what, and its state word. */
+function ReviewRowItem({ row, role, color }: { row: ReviewRow; role: EventRole; color: string | null }) {
+  return (
+    <li className="room-row">
+      <time className="room-time">{row.time ?? '—'}</time>
+      <span className="room-by"><Mark role={role} color={color} />{row.by}</span>
+      <span className="room-sentence">{row.words}</span>
+      <span className="room-state">{row.state}</span>
+    </li>
+  );
+}
+
+/** Waiting on you, then each PRD of the PM's with its plan row and its tech row (PRD omni-loop-26 s5); nothing when none was planned. */
+function Reviews({ view }: { view: RoomView }) {
+  const { reviews = [], waiting = [] } = view;
+  if (reviews.length === 0) return null;
+  return (
+    <>
+      {waiting.length > 0 && (
+        <div className="room-waiting">
+          <h2 className="room-title">{REVIEW_WORDS.waitingOnYou}</h2>
+          <ul className="room-points">
+            {waiting.map((one) => <li key={one.id}><span className="room-hero">PRD {one.prd} · {one.by}</span>: {one.point}</li>)}
+          </ul>
+        </div>
+      )}
+      <div className="room-reviews">
+        <h2 className="room-title">{REVIEW_WORDS.reviews}</h2>
+        {reviews.map((line) => (
+          <section key={`${line.mission}:${line.prd}`} className="room-review" aria-label={`PRD ${line.prd}`}>
+            <h3 className="room-review-prd">PRD {line.prd}</h3>
+            <ol className="room-rows">
+              <ReviewRowItem row={line.plan} role="pm" color={view.color} />
+              <ReviewRowItem row={line.tech} role="architect" color={view.color} />
+            </ol>
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function RoomTab({ view, keep, refresh }: RoomTabProps) {
   const router = useRouter();
   const seen = useRef<Set<string> | null>(null);
@@ -82,6 +125,7 @@ export function RoomTab({ view, keep, refresh }: RoomTabProps) {
           ))}
         </ul>
       </div>
+      <Reviews view={view} />
       {view.stopped.map((line) => <StoppedBlock key={`${line.mission}:${String(line.prd)}`} line={line} demo={false} />)}
       <p className="room-cleanup"><span className="room-title">{ROOM_WORDS.cleanUp}</span> {view.cleanUp}</p>
       <div className="room-ledger">
