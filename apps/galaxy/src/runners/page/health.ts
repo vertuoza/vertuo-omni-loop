@@ -1,5 +1,5 @@
 import type { Job, Runner, RunnerSample, TokenCounts } from '../runners.contract';
-import { couldTake } from './model';
+import { cannotRunReason, couldTake, fleetLabel, type Fleet } from './model';
 
 // The health line of the Runners page (PRD 2102 s3), as words and numbers: pure, so each gauge, each state of the line and
 // each queued reason is tested without a page. The figures are the runner's last report and its hour of samples; a figure
@@ -25,7 +25,9 @@ export const gbWords = (bytes: number): string => {
 
 /** One gauge of a runner's health line: its label, its value (`—` when unread), how far its bar fills (null: no bar),
  * whether it is past the runner's own limit, the hour's sparkline points (null: none), and its title (null: none). */
-export type Gauge = { key: 'cpu' | 'memory' | 'disk' | 'tokens'; label: string; value: string; fill: number | null; over: boolean; spark: string | null; title: string | null };
+export type Gauge = { key: 'cpu' | 'memory' | 'disk' | 'tokens'; label: string; value: string; fill: number | null; over: boolean; spark: string | null; title: string | null;
+  /** Where the runner's own limit sits on the bar, in percent (null: it sent no limit, or the gauge has no bar); the page draws a tick there (PRD 3232). */
+  limit: number | null };
 
 /** A token figure in the page's words: whole under 1,000, `81k` under a million, then `9.1M` and `1.2B`, one decimal. */
 export function tokenFigure(n: number): string {
@@ -78,6 +80,7 @@ function cpuGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
   return {
     key: 'cpu', label: 'CPU', value: h.cpu === null ? '—' : `${String(Math.round(h.cpu))}%${loadWords(h)}`,
     fill: h.cpu === null ? null : clamp(h.cpu), over: overLoad(h), spark: sparkPoints(samples.map((s) => s.cpu), 100), title: null,
+    limit: h.limits ? clamp(h.limits.maxLoad * 100) : null,
   };
 }
 
@@ -88,6 +91,7 @@ function memoryGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
     key: 'memory', label: 'Memory', value: pct === null || memUsed === null || memTotal === null ? '—' : `${gbWords(memUsed)} of ${gbWords(memTotal)} GB`,
     fill: pct === null ? null : clamp(pct), over: !!h.limits && pct !== null && pct > h.limits.maxMemory,
     spark: sparkPoints(samples.map((s) => share(s.memUsed, s.memTotal)), 100), title: null,
+    limit: h.limits ? clamp(h.limits.maxMemory) : null,
   };
 }
 
@@ -98,7 +102,14 @@ function diskGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
     key: 'disk', label: 'Disk', value: free === null ? '—' : `${gbWords(free)} GB free${h.diskTotal === null ? '' : ` of ${gbWords(h.diskTotal)}`}`,
     fill: used === null ? null : clamp(used), over: !!h.limits && free !== null && free < h.limits.minDiskGb * GIB,
     spark: sparkPoints(samples.map((s) => s.diskFree)), title: null,
+    limit: diskLimit(h),
   };
+}
+
+/** Where the disk's own limit sits on its bar: the share of the disk used when only `minDiskGb` is left free. */
+function diskLimit(h: RunnerHealth): number | null {
+  if (!h.limits || h.diskTotal === null || h.diskTotal <= 0) return null;
+  return clamp((1 - h.limits.minDiskGb * GIB / h.diskTotal) * 100);
 }
 
 /** The machine's tokens: `10.2M in 5 h · 15.7M today`, each window `—` when the runner could not read it, the split of both in the title. */
@@ -109,7 +120,7 @@ function tokensGauge(h: RunnerHealth, samples: readonly RunnerSample[]): Gauge {
   const title = [...split('Last 5 h', last5h), ...split('Today', today)].join('\n');
   return {
     key: 'tokens', label: 'Tokens', value: last5h === null && today === null ? '—' : `${figure(last5h)} in 5 h · ${figure(today)} today`, fill: null, over: false,
-    spark: sparkPoints(samples.map((s) => s.tokens5h)), title: title === '' ? null : title,
+    spark: sparkPoints(samples.map((s) => s.tokens5h)), title: title === '' ? null : title, limit: null,
   };
 }
 
@@ -170,4 +181,34 @@ export function waitingWords(
   }
   const only = possible.length === 1 ? possible[0] : undefined;
   return only ? `Waiting: ${only.name} paused (${first})` : `Waiting: every runner paused (${first})`;
+}
+
+/** The fleet of each job using a runner's slots (PRD 3232), in the board's order: the label of its `toFleet`, `Any runner` when it went to any runner, the runner's name when it was sent to that runner. */
+export function slotFleets(
+  runner: Pick<Runner, 'id'>,
+  jobs: readonly Pick<Job, 'status' | 'runner' | 'toRunner' | 'toFleet'>[],
+  runners: readonly Pick<Runner, 'id' | 'name'>[],
+  fleets: readonly Fleet[],
+): string[] {
+  return jobs
+    .filter((job) => job.runner === runner.id && (job.status === 'claimed' || job.status === 'running'))
+    .map((job) => (job.toRunner !== null ? runners.find((r) => r.id === job.toRunner)?.name ?? 'A runner' : job.toFleet !== null ? fleetLabel(job.toFleet, fleets) : 'Any runner'));
+}
+
+/** How many queued jobs read `Update the runner's kit` and could go to this runner (PRD 3232): the kit blocks those, and no others. */
+export function kitBlocks(
+  runner: Pick<Runner, 'id' | 'fleet' | 'repos'>,
+  jobs: readonly Pick<Job, 'status' | 'toRunner' | 'toFleet' | 'repo'>[],
+  runners: readonly (Pick<Runner, 'id' | 'name' | 'fleet' | 'repos'> & { githubApp?: Runner['githubApp'] })[],
+  fleets: readonly Fleet[],
+): number {
+  return jobs.filter((job) => couldTake(job, runner) && cannotRunReason(job, runners, fleets) === "Update the runner's kit").length;
+}
+
+/** Under the page's title (PRD 3232): `3 runners · 2 online · 1 of 3 slots in use`. A runner is online unless it is offline; only the slots of online runners count. */
+export function summaryWords(runners: readonly Pick<Runner, 'state' | 'slots' | 'used'>[]): string {
+  const online = runners.filter((runner) => runner.state !== 'offline');
+  const slots = online.reduce((sum, runner) => sum + runner.slots, 0);
+  const used = online.reduce((sum, runner) => sum + runner.used, 0);
+  return `${String(runners.length)} ${runners.length === 1 ? 'runner' : 'runners'} · ${String(online.length)} online · ${String(used)} of ${String(slots)} ${slots === 1 ? 'slot' : 'slots'} in use`;
 }

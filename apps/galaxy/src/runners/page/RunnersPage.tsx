@@ -2,16 +2,19 @@ import { Notice } from '../../ask/page/Notice';
 import { MemberGate } from '../../dashboard/MemberGate';
 import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
-import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton } from './actions';
+import { CancelButton, CopyFixButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton, SendToAnyButton, ShowFleetButton } from './actions';
+import { cannotRunFix } from './cannot-run-fix';
 import {
-  afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
-  type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
+  afterAnswersWords, answeredOf, bucketCounts, bucketsOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, JOB_TABS, jobTabOf, lastJobWords, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  type Answered, type Fleet, type JobBucket, type JobTab, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
-import { accountChips, asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
+import { accountChips, asOfWords, gaugesOf, jobTokensWords, kitBlocks, OLD_RUNNER_WORDS, slotFleets, stateTone, summaryWords, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { listedAnswer } from './need-human';
 import { NeedHumanButton, NeedHumanProvider, type NeedJob } from './NeedHuman';
 import { cameBackWords, keepsWords, lossOf, lostThrice, resumeWords, type Loss } from './loss';
 import { jobAgentWords, partLines } from './parts';
+import { ReposButton, RepositoriesProvider } from './ReposDrawer';
+import { repositoryRows, reposWords, type RepoRow, type RunnerRepos } from './repositories';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
 import '../../dashboard/board/board.css';
@@ -48,6 +51,10 @@ export interface RunnersPageProps {
   terminal?: string | null;
   /** The job whose Need human drawer the URL opens (`?answer=<job id>`), if any (PRD 2255). */
   answer?: string | null;
+  /** The jobs tab the URL names (`?jobs=running|cannot|failed|done|all`, PRD 3232); any other value reads Running. */
+  jobs?: string | null;
+  /** The runner whose repositories drawer the URL opens (`?repos=<runner name>`, PRD 3232); an unknown name opens nothing. */
+  repos?: string | null;
 }
 
 function Closed() {
@@ -62,8 +69,13 @@ function GaugeView({ gauge }: { gauge: Gauge }) {
   return (
     <div className={`runners-gauge${gauge.over ? ' is-over' : ''}`} data-gauge={gauge.key}>
       <div className="runners-gauge-k">{gauge.label}</div>
-      <div className="runners-gauge-v" data-content {...(gauge.title === null ? {} : { title: gauge.title })}>{gauge.value}</div>
-      {gauge.fill !== null && <div className="runners-gauge-fill"><i style={{ width: `${String(Math.round(gauge.fill))}%` }} /></div>}
+      <div className="runners-gauge-v" data-content {...(gauge.title === null ? {} : { title: gauge.title })}>{gauge.over && <i className="runners-icon" aria-hidden="true">▲ </i>}{gauge.value}</div>
+      {gauge.fill !== null && (
+        <div className="runners-gauge-fill">
+          <i style={{ width: `${String(Math.round(gauge.fill))}%` }} />
+          {gauge.limit !== null && <b className="runners-gauge-limit" title="This runner's limit" style={{ left: `${String(Math.round(gauge.limit))}%` }} />}
+        </div>
+      )}
       {gauge.spark !== null && (
         <svg viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><polyline points={gauge.spark} /></svg>
       )}
@@ -71,7 +83,7 @@ function GaugeView({ gauge }: { gauge: Gauge }) {
   );
 }
 
-/** A runner's accounts under its gauges (PRD 2537): one chip each in the file's order, its state in its colour. */
+/** A runner's accounts (PRD 2537): one chip each in the file's order, its state in its colour. */
 function AccountChips({ runner }: { runner: Runner }) {
   const chips = accountChips(runner);
   if (chips.length === 0) return null;
@@ -82,6 +94,7 @@ function AccountChips({ runner }: { runner: Runner }) {
   );
 }
 
+/** A runner card's health, in the spec's order (PRD 3232): its accounts and tokens, then CPU, Memory and Disk with their limit ticks. */
 function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
   const gauges = gaugesOf(runner);
   if (gauges === null) {
@@ -95,28 +108,65 @@ function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
   const asOf = asOfWords(runner, now);
   return (
     <div className={`runners-health${asOf === null ? '' : ' is-grey'}`}>
-      {gauges.map((gauge) => <GaugeView key={gauge.key} gauge={gauge} />)}
-      {asOf !== null && <span className="runners-asof">{asOf}</span>}
       <AccountChips runner={runner} />
+      {gauges.filter((gauge) => gauge.key === 'tokens').map((gauge) => <GaugeView key={gauge.key} gauge={gauge} />)}
+      {gauges.filter((gauge) => gauge.key !== 'tokens').map((gauge) => <GaugeView key={gauge.key} gauge={gauge} />)}
+      {asOf !== null && <span className="runners-asof">{asOf}</span>}
+    </div>
+  );
+}
+
+/** Can the runner take work: its state, one pip per slot (a busy one titled with the fleet of the job using it), how many are used, and who uses them. */
+function SlotsLine({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
+  const used = slotFleets(runner, board.jobs, board.runners, fleets);
+  const tone = stateTone(runner);
+  return (
+    <div className="runners-can">
+      <span className={`runners-state is-${tone}`}><i className="runners-dot" aria-hidden="true" />{tone === 'paused' && <i className="runners-icon" aria-hidden="true">▲ </i>}{stateWords(runner, now)}</span>
+      <span className="runners-pips" aria-hidden="true">
+        {Array.from({ length: runner.slots }, (_, at) => <i key={at} className={`runners-pip${at < runner.used ? ' is-used' : ''}`} {...(at < runner.used && used[at] !== undefined ? { title: used[at] } : {})} />)}
+      </span>
+      <span data-content>{runner.used} of {runner.slots} {runner.slots === 1 ? 'slot' : 'slots'}</span>
+      {used.length > 0 && <span className="runners-muted runners-used-by" data-content>Used by {[...new Set(used)].join(', ')}</span>}
+    </div>
+  );
+}
+
+/** The foot of a runner card: its repositories, then its kit, in red with what it blocks only when a queued job waits on it. */
+function CardFoot({ runner, blocks, rows }: { runner: Runner; blocks: number; rows: readonly RepoRow[] }) {
+  return (
+    <div className="runners-card-foot">
+      <ReposButton runner={runner.name} words={reposWords(rows)} />
+      <span className={`runners-kit${blocks > 0 ? ' is-blocking' : ' runners-muted'}`} data-content>
+        {blocks > 0 && <i className="runners-icon" aria-hidden="true">▲ </i>}{runner.version}{blocks > 0 && ` · blocks ${String(blocks)} ${blocks === 1 ? 'job' : 'jobs'}`}
+      </span>
+    </div>
+  );
+}
+
+/** The head of a runner card: its name, its fleet (a picker for a workspace owner, text for everyone else) and its Terminal. */
+function CardHead({ runner, board, fleets }: { runner: Runner; board: Board; fleets: readonly Fleet[] }) {
+  const fleet = fleetCell(runner, board.viewer, fleets);
+  const keeps = keepsWords(runner.name, board.saves ?? []);
+  return (
+    <div className="runners-card-head">
+      <span className="runners-name" data-content>{runner.name}{keeps !== null && <small className="runners-keeps runners-muted">{keeps}</small>}</span>
+      {fleet.kind === 'picker'
+        ? <FleetPicker runner={runner.id} name={runner.name} value={fleet.value} options={fleet.options} />
+        : <span data-content>{fleet.label}</span>}
+      <TerminalButton job={runnerJob(runner, board.jobs)?.id ?? null} />
     </div>
   );
 }
 
 function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
-  const fleet = fleetCell(runner, board.viewer, fleets);
-  const keeps = keepsWords(runner.name, board.saves ?? []);
+  const rows = repositoryRows(runner, board, fleets, now);
   return (
-    <div className="runners-row">
-      <span className="runners-name" data-content>{runner.name}{keeps !== null && <small className="runners-keeps runners-muted">{keeps}</small>}</span>
-      <span className={`runners-state is-${stateTone(runner)}`}><i className="runners-dot" aria-hidden="true" />{stateWords(runner, now)}</span>
-      {fleet.kind === 'picker'
-        ? <FleetPicker runner={runner.id} name={runner.name} value={fleet.value} options={fleet.options} />
-        : <span data-content>{fleet.label}</span>}
-      <span data-content>{runner.used} of {runner.slots}</span>
-      <span className="runners-repos" data-content title={runner.repos.join(', ')}>{runner.repos.map(repoName).join(' · ')}</span>
-      <span className="runners-muted" data-content>{runner.version}</span>
-      <TerminalButton job={runnerJob(runner, board.jobs)?.id ?? null} />
+    <div className="runners-row runners-card">
+      <CardHead runner={runner} board={board} fleets={fleets} />
+      <SlotsLine runner={runner} board={board} fleets={fleets} now={now} />
       <HealthLine runner={runner} now={now} />
+      <CardFoot runner={runner} blocks={kitBlocks(runner, board.jobs, board.runners, fleets)} rows={rows} />
     </div>
   );
 }
@@ -164,8 +214,17 @@ function ResumeLines({ job, board }: { job: Job; board: Board }) {
   );
 }
 
-function Action({ job, primary, answered, loss }: { job: Job; primary: boolean; answered: Answered | null; loss: Loss | null }) {
-  if (canCancel(job)) return <CancelButton job={job.id} />;
+/** Beside Cancel on a Cannot run job, the one fix its reason calls for (PRD 3232). */
+function CannotRunFixButton({ job, board, reason }: { job: Job; board: Board; reason: string | null }) {
+  const fix = cannotRunFix(job, reason, board.runners, board.viewer);
+  if (fix === null) return null;
+  if (fix.kind === 'copy') return <CopyFixButton label={fix.label} command={fix.command} />;
+  if (fix.kind === 'fleet') return <ShowFleetButton runner={fix.runner} />;
+  return <SendToAnyButton line={job.line} repo={job.repo} />;
+}
+
+function Action({ job, primary, answered, loss, board, cannotRun }: { job: Job; primary: boolean; answered: Answered | null; loss: Loss | null; board: Board; cannotRun: string | null }) {
+  if (canCancel(job)) return <><CancelButton job={job.id} /><CannotRunFixButton job={job} board={board} reason={cannotRun} /></>;
   if (loss !== null) return <LostAction job={job} primary={primary} loss={loss} />;
   if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
   const page = prdPageLink(job);
@@ -234,7 +293,7 @@ function WaitingWhy({ words }: { words: string | null }) {
   return words === null ? null : <span className="runners-why">{words}</span>;
 }
 
-function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[] }) {
+function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds, band = false }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[]; band?: boolean }) {
   const cannotRun = cannotRunReason(job, board.runners, fleets);
   const waiting = cannotRun === null ? waitingWords(job, board.runners) : null;
   const prd = prdLineOf(job, prds);
@@ -242,7 +301,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
   const answered = answeredOf(job, board.jobs, answeredIds);
   const loss = lossOf(job, board.jobs, board.runners, now);
   return (
-    <div className="runners-row runners-job" id={`job-${job.id}`}>
+    <div className="runners-row runners-job" id={band ? `need-${job.id}` : `job-${job.id}`}>
       <span className="runners-line">
         <code data-content>{job.line}</code>
         {prd !== null && <span className="runners-prd"><a href={prd.href}>PRD {prd.number}</a><span className="runners-muted" data-content> · {prd.title}</span></span>}
@@ -263,21 +322,70 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
         <WaitingWhy words={waiting} />
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
       </span>
-      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} loss={loss} /></span>
+      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} loss={loss} board={board} cannotRun={cannotRun} /></span>
     </div>
   );
 }
 
-function Jobs({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
-  if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
-  // A job that is resuming offers nothing to press (PRD 2809): it never takes the page's primary action.
-  const resuming = (job: Job) => lossOf(job, board.jobs, board.runners, now)?.resume != null;
-  const primary = (board.jobs.find(canResume) ?? board.jobs.find(lostThrice) ?? board.jobs.find((job) => canSendAgain(job) && !resuming(job)))?.id ?? answered[0] ?? null;
+const TAB_WORDS: Readonly<Record<JobTab, string>> = { running: 'Running', cannot: 'Cannot run', failed: 'Failed', done: 'Done', all: 'All' };
+
+/** The jobs' tabs (PRD 3232): links with their counts, so they work without script; Cannot run and Failed in `--ask-red` with an icon when above zero. */
+function Tabs({ tab, counts }: { tab: JobTab; counts: Record<JobBucket | 'all', number> }) {
   return (
-    <div className="runners-table runners-jobs">
-      <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>
-      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} prds={prds} retros={retros} now={now} primary={job.id === primary} answeredIds={answered} />)}
+    <nav className="runners-tabs" aria-label="Jobs">
+      {JOB_TABS.map((key) => {
+        const red = (key === 'cannot' || key === 'failed') && counts[key] > 0;
+        return (
+          <a key={key} href={`?jobs=${key}`} className={`runners-tab${key === tab ? ' is-selected' : ''}${red ? ' is-red' : ''}`} {...(key === tab ? { 'aria-current': 'page' as const } : {})}>
+            {red && <i className="runners-icon" aria-hidden="true">▲</i>}
+            {TAB_WORDS[key]} <b>{counts[key]}</b>
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** An empty tab says so: Running names the last job that ended and links the tabs with jobs; any other says `No job here.` */
+function EmptyTab({ tab, board, counts, now }: { tab: JobTab; board: Board; counts: Record<JobBucket | 'all', number>; now: Date }) {
+  if (tab !== 'running') return <div className="runners-empty"><p><strong>No job here.</strong></p><p className="runners-muted">Nothing here in the last 50.</p></div>;
+  const last = lastJobWords(board.jobs, now);
+  const others = JOB_TABS.filter((key) => key !== 'running' && key !== 'all' && counts[key] > 0);
+  return (
+    <div className="runners-empty">
+      <p><strong>Nothing running.</strong></p>
+      {last !== null && <p className="runners-muted">{last}</p>}
+      {others.length > 0 && <p className="runners-muted">{others.map((key, at) => <span key={key}>{at > 0 && ' · '}<a href={`?jobs=${key}`}>{TAB_WORDS[key]} {counts[key]}</a></span>)}</p>}
     </div>
+  );
+}
+
+function Jobs({ board, fleets, prds, retros, now, answered, tab }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[]; tab: JobTab }) {
+  if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
+  const buckets = bucketsOf(board, fleets, answered, now);
+  const counts = bucketCounts(buckets);
+  const needs = board.jobs.filter((job) => buckets.get(job.id) === 'needs');
+  const shown = board.jobs.filter((job) => tab === 'all' || buckets.get(job.id) === tab);
+  // A job that is resuming offers nothing to press (PRD 2809): it never takes the page's primary action. The one primary action is
+  // chosen among the jobs on screen: the band first, then the open tab.
+  const resuming = (job: Job) => lossOf(job, board.jobs, board.runners, now)?.resume != null;
+  const onScreen = [...needs, ...shown];
+  const primary = (onScreen.find(canResume) ?? onScreen.find(lostThrice) ?? onScreen.find((job) => canSendAgain(job) && !resuming(job)))?.id
+    ?? answered.find((id) => onScreen.some((job) => job.id === id)) ?? null;
+  const head = <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>;
+  // On All a Needs you job is listed twice, in the band and in the table: only its band row takes the primary action.
+  const row = (job: Job, band: boolean) => <JobRow key={job.id} job={job} board={board} fleets={fleets} prds={prds} retros={retros} now={now} primary={job.id === primary && (band || !needs.includes(job))} answeredIds={answered} band={band} />;
+  return (
+    <>
+      {needs.length > 0 && (
+        <section className="runners-needs" aria-label="Needs you">
+          <h3>Needs you <b>{needs.length}</b></h3>
+          <div className="runners-table runners-jobs">{head}{needs.map((job) => row(job, true))}</div>
+        </section>
+      )}
+      <Tabs tab={tab} counts={counts} />
+      {shown.length === 0 ? <EmptyTab tab={tab} board={board} counts={counts} now={now} /> : <div className="runners-table runners-jobs">{head}{shown.map((job) => row(job, false))}</div>}
+    </>
   );
 }
 
@@ -291,22 +399,23 @@ function Start() {
   );
 }
 
-function Board({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
+function Board({ board, fleets, prds, retros, now, answered, tab }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[]; tab: JobTab }) {
   return (
     <div className="dash runners" data-screen="runners">
-      <h1 className="dash-name">Runners</h1>
+      <header>
+        <h1 className="dash-name">Runners</h1>
+        {board.runners.length > 0 && <p className="runners-muted runners-summary" data-content>{summaryWords(board.runners)}</p>}
+      </header>
       {board.runners.length === 0 ? <Start /> : (
         <>
-          <section className="runners-section">
-            <h2>Runners</h2>
-            <div className="runners-table runners-runners">
-              <div className="runners-row runners-head"><span>Runner</span><span>State</span><span>Fleet</span><span>Slots</span><span>Repositories</span><span>Kit</span><span /></div>
+          <section className="runners-section" aria-label="Runners">
+            <div className="runners-cards">
               {board.runners.map((runner) => <RunnerRow key={runner.id} runner={runner} board={board} fleets={fleets} now={now} />)}
             </div>
           </section>
           <section className="runners-section">
             <h2>Jobs</h2>
-            <Jobs board={board} fleets={fleets} prds={prds} retros={retros} now={now} answered={answered} />
+            <Jobs board={board} fleets={fleets} prds={prds} retros={retros} now={now} answered={answered} tab={tab} />
           </section>
         </>
       )}
@@ -315,7 +424,7 @@ function Board({ board, fleets, prds, retros, now, answered }: { board: Board; f
   );
 }
 
-export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null }: RunnersPageProps) {
+export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null, jobs: jobsTab = null, repos = null }: RunnersPageProps) {
   if (view.kind === 'closed' || view.kind === 'sign-in' || view.kind === 'no-workspace') {
     return <MemberGate kind={view.kind} closed={<Closed />} board="The Runners page" supabase={supabase} signinError={signinError} />;
   }
@@ -327,10 +436,14 @@ export function RunnersPage({ view, supabase, signinError, terminal = null, answ
   // The job `?answer=` opens, once the board lists it; with it, the Terminal panel stays shut, so two panels never stack.
   const asked = listedAnswer(answer, view.board.jobs);
   const needJobs: NeedJob[] = view.board.jobs.map((job) => ({ id: job.id, repo: job.repo }));
+  const now = new Date(view.now);
+  const drawers: RunnerRepos[] = view.board.runners.map((runner) => ({ name: runner.name, rows: repositoryRows(runner, view.board, view.fleets, now) }));
   return (
     <TerminalProvider initial={terminalOf(asked === null ? terminal : null)} jobs={jobs}>
       <NeedHumanProvider initial={asked} jobs={needJobs} demo={view.demoQuestions ?? null}>
-        <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={new Date(view.now)} answered={view.answered} />
+        <RepositoriesProvider initial={repos} runners={drawers}>
+          <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={now} answered={view.answered} tab={jobTabOf(jobsTab)} />
+        </RepositoriesProvider>
       </NeedHumanProvider>
     </TerminalProvider>
   );
