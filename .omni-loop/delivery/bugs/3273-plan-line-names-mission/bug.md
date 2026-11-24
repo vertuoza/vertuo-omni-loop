@@ -22,4 +22,4 @@ none — the reproduction is the cheap check that would have caught it, a unit t
 
 ## Mutation
 
-mutation: no changed core file against origin/main: nothing to mutate
+mutation: no changed core file against origin/main (dd8b2655): nothing to mutate
