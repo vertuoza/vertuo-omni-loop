@@ -40,7 +40,7 @@ describe('the playbook page', () => {
     expect(text(html)).toContain('Read from acme/plans at 3f2a9c1');
     expect(html).toContain('href="https://github.com/acme/plans"');
     expect(html).toMatch(new RegExp(`href="${PLAYBOOK_PATH}"[^>]*aria-current="page"|aria-current="page"[^>]*href="${PLAYBOOK_PATH}"`));
-    expect(text(html)).toContain('Fleets Repositories Business API keys Jev Playbook');
+    expect(text(html)).toContain('Fleets Repositories Business Jev Playbook API keys');
   });
 
   it('lists each page with its text, and whether it is the settings repository\'s own or the kit\'s first default', () => {

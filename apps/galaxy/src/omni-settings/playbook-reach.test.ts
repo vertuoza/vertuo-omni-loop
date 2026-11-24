@@ -36,11 +36,16 @@ async function screenOf(installation: number | null): Promise<string> {
 
 describe('reaching Settings › Playbook (issue 2538)', () => {
   it('is a Settings tab, after Jev, on every Settings page', () => {
-    expect(SETTINGS_TABS.at(-1)).toEqual({ href: PLAYBOOK_PATH, label: 'Playbook' });
+    const at = SETTINGS_TABS.findIndex((tab) => tab.href === PLAYBOOK_PATH);
+    expect(SETTINGS_TABS[at - 1]?.label).toBe('Jev');
+    expect(SETTINGS_TABS[at]).toEqual({ href: PLAYBOOK_PATH, label: 'Playbook' });
   });
 
   it('is one of the menu\'s Settings pages, after Jev', () => {
-    expect(SETTINGS.pages?.at(-1)).toEqual({ label: 'Playbook', path: PLAYBOOK_PATH });
+    const pages = SETTINGS.pages ?? [];
+    const at = pages.findIndex((page) => page.path === PLAYBOOK_PATH);
+    expect(pages[at - 1]?.label).toBe('Jev');
+    expect(pages[at]).toEqual({ label: 'Playbook', path: PLAYBOOK_PATH });
   });
 });
 

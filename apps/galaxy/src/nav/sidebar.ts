@@ -127,8 +127,12 @@ export const SETTINGS: SidebarItem = {
   label: 'Settings',
   path: '/app/settings',
   sprite: 'menu-settings',
-  pages: SETTINGS_MAP.flatMap((section) => section.pages.map((page) => ({ label: page.label, path: page.path, section: section.label }))),
+  pages: SETTINGS_MAP.flatMap((section) => section.pages.map((page) => ({ label: page.label, path: page.path }))),
 };
+
+/** The section of each Settings page, by its path: the trail's group crumb between Settings and the page
+ * (PRD 3216). */
+const SETTINGS_SECTION_OF: ReadonlyMap<string, string> = new Map(SETTINGS_MAP.flatMap((section) => section.pages.map((page) => [page.path, section.label] as const)));
 
 /** Where an entry's link goes: its path, but for Ideas (PRD 1246) the board of the workspace's
  * repository the viewer read, or Settings › Repositories when it lists none. */
@@ -222,7 +226,7 @@ export function pageTrail(pathname: string | null | undefined, item: string | nu
     crumbs: [
       ...(group?.label ? [{ label: group.label }] : []),
       ...(page ? [{ label: section.label, path: section.path }] : []),
-      ...(page?.section ? [{ label: page.section }] : []),
+      ...(page && SETTINGS_SECTION_OF.has(page.path) ? [{ label: defined(SETTINGS_SECTION_OF.get(page.path), 'the section') }] : []),
       here ? { label: last.label } : { label: last.label, path: last.path },
       ...items,
     ],
