@@ -157,7 +157,8 @@ export async function ask(fleet: FleetFixture, text: string, model: CommanderMod
 
 /** Whether a link belongs to a fleet: its own tabs, its repositories' PRDs, its jobs, its events' GitHub links. */
 export function isOfFleet(href: string, fleet: FleetFixture): boolean {
-  if (href.startsWith(`/app/fleet?fleet=${encodeURIComponent(fleet.fleet)}&`)) return true;
+  // PRD 3233: an AI fleet's page is /app/ai-fleet; a link to /app/fleet still lands there, through the redirect.
+  if ([`/app/ai-fleet?fleet=`, `/app/fleet?fleet=`].some((page) => href.startsWith(`${page}${encodeURIComponent(fleet.fleet)}&`))) return true;
   if (fleet.jobs.some((j) => href === jobHref(j.id))) return true;
   if (fleet.events.some((e) => e.link !== null && href === e.link)) return true;
   return fleet.missions.some((m) => href.startsWith(`/prd/at/${m.repo.split('/').map(encodeURIComponent).join('/')}/`));

@@ -1,4 +1,4 @@
-// The notebook job's reads (./notebook-store.ts), for `pnpm schemas:verify` (PRD 1030): the missions of Virtual Fleets,
+// The notebook job's reads (./notebook-store.ts), for `pnpm schemas:verify` (PRD 1030): the missions of AI Fleets,
 // their events, the notebooks' lines and batches and a fleet's daily cap, parsed with the schemas the store parses them with.
 // Its write is not here: it writes, and the check only reads.
 import type { Boundary } from '../boundary.ts';

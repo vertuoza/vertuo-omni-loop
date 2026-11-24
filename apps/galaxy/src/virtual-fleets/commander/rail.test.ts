@@ -73,7 +73,7 @@ describe('the cards', () => {
     expect(cards.map((c) => [c.source, sourceLine(c), c.choices, c.href])).toEqual([
       ['approval', 'Approval · PRD 2820', [], '/prd/at/northwind/quotes/2820?to=page'],
       ['outbox', 'Outbox · PRD 2817', [], '/prd/at/northwind/quotes/2817?to=page'],
-      ['item', 'Mission item · mission 3110', ['Adopt', 'Decline'], '/app/fleet?fleet=blue-fleet&tab=missions'],
+      ['item', 'Mission item · mission 3110', ['Adopt', 'Decline'], '/app/ai-fleet?fleet=blue-fleet&tab=missions'],
     ]);
     expect(cards[2]?.question).toBe('testing › Timeouts: Take the long timeout.');
     expect(cards.map((c) => answerable(c))).toEqual([false, false, true]);

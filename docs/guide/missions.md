@@ -1,10 +1,10 @@
 ---
 title: Missions
-description: A goal a Virtual Fleet delivers while you are away — what a mission is, its three levels, what you still do at each, how to go back, and how to start one with /omni:mission.
+description: A goal a AI Fleet delivers while you are away — what a mission is, its three levels, what you still do at each, how to go back, and how to start one with /omni:mission.
 ---
 
 A PRD is one change; a roadmap is a milestone of PRDs. A **mission** is the goal behind them: one
-sentence of what changes and for whom, handed to a **Virtual Fleet** that builds the PRDs it needs
+sentence of what changes and for whom, handed to a **AI Fleet** that builds the PRDs it needs
 while your laptop is closed. It never merges, never answers for a person, and waits for a person
 wherever one is needed: an approval, an answer, a merge.
 
@@ -14,7 +14,7 @@ wherever one is needed: an approval, an answer, a merge.
 |---|---|
 | **Goal** | one sentence: what changes, and for whom |
 | **Measures** | 1 to 5 signs it worked once deployed, each with how it is read and a target; recorded now, followed after deployment in a later release |
-| **Fleet** | the Virtual Fleet that takes it: its heroes are the mission's team, and its jobs go to that fleet's runners |
+| **Fleet** | the AI Fleet that takes it: its heroes are the mission's team, and its jobs go to that fleet's runners |
 | **Scope** | PRDs and roadmaps of this repository, in any mix: one PRD, four PRDs, a roadmap, two roadmaps |
 | **Mandate** | how many PRDs may run at once, 1 to 4, 2 by default; and its level, below |
 
@@ -27,7 +27,7 @@ When the page cannot be read it says `mission <n> not read: <why>` and stops.
 
 ## Three levels
 
-A Virtual Fleet has a **level**. A mission takes its fleet's level when it starts. The level
+A AI Fleet has a **level**. A mission takes its fleet's level when it starts. The level
 decides how much the fleet does alone. A person still does the rest.
 
 | level | key | what the fleet does | what you still do |
@@ -129,7 +129,7 @@ says `committee only: a person merges each target's pull request`. **Own branch*
 A mission can be bounded by the tokens it spends. There are two caps, and **both are off by
 default**: no number ships, so nothing pauses until you set one.
 
-- **The fleet's daily cap** (`Tokens per day`, on the virtual fleet's settings) covers every mission
+- **The fleet's daily cap** (`Tokens per day`, on the AI fleet's settings) covers every mission
   of the fleet over the last 24 hours. Only a workspace owner sets it. Empty means no cap.
 - **A mission's budget** (`Token budget for this mission`) covers every job that mission has sent,
   on top of the fleet's cap. Set it on the mission's page while it is a draft. Empty means no cap.
@@ -315,8 +315,8 @@ pull request.
 
 ## Start one
 
-You need a Virtual Fleet first: a member creates it from the Fleet section of the Omni page, with
-**+ New virtual fleet**. Then type the skill in your agent's form
+You need a AI Fleet first: a member creates it from the Fleet section of the Omni page, with
+**+ New AI fleet**. Then type the skill in your agent's form
 ([Any coding agent](/docs/any-agent#set-up-your-agent)).
 
 ```text agent

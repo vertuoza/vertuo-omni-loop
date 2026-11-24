@@ -97,7 +97,7 @@ describe('MissionsTab', () => {
     expect(text(html(view(row({ level: 'alone', status: 'running' }))))).not.toContain('added by the fleet');
   });
 
-  it('is the Missions tab of a virtual fleet, and the tab is not open without its block', () => {
+  it('is the Missions tab of a AI fleet, and the tab is not open without its block', () => {
     const read = { roster: [], activity: [], answered: [], prds: [], galaxy: { heroes: [], teams: [{ name: 'night-shift', label: 'Night Shift', color: '#4fb0ff', mascot: 'robot', points: 0, rank: 1 }] } };
     const virtual: VirtualOf = { workspace: WORKSPACE, mascots: ['robot'], names: ['night-shift'] };
     const board = { ...fleetOf(read, { asked: 'night-shift', viewerId: 'u', period: '30d', now: new Date('2026-09-26T10:00:00Z') }), virtual };

@@ -1,4 +1,4 @@
-/* The New virtual fleet drawer (PRD 2842 s1), as the `fleet-new` screen draws it: the Need human drawer's frame
+/* The New AI fleet drawer (PRD 2842 s1), as the `fleet-new` screen draws it: the Need human drawer's frame
    (src/runners/page/need-human.css: over the right of the page, dimmed behind, 560 px and the whole width under
    720 px), and here its fields: Name, Icon (the mascots as tiles) and Heroes (one switch per role), the foot
    with Cancel and Create fleet at the bottom.

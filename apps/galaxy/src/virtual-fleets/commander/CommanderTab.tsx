@@ -9,7 +9,7 @@ import { cardsAfter, useRail, WaitingRail, type RailProps } from './WaitingRail'
 import { notebooksAfter, NotebooksDrawer, useNotebooks, type NotebooksProps } from './Notebooks';
 import './commander.css';
 
-// The Commander tab of a Virtual Fleet (PRD 3107 s1, the `fleet-commander` screen's 2.A thread, 2.C, 2.D, 2.E and 2.F):
+// The Commander tab of a AI Fleet (PRD 3107 s1, the `fleet-commander` screen's 2.A thread, 2.C, 2.D, 2.E and 2.F):
 // the status line read from the database (missions running, waiting and paused, each a link, and today's tokens), then
 // the thread: a member's question signed by their login, the Commander's reply signed with its glyph and `Commander ·
 // agent`, a bold verdict, one row per claim with its source as a chip (hovering shows that record's own line and time),
@@ -54,7 +54,7 @@ const NOTES_AT_REST: NotesMoves = { pending: new Map(), shown: new Set(), proble
 export const RAIL_AT_REST: Omit<RailProps, 'cards' | 'me' | 'onPick' | 'onConfirm' | 'onCancel'> = { confirming: null, sending: false, problems: new Map() };
 
 const SETTINGS_PATH = '/app/settings';
-const missionsHref = (fleet: string) => `/app/fleet?fleet=${encodeURIComponent(fleet)}&tab=missions`;
+const missionsHref = (fleet: string) => `/app/ai-fleet?fleet=${encodeURIComponent(fleet)}&tab=missions`;
 
 /** The Commander's mark: a role glyph, never a face (never#10). */
 function Glyph({ big = false }: { big?: boolean }) {

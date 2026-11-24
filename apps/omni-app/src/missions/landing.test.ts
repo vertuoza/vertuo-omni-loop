@@ -252,7 +252,7 @@ describe('the mission pull request at landing (AC-7)', () => {
     const body = missionPullBody({ mission, branch: BRANCH, defaultBranch: 'main', rows: one, link: null, answers: { deferred, links } });
     expect(body.startsWith('**Deferred decisions**')).toBe(true);
     expect(body).toContain(
-      '- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. [Agree](https://omni.example.com/app/fleet?fleet=night%20shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=agree) · [Overturn](https://omni.example.com/app/fleet?fleet=night%20shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=overturn)',
+      '- s1-01-colour of PRD 1 · carried by the fleet, option A · on the escalation list: bears on business law BL-QUOTES-1. [Agree](https://omni.example.com/app/ai-fleet?fleet=night%20shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=agree) · [Overturn](https://omni.example.com/app/ai-fleet?fleet=night%20shift&tab=missions&mission=12&decision=1%2Fs1-01-colour&answer=overturn)',
     );
     expect(body).toContain('- s2-01-shape of PRD omni-loop-15 · deferred, option A taken meanwhile · architect no: the shape is not settled.');
     expect(body.indexOf('Lands mission #12')).toBeGreaterThan(body.indexOf('Deferred decisions'));

@@ -284,7 +284,7 @@ describe('a fake fleet takes a two-row roadmap of one repository to landing at a
     const landed = gh.missionPull('acme/widgets').body;
     expect(landed).toContain('**Deferred decisions**');
     expect(landed).toContain(`- ${ITEM} of PRD 10 · carried by the fleet, option A · on the escalation list`);
-    expect(landed).toContain(`[Overturn](${GALAXY}/app/fleet?fleet=night-shift&tab=missions&mission=12&decision=10%2F${ITEM}&answer=overturn)`);
+    expect(landed).toContain(`[Overturn](${GALAXY}/app/ai-fleet?fleet=night-shift&tab=missions&mission=12&decision=10%2F${ITEM}&answer=overturn)`);
     expect(landed).toContain('*PRD 10*\n\n- AC-1 · test · PRD 10 does what its spec says: passed, `tests/10.test.ts`');
     expect(landed).toContain('*PRD 11*\n\n- AC-1 · test · PRD 11 does what its spec says: passed, `tests/11.test.ts`');
     expect(landed).toContain('- [ ] AC-1: Given the mission branch; Then it works');
