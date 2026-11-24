@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `apps/omni-app/src/missions/job.unknown-target.test.ts`, `kit/test/brainstorm-mission-product.test.ts`
+- **File:** `apps/omni-app/src/missions/job.unknown-target.test.ts`
 - **Level:** unit
 - **Red:** `AssertionError: expected [] to deeply equal [ "/omni:ultra-yolo omni-loop-31 --base-of demo-org/api=mission/14-faster-quotes" ]`; `AssertionError: expected '## Plan only (`--product <key> --plan…' to contain '`## Repositories` table is always wri…'`
 
@@ -18,7 +18,7 @@ The mission cut its branch in every repository its product PRDs name and, when o
 
 ## Guard
 
-The reproduction is the guard: the job-level test holds a mission with one refused repository and asserts the other PRD is built, `branch.test.ts` asserts `prepareAll` names each refusal by repository, and the skill test asserts the plan-only run writes `owner/name` cells.
+The reproduction is the guard: the job-level test (`apps/omni-app/src/missions/job.unknown-target.test.ts`) holds a mission with one refused repository and asserts the other PRD is built, `branch.test.ts` asserts `prepareAll` names each refusal by repository, and the skill test (the bug #3275 block of `kit/test/brainstorm-mission-product.test.ts`, also red before the fix) asserts the plan-only run writes `owner/name` cells.
 
 ## Mutation
 
