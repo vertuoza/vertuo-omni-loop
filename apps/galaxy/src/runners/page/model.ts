@@ -1,4 +1,5 @@
 import type { Board, Job, JobQuestions, Runner, StoredOutcome, Target } from '../runners.contract';
+import { lossOf } from './loss';
 
 type RunnerHealth = NonNullable<Runner['health']>;
 
@@ -290,4 +291,55 @@ export function fleetCell(runner: Pick<Runner, 'fleet'>, viewer: Board['viewer']
   // A fleet the workspace no longer lists stays the picker's value until an owner changes it.
   if (runner.fleet !== null && !fleets.some((f) => f.name === runner.fleet)) options.push({ value: runner.fleet, label: runner.fleet });
   return { kind: 'picker', value: runner.fleet ?? '', options };
+}
+
+/** The five buckets every job falls in (PRD 3232): what waits on a person, what runs, what cannot run, what failed, what ended well. */
+export type JobBucket = 'needs' | 'running' | 'cannot' | 'failed' | 'done';
+
+/** The jobs filter: a bucket's tab, or All. */
+export const JOB_TABS = ['running', 'cannot', 'failed', 'done', 'all'] as const;
+export type JobTab = (typeof JOB_TABS)[number];
+
+/** `?jobs=` read as a tab: any other value, or none, reads Running. */
+export const jobTabOf = (value: string | null | undefined): JobTab => JOB_TABS.find((tab) => tab === value) ?? 'running';
+
+/** The bucket of a job, a pure function of the job, the board, the fleets and the answered ids (PRD 3232): Needs you (Need human,
+ * Waiting on answers, Held, Answered with its button, Stopped mid-way, Lost 3 times), Running (Queued, Starting, Running, Lost ·
+ * resuming, Answered · fixing), Cannot run, Failed (Failed, Timeout, Runner lost with no resume), Done (the rest). */
+export function jobBucket(job: Job, board: Pick<Board, 'jobs' | 'runners'>, fleets: readonly Fleet[], answered: readonly string[], now: Date): JobBucket {
+  const loss = lossOf(job, board.jobs, board.runners, now);
+  if (loss !== null) return loss.resume === null ? 'needs' : 'running';
+  if (job.status === 'queued') return cannotRunReason(job, board.runners, fleets) === null ? 'running' : 'cannot';
+  if (job.status === 'done') return doneBucket(job, board.jobs, answered);
+  return STATUS_BUCKETS[job.status] ?? 'done';
+}
+
+const STATUS_BUCKETS: Readonly<Partial<Record<Job['status'], JobBucket>>> = { claimed: 'running', running: 'running', failed: 'failed', cancelled: 'done' };
+const REPLY_BUCKETS = { run: 'running', done: 'done', wait: 'needs' } as const;
+const NEEDS_OUTCOMES: readonly Ended[] = ['answers', 'held', 'human', 'stopped'];
+
+/** A job that ended done: where its answers stand, else its outcome decides. */
+function doneBucket(job: Job, jobs: readonly Job[], answered: readonly string[]): JobBucket {
+  const reply = answeredOf(job, jobs, answered);
+  if (reply !== null) return REPLY_BUCKETS[reply.tone];
+  return NEEDS_OUTCOMES.includes(job.outcome) ? 'needs' : 'done';
+}
+
+/** Under an empty Running tab: `Last job: <status> · <line> · <age>` for the job that ended last, or null when none ended. */
+export function lastJobWords(jobs: readonly Job[], now: Date): string | null {
+  const ended = jobs.filter((job) => job.endedAt !== null).sort((a, b) => Date.parse(b.endedAt ?? '') - Date.parse(a.endedAt ?? ''))[0];
+  if (ended?.endedAt == null) return null;
+  const age = spanOf(since(ended.endedAt, now));
+  return `Last job: ${statusWords(ended, now)} · ${ended.line} · ${age === 'now' ? 'now' : `${age} ago`}`;
+}
+
+/** Each job's bucket, by id. */
+export const bucketsOf = (board: Pick<Board, 'jobs' | 'runners'>, fleets: readonly Fleet[], answered: readonly string[], now: Date): Map<string, JobBucket> =>
+  new Map(board.jobs.map((job) => [job.id, jobBucket(job, board, fleets, answered, now)]));
+
+/** The jobs in each bucket, and `all` (every job, the Needs you ones included: the sum of the five). */
+export function bucketCounts(buckets: ReadonlyMap<string, JobBucket>): Record<JobBucket | 'all', number> {
+  const counts = { needs: 0, running: 0, cannot: 0, failed: 0, done: 0, all: 0 };
+  for (const bucket of buckets.values()) { counts[bucket] += 1; counts.all += 1; }
+  return counts;
 }

@@ -26,7 +26,7 @@ function demo(): Extract<RunnersPageView, { kind: 'board' }> {
 function rowOf(change: Partial<Job>): string {
   const view = demo();
   const board: Board = { ...view.board, jobs: view.board.jobs.map((job) => (job.line === '/omni:yolo 1702' ? { ...job, ...change } : job)) };
-  const html = renderToStaticMarkup(createElement(RunnersPage, { view: { ...view, board }, supabase: null, signinError: null }));
+  const html = renderToStaticMarkup(createElement(RunnersPage, { view: { ...view, board }, supabase: null, signinError: null, jobs: 'all' }));
   const start = html.indexOf('>/omni:yolo 1702<');
   const next = html.indexOf('runners-job"', start + 1);
   return html.slice(start, next < 0 ? undefined : next);

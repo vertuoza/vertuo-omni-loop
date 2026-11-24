@@ -14,8 +14,8 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined
 
 const NOW = new Date('2026-10-13T14:00:00Z');
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
-const render = (view: RunnersPageView, terminal: string | null = null, answer: string | null = null) =>
-  renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, terminal, answer }));
+const render = (view: RunnersPageView, terminal: string | null = null, answer: string | null = null, jobs: string | null = 'all') =>
+  renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, terminal, answer, jobs }));
 
 function demo(): Extract<RunnersPageView, { kind: 'board' }> {
   const view = demoRunnersPage(NOW);
@@ -31,8 +31,8 @@ const actionsOf = (row: string): (string | undefined)[] => [...row.matchAll(/<bu
 function jobRow(html: string, line: string): string {
   const start = html.indexOf(`>${line}<`);
   expect(start, line).toBeGreaterThan(-1);
-  const next = html.indexOf('runners-job"', start + 1);
-  return html.slice(start, next < 0 ? undefined : next);
+  const next = Math.min(...['runners-job"', 'runners-tabs'].map((mark) => html.indexOf(mark, start + 1)).filter((at) => at > -1));
+  return html.slice(start, Number.isFinite(next) ? next : undefined);
 }
 
 describe('the board', () => {

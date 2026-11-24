@@ -4,8 +4,8 @@ import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton } from './actions';
 import {
-  afterAnswersWords, answeredOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
-  type Answered, type Fleet, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
+  afterAnswersWords, answeredOf, bucketCounts, bucketsOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, JOB_TABS, jobTabOf, lastJobWords, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  type Answered, type Fleet, type JobBucket, type JobTab, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
 import { accountChips, asOfWords, gaugesOf, jobTokensWords, OLD_RUNNER_WORDS, stateTone, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
 import { listedAnswer } from './need-human';
@@ -48,6 +48,8 @@ export interface RunnersPageProps {
   terminal?: string | null;
   /** The job whose Need human drawer the URL opens (`?answer=<job id>`), if any (PRD 2255). */
   answer?: string | null;
+  /** The jobs tab the URL names (`?jobs=running|cannot|failed|done|all`, PRD 3232); any other value reads Running. */
+  jobs?: string | null;
 }
 
 function Closed() {
@@ -234,7 +236,7 @@ function WaitingWhy({ words }: { words: string | null }) {
   return words === null ? null : <span className="runners-why">{words}</span>;
 }
 
-function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[] }) {
+function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds, band = false }: { job: Job; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; primary: boolean; answeredIds: readonly string[]; band?: boolean }) {
   const cannotRun = cannotRunReason(job, board.runners, fleets);
   const waiting = cannotRun === null ? waitingWords(job, board.runners) : null;
   const prd = prdLineOf(job, prds);
@@ -242,7 +244,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
   const answered = answeredOf(job, board.jobs, answeredIds);
   const loss = lossOf(job, board.jobs, board.runners, now);
   return (
-    <div className="runners-row runners-job" id={`job-${job.id}`}>
+    <div className="runners-row runners-job" id={band ? `need-${job.id}` : `job-${job.id}`}>
       <span className="runners-line">
         <code data-content>{job.line}</code>
         {prd !== null && <span className="runners-prd"><a href={prd.href}>PRD {prd.number}</a><span className="runners-muted" data-content> · {prd.title}</span></span>}
@@ -268,16 +270,65 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds }:
   );
 }
 
-function Jobs({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
-  if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
-  // A job that is resuming offers nothing to press (PRD 2809): it never takes the page's primary action.
-  const resuming = (job: Job) => lossOf(job, board.jobs, board.runners, now)?.resume != null;
-  const primary = (board.jobs.find(canResume) ?? board.jobs.find(lostThrice) ?? board.jobs.find((job) => canSendAgain(job) && !resuming(job)))?.id ?? answered[0] ?? null;
+const TAB_WORDS: Readonly<Record<JobTab, string>> = { running: 'Running', cannot: 'Cannot run', failed: 'Failed', done: 'Done', all: 'All' };
+
+/** The jobs' tabs (PRD 3232): links with their counts, so they work without script; Cannot run and Failed in `--ask-red` with an icon when above zero. */
+function Tabs({ tab, counts }: { tab: JobTab; counts: Record<JobBucket | 'all', number> }) {
   return (
-    <div className="runners-table runners-jobs">
-      <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>
-      {board.jobs.map((job) => <JobRow key={job.id} job={job} board={board} fleets={fleets} prds={prds} retros={retros} now={now} primary={job.id === primary} answeredIds={answered} />)}
+    <nav className="runners-tabs" aria-label="Jobs">
+      {JOB_TABS.map((key) => {
+        const red = (key === 'cannot' || key === 'failed') && counts[key] > 0;
+        return (
+          <a key={key} href={`?jobs=${key}`} className={`runners-tab${key === tab ? ' is-selected' : ''}${red ? ' is-red' : ''}`} {...(key === tab ? { 'aria-current': 'page' as const } : {})}>
+            {red && <i className="runners-icon" aria-hidden="true">▲</i>}
+            {TAB_WORDS[key]} <b>{counts[key]}</b>
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** An empty tab says so: Running names the last job that ended and links the tabs with jobs; any other says `No job here.` */
+function EmptyTab({ tab, board, counts, now }: { tab: JobTab; board: Board; counts: Record<JobBucket | 'all', number>; now: Date }) {
+  if (tab !== 'running') return <div className="runners-empty"><p><strong>No job here.</strong></p><p className="runners-muted">Nothing here in the last 50.</p></div>;
+  const last = lastJobWords(board.jobs, now);
+  const others = JOB_TABS.filter((key) => key !== 'running' && key !== 'all' && counts[key] > 0);
+  return (
+    <div className="runners-empty">
+      <p><strong>Nothing running.</strong></p>
+      {last !== null && <p className="runners-muted">{last}</p>}
+      {others.length > 0 && <p className="runners-muted">{others.map((key, at) => <span key={key}>{at > 0 && ' · '}<a href={`?jobs=${key}`}>{TAB_WORDS[key]} {counts[key]}</a></span>)}</p>}
     </div>
+  );
+}
+
+function Jobs({ board, fleets, prds, retros, now, answered, tab }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[]; tab: JobTab }) {
+  if (board.jobs.length === 0) return <p className="runners-muted">No job yet.</p>;
+  const buckets = bucketsOf(board, fleets, answered, now);
+  const counts = bucketCounts(buckets);
+  const needs = board.jobs.filter((job) => buckets.get(job.id) === 'needs');
+  const shown = board.jobs.filter((job) => tab === 'all' || buckets.get(job.id) === tab);
+  // A job that is resuming offers nothing to press (PRD 2809): it never takes the page's primary action. The one primary action is
+  // chosen among the jobs on screen: the band first, then the open tab.
+  const resuming = (job: Job) => lossOf(job, board.jobs, board.runners, now)?.resume != null;
+  const onScreen = [...needs, ...shown];
+  const primary = (onScreen.find(canResume) ?? onScreen.find(lostThrice) ?? onScreen.find((job) => canSendAgain(job) && !resuming(job)))?.id
+    ?? answered.find((id) => onScreen.some((job) => job.id === id)) ?? null;
+  const head = <div className="runners-row runners-head"><span>Line</span><span>Repository</span><span>Sent by</span><span>Where</span><span>Status</span><span /></div>;
+  // On All a Needs you job is listed twice, in the band and in the table: only its band row takes the primary action.
+  const row = (job: Job, band: boolean) => <JobRow key={job.id} job={job} board={board} fleets={fleets} prds={prds} retros={retros} now={now} primary={job.id === primary && (band || !needs.includes(job))} answeredIds={answered} band={band} />;
+  return (
+    <>
+      {needs.length > 0 && (
+        <section className="runners-needs" aria-label="Needs you">
+          <h3>Needs you <b>{needs.length}</b></h3>
+          <div className="runners-table runners-jobs">{head}{needs.map((job) => row(job, true))}</div>
+        </section>
+      )}
+      <Tabs tab={tab} counts={counts} />
+      {shown.length === 0 ? <EmptyTab tab={tab} board={board} counts={counts} now={now} /> : <div className="runners-table runners-jobs">{head}{shown.map((job) => row(job, false))}</div>}
+    </>
   );
 }
 
@@ -291,7 +342,7 @@ function Start() {
   );
 }
 
-function Board({ board, fleets, prds, retros, now, answered }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[] }) {
+function Board({ board, fleets, prds, retros, now, answered, tab }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[]; tab: JobTab }) {
   return (
     <div className="dash runners" data-screen="runners">
       <h1 className="dash-name">Runners</h1>
@@ -306,7 +357,7 @@ function Board({ board, fleets, prds, retros, now, answered }: { board: Board; f
           </section>
           <section className="runners-section">
             <h2>Jobs</h2>
-            <Jobs board={board} fleets={fleets} prds={prds} retros={retros} now={now} answered={answered} />
+            <Jobs board={board} fleets={fleets} prds={prds} retros={retros} now={now} answered={answered} tab={tab} />
           </section>
         </>
       )}
@@ -315,7 +366,7 @@ function Board({ board, fleets, prds, retros, now, answered }: { board: Board; f
   );
 }
 
-export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null }: RunnersPageProps) {
+export function RunnersPage({ view, supabase, signinError, terminal = null, answer = null, jobs: jobsTab = null }: RunnersPageProps) {
   if (view.kind === 'closed' || view.kind === 'sign-in' || view.kind === 'no-workspace') {
     return <MemberGate kind={view.kind} closed={<Closed />} board="The Runners page" supabase={supabase} signinError={signinError} />;
   }
@@ -330,7 +381,7 @@ export function RunnersPage({ view, supabase, signinError, terminal = null, answ
   return (
     <TerminalProvider initial={terminalOf(asked === null ? terminal : null)} jobs={jobs}>
       <NeedHumanProvider initial={asked} jobs={needJobs} demo={view.demoQuestions ?? null}>
-        <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={new Date(view.now)} answered={view.answered} />
+        <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={new Date(view.now)} answered={view.answered} tab={jobTabOf(jobsTab)} />
       </NeedHumanProvider>
     </TerminalProvider>
   );
