@@ -5,7 +5,7 @@ kind: shared
 mock: app-shell.html
 implements: [apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/Sidebar.tsx, apps/galaxy/src/nav/AppBar.tsx, apps/galaxy/src/nav/BrandLogo.tsx, apps/galaxy/src/nav/UserMenu.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/nav/sidebar.css, apps/galaxy/src/nav/app-bar.css, apps/galaxy/src/nav/brand-logo.css, apps/galaxy/src/nav/drawer.css, apps/galaxy/src/nav/user-menu.css, apps/galaxy/src/switch/AntiLoopButton.tsx, apps/galaxy/src/ask/ask.css]
 reads: [apps/galaxy/src/nav/, apps/galaxy/app/app/layout.tsx, apps/galaxy/app/prd/layout.tsx, apps/galaxy/app/ask/(shell)/layout.tsx, apps/galaxy/app/knowledge/layout.tsx, apps/galaxy/app/roadmaps/layout.tsx, apps/galaxy/app/concepts/layout.tsx, apps/galaxy/app/bugs/layout.tsx, apps/galaxy/app/visual/layout.tsx, apps/galaxy/app/ideas/layout.tsx, apps/galaxy/app/anti/layout.tsx, apps/galaxy/src/ideas/IdeasFrame.tsx, apps/galaxy/src/ask/theme-switch.tsx, apps/galaxy/src/switch/GameModeButton.tsx, apps/galaxy/src/waiting/]
-routes: [/app, /app/runners, /app/inbox, /app/inbox/done, /app/inbox/workspace, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual, /ideas/<owner>/<repo>, /anti, /anti/work]
+routes: [/app, /app/ai-fleet, /app/runners, /app/inbox, /app/inbox/done, /app/inbox/workspace, /prd/<id>, /ask, /knowledge, /roadmaps, /concepts, /bugs, /visual, /ideas/<owner>/<repo>, /anti, /anti/work]
 supersedes: null
 ---
 
@@ -41,6 +41,9 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
   is the only filled count. Questions and Waiting leave Work; the PRDs badge goes; Runners shows a quiet
   grey count. From 900 px the top bar has no bell; below 900 px the bell's slot is the Inbox button with
   the plasma count. In the rail only Inbox shows a dot.
+- PRD 3233: AI Fleet is the menu's second row, right under Inbox, in the same unlabelled group, with the
+  `menu-ai-fleet` sprite (a robot head) and no badge. Fleet stays under Dashboard, for the players'
+  fleets only.
 
 ## States
 
@@ -63,7 +66,7 @@ in its `reads`, never in its `implements`. The pages a person meets before the a
 
 ## Words
 
-OMNI LOOP · Dashboard · Home · Fleet · Loop · Runners · Workspace · Engineering · Work · Products · Roadmaps ·
+OMNI LOOP · AI Fleet · Dashboard · Home · Fleet · Loop · Runners · Workspace · Engineering · Work · Products · Roadmaps ·
 Ideas · Concepts · PRDs · Waiting · Bug Fixes · Visual Updates · Questions · Knowledge · Settings · Docs ·
 Release notes · Omni Loop v<version> · Collapse the menu · Expand the menu · Menu · Omni · Light ·
 Dark · Game mode · My profile · Sign out · Sign in with GitHub · Runners: <n> waiting · Waiting: <n> yours · Anti-loop · Omni loop · ANTI LOOP · Anti-dashboard ·
@@ -90,6 +93,7 @@ Anti-work.
   `reads` here, a view two bars share, by the rule's fourth line.
 
 - omni-loop-22: the `menu-inbox` sprite awaits its owner's approval before it joins the design system.
+- PRD 3233: the `menu-ai-fleet` sprite is drawn for this PRD and awaits its owner's approval the same way.
 
 ## Source
 
@@ -111,3 +115,4 @@ Anti-work.
 - /omni:visual-fix #2505, pick B by @pierrederval on 2026-10-23: .omni-loop/delivery/visual/2505-anti-loop-button-colours/before-after.html
 - /omni:visual-fix #2511, pick A by @pierrederval on 2026-10-23: .omni-loop/delivery/visual/2511-pages-full-width/before-after.html
 /omni:brainstorm, PRD omni-loop-22: its before/after page, on the PRD's page (omni dossier get omni-loop-22 before-after)
+/omni:brainstorm, PRD 3233: .omni-loop/delivery/inbox/3233-ai-fleet/before-after.html (the AI Fleet entry)
