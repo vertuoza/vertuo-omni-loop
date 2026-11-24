@@ -1,6 +1,9 @@
 // `omni prd <n>`'s `product:` line (PRD 1364, s6), through `main()` on a fixture repository, against a
 // stubbed fetch that follows the dossier lookup's contract (`GET /api/dossiers?repo=<owner/name>&prd=<n>`,
 // answering `{id, url, product}`). The sign-in is an in-memory token store, so nothing real is read.
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Tokens } from '../../lib/ask/schema.ts';
 import { makeRepo } from '../../test/fixture.ts';
@@ -81,5 +84,40 @@ describe('omni prd: the product line (PRD 1364)', () => {
       expect(run.lines.some((line) => line.startsWith('product:'))).toBe(false);
       expect(run.urls).toEqual([]);
     }
+  });
+});
+
+describe('omni prd: a PRD whose folder is only on its feature branch (bug #3236)', () => {
+  /** A repository whose default branch holds no folder for PRD 7, and whose remote feature branch
+   * `origin/feat/quote` holds it in the inbox: how a mission's PM leaves the PRDs it writes. */
+  function onItsFeatureBranchOnly() {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config({ enabled: false }) } });
+    const run = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+    run('switch', '-q', '-c', 'feat/quote');
+    mkdirSync(join(root, DIR), { recursive: true });
+    writeFileSync(join(root, DIR, 'spec.md'), 'x');
+    run('add', '-A');
+    run('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'docs(prd): quote');
+    run('update-ref', 'refs/remotes/origin/feat/quote', 'HEAD');
+    run('switch', '-q', 'main');
+    run('branch', '-q', '-D', 'feat/quote');
+    run('update-ref', 'refs/remotes/origin/main', 'main');
+    return root;
+  }
+
+  it('names the remote feature branch that holds the folder, so the committee can read it there', async () => {
+    const root = onItsFeatureBranchOnly();
+    const err: string[] = [];
+    const code = await main(['prd', '7'], { cwd: root, env: {}, stdout: { write: () => 0 }, stderr: { write: (s) => err.push(s) } });
+    expect(code).toBe(1);
+    expect(err.join('')).toContain('omni prd: PRD 7 is in neither');
+    expect(err.join('')).toContain('its folder is on origin/feat/quote: read it there.');
+  });
+
+  it('names no branch when no remote branch holds the folder either', async () => {
+    const { root } = makeRepo({ git: true, fetched: true, files: { '.omni-loop/config.yml': config({ enabled: false }) } });
+    const err: string[] = [];
+    expect(await main(['prd', '7'], { cwd: root, env: {}, stdout: { write: () => 0 }, stderr: { write: (s) => err.push(s) } })).toBe(1);
+    expect(err.join('')).not.toContain('its folder is on');
   });
 });
