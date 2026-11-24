@@ -9,41 +9,53 @@
           "stance": "skeptical",
           "score": 4,
           "reaction": "A pure view over the board I already have, rendered in the Runners page's own rows: little new UI to keep alive.",
-          "citations": ["persona:F-E Developer"]
+          "citations": [
+            "persona:F-E Developer"
+          ]
         },
         {
           "name": "B-E DEv",
           "stance": "skeptical",
           "score": 4,
           "reaction": "Two fields on a job and no migration. I want the role copy tested against the SQL, or it drifts.",
-          "citations": ["persona:B-E DEv"]
+          "citations": [
+            "persona:B-E DEv"
+          ]
         },
         {
           "name": "Paul - Product Manager",
           "stance": "enthusiastic",
           "score": 5,
           "reaction": "One click from the menu to see what my fleets do and where: no more hunting on Runners.",
-          "citations": ["persona:Paul - Product Manager"]
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
         },
         {
           "name": "Lead Engineer",
           "stance": "neutral",
           "score": 3,
           "reaction": "Clearer screens, but the code keeps saying virtual while the product says AI Fleet.",
-          "citations": ["persona:Lead Engineer"]
+          "citations": [
+            "persona:Lead Engineer"
+          ]
         },
         {
           "name": "Irisa",
           "stance": "neutral",
           "score": 4,
           "reaction": "I can tell at a glance whether my fleet's work is stuck on a runner, without knowing how runners work.",
-          "citations": ["persona:Irisa"]
+          "citations": [
+            "persona:Irisa"
+          ]
         }
       ],
       "objection": {
         "persona": "Lead Engineer",
         "text": "If the screens say AI Fleet but the code, the database and the folders still say virtual, my team will keep using both names, and the confusion comes back through the code.",
-        "citations": ["persona:Lead Engineer"],
+        "citations": [
+          "persona:Lead Engineer"
+        ],
         "settled": "none"
       },
       "fit": "Fits every persona; the Lead Engineer's concern stays, for a later PRD that renames the code."
@@ -57,39 +69,102 @@
           "stance": "skeptical",
           "score": 4,
           "reaction": "Every edge state has its words and a test seam; AC-2 to AC-6 are what I would check by hand.",
-          "citations": ["persona:F-E Developer"]
+          "citations": [
+            "persona:F-E Developer"
+          ]
         },
         {
           "name": "B-E DEv",
           "stance": "skeptical",
           "score": 5,
           "reaction": "The drift test between missionJobRole and the SQL function is in the seams: good.",
-          "citations": ["persona:B-E DEv"]
+          "citations": [
+            "persona:B-E DEv"
+          ]
         },
         {
           "name": "Paul - Product Manager",
           "stance": "enthusiastic",
           "score": 5,
           "reaction": "Old links redirect, so nothing I shared breaks.",
-          "citations": ["persona:Paul - Product Manager"]
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
         },
         {
           "name": "Lead Engineer",
           "stance": "neutral",
           "score": 3,
           "reaction": "AC-9 keeps the old word out of what people read; the code rename is still a debt.",
-          "citations": ["persona:Lead Engineer"]
+          "citations": [
+            "persona:Lead Engineer"
+          ]
         },
         {
           "name": "Irisa",
           "stance": "neutral",
           "score": 4,
           "reaction": "The reasons are sentences, like why a job waits for a slot. That is what I need.",
-          "citations": ["persona:Irisa"]
+          "citations": [
+            "persona:Irisa"
+          ]
         }
       ],
       "objection": null,
       "fit": "Fits every persona."
+    },
+    {
+      "stage": "shipped",
+      "date": "2026-11-24",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "The tab reuses the Runners page rows, but a job waiting on me sits in its own section, not under its runner as drawn.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 5,
+          "reaction": "The role copy shipped with its drift test against the SQL function, and still no migration.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "AI Fleet is one click from the menu, and each fleet says which runners it uses.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 3,
+          "reaction": "The screens say AI Fleet now, but the code and the database still say virtual.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "The Runners tab tells me in a few words why a job waits.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "Fits every persona; the Lead Engineer still waits for a PRD that renames the code."
     }
   ]
 }
