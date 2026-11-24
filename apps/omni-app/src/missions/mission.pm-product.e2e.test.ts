@@ -186,7 +186,7 @@ describe('a goal-only mission whose PM writes product PRDs on Omni, reviewed by 
     // The PM approves B: both decisions name the latest version, the PRD is approved for the fleet, and each is built.
     for (const prd of [P31, P32]) endPm(planOnly(prd), approvedPlan(prd, version(prd, 'b')));
     await run();
-    expect(fake.planDecisions().filter(({ kind }) => kind === 'plan').map(({ prd, plan, approval }) => [prd, plan.slice(0, 2), approval])).toEqual([
+    expect(fake.planDecisions().filter(({ kind }) => kind === 'plan').map(({ prd, plan, approval }) => [prd, plan?.slice(0, 2), approval])).toEqual([
       [P31, 'a1', false],
       [P32, 'a2', false],
       [P31, 'b1', true],
