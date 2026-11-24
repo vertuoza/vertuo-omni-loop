@@ -90,7 +90,8 @@ describe('the limit tick', () => {
   });
 
   it('draws no tick for a runner that sent no limit', () => {
-    const { limits: _limits, ...bare } = health();
+    const bare = health();
+    delete bare.limits;
     expect(gaugesOf({ health: bare, samples: [] })?.map((g) => g.limit)).toEqual([null, null, null, null]);
   });
 
