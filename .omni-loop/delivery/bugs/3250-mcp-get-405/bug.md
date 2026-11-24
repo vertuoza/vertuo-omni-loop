@@ -8,13 +8,13 @@
 
 ## Reproduction
 
-- **File:** `apps/galaxy/src/product-mcp/product-mcp.methods.test.ts` (first written in `product-mcp.controller.test.ts`, moved out so the proof of BR-ACCESS-9 stays untouched)
+- **File:** `apps/galaxy/src/product-mcp/product-mcp.methods.test.ts`
 - **Level:** unit
 - **Red:** AssertionError: expected 200 to be 405 // Object.is equality
 
 ## Fix
 
-A signed-in GET reached the key check, the product's reads and the SDK's transport, which opened an event stream and closed it as the stateless server closed, so every MCP client opened it again within seconds: about 3.4 GET a second in production, each one three database calls. The handler now answers any method but POST with 405 and `Allow: POST` before any sign-in check or database read, as the MCP spec asks of a server with no stream; POST is unchanged.
+A signed-in GET reached the key check, the product's reads and the SDK's transport, which opened an event stream and closed it as the stateless server closed, so every MCP client opened it again within seconds: about 3.4 GET a second in production, each one three database calls. The handler now answers any method but POST with 405 and `Allow: POST` before any sign-in check or database read, as the MCP spec asks of a server with no stream; POST is unchanged. The reproduction was first written in `product-mcp.controller.test.ts`, then moved to a file of its own so the proof of BR-ACCESS-9 stays untouched.
 
 ## Guard
 
