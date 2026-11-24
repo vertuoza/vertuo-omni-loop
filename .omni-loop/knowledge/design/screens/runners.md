@@ -3,7 +3,7 @@ screen: runners
 status: draft
 kind: page
 mock: runners.html
-implements: [apps/galaxy/app/app/runners/page.tsx, apps/galaxy/src/runners/page/RunnersPage.tsx, apps/galaxy/src/runners/page/runners.css]
+implements: [apps/galaxy/app/app/runners/page.tsx, apps/galaxy/src/runners/page/RunnersPage.tsx, apps/galaxy/src/runners/page/runners.css, apps/galaxy/src/runners/page/Repositories.tsx]
 reads: [apps/galaxy/src/runners/page/Terminal.tsx, apps/galaxy/src/runners/runners.contract.ts, apps/galaxy/src/runners/runners.service.ts, apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/sidebar.ts]
 routes: [/app/runners]
 supersedes: null
@@ -19,23 +19,47 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 
 ## Regions
 
-- **The title,** Runners.
-- **Runners:** one row per runner, with:
-  - its name and state (Online, Busy, Offline with when it was last seen);
-  - its fleet, a picker for a workspace owner and plain text for everyone else;
-  - slots used out of slots, its repositories and the kit version;
-  - a Terminal button, opening its running job, else its last job; disabled, titled "No job yet",
-    when it has run none;
-  - under it, a health line (PRD 2102): four gauges, CPU (percent and `load <n> / <cores>`),
-    Memory (`<used> of <total> GB`), Disk (`<free> GB free of <total>`) and Tokens
-    (`<n> in 5 h · <n> today`, the four-count split in its title), each with the last hour's
-    sparkline; a gauge past the runner's own limit reads in `--ask-red`.
-  - under the health line, its account chips (PRD 2537), in the order its accounts file lists them:
-    the account's id, in the ink colour when ready, in `--ask-plasma` when active, in `--ask-red`
-    when out or unusable, each titled with its agent and its state (`out until 18:00`, `not signed
-    in`). A runner with no accounts file shows none.
-- **Jobs:** queued and running first, then the jobs waiting for an answer whatever their age
-  (PRD 2255), then the last 50 that ended. Each row shows the line, the
+- **The title,** Runners, once, with `<n> runners · <k> online · <u> of <s> slots in use` under it
+  (PRD 3232).
+- **Runners:** one card per runner (PRD 3232), in this order:
+  - its name, its fleet (a picker for a workspace owner and plain text for everyone else) and a
+    Terminal button, opening its running job, else its last job; disabled, titled "No job yet", when
+    it has run none; `Keeps <size> until <day time>` under the name (PRD 2809);
+  - whether it can take work: its state (Online, Busy, Offline with when it was last seen, `Paused:
+    <reason>`), one pip per slot, filled when used, and `<used> of <slots> slot(s)`; each busy pip is
+    titled with the fleet of the job using it, and the line under them names them: `Used by <fleet>,
+    Any runner` (the label of the job's `toFleet`, `Any runner`, or the runner's name when the job was
+    sent to it) (PRD 3232);
+  - its account chips (PRD 2537), in the order its accounts file lists them: the account's id, in the
+    ink colour when ready, in `--ask-plasma` when active, in `--ask-red` when out or unusable, each
+    titled with its agent and its state (`out until 18:00`, `not signed in`); a runner with no
+    accounts file shows none; then Tokens (`<n> in 5 h · <n> today`, the four-count split in its
+    title) with the last hour's sparkline;
+  - the health gauges (PRD 2102): CPU (percent and `load <n> / <cores>`), Memory (`<used> of <total>
+    GB`) and Disk (`<free> GB free of <total>`), each with a bar, a tick at the runner's own limit when
+    it has one, and the last hour's sparkline; a gauge past its limit reads in `--ask-red`, with an
+    icon;
+  - `<n> repositories`, then `· <k> with jobs` when some have a job queued or running: a button that
+    opens the repositories drawer (`?repos=<runner>`, PRD 3232); then the kit version, in `--ask-red`
+    with `blocks <n> job(s)` only when a queued job reads `Update the runner's kit` and this runner
+    could take it.
+- **Repositories drawer** (PRD 3232): the runner's name, `<n> repositories this runner holds`, a search
+  field, then the list, repositories with a job queued or running first, then A–Z: the owner dimmed
+  and the name, its running and queued counts (a Cannot run job marked so), its last ended job among
+  the last 50 (status, pull request, age, or `No job in the last 50`) and `Also on <runner>, …` or
+  `Only on this runner`; at its foot, `Last job: among the last 50 only.` Esc, the close button and a
+  click outside close it.
+- **Needs you** (PRD 3232): a band above the jobs filter, on every tab, listing the jobs that wait on a
+  person (Need human, Waiting on answers, Held, Answered, Stopped mid-way, Lost 3 times), each with its
+  status, line, one action and Terminal; with none, not drawn. The page's one primary action is taken
+  among the jobs on screen: this band first, then the open tab.
+- **The jobs filter** (PRD 3232): tabs with counts, Running · Cannot run · Failed · Done · All, kept as
+  `?jobs=`, Running by default; the Cannot run and Failed counts in `--ask-red` when above zero.
+  Running holds Queued, Waiting, Starting, Running, Lost · resuming and Answered · fixing; Failed holds
+  Failed, Timeout and Runner lost; Done holds Done, Ready, Answered · fixed and Cancelled; All holds
+  every job. An empty Running tab reads **Nothing running.**, the last job that ended, and a link to
+  each tab with jobs; another empty tab reads **No job here.** with `Nothing here in the last 50.`
+- **Jobs:** the open tab's jobs, queued and running first, then the last 50 that ended. Each row shows the line, the
   repository, who sent it, where it went, its status and its action.
   - Each row has a Terminal button, which opens the `runner-terminal` panel on that job and sets
     `?terminal=<job id>` on the URL.
@@ -67,6 +91,10 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     `Fleet <fleet> is gone`, or `Update the runner's kit` (PRD 2573, which
     replaced `No runner can run it as <key>'s GitHub App`). An offline, busy or
     paused runner still counts. It keeps its Cancel, and reads Queued again once a runner can take it.
+    Beside Cancel, its one fix (PRD 3232): copy `omni runner --name <name> --repos <dir>` for a
+    repository no runner holds; for a workspace owner, Show fleet, focusing the fleet picker of a runner
+    that holds it; Send to any runner when its runner or fleet is gone; copy `omni update` for an old
+    kit.
   - A job an API key sent shows `API key <name>` as its sender, with `made by @<login>` under it
     (PRD 2022), followed by ` · for <acting_for>` when the app said whom it acted for, as given and
     never matched to a member (PRD 2425). A job an answer or a relaunch queued from it reads the
@@ -99,7 +127,7 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 
 Runners · Runner · State · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
-Any runner · Status · Queued · Cannot run · No runner holds · does not hold · is gone · Omni App · Update the runner's kit · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
+Any runner · Status · Queued · Needs you · Nothing running · No job here · Nothing here in the last 50 · All · repositories · with jobs · this runner holds · Search repositories · Also on · Only on this runner · No job in the last 50 · Last job · among the last 50 only · Used by · slot · Show fleet · Send to any runner · blocks · Copy · Cannot run · No runner holds · does not hold · is gone · Omni App · Update the runner's kit · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
 health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged · Lost · resuming · went silent at · attempt · of 3 · after a loss · job · Resumed from the · save · branches · Started over: nothing was unsaved · files stayed on · Lost 3 times · Lost at · Keeps · until.
@@ -118,6 +146,8 @@ health · no tokens left · until · out of tokens · usage limit · since · us
   ones?
 
 ## Source
+
+/omni:brainstorm, PRD 3232: .omni-loop/delivery/inbox/3232-runners-redesign/before-after.html
 
 /omni:brainstorm, PRD 1830: .omni-loop/delivery/shipped/1830-runners/before-after.html
 /omni:brainstorm, PRD 1904: .omni-loop/delivery/shipped/1904-runner-live-logs/before-after.html
