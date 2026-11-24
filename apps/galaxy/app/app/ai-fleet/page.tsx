@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { viewer } from '../../../src/data/viewer';
 import { periodOf } from '../../../src/dashboard/board/period';
-import { fleetPageOf, missionsBlock, one, roomBlock } from '../../../src/dashboard/fleet/blocks';
+import { fleetPageOf, missionsBlock, one, roomBlock, runnersBlocks } from '../../../src/dashboard/fleet/blocks';
 import { demoFleetBoard, loadFleetBoard } from '../../../src/dashboard/fleet/fleet';
 import type { FleetView } from '../../../src/dashboard/fleet/FleetScreen';
 import { AI_FLEET_PATH, fleetRedirect } from '../../../src/dashboard/fleet/redirect';
@@ -15,6 +15,7 @@ import { Notice } from '../../../src/ask/page/Notice';
 import { AiFleetListScreen } from '../../../src/virtual-fleets/list/AiFleetList';
 import { demoAiFleets } from '../../../src/virtual-fleets/list/list.demo';
 import { loadAiFleets } from '../../../src/virtual-fleets/list/list.live';
+import { loadFleetRunners } from '../../../src/virtual-fleets/runners/runners-tab.live';
 import { BoardLoading } from '../../../src/skeleton/pages';
 import { Streamed } from '../../../src/skeleton/Streamed';
 
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
 };
 
 type Query = Record<string, string | string[] | undefined>;
-type Screen = (view: FleetView, missions?: ReactNode, room?: ReactNode) => ReactNode;
+type Screen = (view: FleetView, missions?: ReactNode, room?: ReactNode, runs?: { head: ReactNode; runners: ReactNode }) => ReactNode;
 type Seen = Awaited<ReturnType<typeof viewer>>;
 
 /** The page before anyone is signed in: the demo's list or fleet, the closed notice, or the sign-in card. */
@@ -58,11 +59,23 @@ function list(seen: Extract<Seen, { kind: 'signed-in' }>, screen: Screen): React
   );
 }
 
+type Board = Extract<Awaited<ReturnType<typeof loadFleetBoard>>, { kind: 'board' }>;
+
+/** The workspace an AI fleet's board was read in; null for a board that is not an AI fleet's. */
+const aiWorkspaceOf = (view: Board): string | null => (view.virtual?.names.includes(view.fleet.name) === true ? view.virtual.workspace : null);
+
+/** The head and the Runners tab of an AI fleet, from one read of the board; none for another fleet. */
+function runsOf(seen: Extract<Seen, { kind: 'signed-in' }>, view: Awaited<ReturnType<typeof loadFleetBoard>>, query: Query): { head: ReactNode; runners: ReactNode } | undefined {
+  const workspace = view.kind === 'board' ? aiWorkspaceOf(view) : null;
+  if (view.kind !== 'board' || workspace === null) return undefined;
+  return runnersBlocks(loadFleetRunners(seen.db, seen.user, workspace, { name: view.fleet.name, label: view.fleet.label }, new Date()), query);
+}
+
 /** One fleet's page, streamed. */
 function fleet(seen: Extract<Seen, { kind: 'signed-in' }>, asked: string, query: Query, screen: Screen): ReactNode {
   return (
     <Streamed read={loadFleetBoard(seen.db, seen.user, asked, periodOf(one(query.period)), new Date())} skeleton={<BoardLoading />}>
-      {(view) => screen(view, missionsBlock(seen.db, view, query), roomBlock(seen.db, view, query))}
+      {(view) => screen(view, missionsBlock(seen.db, view, query), roomBlock(seen.db, view, query), runsOf(seen, view, query))}
     </Streamed>
   );
 }
