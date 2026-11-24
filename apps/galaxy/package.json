@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@omni/design": "workspace:*",
     "@omni/galaxy": "workspace:*",
     "@omni/github": "workspace:*",
