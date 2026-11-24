@@ -3,6 +3,7 @@ import { Select } from '@omni/ui';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { poll } from '../../ask/page/poll';
+import { copyLink } from '../../ask/page/share';
 import { cancelRunnerJob, sendToRunner, setRunnerFleet, type Called } from '../runners.client';
 import { postFixWithAnswers } from './fix.client';
 import type { Target } from '../runners.contract';
@@ -34,7 +35,7 @@ const Problem = ({ problem }: { problem: string | null }) => (problem ? <span cl
 export function FleetPicker({ runner, name, value, options }: { runner: string; name: string; value: string; options: readonly { value: string; label: string }[] }) {
   const { busy, problem, act } = useAct();
   return (
-    <span className="runners-fleet">
+    <span className="runners-fleet" id={`runners-fleet-${runner}`}>
       <Select size="sm" label={`Fleet of ${name}`} defaultValue={value} disabled={busy} options={options}
         onValueChange={(fleet) => { void act(() => setRunnerFleet(runner, fleet === '' ? null : fleet)); }} />
       <Problem problem={problem} />
@@ -76,6 +77,37 @@ export const ResumeButton = ({ line, repo, target, primary }: { line: string; re
 /** Fix with answers (PRD 2270): `/omni:yolo-fix <n>` as the continuation of this job, to where it went. */
 export const FixWithAnswersButton = ({ job, primary }: { job: string; primary: boolean }) =>
   <CallButton label="Fix with answers" primary={primary} call={() => postFixWithAnswers(job)} />;
+
+/** Send to any runner (PRD 3232): the same line and repository, sent to Any runner by the person who presses it; the old job keeps its Cancel. */
+export const SendToAnyButton = ({ line, repo }: { line: string; repo: string }) =>
+  <CallButton label="Send to any runner" primary={false} call={() => sendToRunner(line, repo, { kind: 'any' })} />;
+
+/** Show fleet (PRD 3232): scrolls to the runner's fleet picker and focuses it. */
+export function ShowFleetButton({ runner }: { runner: string }) {
+  return (
+    <span className="runners-action">
+      <button type="button" className="runners-ghost" onClick={() => {
+        const picker = document.getElementById(`runners-fleet-${runner}`);
+        if (picker === null) return;
+        picker.scrollIntoView({ block: 'center' });
+        picker.querySelector<HTMLElement>('button, select, [tabindex]')?.focus();
+      }}>Show fleet</button>
+    </span>
+  );
+}
+
+/** A ghost button that copies a command to the clipboard and says so. */
+export function CopyFixButton({ label, command }: { label: string; command: string }) {
+  const [said, setSaid] = useState<string | null>(null);
+  return (
+    <span className="runners-action">
+      <button type="button" className="runners-ghost" title={command} onClick={() => {
+        void copyLink(command, navigator.clipboard, () => undefined).then((how) => { setSaid(how === 'copied' ? 'Copied.' : 'Copy it by hand.'); });
+      }}>{label}</button>
+      {said !== null && <span className="runners-muted" role="status">{said}</span>}
+    </span>
+  );
+}
 
 /** Reads the rows again every 5 s while the tab is visible. Draws nothing. */
 export function Refresh() {

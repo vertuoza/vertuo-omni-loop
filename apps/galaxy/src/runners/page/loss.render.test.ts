@@ -31,15 +31,16 @@ function page(jobs: Job[], saves: BoardSave[] = []): string {
     runners: [runner({ id: BOX1, name: 'box-1', state: 'offline' }), runner({ id: BOX3, name: 'box-3' })], jobs, saves, viewer: { id: id(900), owner: true, fleet: null },
   };
   const view: RunnersPageView = { kind: 'board', name: 'Acme', board, fleets: [], prds: {}, now: NOW.toISOString(), answered: [] };
-  return renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null }));
+  return renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, jobs: 'all' }));
 }
 
 /** The markup of the job row whose id is `jobId`, up to the next row. */
 function row(html: string, jobId: string): string {
-  const start = html.indexOf(`id="job-${jobId}"`);
+  const band = html.indexOf(`id="need-${jobId}"`);
+  const start = band > -1 ? band : html.indexOf(`id="job-${jobId}"`);
   expect(start, jobId).toBeGreaterThan(-1);
-  const next = html.indexOf('runners-job"', start + 1);
-  return html.slice(start, next < 0 ? undefined : next);
+  const next = Math.min(...['runners-job"', 'runners-tabs'].map((mark) => html.indexOf(mark, start + 1)).filter((at) => at > -1));
+  return html.slice(start, Number.isFinite(next) ? next : undefined);
 }
 const buttons = (markup: string): string[] => [...markup.matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map((m) => m[1] ?? '').filter((label) => label !== 'Terminal');
 

@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => undefined
 
 const NOW = new Date('2026-10-13T14:00:00Z');
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-const render = (view: RunnersPageView) => renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null }));
+const render = (view: RunnersPageView) => renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null, jobs: 'all' }));
 
 function demo(): Extract<RunnersPageView, { kind: 'board' }> {
   const view = demoRunnersPage(NOW);
@@ -110,7 +110,7 @@ describe('the tokens', () => {
     expect(text(row)).toContain('Tokens 10.2M in 5 h · 15.7M today');
     expect(row).toContain('title="Last 5 h: input 81k · output 402k · cache read 9.1M · cache write 611k\nToday: ');
     expect((row.match(/<polyline/g) ?? []).length).toBe(4);
-    expect(row.split('data-gauge="tokens"')[1]).not.toContain('runners-gauge-fill');
+    expect(row.split('data-gauge="tokens"')[1]?.split('data-gauge="cpu"')[0]).not.toContain('runners-gauge-fill');
     expect(row).not.toContain('runners-gauge is-over" data-gauge="tokens"');
   });
 
