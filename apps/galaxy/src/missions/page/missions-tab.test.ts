@@ -96,7 +96,7 @@ describe('missionOf', () => {
 });
 
 /** What the token caps read (PRD 3040): the person's role, the fleet's cap and spending, each mission's spending, the stops that wait. */
-type Caps = { owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[]; retros?: unknown[]; items?: unknown[]; players?: unknown[]; level?: string; requests?: unknown[] };
+type Caps = { decisions?: unknown[]; owner?: boolean; daily?: number | null; fleet?: number; spent?: Record<string, number>; stops?: unknown[]; retros?: unknown[]; items?: unknown[]; players?: unknown[]; level?: string; requests?: unknown[] };
 
 function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'mission_events' | null = null, products: unknown[] = [], caps: Caps = {}): MissionsTabDb {
   const chain = (data: unknown[], fails: boolean) => {
@@ -106,7 +106,7 @@ function fakeDb(missions: unknown[], events: unknown[], failing: 'missions' | 'm
     return self;
   };
   const tables: Record<string, unknown[]> = {
-    missions, products, runner_jobs: [], mission_repairs: [], teams: [{ daily_tokens: caps.daily ?? null, ...(caps.level === undefined ? {} : { level: caps.level }) }], mission_requests: caps.requests ?? [], mission_budget_stops: caps.stops ?? [], mission_retros: caps.retros ?? [], mission_items: caps.items ?? [], players: caps.players ?? [],
+    missions, products, runner_jobs: [], mission_repairs: [], teams: [{ daily_tokens: caps.daily ?? null, ...(caps.level === undefined ? {} : { level: caps.level }) }], mission_requests: caps.requests ?? [], mission_budget_stops: caps.stops ?? [], mission_retros: caps.retros ?? [], mission_items: caps.items ?? [], players: caps.players ?? [], mission_decisions: caps.decisions ?? [],
   };
   const rpc = (name: string, args: { p_mission?: string }) => Promise.resolve({
     data: name === 'is_owner' ? caps.owner === true : name === 'fleet_tokens_24h' ? [{ tokens: caps.fleet ?? 0, oldest_end: null }] : (caps.spent?.[args.p_mission ?? ''] ?? 0),
@@ -360,5 +360,25 @@ describe('the New mission box and a goal from nothing (PRD omni-loop-24)', () =>
     };
     await expect(missionsTabService(withWaits(failing('mission_requests'))).view(WORKSPACE, 'f')).rejects.toThrow('mission requests');
     await expect(missionsTabRepository(failing('teams')).fleetLevel(WORKSPACE, 'f')).rejects.toThrow('fleet\'s level');
+  });
+});
+
+describe('#3276: a goal-only mission whose PM wrote product PRDs', () => {
+  const goalOnly = { ...MISSION_ROW, status: 'running', waiting_on: null, scope: { prds: [], roadmaps: [] }, mandate: { level: 'alone' } };
+  const product = (kind: string, prd: string, sentence: string) => ({ mission_id: ID, kind, prd: null, product_prd: prd, link: null, sentence });
+  const events = [
+    product('job-ended', 'omni-loop-28', 'The Architect left PRD omni-loop-28 to a person: a stored shape.'),
+    product('job-ended', 'omni-loop-27', 'The Architect approved the plan of PRD omni-loop-27 (version 1a2b3c4).'),
+    product('job-ended', 'omni-loop-28', 'The PM approved the plan of PRD omni-loop-28 (version 5d6e7f8).'),
+    product('job-ended', 'omni-loop-27', 'The PM approved the plan of PRD omni-loop-27 (version 1a2b3c4).'),
+    product('prd-added', 'omni-loop-28', 'PRD omni-loop-28 added by the fleet.'),
+    product('prd-added', 'omni-loop-27', 'PRD omni-loop-27 added by the fleet.'),
+  ];
+  const decision = (kind: string, prd: string, outcome: string) => ({ mission_id: ID, kind, product_prd: prd, outcome });
+  const decisions = [decision('plan', 'omni-loop-27', 'approved'), decision('plan', 'omni-loop-28', 'approved'), decision('tech', 'omni-loop-27', 'approved'), decision('tech', 'omni-loop-28', 'escalated')];
+
+  it('follows its PRDs once they are planned and reviewed, and counts the plan and tech decisions the fleet took', async () => {
+    const one = (await missionsTabService(withWaits(fakeDb([goalOnly], events, null, [], { decisions }))).view(WORKSPACE, 'night-shift')).missions[0];
+    expect({ progress: one?.progress, trust: one?.trust }).toEqual({ progress: '0 of 2 on main · 0 joined', trust: '3 decisions by the fleet · 0 overturned' });
   });
 });
