@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `apps/galaxy/src/product-mcp/product-mcp.controller.test.ts`
+- **File:** `apps/galaxy/src/product-mcp/product-mcp.methods.test.ts` (first written in `product-mcp.controller.test.ts`, moved out so the proof of BR-ACCESS-9 stays untouched)
 - **Level:** unit
 - **Red:** AssertionError: expected 200 to be 405 // Object.is equality
 
@@ -18,7 +18,7 @@ A signed-in GET reached the key check, the product's reads and the SDK's transpo
 
 ## Guard
 
-The reproduction is the guard: four unit tests that a GET (with a key, a sign-in or none) and a DELETE answer 405 without asking the database or the Auth server, even with no database, and that the SDK's own client still connects and answers while its one GET is the 405.
+The reproduction is the guard: four unit tests, in `product-mcp.methods.test.ts`, that a GET (with a key, a sign-in or none) and a DELETE answer 405 without asking the database or the Auth server, even with no database, and that the SDK's own client still connects and answers while its one GET is the 405.
 
 ## Mutation
 
