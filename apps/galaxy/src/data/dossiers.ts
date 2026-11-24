@@ -60,14 +60,17 @@ export const DossierListEntry: z.ZodType<DossierListRow> = z.strictObject({
   latest: z.partialRecord(z.enum(ARTIFACT_KINDS), LatestVersionEntry),
 });
 
-/** Any row dossier_list() returns, read for its kind alone: a kind the dashboard does not count (a concept,
- * PRD 1272; a roadmap made on the Omni page, PRD 2011) has fields of its own, and never breaks the read of
- * the rest (bug 2722). */
-const KindOnly = z.looseObject({ kind: z.string().optional() });
+/** Any row dossier_list() returns, read for its kind and its home repository alone: a kind the dashboard does
+ * not count (a concept, PRD 1272; a roadmap made on the Omni page, PRD 2011) has fields of its own, and never
+ * breaks the read of the rest (bug 2722); nor does a product PRD's row, which has no home repository (bug 3251). */
+const KindOnly = z.looseObject({ kind: z.string().optional(), home_repo: z.string().nullable().optional() });
 
-/** The kinds the dashboard counts: a row with no kind is a PRD. */
+/** The kinds the dashboard counts: a row with no kind is a PRD. A row with no home repository is a product's
+ * (PRD 1548: keyed by its product, never by a repository and a number), which the board, counting PRDs by
+ * their repository, has no place for: it is left out, and never read as a draft. */
 const COUNTED: ReadonlySet<string> = new Set(WORK_KINDS);
-const counted = (row: { kind?: string | undefined }): boolean => row.kind === undefined || COUNTED.has(row.kind);
+const counted = (row: { kind?: string | undefined; home_repo?: string | null | undefined }): boolean =>
+  row.home_repo !== null && (row.kind === undefined || COUNTED.has(row.kind));
 
 /** A round's first question with its answer, as one line of the tab; null when it has no answer to show. */
 function answerOf(row: DossierRoundRow): DossierAnswer | null {

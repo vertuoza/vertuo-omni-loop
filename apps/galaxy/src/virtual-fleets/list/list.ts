@@ -10,7 +10,7 @@ import { fleetRunnersView, type FleetRunnerRow } from '../runners/runners-view';
 // (never one per row): its heroes' roles, its mission line, what waits on the viewer and the runners it runs on. Pure, so each
 // row is tested without a page. The season place and rank are not shown: they belong to the players' fleets.
 
-export const WORDS = {
+export const LIST_WORDS = {
   title: 'AI Fleet',
   empty: 'No AI fleet yet.',
   noMission: 'No mission yet.',
@@ -77,8 +77,8 @@ const plural = (n: number, one: string, many: string) => `${String(n)} ${n === 1
 /** The mission a row shows, and its line. */
 export function missionCellOf(missions: ListFleetRead['missions']): MissionCell {
   const live = missions.find((mission) => LIVE.has(mission.status));
-  if (live === undefined) return { kind: 'none', title: null, line: WORDS.noMission };
-  if (live.progress === MISSION_WORDS.writingRoadmap) return { kind: 'goal-only', title: live.title, line: WORDS.goalOnly };
+  if (live === undefined) return { kind: 'none', title: null, line: LIST_WORDS.noMission };
+  if (live.progress === MISSION_WORDS.writingRoadmap) return { kind: 'goal-only', title: live.title, line: LIST_WORDS.goalOnly };
   return { kind: 'mission', title: live.title, line: live.progress };
 }
 
@@ -89,7 +89,7 @@ const runsOnOf = (row: FleetRunnerRow): RunsOnItem => ({
 /** What waits on the viewer: the jobs waiting for their answer, and the approvals the mission's PRDs wait on. */
 export function waitsOf(answers: number, approvals: number): string {
   const parts = [...(answers > 0 ? [plural(answers, 'answer', 'answers')] : []), ...(approvals > 0 ? [plural(approvals, 'approval', 'approvals')] : [])];
-  return parts.length === 0 ? WORDS.nothing : parts.join(' · ');
+  return parts.length === 0 ? LIST_WORDS.nothing : parts.join(' · ');
 }
 
 /** The list, from one read of the Runners board. */

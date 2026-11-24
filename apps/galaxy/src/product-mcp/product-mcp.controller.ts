@@ -8,7 +8,12 @@
 //                                                     query its `mode`: by meaning, or by words (PRD 2728 s5)
 //   get_knowledge    {id}                             one entry, its body whole
 //
-// Before any MCP is spoken, the request is resolved (product-mcp.service.ts), every time:
+// A GET or a DELETE answers 405, `Allow: POST`, before any sign-in check or database read (#3250): a stateless
+// server has no event stream to open and no session to end, and 405 is what the MCP spec says a client then
+// reads as "no stream here", so it stops asking. A 200 whose stream closed made every client reconnect every
+// few seconds, each time running the key check and the product's reads.
+//
+// Before any MCP is spoken, a POST is resolved (product-mcp.service.ts), every time:
 //   no database                                     503 {error}
 //   a product off, unknown, of another workspace,
 //   or out of the key's reach, for a working key   404 {error: "No MCP server here."}
@@ -204,6 +209,8 @@ async function resolutionOf(request: Request, key: string, service: ProductMcpSe
 
 /** One request to the product `key`'s MCP server. */
 export async function handleProductMcp(request: Request, key: string, deps: ProductMcpDeps): Promise<Response> {
+  // A stateless server offers no event stream to GET and no session to DELETE: 405, before anything is asked (#3250).
+  if (request.method !== 'POST') return Response.json({ error: 'Method not allowed: this MCP server takes POST only.' }, { status: 405, headers: { allow: 'POST' } });
   const { service } = deps;
   if (service === null) return json(503, NO_DATABASE);
   let resolution: Resolution;

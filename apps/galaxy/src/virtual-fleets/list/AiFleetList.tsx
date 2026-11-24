@@ -2,7 +2,7 @@ import { Table } from '@omni/ui';
 import { FleetChip } from '../../people/FleetChip';
 import { NewVirtualFleet } from '../drawer/NewVirtualFleet';
 import { PLAYERS_FLEET_PATH } from '../../dashboard/fleet/redirect';
-import { WORDS, type AiFleetList as ListView, type AiFleetRow } from './list';
+import { LIST_WORDS, type AiFleetList as ListView, type AiFleetRow } from './list';
 import './list.css';
 
 // The AI Fleet list (PRD 3233 s3, screens 2.A and 2.B of the before/after page): the title, `<k> of <n> fleets wait on you`, the
@@ -25,7 +25,7 @@ function RunsOn({ row }: { row: AiFleetRow }) {
             <span className={`ai-dot is-${runner.tone}`} aria-hidden="true" />
             <span>{runner.name}</span>
             <span className="ai-muted"> {runner.words}</span>
-            {runner.shared && <span className="ai-shared"> {WORDS.shared}{runner.forFleet === null ? '' : ` · ${runner.forFleet}`}</span>}
+            {runner.shared && <span className="ai-shared"> {LIST_WORDS.shared}{runner.forFleet === null ? '' : ` · ${runner.forFleet}`}</span>}
           </li>
         ))}
       </ul>
@@ -55,7 +55,7 @@ const rowOf = (row: AiFleetRow) => ({
     ),
     waits: <span className={row.waitCount === 0 ? 'ai-muted' : undefined}>{row.waits}</span>,
     runs: <RunsOn row={row} />,
-    open: <a href={row.href}>{WORDS.open}</a>,
+    open: <a href={row.href}>{LIST_WORDS.open}</a>,
   },
 });
 
@@ -63,10 +63,10 @@ export function AiFleetListScreen({ view, make }: { view: ListView; make: NewFle
   const button = make ? <NewVirtualFleet workspace={make.workspace} mascots={make.mascots} owner={make.owner === true} primary={view.fleets.length === 0} /> : null;
   return (
     <div className="dash" data-screen="ai-fleet">
-      <h1 className="dash-name">{WORDS.title}</h1>
+      <h1 className="dash-name">{LIST_WORDS.title}</h1>
       {view.fleets.length === 0 ? (
         <>
-          <p className="fleet-line">{WORDS.empty}</p>
+          <p className="fleet-line">{LIST_WORDS.empty}</p>
           {button}
         </>
       ) : (
@@ -76,7 +76,7 @@ export function AiFleetListScreen({ view, make }: { view: ListView; make: NewFle
           <div className="ai-list-wrap"><Table caption="AI fleets" columns={COLUMNS} rows={view.fleets.map(rowOf)} /></div>
         </>
       )}
-      <p className="fleet-line ask-muted">{WORDS.players}<a href={PLAYERS_FLEET_PATH}>{WORDS.playersLink}</a></p>
+      <p className="fleet-line ask-muted">{LIST_WORDS.players}<a href={PLAYERS_FLEET_PATH}>{LIST_WORDS.playersLink}</a></p>
     </div>
   );
 }
