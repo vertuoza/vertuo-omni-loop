@@ -1801,7 +1801,7 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
      `RESEND_FROM` (email)
    - the kit tokens (PRD 1628): `KIT_TOKEN_KEY`, 32 random bytes in base64, which seals each
      token's stored sign-in; without it no token is made or traded
-   - the demo: `OMNI_LOOP_DEMO`; the screenshots' address (`pnpm shots`): `GALAXY_URL`
+   - the demo: `OMNI_LOOP_DEMO`, and its pinned clock `OMNI_LOOP_DEMO_NOW` (the visual check sets it); the screenshots' address (`pnpm shots`): `GALAXY_URL`
    - the deployed commit: `VERCEL_GIT_COMMIT_SHA`, set by Vercel (PRD 1723)
    <!-- /omni:env-variables -->
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the

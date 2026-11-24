@@ -134,6 +134,17 @@ const DEMO = envGroup({
   variables: { flag: 'OMNI_LOOP_DEMO' },
 });
 
+/**
+ * The demo's clock, pinned (`OMNI_LOOP_DEMO_NOW`, an ISO time): the screenshot test (`scripts/visual.ts`)
+ * sets it, so the demo's dates hold still from one run to the next (#3204). Unset, the demo reads the
+ * real clock.
+ */
+const DEMO_CLOCK = envGroup({
+  label: 'the demo\'s clock',
+  schema: z.object({ now: z.iso.datetime().transform((value) => Date.parse(value)) }),
+  variables: { now: 'OMNI_LOOP_DEMO_NOW' },
+});
+
 /** Where `pnpm shots` takes its screenshots (scripts/shots.ts); localhost when unset. */
 const GALAXY = envGroup({
   label: 'the screenshots\' address',
@@ -158,7 +169,7 @@ const VERCEL = envGroup({
 export const VARIABLES: readonly string[] = variablesOf([
   SUPABASE, SERVICE_ROLE, GITHUB_APP, GITHUB_APP_SLUG, GITHUB_OAUTH, OPENROUTER,
   STAGES_SYNC, STAGE_EVENT, SECRETS_MASTER, CONSTITUENT_JUDGE, LAW_JUDGE, BUSINESS_LAWS_JUDGE, BUSINESS_RECHECK, SEARCH_CATEGORIZE, WEB_PUSH, RESEND,
-  KIT_TOKENS, DEMO, GALAXY, VERCEL,
+  KIT_TOKENS, DEMO, DEMO_CLOCK, GALAXY, VERCEL,
 ]);
 
 /**
@@ -204,6 +215,7 @@ export function readEnv(raw: EnvSource) {
     resend: reader.group(RESEND),
     kitTokenKey: reader.group(KIT_TOKENS)?.key ?? null,
     demo: reader.group(DEMO)?.flag ?? null,
+    demoNow: reader.group(DEMO_CLOCK)?.now ?? null,
     galaxyUrl: reader.group(GALAXY)?.url ?? null,
     commit: reader.group(VERCEL)?.commit ?? null,
   };
