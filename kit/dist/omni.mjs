@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target3) => (target3 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.697" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.698" };
   }
 });
 
@@ -68204,7 +68204,17 @@ var isObject2 = (value) => typeof value === "object" && value !== null && !Array
 var text20 = (value) => typeof value === "string" ? value : "";
 var number4 = (value) => typeof value === "number" && Number.isFinite(value) ? value : 0;
 var two = (value) => String(value).padStart(2, "0");
-var cut5 = (line3) => line3.length > LINE_CUT ? line3.slice(0, LINE_CUT) : line3;
+var RECORD_LINES = ["omni committee: ", "omni pm: ", "omni retro: ", "omni repair: "];
+var RECORD_CUT = 8e3;
+var STAMPED = /^\d{2}:\d{2}:\d{2} /;
+var isRecord13 = (line3) => {
+  const bare = line3.replace(STAMPED, "");
+  return RECORD_LINES.some((prefix) => bare.startsWith(prefix));
+};
+var cut5 = (line3) => {
+  const most = isRecord13(line3) ? RECORD_CUT : LINE_CUT;
+  return line3.length > most ? line3.slice(0, most) : line3;
+};
 var firstLine7 = (value) => value.split("\n").find((line3) => line3.trim() !== "")?.trim() ?? "";
 function clock2(now2) {
   return `${two(now2.getHours())}:${two(now2.getMinutes())}:${two(now2.getSeconds())}`;
