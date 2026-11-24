@@ -20,6 +20,11 @@
 // and one whose maker left the workspace all answer the one line LINK_REFUSED, as a tool error, so the
 // agent can tell its person what to do. The body goes through businessReader(), the very parse
 // readBusiness() answers with, so the two cannot differ.
+//
+// A GET or a DELETE answers 405, `Allow: POST`, before the token is read (#3260, as #3254 did for the
+// product knowledge server): a stateless server has no event stream to open and no session to end, and 405
+// is what the MCP spec says a client then reads as "no stream here", so it stops asking. A 200 whose stream
+// closed at once would make every client reconnect every few seconds.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
@@ -237,6 +242,8 @@ function server(hash: string | null, deps: McpDeps): McpServer {
 
 /** One MCP request: a fresh stateless server (no session id generator) for the link the request carries. */
 export async function handleMcp(request: Request, deps: McpDeps): Promise<Response> {
+  // A stateless server offers no event stream to GET and no session to DELETE: 405, before anything is read (#3260).
+  if (request.method !== 'POST') return Response.json({ error: 'Method not allowed: this MCP server takes POST only.' }, { status: 405, headers: { allow: 'POST' } });
   const hash = await hashOf(request.headers.get('authorization'));
   const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
   const mcp = server(hash, deps);
