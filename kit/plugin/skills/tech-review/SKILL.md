@@ -1,6 +1,6 @@
 ---
 name: tech-review
-description: Grills the coding side of a PRD's plan with any member, whether or not a Tech Approval was requested, as long as the plan is not approved, then changes only the coding parts and records what was settled — refuses, in one line, a PRD with no plan, an approved PRD or Tech Approval, a merged sub-PR, a person whose GitHub login cannot be read, or a run under OMNI_UNATTENDED; reads the spec, the plan, the Technical tab, the playbook's architecture, testing, conventions and ci forms, the laws its files touch and the code before it asks; shows the choices already made; asks one question at a time, each with a recommended answer and why; applies the answers only to the spec's Conventions, Test seams and Risks and the technical side of Solution and Decisions, the before/after page's Technical tab, and the plan's slices, territories, blockers and waves, and grades the plan again with omni plan check; records each settled question under "### Tech review" in the spec's Decisions; sends a question only the PM can settle to the PRD's issue as a comment naming the author; pushes as one signed docs(prd) commit and /omni:dossier-push, and ends on the page's link. Gives no approval, merges nothing. Triggers on "tech review PRD 2608", "review the coding side of this plan", "/omni:tech-review 2608".
+description: Grills the coding side of a PRD's plan with any member, whether or not a Tech Approval was requested, as long as the plan is not approved, then changes only the coding parts and records what was settled — refuses, in one line, a PRD with no plan, an approved PRD or Tech Approval, a merged sub-PR, a person whose GitHub login cannot be read, or a run under OMNI_UNATTENDED; reads the spec, the plan, the Technical tab, the playbook's architecture, testing, conventions and ci forms, the laws its files touch and the code before it asks; shows the choices already made; asks one question at a time, each with a recommended answer and why; applies the answers only to the spec's Conventions, Test seams and Risks and the technical side of Solution and Decisions, the before/after page's Technical tab, and the plan's slices, territories, blockers and waves, and grades the plan again with omni plan check; records each settled question under "### Tech review" in the spec's Decisions; sends a question only the PM can settle to the PRD's issue as a comment naming the author; pushes as one signed docs(prd) commit and /omni:dossier-push, and ends on the page's link. With <key>-<n> --mission <m>, the line a mission's Architect is sent on a runner, it runs unattended, asks nobody, changes only the plan's coding parts as a new plan version on the product PRD's page, writes nothing in the repository, and ends on the omni tech record line. Gives no approval, merges nothing. Triggers on "tech review PRD 2608", "review the coding side of this plan", "/omni:tech-review 2608".
 ---
 
 # Tech review: the coding side of a plan, grilled with an engineer before it is approved
@@ -38,6 +38,9 @@ named person still gives it; with none, nobody waits on one.
 `<n>`: the number of a PRD whose plan is not approved yet, run by any member, with or without a Tech
 Approval request. With none, say that this skill takes one, and stop.
 
+`<key>-<n> --mission <m>`: a product PRD and the mission whose fleet's Architect reviews it, the line
+a mission sends on a runner (PRD omni-loop-26). It runs as **For a mission's Architect** says.
+
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Keep the JSON;
@@ -55,13 +58,15 @@ Check each of these before anything is read or written. The first that holds pri
 
 | it refuses | because |
 |---|---|
-| `OMNI_UNATTENDED` is set | a grill needs a person: it asks nothing on a runner, and a runner never runs it |
+| `OMNI_UNATTENDED` is set and the line carries no `--mission` | a grill needs a person: it asks nothing on a runner, and a runner runs it for a mission's Architect only |
+| `--mission` without `OMNI_UNATTENDED` | the line is a mission's Architect's, sent on a runner: at a terminal, run `/omni:tech-review <n>` |
+| `--mission` with a PRD that is not a product PRD (`<key>-<n>`) | a mission's Architect reviews the product PRDs its PM wrote, on their pages |
 | the PRD has no `plan.md` (`omni prd <n>` lists its files) | there is no plan to review: run `/omni:plan <n>` first |
 | the PRD is approved: `omni approval <n> --json` prints `"state":"approved"`, or its `tech` state is `approved` | the plan is approved: a tech review comes before it |
 | no login can be read from `gh api user --jq .login` | each settled question records who answered it; the login is read from GitHub before anything is asked, and the agent never takes the person's word for who they are |
 | a sub-PR of the PRD is already merged (`omni board <n>`) | the build has started; a tech review comes before it |
 
-Check the refusals in this order: the runner first, so that nothing is read on one. A `voided` state
+Under `--mission` the table's other rows are read as **For a mission's Architect** says. Check the refusals in this order: the runner first, so that nothing is read on one. A `voided` state
 is not approved: the plan may be reviewed again. A request that names someone else refuses nothing:
 anyone may review, and the review tells the named person what was settled.
 
@@ -138,3 +143,52 @@ question. The spec, the plan and the page stay as they are for it.
    press **Request a Tech Approval** there to name one.
 
 Nothing was changed, and nothing to push: end on the link the same way.
+
+## For a mission's Architect
+
+`/omni:tech-review <key>-<n> --mission <m>` is the line a mission at Works alone sends its fleet's
+Architect on a runner, for each product PRD its PM wrote, once the PM approved its plan (PRD
+omni-loop-26, "4. The Architect reviews it, every time"). A runner refuses it on any other job, and
+nobody sends it by hand. The steps above run with these differences.
+
+- **Asks nobody.** `OMNI_UNATTENDED` is set. Step 3 shows its list to nobody, and step 4 asks no
+  question: each point it would ask is answered from the spec, the plan, the forms and the code,
+  with the most reversible answer. A point it settles is a line of `settled`. A point only a person
+  can settle (the scope, a user story, an acceptance criterion, the proof, the e2e choice, or a
+  coding choice the code and the forms do not settle) is a line of `open`, and changes nothing.
+- **Where the PRD stands.** In place of step 1's PRD rows (the login, the board and the approval
+  read a repository's PRD, and the fleet's Architect signs, never a person):
+  `node .omni-loop/bin/omni.mjs prd <key>-<n>`. A `state:` other than `inbox` (`drifted`,
+  `unreachable`) prints its line and stops, with no record.
+- **Read before you decide.** In place of step 2's checkout: `node .omni-loop/bin/omni.mjs dossier get <key>-<n> spec`,
+  then `dossier get <key>-<n> plan` and `dossier get <key>-<n> before-after` (its **Technical** tab),
+  each printing a scratch file's path and its sha256. When `dossier get <key>-<n> plan` prints no
+  file, stop in one line, `tech-review: <key>-<n> has no plan on its page`, with no record. Then
+  `omni kb show architecture`, `omni kb show testing`, `omni kb show conventions` and
+  `omni kb show ci`, `node .omni-loop/bin/omni.mjs kb laws --paths <file>…` with each slice's
+  territory (`kb laws --slice` reads a repository's PRD only), and the code the territories name, in
+  this checkout.
+- **Changes only the plan's coding parts.** Its slices, territories, blockers and waves, in
+  `plan.md` in a folder of a scratch folder (`mktemp -d`, outside the repository), `<prd folder>`,
+  pushed with `node .omni-loop/bin/omni.mjs dossier push <key>-<n> --from <prd folder>` as a new plan
+  version on the PRD's page. A plan that did not change adds no version. This run never changes the
+  spec, the before/after page or the voice: none of them is in the folder, and no `### Tech review`
+  is written, since the record carries what was settled. `omni plan check` reads a repository's PRD
+  only: it is not run. Steps 6 and 7 do not run: no commit, no branch, no pull request, no issue
+  comment, nothing in the repository.
+- **The reviewed version.** After the push, `node .omni-loop/bin/omni.mjs dossier get <key>-<n> plan`
+  again: the sha256 it prints is the record's `plan`, the version pushed, or the one read when
+  nothing changed.
+- **It never gives the Tech Approval.** The Omni app gives it from the record, as the service,
+  signed as the fleet's Architect, when the record is `approved` on the PRD's latest plan version.
+- **The record line,** the run's last output, one line exactly:
+
+  ```
+  omni tech: {"v":1,"prd":"<key>-<n>","plan":"<sha256>","settled":["…"],"open":["…"],"outcome":"approved|escalated"}
+  ```
+
+  `outcome` is one of the two: `approved` only when `open` is empty, `escalated` otherwise, and the
+  PRD then waits on a person, each open point shown on the mission. At most 10 points in each list,
+  each one line of at most 300 characters. The Omni app reads it from the job's log, and only it: a
+  line it cannot read, or none, is recorded as escalated, never as approved. The scratch folder is
+  deleted when the skill ends.

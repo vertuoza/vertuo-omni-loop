@@ -36,6 +36,7 @@ signed. A command that prints nothing means signing is off here: add nothing.
 | a file in the repository | `/omni:roadmap plans/crew.md` | read from the checkout |
 | pasted text | `/omni:roadmap '<the plan>'` | read as given; the roadmap has no `source` then |
 | `--mission <m> --cap <k>` | `/omni:roadmap --mission 12 --cap 3` | sent by a mission at Works alone to its PM, on a runner: its goal is the source, as **For a mission's PM** says |
+| `--mission <m> --cap <k> --product <key>` | `/omni:roadmap --mission 12 --cap 3 --product omni-loop` | the same, on a repository whose phase 0 is on the server: the PRDs are the product's, as **For a mission's PM** says |
 
 `<n>` everywhere below is the roadmap's number, its issue's; `<prd>` is one PRD's number.
 
@@ -398,7 +399,8 @@ and `omni roadmap prereqs` did not). Its **What is next?** block reads:
 ## For a mission's PM
 
 `/omni:roadmap --mission <m> --cap <k>` is the line a mission at Works alone sends its PM on a runner
-(PRD 2896, "7. The PM's own PRDs"). A runner refuses it on any other job, and nobody sends it by
+(PRD 2896, "7. The PM's own PRDs"), with `--product <key>` last on a repository whose phase 0 is on
+the server (PRD omni-loop-26). A runner refuses it on any other job, and nobody sends it by
 hand. It writes at most `<k>` PRDs for the mission's goal and asks nobody. The steps above run as
 written, with these differences.
 
@@ -412,15 +414,35 @@ written, with these differences.
 - **Asks nobody.** `OMNI_UNATTENDED` is set. Step 2 shows no map to a person: each open question
   takes its most reversible answer, and becomes one outbox item, `hardToRevert: true`, on the PRD
   it concerns (on the first PRD written, when it concerns the roadmap), through
-  `omni item new --prd <prd>`: a high item, which the fleet's committee settles or sends to a person.
-- **Born on the server, each planned.** Every PRD's spec says `phase0: server`, and each is planned
-  with `/omni:plan` once written, so its page holds the spec, the plan and the before/after its
-  committee reads. Step 5 opens no phase-0 PR; it pushes the roadmap to its page. Step 6 hands off
-  no `/omni:drive` line: the mission builds each PRD once its committee approves, the PM sitting out.
-- **The record line,** the run's last output, one line exactly, its PRDs in the roadmap's order:
+  `omni item new --prd <key>-<n> --file <file> --out <scratch> --json`, then
+  `omni item relay <scratch> --prd <key>-<n>`: a high item on the PRD's page, which a person settles.
+- **On the product, never in the repository.** Step 0 reads the phase-0 flag,
+  `node .omni-loop/bin/omni.mjs approval flag`. On `phase 0: server` the run is a product's, and
+  follows **From a product** above whatever else it says. The product is the line's
+  `--product <key>`. Without it, `node .omni-loop/bin/omni.mjs product which`: one product is taken
+  as if the line named it; none (or exit 1) stops the run in exactly one line, writing nothing, then
+  the record line with no PRD:
+
+  ```text
+  this repository has no product: a goal-only mission needs one
+  ```
+
+  A repository in several products stops the same way on
+  `this repository is in several products: the mission's line names one with --product`. Never fall
+  back to the repository's own PRDs. Every PRD's spec says `phase0: server`, and is created with
+  `dossier push --product <key> --new --from <prds>/<row id>`; the roadmap is pushed with
+  `roadmap push --product <key> --new`, with no issue, no branch, no commit, no pull request and no
+  roadmap issue: nothing is written in the repository.
+- **No plan, no committee vote.** No plan is written here. The mission plans each PRD next with
+  `/omni:mega-brainstorm --product <key> --plan-only <key>-<n>`; the PM approves each plan version
+  it pushed, the fleet's Architect reviews it with `/omni:tech-review <key>-<n> --mission <m>`, and
+  the mission builds it once both name its latest plan version. Step 6 hands off no `/omni:drive`
+  line.
+- **The record line,** the run's last output, one line exactly, its PRDs' product ids in the
+  roadmap's order:
 
   ```
-  omni pm: {"v":1,"mission":<m>,"skill":"roadmap","cap":<k>,"prds":[<prd>, …],"unwritten":["<title>", …]}
+  omni pm: {"v":1,"mission":<m>,"skill":"roadmap","cap":<k>,"prds":["<key>-<n>", …],"unwritten":["<title>", …]}
   ```
 
   The Omni app reads it from the job's log, and only it: each PRD joins the mission as
