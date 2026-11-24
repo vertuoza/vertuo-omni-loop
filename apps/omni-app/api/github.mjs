@@ -17644,12 +17644,19 @@ import { z as z76 } from "zod";
 import { z as z73 } from "zod";
 var RepoSchema = z73.looseObject({ default_branch: z73.string(), allow_rebase_merge: z73.boolean().optional() });
 var rebaseWhy = (repo) => `${repo} does not allow rebase merges: turn on "Allow rebase merging" in its settings, so the mission branch can land on the default branch; nothing was cut`;
+var notFoundWhy = (repo) => `${repo} is not found on GitHub, or the app is not installed on it: nothing was cut`;
 function missionBranches({ octokitFor }) {
   return {
     async prepare({ installation, repo, branch }) {
       const [owner = "", name = ""] = repo.split("/");
       const octokit = await octokitFor(installation);
-      const { data } = await octokit.request("GET /repos/{owner}/{repo}", { owner, repo: name });
+      let data;
+      try {
+        ({ data } = await octokit.request("GET /repos/{owner}/{repo}", { owner, repo: name }));
+      } catch (error) {
+        if (statusOf(error) === 404) return { ok: false, why: notFoundWhy(repo) };
+        throw error;
+      }
       const read2 = RepoSchema.parse(data);
       if (read2.allow_rebase_merge !== true) return { ok: false, why: rebaseWhy(repo) };
       const head = await octokit.request("GET /repos/{owner}/{repo}/git/ref/{ref}", { owner, repo: name, ref: `heads/${read2.default_branch}` });
@@ -17661,7 +17668,8 @@ function missionBranches({ octokitFor }) {
   };
 }
 var sameRepo = (a, b) => a.toLowerCase() === b.toLowerCase();
-var planTargets2 = (plan, owner) => parsePlanRepositories(plan).map(({ repo }) => repo.includes("/") ? repo : `${owner}/${repo}`);
+var planTargets2 = (plan, owner) => parsePlanRepositories(plan).map(({ repo }) => repo.trim()).filter((repo) => REPOSITORY.test(repo)).map((repo) => repo.includes("/") ? repo : `${owner}/${repo}`);
+var REPOSITORY = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)?$/;
 function scopeRepos({ repo, prds, targets }) {
   const named = prds.flatMap((prd) => isProductPrdId(prd) ? targets.get(prd) ?? [] : [repo]);
   return named.filter((one, at4) => named.findIndex((other) => sameRepo(other, one)) === at4);
@@ -22489,7 +22497,7 @@ var ScopeSchema = z89.object(
   },
   { message: "must be {prds, roadmaps}" }
 ).strict();
-var REPOSITORY = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
+var REPOSITORY2 = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+$/;
 var NO_SCOPE = { prds: [], roadmaps: [] };
 var TOKENS_RANGE = `is 1 to ${String(MAX_MISSION_TOKENS)}`;
 var MandateSchema = z89.object(
@@ -22513,7 +22521,7 @@ var BriefSchema = z89.object({
   measures: z89.array(MeasureSchema, { message: "must be a list" }).max(5, "holds 5 at most").default([]),
   kind: z89.enum(MISSION_KINDS, { message: `is one of ${MISSION_KINDS.join(", ")}` }).default(DEFAULT_KIND),
   scope: ScopeSchema.optional(),
-  repositories: z89.array(text18(200).regex(REPOSITORY, "is not owner/name"), { message: "must be a list of owner/name" }).max(20, "holds 20 repositories at most").refine(distinct, "names a repository twice").optional(),
+  repositories: z89.array(text18(200).regex(REPOSITORY2, "is not owner/name"), { message: "must be a list of owner/name" }).max(20, "holds 20 repositories at most").refine(distinct, "names a repository twice").optional(),
   mandate: MandateSchema.default(DEFAULT_MANDATE),
   request: text18(36).regex(REQUEST_ID, "must be a uuid").optional()
 }).strict().transform(({ scope, repositories, request, mandate, ...rest }, ctx) => {
@@ -26702,7 +26710,7 @@ var MOVED_BUG = "fingerprint";
 var HOLDER_REPAIR = "mission_id, job_id, fingerprint";
 var TOLD = "job_id";
 var HOLDER_MISSION = "id, repo";
-var REPOSITORY2 = "full_name";
+var REPOSITORY3 = "full_name";
 var ACTOR = "actor";
 var FLEET_CAP = "daily_tokens";
 var STOP = "id, cap, cap_tokens, spent, missions, answer, raised_to, created_at, answered_at";
@@ -27343,7 +27351,7 @@ function missionStore(connection) {
     },
     addJob: (job) => jobLedger(connection).add(job),
     async names(mission) {
-      const repositories = rowsOf(RepositoryRowSchema2, await db.from("repositories").select(REPOSITORY2).eq("workspace_id", mission.workspace));
+      const repositories = rowsOf(RepositoryRowSchema2, await db.from("repositories").select(REPOSITORY3).eq("workspace_id", mission.workspace));
       const actors = rowsOf(ActorRowSchema, await db.from("mission_events").select(ACTOR).eq("mission_id", mission.id).neq("actor", "agent"));
       const names = [mission.repo, ...repositories.map((row) => row.full_name)].flatMap((full) => [full, ...full.split("/")]);
       return [...new Set([...names, ...actors.flatMap((row) => row.actor === null ? [] : [row.actor])].filter((name) => name.length > 0))];
