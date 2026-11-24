@@ -22,7 +22,7 @@ The reproduction is the guard: four unit tests that a GET (with a key, a sign-in
 
 ## Mutation
 
-not set here — `pnpm mutation:changed` mutates the kit's delivery core only, and this fix changes no file of it
+mutation: no changed core file against origin/main (ee027cfd): nothing to mutate
 
 ## Still open
 
