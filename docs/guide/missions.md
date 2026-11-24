@@ -99,9 +99,9 @@ Works alone needs the fleet to hold a PM, an Architect and a Reviewer.
   PRDs for the mission. This happens while the PRDs the fleet added are fewer than the mandate's
   `ownPrds` (0 by default, 10 for a mission started from a goal alone). The PM gets one job per mission. A roadmap writes only the PRDs that fit
   under the cap, in order, and the mission page names the rest as `not written: the cap is <k>`.
-  The Architect and the Reviewer approve a PRD the PM wrote, and the PM sits out. These skills ask
-  no question: each one becomes a high outbox item. Where phase 0 is a pull request, the PM writes
-  nothing.
+  A PRD the PM wrote goes to no committee: the PM approves its plan and the Architect reviews it,
+  as **From a goal alone** says below. These skills ask no question: each one becomes a high outbox
+  item. Where phase 0 is a pull request, the PM writes nothing.
 - **Overturning.** Overturn a decision from the mission pull request's list, or with
   `omni mission overturn <mission> <decision>`. The decision stays on the record and your decision
   is added beside it. An overturned approval is void, and its PRD leaves the branch if it had
@@ -343,8 +343,8 @@ PRD, there is no measure yet, and the mandate is the default.
 
 You do not need a PRD or a roadmap. Give the fleet one goal and it writes the PRDs itself. A mission
 started this way runs at **Works alone** only: the PM turns the goal into a roadmap of 1 to 10 PRDs,
-the committee approves them, the fleet builds them on the mission branch, and you meet the mission
-at its pull request, which only you merge.
+plans each one, the Architect reviews each plan, the fleet builds them, and you merge every pull
+request the build opens.
 
 - **On the Omni page.** Open the fleet's **Missions** tab. In the **New mission** box, type the goal
   and press **Start**. Your press is the mission's Start: the mission is listed as **Writing the
@@ -361,6 +361,35 @@ the PM writes no PRD there.
 If the PM writes no PRD, it is sent once more. After a second try with none, the mission waits on
 you: its row reads **No PRD written**, and **Why** opens the mission's brief with the PM's reason.
 A mission with no PRD is never shown as delivered.
+
+#### How the PM's PRDs reach the build
+
+Nothing a PRD needs before its build is written to the repository: no issue, branch, commit or pull
+request. Each PRD the PM writes goes through four steps, each recorded on the mission, then the build.
+
+1. **The PM writes it on Omni.** The PM writes each PRD's spec and before/after on its own page in
+   your product, as `<key>-<n>` (`omni-loop-31`). Several PRDs make a product roadmap. The repository
+   must belong to a product: one that belongs to none stops the mission with `this repository has
+   no product: a goal-only mission needs one`, and no PM job is sent.
+2. **The PM plans it.** It writes the PRD's plan on its page.
+3. **The PM approves the plan.** Its approval names the plan version it read.
+4. **The Architect reviews it, every time.** It reads the spec, the plan and the playbook's
+   architecture, testing, conventions and CI forms, and the laws the plan's files touch. It fixes
+   the plan's coding parts itself, as a new plan version, and approves. Its approval gives the PRD's
+   Tech Approval, signed by the fleet's Architect, an agent. What it cannot settle it leaves to you,
+   and the PRD waits.
+
+**The build** (`/omni:ultra-yolo <key>-<n>`) starts only when the PM's approval and the Architect's
+name the same plan version, the latest. A version the Architect changed goes back to the PM to
+approve, two rounds at most, then to you. An Architect job that left no record is never read as an
+approval: it is sent to you as `no record of the tech review`. The code reaches the repository only
+in the build's pull requests, and you merge each one.
+
+**What you see.** The fleet's **Operation room** shows, for each PRD of the PM's, a plan row (the
+PM, the plan version it approved) and a tech row (the Architect, what it settled, or `Not reviewed
+yet`). The points the Architect left to you are listed under **Waiting on you**: approve the PRD
+on its page once you have settled them. A PRD a person wrote and put in the mission keeps the
+committee.
 
 ## Starting never waits
 
