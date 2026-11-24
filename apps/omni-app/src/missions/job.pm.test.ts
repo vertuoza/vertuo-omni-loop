@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { committeeLine } from 'omni-loop/kit/lib/committee/record.ts';
-import { parseIssue, parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parsePrd, parseProductPrdId, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { fingerprint } from 'omni-loop/kit/lib/repair/fingerprint.ts';
 import { repairRecordLine } from 'omni-loop/kit/lib/repair/line.ts';
 import { pmLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
@@ -8,7 +8,8 @@ import type { ClaimedJob } from '../jobs/ledger.ts';
 import type { MissionBranches } from './branch.ts';
 import { MISSION_KIND, missionHandler } from './job.ts';
 import { fakeMissionStore } from './store.fake.ts';
-import type { MissionRecord } from './store.ts';
+import type { Home } from './pm.ts';
+import type { MissionRecord, StoredProduct } from './store.ts';
 import type { PrdFacts } from './supervisor.ts';
 
 // The PM's own PRDs at `alone` (PRD 2896 s12, criteria 19, 21 and 22): with `mandate.ownPrds` at 0 no PM job is sent; above it,
@@ -354,5 +355,55 @@ describe('a goal-only mission\'s PM (PRD omni-loop-24)', () => {
     expect(kinds(fake, 'prd-added').map((event) => event.prd)).toEqual([p(50)]);
     expect(fake.pms()).toHaveLength(1);
     expect(fake.mission().status).not.toBe('delivered');
+  });
+});
+
+// On a product (PRD omni-loop-26): a repository whose phase 0 is on the server and that belongs to product `omni-loop` sends its PM
+// the line with `--product omni-loop`, and the product ids its record names join the mission; with no product, no PM job is sent.
+
+const productPage = (prd: ProductPrdId): StoredProduct => ({ prd, approval: 'none', blockers: [], targets: ['acme/widgets'], items: { ranks: [], open: [] }, plan: null });
+const P31 = parseProductPrdId('omni-loop-31');
+const P32 = parseProductPrdId('omni-loop-32');
+
+function onServer(home: Home, mission = record({ scope: { prds: [], roadmaps: [] } })) {
+  const fake = fakeMissionStore({ mission, facts: [], products: [], productPages: [productPage(P31), productPage(P32)], home });
+  const run = () => missionHandler({ store: fake.store, branches, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
+  return { fake, run };
+}
+
+const wroteIds = (prds: ProductPrdId[]) => `12:00:00 Done\n${pmLine({ v: 1, mission: 12, skill: 'roadmap', cap: 2, prds, unwritten: [] })}`;
+
+describe('the PM\'s job on a product (PRD omni-loop-26)', () => {
+  it('AC-1: on a server repository of product omni-loop, the PM\'s line ends with --product omni-loop', async () => {
+    const { fake, run } = onServer({ phase0: 'server', product: 'omni-loop' });
+    await run();
+    expect(fake.pms().map(({ line }) => line)).toEqual(['/omni:roadmap --mission 12 --cap 2 --product omni-loop']);
+  });
+
+  it('AC-1: on a repository whose phase 0 is a pull request, the line is as before', async () => {
+    const { fake, run } = onServer({ phase0: 'pr', product: 'omni-loop' });
+    await run();
+    expect(fake.pms().map(({ line }) => line)).toEqual(['/omni:roadmap --mission 12 --cap 2']);
+  });
+
+  it('AC-2: a record of two product ids adds two product PRDs, each by the fleet, and each is planned', async () => {
+    const { fake, run } = onServer({ phase0: 'server', product: 'omni-loop' });
+    await run();
+    fake.endPm({ status: 'done', outcome: 'ready' }, wroteIds([P31, P32]));
+    await run();
+    const added = kinds(fake, 'prd-added');
+    expect(added.map((event) => [event.prd, event.sentence])).toEqual([[P31, 'PRD omni-loop-31 added by the fleet.'], [P32, 'PRD omni-loop-32 added by the fleet.']]);
+    expect(added.every((event) => event.role === 'pm' && event.actor === 'agent')).toBe(true);
+    expect(fake.pms().slice(1).map(({ line }) => line)).toEqual(['/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31', '/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-32']);
+    await run();
+    expect(kinds(fake, 'prd-added')).toHaveLength(2);
+    expect(fake.pms()).toHaveLength(3);
+  });
+
+  it('AC-5: a server repository with no product sends no PM job, and the mission waits on a person', async () => {
+    const { fake, run } = onServer({ phase0: 'server', product: null });
+    await run();
+    expect(fake.pms()).toEqual([]);
+    expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: 'this repository has no product: a goal-only mission needs one' });
   });
 });

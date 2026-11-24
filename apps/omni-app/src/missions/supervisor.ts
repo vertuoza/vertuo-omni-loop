@@ -276,7 +276,8 @@ export type EventKind =
   | 'bug-taken' | 'bug-asked' | 'bug-fixed'
   /** PRD omni-loop-21 s8: the fleet's committee deferred an item, the option it took meanwhile, open for a person at landing. */
   | 'deferred';
-export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa';
+/** `architect` the fleet's Architect, on its review of a PM product PRD's plan (PRD omni-loop-26). */
+export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa' | 'architect';
 
 /** An event to record, signed by its role and `agent`. */
 export type NewEvent = { kind: EventKind; role: EventRole; prd: PrdNumber | null; job: string | null; link: string | null; sentence: string };
