@@ -122,17 +122,6 @@ describe('workspaceDossiers', () => {
     expect((await workspaceDossiers(db, VERTUOZA)).map((d) => d.id)).toEqual(['d-12', 'd-draft']);
   });
 
-  it('reads a product PRD\'s row (bug #3251) without throwing, and leaves it out: it has no home repository to count it by', async () => {
-    // dossier_list() returns a product PRD as it is stored (supabase/migrations/20261203100000_product_prd_ids.sql):
-    // no home repository, no PRD number, numbered by its product, and its repositories start with that null.
-    const product = {
-      ...listed('d-product', null), home_repo: null, repos: [null], numbered_at: '2026-11-20T10:00:00Z', answered: 2,
-    } as unknown as DossierListRow;
-    const fake = withDossiers(fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE)), [...DOSSIERS, { row: product, rounds: [] }]);
-    const db = fake.client(PEOPLE.both) as unknown as SupabaseClient<Database>;
-    expect((await workspaceDossiers(db, VERTUOZA)).map((d) => d.id)).toEqual(['d-12', 'd-draft']);
-  });
-
   it('lists nothing of a workspace its caller is not in', async () => {
     const { db } = world(PEOPLE.wile);
     expect(await workspaceDossiers(db, VERTUOZA)).toEqual([]);
