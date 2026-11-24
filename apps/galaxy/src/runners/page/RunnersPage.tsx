@@ -2,7 +2,8 @@ import { Notice } from '../../ask/page/Notice';
 import { MemberGate } from '../../dashboard/MemberGate';
 import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
-import { CancelButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton } from './actions';
+import { CancelButton, CopyFixButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton, SendToAnyButton, ShowFleetButton } from './actions';
+import { cannotRunFix } from './cannot-run-fix';
 import {
   afterAnswersWords, answeredOf, bucketCounts, bucketsOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, JOB_TABS, jobTabOf, lastJobWords, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type JobBucket, type JobTab, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
@@ -166,8 +167,17 @@ function ResumeLines({ job, board }: { job: Job; board: Board }) {
   );
 }
 
-function Action({ job, primary, answered, loss }: { job: Job; primary: boolean; answered: Answered | null; loss: Loss | null }) {
-  if (canCancel(job)) return <CancelButton job={job.id} />;
+/** Beside Cancel on a Cannot run job, the one fix its reason calls for (PRD 3232). */
+function CannotRunFixButton({ job, board, reason }: { job: Job; board: Board; reason: string | null }) {
+  const fix = cannotRunFix(job, reason, board.runners, board.viewer);
+  if (fix === null) return null;
+  if (fix.kind === 'copy') return <CopyFixButton label={fix.label} command={fix.command} />;
+  if (fix.kind === 'fleet') return <ShowFleetButton runner={fix.runner} />;
+  return <SendToAnyButton line={job.line} repo={job.repo} />;
+}
+
+function Action({ job, primary, answered, loss, board, cannotRun }: { job: Job; primary: boolean; answered: Answered | null; loss: Loss | null; board: Board; cannotRun: string | null }) {
+  if (canCancel(job)) return <><CancelButton job={job.id} /><CannotRunFixButton job={job} board={board} reason={cannotRun} /></>;
   if (loss !== null) return <LostAction job={job} primary={primary} loss={loss} />;
   if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
   const page = prdPageLink(job);
@@ -265,7 +275,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds, b
         <WaitingWhy words={waiting} />
         {releaseNotes(job).map((note) => <ReleaseLine key={note.kind} note={note} />)}
       </span>
-      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} loss={loss} /></span>
+      <span className="runners-actions"><TerminalButton job={job.id} /><Action job={job} primary={primary} answered={answered} loss={loss} board={board} cannotRun={cannotRun} /></span>
     </div>
   );
 }
