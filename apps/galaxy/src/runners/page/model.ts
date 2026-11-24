@@ -154,7 +154,7 @@ export function targetOf(job: Pick<Job, 'toRunner' | 'toFleet'>): Target {
 }
 
 /** A fleet's label, or its key when the workspace no longer lists it. */
-const fleetLabel = (fleet: string, fleets: readonly Fleet[]): string => fleets.find((f) => f.name === fleet)?.label ?? fleet;
+export const fleetLabel = (fleet: string, fleets: readonly Fleet[]): string => fleets.find((f) => f.name === fleet)?.label ?? fleet;
 
 /** Whether a runner could take a queued job, by the rules of `runner_claim()` that need no state of the runner: the job went to
  * it, to its fleet, or to any runner and it has no fleet; and it holds the job's repository. Online, offline, busy or paused

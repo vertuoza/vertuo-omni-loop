@@ -118,3 +118,21 @@
 }
 .runners-keeps { display: block; font-size: 12px; font-weight: 400; }
 .runners-came { display: block; font-size: 12px; margin-top: 4px; }
+
+/* The runner card (PRD 3232): its name, can it take work, its accounts and tokens, its gauges, then its repositories and kit. */
+.runners-summary { margin-top: 4px; }
+.runners-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.runners-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; border: 1px solid var(--ask-line-strong); border-radius: 12px; background: var(--ask-surface); }
+.runners-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.runners-card-head .runners-name { margin-right: auto; }
+.runners-can { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.runners-pips { display: inline-flex; gap: 4px; }
+.runners-pip { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--ask-line-strong); background: none; }
+.runners-pip.is-used { background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.runners-used-by { flex-basis: 100%; }
+.runners-card .runners-health { grid-template-columns: minmax(0, 1fr); }
+.runners-gauge-fill { position: relative; }
+.runners-gauge-limit { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--ask-ink); }
+.runners-card-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; }
+.runners-kit { font-size: 13px; }
+.runners-kit.is-blocking { color: var(--ask-red); font-weight: 700; }

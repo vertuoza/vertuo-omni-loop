@@ -110,7 +110,7 @@ describe('the tokens', () => {
     expect(text(row)).toContain('Tokens 10.2M in 5 h · 15.7M today');
     expect(row).toContain('title="Last 5 h: input 81k · output 402k · cache read 9.1M · cache write 611k\nToday: ');
     expect((row.match(/<polyline/g) ?? []).length).toBe(4);
-    expect(row.split('data-gauge="tokens"')[1]).not.toContain('runners-gauge-fill');
+    expect(row.split('data-gauge="tokens"')[1]?.split('data-gauge="cpu"')[0]).not.toContain('runners-gauge-fill');
     expect(row).not.toContain('runners-gauge is-over" data-gauge="tokens"');
   });
 
