@@ -47,14 +47,14 @@ describe('the Fleet\'s tabs', () => {
     const html = screen(board('night-shift', HEROES(true)));
     const nav = /<nav class="fleet-tabs"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? '';
     expect(text(nav)).toBe('Operation room Missions Heroes Board Commander');
-    expect(nav).toContain('href="/app/fleet?tab=commander"');
-    expect(nav).toMatch(/href="\/app\/fleet\?tab=room" aria-current="page"/);
-    expect(nav).toContain('href="/app/fleet?tab=heroes"');
+    expect(nav).toContain('href="/app/ai-fleet?tab=commander"');
+    expect(nav).toMatch(/href="\/app\/ai-fleet\?tab=room" aria-current="page"/);
+    expect(nav).toContain('href="/app/ai-fleet?tab=heroes"');
   });
 
   it('keeps the rest of the query in each tab\'s link', () => {
     const html = screen(board('night-shift', HEROES(true)), { fleet: 'night-shift', period: '30d' });
-    expect(html).toContain('href="/app/fleet?fleet=night-shift&amp;period=30d&amp;tab=board"');
+    expect(html).toContain('href="/app/ai-fleet?fleet=night-shift&amp;period=30d&amp;tab=board"');
   });
 
   it('shows no tabs on an ordinary fleet, only its board', () => {
@@ -67,7 +67,7 @@ describe('the Fleet\'s tabs', () => {
 
   it('AC-11: shows the Commander tab of a virtual fleet, which reads its own thread, the other tabs as before (PRD 3107 s1)', () => {
     const html = screen(board('night-shift', HEROES(true)), { tab: 'commander' });
-    expect(html).toMatch(/href="\/app\/fleet\?tab=commander" aria-current="page"/);
+    expect(html).toMatch(/href="\/app\/ai-fleet\?tab=commander" aria-current="page"/);
     expect(html).toContain('data-screen="fleet-commander"');
     expect(text(html)).toContain('Loading the Commander');
     expect(screen(board('night-shift', HEROES(true)), { tab: 'heroes' })).not.toContain('data-screen="fleet-commander"');
@@ -75,7 +75,7 @@ describe('the Fleet\'s tabs', () => {
 
   it('shows the board unchanged under the Board tab, and no heroes', () => {
     const html = screen(board('night-shift', HEROES(true)), { tab: 'board' });
-    expect(html).toMatch(/href="\/app\/fleet\?tab=board" aria-current="page"/);
+    expect(html).toMatch(/href="\/app\/ai-fleet\?tab=board" aria-current="page"/);
     expect(html).not.toContain('data-screen="fleet-seats"');
     expect(html).toContain('class="dash"');
   });

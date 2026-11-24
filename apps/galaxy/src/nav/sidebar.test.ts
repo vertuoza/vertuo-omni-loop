@@ -28,7 +28,7 @@ describe('SIDEBAR', () => {
     assertDefined(work, 'the Work group');
     const drawn = [...inbox.items, ...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
-      ['inbox', 'menu-inbox'], ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['runners', 'item-box'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
+      ['inbox', 'menu-inbox'], ['ai-fleet', 'menu-ai-fleet'], ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['runners', 'item-box'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
       ['products', 'coin'], ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
@@ -52,10 +52,13 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds the Inbox alone, first, at /app/inbox, its pages Done and Workspace not drawn as menu lines (omni-loop-22)', () => {
+  it('holds the Inbox first, at /app/inbox, its pages Done and Workspace not drawn as menu lines (omni-loop-22), and AI Fleet right under it (PRD 3233 s3)', () => {
     const [inbox] = SIDEBAR;
     assertDefined(inbox, 'the Inbox group');
-    expect(rows(inbox.items)).toEqual([['inbox', 'Inbox', '/app/inbox', [['Done', '/app/inbox/done'], ['Workspace', '/app/inbox/workspace']]]]);
+    expect(rows(inbox.items)).toEqual([
+      ['inbox', 'Inbox', '/app/inbox', [['Done', '/app/inbox/done'], ['Workspace', '/app/inbox/workspace']]],
+      ['ai-fleet', 'AI Fleet', '/app/ai-fleet', []],
+    ]);
   });
 
   it('holds Products first (PRD 1364), Roadmaps (PRD 1162), Ideas (PRD 1246), Concepts (PRD 1272), then PRDs, Bug Fixes, Visual Updates and Knowledge under Work: Questions and Waiting left for the Inbox (omni-loop-22)', () => {
@@ -225,6 +228,16 @@ describe('currentItem and pageTrail', () => {
   });
 });
 
+describe('AI Fleet (PRD 3233 s3, AC-1)', () => {
+  it('has /app/ai-fleet fall under it, its trail reading AI Fleet, and a fleet\'s AI Fleet › <name>', () => {
+    expect(currentItem('/app/ai-fleet?fleet=orion')).toBe('ai-fleet');
+    expect(currentItem('/app/fleet')).toBe('fleet');
+    expect(pageTrail('/app/ai-fleet')?.crumbs).toEqual([{ label: 'AI Fleet' }]);
+    expect(pageTrail('/app/ai-fleet', 'Orion')?.crumbs).toEqual([{ label: 'AI Fleet', path: '/app/ai-fleet' }, { label: 'Orion' }]);
+    expect(pageTrail('/app/ai-fleet', 'Orion')?.sprite).toBe('menu-ai-fleet');
+  });
+});
+
 describe('badgeOf', () => {
   const counts = { questions: 3, shared: 1, outbox: 2, approvals: 1, runners: 4, reviews: 6, total: 12 };
 
@@ -241,7 +254,7 @@ describe('badgeOf', () => {
   });
 
   it('gives no badge to any other entry, PRDs included', () => {
-    for (const id of ['home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'prds', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['ai-fleet', 'home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'prds', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });
 

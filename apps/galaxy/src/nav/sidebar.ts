@@ -16,7 +16,7 @@ import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'inbox' | 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
+export type SidebarId = 'inbox' | 'ai-fleet' | 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -73,6 +73,8 @@ export const SIDEBAR: readonly SidebarGroup[] = [
         // A question round's page, and a terminal session's: they sit under the Inbox.
         alsoUnder: ['/ask'],
       },
+      // PRD 3233 s3: the fleets of agents, right under Inbox; no badge, Inbox and Runners already count what waits.
+      { id: 'ai-fleet', label: 'AI Fleet', path: '/app/ai-fleet', sprite: 'menu-ai-fleet' },
     ],
   },
   {
@@ -221,6 +223,8 @@ export function pageTrail(pathname: string | null | undefined, item: string | nu
   const path = bare(defined(pathname, 'the path'));
   const here = path === entry.path;
   const last = page ?? section;
+  // PRD 3233 s3: an AI fleet's page names the fleet after the entry: `AI Fleet › <name>`.
+  if (section.id === 'ai-fleet' && here && item !== null) return { crumbs: [{ label: section.label, path: section.path }, { label: item }], sprite: section.sprite ?? null };
   const items = here || page ? [] : itemCrumbs(entry, path, item);
   return {
     crumbs: [
