@@ -394,7 +394,7 @@ describe('the PM\'s job on a product (PRD omni-loop-26)', () => {
     const added = kinds(fake, 'prd-added');
     expect(added.map((event) => [event.prd, event.sentence])).toEqual([[P31, 'PRD omni-loop-31 added by the fleet.'], [P32, 'PRD omni-loop-32 added by the fleet.']]);
     expect(added.every((event) => event.role === 'pm' && event.actor === 'agent')).toBe(true);
-    expect(fake.pms().slice(1).map(({ line }) => line)).toEqual(['/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31', '/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-32']);
+    expect(fake.pms().slice(1).map(({ line }) => line)).toEqual(['/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12', '/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-32 --mission 12']);
     await run();
     expect(kinds(fake, 'prd-added')).toHaveLength(2);
     expect(fake.pms()).toHaveLength(3);

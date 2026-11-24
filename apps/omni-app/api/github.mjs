@@ -23395,13 +23395,14 @@ function keptIdsOf(record, cap, held2) {
   if (ids.length === 0 && record.prds.length > 0) return { added: [], unwritten: [] };
   return keep(ids, record, cap, held2);
 }
-function planJobLine(prd, kind) {
+function planJobLine(prd, kind, mission) {
   const tail = kind === "replan" ? " --replan" : "";
-  if (isProductPrdId(prd)) return `/omni:mega-brainstorm --product ${productPrdParts(prd).key} --plan-only ${prd}${tail}`;
+  const sent = mission === void 0 ? "" : ` --mission ${String(mission)}`;
+  if (isProductPrdId(prd)) return `/omni:mega-brainstorm --product ${productPrdParts(prd).key} --plan-only ${prd}${tail}${sent}`;
   return `/omni:plan ${String(prd)}${tail}`;
 }
 var PLAN_LINE = /^\/omni:plan ([1-9][0-9]*)( --replan)?$/;
-var PLAN_ONLY_LINE = /^\/omni:mega-brainstorm --product ([a-z][a-z0-9-]*) --plan-only (\S+?)( --replan)?$/;
+var PLAN_ONLY_LINE = /^\/omni:mega-brainstorm --product ([a-z][a-z0-9-]*) --plan-only (\S+?)( --replan)?(?: --mission [1-9][0-9]*)?$/;
 function planOfLine(line3) {
   const repository = PLAN_LINE.exec(line3);
   const product = PLAN_ONLY_LINE.exec(line3);
@@ -25659,7 +25660,7 @@ async function sendPlans({ store, mission, send, jobs, toFleet, sends }) {
   if (!sends || !sendsCommittees(mission.status)) return out;
   let round = nextPlanRound(jobs);
   for (const one of send) {
-    const line3 = planJobLine(one.prd, one.kind);
+    const line3 = planJobLine(one.prd, one.kind, mission.number);
     const job = await store.pm({ mission, round, line: line3, toFleet });
     round += 1;
     if (job === null) continue;
@@ -26163,7 +26164,7 @@ async function reviewStep(at4, fact, state, step) {
   }
   step.moving = true;
   if (state.state === "working") return;
-  const line3 = state.state === "plan" ? planJobLine(fact.prd, "plan") : techJobLine(fact.prd, at4.mission.number);
+  const line3 = state.state === "plan" ? planJobLine(fact.prd, "plan", at4.mission.number) : techJobLine(fact.prd, at4.mission.number);
   const job = state.state === "plan" ? await at4.store.pm({ mission: at4.mission, round: at4.rounds++, line: line3, toFleet: at4.toFleet }) : await at4.products.review({ mission: at4.mission, prd: fact.prd, k: state.k, line: line3, toFleet: at4.toFleet });
   if (job === null) return;
   const sent = reviewDispatched(fact.prd, job, line3, state);

@@ -97,9 +97,9 @@ async function planned() {
 describe('a PM product PRD, planned, approved and reviewed before its build (AC-1, AC-3)', () => {
   it('AC-1: the PM writes on the product, and the PRD it wrote is planned, never sent to a committee', async () => {
     const { fake, sentences } = await written();
-    expect(fake.pms().map(({ line }) => line)).toEqual(['/omni:roadmap --mission 12 --cap 2 --product omni-loop', '/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31']);
+    expect(fake.pms().map(({ line }) => line)).toEqual(['/omni:roadmap --mission 12 --cap 2 --product omni-loop', '/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12']);
     expect(sentences('prd-added')).toEqual(['PRD omni-loop-31 added by the fleet.']);
-    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31: it plans PRD omni-loop-31, which it wrote, and approves its plan.');
+    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12: it plans PRD omni-loop-31, which it wrote, and approves its plan.');
     expect(fake.committees()).toEqual([]);
     expect(fake.productJobs()).toEqual([]);
   });
@@ -122,9 +122,9 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
       ['tech', B, 'approved', true, false],
     ]);
     expect(sentences('job-ended')).toContain('The Architect approved the plan of PRD omni-loop-31 (version bbbbbbb), settling: the slices s2 and s3 share no file now.');
-    expect(fake.pms().map(({ line }) => line).at(-1)).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31');
+    expect(fake.pms().map(({ line }) => line).at(-1)).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12');
     expect(fake.pms()).toHaveLength(3);
-    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 again: PRD omni-loop-31 has a newer plan version, so the PM approves it.');
+    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: PRD omni-loop-31 has a newer plan version, so the PM approves it.');
     expect(fake.productJobs()).toEqual([]);
 
     fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(B));

@@ -121,7 +121,7 @@ function fleetOf(written: readonly ProductPrdId[]) {
   return { fake, git, run, endPm, said, writes };
 }
 
-const planOnly = (prd: ProductPrdId): string => `/omni:mega-brainstorm --product omni-loop --plan-only ${prd}`;
+const planOnly = (prd: ProductPrdId): string => `/omni:mega-brainstorm --product omni-loop --plan-only ${prd} --mission 12`;
 const wrote = (prds: ProductPrdId[]): string => `12:00:00 Done\n${pmLine({ v: 1, mission: 12, skill: 'roadmap', cap: 10, prds, unwritten: [] })}`;
 const approvedPlan = (prd: ProductPrdId, plan: string): string => `12:10:00 Done\n${planLine({ v: 1, prd, plan, outcome: 'approved' })}`;
 const reviewed = (prd: ProductPrdId, plan: string, settled: string[]): string =>
