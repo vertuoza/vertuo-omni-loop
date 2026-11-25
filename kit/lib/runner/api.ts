@@ -539,7 +539,7 @@ export type SeatMessage = z.output<typeof MessageSchema>;
 const NoteSchema = z.object({ id: z.string(), scope: z.enum(['short', 'long']), line: z.string(), createdAt: z.string() }).loose();
 export type SeatNote = z.output<typeof NoteSchema>;
 
-/** A finding the seat raises, as the app's contract takes it (apps/galaxy/src/supervisor/api/supervisor.contract.ts). */
+/** A finding the seat raises, as the app's Supervisor contract takes it. */
 export type SeatRaise = {
   kind: 'stuck' | 'bug' | 'health';
   severity: 'high' | 'medium';

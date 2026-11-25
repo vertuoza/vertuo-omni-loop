@@ -180,7 +180,7 @@ export async function runSeat(options: SeatOptions): Promise<'moved' | 'stopped'
     heartbeatMs: options.heartbeatMs ?? HEARTBEAT_MS, firstMs, maxMs, book: durationBook(), tried: new Map(), mode: '',
   };
   const wait = { ms: firstMs };
-  const at = { since: null as string | null, lastLook: Number.NEGATIVE_INFINITY };
+  const at: { since: string | null; lastLook: number } = { since: null, lastLook: Number.NEGATIVE_INFINITY };
   while (!seat.halt.aborted) {
     const woke = await waitNext(seat, at.since, wait);
     if (woke === 'moved') return 'moved';

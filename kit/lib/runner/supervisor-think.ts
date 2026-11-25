@@ -14,6 +14,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { usageSum } from '../ask/context.ts';
+import { processEnv } from '../env/read.ts';
 import { field } from '../ask/schema.ts';
 import type { SeatFinding, SeatMessage, SeatNote, SeatSignal, SupervisorSeat } from './api.ts';
 import type { AgentAccount } from './agents/agent.ts';
@@ -105,7 +106,7 @@ export type SpawnThink = (file: string, args: readonly string[], options: { cwd:
 
 /** The real process: claude, its stdout read line by line. */
 const spawnReal: SpawnThink = (file, args, { cwd, env, stdin }) => {
-  const child = spawn(file, args, { cwd, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'ignore'] });
+  const child = spawn(file, args, { cwd, env: { ...processEnv(), ...env }, stdio: ['pipe', 'pipe', 'ignore'] });
   const exit = new Promise<number | null>((resolve) => {
     child.on('error', () => {
       resolve(null);

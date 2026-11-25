@@ -101,7 +101,7 @@ const CALLS: Record<ToolName, (api: SupervisorApi, runner: string, input: unknow
   propose,
 };
 
-const isTool = (name: unknown): name is ToolName => typeof name === 'string' && (SEAT_TOOLS as readonly string[]).includes(name);
+const isTool = (name: unknown): name is ToolName => SEAT_TOOLS.some((tool) => tool === name);
 
 /** A tool's text, as a result. */
 const result = (text: string, isError = false) => ({ result: { content: [{ type: 'text', text }], ...(isError ? { isError: true } : {}) } });
