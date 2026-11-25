@@ -9,9 +9,10 @@ import { poll } from '../../ask/page/poll';
 import { pixelSvg } from '../../design/pixel-svg';
 import {
   KIND_LABEL, RUNNERS_PATH, SUPERVISOR_REFRESH_MS, chatOf, checkOf, chipsOf, evidenceOf, headerOf, hrefOf, lastSaid, openFinding, phoneSide,
-  sectionsOf, spanWords, suggestionsOf, threadOf, type Header, type Query, type Row, type Said, type SupervisorData,
+  sectionsOf, spanWords, threadOf, type Header, type Query, type Row, type Said, type SupervisorData,
 } from './model';
 import { SeatControls } from './SeatControls';
+import { Suggested } from '../proposals/Suggested';
 
 // The Supervisor's board (PRD omni-loop-34 s5), as the before/after page draws it (2.A to 2.G): the header (the owl, the
 // state, the seat's meta line, an owner's seat controls), the offline notice, the Open and Done tabs, then the list (the
@@ -158,7 +159,6 @@ function Foot({ owner }: { owner: boolean }) {
 function FindingPane({ finding, data }: { finding: Finding; data: SupervisorData }) {
   const check = checkOf(finding.checkLine);
   const evidence = evidenceOf(finding.evidence);
-  const suggestions = suggestionsOf(finding);
   const thread = threadOf(finding, data.thread);
   const open = finding.state === 'open';
   return (
@@ -173,12 +173,7 @@ function FindingPane({ finding, data }: { finding: Finding; data: SupervisorData
           <Badge>{spanWords(Date.parse(data.now) - Date.parse(finding.createdAt))}</Badge>
         </div>
       </div>
-      {data.owner && open && suggestions.length > 0 && (
-        <section className="sv-suggested" aria-label="Suggested">
-          <b>Suggested</b>
-          <ul className="sv-suggestions">{suggestions.map((label) => <li key={label}>{label}</li>)}</ul>
-        </section>
-      )}
+      {data.owner && open && <Suggested workspace={data.workspace} finding={finding} />}
       <section className="sv-box" data-check={check.fired || undefined} aria-label="The check that fired">
         <p className="sv-box-label">The check that fired</p>
         <p className="sv-check"><b>{check.name}</b>{check.figures.map((figure) => <span key={figure} className="sv-figure">{figure}</span>)}</p>
