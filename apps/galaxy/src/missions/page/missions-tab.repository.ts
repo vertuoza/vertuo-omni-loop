@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRow, parseRows } from '../../data/parse-rows';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { MissionLevelSchema, MissionStatusSchema } from '../missions.contract';
@@ -17,7 +17,8 @@ const WHERE = 'missions/page/missions-tab.repository';
 const MISSION = 'id, repo, number, title, goal, status, waiting_on, scope, mandate, paused_by, kind';
 /** The newest requests read: a request whose mission is not pushed yet is one of the last few presses. */
 const REQUESTS_MAX = 20;
-const EVENT = 'mission_id, kind, prd, link, sentence';
+// A product PRD's events name its id in `product_prd`, `prd` left null (20270129100000_mission_product_prd.sql).
+const EVENT = 'mission_id, kind, prd, product_prd, link, sentence';
 /** The newest events read: enough to count a mission's PRDs and find what each waits on. */
 const EVENTS_MAX = 1000;
 
@@ -55,7 +56,8 @@ const ItemRowSchema = z.object({
   note: z.string().nullable(), answered_by: z.uuid().nullable(), created_at: z.string(),
 });
 const PlayerRow = z.object({ user_id: z.uuid(), display_name: z.string().min(1) });
-const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: PrdNumberSchema.nullable(), link: z.string().nullable(), sentence: z.string() });
+const EventRowSchema = z.object({ mission_id: z.uuid(), kind: z.string(), prd: PrdNumberSchema.nullable(), product_prd: ProductPrdIdSchema.nullable().default(null), link: z.string().nullable(), sentence: z.string() });
+const PlanDecisionRowSchema = z.object({ mission_id: z.uuid(), outcome: z.string() });
 
 /** The plan repositories of a workspace's live products, in lower case (PRD 2896 s14). */
 async function planRepositories(db: MissionsTabDb, workspace: string): Promise<Set<string>> {
@@ -164,14 +166,26 @@ export function missionsTabRepository(db: MissionsTabDb) {
       return rows.map((row) => ({ id: row.id, mission: row.mission_id, target: row.target, wording: row.wording, evidence: row.evidence, answer: row.answer, note: row.note, answeredBy: row.answered_by === null ? null : (names.get(row.answered_by) ?? null), at: row.created_at }));
     },
 
-    /** The PRD events of these missions (ready, merged, waiting, sent), newest first. */
+    /** The PRD events of these missions (ready, merged, waiting, sent), a product PRD's too, newest first. */
     async events(missions: readonly string[]): Promise<TabEvent[]> {
       if (missions.length === 0) return [];
       // A row the PM's cap left unwritten (PRD 2896 s12) names no PRD, and is read too.
-      const read = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).or('prd.not.is.null,kind.eq.not-written').order('at', { ascending: false }).limit(EVENTS_MAX);
+      const read = await db.from('mission_events').select(EVENT).in('mission_id', [...missions]).or('prd.not.is.null,product_prd.not.is.null,kind.eq.not-written').order('at', { ascending: false }).limit(EVENTS_MAX);
       if (read.error) throw new Error(`Supabase: could not read the missions' events (${read.error.message})`);
       const rows = orThrow(parseRows(EventRowSchema, read.data, `${WHERE}: mission_events`));
-      return rows.map(({ mission_id: mission, ...rest }) => ({ mission, ...rest }));
+      return rows.map(({ mission_id: mission, prd, product_prd: product, ...rest }) => ({ mission, prd: product ?? prd, ...rest }));
+    },
+
+    /** How many `plan` and `tech` decisions the fleet approved on each mission's product PRDs (PRD omni-loop-26); an escalated one went to a person. */
+    async planDecisions(missions: readonly string[]): Promise<Map<string, number>> {
+      const counts = new Map<string, number>();
+      if (missions.length === 0) return counts;
+      const { data, error } = await db.from('mission_decisions').select('mission_id, outcome').in('mission_id', [...missions]).in('kind', ['plan', 'tech']);
+      if (error) throw new Error(`Supabase: could not read the plan and tech decisions (${error.message})`);
+      for (const row of orThrow(parseRows(PlanDecisionRowSchema, data, `${WHERE}: mission_decisions`))) {
+        if (row.outcome === 'approved') counts.set(row.mission_id, (counts.get(row.mission_id) ?? 0) + 1);
+      }
+      return counts;
     },
   };
 }
