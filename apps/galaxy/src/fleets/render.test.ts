@@ -274,17 +274,15 @@ describe('/app/settings/fleets in each situation', () => {
     expect(buttons(member)).toEqual([]);
   });
 
-  it('starts with the Fleets · Repositories · Business · Products · API keys · Jev · Playbook tabs in every situation, Fleets marked (PRD 733)', () => {
+  it('draws no header tabs of its own in any situation: the settings layout draws the navigation (omni-loop-27 s3)', () => {
     const views: FleetsScreenView[] = [
       { kind: 'closed' }, { kind: 'sign-in' }, { kind: 'no-workspace' }, { kind: 'unreadable' },
       { kind: 'fleets', source: { kind: 'demo' }, owner: true, fleets: [BEAVER], mascots: MASCOTS },
     ];
     for (const view of views) {
       const html = screen(view);
-      expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
-      expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
-      const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, view.kind).toEqual([['Fleets', true], ['Repositories', false], ['Business', false], ['API keys', false], ['Jev', false], ['Playbook', false]]);
+      expect(html, view.kind).not.toContain('section-tab');
+      expect(html, view.kind).toContain('<h1');
     }
   });
 });

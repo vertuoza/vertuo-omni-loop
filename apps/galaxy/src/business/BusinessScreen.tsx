@@ -1,6 +1,4 @@
 import { Notice } from '../ask/page/Notice';
-import { SectionTabs } from '../nav/SectionTabs';
-import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import type { Claim, Product } from './model';
 import { faceOf } from '../people/face';
@@ -99,12 +97,7 @@ export const DEMO_QUESTIONS: AgentQuestion[] = [
 ];
 
 export function BusinessScreen({ view }: { view: BusinessScreenView }) {
-  return (
-    <>
-      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current="/app/settings/business" />
-      <BusinessBody view={view} />
-    </>
-  );
+  return <BusinessBody view={view} />;
 }
 
 function BusinessBody({ view }: { view: BusinessScreenView }) {

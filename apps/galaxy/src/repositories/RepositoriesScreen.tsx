@@ -1,6 +1,4 @@
 import { Notice } from '../ask/page/Notice';
-import { SectionTabs } from '../nav/SectionTabs';
-import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import { RepositoriesPage, type RepositoriesPageProps } from './RepositoriesPage';
 
@@ -17,12 +15,7 @@ export type RepositoriesScreenView =
   | ({ kind: 'repositories' } & RepositoriesPageProps);
 
 export function RepositoriesScreen({ view }: { view: RepositoriesScreenView }) {
-  return (
-    <>
-      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current="/app/settings/repositories" />
-      <RepositoriesBody view={view} />
-    </>
-  );
+  return <RepositoriesBody view={view} />;
 }
 
 function RepositoriesBody({ view }: { view: RepositoriesScreenView }) {
