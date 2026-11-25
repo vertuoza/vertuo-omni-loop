@@ -551,8 +551,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'refuses, writing nothing, a PRD with no inbox folder, a page already there unless --force, and ' +
       'a missing or empty --services, each with one line and exit 1. render replaces each ' +
       '<pre class="mermaid"> of the page with the SVG Mermaid draws for it, inline, in a headless ' +
-      'Chromium from the repository\'s Playwright; it prints one line per diagram and refuses, with the ' +
-      'install line, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
+      'Chromium from the repository\'s Playwright, or from the one the kit fetches into ~/.cache/omni when the ' +
+      'repository has none; it prints one line per diagram and refuses, saying why, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
       'a valid state on every section, no FILL marker, no diagram left unrendered, no external resource.',
   },
   {
