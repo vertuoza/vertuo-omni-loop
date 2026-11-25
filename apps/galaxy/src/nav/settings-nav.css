@@ -1,0 +1,58 @@
+/* The settings navigation (omni-loop-27 s2). Colours are the ask tokens, so every theme follows. From
+   900px the grouped list sits beside the page; below, one disclosure replaces it, never wider than the
+   screen, so a 375px window never scrolls sideways. */
+
+.settings-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+}
+.settings-frame > .settings-content { min-width: 0; }
+
+.settings-nav { min-width: 0; }
+.settings-nav-list { display: none; }
+.settings-nav-select { display: block; min-width: 0; }
+
+.settings-nav-select details {
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: var(--radius-2);
+  background: var(--ask-surface);
+  padding: var(--space-1) var(--space-3);
+}
+.settings-nav-select summary {
+  cursor: pointer;
+  padding: var(--space-2) 0;
+  font: 700 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  overflow-wrap: anywhere;
+}
+.settings-nav-select summary:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
+.settings-nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.settings-nav-group { margin: 0 0 var(--space-3); min-width: 0; }
+.settings-nav-heading {
+  margin: 0 0 var(--space-1);
+  font: 700 12px/1.2 var(--ask-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ask-muted);
+}
+.ask a.settings-nav-link {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-2);
+  font: 600 15px/1.2 var(--ask-body);
+  color: var(--ask-muted);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.ask a.settings-nav-link:hover { color: var(--ask-ink); }
+.ask a.settings-nav-link:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.ask a.settings-nav-link[aria-current='page'] { color: var(--ask-plasma); font-weight: 700; }
+
+@media (min-width: 900px) {
+  .settings-frame { grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+  .settings-nav-list { display: block; }
+  .settings-nav-select { display: none; }
+}
