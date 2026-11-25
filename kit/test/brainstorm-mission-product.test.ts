@@ -97,3 +97,17 @@ describe('/omni:mega-brainstorm --plan-only on a mission (PRD omni-loop-26)', ()
     expect(PLAN_FLAT).toContain("the fleet's Architect");
   });
 });
+
+describe("/omni:mega-brainstorm --plan-only names each repository as the mission reads it (bug #3275)", () => {
+  it('always writes the Repositories table, each repo cell the full owner/name from omni targets or the spec', () => {
+    expect(PLAN_FLAT).toContain('`## Repositories` table is always written');
+    expect(PLAN_FLAT).toContain("its `repo` cell is that repository's full `owner/name`");
+    expect(PLAN_FLAT).toContain('`omni targets --json`');
+    expect(PLAN_FLAT).toContain("never the product's key, a short name or a sentence");
+  });
+
+  it('shows the row with an owner/name cell, never a bare name', () => {
+    const row = lineOf(PLAN_ONLY, '| <owner>/<name> |');
+    expect(row).toBe('| <owner>/<name> | <the role> | <40-character commit> | <knowledge> |');
+  });
+});

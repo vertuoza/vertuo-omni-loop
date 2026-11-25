@@ -85,21 +85,22 @@ export function scopeRepos({ repo, prds, targets }: { repo: string; prds: readon
 }
 
 /**
- * The mission branch cut in each of `repos` (PRD omni-loop-21 s7): every repository is asked, in order, and the answer is ready only
- * when each is, naming the ones cut now; else every refusal, joined, for the mission to wait on.
+ * The mission branch cut in each of `repos` (PRD omni-loop-21 s7): every repository is asked, in order, and the answer names the ones
+ * cut now and, by repository, why each other one was refused, for the PRDs whose plans name it to wait on (bug #3275: one refusal
+ * never holds the PRDs of the repositories that were cut).
  */
 export async function prepareAll(
   branches: MissionBranches,
   { installation, repos, branch }: { installation: number; repos: readonly string[]; branch: string },
-): Promise<{ ok: true; cut: string[] } | { ok: false; why: string }> {
+): Promise<{ cut: string[]; refused: Map<string, string> }> {
   const cut: string[] = [];
-  const refused: string[] = [];
+  const refused = new Map<string, string>();
   for (const repo of repos) {
     const prepared = await branches.prepare({ installation, repo, branch });
-    if (!prepared.ok) refused.push(prepared.why);
+    if (!prepared.ok) refused.set(repo.toLowerCase(), prepared.why);
     else if (prepared.cut) cut.push(repo);
   }
-  return refused.length > 0 ? { ok: false, why: refused.join('; ') } : { ok: true, cut };
+  return { cut, refused };
 }
 
 /** `GET /repos/{owner}/{repo}`: its default branch. */
