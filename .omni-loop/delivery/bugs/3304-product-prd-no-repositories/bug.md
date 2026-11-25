@@ -27,4 +27,4 @@ a plan that names no repository"); `null` bases, at with-you, still send no flag
 
 ## Mutation
 
-mutation:changed: no delivery-core file changed
+mutation: no changed core file against origin/main (b36a5c59): nothing to mutate
