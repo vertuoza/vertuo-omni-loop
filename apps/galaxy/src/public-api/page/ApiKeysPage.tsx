@@ -1,7 +1,7 @@
 import { Notice } from '../../ask/page/Notice';
 import { APP_HOME } from '../../switch/switch';
 import { ApiKeysPanel } from './ApiKeysPanel';
-import { API_KEYS_HREF, type ApiKeysPageView } from './model';
+import type { ApiKeysPageView } from './model';
 
 // Settings › API keys in each situation (PRD 2022 s1), decided once by the page: no database here;
 // signed out; an account in no workspace; the keys that could not be read; or the keys themselves, an

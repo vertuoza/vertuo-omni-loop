@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { PlaybookEditing } from './omni-settings.client';
 import { NO_SETTINGS_REPOSITORY, NO_SETTINGS_REPOSITORY_MEMBER, SOURCE_LABEL, pageBody, pageTitle } from './PlaybookView';
 import { SettingsRepositoryLine } from './SettingsRepositoryLine';
-import { PLAYBOOK_PATH, PlaybookScreen, playbookScreenOf, type PlaybookScreenView } from './PlaybookScreen';
+import { PlaybookScreen, playbookScreenOf, type PlaybookScreenView } from './PlaybookScreen';
 
 // Settings → Playbook as the server renders it (PRD 2417, s6): every page with its text and whose it
 // is, a workspace with no settings repository and the one thing to do, the situations before the
