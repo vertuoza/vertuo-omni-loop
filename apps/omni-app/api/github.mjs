@@ -6778,6 +6778,10 @@ function minuteOf(iso2) {
   const match2 = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso2);
   return match2 ? `${match2[1] ?? ""} ${match2[2] ?? ""} UTC` : iso2;
 }
+var standing = (member, fleet) => {
+  if (fleet) return member ? "a fleet of the workspace" : "a fleet that no longer exists in the workspace";
+  return member ? "a member of the workspace" : "no longer a member";
+};
 function approvedVerdict(prd, reading) {
   if (!reading.reachable) {
     const title = `held \xB7 server unreachable since ${minuteOf(reading.since)} \xB7 held, not failed`;
@@ -6793,9 +6797,9 @@ function approvedVerdict(prd, reading) {
   const { dossierId, approval, latest } = record;
   const verdict = (state, conclusion, title, lines2, drift2 = []) => ({ state, conclusion, title, summary: lines2.join("\n"), dossierId, drift: drift2 });
   if (!approval) return verdict("pending", "failure", `pending \xB7 ${prd.id} waits for approval`, [`Nobody approved ${prd.id} yet.`]);
-  const { login, member } = approval.approver;
+  const { login, member, fleet } = approval.approver;
   const attestation = [
-    `Approved by **${login}** (${member ? "a member of the workspace" : "no longer a member"}) at ${approval.approvedAt}.`,
+    `Approved by **${login}** (${standing(member, fleet)}) at ${approval.approvedAt}.`,
     "",
     ...pinsTable(approval, latest)
   ];
@@ -6804,7 +6808,7 @@ function approvedVerdict(prd, reading) {
     const lines2 = drift.map(driftLine);
     return verdict("drifted", "failure", `drifted \xB7 ${lines2[0] ?? ""}`, [...lines2, "", "Restore the file, or approve again on the PRD page.", "", ...attestation], drift);
   }
-  if (!member) return verdict("refused", "failure", `refused \xB7 approver ${login} is not a workspace member`, attestation);
+  if (!member) return verdict("refused", "failure", fleet ? `refused \xB7 fleet ${fleet} no longer exists in the workspace` : `refused \xB7 approver ${login} is not a workspace member`, attestation);
   const pinned = approval.files.length;
   return verdict("building", "success", `building \xB7 ${pinned} of ${pinned} pinned`, attestation);
 }
@@ -9876,13 +9880,14 @@ var ApprovalRowSchema = z38.object({
   approved_by: text8,
   approver_login: text8,
   approved_at: at2,
-  files: z38.array(z38.object({ kind: text8, path: text8, sha256: text8, version_id: text8 }))
+  files: z38.array(z38.object({ kind: text8, path: text8, sha256: text8, version_id: text8 })),
+  fleet: text8.nullable().optional()
 });
 var VoidRowSchema = z38.object({ kind: text8, from_sha256: text8, to_sha256: text8, pusher_login: text8, voided_at: at2 });
 var VersionRowSchema = z38.object({ id: text8, kind: text8, sha256: text8, commit_sha: z38.string().nullable(), created_at: at2 });
 var ContentRowSchema = z38.object({ id: text8, content: z38.string() });
 var HOLDER = "product_id, workspace_id, products!inner(key)";
-var APPROVAL = "id, approved_by, approver_login, approved_at, files";
+var APPROVAL = "id, approved_by, approver_login, approved_at, files, fleet";
 var VOID2 = "kind, from_sha256, to_sha256, pusher_login, voided_at";
 var VERSION = "id, kind, sha256, commit_sha, created_at";
 var refused3 = (error) => new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -9894,6 +9899,14 @@ function latestByKind(rows) {
   const seen = /* @__PURE__ */ new Map();
   for (const row of rows) if (!seen.has(row.kind)) seen.set(row.kind, row);
   return [...seen.values()];
+}
+async function approverCounts(db, workspace, approved) {
+  if (approved.fleet) {
+    const fleets = rowsOf2(z38.object({ name: text8 }), await db.from("teams").select("name").eq("workspace_id", workspace).eq("name", approved.fleet).eq("kind", "virtual").is("retired_at", null).limit(1));
+    return fleets.length > 0;
+  }
+  const members2 = rowsOf2(z38.object({ user_id: text8 }), await db.from("workspace_members").select("user_id").eq("workspace_id", workspace).eq("user_id", approved.approved_by).limit(1));
+  return members2.length > 0;
 }
 function recordReader({ url, key, fetch: fetch2 }) {
   const db = createClient2(url, key, {
@@ -9911,7 +9924,7 @@ function recordReader({ url, key, fetch: fetch2 }) {
     const [approved] = rowsOf2(ApprovalRowSchema, await db.from("approvals").select(APPROVAL).eq("dossier_id", dossier.id).order("approved_at", { ascending: false }).order("id", { ascending: false }).limit(1));
     const latestWithout = versions.map((row) => ({ kind: row.kind, sha256: row.sha256, versionId: row.id, commitSha: row.commit_sha, content: null }));
     if (!approved) return { dossierId: dossier.id, approval: null, latest: latestWithout };
-    const members2 = rowsOf2(z38.object({ user_id: text8 }), await db.from("workspace_members").select("user_id").eq("workspace_id", holder.workspace_id).eq("user_id", approved.approved_by).limit(1));
+    const member = await approverCounts(db, holder.workspace_id, approved);
     const voids = rowsOf2(VoidRowSchema, await db.from("approval_voids").select(VOID2).eq("approval_id", approved.id).order("voided_at", { ascending: true }));
     const pinnedSha = new Map(approved.files.map((file) => [file.kind, file.sha256]));
     const differing = versions.filter((row) => pinnedSha.has(row.kind) && pinnedSha.get(row.kind) !== row.sha256).map((row) => row.id);
@@ -9920,7 +9933,7 @@ function recordReader({ url, key, fetch: fetch2 }) {
     return {
       dossierId: dossier.id,
       approval: {
-        approver: { login: approved.approver_login, member: members2.length > 0 },
+        approver: { login: approved.approver_login, member, ...approved.fleet ? { fleet: approved.fleet } : {} },
         approvedAt: new Date(approved.approved_at).toISOString(),
         files: approved.files.map((file) => ({ kind: file.kind, path: file.path, sha256: file.sha256, versionId: file.version_id, content: texts2.get(file.version_id) ?? null })),
         voids: voids.map((row) => ({ pusher: row.pusher_login, kind: row.kind, from: row.from_sha256, to: row.to_sha256, voidedAt: new Date(row.voided_at).toISOString() }))
@@ -14554,12 +14567,12 @@ import { existsSync as existsSync42, readFileSync as readFileSync40 } from "node
 import { join as join60 } from "node:path";
 var STANDING = /* @__PURE__ */ new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
 function approversOf(reviews, headSha) {
-  const standing2 = /* @__PURE__ */ new Map();
+  const standing3 = /* @__PURE__ */ new Map();
   for (const review of reviews) {
     const login = review.user?.login;
-    if (login !== void 0 && STANDING.has(review.state)) standing2.set(login, review);
+    if (login !== void 0 && STANDING.has(review.state)) standing3.set(login, review);
   }
-  return [...standing2].filter(([, review]) => review.state === "APPROVED" && review.commit_id === headSha).map(([login]) => login);
+  return [...standing3].filter(([, review]) => review.state === "APPROVED" && review.commit_id === headSha).map(([login]) => login);
 }
 async function approversAt(octokit, { owner, repo, prNumber, headSha }) {
   const reviews = await paginate(
@@ -18379,8 +18392,8 @@ var cell2 = (text20) => (text20 ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " "
 function landedAs(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
-  const standing2 = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
-  return `${entry.landedAs.join(", ")} (new, ${standing2})`;
+  const standing3 = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
+  return `${entry.landedAs.join(", ")} (new, ${standing3})`;
 }
 function decidedShort(decided) {
   const text20 = (decided ?? "").replace(/,\s*\d{4}-\d{2}-\d{2}$/, "");
@@ -29613,7 +29626,7 @@ function standingReport(kept3, criteria, job) {
   const ran = said4?.ok === true && said4.report.commit === kept3.commit ? said4.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
   return { ...kept3, results: [...others, ...ran].sort((a, b) => a.ac - b.ac) };
 }
-function standing(criterion, report) {
+function standing2(criterion, report) {
   const own = report.results.filter((result) => result.ac === criterion.number && result.kind === criterion.kind);
   const proof = [...new Set(own.flatMap((result) => result.proof === null ? [] : [result.proof]))].join(", ") || "\u2014";
   if (own.some((result) => result.state === "failed")) return { mark: "\u2717", words: "failed", proof };
@@ -29623,7 +29636,7 @@ function standing(criterion, report) {
   return { mark: "\u2717", words: own.length > 0 ? "skipped" : "no proof on this commit", proof };
 }
 function acceptanceOutput(criteria, report) {
-  const rows = criteria.map((criterion) => ({ criterion, ...standing(criterion, report) }));
+  const rows = criteria.map((criterion) => ({ criterion, ...standing2(criterion, report) }));
   const proven = rows.filter((row) => row.mark === "\u2713").length;
   const count4 = `${String(proven)} of ${String(rows.length)} criteria proven`;
   const summary2 = [
