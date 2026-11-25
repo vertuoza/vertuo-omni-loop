@@ -1,0 +1,6 @@
+.omni-settings-section { min-width: 0; }
+.omni-settings-section__rows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
