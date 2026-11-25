@@ -157,14 +157,13 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
       await store.insertSuggestions(request.suggestions.slice(0, Math.max(0, 2 - standing)).map((s) => ({ workspace_id: last.workspace_id, finding_id: last.id, ...s })));
     }
     const notified = await notify(looked, origin);
-    const [finding] = await withProposals([looked]);
-    return { finding: finding as Finding, raised: false, notified };
+    return { finding: findingOf(looked, await store.proposals([looked.id])), raised: false, notified };
   }
 
   /** A new finding: the first signal's check line, figures and evidence digest first, then the seat's explanation. */
   async function create(workspace: string, fingerprint: string | null, signals: readonly SignalRow[], request: RaiseRequest, origin: string): Promise<RaiseReply> {
     const [first] = signals;
-    const evidence = maskEvidence(request.evidence.length > 0 ? request.evidence : signals.flatMap((s) => s.evidence).slice(0, 50)) as unknown[];
+    const evidence = (request.evidence.length > 0 ? request.evidence : signals.flatMap((s) => s.evidence).slice(0, 50)).map(maskEvidence);
     const row = await store.insertFinding({
       workspace_id: workspace, fingerprint, kind: request.kind, severity: request.severity, title: request.title,
       check_line: first?.check_line ?? null, figures: first?.figures ?? {}, evidence, evidence_key: first?.evidence_key ?? null,
@@ -173,8 +172,7 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
     await store.attachSignals(signals.map((s) => s.id), row.id);
     await store.insertSuggestions(request.suggestions.map((s) => ({ workspace_id: workspace, finding_id: row.id, ...s })));
     const notified = await notify(row, origin);
-    const [finding] = await withProposals([row]);
-    return { finding: finding as Finding, raised: true, notified };
+    return { finding: findingOf(row, await store.proposals([row.id])), raised: true, notified };
   }
 
   return {
@@ -309,3 +307,6 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
 }
 
 export type SupervisorService = ReturnType<typeof supervisorService>;
+
+/** An owner's acts, as the controller hands them to the service. */
+export type OwnerActs = SupervisorActs;

@@ -8,8 +8,7 @@ import {
   NoteRequestSchema, PlaceRequestSchema, RaiseReplySchema, RaiseRequestSchema, SayRequestSchema, SeatQuerySchema, SeatReplySchema, SeatSchema,
   SeatSetRequestSchema, SnapshotSchema, SUPERVISOR_REFUSALS, WorkspaceQuerySchema,
 } from './supervisor.contract';
-import type { SupervisorActs } from './supervisor.repository';
-import type { Served, SupervisorService, Viewer } from './supervisor.service';
+import type { OwnerActs, Served, SupervisorService, Viewer } from './supervisor.service';
 
 // The Supervisor's routes (PRD omni-loop-34 s3; ADR-0095), as plain functions of a Request, tested with the real
 // service on a fake store, each route file one line:
@@ -42,7 +41,7 @@ export type SupervisorDeps = {
   /** The rules, as the service role; null when this deployment has no service role. */
   service: SupervisorService | null;
   /** An owner's acts, as the signed-in person. */
-  acts: () => Promise<SupervisorActs>;
+  acts: () => Promise<OwnerActs>;
   log: (line: string) => void;
   /** Records a 5xx of these routes; never throws. */
   failed: (error: AppError) => Promise<void>;

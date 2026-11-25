@@ -68,7 +68,9 @@ export function fakeStore(w: World, now: () => string = () => T0, fail: { error:
     updateSeat: async (workspace, change) => {
       await tick();
       const at = w.seats.findIndex((s) => s.workspace_id === workspace);
-      const row = { ...(w.seats[at] as SeatRow), ...change };
+      const seat = w.seats[at];
+      if (!seat) throw new Error(`no seat in ${workspace}`);
+      const row: SeatRow = { ...seat, ...change };
       w.seats[at] = row;
       return row;
     },
@@ -92,7 +94,8 @@ export function fakeStore(w: World, now: () => string = () => T0, fail: { error:
     },
     lookAt: async (findingId, explanation, at) => {
       await tick();
-      const row = w.findings.find((f) => f.id === findingId) as FindingRow;
+      const row = w.findings.find((f) => f.id === findingId);
+      if (!row) throw new Error(`no finding ${findingId}`);
       Object.assign(row, { explanation, looked_at: at });
       return { ...row };
     },
