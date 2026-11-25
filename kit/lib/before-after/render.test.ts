@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd } from '../ids.ts';
 import { gradeBeforeAfter } from './grade.ts';
-import { type RenderBrowser, type RenderLaunch, renderDiagrams, repositoryLaunch } from './render.ts';
+import { type RenderBrowser, type RenderLaunch, renderDiagrams } from './render.ts';
 
 /** A browser whose Mermaid draws `<svg>…</svg>` of the source, refuses a source holding BAD, or never loads when `missing`. */
 function fakeBrowser({ missing = false }: { missing?: boolean } = {}): { launch: RenderLaunch; log: string[] } {
@@ -104,11 +104,5 @@ describe('renderDiagrams', () => {
   it('is unavailable when the page breaks mid-render', async () => {
     const broken: RenderLaunch = () => Promise.resolve({ newPage: () => Promise.reject(new Error('page crashed')), close: () => Promise.resolve() });
     expect(await renderDiagrams({ html: PAGE(PRE('graph TD')), launch: broken })).toEqual({ kind: 'unavailable', why: 'page crashed' });
-  });
-});
-
-describe('repositoryLaunch', () => {
-  it('says Playwright is not installed when the repository has none', async () => {
-    await expect(repositoryLaunch('/nonexistent-omni-repo')()).rejects.toThrow('Playwright is not installed in this repository');
   });
 });

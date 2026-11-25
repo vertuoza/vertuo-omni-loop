@@ -146,22 +146,12 @@ describe('omni before-after render', () => {
     expect(readFileSync(join(root, PAGE), 'utf8')).toBe(page);
   });
 
-  it('exits 1 with the install line, leaving the page byte-identical, when no browser starts', async () => {
+  it('exits 1 saying why, with no install line, leaving the page byte-identical, when no browser starts (#3315)', async () => {
     const { root } = repo({ [`${DIR}/spec.md`]: '', [PAGE]: page });
     const run = io(root);
-    const none: RenderLaunch = () => Promise.reject(new Error('Playwright is not installed in this repository'));
+    const none: RenderLaunch = () => Promise.reject(new Error('could not fetch Playwright: npm error network request failed'));
     expect(await renderPage(parsePrd(2239), run.io, none)).toBe(1);
-    expect(run.err.join('')).toBe(
-      'omni before-after render: cannot render the diagrams: Playwright is not installed in this repository. Install it: pnpm add -D playwright && pnpm exec playwright install chromium\n',
-    );
-    expect(readFileSync(join(root, PAGE), 'utf8')).toBe(page);
-  });
-
-  it('through main(), a repository with no Playwright gets the install line and an untouched page', async () => {
-    const { root } = repo({ [`${DIR}/spec.md`]: '', [PAGE]: page });
-    const result = await omni(root, ['before-after', 'render', '2239']);
-    expect(result.code).toBe(1);
-    expect(result.err).toMatch(/^omni before-after render: cannot render the diagrams: .*\. Install it: pnpm add -D playwright && pnpm exec playwright install chromium\n$/);
+    expect(run.err.join('')).toBe('omni before-after render: cannot render the diagrams: could not fetch Playwright: npm error network request failed\n');
     expect(readFileSync(join(root, PAGE), 'utf8')).toBe(page);
   });
 
