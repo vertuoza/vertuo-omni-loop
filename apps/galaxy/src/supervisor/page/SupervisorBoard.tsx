@@ -12,6 +12,7 @@ import {
   sectionsOf, spanWords, suggestionsOf, threadOf, type Header, type Query, type Row, type Said, type SupervisorData,
 } from './model';
 import { SeatControls } from './SeatControls';
+import { ChatBox } from '../chat/ChatBox';
 
 // The Supervisor's board (PRD omni-loop-34 s5), as the before/after page draws it (2.A to 2.G): the header (the owl, the
 // state, the seat's meta line, an owner's seat controls), the offline notice, the Open and Done tabs, then the list (the
@@ -20,9 +21,9 @@ import { SeatControls } from './SeatControls';
 // page is drawn whole on the server and reads itself again every 10 s. Below 900 px one side shows, behind the
 // `Actions · <n>` and `Chat` switch.
 //
-// Who acts: a member reads the same page with no suggestion, chat box, Memory, Pause or Move (AC-11). In this slice
-// the threads are read-only for everyone: the chat box (in Foot) and the Memory drawer (in SeatControls) come with s6,
-// the suggestions' buttons and Not a problem (in the Suggested box) with s7.
+// Who acts: a member reads the same page with no suggestion, chat box, Memory, Pause or Move (AC-11). An owner writes
+// in the open thread through the chat box (in Foot, s6) and opens the Memory drawer (in SeatControls, s6); the
+// suggestions' buttons and Not a problem (in the Suggested box) come with s7.
 
 /** A sprite of @omni/design at `scale`: decoration, the words beside it say the same. */
 function Sprite({ name, scale, className = 'sv-sprite' }: { name: string; scale: number; className?: string }) {
@@ -52,7 +53,7 @@ function Head({ header, data }: { header: Header; data: SupervisorData }) {
         <p className="sv-short">{header.short}</p>
       </div>
       {data.owner
-        ? data.seat && <SeatControls workspace={data.workspace} paused={data.seat.paused} dailyTokens={data.seat.dailyTokens} />
+        ? data.seat && <SeatControls workspace={data.workspace} paused={data.seat.paused} dailyTokens={data.seat.dailyTokens} notes={data.notes} />
         : <p className="sv-readonly">Read only · owners act</p>}
     </header>
   );
@@ -150,9 +151,11 @@ function Thread({ said }: { said: readonly Said[] }) {
   );
 }
 
-/** What closes the pane: the owner's box comes with s6; a member is told who writes. */
-function Foot({ owner }: { owner: boolean }) {
-  return owner ? null : <p className="sv-fine">Only workspace owners write to the Supervisor.</p>;
+/** What closes the pane: the owner's box (s6, ../chat/), writing in this thread; a member is told who writes. */
+function Foot({ data, finding }: { data: SupervisorData; finding: string | null }) {
+  return data.owner
+    ? <ChatBox workspace={data.workspace} finding={finding} state={headerOf(data.seat, data.runner, data.now).state} />
+    : <p className="sv-fine">Only workspace owners write to the Supervisor.</p>;
 }
 
 function FindingPane({ finding, data }: { finding: Finding; data: SupervisorData }) {
@@ -192,7 +195,7 @@ function FindingPane({ finding, data }: { finding: Finding; data: SupervisorData
       {finding.lookedAt === null
         ? <p className="sv-quiet-notice">No Supervisor look yet.</p>
         : <Thread said={thread} />}
-      <Foot owner={data.owner} />
+      <Foot data={data} finding={finding.id} />
     </>
   );
 }
@@ -210,7 +213,7 @@ function ChatPane({ data }: { data: SupervisorData }) {
       {said.length > 0
         ? <Thread said={said} />
         : <EmptyState size="inline" title="No message yet.">The Supervisor&rsquo;s answers to the owners&rsquo; questions come here.</EmptyState>}
-      <Foot owner={data.owner} />
+      <Foot data={data} finding={null} />
     </>
   );
 }

@@ -4,13 +4,14 @@ import { useRouter } from 'next/navigation';
 import { useState, type SyntheticEvent } from 'react';
 import { setSeat } from './seat.client';
 import { limitOf } from './model';
+import { MemoryDrawer } from '../memory/MemoryDrawer';
 
 // The header's seat controls for an owner (PRD omni-loop-34 s5): Pause, or Resume once paused, and Token limit, which
 // opens the daily limit in millions in place, with Save and Cancel. Each goes through PATCH /api/supervisor/seat as
 // that owner, then the page reads itself again; a refusal is said in place. A member never gets them (AC-11). The
-// Memory button joins them with the Memory drawer (s6).
+// Memory button before them opens the Memory drawer (s6, ../memory/).
 
-export function SeatControls({ workspace, paused, dailyTokens }: { workspace: string; paused: boolean; dailyTokens: number }) {
+export function SeatControls({ workspace, paused, dailyTokens, notes }: { workspace: string; paused: boolean; dailyTokens: number; notes: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export function SeatControls({ workspace, paused, dailyTokens }: { workspace: st
   return (
     <div className="sv-tools">
       <div className="sv-tools-row">
+        <MemoryDrawer workspace={workspace} count={notes} />
         <Button size="sm" variant="secondary" expanded={editing} disabled={busy} onClick={() => { setEditing(!editing); setError(null); }}>Token limit</Button>
         <Button size="sm" variant="secondary" disabled={busy} onClick={() => void change({ paused: !paused })}>{paused ? 'Resume' : 'Pause'}</Button>
       </div>
