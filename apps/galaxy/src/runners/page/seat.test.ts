@@ -26,8 +26,9 @@ const seat = (over: Partial<Seat> = {}): Seat => ({
   workspace: WS, runner: id(1), placedBy: 'ada', paused: false, dailyTokens: 5_000_000, tokensToday: 412_000, thinking: true,
   lastLookAt: '2027-01-29T13:59:20.000Z', missedLooks: 0, ...over,
 });
-const accounts = (list: { id: string; agent: string; state: 'ready' | 'active' | 'out' }[]): Runner['health'] =>
-  ({ cpu: null, load1: null, cores: null, memUsed: null, memTotal: null, diskFree: null, diskTotal: null, paused: null, accounts: list } as unknown as Runner['health']);
+const accounts = (list: NonNullable<NonNullable<Runner['health']>['accounts']>): Runner['health'] => ({
+  cpu: null, load1: null, cores: null, memUsed: null, memTotal: null, diskFree: null, diskTotal: null, paused: null, at: NOW, accounts: list,
+});
 
 const ATLAS1 = runner({ id: id(1), name: 'atlas-01', state: 'busy', used: 2, health: accounts([{ id: 'claude-1', agent: 'claude', state: 'out' }, { id: 'claude-2', agent: 'claude', state: 'active' }, { id: 'codex-1', agent: 'codex', state: 'ready' }]) });
 const ATLAS2 = runner({ id: id(2), name: 'atlas-02', used: 1 });
