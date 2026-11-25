@@ -82,6 +82,12 @@
 // and no later report carries any. A job its turnover gave up on (no account left) fails with turnover's reason
 // in place of its exit code. A job may turn over to any account of the file, so every account's secret is
 // masked in what it sends.
+//
+// The Supervisor's seat (PRD omni-loop-34, s4, `supervisor.ts`): once registered, and before any slot opens its `next`,
+// the runner asks the app whether its workspace placed the seat on it, then again every minute. While it holds the seat,
+// the runner runs the seat's loop beside its slots and its last slot opens no `next`, so it runs one job fewer (a job
+// that slot already holds runs to its end). The seat thinks with Claude Code on the first Claude account of the runner
+// that is not out, never on a job's. An app without the Supervisor's routes holds no seat here: every slot takes jobs.
 import type { ExecFileSyncOptionsWithStringEncoding } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -119,6 +125,9 @@ import { handFleetMessages } from './fleet-messages.ts';
 import { chainCarriesOn, chainOf, keepChain, lostWords, readChain, restoreSaves, resumedLine, resumeNote, resumeNotePath, resumePointer } from './resume.ts';
 import type { Chain } from './resume.ts';
 import { dropJobBranch, forgottenLine, keepWithin, pruneWorktrees, strandedJobs, sweep, sweptLine } from './sweep.ts';
+import { keepSeat, seatHere } from './supervisor.ts';
+import { claudeThinker } from './supervisor-think.ts';
+import type { Think } from './supervisor-think.ts';
 import type { Terminal } from './terminal.ts';
 
 /** Where the runner prints: `process.stdout`, or a test's buffer. */
@@ -199,6 +208,12 @@ export type RunnerOptions = {
   accounts?: Accounts | undefined;
   /** The states of the accounts, kept across restarts: `accounts-state.json` under the home unless given. */
   accountBook?: AccountBook | undefined;
+  /** How the Supervisor's seat thinks (PRD omni-loop-34): Claude Code on the runner's first ready Claude account unless given. */
+  seatThink?: Think | undefined;
+  /** How often a runner with no seat asks whether one was placed on it: every minute unless given. */
+  seatPollMs?: number | undefined;
+  /** How often the seat takes a routine look: every 2 minutes unless given. */
+  seatLookMs?: number | undefined;
 };
 
 /** One runner's state while it runs: its options with their defaults, and whether it was refused. */
@@ -232,6 +247,8 @@ type Loop = RunnerOptions & {
   tokensOff: boolean;
   /** Why every account is out (PRD 2537): `no tokens left until 18:00`, `null` while one is not. Free slots open no `next` while it holds. */
   noTokens: string | null;
+  /** Whether this runner holds the Supervisor's seat (PRD omni-loop-34): its last slot opens no `next` while it does. */
+  seated: boolean;
   /** Whether an app refused a health report for its accounts: none is sent after. */
   accountsOff: boolean;
   /** Whether an app refused a report for a job's parts (PRD 2537): none is sent after. */
@@ -304,6 +321,7 @@ function loopOf(options: RunnerOptions): Loop {
     pause: { reason: null, quiet: 0 },
     waiting: new Set(),
     noTokens: null,
+    seated: false,
     accountsOff: false,
     counts: options.tokens ?? tokenSource({ projects: join(options.home, '.claude', 'projects'), now: options.now ?? Date.now }),
     tokensOk: false,
@@ -321,9 +339,9 @@ function wake(loop: Loop): void {
   loop.waiting.clear();
 }
 
-/** Waits while the runner is paused: whether a free slot may open its `next`, `false` once the runner halts. */
-async function unpaused(loop: Loop): Promise<boolean> {
-  if ((loop.pause.reason !== null || loop.noTokens !== null) && !loop.halt.aborted) {
+/** Waits while the runner is paused, and the seat's slot while the seat is here: whether a free slot may open its `next`, `false` once the runner halts. */
+async function unpaused(loop: Loop, seats: boolean): Promise<boolean> {
+  while ((loop.pause.reason !== null || loop.noTokens !== null || (seats && loop.seated)) && !loop.halt.aborted) {
     await new Promise<void>((resolve) => {
       loop.waiting.add(resolve);
     });
@@ -1057,11 +1075,12 @@ function keepJobChain(loop: Loop, job: RunnerJob): void {
   }
 }
 
-/** One slot: waits for a job, runs it, and again, until the runner stops. */
-async function slot(loop: Loop, runner: string): Promise<void> {
+/** One slot: waits for a job, runs it, and again, until the runner stops. The last slot is the seat's while the seat is here. */
+async function slot(loop: Loop, runner: string, index: number): Promise<void> {
   const wait = { ms: loop.firstMs };
+  const seats = index === loop.slots - 1;
   while (!loop.halt.aborted) {
-    if (!(await unpaused(loop))) return;
+    if (!(await unpaused(loop, seats))) return;
     const job = await nextJob(loop, runner, wait);
     if (job === 'stop') return;
     if (job === null) continue;
@@ -1180,6 +1199,42 @@ async function sweeper(loop: Loop): Promise<void> {
   }
 }
 
+/** The command that runs omni, read from the job wrapper (`node <omni.mjs> runner job`), or `null` when it does not say. */
+function omniOf(wrapper: readonly string[]): readonly string[] | null {
+  return wrapper.length > 2 && wrapper.at(-2) === 'runner' && wrapper.at(-1) === 'job' ? wrapper.slice(0, -2) : null;
+}
+
+/** How the seat thinks here: on the first Claude account that is not out, picked at each think; or why it cannot. */
+function seatThink(loop: Loop, runner: string): Think | string {
+  if (loop.seatThink !== undefined) return loop.seatThink;
+  const omni = omniOf(loop.wrapper);
+  const { askUrl } = loop;
+  if (omni === null || askUrl === undefined) return 'the omni command or the Omni page is unknown';
+  if (!loop.accounts.accounts.some((account) => account.agent === 'claude')) return 'the runner has no Claude account';
+  return (input) => {
+    const account = loop.accounts.accounts.find((each) => each.agent === 'claude' && loop.book.stateOf(each.id).state !== 'out');
+    if (account === undefined) return Promise.resolve({ tokens: 0, ok: false, line: 'no Claude account of this runner is ready' });
+    return claudeThinker({ omni, runner, askUrl, home: loop.home, account: agentAccountOf(account, loop.home) })(input);
+  };
+}
+
+/** Holds the Supervisor's seat while the workspace places it here (PRD omni-loop-34); nothing for an app without its routes. */
+async function seatKeeper(loop: Loop, runner: string, first: Awaited<ReturnType<typeof seatHere>>): Promise<void> {
+  const api = loop.api.supervisor;
+  if (api === undefined) return;
+  await keepSeat({
+    api, runner, first, think: seatThink(loop, runner), halt: loop.halt, now: loop.now, sleep: loop.sleep, backoff: { firstMs: loop.firstMs, maxMs: loop.maxMs },
+    pollMs: loop.seatPollMs, lookEveryMs: loop.seatLookMs,
+    print: (line) => {
+      loop.print(line);
+    },
+    onSeat: (here) => {
+      loop.seated = here;
+      if (!here) wake(loop);
+    },
+  });
+}
+
 /** Runs the runner until it is stopped or refused: 0 once stopped, 1 when refused. */
 export async function runRunner(options: RunnerOptions): Promise<number> {
   const loop = loopOf(options);
@@ -1191,8 +1246,11 @@ export async function runRunner(options: RunnerOptions): Promise<number> {
       if (loop.running > 0) loop.print(`stopping: waiting for ${String(loop.running)} running job${loop.running === 1 ? '' : 's'}`);
     };
     options.stop.addEventListener('abort', onStop, { once: true });
+    // The seat is asked for before the slots open, so the seat's slot never opens a `next` it would have to give back.
+    const seat = loop.api.supervisor === undefined ? null : await seatHere(loop.api.supervisor, runner, (line) => { loop.print(line); });
+    loop.seated = seat !== null;
     // The reporter starts before the slots, so its first sample pauses the runner before any `next`.
-    await Promise.all([sweeper(loop), reporter(loop, runner), ...Array.from({ length: loop.slots }, () => slot(loop, runner))]).finally(() => {
+    await Promise.all([sweeper(loop), reporter(loop, runner), seatKeeper(loop, runner, seat), ...Array.from({ length: loop.slots }, (_, index) => slot(loop, runner, index))]).finally(() => {
       options.stop.removeEventListener('abort', onStop);
     });
   }
