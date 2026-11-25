@@ -1242,8 +1242,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mission',
     kind: 'command',
     who: 'skills',
-    usage: ['omni mission push <n> [--from <dir>]', 'omni mission get <n> [--out <dir>]', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>', 'omni mission request <id>'],
-    summary: "send a mission's brief to its page, read it back as files, drop a PRD from its branch, overturn a decision of the fleet, or read a mission request",
+    usage: ['omni mission push <n> [--from <dir>]', 'omni mission get <n> [--out <dir>]', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>', 'omni mission send-back <mission> <prd>', 'omni mission request <id>'],
+    summary: "send a mission's brief to its page, read it back as files, drop a PRD from its branch, overturn a decision of the fleet, send a PM product PRD back to the PM, or read a mission request",
     detail:
       "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
       "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
@@ -1263,7 +1263,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "<prd>/<item> for the answer to one of its items (the mission pull request's lists name each): " +
       'the decision stays as it was recorded and yours is added beside it; an overturned approval no ' +
       'longer counts for the mission, an overturned answer is open for you again, and the PRD is ' +
-      'dropped from the mission branch when it had joined. request <id> prints the fleet and the goal ' +
+      'dropped from the mission branch when it had joined. send-back <mission> <prd>, run by a person, sends a product PRD ' +
+      "the mission's PM wrote (<key>-<n>) back to the PM once it waits on you after its review (the Architect left it to you, " +
+      "or the PM's and the Architect's rounds were spent): the PM gets one more round with the Architect's latest open points, " +
+      'its rounds counted again, and no decision is edited; your send-back is added as your own event. request <id> prints the fleet and the goal ' +
       "of a mission request the Omni page's New mission box saved, one line each, the goal word for word; " +
       'with one line and exit 1 when the page cannot be read or refuses it.',
   },

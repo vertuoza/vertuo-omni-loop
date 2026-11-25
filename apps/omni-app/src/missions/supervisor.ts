@@ -280,10 +280,13 @@ export type EventKind =
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa' | 'architect';
 
 /** An event to record, signed by its role and `agent`. */
-export type NewEvent = { kind: EventKind; role: EventRole; prd: PrdNumber | null; job: string | null; link: string | null; sentence: string };
+export type NewEvent = { kind: EventKind; role: EventRole; prd: MissionPrd | null; job: string | null; link: string | null; sentence: string };
 
 /** An event already recorded, as a run reads it back. */
 export type RecordedEvent = { kind: string; prd: PrdNumber | null; job: string | null };
+
+/** An event just recorded, as a run reads it back: a product PRD's names no number (./store.prd.ts › numberedOf). */
+export const asRecorded = ({ kind, prd, job }: Pick<NewEvent, 'kind' | 'prd' | 'job'>): RecordedEvent => ({ kind, prd: prd === null || isProductPrdId(prd) ? null : prd, job });
 
 /** How often a running or waiting mission checks again, when nothing wakes it first. */
 export const WAKE_MS = 60_000;
@@ -531,7 +534,7 @@ const lastOf = (run: Run): Attempt | undefined => run.attempts.at(-1);
 export const stepRank = (step: Step): number => STEPS.indexOf(step);
 
 /** Whether job `a` comes after job `b`: a later run, a later step of the same run, or a later resume of the same step (PRD omni-loop-21 s10). */
-export const after = (a: Run, b: Run): boolean =>
+export const after = (a: Pick<Run, 'run' | 'step' | 'resume'>, b: Pick<Run, 'run' | 'step' | 'resume'>): boolean =>
   a.run > b.run || (a.run === b.run && (stepRank(a.step) > stepRank(b.step) || (a.step === b.step && resumeOf(a) > resumeOf(b))));
 
 /**
@@ -936,7 +939,7 @@ const KEYS: Readonly<Partial<Record<string, (prdKey: string | null, job: string 
 };
 
 /** The keys an event recorded stands for; none for a kind recorded on every change (waits, Start, Pause). */
-const keysOf = ({ kind, prd, job }: RecordedEvent): string[] => KEYS[kind]?.(prd === null ? null : String(prd), job) ?? [];
+const keysOf = ({ kind, prd, job }: { kind: string; prd: MissionPrd | null; job: string | null }): string[] => KEYS[kind]?.(prd === null ? null : String(prd), job) ?? [];
 
 /** Every key the recorded events stand for. */
 export const recordedKeys = (events: readonly RecordedEvent[]): Set<string> => new Set(events.flatMap(keysOf));
@@ -1220,7 +1223,9 @@ export function eventsOf({
 // stands with `/omni:ultra-yolo <id> --base-of …` (no QA pair, no Reviewer: its target pull requests carry its gate), joined through
 // ./join.ts › joinProduct once its build ended Ready. A build that ended halfway or held is sent again as its next run, as a repository
 // PRD's step is (bug #3287): at `alone` while it ended halfway at most `mandate.resumes` times (the resume step, ./resume.ts), below it
-// and for a hold once (the table). A product PRD has no repair job yet: past that, and on any other end, it waits for a person.
+// and for a hold once (the table). Past that, or once it failed, it gets a repair as a repository PRD's step does (bug #3302,
+// BR-PRODUCT-139, ./repair.ts): `/omni:repair --prd <key>-<n>`, within the same 3 per cause and 9 per mission, its build sent again once
+// the repair allows it; a person once the repairs are spent, saying why. On any other end (a question for a person) it waits for a person.
 
 /** A product PRD of the scope, as a run read it: its approval, the PRDs it waits on, and its plan's repositories. */
 export type ProductFact = { prd: ProductPrdId; approval: Approval; blockers: readonly MissionPrd[]; targets: readonly string[] };
@@ -1235,7 +1240,10 @@ export type ProductState =
   | { state: 'waits'; why: string }
   | { state: 'startable'; run: number }
   | { state: 'running' }
-  | { state: 'ready'; run: ProductRun };
+  | { state: 'ready'; run: ProductRun }
+  /** Its build failed, was held twice or spent its resumes (bug #3302): its repair to send, or at work, saying so. */
+  | { state: 'repairable'; k: number; failedJob: string; why: string }
+  | { state: 'repairing'; why: string };
 
 /** The product PRD's latest build, the one with the highest run. */
 const latestProduct = (runs: readonly ProductRun[], prd: ProductPrdId): ProductRun | null =>
@@ -1266,29 +1274,54 @@ function productAgain(runs: readonly ProductRun[], last: Attempt, resumes: numbe
 const endedWhy = (end: JobEnd | null, last: Attempt): string =>
   end === 'failed' && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? 'without its result line'}`;
 
-/** Where a product PRD stands once its build ended: joined once Ready, sent again (bug #3287), or waiting for a person, saying why. */
-function productEnded(fact: ProductFact, runs: readonly ProductRun[], last: Attempt, resumes: number | null): ProductState {
+/** A product PRD a person takes, saying why. */
+const byHand = (prd: ProductPrdId, why: string): ProductState => ({ state: 'waits', why: `PRD ${prd}: ${why}; take it to ready by hand and the mission joins it` });
+
+/**
+ * Where a product PRD goes once its build failed, was held twice or spent its resumes (bug #3302): its repair, or its build again once
+ * the repair allows it (./repair.ts › repairNext, as a repository PRD's step); a person, saying why, once the repairs are spent or the
+ * repair needs one, or with repairs off.
+ */
+function productRepaired(prd: ProductPrdId, latest: ProductRun, last: Attempt, why: string, repairs: RepairView): ProductState {
+  const next = repairNext(repairs, prd, last.id, why);
+  if (next === null || next.next === 'stops') return byHand(prd, next?.why ?? why);
+  if (next.next === 'kit') return { state: 'waits', why: `PRD ${prd}: ${next.why}` };
+  if (next.next === 'repair') return { state: 'repairable', k: next.k, failedJob: next.failedJob, why };
+  if (next.next === 'repairing') return { state: 'repairing', why: `PRD ${prd}: ${repairingWords(next)}` };
+  if (next.next === 'paused') return byHand(prd, `${why}, and its repair was cancelled`);
+  return { state: 'startable', run: latest.run + 1 };
+}
+
+/**
+ * Where a product PRD stands once its build ended: joined once Ready, sent again (bug #3287), repaired once it failed, was held twice or
+ * spent its resumes (bug #3302), or waiting for a person, saying why.
+ */
+function productEnded(fact: ProductFact, runs: readonly ProductRun[], last: Attempt, { resumes, repairs }: { resumes: number | null; repairs: RepairView }): ProductState {
   const latest = latestProduct(runs, fact.prd);
   const end = endOf(last);
   if (latest === null || end === 'lost' || end === 'limited') return { state: 'running' };
   if (end === 'ready') return { state: 'ready', run: latest };
   const again = productAgain(runs, last, resumes);
   if (again === true) return { state: 'startable', run: latest.run + 1 };
-  return { state: 'waits', why: `PRD ${fact.prd}: ${again ?? endedWhy(end, last)}; take it to ready by hand and the mission joins it` };
+  if (again !== null || end === 'failed') return productRepaired(fact.prd, latest, last, again ?? endedWhy(end, last), repairs);
+  return byHand(fact.prd, endedWhy(end, last));
 }
 
-/** What a product PRD's state is read against: the PRDs on the branch, those done, the branch, and the mission's `mandate.resumes` at `alone`, null below it. */
-type ProductWhere = { joined: ReadonlySet<MissionPrd>; done: ReadonlySet<MissionPrd>; branch: string; resumes?: number | null };
+/**
+ * What a product PRD's state is read against: the PRDs on the branch, those done, the branch, the mission's `mandate.resumes` at
+ * `alone` (null below it), and its repairs (bug #3302; none by default: a build that failed waits for a person).
+ */
+type ProductWhere = { joined: ReadonlySet<MissionPrd>; done: ReadonlySet<MissionPrd>; branch: string; resumes?: number | null; repairs?: RepairView };
 
 /**
  * Where product PRD `fact` is (PRD omni-loop-21 s9b): joined once recorded on the branch (`joined`), else held until each blocker is
  * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join.
  */
-export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null }: ProductWhere): ProductState {
+export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null, repairs = NO_REPAIRS }: ProductWhere): ProductState {
   if (joined.has(fact.prd)) return { state: 'joined' };
   const latest = latestProduct(runs, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== undefined) return endOf(last) === null ? { state: 'running' } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, resumes);
+  if (latest !== null && last !== undefined) return endOf(last) === null ? { state: 'running' } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, { resumes, repairs });
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: 'blocked', by };
   if (fact.approval !== 'standing') return { state: 'waits', why: `PRD ${fact.prd}: ${fact.approval === 'voided' ? 'approve it again' : 'approve it'} on its page (${branch})` };

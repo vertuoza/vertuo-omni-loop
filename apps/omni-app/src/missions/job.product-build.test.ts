@@ -14,7 +14,8 @@ import type { MissionRecord } from './store.ts';
 // Bug #3287: a goal-only mission's product PRD whose build ended without its result line went straight to a person ("its job ended
 // stopped; take it to ready by hand"). A build is a step: one that ends halfway gets a fresh job of the same skill, at most
 // `mandate.resumes` times at `alone` (PRD omni-loop-21, spec section 5), and one held is sent again once, as a repository PRD's
-// build is. A product PRD has no repair job yet, so past that a person takes it, saying why. Driven through the real job handler
+// build is. Past that it gets a repair (bug #3302, ./job.product-repair.test.ts), as a repository PRD's step does, before any person;
+// a build that stopped on a question for a person still goes to one. Driven through the real job handler
 // with the fake store, on the history PRD omni-loop-27 had on its mission: written by the PM, its plan approved by the PM and the
 // Architect, its build sent once.
 
@@ -108,42 +109,45 @@ describe('a product PRD whose build ended without its result line (bug #3287)', 
     expect(fake.mission().waitingOn ?? '').not.toContain('take it to ready by hand');
   });
 
-  it('at alone, a fresh build each time it ends halfway, up to mandate.resumes; past that a person takes it, saying why', async () => {
+  it('at alone, a fresh build each time it ends halfway, up to mandate.resumes; past that a repair, never a person first (bug #3302)', async () => {
     const { fake, builds, ends } = await built(record({ resumes: 2 }));
     await ends(HALFWAY);
     await ends(HALFWAY);
     expect(builds().map(([one]) => one)).toEqual([key(1), key(2), key(3)]);
     await ends(HALFWAY);
     expect(builds().map(([one]) => one)).toEqual([key(1), key(2), key(3)]);
-    expect(fake.mission().waitingOn).toContain('PRD omni-loop-27: its build ended without its result line 3 times; take it to ready by hand and the mission joins it');
+    expect(fake.repairJobs().map(({ key: one }) => one)).toEqual([`mission:${ID}:prd:omni-loop-27:repair:1`]);
+    expect(fake.mission().waitingOn ?? '').not.toContain('take it to ready by hand');
   });
 
-  it('a build held is sent again once; held a second time, a person takes it', async () => {
+  it('a build held is sent again once; held a second time, it gets a repair (bug #3302)', async () => {
     const { fake, builds, ends } = await built();
     await ends({ status: 'done', outcome: 'held' });
     expect(builds().map(([one]) => one)).toEqual([key(1), key(2)]);
     await ends({ status: 'done', outcome: 'held' });
     expect(builds().map(([one]) => one)).toEqual([key(1), key(2)]);
-    expect(fake.mission().waitingOn).toContain('PRD omni-loop-27: its build was held twice; take it to ready by hand and the mission joins it');
+    expect(fake.repairJobs()).toHaveLength(1);
+    expect(fake.mission().waitingOn ?? '').toContain('PRD omni-loop-27: repairing (1 of 3)');
   });
 
-  it('a build that stops on a question for a person, or fails, still goes to a person, and is not sent again', async () => {
+  it('a build that stops on a question for a person still goes to a person; one that fails gets a repair (bug #3302)', async () => {
     const asked = await built();
     await asked.ends({ status: 'done', outcome: 'human' });
     expect(asked.builds()).toHaveLength(1);
+    expect(asked.fake.repairJobs()).toEqual([]);
     expect(asked.fake.mission().waitingOn).toContain('PRD omni-loop-27: its job ended human; take it to ready by hand');
     const failed = await built();
     await failed.ends({ status: 'failed', outcome: null, reason: 'the runner crashed' });
     expect(failed.builds()).toHaveLength(1);
-    expect(failed.fake.mission().waitingOn).toContain('PRD omni-loop-27: its job failed: the runner crashed; take it to ready by hand');
+    expect(failed.fake.repairJobs()).toHaveLength(1);
   });
 
-  it('below alone, a build that ended halfway is sent again once, as a repository PRD\'s build is, then a person takes it', async () => {
+  it('below alone, a build that ended halfway is sent again once, as a repository PRD\'s build is, then it gets a repair (bug #3302)', async () => {
     const { fake, builds, ends } = await scoped();
     await ends(HALFWAY);
     expect(builds().map(([one]) => one)).toEqual([key(1), key(2)]);
     await ends(HALFWAY);
     expect(builds().map(([one]) => one)).toEqual([key(1), key(2)]);
-    expect(fake.mission().waitingOn).toContain('PRD omni-loop-27: its build stopped mid-way twice; take it to ready by hand and the mission joins it');
+    expect(fake.repairJobs()).toHaveLength(1);
   });
 });

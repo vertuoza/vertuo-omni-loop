@@ -6,7 +6,8 @@
 -- committee's job and a repair's take a product PRD's id in their key, each once, read as their step, and a product PRD's repair
 -- is claimed first in line; a key whose PRD is no product id is refused. The service role records an item's decision on a product
 -- PRD through mission_decide_item() once, as on a number; a PRD named both ways, or neither, is refused, and so is anyone signed
--- in. What was kept is never changed. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- in. What was kept is never changed. A member's send-back of a PM product PRD (bug #3302) is an event of its own kind, naming the
+-- PRD and the decision it follows. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -532,6 +533,36 @@ do $$
 begin
   if (select count(*) from public.mission_decisions where kind in ('plan', 'tech')) <> 7 then
     raise exception 'FAIL: running the migration again changed what it kept';
+  end if;
+end $$;
+
+-- ── A person sends a PM product PRD back to the PM (bug #3302): mission 26's initech-app-31 ──
+do $$
+declare
+  m uuid := '00000000-0000-4000-8000-0000000026b1';
+  job uuid := gen_random_uuid();
+begin
+  insert into public.mission_events (mission_id, at, role, actor, kind, product_prd, job_id, sentence)
+  values (m, now(), 'supervisor', 'ada', 'sent-back', 'initech-app-31', job, 'ada sent PRD initech-app-31 back to the PM: one more round with the Architect''s open points.');
+  if not exists (select 1 from public.mission_events e where e.mission_id = m and e.kind = 'sent-back' and e.actor = 'ada' and e.prd_id = 'initech-app-31' and e.job_id = job) then
+    raise exception 'FAIL: a send-back does not read its person, its PRD and the decision it follows';
+  end if;
+  begin
+    insert into public.mission_events (mission_id, at, role, actor, kind, product_prd, sentence)
+    values (m, now(), 'supervisor', 'ada', 'sent-backs', 'initech-app-31', 'Not a kind.');
+    raise exception 'FAIL: an event took a kind that is none';
+  exception when check_violation then null; end;
+end $$;
+
+-- Run again: nothing changes.
+set local client_min_messages = warning;
+\ir ../migrations/20270129170000_mission_sent_back.sql
+reset client_min_messages;
+
+do $$
+begin
+  if (select count(*) from public.mission_events where kind = 'sent-back') <> 1 then
+    raise exception 'FAIL: running the migration again changed the send-backs it kept';
   end if;
 end $$;
 

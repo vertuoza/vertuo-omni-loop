@@ -21,7 +21,7 @@ import {
   type RepairView,
 } from './repair.ts';
 import { readOutsideBugs, sendOutsideBugs, type OutsideRunAt } from './repair-run.ts';
-import { conclude, eventsOf, pick, prdStates, recordedKeys, type Attempt, type Mission, type PrdFacts, type Run } from './supervisor.ts';
+import { asRecorded, conclude, eventsOf, pick, prdStates, recordedKeys, type Attempt, type Mission, type PrdFacts, type Run } from './supervisor.ts';
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
 const NOW = Date.parse('2027-01-22T09:00:00Z');
@@ -234,7 +234,7 @@ describe('the repair events: one sentence and one link each, recorded once', () 
       ['repair-ended', 'supervisor', 'r1', null, "PRD 1's repair [aaaaaaaa] ended stopped."],
       ['bug-reported', 'supervisor', 'r1', 'https://github.com/vertuoza/vertuo-omni-loop/issues/3100', 'PRD 1 met an Omni Loop bug [aaaaaaaa]: reported as #3100.'],
     ]);
-    const again = eventsOf({ mission: mission(), facts: [facts(1)], states, runs, next, toFleet: true, recorded: recordedKeys([...events.map(({ kind, prd, job }) => ({ kind, prd, job })), { kind: 'dispatched', prd: p(1), job: 'a' }, { kind: 'job-ended', prd: p(1), job: 'a' }]), repairs });
+    const again = eventsOf({ mission: mission(), facts: [facts(1)], states, runs, next, toFleet: true, recorded: recordedKeys([...events.map(asRecorded), { kind: 'dispatched', prd: p(1), job: 'a' }, { kind: 'job-ended', prd: p(1), job: 'a' }]), repairs });
     expect(again.filter((event) => ['repair-started', 'retro', 'repair-ended', 'bug-reported'].includes(event.kind))).toEqual([]);
   });
 
@@ -339,7 +339,7 @@ describe("the Engineer's outside bugs (PRD omni-loop-21 s11)", () => {
       ['job-ended', 'bug-40-1'],
       ['bug-fixed', 'bug-40-1'],
     ]);
-    const recorded = recordedKeys(events.map(({ kind, prd, job }) => ({ kind, prd, job })));
+    const recorded = recordedKeys(events.map(asRecorded));
     expect(recorded).toEqual(new Set(['end:bug-40-1', 'bug-fixed:bug-40-1']));
   });
 

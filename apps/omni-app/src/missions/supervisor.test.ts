@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parsePrd, parseProductPrdId, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   approvalOf,
+  asRecorded,
   baseOf,
   basesOf,
   conclude,
@@ -432,7 +433,7 @@ describe('eventsOf: each decision recorded once, signed by its role', () => {
     const first = events({ all: [facts(1)], runs });
     expect(first.map((e) => e.kind)).toEqual(['dispatched', 'prd-ready', 'waits']);
     expect(first[1]).toEqual({ kind: 'prd-ready', role: 'engineer', prd: 1, job: 'a', link: 'https://github.com/acme/widgets/pull/9', sentence: 'PRD 1 is ready for review: it waits for a person to merge it.' });
-    const again = events({ m: mission({ status: 'waiting', waitingOn: 'PRD 1: merge it' }), all: [facts(1)], runs, recorded: first.map(({ kind, prd, job }) => ({ kind, prd, job })) });
+    const again = events({ m: mission({ status: 'waiting', waitingOn: 'PRD 1: merge it' }), all: [facts(1)], runs, recorded: first.map(asRecorded) });
     expect(again).toEqual([]);
   });
 

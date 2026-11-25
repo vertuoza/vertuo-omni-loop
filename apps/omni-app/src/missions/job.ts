@@ -107,6 +107,7 @@ import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './c
 import { addedOf, isOwnJob, pmAsks, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type Home, type PmEvent, type PmJob, type PmView } from './pm.ts';
 import { addedProductsOf, decisionEvent, isRetry, productPlansOf, reviewDispatched, reviewStateOf, type PlanDecision, type ReviewState, type TechJob } from './tech.ts';
 import { planRecordOf } from 'omni-loop/kit/lib/virtual-fleet/plan-record.ts';
+import { SENT_BACK } from 'omni-loop/kit/lib/mission/send-back.ts';
 import { techJobLine, techRecordOf } from 'omni-loop/kit/lib/virtual-fleet/tech-record.ts';
 import type { ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { nextPlanRound, planDispatched, planEvents, plannedOf, planJobsOf, withPlans, type PlanAt, type PlanJob, type PlanSend } from './pm.plan.ts';
@@ -137,7 +138,7 @@ import { outsideEvents, type Outside } from './outside-bug.ts';
 import { readQa } from './qa-run.ts';
 import { overCap, runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
-import { isStuckRow, leftOf, MISSION_REPAIRS, type RepairJob, type RepairView } from './repair.ts';
+import { isStuckRow, leftOf, MISSION_REPAIRS, repairingWords, repairNext, type RepairJob, type RepairView } from './repair.ts';
 import { readStuck, stuckStep } from './stuck-run.ts';
 import { NO_STUCK, type StuckView } from './stuck.ts';
 import { milestoneStep } from './milestone-run.ts';
@@ -153,6 +154,7 @@ import {
   productStateOf,
   withProducts,
   type ProductRun,
+  type ProductState,
   type ProductsRun,
   eventsOf,
   featurePrOf,
@@ -267,23 +269,25 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, off, installation: ready.installation, joins: github.joins, hold: held.hold });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered, resumes: resumeCap(mission) };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
+  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...(await productRepairAt(store, mission)) });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
   // The PM plans a PRD with no plan before its approval, and replans one stopped once its repairs are spent (PRD omni-loop-21 s9).
   const planAt: PlanAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
   const before = withPlans(prdStates(facts, runs, branch, view, fleet, repairView, qa), planAt);
   const { sent, approved, asked, repaired } = unready === null ? await sendEvery({ store, mission, facts, states: before.states, toFleet, skill, added: pm.authored, left: leftOf(repairView) }) : NOTHING_SENT;
-  const repairs: RepairView = { ...repairView, jobs: [...repairView.jobs, ...repaired] };
+  const sentRepairs: RepairView = { ...repairView, jobs: [...repairView.jobs, ...repaired] };
   const planned = await sendPlans({ store, mission, send: before.send, jobs: pm.jobs, toFleet, sends: unready === null });
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const after = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs });
+  const after = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, sentRepairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs: sentRepairs });
   const states = after.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after.retro });
   const fresh = sent.length + approved.length + asked.length + repaired.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products } });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs });
+  // The product PRDs' repairs sent this run (bug #3302) are the mission's too: its events and its 9 count them.
+  const repairs: RepairView = { ...sentRepairs, jobs: [...sentRepairs.jobs, ...products.repaired] };
   // The mission pull requests, then the landing once every row joined (PRD omni-loop-21 s15), and the person's Agree and Overturn.
   const landed = await landingStep({ store, mission, at, landing, hold: kept.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held.waits, ...landed.waits]);
@@ -297,6 +301,15 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const moved = await store.update(mission.id, budget.from, next);
   const running = atWork(states, retro.running) || products.moving;
   return { next, running, moved, sent: sent.length + repaired.length + products.sent + landed.events.length, events: events.length + retro.events.length + products.events.length + landed.events.length };
+}
+
+/**
+ * What a run reads for its product PRDs' repairs (bug #3302): their builds, which a repair is settled on, and the repositories the
+ * mission cut its branch in, where a product PRD's fix may land. None for a mission with no product PRD, or a store with none.
+ */
+async function productRepairAt(store: MissionStore, mission: MissionRecord): Promise<Pick<RepairRunAt, 'products' | 'repos'>> {
+  if (store.products === undefined || mission.products === undefined) return {};
+  return { products: await store.products.runs(mission.id), repos: (await store.branches(mission.id)).map((one) => one.repo) };
 }
 
 /** Whether a PRD's job or its repair is at work, or a stuck repair or a milestone retro (`retros`, PRD 3065). */
@@ -1198,7 +1211,7 @@ async function dropAll({
       return { kind: 'prd-dropped', role: 'supervisor', prd: one, job: null, link: reopened?.url ?? null, sentence: `PRD ${String(one)} was dropped from ${at.branch}${why}: ${how}.` };
     });
     await store.record(mission.id, events, new Date(now));
-    current = [...current, ...events.map(({ kind, prd: of, job }) => ({ kind, prd: of, job }))];
+    current = [...current, ...events.map(asRecorded)];
   }
   return { recorded: current, waits };
 }
@@ -1227,9 +1240,9 @@ async function redBranch({ mission, at, joined, joins }: { mission: MissionRecor
 // ── Product PRDs (PRD omni-loop-21 s9b, item s7-05) ──────────────────────────────
 
 /** What a run did of the mission's product PRDs: what they leave for its conclusion, the events and builds sent, and, for the landing (s15), their rows and those on the branch, in the order they joined. */
-type ProductsDone = ProductsRun & { events: NewStoredEvent[]; sent: number; rows: readonly StoredProduct[]; on: readonly MissionPrd[] };
+type ProductsDone = ProductsRun & { events: NewStoredEvent[]; sent: number; rows: readonly StoredProduct[]; on: readonly MissionPrd[]; repaired: readonly RepairJob[] };
 
-const NO_PRODUCTS: ProductsDone = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [] };
+const NO_PRODUCTS: ProductsDone = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [], repaired: [] };
 
 /** What a run's product PRDs are read from: the mission, its repository PRDs' states, its installation and GitHub. */
 type ProductAt = {
@@ -1244,6 +1257,8 @@ type ProductAt = {
   github: GitHubDeps;
   /** PRD omni-loop-26: the PM's jobs, this run's plan jobs among them, and the product PRDs it wrote, which ./tech.ts takes to their build. */
   pm: { jobs: readonly PmJob[]; authored: ReadonlySet<ProductPrdId> };
+  /** Bug #3302: the mission's repairs, this run's sent for its repository PRDs among them, which a product PRD's build shares. */
+  repairs: RepairView;
 };
 
 /** What a run read of the PM product PRDs' plan jobs, reviews and decisions (PRD omni-loop-26), each ended job's decision recorded. */
@@ -1286,6 +1301,13 @@ async function reviewAll(at: ProductAt, products: MissionProducts): Promise<Revi
     events.push(decisionEvent(decision));
   }
   return { techs: read.techs, decisions, events };
+}
+
+/** Bug #3302: by product PRD, the decision its latest send-back by a person follows, as its `sent-back` event names its job. */
+function sentBackOf(events: readonly StoredEvent[]): Map<ProductPrdId, string | null> {
+  const sent = new Map<ProductPrdId, string | null>();
+  for (const { kind, product, job } of events) if (kind === SENT_BACK && product !== undefined) sent.set(product, job);
+  return sent;
 }
 
 /** The product PRDs on the mission branch, from the mission's events in order: joined, until dropped or landed. */
@@ -1355,7 +1377,8 @@ async function productAll(at: ProductAt): Promise<ProductsDone> {
   if (products === undefined || at.mission.products === undefined || !sendsCommittees(at.mission.status)) return NO_PRODUCTS;
   const reviews = await reviewAll(at, products);
   const facts = await products.facts(at.mission);
-  const joined = productsJoined(await at.store.events(at.mission.id));
+  const recorded = await at.store.events(at.mission.id);
+  const joined = productsJoined(recorded);
   if (facts.length === 0) return NO_PRODUCTS;
   const branch = baseOf(at.mission, at.inPlan) ?? 'the mission branch';
   if (facts.every((fact) => joined.has(fact.prd))) return { ...NO_PRODUCTS, rows: facts, on: [...joined], waits: [`every product PRD is on ${branch}: a person lands it`] };
@@ -1363,7 +1386,7 @@ async function productAll(at: ProductAt): Promise<ProductsDone> {
   if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined], pending: true, waits: [ready.why], events: reviews.events };
   const runs = await products.runs(at.mission.id);
   const answered = answeredOf(await at.store.decisions(at.mission.id));
-  const done = await productSteps({ ...at, ...ready, products, runs, joined, answered, reviews, rounds: nextPlanRound(at.pm.jobs) }, facts);
+  const done = await productSteps({ ...at, ...ready, products, runs, joined, answered, reviews, rounds: nextPlanRound(at.pm.jobs), sentBack: sentBackOf(recorded) }, facts);
   return { ...done, events: [...reviews.events, ...done.events] };
 }
 
@@ -1380,6 +1403,8 @@ type ProductSteps = ProductAt & {
   reviews: Reviews;
   /** The round the next plan job goes under: after every PM job's, one more for each sent this run. */
   rounds: number;
+  /** Bug #3302: by PM product PRD a person sent back, the decision their latest send-back follows. */
+  sentBack: ReadonlyMap<ProductPrdId, string | null>;
 };
 
 /** Where a product PRD is before its build: a PRD the PM wrote by its reviews (./tech.ts), any other built as before. */
@@ -1387,7 +1412,7 @@ function reviewOf(at: ProductSteps, fact: StoredProduct): ReviewState {
   if (!at.pm.authored.has(fact.prd)) return { state: 'build' };
   const plans = productPlansOf(at.pm.jobs).filter((one) => one.prd === fact.prd);
   const techs = at.reviews.techs.filter((one) => one.prd === fact.prd);
-  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at.reviews.decisions });
+  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at.reviews.decisions, sentBack: at.sentBack.get(fact.prd) ?? null });
 }
 
 /** A PM product PRD's step before its build: its plan job or the Architect's review sent, at work, or what it waits on. */
@@ -1410,8 +1435,10 @@ async function reviewStep(at: ProductSteps, fact: StoredProduct, state: Exclude<
 /** Each product PRD in scope order: its build sent, at work, joined, or what it waits on. */
 async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): Promise<ProductsDone> {
   const done = new Set<MissionPrd>([...at.joined, ...[...at.states].flatMap(([prd, state]) => (state.state === 'merged' || state.state === 'joined' ? [prd] : []))]);
-  const where = { joined: at.joined, done, branch: at.branch, resumes: resumeCap(at.mission) };
-  const step: ProductStep = { room: at.mission.parallel - facts.filter((fact) => productStateOf(fact, at.runs, where).state === 'running').length, moving: false, waits: [], events: [] };
+  const where = { joined: at.joined, done, branch: at.branch, resumes: resumeCap(at.mission), repairs: at.repairs };
+  // A repair runs on its PRD's own slot (PRD 2980), as a build at work does.
+  const busy = facts.filter((fact) => ['running', 'repairing'].includes(productStateOf(fact, at.runs, where).state)).length;
+  const step: ProductStep = { room: at.mission.parallel - busy, moving: false, waits: [], events: [], repairs: at.repairs, repaired: [] };
   for (const fact of facts) {
     const held = at.held.get(fact.prd);
     if (held !== undefined && !at.joined.has(fact.prd)) {
@@ -1425,14 +1452,19 @@ async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): 
   }
   const sent = step.events.filter((one) => one.kind === 'dispatched').length;
   const pending = facts.some((fact) => !at.joined.has(fact.prd));
-  return { pending, moving: step.moving, waits: pending ? step.waits : [`every product PRD is on ${at.branch}: a person lands it`], events: step.events, sent, rows: facts, on: [...at.joined] };
+  const waits = pending ? step.waits : [`every product PRD is on ${at.branch}: a person lands it`];
+  return { pending, moving: step.moving, waits, events: step.events, sent: sent + step.repaired.length, rows: facts, on: [...at.joined], repaired: step.repaired };
 }
 
-/** What a run's product steps add up to as they go: the slots left, whether one moved, what they wait on, the events. */
-type ProductStep = { room: number; moving: boolean; waits: string[]; events: NewStoredEvent[] };
+/**
+ * What a run's product steps add up to as they go: the slots left, whether one moved, what they wait on, the events, and the mission's
+ * repairs with those sent for its product PRDs (bug #3302), which count toward its 9 as they go.
+ */
+type ProductStep = { room: number; moving: boolean; waits: string[]; events: NewStoredEvent[]; repairs: RepairView; repaired: RepairJob[] };
 
 /** One product PRD's step: its build sent while a slot is left, at work, joined once Ready, or what it waits on. */
 async function productStep(at: ProductSteps, fact: StoredProduct, state: ReturnType<typeof productStateOf>, step: ProductStep): Promise<void> {
+  if (await productRepairStep(at, fact, state, step)) return;
   if (state.state === 'running') step.moving = true;
   else if (state.state === 'blocked') step.waits.push(heldWords(fact.prd, state.by, at.branch));
   else if (state.state === 'waits') step.waits.push(state.why);
@@ -1441,15 +1473,46 @@ async function productStep(at: ProductSteps, fact: StoredProduct, state: ReturnT
     if (sent !== null) step.events.push(sent);
     step.moving = true;
     step.room -= 1;
-  } else if (state.state === 'ready') {
-    const joined = await joinOneProduct(at, fact);
-    if ('lacks' in joined) step.waits.push(joined.lacks);
-    else {
-      step.events.push(joined.event);
-      at.joined.add(fact.prd);
-      step.moving = true;
-    }
+  } else if (state.state === 'ready') await joinStep(at, fact, step);
+}
+
+/** A product PRD whose build ended Ready: joined, or what it lacks. */
+async function joinStep(at: ProductSteps, fact: StoredProduct, step: ProductStep): Promise<void> {
+  const joined = await joinOneProduct(at, fact);
+  if ('lacks' in joined) {
+    step.waits.push(joined.lacks);
+    return;
   }
+  step.events.push(joined.event);
+  at.joined.add(fact.prd);
+  step.moving = true;
+}
+
+/** A product PRD's repair step (bug #3302): its repair sent, or at work, saying so; false for any other state. */
+async function productRepairStep(at: ProductSteps, fact: StoredProduct, state: ProductState, step: ProductStep): Promise<boolean> {
+  if (state.state === 'repairable') await repairProduct(at, fact, state, step);
+  else if (state.state === 'repairing') {
+    step.moving = true;
+    step.waits.push(state.why);
+  } else return false;
+  return true;
+}
+
+/**
+ * A product PRD's repair (bug #3302), sent first in line and outside `mandate.parallel` while the mission has one left, as a repository
+ * PRD's is (./repair.ts): `/omni:repair --mission <m> --prd <key>-<n> --job <failed build>`; its PRD then reads `repairing`. None left
+ * once this run sent the others: the next run stops it, saying so.
+ */
+async function repairProduct(at: ProductSteps, fact: StoredProduct, state: Extract<ProductState, { state: 'repairable' }>, step: ProductStep): Promise<void> {
+  step.moving = true;
+  if (leftOf(step.repairs) === 0) return;
+  const job = await at.store.repair({ mission: at.mission, prd: fact.prd, k: state.k, failedJob: state.failedJob, toFleet: at.toFleet });
+  if (job === null) return;
+  const sent: RepairJob = { prd: fact.prd, k: state.k, job, failedJob: state.failedJob, attempts: [{ id: job, status: 'queued', outcome: null, reason: null, prUrl: null }] };
+  step.repaired.push(sent);
+  step.repairs = { ...step.repairs, jobs: [...step.repairs.jobs, sent] };
+  const next = repairNext(step.repairs, fact.prd, state.failedJob, state.why);
+  if (next?.next === 'repairing') step.waits.push(`PRD ${fact.prd}: ${repairingWords(next)}`);
 }
 
 /** A product PRD's build sent under its key, and its dispatch; null when its key was held already. */

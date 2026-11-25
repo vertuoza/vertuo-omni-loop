@@ -34,10 +34,11 @@
 //                 the room is told once per bug, `bug-fixed`, linking the public issue, and once more when the PRD goes again: the
 //                 issue, the version and the PRD only, never a workspace, a repository or a login of another mission (BR-PRODUCT-163)
 import { createHash } from 'node:crypto';
-import { PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RepairRetro } from 'omni-loop/kit/lib/repair/retro.ts';
 import { compareVersions, parseVersion } from 'omni-loop/kit/lib/version/version.ts';
 import { checksOf, type PullRead } from './gate.ts';
+import { PrdIdSchema, type MissionPrd } from './store.prd.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
 
 /** The repairs one cause gets in a round. */
@@ -57,7 +58,8 @@ export type RepairTrigger = 'failure' | 'stuck';
  */
 export type RepairRow = {
   id: string;
-  prd: PrdNumber | null;
+  /** A repository PRD's number, or a product PRD's id (bug #3302); null for a stuck repair's own cause. */
+  prd: MissionPrd | null;
   trigger?: RepairTrigger;
   fingerprint: string;
   round: number;
@@ -70,7 +72,7 @@ export type RepairRow = {
 };
 
 /** A repair job the mission sent: its key's PRD and number, the job whose failure it repairs, and its attempts, the job's first. */
-export type RepairJob = { prd: PrdNumber; k: number; job: string; failedJob: string; attempts: Attempt[] };
+export type RepairJob = { prd: MissionPrd; k: number; job: string; failedJob: string; attempts: Attempt[] };
 
 /** A stuck repair the mission sent (PRD 3065): its key's number, the five jobs its line names, the fifth last, and its attempts. */
 export type StuckJob = { k: number; job: string; jobs: readonly string[]; attempts: Attempt[] };
@@ -139,20 +141,20 @@ export type RepairNext =
   /** Its Omni Loop bug is fixed in a kit newer than the one its repository pins (PRD 3088): it waits for the kit, saying so. */
   | { next: 'kit'; why: string };
 
-const KEY = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
+const KEY = /^mission:([0-9a-f-]{36}):prd:([^:]+):repair:([1-9][0-9]*)$/;
 
-/** The key of the PRD's k-th repair job: never sent twice. */
-export const repairKey = (mission: string, prd: PrdNumber, k: number): string => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
+/** The key of the PRD's k-th repair job: never sent twice. A product PRD's names its id (bug #3302): `…:prd:omni-loop-27:repair:1`. */
+export const repairKey = (mission: string, prd: MissionPrd, k: number): string => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
 
-/** The PRD and number a repair key names; null for any other text. */
-export function repairOfKey(key: string): { prd: PrdNumber; k: number } | null {
+/** The PRD (a number or a product's id) and number a repair key names; null for any other text. */
+export function repairOfKey(key: string): { prd: MissionPrd; k: number } | null {
   const match = KEY.exec(key);
-  const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
+  const prd = PrdIdSchema.safeParse(match?.[2]);
   return match && prd.success ? { prd: prd.data, k: Number(match[3]) } : null;
 }
 
-/** The line a repair is sent as: the mission by its number, the PRD, and the job whose failure it repairs. */
-export const repairSkillLine = (mission: number, prd: PrdNumber, failedJob: string): string => `/omni:repair --mission ${String(mission)} --prd ${String(prd)} --job ${failedJob}`;
+/** The line a repair is sent as: the mission by its number, the PRD (a product's by its id), and the job whose failure it repairs. */
+export const repairSkillLine = (mission: number, prd: MissionPrd, failedJob: string): string => `/omni:repair --mission ${String(mission)} --prd ${String(prd)} --job ${failedJob}`;
 
 /** The failed job a repair line names; null when it names none. */
 export const failedJobOf = (line: string): string | null => /^\/omni:repair .*--job (\S+)/.exec(line)?.[1] ?? null;
@@ -161,7 +163,7 @@ export const failedJobOf = (line: string): string | null => /^\/omni:repair .*--
  * The fingerprint a repair whose record line cannot be read is kept under: one per PRD, so 3 such repairs in a round stop that
  * PRD, whatever the cause.
  */
-export const unreadableFingerprint = (prd: PrdNumber): string => createHash('sha256').update(`omni repair: unreadable\n${String(prd)}`, 'utf8').digest('hex');
+export const unreadableFingerprint = (prd: MissionPrd): string => createHash('sha256').update(`omni repair: unreadable\n${String(prd)}`, 'utf8').digest('hex');
 
 /** Whether an event is the supervisor pausing the mission by stuck (PRD 3065): a `stuck` of the mission naming no job. */
 export const isStuckPause = ({ kind, prd, job }: RecordedEvent): boolean => kind === 'stuck' && prd === null && job === null;
@@ -224,7 +226,7 @@ export function triedWords(row: RepairRow): string {
 }
 
 /** Why a PRD stops when the budget refused its repair: the cause, what was tried, the proposed fix, how to resume. */
-function spentWords(view: RepairView, prd: PrdNumber, refused: Refused): string {
+function spentWords(view: RepairView, prd: MissionPrd, refused: Refused): string {
   const cause = refused.retro === null ? 'its repairs left no record that could be read.' : refused.retro.cause;
   const fix = refused.retro === null ? '' : ` Proposed fix: ${refused.retro.proposedFix}`;
   if (refused.spent === 'mission') return bare(`the mission spent its ${String(view.budget)} repairs [${short(refused.fingerprint)}]: ${cause}${fix}`);
@@ -233,10 +235,10 @@ function spentWords(view: RepairView, prd: PrdNumber, refused: Refused): string 
 }
 
 /** The PRD's next repair number: one more than the last it was sent. */
-const nextK = (view: RepairView, prd: PrdNumber): number => Math.max(0, ...view.jobs.filter((job) => job.prd === prd).map((job) => job.k)) + 1;
+const nextK = (view: RepairView, prd: MissionPrd): number => Math.max(0, ...view.jobs.filter((job) => job.prd === prd).map((job) => job.k)) + 1;
 
 /** Where a PRD goes when its failure has no repair at work: a repair while the mission has some left, else it stops. */
-function sendOrStop(view: RepairView, prd: PrdNumber, failedJob: string, failure: string): RepairNext {
+function sendOrStop(view: RepairView, prd: MissionPrd, failedJob: string, failure: string): RepairNext {
   if (leftOf(view) === 0) return { next: 'stops', why: `${failure}, and the mission spent its ${String(view.budget)} repairs` };
   return { next: 'repair', k: nextK(view, prd), failedJob };
 }
@@ -245,13 +247,13 @@ function sendOrStop(view: RepairView, prd: PrdNumber, failedJob: string, failure
  * The cause's number a repair at work counts as: its row's, once kept; else one more than the PRD's last repair in this round when
  * that one ended not fixed (the cause came back), else 1.
  */
-function numberOf(view: RepairView, prd: PrdNumber, row: RepairRow | undefined): number {
+function numberOf(view: RepairView, prd: MissionPrd, row: RepairRow | undefined): number {
   if (row !== undefined) return row.number;
   const last = view.rows.filter((one) => one.prd === prd && one.round === view.round && !isStuckRow(one)).at(-1);
   return last?.outcome === 'not fixed' ? Math.min(CAUSE_REPAIRS, last.number + 1) : 1;
 }
 
-const repairing = (view: RepairView, prd: PrdNumber, row: RepairRow | undefined, why: string | null = null): RepairNext => ({ next: 'repairing', number: numberOf(view, prd, row), left: leftOf(view), why });
+const repairing = (view: RepairView, prd: MissionPrd, row: RepairRow | undefined, why: string | null = null): RepairNext => ({ next: 'repairing', number: numberOf(view, prd, row), left: leftOf(view), why });
 
 /** Where an omni-loop repair leaves its PRD: waiting on the Omni Loop bug it was filed as, or why no report was sent. */
 function reportWords(view: RepairView, row: RepairRow): string {
@@ -294,7 +296,7 @@ function wayBack(view: RepairView, row: RepairRow): RepairNext | null {
 }
 
 /** Where a repair's kept row leaves its PRD, by its retro's class. */
-function afterRow(view: RepairView, prd: PrdNumber, row: RepairRow, failure: string): RepairNext {
+function afterRow(view: RepairView, prd: MissionPrd, row: RepairRow, failure: string): RepairNext {
   const retro = row.retro;
   if (retro === null) return sendOrStop(view, prd, row.failedJob, failure);
   const back = wayBack(view, row);
@@ -314,7 +316,7 @@ function afterRow(view: RepairView, prd: PrdNumber, row: RepairRow, failure: str
 }
 
 /** Where a code repair leaves its PRD: its fix landed (the step again), on its way, or unable to land. */
-function afterFix(view: RepairView, prd: PrdNumber, row: RepairRow, retro: RepairRetro): RepairNext {
+function afterFix(view: RepairView, prd: MissionPrd, row: RepairRow, retro: RepairRetro): RepairNext {
   const fix = prWords(row.fixPr);
   if (fix === null) return { next: 'stops', why: `its repair [${short(row.fingerprint)}] found the cause but opened no fix: ${retro.cause} Proposed fix: ${bare(retro.proposedFix)}` };
   const landing = view.landings.get(row.job ?? '');
@@ -327,7 +329,7 @@ function afterFix(view: RepairView, prd: PrdNumber, row: RepairRow, retro: Repai
  * Where a PRD goes once its step failed (`failedJob` the job that failed, `failure` why it stops without a repair): null when repairs
  * are off, and the PRD stops as before.
  */
-export function repairNext(view: RepairView, prd: PrdNumber, failedJob: string, failure: string): RepairNext | null {
+export function repairNext(view: RepairView, prd: MissionPrd, failedJob: string, failure: string): RepairNext | null {
   if (view.budget === 0) return null;
   const mine = view.jobs.filter((job) => job.prd === prd && job.failedJob === failedJob).sort((a, b) => a.k - b.k);
   const last = mine.at(-1);

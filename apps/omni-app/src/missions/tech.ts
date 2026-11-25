@@ -19,9 +19,13 @@
 //   escalated        a person gets the PRD once the Architect still escalates when the PM's rounds are spent, when the PM's own
 //                    approval escalated, or when a kind's failures are spent, the decision's reasons (the Architect's open points
 //                    first) in what it waits on, until a person approves it on its page
+//   send-back        bug #3302: a person's `sent-back` event on a PRD that waits on them (kit/lib/mission/send-back.ts) names the last
+//                    decision it follows; the rounds restart after it, the PM sent its plan job again with the Architect's latest open
+//                    points first, its decisions before it never edited (BR-PRODUCT-12)
 //   the events       each dispatch, signed `supervisor`; each decision recorded, signed by its role; all by `agent`
 import { isProductPrdId, ProductPrdIdSchema, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { planOfLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
+import { architectLeftWords, pmLeftWords, roundsSpentWords } from 'omni-loop/kit/lib/mission/send-back.ts';
 import { unansweredOf } from 'omni-loop/kit/lib/virtual-fleet/tech-record.ts';
 import type { PmJob } from './pm.ts';
 import type { MissionPrd } from './store.prd.ts';
@@ -60,13 +64,15 @@ export type ReviewView = {
   plans: readonly ProductPlanJob[];
   techs: readonly TechJob[];
   decisions: readonly PlanDecision[];
+  /** Bug #3302: the job of the decision a person's latest send-back follows; null or absent when none sent it back. */
+  sentBack?: string | null;
 };
 
 /** Where a PM product PRD is before its build: built as any product PRD, at work, a job to send, or waiting on a person. */
 export type ReviewState =
   | { state: 'build' }
   | { state: 'working' }
-  | { state: 'plan'; again: boolean; points?: readonly string[] }
+  | { state: 'plan'; again: boolean; points?: readonly string[]; sentBack?: true }
   | { state: 'tech'; k: number }
   | { state: 'waits'; why: string };
 
@@ -101,7 +107,25 @@ export function addedProductsOf(recorded: readonly { kind: string; product?: Pro
 }
 
 /** Whether a job is still to end. */
-const working = ({ status }: Pick<Attempt, 'status'>): boolean => status === 'queued' || status === 'claimed' || status === 'running';
+const atWork = ({ status }: Pick<Attempt, 'status'>): boolean => status === 'queued' || status === 'claimed' || status === 'running';
+
+/** Whether a plan job or a review of the PRD is still to end. */
+const working = (view: ReviewView): boolean => view.plans.some((one) => atWork(one.attempt)) || view.techs.some((one) => atWork(one.attempt));
+
+/**
+ * The decisions the rounds count (bug #3302): those after the one a person's send-back follows, its job `sentBack`; all of them when
+ * none was sent back, or when it names no decision of the PRD.
+ */
+function sinceSentBack(all: readonly PlanDecision[], job: string | null): { mine: readonly PlanDecision[]; sentBack: boolean } {
+  const at = job === null ? -1 : all.findLastIndex((one) => one.job === job);
+  return at < 0 ? { mine: all, sentBack: false } : { mine: all.slice(at + 1), sentBack: true };
+}
+
+/** A PRD a person sent back (bug #3302) with nothing decided since: built once a person approved it, else the PM's plan job, its open points first. */
+function afterSentBack(view: ReviewView, all: readonly PlanDecision[]): ReviewState {
+  if (view.approval === 'standing') return { state: 'build' };
+  return working(view) ? { state: 'working' } : { ...planWith(unansweredOf(all), true), sentBack: true };
+}
 
 /** Whether `decisions` hold one of `kind` approved on plan version `latest`. */
 const approvedOn = (decisions: readonly PlanDecision[], kind: PlanDecision['kind'], latest: string | null): boolean =>
@@ -110,14 +134,11 @@ const approvedOn = (decisions: readonly PlanDecision[], kind: PlanDecision['kind
 /** What an escalated decision leaves the PRD waiting on, its reasons in the order recorded. */
 function escalatedWords(prd: ProductPrdId, decision: PlanDecision): string {
   const why = decision.why.length > 0 ? decision.why.join('; ') : 'it sent it to you';
-  return decision.kind === 'tech'
-    ? `PRD ${prd}: the Architect left it to you: ${why}; approve it on its page`
-    : `PRD ${prd}: the PM's plan approval went to you: ${why}; approve it on its page`;
+  return decision.kind === 'tech' ? `${architectLeftWords(prd)}: ${why}; approve it on its page` : `${pmLeftWords(prd)}: ${why}; approve it on its page`;
 }
 
 /** What a PRD whose rounds are spent waits on. */
-const spentWords = (prd: ProductPrdId): string =>
-  `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS)} rounds; approve it on its page`;
+const spentWords = (prd: ProductPrdId): string => `${roundsSpentWords(prd)} in ${String(ROUNDS)} rounds; approve it on its page`;
 
 /** How many decisions of `kind` decided: each that names a plan version. */
 const decidedOf = (mine: readonly PlanDecision[], kind: PlanDecision['kind']): number => mine.filter((one) => one.kind === kind && one.plan !== null).length;
@@ -130,7 +151,7 @@ function failsInRow(mine: readonly PlanDecision[], kind: PlanDecision['kind']): 
 }
 
 /** The PM's plan job: with the Architect's open points it has to answer, when there are some (bug #3286). */
-function planWith(open: PlanDecision | null, again: boolean): ReviewState {
+function planWith(open: PlanDecision | null, again: boolean): Extract<ReviewState, { state: 'plan' }> {
   return open === null ? { state: 'plan', again } : { state: 'plan', again: true, points: open.why };
 }
 
@@ -154,9 +175,12 @@ function afterEscalated(view: ReviewView, mine: readonly PlanDecision[], last: P
  * or what it waits on. The rounds count the decisions that named a plan version (bug #3286).
  */
 export function reviewStateOf(view: ReviewView): ReviewState {
-  const mine = view.decisions.filter((one) => one.prd === view.prd);
+  const all = view.decisions.filter((one) => one.prd === view.prd);
+  const { mine, sentBack } = sinceSentBack(all, view.sentBack ?? null);
+  // Sent back by a person (bug #3302) and nothing decided since: the PM's round, with the Architect's latest open points.
+  if (sentBack && mine.length === 0) return afterSentBack(view, all);
   if (approvedOn(mine, 'plan', view.latest) && approvedOn(mine, 'tech', view.latest)) return { state: 'build' };
-  if (view.plans.some((one) => working(one.attempt)) || view.techs.some((one) => working(one.attempt))) return { state: 'working' };
+  if (working(view)) return { state: 'working' };
   const last = mine.at(-1);
   if (last?.outcome === 'escalated') return afterEscalated(view, mine, last);
   if (!approvedOn(mine, 'plan', view.latest)) return decidedOf(mine, 'plan') < ROUNDS ? { state: 'plan', again: view.plans.length > 0 } : { state: 'waits', why: spentWords(view.prd) };
@@ -190,6 +214,7 @@ export const isRetry = (prd: ProductPrdId, decisions: readonly PlanDecision[]): 
 
 /** What the PM's plan job is sent for: the Architect's open points, a newer plan version, or its first plan. */
 function planSentence(prd: ProductPrdId, line: string, state: Extract<ReviewState, { state: 'plan' }>): string {
+  if (state.sentBack === true) return `Sent the PM ${line} again: a person sent PRD ${prd} back to it${state.points === undefined ? '' : ', with the Architect\'s open points'}.`;
   if (state.points !== undefined) return `Sent the PM ${line} again: it answers the Architect's open points on PRD ${prd}.`;
   return state.again
     ? `Sent the PM ${line} again: PRD ${prd} has a newer plan version, so the PM approves it.`
