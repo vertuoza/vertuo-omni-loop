@@ -11,6 +11,8 @@
 //   the agent does not say.
 // - `session`, `interrupt`, `resume`: the run's session, how to stop it cleanly (`null` when the agent
 //   offers no clean stop), and the command that continues that session with one more message.
+// - `waiting`: whether a run that exited 0 ended with its own work unfinished, its last turn waiting on
+//   background work it started (bug 3288); an agent without it never says so.
 import type { StepContext } from '../steps.ts';
 import type { TokenCounts } from '../tokens.ts';
 
@@ -66,4 +68,6 @@ export type Agent = {
   interrupt(run: Run): Interrupt | null;
   /** The run that continues `session` on `account` with one more message, `prompt`, in `job`'s worktree. */
   resume(job: AgentJob, account: AgentAccount, session: string, prompt: string): RunCommand;
+  /** Whether the run ended while its last turn waits on background work of its own, which its end stopped (bug 3288). */
+  waiting?(run: Run): boolean;
 };
