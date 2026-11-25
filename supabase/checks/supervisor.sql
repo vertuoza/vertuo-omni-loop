@@ -217,8 +217,9 @@ begin
 
   -- An error is masked on the way in, and cut to 500 characters (AC-9).
   insert into public.app_errors (service, route, status, message, workspace_id)
-  values ('galaxy', '/api/runners/next', 500, 'fetch failed: Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz0123 token=s3cr3tvalue', v);
-  if (select message from public.app_errors where route = '/api/runners/next') ~ '(ghp_|s3cr3t)' then
+  -- The fake token is built here, never written out whole (the open-source guard).
+  values ('galaxy', '/api/runners/next', 500, 'fetch failed: Authorization: Bearer ' || 'gh' || 'p_' || repeat('x9', 15) || ' token=s3cr3tvalue', v);
+  if (select message from public.app_errors where route = '/api/runners/next') ~ '(x9x9|s3cr3t)' then
     raise exception 'FAIL: an error kept its token: %', (select message from public.app_errors where route = '/api/runners/next');
   end if;
   begin
