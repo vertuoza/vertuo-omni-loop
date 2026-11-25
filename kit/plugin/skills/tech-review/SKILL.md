@@ -187,8 +187,10 @@ nobody sends it by hand. The steps above run with these differences.
   omni tech: {"v":1,"prd":"<key>-<n>","plan":"<sha256>","settled":["…"],"open":["…"],"outcome":"approved|escalated"}
   ```
 
-  `outcome` is one of the two: `approved` only when `open` is empty, `escalated` otherwise, and the
-  PRD then waits on a person, each open point shown on the mission. At most 10 points in each list,
+  `outcome` is one of the two: `approved` only when `open` is empty, `escalated` otherwise. The open
+  points go to the mission's PM first (bug #3286): write each one so the PM can act on it, what to
+  confirm or change and where. The PM answers them in a new version, which this review reads again;
+  a person gets the PRD only once the rounds are spent, each open point shown on the mission. At most 10 points in each list,
   each one line of at most 300 characters. The Omni app reads it from the job's log, and only it: a
   line it cannot read, or none, is recorded as escalated, never as approved. The scratch folder is
   deleted when the skill ends.

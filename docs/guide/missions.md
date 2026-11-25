@@ -365,7 +365,7 @@ A mission with no PRD is never shown as delivered.
 #### How the PM's PRDs reach the build
 
 Nothing a PRD needs before its build is written to the repository: no issue, branch, commit or pull
-request. Each PRD the PM writes goes through four steps, each recorded on the mission, then the build.
+request. Each PRD the PM writes goes through these steps, each recorded on the mission, then the build.
 
 1. **The PM writes it on Omni.** The PM writes each PRD's spec and before/after on its own page in
    your product, as `<key>-<n>` (`omni-loop-31`). Several PRDs make a product roadmap. The repository
@@ -376,14 +376,19 @@ request. Each PRD the PM writes goes through four steps, each recorded on the mi
 4. **The Architect reviews it, every time.** It reads the spec, the plan and the playbook's
    architecture, testing, conventions and CI forms, and the laws the plan's files touch. It fixes
    the plan's coding parts itself, as a new plan version, and approves. Its approval gives the PRD's
-   Tech Approval, signed by the fleet's Architect, an agent. What it cannot settle it leaves to you,
-   and the PRD waits.
+   Tech Approval, signed by the fleet's Architect, an agent. What it cannot settle, its open points,
+   goes back to the PM first.
+5. **The PM answers the open points.** It is sent its plan job again with them. It answers each,
+   rewording its own spec where it must, plans again and approves the new version, which the
+   Architect reviews again. A point only a person can decide gets the most reversible answer, and a
+   high outbox item on the PRD's page for you to settle.
 
 **The build** (`/omni:ultra-yolo <key>-<n>`) starts only when the PM's approval and the Architect's
 name the same plan version, the latest. A version the Architect changed goes back to the PM to
-approve, two rounds at most, then to you. An Architect job that left no record is never read as an
-approval: it is sent to you as `no record of the tech review`. The code reaches the repository only
-in the build's pull requests, and you merge each one.
+approve. The PM gets two rounds and the Architect two reviews, then the PRD comes to you; only a
+job that decided counts as a round. A job that failed or left no record is never read as an
+approval: it is sent again, twice in a row at most, then to you as `no record of the tech review`.
+The code reaches the repository only in the build's pull requests, and you merge each one.
 
 **What you see.** The fleet's **Operation room** shows, for each PRD of the PM's, a plan row (the
 PM, the plan version it approved) and a tech row (the Architect, what it settled, or `Not reviewed

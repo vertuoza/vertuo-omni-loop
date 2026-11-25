@@ -1,4 +1,4 @@
-import { IssueNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 import { MISSION_LEVELS } from 'omni-loop/kit/lib/mission/brief.ts';
 import { z } from 'zod';
 
@@ -151,8 +151,14 @@ export const MissionBriefSchema = z.object({
     content: z.string(),
     items: z.array(z.object({ name: z.string(), content: z.string() })),
   })),
+  /** Bug #3286: each product PRD the fleet's Architect escalated with open points the PM has yet to answer, its plan version and its points. */
+  open: z.array(z.object({ prd: ProductPrdIdSchema, plan: z.string(), points: z.array(z.string()) })),
 });
 export type MissionBrief = z.infer<typeof MissionBriefSchema>;
+
+/** A `plan` or `tech` decision of a product PRD as a member reads it (bug #3286), in the order it was recorded. */
+export const PlanDecisionReadSchema = z.object({ kind: z.enum(['plan', 'tech']), prd: ProductPrdIdSchema, plan: z.string().nullable(), outcome: z.string(), why: z.array(z.string()) });
+export type PlanDecisionRead = z.infer<typeof PlanDecisionReadSchema>;
 
 /** What `omni ready` asks (PRD 3194): the repository and the PRD, in the query of `GET /api/missions/of-prd`. */
 export const OfPrdQuerySchema = z.object({

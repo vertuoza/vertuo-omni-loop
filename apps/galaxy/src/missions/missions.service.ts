@@ -354,12 +354,12 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
       return recordPick(write, { mission, login: caller.login, body, job: waiting.job, at: iso() });
     },
 
-    /** Mission `query.mission`'s brief as pushed and its retros, as a member reads them (PRD 3194): a mission of another workspace, or none, is missing. */
+    /** Mission `query.mission`'s brief as pushed, its retros and the Architect's open points the PM has yet to answer (bug #3286), as a member reads them (PRD 3194): a mission of another workspace, or none, is missing. */
     async brief(query: BriefQuery, reader: MissionsReader): Promise<Served<MissionBrief>> {
       const mission = await reader.byNumber(query.repo, query.mission);
       const page = mission === null ? null : await reader.page(mission);
       if (mission === null || page === null) return { ok: false, kind: 'missing', error: `There is no mission ${String(query.mission)} in ${query.repo}.` };
-      return { ok: true, value: missionExport(mission.number, page, await reader.retros(mission.id)) };
+      return { ok: true, value: missionExport(mission.number, page, await reader.retros(mission.id), await reader.planDecisions(mission.id)) };
     },
 
     /** The numbers of the missions of `query.repo` whose brief names PRD `query.prd`, as a member reads them: empty when none does (PRD 3194). */
