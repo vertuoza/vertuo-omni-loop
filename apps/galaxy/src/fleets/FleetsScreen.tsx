@@ -1,6 +1,4 @@
 import { Notice } from '../ask/page/Notice';
-import { SectionTabs } from '../nav/SectionTabs';
-import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import { FleetsPage, type FleetsPageProps } from './FleetsPage';
 
@@ -17,12 +15,7 @@ export type FleetsScreenView =
   | ({ kind: 'fleets' } & FleetsPageProps);
 
 export function FleetsScreen({ view }: { view: FleetsScreenView }) {
-  return (
-    <>
-      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current="/app/settings/fleets" />
-      <FleetsBody view={view} />
-    </>
-  );
+  return <FleetsBody view={view} />;
 }
 
 function FleetsBody({ view }: { view: FleetsScreenView }) {
