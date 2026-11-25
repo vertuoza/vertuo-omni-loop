@@ -151,6 +151,16 @@ export function isAppLine(line: string): boolean {
   return line.length <= MAX_LINE && fixed !== null && APP_RUNNER_SKILLS.some((skill) => skill === fixed[1]) && ARGS.test(fixed[2] ?? '');
 }
 
+/** The one shape a fleet's line takes (PRD omni-loop-26): `/omni:tech-review <key>-<n> --mission <m>`, the kit's `TECH_REVIEW_ARGS`. */
+const FLEET_ARGS = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-[1-9]\d{0,9} --mission [1-9]\d*$/;
+
+/** Whether `line` is one of a fleet's own lines, as the kit's runner checks it (bug #3277): `/omni:<fleet skill> <key>-<n> --mission <m>`,
+ * 200 characters at most. A mission queues it; a person's Send never does, so `checkLine` still refuses it. */
+function isFleetLine(line: string): boolean {
+  const fixed = LINE.exec(line);
+  return line.length <= MAX_LINE && fixed !== null && FLEET_RUNNER_SKILLS.some((skill) => skill === fixed[1]) && FLEET_ARGS.test(fixed[2] ?? '');
+}
+
 /** The PRD a line names (PRD 2251): its first argument, when it is a PRD number (`/omni:yolo 2251`,
  * `/omni:do-work 2251 s1`, a repository skill's `/validate-prd 347`, PRD 2313); null for a line no
  * runner runs, or whose first argument is anything else. */
@@ -221,7 +231,7 @@ export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
   sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(), mission: z.object({ level: z.string() }).nullable().optional(),
   messages: z.array(FleetMessageClaimSchema).max(MAX_FLEET_MESSAGES).optional(),
-}).refine((job) => checkLine(job.line, job.allowedSkills).ok || isAppLine(job.line), { message: 'not a line a runner runs', path: ['line'] });
+}).refine((job) => checkLine(job.line, job.allowedSkills).ok || isAppLine(job.line) || isFleetLine(job.line), { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 
 /** What `POST /api/runners/jobs/<id>/github-token` answers: a fresh token of the job's App, and when it stops working. */
