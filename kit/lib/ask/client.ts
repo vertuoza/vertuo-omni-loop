@@ -584,6 +584,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * carried (`omni mission overturn`). @returns {Promise<{ overturn: { mission: string, branch: string | null, decision: string, prd: number, onBranch: boolean } }>} */
     overturnMission: ({ repo, mission, decision }: { repo: string; mission: number; decision: string }) =>
       call('POST', '/api/missions/overturn', { body: { repo, mission, decision } }),
+    /** Bug #3302: a person sends PM product PRD `prd` of mission `mission` in `repo` back to the PM (`omni mission send-back`).
+     * @returns {Promise<{ sentBack: { mission: string, prd: string } }>} */
+    sendBackMission: ({ repo, mission, prd }: { repo: string; mission: number; prd: ProductPrdId }) =>
+      call('POST', '/api/missions/send-back', { body: { repo, mission, prd } }),
     /** PRD omni-loop-24 s5: the mission request `id` (the New mission box's goal and fleet), as the caller (`omni mission request`).
      * @returns {Promise<{ request: { id: string, repo: string, fleet: string, goal: string, requestedBy: string, mission: number | null, createdAt: string } }>} */
     readMissionRequest: (id: string) => call('GET', `/api/missions/requests/${segment(id)}`),

@@ -22,6 +22,7 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
   bare,
   CAUSE_REPAIRS,
+  asMissionEvent,
   isStuckPause,
   linkOf,
   MISSION_REPAIRS,
@@ -273,7 +274,7 @@ const sentEvent = (job: StuckJob, { where, mission }: Where): NewEvent => ({
 /** What a stuck row says: its retro, once read, and its end. */
 function rowEvents(row: RepairRow): NewEvent[] {
   const cause = `[${short(row.fingerprint)}]`;
-  const said = (kind: 'retro' | 'repair-ended', role: NewEvent['role'], sentence: string): NewEvent => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence });
+  const said = (kind: 'retro' | 'repair-ended', role: NewEvent['role'], sentence: string): NewEvent => asMissionEvent({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence });
   const retro = row.retro === null ? [] : [said('retro', 'engineer', `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro;
   const how = row.retro === null ? 'ended not fixed: its record line could not be read.' : `${cause} ended ${row.outcome}.`;
@@ -282,7 +283,7 @@ function rowEvents(row: RepairRow): NewEvent[] {
 
 /** Every stuck event a run may record, in order: each stuck repair sent, then each row's retro, end and report. */
 export function stuckEvents(view: StuckView, where: Where): NewEvent[] {
-  return [...view.jobs.map((job) => sentEvent(job, where)), ...view.rows.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ''), 'The mission')])];
+  return [...view.jobs.map((job) => sentEvent(job, where)), ...view.rows.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ''), 'The mission').map(asMissionEvent)])];
 }
 
 /** The pause by stuck, as its event: the mission's own, naming no job, so a run reads it back as the pause (./repair.ts › isStuckPause). */

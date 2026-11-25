@@ -72,6 +72,17 @@ describe('MissionsTab', () => {
     expect(text(out)).toContain('Pause');
   });
 
+  it('offers Send back to the PM beside a PM product PRD that waits on a person after its review (bug #3302)', () => {
+    const waitingOn = 'PRD omni-loop-28: the PM and the Architect did not approve one plan version in 2 rounds; approve it on its page · PRD 2803: approve it';
+    const out = html(view(row({ status: 'waiting', level: 'alone', waitingOn })));
+    expect(text(out)).toContain('PRD omni-loop-28: the PM and the Architect did not approve one plan version in 2 rounds; approve it on its page');
+    expect(out).toMatch(/<button[^>]*>Send back to the PM<span class="ask-sr"> PRD omni-loop-28<\/span><\/button>/);
+    expect(text(out)).toContain('PRD 2803 : approve it');
+    // Below alone, or on a wait of another kind, no send-back is offered.
+    expect(html(view(row({ status: 'waiting', level: 'own-branch', waitingOn })))).not.toContain('Send back to the PM');
+    expect(html(view(row({ status: 'waiting', level: 'alone', waitingOn: 'PRD omni-loop-28: approve it on its page (mission/40-pay)' })))).not.toContain('Send back to the PM');
+  });
+
   it('shows Resume on a paused mission, and no button on a delivered one', () => {
     expect(text(html(view(row({ status: 'paused' }))))).toContain('Resume');
     expect(html(view(row({ status: 'delivered' })))).not.toContain('<button');

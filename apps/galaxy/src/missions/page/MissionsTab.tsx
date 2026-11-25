@@ -3,7 +3,7 @@ import { Select } from '@omni/ui';
 import { useMemo, useState } from 'react';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { useRouter } from 'next/navigation';
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { PrdNumber, ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { MissionLevelSchema, type BugsPick, type ItemAnswer, type MissionAction, type StopAnswer } from '../missions.contract';
 import { tokensOf } from '../token-words';
 import { demoMissionsPort, httpMissionsPort, type MissionsPort } from './missions-tab.client';
@@ -155,6 +155,26 @@ function WaitList({ waits, titled, busy, onPick }: { waits: MissionsView['missio
   );
 }
 
+/**
+ * Each PM product PRD that waits on a person after its review (bug #3302), with what it waits on and its one action, Send back to the
+ * PM: one more PM round with the Architect's latest open points.
+ */
+function SendBacks({ waits, busy, onSendBack }: { waits: MissionsView['missions'][number]['sendBacks']; busy: boolean; onSendBack: (prd: ProductPrdId) => void }) {
+  if (waits.length === 0) return null;
+  return (
+    <ul className="mission-waits mission-send-backs">
+      {waits.map((wait) => (
+        <li key={wait.prd}>
+          <span>PRD {wait.prd}: {wait.on}</span>
+          <button type="button" className="ask-button quiet mission-action" disabled={busy} onClick={() => { onSendBack(wait.prd); }}>
+            {WORDS.sendBack}<span className="ask-sr"> PRD {wait.prd}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** A PRD on `Decide the bugs` (PRD 3001, `fleet-room` 1.A and 1.B): QA's bugs still there, by issue, and the two actions. */
 function DecideBugs({ wait, bugs, busy, onPick }: { wait: MissionsView['missions'][number]['waits'][number]; bugs: NonNullable<MissionsView['missions'][number]['waits'][number]['bugs']>; busy: boolean; onPick: (prd: PrdNumber, pick: BugsPick) => void }) {
   return (
@@ -289,8 +309,20 @@ function MissionLine({ mission }: { mission: MissionsView['missions'][number] })
   );
 }
 
+/** A mission's lines about its fleet: committee only, its Branch line, the trust line and the PRDs its PM wrote, each when it has one. */
+function FleetLines({ mission }: { mission: MissionsView['missions'][number] }) {
+  return (
+    <>
+      {mission.committeeOnly !== null && <p className="mission-committee-only ask-muted">{mission.committeeOnly}</p>}
+      {mission.branch !== null && <BranchLine branch={mission.branch} />}
+      {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
+      {mission.fleetPrds !== null && <FleetPrdsLine fleet={mission.fleetPrds} />}
+    </>
+  );
+}
+
 /** One mission's row: its words at the left, its one button at the right. */
-function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, onBudget, onAnswer, onStop, onItem }: {
+function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, onSendBack, onBudget, onAnswer, onStop, onItem }: {
   demo: boolean;
   mission: MissionsView['missions'][number];
   busy: string | null;
@@ -298,12 +330,14 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, on
   onMove: (action: MissionAction) => void;
   onLevel: (level: MissionLevel) => void;
   onPick: (prd: PrdNumber, pick: BugsPick) => void;
+  onSendBack: (prd: ProductPrdId) => void;
   onBudget: (tokens: number | null) => void;
   onAnswer: (stop: string, answer: StopAnswer, tokens?: number) => void;
   onStop: () => void;
   onItem: (item: string, answer: ItemAnswer) => void;
 }) {
   const action = mission.action;
+  const blocked = busy !== null;
   return (
       <li className="mission" data-status={mission.status}>
         <div className="mission-body">
@@ -313,23 +347,21 @@ function MissionItem({ mission, demo, busy, problem, onMove, onLevel, onPick, on
             words={mission.levelWords}
             level={mission.canChangeLevel ? mission.level : null}
             levels={mission.levels}
-            disabled={busy !== null}
+            disabled={blocked}
             onChange={onLevel}
           />
           <StuckLine stuck={mission.stuck} />
-          <BudgetParts mission={mission} busy={busy !== null} onBudget={onBudget} onAnswer={onAnswer} />
-          {mission.committeeOnly !== null && <p className="mission-committee-only ask-muted">{mission.committeeOnly}</p>}
-          {mission.branch !== null && <BranchLine branch={mission.branch} />}
-          {mission.trust !== null && <p className="mission-trust ask-muted">{mission.trust}</p>}
-          {mission.fleetPrds !== null && <FleetPrdsLine fleet={mission.fleetPrds} />}
-          <WaitList waits={mission.waits} titled={mission.level === 'alone'} busy={busy !== null} onPick={onPick} />
+          <BudgetParts mission={mission} busy={blocked} onBudget={onBudget} onAnswer={onAnswer} />
+          <FleetLines mission={mission} />
+          <WaitList waits={mission.waits} titled={mission.level === 'alone'} busy={blocked} onPick={onPick} />
+          <SendBacks waits={mission.sendBacks} busy={blocked} onSendBack={onSendBack} />
           <LimitWaits waits={mission.limitWaits} />
           <Repairs lines={mission.repairs} demo={demo} />
-          <RetroSection mission={mission} busy={busy !== null} onResume={() => { onMove('resume'); }} onStop={onStop} onItem={onItem} />
+          <RetroSection mission={mission} busy={blocked} onResume={() => { onMove('resume'); }} onStop={onStop} onItem={onItem} />
           {mission.stopped !== null && <p className="mission-stopped ask-muted">{mission.stopped}</p>}
           {problem !== null && <p className="mission-problem" role="alert">{problem}</p>}
         </div>
-        {action !== null && <ActionButton action={action} title={mission.title} busy={busy === mission.id} disabled={busy !== null} onMove={onMove} />}
+        {action !== null && <ActionButton action={action} title={mission.title} busy={busy === mission.id} disabled={blocked} onMove={onMove} />}
       </li>
   );
 }
@@ -368,6 +400,18 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
     setBusy(mission);
     setProblem(null);
     const done = await calls.pickBugs(mission, prd, choice);
+    setBusy(null);
+    if (!done.ok) {
+      setProblem({ mission, message: done.message });
+      return;
+    }
+    router.refresh();
+  }
+
+  async function sendBack(mission: string, prd: ProductPrdId) {
+    setBusy(mission);
+    setProblem(null);
+    const done = await calls.sendBack(mission, prd);
     setBusy(null);
     if (!done.ok) {
       setProblem({ mission, message: done.message });
@@ -470,6 +514,7 @@ export function MissionsTab({ view, port }: MissionsTabProps) {
             onMove={(action) => { void move(mission.id, action); }}
             onLevel={(level) => { void changeLevel(mission.id, level); }}
             onPick={(prd, choice) => { void pick(mission.id, prd, choice); }}
+            onSendBack={(prd) => { void sendBack(mission.id, prd); }}
             onBudget={(tokens) => { void budget(mission.id, tokens); }}
             onAnswer={(stop, choice, tokens) => { void answer(mission.id, stop, choice, tokens); }}
             onStop={() => { void stopStuck(mission.id); }}

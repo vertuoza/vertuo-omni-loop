@@ -18,7 +18,7 @@ import { isStuckRow, roundOf, type BugReport, type FixLanding, type Refused, typ
 import { keepRow, land, recordOfJob, reportOne, spends, type RepairRunAt } from './repair-run.ts';
 import type { MissionRecord, MissionRetros, MissionStore } from './store.ts';
 import { beatsOf, NO_STUCK, pausedEvent, pausedWords, settleStuck, stuckEvents, stuckNext, stuckWords, unreadableStuck, type Beat, type StuckView } from './stuck.ts';
-import { cut, recordedKeys, unrecorded, withWaits, type Concluded, type MissionStatus, type NewEvent, type RecordedEvent, type Run } from './supervisor.ts';
+import { asRecorded, cut, recordedKeys, unrecorded, withWaits, type Concluded, type MissionStatus, type NewEvent, type RecordedEvent, type Run } from './supervisor.ts';
 
 /** What a run reads its stuck repairs with: a PRD's repair's reads, its stuck store, and every repair row it read. */
 export type StuckRunAt = RepairRunAt & { retros: MissionRetros; rows: readonly RepairRow[] };
@@ -126,7 +126,7 @@ const pausedNext = (why: string): Concluded => ({ status: 'paused', waitingOn: c
 
 /** The stuck step of a run: its stuck repairs settled, then one sent, one at work said, or the mission paused by stuck. */
 export async function stuckStep(at: StuckStep): Promise<Stepped> {
-  const timeline = [...at.recorded, ...at.events.map(({ kind, prd, job }) => ({ kind, prd, job }))];
+  const timeline = [...at.recorded, ...at.events.map(asRecorded)];
   const beats = beatsOf(timeline, at.runs);
   let view = await settleAll(at.store, at.stuck, beats);
   const decided = at.sends && moving(at.mission.status) && moving(at.next.status) ? stuckNext(view, beats, at.left) : ({ next: 'none' } as const);

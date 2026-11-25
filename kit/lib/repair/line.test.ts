@@ -61,6 +61,15 @@ describe('repairLine', () => {
     expect(repairLine(line(record({ retro: { ...retro(), evidence: ['One. Two.'] } })))).toEqual({ readable: false, reason: 'malformed' });
   });
 
+  it('reads a product PRD by its id, and the repository its fix was opened in (bug #3302)', () => {
+    const read = repairLine(line(record({ prd: 'omni-loop-27', repo: 'acme/web' })));
+    expect(read).toMatchObject({ readable: true, record: { prd: 'omni-loop-27', repo: 'acme/web', fix: 3001 } });
+    expect(repairLine(line(record({ prd: 'omni-loop-0' })))).toEqual({ readable: false, reason: 'malformed' });
+    expect(repairLine(line(record({ repo: 'not a repository' })))).toEqual({ readable: false, reason: 'malformed' });
+    const flake = { class: 'flake', retro: retro({ class: 'flake' }), fix: null };
+    expect(repairLine(line(record({ ...flake, repo: 'acme/web' })))).toEqual({ readable: false, reason: 'malformed' });
+  });
+
   it('answers unreadable when the record contradicts its retro', () => {
     expect(repairLine(line(record({ class: 'flake', fix: null })))).toEqual({ readable: false, reason: 'malformed' });
     expect(repairLine(line(record({ fingerprint: 'd'.repeat(64) })))).toEqual({ readable: false, reason: 'malformed' });

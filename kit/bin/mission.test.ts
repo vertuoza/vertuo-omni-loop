@@ -210,6 +210,28 @@ describe('omni mission overturn (PRD 2896 s11)', () => {
   });
 });
 
+describe('omni mission send-back (bug #3302)', () => {
+  it('sends the PM product PRD back to the PM, and prints what happens next', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = recordingFetch(() => json(200, { sentBack: { mission: 'm-1', prd: 'omni-loop-28' } }));
+    const done = await mission(['send-back', '12', 'omni-loop-28'], { root, fetch });
+    expect(done.code).toBe(0);
+    expect(done.out).toContain('PRD omni-loop-28 goes back to the PM of mission 12: its rounds start again with the Architect\'s latest open points.');
+    expect(calls).toEqual([{ url: `${BASE}/api/missions/send-back`, method: 'POST', body: { repo: 'acme/widgets', mission: 12, prd: 'omni-loop-28' } }]);
+  });
+
+  it('refuses a PRD that is no product PRD\'s id, prints the app\'s refusal, and says off in one line', async () => {
+    const { root } = checkout();
+    const none = recordingFetch(() => json(200, {}));
+    expect((await mission(['send-back', '12', '28'], { root, fetch: none.fetch })).code).toBe(2);
+    expect(none.calls).toEqual([]);
+    const refused = recordingFetch(() => json(409, { error: 'PRD omni-loop-28 does not wait on a person after its review in mission 12: there is nothing to send back.' }));
+    expect(await mission(['send-back', '12', 'omni-loop-28'], { root, fetch: refused.fetch })).toEqual({ code: 1, out: '', err: 'refused (409): PRD omni-loop-28 does not wait on a person after its review in mission 12: there is nothing to send back.\n' });
+    expect(await mission(['send-back', '12', 'omni-loop-28'], { root: checkout({ enabled: false }).root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'off\n' });
+    expect(await mission(['send-back', '12', 'omni-loop-28'], { root, fetch: recordingFetch(() => json(200, {})).fetch })).toEqual({ code: 1, out: '', err: 'refused (no send-back in the reply)\n' });
+  });
+});
+
 describe('omni mission get and push --from (PRD 3194 s2)', () => {
   const page = {
     mission: 2850, record: RECORD, brief: PAGE,

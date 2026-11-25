@@ -18,6 +18,10 @@
 // `<decision>` is a PRD's number (its approval) or `<prd>/<item>` (the answer to one of its items). The decision stays as recorded and
 // the person's is added beside it; the PRD leaves the mission branch when it had joined. A person runs it, with their sign-in.
 //
+// `omni mission send-back <mission> <prd>` (bug #3302) sends a PM product PRD (`<key>-<n>`) that waits on a person after its review back to
+// the PM: one more PM round with the Architect's latest open points, the rounds counted again. The person's own event is added; no
+// decision is edited. A person runs it, with their sign-in.
+//
 // `omni mission request <id>` (PRD omni-loop-24 s5) prints a mission request's fleet and goal, read from the page, for `/omni:mission --request`.
 //
 // It never blocks the skill that runs it: every call has the contract's 5-second limit and one token
@@ -34,10 +38,11 @@ import { field } from '../../lib/ask/schema.ts';
 import { dossierSwitch } from '../../lib/config.ts';
 import { loadContext } from '../../lib/context.ts';
 import type { Context } from '../../lib/context.ts';
-import { parsePrd, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
+import { parsePrd, ProductPrdIdSchema, type IssueNumber, type PrdNumber } from '../../lib/ids.ts';
 import { dropWords } from '../../lib/mission/drop.ts';
 import { folderName, readExport, writeExport } from '../../lib/mission/get.ts';
 import { overturnWords, parseRef } from '../../lib/mission/overturn.ts';
+import { sentBackWords } from '../../lib/mission/send-back.ts';
 import { isRequestId, readRequest, requestLines } from '../../lib/mission/request.ts';
 import { readMissionFolder, readMissionFolderAt } from '../../lib/mission/folder.ts';
 import type { MissionFolder } from '../../lib/mission/folder.ts';
@@ -52,7 +57,7 @@ type Io = FreeIo & MissionOptions;
 /** Where a push goes: the signed-in client, and the repository. */
 type Target = { client: ReturnType<typeof askClient>; repo: string };
 
-const USAGE = 'usage: omni mission push <n> [--from <dir>] | omni mission get <n> [--out <dir>] | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision> | omni mission request <id>';
+const USAGE = 'usage: omni mission push <n> [--from <dir>] | omni mission get <n> [--out <dir>] | omni mission drop <mission> <prd> [--keep] | omni mission overturn <mission> <decision> | omni mission send-back <mission> <prd> | omni mission request <id>';
 
 /** The one line a failed call is reported with: a refusal carries the server's reason when it gave one. */
 function skipLine(error: unknown): string {
@@ -156,6 +161,17 @@ async function overturn(mission: IssueNumber, decision: string, io: Io): Promise
   return 0;
 }
 
+/** `send-back <mission> <prd>`: a PM product PRD sent back to the PM, then what happens next. */
+async function sendBack(mission: IssueNumber, id: string, io: Io): Promise<number> {
+  const prd = ProductPrdIdSchema.safeParse(id);
+  if (!prd.success) throw usageError(`omni mission send-back: <prd> is a product PRD's id (<key>-<n>), not "${id}".`);
+  const sent = await ask(io, ({ client, repo }) => client.sendBackMission({ repo, mission, prd: prd.data }));
+  if (typeof sent === 'number') return sent;
+  if (!isText(field(field(sent.reply, 'sentBack'), 'prd'))) return stopped(io, ['refused (no send-back in the reply)']);
+  for (const line of sentBackWords(prd.data, mission)) println(io.stdout, line);
+  return 0;
+}
+
 /** `request <id>`: the goal and fleet of a mission request the New mission box saved, as the page answers the caller. */
 async function request(id: string, io: Io): Promise<number> {
   if (!isRequestId(id)) throw usageError(`omni mission request: <id> is a mission request's uuid, not "${id}".`);
@@ -179,6 +195,7 @@ export const mission = {
       'get 1': () => get(issueArg('mission get', '<n>', operands[0]), typeof out === 'string' ? out : null, io),
       'drop 2': () => drop(issueArg('mission drop', '<mission>', operands[0]), prdArg('mission drop', '<prd>', operands[1]), keep, io),
       'overturn 2': () => overturn(issueArg('mission overturn', '<mission>', operands[0]), operands[1] ?? '', io),
+      'send-back 2': () => sendBack(issueArg('mission send-back', '<mission>', operands[0]), operands[1] ?? '', io),
       'request 1': () => request(operands[0] ?? '', io),
     };
     const run = verbs[`${verb ?? ''} ${String(operands.length)}`];

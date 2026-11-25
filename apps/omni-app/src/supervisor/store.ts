@@ -22,11 +22,11 @@ const HOUR = 60 * MINUTE;
 /** The columns each read selects, shared with ./store.boundary.ts. */
 export const SEAT_LANES = 'workspace_id';
 export const SEAT = 'workspace_id, runner_id, paused, daily_tokens, tokens_day, tokens_used, last_look_at, placed_at, runners(name)';
-export const RUNNER = 'id, name, fleet, repos, last_seen_at, health';
+export const WATCH_RUNNER = 'id, name, fleet, repos, last_seen_at, health';
 export const SAMPLE = 'runner_id, at, disk_free';
-export const JOB = 'id, repo, line, status, outcome, reason, runner_id, to_runner, to_fleet, queued_at, running_at, ended_at, resume_after, attempt';
-export const FAILED_JOB = `${JOB}, log_tail`;
-export const MISSION = 'id, number, title, status, updated_at';
+export const WATCH_JOB = 'id, repo, line, status, outcome, reason, runner_id, to_runner, to_fleet, queued_at, running_at, ended_at, resume_after, attempt';
+export const FAILED_JOB = `${WATCH_JOB}, log_tail`;
+export const WATCH_MISSION = 'id, number, title, status, updated_at';
 export const SIGNAL = 'id, fingerprint, opened_at, finding_id';
 export const FINDING = 'id, state, raised_by, looked_at';
 export const DISMISSAL = 'evidence_key, supervisor_findings!inner(fingerprint)';
@@ -38,23 +38,23 @@ export const SeatRowSchema = z.object({
 });
 const AccountSchema = z.object({ state: z.enum(['ready', 'active', 'out']) });
 const HealthSchema = z.object({ paused: z.string().nullable().optional(), accounts: z.array(AccountSchema).optional() }).nullable().catch(null);
-export const RunnerRowSchema = z.object({
+export const WatchRunnerRowSchema = z.object({
   id: z.uuid(), name: z.string(), fleet: z.string().nullable(), repos: z.array(z.string()), last_seen_at: z.string(), health: z.unknown(),
 });
 export const SampleRowSchema = z.object({ runner_id: z.uuid(), at: z.string(), disk_free: z.coerce.number().nullable() });
-export const JobRowSchema = z.object({
+export const WatchJobRowSchema = z.object({
   id: z.uuid(), repo: z.string(), line: z.string(), status: z.enum(['queued', 'claimed', 'running', 'done', 'failed', 'cancelled']),
   outcome: z.string().nullable(), reason: z.string().nullable(), runner_id: z.uuid().nullable(), to_runner: z.uuid().nullable(),
   to_fleet: z.string().nullable(), queued_at: z.string(), running_at: z.string().nullable(), ended_at: z.string().nullable(),
   resume_after: z.string().nullable(), attempt: z.number().int(),
 });
-export const FailedJobRowSchema = JobRowSchema.extend({ log_tail: z.string() });
+export const FailedJobRowSchema = WatchJobRowSchema.extend({ log_tail: z.string() });
 export const LineAtRowSchema = z.object({ at: z.string() });
 export const ContinuesRowSchema = z.object({ continues: z.uuid().nullable() });
-export const MissionRowSchema = z.object({ id: z.uuid(), number: z.number().int(), title: z.string(), status: z.string(), updated_at: z.string() });
+export const WatchMissionRowSchema = z.object({ id: z.uuid(), number: z.number().int(), title: z.string(), status: z.string(), updated_at: z.string() });
 export const EventAtRowSchema = z.object({ at: z.string() });
 export const LedgerRowSchema = z.object({ kind: z.string(), state: z.string() });
-export const RepairRowSchema = z.object({ fingerprint: z.string() });
+export const WatchRepairRowSchema = z.object({ fingerprint: z.string() });
 export const ErrorRowSchema = z.object({ route: z.string(), status: z.number().int(), created_at: z.string() });
 export const NoteRowSchema = z.object({ line: z.string() });
 export const SignalRowSchema = z.object({ id: z.uuid(), fingerprint: z.string(), opened_at: z.string(), finding_id: z.uuid().nullable() });
@@ -77,7 +77,7 @@ export function failingKinds(rows: readonly { kind: string; state: string }[]): 
   return [...runs.entries()].filter(([, states]) => states.length >= 3 && states.slice(0, 3).every((state) => state === 'failed')).map(([kind]) => kind);
 }
 
-const jobOf = (row: z.infer<typeof JobRowSchema>, more: Partial<WatchJob> = {}): WatchJob => ({
+const jobOf = (row: z.infer<typeof WatchJobRowSchema>, more: Partial<WatchJob> = {}): WatchJob => ({
   id: row.id, repo: row.repo, line: row.line, status: row.status, outcome: row.outcome, reason: row.reason, runnerId: row.runner_id,
   toRunner: row.to_runner, toFleet: row.to_fleet, queuedAt: row.queued_at, runningAt: row.running_at, endedAt: row.ended_at,
   resumeAfter: row.resume_after, attempt: row.attempt, lastLineAt: null, lastLine: null, continued: false, ...more,
@@ -98,7 +98,7 @@ export function watchStore(connection: Connection): WatchStore {
   const ledger = jobLedger(connection);
 
   async function runners(workspace: string, now: number): Promise<WatchRunner[]> {
-    const rows = rowsOf(RunnerRowSchema, await db.from('runners').select(RUNNER).eq('workspace_id', workspace).limit(200));
+    const rows = rowsOf(WatchRunnerRowSchema, await db.from('runners').select(WATCH_RUNNER).eq('workspace_id', workspace).limit(200));
     const samples = rowsOf(SampleRowSchema, await db.from('runner_samples').select(SAMPLE).eq('workspace_id', workspace)
       .gte('at', new Date(now - HOUR).toISOString()).order('at', { ascending: true }).limit(5000));
     return rows.map((row) => {
@@ -112,10 +112,10 @@ export function watchStore(connection: Connection): WatchStore {
   }
 
   async function jobs(workspace: string, now: number): Promise<WatchJob[]> {
-    const active = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).eq('workspace_id', workspace).in('status', ['queued', 'claimed', 'running']).limit(500));
+    const active = rowsOf(WatchJobRowSchema, await db.from('runner_jobs').select(WATCH_JOB).eq('workspace_id', workspace).in('status', ['queued', 'claimed', 'running']).limit(500));
     const failed = rowsOf(FailedJobRowSchema, await db.from('runner_jobs').select(FAILED_JOB).eq('workspace_id', workspace).eq('status', 'failed')
       .gte('ended_at', new Date(now - 24 * HOUR).toISOString()).order('ended_at', { ascending: false }).limit(300));
-    const waiting = rowsOf(JobRowSchema, await db.from('runner_jobs').select(JOB).eq('workspace_id', workspace).eq('status', 'done')
+    const waiting = rowsOf(WatchJobRowSchema, await db.from('runner_jobs').select(WATCH_JOB).eq('workspace_id', workspace).eq('status', 'done')
       .in('outcome', ['human', 'answers', 'held']).gte('ended_at', new Date(now - 14 * 24 * HOUR).toISOString())
       .lte('ended_at', new Date(now - 4 * HOUR).toISOString()).limit(300));
     const continued = waiting.length === 0 ? new Set<string>() : new Set(rowsOf(ContinuesRowSchema, await db.from('runner_jobs').select('continues')
@@ -133,12 +133,12 @@ export function watchStore(connection: Connection): WatchStore {
   }
 
   async function missions(workspace: string): Promise<WatchMission[]> {
-    const rows = rowsOf(MissionRowSchema, await db.from('missions').select(MISSION).eq('workspace_id', workspace).in('status', ['running', 'waiting']).limit(100));
+    const rows = rowsOf(WatchMissionRowSchema, await db.from('missions').select(WATCH_MISSION).eq('workspace_id', workspace).in('status', ['running', 'waiting']).limit(100));
     return Promise.all(rows.map(async (row) => {
       const [event] = rowsOf(EventAtRowSchema, await db.from('mission_events').select('at').eq('mission_id', row.id).order('at', { ascending: false }).limit(1));
       const [run] = rowsOf(LedgerRowSchema, await db.from('background_jobs').select('kind, state').eq('kind', 'mission').eq('key', `mission:${row.id}`).limit(1));
       const repairs: Record<string, number> = {};
-      for (const repair of rowsOf(RepairRowSchema, await db.from('mission_repairs').select('fingerprint').eq('mission_id', row.id).limit(500))) {
+      for (const repair of rowsOf(WatchRepairRowSchema, await db.from('mission_repairs').select('fingerprint').eq('mission_id', row.id).limit(500))) {
         repairs[repair.fingerprint] = (repairs[repair.fingerprint] ?? 0) + 1;
       }
       return { id: row.id, number: row.number, title: row.title, status: row.status, lastEventAt: event?.at ?? null, updatedAt: row.updated_at, runFailed: run?.state === 'failed', repairs };

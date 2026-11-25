@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { MISSION_REPAIRS, NO_REPAIRS, type RepairRow, type RepairView } from './repair.ts';
 import { productStateOf, type Attempt, type ProductFact, type ProductRun } from './supervisor.ts';
 
 // Bug #3287, the supervisor's reading alone: a product PRD's build that ended halfway or held is sent again as its next run, within
-// the resume step's cap at `alone` (a spend or rate limit counts none) and once below it, and any other end waits for a person.
+// the resume step's cap at `alone` (a spend or rate limit counts none) and once below it, and any other end waits for a person when
+// repairs are off. Bug #3302: with repairs on, a failure, a second hold or spent resumes get a repair first, within the mission's 9.
 
 const P = parseProductPrdId('omni-loop-27');
 const OTHER = parseProductPrdId('omni-loop-28');
@@ -55,5 +57,32 @@ describe('productStateOf, any other end', () => {
     expect(productStateOf(fact, [build(1, { status: 'failed', reason: 'the runner crashed' })], where(3))).toMatchObject({ state: 'waits', why: expect.stringContaining('its job failed: the runner crashed') as string });
     expect(productStateOf(fact, [build(1, { status: 'failed' })], where(3))).toMatchObject({ state: 'waits', why: expect.stringContaining('its job ended failed') as string });
     expect(productStateOf(fact, [build(1, { status: 'cancelled' })], where(3))).toMatchObject({ state: 'waits', why: expect.stringContaining('its job ended cancelled') as string });
+  });
+});
+
+describe('productStateOf, with the mission\'s repairs (bug #3302, BR-PRODUCT-139)', () => {
+  const on: RepairView = { ...NO_REPAIRS, budget: MISSION_REPAIRS };
+  const spent = (n: number): RepairRow => ({ id: `r-${String(n)}`, prd: parsePrd(2896), fingerprint: String(n).padStart(64, 'a'), round: 1, number: 1, failedJob: `f-${String(n)}`, job: `rj-${String(n)}`, retro: null, fixPr: null, outcome: 'not fixed' });
+  const withRepairs = (repairs: RepairView) => ({ ...where(3), repairs });
+
+  it('a failure, a second hold or spent resumes send a repair, numbered after the PRD\'s last', () => {
+    expect(productStateOf(fact, [build(1, { status: 'failed', reason: 'exit 1' })], withRepairs(on))).toEqual({ state: 'repairable', k: 1, failedJob: 'job-1', why: 'its job failed: exit 1' });
+    expect(productStateOf(fact, [build(1, { outcome: 'held' }), build(2, { outcome: 'held' })], withRepairs(on))).toMatchObject({ state: 'repairable', k: 1, failedJob: 'job-2' });
+    expect(productStateOf(fact, halfway(4), withRepairs(on))).toMatchObject({ state: 'repairable', failedJob: 'job-4' });
+  });
+
+  it('a question for a person or a cancel still waits for a person, with no repair', () => {
+    expect(productStateOf(fact, [build(1, { outcome: 'human' })], withRepairs(on))).toMatchObject({ state: 'waits', why: expect.stringContaining('its job ended human') as string });
+    expect(productStateOf(fact, [build(1, { status: 'cancelled' })], withRepairs(on))).toMatchObject({ state: 'waits', why: expect.stringContaining('its job ended cancelled') as string });
+  });
+
+  it('a repair at work reads repairing; the 9 spent, by any PRD of the mission, a person with the reason', () => {
+    const atWork: RepairView = { ...on, jobs: [{ prd: P, k: 1, job: 'rj', failedJob: 'job-1', attempts: [attempt({ id: 'rj', status: 'running' })] }] };
+    expect(productStateOf(fact, [build(1, { status: 'failed' })], withRepairs(atWork))).toEqual({ state: 'repairing', why: 'PRD omni-loop-27: repairing (1 of 3) · 8 left in this mission' });
+    const nine: RepairView = { ...on, rows: Array.from({ length: 9 }, (_, n) => spent(n + 1)) };
+    expect(productStateOf(fact, [build(1, { status: 'failed', reason: 'exit 1' })], withRepairs(nine))).toEqual({
+      state: 'waits',
+      why: 'PRD omni-loop-27: its job failed: exit 1, and the mission spent its 9 repairs; take it to ready by hand and the mission joins it',
+    });
   });
 });

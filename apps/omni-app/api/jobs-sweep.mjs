@@ -19664,12 +19664,12 @@ function rowViolation(row, slices, { owners, planName }) {
 function targetReachViolations(slices, targets) {
   const readOnly = new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName5(target2.repo)));
   const consumes = new Map(targets.map((target2) => [shortName5(target2.repo), new Set(target2.consumes ?? [])]));
-  const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const repoOf3 = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const violations = slices.filter((slice) => slice.repo !== null && readOnly.has(slice.repo)).map((slice) => `readOnly: ${slice.id} lands in ${slice.repo}, a read-only target \u2014 no slice may name it.`);
   for (const slice of slices) {
     const provided = slice.repo === null ? void 0 : consumes.get(slice.repo);
     for (const blocker of slice.blockedBy) {
-      const provider = repoOf2.get(blocker);
+      const provider = repoOf3.get(blocker);
       if (provider === void 0 || provider === null || provided?.has(provider) !== true) continue;
       violations.push(
         `consumes: ${slice.id} (${slice.repo}) is blocked by ${blocker} (${provider}), and ${slice.repo} consumes ${provider} \u2014 ${slice.repo} installs what ${provider} publishes from its default branch, so the change it waits on is an earlier PRD of its own.`
@@ -19735,7 +19735,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map(), befo
   const landingRows = parsePlanLandings(markdown);
   const planSection2 = config.plan ?? null;
   const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
-  const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const repoOf3 = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const generated = multi ? [] : config.generated ?? [];
   const collisions2 = sameWaveCollisions(slices, generated);
   const landings = gradedLandings(slices, landingRows);
@@ -19754,7 +19754,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map(), befo
       return [...contractViolations2(slice, asks), ...beforeAfter === void 0 ? [] : contractPageViolations(slice, asks, beforeAfter)];
     }),
     ...collisions2.map(
-      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf2.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
+      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf3.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
   ];
   const waves = wavesOf(slices);
@@ -23593,6 +23593,26 @@ function compareVersions2(a, b) {
   return 0;
 }
 
+// apps/omni-app/src/missions/store.prd.ts
+import { z as z99 } from "zod";
+var PrdIdSchema = z99.union([
+  ProductPrdIdSchema,
+  z99.string().regex(/^[1-9]\d{0,9}$/).transform(Number).pipe(PrdNumberSchema)
+]);
+function prdColumns(prd) {
+  if (prd === null) return { prd: null, product_prd: null };
+  return isProductPrdId(prd) ? { prd: null, product_prd: prd } : { prd, product_prd: null };
+}
+var prdKeyPart = (prd) => `prd:${String(prd)}`;
+function productRunOfKey(key) {
+  const match = /^mission:[0-9a-f-]{36}:prd:([^:]+):run:([1-9][0-9]*)$/.exec(key);
+  const prd = ProductPrdIdSchema.safeParse(match?.[1]);
+  return match !== null && prd.success ? { prd: prd.data, run: Number(match[2]) } : null;
+}
+function numberedOf(prd) {
+  return prd !== null && isProductPrdId(prd) ? { prd: null, product: prd } : { prd };
+}
+
 // apps/omni-app/src/missions/repair.ts
 var CAUSE_REPAIRS = 3;
 var MISSION_REPAIRS = 9;
@@ -23603,11 +23623,11 @@ function bugFixOf(state, fixedIn) {
   return state === "wont-fix" ? { state: "wont-fix" } : { state: "open" };
 }
 var NO_REPAIRS = { budget: 0, round: 1, jobs: [], rows: [], stuck: [], refused: /* @__PURE__ */ new Map(), landings: /* @__PURE__ */ new Map(), reports: /* @__PURE__ */ new Map() };
-var KEY2 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
+var KEY2 = /^mission:([0-9a-f-]{36}):prd:([^:]+):repair:([1-9][0-9]*)$/;
 var repairKey = (mission, prd, k) => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
 function repairOfKey(key) {
   const match = KEY2.exec(key);
-  const prd = PrdNumberSchema.safeParse(Number(match?.[2]));
+  const prd = PrdIdSchema.safeParse(match?.[2]);
   return match && prd.success ? { prd: prd.data, k: Number(match[3]) } : null;
 }
 var repairSkillLine = (mission, prd, failedJob) => `/omni:repair --mission ${String(mission)} --prd ${String(prd)} --job ${failedJob}`;
@@ -23635,8 +23655,8 @@ var ended = (job) => {
 var rowOf2 = (view, job) => view.rows.find((row) => row.job === job);
 function spentOf(view) {
   const kept3 = view.rows.filter((row) => row.outcome !== "lost").length;
-  const atWork3 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
-  return kept3 + atWork3;
+  const atWork4 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
+  return kept3 + atWork4;
 }
 var leftOf = (view) => Math.max(0, view.budget - spentOf(view));
 var short2 = (fingerprint2) => fingerprint2.slice(0, 8);
@@ -23770,6 +23790,8 @@ function reportEvent(row, report, who = `PRD ${String(row.prd)}`) {
   const link = linkOf(`https://github.com/${report.repo}/issues/${String(report.issue)}`);
   return [{ kind: "bug-reported", role: "supervisor", prd: row.prd, job: row.job, link, sentence: `${who} met an Omni Loop bug [${short2(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
 }
+var ofRepository = (event) => event.prd === null || !isProductPrdId(event.prd);
+var asMissionEvent = (event) => ({ ...event, prd: ofRepository(event) ? event.prd : null });
 function repairEvents(view, where, sentAfter2 = () => null) {
   const own = view.rows.filter((row) => !isStuckRow(row));
   return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))]), ...bugFixedEvents(view, sentAfter2)];
@@ -24055,15 +24077,15 @@ function droppedOf(events) {
 var dropLine = (mission, prd) => `omni mission drop ${String(mission)} ${String(prd)}`;
 
 // kit/lib/committee/vote.ts
-import { z as z99 } from "zod";
+import { z as z100 } from "zod";
 var COMMITTEE_ROLES = Object.freeze(["pm", "architect", "reviewer"]);
-var CommitteeRoleSchema = z99.enum(COMMITTEE_ROLES);
+var CommitteeRoleSchema = z100.enum(COMMITTEE_ROLES);
 var VERDICT_ANSWERS = Object.freeze(["yes", "no", "unsure", "failed", "timeout"]);
 var SENTENCE_MAX2 = 200;
-var VerdictSchema6 = z99.object({
+var VerdictSchema6 = z100.object({
   role: CommitteeRoleSchema,
-  answer: z99.enum(VERDICT_ANSWERS),
-  sentence: z99.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX2, `sentence: ${String(SENTENCE_MAX2)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
+  answer: z100.enum(VERDICT_ANSWERS),
+  sentence: z100.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX2, `sentence: ${String(SENTENCE_MAX2)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
 });
 var NAMES2 = { pm: "PM", architect: "Architect", reviewer: "Reviewer" };
 var roleName = (role) => `the ${NAMES2[role]}`;
@@ -24082,7 +24104,7 @@ function tally(verdicts, author) {
   if (why.length === 0) why.push(...recorded.filter((verdict) => verdict.answer !== "yes").map(whyOf));
   return { outcome: why.length === 0 ? "carried" : "escalated", why, verdicts: recorded };
 }
-var VotesSchema = z99.object({ verdicts: z99.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1) });
+var VotesSchema = z100.object({ verdicts: z100.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1) });
 
 // kit/lib/committee/escalation.ts
 var listed2 = (ids) => ids.join(", ");
@@ -24120,24 +24142,24 @@ var TO_A_PERSON = "to a person";
 var routes = (facts) => escalations(facts).map((line3) => ({ case: line3, to: line3 === PHASE0_PR ? TO_A_PERSON : TO_THE_MEMBERS }));
 
 // kit/lib/committee/record.ts
-import { z as z100 } from "zod";
+import { z as z101 } from "zod";
 var COMMITTEE_LINE = "omni committee: ";
 var REASONS_MAX = 10;
 var REASON_MAX = 300;
-var ReadFileSchema = z100.object({ kind: z100.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z100.string().regex(/^[0-9a-f]{64}$/) });
+var ReadFileSchema = z101.object({ kind: z101.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z101.string().regex(/^[0-9a-f]{64}$/) });
 var RECORD2 = {
-  v: z100.literal(1),
+  v: z101.literal(1),
   prd: PrdNumberSchema,
   author: CommitteeRoleSchema.nullable(),
-  read: z100.array(ReadFileSchema).max(10),
-  escalations: z100.array(z100.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
-  verdicts: z100.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1),
+  read: z101.array(ReadFileSchema).max(10),
+  escalations: z101.array(z101.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
+  verdicts: z101.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1),
   /** `deferred` (PRD omni-loop-21 s2): an item the vote did not carry, settled meanwhile with option A, open for a person at landing. */
-  outcome: z100.enum(["carried", "deferred", "escalated"])
+  outcome: z101.enum(["carried", "deferred", "escalated"])
 };
-var CommitteeRecordSchema = z100.discriminatedUnion("kind", [
-  z100.object({ ...RECORD2, kind: z100.literal("approve") }),
-  z100.object({ ...RECORD2, kind: z100.literal("answer"), item: OutboxItemIdSchema, option: z100.string().regex(/^[A-Z]$/) })
+var CommitteeRecordSchema = z101.discriminatedUnion("kind", [
+  z101.object({ ...RECORD2, kind: z101.literal("approve") }),
+  z101.object({ ...RECORD2, kind: z101.literal("answer"), item: OutboxItemIdSchema, option: z101.string().regex(/^[A-Z]$/) })
 ]);
 var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
 function* recordsOf(log2) {
@@ -24297,7 +24319,7 @@ function decidedWords(item, n, decision) {
 }
 
 // kit/lib/virtual-fleet/pm.ts
-import { z as z101 } from "zod";
+import { z as z102 } from "zod";
 
 // kit/lib/runner/line.ts
 var RUNNABLE_SKILLS = Object.freeze([
@@ -24340,16 +24362,16 @@ var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave"
 var OWN_PRDS_MAX = 10;
 var TITLE_MAX2 = 120;
 var UNWRITTEN_MAX = 20;
-var PmSkillSchema = z101.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var PmSkillSchema = z102.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
 var PM_LINE = "omni pm: ";
-var PmRecordSchema = z101.object({
-  v: z101.literal(1),
-  mission: z101.number().int().positive(),
+var PmRecordSchema = z102.object({
+  v: z102.literal(1),
+  mission: z102.number().int().positive(),
   skill: PmSkillSchema,
-  cap: z101.number().int().min(1).max(OWN_PRDS_MAX),
+  cap: z102.number().int().min(1).max(OWN_PRDS_MAX),
   /** One kind per record: the PRD numbers of a repository, or the ids of a product's PRDs (PRD omni-loop-26). */
-  prds: z101.union([z101.array(PrdNumberSchema).max(OWN_PRDS_MAX), z101.array(ProductPrdIdSchema).max(OWN_PRDS_MAX)]),
-  unwritten: z101.array(z101.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
+  prds: z102.union([z102.array(PrdNumberSchema).max(OWN_PRDS_MAX), z102.array(ProductPrdIdSchema).max(OWN_PRDS_MAX)]),
+  unwritten: z102.array(z102.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
 });
 function mixedOf(prds) {
   if (!Array.isArray(prds) || prds.length === 0) return void 0;
@@ -24402,11 +24424,11 @@ function lastRecordOf(log2, prefix, schema, match) {
   }
   return null;
 }
-var ReadPmRecordSchema = z101.unknown().transform((json3, context) => {
+var ReadPmRecordSchema = z102.unknown().transform((json3, context) => {
   const read2 = readPmRecord(json3);
   if (read2.ok) return read2.record;
   context.addIssue({ code: "custom", message: read2.reason });
-  return z101.NEVER;
+  return z102.NEVER;
 });
 function pmRecordOf(log2, mission) {
   return lastRecordOf(log2, PM_LINE, ReadPmRecordSchema, (record) => record.mission === mission);
@@ -24454,26 +24476,6 @@ function idOf(value) {
   }
 }
 
-// apps/omni-app/src/missions/store.prd.ts
-import { z as z102 } from "zod";
-var PrdIdSchema = z102.union([
-  ProductPrdIdSchema,
-  z102.string().regex(/^[1-9]\d{0,9}$/).transform(Number).pipe(PrdNumberSchema)
-]);
-function prdColumns(prd) {
-  if (prd === null) return { prd: null, product_prd: null };
-  return isProductPrdId(prd) ? { prd: null, product_prd: prd } : { prd, product_prd: null };
-}
-var prdKeyPart = (prd) => `prd:${String(prd)}`;
-function productRunOfKey(key) {
-  const match = /^mission:[0-9a-f-]{36}:prd:([^:]+):run:([1-9][0-9]*)$/.exec(key);
-  const prd = ProductPrdIdSchema.safeParse(match?.[1]);
-  return match !== null && prd.success ? { prd: prd.data, run: Number(match[2]) } : null;
-}
-function numberedOf(prd) {
-  return prd !== null && isProductPrdId(prd) ? { prd: null, product: prd } : { prd };
-}
-
 // apps/omni-app/src/missions/supervisor.ts
 var OFFLINE_MS = 9e4;
 var FRESH_MS = 12e4;
@@ -24493,6 +24495,7 @@ function roomOn(runners, repo, now) {
 var STEPS = ["build", "qa:1", ...FIX_STEPS, "qa:2", "review:1", "fix:1", "review:2"];
 var NO_COMMITTEE = { alone: false, committees: [] };
 var NO_BRANCH = { branch: null, joined: /* @__PURE__ */ new Set(), lacks: /* @__PURE__ */ new Map() };
+var asRecorded = ({ kind, prd, job }) => ({ kind, prd: prd === null || isProductPrdId(prd) ? null : prd, job });
 var WAKE_MS = 6e4;
 var WORDS_MAX = 300;
 var LAST_RUN = 2;
@@ -25043,7 +25046,7 @@ function eventsOf({
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
     ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa, resumes }),
-    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
+    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)).filter(ofRepository),
     ...joinEvents(joins, base),
     ...landEvents(landings),
     ...prdEvents(facts, states),
@@ -25064,20 +25067,31 @@ function productAgain(runs, last, resumes) {
   return count4 <= resumes && halfway.length < PRODUCT_HALFWAY_MAX || `its build ended without its result line ${times(count4)}`;
 }
 var endedWhy = (end, last) => end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
-function productEnded(fact, runs, last, resumes) {
+var byHand = (prd, why) => ({ state: "waits", why: `PRD ${prd}: ${why}; take it to ready by hand and the mission joins it` });
+function productRepaired(prd, latest, last, why, repairs) {
+  const next = repairNext(repairs, prd, last.id, why);
+  if (next === null || next.next === "stops") return byHand(prd, next?.why ?? why);
+  if (next.next === "kit") return { state: "waits", why: `PRD ${prd}: ${next.why}` };
+  if (next.next === "repair") return { state: "repairable", k: next.k, failedJob: next.failedJob, why };
+  if (next.next === "repairing") return { state: "repairing", why: `PRD ${prd}: ${repairingWords(next)}` };
+  if (next.next === "paused") return byHand(prd, `${why}, and its repair was cancelled`);
+  return { state: "startable", run: latest.run + 1 };
+}
+function productEnded(fact, runs, last, { resumes, repairs }) {
   const latest = latestProduct(runs, fact.prd);
   const end = endOf(last);
   if (latest === null || end === "lost" || end === "limited") return { state: "running" };
   if (end === "ready") return { state: "ready", run: latest };
   const again3 = productAgain(runs, last, resumes);
   if (again3 === true) return { state: "startable", run: latest.run + 1 };
-  return { state: "waits", why: `PRD ${fact.prd}: ${again3 ?? endedWhy(end, last)}; take it to ready by hand and the mission joins it` };
+  if (again3 !== null || end === "failed") return productRepaired(fact.prd, latest, last, again3 ?? endedWhy(end, last), repairs);
+  return byHand(fact.prd, endedWhy(end, last));
 }
-function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null }) {
+function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null, repairs = NO_REPAIRS }) {
   if (joined2.has(fact.prd)) return { state: "joined" };
   const latest = latestProduct(runs, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, resumes);
+  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, { resumes, repairs });
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: "blocked", by };
   if (fact.approval !== "standing") return { state: "waits", why: `PRD ${fact.prd}: ${fact.approval === "voided" ? "approve it again" : "approve it"} on its page (${branch})` };
@@ -25214,6 +25228,12 @@ function withPm(next, writing, wakeAt2, wait2 = null) {
   return next.status === "running" ? { ...next, waitingOn } : { status: "waiting", waitingOn, nextWakeAt: wakeAt2 };
 }
 
+// kit/lib/mission/send-back.ts
+var SENT_BACK = "sent-back";
+var architectLeftWords = (prd) => `PRD ${prd}: the Architect left it to you`;
+var pmLeftWords = (prd) => `PRD ${prd}: the PM's plan approval went to you`;
+var roundsSpentWords = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version`;
+
 // kit/lib/virtual-fleet/tech-record.ts
 import { z as z104 } from "zod";
 
@@ -25273,13 +25293,22 @@ function addedProductsOf(recorded) {
   }
   return added;
 }
-var working2 = ({ status: status2 }) => status2 === "queued" || status2 === "claimed" || status2 === "running";
+var atWork2 = ({ status: status2 }) => status2 === "queued" || status2 === "claimed" || status2 === "running";
+var working2 = (view) => view.plans.some((one) => atWork2(one.attempt)) || view.techs.some((one) => atWork2(one.attempt));
+function sinceSentBack(all, job) {
+  const at4 = job === null ? -1 : all.findLastIndex((one) => one.job === job);
+  return at4 < 0 ? { mine: all, sentBack: false } : { mine: all.slice(at4 + 1), sentBack: true };
+}
+function afterSentBack(view, all) {
+  if (view.approval === "standing") return { state: "build" };
+  return working2(view) ? { state: "working" } : { ...planWith(unansweredOf(all), true), sentBack: true };
+}
 var approvedOn = (decisions, kind, latest) => latest !== null && decisions.some((one) => one.kind === kind && one.outcome === "approved" && one.plan === latest);
 function escalatedWords(prd, decision) {
   const why = decision.why.length > 0 ? decision.why.join("; ") : "it sent it to you";
-  return decision.kind === "tech" ? `PRD ${prd}: the Architect left it to you: ${why}; approve it on its page` : `PRD ${prd}: the PM's plan approval went to you: ${why}; approve it on its page`;
+  return decision.kind === "tech" ? `${architectLeftWords(prd)}: ${why}; approve it on its page` : `${pmLeftWords(prd)}: ${why}; approve it on its page`;
 }
-var spentWords2 = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS2)} rounds; approve it on its page`;
+var spentWords2 = (prd) => `${roundsSpentWords(prd)} in ${String(ROUNDS2)} rounds; approve it on its page`;
 var decidedOf = (mine, kind) => mine.filter((one) => one.kind === kind && one.plan !== null).length;
 function failsInRow(mine, kind) {
   const ofKind = mine.filter((one) => one.kind === kind);
@@ -25297,9 +25326,11 @@ function afterEscalated(view, mine, last) {
   return { state: "waits", why: escalatedWords(view.prd, open ?? last) };
 }
 function reviewStateOf(view) {
-  const mine = view.decisions.filter((one) => one.prd === view.prd);
+  const all = view.decisions.filter((one) => one.prd === view.prd);
+  const { mine, sentBack } = sinceSentBack(all, view.sentBack ?? null);
+  if (sentBack && mine.length === 0) return afterSentBack(view, all);
   if (approvedOn(mine, "plan", view.latest) && approvedOn(mine, "tech", view.latest)) return { state: "build" };
-  if (view.plans.some((one) => working2(one.attempt)) || view.techs.some((one) => working2(one.attempt))) return { state: "working" };
+  if (working2(view)) return { state: "working" };
   const last = mine.at(-1);
   if (last?.outcome === "escalated") return afterEscalated(view, mine, last);
   if (!approvedOn(mine, "plan", view.latest)) return decidedOf(mine, "plan") < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
@@ -25318,6 +25349,7 @@ var isRetry = (prd, decisions) => {
   return last?.outcome === "escalated" && last.plan === null;
 };
 function planSentence(prd, line3, state) {
+  if (state.sentBack === true) return `Sent the PM ${line3} again: a person sent PRD ${prd} back to it${state.points === void 0 ? "" : ", with the Architect's open points"}.`;
   if (state.points !== void 0) return `Sent the PM ${line3} again: it answers the Architect's open points on PRD ${prd}.`;
   return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
 }
@@ -25427,11 +25459,11 @@ var ended2 = (job) => ["done", "failed", "cancelled"].includes(job.attempts.at(-
 function milestoneNext(view, { done, delivered, held: held2 }) {
   const kept3 = new Set(view.rows.map((row) => row.milestone));
   const sent = new Set(view.jobs.map((job) => job.milestone));
-  const atWork3 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended2(job));
+  const atWork4 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended2(job));
   const pending = reachedOf(view.roadmaps, done, delivered).filter((milestone) => !kept3.has(milestone) && !sent.has(milestone));
-  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork3 };
-  if (held2 !== null || atWork3) return { send: null, skip: [], atWork: atWork3 };
-  return { send: pending[0] ?? null, skip: [], atWork: atWork3 };
+  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork4 };
+  if (held2 !== null || atWork4) return { send: null, skip: [], atWork: atWork4 };
+  return { send: pending[0] ?? null, skip: [], atWork: atWork4 };
 }
 var FILE = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*\.md$/;
 function fileOf(path) {
@@ -25512,18 +25544,20 @@ function scrub(input) {
 
 // kit/lib/repair/line.ts
 var REPAIR_LINE = "omni repair: ";
+var REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
 var RepairRecordSchema = z106.object({
   v: z106.literal(1),
   mission: z106.number().int().positive(),
   trigger: z106.enum(["failure", "stuck"]).optional(),
-  prd: PrdNumberSchema.nullable(),
+  prd: z106.union([PrdNumberSchema, ProductPrdIdSchema]).nullable(),
   fingerprint: FingerprintSchema,
   class: RepairClassSchema,
   retro: RepairRetroSchema,
   fix: PrNumberSchema.nullable(),
+  repo: z106.string().regex(REPO).optional(),
   report: PublicReportSchema.nullable()
-}).refine((record) => record.prd !== null || record.trigger === "stuck", "only a stuck repair may name no PRD").refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
+}).refine((record) => record.prd !== null || record.trigger === "stuck", "only a stuck repair may name no PRD").refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.repo === void 0 || record.fix !== null, "only a fix names its repository").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
 function withOwnFingerprint(record) {
   const own = fingerprint(record.retro);
   return {
@@ -25596,6 +25630,10 @@ function bugFollowHandler({
 }
 
 // apps/omni-app/src/missions/repair-run.ts
+var stepsOf = (at4) => [
+  ...at4.runs,
+  ...(at4.products ?? []).map(({ prd, run, job, attempts }) => ({ prd, run, step: "build", job, attempts }))
+];
 var spends = (job) => {
   const status2 = job.attempts.at(-1)?.status;
   return status2 === "done" || status2 === "failed";
@@ -25617,7 +25655,7 @@ function overBudget(rows, { budget, round, fingerprint: fingerprint2 }) {
   if (counted3.length >= budget) return "mission";
   return counted3.filter((row) => row.round === round && row.fingerprint === fingerprint2).length >= CAUSE_REPAIRS ? "cause" : null;
 }
-var fixUrlOf = (at4, record) => record?.fix == null ? null : `https://github.com/${at4.mission.repo}/pull/${String(record.fix)}`;
+var fixUrlOf = (at4, record) => record?.fix == null ? null : `https://github.com/${record.repo ?? at4.mission.repo}/pull/${String(record.fix)}`;
 async function endedAtOnce(at4, kept3) {
   const ends = endsAt(kept3);
   if (ends === null) return kept3;
@@ -25643,6 +25681,7 @@ function stepAfter(runs, row) {
   const later2 = runs.filter((one) => one.prd === row.prd && after(one, failed3));
   return later2.reduce((first, one) => first === null || after(first, one) ? one : first, null);
 }
+var repoOf2 = (url) => /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+$/.exec(url)?.[1] ?? null;
 var prOf2 = (url) => {
   const parsed3 = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)$/.exec(url)?.[1]));
   return parsed3.success ? parsed3.data : null;
@@ -25652,18 +25691,28 @@ async function land(at4, fixPr, prd) {
   if (at4.branch === null) return { state: "refused", why: "the mission has no branch of its own to land it on" };
   if (pr === null) return { state: "refused", why: "its link names no pull request" };
   if (at4.joins === null || at4.installation === null) return { state: "waits", lacks: ["the app has no GitHub access here"] };
-  const where = { installation: at4.installation, repo: at4.mission.repo, prd, pr };
+  const where = { installation: at4.installation, repo: at4.mission.repo, prd: prd === null || isProductPrdId(prd) ? null : prd, pr };
   const pull = await at4.joins.read(where);
   const judged4 = judgeFix(pull, at4.branch);
   if (judged4.state !== "merge") return judged4;
   const merged = await at4.joins.merge({ ...where, head: pull.head, title: pull.title, base: pull.base, defaultBranch: pull.defaultBranch });
   return merged.ok ? { state: "landed" } : { state: "refused", why: merged.why };
 }
+function fixRepoOf(at4, row) {
+  const repo = repoOf2(row.fixPr);
+  const own = at4.mission.repo.toLowerCase();
+  const allowed = row.prd !== null && isProductPrdId(row.prd) ? (at4.repos ?? [own]).map((one) => one.toLowerCase()) : [own];
+  if (repo === null || !allowed.includes(repo.toLowerCase())) return { why: `${repo ?? "its link"} holds no mission branch of this mission` };
+  return { repo };
+}
 async function landAll(at4, rows) {
   const landings = /* @__PURE__ */ new Map();
+  const steps = stepsOf(at4);
   for (const row of rows) {
-    if (row.job === null || row.outcome !== null || row.retro?.class !== "code" || row.fixPr === null || stepAfter(at4.runs, row) !== null) continue;
-    landings.set(row.job, await land(at4, row.fixPr, row.prd));
+    const fixPr = row.fixPr;
+    if (row.job === null || row.outcome !== null || row.retro?.class !== "code" || fixPr === null || stepAfter(steps, row) !== null) continue;
+    const where = fixRepoOf(at4, { ...row, fixPr });
+    landings.set(row.job, "why" in where ? { state: "refused", why: where.why } : await land({ ...at4, mission: { repo: where.repo } }, fixPr, row.prd));
   }
   return landings;
 }
@@ -25675,9 +25724,10 @@ function settledOf(runs, row) {
   return outcome2(end, next.run, last.reason, next.step).next === "stops" ? "not fixed" : "fixed";
 }
 async function settleAll(at4, rows) {
+  const steps = stepsOf(at4);
   for (const [n, row] of rows.entries()) {
     if (row.outcome !== null || row.retro?.class !== "code" && row.retro?.class !== "flake") continue;
-    const settled2 = settledOf(at4.runs, row);
+    const settled2 = settledOf(steps, row);
     if (settled2 === null) continue;
     await at4.store.endRepair(row.id, settled2);
     rows[n] = { ...row, outcome: settled2 };
@@ -25729,7 +25779,7 @@ async function readRepairs(at4) {
 }
 async function wayBackOf(at4, rows, reports) {
   const held2 = at4.mission.status === "paused" || at4.mission.status === "stopped";
-  if (held2 || !waitsOnFix(at4.runs, rows, reports)) return { held: held2 };
+  if (held2 || !waitsOnFix(stepsOf(at4), rows, reports)) return { held: held2 };
   return { held: held2, kit: await pinnedKit(at4) };
 }
 function waitsOnFix(runs, rows, reports) {
@@ -25756,7 +25806,7 @@ async function namingsOf(at4) {
     }),
     ...at4.repairs.flatMap((one) => {
       const done = doneOf(one.attempts);
-      return done === null ? [] : [{ by: "repair", prd: one.prd, job: done.id }];
+      return done === null ? [] : [{ by: "repair", prd: one.prd === null || isProductPrdId(one.prd) ? null : one.prd, job: done.id }];
     })
   ];
   const namings = [];
@@ -26111,14 +26161,14 @@ var sentEvent2 = (job, { where, mission }) => ({
 });
 function rowEvents2(row) {
   const cause = `[${short2(row.fingerprint)}]`;
-  const said5 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const said5 = (kind, role, sentence2) => asMissionEvent({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
   const retro2 = row.retro === null ? [] : [said5("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "ended not fixed: its record line could not be read." : `${cause} ended ${row.outcome}.`;
   return [...retro2, said5("repair-ended", "supervisor", `The stuck repair ${how}`)];
 }
 function stuckEvents(view, where) {
-  return [...view.jobs.map((job) => sentEvent2(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission")])];
+  return [...view.jobs.map((job) => sentEvent2(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission").map(asMissionEvent)])];
 }
 var pausedEvent = (why) => ({ kind: "stuck", role: "supervisor", prd: null, job: null, link: null, sentence: `Paused: stuck: ${why}` });
 var pausedWords2 = (why) => `Paused: stuck \xB7 ${why}`;
@@ -26183,7 +26233,7 @@ var moving = (status2) => status2 === "running" || status2 === "waiting";
 var repairingNext = (next, words) => ({ ...withWaits(next, [words]), status: "running" });
 var pausedNext = (why) => ({ status: "paused", waitingOn: cut3(pausedWords2(why)), nextWakeAt: null, pausedBy: "stuck" });
 async function stuckStep(at4) {
-  const timeline2 = [...at4.recorded, ...at4.events.map(({ kind, prd, job }) => ({ kind, prd, job }))];
+  const timeline2 = [...at4.recorded, ...at4.events.map(asRecorded)];
   const beats = beatsOf(timeline2, at4.runs);
   let view = await settleAll2(at4.store, at4.stuck, beats);
   const decided = at4.sends && moving(at4.mission.status) && moving(at4.next.status) ? stuckNext(view, beats, at4.left) : { next: "none" };
@@ -26445,35 +26495,41 @@ async function supervise(store, sought, now, github) {
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, off, installation: ready.installation, joins: github.joins, hold: held2.hold });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered, resumes: resumeCap(mission) };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
+  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...await productRepairAt(store, mission) });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
   const planAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
   const before2 = withPlans(prdStates(facts, runs, branch, view, fleet, repairView, qa), planAt);
   const { sent, approved, asked, repaired: repaired2 } = unready === null ? await sendEvery({ store, mission, facts, states: before2.states, toFleet, skill, added: pm.authored, left: leftOf(repairView) }) : NOTHING_SENT;
-  const repairs = { ...repairView, jobs: [...repairView.jobs, ...repaired2] };
+  const sentRepairs = { ...repairView, jobs: [...repairView.jobs, ...repaired2] };
   const planned = await sendPlans({ store, mission, send: before2.send, jobs: pm.jobs, toFleet, sends: unready === null });
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const after2 = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs });
+  const after2 = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, sentRepairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs: sentRepairs });
   const states = after2.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after2.retro });
   const fresh = sent.length + approved.length + asked.length + repaired2.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products } });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs });
+  const repairs = { ...sentRepairs, jobs: [...sentRepairs.jobs, ...products.repaired] };
   const landed = await landingStep({ store, mission, at: at4, landing, hold: kept3.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now, branch: branch.branch }), [...dropped.waits, ...held2.waits, ...landed.waits]);
   const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString(), pmWait(pmView(mission, pm, inPlan))), products, now);
   const finished = budget.finish(unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready });
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
+  const productRepairs = unrecorded(repairEvents(repairs, { where: whereOf2(mission, toFleet), mission: mission.number }).filter((one) => !ofRepository(one)), recordedKeys(dropped.recorded));
   const retro2 = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro2.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...landed.events, ...events, ...retro2.events], new Date(now));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...productRepairs, ...landed.events, ...events, ...retro2.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
-  const running = atWork2(states, retro2.running) || products.moving;
-  return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + landed.events.length };
+  const running = atWork3(states, retro2.running) || products.moving;
+  return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + productRepairs.length + landed.events.length };
 }
-var atWork2 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
+async function productRepairAt(store, mission) {
+  if (store.products === void 0 || mission.products === void 0) return {};
+  return { products: await store.products.runs(mission.id), repos: (await store.branches(mission.id)).map((one) => one.repo) };
+}
+var atWork3 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
 async function repairsOf(at4) {
   const read2 = await readRepairs(at4);
   const stuck = at4.store.retros === void 0 ? NO_STUCK : await readStuck({ ...at4, retros: at4.store.retros, rows: read2.rows });
@@ -26525,7 +26581,7 @@ async function readRun(store, sought, now) {
 async function pmJobEvents(store, mission, events, jobs, plans) {
   const fresh = [];
   for (const one of jobs) {
-    const known = [...events, ...fresh.map(asRecorded)];
+    const known = [...events, ...fresh.map(asRecorded2)];
     const plan = plans.find((each) => each.job === one.job);
     if (plan !== void 0) fresh.push(...planEvents(plan, known));
     if (!isOwnJob(one)) continue;
@@ -26545,7 +26601,7 @@ async function pmRead(store, mission, events, jobs, now) {
   const plans = planJobsOf(jobs);
   const fresh = mission.level === "alone" ? await pmJobEvents(store, mission, events, jobs, plans) : [];
   if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now - 1e3));
-  const recorded = [...events, ...fresh.map(asRecorded)];
+  const recorded = [...events, ...fresh.map(asRecorded2)];
   const added = addedOf(recorded);
   const authored = /* @__PURE__ */ new Set([...added, ...plannedOf(plans)]);
   const products = addedProductsOf(recorded);
@@ -26579,7 +26635,7 @@ async function sendRetro(store, mission, toFleet) {
   const sentence2 = `A new plan was refused: sent ${retroSkillLine(mission.number, "mission")} to ${whereOf2(mission, toFleet)}.`;
   return job === null ? [] : [{ kind: "dispatched", role: "supervisor", prd: null, job, link: null, sentence: sentence2 }];
 }
-var asRecorded = ({ kind, prd, job }) => typeof prd === "string" ? { kind, prd: null, product: prd, job } : { kind, prd, job };
+var asRecorded2 = ({ kind, prd, job }) => typeof prd === "string" ? { kind, prd: null, product: prd, job } : { kind, prd, job };
 var pmView = (mission, pm, inPlan) => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size + pm.products.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs), home: pm.home });
 async function sendPm(store, mission, pm, inPlan, toFleet) {
   const next = pmNext(pmView(mission, pm, inPlan));
@@ -26958,7 +27014,7 @@ async function dropAll({
       return { kind: "prd-dropped", role: "supervisor", prd: one, job: null, link: reopened?.url ?? null, sentence: `PRD ${String(one)} was dropped from ${at4.branch}${why}: ${how}.` };
     });
     await store.record(mission.id, events, new Date(now));
-    current = [...current, ...events.map(({ kind, prd: of, job }) => ({ kind, prd: of, job }))];
+    current = [...current, ...events.map(asRecorded2)];
   }
   return { recorded: current, waits };
 }
@@ -26975,7 +27031,7 @@ async function redBranch({ mission, at: at4, joined: joined2, joins }) {
   const why = `${at4.branch} is red (${failed3.map(({ name }) => name).join(", ")}) since PRD ${String(last)} joined: no further PRD joins; run ${dropLine(mission.number, last)} to take it off`;
   return { waits: [why], hold: why };
 }
-var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [] };
+var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [], repaired: [] };
 var NO_REVIEWS = { techs: [], decisions: [], events: [] };
 var notDoneWhy = ({ status: status2 }) => status2 === "done" ? [] : [status2 === "cancelled" ? "its job was cancelled" : "its job failed"];
 async function decideReviewed(at4, products, one) {
@@ -27001,6 +27057,11 @@ async function reviewAll(at4, products) {
     events.push(decisionEvent(decision));
   }
   return { techs: read2.techs, decisions, events };
+}
+function sentBackOf(events) {
+  const sent = /* @__PURE__ */ new Map();
+  for (const { kind, product, job } of events) if (kind === SENT_BACK && product !== void 0) sent.set(product, job);
+  return sent;
 }
 function productsJoined(events) {
   const on = /* @__PURE__ */ new Set();
@@ -27044,7 +27105,8 @@ async function productAll(at4) {
   if (products === void 0 || at4.mission.products === void 0 || !sendsCommittees(at4.mission.status)) return NO_PRODUCTS;
   const reviews = await reviewAll(at4, products);
   const facts = await products.facts(at4.mission);
-  const joined2 = productsJoined(await at4.store.events(at4.mission.id));
+  const recorded = await at4.store.events(at4.mission.id);
+  const joined2 = productsJoined(recorded);
   if (facts.length === 0) return NO_PRODUCTS;
   const branch = baseOf(at4.mission, at4.inPlan) ?? "the mission branch";
   if (facts.every((fact) => joined2.has(fact.prd))) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], waits: [`every product PRD is on ${branch}: a person lands it`] };
@@ -27052,14 +27114,14 @@ async function productAll(at4) {
   if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], pending: true, waits: [ready.why], events: reviews.events };
   const runs = await products.runs(at4.mission.id);
   const answered = answeredOf(await at4.store.decisions(at4.mission.id));
-  const done = await productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered, reviews, rounds: nextPlanRound(at4.pm.jobs) }, facts);
+  const done = await productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered, reviews, rounds: nextPlanRound(at4.pm.jobs), sentBack: sentBackOf(recorded) }, facts);
   return { ...done, events: [...reviews.events, ...done.events] };
 }
 function reviewOf(at4, fact) {
   if (!at4.pm.authored.has(fact.prd)) return { state: "build" };
   const plans = productPlansOf(at4.pm.jobs).filter((one) => one.prd === fact.prd);
   const techs = at4.reviews.techs.filter((one) => one.prd === fact.prd);
-  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions });
+  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions, sentBack: at4.sentBack.get(fact.prd) ?? null });
 }
 async function reviewStep(at4, fact, state, step) {
   if (state.state === "waits") {
@@ -27076,8 +27138,9 @@ async function reviewStep(at4, fact, state, step) {
 }
 async function productSteps(at4, facts) {
   const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
-  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission) };
-  const step = { room: at4.mission.parallel - facts.filter((fact) => productStateOf(fact, at4.runs, where).state === "running").length, moving: false, waits: [], events: [] };
+  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission), repairs: at4.repairs };
+  const busy = facts.filter((fact) => ["running", "repairing"].includes(productStateOf(fact, at4.runs, where).state)).length;
+  const step = { room: at4.mission.parallel - busy, moving: false, waits: [], events: [], repairs: at4.repairs, repaired: [] };
   for (const fact of facts) {
     const held2 = at4.held.get(fact.prd);
     if (held2 !== void 0 && !at4.joined.has(fact.prd)) {
@@ -27091,9 +27154,11 @@ async function productSteps(at4, facts) {
   }
   const sent = step.events.filter((one) => one.kind === "dispatched").length;
   const pending = facts.some((fact) => !at4.joined.has(fact.prd));
-  return { pending, moving: step.moving, waits: pending ? step.waits : [`every product PRD is on ${at4.branch}: a person lands it`], events: step.events, sent, rows: facts, on: [...at4.joined] };
+  const waits = pending ? step.waits : [`every product PRD is on ${at4.branch}: a person lands it`];
+  return { pending, moving: step.moving, waits, events: step.events, sent: sent + step.repaired.length, rows: facts, on: [...at4.joined], repaired: step.repaired };
 }
 async function productStep(at4, fact, state, step) {
+  if (await productRepairStep(at4, fact, state, step)) return;
   if (state.state === "running") step.moving = true;
   else if (state.state === "blocked") step.waits.push(heldWords(fact.prd, state.by, at4.branch));
   else if (state.state === "waits") step.waits.push(state.why);
@@ -27102,15 +27167,36 @@ async function productStep(at4, fact, state, step) {
     if (sent !== null) step.events.push(sent);
     step.moving = true;
     step.room -= 1;
-  } else if (state.state === "ready") {
-    const joined2 = await joinOneProduct(at4, fact);
-    if ("lacks" in joined2) step.waits.push(joined2.lacks);
-    else {
-      step.events.push(joined2.event);
-      at4.joined.add(fact.prd);
-      step.moving = true;
-    }
+  } else if (state.state === "ready") await joinStep(at4, fact, step);
+}
+async function joinStep(at4, fact, step) {
+  const joined2 = await joinOneProduct(at4, fact);
+  if ("lacks" in joined2) {
+    step.waits.push(joined2.lacks);
+    return;
   }
+  step.events.push(joined2.event);
+  at4.joined.add(fact.prd);
+  step.moving = true;
+}
+async function productRepairStep(at4, fact, state, step) {
+  if (state.state === "repairable") await repairProduct(at4, fact, state, step);
+  else if (state.state === "repairing") {
+    step.moving = true;
+    step.waits.push(state.why);
+  } else return false;
+  return true;
+}
+async function repairProduct(at4, fact, state, step) {
+  step.moving = true;
+  if (leftOf(step.repairs) === 0) return;
+  const job = await at4.store.repair({ mission: at4.mission, prd: fact.prd, k: state.k, failedJob: state.failedJob, toFleet: at4.toFleet });
+  if (job === null) return;
+  const sent = { prd: fact.prd, k: state.k, job, failedJob: state.failedJob, attempts: [{ id: job, status: "queued", outcome: null, reason: null, prUrl: null }] };
+  step.repaired.push(sent);
+  step.repairs = { ...step.repairs, jobs: [...step.repairs.jobs, sent] };
+  const next = repairNext(step.repairs, fact.prd, state.failedJob, state.why);
+  if (next?.next === "repairing") step.waits.push(`PRD ${fact.prd}: ${repairingWords(next)}`);
 }
 async function sendProduct(at4, fact, run) {
   const line3 = lineOf5(fact.prd, "build", "ultra-yolo", basesOf(fact.targets, at4.branch));
@@ -27686,7 +27772,8 @@ function madeOf(answer, none) {
 var OVER_BUDGET2 = "23514";
 var repairOf = (row) => ({
   id: row.id,
-  ...numberedOf(row.prd_id),
+  // A repair reads its PRD whichever it is (bug #3302): a product PRD's is repaired as a repository PRD's.
+  prd: row.prd_id,
   ...row.trigger === "stuck" ? { trigger: "stuck" } : {},
   fingerprint: row.fingerprint,
   round: row.round,
@@ -28709,11 +28796,11 @@ var MINUTE3 = 6e4;
 var HOUR = 60 * MINUTE3;
 var SEAT_LANES = "workspace_id";
 var SEAT = "workspace_id, runner_id, paused, daily_tokens, tokens_day, tokens_used, last_look_at, placed_at, runners(name)";
-var RUNNER2 = "id, name, fleet, repos, last_seen_at, health";
+var WATCH_RUNNER = "id, name, fleet, repos, last_seen_at, health";
 var SAMPLE = "runner_id, at, disk_free";
-var JOB3 = "id, repo, line, status, outcome, reason, runner_id, to_runner, to_fleet, queued_at, running_at, ended_at, resume_after, attempt";
-var FAILED_JOB = `${JOB3}, log_tail`;
-var MISSION2 = "id, number, title, status, updated_at";
+var WATCH_JOB = "id, repo, line, status, outcome, reason, runner_id, to_runner, to_fleet, queued_at, running_at, ended_at, resume_after, attempt";
+var FAILED_JOB = `${WATCH_JOB}, log_tail`;
+var WATCH_MISSION = "id, number, title, status, updated_at";
 var SIGNAL = "id, fingerprint, opened_at, finding_id";
 var FINDING = "id, state, raised_by, looked_at";
 var DISMISSAL = "evidence_key, supervisor_findings!inner(fingerprint)";
@@ -28731,7 +28818,7 @@ var SeatRowSchema = z120.object({
 });
 var AccountSchema = z120.object({ state: z120.enum(["ready", "active", "out"]) });
 var HealthSchema2 = z120.object({ paused: z120.string().nullable().optional(), accounts: z120.array(AccountSchema).optional() }).nullable().catch(null);
-var RunnerRowSchema3 = z120.object({
+var WatchRunnerRowSchema = z120.object({
   id: z120.uuid(),
   name: z120.string(),
   fleet: z120.string().nullable(),
@@ -28740,7 +28827,7 @@ var RunnerRowSchema3 = z120.object({
   health: z120.unknown()
 });
 var SampleRowSchema = z120.object({ runner_id: z120.uuid(), at: z120.string(), disk_free: z120.coerce.number().nullable() });
-var JobRowSchema3 = z120.object({
+var WatchJobRowSchema = z120.object({
   id: z120.uuid(),
   repo: z120.string(),
   line: z120.string(),
@@ -28756,13 +28843,13 @@ var JobRowSchema3 = z120.object({
   resume_after: z120.string().nullable(),
   attempt: z120.number().int()
 });
-var FailedJobRowSchema = JobRowSchema3.extend({ log_tail: z120.string() });
+var FailedJobRowSchema = WatchJobRowSchema.extend({ log_tail: z120.string() });
 var LineAtRowSchema = z120.object({ at: z120.string() });
 var ContinuesRowSchema = z120.object({ continues: z120.uuid().nullable() });
-var MissionRowSchema2 = z120.object({ id: z120.uuid(), number: z120.number().int(), title: z120.string(), status: z120.string(), updated_at: z120.string() });
+var WatchMissionRowSchema = z120.object({ id: z120.uuid(), number: z120.number().int(), title: z120.string(), status: z120.string(), updated_at: z120.string() });
 var EventAtRowSchema = z120.object({ at: z120.string() });
 var LedgerRowSchema = z120.object({ kind: z120.string(), state: z120.string() });
-var RepairRowSchema2 = z120.object({ fingerprint: z120.string() });
+var WatchRepairRowSchema = z120.object({ fingerprint: z120.string() });
 var ErrorRowSchema = z120.object({ route: z120.string(), status: z120.number().int(), created_at: z120.string() });
 var NoteRowSchema = z120.object({ line: z120.string() });
 var SignalRowSchema = z120.object({ id: z120.uuid(), fingerprint: z120.string(), opened_at: z120.string(), finding_id: z120.uuid().nullable() });
@@ -28812,7 +28899,7 @@ function watchStore(connection) {
   const db = serviceDb(connection);
   const ledger = jobLedger(connection);
   async function runners(workspace, now) {
-    const rows = rowsOf(RunnerRowSchema3, await db.from("runners").select(RUNNER2).eq("workspace_id", workspace).limit(200));
+    const rows = rowsOf(WatchRunnerRowSchema, await db.from("runners").select(WATCH_RUNNER).eq("workspace_id", workspace).limit(200));
     const samples = rowsOf(SampleRowSchema, await db.from("runner_samples").select(SAMPLE).eq("workspace_id", workspace).gte("at", new Date(now - HOUR).toISOString()).order("at", { ascending: true }).limit(5e3));
     return rows.map((row) => {
       const health = HealthSchema2.parse(row.health);
@@ -28829,9 +28916,9 @@ function watchStore(connection) {
     });
   }
   async function jobs(workspace, now) {
-    const active = rowsOf(JobRowSchema3, await db.from("runner_jobs").select(JOB3).eq("workspace_id", workspace).in("status", ["queued", "claimed", "running"]).limit(500));
+    const active = rowsOf(WatchJobRowSchema, await db.from("runner_jobs").select(WATCH_JOB).eq("workspace_id", workspace).in("status", ["queued", "claimed", "running"]).limit(500));
     const failed3 = rowsOf(FailedJobRowSchema, await db.from("runner_jobs").select(FAILED_JOB).eq("workspace_id", workspace).eq("status", "failed").gte("ended_at", new Date(now - 24 * HOUR).toISOString()).order("ended_at", { ascending: false }).limit(300));
-    const waiting2 = rowsOf(JobRowSchema3, await db.from("runner_jobs").select(JOB3).eq("workspace_id", workspace).eq("status", "done").in("outcome", ["human", "answers", "held"]).gte("ended_at", new Date(now - 14 * 24 * HOUR).toISOString()).lte("ended_at", new Date(now - 4 * HOUR).toISOString()).limit(300));
+    const waiting2 = rowsOf(WatchJobRowSchema, await db.from("runner_jobs").select(WATCH_JOB).eq("workspace_id", workspace).eq("status", "done").in("outcome", ["human", "answers", "held"]).gte("ended_at", new Date(now - 14 * 24 * HOUR).toISOString()).lte("ended_at", new Date(now - 4 * HOUR).toISOString()).limit(300));
     const continued = waiting2.length === 0 ? /* @__PURE__ */ new Set() : new Set(rowsOf(ContinuesRowSchema, await db.from("runner_jobs").select("continues").eq("workspace_id", workspace).in("continues", waiting2.map((job) => job.id))).flatMap((row) => row.continues === null ? [] : [row.continues]));
     const running = await Promise.all(active.filter((job) => job.status === "running").slice(0, 100).map(async (job) => {
       const [line3] = rowsOf(LineAtRowSchema, await db.from("runner_job_lines").select("at").eq("job_id", job.id).order("seq", { ascending: false }).limit(1));
@@ -28845,12 +28932,12 @@ function watchStore(connection) {
     ];
   }
   async function missions(workspace) {
-    const rows = rowsOf(MissionRowSchema2, await db.from("missions").select(MISSION2).eq("workspace_id", workspace).in("status", ["running", "waiting"]).limit(100));
+    const rows = rowsOf(WatchMissionRowSchema, await db.from("missions").select(WATCH_MISSION).eq("workspace_id", workspace).in("status", ["running", "waiting"]).limit(100));
     return Promise.all(rows.map(async (row) => {
       const [event] = rowsOf(EventAtRowSchema, await db.from("mission_events").select("at").eq("mission_id", row.id).order("at", { ascending: false }).limit(1));
       const [run] = rowsOf(LedgerRowSchema, await db.from("background_jobs").select("kind, state").eq("kind", "mission").eq("key", `mission:${row.id}`).limit(1));
       const repairs = {};
-      for (const repair of rowsOf(RepairRowSchema2, await db.from("mission_repairs").select("fingerprint").eq("mission_id", row.id).limit(500))) {
+      for (const repair of rowsOf(WatchRepairRowSchema, await db.from("mission_repairs").select("fingerprint").eq("mission_id", row.id).limit(500))) {
         repairs[repair.fingerprint] = (repairs[repair.fingerprint] ?? 0) + 1;
       }
       return { id: row.id, number: row.number, title: row.title, status: row.status, lastEventAt: event?.at ?? null, updatedAt: row.updated_at, runFailed: run?.state === "failed", repairs };
@@ -30928,7 +31015,7 @@ async function runDue({
   return summary2;
 }
 async function runOne2(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt: endsAt2, log: log2, summary: summary2 }) {
-  const settling = settle2(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
+  const settling = settle2(job, handlers[job.kind], { step: stepsOf2(ledger, job, leaseSeconds, log2) }, clock);
   const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
   const kept3 = await keep3(ledger, job, settled2, log2);
@@ -30962,7 +31049,7 @@ async function failed2(job, reason2, hook, log2) {
     log2(`job ${job.kind} ${job.key}: its failure hook threw: ${firstLine6(error instanceof Error ? error.message : String(error))}`);
   }
 }
-function stepsOf(ledger, job, leaseSeconds, log2) {
+function stepsOf2(ledger, job, leaseSeconds, log2) {
   const { save, stepsOf: read2, renew } = ledger;
   if (!save || !read2 || !renew) return memorySteps();
   return jobSteps({ ledger: { save, stepsOf: read2, renew }, job: { id: job.id, claim: job.claim }, leaseSeconds, log: log2 });

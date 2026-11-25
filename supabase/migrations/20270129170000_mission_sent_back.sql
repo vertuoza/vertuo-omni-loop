@@ -1,0 +1,27 @@
+-- A person sends a PM product PRD back to the PM (bug #3302). It runs after 20270129150000_runner_skill_tech_review.sql; the kinds of a
+-- mission event were last set by 20270129090000_mission_alone_store.sql.
+--
+-- - mission_events.kind takes one more kind:
+--     sent-back   a member ran `omni mission send-back <mission> <key>-<n>`, or pressed Send back to the PM on the Missions tab, on a
+--                 product PRD the mission's PM wrote that waits on them after its review: role supervisor, actor the member's login,
+--                 `product_prd` the PRD, `job_id` the job of the last plan or tech decision it follows. The supervisor counts the PRD's
+--                 rounds again from it and sends the PM its plan job with the Architect's latest open points. Every decision recorded
+--                 before stays as it was (BR-PRODUCT-12): this event is added beside them.
+--   Written by the service role, as `overturned` is; a member reads it and writes none.
+--
+-- It only adds: no column, row or table is dropped, and no row is rewritten. Every statement can run twice. Nobody's grants change.
+-- Proven by supabase/checks/mission_product_prd.sql.
+-- Rollback: the kind is additive, and an event is never deleted: once one is recorded it stays in the list. Reverting the App's code
+-- stops new send-backs; mission_events_kind_check of 20270129090000_mission_alone_store.sql comes back only while none is recorded.
+
+alter table public.mission_events drop constraint if exists mission_events_kind_check;
+alter table public.mission_events add constraint mission_events_kind_check check (kind in (
+  'started', 'paused', 'resumed', 'dispatched', 'job-ended', 'waits', 'prd-ready',
+  'prd-merged', 'held', 'stopped', 'delivered', 'reviewed', 'prd-joined',
+  'drop-asked', 'drop-asked-keep', 'prd-dropped', 'decided', 'escalated', 'overturned', 'prd-added', 'not-written',
+  'repair-started', 'retro', 'repair-ended', 'bug-reported', 'checked', 'budget-stop', 'budget-answer',
+  'stuck', 'stuck-answer', 'milestone-retro', 'item-proposed', 'item-answered',
+  'bug-taken', 'bug-asked', 'bug-fixed', 'messaged', 'deferred', 'sent-back'));
+
+comment on column public.mission_events.kind is
+  'What happened: started, paused, resumed, dispatched, job-ended, waits, prd-ready, prd-merged, held, stopped or delivered (PRD 2842), reviewed (PRD 2871: a verdict of the Reviewer, role reviewer, actor agent, linking its review), prd-joined (PRD 2896: the App squash-merged a PRD''s feature pull request into the mission branch, role supervisor, actor agent, linking the pull request), drop-asked or drop-asked-keep (PRD 2896: a member asked for a PRD to leave the branch, with or without the later PRDs sharing its territory, actor the member''s login), prd-dropped (PRD 2896: the App removed the PRD''s commit from the branch and reopened its feature pull request, role supervisor, actor agent, linking it), decided or escalated (PRD 2896: the fleet''s committee carried a decision, or sent it to a person, role pm, actor agent), overturned (PRD 2896: a member overturned a decision the fleet carried, which stays as recorded, role supervisor, actor the member''s login), prd-added (PRD 2896: a PRD the mission''s PM wrote joined its scope, added by the fleet, role pm, actor agent), not-written (PRD 2896: a row of the PM''s roadmap the cap left unwritten, role pm, actor agent, no prd), repair-started, retro, repair-ended and bug-reported (PRD 2980: a repair was sent, its retro named the cause, it ended, or the App filed an Omni Loop bug report; actor agent, each one sentence and one link, naming its fingerprint''s first 8 characters), checked (PRD 3001: a verdict of QA, role qa, actor agent, its round and its bugs'' issues in its sentence, linking its comment), budget-stop and budget-answer (PRD 3040: the supervisor recorded a budget stop, role supervisor, actor agent, naming whose cap and its value; a person answered it, actor their login), stuck, stuck-answer, milestone-retro, item-proposed and item-answered (PRD 3065: the supervisor found the mission stuck, sent its stuck repair or paused it by stuck, role supervisor, actor agent; a person resumed or stopped a mission paused by stuck, actor their login; a milestone retro was recorded, or skipped saying why, role supervisor, actor agent; a retro or a repair proposed a change to a rule, a law or a form, role supervisor, actor agent, naming its target; a person adopted or declined it, actor their login), bug-taken, bug-asked and bug-fixed (PRD 3088: the bug team sent a bug-fix job for an Omni Loop bug, set one aside on its question, or a bug a mission waited on was released fixed; role supervisor, actor agent, each one sentence naming the issue and its count or version, and one link, never a workspace, repository or login), messaged (PRD 3107: a member sent a message to the fleet while the mission ran, role supervisor, actor the member''s login, a fixed sentence and message_id, never the message''s words), deferred (PRD omni-loop-21: the fleet''s committee deferred an item, the option it took meanwhile in its sentence, open for a person on the mission pull request; role pm, actor agent), or sent-back (bug #3302: a member sent a product PRD the mission''s PM wrote back to the PM once it waited on them after its review, role supervisor, actor the member''s login, its product_prd the PRD and its job_id the plan or tech decision''s job it follows; no decision is edited).';
