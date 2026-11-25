@@ -6,6 +6,7 @@
 //   GET /api/waiting/questions  → { questions: WaitingQuestion[] }   the Questions part (PRD 499)
 //   GET /api/waiting/documents  → { documents: DocumentRow[] }       the New documents part (PRD 579)
 //   GET /api/waiting/runners    → { count: number }                  the Runners badge (PRD 2255)
+//   GET /api/waiting/supervisor → { seat: boolean, high: number }    the Supervisor row and its red badge (omni-loop-34 s8)
 //
 // A refusal is `{ error: <kind> }`: 401 `signed-out`, 500 `database`.
 import { z } from 'zod';
@@ -50,3 +51,8 @@ export const DocumentsSchema = z.object({ documents: z.array(DocumentRowSchema) 
 
 /** How many of the workspace's runner jobs wait for an answer: a whole number, 0 or more. */
 export const RunnersWaitingSchema = z.object({ count: z.number().int().nonnegative() });
+
+/** Whether the workspace has a Supervisor seat (no seat, no Supervisor row), and how many of its findings are open and
+ * high: the row's red badge (omni-loop-34 s8). */
+export const SupervisorWaitingSchema = z.object({ seat: z.boolean(), high: z.number().int().nonnegative() });
+export type SupervisorWaiting = z.infer<typeof SupervisorWaitingSchema>;

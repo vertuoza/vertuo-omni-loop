@@ -6,12 +6,11 @@ import { usePathname } from 'next/navigation';
 import type { MouseEvent } from 'react';
 import { pixelSvg } from '../design/pixel-svg';
 import { useWaiting } from '../waiting/WaitingProvider';
-import type { WaitingCounts } from '../waiting/waiting';
 import type { ShellMode } from '../anti/anti';
 import { BrandLogo } from './BrandLogo';
 import { useDrawer } from './drawer-context';
 import { setMenu, type MenuState } from './menu-rail';
-import { ANTI_SIDEBAR, OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, hrefOf, isQuiet, type SidebarId, type SidebarItem } from './sidebar.ts';
+import { ANTI_SIDEBAR, OMNI, SETTINGS, SIDEBAR, badgeOf, currentItem, hrefOf, isAlarm, isQuiet, shownItems, type MenuCounts, type SidebarId, type SidebarItem } from './sidebar.ts';
 import type { ViewerView } from './viewer-view';
 import './sidebar.css';
 import './drawer.css';
@@ -60,17 +59,21 @@ function spokenLabel(item: SidebarItem, waiting: number | null): string | undefi
   return `${item.label}: ${waiting} waiting`;
 }
 
+/** A badge's look: quiet grey digits, filled in red for the Supervisor's urgent count (omni-loop-34 s8), else filled. */
+const badgeClass = (id: SidebarId): string =>
+  isQuiet(id) ? 'app-sidebar-badge app-sidebar-badge-quiet' : isAlarm(id) ? 'app-sidebar-badge app-sidebar-badge-alarm' : 'app-sidebar-badge';
+
 /** An item that leaves the app opens in a new tab and is never prefetched. */
 const LEAVES_APP = { target: '_blank', rel: 'noopener', prefetch: false } as const;
 
-function Item({ item, current, counts, choose, ideasBoard = null }: { item: SidebarItem; current: SidebarId | null; counts: WaitingCounts; choose: () => void; ideasBoard?: string | null }) {
+function Item({ item, current, counts, choose, ideasBoard = null }: { item: SidebarItem; current: SidebarId | null; counts: MenuCounts; choose: () => void; ideasBoard?: string | null }) {
   const waiting = badgeOf(item.id, counts);
   return (
     <li>
       <Link className="app-sidebar-item" href={hrefOf(item, ideasBoard)} title={item.sprite ? item.label : undefined} aria-label={spokenLabel(item, waiting)} aria-current={item.id === current ? 'page' : undefined} {...(item.leavesApp ? LEAVES_APP : {})} onClick={choose}>
         <SectionSprite name={item.sprite} />
         <span className="app-sidebar-text">{item.label}</span>
-        {waiting !== null && <span className={isQuiet(item.id) ? 'app-sidebar-badge app-sidebar-badge-quiet' : 'app-sidebar-badge'} aria-hidden="true">{waiting}</span>}
+        {waiting !== null && <span className={badgeClass(item.id)} aria-hidden="true">{waiting}</span>}
         {item.leavesApp && <span className="app-sidebar-out" aria-hidden="true">{NEW_TAB}</span>}
       </Link>
     </li>
@@ -88,7 +91,9 @@ function fold(event: MouseEvent<HTMLButtonElement>, state: MenuState) {
 export function Sidebar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: ShellMode }) {
   const current = currentItem(usePathname());
   const drawer = useDrawer();
-  const { counts } = useWaiting();
+  const waiting = useWaiting();
+  // The Supervisor row's red count is the waiting provider's Supervisor part (omni-loop-34 s8), never the total.
+  const counts: MenuCounts = { ...waiting.counts, supervisor: waiting.supervisor.high };
   const choose = () => { drawer.send('choose'); };
   return (
     <>
@@ -105,7 +110,7 @@ export function Sidebar({ viewer, mode = 'omni' }: { viewer: ViewerView; mode?: 
             <div key={group.id} className="app-sidebar-group">
               {group.label ? <p className="app-sidebar-label" id={`app-sidebar-${group.id}`}>{group.label}</p> : null}
               <ul className="app-sidebar-items" {...(group.label ? { 'aria-labelledby': `app-sidebar-${group.id}` } : { 'aria-label': 'Inbox' })}>
-                {group.items.map((item) => <Item key={item.id} item={item} current={current} counts={counts} choose={choose} ideasBoard={viewer.ideasBoard} />)}
+                {shownItems(group.items, waiting.supervisor.seat).map((item) => <Item key={item.id} item={item} current={current} counts={counts} choose={choose} ideasBoard={viewer.ideasBoard} />)}
               </ul>
             </div>
           ))}

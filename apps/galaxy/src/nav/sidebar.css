@@ -119,6 +119,8 @@
   color: var(--ask-muted);
   background: none;
 }
+/* The Supervisor's urgent count (omni-loop-34 s8): filled in red. */
+.app-sidebar-badge-alarm { color: var(--ask-ground); background: var(--ask-red); }
 /* A section's sprite (issue 653): its own pixels at 16 px, never smoothed. */
 .app-sidebar-sprite { display: inline-flex; flex: none; line-height: 0; }
 .app-sidebar-sprite svg { image-rendering: pixelated; }

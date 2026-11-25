@@ -3,8 +3,8 @@ screen: runners
 status: draft
 kind: page
 mock: runners.html
-implements: [apps/galaxy/app/app/runners/page.tsx, apps/galaxy/src/runners/page/RunnersPage.tsx, apps/galaxy/src/runners/page/runners.css, apps/galaxy/src/runners/page/Repositories.tsx]
-reads: [apps/galaxy/src/runners/page/Terminal.tsx, apps/galaxy/src/runners/runners.contract.ts, apps/galaxy/src/runners/runners.service.ts, apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/sidebar.ts]
+implements: [apps/galaxy/app/app/runners/page.tsx, apps/galaxy/src/runners/page/RunnersPage.tsx, apps/galaxy/src/runners/page/runners.css, apps/galaxy/src/runners/page/Repositories.tsx, apps/galaxy/src/runners/page/SeatActions.tsx]
+reads: [apps/galaxy/src/runners/page/Terminal.tsx, apps/galaxy/src/runners/runners.contract.ts, apps/galaxy/src/runners/runners.service.ts, apps/galaxy/src/nav/AppShell.tsx, apps/galaxy/src/nav/sidebar.ts, apps/galaxy/src/supervisor/api/supervisor.contract.ts, apps/galaxy/src/supervisor/api/supervisor.service.ts]
 routes: [/app/runners]
 supersedes: null
 ---
@@ -15,12 +15,13 @@ The workspace's runners and the jobs sent to them: which machines are online, wh
 running, and where each job ended, with its pull request and a Terminal that shows its live log
 (the `runner-terminal` screen, PRD 1904), and the drawer where a person answers a bug fix that
 stopped for a decision (the `runner-need-human` screen, PRD 2255). A workspace owner gives
-a runner to a fleet here. It sits inside the app shell, a shared screen of its own, `app-shell`.
+a runner to a fleet here, and places the Supervisor's seat on a runner, or moves it (PRD omni-loop-34). It sits inside the app shell, a shared screen of its own, `app-shell`.
 
 ## Regions
 
 - **The title,** Runners, once, with `<n> runners · <k> online · <u> of <s> slots in use` under it
-  (PRD 3232).
+  (PRD 3232); the slot kept for the Supervisor is not counted in `<s>`, and while an online runner holds
+  the seat the line ends `· 1 kept for the Supervisor` (PRD omni-loop-34).
 - **Runners:** one card per runner (PRD 3232), in this order:
   - its name, its fleet (a picker for a workspace owner and plain text for everyone else) and a
     Terminal button, opening its running job, else its last job; disabled, titled "No job yet", when
@@ -30,6 +31,16 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
     titled with the fleet of the job using it, and the line under them names them: `Used by <fleet>,
     Any runner` (the label of the job's `toFleet`, `Any runner`, or the runner's name when the job was
     sent to it) (PRD 3232);
+  - on the runner that holds the Supervisor's seat (PRD omni-loop-34, before/after 3.A): its last slot
+    is kept for the seat, drawn as a cyan pip after the job pips, titled `Kept for the Supervisor`; the
+    count reads the job slots only (`2 of 3 slots`), with a cyan `+1 Supervisor` pill beside it;
+  - under it, that runner's seat strip, bordered in cyan: the owl, `Supervisor · watching` (or
+    `paused`, `offline`, `thinking paused` past its daily tokens), then `last look <span>` (`no look
+    yet`), `<n> tokens` of the day and the account it thinks on (the runner's first Claude account that
+    is not out; none named when none is), with **Move** for a workspace owner: it opens, in place, one
+    `To <runner>` button per other runner, and one press moves the seat there; with no other runner it is
+    disabled, titled `No other runner to move it to`;
+  - while the workspace has no seat, `Place the Supervisor` on every card, for a workspace owner only;
   - its account chips (PRD 2537), in the order its accounts file lists them: the account's id, in the
     ink colour when ready, in `--ask-plasma` when active, in `--ask-red` when out or unusable, each
     titled with its agent and its state (`out until 18:00`, `not signed in`); a runner with no
@@ -116,7 +127,10 @@ a runner to a fleet here. It sits inside the app shell, a shared screen of its o
 - **A health line:** a figure it could not read is `—` with no bar; an offline runner's last
   figures are greyed under `as of <age>`; a runner that never reported shows `Update this runner
   to see its health.` with `omni update` to copy; no sample in the hour, no sparkline.
-- **A viewer who is not an owner:** each fleet reads as text, with no picker.
+- **A viewer who is not an owner:** each fleet reads as text, with no picker; the seat strip shows,
+  with no Move, and no card offers `Place the Supervisor` (PRD omni-loop-34).
+- **The seat cannot be read:** no strip, no kept slot and no Place; the rest of the page as before.
+- **The seat offline:** its strip reads `Supervisor · offline`, bordered in `--ask-red`.
 - **Refresh:** the rows are read again every 5 seconds while the page is open.
 - **A job stopped mid-way** (a `/omni:yolo` or `/omni:yolo-fix` that ended before its hand-off): `Stopped mid-way` in `--ask-red`, never Done, with `<k> / <n> slices merged` under it when known and the claims it released; its one action, Resume, sends the same line again as the person who presses it, and is the page's primary (PRD 2375).
 - **A lost job that resumes** (PRD 2809): `Lost · resuming` in `--ask-red`, in place of `Failed · runner lost`, with `<runner> went silent at <time>` under it, linking its resume. The resume reads `after a loss · job <id>`, then `attempt <k> of 3`, and once started one line of what came back: `Resumed from the <time> save · <n> branches`, `Started over: nothing was unsaved`, or `<n> files stayed on <runner>`.
@@ -130,7 +144,7 @@ Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Re
 Any runner · Status · Queued · Needs you · Nothing running · No job here · Nothing here in the last 50 · All · repositories · with jobs · this runner holds · Search repositories · Also on · Only on this runner · No job in the last 50 · Last job · among the last 50 only · Used by · slot · Show fleet · Send to any runner · blocks · Copy · Cannot run · No runner holds · does not hold · is gone · Omni App · Update the runner's kit · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
 Disk · free · Tokens · today · as of · Waiting · every runner paused · Update this runner to see its
-health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged · Lost · resuming · went silent at · attempt · of 3 · after a loss · job · Resumed from the · save · branches · Started over: nothing was unsaved · files stayed on · Lost 3 times · Lost at · Keeps · until.
+health · no tokens left · until · out of tokens · usage limit · since · usage warning · context · Released · Could not release this job's claims · Need human · Stopped mid-way · Resume · slices merged · Lost · resuming · went silent at · attempt · of 3 · after a loss · job · Resumed from the · save · branches · Started over: nothing was unsaved · files stayed on · Lost 3 times · Lost at · Keeps · until · Place the Supervisor · Supervisor · watching · paused · offline · thinking paused · last look · no look yet · tokens · +1 Supervisor · Kept for the Supervisor · kept for the Supervisor · Move · To · No other runner to move it to.
 
 ## Refusals
 
@@ -146,6 +160,8 @@ health · no tokens left · until · out of tokens · usage limit · since · us
   ones?
 
 ## Source
+
+/omni:brainstorm, PRD omni-loop-34 (a product PRD): its before/after page on the Omni page, screen 3.A
 
 /omni:brainstorm, PRD 3232: .omni-loop/delivery/shipped/3232-runners-redesign/before-after.html
 

@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WaitingView } from '../waiting/view';
+import type { SupervisorWaiting } from '../waiting/waiting.contract';
 import type { WaitingOutbox, WaitingQuestion, WaitingReview } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 import { item } from '../ask/test/test-item';
@@ -44,9 +45,11 @@ const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unr
 
 const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: 'acme/widgets', waiting: waiting(FIVE) };
 
-const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = [], runners = 0, reviews: WaitingReview[] = []) => {
+/** The workspace has a Supervisor seat by default, so its row shows (omni-loop-34 s8: no seat, no row). */
+const SEATED: SupervisorWaiting = { seat: true, high: 0 };
+const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = [], runners = 0, reviews: WaitingReview[] = [], supervisor: SupervisorWaiting = SEATED) => {
   at.path = path;
-  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, runners, reviews, children: createElement(Sidebar, { viewer }) }));
+  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, runners, reviews, supervisor, children: createElement(Sidebar, { viewer }) }));
 };
 const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: parsePrd(459), dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -54,6 +57,25 @@ const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g
 
 beforeEach(() => {
   at.path = '/app';
+});
+
+describe('the Supervisor row (omni-loop-34 s8)', () => {
+  it('is not drawn while the workspace has no seat', () => {
+    const html = render(ADA, '/app', [], 0, [], { seat: false, high: 3 });
+    expect(text(html)).toMatch(/ AI Fleet Dashboard Home /);
+    expect(html).not.toContain('/app/supervisor');
+  });
+
+  it('is drawn with a seat, its open high findings a red count, none at zero', () => {
+    expect(render(ADA, '/app', [], 0, [], { seat: true, high: 2 })).toMatch(/aria-label="Supervisor: 2 waiting">.*<span class="app-sidebar-badge app-sidebar-badge-alarm" aria-hidden="true">2<\/span><\/a>/);
+    const quiet = render(ADA, '/app', [], 0, [], { seat: true, high: 0 });
+    expect(quiet).toContain('href="/app/supervisor"');
+    expect(quiet).not.toContain('app-sidebar-badge-alarm');
+  });
+
+  it('never adds the high findings to the Inbox total', () => {
+    expect(text(render(ADA, '/app', [], 0, [], { seat: true, high: 2 }))).toContain('Inbox 5 ');
+  });
 });
 
 describe('the sidebar', () => {
@@ -72,9 +94,9 @@ describe('the sidebar', () => {
 
   it('lists Inbox, Dashboard and Work, then Settings, Docs and Release notes at the foot, in order (PRD 733)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Inbox 5 AI Fleet Dashboard Home Fleet Loop Runners Workspace Engineering Work Products Roadmaps Ideas Concepts PRDs Bug Fixes Visual Updates Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Inbox 5 AI Fleet Supervisor Dashboard Home Fleet Loop Runners Workspace Engineering Work Products Roadmaps Ideas Concepts PRDs Bug Fixes Visual Updates Knowledge Settings Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app/inbox', '/app/ai-fleet', '/app', '/app/fleet', '/app/loop', '/app/runners', '/app/workspace', '/app/engineering', '/app/products', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/bugs', '/visual', '/knowledge', '/app/settings', '/docs', '/releases',
+      '/app/inbox', '/app/ai-fleet', '/app/supervisor', '/app', '/app/fleet', '/app/loop', '/app/runners', '/app/workspace', '/app/engineering', '/app/products', '/roadmaps', '/ideas/acme/widgets', '/concepts', '/prd', '/bugs', '/visual', '/knowledge', '/app/settings', '/docs', '/releases',
     ]);
   });
 
@@ -101,7 +123,7 @@ describe('the sidebar', () => {
   it('AC-1: opens with Inbox, its count the waiting total, the only filled one; Questions and Waiting are gone', () => {
     const review = (id: string): WaitingReview => ({ kind: 'review', id, prd: parsePrd(7), pr: parsePr(70), repo: 'acme/widgets', since: 0 });
     const html = render({ ...ADA, waiting: waiting([question('a'), question('b')]) }, '/app', [gate('a')], 0, [review('a'), review('b')]);
-    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Inbox 5 AI Fleet Dashboard Home /);
+    expect(text(html)).toMatch(/^OMNI LOOP « » Acme Inbox 5 AI Fleet Supervisor Dashboard Home /);
     expect(links(html)[1]).toMatchObject({ text: 'Inbox 5' });
     expect(html).toMatch(/<a class="app-sidebar-item" href="\/app\/inbox" title="Inbox" aria-label="Inbox: 5 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?<span class="app-sidebar-text">Inbox<\/span><span class="app-sidebar-badge" aria-hidden="true">5<\/span><\/a>/);
     expect(html).not.toMatch(/app-sidebar-text">(Questions|Waiting)</);
@@ -237,7 +259,7 @@ describe('« and the rail (PRD 733)', () => {
   it('names every sprite entry by its title and its spoken name, so the rail still says each one', () => {
     const html = render(ADA, '/app', [gate('a')]);
     const entries = links(html).filter((l) => l.attrs.includes('class="app-sidebar-item"') && !l.attrs.includes('target="_blank"'));
-    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Inbox', 'AI Fleet', 'Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Knowledge', 'Settings']);
+    expect(entries.map((l) => /title="([^"]+)"/.exec(l.attrs)?.[1])).toEqual(['Inbox', 'AI Fleet', 'Supervisor', 'Home', 'Fleet', 'Loop', 'Runners', 'Workspace', 'Engineering', 'Products', 'Roadmaps', 'Ideas', 'Concepts', 'PRDs', 'Bug Fixes', 'Visual Updates', 'Knowledge', 'Settings']);
     for (const entry of entries) {
       const title = /title="([^"]+)"/.exec(entry.attrs)?.[1];
       const spoken = /aria-label="([^"]+)"/.exec(entry.attrs)?.[1] ?? entry.text;
