@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `apps/omni-app/src/approved-check/fleet-approval.test.ts`, `apps/galaxy/src/approvals/judge-fleet.test.ts`
+- **File:** `apps/omni-app/src/approved-check/fleet-approval.test.ts`
 - **Level:** unit
 - **Red:** AssertionError: expected 'refused · approver fleet invicibles i…' to be 'building · 2 of 2 pinned' // Object.is equality
 
@@ -18,7 +18,7 @@ A fleet's approval (BR-PRODUCT-144) is stored with its fleet's key and its missi
 
 ## Guard
 
-The two reproduction tests, run by CI on every pull request: each reader is pinned to the fleet rule `dossier_approval()` follows, for a live, a retired, a foreign and a missing fleet, and to the member rule for a person.
+The reproduction and its twin for galaxy's judge, `apps/galaxy/src/approvals/judge-fleet.test.ts`, run by CI on every pull request: each reader is pinned to the fleet rule `dossier_approval()` follows, for a live, a retired, a foreign and a missing fleet, and to the member rule for a person.
 
 ## Mutation
 
@@ -26,4 +26,4 @@ not set here — no delivery-core file changed (`pnpm mutation:changed` says so 
 
 ## Still open
 
-- The App's product PRD record reader takes the newest approval of any kind, so a Tech Approval newer than the product approval would read as the approval in force; galaxy's judge filters on `approval_kind = 'product'`.
+- The App's product PRD record reader takes the newest approval of any kind, so a Tech Approval newer than the product approval would read as the approval in force; galaxy's judge filters on approval_kind = 'product'.
