@@ -1171,6 +1171,34 @@
     },
     {
       "do": [
+        "Say what the setting does in the help.",
+        "Set disabledByPermission when the viewer is not an owner: it says so in words."
+      ],
+      "dont": [
+        "Put more than one control in it.",
+        "Show a disabled control with no reason."
+      ],
+      "example": "<SettingsField label=\"Name\" help=\"As it shows on the page.\" disabledByPermission={!isOwner}><Input name=\"name\" /></SettingsField>",
+      "import": "@omni/ui",
+      "name": "SettingsField",
+      "replaces": [
+        "settings-field",
+        "setting-input"
+      ],
+      "usage": "The label, the help and the error of one setting, and the words it says when the viewer is not an owner: put one control inside it.",
+      "variants": {
+        "error": [
+          "shown",
+          "none"
+        ],
+        "permission": [
+          "allowed",
+          "disabled"
+        ]
+      }
+    },
+    {
+      "do": [
         "Use it once, at the top of a settings page.",
         "Say in the description what a person can change here."
       ],
