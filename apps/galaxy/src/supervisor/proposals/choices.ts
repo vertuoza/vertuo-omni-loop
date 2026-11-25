@@ -1,5 +1,5 @@
 import type { Finding } from '../api/supervisor.contract';
-import { JobTargetSchema, LINK_ACTIONS, MissionTargetSchema, type Pressed } from './proposals.contract';
+import { isLinkAction, JobTargetSchema, MissionTargetSchema, type Pressed } from './proposals.contract';
 
 // What the Suggested box of an open finding draws (PRD omni-loop-34 s7, the before/after page's 2.A): at most two of
 // the Supervisor's suggestions, each a button an owner presses, the first the primary one, or a link the page follows
@@ -29,7 +29,7 @@ export function choicesOf(finding: Finding): Choice[] {
   let primary = true;
   return suggestions.flatMap((s): Choice[] => {
     const label = s.label ?? '';
-    if ((LINK_ACTIONS as readonly (string | null)[]).includes(s.action)) {
+    if (isLinkAction(s.action)) {
       return [{ kind: 'link', id: s.id, label, href: hrefOf(s.action, s.target) }];
     }
     const press = finding.proposals.find((p) => p.kind === 'press' && p.replyTo === s.id);

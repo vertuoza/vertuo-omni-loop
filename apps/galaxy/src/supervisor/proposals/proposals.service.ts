@@ -4,7 +4,7 @@ import type { Target } from '../../runners/runners.contract';
 import { UPDATE_COMMAND } from '../../runners/page/health';
 import type { SupervisorRefusal } from '../api/supervisor.contract';
 import {
-  BugTargetSchema, JOB_ENDED, JOB_GONE, JobTargetSchema, LINK_ACTIONS, MISSION_GONE, MissionTargetSchema, OWNERS_ONLY, PRESSED_ACTIONS, RESUME_QUEUED,
+  BugTargetSchema, JOB_ENDED, JOB_GONE, isLinkAction, JobTargetSchema, MISSION_GONE, MissionTargetSchema, OWNERS_ONLY, PRESSED_ACTIONS, RESUME_QUEUED,
   RUNNER_GONE, RunnerTargetSchema, STOP_ASKED, type Dismissed, type Outcome, type PressedAction, type Pressed,
 } from './proposals.contract';
 import type { JobRow, LedgerJob, ProposalActs, ProposalRow, ProposalsStore } from './proposals.repository';
@@ -87,7 +87,6 @@ function targetOf({ to_runner: runner, to_fleet: fleet }: JobRow): Target {
   return runner === null ? { kind: 'fleet', fleet: fleet ?? '' } : { kind: 'runner', runner };
 }
 
-const isLink = (action: string | null) => (LINK_ACTIONS as readonly (string | null)[]).includes(action);
 const pressedAction = (action: string | null): PressedAction | null => PRESSED_ACTIONS.find((known) => known === action) ?? null;
 
 /** Whether a suggestion's target names what its action acts on. */
@@ -112,7 +111,7 @@ export function proposalsService({ store, carry, clock }: ProposalsServiceDeps) 
   async function pressable(workspace: string, proposal: string): Promise<{ suggestion: ProposalRow; action: PressedAction } | Refused> {
     const suggestion = await store.proposal(workspace, proposal);
     if (suggestion?.kind !== 'suggestion') return REFUSE.noSuggestion;
-    if (isLink(suggestion.action)) return REFUSE.link;
+    if (isLinkAction(suggestion.action)) return REFUSE.link;
     const action = pressedAction(suggestion.action);
     return action !== null && targetFits(action, suggestion.target) ? { suggestion, action } : REFUSE.outOfShape;
   }

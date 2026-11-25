@@ -8,7 +8,9 @@ import { z } from 'zod';
 /** The actions a press carries out. `open-terminal` and `open-mission` are links the page follows: nothing is pressed. */
 export const PRESSED_ACTIONS = ['stop-resume-job', 'open-bug-fix', 'pause-mission', 'resume-mission', 'wake-mission', 'clean-worktrees', 'copy-kit-update'] as const;
 export type PressedAction = (typeof PRESSED_ACTIONS)[number];
-export const LINK_ACTIONS = ['open-terminal', 'open-mission'] as const;
+const LINK_ACTIONS = ['open-terminal', 'open-mission'] as const;
+/** Whether a suggestion's action is a link the page follows. */
+export const isLinkAction = (action: string | null): boolean => LINK_ACTIONS.some((link) => link === action);
 
 const Id = z.uuid();
 
