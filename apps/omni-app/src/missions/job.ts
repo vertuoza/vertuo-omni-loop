@@ -105,7 +105,7 @@ import { decisionsOf, deferredOf, reworkLine, reworksOf, type DecisionPrd, type 
 import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
 import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
 import { addedOf, isOwnJob, pmAsks, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type Home, type PmEvent, type PmJob, type PmView } from './pm.ts';
-import { addedProductsOf, decisionEvent, productPlansOf, reviewDispatched, reviewStateOf, type PlanDecision, type ReviewState, type TechJob } from './tech.ts';
+import { addedProductsOf, decisionEvent, isRetry, productPlansOf, reviewDispatched, reviewStateOf, type PlanDecision, type ReviewState, type TechJob } from './tech.ts';
 import { planRecordOf } from 'omni-loop/kit/lib/virtual-fleet/plan-record.ts';
 import { techJobLine, techRecordOf } from 'omni-loop/kit/lib/virtual-fleet/tech-record.ts';
 import type { ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
@@ -1403,7 +1403,7 @@ async function reviewStep(at: ProductSteps, fact: StoredProduct, state: Exclude<
     ? await at.store.pm({ mission: at.mission, round: at.rounds++, line, toFleet: at.toFleet })
     : await at.products.review({ mission: at.mission, prd: fact.prd, k: state.k, line, toFleet: at.toFleet });
   if (job === null) return;
-  const sent = reviewDispatched(fact.prd, job, line, state);
+  const sent = reviewDispatched(fact.prd, job, line, state, isRetry(fact.prd, at.reviews.decisions));
   step.events.push({ ...sent, sentence: cut(sent.sentence) });
 }
 

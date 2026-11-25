@@ -166,16 +166,24 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
 });
 
 describe('an Architect job with no record (AC-4)', () => {
-  it('AC-4: records the tech decision escalated with "no record of the tech review", and the PRD waits on a person', async () => {
+  it('AC-4: records the tech decision escalated with "no record of the tech review", sends the Architect again, and a person gets the PRD once its two rounds left no record', async () => {
     const { fake, run, sentences } = await planned();
-    fake.endTech(P31, { status: 'done', outcome: 'ready' }, '12:20:00 Done\nomni tech: {"v":1,"prd":"omni-loop-31","pl');
+    const cut = '12:20:00 Done\nomni tech: {"v":1,"prd":"omni-loop-31","pl';
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, cut);
     await run();
     expect(fake.planDecisions().at(-1)).toMatchObject({ kind: 'tech', plan: null, outcome: 'escalated', why: ['no record of the tech review'], techApproval: false });
     expect(sentences('job-ended')).toContain('The Architect left PRD omni-loop-31 to a person: no record of the tech review.');
-    expect(fake.mission()).toMatchObject({ status: 'waiting' });
-    expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you: no record of the tech review; approve it on its page');
     await run();
-    expect(fake.techJobs()).toHaveLength(1);
+    expect(fake.techJobs()).toHaveLength(2);
+    expect(sentences('dispatched').at(-1)).toBe('Sent the Architect /omni:tech-review omni-loop-31 --mission 12 again: its last job on PRD omni-loop-31 failed or left no record.');
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+
+    fake.endTech(P31, { status: 'failed', outcome: null });
+    await run();
+    await run();
+    expect(fake.mission()).toMatchObject({ status: 'waiting' });
+    expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you: no record of the tech review');
+    expect(fake.techJobs()).toHaveLength(2);
     expect(fake.productJobs()).toEqual([]);
   });
 

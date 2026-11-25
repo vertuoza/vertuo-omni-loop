@@ -23964,12 +23964,18 @@ function escalatedWords(prd, decision) {
   return decision.kind === "tech" ? `PRD ${prd}: the Architect left it to you: ${why}; approve it on its page` : `PRD ${prd}: the PM's plan approval went to you: ${why}; approve it on its page`;
 }
 var spentWords2 = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS2)} rounds; approve it on its page`;
+function afterEscalated(view, last) {
+  if (view.approval === "standing") return { state: "build" };
+  if (last.plan === null && last.kind === "plan" && view.plans.length < ROUNDS2) return { state: "plan", again: true };
+  if (last.plan === null && last.kind === "tech" && view.techs.length < ROUNDS2) return { state: "tech", k: view.techs.length + 1 };
+  return { state: "waits", why: escalatedWords(view.prd, last) };
+}
 function reviewStateOf(view) {
   const mine = view.decisions.filter((one) => one.prd === view.prd);
   if (approvedOn(mine, "plan", view.latest) && approvedOn(mine, "tech", view.latest)) return { state: "build" };
   if (view.plans.some((one) => working2(one.attempt)) || view.techs.some((one) => working2(one.attempt))) return { state: "working" };
   const last = mine.at(-1);
-  if (last?.outcome === "escalated") return view.approval === "standing" ? { state: "build" } : { state: "waits", why: escalatedWords(view.prd, last) };
+  if (last?.outcome === "escalated") return afterEscalated(view, last);
   if (!approvedOn(mine, "plan", view.latest)) return view.plans.length < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
   return view.techs.length < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
 }
@@ -23981,8 +23987,12 @@ function decisionEvent(decision) {
   const sentence2 = decision.kind === "plan" ? decision.outcome === "approved" ? `The PM approved the plan of ${n} (${short3(decision.plan)}).` : `The PM's plan approval of ${n} went to a person: ${why}.` : decision.outcome === "approved" ? `The Architect approved the plan of ${n} (${short3(decision.plan)})${settled2}.` : `The Architect left ${n} to a person: ${why}.`;
   return { kind: "job-ended", role: decision.kind === "tech" ? "architect" : "pm", prd: decision.prd, job: decision.job, link: null, sentence: sentence2 };
 }
-function reviewDispatched(prd, job, line3, state) {
-  const sentence2 = state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+var isRetry = (prd, decisions) => {
+  const last = decisions.filter((one) => one.prd === prd).at(-1);
+  return last?.outcome === "escalated" && last.plan === null;
+};
+function reviewDispatched(prd, job, line3, state, retry = false) {
+  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
   return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
 }
 
@@ -25884,7 +25894,7 @@ async function reviewStep(at4, fact, state, step) {
   const line3 = state.state === "plan" ? planJobLine(fact.prd, "plan", at4.mission.number) : techJobLine(fact.prd, at4.mission.number);
   const job = state.state === "plan" ? await at4.store.pm({ mission: at4.mission, round: at4.rounds++, line: line3, toFleet: at4.toFleet }) : await at4.products.review({ mission: at4.mission, prd: fact.prd, k: state.k, line: line3, toFleet: at4.toFleet });
   if (job === null) return;
-  const sent = reviewDispatched(fact.prd, job, line3, state);
+  const sent = reviewDispatched(fact.prd, job, line3, state, isRetry(fact.prd, at4.reviews.decisions));
   step.events.push({ ...sent, sentence: cut3(sent.sentence) });
 }
 async function productSteps(at4, facts) {
