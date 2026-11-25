@@ -23,6 +23,12 @@
 // out until the reset the pressure named), context to a fresh session of the same account; past three
 // account changes or five fresh sessions the job fails naming the cap. Before every run on a T3 Codex or
 // OpenCode instance, the kit's skills are written in that instance's own folder (`Turnover.prepare`).
+//
+// A run that exits 0 while its last turn waits on background work of its own (bug 3288: a test run moved
+// to the background past its timeout, the turn ended "waiting for the notification", and `claude -p`
+// exited, stopping that work) did not end its job: the same session is resumed with a message saying so,
+// each time with a line in the log, at most three times. A session still waiting after the third fails
+// the job, naming why, so it never ends done half-way.
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -51,6 +57,19 @@ const LOCKFILE = 'pnpm-lock.yaml';
 
 /** How often, at most, a running part's pressure is read. */
 const PRESSURE_EVERY_MS = 1000;
+
+/** How many times a session that ended waiting on its own background work is resumed (bug 3288). */
+const MAX_WAKES = 3;
+
+/** The message a session that ended waiting on its background work is resumed with (bug 3288). */
+const WAKE_PROMPT = [
+  'The runner resumed this session: your last turn ended waiting on background work, and an unattended session ends with its turn, which stops whatever still ran in the background. No notification will come.',
+  'Check that work now: when its output says it finished, read it; when it did not finish, run it again in the foreground (never in the background) and wait for it.',
+  "Then carry on with the job's skill to its end, and end on its hand-off as the skill says. Never end a turn waiting on a background task or a notification.",
+].join(' ');
+
+/** Why a job fails whose session still waited on its background work after the last resume. */
+const WAKE_CAP_REASON = `the session still waited on its background work after ${String(MAX_WAKES)} resumes`;
 
 /** How long a note turn past its time has after SIGTERM before SIGKILL. */
 const KILL_GRACE_MS = 5000;
@@ -208,6 +227,37 @@ async function runOnce({ cwd, files, out, env, agent, command, watch, timeoutMs 
   }
 }
 
+/** One run's end: its exit code, what it printed, line by line, and the handoff its watch called for. */
+type Once = { code: number; printed: string[]; called: PlannedHandoff | null };
+
+/** Whether `once` exited 0, no handoff called, while its last turn waits on its own background work, as `agent` reads it. */
+const endedWaiting = (agent: Agent, cwd: string, once: Once): boolean =>
+  once.code === 0 && once.called === null && agent.waiting?.({ cwd, lines: once.printed, exit: once.code }) === true;
+
+/**
+ * The end of a part whose first run was `first`: as it is, unless it ended waiting on its own background work
+ * (bug 3288); its session is then resumed with {@link WAKE_PROMPT}, said in the log, until a run ends otherwise.
+ * Past {@link MAX_WAKES} resumes the part fails, naming why. `printed` holds every run's lines, `last` the last run's.
+ */
+async function wakeWhileWaiting(place: JobPlace, { line, runs, parts, watch }: { line: string; runs: Runs; parts: Parts; watch: Watch | undefined }, first: Once): Promise<Once & { last: string[] }> {
+  const { cwd, files, out, env } = place;
+  const printed = [...first.printed];
+  let ran = first;
+  for (let wake = 1; endedWaiting(runs.agent, cwd, ran); wake += 1) {
+    const session = runs.agent.session({ cwd, lines: printed, exit: ran.code });
+    if (wake > MAX_WAKES || session === null) {
+      say(files, out, `↻ the session still waits on its background work: ${session === null ? 'it named no session to resume' : WAKE_CAP_REASON}, the job fails`);
+      parts.fail(session === null ? 'the session ended waiting on its background work and named no session to resume' : WAKE_CAP_REASON);
+      return { code: 1, printed, called: null, last: ran.printed };
+    }
+    say(files, out, `↻ the session ended waiting on its background work: resumed, ${String(wake)} of ${String(MAX_WAKES)}`);
+    const command = runs.agent.resume({ line, cwd }, runs.account, session, WAKE_PROMPT);
+    ran = await runOnce({ cwd, files, out, env: runEnv(env, command), agent: runs.agent, command, watch });
+    printed.push(...ran.printed);
+  }
+  return { ...ran, printed, last: ran.printed };
+}
+
 /** The fixed skill a job's line runs, `null` for a repository's own: an account with `takes` never takes one over. */
 function skillOf(line: string): string | null {
   const checked = checkRunnerLine(line);
@@ -324,9 +374,10 @@ async function runPart(place: JobPlace, { line, runs, handoff, parts, turnover }
   parts.keep(started, at);
   const watch = watchOf(turnover, { cwd, runs, before, parts });
   const command = runs.agent.command({ line, cwd }, runs.account, handoff);
-  const { code, printed, called } = await runOnce({ cwd, files, out, env: runEnv(env, command), agent: runs.agent, command, watch });
+  const first = await runOnce({ cwd, files, out, env: runEnv(env, command), agent: runs.agent, command, watch });
+  const { code, printed, called, last } = await wakeWhileWaiting(place, { line, runs, parts, watch }, first);
   const ran = { cwd, lines: printed, exit: code };
-  const limit = code === 0 ? null : runs.agent.limit(ran);
+  const limit = code === 0 ? null : runs.agent.limit({ cwd, lines: last, exit: code });
   const part = endedPart(started, { code, limit, usage: runs.agent.usage(ran), before, to: parts.iso() });
   parts.keep(part, at);
   return { code, limit, called, part, at, lines: printed, before };

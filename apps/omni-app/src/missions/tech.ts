@@ -7,23 +7,31 @@
 //                    record is the `plan` decision, role pm; then the fleet's Architect reviews it (`/omni:tech-review <id> --mission
 //                    <m>`, keyed `mission:<id>:prd:<id>:tech:<k>`) and its `omni tech:` record is the `tech` decision, role
 //                    architect. A job that left no record that reads is recorded escalated (`no record of the tech review`,
-//                    BL-GATE-1), never approved, and sent again while its rounds last (bug #3281): it decided nothing
+//                    BL-GATE-1), never approved, and sent again (bug #3281): it decided nothing. At most FAILS such jobs of a
+//                    kind in a row, then a person (bug #3286)
 //   the version      both decisions name the plan's sha256: the build is sent only once a `plan` and a `tech` decision both approved
 //                    the latest plan version on the PRD's page, which gives its approval in the fleet's name. A version the Architect
-//                    pushed is approved by the PM again; a version pushed after the Architect's review is reviewed again. Two plan
-//                    jobs and two reviews at most (ROUNDS), then a person
-//   escalated        a job that ran and escalated, or one with no record once its rounds are spent, leaves the PRD waiting on a
-//                    person, the decision's reasons (the Architect's open points first) in what it waits on, until a person
-//                    approves it on its page
+//                    pushed is approved by the PM again; a version pushed after the Architect's review is reviewed again. ROUNDS
+//                    counts the plan approvals and the reviews that decided (a record naming a plan version), never a failure
+//   open points      an Architect's review that escalated with open points sends the PM's plan job again (bug #3286): the PM reads
+//                    them with `omni mission get`, answers each, rewording its own spec when it must, and approves the new version,
+//                    which the Architect reviews again
+//   escalated        a person gets the PRD once the Architect still escalates when the PM's rounds are spent, when the PM's own
+//                    approval escalated, or when a kind's failures are spent, the decision's reasons (the Architect's open points
+//                    first) in what it waits on, until a person approves it on its page
 //   the events       each dispatch, signed `supervisor`; each decision recorded, signed by its role; all by `agent`
 import { isProductPrdId, ProductPrdIdSchema, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { planOfLine } from 'omni-loop/kit/lib/virtual-fleet/pm.ts';
+import { unansweredOf } from 'omni-loop/kit/lib/virtual-fleet/tech-record.ts';
 import type { PmJob } from './pm.ts';
 import type { MissionPrd } from './store.prd.ts';
 import type { Approval, Attempt, EventRole } from './supervisor.ts';
 
-/** The plan jobs and the reviews a PM product PRD is sent at most: two rounds, then a person. */
+/** The plan approvals and the reviews that decided a PM product PRD is sent at most: two rounds, then a person. */
 const ROUNDS = 2;
+
+/** The jobs of one kind that failed or left no record in a row a PM product PRD is sent at most, then a person (bug #3286). */
+const FAILS = 2;
 
 /** A plan job the PM was sent for a product PRD: a PM job whose line plans that PRD. */
 export type ProductPlanJob = PmJob & { prd: ProductPrdId };
@@ -58,7 +66,7 @@ export type ReviewView = {
 export type ReviewState =
   | { state: 'build' }
   | { state: 'working' }
-  | { state: 'plan'; again: boolean }
+  | { state: 'plan'; again: boolean; points?: readonly string[] }
   | { state: 'tech'; k: number }
   | { state: 'waits'; why: string };
 
@@ -111,30 +119,48 @@ function escalatedWords(prd: ProductPrdId, decision: PlanDecision): string {
 const spentWords = (prd: ProductPrdId): string =>
   `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS)} rounds; approve it on its page`;
 
+/** How many decisions of `kind` decided: each that names a plan version. */
+const decidedOf = (mine: readonly PlanDecision[], kind: PlanDecision['kind']): number => mine.filter((one) => one.kind === kind && one.plan !== null).length;
+
+/** How many jobs of `kind` in a row, the latest first, failed or left no record. */
+function failsInRow(mine: readonly PlanDecision[], kind: PlanDecision['kind']): number {
+  const ofKind = mine.filter((one) => one.kind === kind);
+  const lastDecided = ofKind.findLastIndex((one) => one.plan !== null);
+  return ofKind.length - 1 - lastDecided;
+}
+
+/** The PM's plan job: with the Architect's open points it has to answer, when there are some (bug #3286). */
+function planWith(open: PlanDecision | null, again: boolean): ReviewState {
+  return open === null ? { state: 'plan', again } : { state: 'plan', again: true, points: open.why };
+}
+
 /**
  * Where a PM product PRD whose last decision escalated is: built once a person approved it on its page; its job sent again when it
- * left no record and its rounds last, since it decided nothing (bug #3281), never counted approved (BL-GATE-1); else waiting on a person.
+ * left no record (bug #3281), at most FAILS in a row, never counted approved (BL-GATE-1); the PM sent again with the Architect's open
+ * points while its rounds last (bug #3286); else waiting on a person, the Architect's open points named first.
  */
-function afterEscalated(view: ReviewView, last: PlanDecision): ReviewState {
+function afterEscalated(view: ReviewView, mine: readonly PlanDecision[], last: PlanDecision): ReviewState {
   if (view.approval === 'standing') return { state: 'build' };
-  if (last.plan === null && last.kind === 'plan' && view.plans.length < ROUNDS) return { state: 'plan', again: true };
-  if (last.plan === null && last.kind === 'tech' && view.techs.length < ROUNDS) return { state: 'tech', k: view.techs.length + 1 };
-  return { state: 'waits', why: escalatedWords(view.prd, last) };
+  const open = unansweredOf(mine);
+  if (last.plan === null && failsInRow(mine, last.kind) < FAILS) return last.kind === 'plan' ? planWith(open, true) : { state: 'tech', k: view.techs.length + 1 };
+  if (last.plan !== null && open !== null && decidedOf(mine, 'plan') < ROUNDS) return planWith(open, true);
+  return { state: 'waits', why: escalatedWords(view.prd, open ?? last) };
 }
 
 /**
  * Where PM product PRD `view` is before its build (PRD omni-loop-26): `build` once a `plan` and a `tech` decision both approved its
  * latest plan version, or once a person approved it on its page after the fleet sent it to them; at work while a plan job or a review
- * works; else the next job (the PM's plan, again on a newer version; the Architect's review), or what it waits on.
+ * works; else the next job (the PM's plan, again on a newer version or to answer the Architect's open points; the Architect's review),
+ * or what it waits on. The rounds count the decisions that named a plan version (bug #3286).
  */
 export function reviewStateOf(view: ReviewView): ReviewState {
   const mine = view.decisions.filter((one) => one.prd === view.prd);
   if (approvedOn(mine, 'plan', view.latest) && approvedOn(mine, 'tech', view.latest)) return { state: 'build' };
   if (view.plans.some((one) => working(one.attempt)) || view.techs.some((one) => working(one.attempt))) return { state: 'working' };
   const last = mine.at(-1);
-  if (last?.outcome === 'escalated') return afterEscalated(view, last);
-  if (!approvedOn(mine, 'plan', view.latest)) return view.plans.length < ROUNDS ? { state: 'plan', again: view.plans.length > 0 } : { state: 'waits', why: spentWords(view.prd) };
-  return view.techs.length < ROUNDS ? { state: 'tech', k: view.techs.length + 1 } : { state: 'waits', why: spentWords(view.prd) };
+  if (last?.outcome === 'escalated') return afterEscalated(view, mine, last);
+  if (!approvedOn(mine, 'plan', view.latest)) return decidedOf(mine, 'plan') < ROUNDS ? { state: 'plan', again: view.plans.length > 0 } : { state: 'waits', why: spentWords(view.prd) };
+  return decidedOf(mine, 'tech') < ROUNDS ? { state: 'tech', k: view.techs.length + 1 } : { state: 'waits', why: spentWords(view.prd) };
 }
 
 /** The first 7 characters of a plan version, as the events name it. */
@@ -162,14 +188,20 @@ export const isRetry = (prd: ProductPrdId, decisions: readonly PlanDecision[]): 
   return last?.outcome === 'escalated' && last.plan === null;
 };
 
+/** What the PM's plan job is sent for: the Architect's open points, a newer plan version, or its first plan. */
+function planSentence(prd: ProductPrdId, line: string, state: Extract<ReviewState, { state: 'plan' }>): string {
+  if (state.points !== undefined) return `Sent the PM ${line} again: it answers the Architect's open points on PRD ${prd}.`;
+  return state.again
+    ? `Sent the PM ${line} again: PRD ${prd} has a newer plan version, so the PM approves it.`
+    : `Sent the PM ${line}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+}
+
 /** The dispatch of a plan job or a review of PM product PRD `prd`, signed `supervisor`; `retry` when its last job left no record (bug #3281). */
 export function reviewDispatched(prd: ProductPrdId, job: string, line: string, state: Extract<ReviewState, { state: 'plan' | 'tech' }>, retry = false): { kind: 'dispatched'; role: EventRole; prd: ProductPrdId; job: string; link: null; sentence: string } {
   const sentence = retry
     ? `Sent the ${state.state === 'tech' ? 'Architect' : 'PM'} ${line} again: its last job on PRD ${prd} failed or left no record.`
     : state.state === 'tech'
       ? `Sent the Architect ${line}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ', its newer version' : ''}.`
-      : state.again
-        ? `Sent the PM ${line} again: PRD ${prd} has a newer plan version, so the PM approves it.`
-        : `Sent the PM ${line}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+      : planSentence(prd, line, state);
   return { kind: 'dispatched', role: 'supervisor', prd, job, link: null, sentence };
 }

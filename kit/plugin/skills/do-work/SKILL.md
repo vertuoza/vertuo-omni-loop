@@ -380,7 +380,11 @@ carries here, and what done means. What they ask of a push or a hand-off is part
    say so, and name it in the hand-off. Once it is green, drop the rebuilt outputs before anything
    is committed or pushed: for each `stale` line, `git checkout HEAD -- <path>`, then
    `git clean -fdq -- <path>`. The slice commits and pushes no generated file: the sub-PR carries
-   sources only.
+   sources only. Run the preflight and every check below in the foreground, never in the
+   background, and never end a turn waiting on a background command or its notification: on a
+   runner (`OMNI_UNATTENDED` set) the session ends with its turn, and what still runs in the
+   background stops with it (bug 3288). A command the shell moves to the background past its time
+   limit is waited on in this turn, by reading its output until it says it ended.
 2. **Checks:** every command in `commands.checks`, then
    `node .omni-loop/bin/omni.mjs check all`. Fix until green.
 

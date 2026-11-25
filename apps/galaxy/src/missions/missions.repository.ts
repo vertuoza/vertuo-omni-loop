@@ -5,7 +5,7 @@ import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { z } from 'zod';
 import { orThrow, parseRow, parseRows } from '../data/parse-rows';
-import { ItemAnswerSchema, MissionLevelSchema, RetroReadSchema, MissionStatusSchema, StopAnswerSchema, type ItemAnswer, type MissionStatus, type RetroRead, type StopAnswer } from './missions.contract';
+import { ItemAnswerSchema, MissionLevelSchema, PlanDecisionReadSchema, RetroReadSchema, MissionStatusSchema, StopAnswerSchema, type ItemAnswer, type MissionStatus, type PlanDecisionRead, type RetroRead, type StopAnswer } from './missions.contract';
 
 // The missions' reads and writes (PRD 2842 s5), on the clients they are given. A signed-in person reads
 // through their own session, so row-level security shows a mission to the members of its workspace and to
@@ -63,6 +63,7 @@ const RetroItemRow = z.object({
   evidence: z.array(z.string()), answer: ItemAnswerSchema.nullable(), note: z.string().nullable(),
 });
 const NumberRow = z.object({ number: z.number().int().positive() });
+const PlanDecisionRow = z.object({ kind: z.enum(['plan', 'tech']), product_prd: z.string(), plan: z.string().nullable(), outcome: z.string(), why: z.array(z.string()) });
 const ProductRow = z.object({ plan_repository: z.string().nullable() });
 const Refreshed = z.enum(['added', 'updated', 'again', 'requeued']);
 
@@ -156,6 +157,13 @@ export function missionsReader(db: MissionsDb) {
         milestone: row.milestone, retro: row.retro, skipped: row.skipped,
         items: raised.filter((item) => item.retro_id === row.id).map((item) => ({ number: item.number, target: item.target, wording: item.wording, evidence: item.evidence, answer: item.answer, note: item.note })),
       }));
+    },
+
+    /** The `plan` and `tech` decisions of the mission's product PRDs, oldest first (PRD omni-loop-26; read for bug #3286). */
+    async planDecisions(id: string): Promise<PlanDecisionRead[]> {
+      const { data, error } = await db.from('mission_decisions').select('kind, product_prd, plan, outcome, why').eq('mission_id', id).in('kind', ['plan', 'tech']).not('product_prd', 'is', null).order('decided_at', { ascending: true });
+      if (error) throw new Error(`Supabase: could not read the mission's plan decisions (${error.message})`);
+      return orThrow(parseRows(PlanDecisionRow, data, `${WHERE}: mission_decisions`)).map((row) => PlanDecisionReadSchema.parse({ kind: row.kind, prd: row.product_prd, plan: row.plan, outcome: row.outcome, why: row.why }));
     },
 
     /** The numbers of the repository's missions whose brief names PRD `prd`, in order (PRD 3194). */

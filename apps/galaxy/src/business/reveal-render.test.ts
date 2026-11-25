@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Claim } from './model';
 import { businessReducer, initialBusinessState, type BusinessAction } from './state';
 import type { DraftView, WebPage } from './reveal';
@@ -45,6 +45,16 @@ const DONE: DraftView = {
   ],
 };
 const RUNNING: DraftView = { ...DONE, state: 'running', counts: {}, scanned: DONE.scanned.slice(0, 1) };
+
+// The receipts were seen on 2026-09-30, and a claim fades 8 weeks after it was last seen (FADE_MS): the clock stays on the day after,
+// so the found rows never fade as the calendar moves on (they did on 2026-11-25 10:00 UTC, and the saved page read them as faded).
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-01T00:00:00Z'));
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 const render = (claims: Claim[], { draft = null as DraftView | null, pages = [] as WebPage[], actions = [] as BusinessAction[], demo = false } = {}) =>
   renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims, [], { draft, pages })), demo }));
