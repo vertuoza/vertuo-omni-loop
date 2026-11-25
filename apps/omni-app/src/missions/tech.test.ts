@@ -34,8 +34,8 @@ describe('reviewStateOf', () => {
   });
 
   it('AC-4: an escalated decision waits on a person until a person approves the PRD on its page', () => {
-    const at = view({ plans: [plan(1)], techs: [tech(1)], decisions: [decided('plan', A), decided('tech', null, 'escalated', ['no record of the tech review'])] });
-    expect(reviewStateOf(at)).toEqual({ state: 'waits', why: 'PRD omni-loop-31: the Architect left it to you: no record of the tech review; approve it on its page' });
+    const at = view({ plans: [plan(1)], techs: [tech(1)], decisions: [decided('plan', A), decided('tech', A, 'escalated', ['the plan cuts no slice for the migration'])] });
+    expect(reviewStateOf(at)).toEqual({ state: 'waits', why: 'PRD omni-loop-31: the Architect left it to you: the plan cuts no slice for the migration; approve it on its page' });
     expect(reviewStateOf({ ...at, approval: 'standing' })).toEqual({ state: 'build' });
   });
 });

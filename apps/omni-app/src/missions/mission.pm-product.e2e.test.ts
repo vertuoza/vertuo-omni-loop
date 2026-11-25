@@ -203,7 +203,7 @@ describe('a goal-only mission whose PM writes product PRDs on Omni, reviewed by 
     expect(fake.mission()).toMatchObject({ status: 'running', waitingOn: null });
   });
 
-  it('AC-4: a third PRD whose Architect job left no record is escalated and waits on a person, while the two others are built', async () => {
+  it('AC-4: a third PRD whose Architect jobs left no record twice is escalated and waits on a person, while the two others are built', async () => {
     const { fake, run, endPm, said, writes } = fleetOf([P31, P32, P33]);
     const roadmap = '/omni:roadmap --mission 12 --cap 10 --product omni-loop';
     await run();
@@ -223,7 +223,7 @@ describe('a goal-only mission whose PM writes product PRDs on Omni, reviewed by 
     fake.endTech(P33, { status: 'done', outcome: 'ready' }, '12:20:00 Done\nomni tech: {"v":1,"prd":"omni-loop-33","pl');
     await run();
 
-    // The third is recorded escalated, never approved (BL-GATE-1), and waits on a person; the two others are built.
+    // The third is recorded escalated, never approved (BL-GATE-1); the two others are built.
     expect(fake.planDecisions().filter(({ prd }) => prd === P33).map(({ kind, plan, outcome, why, techApproval }) => [kind, plan, outcome, why, techApproval])).toEqual([
       ['plan', version(P33, 'a'), 'approved', [], false],
       ['tech', null, 'escalated', ['no record of the tech review'], false],
@@ -233,12 +233,20 @@ describe('a goal-only mission whose PM writes product PRDs on Omni, reviewed by 
       `/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=${BRANCH}`,
       `/omni:ultra-yolo omni-loop-32 --base-of acme/widgets=${BRANCH}`,
     ]);
-    expect(fake.mission().waitingOn).toContain('PRD omni-loop-33: the Architect left it to you: no record of the tech review; approve it on its page');
 
-    // It stays so: no second review, no build, no PM job, nothing more written, until a person approves it on its page.
+    // A job that left no record decided nothing (bug #3281): the Architect is sent again, once; its second job left none either, so
+    // the PRD waits on a person, with no build and no PM job.
+    await run();
+    expect(fake.techJobs()).toHaveLength(4);
+    fake.endTech(P33, { status: 'failed', outcome: null });
+    await run();
+    await run();
+    expect(fake.mission().waitingOn).toContain('PRD omni-loop-33: the Architect left it to you: no record of the tech review');
+
+    // It stays so: no third review, no build, no PM job, nothing more written, until a person approves it on its page.
     const sent = writes().length;
     await run();
-    expect(fake.techJobs()).toHaveLength(3);
+    expect(fake.techJobs()).toHaveLength(4);
     expect(fake.productJobs()).toHaveLength(2);
     expect(fake.pms()).toHaveLength(4);
     expect(fake.committees()).toEqual([]);
