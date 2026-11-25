@@ -19,6 +19,11 @@
 // A job that runs as the Omni GitHub App (PRD 2433) asks `githubToken` for a fresh installation token
 // before the one it holds runs out; a reply the runner cannot read is a refusal, never a token.
 //
+// The Supervisor's seat (PRD omni-loop-34, s4) is a third client, `supervisorApi`: the runner asks whether its workspace
+// placed the seat on it, and the seat waits on its own `next`, checks in with its tokens and calls the six tools' routes,
+// each with the runner's sign-in and `?runner=<id>` (the app reads the seat's workspace from that runner alone). A 403 or
+// 404 on the seat's own reads means the seat is not (or no longer) on this runner, never a refused sign-in.
+//
 // A job's questions (PRD 2255) are the other client here, `jobQuestionsApi`: `omni runner ask` and
 // `omni runner answers` run inside a job's session, not in the runner, and what they print is the app's own
 // words, so a refusal there carries the app's `error` rather than `refused (<status>)` alone.
@@ -185,6 +190,8 @@ export type RunnerApi = {
   githubToken(job: string): Promise<{ token: string; expiresAt: string }>;
   /** A job's save (PRD 2809): its upload, its record and a resume's download. None, the runner keeps every save on its disk. */
   checkpoints?: (CheckpointApi & CheckpointDownload) | undefined;
+  /** The Supervisor's routes (PRD omni-loop-34): none, the runner never holds the seat and opens every slot. */
+  supervisor?: SupervisorApi | undefined;
 };
 
 /** A runner of the workspace, as the terminal reads it (`GET /api/runners?repo=`). */
@@ -339,6 +346,7 @@ export function runnerApi(wiring: Wiring): RunnerApi & KitReads {
   const { call, json, segment } = transport(wiring);
   return {
     checkpoints: checkpointApi(wiring),
+    supervisor: supervisorApi(wiring),
     async register(registration) {
       const reply = RegisteredSchema.safeParse(await json(await call('POST', '/api/runners/register', { body: registration })));
       if (!reply.success) throw new RunnerRefused('refused (the app answered no runner id)');
@@ -481,6 +489,149 @@ export function jobQuestionsApi(wiring: Wiring): JobQuestionsApi {
       const reply = jsonObject(await json(await call('GET', route(job), { words: true })));
       if (reply === null || !Array.isArray(reply['questions'])) throw new RunnerRefused('refused (the app answered no questions)');
       return reply;
+    },
+  };
+}
+
+// ── The Supervisor's seat (PRD omni-loop-34, s4) ──────────────────────────────────────────────────────────────────
+
+/** The seat as the app answers it: who placed it, whether an owner paused it, its daily limit and today's (UTC) tokens. */
+// `thinking` is false past the daily limit: the seat checks in without thinking until midnight.
+const SeatSchema = z.object({
+  workspace: z.string(), runner: z.string(), paused: z.boolean(), thinking: z.boolean(),
+  dailyTokens: z.number(), tokensToday: z.number(), missedLooks: z.number(), lastLookAt: z.string().nullable(),
+});
+export type SupervisorSeat = z.output<typeof SeatSchema>;
+
+/** What woke a held `next`: the app's time, and the signals opened, owners' messages and presses since `since`. */
+const WakeSchema = z.object({ at: z.string(), wake: z.object({ signals: z.number(), messages: z.number(), presses: z.number() }), seat: SeatSchema });
+export type SeatWake = z.output<typeof WakeSchema>;
+
+const SignalSchema = z.object({
+  id: z.string(), fingerprint: z.string(), check: z.string(), kind: z.string(), checkLine: z.string(), finding: z.string().nullable(),
+}).loose();
+export type SeatSignal = z.output<typeof SignalSchema>;
+
+const FindingSchema = z.object({
+  id: z.string(), fingerprint: z.string().nullable(), kind: z.enum(['stuck', 'bug', 'health']), severity: z.enum(['high', 'medium']), title: z.string(),
+  checkLine: z.string().nullable(), explanation: z.string().nullable(), lookedAt: z.string().nullable(), state: z.string(),
+}).loose();
+export type SeatFinding = z.output<typeof FindingSchema>;
+
+const SnapshotJobSchema = z.object({
+  id: z.string(), line: z.string(), status: z.string(), runningAt: z.string().nullable(), endedAt: z.string().nullable(),
+}).loose();
+export type SeatJob = z.output<typeof SnapshotJobSchema>;
+
+/** What the seat reads on a look: the parts it acts on typed, everything else kept as the app sent it. */
+const SnapshotSchema = z.object({
+  at: z.string(), seat: SeatSchema, signals: z.array(SignalSchema), findings: z.array(FindingSchema), jobs: z.array(SnapshotJobSchema),
+  runners: z.array(z.unknown()), missions: z.array(z.unknown()),
+});
+export type SeatSnapshot = z.output<typeof SnapshotSchema>;
+
+const MessageSchema = z.object({
+  id: z.string(), finding: z.string().nullable(), kind: z.enum(['owner', 'supervisor', 'result']), by: z.string().nullable(), body: z.string(),
+  replyTo: z.string().nullable(), at: z.string(),
+}).loose();
+export type SeatMessage = z.output<typeof MessageSchema>;
+
+const NoteSchema = z.object({ id: z.string(), scope: z.enum(['short', 'long']), line: z.string(), createdAt: z.string() }).loose();
+export type SeatNote = z.output<typeof NoteSchema>;
+
+/** A finding the seat raises, as the app's contract takes it (apps/galaxy/src/supervisor/api/supervisor.contract.ts). */
+export type SeatRaise = {
+  kind: 'stuck' | 'bug' | 'health';
+  severity: 'high' | 'medium';
+  title: string;
+  signals?: string[] | undefined;
+  fingerprint?: string | undefined;
+  evidence?: unknown[] | undefined;
+  explanation: string;
+  suggestions?: { action: string; label: string; target: Record<string, unknown> }[] | undefined;
+};
+const RaisedSchema = z.object({ finding: FindingSchema, raised: z.boolean(), notified: z.boolean() });
+export type SeatRaised = z.output<typeof RaisedSchema>;
+
+/** The seat's answer in a thread: signed Supervisor · agent on the page. */
+export type SeatAnswer = { finding: string | null; body: string; replyTo?: string | undefined; remembered?: string | undefined; tokens?: number | undefined };
+
+const LinesSchema = z.object({ lines: z.array(z.object({ seq: z.number(), text: z.string(), at: z.string() })) });
+
+export type SupervisorApi = {
+  /** The seat when this runner holds it, else `null` (a 403 or 404: no seat here, or an app without the routes). */
+  seat(runner: string): Promise<SupervisorSeat | null>;
+  /** The seat's look, held up to 40 s: what woke it, `null` when nothing came, `moved` once the seat left this runner. */
+  next(runner: string, since: string | null, signal?: AbortSignal): Promise<SeatWake | null | 'moved'>;
+  /** Checks in with the tokens used since the last check-in: they count on today's (UTC) total. */
+  checkIn(runner: string, tokens: number): Promise<SupervisorSeat>;
+  snapshot(runner: string): Promise<SeatSnapshot>;
+  lines(runner: string, job: string, after: number): Promise<z.output<typeof LinesSchema>['lines']>;
+  findings(runner: string, open: boolean): Promise<SeatFinding[]>;
+  memory(runner: string, scope: 'short' | 'long' | null): Promise<SeatNote[]>;
+  remember(runner: string, note: { scope: 'short' | 'long'; line: string; cites: string[] }): Promise<SeatNote>;
+  raise(runner: string, raise: SeatRaise): Promise<SeatRaised>;
+  /** A thread: the general one with `finding` null. */
+  messages(runner: string, finding: string | null, after: string | null): Promise<SeatMessage[]>;
+  answer(runner: string, answer: SeatAnswer): Promise<SeatMessage>;
+};
+
+/** How long a seat's `next` waits: the app holds it up to 40 s. */
+const SEAT_NEXT_MS = 65_000;
+
+/**
+ * The Supervisor's routes with the runner's sign-in (PRD omni-loop-34, s4). Every call names the runner; a refusal of a
+ * tool's call carries the app's own words, which the model reads back as the tool's answer.
+ */
+export function supervisorApi(wiring: Wiring): SupervisorApi {
+  const { call, json } = transport(wiring);
+  const query = (values: Record<string, string | null>): string =>
+    new URLSearchParams(Object.entries(values).flatMap(([key, value]) => (value === null ? [] : [[key, value]]))).toString();
+  const read = async <T>(schema: z.ZodType<T>, response: Response, what: string): Promise<T> => {
+    const reply = schema.safeParse(await json(response));
+    if (!reply.success) throw new RunnerRefused(`refused (the app answered no ${what})`);
+    return reply.data;
+  };
+  const get = (path: string, values: Record<string, string | null>) => call('GET', `/api/supervisor/${path}?${query(values)}`, { words: true });
+  const post = (path: string, runner: string, body: unknown) => call('POST', `/api/supervisor/${path}?${query({ runner })}`, { body, words: true });
+  return {
+    async seat(runner) {
+      const response = await call('GET', `/api/supervisor/seat?${query({ runner })}`, { allow: [403, 404] });
+      if (!response.ok) return null;
+      return (await read(z.object({ seat: SeatSchema.nullable() }), response, 'seat')).seat;
+    },
+    async next(runner, since, signal) {
+      const response = await call('GET', `/api/supervisor/next?${query({ runner, since })}`, { timeoutMs: SEAT_NEXT_MS, signal, allow: [403, 404] });
+      if (response.status === 403 || response.status === 404) return 'moved';
+      if (response.status === 204) return null;
+      return read(WakeSchema, response, 'look');
+    },
+    async checkIn(runner, tokens) {
+      return (await read(z.object({ seat: SeatSchema }), await post('seat', runner, { tokens }), 'seat')).seat;
+    },
+    async snapshot(runner) {
+      return read(SnapshotSchema, await get('snapshot', { runner }), 'snapshot');
+    },
+    async lines(runner, job, after) {
+      return (await read(LinesSchema, await get('lines', { runner, job, after: String(after) }), 'lines')).lines;
+    },
+    async findings(runner, open) {
+      return (await read(z.object({ findings: z.array(FindingSchema) }), await get('findings', { runner, state: open ? 'open' : 'done' }), 'findings')).findings;
+    },
+    async memory(runner, scope) {
+      return (await read(z.object({ notes: z.array(NoteSchema) }), await get('memory', { runner, scope }), 'notes')).notes;
+    },
+    async remember(runner, note) {
+      return (await read(z.object({ note: NoteSchema }), await post('memory', runner, note), 'note')).note;
+    },
+    async raise(runner, raise) {
+      return read(RaisedSchema, await post('findings', runner, raise), 'finding');
+    },
+    async messages(runner, finding, after) {
+      return (await read(z.object({ messages: z.array(MessageSchema) }), await get('messages', { runner, finding, after }), 'messages')).messages;
+    },
+    async answer(runner, answer) {
+      return (await read(z.object({ message: MessageSchema }), await post('messages', runner, answer), 'message')).message;
     },
   };
 }
