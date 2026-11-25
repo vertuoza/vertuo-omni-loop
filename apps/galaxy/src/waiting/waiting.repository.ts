@@ -1,7 +1,7 @@
 // The waiting list's own reads (PRD 1318, s4; ADR-0095): every query the bell sends that is not the ask
 // pages', on the client it is given, as the signed-in person, so row-level security has the last word.
 // The Questions part's first question of each waiting round, the New documents part's versions, the
-// Business part's two counts, and the Runners part's two reads (PRD 2255). A failed read throws. No rule lives here: which rounds wait and which
+// Business part's two counts, the Runners part's two reads (PRD 2255), and the Supervisor part's two (omni-loop-34 s8). A failed read throws. No rule lives here: which rounds wait and which
 // versions count is waiting.service.ts's. The client is handed in, as the ask reads are (src/ask/
 // ask.repository.ts): the controller and the server's first paint pass the viewer's.
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -54,6 +54,10 @@ export const openQuestionRows = (db: Pick<SupabaseClient, 'from'>) =>
  * checks, where the Runners part reads the jobs of one workspace among the ids it asks for. */
 export const jobStateRows = (db: Pick<SupabaseClient, 'from'>) =>
   db.from('runner_jobs').select(JOB_STATE_COLUMNS).not('outcome', 'is', null).limit(50);
+
+/** A row the Supervisor part only counts (omni-loop-34 s8): the seat's workspace, or a finding's id. */
+const SeatRead = z.object({ workspace_id: z.string() });
+const FindingIdRead = z.object({ id: z.string() });
 
 const REVIEW_COLUMNS = 'id, repo, prd, pr, kind, turn, since';
 /** An open review, merge or law wait, as the Reviews part reads it (PRD 2377 s5): a pull request's, so `pr` is set. */
@@ -114,6 +118,20 @@ export function waitingRepository(db: WaitingDb) {
       const { data, error } = await db.from('runner_jobs').select(JOB_STATE_COLUMNS).eq('workspace_id', workspace).in('id', ids);
       if (error) throw new Error(`read the runner jobs: ${error.message}`);
       return orThrow(parseRows(JobStateRead, data, 'waiting/runners: runner_jobs'));
+    },
+
+    /** Whether the workspace has a Supervisor seat (omni-loop-34 s8). */
+    async supervisorSeated(workspace: string): Promise<boolean> {
+      const { data, error } = await db.from('supervisor_seats').select('workspace_id').eq('workspace_id', workspace);
+      if (error) throw new Error(`read the Supervisor seat: ${error.message}`);
+      return orThrow(parseRows(SeatRead, data, 'waiting/supervisor: supervisor_seats')).length > 0;
+    },
+
+    /** How many of the workspace's Supervisor findings are open and high (omni-loop-34 s8). */
+    async openHighFindings(workspace: string): Promise<number> {
+      const { data, error } = await db.from('supervisor_findings').select('id').eq('workspace_id', workspace).eq('state', 'open').eq('severity', 'high');
+      if (error) throw new Error(`read the Supervisor findings: ${error.message}`);
+      return orThrow(parseRows(FindingIdRead, data, 'waiting/supervisor: supervisor_findings')).length;
     },
   };
 }

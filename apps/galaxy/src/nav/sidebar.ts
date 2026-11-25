@@ -12,7 +12,8 @@
 // foot have none), the entry, then the page, with the entry's sprite. The query and the hash never count.
 // Three entries carry a badge (badgeOf): Inbox, the waiting total, filled; Runners (PRD 2255), the workspace's
 // jobs waiting for an answer, as quiet grey digits; and Supervisor (omni-loop-34 s5), the open high findings,
-// filled in red (isAlarm).
+// filled in red (isAlarm), fed by the waiting provider's Supervisor part; the Supervisor row shows only while the
+// workspace has a seat (shownItems, omni-loop-34 s8).
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
@@ -263,6 +264,11 @@ export function badgeOf(id: SidebarId, counts: MenuCounts): number | null {
 /** Whether an entry's badge is quiet grey digits with no fill, and no dot in the rail: every count but the
  * Inbox's and the Supervisor's. */
 export const isQuiet = (id: SidebarId): boolean => id !== 'inbox' && id !== 'supervisor';
+
+/** The entries of a group the menu draws: every one, but the Supervisor's only while the workspace has a seat
+ * (omni-loop-34 s8: no seat, no Supervisor row). */
+export const shownItems = (items: readonly SidebarItem[], seat: boolean): readonly SidebarItem[] =>
+  seat ? items : items.filter((item) => item.id !== 'supervisor');
 
 /** Whether an entry's badge is filled in red, not the signal: the Supervisor's, which counts what is urgent. */
 export const isAlarm = (id: SidebarId): boolean => id === 'supervisor';

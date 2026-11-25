@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WaitingView } from '../waiting/view';
+import type { SupervisorWaiting } from '../waiting/waiting.contract';
 import type { WaitingOutbox, WaitingQuestion, WaitingReview } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 import { item } from '../ask/test/test-item';
@@ -44,9 +45,11 @@ const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unr
 
 const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', ideasBoard: 'acme/widgets', waiting: waiting(FIVE) };
 
-const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = [], runners = 0, reviews: WaitingReview[] = []) => {
+/** The workspace has a Supervisor seat by default, so its row shows (omni-loop-34 s8: no seat, no row). */
+const SEATED: SupervisorWaiting = { seat: true, high: 0 };
+const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = [], runners = 0, reviews: WaitingReview[] = [], supervisor: SupervisorWaiting = SEATED) => {
   at.path = path;
-  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, runners, reviews, children: createElement(Sidebar, { viewer }) }));
+  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, runners, reviews, supervisor, children: createElement(Sidebar, { viewer }) }));
 };
 const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: parsePrd(459), dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -54,6 +57,25 @@ const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g
 
 beforeEach(() => {
   at.path = '/app';
+});
+
+describe('the Supervisor row (omni-loop-34 s8)', () => {
+  it('is not drawn while the workspace has no seat', () => {
+    const html = render(ADA, '/app', [], 0, [], { seat: false, high: 3 });
+    expect(text(html)).toMatch(/ AI Fleet Dashboard Home /);
+    expect(html).not.toContain('/app/supervisor');
+  });
+
+  it('is drawn with a seat, its open high findings a red count, none at zero', () => {
+    expect(render(ADA, '/app', [], 0, [], { seat: true, high: 2 })).toMatch(/aria-label="Supervisor: 2 waiting">.*<span class="app-sidebar-badge app-sidebar-badge-alarm" aria-hidden="true">2<\/span><\/a>/);
+    const quiet = render(ADA, '/app', [], 0, [], { seat: true, high: 0 });
+    expect(quiet).toContain('href="/app/supervisor"');
+    expect(quiet).not.toContain('app-sidebar-badge-alarm');
+  });
+
+  it('never adds the high findings to the Inbox total', () => {
+    expect(text(render(ADA, '/app', [], 0, [], { seat: true, high: 2 }))).toContain('Inbox 5 ');
+  });
 });
 
 describe('the sidebar', () => {
