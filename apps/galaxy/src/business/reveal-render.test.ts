@@ -46,10 +46,8 @@ const DONE: DraftView = {
 };
 const RUNNING: DraftView = { ...DONE, state: 'running', counts: {}, scanned: DONE.scanned.slice(0, 1) };
 
-// The page is drawn a day after the receipts were seen: "eight weeks ago" counts from it, never from the clock (it crossed on 2026-11-25).
-const NOW = Date.parse('2026-10-01T10:00:00Z');
 const render = (claims: Claim[], { draft = null as DraftView | null, pages = [] as WebPage[], actions = [] as BusinessAction[], demo = false } = {}) =>
-  renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims, [], { draft, pages })), demo, now: NOW }));
+  renderToStaticMarkup(createElement(BusinessView, { state: actions.reduce(businessReducer, initialBusinessState(claims, [], { draft, pages })), demo }));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1 = (html: string) => text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '').replace(/ (?=[,.-])/g, '').replace(/- /g, '-');
 const buttons = (html: string) => [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map((m) => ({ attrs: m[1], text: text(sure(m[2], 'm[2]')) }));
