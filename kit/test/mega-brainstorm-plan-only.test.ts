@@ -77,4 +77,22 @@ describe('/omni:mega-brainstorm --product <key> --plan-only <key>-<n> (PRD omni-
     expect(PLAN_ONLY).toContain('/omni:plan');
     expect(PLAN_ONLY).toContain("`omni plan check` reads a repository's PRD only");
   });
+
+  it('bug #3286: under --mission, reads the Architect\'s open points, rewords its own spec when it must, and records a person\'s decision as a high item', () => {
+    expect(
+      inOrder(PLAN_ONLY, [
+        "**The Architect's open points**",
+        'node .omni-loop/bin/omni.mjs mission get <m> --out <scratch>/mission',
+        'open-points/<key>-<n>.md',
+        'the PM wrote this PRD, so its spec is the PM\'s to reword',
+        'node .omni-loop/bin/omni.mjs item new --prd <key>-<n>',
+        'node .omni-loop/bin/omni.mjs item relay <scratch>/items --prd <key>-<n>',
+        'dossier push <key>-<n> --from <prd folder>',
+        '**The PM\'s plan approval**',
+      ]),
+    ).toBeNull();
+    expect(PLAN_ONLY).toContain('`hardToRevert: true`');
+    expect(PLAN_ONLY).toContain('Under `--mission` with open points to answer, this stop does not apply');
+    expect(PLAN_ONLY).toContain('A PRD a person wrote never gets this run');
+  });
 });
