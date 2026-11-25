@@ -20647,8 +20647,8 @@ var timeline = Object.freeze({
       plannedWave: planned?.get(slice) ?? null,
       mergedWave: merged[index]
     }));
-    const times = slices.flatMap((slice) => slice.minutes === null ? [] : [slice.minutes]);
-    const medianMinutes = median(times);
+    const times2 = slices.flatMap((slice) => slice.minutes === null ? [] : [slice.minutes]);
+    const medianMinutes = median(times2);
     const slowFactor = THRESHOLDS.slowSliceFactor;
     const facts = {
       featurePr: {
@@ -24072,18 +24072,32 @@ function eventsOf({
   return unrecorded(all, keys);
 }
 var latestProduct = (runs, prd) => runs.filter((one) => one.prd === prd).reduce((last, one) => last === null || one.run > last.run ? one : last, null);
-function productEnded(fact, latest, last) {
-  const end = endOf(last);
-  if (end === "ready") return { state: "ready", run: latest };
-  if (end === "lost" || end === "limited") return { state: "running" };
-  const why = end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
-  return { state: "waits", why: `PRD ${fact.prd}: ${why}; take it to ready by hand and the mission joins it` };
+var PRODUCT_HALFWAY_MAX = 10;
+var times = (count4) => count4 === 1 ? "once" : `${String(count4)} times`;
+function productAgain(runs, last, resumes) {
+  const ends = runs.flatMap((one) => one.attempts.at(-1) ?? []);
+  if (endOf(last) === "held") return ends.filter((one) => endOf(one) === "held").length < LAST_RUN || "its build was held twice";
+  if (!endedHalfway(last)) return null;
+  const halfway = ends.filter(endedHalfway);
+  const count4 = halfway.filter((one) => one.limitedUntil == null).length;
+  if (resumes === null) return count4 < LAST_RUN || "its build stopped mid-way twice";
+  return count4 <= resumes && halfway.length < PRODUCT_HALFWAY_MAX || `its build ended without its result line ${times(count4)}`;
 }
-function productStateOf(fact, runs, { joined: joined2, done, branch }) {
+var endedWhy = (end, last) => end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
+function productEnded(fact, runs, last, resumes) {
+  const latest = latestProduct(runs, fact.prd);
+  const end = endOf(last);
+  if (latest === null || end === "lost" || end === "limited") return { state: "running" };
+  if (end === "ready") return { state: "ready", run: latest };
+  const again3 = productAgain(runs, last, resumes);
+  if (again3 === true) return { state: "startable", run: latest.run + 1 };
+  return { state: "waits", why: `PRD ${fact.prd}: ${again3 ?? endedWhy(end, last)}; take it to ready by hand and the mission joins it` };
+}
+function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null }) {
   if (joined2.has(fact.prd)) return { state: "joined" };
   const latest = latestProduct(runs, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, latest, last);
+  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, resumes);
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: "blocked", by };
   if (fact.approval !== "standing") return { state: "waits", why: `PRD ${fact.prd}: ${fact.approval === "voided" ? "approve it again" : "approve it"} on its page (${branch})` };
@@ -24220,8 +24234,44 @@ function withPm(next, writing, wakeAt2, wait2 = null) {
   return next.status === "running" ? { ...next, waitingOn } : { status: "waiting", waitingOn, nextWakeAt: wakeAt2 };
 }
 
+// kit/lib/virtual-fleet/tech-record.ts
+import { z as z95 } from "zod";
+
+// kit/lib/virtual-fleet/plan-record.ts
+import { z as z94 } from "zod";
+var PLAN_LINE2 = "omni plan: ";
+var PlanShaSchema = z94.string().regex(/^[0-9a-f]{64}$/);
+var PlanRecordSchema = z94.object({
+  v: z94.literal(1),
+  prd: ProductPrdIdSchema,
+  plan: PlanShaSchema,
+  outcome: z94.enum(["approved"])
+});
+var planRecordOf = (log2, prd) => lastRecordOf(log2, PLAN_LINE2, PlanRecordSchema, (record) => record.prd === prd);
+
+// kit/lib/virtual-fleet/tech-record.ts
+var TECH_LINE = "omni tech: ";
+var POINTS_MAX = 10;
+var POINT_MAX = 300;
+var PointSchema = z95.string().trim().min(1).max(POINT_MAX).refine((text20) => !/[\r\n]/.test(text20));
+var TechRecordSchema = z95.object({
+  v: z95.literal(1),
+  prd: ProductPrdIdSchema,
+  plan: PlanShaSchema,
+  settled: z95.array(PointSchema).max(POINTS_MAX),
+  open: z95.array(PointSchema).max(POINTS_MAX),
+  outcome: z95.enum(["approved", "escalated"])
+}).refine((record) => record.outcome === "escalated" || record.open.length === 0, { message: "an approved review leaves no open point", path: ["open"] });
+var techRecordOf = (log2, prd) => lastRecordOf(log2, TECH_LINE, TechRecordSchema, (record) => record.prd === prd);
+var techJobLine = (prd, mission) => `/omni:tech-review ${prd} --mission ${String(mission)}`;
+function unansweredOf(decisions) {
+  const last = decisions.findLast((one) => one.plan !== null);
+  return last?.kind === "tech" && last.outcome === "escalated" && last.why.length > 0 ? last : null;
+}
+
 // apps/omni-app/src/missions/tech.ts
 var ROUNDS2 = 2;
+var FAILS = 2;
 var TECH_KEY = /^mission:[0-9a-f-]{36}:prd:([^:]+):tech:([1-9][0-9]*)$/;
 var techKey = (mission, prd, k) => `mission:${mission}:prd:${prd}:tech:${String(k)}`;
 function techOfKey(key) {
@@ -24250,20 +24300,30 @@ function escalatedWords(prd, decision) {
   return decision.kind === "tech" ? `PRD ${prd}: the Architect left it to you: ${why}; approve it on its page` : `PRD ${prd}: the PM's plan approval went to you: ${why}; approve it on its page`;
 }
 var spentWords2 = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS2)} rounds; approve it on its page`;
-function afterEscalated(view, last) {
+var decidedOf = (mine, kind) => mine.filter((one) => one.kind === kind && one.plan !== null).length;
+function failsInRow(mine, kind) {
+  const ofKind = mine.filter((one) => one.kind === kind);
+  const lastDecided = ofKind.findLastIndex((one) => one.plan !== null);
+  return ofKind.length - 1 - lastDecided;
+}
+function planWith(open, again3) {
+  return open === null ? { state: "plan", again: again3 } : { state: "plan", again: true, points: open.why };
+}
+function afterEscalated(view, mine, last) {
   if (view.approval === "standing") return { state: "build" };
-  if (last.plan === null && last.kind === "plan" && view.plans.length < ROUNDS2) return { state: "plan", again: true };
-  if (last.plan === null && last.kind === "tech" && view.techs.length < ROUNDS2) return { state: "tech", k: view.techs.length + 1 };
-  return { state: "waits", why: escalatedWords(view.prd, last) };
+  const open = unansweredOf(mine);
+  if (last.plan === null && failsInRow(mine, last.kind) < FAILS) return last.kind === "plan" ? planWith(open, true) : { state: "tech", k: view.techs.length + 1 };
+  if (last.plan !== null && open !== null && decidedOf(mine, "plan") < ROUNDS2) return planWith(open, true);
+  return { state: "waits", why: escalatedWords(view.prd, open ?? last) };
 }
 function reviewStateOf(view) {
   const mine = view.decisions.filter((one) => one.prd === view.prd);
   if (approvedOn(mine, "plan", view.latest) && approvedOn(mine, "tech", view.latest)) return { state: "build" };
   if (view.plans.some((one) => working2(one.attempt)) || view.techs.some((one) => working2(one.attempt))) return { state: "working" };
   const last = mine.at(-1);
-  if (last?.outcome === "escalated") return afterEscalated(view, last);
-  if (!approvedOn(mine, "plan", view.latest)) return view.plans.length < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
-  return view.techs.length < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
+  if (last?.outcome === "escalated") return afterEscalated(view, mine, last);
+  if (!approvedOn(mine, "plan", view.latest)) return decidedOf(mine, "plan") < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
+  return decidedOf(mine, "tech") < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
 }
 var short3 = (plan) => plan === null ? "no version" : `version ${plan.slice(0, 7)}`;
 function decisionEvent(decision) {
@@ -24277,39 +24337,14 @@ var isRetry = (prd, decisions) => {
   const last = decisions.filter((one) => one.prd === prd).at(-1);
   return last?.outcome === "escalated" && last.plan === null;
 };
+function planSentence(prd, line3, state) {
+  if (state.points !== void 0) return `Sent the PM ${line3} again: it answers the Architect's open points on PRD ${prd}.`;
+  return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+}
 function reviewDispatched(prd, job, line3, state, retry = false) {
-  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state);
   return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
 }
-
-// kit/lib/virtual-fleet/plan-record.ts
-import { z as z94 } from "zod";
-var PLAN_LINE2 = "omni plan: ";
-var PlanShaSchema = z94.string().regex(/^[0-9a-f]{64}$/);
-var PlanRecordSchema = z94.object({
-  v: z94.literal(1),
-  prd: ProductPrdIdSchema,
-  plan: PlanShaSchema,
-  outcome: z94.enum(["approved"])
-});
-var planRecordOf = (log2, prd) => lastRecordOf(log2, PLAN_LINE2, PlanRecordSchema, (record) => record.prd === prd);
-
-// kit/lib/virtual-fleet/tech-record.ts
-import { z as z95 } from "zod";
-var TECH_LINE = "omni tech: ";
-var POINTS_MAX = 10;
-var POINT_MAX = 300;
-var PointSchema = z95.string().trim().min(1).max(POINT_MAX).refine((text20) => !/[\r\n]/.test(text20));
-var TechRecordSchema = z95.object({
-  v: z95.literal(1),
-  prd: ProductPrdIdSchema,
-  plan: PlanShaSchema,
-  settled: z95.array(PointSchema).max(POINTS_MAX),
-  open: z95.array(PointSchema).max(POINTS_MAX),
-  outcome: z95.enum(["approved", "escalated"])
-}).refine((record) => record.outcome === "escalated" || record.open.length === 0, { message: "an approved review leaves no open point", path: ["open"] });
-var techRecordOf = (log2, prd) => lastRecordOf(log2, TECH_LINE, TechRecordSchema, (record) => record.prd === prd);
-var techJobLine = (prd, mission) => `/omni:tech-review ${prd} --mission ${String(mission)}`;
 
 // apps/omni-app/src/missions/pm.plan.ts
 function planJobsOf(jobs) {
@@ -26242,7 +26277,7 @@ async function reviewStep(at4, fact, state, step) {
 }
 async function productSteps(at4, facts) {
   const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
-  const where = { joined: at4.joined, done, branch: at4.branch };
+  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission) };
   const step = { room: at4.mission.parallel - facts.filter((fact) => productStateOf(fact, at4.runs, where).state === "running").length, moving: false, waits: [], events: [] };
   for (const fact of facts) {
     const held2 = at4.held.get(fact.prd);
@@ -27686,7 +27721,7 @@ var OVERTURNED_BY = /^(\S+) overturned fleet decision ([^\s:]+):/;
 var REPAIR_FIXED = /^(?:(?<prd>.+?)'s repair|The (?<stuck>stuck) repair) \[(?<fingerprint>[0-9a-f]{1,8})\] ended fixed\.$/;
 var RETRO_READS = /retro \[([0-9a-f]{1,8})\] reads ([^:]+): (.+)$/;
 var RESUMED = /^PRD (\S+) ended without its result line: the mission sends it a fresh job \((.+)\)\.$/;
-function decidedOf(event) {
+function decidedOf2(event) {
   for (const read2 of DECISION_READS) {
     const groups = read2.kind === event.kind ? read2.pattern.exec(event.sentence)?.groups : void 0;
     if (groups) return { ...read2.said(groups.item ?? "", groups.prd ?? "", groups.option ?? ""), event: event.id };
@@ -27738,7 +27773,7 @@ function learnedLines(input) {
   const seen = new Set(input.kept.map((line3) => line3.trim()));
   const lines2 = [];
   for (const event of [...input.events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))) {
-    const decided = decidedOf(event);
+    const decided = decidedOf2(event);
     if (decided !== null) decisions.set(decided.name, decided);
     const retro2 = event.kind === "retro" ? RETRO_READS.exec(event.sentence) : null;
     if (retro2?.[1] && retro2[2] && retro2[3]) retros.set(retro2[1], { kind: retro2[2], cause: retro2[3], event: event.id });

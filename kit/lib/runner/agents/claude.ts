@@ -19,7 +19,11 @@
 //   real assistant message: its input, cache and output tokens against the model's window (200,000
 //   tokens; a million for a `[1m]` model);
 // - the session is the one its events name; it resumes with `--resume <session>`, and stops with
-//   SIGINT, then SIGTERM after 30 seconds.
+//   SIGINT, then SIGTERM after 30 seconds;
+// - a run that exited 0 is waiting (bug 3288) when its last words (the `result`'s text, else the last
+//   thing it said) say it waits and name its background work or a notification, or say it waits while
+//   a command it sent to the background (a tool result naming its ID, or a backgrounded `task_started`)
+//   never reported its end (a `task_notification`, or a `<task-notification>` naming its ID).
 // A line that does not parse is a readable line as it is and counts for nothing else.
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -55,6 +59,18 @@ const SYNTHETIC = '<synthetic>';
 
 /** Claude's words for its usage limit, and never for a server that is only busy. */
 const LIMIT_WORDS = /usage limit reached|hit your (?:usage )?limit|\b(?:5-hour|five-hour|weekly|session|opus|sonnet) limit reached/i;
+
+/** Last words that wait: the turn ends meaning to carry on later (bug 3288). */
+const WAITS = /\b(?:wait(?:s|ing)?|continue when|carry on when)\b/i;
+
+/** Last words naming what they wait on as the run's own background work, or its notification. */
+const ON_BACKGROUND = /\b(?:background|notif(?:y|ies|ied|ication))\b/i;
+
+/** The ID of a command a tool result says went to the background, past its timeout or from the start. */
+const SENT_BACK = /(?:moved to the background \(ID: |running in background with ID: )([\w-]+)/g;
+
+/** The ID a `<task-notification>` names. */
+const NOTIFIED = /<task-id>([\w-]+)<\/task-id>/g;
 
 /** The epoch an older limit message ends with: `Claude AI usage limit reached|1793206800`. */
 const LIMIT_EPOCH = /\|(\d{10,13})\s*$/;
@@ -92,6 +108,59 @@ function saidBy(event: Event): string {
   const content = field(field(event, 'message'), 'content');
   if (!Array.isArray(content)) return '';
   return content.map((block: unknown) => (field(block, 'type') === 'text' ? textOf(field(block, 'text')) : '')).join('\n');
+}
+
+/** A message's content as text: a string, or its text and tool results' text joined. */
+function contentText(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content.map((block: unknown) => (field(block, 'type') === 'tool_result' ? contentText(field(block, 'content')) : textOf(field(block, 'text')))).join('\n');
+}
+
+/** The run's last words: its `result`'s text, else the last thing it said. */
+function lastWords(events: readonly Event[]): string {
+  const last = events.filter((event) => kind(event) === 'result' || (kind(event) === 'assistant' && saidBy(event) !== '')).at(-1);
+  if (last === undefined) return '';
+  return kind(last) === 'result' ? textOf(field(last, 'result')) : saidBy(last);
+}
+
+/** The IDs `pattern` captures in `text`. */
+const idsIn = (text: string, pattern: RegExp): string[] => [...text.matchAll(pattern)].flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
+
+/** The text a user event carries: its tool results' output and its notifications. */
+const userText = (event: Event): string => contentText(field(field(event, 'message'), 'content'));
+
+/** The task ID a system event of `subtype` names, as a list of none or one. */
+function systemTask(event: Event, subtype: string): string[] {
+  const id = textOf(field(event, 'task_id'));
+  return field(event, 'subtype') === subtype && id !== '' ? [id] : [];
+}
+
+/** The IDs of the commands an event says went to the background: a backgrounded `task_started`, or a tool result naming one. */
+function sentBack(event: Event): string[] {
+  if (kind(event) === 'system') return field(event, 'is_backgrounded') === true ? systemTask(event, 'task_started') : [];
+  return kind(event) === 'user' ? idsIn(userText(event), SENT_BACK) : [];
+}
+
+/** The IDs of the tasks an event says ended: a `task_notification`, or a `<task-notification>` naming one. */
+function endedTasks(event: Event): string[] {
+  if (kind(event) === 'system') return systemTask(event, 'task_notification');
+  return kind(event) === 'user' ? idsIn(userText(event), NOTIFIED) : [];
+}
+
+/** Whether a command the run sent to the background never reported its end. */
+function backgroundLeft(events: readonly Event[]): boolean {
+  const ended = new Set(events.flatMap(endedTasks));
+  return events.flatMap(sentBack).some((id) => !ended.has(id));
+}
+
+/** Whether a run that exited 0 ended with its last turn waiting on its own background work (bug 3288). */
+function endedWaiting(run: Run): boolean {
+  if (run.exit !== 0) return false;
+  const events = eventsOf(run);
+  if (events.some((event) => kind(event) === 'result' && field(event, 'is_error') === true)) return false;
+  const words = lastWords(events);
+  return WAITS.test(words) && (ON_BACKGROUND.test(words) || backgroundLeft(events));
 }
 
 /** The `rate_limit_info` of each rate limit event, in order. */
@@ -226,6 +295,9 @@ export function claudeAgent({ projects = join(homedir(), '.claude', 'projects'),
     },
     resume(_job, account, session, prompt) {
       return { file: CLAUDE, args: [...CLAUDE_ARGS, ...accountArgs(account), '--resume', session], env: accountEnv(account), stdin: `${prompt}\n` };
+    },
+    waiting(run) {
+      return endedWaiting(run);
     },
   };
 }

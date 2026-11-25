@@ -1410,7 +1410,7 @@ async function reviewStep(at: ProductSteps, fact: StoredProduct, state: Exclude<
 /** Each product PRD in scope order: its build sent, at work, joined, or what it waits on. */
 async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): Promise<ProductsDone> {
   const done = new Set<MissionPrd>([...at.joined, ...[...at.states].flatMap(([prd, state]) => (state.state === 'merged' || state.state === 'joined' ? [prd] : []))]);
-  const where = { joined: at.joined, done, branch: at.branch };
+  const where = { joined: at.joined, done, branch: at.branch, resumes: resumeCap(at.mission) };
   const step: ProductStep = { room: at.mission.parallel - facts.filter((fact) => productStateOf(fact, at.runs, where).state === 'running').length, moving: false, waits: [], events: [] };
   for (const fact of facts) {
     const held = at.held.get(fact.prd);
