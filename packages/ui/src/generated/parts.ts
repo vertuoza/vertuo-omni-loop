@@ -46,6 +46,7 @@ export * from '../Select.tsx';
 export * from '../SettingsField.tsx';
 export * from '../SettingsHeader.tsx';
 export * from '../SettingsRow.tsx';
+export * from '../SettingsSaveBar.tsx';
 export * from '../SettingsSection.tsx';
 export * from '../Skeleton.tsx';
 export * from '../Stack.tsx';

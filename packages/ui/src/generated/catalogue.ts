@@ -137,6 +137,9 @@ import { settingsHeaderSpecimen } from '../SettingsHeader.specimen.tsx';
 import { SettingsRow } from '../SettingsRow.tsx';
 import { settingsRowMeta } from '../SettingsRow.meta.ts';
 import { settingsRowSpecimen } from '../SettingsRow.specimen.tsx';
+import { SettingsSaveBar } from '../SettingsSaveBar.tsx';
+import { settingsSaveBarMeta } from '../SettingsSaveBar.meta.ts';
+import { settingsSaveBarSpecimen } from '../SettingsSaveBar.specimen.tsx';
 import { SettingsSection } from '../SettingsSection.tsx';
 import { settingsSectionMeta } from '../SettingsSection.meta.ts';
 import { settingsSectionSpecimen } from '../SettingsSection.specimen.tsx';
@@ -181,7 +184,7 @@ import { tooltipMeta } from '../Tooltip.meta.ts';
 import { tooltipSpecimen } from '../Tooltip.specimen.tsx';
 
 /** Every part's component, by its name. */
-export const COMPONENTS = { AppShell, Avatar, Badge, Breadcrumb, Button, Card, Checkbox, Code, Combobox, DataList, DefinitionList, Dialog, Drawer, EmptyState, ErrorState, Field, FilterBar, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, OutboxItem, PageHeader, PersonRef, Popover, PrdRef, Progress, Prose, Radio, RepoRef, ReviewScreen, Section, SectionHeading, SegmentedControl, Select, SettingsField, SettingsHeader, SettingsRow, SettingsSection, Skeleton, Stack, StageTrack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Toast, Tooltip } as const;
+export const COMPONENTS = { AppShell, Avatar, Badge, Breadcrumb, Button, Card, Checkbox, Code, Combobox, DataList, DefinitionList, Dialog, Drawer, EmptyState, ErrorState, Field, FilterBar, Grid, Heading, Icon, IconButton, Inline, Input, Kbd, Link, ListRow, Menu, Notice, OutboxItem, PageHeader, PersonRef, Popover, PrdRef, Progress, Prose, Radio, RepoRef, ReviewScreen, Section, SectionHeading, SegmentedControl, Select, SettingsField, SettingsHeader, SettingsRow, SettingsSaveBar, SettingsSection, Skeleton, Stack, StageTrack, Stat, Switch, Table, Tabs, Tag, Text, Textarea, Timeline, Toast, Tooltip } as const;
 
 /** Every part: its meta (variants, usage, do, don't, contrast) and its specimen. */
 export const PARTS: readonly Part[] = [
@@ -230,6 +233,7 @@ export const PARTS: readonly Part[] = [
   { meta: settingsFieldMeta, specimen: settingsFieldSpecimen },
   { meta: settingsHeaderMeta, specimen: settingsHeaderSpecimen },
   { meta: settingsRowMeta, specimen: settingsRowSpecimen },
+  { meta: settingsSaveBarMeta, specimen: settingsSaveBarSpecimen },
   { meta: settingsSectionMeta, specimen: settingsSectionSpecimen },
   { meta: skeletonMeta, specimen: skeletonSpecimen },
   { meta: stackMeta, specimen: stackSpecimen },
