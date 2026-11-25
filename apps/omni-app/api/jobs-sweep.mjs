@@ -25108,8 +25108,44 @@ function withPm(next, writing, wakeAt2, wait2 = null) {
   return next.status === "running" ? { ...next, waitingOn } : { status: "waiting", waitingOn, nextWakeAt: wakeAt2 };
 }
 
+// kit/lib/virtual-fleet/tech-record.ts
+import { z as z104 } from "zod";
+
+// kit/lib/virtual-fleet/plan-record.ts
+import { z as z103 } from "zod";
+var PLAN_LINE2 = "omni plan: ";
+var PlanShaSchema = z103.string().regex(/^[0-9a-f]{64}$/);
+var PlanRecordSchema = z103.object({
+  v: z103.literal(1),
+  prd: ProductPrdIdSchema,
+  plan: PlanShaSchema,
+  outcome: z103.enum(["approved"])
+});
+var planRecordOf = (log2, prd) => lastRecordOf(log2, PLAN_LINE2, PlanRecordSchema, (record) => record.prd === prd);
+
+// kit/lib/virtual-fleet/tech-record.ts
+var TECH_LINE = "omni tech: ";
+var POINTS_MAX = 10;
+var POINT_MAX = 300;
+var PointSchema = z104.string().trim().min(1).max(POINT_MAX).refine((text20) => !/[\r\n]/.test(text20));
+var TechRecordSchema = z104.object({
+  v: z104.literal(1),
+  prd: ProductPrdIdSchema,
+  plan: PlanShaSchema,
+  settled: z104.array(PointSchema).max(POINTS_MAX),
+  open: z104.array(PointSchema).max(POINTS_MAX),
+  outcome: z104.enum(["approved", "escalated"])
+}).refine((record) => record.outcome === "escalated" || record.open.length === 0, { message: "an approved review leaves no open point", path: ["open"] });
+var techRecordOf = (log2, prd) => lastRecordOf(log2, TECH_LINE, TechRecordSchema, (record) => record.prd === prd);
+var techJobLine = (prd, mission) => `/omni:tech-review ${prd} --mission ${String(mission)}`;
+function unansweredOf(decisions) {
+  const last = decisions.findLast((one) => one.plan !== null);
+  return last?.kind === "tech" && last.outcome === "escalated" && last.why.length > 0 ? last : null;
+}
+
 // apps/omni-app/src/missions/tech.ts
 var ROUNDS2 = 2;
+var FAILS = 2;
 var TECH_KEY = /^mission:[0-9a-f-]{36}:prd:([^:]+):tech:([1-9][0-9]*)$/;
 var techKey = (mission, prd, k) => `mission:${mission}:prd:${prd}:tech:${String(k)}`;
 function techOfKey(key) {
@@ -25138,20 +25174,30 @@ function escalatedWords(prd, decision) {
   return decision.kind === "tech" ? `PRD ${prd}: the Architect left it to you: ${why}; approve it on its page` : `PRD ${prd}: the PM's plan approval went to you: ${why}; approve it on its page`;
 }
 var spentWords2 = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS2)} rounds; approve it on its page`;
-function afterEscalated(view, last) {
+var decidedOf = (mine, kind) => mine.filter((one) => one.kind === kind && one.plan !== null).length;
+function failsInRow(mine, kind) {
+  const ofKind = mine.filter((one) => one.kind === kind);
+  const lastDecided = ofKind.findLastIndex((one) => one.plan !== null);
+  return ofKind.length - 1 - lastDecided;
+}
+function planWith(open, again3) {
+  return open === null ? { state: "plan", again: again3 } : { state: "plan", again: true, points: open.why };
+}
+function afterEscalated(view, mine, last) {
   if (view.approval === "standing") return { state: "build" };
-  if (last.plan === null && last.kind === "plan" && view.plans.length < ROUNDS2) return { state: "plan", again: true };
-  if (last.plan === null && last.kind === "tech" && view.techs.length < ROUNDS2) return { state: "tech", k: view.techs.length + 1 };
-  return { state: "waits", why: escalatedWords(view.prd, last) };
+  const open = unansweredOf(mine);
+  if (last.plan === null && failsInRow(mine, last.kind) < FAILS) return last.kind === "plan" ? planWith(open, true) : { state: "tech", k: view.techs.length + 1 };
+  if (last.plan !== null && open !== null && decidedOf(mine, "plan") < ROUNDS2) return planWith(open, true);
+  return { state: "waits", why: escalatedWords(view.prd, open ?? last) };
 }
 function reviewStateOf(view) {
   const mine = view.decisions.filter((one) => one.prd === view.prd);
   if (approvedOn(mine, "plan", view.latest) && approvedOn(mine, "tech", view.latest)) return { state: "build" };
   if (view.plans.some((one) => working2(one.attempt)) || view.techs.some((one) => working2(one.attempt))) return { state: "working" };
   const last = mine.at(-1);
-  if (last?.outcome === "escalated") return afterEscalated(view, last);
-  if (!approvedOn(mine, "plan", view.latest)) return view.plans.length < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
-  return view.techs.length < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
+  if (last?.outcome === "escalated") return afterEscalated(view, mine, last);
+  if (!approvedOn(mine, "plan", view.latest)) return decidedOf(mine, "plan") < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
+  return decidedOf(mine, "tech") < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
 }
 var short3 = (plan) => plan === null ? "no version" : `version ${plan.slice(0, 7)}`;
 function decisionEvent(decision) {
@@ -25165,39 +25211,14 @@ var isRetry = (prd, decisions) => {
   const last = decisions.filter((one) => one.prd === prd).at(-1);
   return last?.outcome === "escalated" && last.plan === null;
 };
+function planSentence(prd, line3, state) {
+  if (state.points !== void 0) return `Sent the PM ${line3} again: it answers the Architect's open points on PRD ${prd}.`;
+  return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+}
 function reviewDispatched(prd, job, line3, state, retry = false) {
-  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state);
   return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
 }
-
-// kit/lib/virtual-fleet/plan-record.ts
-import { z as z103 } from "zod";
-var PLAN_LINE2 = "omni plan: ";
-var PlanShaSchema = z103.string().regex(/^[0-9a-f]{64}$/);
-var PlanRecordSchema = z103.object({
-  v: z103.literal(1),
-  prd: ProductPrdIdSchema,
-  plan: PlanShaSchema,
-  outcome: z103.enum(["approved"])
-});
-var planRecordOf = (log2, prd) => lastRecordOf(log2, PLAN_LINE2, PlanRecordSchema, (record) => record.prd === prd);
-
-// kit/lib/virtual-fleet/tech-record.ts
-import { z as z104 } from "zod";
-var TECH_LINE = "omni tech: ";
-var POINTS_MAX = 10;
-var POINT_MAX = 300;
-var PointSchema = z104.string().trim().min(1).max(POINT_MAX).refine((text20) => !/[\r\n]/.test(text20));
-var TechRecordSchema = z104.object({
-  v: z104.literal(1),
-  prd: ProductPrdIdSchema,
-  plan: PlanShaSchema,
-  settled: z104.array(PointSchema).max(POINTS_MAX),
-  open: z104.array(PointSchema).max(POINTS_MAX),
-  outcome: z104.enum(["approved", "escalated"])
-}).refine((record) => record.outcome === "escalated" || record.open.length === 0, { message: "an approved review leaves no open point", path: ["open"] });
-var techRecordOf = (log2, prd) => lastRecordOf(log2, TECH_LINE, TechRecordSchema, (record) => record.prd === prd);
-var techJobLine = (prd, mission) => `/omni:tech-review ${prd} --mission ${String(mission)}`;
 
 // apps/omni-app/src/missions/pm.plan.ts
 function planJobsOf(jobs) {
@@ -28274,7 +28295,7 @@ var OVERTURNED_BY = /^(\S+) overturned fleet decision ([^\s:]+):/;
 var REPAIR_FIXED = /^(?:(?<prd>.+?)'s repair|The (?<stuck>stuck) repair) \[(?<fingerprint>[0-9a-f]{1,8})\] ended fixed\.$/;
 var RETRO_READS = /retro \[([0-9a-f]{1,8})\] reads ([^:]+): (.+)$/;
 var RESUMED = /^PRD (\S+) ended without its result line: the mission sends it a fresh job \((.+)\)\.$/;
-function decidedOf(event) {
+function decidedOf2(event) {
   for (const read2 of DECISION_READS) {
     const groups = read2.kind === event.kind ? read2.pattern.exec(event.sentence)?.groups : void 0;
     if (groups) return { ...read2.said(groups.item ?? "", groups.prd ?? "", groups.option ?? ""), event: event.id };
@@ -28326,7 +28347,7 @@ function learnedLines(input) {
   const seen = new Set(input.kept.map((line3) => line3.trim()));
   const lines2 = [];
   for (const event of [...input.events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))) {
-    const decided = decidedOf(event);
+    const decided = decidedOf2(event);
     if (decided !== null) decisions.set(decided.name, decided);
     const retro2 = event.kind === "retro" ? RETRO_READS.exec(event.sentence) : null;
     if (retro2?.[1] && retro2[2] && retro2[3]) retros.set(retro2[1], { kind: retro2[2], cause: retro2[3], event: event.id });

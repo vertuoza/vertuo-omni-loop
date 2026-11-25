@@ -133,7 +133,8 @@ planned on its own. This is the run a mission's PM is sent for a product PRD in 
 **From a product** above for the product (`product use <key>`) and for the files going to the
 server, and replaces everything else: no survey, no design, no issue, no commit, no phase-0 PR, no
 feature PR, no before/after page and no hand-off to `/omni:ultra-yolo`. The spec is read, never
-rewritten: this run never changes the spec, the before/after page or the voice.
+rewritten: this run never changes the spec, the before/after page or the voice, save to answer the
+Architect's open points on a PRD the mission's PM wrote (**The Architect's open points** below).
 
 1. **Read where the PRD stands:** `node .omni-loop/bin/omni.mjs prd <key>-<n>`. A `state:` other than
    `inbox` (`drifted`, `unreachable`) writes nothing: print its line and stop.
@@ -151,7 +152,9 @@ rewritten: this run never changes the spec, the before/after page or the voice.
    the scratch folder as step 3 says, nothing run in it). Write it as `plan.md` into `<prd folder>`
    (a folder of the scratch folder). When the PRD already has a plan, `dossier get <key>-<n> plan`
    reads it first and the new one replaces it only where the spec asks for it. A plan that would need
-   a changed spec is not written: say so in one line and stop.
+   a changed spec is not written: say so in one line and stop. Under `--mission` with open points to
+   answer, this stop does not apply: the PM rewords its own spec instead, as **The Architect's open
+   points** says.
 
    **Its `## Repositories` table is always written** (bug #3275), even for one repository: a
    mission cuts its branch in each repository it names, and holds the PRD on a name it cannot find.
@@ -180,6 +183,32 @@ the PRD, as **For a mission's PM** does. The run's last line, printed with no qu
 ```text
 plan-only <key>-<n>: plan pushed · <page link>
 ```
+
+**The Architect's open points** (bug #3286). A line that ends `--mission <m>` plans a PRD the
+mission's PM wrote, and the fleet's Architect may have left it open points, each addressed to the
+PM. Before step 3, read them: `node .omni-loop/bin/omni.mjs mission get <m> --out <scratch>/mission`
+writes the mission's files there, and `<scratch>/mission/open-points/<key>-<n>.md` lists the points
+the PM has yet to answer, one bullet each, under the plan version the Architect reviewed. No such file
+means none: plan as above. When `mission get` exits 1, stop on its line and print no record: the
+mission sends the job again. Answer every point, one at a time:
+
+- **The spec or the plan settles it.** Change the plan as step 3 says. When the point needs the spec
+  reworded (an acceptance criterion naming the wrong package, a goal a slice cannot reach), copy the
+  spec step 2 read into `<prd folder>` as `spec.md` and change only the words the point needs: the PM
+  wrote this PRD, so its spec is the PM's to reword. Never touch the before/after page or the voice.
+- **Only a person can decide it** (a budget nobody set, a scope or a product choice the spec and the
+  mission's goal leave open). Take the most reversible answer, write it into the plan, and record it
+  as a high outbox item on the PRD: write its question and the answer taken, with
+  `hardToRevert: true`, to a file, then
+  `node .omni-loop/bin/omni.mjs item new --prd <key>-<n> --slice <the slice it bears on, s1 when none> --file <file> --out <scratch>/items --json`
+  and `node .omni-loop/bin/omni.mjs item relay <scratch>/items --prd <key>-<n>`. A person settles it
+  on the PRD's page.
+
+Then record each point and its answer in the spec's **Decisions**, under `### The Architect's open
+points` (the spec copied into `<prd folder>` when it was not already), push both with step 4's
+`dossier push <key>-<n> --from <prd folder>`, which adds a spec version and a plan version, and
+read it back as step 5 says. The plan approval below names the version pushed, and the Architect
+reviews it again. A PRD a person wrote never gets this run: its committee answers for it.
 
 **The PM's plan approval** (PRD omni-loop-26). A line that ends `--mission <m>` is a mission's PM's
 (bug #3273: the mission names itself, never guessed from being on a runner), and the PM approves the
