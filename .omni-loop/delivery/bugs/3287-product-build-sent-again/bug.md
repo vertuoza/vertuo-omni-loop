@@ -22,7 +22,7 @@ A product PRD's build was read as a person's on any end but Ready, so a build th
 
 ## Mutation
 
-mutation: no delivery-core file changed
+mutation: no changed core file against origin/main (3b0cef07): nothing to mutate
 
 ## Still open
 
