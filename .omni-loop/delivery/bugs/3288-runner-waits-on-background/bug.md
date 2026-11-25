@@ -24,6 +24,3 @@
 
 mutation: no changed core file against origin/main (3b0cef07): nothing to mutate
 
-## Still open
-
-- apps/galaxy/src/business/reveal-render.test.ts fails on main today: the saved reveal still renders the 'business-found' check rows ('not seen since 30 Sep'), so the test looks date-dependent.
