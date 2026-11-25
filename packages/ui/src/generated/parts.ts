@@ -43,6 +43,7 @@ export * from '../Section.tsx';
 export * from '../SectionHeading.tsx';
 export * from '../SegmentedControl.tsx';
 export * from '../Select.tsx';
+export * from '../SettingsField.tsx';
 export * from '../SettingsHeader.tsx';
 export * from '../SettingsRow.tsx';
 export * from '../SettingsSection.tsx';
