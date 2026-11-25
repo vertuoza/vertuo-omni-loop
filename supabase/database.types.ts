@@ -289,6 +289,44 @@ export type Database = {
           },
         ]
       }
+      app_errors: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          route: string
+          service: string
+          status: number
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string
+          route: string
+          service: string
+          status: number
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          route?: string
+          service?: string
+          status?: number
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_errors_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_requests: {
         Row: {
           approval_kind: string
@@ -5926,6 +5964,375 @@ export type Database = {
         }
         Relationships: []
       }
+      supervisor_findings: {
+        Row: {
+          check_line: string | null
+          closed_at: string | null
+          created_at: string
+          evidence: Json
+          evidence_key: string | null
+          explanation: string | null
+          figures: Json
+          fingerprint: string | null
+          id: string
+          kind: string
+          looked_at: string | null
+          notified_at: string | null
+          raised_by: string
+          severity: string
+          state: string
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          check_line?: string | null
+          closed_at?: string | null
+          created_at?: string
+          evidence?: Json
+          evidence_key?: string | null
+          explanation?: string | null
+          figures?: Json
+          fingerprint?: string | null
+          id?: string
+          kind: string
+          looked_at?: string | null
+          notified_at?: string | null
+          raised_by: string
+          severity: string
+          state?: string
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          check_line?: string | null
+          closed_at?: string | null
+          created_at?: string
+          evidence?: Json
+          evidence_key?: string | null
+          explanation?: string | null
+          figures?: Json
+          fingerprint?: string | null
+          id?: string
+          kind?: string
+          looked_at?: string | null
+          notified_at?: string | null
+          raised_by?: string
+          severity?: string
+          state?: string
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_findings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supervisor_memory: {
+        Row: {
+          cites: string[]
+          created_at: string
+          expires_at: string | null
+          id: string
+          line: string
+          scope: string
+          workspace_id: string
+        }
+        Insert: {
+          cites: string[]
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          line: string
+          scope: string
+          workspace_id: string
+        }
+        Update: {
+          cites?: string[]
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          line?: string
+          scope?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_memory_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supervisor_messages: {
+        Row: {
+          author_id: string | null
+          author_login: string | null
+          body: string
+          created_at: string
+          finding_id: string | null
+          id: string
+          kind: string
+          remembered: string | null
+          reply_to: string | null
+          tokens: number
+          workspace_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_login?: string | null
+          body: string
+          created_at?: string
+          finding_id?: string | null
+          id?: string
+          kind: string
+          remembered?: string | null
+          reply_to?: string | null
+          tokens?: number
+          workspace_id: string
+        }
+        Update: {
+          author_id?: string | null
+          author_login?: string | null
+          body?: string
+          created_at?: string
+          finding_id?: string | null
+          id?: string
+          kind?: string
+          remembered?: string | null
+          reply_to?: string | null
+          tokens?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_messages_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "supervisor_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "supervisor_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_messages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supervisor_proposals: {
+        Row: {
+          action: string | null
+          author_id: string | null
+          author_login: string | null
+          created_at: string
+          evidence_key: string | null
+          finding_id: string
+          id: string
+          kind: string
+          label: string | null
+          note: string | null
+          outcome: string | null
+          reply_to: string | null
+          target: Json | null
+          workspace_id: string
+        }
+        Insert: {
+          action?: string | null
+          author_id?: string | null
+          author_login?: string | null
+          created_at?: string
+          evidence_key?: string | null
+          finding_id: string
+          id?: string
+          kind: string
+          label?: string | null
+          note?: string | null
+          outcome?: string | null
+          reply_to?: string | null
+          target?: Json | null
+          workspace_id: string
+        }
+        Update: {
+          action?: string | null
+          author_id?: string | null
+          author_login?: string | null
+          created_at?: string
+          evidence_key?: string | null
+          finding_id?: string
+          id?: string
+          kind?: string
+          label?: string | null
+          note?: string | null
+          outcome?: string | null
+          reply_to?: string | null
+          target?: Json | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_proposals_finding_id_fkey"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "supervisor_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_proposals_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "supervisor_proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_proposals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supervisor_seats: {
+        Row: {
+          daily_tokens: number
+          last_look_at: string | null
+          missed_looks: number
+          paused: boolean
+          placed_at: string
+          placed_by: string | null
+          placed_login: string
+          runner_id: string
+          tokens_day: string | null
+          tokens_used: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          daily_tokens?: number
+          last_look_at?: string | null
+          missed_looks?: number
+          paused?: boolean
+          placed_at?: string
+          placed_by?: string | null
+          placed_login: string
+          runner_id: string
+          tokens_day?: string | null
+          tokens_used?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          daily_tokens?: number
+          last_look_at?: string | null
+          missed_looks?: number
+          paused?: boolean
+          placed_at?: string
+          placed_by?: string | null
+          placed_login?: string
+          runner_id?: string
+          tokens_day?: string | null
+          tokens_used?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_seats_runner_id_fkey"
+            columns: ["runner_id"]
+            isOneToOne: true
+            referencedRelation: "runners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_seats_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supervisor_signals: {
+        Row: {
+          check_line: string
+          check_name: string
+          closed_at: string | null
+          evidence: Json
+          evidence_key: string
+          figures: Json
+          finding_id: string | null
+          fingerprint: string
+          id: string
+          kind: string
+          opened_at: string
+          seen_at: string
+          workspace_id: string
+        }
+        Insert: {
+          check_line: string
+          check_name: string
+          closed_at?: string | null
+          evidence?: Json
+          evidence_key: string
+          figures?: Json
+          finding_id?: string | null
+          fingerprint: string
+          id?: string
+          kind: string
+          opened_at?: string
+          seen_at?: string
+          workspace_id: string
+        }
+        Update: {
+          check_line?: string
+          check_name?: string
+          closed_at?: string | null
+          evidence?: Json
+          evidence_key?: string
+          figures?: Json
+          finding_id?: string | null
+          fingerprint?: string
+          id?: string
+          kind?: string
+          opened_at?: string
+          seen_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_signals_finding_fk"
+            columns: ["finding_id"]
+            isOneToOne: false
+            referencedRelation: "supervisor_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_signals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           color: string
@@ -6521,6 +6928,7 @@ export type Database = {
         Returns: Json
       }
       api_keys_list: { Args: { p_workspace: string }; Returns: Json }
+      app_error_mask: { Args: { p_text: string }; Returns: string }
       approval_in_force: {
         Args: { p_dossier: string; p_kind: string }
         Returns: {
@@ -10117,6 +10525,131 @@ export type Database = {
       submit_score: {
         Args: { game: string; score: number; workspace: string }
         Returns: number
+      }
+      supervisor_finding_dismiss: {
+        Args: { p_finding: string; p_reason: string }
+        Returns: {
+          action: string | null
+          author_id: string | null
+          author_login: string | null
+          created_at: string
+          evidence_key: string | null
+          finding_id: string
+          id: string
+          kind: string
+          label: string | null
+          note: string | null
+          outcome: string | null
+          reply_to: string | null
+          target: Json | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supervisor_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      supervisor_forget: { Args: never; Returns: number }
+      supervisor_memory_clear: {
+        Args: { p_scope: string; p_workspace: string }
+        Returns: number
+      }
+      supervisor_memory_delete: { Args: { p_note: string }; Returns: boolean }
+      supervisor_owner_only: { Args: { p_workspace: string }; Returns: string }
+      supervisor_proposal_approve: {
+        Args: { p_proposal: string }
+        Returns: {
+          action: string | null
+          author_id: string | null
+          author_login: string | null
+          created_at: string
+          evidence_key: string | null
+          finding_id: string
+          id: string
+          kind: string
+          label: string | null
+          note: string | null
+          outcome: string | null
+          reply_to: string | null
+          target: Json | null
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supervisor_proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      supervisor_say: {
+        Args: { p_finding: string; p_text: string; p_workspace: string }
+        Returns: {
+          author_id: string | null
+          author_login: string | null
+          body: string
+          created_at: string
+          finding_id: string | null
+          id: string
+          kind: string
+          remembered: string | null
+          reply_to: string | null
+          tokens: number
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supervisor_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      supervisor_seat_place: {
+        Args: { p_runner: string; p_workspace: string }
+        Returns: {
+          daily_tokens: number
+          last_look_at: string | null
+          missed_looks: number
+          paused: boolean
+          placed_at: string
+          placed_by: string | null
+          placed_login: string
+          runner_id: string
+          tokens_day: string | null
+          tokens_used: number
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supervisor_seats"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      supervisor_seat_set: {
+        Args: { p_daily_tokens: number; p_paused: boolean; p_workspace: string }
+        Returns: {
+          daily_tokens: number
+          last_look_at: string | null
+          missed_looks: number
+          paused: boolean
+          placed_at: string
+          placed_by: string | null
+          placed_login: string
+          runner_id: string
+          tokens_day: string | null
+          tokens_used: number
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "supervisor_seats"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       tech_approval_state: { Args: { p_dossier: string }; Returns: Json }
       update_fleet: {
