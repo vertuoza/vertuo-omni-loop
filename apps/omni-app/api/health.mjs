@@ -216,6 +216,8 @@ var SCHEDULES = Object.freeze([
   { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 },
   { kind: "commander-notebook", periodMinutes: 1440, maxTries: 3 }
 ]);
+var SUPERVISOR_WATCH = Object.freeze({ kind: "supervisor-watch", periodMinutes: 2, maxTries: 2 });
+var LANED_SCHEDULES = Object.freeze([SUPERVISOR_WATCH]);
 
 // apps/omni-app/src/jobs/ledger.ts
 var RefreshedSchema = z5.enum(["added", "updated", "again", "requeued"]);
