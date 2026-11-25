@@ -610,6 +610,18 @@ work and `omni design component <name>` for each part they use, in place of the 
 prose. A repository with no `design.manifest` sees each command print one line saying so, and its
 skills read the form's `system` section as before.
 
+## Settings building blocks
+
+A settings screen is built from five parts of `@omni/ui`, listed with their usage on `/design`:
+`SettingsHeader` (the page title), `SettingsSection` (a heading over its rows), `SettingsRow` (a label,
+its control and, when it cannot be changed, the reason in words), `SettingsField` (a labelled input with
+help, error and a disabled-by-permission state) and `SettingsSaveBar` (idle, saving, saved or failed,
+with a retry). They are presentational: no data loading, no routing, no `className` or `style`.
+
+Adopt them one screen at a time. Swap one screen's hand-drawn header, rows and save button for the parts
+in a single pull request, keep what the screen stores as it is, and run `pnpm design` to see that the
+ratchet reports no new breach.
+
 ## Turn it off
 
 Set `design.enabled: false`, or remove the `design:` block. The form, its laws and the screen
