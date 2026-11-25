@@ -11365,8 +11365,8 @@ var timeline = Object.freeze({
       plannedWave: planned?.get(slice) ?? null,
       mergedWave: merged[index]
     }));
-    const times = slices.flatMap((slice) => slice.minutes === null ? [] : [slice.minutes]);
-    const medianMinutes = median(times);
+    const times2 = slices.flatMap((slice) => slice.minutes === null ? [] : [slice.minutes]);
+    const medianMinutes = median(times2);
     const slowFactor = THRESHOLDS.slowSliceFactor;
     const facts = {
       featurePr: {
@@ -24960,18 +24960,32 @@ function eventsOf({
   return unrecorded(all, keys);
 }
 var latestProduct = (runs, prd) => runs.filter((one) => one.prd === prd).reduce((last, one) => last === null || one.run > last.run ? one : last, null);
-function productEnded(fact, latest, last) {
-  const end = endOf(last);
-  if (end === "ready") return { state: "ready", run: latest };
-  if (end === "lost" || end === "limited") return { state: "running" };
-  const why = end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
-  return { state: "waits", why: `PRD ${fact.prd}: ${why}; take it to ready by hand and the mission joins it` };
+var PRODUCT_HALFWAY_MAX = 10;
+var times = (count4) => count4 === 1 ? "once" : `${String(count4)} times`;
+function productAgain(runs, last, resumes) {
+  const ends = runs.flatMap((one) => one.attempts.at(-1) ?? []);
+  if (endOf(last) === "held") return ends.filter((one) => endOf(one) === "held").length < LAST_RUN || "its build was held twice";
+  if (!endedHalfway(last)) return null;
+  const halfway = ends.filter(endedHalfway);
+  const count4 = halfway.filter((one) => one.limitedUntil == null).length;
+  if (resumes === null) return count4 < LAST_RUN || "its build stopped mid-way twice";
+  return count4 <= resumes && halfway.length < PRODUCT_HALFWAY_MAX || `its build ended without its result line ${times(count4)}`;
 }
-function productStateOf(fact, runs, { joined: joined2, done, branch }) {
+var endedWhy = (end, last) => end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
+function productEnded(fact, runs, last, resumes) {
+  const latest = latestProduct(runs, fact.prd);
+  const end = endOf(last);
+  if (latest === null || end === "lost" || end === "limited") return { state: "running" };
+  if (end === "ready") return { state: "ready", run: latest };
+  const again3 = productAgain(runs, last, resumes);
+  if (again3 === true) return { state: "startable", run: latest.run + 1 };
+  return { state: "waits", why: `PRD ${fact.prd}: ${again3 ?? endedWhy(end, last)}; take it to ready by hand and the mission joins it` };
+}
+function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null }) {
   if (joined2.has(fact.prd)) return { state: "joined" };
   const latest = latestProduct(runs, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, latest, last);
+  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, resumes);
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: "blocked", by };
   if (fact.approval !== "standing") return { state: "waits", why: `PRD ${fact.prd}: ${fact.approval === "voided" ? "approve it again" : "approve it"} on its page (${branch})` };
@@ -26970,7 +26984,7 @@ async function reviewStep(at4, fact, state, step) {
 }
 async function productSteps(at4, facts) {
   const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
-  const where = { joined: at4.joined, done, branch: at4.branch };
+  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission) };
   const step = { room: at4.mission.parallel - facts.filter((fact) => productStateOf(fact, at4.runs, where).state === "running").length, moving: false, waits: [], events: [] };
   for (const fact of facts) {
     const held2 = at4.held.get(fact.prd);
