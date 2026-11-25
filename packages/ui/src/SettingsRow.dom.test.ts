@@ -19,6 +19,11 @@ describe.each(['light', 'dark'])('settings parts in %s', (theme) => {
     expect(screen.getByText('Who can see it.')).toBeTruthy();
   });
 
+  it('AC-1: a header shown under another title takes level 2', () => {
+    render(inTheme(createElement(SettingsHeader, { title: 'Workspace settings', level: '2' })));
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Workspace settings');
+  });
+
   it('AC-1: a section groups its rows under a heading', () => {
     render(inTheme(createElement(SettingsSection, { title: 'Access' }, createElement(SettingsRow, { label: 'Visibility' }, 'Private'))));
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Access');

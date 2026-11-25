@@ -7,6 +7,7 @@ import type { Specimen } from './meta.ts';
 export const settingsHeaderSpecimen: Specimen = (prop, value) => (
   <SettingsHeader
     title="Workspace settings"
+    level="2"
     {...(prop === 'description' && one(SETTINGS_HEADER_DESCRIPTIONS, value) === 'shown' ? { description: 'Who can see the workspace and how it is billed.' } : {})}
   />
 );
