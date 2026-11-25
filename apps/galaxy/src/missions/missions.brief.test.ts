@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { readMissionBrief, readMissionsOfPrd, type MissionsDeps } from './missions.controller';
 import { ADA, DAN, ELSEWHERE, fakeMissionsDb, PAUSED, RUNNING } from './missions.fake';
 import { missionsService } from './missions.service';
@@ -60,12 +61,12 @@ describe('GET /api/missions/brief', () => {
     const deps = served(ADA);
     const db = DBS.get(deps);
     db?.decisions.set(RUNNING, [
-      { kind: 'plan', prd: 'omni-loop-28', plan: A, outcome: 'approved', why: [] },
-      { kind: 'tech', prd: 'omni-loop-28', plan: A, outcome: 'escalated', why: ['the PM must confirm the package'] },
-      { kind: 'plan', prd: 'omni-loop-28', plan: null, outcome: 'escalated', why: ['no record of the plan approval'] },
-      { kind: 'plan', prd: 'omni-loop-29', plan: A, outcome: 'approved', why: [] },
-      { kind: 'tech', prd: 'omni-loop-29', plan: A, outcome: 'escalated', why: ['s5 is unclear'] },
-      { kind: 'plan', prd: 'omni-loop-29', plan: B, outcome: 'approved', why: [] },
+      { kind: 'plan', prd: parseProductPrdId('omni-loop-28'), plan: A, outcome: 'approved', why: [] },
+      { kind: 'tech', prd: parseProductPrdId('omni-loop-28'), plan: A, outcome: 'escalated', why: ['the PM must confirm the package'] },
+      { kind: 'plan', prd: parseProductPrdId('omni-loop-28'), plan: null, outcome: 'escalated', why: ['no record of the plan approval'] },
+      { kind: 'plan', prd: parseProductPrdId('omni-loop-29'), plan: A, outcome: 'approved', why: [] },
+      { kind: 'tech', prd: parseProductPrdId('omni-loop-29'), plan: A, outcome: 'escalated', why: ['s5 is unclear'] },
+      { kind: 'plan', prd: parseProductPrdId('omni-loop-29'), plan: B, outcome: 'approved', why: [] },
     ]);
     const res = await readMissionBrief(get('brief?repo=acme/shop&mission=42'), deps);
     expect((await res.json() as { open: unknown }).open).toEqual([{ prd: 'omni-loop-28', plan: A, points: ['the PM must confirm the package'] }]);

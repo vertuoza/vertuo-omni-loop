@@ -58995,10 +58995,10 @@ function readExport(reply) {
 }
 function openOf(reply) {
   return list6(field(reply, "open")).flatMap((one) => {
-    const prd2 = field(one, "prd");
+    const prd2 = ProductPrdIdSchema.safeParse(field(one, "prd"));
     const plan2 = field(one, "plan");
     const points = list6(field(one, "points")).filter(isText6);
-    return ProductPrdIdSchema.safeParse(prd2).success && isText6(prd2) && isText6(plan2) && points.length > 0 ? [{ prd: prd2, plan: plan2, points }] : [];
+    return prd2.success && isText6(plan2) && points.length > 0 ? [{ prd: prd2.data, plan: plan2, points }] : [];
   });
 }
 var openFile = ({ prd: prd2, plan: plan2, points }) => `# The Architect's open points on PRD ${prd2}

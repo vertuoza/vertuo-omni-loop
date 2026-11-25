@@ -1,6 +1,6 @@
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { PrdNumber, ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
-import { PlanDecisionReadSchema, type MissionStatus, type RetroRead } from './missions.contract';
+import type { MissionStatus, RetroRead } from './missions.contract';
 import type { MissionJob, MissionRecord, MissionsReader, MissionsWriter } from './missions.repository';
 
 // The missions' database in memory (PRD 2842 s5), for the service's and the controller's tests: the rows
@@ -58,7 +58,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   const pages = new Map<string, { record: string; brief: string }>();
   const retros = new Map<string, RetroRead[]>();
   // Each mission's `plan` and `tech` decisions of product PRDs, oldest first (bug #3286), as mission_decisions holds them.
-  const decisions = new Map<string, Array<{ kind: 'plan' | 'tech'; prd: string; plan: string | null; outcome: string; why: string[] }>>();
+  const decisions = new Map<string, Array<{ kind: 'plan' | 'tech'; prd: ProductPrdId; plan: string | null; outcome: string; why: string[] }>>();
   const scopes = new Map<string, number[]>();
   const onBranchOf = (id: string): Promise<PrdNumber[]> => {
     const on = new Set<PrdNumber>();
@@ -126,7 +126,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
         },
         page: (mission) => Promise.resolve(sees(mission.id) ? pages.get(mission.id) ?? null : null),
         retros: (id) => Promise.resolve(sees(id) ? retros.get(id) ?? [] : []),
-        planDecisions: (id) => Promise.resolve(sees(id) ? (decisions.get(id) ?? []).map((one) => PlanDecisionReadSchema.parse(one)) : []),
+        planDecisions: (id) => Promise.resolve(sees(id) ? decisions.get(id) ?? [] : []),
         ofPrd: (repo, prd) => Promise.resolve([...missions.values()].filter((row) => sees(row.id) && row.repo === repo.toLowerCase() && (scopes.get(row.id) ?? []).includes(prd)).map((row) => row.number).sort((a, b) => a - b)),
         territories: (_mission, prds) => Promise.resolve(new Map(prds.map((prd) => [prd, options.territories?.[prd] ?? null]))),
         // The database's rules, as supabase/checks/token_budget.sql proves them: any member sets a draft's budget, an owner alone one that

@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { MISSION_PAGE, MISSION_RECORD, parseBrief } from './brief.ts';
 import { field } from '../ask/schema.ts';
-import { ProductPrdIdSchema, type IssueNumber } from '../ids.ts';
+import { ProductPrdIdSchema, type IssueNumber, type ProductPrdId } from '../ids.ts';
 
 /** A mission as the page holds it: its two files, its retros each with its items. */
 export type MissionExport = {
@@ -16,7 +16,7 @@ export type MissionExport = {
   brief: string;
   retros: Array<{ k: number; milestone: string; content: string; items: Array<{ name: string; content: string }> }>;
   /** The Architect's open points the PM has yet to answer, per product PRD (bug #3286); none from a page that names none. */
-  open: Array<{ prd: string; plan: string; points: string[] }>;
+  open: Array<{ prd: ProductPrdId; plan: string; points: string[] }>;
 };
 
 const isText = (value: unknown): value is string => typeof value === 'string';
@@ -47,10 +47,10 @@ export function readExport(reply: unknown): MissionExport | null {
 /** The reply's open points: each entry naming a product PRD, its plan version and its points as text; anything else left out. */
 function openOf(reply: unknown): MissionExport['open'] {
   return list(field(reply, 'open')).flatMap((one) => {
-    const prd = field(one, 'prd');
+    const prd = ProductPrdIdSchema.safeParse(field(one, 'prd'));
     const plan = field(one, 'plan');
     const points = list(field(one, 'points')).filter(isText);
-    return ProductPrdIdSchema.safeParse(prd).success && isText(prd) && isText(plan) && points.length > 0 ? [{ prd, plan, points }] : [];
+    return prd.success && isText(plan) && points.length > 0 ? [{ prd: prd.data, plan, points }] : [];
   });
 }
 
