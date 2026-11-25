@@ -1,7 +1,7 @@
 'use client';
 import { Button, Input } from '@omni/ui';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { setSeat } from './seat.client';
 import { limitOf } from './model';
 
@@ -30,7 +30,7 @@ export function SeatControls({ workspace, paused, dailyTokens }: { workspace: st
     router.refresh();
   }
 
-  function save(event: FormEvent) {
+  function save(event: SyntheticEvent) {
     event.preventDefault();
     const tokens = limitOf(limit);
     if (tokens === null) {
