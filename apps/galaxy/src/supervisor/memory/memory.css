@@ -1,0 +1,29 @@
+/* The Memory drawer (PRD omni-loop-34 s6, the before/after page's 2.C): who it is for, the two tabs and how long each
+   keeps its notes, the notes with their sources, the clear buttons and the question asked in place. Every value is a
+   token of @omni/design. */
+
+.sv-mem { display: grid; gap: var(--space-3); }
+.sv-mem-own {
+  justify-self: start; margin: 0; padding: var(--space-1) var(--space-2); border: 1px solid var(--color-border-strong); border-radius: var(--radius-full);
+  font-size: var(--type-1-size); font-weight: var(--weight-semibold); color: var(--color-text-secondary);
+}
+.sv-mem-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.sv-mem-keeps { margin-inline-start: auto; font-size: var(--type-2-size); color: var(--color-text-secondary); }
+.sv-mem-quiet { margin: 0; font-size: var(--type-3-size); color: var(--color-text-secondary); }
+.sv-mem-notes { display: grid; margin: 0; padding: 0; list-style: none; }
+.sv-mem-note {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-3); align-items: start;
+  padding-block: var(--space-3); border-block-start: 1px solid var(--color-border-subtle);
+}
+.sv-mem-note:first-child { border-block-start: 0; }
+.sv-mem-line { margin: 0; font-size: var(--type-3-size); line-height: var(--type-3-line); overflow-wrap: anywhere; }
+.sv-mem-source { grid-column: 1; font-family: var(--font-mono); font-size: var(--type-1-size); color: var(--color-text-tertiary); }
+.sv-mem-note > :last-child { grid-column: 2; grid-row: 1 / span 2; }
+.sv-mem-note > .sv-mem-confirm { grid-column: 1 / -1; grid-row: auto; }
+.sv-mem-foot { padding-block-start: var(--space-3); border-block-start: 1px solid var(--color-border-subtle); }
+.sv-mem-acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.sv-mem-confirm {
+  display: grid; gap: var(--space-2); padding: var(--space-3); border: 1.5px solid var(--color-danger); border-radius: var(--radius-2);
+  background: var(--color-sunken); font-size: var(--type-3-size);
+}
+.sv-mem-confirm p { margin: 0; }

@@ -21,6 +21,7 @@ import { DOCUMENT_KINDS, DOCS_DAYS, type DocumentRow } from './documents';
 import { mergeQuestions, ownQuestions, reviewsOf, sharedQuestions, type WaitingQuestion, type WaitingReview } from './waiting';
 import { waitingRepository, type DocumentReadRow, type WaitingDb, type WaitingRepository } from './waiting.repository';
 import { isOneOf } from 'omni-loop/kit/lib/narrow.ts';
+import type { SupervisorWaiting } from './waiting.contract';
 
 const WINDOW = DOCS_DAYS * 24 * 60 * 60_000;
 
@@ -43,7 +44,7 @@ function documentOf(r: DocumentReadRow): DocumentRow[] {
     : [];
 }
 
-function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'roundQuestions' | 'documents' | 'openQuestionJobs' | 'jobStates' | 'openReviewWaits'>) {
+function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'roundQuestions' | 'documents' | 'openQuestionJobs' | 'jobStates' | 'openReviewWaits' | 'supervisorSeated' | 'openHighFindings'>) {
   return {
     /** A reader of the Questions part for `me`, keeping what it read before. */
     questionsReader(me: string): (now: number) => Promise<WaitingQuestion[]> {
@@ -94,6 +95,13 @@ function waitingService(ask: WaitingAskReads, store: Pick<WaitingRepository, 'ro
       const open = await store.openQuestionJobs(workspace);
       if (open.length === 0) return 0;
       return (await store.jobStates(workspace, open)).filter((job) => job.status === 'done' && job.outcome === 'human').length;
+    },
+
+    /** The Supervisor part (omni-loop-34 s8): whether the workspace has a seat, which shows the Supervisor row, and
+     * its open high findings, the row's red badge; none counted while there is no seat, since no row shows them. */
+    async supervisorWaiting(workspace: string): Promise<SupervisorWaiting> {
+      const [seat, high] = await Promise.all([store.supervisorSeated(workspace), store.openHighFindings(workspace)]);
+      return { seat, high: seat ? high : 0 };
     },
   };
 }

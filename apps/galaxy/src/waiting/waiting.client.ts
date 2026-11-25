@@ -1,4 +1,4 @@
-import { DocumentsSchema, QuestionsSchema, RunnersWaitingSchema } from './waiting.contract';
+import { DocumentsSchema, QuestionsSchema, RunnersWaitingSchema, SupervisorWaitingSchema, type SupervisorWaiting } from './waiting.contract';
 import type { DocumentRow } from './documents';
 import type { WaitingQuestion } from './waiting';
 
@@ -77,6 +77,11 @@ export function waitingClient(fetchFn: Fetch = (url, init) => fetch(url, init)) 
     /** The Runners part: how many of the workspace's jobs wait for an answer (PRD 2255). */
     async runners(): Promise<number> {
       return RunnersWaitingSchema.parse(await read('read the runners waiting', '/api/waiting/runners')).count;
+    },
+
+    /** The Supervisor part: whether the workspace has a seat, and its open high findings (omni-loop-34 s8). */
+    async supervisor(): Promise<SupervisorWaiting> {
+      return SupervisorWaitingSchema.parse(await read('read the Supervisor', '/api/waiting/supervisor'));
     },
   };
 }

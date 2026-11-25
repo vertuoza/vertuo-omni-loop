@@ -1,0 +1,6 @@
+/* The Suggested box's own parts (PRD omni-loop-34 s7): Not a problem pushed to the right, a suggestion pressed already
+   read as how it ended, the line a press answered. The box itself is the page's (../page/supervisor.css). */
+.sv-suggestions { align-items: center; }
+.sv-dismiss { margin-inline-start: auto; }
+.sv-pressed { font-size: var(--type-2-size); color: var(--color-text-secondary); }
+.sv-said { margin: 0; font-size: var(--type-2-size); color: var(--color-text-secondary); }

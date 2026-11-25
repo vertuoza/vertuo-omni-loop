@@ -2,7 +2,7 @@
 // current slot only, never a missed one.
 import { describe, expect, it } from 'vitest';
 import type { NewJob } from './ledger.ts';
-import { addScheduled, SCHEDULES, scheduledJobs, slotStart, type Schedule } from './schedule.ts';
+import { addScheduled, LANED_SCHEDULES, lanedJobs, SCHEDULES, scheduledJobs, slotStart, SUPERVISOR_WATCH, type Schedule } from './schedule.ts';
 
 const MINUTE = 60_000;
 const at = (iso: string) => Date.parse(iso);
@@ -86,5 +86,49 @@ describe('addScheduled — what the sweep adds, on a fixed clock', () => {
   it('with no schedule, adds nothing and asks nothing', async () => {
     const add = () => Promise.reject(new Error('no add expected'));
     expect(await addScheduled({ ledger: { add }, schedules: [], clock: () => at('2027-01-15T09:00:00.000Z') })).toEqual({ scheduled: 0, added: 0 });
+  });
+});
+
+describe('a laned schedule — one job per lane, each lane its own (PRD omni-loop-34 s2)', () => {
+  const W1 = '11111111-1111-4111-8111-111111111111';
+  const W2 = '22222222-2222-4222-8222-222222222222';
+
+  it('holds the Supervisor\'s watch every 2 minutes, 2 tries, kept out of SCHEDULES so the health never reads it late with no seat', () => {
+    expect(SUPERVISOR_WATCH).toEqual({ kind: 'supervisor-watch', periodMinutes: 2, maxTries: 2 });
+    expect(LANED_SCHEDULES).toEqual([SUPERVISOR_WATCH]);
+    expect(SCHEDULES.map((schedule) => schedule.kind)).not.toContain('supervisor-watch');
+  });
+
+  it('keys each job <kind>:<lane>@<slot start>, in the lane <kind>:<lane>, the lane and the slot in its payload', () => {
+    expect(lanedJobs([SUPERVISOR_WATCH], [W1, W2], at('2027-01-15T09:03:10.000Z'))).toEqual([
+      { kind: 'supervisor-watch', key: `supervisor-watch:${W1}@2027-01-15T09:02:00.000Z`, subject: 'supervisor-watch', payload: { slot: '2027-01-15T09:02:00.000Z', lane: W1 }, lane: `supervisor-watch:${W1}`, maxTries: 2 },
+      { kind: 'supervisor-watch', key: `supervisor-watch:${W2}@2027-01-15T09:02:00.000Z`, subject: 'supervisor-watch', payload: { slot: '2027-01-15T09:02:00.000Z', lane: W2 }, lane: `supervisor-watch:${W2}`, maxTries: 2 },
+    ]);
+  });
+
+  it('adds one job per lane and slot however often the sweep asks; no lane, no job', async () => {
+    const { jobs, ledger } = fakeLedger();
+    let now = at('2027-01-15T09:00:30.000Z');
+    let lanes: string[] = [];
+    const laned = { schedules: [SUPERVISOR_WATCH], lanes: () => Promise.resolve(lanes) };
+    expect(await addScheduled({ ledger, schedules: [], laned, clock: () => now })).toEqual({ scheduled: 0, added: 0 });
+    lanes = [W1];
+    expect(await addScheduled({ ledger, schedules: [], laned, clock: () => now })).toEqual({ scheduled: 1, added: 1 });
+    now += MINUTE;
+    expect(await addScheduled({ ledger, schedules: [], laned, clock: () => now })).toEqual({ scheduled: 1, added: 0 });
+    now += MINUTE;
+    expect(await addScheduled({ ledger, schedules: [STATS], laned, clock: () => now })).toEqual({ scheduled: 2, added: 2 });
+    expect([...jobs.keys()]).toEqual([
+      `supervisor-watch supervisor-watch:${W1}@2027-01-15T09:00:00.000Z`,
+      'pr-stats pr-stats@2027-01-15T09:00:00.000Z',
+      `supervisor-watch supervisor-watch:${W1}@2027-01-15T09:02:00.000Z`,
+    ]);
+  });
+
+  it('a lanes read that fails adds the plain schedules still, and says the lanes failed', async () => {
+    const { jobs, ledger } = fakeLedger();
+    const laned = { schedules: [SUPERVISOR_WATCH], lanes: () => Promise.reject(new Error('the database refused')) };
+    expect(await addScheduled({ ledger, schedules: [STATS], laned, clock: () => at('2027-01-15T09:00:30.000Z') })).toEqual({ scheduled: 1, added: 1, lanesFailed: true });
+    expect([...jobs.keys()]).toEqual(['pr-stats pr-stats@2027-01-15T09:00:00.000Z']);
   });
 });

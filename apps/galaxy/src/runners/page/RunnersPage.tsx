@@ -1,5 +1,7 @@
+import { spritePixels } from '@omni/design';
 import { Notice } from '../../ask/page/Notice';
 import { MemberGate } from '../../dashboard/MemberGate';
+import { pixelSvg } from '../../design/pixel-svg';
 import { CopyCommand } from '../../roadmap/page/CopyCommand';
 import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, CopyFixButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton, SendToAnyButton, ShowFleetButton } from './actions';
@@ -17,6 +19,8 @@ import { ReposButton, RepositoriesProvider } from './ReposDrawer';
 import { repositoryRows, reposWords, type RepoRow, type RunnerRepos } from './repositories';
 import { runnerJob, terminalOf } from './terminal-model';
 import { TerminalButton, TerminalProvider, type TerminalJob } from './Terminal';
+import { holdsSeat, keptSlots, keptWords, moveTargets, seatStrip, type SeatOnPage } from './seat';
+import { MoveSeatButton, PlaceSeatButton } from './SeatActions';
 import '../../dashboard/board/board.css';
 import './runners.css';
 
@@ -39,7 +43,10 @@ import './runners.css';
 // linking back; with every asked item answered and no fix queued it reads Answered with Fix with answers,
 // the row's one primary action (PRD 2270 s2). A job an API key sent names the key as its sender, with `made by
 // @<login>` under it and ` · for <acting_for>` when the app said whom it acted for; a job a key cancelled reads
-// Cancelled with `by API key <name>` under it (PRD 2425 s5). A bug fix's own end reads Done, as it did.
+// Cancelled with `by API key <name>` under it (PRD 2425 s5). A bug fix's own end reads Done, as it did. The runner that
+// holds the Supervisor's seat keeps one slot for it, its last pip in cyan with `+1 Supervisor`, and a seat strip with
+// Move for an owner; while the workspace has no seat an owner's cards each offer `Place the Supervisor`, and the
+// subtitle counts the kept slot out (PRD omni-loop-34 s8, ./seat.ts).
 
 type Supabase = { url: string; key: string };
 
@@ -117,16 +124,19 @@ function HealthLine({ runner, now }: { runner: Runner; now: Date }) {
 }
 
 /** Can the runner take work: its state, one pip per slot (a busy one titled with the fleet of the job using it), how many are used, and who uses them. */
-function SlotsLine({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
+function SlotsLine({ runner, board, fleets, now, kept }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date; kept: number }) {
   const used = slotFleets(runner, board.jobs, board.runners, fleets);
   const tone = stateTone(runner);
+  const slots = runner.slots - kept;
   return (
     <div className="runners-can">
       <span className={`runners-state is-${tone}`}><i className="runners-dot" aria-hidden="true" />{tone === 'paused' && <i className="runners-icon" aria-hidden="true">▲ </i>}{stateWords(runner, now)}</span>
       <span className="runners-pips" aria-hidden="true">
-        {Array.from({ length: runner.slots }, (_, at) => <i key={at} className={`runners-pip${at < runner.used ? ' is-used' : ''}`} {...(at < runner.used && used[at] !== undefined ? { title: used[at] } : {})} />)}
+        {Array.from({ length: slots }, (_, at) => <i key={at} className={`runners-pip${at < runner.used ? ' is-used' : ''}`} {...(at < runner.used && used[at] !== undefined ? { title: used[at] } : {})} />)}
+        {kept > 0 && <i className="runners-pip is-seat" title="Kept for the Supervisor" />}
       </span>
-      <span data-content>{runner.used} of {runner.slots} {runner.slots === 1 ? 'slot' : 'slots'}</span>
+      <span data-content>{runner.used} of {slots} {slots === 1 ? 'slot' : 'slots'}</span>
+      {kept > 0 && <span className="runners-seat-pill" data-content>+1 Supervisor</span>}
       {used.length > 0 && <span className="runners-muted runners-used-by" data-content>Used by {[...new Set(used)].join(', ')}</span>}
     </div>
   );
@@ -159,12 +169,30 @@ function CardHead({ runner, board, fleets }: { runner: Runner; board: Board; fle
   );
 }
 
-function RunnerRow({ runner, board, fleets, now }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date }) {
+/** The seat strip of the runner that holds the Supervisor's seat: its state, last look, tokens and account, with Move for an owner. */
+function SeatStrip({ runner, board, supervisor, now }: { runner: Runner; board: Board; supervisor: SeatOnPage; now: Date }) {
+  const { seat } = supervisor;
+  if (seat === null || !holdsSeat(runner, seat)) return null;
+  const strip = seatStrip(seat, runner, now.toISOString());
+  return (
+    <div className={`runners-seat is-${strip.state}`}>
+      <span className="runners-seat-face" aria-hidden="true" dangerouslySetInnerHTML={{ __html: pixelSvg(spritePixels('menu-supervisor'), { scale: 1, title: '' }) }} />
+      <span className="runners-seat-words" data-content>
+        <b>{strip.title}</b> <span className="runners-muted">{strip.look} · {strip.tokens}{strip.account !== null && ` · ${strip.account}`}</span>
+      </span>
+      {board.viewer.owner && <MoveSeatButton workspace={supervisor.workspace} targets={moveTargets(board.runners, seat).map(({ id, name }) => ({ id, name }))} />}
+    </div>
+  );
+}
+
+function RunnerRow({ runner, board, fleets, now, supervisor }: { runner: Runner; board: Board; fleets: readonly Fleet[]; now: Date; supervisor: SeatOnPage | null }) {
   const rows = repositoryRows(runner, board, fleets, now);
   return (
     <div className="runners-row runners-card">
       <CardHead runner={runner} board={board} fleets={fleets} />
-      <SlotsLine runner={runner} board={board} fleets={fleets} now={now} />
+      <SlotsLine runner={runner} board={board} fleets={fleets} now={now} kept={keptSlots(runner, supervisor?.seat)} />
+      {supervisor !== null && <SeatStrip runner={runner} board={board} supervisor={supervisor} now={now} />}
+      {supervisor?.seat === null && board.viewer.owner && <PlaceSeatButton workspace={supervisor.workspace} runner={runner.id} />}
       <HealthLine runner={runner} now={now} />
       <CardFoot runner={runner} blocks={kitBlocks(runner, board.jobs, board.runners, fleets)} rows={rows} />
     </div>
@@ -399,18 +427,20 @@ function Start() {
   );
 }
 
-function Board({ board, fleets, prds, retros, now, answered, tab }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[]; tab: JobTab }) {
+function Board({ board, fleets, prds, retros, now, answered, tab, supervisor }: { board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros: RetroPrds; now: Date; answered: readonly string[]; tab: JobTab; supervisor: SeatOnPage | null }) {
+  const seat = supervisor?.seat;
+  const kept = keptWords(board.runners, seat);
   return (
     <div className="dash runners" data-screen="runners">
       <header>
         <h1 className="dash-name">Runners</h1>
-        {board.runners.length > 0 && <p className="runners-muted runners-summary" data-content>{summaryWords(board.runners)}</p>}
+        {board.runners.length > 0 && <p className="runners-muted runners-summary" data-content>{summaryWords(board.runners.map((runner) => ({ ...runner, slots: runner.slots - keptSlots(runner, seat) })))}{kept !== null && ` · ${kept}`}</p>}
       </header>
       {board.runners.length === 0 ? <Start /> : (
         <>
           <section className="runners-section" aria-label="Runners">
             <div className="runners-cards">
-              {board.runners.map((runner) => <RunnerRow key={runner.id} runner={runner} board={board} fleets={fleets} now={now} />)}
+              {board.runners.map((runner) => <RunnerRow key={runner.id} runner={runner} board={board} fleets={fleets} now={now} supervisor={supervisor} />)}
             </div>
           </section>
           <section className="runners-section">
@@ -442,7 +472,7 @@ export function RunnersPage({ view, supabase, signinError, terminal = null, answ
     <TerminalProvider initial={terminalOf(asked === null ? terminal : null)} jobs={jobs}>
       <NeedHumanProvider initial={asked} jobs={needJobs} demo={view.demoQuestions ?? null}>
         <RepositoriesProvider initial={repos} runners={drawers}>
-          <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={now} answered={view.answered} tab={jobTabOf(jobsTab)} />
+          <Board board={view.board} fleets={view.fleets} prds={view.prds} retros={view.retros ?? {}} now={now} answered={view.answered} tab={jobTabOf(jobsTab)} supervisor={view.supervisor ?? null} />
         </RepositoriesProvider>
       </NeedHumanProvider>
     </TerminalProvider>

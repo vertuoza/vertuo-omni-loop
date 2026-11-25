@@ -30,8 +30,11 @@
 //                    `mission` a person's Start and Resume add and every wake refreshes (PRD 2842 s4,
 //                    ../missions/job.ts), one job per mission in a lane of its own: the webhook, the
 //                    server event and the sweep all run the same jobs, so each runs every kind, and none spends a
-//                    try on a job it has no handler for
+//                    try on a job it has no handler for; and the `supervisor-watch` the sweep adds every 2 minutes, one
+//                    per workspace with a Supervisor seat in a lane of its own (PRD omni-loop-34 s2, ../supervisor/watch.ts)
+import { githubClient } from '@omni/github';
 import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { Logger } from 'omni-loop/kit/lib/log/log.ts';
 import { askJudge } from '../approved-check/judge-client.ts';
 import { APPROVED_KIND, approvedFailure, approvedHandler } from '../approved-check/approved-job.ts';
 import { approvedPullsOf } from '../approved-check/approved-check.ts';
@@ -53,7 +56,8 @@ import { PR_INBOX_KIND, inboxFailureHook, inboxHandler } from '../inbox-check/in
 import { embedClient } from '../knowledge-embed/embedder.ts';
 import { knowledgeEmbedStore } from '../knowledge-embed/store.ts';
 import { knowledgePackStore } from '../knowledge-pack/store.ts';
-import { appOctokitFor, type OctokitFor } from '../octokit-for.ts';
+import { appOctokitFor, githubStoreOf, installationOctokitFor, type OctokitFor } from '../octokit-for.ts';
+import { noteTo } from '../run-log/run-log.ts';
 import type { GitHubClient } from '../outbox-check/github.ts';
 import { OUTBOX_KIND, outboxFailureHook, outboxHandler } from '../outbox-check/job.ts';
 import { productOutboxReader, type ProductOutboxReader } from '../outbox-check/product-outbox.ts';
@@ -86,6 +90,8 @@ import { NOTEBOOK_KIND } from '../missions/notebook.ts';
 import { liveNotebookModel, notebookHandler } from '../missions/notebook-run.ts';
 import { notebookStore } from '../missions/notebook-store.ts';
 import { CHECKPOINTS_FORGET_KIND, checkpointsForgetHandler } from './checkpoints-forget.ts';
+import { watchStore } from '../supervisor/store.ts';
+import { SUPERVISOR_WATCH_KIND, supervisorWatchHandler } from '../supervisor/watch.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
 import { embedHandler, EMBED_KIND } from './embed.ts';
 import { packHandler, PACK_KIND } from './pack.ts';
@@ -207,6 +213,17 @@ export function prCheckWorkers({ octokitFor: anyPriority, readProductOutbox = nu
 export type WorkerEnv = { supabase: SupabaseEnv } & Partial<Pick<AppEnv, 'githubApp' | 'openrouter' | 'lawJudge' | 'constituentJudge' | 'businessLawsJudge' | 'searchCategorize' | 'stageEvents' | 'galaxyUrl'>>;
 
 /**
+ * The ledger as the service role, the installations' GitHub client and every kind's workers, for a route that runs the
+ * jobs due (./sweep.ts, ../server-event/server-event.ts); null where the App has no database.
+ */
+export function liveLedger(env: Omit<WorkerEnv, 'supabase'> & { supabase?: SupabaseEnv | null | undefined }, logger: Logger) {
+  const { supabase } = env;
+  if (!supabase) return null;
+  const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo('github', logger) }));
+  return { supabase, ledger: jobLedger(supabase), octokitFor, workers: liveWorkers({ ...env, supabase }, octokitFor) };
+}
+
+/**
  * Every kind's handler and failure hook, bound to the app's environment: the knowledge pack's, the knowledge
  * embed's, the five checks', the Engineering board's collector's, the escalation's, the fix row stamp's, the fleet
  * board's, the canon buttons', the knowledge harvest's, the retro's, the main watch's, the server event's, the
@@ -251,6 +268,8 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
+      // No push is sent from the App: the high finding waits with notified_at unset (PRD omni-loop-34 s2's outbox).
+      [SUPERVISOR_WATCH_KIND]: supervisorWatchHandler({ store: watchStore(supabase), notify: null }),
       [NOTEBOOK_KIND]: notebookHandler({ store: notebookStore(supabase), model: liveNotebookModel(env.openrouter ?? null) }),
       [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), bugIssues: missionBugIssues({ octokitFor }), kits: missionKits({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
