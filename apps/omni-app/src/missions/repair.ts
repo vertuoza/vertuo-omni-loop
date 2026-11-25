@@ -34,12 +34,15 @@
 //                 the room is told once per bug, `bug-fixed`, linking the public issue, and once more when the PRD goes again: the
 //                 issue, the version and the PRD only, never a workspace, a repository or a login of another mission (BR-PRODUCT-163)
 import { createHash } from 'node:crypto';
-import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isProductPrdId, type IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { RepairRetro } from 'omni-loop/kit/lib/repair/retro.ts';
 import { compareVersions, parseVersion } from 'omni-loop/kit/lib/version/version.ts';
 import { checksOf, type PullRead } from './gate.ts';
 import { PrdIdSchema, type MissionPrd } from './store.prd.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
+
+/** An event a repair records: its PRD a repository's number or a product's id (bug #3302); ./job.ts records a product's apart. */
+export type RepairEvent = Omit<NewEvent, 'prd'> & { prd: MissionPrd | null };
 
 /** The repairs one cause gets in a round. */
 export const CAUSE_REPAIRS = 3;
@@ -375,7 +378,7 @@ export const linkOf = (url: string | null): string | null => (url !== null && /^
 type Where = { where: string; mission: number };
 
 /** What a repair job's dispatch says. */
-const startedEvent = (job: RepairJob, { where, mission }: Where): NewEvent => ({
+const startedEvent = (job: RepairJob, { where, mission }: Where): RepairEvent => ({
   kind: 'repair-started',
   role: 'supervisor',
   prd: job.prd,
@@ -385,10 +388,10 @@ const startedEvent = (job: RepairJob, { where, mission }: Where): NewEvent => ({
 });
 
 /** What a kept row says: its retro, once read, and its end. */
-function rowEvents(row: RepairRow): NewEvent[] {
+function rowEvents(row: RepairRow): RepairEvent[] {
   const n = `PRD ${String(row.prd)}`;
   const cause = `[${short(row.fingerprint)}]`;
-  const said = (kind: 'retro' | 'repair-ended', role: NewEvent['role'], sentence: string): NewEvent => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence });
+  const said = (kind: 'retro' | 'repair-ended', role: NewEvent['role'], sentence: string): RepairEvent => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence });
   const retro = row.retro === null ? [] : [said('retro', 'engineer', `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro;
   const how = row.retro === null ? 'not fixed: its record line could not be read.' : `${row.outcome}.`;
@@ -396,14 +399,20 @@ function rowEvents(row: RepairRow): NewEvent[] {
 }
 
 /** What a filed report says, linking its issue: `who` met it, the PRD by default, the mission for a stuck repair (./stuck.ts). */
-export function reportEvent(row: RepairRow, report: BugReport | undefined, who = `PRD ${String(row.prd)}`): NewEvent[] {
+export function reportEvent(row: RepairRow, report: BugReport | undefined, who = `PRD ${String(row.prd)}`): RepairEvent[] {
   if (report?.state !== 'filed') return [];
   const link = linkOf(`https://github.com/${report.repo}/issues/${String(report.issue)}`);
   return [{ kind: 'bug-reported', role: 'supervisor', prd: row.prd, job: row.job, link, sentence: `${who} met an Omni Loop bug [${short(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
 }
 
+/** A repair event a repository PRD's run records (./supervisor.ts › eventsOf): its PRD a number, or none; a product PRD's is recorded apart. */
+export const ofRepository = (event: RepairEvent): event is NewEvent => event.prd === null || !isProductPrdId(event.prd);
+
+/** A stuck repair's event (./stuck.ts), the mission's own: a product PRD its cause sits in is named in its sentence, not its row. */
+export const asMissionEvent = (event: RepairEvent): NewEvent => ({ ...event, prd: ofRepository(event) ? event.prd : null });
+
 /** Every repair event a run may record, in order: each dispatch, then each PRD's row's retro, end and report (a stuck one's are ./stuck.ts's). */
-export function repairEvents(view: RepairView, where: Where, sentAfter: SentAfter = () => null): NewEvent[] {
+export function repairEvents(view: RepairView, where: Where, sentAfter: SentAfter = () => null): RepairEvent[] {
   const own = view.rows.filter((row) => !isStuckRow(row));
   return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ''))]), ...bugFixedEvents(view, sentAfter)];
 }
@@ -432,7 +441,7 @@ function movedOf(view: RepairView, row: RepairRow): Moved | null {
 }
 
 /** The event saying a PRD went again on a kit that runs its bug's fix, keyed by that step's job; none before it was sent. */
-function resumedEvent(view: RepairView, moved: Moved, sentAfter: SentAfter, said: (job: string, sentence: string) => NewEvent): NewEvent[] {
+function resumedEvent(view: RepairView, moved: Moved, sentAfter: SentAfter, said: (job: string, sentence: string) => RepairEvent): RepairEvent[] {
   if (moved.fix.state !== 'fixed' || view.held === true || !runsFix(view.kit, moved.fix.version)) return [];
   const job = sentAfter(moved.row);
   return job === null ? [] : [said(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
@@ -443,13 +452,13 @@ function resumedEvent(view: RepairView, moved: Moved, sentAfter: SentAfter, said
  * that met it, linking the public issue; and, for each PRD sent its step again on a kit that runs the fix, one saying so, keyed by that
  * step's job. The issue, the version and the PRD only.
  */
-function bugFixedEvents(view: RepairView, sentAfter: SentAfter): NewEvent[] {
+function bugFixedEvents(view: RepairView, sentAfter: SentAfter): RepairEvent[] {
   const told = new Set<string>();
   return view.rows.flatMap((row) => {
     const moved = movedOf(view, row);
     if (moved === null) return [];
     const link = linkOf(`https://github.com/${moved.repo}/issues/${String(moved.issue)}`);
-    const said = (job: string, sentence: string): NewEvent => ({ kind: 'bug-fixed', role: 'supervisor', prd: row.prd, job, link, sentence });
+    const said = (job: string, sentence: string): RepairEvent => ({ kind: 'bug-fixed', role: 'supervisor', prd: row.prd, job, link, sentence });
     const first = told.has(row.fingerprint) ? [] : [said(moved.row.job, toldWords(view, moved.issue, moved.fix))];
     told.add(row.fingerprint);
     return [...first, ...resumedEvent(view, moved, sentAfter, said)];

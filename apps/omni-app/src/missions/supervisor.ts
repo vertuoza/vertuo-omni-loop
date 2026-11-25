@@ -62,7 +62,7 @@ import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import { endedHalfway, halfwayEvent, resumeOf, resumeStep, resumeWords } from './resume.ts';
 import { approvalNext, approveLine, verdictWords, type Committee } from './committee.ts';
 import { answerEvents, answersNext, itemsOpen, type ItemCommittee, type OpenAt } from './answers.ts';
-import { NO_REPAIRS, repairEvents, repairingWords, repairNext, type RepairView, type SentAfter } from './repair.ts';
+import { NO_REPAIRS, ofRepository, repairEvents, repairingWords, repairNext, type RepairView, type SentAfter } from './repair.ts';
 import type { QaPosted } from 'omni-loop/kit/lib/qa/verdict.ts';
 import type { IssueNumber } from 'omni-loop/kit/lib/ids.ts';
 import {
@@ -280,7 +280,7 @@ export type EventKind =
 export type EventRole = 'supervisor' | 'engineer' | 'reviewer' | 'pm' | 'qa' | 'architect';
 
 /** An event to record, signed by its role and `agent`. */
-export type NewEvent = { kind: EventKind; role: EventRole; prd: MissionPrd | null; job: string | null; link: string | null; sentence: string };
+export type NewEvent = { kind: EventKind; role: EventRole; prd: PrdNumber | null; job: string | null; link: string | null; sentence: string };
 
 /** An event already recorded, as a run reads it back. */
 export type RecordedEvent = { kind: string; prd: PrdNumber | null; job: string | null };
@@ -1208,7 +1208,7 @@ export function eventsOf({
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
     ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa, resumes }),
-    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
+    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)).filter(ofRepository),
     ...joinEvents(joins, base),
     ...landEvents(landings),
     ...prdEvents(facts, states),
@@ -1348,7 +1348,7 @@ export function withProducts(next: Concluded, products: ProductsRun, now: number
 }
 
 /** `events`, each whose keys none of `recorded` holds, in order, its sentence cut to what the database keeps; `recorded` gains their keys. */
-export function unrecorded(events: readonly NewEvent[], recorded: Set<string>): NewEvent[] {
+export function unrecorded<E extends Omit<NewEvent, 'prd'> & { prd: MissionPrd | null }>(events: readonly E[], recorded: Set<string>): E[] {
   return events.flatMap((event) => {
     const own = keysOf(event);
     if (own.some((key) => recorded.has(key))) return [];

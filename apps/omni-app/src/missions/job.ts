@@ -138,7 +138,7 @@ import { outsideEvents, type Outside } from './outside-bug.ts';
 import { readQa } from './qa-run.ts';
 import { overCap, runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
-import { isStuckRow, leftOf, MISSION_REPAIRS, repairingWords, repairNext, type RepairJob, type RepairView } from './repair.ts';
+import { isStuckRow, leftOf, MISSION_REPAIRS, ofRepository, repairEvents, repairingWords, repairNext, type RepairJob, type RepairView } from './repair.ts';
 import { readStuck, stuckStep } from './stuck-run.ts';
 import { NO_STUCK, type StuckView } from './stuck.ts';
 import { milestoneStep } from './milestone-run.ts';
@@ -295,12 +295,14 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now + WAKE_MS).toISOString(), pmWait(pmView(mission, pm, inPlan))), products, now);
   const finished: Concluded = budget.finish(unready === null || concluded.status === 'delivered' || concluded.status === 'paused' ? concluded : { ...concluded, status: 'waiting', waitingOn: unready });
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
+  // A product PRD's repair events (bug #3302) name its id: recorded beside the repository PRDs', each once.
+  const productRepairs = unrecorded(repairEvents(repairs, { where: whereOf(mission, toFleet), mission: mission.number }).filter((one) => !ofRepository(one)), recordedKeys(dropped.recorded));
   const retro = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...landed.events, ...events, ...retro.events], new Date(now));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...productRepairs, ...landed.events, ...events, ...retro.events], new Date(now));
   const moved = await store.update(mission.id, budget.from, next);
   const running = atWork(states, retro.running) || products.moving;
-  return { next, running, moved, sent: sent.length + repaired.length + products.sent + landed.events.length, events: events.length + retro.events.length + products.events.length + landed.events.length };
+  return { next, running, moved, sent: sent.length + repaired.length + products.sent + landed.events.length, events: events.length + retro.events.length + products.events.length + productRepairs.length + landed.events.length };
 }
 
 /**
