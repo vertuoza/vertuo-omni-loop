@@ -1171,6 +1171,78 @@
     },
     {
       "do": [
+        "Use it once, at the top of a settings page.",
+        "Say in the description what a person can change here."
+      ],
+      "dont": [
+        "Use it for a section inside the page: use a SettingsSection.",
+        "Put actions in it: the save bar holds them."
+      ],
+      "example": "<SettingsHeader title=\"Workspace settings\" description=\"Who can see the workspace and how it is billed.\" />",
+      "import": "@omni/ui",
+      "name": "SettingsHeader",
+      "replaces": [
+        "settings-header",
+        "settings-title"
+      ],
+      "usage": "The title of a settings page and, optionally, one line saying what the page holds.",
+      "variants": {
+        "description": [
+          "shown",
+          "none"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Say why a row is read only, in words, beside it.",
+        "Put one control or one value in a row."
+      ],
+      "dont": [
+        "Show a read-only row by colour alone.",
+        "Put a row outside a SettingsSection."
+      ],
+      "example": "<SettingsRow label=\"Visibility\" readOnly reason=\"only an owner can change it\">Private</SettingsRow>",
+      "import": "@omni/ui",
+      "name": "SettingsRow",
+      "replaces": [
+        "settings-row",
+        "setting-item"
+      ],
+      "usage": "One setting of a settings page: its label, its control and, when it cannot be changed, the reason in words.",
+      "variants": {
+        "state": [
+          "editable",
+          "read-only"
+        ]
+      }
+    },
+    {
+      "do": [
+        "Group the settings that belong together, one SettingsRow each.",
+        "Give every group a heading in words."
+      ],
+      "dont": [
+        "Nest a SettingsSection in another.",
+        "Put anything but SettingsRow parts in it."
+      ],
+      "example": "<SettingsSection title=\"Access\" description=\"Who can open the workspace.\"><SettingsRow label=\"Visibility\">…</SettingsRow></SettingsSection>",
+      "import": "@omni/ui",
+      "name": "SettingsSection",
+      "replaces": [
+        "settings-section",
+        "settings-group"
+      ],
+      "usage": "A group of settings rows under one heading.",
+      "variants": {
+        "description": [
+          "shown",
+          "none"
+        ]
+      }
+    },
+    {
+      "do": [
         "Match the shape and size of what will replace it: text lines for text, a block for a card, a circle for an avatar.",
         "Name what loads in `label`, in words."
       ],

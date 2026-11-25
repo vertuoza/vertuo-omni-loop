@@ -1,0 +1,14 @@
+.omni-settings-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+.omni-settings-header__description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--type-3-size);
+  line-height: var(--type-3-line);
+}
