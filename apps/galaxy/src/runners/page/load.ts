@@ -7,6 +7,7 @@ import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import type { Board, Job } from '../runners.contract';
 import type { Served } from '../runners.service';
 import type { Fleet, PrdTitles, RunnersPageView } from './model';
+import type { Seat } from '../../supervisor/api/supervisor.contract';
 
 // The Runners page's read (PRD 1830 s3): the workspace the person joined first, as every board page
 // heads its own; with none, the no-workspace notice. Then the board, through the runners' service (its
@@ -25,6 +26,8 @@ export interface RunnersPageReads {
   stand(workspaceId: string, repo: string, prd: PrdNumber): Promise<OutboxStand | null>;
   /** The titles of the PRDs the person may read, for the line under a job that builds one (PRD 2251). */
   prds(): Promise<PrdTitles>;
+  /** The workspace's Supervisor seat, or null for none (PRD omni-loop-34 s8); absent where the Supervisor is not served. */
+  seat?(workspaceId: string): Promise<Seat | null>;
 }
 
 const failed = (message: string) => { log.error({ event: 'runners-page', outcome: 'failed', message }); };
@@ -60,6 +63,17 @@ export async function answeredJobs(reads: RunnersPageReads, workspaceId: string,
   return found.flat();
 }
 
+/** The seat, failing soft: a seat that cannot be read leaves the page without one, and without Place. */
+async function seatOf(reads: RunnersPageReads, workspaceId: string): Promise<{ workspace: string; seat: Seat | null } | undefined> {
+  if (reads.seat === undefined) return undefined;
+  try {
+    return { workspace: workspaceId, seat: await reads.seat(workspaceId) };
+  } catch (error) {
+    failed(`the Supervisor seat could not be read (${messageOf(error)})`);
+    return undefined;
+  }
+}
+
 async function prdsOf(reads: RunnersPageReads): Promise<PrdTitles> {
   try {
     return await reads.prds();
@@ -73,12 +87,12 @@ export async function loadRunnersPage(reads: RunnersPageReads, now: Date): Promi
   try {
     const workspace = await reads.workspace();
     if (!workspace) return { kind: 'no-workspace' };
-    const [served, fleets, prds] = await Promise.all([reads.board(workspace.id), fleetsOf(reads, workspace.id), prdsOf(reads)]);
+    const [served, fleets, prds, supervisor] = await Promise.all([reads.board(workspace.id), fleetsOf(reads, workspace.id), prdsOf(reads), seatOf(reads, workspace.id)]);
     if (!served.ok) {
       failed(`the board could not be read (${served.error})`);
       return { kind: 'unreadable' };
     }
-    return { kind: 'board', name: workspace.name, board: served.value, fleets, prds, now: now.toISOString(), answered: await answeredJobs(reads, workspace.id, served.value.jobs) };
+    return { kind: 'board', name: workspace.name, board: served.value, fleets, prds, now: now.toISOString(), answered: await answeredJobs(reads, workspace.id, served.value.jobs), ...(supervisor === undefined ? {} : { supervisor }) };
   } catch (error) {
     failed(`the page could not be read (${messageOf(error)})`);
     return { kind: 'unreadable' };

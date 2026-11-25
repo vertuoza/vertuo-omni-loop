@@ -1,5 +1,5 @@
 // Every `omni` subcommand, by name. Each is `{ run(args, { ctx, stdout, stderr, exec, env }) → exit code }`;
-// one marked `withoutContext` (conventions, approval, wait, runner, init, ask, heartbeat, session, signin, signout, whoami, setup-token, dossier, idea, loop, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product, status, prd, item, adopt, settle, answers, sync, worktrees)
+// one marked `withoutContext` (conventions, approval, wait, runner, supervisor, init, ask, heartbeat, session, signin, signout, whoami, setup-token, dossier, idea, loop, proof, pitch, business, constituents, decide, version, update, help, statusline, now, targets, product, status, prd, item, adopt, settle, answers, sync, worktrees)
 // gets `{ cwd, stdout, stderr, exec, env }` instead, plus whatever a caller injects (init's `stdin`, `bundle`
 // and `ask`; ask's `stdin`, `tokens` and `limits`; heartbeat's `stdin`, `tokens`, `fetch` and `now`; signin's `home`, `openBrowser`, `fetch` and `waitMs`;
 // signout's and whoami's `home`; setup-token's `openBrowser`, `waitMs` and `now`; dossier's and loop's `tokens`, `home`, `fetch`, `callMs` and `now`; idea's and proof's `tokens`, `home`, `fetch` and `callMs`;
@@ -62,6 +62,7 @@ import { review } from './review.ts';
 import { rewind } from './rewind.ts';
 import { roadmap } from './roadmap.ts';
 import { runner } from './runner.ts';
+import { supervisor } from './supervisor.ts';
 import { rework } from './rework.ts';
 import { session } from './session.ts';
 import { settle } from './settle.ts';
@@ -87,4 +88,4 @@ const bug = {
   run: (args: string[], io: FreeIo) => (args[0] === 'ci' ? bugCi(args.slice(1), io) : bugCommand.run(args, io)),
 } satisfies FreeCommand;
 
-export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, 'before-after': beforeAfter, prd, budget, approval, wait, status, dashboard, settle, adopt, replies, answers, comment, ship, harvest, retro, review, committee, rewind, check, claim, generated, design, knowledge, kb, item, plan, roadmap, board, care, 'follow-up': followUp, next, loop, rework, phase0, visual, bug, concept, mission, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version, update, help, statusline, now, targets, product, session, runner, tier, ref, hold, ready, sync, worktrees, mcp });
+export const COMMAND_TABLE: Readonly<Record<string, Command | FreeCommand>> = Object.freeze({ config, 'before-after': beforeAfter, prd, budget, approval, wait, status, dashboard, settle, adopt, replies, answers, comment, ship, harvest, retro, review, committee, rewind, check, claim, generated, design, knowledge, kb, item, plan, roadmap, board, care, 'follow-up': followUp, next, loop, rework, phase0, visual, bug, concept, mission, init, ask, heartbeat, signin, signout, whoami, 'setup-token': setupToken, sign, credits, dossier, idea, flow, e2e, proof, pitch, business, constituents, conventions, decide, version, update, help, statusline, now, targets, product, session, runner, supervisor, tier, ref, hold, ready, sync, worktrees, mcp });

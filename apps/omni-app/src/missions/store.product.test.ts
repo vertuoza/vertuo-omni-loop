@@ -100,13 +100,13 @@ describe('missionStore keeps a product PRD (PRD omni-loop-21 s3b)', () => {
     expect(await storeOn(db.fetch).fleetEvents(ID)).toEqual([{ kind: 'decided', prd: null, product: 'omni-loop-15', sentence: 'The fleet carried it.', link: null, actor: 'agent' }]);
   });
 
-  it('keeps a product PRD\'s repair under its id, and reads it back as `product`', async () => {
+  it('keeps a product PRD\'s repair under its id, and reads it back by its id (bug #3302: a product PRD is repaired too)', async () => {
     const db = recordingFetch([[{ ...repairRow, prd_id: 'omni-loop-15' }]]);
     const kept = await storeOn(db.fetch).keepRepair(mission, { prd: PRODUCT, fingerprint: 'a'.repeat(64), round: 1, failedJob: 'job-1', job: null, retro: null, fixPr: null });
     expect(db.requests[0]?.body).toMatchObject({ prd: null, product_prd: 'omni-loop-15', failed_job_id: 'job-1' });
-    expect(kept).toMatchObject({ id: 'r-1', prd: null, product: 'omni-loop-15' });
+    expect(kept).toMatchObject({ id: 'r-1', prd: 'omni-loop-15' });
     const read = await storeOn(recordingFetch([[], [{ ...repairRow, prd_id: '2896' }, { ...repairRow, id: 'r-2', prd_id: 'omni-loop-15' }]]).fetch).repairs(ID);
-    expect(read.rows.map((one) => [one.id, one.prd, one.product])).toEqual([['r-1', 2896, undefined], ['r-2', null, 'omni-loop-15']]);
+    expect(read.rows.map((one) => [one.id, one.prd])).toEqual([['r-1', 2896], ['r-2', 'omni-loop-15']]);
   });
 
   it('records an item\'s decision on a product PRD through mission_decide_item() named by its id', async () => {
@@ -129,8 +129,8 @@ describe('fakeMissionStore keeps a product PRD (PRD omni-loop-21 s3b): what the 
     const fake = fakeMissionStore({ mission, facts: [facts] });
     await fake.store.record(ID, [{ kind: 'prd-joined', role: 'supervisor', prd: PRODUCT, job: null, link: null, sentence: 'omni-loop-15 joined.' }], new Date('2027-01-29T10:00:00Z'));
     expect(await fake.store.events(ID)).toEqual([{ kind: 'prd-joined', prd: null, product: 'omni-loop-15', job: null }]);
-    expect(await fake.store.keepRepair(mission, { prd: PRODUCT, fingerprint: 'a'.repeat(64), round: 1, failedJob: 'job-1', job: null, retro: null, fixPr: null })).toMatchObject({ prd: null, product: 'omni-loop-15', number: 1 });
-    expect(fake.repairRows().map((one) => one.product)).toEqual(['omni-loop-15']);
+    expect(await fake.store.keepRepair(mission, { prd: PRODUCT, fingerprint: 'a'.repeat(64), round: 1, failedJob: 'job-1', job: null, retro: null, fixPr: null })).toMatchObject({ prd: 'omni-loop-15', number: 1 });
+    expect(fake.repairRows().map((one) => one.prd)).toEqual(['omni-loop-15']);
   });
 
   it('records and lists an item\'s decision on a product PRD under its id', async () => {

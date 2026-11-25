@@ -12,6 +12,11 @@
 // A slot the sweep missed is not added later: the next slot does the work, since a scheduled job reads
 // everything since its last run. `background_jobs_health()` reads a schedule late when its kind has had no `done`
 // job for three of its periods (./ledger.ts passes it these schedules).
+//
+// A laned schedule (PRD omni-loop-34 s2) runs once per lane instead, each lane's job in a lane of its own, so one
+// slow lane never holds another: `supervisor-watch` every 2 minutes, one lane per workspace with a Supervisor seat
+// (../supervisor/watch.ts). Its key is `<kind>:<lane>@<slot start>`, its lane `<kind>:<lane>`, its payload
+// `{ slot, lane }`. It stays out of SCHEDULES: with no seat no job is added, and the health would read it late.
 import type { NewJob } from './ledger.ts';
 
 /** A regular job: its kind, how often a slot starts (slots start at midnight UTC), and its tries (1 to 5). */
@@ -36,6 +41,15 @@ export const SCHEDULES: readonly Schedule[] = Object.freeze([
   { kind: 'commander-notebook', periodMinutes: 1440, maxTries: 3 },
 ]);
 
+/** The Supervisor's watch (PRD omni-loop-34 s2, ../supervisor/watch.ts): every 2 minutes, one lane per workspace with a seat. */
+export const SUPERVISOR_WATCH: Schedule = Object.freeze({ kind: 'supervisor-watch', periodMinutes: 2, maxTries: 2 });
+
+/** The App's laned schedules. */
+export const LANED_SCHEDULES: readonly Schedule[] = Object.freeze([SUPERVISOR_WATCH]);
+
+/** Laned schedules, and how the sweep reads their lanes (for the watch: the workspaces with a seat). */
+export type Laned = { schedules: readonly Schedule[]; lanes: () => Promise<readonly string[]> };
+
 const MINUTE = 60_000;
 
 /** The start of the slot of `schedule` that `now` falls in, in milliseconds since the epoch. */
@@ -52,22 +66,49 @@ export function scheduledJobs(schedules: readonly Schedule[], now: number): NewJ
   });
 }
 
-/** What one sweep did to the schedule: how many schedules it asked for, and how many jobs were new. */
-export type ScheduleSummary = { scheduled: number; added: number };
+/** The job of the current slot of each laned schedule, one per lane. */
+export function lanedJobs(schedules: readonly Schedule[], lanes: readonly string[], now: number): NewJob[] {
+  return schedules.flatMap((schedule) => {
+    const slot = new Date(slotStart(schedule, now)).toISOString();
+    return lanes.map((lane) => ({
+      kind: schedule.kind, key: `${schedule.kind}:${lane}@${slot}`, subject: schedule.kind, payload: { slot, lane }, lane: `${schedule.kind}:${lane}`, maxTries: schedule.maxTries,
+    }));
+  });
+}
+
+/**
+ * What one sweep did to the schedule: how many jobs it asked for, and how many were new; `lanesFailed` when the
+ * laned schedules' lanes could not be read (the plain schedules are added still).
+ */
+export type ScheduleSummary = { scheduled: number; added: number; lanesFailed?: true };
 
 /** Adds the job of the current slot of each schedule; nothing for a slot already added. */
 export async function addScheduled({
   ledger,
   schedules = SCHEDULES,
+  laned,
   clock = Date.now,
 }: {
   ledger: { add: (job: NewJob) => Promise<boolean> };
   schedules?: readonly Schedule[];
+  /** The laned schedules and their lanes; none, only the plain schedules are added. */
+  laned?: Laned;
   clock?: () => number;
 }): Promise<ScheduleSummary> {
+  const now = clock();
+  let jobs = scheduledJobs(schedules, now);
+  let lanesFailed = false;
+  if (laned && laned.schedules.length > 0) {
+    try {
+      jobs = [...jobs, ...lanedJobs(laned.schedules, await laned.lanes(), now)];
+    } catch {
+      // The lanes could not be read: the plain schedules still run, and the next sweep reads them again.
+      lanesFailed = true;
+    }
+  }
   let added = 0;
-  for (const job of scheduledJobs(schedules, clock())) {
+  for (const job of jobs) {
     if (await ledger.add(job)) added += 1;
   }
-  return { scheduled: schedules.length, added };
+  return { scheduled: jobs.length, added, ...(lanesFailed ? { lanesFailed: true as const } : {}) };
 }

@@ -8,7 +8,8 @@
 // | `drifted`  | failure    | a push voided the approval, or a pinned file's latest version differs   |
 // | `held`     | neutral    | the record could not be read: held, never failed                        |
 // | `pending`  | failure    | nobody approved the PRD yet                                             |
-// | `refused`  | failure    | the approver is no longer a member of the PRD's workspace               |
+// | `refused`  | failure    | the approver is no longer a member of the PRD's workspace, or the fleet |
+// |            |            | that approved (BR-PRODUCT-144) is no longer a live fleet there           |
 // | `unknown`  | failure    | no product PRD of that id holds this pull request's repository          |
 //
 // Files are paired by kind, as the kit pairs them (kit/lib/approval/approval.ts): a pinned file drifts
@@ -31,9 +32,10 @@ export type ApprovalVoid = { pusher: string; kind: string; from: string; to: str
 /** The latest version of one kind of the dossier. */
 export type LatestVersion = { kind: string; sha256: string; versionId: string; commitSha: string | null; content: string | null };
 
-/** The approval in force: who approved, whether they are a member today, when, what, and its voids. */
+/** The approval in force: who approved, whether they are a member today (a fleet: whether it still lives in the
+ * workspace, bug #3309), when, what, and its voids. `fleet` is the key of the fleet that approved, only for a fleet's. */
 export type ApprovalInForce = {
-  approver: { login: string; member: boolean };
+  approver: { login: string; member: boolean; fleet?: string };
   approvedAt: string;
   files: PinnedFile[];
   voids: ApprovalVoid[];
@@ -140,6 +142,12 @@ function minuteOf(iso: string): string {
   return match ? `${match[1] ?? ''} ${match[2] ?? ''} UTC` : iso;
 }
 
+/** Where the approver stands in the workspace today, as the attestation says it. */
+const standing = (member: boolean, fleet: string | undefined): string => {
+  if (fleet) return member ? 'a fleet of the workspace' : 'a fleet that no longer exists in the workspace';
+  return member ? 'a member of the workspace' : 'no longer a member';
+};
+
 /** The approved check's verdict for PRD `prd`, from what reading its record gave. */
 export function approvedVerdict(prd: ProductPrdRef, reading: RecordReading): ApprovedVerdict {
   if (!reading.reachable) {
@@ -158,9 +166,9 @@ export function approvedVerdict(prd: ProductPrdRef, reading: RecordReading): App
     ({ state, conclusion, title, summary: lines.join('\n'), dossierId, drift });
   if (!approval) return verdict('pending', 'failure', `pending · ${prd.id} waits for approval`, [`Nobody approved ${prd.id} yet.`]);
 
-  const { login, member } = approval.approver;
+  const { login, member, fleet } = approval.approver;
   const attestation = [
-    `Approved by **${login}** (${member ? 'a member of the workspace' : 'no longer a member'}) at ${approval.approvedAt}.`,
+    `Approved by **${login}** (${standing(member, fleet)}) at ${approval.approvedAt}.`,
     '',
     ...pinsTable(approval, latest),
   ];
@@ -169,7 +177,7 @@ export function approvedVerdict(prd: ProductPrdRef, reading: RecordReading): App
     const lines = drift.map(driftLine);
     return verdict('drifted', 'failure', `drifted · ${lines[0] ?? ''}`, [...lines, '', 'Restore the file, or approve again on the PRD page.', '', ...attestation], drift);
   }
-  if (!member) return verdict('refused', 'failure', `refused · approver ${login} is not a workspace member`, attestation);
+  if (!member) return verdict('refused', 'failure', fleet ? `refused · fleet ${fleet} no longer exists in the workspace` : `refused · approver ${login} is not a workspace member`, attestation);
   const pinned = approval.files.length;
   return verdict('building', 'success', `building · ${pinned} of ${pinned} pinned`, attestation);
 }

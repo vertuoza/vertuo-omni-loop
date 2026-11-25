@@ -427,8 +427,9 @@ CLI, never from a blank file, in this order:
 2. **Fill it,** each section in one of three states (below), and delete every `<!-- FILL -->`.
 3. **Draw it.** `node .omni-loop/bin/omni.mjs before-after render <n>` turns each
    `<pre class="mermaid">` into inline SVG and prints `rendered <section> of <service>` per diagram.
-   It needs a Playwright browser and the network: when it refuses (exit 1, with its install line)
-   or a diagram is refused, that section becomes `gap`, `To settle — diagram not rendered: <why>`,
+   It needs the network: it draws with the repository's Playwright or, when the repository has none,
+   with one the kit fetches once into its own cache, never asking anyone to install it. When it
+   refuses (exit 1, saying why) or a diagram is refused, that section becomes `gap`, `To settle — diagram not rendered: <why>`,
    with the diagram's source kept as text in a `<details>`, never as `<pre class="mermaid">`.
 4. **The word pass,** below, then `omni check inbox`, which grades the page's tabs, states, screens
    and rendered diagrams, then **The first look,** below, then the commit (step 7).

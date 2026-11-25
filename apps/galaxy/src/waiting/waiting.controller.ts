@@ -13,6 +13,8 @@ import { waitingReads, type WaitingReads } from './waiting.service';
 //   GET /api/waiting/runners     the Runners badge (PRD 2255), every 15 s visible: how many of the workspace's
 //                                runner jobs wait for an answer, for the workspace the person joined first,
 //                                as the Runners page reads it
+//   GET /api/waiting/supervisor  the Supervisor row (omni-loop-34 s8), every 15 s visible: whether the workspace
+//                                has a seat, and its open high findings, for the workspace the person joined first
 //
 // The session is checked first, from the request's cookie claims, read locally as viewer() reads them
 // (no call to the database): signed out, 401 `signed-out`, and no service runs, so a tab whose sign-in
@@ -61,6 +63,11 @@ export function waitingReadHandlers(deps: WaitingReadDeps) {
         const joined = await workspace();
         return { count: joined ? await reads.runnersWaiting(joined.id) : 0 };
       }),
+    supervisor: (): Promise<Response> =>
+      answer(deps, async ({ reads, workspace }) => {
+        const joined = await workspace();
+        return joined ? await reads.supervisorWaiting(joined.id) : { seat: false, high: 0 };
+      }),
   };
 }
 
@@ -80,3 +87,5 @@ export const getDocuments = (): Promise<Response> => live.documents();
 export const getReviews = (): Promise<Response> => live.reviews();
 /** GET /api/waiting/runners */
 export const getRunners = (): Promise<Response> => live.runners();
+/** GET /api/waiting/supervisor */
+export const getSupervisor = (): Promise<Response> => live.supervisor();

@@ -473,6 +473,26 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'or runner lost; Ctrl-C stops the following only, the job runs on.',
   },
   {
+    name: 'supervisor',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni supervisor --runner <id> [--page <url>]', 'omni supervisor mcp --runner <id> [--page <url>]'],
+    label: 'omni supervisor',
+    summary: "the Supervisor's seat, on a runner",
+    detail:
+      'A runner starts the seat by itself when an owner places it on that runner, and keeps one slot for it: ' +
+      'a 4-slot runner then runs at most 3 jobs. The seat waits on the Supervisor API (held up to 40 s, ' +
+      'waking at once on a new signal, an owner\'s message or a pressed suggestion, else a look every 2 min), ' +
+      'reads the workspace, keeps each step\'s usual time as a long-term note (Baseline <skill>: <n> min, ' +
+      'the median of its last 9 runs), and thinks only when a signal, a finding a check wrote alone or an ' +
+      'owner\'s message waits: Claude Code headless on the runner\'s first ready Claude account, with six ' +
+      'tools that call the Supervisor API only (snapshot, lines, memory, raise, reply, propose). It checks in ' +
+      'with its tokens; past the daily limit (5,000,000 unless an owner changes it) or paused by an owner it ' +
+      'checks in without thinking until midnight (UTC), and the checks write their findings alone. --runner ' +
+      'runs the same loop in this terminal for a runner that holds the seat; mcp serves the six tools over ' +
+      'stdio to the seat\'s think. It signs in as every omni command does (OMNI_TOKEN, else omni signin).',
+  },
+  {
     name: 'dossier',
     kind: 'command',
     who: 'you',
@@ -551,8 +571,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'refuses, writing nothing, a PRD with no inbox folder, a page already there unless --force, and ' +
       'a missing or empty --services, each with one line and exit 1. render replaces each ' +
       '<pre class="mermaid"> of the page with the SVG Mermaid draws for it, inline, in a headless ' +
-      'Chromium from the repository\'s Playwright; it prints one line per diagram and refuses, with the ' +
-      'install line, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
+      'Chromium from the repository\'s Playwright, or from the one the kit fetches into ~/.cache/omni when the ' +
+      'repository has none; it prints one line per diagram and refuses, saying why, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
       'a valid state on every section, no FILL marker, no diagram left unrendered, no external resource.',
   },
   {
@@ -1242,8 +1262,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'mission',
     kind: 'command',
     who: 'skills',
-    usage: ['omni mission push <n> [--from <dir>]', 'omni mission get <n> [--out <dir>]', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>', 'omni mission request <id>'],
-    summary: "send a mission's brief to its page, read it back as files, drop a PRD from its branch, overturn a decision of the fleet, or read a mission request",
+    usage: ['omni mission push <n> [--from <dir>]', 'omni mission get <n> [--out <dir>]', 'omni mission drop <mission> <prd> [--keep]', 'omni mission overturn <mission> <decision>', 'omni mission send-back <mission> <prd>', 'omni mission request <id>'],
+    summary: "send a mission's brief to its page, read it back as files, drop a PRD from its branch, overturn a decision of the fleet, send a PM product PRD back to the PM, or read a mission request",
     detail:
       "Sends mission <n>'s mission.md and mission.html, from its folder under {delivery}/missions/, " +
       "to its page on the Omni app, titled after mission.md's title. It refuses the folder whole, " +
@@ -1263,7 +1283,10 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       "<prd>/<item> for the answer to one of its items (the mission pull request's lists name each): " +
       'the decision stays as it was recorded and yours is added beside it; an overturned approval no ' +
       'longer counts for the mission, an overturned answer is open for you again, and the PRD is ' +
-      'dropped from the mission branch when it had joined. request <id> prints the fleet and the goal ' +
+      'dropped from the mission branch when it had joined. send-back <mission> <prd>, run by a person, sends a product PRD ' +
+      "the mission's PM wrote (<key>-<n>) back to the PM once it waits on you after its review (the Architect left it to you, " +
+      "or the PM's and the Architect's rounds were spent): the PM gets one more round with the Architect's latest open points, " +
+      'its rounds counted again, and no decision is edited; your send-back is added as your own event. request <id> prints the fleet and the goal ' +
       "of a mission request the Omni page's New mission box saved, one line each, the goal word for word; " +
       'with one line and exit 1 when the page cannot be read or refuses it.',
   },

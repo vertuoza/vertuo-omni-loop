@@ -3,8 +3,9 @@
 //
 //   GET                   every minute: first posts, `queued` and delayed, the pull-request checks due over 10 minutes
 //                         (./delayed.ts); then adds the job of each schedule's current slot (./schedule.ts, PRD
-//                         omni-loop-3 s1); then runs the jobs due: retries, `later`s, claims that ran out, the
-//                         scheduled jobs, anything the webhook did not finish
+//                         omni-loop-3 s1), the Supervisor's watch once per workspace with a seat (PRD omni-loop-34
+//                         s2); then runs the jobs due: retries, `later`s, claims that ran out, the scheduled jobs,
+//                         anything the webhook did not finish
 //   GET ?gaps=1           first the comparison (./gaps.ts, hourly); then the jobs due; and at 03:00 UTC it
 //                         also forgets the jobs finished over 90 days ago, with their attempts
 //   POST {"replay": id}   a `failed` job put back to `queued`, its attempts kept, then the jobs due run
@@ -16,20 +17,20 @@
 // function to itself, and the worker is told when it ends (300 seconds from the call, bug #2756), so a job still
 // running then is given back, never cut off.
 import { timingSafeEqual } from 'node:crypto';
-import { githubClient } from '@omni/github';
 import { z } from 'zod';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
 import { sweepBugs, type BugSweep } from '../bug-reports/follow.ts';
 import { bugGithub } from '../bug-reports/github.ts';
 import { bugTeamStore } from '../bug-reports/store.ts';
-import { appOctokitFor, githubStoreOf, installationOctokitFor } from '../octokit-for.ts';
+import { appOctokitFor } from '../octokit-for.ts';
 import { loggedHandler, noteTo } from '../run-log/run-log.ts';
 import { delayedStore, postDelayed, type DelayedSummary } from './delayed.ts';
 import { compareGaps, gapsStore, type GapsSummary } from './gaps.ts';
-import { jobLedger, type Replayed } from './ledger.ts';
-import { liveWorkers } from './pr-checks.ts';
-import { addScheduled, type ScheduleSummary } from './schedule.ts';
+import type { Replayed } from './ledger.ts';
+import { liveLedger } from './pr-checks.ts';
+import { seatLanes } from '../supervisor/store.ts';
+import { addScheduled, LANED_SCHEDULES, type ScheduleSummary } from './schedule.ts';
 import { runDue, type RunSummary } from './worker.ts';
 
 /** The groups the route reads: its own, and those the checks' worker reads (./pr-checks.ts). */
@@ -57,14 +58,13 @@ export const FORGET_HOUR_UTC = 3;
 
 /** The ledger on the database as the service role, every kind's handler wired (./pr-checks.ts); none where the App has no database. */
 function liveJobs(env: SweepEnv, logger: Logger): SweepJobs | null {
-  const { supabase } = env;
-  if (!supabase) return null;
-  const ledger = jobLedger(supabase);
-  const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo('github', logger) }));
+  const live = liveLedger(env, logger);
+  if (!live) return null;
+  const { supabase, ledger, octokitFor, workers } = live;
   return {
-    run: (endsAt) => runDue({ ledger, ...liveWorkers({ ...env, supabase }, octokitFor), endsAt }),
+    run: (endsAt) => runDue({ ledger, ...workers, endsAt }),
     delayed: () => postDelayed({ store: delayedStore(supabase), octokitFor }),
-    schedule: () => addScheduled({ ledger }),
+    schedule: () => addScheduled({ ledger, laned: { schedules: LANED_SCHEDULES, lanes: seatLanes(supabase) } }),
     gaps: () => compareGaps({ store: gapsStore(supabase), ledger, appOctokit: appOctokitFor(env.githubApp ?? null), octokitFor }),
     replay: (id) => ledger.replay(id),
     forget: () => ledger.forget(),

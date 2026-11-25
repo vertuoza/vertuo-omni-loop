@@ -10,7 +10,8 @@ import { at, parsed, text, UUID, type Answer } from './answer';
 // of them (supabase/migrations/20261123090000_approvals.sql, 20261125090000_approval_requests.sql,
 // 20260928090000_dossiers.sql, 20260926120000_workspaces.sql). It holds no rule: the newest numbered
 // dossier of the PRD, its newest approval, that approval's voids, the versions it pins and whether the
-// approver is a member, each parsed as it comes (./answer.ts's `parsed`). A refusal comes
+// approver is a member (a fleet's approval, BR-PRODUCT-144: whether its fleet is a live Virtual Fleet of the
+// workspace, as dossier_approval() reads it, 20270124130000_mission_committee.sql; bug #3309), each parsed as it comes (./answer.ts's `parsed`). A refusal comes
 // back as its code and message; rows out of shape as the code `shape`.
 
 /** The service role's client: its tables. */
@@ -18,10 +19,11 @@ type ServiceDb = Pick<SupabaseClient<Database>, 'from'>;
 
 const DossierRows = z.array(z.object({ id: UUID, workspace_id: UUID }));
 const PinnedFile = z.object({ kind: text, path: text, sha256: text, version_id: UUID });
-const ApprovalRows = z.array(z.object({ id: UUID, approved_by: UUID, approver_login: text, approved_at: at, files: z.array(PinnedFile) }));
+const ApprovalRows = z.array(z.object({ id: UUID, approved_by: UUID, approver_login: text, approved_at: at, files: z.array(PinnedFile), fleet: text.nullable().optional() }));
 const VoidRows = z.array(z.object({ pusher_login: text, kind: text, from_sha256: text, to_sha256: text, voided_at: at }));
 const VersionRows = z.array(z.object({ id: UUID, content: z.string() }));
 const MemberRows = z.array(z.object({ user_id: UUID }));
+const FleetRows = z.array(z.object({ name: text }));
 
 /** An approval row, its pinned files as stored ({kind, path, sha256, version_id}). */
 export type ApprovalRow = z.infer<typeof ApprovalRows>[number];
@@ -39,7 +41,7 @@ export function judgeRepository(db: ServiceDb) {
     /** The dossier's newest product approval: its approval in force, unless a void says otherwise. A Tech
      * Approval alone is no approval: the gate would open on it (PRD 2608). */
     latestApproval: (dossier: string) => parsed(
-      db.from('approvals').select('id, approved_by, approver_login, approved_at, files').eq('dossier_id', dossier).eq('approval_kind', 'product')
+      db.from('approvals').select('id, approved_by, approver_login, approved_at, files, fleet').eq('dossier_id', dossier).eq('approval_kind', 'product')
         .order('approved_at', { ascending: false }).order('id', { ascending: false }).limit(1),
       ApprovalRows, 'approvals'),
     /** The voids of an approval, oldest first. */
@@ -56,6 +58,13 @@ export function judgeRepository(db: ServiceDb) {
       const read = await parsed(
         db.from('workspace_members').select('user_id').eq('workspace_id', workspace).eq('user_id', user).limit(1),
         MemberRows, 'workspace_members');
+      return read.ok ? { ok: true, value: read.value.length > 0 } : read;
+    },
+    /** Whether `fleet` is a live Virtual Fleet of `workspace` today. */
+    async isLiveFleet(workspace: string, fleet: string): Promise<Answer<boolean>> {
+      const read = await parsed(
+        db.from('teams').select('name').eq('workspace_id', workspace).eq('name', fleet).eq('kind', 'virtual').is('retired_at', null).limit(1),
+        FleetRows, 'teams');
       return read.ok ? { ok: true, value: read.value.length > 0 } : read;
     },
   };

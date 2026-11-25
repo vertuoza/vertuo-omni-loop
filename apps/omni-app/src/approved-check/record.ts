@@ -7,7 +7,9 @@
 // holds that repository (`product_repositories`, PRD 1364), then its PRD `seq`. A body naming a PRD of a
 // product that does not hold the repository reads as no PRD at all, so a pull request elsewhere learns
 // nothing of it. Then the approval in force (the latest row), whether its approver is a member of the
-// workspace today, the voids a push left on it, and the latest version of each kind, with the text of
+// workspace today (a fleet's approval, BR-PRODUCT-144, whether its fleet is a live Virtual Fleet of that
+// workspace, as dossier_approval() reads it in supabase/migrations/20270124130000_mission_committee.sql:
+// its `approved_by` is its mission's id, never a member; bug #3309), the voids a push left on it, and the latest version of each kind, with the text of
 // each pinned version and of each latest version that differs from its pin, for the whitespace test.
 //
 // Throws when the database refuses or answers out of shape: the check reads that as held.
@@ -33,6 +35,7 @@ const ApprovalRowSchema = z.object({
   approver_login: text,
   approved_at: at,
   files: z.array(z.object({ kind: text, path: text, sha256: text, version_id: text })),
+  fleet: text.nullable().optional(),
 });
 const VoidRowSchema = z.object({ kind: text, from_sha256: text, to_sha256: text, pusher_login: text, voided_at: at });
 const VersionRowSchema = z.object({ id: text, kind: text, sha256: text, commit_sha: z.string().nullable(), created_at: at });
@@ -40,7 +43,7 @@ const ContentRowSchema = z.object({ id: text, content: z.string() });
 
 /** The columns the reader takes of each table. */
 const HOLDER = 'product_id, workspace_id, products!inner(key)';
-const APPROVAL = 'id, approved_by, approver_login, approved_at, files';
+const APPROVAL = 'id, approved_by, approver_login, approved_at, files, fleet';
 const VOID = 'kind, from_sha256, to_sha256, pusher_login, voided_at';
 const VERSION = 'id, kind, sha256, commit_sha, created_at';
 
@@ -58,6 +61,20 @@ function latestByKind(rows: z.infer<typeof VersionRowSchema>[]): z.infer<typeof 
   const seen = new Map<string, z.infer<typeof VersionRowSchema>>();
   for (const row of rows) if (!seen.has(row.kind)) seen.set(row.kind, row);
   return [...seen.values()];
+}
+
+type Db = ReturnType<typeof createClient<Database>>;
+
+/** Whether the approval's approver counts as a member of `workspace` today: a person while a member, a fleet
+ * while it is a live Virtual Fleet there (bug #3309). */
+async function approverCounts(db: Db, workspace: string, approved: z.infer<typeof ApprovalRowSchema>): Promise<boolean> {
+  if (approved.fleet) {
+    const fleets = rowsOf(z.object({ name: text }), await db.from('teams').select('name').eq('workspace_id', workspace).eq('name', approved.fleet)
+      .eq('kind', 'virtual').is('retired_at', null).limit(1));
+    return fleets.length > 0;
+  }
+  const members = rowsOf(z.object({ user_id: text }), await db.from('workspace_members').select('user_id').eq('workspace_id', workspace).eq('user_id', approved.approved_by).limit(1));
+  return members.length > 0;
 }
 
 /** The record reader, as the service role on `connection`. */
@@ -79,7 +96,7 @@ export function recordReader({ url, key, fetch }: Connection): RecordReader {
     const latestWithout = versions.map((row): LatestVersion => ({ kind: row.kind, sha256: row.sha256, versionId: row.id, commitSha: row.commit_sha, content: null }));
     if (!approved) return { dossierId: dossier.id, approval: null, latest: latestWithout };
 
-    const members = rowsOf(z.object({ user_id: text }), await db.from('workspace_members').select('user_id').eq('workspace_id', holder.workspace_id).eq('user_id', approved.approved_by).limit(1));
+    const member = await approverCounts(db, holder.workspace_id, approved);
     const voids = rowsOf(VoidRowSchema, await db.from('approval_voids').select(VOID).eq('approval_id', approved.id).order('voided_at', { ascending: true }));
 
     const pinnedSha = new Map(approved.files.map((file) => [file.kind, file.sha256]));
@@ -90,7 +107,7 @@ export function recordReader({ url, key, fetch }: Connection): RecordReader {
     return {
       dossierId: dossier.id,
       approval: {
-        approver: { login: approved.approver_login, member: members.length > 0 },
+        approver: { login: approved.approver_login, member, ...(approved.fleet ? { fleet: approved.fleet } : {}) },
         approvedAt: new Date(approved.approved_at).toISOString(),
         files: approved.files.map((file) => ({ kind: file.kind, path: file.path, sha256: file.sha256, versionId: file.version_id, content: texts.get(file.version_id) ?? null })),
         voids: voids.map((row) => ({ pusher: row.pusher_login, kind: row.kind, from: row.from_sha256, to: row.to_sha256, voidedAt: new Date(row.voided_at).toISOString() })),

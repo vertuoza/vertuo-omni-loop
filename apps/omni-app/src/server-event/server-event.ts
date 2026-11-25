@@ -25,14 +25,12 @@
 // Every call, a GET included, writes one `server-event` line (PRD 1723 s6, ../run-log/run-log.ts): `ok`,
 // `refused` (401, 400, 405) or `failed` (500, or a thrown error, rethrown unchanged).
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { githubClient } from '@omni/github';
 import { waitUntil } from '@vercel/functions';
 import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { AppEnv } from '../env.ts';
-import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from '../jobs/ledger.ts';
-import { liveWorkers } from '../jobs/pr-checks.ts';
+import { REFRESH_DELAY_SECONDS, type RefreshJob } from '../jobs/ledger.ts';
+import { liveLedger } from '../jobs/pr-checks.ts';
 import { runDue } from '../jobs/worker.ts';
-import { githubStoreOf, installationOctokitFor } from '../octokit-for.ts';
 import { loggedHandler, noteTo } from '../run-log/run-log.ts';
 import { STAGE_SIGNATURE_HEADER } from '../stage-forward/stage-forward.ts';
 import { ServerEventSchema, serverEventJob } from './job.ts';
@@ -87,11 +85,9 @@ export const SERVER_EVENT_MAX_DURATION_SECONDS = 60;
 
 /** The ledger on the database as the service role, every kind's handler wired; none where the App has no database. */
 function liveJobs(env: ServerEventRouteEnv, logger: Logger): ServerEventJobs | null {
-  const { supabase } = env;
-  if (!supabase) return null;
-  const ledger = jobLedger(supabase);
-  const octokitFor = installationOctokitFor(env.githubApp ?? null, githubClient({ store: githubStoreOf(supabase), log: noteTo('github', logger) }));
-  const workers = liveWorkers({ ...env, supabase }, octokitFor);
+  const live = liveLedger(env, logger);
+  if (!live) return null;
+  const { ledger, workers } = live;
   return { refresh: (job) => ledger.refresh(job), run: (endsAt) => runDue({ ledger, ...workers, endsAt }) };
 }
 

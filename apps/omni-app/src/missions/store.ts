@@ -284,10 +284,10 @@ export type Dispatch = { mission: MissionRecord; prd: PrdNumber; run: number; st
 export type Care = { mission: MissionRecord; line: string; since: string; toFleet: boolean };
 
 /** A repair to send (PRD 2980): the mission, the PRD, its number among the PRD's repairs, the job that failed, and where it goes. */
-export type RepairSend = { mission: MissionRecord; prd: PrdNumber; k: number; failedJob: string; toFleet: boolean };
+export type RepairSend = { mission: MissionRecord; prd: MissionPrd; k: number; failedJob: string; toFleet: boolean };
 
-/** A repair's row as the store reads it: a product PRD's (PRD omni-loop-21 s3b) names it as `product`, its `prd` null. */
-export type StoredRepair = RepairRow & ProductNamed;
+/** A repair's row as the store reads it: its PRD a repository's number or a product's id (PRD omni-loop-21 s3b, bug #3302). */
+export type StoredRepair = RepairRow;
 
 /**
  * A repair's row to keep: what its record line found, in the mission's round, and, for a stuck repair, its trigger. The database
@@ -678,7 +678,8 @@ const OVER_BUDGET = '23514';
 
 const repairOf = (row: z.infer<typeof RepairRowSchema>): StoredRepair => ({
   id: row.id,
-  ...numberedOf(row.prd_id),
+  // A repair reads its PRD whichever it is (bug #3302): a product PRD's is repaired as a repository PRD's.
+  prd: row.prd_id,
   ...(row.trigger === 'stuck' ? { trigger: 'stuck' as const } : {}),
   fingerprint: row.fingerprint,
   round: row.round,

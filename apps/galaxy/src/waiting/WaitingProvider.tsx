@@ -13,6 +13,8 @@ import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart 
 import { pollQuestions } from './questions-poll';
 import { EMPTY_REVIEWS_PART, REVIEWS_MS, readReviews, reviewsRead, type ReviewsPart } from './reviews';
 import { pollRunners, runnersFailed, runnersSeen, type RunnersPart } from './runners';
+import { EMPTY_SUPERVISOR_PART, supervisorFailed, type SupervisorPart } from './supervisor';
+import type { SupervisorWaiting } from './waiting.contract';
 import type { WaitingView } from './view';
 import { partTick, waitingClient, type SignedOutGate } from './waiting.client';
 import { EMPTY_WAITING, titled, waitingCounts, type WaitingApproval, type WaitingCounts, type WaitingReview, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
@@ -60,6 +62,11 @@ import { EMPTY_WAITING, titled, waitingCounts, type WaitingApproval, type Waitin
 // load and every 15 s while visible, and stopped by a 401 with the other two. It is the badge on Runners
 // alone (counts.runners): it never adds to the total, so not to the bell, the tab's `(N)` or the favicon
 // dot, and it raises no alert, since nobody is notified.
+//
+// omni-loop-34 s8 adds the Supervisor part (src/waiting/supervisor.ts): whether the workspace has a Supervisor seat,
+// which shows the menu's Supervisor row, and its open high findings, the row's red badge, read from
+// GET /api/waiting/supervisor once after load and every 15 s while visible. Like Runners it never adds to the total,
+// and it raises no alert here: a high finding already sends its push and email.
 
 export type Waiting = {
   list: WaitingList;
@@ -76,11 +83,13 @@ export type Waiting = {
   approvals: WaitingApproval[];
   /** The Reviews part: the review, merge and law waits whose turn names the person, oldest first. Counted. */
   reviews: WaitingReview[];
+  /** The Supervisor part: whether the workspace has a seat, and its open high findings. Never counted in the total. */
+  supervisor: SupervisorPart;
 };
 
 const EMPTY: Waiting = {
   list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false, business: false, approvals: false, reviews: false, runners: false },
-  unreadPrds: 0, documents: [], business: 0, approvals: [], reviews: [],
+  unreadPrds: 0, documents: [], business: 0, approvals: [], reviews: [], supervisor: EMPTY_SUPERVISOR_PART,
 };
 
 const Context = createContext<Waiting>(EMPTY);
@@ -126,7 +135,7 @@ function onceEach(): (kind: string, error: unknown) => void {
   };
 }
 
-export function WaitingProvider({ view, outbox: first = [], runners: firstRunners = 0, reviews: firstReviews = [], children }: {
+export function WaitingProvider({ view, outbox: first = [], runners: firstRunners = 0, reviews: firstReviews = [], supervisor: firstSupervisor, children }: {
   view: WaitingView | null;
   /** The Outbox part to start from: empty on a page, which reads it after load. */
   outbox?: WaitingOutbox[];
@@ -134,6 +143,8 @@ export function WaitingProvider({ view, outbox: first = [], runners: firstRunner
   runners?: number;
   /** The Reviews part to start from: empty on a page, which reads it after load. */
   reviews?: WaitingReview[];
+  /** The Supervisor part to start from: none on a page (no seat, no row), which reads it after load. */
+  supervisor?: SupervisorWaiting;
   children: ReactNode;
 }) {
   const [questions, setQuestions] = useState(() => view?.questions ?? []);
@@ -144,6 +155,7 @@ export function WaitingProvider({ view, outbox: first = [], runners: firstRunner
   const [approvals, setApprovals] = useState<ApprovalsPart>(EMPTY_APPROVALS_PART);
   const [reviews, setReviews] = useState<ReviewsPart>(() => ({ ...EMPTY_REVIEWS_PART, items: firstReviews }));
   const [runners, setRunners] = useState<RunnersPart>(() => runnersSeen(firstRunners));
+  const [supervisor, setSupervisor] = useState<SupervisorPart>(() => (firstSupervisor ? { ...firstSupervisor, unread: false } : EMPTY_SUPERVISOR_PART));
   // The routes read as whoever the sign-in cookie names: a database source only says someone is signed in.
   const source = view?.source ?? null;
   const signedIn = source?.kind === 'database' && Boolean(source.me);
@@ -283,6 +295,21 @@ export function WaitingProvider({ view, outbox: first = [], runners: firstRunner
     }), document);
   }, [signedIn]);
 
+  // The Supervisor part (omni-loop-34 s8): read through the client, so a 401 stops it with the others. No alert.
+  useEffect(() => {
+    if (!signedIn) return;
+    const client = waitingClient();
+    const log = onceEach();
+    return pollRunners(partTick(gate.current, {
+      read: () => client.supervisor(),
+      seen: (next) => { setSupervisor({ ...next, unread: false }); },
+      failed: (error) => {
+        log('supervisor', error);
+        setSupervisor(supervisorFailed);
+      },
+    }), document);
+  }, [signedIn]);
+
   // The New documents part: read as `me` at once, then every 10 s while visible. Seen is read again at
   // each read, so a PRD page opened in any tab clears its group at the next one.
   useEffect(() => {
@@ -318,9 +345,9 @@ export function WaitingProvider({ view, outbox: first = [], runners: firstRunner
     return {
       list, counts: waitingCounts(list, approvals.items.length, runners.count, reviews.items.length),
       unread: { questions: unread, outbox: outbox.unread, documents: documents.unread, business: business.unread, approvals: approvals.unread, reviews: reviews.unread, runners: runners.unread },
-      unreadPrds: outbox.unreadPrds, documents: documents.groups, business: business.count, approvals: approvals.items, reviews: reviews.items,
+      unreadPrds: outbox.unreadPrds, documents: documents.groups, business: business.count, approvals: approvals.items, reviews: reviews.items, supervisor,
     };
-  }, [questions, unread, outbox, documents, business, approvals, reviews, runners]);
+  }, [questions, unread, outbox, documents, business, approvals, reviews, runners, supervisor]);
 
   const total = value.counts.total;
   useEffect(() => {

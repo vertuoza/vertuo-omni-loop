@@ -3,16 +3,25 @@
 // keeps the source, so a later render redraws it. The browser is a provider passed in, as the pitch's
 // capture is (`../pitch/providers/capture/playwright.ts`): a test hands a fake, none starts Chromium or
 // reaches the network. Mermaid is loaded from jsDelivr, at one pinned version, when the page is written.
-import { existsSync } from 'node:fs';
+// A repository without Playwright (a PHP back-end, for one) gets the kit's own, fetched once into a cache
+// outside the repository with the Chromium it needs, never an install line for a person (#3315).
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { ExecText } from '../context.ts';
 import { decodeEntities } from '../design/words/html.ts';
 import { firstPart, propertyOf } from '../narrow.ts';
 
 /** The one Mermaid version drawn with: a later PRD may vendor it (spec, decision 5). */
 const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
 const PACKAGES = ['playwright', '@playwright/test'];
+/** The Playwright the kit fetches when the repository has none: the version this repository tests with. */
+const PLAYWRIGHT_VERSION = '1.56.1';
+/** Where the fetched Playwright lives: the person's cache, shared by every repository, never one of them. */
+const PLAYWRIGHT_CACHE = join(homedir(), '.cache', 'omni', `playwright-${PLAYWRIGHT_VERSION}`);
 
 /** The few calls of a browser page a render makes; Playwright's page meets them. */
 export type RenderPage = { setContent(html: string): Promise<unknown>; evaluate(expression: string): Promise<unknown> };
@@ -20,14 +29,17 @@ export type RenderPage = { setContent(html: string): Promise<unknown>; evaluate(
 export type RenderBrowser = { newPage(): Promise<RenderPage>; close(): Promise<void> };
 /** Opens a browser: the repository's Playwright Chromium, or a test's fake. */
 export type RenderLaunch = () => Promise<RenderBrowser>;
+/** Where the kit's own Playwright is cached, and how npm and Playwright's CLI are run: `execFileSync`, or a test's fake. */
+export type PlaywrightFetch = { cache: string; exec: ExecText };
 
 /** What a render came to: the page left alone (`unavailable`), or its new text with what was drawn and what Mermaid refused. */
 export type Rendered =
   | { kind: 'unavailable'; why: string }
   | { kind: 'done'; html: string; drawn: string[]; refused: { place: string; reason: string }[] };
 
+type Launcher = { launch(): Promise<unknown> };
 const isBrowser = (value: unknown): value is RenderBrowser => typeof propertyOf(value, 'newPage') === 'function';
-const isLauncher = (value: unknown): value is { launch(): Promise<unknown> } => typeof propertyOf(value, 'launch') === 'function';
+const isLauncher = (value: unknown): value is Launcher => typeof propertyOf(value, 'launch') === 'function';
 
 /** The nearest folder from `cwd` up whose `node_modules` holds `name`, or null: only the repository's own install counts, never a global one (`NODE_PATH`). */
 function installedIn(cwd: string, name: string): string | null {
@@ -37,25 +49,77 @@ function installedIn(cwd: string, name: string): string | null {
   }
 }
 
-/** Chromium from the Playwright the repository at `cwd` installed. */
-export function repositoryLaunch(cwd: string): RenderLaunch {
-  return async () => {
-    for (const name of PACKAGES) {
-      const home = installedIn(cwd, name);
-      if (home === null) continue;
-      const resolved = createRequire(join(home, 'package.json')).resolve(name);
-      const loaded: unknown = await import(pathToFileURL(resolved).href);
-      const chromium = propertyOf(loaded, 'chromium') ?? propertyOf(propertyOf(loaded, 'default'), 'chromium');
-      if (!isLauncher(chromium)) continue;
-      const browser = await chromium.launch();
-      if (isBrowser(browser)) return browser;
+/** A Playwright's Chromium and the CLI that installs its browser. */
+type Found = { chromium: Launcher; cli: string };
+
+/** The Chromium of the first Playwright installed from `dir` up, or null. */
+async function chromiumFrom(dir: string): Promise<Found | null> {
+  for (const name of PACKAGES) {
+    const home = installedIn(dir, name);
+    if (home === null) continue;
+    const resolved = createRequire(join(home, 'package.json')).resolve(name);
+    const loaded: unknown = await import(pathToFileURL(resolved).href);
+    const chromium = propertyOf(loaded, 'chromium') ?? propertyOf(propertyOf(loaded, 'default'), 'chromium');
+    if (isLauncher(chromium)) return { chromium, cli: join(home, 'node_modules', name, 'cli.js') };
+  }
+  return null;
+}
+
+/** The last line of what a failed command said, its own words. */
+const lastLine = (error: unknown): string =>
+  (error instanceof Error ? error.message : String(error))
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .at(-1) ?? 'npm failed';
+
+/** Fetches the pinned Playwright into `cache` with npm: the repository is never touched. */
+function fetchPlaywright({ cache, exec }: PlaywrightFetch): void {
+  mkdirSync(cache, { recursive: true });
+  if (!existsSync(join(cache, 'package.json'))) writeFileSync(join(cache, 'package.json'), '{ "private": true }\n');
+  const args = ['install', '--no-audit', '--no-fund', '--loglevel=error', '--prefix', cache, `playwright@${PLAYWRIGHT_VERSION}`];
+  try {
+    exec('npm', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    throw new Error(`could not fetch Playwright: ${lastLine(error)}`, { cause: error });
+  }
+}
+
+/** Starts `found`'s Chromium, first installing it through Playwright's own CLI when its executable is missing. */
+async function start({ chromium, cli }: Found, exec: ExecText): Promise<unknown> {
+  try {
+    return await chromium.launch();
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("Executable doesn't exist")) throw error;
+    try {
+      exec(process.execPath, [cli, 'install', 'chromium'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (failed) {
+      throw new Error(`could not fetch Chromium: ${lastLine(failed)}`, { cause: failed });
     }
-    throw new Error('Playwright is not installed in this repository');
+    return await chromium.launch();
+  }
+}
+
+/**
+ * Chromium from the Playwright the repository at `cwd` installed or, when it has none, from the one the
+ * kit fetches into `fetch.cache` the first time and reuses after. A missing browser is installed too.
+ */
+export function repositoryLaunch(cwd: string, fetch: PlaywrightFetch = { cache: PLAYWRIGHT_CACHE, exec: execFileSync }): RenderLaunch {
+  return async () => {
+    let found = (await chromiumFrom(cwd)) ?? (await chromiumFrom(fetch.cache));
+    if (found === null) {
+      fetchPlaywright(fetch);
+      found = await chromiumFrom(fetch.cache);
+    }
+    if (found === null) throw new Error(`could not fetch Playwright: npm left no playwright in ${fetch.cache}`);
+    const browser = await start(found, fetch.exec);
+    if (!isBrowser(browser)) throw new Error('Playwright started no browser');
+    return browser;
   };
 }
 
 /** A diagram found in the page: where its element sits, its source and where it is (`<section> of <service>`). */
-type Found = { start: number; end: number; source: string; place: string };
+type Diagram = { start: number; end: number; source: string; place: string };
 
 // An unrendered `<pre class="mermaid">` (group 1: its text), or a rendered `<figure class="mermaid-diagram">` (group 2: its data-source).
 const DIAGRAM =
@@ -74,7 +138,7 @@ function placeOf(before: string): string {
   return `${lastAttribute(before, 'data-section') ?? 'diagram'} of ${service ?? 'the page'}`;
 }
 
-function findDiagrams(html: string): Found[] {
+function findDiagrams(html: string): Diagram[] {
   return [...html.matchAll(DIAGRAM)].map((match) => ({
     start: match.index,
     end: match.index + match[0].length,
@@ -114,7 +178,7 @@ async function draw(page: RenderPage, source: string, id: string): Promise<Drawn
 const whyOf = (error: unknown): string => firstPart(error instanceof Error ? error.message : String(error), '\n');
 
 /** `html` with each diagram of `found` replaced by its drawing in `results`, and what was drawn and refused. */
-function assemble(html: string, found: readonly Found[], results: readonly Drawn[]): Extract<Rendered, { kind: 'done' }> {
+function assemble(html: string, found: readonly Diagram[], results: readonly Drawn[]): Extract<Rendered, { kind: 'done' }> {
   let text = '';
   let cursor = 0;
   const drawn: string[] = [];
