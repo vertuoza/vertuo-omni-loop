@@ -1,5 +1,6 @@
 import type { Board, Job, JobQuestions, Runner, StoredOutcome, Target } from '../runners.contract';
 import { lossOf } from './loss';
+import type { SeatOnPage } from './seat';
 
 type RunnerHealth = NonNullable<Runner['health']>;
 
@@ -22,8 +23,9 @@ export type RunnersPageView =
   | { kind: 'no-workspace' }
   | { kind: 'unreadable' }
   // `demoQuestions` is the demo's alone (PRD 2255): the questions its Need human drawer reads and answers in the
-  // browser, with no route to call. A page read from the database never carries it.
-  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros?: RetroPrds; now: string; answered: readonly string[]; demoQuestions?: readonly JobQuestions[] };
+  // browser, with no route to call. A page read from the database never carries it. `supervisor` is the workspace's
+  // Supervisor seat (PRD omni-loop-34 s8), absent when it could not be read: the page then draws no seat and no Place.
+  | { kind: 'board'; name: string; board: Board; fleets: readonly Fleet[]; prds: PrdTitles; retros?: RetroPrds; now: string; answered: readonly string[]; demoQuestions?: readonly JobQuestions[]; supervisor?: SeatOnPage };
 
 /** The command that starts a runner, as the empty page shows it. */
 export const START_COMMAND = 'omni runner --name <name> --repos <dir>';

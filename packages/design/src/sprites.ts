@@ -620,6 +620,18 @@ export const SPRITE_DEFS: Readonly<Record<string, SpriteDef>> = Object.freeze({
     d.rect(3, 5, 10, 8, 'L').rect(1, 7, 2, 4, 'L').rect(13, 7, 2, 4, 'L');
     d.rect(5, 7, 2, 2, 'E').rect(9, 7, 2, 2, 'E').rect(5, 11, 6, 1, 'R', 1);
   } },
+  // The Supervisor entry (omni-loop-34 s5): an owl on watch, above the whole workspace.
+  'menu-supervisor': { w: 16, h: 16, draw(d, f) { // an owl: ear tufts, two round eyes that blink, a beak, a pale belly, its feet
+    d.px(2, 1, 'P', 2).px(13, 1, 'P', 2).rect(2, 2, 2, 1, 'P', 2).rect(12, 2, 2, 1, 'P', 2);
+    d.rect(1, 3, 14, 9, 'P', 2).rect(2, 12, 12, 1, 'P', 2).rect(4, 13, 8, 1, 'P', 2);
+    d.rect(3, 9, 10, 3, 'P', 1).rect(4, 12, 8, 1, 'P', 1).px(5, 10, 'X').px(10, 10, 'X');
+    for (const x of [2, 9]) {
+      d.rect(x + 1, 4, 3, 5, 'Q').rect(x, 5, 5, 3, 'Q');
+      if (f) d.rect(x + 1, 6, 3, 1, 'X');
+      else d.rect(x + 1, 5, 3, 3, 'Y', 1).px(x + 2, 6, 'X');
+    }
+    d.rect(7, 7, 2, 2, 'O', 1).rect(3, 14, 2, 1, 'Y', 1).rect(11, 14, 2, 1, 'Y', 1);
+  } },
   'menu-loop': { w: 16, h: 16, draw(d, f) { // a probe on its orbit: a ring around a core, the probe moving on
     d.ellipse(8, 8, 6.5, 6.5, 'C').ellipse(8, 8, 4.5, 4.5, 'X').ellipse(8, 8, 2, 2, f ? 'O' : 'Y');
     d.rect(f ? 12 : 1, f ? 1 : 12, 3, 3, 'L').px(f ? 13 : 2, f ? 2 : 13, 'R', 1);

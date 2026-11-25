@@ -473,6 +473,26 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'or runner lost; Ctrl-C stops the following only, the job runs on.',
   },
   {
+    name: 'supervisor',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni supervisor --runner <id> [--page <url>]', 'omni supervisor mcp --runner <id> [--page <url>]'],
+    label: 'omni supervisor',
+    summary: "the Supervisor's seat, on a runner",
+    detail:
+      'A runner starts the seat by itself when an owner places it on that runner, and keeps one slot for it: ' +
+      'a 4-slot runner then runs at most 3 jobs. The seat waits on the Supervisor API (held up to 40 s, ' +
+      'waking at once on a new signal, an owner\'s message or a pressed suggestion, else a look every 2 min), ' +
+      'reads the workspace, keeps each step\'s usual time as a long-term note (Baseline <skill>: <n> min, ' +
+      'the median of its last 9 runs), and thinks only when a signal, a finding a check wrote alone or an ' +
+      'owner\'s message waits: Claude Code headless on the runner\'s first ready Claude account, with six ' +
+      'tools that call the Supervisor API only (snapshot, lines, memory, raise, reply, propose). It checks in ' +
+      'with its tokens; past the daily limit (5,000,000 unless an owner changes it) or paused by an owner it ' +
+      'checks in without thinking until midnight (UTC), and the checks write their findings alone. --runner ' +
+      'runs the same loop in this terminal for a runner that holds the seat; mcp serves the six tools over ' +
+      'stdio to the seat\'s think. It signs in as every omni command does (OMNI_TOKEN, else omni signin).',
+  },
+  {
     name: 'dossier',
     kind: 'command',
     who: 'you',
@@ -551,8 +571,8 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
       'refuses, writing nothing, a PRD with no inbox folder, a page already there unless --force, and ' +
       'a missing or empty --services, each with one line and exit 1. render replaces each ' +
       '<pre class="mermaid"> of the page with the SVG Mermaid draws for it, inline, in a headless ' +
-      'Chromium from the repository\'s Playwright; it prints one line per diagram and refuses, with the ' +
-      'install line, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
+      'Chromium from the repository\'s Playwright, or from the one the kit fetches into ~/.cache/omni when the ' +
+      'repository has none; it prints one line per diagram and refuses, saying why, when no browser starts. omni check inbox grades a page of this shape: the three tabs, each screen\'s reference and marks, ' +
       'a valid state on every section, no FILL marker, no diagram left unrendered, no external resource.',
   },
   {
