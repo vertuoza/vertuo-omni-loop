@@ -6,7 +6,7 @@ import { UNREACHABLE } from '../runners.client';
 import type { Board, Runner } from '../runners.contract';
 import type { RunnersPageView } from './model';
 import { RunnersPage } from './RunnersPage';
-import { holdsSeat, keptSlots, keptWords, moveTargets, seatAccount, seatStrip } from './seat';
+import { holdsSeat, keptSlots, keptWords, moveTargets, seatAccount, seatStrip, type SeatOnPage } from './seat';
 import { placeSeat } from './seat.client';
 
 // The Supervisor's seat on the Runners page (PRD omni-loop-34 s8, screen 3.A): the kept slot, the strip, Place and Move,
@@ -32,7 +32,7 @@ const accounts = (list: { id: string; agent: string; state: 'ready' | 'active' |
 const ATLAS1 = runner({ id: id(1), name: 'atlas-01', state: 'busy', used: 2, health: accounts([{ id: 'claude-1', agent: 'claude', state: 'out' }, { id: 'claude-2', agent: 'claude', state: 'active' }, { id: 'codex-1', agent: 'codex', state: 'ready' }]) });
 const ATLAS2 = runner({ id: id(2), name: 'atlas-02', used: 1 });
 
-function page(owner: boolean, supervisor: RunnersPageView extends infer V ? V extends { kind: 'board' } ? V['supervisor'] : never : never): string {
+function page(owner: boolean, supervisor: SeatOnPage | undefined): string {
   const board: Board = { runners: [ATLAS1, ATLAS2], jobs: [], saves: [], viewer: { id: id(900), owner, fleet: null } };
   const view: RunnersPageView = { kind: 'board', name: 'Acme', board, fleets: [], prds: {}, now: NOW, answered: [], ...(supervisor === undefined ? {} : { supervisor }) };
   return renderToStaticMarkup(createElement(RunnersPage, { view, supabase: null, signinError: null }));
