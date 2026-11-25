@@ -1,6 +1,6 @@
 ---
 name: repair
-description: Repairs the step a mission's PRD failed on, on a runner and never by hand — reads why it failed from the failed job's log and saved work (or, with --stuck --jobs, from the last five jobs of a mission that stopped moving), writes a retro (the cause in one sentence, its class, where, the error's signature, the evidence as sentences, the proposed fix and the fingerprint) checked by the kit, then takes one way by its class. code follows /omni:bug-fix --base <mission branch> (/omni:mega-bug-fix when the PRD spans repositories); omni-loop writes the scrubbed public report into its record line and fixes nothing; flake fixes nothing, the step is sent again; person names the question. Asks nobody, merges nothing, and ends on one record line, omni repair. Triggers on "/omni:repair --mission <m> --prd <n> --job <job>" and "/omni:repair --mission <m> --stuck --jobs <j1>,…,<j5>" sent by a mission.
+description: Repairs the step a mission's PRD failed on, on a runner and never by hand — reads why it failed from the failed job's log and saved work (or, with --stuck --jobs, from the last five jobs of a mission that stopped moving), writes a retro (the cause in one sentence, its class, where, the error's signature, the evidence as sentences, the proposed fix and the fingerprint) checked by the kit, then takes one way by its class. code follows /omni:bug-fix --base <mission branch> (/omni:mega-bug-fix when the PRD spans repositories); omni-loop writes the scrubbed public report into its record line and fixes nothing; flake fixes nothing, the step is sent again; person names the question. Asks nobody, merges nothing, and ends on one record line, omni repair. Triggers on "/omni:repair --mission <m> --prd <n | key-n> --job <job>" and "/omni:repair --mission <m> --stuck --jobs <j1>,…,<j5>" sent by a mission.
 ---
 
 # Repair: a failed step, a retro, one way
@@ -25,7 +25,7 @@ signing is off here: add nothing.
 | input | example | what it is |
 |---|---|---|
 | `--mission <m>` | `--mission 12` | the mission whose PRD failed |
-| `--prd <n>` | `--prd 2950` | the PRD whose step failed |
+| `--prd <n>` | `--prd 2950`, `--prd omni-loop-27` | the PRD whose step failed: a repository PRD's number, or a product PRD's id (`<key>-<n>`) |
 | `--job <id>` | `--job 4821` | the runner job that failed: its log and saved work are what you read |
 
 | `--stuck --jobs <j1>,…,<j5>` | `--mission 12 --stuck --jobs 4801,4802,4803,4804,4805` | a **stuck repair** (PRD 3065), in place of `--prd` and `--job`: the mission's last 5 ended jobs, in which nothing moved, whose logs, saved work and steps are what you read |
@@ -43,7 +43,9 @@ is not installed in this repository. Keep the JSON; later steps read `repo.*`, `
 `commands.*` from it. Then print the briefing, `node .omni-loop/bin/omni.mjs session start`: its rules
 bind every step below. The mission branch is the `--base <branch>` the failed job's line carries (a mission
 sends its steps as `/omni:yolo <n> --base <mission branch>`): read it from the failed job, and use it as `<mission branch>`
-below. A failed job that carries no `--base` has no mission branch: take the `person` way, naming that. A
+below. A product PRD's build (`--prd <key>-<n>`) carries `--base-of <owner/repo>=<mission branch>,…` instead: each target
+repository's mission branch, the one the cause sits in being yours. A failed job that carries no `--base` (nor `--base-of`) has no
+mission branch: take the `person` way, naming that. A
 stuck repair reads the `--base` from the jobs it reads (any one that carries it); none carries it:
 take the `person` way, naming that.
 
@@ -104,7 +106,10 @@ hand-off that you computed it by hand.
   triage and its red reproduction the proof, the fix branch is cut from the mission branch and its PR
   targets it. When the PRD spans repositories (the config has a `plan` section), follow
   `/omni:mega-bug-fix` the same way, each fix into that repository's mission branch. Keep the fix PR's
-  number: it is the record's `fix`. A bug fix that stops (its boundary is crossed, its reproduction
+  number: it is the record's `fix`. **A product PRD** (`--prd <key>-<n>`): the cause sits in one of the target
+  repositories its `--base-of` names. Clone that one (`gh repo clone <owner/repo>`), follow `/omni:bug-fix --base <its
+  mission branch>` there, and keep one fix: its PR's number is `fix` and its repository, `owner/name`, is the record's
+  `repo`. The mission lands it only on that repository's mission branch, then builds the PRD again. A bug fix that stops (its boundary is crossed, its reproduction
   passes before any fix, its stop rule 3, 4 or 7) is not a `code` repair: rewrite the retro as class
   `person` with the stop's question as its proposed fix, and take that way.
 - **`omni-loop`.** Fix nothing. Build the public report from fixed fields only and scrub it:
@@ -131,6 +136,8 @@ A stuck repair's line adds `"trigger":"stuck"` and names in `"prd"` the PRD the 
 `null` when the cause is the mission's own (its scope, its brief, its branch); a failure repair's line
 has no `trigger` and always names its PRD.
 
+`"prd"` is the PRD as `--prd` named it: a number, or a product PRD's id as a string (`"omni-loop-27"`). A product
+PRD's `code` repair adds `"repo":"<owner/repo>"`, the repository its fix was opened in; any other record has no `repo`.
 `fix` is the bug fix's PR number for `code`, else `null`. `report` is the scrubbed report for
 `omni-loop`, else `null`. `retro` is the retro of step 1 with its fingerprint. Print the JSON on one line. A line the App cannot read counts as
 a repair spent, so never print a partial one.

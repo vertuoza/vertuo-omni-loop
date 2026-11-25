@@ -1,4 +1,4 @@
-import { parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { describe, expect, it } from 'vitest';
 import { COULD_NOT, demoMissionsPort, httpMissionsPort } from './missions-tab.client';
 
@@ -45,6 +45,17 @@ describe('the missions client', () => {
     expect(sent).toEqual([{ url: `/api/missions/${ID}/level`, body: { level: 'own-branch' } }]);
     const { fetch: refusing } = fetchAnswering(403, { error: 'Only an owner of the workspace takes a mission above its fleet\'s level.' });
     expect(await httpMissionsPort(refusing).setLevel(ID, 'alone')).toEqual({ ok: false, message: 'Only an owner of the workspace takes a mission above its fleet\'s level.' });
+  });
+
+  it('posts Send back to the PM to the mission\'s send-back route (bug #3302)', async () => {
+    const sent: { url: string; body: unknown }[] = [];
+    const fetch: typeof globalThis.fetch = (url, init) => {
+      sent.push({ url: typeof url === 'string' ? url : '', body: JSON.parse(typeof init?.body === 'string' ? init.body : '{}') });
+      return Promise.resolve(new Response(JSON.stringify({ sentBack: { mission: ID, prd: 'omni-loop-28' } }), { status: 200 }));
+    };
+    expect(await httpMissionsPort(fetch).sendBack(ID, parseProductPrdId('omni-loop-28'))).toEqual({ ok: true });
+    expect(sent).toEqual([{ url: `/api/missions/${ID}/send-back`, body: { prd: 'omni-loop-28' } }]);
+    expect((await demoMissionsPort.sendBack(ID, parseProductPrdId('omni-loop-28'))).ok).toBe(false);
   });
 
   it('posts a pick on Decide the bugs to the mission\'s bugs route (PRD 3001)', async () => {

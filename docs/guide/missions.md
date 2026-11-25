@@ -206,6 +206,12 @@ spends nothing; one whose record cannot be read spends one.
 9 stay counted. The room reads what is left, for example `6 of 9 left in this mission`. A job a
 person cancelled sends no repair: a person stopped it, so the PRD stays stopped.
 
+A product PRD (`<key>-<n>`) is repaired the same way, within the same 3 and 9. A build that failed,
+was held twice or ended without its result line more times than its resumes allow gets
+`/omni:repair --prd <key>-<n>`. A `code` fix is opened in the target repository the cause sits in, and
+lands on that repository's mission branch; then the build runs again. A build that stopped on a
+question for you still comes to you.
+
 ## The Omni Loop bug team
 
 When a repair finds that Omni Loop itself is wrong, the App files a scrubbed report as a `bug` issue
@@ -399,7 +405,10 @@ repository`. A PRD you wrote whose plan names none comes to you at once.
 **What you see.** The fleet's **Operation room** shows, for each PRD of the PM's, a plan row (the
 PM, the plan version it approved) and a tech row (the Architect, what it settled, or `Not reviewed
 yet`). The points the Architect left to you are listed under **Waiting on you**: approve the PRD
-on its page once you have settled them. A PRD a person wrote and put in the mission keeps the
+on its page once you have settled them, or press **Send back to the PM** beside it (or run
+`omni mission send-back <mission> <key>-<n>`). That gives the PM one more round with the Architect's
+latest open points, and its rounds count again from there. Your send-back is recorded as your own
+event; no decision is edited. A PRD a person wrote and put in the mission keeps the
 committee.
 
 ## Starting never waits
