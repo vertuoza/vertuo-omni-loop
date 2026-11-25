@@ -230,3 +230,73 @@ describe('a product PRD a person wrote', () => {
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-40: approve it on its page');
   });
 });
+
+// Bug #3302: a PM product PRD waiting on a person after the Architect's escalation, or once its rounds are spent, can be sent back to
+// the PM by that person: one more PM round with the Architect's latest open points, the rounds counted again from the send-back, the
+// decisions before it never edited (BR-PRODUCT-12).
+describe('a person sends a PM product PRD back to the PM (bug #3302)', () => {
+  const C = 'c'.repeat(64);
+  const open = ['the export needs a person to pick its retention'];
+
+  /** omni-loop-31 escalated by the Architect twice, its PM round spent: it waits on a person. */
+  async function waiting() {
+    const made = await planned();
+    made.fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(A, { open, outcome: 'escalated' }));
+    await made.run();
+    made.fake.setProduct(P31, { plan: B });
+    made.fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(B));
+    await made.run();
+    made.fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(B, { open, outcome: 'escalated' }));
+    await made.run();
+    expect(made.fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you');
+    expect(made.fake.pms()).toHaveLength(3);
+    return made;
+  }
+
+  it('sends the PM its plan job once more, with the Architect\'s open points, and the person\'s event stays theirs', async () => {
+    const { fake, run, sentences } = await waiting();
+    const decided = fake.planDecisions();
+    fake.sendBack(P31);
+    await run();
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.pms().at(-1)?.line).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12');
+    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: a person sent PRD omni-loop-31 back to it, with the Architect\'s open points.');
+    expect(fake.mission().waitingOn ?? '').not.toContain('the Architect left it to you');
+    // The decisions recorded before the send-back are as they were (BR-PRODUCT-12), and the person's event is signed with their login.
+    expect(fake.planDecisions().slice(0, decided.length)).toEqual(decided);
+    expect(fake.events().filter((event) => event.kind === 'sent-back').map(({ actor, prd }) => [actor, prd])).toEqual([['ada', P31]]);
+  });
+
+  it('the rounds start again: the PM approves a new version, the Architect reviews it, and its approval sends the build', async () => {
+    const { fake, run } = await waiting();
+    fake.sendBack(P31);
+    await run();
+    fake.setProduct(P31, { plan: C });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(C));
+    await run();
+    expect(fake.techJobs()).toHaveLength(3);
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(C));
+    await run();
+    expect(fake.productJobs().map(({ key }) => key)).toEqual([`mission:${ID}:prd:omni-loop-31:run:1`]);
+  });
+
+  it('the Architect escalating again after the send-back gives the PM its second round, then the person again', async () => {
+    const { fake, run } = await waiting();
+    fake.sendBack(P31);
+    await run();
+    fake.setProduct(P31, { plan: C });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(C));
+    await run();
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(C, { open, outcome: 'escalated' }));
+    await run();
+    expect(fake.pms()).toHaveLength(5);
+    const D = 'd'.repeat(64);
+    fake.setProduct(P31, { plan: D });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(D));
+    await run();
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(D, { open, outcome: 'escalated' }));
+    await run();
+    expect(fake.pms()).toHaveLength(5);
+    expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you');
+  });
+});

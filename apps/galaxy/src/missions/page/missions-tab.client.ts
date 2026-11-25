@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
-import type { PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import type { PrdNumber, ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { CappedFleetSchema } from '../../virtual-fleets/virtual-fleets.contract';
-import { AnsweredItemSchema, MadeRequestSchema, AnsweredStopSchema, BudgetedMissionSchema, LeveledMissionSchema, MovedMissionSchema, PickedBugsSchema, type BugsPick, type ItemAnswer, type MissionAction, type StopAnswer } from '../missions.contract';
+import { AnsweredItemSchema, MadeRequestSchema, AnsweredStopSchema, BudgetedMissionSchema, LeveledMissionSchema, MovedMissionSchema, PickedBugsSchema, SentBackSchema, type BugsPick, type ItemAnswer, type MissionAction, type StopAnswer } from '../missions.contract';
 
 // The Missions tab's calls from the browser (PRD 2842 s7; ADR-0095): POST /api/missions/<id>/start | pause |
 // resume, as the signed-in person, the answer checked against the contract. A refusal comes back in its words.
@@ -15,6 +15,8 @@ export interface MissionsPort {
   setLevel(mission: string, level: MissionLevel): Promise<Moved>;
   /** Decide the bugs (PRD 3001): send the PRD on to the Reviewer, or stop it. */
   pickBugs(mission: string, prd: PrdNumber, pick: BugsPick): Promise<Moved>;
+  /** Send back to the PM (bug #3302): a PM product PRD that waits on a person after its review gets one more PM round. */
+  sendBack(mission: string, prd: ProductPrdId): Promise<Moved>;
   /** A mission's token budget (PRD 3040), null for none. */
   setBudget(mission: string, tokens: number | null): Promise<Moved>;
   /** A budget stop's answer (PRD 3040), the new cap with a raise. */
@@ -50,6 +52,7 @@ export function httpMissionsPort(fetch: typeof globalThis.fetch = globalThis.fet
     move: (mission, action) => post(fetch, `/api/missions/${mission}/${action}`, MovedMissionSchema),
     setLevel: (mission, level) => post(fetch, `/api/missions/${mission}/level`, LeveledMissionSchema, { level }),
     pickBugs: (mission, prd, pick) => post(fetch, `/api/missions/${mission}/bugs`, PickedBugsSchema, { prd, pick }),
+    sendBack: (mission, prd) => post(fetch, `/api/missions/${mission}/send-back`, SentBackSchema, { prd }),
     setBudget: (mission, tokens) => post(fetch, `/api/missions/${mission}/tokens`, BudgetedMissionSchema, { tokens }),
     answerStop: (stop, answer, tokens) => post(fetch, `/api/missions/stops/${stop}`, AnsweredStopSchema, tokens === undefined ? { answer } : { answer, tokens }),
     setDailyCap: (workspace, fleet, tokens) => post(fetch, '/api/virtual-fleets/tokens', CappedFleetSchema, { workspace, fleet, tokens }),
@@ -66,6 +69,7 @@ export const demoMissionsPort: MissionsPort = {
   move: () => Promise.resolve(DEMO),
   setLevel: () => Promise.resolve(DEMO),
   pickBugs: () => Promise.resolve(DEMO),
+  sendBack: () => Promise.resolve(DEMO),
   setBudget: () => Promise.resolve(DEMO),
   answerStop: () => Promise.resolve(DEMO),
   setDailyCap: () => Promise.resolve(DEMO),

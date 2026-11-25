@@ -105,6 +105,21 @@ export const OverturnedMissionSchema = z.object({
 });
 export type OverturnedMission = z.infer<typeof OverturnedMissionSchema>;
 
+/** What `omni mission send-back` sends (bug #3302): the repository, the mission's number and the PM product PRD's id. */
+export const SendBackBodySchema = z.object({
+  repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(200),
+  mission: z.number().int().positive(),
+  prd: ProductPrdIdSchema,
+});
+export type SendBackBody = z.infer<typeof SendBackBodySchema>;
+
+/** What the Missions tab's Send back to the PM sends (bug #3302), the mission named by its route: the PM product PRD's id. */
+export const SendBackPrdSchema = z.object({ prd: ProductPrdIdSchema });
+
+/** A send-back as recorded (bug #3302): the mission, and the PRD that goes back to its PM. */
+export const SentBackSchema = z.object({ sentBack: z.object({ mission: z.uuid(), prd: ProductPrdIdSchema }) });
+export type SentBack = z.infer<typeof SentBackSchema>;
+
 /** A member's answer to a mission item (PRD 3065): Adopt or Decline, with an optional note; written once, never rewritten. */
 const ITEM_ANSWERS = ['adopted', 'declined'] as const;
 export const ItemAnswerSchema = z.enum(ITEM_ANSWERS);
@@ -157,7 +172,7 @@ export const MissionBriefSchema = z.object({
 export type MissionBrief = z.infer<typeof MissionBriefSchema>;
 
 /** A `plan` or `tech` decision of a product PRD as a member reads it (bug #3286), in the order it was recorded. */
-export const PlanDecisionReadSchema = z.object({ kind: z.enum(['plan', 'tech']), prd: ProductPrdIdSchema, plan: z.string().nullable(), outcome: z.string(), why: z.array(z.string()) });
+export const PlanDecisionReadSchema = z.object({ kind: z.enum(['plan', 'tech']), prd: ProductPrdIdSchema, plan: z.string().nullable(), outcome: z.string(), why: z.array(z.string()), job: z.string().optional() });
 export type PlanDecisionRead = z.infer<typeof PlanDecisionReadSchema>;
 
 /** What `omni ready` asks (PRD 3194): the repository and the PRD, in the query of `GET /api/missions/of-prd`. */

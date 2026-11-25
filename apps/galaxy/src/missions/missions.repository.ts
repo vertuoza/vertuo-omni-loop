@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
-import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
 import type { DecisionEvent } from 'omni-loop/kit/lib/mission/overturn.ts';
 import { z } from 'zod';
@@ -63,7 +63,7 @@ const RetroItemRow = z.object({
   evidence: z.array(z.string()), answer: ItemAnswerSchema.nullable(), note: z.string().nullable(),
 });
 const NumberRow = z.object({ number: z.number().int().positive() });
-const PlanDecisionRow = z.object({ kind: z.enum(['plan', 'tech']), product_prd: z.string(), plan: z.string().nullable(), outcome: z.string(), why: z.array(z.string()) });
+const PlanDecisionRow = z.object({ kind: z.enum(['plan', 'tech']), product_prd: z.string(), plan: z.string().nullable(), outcome: z.string(), why: z.array(z.string()), job_id: z.string() });
 const ProductRow = z.object({ plan_repository: z.string().nullable() });
 const Refreshed = z.enum(['added', 'updated', 'again', 'requeued']);
 
@@ -161,9 +161,9 @@ export function missionsReader(db: MissionsDb) {
 
     /** The `plan` and `tech` decisions of the mission's product PRDs, oldest first (PRD omni-loop-26; read for bug #3286). */
     async planDecisions(id: string): Promise<PlanDecisionRead[]> {
-      const { data, error } = await db.from('mission_decisions').select('kind, product_prd, plan, outcome, why').eq('mission_id', id).in('kind', ['plan', 'tech']).not('product_prd', 'is', null).order('decided_at', { ascending: true });
+      const { data, error } = await db.from('mission_decisions').select('kind, product_prd, plan, outcome, why, job_id').eq('mission_id', id).in('kind', ['plan', 'tech']).not('product_prd', 'is', null).order('decided_at', { ascending: true });
       if (error) throw new Error(`Supabase: could not read the mission's plan decisions (${error.message})`);
-      return orThrow(parseRows(PlanDecisionRow, data, `${WHERE}: mission_decisions`)).map((row) => PlanDecisionReadSchema.parse({ kind: row.kind, prd: row.product_prd, plan: row.plan, outcome: row.outcome, why: row.why }));
+      return orThrow(parseRows(PlanDecisionRow, data, `${WHERE}: mission_decisions`)).map((row) => PlanDecisionReadSchema.parse({ kind: row.kind, prd: row.product_prd, plan: row.plan, outcome: row.outcome, why: row.why, job: row.job_id }));
     },
 
     /** The numbers of the repository's missions whose brief names PRD `prd`, in order (PRD 3194). */
@@ -245,8 +245,8 @@ export function missionsWriter(db: MissionsDb) {
     },
 
     /** Records one event of the mission, signed with the member's login. */
-    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'stopped' | 'drop-asked' | 'drop-asked-keep' | 'overturned' | 'budget-answer' | 'stuck-answer' | 'item-answered'; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string }): Promise<void> {
-      const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }), ...(event.job === undefined ? {} : { job_id: event.job }) });
+    async event(id: string, event: { kind: 'started' | 'paused' | 'resumed' | 'stopped' | 'drop-asked' | 'drop-asked-keep' | 'overturned' | 'budget-answer' | 'stuck-answer' | 'item-answered' | 'sent-back'; actor: string; sentence: string; at: string; prd?: PrdNumber; product?: ProductPrdId; job?: string }): Promise<void> {
+      const { error } = await db.from('mission_events').insert({ mission_id: id, at: event.at, role: 'supervisor', actor: event.actor, kind: event.kind, sentence: event.sentence, ...(event.prd === undefined ? {} : { prd: event.prd }), ...(event.product === undefined ? {} : { product_prd: event.product }), ...(event.job === undefined ? {} : { job_id: event.job }) });
       if (error) throw new Error(`Supabase: could not record the mission's event (${error.message})`);
     },
 

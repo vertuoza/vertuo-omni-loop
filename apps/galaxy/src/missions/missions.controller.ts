@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { reply } from '../business-api/reply';
-import { BriefQuerySchema, MissionBriefSchema, MissionsOfPrdSchema, OfPrdQuerySchema, AnsweredItemSchema, ItemAnswerBodySchema, AnsweredStopSchema, BudgetedMissionSchema, StopAnswerBodySchema, TokensBodySchema, BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MovedMission, type MissionAction, type MissionRefusal } from './missions.contract';
+import { BriefQuerySchema, MissionBriefSchema, MissionsOfPrdSchema, OfPrdQuerySchema, AnsweredItemSchema, ItemAnswerBodySchema, AnsweredStopSchema, BudgetedMissionSchema, StopAnswerBodySchema, TokensBodySchema, BugsBodySchema, PickedBugsSchema, DropBodySchema, DroppedMissionSchema, OverturnBodySchema, OverturnedMissionSchema, SendBackBodySchema, SendBackPrdSchema, SentBackSchema, LeveledMissionSchema, LevelBodySchema, MISSION_REFUSALS, MovedMissionSchema, type MovedMission, type MissionAction, type MissionRefusal } from './missions.contract';
 import type { Caller, MissionsReader, MissionsService } from './missions.service';
 
 // The missions' routes (PRD 2842 s5), as plain functions of a Request, so they are tested with the real
@@ -13,6 +13,8 @@ import type { Caller, MissionsReader, MissionsService } from './missions.service
 //   POST /api/missions/<id>/stop                     200 {mission: {id, status}}   (PRD 3065, a mission paused by stuck)
 //   POST /api/missions/items/<item> {answer, note?}  200 {item: {id, answer}}   (PRD 3065, Adopt or Decline)
 //   POST /api/missions/<id>/bugs {prd, pick}         200 {bugs: {mission, prd, pick}}   (PRD 3001, Decide the bugs)
+//   POST /api/missions/<id>/send-back {prd}          200 {sentBack: {mission, prd}}   (bug #3302, Send back to the PM)
+//   POST /api/missions/send-back {repo, mission, prd} 200 {sentBack: {mission, prd}}  (bug #3302, `omni mission send-back`)
 //
 // Signed out is 401 and nothing else runs; a person who is no member of the mission's workspace (it is
 // invisible to them) is 403; a move the mission's status does not allow is 409. The answer is checked
@@ -83,6 +85,13 @@ export async function dropMission(request: Request, deps: MissionsDeps): Promise
   return fromTerminal(request, deps, { schema: DropBodySchema, bad: BAD_DROP }, (service, body, person) => service.drop(body, person.caller, person.reader), (value) => DroppedMissionSchema.parse(value));
 }
 
+/** The service and the person behind the terminal's bearer token, or the refusal that ends the route (no database, signed out). */
+async function fromBearer(request: Request, deps: MissionsDeps): Promise<{ service: MissionsService; person: { caller: Caller; reader: MissionsReader } } | Response> {
+  if (!deps.bearer || !deps.service) return refuse('unavailable', NO_DATABASE);
+  const person = await deps.bearer(request.headers.get('authorization'));
+  return person ? { service: deps.service, person } : refuse('signed-out', SIGNED_OUT);
+}
+
 /** A route of the terminal: the bearer's person, the body read through `schema`, the service's answer served as the contract says. */
 async function fromTerminal<B, T>(
   request: Request,
@@ -92,12 +101,11 @@ async function fromTerminal<B, T>(
   parse: (value: T) => unknown,
 ): Promise<Response> {
   try {
-    if (!deps.bearer || !deps.service) return refuse('unavailable', NO_DATABASE);
-    const person = await deps.bearer(request.headers.get('authorization'));
-    if (!person) return refuse('signed-out', SIGNED_OUT);
+    const got = await fromBearer(request, deps);
+    if (got instanceof Response) return got;
     const body = schema.safeParse(await request.json().catch(() => null));
     if (!body.success) return refuse('malformed', bad);
-    return answer(await serve(deps.service, body.data, person), parse, deps);
+    return answer(await serve(got.service, body.data, got.person), parse, deps);
   } catch (error) {
     return failed(error, deps);
   }
@@ -112,12 +120,11 @@ async function readFromTerminal<Q, T>(
   parse: (value: T) => unknown,
 ): Promise<Response> {
   try {
-    if (!deps.bearer || !deps.service) return refuse('unavailable', NO_DATABASE);
-    const person = await deps.bearer(request.headers.get('authorization'));
-    if (!person) return refuse('signed-out', SIGNED_OUT);
+    const got = await fromBearer(request, deps);
+    if (got instanceof Response) return got;
     const query = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
     if (!query.success) return refuse('malformed', bad);
-    return answer(await serve(deps.service, query.data, person.reader), parse, deps);
+    return answer(await serve(got.service, query.data, got.person.reader), parse, deps);
   } catch (error) {
     return failed(error, deps);
   }
@@ -142,6 +149,27 @@ const BAD_OVERTURN = 'An overturn names the repository as owner/name, the missio
 /** POST /api/missions/overturn: a member, signed in at the terminal, overturns a decision the fleet carried (PRD 2896 s11). */
 export async function overturnMission(request: Request, deps: MissionsDeps): Promise<Response> {
   return fromTerminal(request, deps, { schema: OverturnBodySchema, bad: BAD_OVERTURN }, (service, body, person) => service.overturn(body, person.caller, person.reader), (value) => OverturnedMissionSchema.parse(value));
+}
+
+const BAD_SEND_BACK = 'A send-back names the repository as owner/name, the mission\'s number and the PM product PRD\'s id (<key>-<n>).';
+const BAD_SEND_BACK_PRD = 'Send back to the PM names the product PRD by its id (<key>-<n>).';
+
+/** POST /api/missions/send-back: a member, signed in at the terminal, sends a PM product PRD back to the PM (bug #3302). */
+export function sendBackMission(request: Request, deps: MissionsDeps): Promise<Response> {
+  return fromTerminal(request, deps, { schema: SendBackBodySchema, bad: BAD_SEND_BACK }, (service, body, person) => service.sendBack(body, person.caller, person.reader), (value) => SentBackSchema.parse(value));
+}
+
+/** POST /api/missions/<id>/send-back: a member presses Send back to the PM on the Missions tab (bug #3302). */
+export async function sendBackFromTab(id: string, request: Request, deps: MissionsDeps): Promise<Response> {
+  try {
+    const got = await ready(id, deps);
+    if (got instanceof Response) return got;
+    const body = SendBackPrdSchema.safeParse(await request.json().catch(() => null));
+    if (!body.success) return refuse('malformed', BAD_SEND_BACK_PRD);
+    return answer(await got.service.sendBack({ id: got.id, prd: body.data.prd }, got.person.caller, got.person.reader), (value) => SentBackSchema.parse(value), deps);
+  } catch (error) {
+    return failed(error, deps);
+  }
 }
 
 const BAD_LEVEL ='A mission\'s level is with-you, own-branch or alone.';
