@@ -23474,7 +23474,7 @@ function runOfKey(key) {
   return match2 && prd.success && isStep(step) ? { prd: prd.data, run: Number(match2[3]), step } : null;
 }
 function lineOf5(prd, step, skill = "yolo", base = null, fix = null) {
-  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === "string" || base === null ? [] : base);
+  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === "string" || base === null ? null : base);
   const n = String(prd);
   const onBase = typeof base === "string" ? ` --base ${base}` : "";
   const round = qaRoundOf(step);
@@ -23489,10 +23489,16 @@ function lineOf5(prd, step, skill = "yolo", base = null, fix = null) {
 }
 var basesOf = (repos, branch) => repos.map((repo) => ({ repo, branch }));
 function productLineOf(prd, step, bases) {
-  const flag = bases.length === 0 ? "" : ` ${baseOfFlag(bases)}`;
   if (qaRoundOf(step) !== null || isFixStep(step)) throw new Error(`PRD ${prd} is a product PRD: it skips the QA pair, and ${step} is never sent for it`);
+  const flag = baseOfWords(prd, step, bases);
   if (step === "build") return `/omni:ultra-yolo ${prd}${flag}`;
   return step === "fix:1" ? `/omni:ultra-yolo-fix ${prd} --for-review${flag}` : `/omni:review ${prd}`;
+}
+function baseOfWords(prd, step, bases) {
+  if (bases === null) return "";
+  if (bases.length > 0) return ` ${baseOfFlag(bases)}`;
+  if (step === "build" || step === "fix:1") throw new Error(`PRD ${prd}'s plan names no repository: its ${step} is never sent without --base-of, which would open its pull requests into the default branch`);
+  return "";
 }
 var MISSION_BRANCH = "mission/{number}-{topic}";
 var TOPIC_MAX = 40;
@@ -24272,6 +24278,12 @@ function reviewStateOf(view) {
   if (!approvedOn(mine, "plan", view.latest)) return decidedOf(mine, "plan") < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
   return decidedOf(mine, "tech") < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
 }
+function unnamedStateOf(prd, view) {
+  if (view?.plans.some((one) => working2(one.attempt)) === true) return { state: "working" };
+  const mine = view?.decisions.filter((one) => one.prd === prd) ?? [];
+  if (view !== null && decidedOf(mine, "plan") < ROUNDS2) return { state: "plan", again: true, unnamed: true };
+  return { state: "waits", why: `PRD ${prd}: its plan names no repository, so its build would open its pull requests into the default branch; write its ## Repositories table (owner/name) and approve it on its page` };
+}
 var short3 = (plan) => plan === null ? "no version" : `version ${plan.slice(0, 7)}`;
 function decisionEvent(decision) {
   const n = `PRD ${decision.prd}`;
@@ -24285,6 +24297,7 @@ var isRetry = (prd, decisions) => {
   return last?.outcome === "escalated" && last.plan === null;
 };
 function planSentence(prd, line3, state) {
+  if (state.unnamed === true) return `Sent the PM ${line3} again: the plan of PRD ${prd} names no repository, so it writes its ## Repositories table before the build.`;
   if (state.points !== void 0) return `Sent the PM ${line3} again: it answers the Architect's open points on PRD ${prd}.`;
   return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
 }
@@ -26203,11 +26216,15 @@ async function productAll(at4) {
   const done = await productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered, reviews, rounds: nextPlanRound(at4.pm.jobs) }, facts);
   return { ...done, events: [...reviews.events, ...done.events] };
 }
-function reviewOf(at4, fact) {
-  if (!at4.pm.authored.has(fact.prd)) return { state: "build" };
+function reviewViewOf(at4, fact) {
+  if (!at4.pm.authored.has(fact.prd)) return null;
   const plans = productPlansOf(at4.pm.jobs).filter((one) => one.prd === fact.prd);
   const techs = at4.reviews.techs.filter((one) => one.prd === fact.prd);
-  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions });
+  return { prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions };
+}
+function reviewOf(at4, fact) {
+  const view = reviewViewOf(at4, fact);
+  return view === null ? { state: "build" } : reviewStateOf(view);
 }
 async function reviewStep(at4, fact, state, step) {
   if (state.state === "waits") {
@@ -26245,12 +26262,8 @@ async function productStep(at4, fact, state, step) {
   if (state.state === "running") step.moving = true;
   else if (state.state === "blocked") step.waits.push(heldWords(fact.prd, state.by, at4.branch));
   else if (state.state === "waits") step.waits.push(state.why);
-  else if (state.state === "startable" && step.room > 0) {
-    const sent = await sendProduct(at4, fact, state.run);
-    if (sent !== null) step.events.push(sent);
-    step.moving = true;
-    step.room -= 1;
-  } else if (state.state === "ready") {
+  else if (state.state === "startable") await startStep(at4, fact, state.run, step);
+  else if (state.state === "ready") {
     const joined2 = await joinOneProduct(at4, fact);
     if ("lacks" in joined2) step.waits.push(joined2.lacks);
     else {
@@ -26259,6 +26272,17 @@ async function productStep(at4, fact, state, step) {
       step.moving = true;
     }
   }
+}
+async function startStep(at4, fact, run, step) {
+  if (fact.targets.length === 0) {
+    await reviewStep(at4, fact, unnamedStateOf(fact.prd, reviewViewOf(at4, fact)), step);
+    return;
+  }
+  if (step.room <= 0) return;
+  const sent = await sendProduct(at4, fact, run);
+  if (sent !== null) step.events.push(sent);
+  step.moving = true;
+  step.room -= 1;
 }
 async function sendProduct(at4, fact, run) {
   const line3 = lineOf5(fact.prd, "build", "ultra-yolo", basesOf(fact.targets, at4.branch));

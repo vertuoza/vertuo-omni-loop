@@ -105,7 +105,7 @@ import { decisionsOf, deferredOf, reworkLine, reworksOf, type DecisionPrd, type 
 import { withDecisions, type ItemCommittee, type ItemVerdict, type OpenAt } from './answers.ts';
 import { itemDecisionOf, recordedOf, sendsCommittees, type Committee } from './committee.ts';
 import { addedOf, isOwnJob, pmAsks, pmDispatched, pmEvents, pmNext, pmWait, pmWorking, withAdded, withPm, type Home, type PmEvent, type PmJob, type PmView } from './pm.ts';
-import { addedProductsOf, decisionEvent, isRetry, productPlansOf, reviewDispatched, reviewStateOf, type PlanDecision, type ReviewState, type TechJob } from './tech.ts';
+import { addedProductsOf, decisionEvent, isRetry, productPlansOf, reviewDispatched, reviewStateOf, unnamedStateOf, type PlanDecision, type ReviewState, type ReviewView, type TechJob } from './tech.ts';
 import { planRecordOf } from 'omni-loop/kit/lib/virtual-fleet/plan-record.ts';
 import { techJobLine, techRecordOf } from 'omni-loop/kit/lib/virtual-fleet/tech-record.ts';
 import type { ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
@@ -1382,12 +1382,18 @@ type ProductSteps = ProductAt & {
   rounds: number;
 };
 
-/** Where a product PRD is before its build: a PRD the PM wrote by its reviews (./tech.ts), any other built as before. */
-function reviewOf(at: ProductSteps, fact: StoredProduct): ReviewState {
-  if (!at.pm.authored.has(fact.prd)) return { state: 'build' };
+/** What the run read of a product PRD the PM wrote (./tech.ts); null for a PRD a person wrote. */
+function reviewViewOf(at: ProductSteps, fact: StoredProduct): ReviewView | null {
+  if (!at.pm.authored.has(fact.prd)) return null;
   const plans = productPlansOf(at.pm.jobs).filter((one) => one.prd === fact.prd);
   const techs = at.reviews.techs.filter((one) => one.prd === fact.prd);
-  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at.reviews.decisions });
+  return { prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at.reviews.decisions };
+}
+
+/** Where a product PRD is before its build: a PRD the PM wrote by its reviews (./tech.ts), any other built as before. */
+function reviewOf(at: ProductSteps, fact: StoredProduct): ReviewState {
+  const view = reviewViewOf(at, fact);
+  return view === null ? { state: 'build' } : reviewStateOf(view);
 }
 
 /** A PM product PRD's step before its build: its plan job or the Architect's review sent, at work, or what it waits on. */
@@ -1431,17 +1437,13 @@ async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): 
 /** What a run's product steps add up to as they go: the slots left, whether one moved, what they wait on, the events. */
 type ProductStep = { room: number; moving: boolean; waits: string[]; events: NewStoredEvent[] };
 
-/** One product PRD's step: its build sent while a slot is left, at work, joined once Ready, or what it waits on. */
+/** One product PRD's step: its build sent while a slot is left, back to the PM or a person when its plan names no repository (bug #3304), at work, joined once Ready, or what it waits on. */
 async function productStep(at: ProductSteps, fact: StoredProduct, state: ReturnType<typeof productStateOf>, step: ProductStep): Promise<void> {
   if (state.state === 'running') step.moving = true;
   else if (state.state === 'blocked') step.waits.push(heldWords(fact.prd, state.by, at.branch));
   else if (state.state === 'waits') step.waits.push(state.why);
-  else if (state.state === 'startable' && step.room > 0) {
-    const sent = await sendProduct(at, fact, state.run);
-    if (sent !== null) step.events.push(sent);
-    step.moving = true;
-    step.room -= 1;
-  } else if (state.state === 'ready') {
+  else if (state.state === 'startable') await startStep(at, fact, state.run, step);
+  else if (state.state === 'ready') {
     const joined = await joinOneProduct(at, fact);
     if ('lacks' in joined) step.waits.push(joined.lacks);
     else {
@@ -1450,6 +1452,19 @@ async function productStep(at: ProductSteps, fact: StoredProduct, state: ReturnT
       step.moving = true;
     }
   }
+}
+
+/** A product PRD's build sent while a slot is left; back to the PM, or to a person, when its plan names no repository (bug #3304). */
+async function startStep(at: ProductSteps, fact: StoredProduct, run: number, step: ProductStep): Promise<void> {
+  if (fact.targets.length === 0) {
+    await reviewStep(at, fact, unnamedStateOf(fact.prd, reviewViewOf(at, fact)), step);
+    return;
+  }
+  if (step.room <= 0) return;
+  const sent = await sendProduct(at, fact, run);
+  if (sent !== null) step.events.push(sent);
+  step.moving = true;
+  step.room -= 1;
 }
 
 /** A product PRD's build sent under its key, and its dispatch; null when its key was held already. */

@@ -116,3 +116,28 @@ describe('a product PRD whose plan names no repository, above with-you (bug #330
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-40: its plan names no repository');
   });
 });
+
+describe('the PM\'s plan job sent back for a plan that names no repository (bug #3304)', () => {
+  it('is sent once while it works, and the PM\'s new version with the table is reviewed, then built into the mission branch', async () => {
+    const { fake, run } = await approvedWithNoRepository();
+    await run();
+    expect(fake.pms()).toHaveLength(3);
+    const B = 'b'.repeat(64);
+    fake.setProduct(P31, { plan: B, targets: ['acme/widgets', 'acme/api'] });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(B));
+    await run();
+    expect(fake.techJobs()).toHaveLength(2);
+    expect(fake.productJobs()).toEqual([]);
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(B));
+    await run();
+    expect(fake.productJobs().map(({ line }) => line)).toEqual(['/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=mission/12-faster-quotes,acme/api=mission/12-faster-quotes']);
+  });
+
+  it('changes nothing at with-you: a product PRD waits for a mission above it, and no PM job is sent back', async () => {
+    const { fake, run } = setup({ mission: record({ level: 'with-you', products: { prds: [P40], roadmaps: [] }, ownPrds: 0 }), products: [page(P40, { plan: A, approval: 'standing' })] });
+    await run();
+    expect(fake.productJobs()).toEqual([]);
+    expect(fake.pms()).toEqual([]);
+    expect(fake.mission().waitingOn).toContain('run the mission above with-you');
+  });
+});

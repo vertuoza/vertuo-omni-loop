@@ -390,6 +390,12 @@ job that decided counts as a round. A job that failed or left no record is never
 approval: it is sent again, twice in a row at most, then to you as `no record of the tech review`.
 The code reaches the repository only in the build's pull requests, and you merge each one.
 
+**A plan that names no repository is never built.** The build opens one pull request into the
+mission branch of each repository the plan's `## Repositories` table names. A plan with no such
+table would open them into the default branch, so the mission sends the PM's plan job again to
+write it, within the PM's two rounds; then the PRD comes to you, saying `its plan names no
+repository`. A PRD you wrote whose plan names none comes to you at once.
+
 **What you see.** The fleet's **Operation room** shows, for each PRD of the PM's, a plan row (the
 PM, the plan version it approved) and a tech row (the Architect, what it settled, or `Not reviewed
 yet`). The points the Architect left to you are listed under **Waiting on you**: approve the PRD
