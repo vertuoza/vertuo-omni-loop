@@ -49,7 +49,8 @@ async function inForceOf(record: JudgeRepository, workspace: string, row: Approv
   const [voids, versions, member] = await Promise.all([
     record.voids(row.id),
     record.versions([...new Set(row.files.map((f) => f.version_id))]),
-    record.isMember(workspace, row.approved_by),
+    // A fleet's approval (BR-PRODUCT-144) names its mission as approved_by: it counts while its fleet lives (bug #3309).
+    row.fleet ? record.isLiveFleet(workspace, row.fleet) : record.isMember(workspace, row.approved_by),
   ]);
   if (!voids.ok) return voids;
   if (!versions.ok) return versions;
