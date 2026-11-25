@@ -1,6 +1,4 @@
 import { Notice } from '../../ask/page/Notice';
-import { SectionTabs } from '../../nav/SectionTabs';
-import { SETTINGS_TABS } from '../../nav/section-tabs';
 import { APP_HOME } from '../../switch/switch';
 import { JevPage, type JevPageProps } from './JevPage';
 
@@ -20,12 +18,7 @@ export type JevScreenView =
   | ({ kind: 'jev' } & JevPageProps);
 
 export function JevScreen({ view }: { view: JevScreenView }) {
-  return (
-    <>
-      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current="/app/settings/jev" />
-      <JevBody view={view} />
-    </>
-  );
+  return <JevBody view={view} />;
 }
 
 function JevBody({ view }: { view: JevScreenView }) {

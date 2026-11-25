@@ -263,12 +263,11 @@ describe('the page in each situation', () => {
     demoApiKeysView(),
   ];
 
-  it('starts with the Fleets · Repositories · Business · Products · API keys · Jev · Playbook tabs, API keys marked', () => {
+  it('draws no header tabs of its own in any situation: the settings layout draws the navigation (omni-loop-27 s3)', () => {
     for (const v of situations) {
       const html = page(v);
-      expect(html.indexOf('class="section-tabs"'), v.kind).toBeGreaterThanOrEqual(0);
-      const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, v.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', false], ['API keys', true], ['Jev', false], ['Playbook', false]]);
+      expect(html, v.kind).not.toContain('section-tab');
+      expect(html, v.kind).toContain('<h1');
     }
   });
 

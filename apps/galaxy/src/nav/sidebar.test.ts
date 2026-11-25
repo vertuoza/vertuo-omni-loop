@@ -79,16 +79,16 @@ describe('SIDEBAR', () => {
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business, Jev and Playbook (PRD 733, PRD 748, PRD 859, PRD 812, PRD 2417)', () => {
+  it('holds one Settings entry at /app/settings, its pages, from the settings map: Business, Repositories, Fleets, API keys, Jev and Playbook (PRD 733, omni-loop-27)', () => {
     expect(rows([SETTINGS])).toEqual([
-      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev'], ['Playbook', '/app/settings/playbook']]],
+      ['settings', 'Settings', '/app/settings', [['Business', '/app/settings/business'], ['Repositories', '/app/settings/repositories'], ['Fleets', '/app/settings/fleets'], ['API keys', '/app/settings/api-keys'], ['Jev', '/app/settings/jev'], ['Playbook', '/app/settings/playbook']]],
     ]);
     expect(SETTINGS.leavesApp).toBeFalsy();
   });
 
   it('lands /app/settings on its Fleets page (PRD 733)', () => {
     expect(SETTINGS_LANDING).toBe('/app/settings/fleets');
-    expect(present(SETTINGS.pages?.[0], 'the first Settings page').path).toBe(SETTINGS_LANDING);
+    expect(SETTINGS.pages?.map((p) => p.path)).toContain(SETTINGS_LANDING);
   });
 
   it('redirects /app/settings\' page to that landing (PRD 733)', async () => {

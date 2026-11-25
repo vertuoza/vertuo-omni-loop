@@ -340,13 +340,11 @@ describe('the page\'s situations', () => {
     }
   });
 
-  it('starts with the Fleets · Repositories · Business · Products · API keys · Jev · Playbook tabs in every situation, Business marked', () => {
+  it('draws no header tabs of its own in any situation: the settings layout draws the navigation (omni-loop-27 s3)', () => {
     for (const view of VIEWS) {
       const html = screen(view);
-      expect(html.indexOf('class="section-tabs"'), view.kind).toBeGreaterThanOrEqual(0);
-      expect(html.indexOf('class="section-tabs"'), view.kind).toBeLessThan(html.indexOf('<h1'));
-      const tabs = [...html.matchAll(/<a [^>]*class="section-tab"[^>]*>([^<]*)<\/a>/g)].map((m) => [m[1], m[0].includes('aria-current="page"')]);
-      expect(tabs, view.kind).toEqual([['Fleets', false], ['Repositories', false], ['Business', true], ['API keys', false], ['Jev', false], ['Playbook', false]]);
+      expect(html, view.kind).not.toContain('section-tab');
+      expect(html, view.kind).toContain('<h1');
     }
   });
 });

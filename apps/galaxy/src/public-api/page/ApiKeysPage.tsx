@@ -1,9 +1,7 @@
 import { Notice } from '../../ask/page/Notice';
-import { SectionTabs } from '../../nav/SectionTabs';
-import { SETTINGS_TABS } from '../../nav/section-tabs';
 import { APP_HOME } from '../../switch/switch';
 import { ApiKeysPanel } from './ApiKeysPanel';
-import { API_KEYS_HREF, type ApiKeysPageView } from './model';
+import type { ApiKeysPageView } from './model';
 
 // Settings › API keys in each situation (PRD 2022 s1), decided once by the page: no database here;
 // signed out; an account in no workspace; the keys that could not be read; or the keys themselves, an
@@ -42,10 +40,5 @@ function Body({ view, now }: { view: ApiKeysPageView; now: string }) {
 }
 
 export function ApiKeysPage({ view, now }: { view: ApiKeysPageView; now: string }) {
-  return (
-    <>
-      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current={API_KEYS_HREF} />
-      <Body view={view} now={now} />
-    </>
-  );
+  return <Body view={view} now={now} />;
 }

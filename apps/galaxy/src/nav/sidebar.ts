@@ -17,6 +17,7 @@
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
+import { SETTINGS_MAP_PAGES } from './settings-map';
 
 export type SidebarId = 'inbox' | 'ai-fleet' | 'supervisor' | 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
 
@@ -125,19 +126,14 @@ export const ANTI_SIDEBAR: readonly SidebarGroup[] = [
 /** Where /app/settings lands (PRD 733): its Fleets page. */
 export const SETTINGS_LANDING = '/app/settings/fleets';
 
-/** The foot's Settings entry (PRD 733), above Docs and Release notes; Playbook last (PRD 2417, issue 2538). */
+/** The foot's Settings entry (PRD 733), above Docs and Release notes; its pages are the settings map's. */
 export const SETTINGS: SidebarItem = {
   id: 'settings',
   label: 'Settings',
   path: '/app/settings',
   sprite: 'menu-settings',
-  pages: [
-    { label: 'Fleets', path: SETTINGS_LANDING },
-    { label: 'Repositories', path: REPOSITORIES_PATH },
-    { label: 'Business', path: '/app/settings/business' },
-    { label: 'Jev', path: '/app/settings/jev' },
-    { label: 'Playbook', path: '/app/settings/playbook' },
-  ],
+  // Built from the settings map (omni-loop-27 s1): the order of its groups.
+  pages: SETTINGS_MAP_PAGES.map(({ label, path }) => ({ label, path })),
 };
 
 /** Where an entry's link goes: its path, but for Ideas (PRD 1246) the board of the workspace's
