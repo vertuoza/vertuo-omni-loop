@@ -13,7 +13,7 @@ import type { Acted, FindingRow, MessageRow, NoteRow, ProposalRow, SeatRow, Sign
 //   workspace is the only one the seat reads or writes (BR-PRODUCT-63): a runner that holds no seat, or another
 //   person's runner, is refused on every route, and an id of another workspace reads as none. A person reads a
 //   workspace they are a member of; an owner's acts go through the owner-checked functions as that owner, which refuse
-//   anyone else (supabase/migrations/20270129160000_supervisor.sql).
+//   anyone else (supabase/migrations/20270129180000_supervisor.sql).
 // - `next` counts as the seat's look, then holds up to 40 s and answers at once on a signal opened, an owner's message
 //   or a suggestion pressed since `since`, else nothing.
 // - A finding is written with the check that fired and its figures first: raised from signals, it takes the first

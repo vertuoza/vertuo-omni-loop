@@ -1,6 +1,6 @@
 // The watch's store (PRD omni-loop-34 s2, ./watch.ts), as the service role (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`):
 // the App has no person's session. Every read and write names one workspace (BR-PRODUCT-63): its seat, runners, jobs,
-// missions and App errors, and its Supervisor rows (supabase/migrations/20270129160000_supervisor.sql). The ledger's
+// missions and App errors, and its Supervisor rows (supabase/migrations/20270129180000_supervisor.sql). The ledger's
 // health is the App's own, read for every workspace alike. No AI key is read (BR-PRODUCT-59). A job's last line is
 // masked where it is read (L-GDPR-2), and the table masks again. Throws when the database refuses or answers out of
 // shape: the job's run fails, and the next slot runs again.

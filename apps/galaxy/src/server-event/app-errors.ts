@@ -1,5 +1,5 @@
 // The App's own 5xx (PRD omni-loop-34 s3, spec "The error table"): a galaxy route that answers 5xx writes one row of
-// `app_errors` (supabase/migrations/20270129160000_supervisor.sql), its message masked before the write (L-GDPR-2) and cut
+// `app_errors` (supabase/migrations/20270129180000_supervisor.sql), its message masked before the write (L-GDPR-2) and cut
 // to 500 characters, so the Supervisor's `route-failing` check reads it. The database masks it a second time on the way
 // in. Writing never fails what wrote: a refusal is one line in the log.
 

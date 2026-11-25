@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // An owner's press of one of the Supervisor's suggestions, and their Not a problem (PRD omni-loop-34 s7; ADR-0095),
 // browser-safe: what the Supervisor page sends to `/api/supervisor/proposals` and gets back. The rows are
-// supabase/migrations/20270129160000_supervisor.sql's `supervisor_proposals` (append-only: a press, its result and a
+// supabase/migrations/20270129180000_supervisor.sql's `supervisor_proposals` (append-only: a press, its result and a
 // dismissal are written once, BR-PRODUCT-12).
 
 /** The actions a press carries out. `open-terminal` and `open-mission` are links the page follows: nothing is pressed. */

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-// The Supervisor's storage (PRD omni-loop-34 s3; ADR-0095), over supabase/migrations/20270129160000_supervisor.sql. Two
+// The Supervisor's storage (PRD omni-loop-34 s3; ADR-0095), over supabase/migrations/20270129180000_supervisor.sql. Two
 // sides:
 //
 // - `supervisorRepository(db)`, on the service role's client: the seat's reads and writes, and the reads a member's

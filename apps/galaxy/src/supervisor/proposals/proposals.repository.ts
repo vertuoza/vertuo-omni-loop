@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 // The storage of an owner's press and dismissal (PRD omni-loop-34 s7; ADR-0095), over
-// supabase/migrations/20270129160000_supervisor.sql. Two sides:
+// supabase/migrations/20270129180000_supervisor.sql. Two sides:
 //
 // - `proposalsRepository(db)`, on the service role's client: the suggestion pressed, the job, mission or runner it names
 //   (in the workspace only, BR-PRODUCT-63), whether a lost job's automatic resume exists (BR-PRODUCT-136), the press's

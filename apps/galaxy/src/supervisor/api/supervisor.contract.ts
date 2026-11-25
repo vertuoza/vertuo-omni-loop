@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // The Supervisor API's shapes (PRD omni-loop-34 s3; ADR-0095), browser-safe: what the seat on a runner and the
 // Supervisor page send and get back from `/api/supervisor/*`. The tables are supabase/migrations/
-// 20270129160000_supervisor.sql's; every answer leaves the controller checked against these schemas, and every
+// 20270129180000_supervisor.sql's; every answer leaves the controller checked against these schemas, and every
 // refusal is `{error}` in plain words.
 
 /** How long `next` holds a seat's check-in, as `next` holds a runner's (PRD 1830). */

@@ -1,6 +1,6 @@
 // The App's own 5xx (PRD omni-loop-34 s2, spec "3. The error table"): every request of the omni-app's routes that
 // answers 5xx, or throws (Vercel answers 500), writes one row of `app_errors` (supabase/migrations/
-// 20270129160000_supervisor.sql): service `omni-app`, the route's path (never its query), the status, and a message of
+// 20270129180000_supervisor.sql): service `omni-app`, the route's path (never its query), the status, and a message of
 // at most 500 characters masked before the write (L-GDPR-2), which the table masks again. The Supervisor's
 // route-failing check reads them (../supervisor/checks.ts). Kept 14 days and 10,000 rows (the table's retention,
 // L-GDPR-4).
