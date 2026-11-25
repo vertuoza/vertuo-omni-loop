@@ -290,7 +290,7 @@ describe('/app/settings/fleets in each situation', () => {
 });
 
 describe('the Fleets page in the sidebar (PRD 438, which replaced /app\'s card; under Settings since PRD 572, a Settings page since PRD 733)', () => {
-  it('is Settings\' first page, at /app/settings/fleets', () => {
-    expect(SETTINGS.pages?.[0]).toEqual({ label: 'Fleets', path: '/app/settings/fleets' });
+  it('is a Settings page, at /app/settings/fleets, after Business and Repositories', () => {
+    expect(SETTINGS.pages?.[2]).toEqual({ label: 'Fleets', path: '/app/settings/fleets' });
   });
 });
