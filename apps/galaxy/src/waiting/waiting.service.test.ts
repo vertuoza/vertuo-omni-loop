@@ -228,3 +228,27 @@ describe('the Runners part, read on the server', () => {
     await expect(waitingReads(tables(rows, 'runner_jobs').db).runnersWaiting(WORKSPACE)).rejects.toThrow(/permission denied/);
   });
 });
+
+describe('the Supervisor part, read on the server (omni-loop-34 s8)', () => {
+  const finding = (id: string, severity: string, state: string, workspace = WORKSPACE): Row => ({ id, workspace_id: workspace, severity, state });
+  const SEAT: Row = { workspace_id: WORKSPACE };
+
+  it('says the workspace has a seat and counts its open high findings only', async () => {
+    const { db } = tables({
+      supervisor_seats: [SEAT],
+      supervisor_findings: [finding('f1', 'high', 'open'), finding('f2', 'high', 'open'), finding('f3', 'medium', 'open'), finding('f4', 'high', 'dismissed'), finding('f5', 'high', 'open', 'w-other')],
+    });
+    expect(await waitingReads(db).supervisorWaiting(WORKSPACE)).toEqual({ seat: true, high: 2 });
+  });
+
+  it('counts nothing while the workspace has no seat, so no row shows a count', async () => {
+    const { db } = tables({ supervisor_seats: [{ workspace_id: 'w-other' }], supervisor_findings: [finding('f1', 'high', 'open')] });
+    expect(await waitingReads(db).supervisorWaiting(WORKSPACE)).toEqual({ seat: false, high: 0 });
+  });
+
+  it('throws when a read fails, so the route answers 500', async () => {
+    const rows = { supervisor_seats: [SEAT], supervisor_findings: [] };
+    await expect(waitingReads(tables(rows, 'supervisor_seats').db).supervisorWaiting(WORKSPACE)).rejects.toThrow(/permission denied/);
+    await expect(waitingReads(tables(rows, 'supervisor_findings').db).supervisorWaiting(WORKSPACE)).rejects.toThrow(/permission denied/);
+  });
+});

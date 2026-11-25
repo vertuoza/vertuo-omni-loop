@@ -1,6 +1,6 @@
 import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
-import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, isAlarm, isQuiet, pageTrail, type SidebarItem } from './sidebar';
+import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, isAlarm, shownItems, isQuiet, pageTrail, type SidebarItem } from './sidebar';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 
@@ -289,5 +289,13 @@ describe('ANTI_SIDEBAR (PRD 2490)', () => {
     expect(currentItem('/app')).toBe('home');
     expect(currentItem('/app/settings/fleets')).toBe('settings');
     expect(pageTrail('/app')?.crumbs).toEqual([{ label: 'Dashboard' }, { label: 'Home' }]);
+  });
+});
+
+describe('shownItems (omni-loop-34 s8)', () => {
+  const first = SIDEBAR[0]?.items ?? [];
+  it('leaves the Supervisor row out while the workspace has no seat, and keeps every other', () => {
+    expect(shownItems(first, false).map((i) => i.id)).toEqual(['inbox', 'ai-fleet']);
+    expect(shownItems(first, true).map((i) => i.id)).toEqual(['inbox', 'ai-fleet', 'supervisor']);
   });
 });

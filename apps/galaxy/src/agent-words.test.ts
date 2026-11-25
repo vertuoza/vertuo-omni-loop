@@ -48,6 +48,10 @@ const ALLOWED: readonly Allowed[] = [
     file: 'apps/galaxy/src/repositories/skills.ts', literal: /^\.claude\/skills$/, sample: '.claude/skills',
     reason: 'the folder a repository keeps its own skills in, read from its default branch: a path on GitHub, never the app\'s voice (PRD 2313)',
   },
+  {
+    file: 'apps/galaxy/src/runners/page/seat.ts', literal: /^claude$/, sample: 'claude',
+    reason: 'the agent id a runner\'s accounts file names, matched to find the account the Supervisor\'s seat thinks on: an id, never shown (omni-loop-34 s8)',
+  },
   { file: 'apps/galaxy/src/ask/prices.ts', literal: MODEL_ID, sample: 'claude-sonnet-4-6', reason: 'the price table is keyed by model id' },
   { file: 'apps/galaxy/src/ask/classify.ts', literal: MODEL_ID, sample: 'anthropic/claude-haiku-4.5', reason: 'the model the classifier calls, by its id' },
   { file: 'apps/galaxy/src/business/suggest.ts', literal: MODEL_ID, sample: 'anthropic/claude-haiku-4.5', reason: 'the model the suggestion calls, by its id' },
