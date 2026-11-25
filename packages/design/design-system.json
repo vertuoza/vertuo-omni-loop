@@ -1247,6 +1247,32 @@
     },
     {
       "do": [
+        "Pass the one state the save is in.",
+        "Hand it onSave and onRetry: it loads and stores nothing itself."
+      ],
+      "dont": [
+        "Show two states at once.",
+        "Say a save worked or failed with colour alone."
+      ],
+      "example": "<SettingsSaveBar state={state} onSave={save} onRetry={save} />",
+      "import": "@omni/ui",
+      "name": "SettingsSaveBar",
+      "replaces": [
+        "settings-save-bar",
+        "save-bar"
+      ],
+      "usage": "The bar that saves a settings page: it says in words whether the page is unsaved, saving, saved or failed, and a failed save offers a retry.",
+      "variants": {
+        "state": [
+          "idle",
+          "saving",
+          "saved",
+          "failed"
+        ]
+      }
+    },
+    {
+      "do": [
         "Group the settings that belong together, one SettingsRow each.",
         "Give every group a heading in words."
       ],
