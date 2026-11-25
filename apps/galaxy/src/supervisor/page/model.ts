@@ -59,7 +59,7 @@ const KIND_SPRITE: Readonly<Record<FindingKind, string>> = { stuck: 'menu-waitin
 const DONE_WORDS: Readonly<Record<Finding['state'], string>> = { open: 'Open', acted: 'Acted', dismissed: 'Not a problem', resolved: 'Resolved' };
 export const NO_CHECK = 'Raised by the Supervisor, no check fired';
 
-const isKind = (value: string | null): value is FindingKind => value !== null && (KINDS as readonly string[]).includes(value);
+const isKind = (value: string | null): value is FindingKind => KINDS.some((kind) => kind === value);
 
 /** The query of `?tab=&kind=&finding=&view=`, each unknown value read as its default. */
 export function queryOf(params: Readonly<Record<string, string | null>>): Query {
