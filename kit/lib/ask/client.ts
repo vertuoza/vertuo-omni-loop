@@ -568,7 +568,8 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     decide: ({ decision, repo, state, old, ref = null }: { decision: string; repo: unknown; state: unknown; old: unknown; ref?: unknown }) =>
       call('POST', `/api/decide/${segment(decision)}`, { body: { repo, state, old, ...(ref ? { ref } : {}) } }),
     /** PRD 3194 s2: mission `mission`'s latest record and brief as pushed, with each retro and its items, for `repo`; a 404 when the page holds none.
-     * @returns {Promise<{ mission: number, record: string, brief: string, retros: { k: number, milestone: string, content: string, items: { name: string, content: string }[] }[] }>} */
+     * Bug #3286: `open`, each product PRD the fleet's Architect escalated with open points its PM has yet to answer.
+     * @returns {Promise<{ mission: number, record: string, brief: string, retros: { k: number, milestone: string, content: string, items: { name: string, content: string }[] }[], open?: { prd: string, plan: string, points: string[] }[] }>} */
     getMission: ({ repo, mission }: { repo: string; mission: number }) =>
       call('GET', `/api/missions/brief?${new URLSearchParams({ repo, mission: String(mission) })}`),
     /** PRD 3194 s3: the numbers of the missions of `repo` whose brief names PRD `prd` (`omni ready`); an empty list when none does.

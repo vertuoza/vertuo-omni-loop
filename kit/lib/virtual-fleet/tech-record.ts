@@ -49,3 +49,16 @@ export const techRecordOf = (log: string, prd: ProductPrdId): TechRecord | null 
 
 /** The line the fleet's Architect is sent to review product PRD `prd` for mission `mission`. */
 export const techJobLine = (prd: ProductPrdId, mission: number): string => `/omni:tech-review ${prd} --mission ${String(mission)}`;
+
+/** A `plan` or `tech` decision of a mission, as far as the Architect's open points go: its kind, plan version, outcome and reasons. */
+type Decided = { kind: string; plan: string | null; outcome: string; why: readonly string[] };
+
+/**
+ * The Architect's escalation the PM has yet to answer (bug #3286), among one product PRD's `plan` and `tech` decisions in the order
+ * they were recorded: the last one that named a plan version, when it is a `tech` one escalated with open points (its `why`); null
+ * otherwise. A job that left no record names no version and answers nothing; the PM's next plan approval answers it.
+ */
+export function unansweredOf<T extends Decided>(decisions: readonly T[]): T | null {
+  const last = decisions.findLast((one) => one.plan !== null);
+  return last?.kind === 'tech' && last.outcome === 'escalated' && last.why.length > 0 ? last : null;
+}

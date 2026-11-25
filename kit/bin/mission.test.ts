@@ -237,6 +237,20 @@ describe('omni mission get and push --from (PRD 3194 s2)', () => {
     expect(existsSync(join(out, 'mission.html'))).toBe(true);
   });
 
+  it('bug #3286: writes the Architect\'s open points the PM has yet to answer as open-points/<prd>.md, one per product PRD', async () => {
+    const { root } = checkout();
+    const out = join(root, 'export');
+    const plan = 'a'.repeat(64);
+    const open = [{ prd: 'omni-loop-29', plan, points: ['s5: confirm what it must achieve', 'the Q3 load-time budget is not answered'] }, { prd: '../nope', plan, points: ['x'] }];
+    const done = await mission(['get', '2850', '--out', out], { root, fetch: recordingFetch(() => json(200, { ...page, open })).fetch });
+    expect(done.code).toBe(0);
+    expect(readFileSync(join(out, 'open-points/omni-loop-29.md'), 'utf8')).toBe(
+      `# The Architect's open points on PRD omni-loop-29\n\nplan version: ${plan}\n\n- s5: confirm what it must achieve\n- the Q3 load-time budget is not answered\n`,
+    );
+    expect(existsSync(join(out, 'open-points/../nope.md'))).toBe(false);
+    expect(existsSync(join(root, 'nope.md'))).toBe(false);
+  });
+
   it('holds with one line when the page cannot be read, and says when it holds no such mission', async () => {
     const { root } = checkout();
     const down = () => { throw new TypeError('fetch failed'); };

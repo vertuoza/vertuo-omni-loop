@@ -1,18 +1,22 @@
 // A mission read from its page and written as plain files (PRD 3194, s2), for `omni mission get <n>`:
 // `mission.md` (its record), `mission.html` (its brief), each retro as `retros/<k>-<milestone>.md` and each
-// retro item under `outbox/`, exactly as the page holds them. The app's reply in, the files out; nothing
+// retro item under `outbox/`, exactly as the page holds them; and, for each product PRD the fleet's Architect
+// escalated with open points its PM has yet to answer, `open-points/<key>-<n>.md` (bug #3286), which the PM's
+// plan job reads. The app's reply in, the files out; nothing
 // is committed.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { MISSION_PAGE, MISSION_RECORD, parseBrief } from './brief.ts';
 import { field } from '../ask/schema.ts';
-import type { IssueNumber } from '../ids.ts';
+import { ProductPrdIdSchema, type IssueNumber } from '../ids.ts';
 
 /** A mission as the page holds it: its two files, its retros each with its items. */
 export type MissionExport = {
   record: string;
   brief: string;
   retros: Array<{ k: number; milestone: string; content: string; items: Array<{ name: string; content: string }> }>;
+  /** The Architect's open points the PM has yet to answer, per product PRD (bug #3286); none from a page that names none. */
+  open: Array<{ prd: string; plan: string; points: string[] }>;
 };
 
 const isText = (value: unknown): value is string => typeof value === 'string';
@@ -37,8 +41,22 @@ export function readExport(reply: unknown): MissionExport | null {
     });
     return [{ k: typeof k === 'number' ? k : index + 1, milestone: isText(milestone) && milestone ? milestone : 'retro', content, items }];
   });
-  return { record, brief, retros };
+  return { record, brief, retros, open: openOf(reply) };
 }
+
+/** The reply's open points: each entry naming a product PRD, its plan version and its points as text; anything else left out. */
+function openOf(reply: unknown): MissionExport['open'] {
+  return list(field(reply, 'open')).flatMap((one) => {
+    const prd = field(one, 'prd');
+    const plan = field(one, 'plan');
+    const points = list(field(one, 'points')).filter(isText);
+    return ProductPrdIdSchema.safeParse(prd).success && isText(prd) && isText(plan) && points.length > 0 ? [{ prd, plan, points }] : [];
+  });
+}
+
+/** One product PRD's open points as the file the PM reads. */
+const openFile = ({ prd, plan, points }: MissionExport['open'][number]): string =>
+  `# The Architect's open points on PRD ${prd}\n\nplan version: ${plan}\n\n${points.map((point) => `- ${point}`).join('\n')}\n`;
 
 /** The mission's folder name, `<nnnn>-<slug>`, from its number and its title. */
 export function folderName(mission: IssueNumber, record: string): string {
@@ -56,6 +74,7 @@ export function writeExport(dir: string, read: MissionExport): string[] {
     files.push([`retros/${base}.md`, retro.content]);
     for (const item of retro.items) files.push([`outbox/${base}-${safe(item.name)}`, item.content]);
   }
+  for (const one of read.open) files.push([`open-points/${one.prd}.md`, openFile(one)]);
   for (const [name, content] of files) {
     mkdirSync(dirname(join(dir, name)), { recursive: true });
     writeFileSync(join(dir, name), content);

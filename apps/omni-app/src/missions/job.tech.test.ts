@@ -187,10 +187,24 @@ describe('an Architect job with no record (AC-4)', () => {
     expect(fake.productJobs()).toEqual([]);
   });
 
-  it('an escalated review names the Architect\'s open points, and a person\'s approval on the page sends the build', async () => {
-    const { fake, run } = await planned();
+  // AC-4, changed by bug #3286 (the owner's decision): the Architect's open points go back to the PM first, and a person gets the PRD
+  // only once the Architect still escalates the version the PM answered with.
+  it('an escalated review sends the PM again with the Architect\'s open points; a person gets it once the Architect still escalates, and their approval on the page sends the build', async () => {
+    const { fake, run, sentences } = await planned();
     fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(A, { open: ['the export needs a person to pick its retention'], outcome: 'escalated' }));
     await run();
+    expect(fake.pms()).toHaveLength(3);
+    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: it answers the Architect\'s open points on PRD omni-loop-31.');
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+
+    // The PM answered with a new version of its spec and plan, and approved it: the Architect reviews it, and still escalates.
+    fake.setProduct(P31, { plan: B });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(B));
+    await run();
+    expect(fake.techJobs()).toHaveLength(2);
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(B, { open: ['the export needs a person to pick its retention'], outcome: 'escalated' }));
+    await run();
+    expect(fake.pms()).toHaveLength(3);
     expect(fake.mission().waitingOn).toContain('the Architect left it to you: the export needs a person to pick its retention');
     expect(fake.productJobs()).toEqual([]);
     fake.setProduct(P31, { approval: 'standing' });

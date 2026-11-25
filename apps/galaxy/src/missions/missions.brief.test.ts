@@ -15,6 +15,9 @@ const RETRO = {
   items: [{ number: 1, target: 'BR-PRODUCT-1', wording: 'Say it twice.', evidence: ['PRD 8 stalled.'], answer: null, note: null }],
 };
 
+/** The database in memory each served deps reads. */
+const DBS = new WeakMap<MissionsDeps, ReturnType<typeof fakeMissionsDb>>();
+
 function served(person: typeof ADA | null) {
   const db = fakeMissionsDb();
   db.pages.set(RUNNING, { record: RECORD, brief: BRIEF });
@@ -29,6 +32,7 @@ function served(person: typeof ADA | null) {
     bearer: (header) => Promise.resolve(header === null || person === null ? null : { caller: person, reader: db.reader(person) }),
     log: () => undefined,
   };
+  DBS.set(deps, db);
   return deps;
 }
 const get = (path: string, authorization: string | null = 'Bearer t') =>
@@ -46,7 +50,25 @@ describe('GET /api/missions/brief', () => {
         content: '# Mission retro\n\n## What went well\n\n- PRD 7 merged. (PRD 7)\n\n## What to change\n\n- PRD 8 stalled. (PRD 8)\n',
         items: [{ name: '1.md', content: '# Item 1\n\n## Target\n\nBR-PRODUCT-1\n\n## Wording\n\nSay it twice.\n\n## Evidence\n\n- PRD 8 stalled.\n' }],
       }],
+      open: [],
     });
+  });
+
+  it('bug #3286: answers the Architect\'s open points the PM has yet to answer, one entry per product PRD, none once the PM approved again', async () => {
+    const A = 'a'.repeat(64);
+    const B = 'b'.repeat(64);
+    const deps = served(ADA);
+    const db = DBS.get(deps);
+    db?.decisions.set(RUNNING, [
+      { kind: 'plan', prd: 'omni-loop-28', plan: A, outcome: 'approved', why: [] },
+      { kind: 'tech', prd: 'omni-loop-28', plan: A, outcome: 'escalated', why: ['the PM must confirm the package'] },
+      { kind: 'plan', prd: 'omni-loop-28', plan: null, outcome: 'escalated', why: ['no record of the plan approval'] },
+      { kind: 'plan', prd: 'omni-loop-29', plan: A, outcome: 'approved', why: [] },
+      { kind: 'tech', prd: 'omni-loop-29', plan: A, outcome: 'escalated', why: ['s5 is unclear'] },
+      { kind: 'plan', prd: 'omni-loop-29', plan: B, outcome: 'approved', why: [] },
+    ]);
+    const res = await readMissionBrief(get('brief?repo=acme/shop&mission=42'), deps);
+    expect((await res.json() as { open: unknown }).open).toEqual([{ prd: 'omni-loop-28', plan: A, points: ['the PM must confirm the package'] }]);
   });
 
   it('AC-6: answers 404 to another workspace\'s member and to a mission that does not exist', async () => {
