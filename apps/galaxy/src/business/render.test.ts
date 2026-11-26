@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { prerender } from 'react-dom/static';
+import { describe, expect, it, vi } from 'vitest';
 import type { Claim, Product } from './model';
 import { businessReducer, initialBusinessState, type BusinessAction } from './state';
 import { BusinessScreen, DEMO_CLAIMS, DEMO_PRODUCTS, DEMO_QUESTIONS, DEMO_TOKENS, type BusinessScreenView } from './BusinessScreen';
 import type { AgentQuestion } from '../agent-connect/questions/model';
+import type { AgentQuestionsProps } from '../agent-connect/questions/AgentQuestions';
+import type { ConnectAgentProps } from '../agent-connect/tokens/ConnectAgent';
 import {
   ANSWER_ONCE, DISMISS, NO_QUESTIONS, QuestionsCard, QUESTIONS_TITLE, SAVE_ANSWER,
 } from '../agent-connect/questions/QuestionsCard';
@@ -18,6 +21,7 @@ import { dayLabel, type AgentToken } from '../agent-connect/tokens/model';
 import { initialTokensState, tokensReducer, type TokensAction } from '../agent-connect/tokens/state';
 import { ADD_PRODUCT, ADD_RIVAL, BusinessView, DRAFT, PRODUCT_NAME, SKIP, SKIPPED, TRY_LINE } from './BusinessView';
 import { sure } from '../arcade/test/sure';
+import { STREAM_FAILED } from '../skeleton/Streamed';
 
 // Settings → Business as the server renders it (PRD 748 s2): the empty page (the sentence with its
 // blanks, the picks, Skip), a filled one (the sentence as the title, a row per claim with its id,
@@ -575,5 +579,46 @@ describe('Questions agents couldn’t answer (PRD 855 s3)', () => {
     expect(card([ask()])).toContain('class="agent-question-file"');
     // The form is the Business page's own, which wraps.
     expect(card([ask()], [{ type: 'answer', id: 'q-1' }])).toContain('class="business-type agent-question-answer"');
+  });
+});
+
+describe('the agents\' sections stream in (omni-loop-29 s2)', () => {
+  const CLAIMS = { kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS } as const;
+  const questionsOf = (): AgentQuestionsProps => ({ source: { kind: 'demo', lastSeq: 5 }, questions: DEMO_QUESTIONS, products: DEMO_PRODUCTS });
+  const settled = async (view: BusinessScreenView) => {
+    const { prelude } = await prerender(createElement(BusinessScreen, { view }));
+    return new Response(prelude).text();
+  };
+
+  it('AC-2: renders the claims with both sections still pending, a skeleton in each place', () => {
+    const never = <T,>(): Promise<T> => new Promise<T>(() => {});
+    const html = renderToStaticMarkup(createElement(BusinessScreen, {
+      view: { ...CLAIMS, agents: never<ConnectAgentProps>(), questions: never<AgentQuestionsProps>() },
+    }));
+    expect(text(html)).toContain(ADD_PRODUCT);
+    expect(html).toContain('aria-busy="true"');
+    expect(text(html)).toContain('Loading the agents’ questions');
+    expect(text(html)).toContain('Loading your agent links');
+    expect(html).not.toContain('agent-connect');
+    expect(text(html)).not.toContain(QUESTIONS_TITLE);
+  });
+
+  it('draws each section once its read resolves', async () => {
+    const out = await settled({
+      ...CLAIMS, agents: Promise.resolve({ source: { kind: 'demo' }, tokens: DEMO_TOKENS }), questions: Promise.resolve(questionsOf()),
+    });
+    expect(out).toContain('class="ask-card agent-connect"');
+    expect(text(out)).toContain(QUESTIONS_TITLE);
+    expect(out).not.toContain('aria-busy');
+  });
+
+  it('a read that fails shows its section\'s failure and leaves the claims as they were', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const out = await settled({ ...CLAIMS, agents: Promise.reject(new Error('down')), questions: Promise.resolve(questionsOf()) });
+    expect(out).toContain(STREAM_FAILED);
+    expect(text(out)).toContain(ADD_PRODUCT);
+    expect(text(out)).toContain(QUESTIONS_TITLE);
+    expect(out).not.toContain('class="ask-card agent-connect"');
+    error.mockRestore();
   });
 });

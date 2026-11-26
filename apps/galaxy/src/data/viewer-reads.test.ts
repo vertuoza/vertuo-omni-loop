@@ -31,14 +31,14 @@ describe('who is looking, read once', () => {
 
   it.each([
     'app/app/layout.tsx', 'app/prd/layout.tsx', 'app/app/page.tsx', 'app/app/workspace/page.tsx', 'app/app/fleet/page.tsx',
-    'app/app/settings/fleets/page.tsx', 'app/prd/at/[owner]/[repo]/[n]/page.tsx',
+    'app/app/settings/fleets/page.tsx', 'app/app/settings/business/page.tsx', 'app/prd/at/[owner]/[repo]/[n]/page.tsx',
   ])('%s reads the person through viewer()', (path) => {
     expect(read(path)).toMatch(/\bviewer(Live)?\(\)/);
   });
 
   it.each([
     ['app/app/engineering/page.tsx', 'memberSession'], ['app/app/settings/repositories/page.tsx', 'memberSession'],
-    ['app/app/settings/business/page.tsx', 'memberSession'], ['app/prd/page.tsx', 'dossierSession'],
+    ['app/prd/page.tsx', 'dossierSession'],
   ])('%s reads the person through %s, itself read through viewer()', (path, gate) => {
     expect(read(path)).toMatch(new RegExp(`\\b${gate}\\(`));
   });
