@@ -182,3 +182,41 @@ describe('at Works alone, the fleet\'s committee answers a product PRD\'s high i
     expect(fake.mission().waitingOn ?? '').toContain('s1-03-add-the-dns-record is a human-action item: only a person can act on it');
   });
 });
+
+// Bug #3369: mission #3319's omni-loop-28 had 4 builds that ended on its red gate before the committee existed (runs 1 to 4), then
+// the committee answered its open item with option A, and the mission waited for a person: those 4 reds counted as the build sent
+// again after the fleet answered. Only a build sent after the committee answered, ending red again, sends the PRD to a person.
+async function redFourTimesThenAnswered() {
+  const fake = fakeMissionStore({ mission: record, facts: [], products: [{ ...product, items: { ranks: [], open: [] } }] });
+  const joins: MissionJoins = { read: () => Promise.resolve(targetPull(false)), merge: () => Promise.resolve({ ok: true }), targets: () => Promise.resolve([{ repo: 'demo-org/widgets', pr: parsePr(3303) }]) };
+  const run = () => missionHandler({ store: fake.store, branches, joins, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
+  await run();
+  for (let ended = 1; ended <= 4; ended += 1) {
+    if (ended === 4) fake.setProduct(P28, { items: product.items });
+    fake.endProduct(P28, { status: 'done', outcome: null }, RED);
+    await run();
+  }
+  expect(fake.productJobs().map(({ key }) => key)).toEqual([1, 2, 3, 4].map((n) => `mission:${ID}:prd:${P28}:run:${String(n)}`));
+  expect(fake.asks().map(({ line }) => line)).toEqual([ASK]);
+  fake.endAsk(ITEM, { status: 'done' }, CARRIED);
+  await run();
+  return { fake, run };
+}
+
+describe('the builds that ended on the red gate before the committee answered count for nothing (bug #3369)', () => {
+  it('sends run 5 once the committee answered, not a person, though runs 1 to 4 ended red before it', async () => {
+    const { fake } = await redFourTimesThenAnswered();
+    expect(fake.events().filter((one) => one.kind === 'decided').map((one) => one.sentence)).toEqual([expect.stringContaining(`The committee answered ${ITEM} of PRD omni-loop-28 with option A`)]);
+    expect(fake.productJobs().map(({ key, line }) => [key, line]).at(-1)).toEqual([`mission:${ID}:prd:${P28}:run:5`, BUILD]);
+    expect(fake.mission().waitingOn ?? '').not.toContain('its gate stayed red once the fleet answered its items');
+  });
+
+  it('waits for a person once run 5, sent after the committee answered, ends red again', async () => {
+    const { fake, run } = await redFourTimesThenAnswered();
+    expect(fake.productJobs()).toHaveLength(5);
+    fake.endProduct(P28, { status: 'done', outcome: null }, RED);
+    await run();
+    expect(fake.productJobs()).toHaveLength(5);
+    expect(fake.mission().waitingOn ?? '').toContain('PRD omni-loop-28: its gate stayed red once the fleet answered its items, and its build was sent again once already');
+  });
+});
