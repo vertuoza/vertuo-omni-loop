@@ -23,3 +23,9 @@ A product PRD's build that its runner lost (failed with reason `runner lost`, `t
 ## Mutation
 
 mutation: no changed core file against origin/main (f36bd747): nothing to mutate
+
+## Still open
+
+- omni bug ci fails with gh failed: no output when a CI job's log is over 1 MB: its gh call has no maxBuffer, so Node throws ENOBUFS (seen on the supabase check job of #3331).
+- A repository PRD's step its runner lost with no automatic resume (a plan repository's /omni:ultra-yolo <n>, or a third loss) still goes to repair as a failure; only product PRD builds are sent again.
+- omni runner log does not point at a lost job's saved work (its checkpoint): /omni:repair reads the line, status, reason and log tail, and the work GitHub holds.
