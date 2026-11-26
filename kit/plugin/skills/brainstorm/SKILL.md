@@ -440,10 +440,10 @@ CLI, never from a blank file, in this order:
     - **Functional** (`data-section="functional"`): today beside after, in product words: the
       journey, what the person sees or gets, no identifier a product reader would not use. Every
       PRD has it. No screen is drawn here: a marked screen in this tab is refused.
-  - **Technical** (`technical`): **Flow** (`data-section="flow"`, once: a Mermaid
-    `sequenceDiagram` or `flowchart` of the exchange between services, each datastore and third
-    party named) and **Deploy order** (`data-section="deploy"`, once: the order services and
-    migrations ship in), then one block per service, headed by its name and a role badge
+  - **Technical** (`technical`): **Flow** (`data-section="flow"`, once: one to three Mermaid
+    diagrams of the exchanges between services, drawn as **The Flow diagrams** below says) and
+    **Deploy order** (`data-section="deploy"`, once: the order services and migrations ship in),
+    then one block per service, headed by its name and a role badge
     (`BACK-END`, `FRONT-END`, `DATABASE`, `CLI`…), with three sections:
     - **Database** (`db`): a Mermaid `erDiagram` of the tables created, altered or dropped, only the
       columns the design names, each marked `+ added`, `- dropped` or `~ altered · was <old>`; per
@@ -468,6 +468,19 @@ CLI, never from a blank file, in this order:
   an input field, changes an output's nullability, or adds a required argument or input field. A
   deprecation never is. The repository's conventions pages may make the rule stricter, never
   looser: follow them and say under the table which page you followed.
+- **The Flow diagrams:** one Mermaid `sequenceDiagram` per scenario the design changes (a person's
+  action, a cron, a webhook), three at most, each answering one question. Two things that happen at
+  different times, such as a setting saved and the same setting read later, are two diagrams. A
+  `flowchart` only for decision logic.
+  - **Participants** are people, apps, deployable services and third parties: what a service owner
+    would draw on a whiteboard. A datastore is one only when its owner is not the service that reads
+    it, or when the design changes who reads or writes it. Never a class, a table or a column: those
+    belong to a diagram of the inside of one service, never mixed with a cross-service one. Seven
+    participants at most.
+  - **Messages** are contracts or product intents: a query, a mutation, an event name, "choose the
+    client scope". No column, SQL, null convention or flag internals. Fifteen messages at most.
+  - **Rules and branches:** a business rule is a `Note`, a branch is `alt`/`else`, never a clause
+    packed into an arrow label. A reader who does not know the code reads every arrow.
 - **Three states.** Every `data-section` carries `data-state`: `filled` (the design covers it: the
   content), `na` (the change does not touch it: `N/A — <one-line reason>`) or `gap` (it applies and
   the design does not settle it: `To settle — <what is missing, one line>`). A service whose `db`,
