@@ -22,4 +22,4 @@ The seat's think starts Claude Code in `~/.omni-supervisor`, a folder of its own
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (d0b7fd5e): nothing to mutate
