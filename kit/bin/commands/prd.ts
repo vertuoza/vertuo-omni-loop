@@ -17,6 +17,9 @@
 // product PRD's (`mobile-12`), which lives on the Omni page and in no repository (`./prd-product.ts`).
 // `--show <kind>` prints a product PRD's latest spec, plan, before-after or voice, read-only. Anything
 // else is refused by name (`mobile`, `12-mobile`, `Mobile-12`), exit 2.
+//
+// Bug #3371: `--landed-in <ref>` (a product PRD's only, with `--repo` and `--clone`) says whether its merged work is in `<ref>`, read
+// from its merged pull requests and never from its page state (`./prd-landed.ts`).
 import { prdState } from '../../lib/approval/prd-state.ts';
 import { loadContext } from '../../lib/context.ts';
 import { isPrdKind, PRD_KINDS } from '../../lib/dossier/product-prd.ts';
@@ -26,9 +29,10 @@ import type { GateOptions } from '../../lib/delivery/prd.ts';
 import { isProductPrdId, parsePrdId } from '../../lib/ids.ts';
 import { parseArgs, prdArg, println, usageError } from '../args.ts';
 import type { FreeCommand, FreeIo } from '../io.ts';
+import { productLanded, type LandedArgs } from './prd-landed.ts';
 import { productPrd } from './prd-product.ts';
 
-const USAGE = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join('|')}> | --json]`;
+const USAGE = `usage: omni prd <n> | omni prd <key>-<n> [--show <${PRD_KINDS.join('|')}> | --json | --landed-in <ref> [--repo <owner/repo>] [--clone <dir>]]`;
 
 /** `<n>` read as a PRD's id, or the usage error that names it. A value with no letter at its start and
  * no hyphen is a number or nothing, refused as `prdArg` refuses one (bug #571). */
@@ -42,24 +46,43 @@ function idArg(value: string | undefined) {
   }
 }
 
+/** What `--landed-in` asks (bug #3371), a product PRD's only and alone; null without it. */
+function landedArgs(id: ReturnType<typeof idArg>, flags: { 'landed-in'?: string; repo?: string; clone?: string; show?: string; json?: true }): LandedArgs | null {
+  const { 'landed-in': ref, repo, clone, show, json } = flags;
+  if (ref === undefined) {
+    if (repo !== undefined || clone !== undefined) throw usageError(USAGE);
+    return null;
+  }
+  if (!isProductPrdId(id) || show !== undefined || json !== undefined) throw usageError(USAGE);
+  return { id, ref, repo: repo ?? null, clone: clone ?? null };
+}
+
 /** The PRD the arguments name, and the kind `--show` asks for: a product PRD's only. */
 function readArgs(args: string[]) {
-  const { positional, flags } = parseArgs('prd', args, { values: ['show'], booleans: ['json'] });
+  const { positional, flags } = parseArgs('prd', args, { values: ['show', 'landed-in', 'repo', 'clone'], booleans: ['json'] });
   if (positional.length !== 1) throw usageError(USAGE);
   const id = idArg(positional[0]);
+  const landed = landedArgs(id, flags);
+  if (landed !== null) return { id, kind: null, json: false, landed };
+  return { id, ...showArgs(id, flags) };
+}
+
+/** The kind `--show` asks for and whether `--json` is given: a product PRD's only, never both. */
+function showArgs(id: ReturnType<typeof idArg>, flags: { show?: string; json?: true }) {
   const kind = flags.show ?? null;
   const json = flags.json === true;
   if (json && (kind !== null || !isProductPrdId(id))) throw usageError(USAGE);
-  if (kind === null) return { id, kind, json };
+  if (kind === null) return { kind, json };
   if (!isProductPrdId(id) || !isPrdKind(kind)) throw usageError(USAGE);
-  return { id, kind, json };
+  return { kind, json };
 }
 
 export const prd = {
   withoutContext: true,
   async run(args: string[], { cwd, stdout, stderr, exec, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }: FreeIo & GateOptions & { now?: () => number }) {
-    const { id, kind, json } = readArgs(args);
+    const { id, kind, json, landed } = readArgs(args);
     const ctx = loadContext(cwd, { exec });
+    if (landed) return productLanded(landed, { ctx, exec, stdout });
     if (isProductPrdId(id)) return productPrd(id, kind, { ctx, exec, stdout, stderr, tokens, home, fetch, callMs, now }, json);
     const where = whereIs(ctx, id);
     if (!where) {
