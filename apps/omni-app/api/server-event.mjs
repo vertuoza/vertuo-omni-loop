@@ -24117,9 +24117,8 @@ function escalatedWords(prd, decision) {
 var spentWords2 = (prd) => `${roundsSpentWords(prd)} in ${String(ROUNDS2)} rounds; approve it on its page`;
 var decidedOf = (mine, kind) => mine.filter((one) => one.kind === kind && one.plan !== null).length;
 function failsInRow(mine, kind) {
-  const ofKind = mine.filter((one) => one.kind === kind);
-  const lastDecided = ofKind.findLastIndex((one) => one.plan !== null);
-  return ofKind.length - 1 - lastDecided;
+  const lastDecided = mine.findLastIndex((one) => one.plan !== null);
+  return mine.slice(lastDecided + 1).filter((one) => one.kind === kind).length;
 }
 function planWith(open, again3) {
   return open === null ? { state: "plan", again: again3 } : { state: "plan", again: true, points: open.why };
@@ -24127,9 +24126,14 @@ function planWith(open, again3) {
 function afterEscalated(view, mine, last) {
   if (view.approval === "standing") return { state: "build" };
   const open = unansweredOf(mine);
-  if (last.plan === null && failsInRow(mine, last.kind) < FAILS) return last.kind === "plan" ? planWith(open, true) : { state: "tech", k: view.techs.length + 1 };
-  if (last.plan !== null && open !== null && decidedOf(mine, "plan") < ROUNDS2) return planWith(open, true);
-  return { state: "waits", why: escalatedWords(view.prd, open ?? last) };
+  const rounds = decidedOf(mine, "plan") < ROUNDS2;
+  const again3 = last.plan === null ? afterNoRecord(view, mine, last.kind, open, rounds) : open !== null && rounds ? planWith(open, true) : null;
+  return again3 ?? { state: "waits", why: escalatedWords(view.prd, open ?? last) };
+}
+function afterNoRecord(view, mine, kind, open, rounds) {
+  const fails = failsInRow(mine, kind);
+  if (fails < FAILS) return kind === "plan" ? planWith(open, true) : { state: "tech", k: view.techs.length + 1 };
+  return kind === "tech" && rounds ? { ...planWith(open, true), techFailed: fails } : null;
 }
 function reviewStateOf(view) {
   const all = view.decisions.filter((one) => one.prd === view.prd);
@@ -24161,13 +24165,14 @@ var isRetry = (prd, decisions) => {
   return last?.outcome === "escalated" && last.plan === null;
 };
 function planSentence(prd, line3, state, wrote) {
+  if (state.techFailed !== void 0) return `Sent the PM ${line3} again: the Architect's last ${String(state.techFailed)} reviews of PRD ${prd} left no record, so the PM approves its latest plan version again before the Architect reviews it again.`;
   if (state.unnamed === true) return `Sent the PM ${line3} again: the plan of PRD ${prd} names no repository, so it writes its ## Repositories table before the build.`;
   if (state.sentBack === true) return `Sent the PM ${line3} again: a person sent PRD ${prd} back to it${state.points === void 0 ? "" : ", with the Architect's open points"}.`;
   if (state.points !== void 0) return `Sent the PM ${line3} again: it answers the Architect's open points on PRD ${prd}.`;
   return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}${wrote ? ", which it wrote," : " of the mission's scope"} and approves its plan.`;
 }
 function reviewDispatched(prd, job, line3, state, { retry = false, wrote = true } = {}) {
-  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state, wrote);
+  const sentence2 = retry && !(state.state === "plan" && state.techFailed !== void 0) ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state, wrote);
   return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
 }
 
