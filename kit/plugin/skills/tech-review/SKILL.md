@@ -158,8 +158,12 @@ nobody sends it by hand. The steps above run with these differences.
   coding choice the code and the forms do not settle) is a line of `open`, and changes nothing.
 - **Where the PRD stands.** In place of step 1's PRD rows (the login, the board and the approval
   read a repository's PRD, and the fleet's Architect signs, never a person):
-  `node .omni-loop/bin/omni.mjs prd <key>-<n>`. A `state:` other than `inbox` (`drifted`,
-  `unreachable`) prints its line and stops, with no record.
+  `node .omni-loop/bin/omni.mjs prd <key>-<n>`. Only `unreachable` stops: it prints its line and
+  stops, with no record. Every other `state:` is reviewed, and `drifted` is reviewed as `inbox` (bug
+  #3326): a mission sends this review before the fleet approves the PRD, once the PM approved its
+  latest plan version, so the PRD reads `prd` before any approval, and `drifted` once that newer
+  version voided an earlier approval (BL-APPROVALS-1). The review reads, and its record names, the
+  latest plan version on the page, whatever the approval says.
 - **Read before you decide.** In place of step 2's checkout: `node .omni-loop/bin/omni.mjs dossier get <key>-<n> spec`,
   then `dossier get <key>-<n> plan` and `dossier get <key>-<n> before-after` (its **Technical** tab),
   each printing a scratch file's path and its sha256. When `dossier get <key>-<n> plan` prints no

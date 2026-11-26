@@ -136,8 +136,12 @@ feature PR, no before/after page and no hand-off to `/omni:ultra-yolo`. The spec
 rewritten: this run never changes the spec, the before/after page or the voice, save to answer the
 Architect's open points on a PRD the mission's PM wrote (**The Architect's open points** below).
 
-1. **Read where the PRD stands:** `node .omni-loop/bin/omni.mjs prd <key>-<n>`. A `state:` other than
-   `inbox` (`drifted`, `unreachable`) writes nothing: print its line and stop.
+1. **Read where the PRD stands:** `node .omni-loop/bin/omni.mjs prd <key>-<n>`. Without `--mission`, a
+   `state:` other than `inbox` (`drifted`, `unreachable`) writes nothing: print its line and stop.
+   Under `--mission`, only `unreachable` stops (bug #3326): every other state is planned, and
+   `drifted` is planned as `inbox`, since the PM's own newer plan version voids an earlier approval
+   (BL-APPROVALS-1) and the fleet approves the PRD again from the PM's record and the Architect's
+   review on the latest version.
 2. **Read its spec:** `node .omni-loop/bin/omni.mjs dossier get <key>-<n> spec`, which writes a
    scratch file and prints its path. When the PRD has no spec on its page (the command prints no
    file), stop in exactly one line, before anything is written:
@@ -229,7 +233,7 @@ omni plan: {"v":1,"prd":"<key>-<n>","plan":"<sha256>","outcome":"approved"}
 
 The Omni app reads it from the job's log, as the service, and records the PM's approval of that
 plan version; it ignores it for a PRD a person wrote, which its committee approves. A run that
-stops before the push (a `state:` other than `inbox`, no spec, a plan that needs a changed spec)
+stops before the push (a state step 1 stops on, no spec, a plan that needs a changed spec)
 prints no record, and nothing is approved.
 
 The scratch folder is deleted when the skill ends, as step 0 says.

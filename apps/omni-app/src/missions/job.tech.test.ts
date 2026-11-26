@@ -166,7 +166,9 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
 });
 
 describe('an Architect job with no record (AC-4)', () => {
-  it('AC-4: records the tech decision escalated with "no record of the tech review", sends the Architect again, and a person gets the PRD once its two rounds left no record', async () => {
+  // AC-4, changed by bug #3326: once two reviews in a row left no record, the PM approves the latest version again before one more
+  // pair of reviews, while its rounds last; a person gets the PRD only once those left no record too.
+  it('AC-4: records the tech decision escalated with "no record of the tech review", sends the Architect again, then the PM, and a person gets the PRD once the PM\'s rounds left no record', async () => {
     const { fake, run, sentences } = await planned();
     const cut = '12:20:00 Done\nomni tech: {"v":1,"prd":"omni-loop-31","pl';
     fake.endTech(P31, { status: 'done', outcome: 'ready' }, cut);
@@ -180,10 +182,24 @@ describe('an Architect job with no record (AC-4)', () => {
 
     fake.endTech(P31, { status: 'failed', outcome: null });
     await run();
+    expect(fake.pms()).toHaveLength(3);
+    expect(sentences('dispatched').at(-1)).toBe("Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: the Architect's last 2 reviews of PRD omni-loop-31 left no record, so the PM approves its latest plan version again before the Architect reviews it again.");
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(A));
+    await run();
+    expect(fake.techJobs()).toHaveLength(3);
+    fake.endTech(P31, { status: 'failed', outcome: null });
+    await run();
+    await run();
+    expect(fake.techJobs()).toHaveLength(4);
+    fake.endTech(P31, { status: 'failed', outcome: null });
+    await run();
     await run();
     expect(fake.mission()).toMatchObject({ status: 'waiting' });
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you: no record of the tech review');
-    expect(fake.techJobs()).toHaveLength(2);
+    expect(fake.techJobs()).toHaveLength(4);
+    expect(fake.pms()).toHaveLength(3);
     expect(fake.productJobs()).toEqual([]);
   });
 

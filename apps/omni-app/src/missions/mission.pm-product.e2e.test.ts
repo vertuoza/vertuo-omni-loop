@@ -235,20 +235,31 @@ describe('a goal-only mission whose PM writes product PRDs on Omni, reviewed by 
     ]);
 
     // A job that left no record decided nothing (bug #3281): the Architect is sent again, once; its second job left none either, so
-    // the PRD waits on a person, with no build and no PM job.
+    // the PM approves the latest version again, once (bug #3326), and the Architect gets two more reviews; those left none either,
+    // so the PRD waits on a person, with no build.
     await run();
     expect(fake.techJobs()).toHaveLength(4);
+    fake.endTech(P33, { status: 'failed', outcome: null });
+    await run();
+    expect(fake.pms()).toHaveLength(5);
+    endPm(planOnly(P33), approvedPlan(P33, version(P33, 'a')));
+    await run();
+    expect(fake.techJobs()).toHaveLength(5);
+    fake.endTech(P33, { status: 'failed', outcome: null });
+    await run();
+    await run();
+    expect(fake.techJobs()).toHaveLength(6);
     fake.endTech(P33, { status: 'failed', outcome: null });
     await run();
     await run();
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-33: the Architect left it to you: no record of the tech review');
 
-    // It stays so: no third review, no build, no PM job, nothing more written, until a person approves it on its page.
+    // It stays so: no more review, no build, no PM job, nothing more written, until a person approves it on its page.
     const sent = writes().length;
     await run();
-    expect(fake.techJobs()).toHaveLength(4);
+    expect(fake.techJobs()).toHaveLength(6);
     expect(fake.productJobs()).toHaveLength(2);
-    expect(fake.pms()).toHaveLength(4);
+    expect(fake.pms()).toHaveLength(5);
     expect(fake.committees()).toEqual([]);
     expect(writes()).toHaveLength(sent);
     fake.setProduct(P33, { approval: 'standing' });
