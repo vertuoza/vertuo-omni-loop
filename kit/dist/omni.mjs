@@ -70777,6 +70777,11 @@ function lastAnswer(log) {
 function lastLine5(log) {
   return (log.split("\n").map((line3) => line3.trim()).filter((line3) => line3 !== "" && !HOOK_FAILED.test(line3)).at(-1) ?? "").replace(STAMP2, "");
 }
+function ultraOutcome(log, args) {
+  const prd2 = args.trim().split(/\s+/)[0] ?? "";
+  const words6 = lastLine5(log).replaceAll("`", "").trim().split(/\s+/);
+  return prd2 !== "" && words6[0] === "/omni:mega-pr-care" && words6[1] === prd2 ? "ready" : null;
+}
 function fixIssueOf(args) {
   const match = /^(?:#?|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)([1-9]\d*)$/.exec(args.trim());
   return match?.[1] === void 0 ? null : parseIssue(match[1]);
@@ -72207,6 +72212,7 @@ function outcomeOf3(log, line3) {
     const issue2 = fixIssueOf(args);
     return issue2 === null ? null : fixOutcome(log, issue2);
   }
+  if (checked5.skill === "ultra-yolo" || checked5.skill === "ultra-yolo-fix") return ultraOutcome(log, args);
   if (!isHandOffSkill(checked5.skill)) return null;
   const prd2 = handOffPrd(args);
   return prd2 === null ? null : runOutcome(log, prd2, checked5.skill);

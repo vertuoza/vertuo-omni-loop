@@ -110,7 +110,7 @@ import { forgetGithubToken, githubCliDir, githubTokenFile, jobTokens, maskTokens
 import { checkRunnerLine, missionRefusal } from './line.ts';
 import { tokenSource } from './tokens.ts';
 import type { TokenSource } from './tokens.ts';
-import { bugFixReading, fixIssueOf, fixOutcome, handOffPrd, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome } from './log.ts';
+import { bugFixReading, fixIssueOf, fixOutcome, handOffPrd, lastPullRequest, linesAfter, logTail, reportBatch, runOutcome, ultraOutcome } from './log.ts';
 import type { BugFixReading, HandOffSkill, RunOutcome } from './log.ts';
 import { pluginKeeper } from './plugin.ts';
 import { handoffPath, partsPath, readParts } from './turnover.ts';
@@ -710,7 +710,8 @@ const isHandOffSkill = (skill: string): skill is HandOffSkill => skill === 'yolo
 /**
  * What a `/omni:yolo`, `/omni:yolo-fix` or `/omni:review` job's hand-off ended on (PRDs 2223 and 2871), its
  * PRD read with or without `--for-review`, `stopped` with none (PRD 2375); `stopped` for a `/omni:mega-bug-fix`
- * job of an issue whose hand-off ends on the line that resumes it; `null` for any other job.
+ * job of an issue whose hand-off ends on the line that resumes it; `ready` for an `/omni:ultra-yolo` or
+ * `/omni:ultra-yolo-fix` job that ended on `/omni:mega-pr-care <its PRD>` (bug #3373); `null` for any other job.
  */
 function outcomeOf(log: string, line: string): RunOutcome | null {
   const checked = checkRunnerLine(line);
@@ -720,6 +721,7 @@ function outcomeOf(log: string, line: string): RunOutcome | null {
     const issue = fixIssueOf(args);
     return issue === null ? null : fixOutcome(log, issue);
   }
+  if (checked.skill === 'ultra-yolo' || checked.skill === 'ultra-yolo-fix') return ultraOutcome(log, args);
   if (!isHandOffSkill(checked.skill)) return null;
   const prd = handOffPrd(args);
   return prd === null ? null : runOutcome(log, prd, checked.skill);

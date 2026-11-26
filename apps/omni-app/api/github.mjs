@@ -25584,16 +25584,18 @@ function heldOnOf(log2, prd) {
   return [];
 }
 function endedOf(attempt3, log2, prd) {
+  if (endsOn(log2, "/omni:mega-pr-care", prd)) return { ...attempt3, outcome: "ready" };
   const heldOn = heldOnOf(log2, prd);
   const red = gateRedOf(log2, prd);
   return { ...attempt3, ...heldOn.length === 0 ? {} : { heldOn }, ...red ? { gateRed: true } : {} };
 }
 var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
-function gateRedOf(log2, prd) {
+function endsOn(log2, command, prd) {
   const last = log2.split("\n").map((line3) => line3.trim()).filter((line3) => line3 !== "" && !HOOK_FAILED.test(line3)).at(-1) ?? "";
   const words = last.replace(STAMP5, "").replaceAll("`", "").trim().split(/\s+/);
-  return words[0] === "/omni:ultra-yolo-fix" && words[1] === prd;
+  return words[0] === command && words[1] === prd;
 }
+var gateRedOf = (log2, prd) => endsOn(log2, "/omni:ultra-yolo-fix", prd);
 function specBlockersOf(spec, prd) {
   const block = spec === null ? null : /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(spec);
   if (block === null) return [];

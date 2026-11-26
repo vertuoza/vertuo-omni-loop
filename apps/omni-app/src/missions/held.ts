@@ -5,6 +5,8 @@
 //                 stamp, bold and page link left out. Only PRDs of the same product, never the PRD itself
 //   gateRedOf     whether a build ended on its red gate (bug #3345): the hand-off's last line is `/omni:ultra-yolo-fix <id>`, which
 //                 /omni:ultra-yolo ends on when open items hold its gate. Its items wait for an answer: no failure, no stop mid-way
+//   endedOf       a build that ended ready (bug #3373): the hand-off's last line is `/omni:mega-pr-care <id>`, which /omni:ultra-yolo
+//                 ends on once its target PRs read ready; the runner gives an ultra-yolo job no result word, so it reads `ready` here
 //   specBlockersOf the PRDs a product PRD's spec says it is blocked by: its front matter's `blocked-by: [27, 28]` (the kit's own
 //                 field, kit/lib/schema/front-matter.ts), each a PRD of the same product
 //   heldBuildsOf  the builds sent before a PRD of the scope they wait on joined the mission branch (`early`): they built nothing it
@@ -42,8 +44,12 @@ export function heldOnOf(log: string, prd: ProductPrdId): ProductPrdId[] {
   return [];
 }
 
-/** `attempt`, a build of `prd` that ended done with no result word, with what its log `log` says it ended on: held on PRDs, or its red gate. */
+/**
+ * `attempt`, a build of `prd` that ended done with no result word, with what its log `log` says it ended on: ready (bug #3373), held on
+ * PRDs, or its red gate.
+ */
 export function endedOf(attempt: Attempt, log: string, prd: ProductPrdId): Attempt {
+  if (endsOn(log, '/omni:mega-pr-care', prd)) return { ...attempt, outcome: 'ready' };
   const heldOn = heldOnOf(log, prd);
   const red = gateRedOf(log, prd);
   return { ...attempt, ...(heldOn.length === 0 ? {} : { heldOn }), ...(red ? { gateRed: true } : {}) };
@@ -52,12 +58,15 @@ export function endedOf(attempt: Attempt, log: string, prd: ProductPrdId): Attem
 /** The line claude prints when one of the session's hooks fails, which may come after the hand-off (kit/lib/runner/log.ts). */
 const HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
 
-/** Whether build `prd`'s log ends on its red gate: its last line (stamp, backticks and a failed hook's line left out) `/omni:ultra-yolo-fix <prd>`. */
-export function gateRedOf(log: string, prd: ProductPrdId): boolean {
+/** Whether build `prd`'s log ends on `command <prd>`: its last line, stamp, backticks and a failed hook's line left out, its flags after. */
+function endsOn(log: string, command: string, prd: ProductPrdId): boolean {
   const last = log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '';
   const words = last.replace(STAMP, '').replaceAll('`', '').trim().split(/\s+/);
-  return words[0] === '/omni:ultra-yolo-fix' && words[1] === prd;
+  return words[0] === command && words[1] === prd;
 }
+
+/** Whether build `prd`'s log ends on its red gate: its last line `/omni:ultra-yolo-fix <prd>`. */
+export const gateRedOf = (log: string, prd: ProductPrdId): boolean => endsOn(log, '/omni:ultra-yolo-fix', prd);
 
 /** The PRDs product PRD `prd`'s spec says it is blocked by (`blocked-by: [27, 28]`); none when the spec or its field does not read. */
 export function specBlockersOf(spec: string | null, prd: ProductPrdId): ProductPrdId[] {

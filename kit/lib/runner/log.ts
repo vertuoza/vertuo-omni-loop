@@ -225,6 +225,17 @@ function lastLine(log: string): string {
   return (log.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !HOOK_FAILED.test(line)).at(-1) ?? '').replace(STAMP, '');
 }
 
+/**
+ * What an `/omni:ultra-yolo` or `/omni:ultra-yolo-fix` job of arguments `args` ended on (bug #3373): `ready` when its last line is
+ * `/omni:mega-pr-care <its PRD>`, backticks left out, the line it ends on once its target PRs read ready; `null` otherwise, its red
+ * gate and its held line being read from the log by the mission that sent it.
+ */
+export function ultraOutcome(log: string, args: string): RunOutcome | null {
+  const prd = args.trim().split(/\s+/)[0] ?? '';
+  const words = lastLine(log).replaceAll('`', '').trim().split(/\s+/);
+  return prd !== '' && words[0] === '/omni:mega-pr-care' && words[1] === prd ? 'ready' : null;
+}
+
 /** The plan repository's issue a `/omni:mega-bug-fix` job's arguments name (`612`, `#612` or its URL), or `null` for a description. */
 export function fixIssueOf(args: string): IssueNumber | null {
   const match = /^(?:#?|https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/)([1-9]\d*)$/.exec(args.trim());
