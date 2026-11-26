@@ -394,3 +394,21 @@ describe('#3276: a goal-only mission whose PM wrote product PRDs', () => {
     expect(read.map((one) => one.prd)).toEqual(['omni-loop-28', 'omni-loop-27', 3]);
   });
 });
+
+describe('#3320: a mission whose scope names product PRD ids', () => {
+  const mixed = { ...MISSION_ROW, id: OTHER, number: 41, repo: 'demo-org/shop', scope: { prds: [2803, 'demo-loop-28'], roadmaps: [] } };
+
+  it('reads it beside a mission scoped by numbers, and counts both kinds of PRD in its progress', async () => {
+    const view = await missionsTabService(withWaits(fakeDb([MISSION_ROW, mixed], []))).view(WORKSPACE, 'night-shift');
+    expect(view.missions.map((one) => [one.title, one.progress])).toEqual([['Pay online', '0 of 2 merged · 0 ready'], ['Pay online', '0 of 2 merged · 0 ready']]);
+  });
+
+  it('leaves out a mission row it cannot read, and shows every other mission', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const broken = { ...MISSION_ROW, id: OTHER, number: 41, scope: { prds: [{ not: 'a PRD' }], roadmaps: [] } };
+    const read = await missionsTabRepository(fakeDb([broken, MISSION_ROW], [])).missions(WORKSPACE, 'night-shift');
+    expect(read.map((one) => one.number)).toEqual([40]);
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
+});
