@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-24
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-178, P-PRODUCT-134
 
 ### The answer, as it was given
 
