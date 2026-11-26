@@ -27,6 +27,7 @@ import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type ProductRun, type MissionStatus, type RoomRunner, type PrdFacts, type Step } from './supervisor.ts';
+import { endedOf } from './held.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
 type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[]; resume: number };
@@ -126,6 +127,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const retroRows: (RetroRow & { retro: MissionRetro | null })[] = [];
   const items: (ItemRow & { retro: string })[] = [];
   const queued = (id: string): Attempt => ({ id, status: 'queued', outcome: null, reason: null, prUrl: null });
+  /** When the job made `made`th was queued (bug #3369): one second after the one before, whichever kind it is. */
+  const sentAt = (): string => new Date(NOW_OF_ASKS + made * 1000).toISOString();
 
   /** The log of job `job`: a committee's, an item's, a PM's by its job; a repair's, a stuck repair's or a retro's by any attempt. */
   const logOf = (job: string): string | null => {
@@ -208,16 +211,20 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const techs: (TechJob & { key: string; line: string; toFleet: string | null; log: string | null })[] = [];
   const planDecisions: (PlanDecision & { techApproval: boolean; approval: boolean })[] = [];
   let home: Home = seededHome ?? { phase0: 'pr', product: null };
-  const productJobs: (ProductRun & { key: string; line: string; toFleet: string | null })[] = [];
+  const productJobs: (ProductRun & { key: string; line: string; toFleet: string | null; log?: string })[] = [];
   const productStore: MissionProducts = {
     facts: (read) => Promise.resolve(productFacts.filter((one) => !pagedOnly.has(one.prd) || (read.products?.prds ?? []).includes(one.prd)).map((one) => ({ ...one, blockers: [...one.blockers], targets: [...one.targets] }))),
-    runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts }) => ({ prd, run, job, attempts: attempts.map((one) => ({ ...one })) }))),
+    // Bug #3345: a build that ended done with no result word carries what its log's held line names, and its red gate, as the store reads them.
+    runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts, log, sentAt: sent }) => ({ prd, run, job, ...(sent === undefined ? {} : { sentAt: sent }), attempts: attempts.map((one) => {
+      const read = log !== undefined && one === attempts.at(-1) && one.status === 'done' && one.outcome === null;
+      return read ? endedOf({ ...one }, log, prd) : { ...one };
+    }) }))),
     send: ({ mission: sent, prd, run, line, toFleet }) => {
       const key = missionKey(sent.id, prd, run);
       if (productJobs.some((one) => one.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      productJobs.push({ prd, run, job: id, attempts: [queued(id)], key, line, toFleet: toFleet ? sent.fleet : null });
+      productJobs.push({ prd, run, job: id, attempts: [queued(id)], key, line, toFleet: toFleet ? sent.fleet : null, sentAt: sentAt() });
       return Promise.resolve(id);
     },
     reviews: () => Promise.resolve({
@@ -312,12 +319,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (decision.outcome === 'carried') current = current.map((fact) => (fact.prd === one.prd ? { ...fact, approval: 'standing' } : fact));
       return Promise.resolve(decision);
     },
-    asks: () => Promise.resolve(asks.map(({ prd, item, job, attempt }) => ({ prd, item, job, attempt: { ...attempt } }))),
+    asks: () => Promise.resolve(asks.map(({ prd, item, job, attempt, sentAt: sent }) => ({ prd, item, job, attempt: { ...attempt }, ...(sent === undefined ? {} : { sentAt: sent }) }))),
     ask: ({ mission: sent, prd, item, toFleet }) => {
       if (asks.some((one) => one.prd === prd && one.item === item)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      asks.push({ prd, item, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, line: askLine(prd, item, sent.hardToRevert ?? DEFAULT_BOUND), toFleet: toFleet ? sent.fleet : null, log: null });
+      asks.push({ prd, item, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, line: askLine(prd, item, sent.hardToRevert ?? DEFAULT_BOUND), toFleet: toFleet ? sent.fleet : null, log: null, sentAt: sentAt() });
       return Promise.resolve(id);
     },
     approve: ({ mission: sent, prd, round, toFleet, author = null, resume = 0 }) => {
@@ -644,11 +651,13 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     },
     /** PRD omni-loop-21 s9b: the builds queued for the product PRDs, in order. */
     productJobs: () => productJobs.map((one) => ({ ...one, attempts: one.attempts.map((each) => ({ ...each })) })),
-    /** PRD omni-loop-21 s9b: the product PRD's latest build ends (or runs) as `change` says. */
-    endProduct: (prd: ProductPrdId, change: Partial<Attempt>) => {
-      const attempt = productJobs.filter((one) => one.prd === prd).at(-1)?.attempts.at(-1);
-      if (!attempt) throw new Error(`no build of PRD ${prd} was sent`);
+    /** PRD omni-loop-21 s9b: the product PRD's latest build ends (or runs) as `change` says, its log `log` when one is given (bug #3345). */
+    endProduct: (prd: ProductPrdId, change: Partial<Attempt>, log?: string) => {
+      const build = productJobs.filter((one) => one.prd === prd).at(-1);
+      const attempt = build?.attempts.at(-1);
+      if (!build || !attempt) throw new Error(`no build of PRD ${prd} was sent`);
       Object.assign(attempt, change);
+      if (log !== undefined) build.log = log;
     },
     /** PRD omni-loop-26: the Architect's reviews queued, in order. */
     techJobs: () => techs.map((one) => ({ ...one, attempt: { ...one.attempt } })),

@@ -65,22 +65,60 @@ describe('silent-job — running, its runner seen, no line for 3× the usual and
   });
 });
 
-describe('queue-stuck — queued 15 min while no online runner holding the repository can take it', () => {
+describe('queue-stuck — one finding per repository whose queued jobs no online runner can take for 15 min', () => {
   const queued = job({ status: 'queued', runnerId: null, runningAt: null, queuedAt: ago(16 * MIN), lastLineAt: null });
+  const DAY = 24 * 60 * MIN;
+  const queuedFor = (n: number, waited: number, repo = 'acme/widgets') =>
+    job({ id: `bbbbbbbb-0000-4000-8000-00000000020${String(n)}`, repo, status: 'queued', runnerId: null, runningAt: null, queuedAt: ago(waited), lastLineAt: null });
+
+  it('AC-6: 8 jobs queued for days for a repository no online runner can take make one stuck:queue-repo:<repo> finding listing the 8 jobs', () => {
+    const jobs = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => queuedFor(n, (2 + n) * DAY));
+    const fires = queueStuck(snap({ jobs, runners: [{ ...RUNNER, lastSeenAt: ago(3 * DAY) }] }));
+    expect(fires).toHaveLength(1);
+    const [fire] = fires;
+    expect(fire?.fingerprint).toBe('stuck:queue-repo:acme/widgets');
+    expect(fire?.checkLine).toBe('Queue nobody can take: 8 jobs queued up to 10 days, no online runner can take acme/widgets');
+    expect(fire?.figures).toEqual({ jobs: 8, oldestDays: 10, oldestMin: 10 * 24 * 60, runners: 1 });
+    expect(fire?.evidence.map((e) => [e.of, e.id])).toEqual([...jobs].reverse().map((j) => ['job', j.id]));
+    expect(fire?.evidenceKey).toBe(evidenceKey(jobs.map((j) => j.id).sort()));
+  });
 
   it('fires when the only runner holding the repository is offline', () => {
-    expect(lines(queueStuck, snap({ jobs: [queued], runners: [{ ...RUNNER, lastSeenAt: ago(5 * MIN) }] }))).toEqual(['Queue nobody can take: queued 16 min, no online runner can take acme/widgets']);
+    expect(lines(queueStuck, snap({ jobs: [queued], runners: [{ ...RUNNER, lastSeenAt: ago(5 * MIN) }] }))).toEqual(['Queue nobody can take: 1 jobs queued up to 0 days, no online runner can take acme/widgets']);
   });
 
   it.each([
     ['paused', { paused: 'disk under 5 GB' }],
     ['not holding the repository', { repos: ['acme/other'] }],
   ])('fires when the online runner is %s', (_, over) => {
-    expect(prints(queueStuck, snap({ jobs: [queued], runners: [{ ...RUNNER, ...over }] }))).toEqual([`stuck:queue:${JOB.id}`]);
+    expect(prints(queueStuck, snap({ jobs: [queued], runners: [{ ...RUNNER, ...over }] }))).toEqual(['stuck:queue-repo:acme/widgets']);
   });
 
   it('fires when the job is sent to another runner', () => {
-    expect(prints(queueStuck, snap({ jobs: [{ ...queued, toRunner: 'aaaaaaaa-0000-4000-8000-000000000002' }] }))).toEqual([`stuck:queue:${JOB.id}`]);
+    expect(prints(queueStuck, snap({ jobs: [{ ...queued, toRunner: 'aaaaaaaa-0000-4000-8000-000000000002' }] }))).toEqual(['stuck:queue-repo:acme/widgets']);
+  });
+
+  it('raises one finding per repository, its repository written the same whatever its case', () => {
+    const jobs = [queuedFor(1, DAY), queuedFor(2, DAY, 'Acme/Widgets'), queuedFor(3, DAY, 'acme/gadgets')];
+    const fires = queueStuck(snap({ jobs, runners: [] }));
+    expect(fires.map((fire) => [fire.fingerprint, fire.figures.jobs])).toEqual([['stuck:queue-repo:acme/widgets', 2], ['stuck:queue-repo:acme/gadgets', 1]]);
+  });
+
+  it('lists 50 jobs at most, the oldest first, and keys them all', () => {
+    const jobs = Array.from({ length: 60 }, (_, n) => job({ ...queuedFor(0, DAY + n * MIN), id: `bbbbbbbb-0000-4000-8000-${String(n).padStart(12, '0')}` }));
+    const [fire] = queueStuck(snap({ jobs, runners: [] }));
+    expect(fire?.evidence).toHaveLength(50);
+    expect(fire?.evidence[0]?.id).toBe(jobs[59]?.id);
+    expect(fire?.figures.jobs).toBe(60);
+    expect(fire?.evidenceKey).toBe(evidenceKey(jobs.map((j) => j.id).sort()));
+  });
+
+  it('keys the same jobs the same, however long they waited, and a changed set otherwise', () => {
+    const one = queueStuck(snap({ jobs: [queuedFor(1, DAY), queuedFor(2, DAY)], runners: [] }));
+    const later = queueStuck({ ...snap({ jobs: [queuedFor(1, DAY), queuedFor(2, DAY)], runners: [] }), now: NOW + 60 * MIN });
+    const more = queueStuck(snap({ jobs: [queuedFor(1, DAY), queuedFor(2, DAY), queuedFor(3, DAY)], runners: [] }));
+    expect(later[0]?.evidenceKey).toBe(one[0]?.evidenceKey);
+    expect(more[0]?.evidenceKey).not.toBe(one[0]?.evidenceKey);
   });
 
   it('stays quiet under 15 min, and while an online runner can take it', () => {
@@ -146,24 +184,40 @@ describe('mission-not-moving — no event for 2 h, its run failing, or the same 
   });
 });
 
-describe('waiting-too-long — Need human, Waiting on answers or Held for more than 4 h', () => {
+describe('waiting-too-long — one finding per kind of wait: Need human, Waiting on answers or Held for more than 4 h', () => {
+  const waiting = (n: number, outcome: string, hoursAgo: number, over: Partial<WatchJob> = {}) =>
+    job({ id: `bbbbbbbb-0000-4000-8000-00000000030${String(n)}`, status: 'done', outcome, endedAt: ago(hoursAgo * 60 * MIN), ...over });
+
   it.each([
     ['human', 'Need human'],
     ['answers', 'Waiting on answers'],
     ['held', 'Held'],
-  ])('fires on %s past 4 h', (outcome, label) => {
-    expect(lines(waitingTooLong, snap({ jobs: [job({ status: 'done', outcome, endedAt: ago(5 * 60 * MIN) })] }))).toEqual([`Waiting too long: ${label} for 5 h`]);
+  ])('fires on %s past 4 h, as stuck:waiting:<state>', (outcome, label) => {
+    const fires = waitingTooLong(snap({ jobs: [waiting(1, outcome, 5)] }));
+    expect(fires.map((fire) => [fire.fingerprint, fire.checkLine])).toEqual([[`stuck:waiting:${outcome}`, `Waiting too long: 1 jobs ${label} for up to 5 h`]]);
+  });
+
+  it('raises one finding per kind of wait, each listing its jobs, the oldest first, keyed on their sorted ids', () => {
+    const [a, b, c, d] = [waiting(1, 'held', 5), waiting(2, 'held', 30), waiting(3, 'human', 6), waiting(4, 'held', 10)];
+    const fires = waitingTooLong(snap({ jobs: [a, b, c, d] }));
+    expect(fires.map((fire) => [fire.fingerprint, fire.checkLine, fire.evidence.map((e) => e.id)])).toEqual([
+      ['stuck:waiting:held', 'Waiting too long: 3 jobs Held for up to 30 h', [b.id, d.id, a.id]],
+      ['stuck:waiting:human', 'Waiting too long: 1 jobs Need human for up to 6 h', [c.id]],
+    ]);
+    expect(fires[0]?.figures).toEqual({ jobs: 3, waitedHours: 30, state: 'Held' });
+    expect(fires[0]?.evidenceKey).toBe(evidenceKey([a.id, b.id, d.id].sort()));
   });
 
   it.each([
     ['under 4 h', { endedAt: ago(3 * 60 * MIN) }],
     ['a job that ended ready', { outcome: 'ready' }],
+    ['a job that expired', { outcome: 'expired', reason: 'Expired: nobody continued it in 48 h' }],
   ])('stays quiet %s', (_, over) => {
-    expect(waitingTooLong(snap({ jobs: [job({ status: 'done', outcome: 'answers', endedAt: ago(5 * 60 * MIN), ...over })] }))).toEqual([]);
+    expect(waitingTooLong(snap({ jobs: [waiting(1, 'answers', 5, over)] }))).toEqual([]);
   });
 
   it('closes once a job continues it', () => {
-    expect(waitingTooLong(snap({ jobs: [job({ status: 'done', outcome: 'answers', endedAt: ago(5 * 60 * MIN), continued: true })] }))).toEqual([]);
+    expect(waitingTooLong(snap({ jobs: [waiting(1, 'answers', 5, { continued: true })] }))).toEqual([]);
   });
 });
 
@@ -184,6 +238,11 @@ describe('same-failure — 3 jobs or more failed the same way within 6 h', () =>
     const fires = sameFailure(snap({ jobs: [failed(1, { reason: 'a', ...same }), failed(2, { reason: 'b', ...same }), failed(3, { reason: 'c', ...same })] }));
     expect(fires.map((fire) => fire.checkLine)).toEqual(['Same failure, many jobs: 3 jobs failed with the same last line within 6 h: push refused for [masked]']);
     expect(JSON.stringify(fires)).not.toContain(token);
+  });
+
+  it('stays quiet on jobs the 48 h sweep expired on purpose, whatever their count (#3366)', () => {
+    const expired = { reason: 'Expired: no runner took it in 48 h', lastLine: null };
+    expect(sameFailure(snap({ jobs: [failed(1, expired), failed(2, expired), failed(3, expired), failed(4, expired)] }))).toEqual([]);
   });
 
   it('stays quiet on 2 jobs, and on a third failure older than 6 h', () => {

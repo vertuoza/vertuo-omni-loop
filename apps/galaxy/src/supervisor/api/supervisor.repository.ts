@@ -142,6 +142,9 @@ export function supervisorRepository(db: SupervisorDb) {
     attachSignals: async (ids: readonly string[], finding: string): Promise<void> => {
       await parsed(db.from('supervisor_signals').update({ finding_id: finding }).in('id', [...ids]), z.unknown(), 'supervisor_signals');
     },
+    /** The signals a finding holds, open or closed. */
+    signalsOfFinding: async (workspace: string, finding: string): Promise<SignalRow[]> =>
+      parsed(db.from('supervisor_signals').select(SIGNAL).eq('workspace_id', workspace).eq('finding_id', finding).order('opened_at').limit(200), z.array(SignalRow), 'supervisor_signals'),
 
     findings: async (workspace: string, open: boolean): Promise<FindingRow[]> => {
       const query = db.from('supervisor_findings').select(FINDING).eq('workspace_id', workspace);
@@ -157,6 +160,9 @@ export function supervisorRepository(db: SupervisorDb) {
     /** The seat's look on a finding the check wrote alone. */
     lookAt: async (id: string, explanation: string, at: string): Promise<FindingRow> =>
       parsed(db.from('supervisor_findings').update({ explanation, looked_at: at }).eq('id', id).select(FINDING).single(), FindingRow, 'supervisor_findings'),
+    /** A group finding's evidence, figures and evidence key, once a raise added signals to it. */
+    extendFinding: async (id: string, change: Pick<FindingRow, 'evidence' | 'figures' | 'evidence_key'>): Promise<FindingRow> =>
+      parsed(db.from('supervisor_findings').update(change).eq('id', id).select(FINDING).single(), FindingRow, 'supervisor_findings'),
     /** Marks a finding notified, once: true only for the call that marked it. */
     markNotified: async (id: string, at: string): Promise<boolean> =>
       (await parsed(db.from('supervisor_findings').update({ notified_at: at }).eq('id', id).is('notified_at', null).select('id'), z.array(z.object({ id: z.string() })), 'supervisor_findings')).length === 1,

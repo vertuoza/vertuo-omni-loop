@@ -8,6 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../../bin/omni.ts';
+import { answerOf } from '../committee/record.ts';
+import { sha256 } from '../dossier/folder.ts';
 import { fakeOutboxRoutes } from '../../test/fake-outbox-routes.ts';
 import { makeRepo } from '../../test/fixture.ts';
 import { parseOutboxItemId, parseProductPrdId, parseWorkSliceId } from '../ids.ts';
@@ -192,6 +194,65 @@ describe('omni adopt, settle, item relay and answers on mobile-12', () => {
     const post = await run(['answers', 'post', '--prd', 'mobile-12', '--answers', picks]);
     expect(post).toMatchObject({ code: 1, err: 'omni answers: refused — question 2 is not open on this pull request\n' });
     expect(routes.rows('mobile-12')[0]?.settlement).toBeNull();
+  });
+});
+
+describe('omni status mobile-12 --into <mission branch> (bug #3363)', () => {
+  const BRANCH = 'mission/19-settings';
+
+  it('reads a high item the mission\'s fleet answered for that branch as answered there, and only there', async () => {
+    const { routes, run, raise } = world();
+    await raise(HIGH);
+    routes.fleetAnswered('mobile-12', 's7-01-default-timeout', BRANCH);
+    expect(await run(['status', 'mobile-12', '--into', BRANCH])).toMatchObject({ code: 0, out: 'outbox-status — PRD mobile-12: no open item.\n' });
+    expect(routes.calls.at(-1)?.url).toContain(`into=${encodeURIComponent(BRANCH)}`);
+    // The item stays open on the page: the gate read with no --into, or into another branch, still holds it (BR-PRODUCT-145).
+    expect(routes.rows('mobile-12')[0]?.settlement).toBeNull();
+    expect((await run(['status', 'mobile-12'])).code).toBe(1);
+    expect((await run(['status', 'mobile-12', '--into', 'mission/20-other'])).code).toBe(1);
+  });
+
+  it('holds a high item no fleet answered, and refuses --into on a repository PRD', async () => {
+    const { run, raise } = world();
+    await raise(HIGH);
+    const held = await run(['status', 'mobile-12', '--into', BRANCH]);
+    expect(held.code).toBe(1);
+    expect(held.out).toContain('mobile-12/s7-01-default-timeout');
+    expect(await run(['status', '12', '--into', BRANCH])).toMatchObject({ code: 2, err: expect.stringContaining('--into reads a product PRD') as unknown });
+  });
+});
+
+describe('omni committee on a product PRD\'s item (bug #3363)', () => {
+  const ID = 's7-01-default-timeout';
+  const yes = (role: string) => ({ role, answer: 'yes', sentence: 'Five seconds is reversible.' });
+
+  it('reads the item open on the Omni page by its hash, and records the members\' answer for it, its PRD by its id', async () => {
+    const { routes, run, raise, json } = world();
+    await raise(HIGH);
+    const text = routes.rows('mobile-12')[0]?.body ?? '';
+    const checked = await run(['committee', 'check', 'mobile-12', '--item', ID, '--bound', '0.6', '--json']);
+    expect(checked.code).toBe(0);
+    expect(JSON.parse(checked.out)).toMatchObject({ prd: 'mobile-12', item: ID, read: [{ kind: 'item', path: `mobile-12/${ID}`, sha256: sha256(text) }] });
+    const votes = json({ verdicts: ['pm', 'architect', 'reviewer'].map(yes) });
+    const recorded = await run(['committee', 'record', 'mobile-12', '--item', ID, '--bound', '0.6', '--file', votes]);
+    expect(recorded.code).toBe(0);
+    const found = answerOf(recorded.out, parseProductPrdId('mobile-12'), ID);
+    expect(found).toMatchObject({ prd: 'mobile-12', kind: 'answer', item: ID, option: 'A', read: [{ kind: 'item', sha256: sha256(text) }] });
+    expect(answerOf(recorded.out, parseProductPrdId('mobile-13'), ID)).toBeNull();
+    // It settles nothing: the App records the decision for the mission branch, and the item stays open for a person.
+    expect(routes.rows('mobile-12')[0]?.settlement).toBeNull();
+    expect(routes.calls.filter((call) => call.method === 'POST')).toHaveLength(1);
+  });
+
+  it('refuses an approval of a product PRD, an item not open on its page, and holds while the page is down', async () => {
+    const { routes, run, raise } = world();
+    await raise(HIGH);
+    expect(await run(['committee', 'check', 'mobile-12', '--approve'])).toMatchObject({ code: 2, err: expect.stringContaining('approved on its page') as unknown });
+    expect(await run(['committee', 'check', 'mobile-12', '--item', 's7-09-none'])).toMatchObject({ code: 2, err: expect.stringContaining('has no open item s7-09-none on its page') as unknown });
+    routes.setDown(true);
+    const held = await run(['committee', 'check', 'mobile-12', '--item', ID]);
+    expect(held.code).toBe(1);
+    expect(held.err).toMatch(HELD);
   });
 });
 

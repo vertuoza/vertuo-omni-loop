@@ -48,7 +48,8 @@ export const RaiseRequestSchema = z.strictObject({
   severity: z.enum(SEVERITIES),
   title: OneLine(200),
   signals: z.array(Id).max(10).default([]),
-  /** A finding raised with no signal: its own fingerprint, so it is raised once. */
+  /** A finding raised with no signal: its own fingerprint, so it is raised once. With signals, a group's fingerprint:
+   * the signals it names may then have different fingerprints, one cause grouped into one finding (PRD omni-loop-35). */
   fingerprint: z.string().min(3).max(200).optional(),
   evidence: z.array(z.unknown()).max(50).default([]),
   explanation: z.string().trim().min(1).max(4000),

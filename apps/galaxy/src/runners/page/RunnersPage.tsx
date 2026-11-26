@@ -7,7 +7,7 @@ import type { Board, Job, Runner } from '../runners.contract';
 import { CancelButton, CopyFixButton, FixWithAnswersButton, FleetPicker, Refresh, ResumeButton, SendAgainButton, SendToAnyButton, ShowFleetButton } from './actions';
 import { cannotRunFix } from './cannot-run-fix';
 import {
-  afterAnswersWords, answeredOf, bucketCounts, bucketsOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, failedWhy, fixLineOf, fleetCell, JOB_TABS, jobTabOf, lastJobWords, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
+  afterAnswersWords, answeredOf, bucketCounts, bucketsOf, cancelledByWords, canAnswer, canCancel, canResume, canSendAgain, cannotRunReason, expiredWhy, failedWhy, fixLineOf, fleetCell, JOB_TABS, jobTabOf, lastJobWords, madeByWords, prdLineOf, prdPageLink, prWords, releaseNotes, repoName, retroLineOf, senderWords, slicesWords, START_COMMAND, stateWords, statusTone, statusWords, targetOf, whereWords,
   type Answered, type Fleet, type JobBucket, type JobTab, type PrdTitles, type ReleaseNote, type RetroPrds, type RunnersPageView,
 } from './model';
 import { accountChips, asOfWords, gaugesOf, jobTokensWords, kitBlocks, OLD_RUNNER_WORDS, slotFleets, stateTone, summaryWords, UPDATE_COMMAND, waitingWords, type Gauge } from './health';
@@ -217,6 +217,12 @@ function FailedWhy({ job, lost }: { job: Job; lost: boolean }) {
   return why === null ? null : <span className="runners-why" data-content>{why}</span>;
 }
 
+/** Under Expired, why it expired, muted as the ended job it is (PRD omni-loop-35): `nobody continued it in 48 h`. */
+function ExpiredWhy({ job }: { job: Job }) {
+  const why = expiredWhy(job);
+  return why === null ? null : <span className="runners-by" data-content>{why}</span>;
+}
+
 /** Under the fix job that continues a job that waited on answers: `after answers · job <id>`, linking back (PRD 2270). */
 function AfterAnswers({ job }: { job: Job }) {
   const after = afterAnswersWords(job);
@@ -254,10 +260,16 @@ function CannotRunFixButton({ job, board, reason }: { job: Job; board: Board; re
 function Action({ job, primary, answered, loss, board, cannotRun }: { job: Job; primary: boolean; answered: Answered | null; loss: Loss | null; board: Board; cannotRun: string | null }) {
   if (canCancel(job)) return <><CancelButton job={job.id} /><CannotRunFixButton job={job} board={board} reason={cannotRun} /></>;
   if (loss !== null) return <LostAction job={job} primary={primary} loss={loss} />;
-  if (canSendAgain(job)) return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
+  if (canSendAgain(job) && job.status !== 'done') return <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />;
+  return <DoneActions job={job} primary={primary} answered={answered} />;
+}
+
+/** A done job's actions: Send again once it expired (PRD omni-loop-35), its answers' button, Resume, its pull request and its PRD page. */
+function DoneActions({ job, primary, answered }: { job: Job; primary: boolean; answered: Answered | null }) {
   const page = prdPageLink(job);
   return (
     <>
+      {canSendAgain(job) && <SendAgainButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />}
       <AnswersButton job={job} primary={primary} answered={answered} />
       {canResume(job) && <ResumeButton line={job.line} repo={job.repo} target={targetOf(job)} primary={primary} />}
       {job.status === 'done' && job.prUrl && <a href={job.prUrl}>{prWords(job.prUrl)}</a>}
@@ -342,6 +354,7 @@ function JobRow({ job, board, fleets, prds, retros, now, primary, answeredIds, b
         <LossLine loss={loss} />
         <CannotRunWhy reason={cannotRun} />
         <FailedWhy job={job} lost={loss !== null} />
+        <ExpiredWhy job={job} />
         <CancelledBy job={job} />
         <AfterAnswers job={job} />
         <ResumeLines job={job} board={board} />

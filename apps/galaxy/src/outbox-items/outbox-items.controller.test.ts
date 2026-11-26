@@ -32,14 +32,15 @@ const SETTLED: StoredItemRow = {
   outbox_settlements: [{ verdict: 'agreed', basis: 'affirmation', answer: 'Yes.', channel: 'terminal', settler_login: 'ada', settled_at: '2026-10-11T11:00:00Z' }],
 };
 
-type World = { dossier?: Stored<string | null>; items?: Stored<StoredItemRow[]>; write?: Stored<unknown>; throws?: boolean };
+type World = { dossier?: Stored<string | null>; items?: Stored<StoredItemRow[]>; write?: Stored<unknown>; throws?: boolean; fleet?: Stored<string[]> };
 
-function world({ dossier = { ok: true, value: DOSSIER }, items = { ok: true, value: [SETTLED] }, write = { ok: true, value: { id: 'r1', item: 's7-01-default-timeout', prdId: 'mobile-12', open: true } }, throws = false }: World = {}, database = true) {
+function world({ dossier = { ok: true, value: DOSSIER }, items = { ok: true, value: [SETTLED] }, write = { ok: true, value: { id: 'r1', item: 's7-01-default-timeout', prdId: 'mobile-12', open: true } }, throws = false, fleet = { ok: true, value: [] } }: World = {}, database = true) {
   const calls: string[] = [];
   const logged: string[] = [];
   const repo: OutboxItemsRepository = {
     dossier: (prd: PrdOnProduct) => { calls.push(`dossier ${prd.key}-${prd.seq} ${prd.repo}`); return Promise.resolve(dossier); },
     items: (id: string) => { calls.push(`items ${id}`); return throws ? Promise.reject(new Error('boom')) : Promise.resolve(items); },
+    fleetAnswered: ({ dossier: id, prd, branch }) => { calls.push(`fleet ${id} ${prd} ${branch}`); return Promise.resolve(fleet); },
     put: (prd: PrdOnProduct, columns: ItemColumns) => { calls.push(`put ${prd.repo} ${JSON.stringify({ ...columns, body: columns.body.length })}`); return Promise.resolve(write); },
     adopt: (_prd: PrdOnProduct, columns: ItemColumns) => { calls.push(`adopt ${columns.rank}`); return Promise.resolve(write); },
     settle: (_prd: PrdOnProduct, answer) => { calls.push(`settle ${JSON.stringify(answer)}`); return Promise.resolve(write); },
@@ -104,6 +105,31 @@ describe('GET /api/outbox/items', () => {
     const throwing = world({ throws: true });
     expect((await readOutboxItems(get('product=mobile&prd=12'), throwing.deps)).status).toBe(500);
     expect(throwing.logged).toEqual(['outbox-items: boom']);
+  });
+});
+
+describe('GET /api/outbox/items into a mission branch (bug #3363)', () => {
+  const OPEN: StoredItemRow = { ...SETTLED, outbox_settlements: [] };
+  const OTHER: StoredItemRow = { ...OPEN, item: 's7-02-other' };
+
+  it('says which items the mission\'s fleet answered for that branch, each still open, and asks nothing more without into', async () => {
+    const { deps, calls } = world({ items: { ok: true, value: [OPEN, OTHER] }, fleet: { ok: true, value: ['s7-01-default-timeout'] } });
+    const answer = await read(await readOutboxItems(get(`product=mobile&prd=12&into=${encodeURIComponent('mission/19-settings')}`), deps));
+    expect(answer.status).toBe(200);
+    expect(ItemsReplySchema.parse(answer.body).items.map(({ item, settlement, fleet }) => ({ item, settlement, fleet }))).toEqual([
+      { item: 's7-01-default-timeout', settlement: null, fleet: true },
+      { item: 's7-02-other', settlement: null, fleet: false },
+    ]);
+    expect(calls).toEqual(['dossier mobile-12 null', `items ${DOSSIER}`, `fleet ${DOSSIER} mobile-12 mission/19-settings`]);
+    const plain = world({ items: { ok: true, value: [OPEN] } });
+    expect(await read(await readOutboxItems(get('product=mobile&prd=12'), plain.deps))).toMatchObject({ body: { items: [{ item: 's7-01-default-timeout' }] } });
+    expect(plain.calls.some((call) => call.startsWith('fleet'))).toBe(false);
+  });
+
+  it('refuses a branch that is no branch, and fails when the answers cannot be read', async () => {
+    expect((await readOutboxItems(get('product=mobile&prd=12&into=..%2Fmain'), world().deps)).status).toBe(400);
+    const down = { ok: false as const, code: 'XX000', message: 'down', hint: null };
+    expect((await readOutboxItems(get('product=mobile&prd=12&into=mission%2F19-settings'), world({ fleet: down }).deps)).status).toBe(500);
   });
 });
 

@@ -56,6 +56,7 @@
 import { isProductPrdId, PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { baseOfFlag, type BaseOfEntry } from 'omni-loop/kit/lib/ultra/base-of.ts';
 import { prdKeyPart, type MissionPrd } from './store.prd.ts';
+import type { OpenItems } from './gate.ts';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
@@ -117,6 +118,10 @@ export type Attempt = {
   guessed?: boolean;
   /** A QA job's verdict, read from its log when it ended done (PRD 3001); null when none reads. Absent for any other job. */
   checked?: QaPosted | null;
+  /** The PRDs a product PRD's build ended held on, read from its log's held line (bug #3345, ./held.ts); absent for any other job. */
+  heldOn?: readonly MissionPrd[];
+  /** Whether a product PRD's build ended on its red gate, its last line `/omni:ultra-yolo-fix <id>` (bug #3345, ./held.ts); absent otherwise. */
+  gateRed?: boolean;
 };
 
 /** Why a running PRD does not run yet (PRD 2949): its job met a provider limit and its resume waits for the reset, or no runner of its target can take it now. */
@@ -218,7 +223,7 @@ export type PrdState =
  * What a run read of the PRDs' items at `alone` (PRD 2896 s10): the items open at the head of each PRD's feature pull request that
  * waits on answers, by PRD (a PRD not read is absent), and the item committees the mission sent.
  */
-export type AnswersView = { open: ReadonlyMap<PrdNumber, readonly OpenAt[]>; committees: readonly ItemCommittee[] };
+export type AnswersView = { open: ReadonlyMap<PrdNumber, readonly OpenAt[]>; committees: readonly ItemCommittee<PrdNumber>[] };
 
 /**
  * The committees a run read (PRD 2896 s9), and whether the mission is at `alone`, where a PRD not approved goes to its committee;
@@ -683,7 +688,7 @@ function answering(fact: PrdFacts, latest: Run, around: Around): PrdState {
     if (latest.run >= LAST_RUN) return { state: 'waits', on: 'answer', why: 'its questions are answered, and its run was sent again once already' };
     return gate(fact, latest.run + 1, latest.step, around);
   }
-  const next = answersNext(open, around.view.answers?.committees ?? []);
+  const next = answersNext(open, (around.view.answers?.committees ?? []).filter((one) => one.prd === fact.prd));
   if (next.send.length > 0 || next.deciding) return { state: 'answering', send: next.send };
   return { state: 'waits', on: 'answer', why: next.person.length > 0 ? next.person.join('; ') : null };
 }
@@ -1203,7 +1208,7 @@ export function eventsOf({
   /** The committees the mission sent (PRD 2896 s9), each with its decision once recorded. */
   committees?: readonly Committee[];
   /** The item committees the mission sent (PRD 2896 s10), each with its decision once recorded. */
-  asks?: readonly ItemCommittee[];
+  asks?: readonly ItemCommittee<PrdNumber>[];
   /** The mission's repairs (PRD 2980): each repair sent, its retro, its end and its Omni Loop bug report. */
   repairs?: RepairView;
   /** The QA pair as the run read it (PRD 3001): each fix's feature branch and landing. */
@@ -1238,11 +1243,12 @@ export function eventsOf({
 // BR-PRODUCT-139, ./repair.ts): `/omni:repair --prd <key>-<n>`, within the same 3 per cause and 9 per mission, its build sent again once
 // the repair allows it; a person once the repairs are spent, saying why. On any other end (a question for a person) it waits for a person.
 
-/** A product PRD of the scope, as a run read it: its approval, the PRDs it waits on, and its plan's repositories. */
-export type ProductFact = { prd: ProductPrdId; approval: Approval; blockers: readonly MissionPrd[]; targets: readonly string[] };
+/** A product PRD of the scope, as a run read it: its approval, the PRDs it waits on, its plan's repositories, and its open items. */
+export type ProductFact = { prd: ProductPrdId; approval: Approval; blockers: readonly MissionPrd[]; targets: readonly string[]; items?: OpenItems };
 
 /** One build the mission sent for a product PRD: its run, its job and its attempts, the job's first. */
-export type ProductRun = { prd: ProductPrdId; run: number; job: string; attempts: Attempt[] };
+/** A product PRD's build: its run, its job and the job's attempts, and when it was sent (bug #3369: the job's `queued_at`), absent when not read. */
+export type ProductRun = { prd: ProductPrdId; run: number; job: string; attempts: Attempt[]; sentAt?: string };
 
 /** Where a product PRD is: on the branch, held by its blockers, waiting for a person, its build to send or at work, or to join. */
 export type ProductState =
@@ -1254,7 +1260,9 @@ export type ProductState =
   | { state: 'ready'; run: ProductRun }
   /** Its build failed, was held twice or spent its resumes (bug #3302): its repair to send, or at work, saying so. */
   | { state: 'repairable'; k: number; failedJob: string; why: string }
-  | { state: 'repairing'; why: string };
+  | { state: 'repairing'; why: string }
+  /** Its build ended on its red gate at `alone` (bug #3363): the fleet's committee answers its high items, `send` those to send now. */
+  | { state: 'answering'; send: readonly string[]; why: string };
 
 /** The product PRD's latest build, the one with the highest run. */
 const latestProduct = (runs: readonly ProductRun[], prd: ProductPrdId): ProductRun | null =>
@@ -1338,19 +1346,123 @@ function productEnded(fact: ProductFact, runs: readonly ProductRun[], last: Atte
 
 /**
  * What a product PRD's state is read against: the PRDs on the branch, those done, the branch, the mission's `mandate.resumes` at
- * `alone` (null below it), and its repairs (bug #3302; none by default: a build that failed waits for a person).
+ * `alone` (null below it), and its repairs (bug #3302; none by default: a build that failed waits for a person). Bug #3345: the
+ * scope's PRDs (every PRD by default) and the builds sent before a PRD of the scope they wait on joined (./held.ts › sentEarly).
  */
-type ProductWhere = { joined: ReadonlySet<MissionPrd>; done: ReadonlySet<MissionPrd>; branch: string; resumes?: number | null; repairs?: RepairView };
+type ProductWhere = {
+  joined: ReadonlySet<MissionPrd>;
+  done: ReadonlySet<MissionPrd>;
+  branch: string;
+  resumes?: number | null;
+  repairs?: RepairView;
+  scope?: ReadonlySet<MissionPrd>;
+  early?: ReadonlySet<string>;
+  /** Bug #3363: whether the mission runs at `alone`, and the item committees it sent for its product PRDs, each with its decision. */
+  answers?: RedGateAt;
+};
+
+/** What a product PRD's red gate is read against (bug #3363): the mission at `alone` or not, and the item committees it sent. */
+type RedGateAt = { alone: boolean; asks: readonly ItemCommittee[] };
+
+
+/**
+ * Where a product PRD's ended build waits on other PRDs (bug #3345), or null: blocked while a PRD of the scope its spec, its roadmap
+ * or its held line names is not on the branch, so it is neither sent again nor repaired; sent again as its next run once they all are,
+ * when it was sent before one joined (none of its ends counts); waiting for a person when it was held on a PRD outside the scope that
+ * is not on the branch. A build that ended Ready, or failed after its blockers joined, is read as before.
+ */
+function heldBuild(fact: ProductFact, latest: ProductRun, last: Attempt, { done, scope, early }: { done: ReadonlySet<MissionPrd>; scope: ReadonlySet<MissionPrd> | undefined; early: ReadonlySet<string> }): ProductState | null {
+  const end = endOf(last);
+  if (end === 'ready') return null;
+  const inScope = (prd: MissionPrd): boolean => scope === undefined || scope.has(prd);
+  const named = last.heldOn ?? [];
+  const by = [...new Set([...fact.blockers, ...named])].filter((one) => one !== fact.prd && inScope(one) && !done.has(one));
+  if (by.length > 0) return { state: 'blocked', by };
+  if (early.has(latest.job)) return end === 'failed' ? null : { state: 'startable', run: latest.run + 1 };
+  const outside = named.filter((one) => !inScope(one) && !done.has(one));
+  if (outside.length === 0) return null;
+  const names = outside.map((one) => `PRD ${String(one)}`).join(', ');
+  return { state: 'waits', why: `PRD ${fact.prd}: its build waits on ${names}, outside the mission's scope and not on its branch: merge it, or add it to the scope` };
+}
+
+/**
+ * Where a product PRD's build that ended on its red gate is (bug #3345), or null for any other end: never a failure, so neither sent
+ * again nor repaired while a high or human-action item of its page is open, waiting for its answer, saying which; sent again as its next
+ * run once none is, its gate read again there.
+ *
+ * Bug #3363: at `alone`, each open high item goes to the fleet's committee (`answering`), as a repository PRD's does (./answers.ts); one
+ * it carried or deferred counts as answered for the mission branch only (BR-PRODUCT-145), and stays open on the page for a person. A
+ * person is asked only for what the committee sent to one, a human-action item, or an item that does not read. Once the fleet answered,
+ * the build goes again once: a second red gate after that waits for a person. Bug #3369: only a build sent after the fleet's latest
+ * answer counts as that second red gate; one that ended red before the committee answered counts for nothing.
+ */
+function redGate(fact: ProductFact, own: readonly ProductRun[], latest: ProductRun, last: Attempt, { alone, asks }: RedGateAt): ProductState | null {
+  if (last.gateRed !== true || endOf(last) === 'ready') return null;
+  const items = fact.items;
+  if (items !== undefined && 'notRead' in items) return { state: 'waits', why: `PRD ${fact.prd}: its gate is red, and its items do not read: ${items.notRead}` };
+  const mine = asks.filter((one) => one.prd === fact.prd);
+  const answered = fleetAnswered(mine);
+  const open = stillOpenOf(items?.open ?? [], answered);
+  return open.length === 0 ? redCleared(fact.prd, own, latest, answeredSince(mine)) : redOpen(fact.prd, open, alone ? mine : null);
+}
+
+/** A red gate with items open (`open`): below `alone` (`asks` null) a person answers them; at it, the fleet's committee (bug #3363). */
+function redOpen(prd: ProductPrdId, open: readonly OpenAt[], asks: readonly ItemCommittee[] | null): ProductState {
+  const ids = open.map(({ id }) => id ?? 'an item that does not read').join(', ');
+  const red = `PRD ${prd}: its gate is red on ${open.length === 1 ? '1 open item' : `${String(open.length)} open items`} (${ids})`;
+  if (asks === null) return { state: 'waits', why: `${red}: answer them on its page, and the mission builds it again` };
+  const next = answersNext(open, asks);
+  if (next.send.length > 0 || next.deciding) return { state: 'answering', send: next.send, why: `${red}: the fleet's committee answers them for the mission branch` };
+  return { state: 'waits', why: `${red}: ${next.person.join('; ')}, and the mission builds it again once they are answered` };
+}
+
+/** The items the fleet's committee carried or deferred (bug #3363): answered for the mission branch only. */
+const fleetAnswered = (asks: readonly ItemCommittee[]): Set<string> => new Set(asks.filter((one) => one.decision !== null && one.decision.outcome !== 'escalated').map((one) => one.item));
+
+/** The open high, human-action and unreadable items of `open`, a high one the fleet answered (`answered`) counted answered. */
+const stillOpenOf = (open: readonly OpenAt[], answered: ReadonlySet<string>): OpenAt[] =>
+  open.filter(({ id, rank }) => (rank === null || rank === 'high' || rank === 'human-action') && !(rank === 'high' && id !== null && answered.has(id)));
+
+/**
+ * When the fleet's latest answered committee of a PRD (`asks`) was sent (bug #3369): null when the fleet answered none, undefined when
+ * a time does not read. No build is sent while a committee decides, so a build sent after it was sent after the fleet answered.
+ */
+function answeredSince(asks: readonly ItemCommittee[]): number | undefined | null {
+  const sent = asks.filter((one) => one.decision !== null && one.decision.outcome !== 'escalated').map((one) => (one.sentAt === undefined ? Number.NaN : Date.parse(one.sentAt)));
+  if (sent.length === 0) return null;
+  return sent.some(Number.isNaN) ? undefined : Math.max(...sent);
+}
+
+/** The most builds of a product PRD that end on its red gate once the fleet answered some of its items, when the times do not read. */
+const FLEET_RED_MAX = 2;
+
+/**
+ * A red gate none of whose items is open any more: built again, once only after the fleet answered some (`since`, when its latest
+ * answered committee was sent; undefined when that does not read, null when the fleet answered none). Bug #3369: a build that ended
+ * red before then counts for nothing; one sent after it, ending red again, waits for a person. Times that do not read count every red.
+ */
+function redCleared(prd: ProductPrdId, own: readonly ProductRun[], latest: ProductRun, since: number | undefined | null): ProductState {
+  const reds = own.filter((one) => one.attempts.at(-1)?.gateRed === true && (typeof since !== 'number' || one.sentAt === undefined || Date.parse(one.sentAt) > since)).length;
+  if (since !== null && reds >= (since === undefined ? FLEET_RED_MAX : 1)) return { state: 'waits', why: `PRD ${prd}: its gate stayed red once the fleet answered its items, and its build was sent again once already` };
+  return { state: 'startable', run: latest.run + 1 };
+}
 
 /**
  * Where product PRD `fact` is (PRD omni-loop-21 s9b): joined once recorded on the branch (`joined`), else held until each blocker is
- * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join.
+ * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join. A build that ended
+ * while what it waits on was off the branch is held too (bug #3345, `heldBuild`), and the ends of builds sent before then count none.
  */
-export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null, repairs = NO_REPAIRS }: ProductWhere): ProductState {
+export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = new Set(), answers = { alone: false, asks: [] } }: ProductWhere): ProductState {
   if (joined.has(fact.prd)) return { state: 'joined' };
-  const latest = latestProduct(runs, fact.prd);
+  const own = runs.filter((one) => one.prd === fact.prd);
+  const latest = latestProduct(own, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== undefined) return endOf(last) === null ? { state: 'running' } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, { resumes, repairs });
+  if (latest !== null && last !== undefined) {
+    if (endOf(last) === null) return { state: 'running' };
+    // A build sent early, or one that ended on its red gate, is no failure and no stop mid-way: its end counts none.
+    const counted = own.filter((one) => one === latest || (!early.has(one.job) && one.attempts.at(-1)?.gateRed !== true));
+    return heldBuild(fact, latest, last, { done, scope, early }) ?? redGate(fact, own, latest, last, answers) ?? productEnded(fact, counted, last, { resumes, repairs });
+  }
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: 'blocked', by };
   if (fact.approval !== 'standing') return { state: 'waits', why: `PRD ${fact.prd}: ${fact.approval === 'voided' ? 'approve it again' : 'approve it'} on its page (${branch})` };

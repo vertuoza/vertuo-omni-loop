@@ -3,7 +3,7 @@
 // kit's `server` outbox store (kit/lib/outbox/server-store.ts) reads them. Browser-safe: zod and the kit's
 // ids only.
 //
-//   GET  /api/outbox/items?product=<key>&prd=<n>[&repo=<owner/name>]   → { prdId, items }
+//   GET  /api/outbox/items?product=<key>&prd=<n>[&repo=<owner/name>][&into=<mission branch>] → { prdId, items }
 //   POST /api/outbox/items {product, prd, repo?, body, adopt?}           → { id, item, prdId, open } | { …, verdict, settledAt }
 //   POST /api/outbox/items/settle {product, prd, repo?, item, verdict, basis, answer} → { id, item, prdId, verdict, settledAt }
 //
@@ -14,6 +14,10 @@
 // plain words (ADR-0029): 400 a malformed request or a body that is not an item of that PRD, 401 signed
 // out, 404 no such PRD (or item) in the caller's workspaces, 409 an item already settled, 422 a value the
 // database refuses (a rank other than medium adopted, say), 503 no database here, 500 the database failed.
+//
+// Bug #3363: read `into` a mission branch, each item says `fleet`: whether a fleet's committee carried or deferred it for a
+// mission of the PRD's workspace whose branch that is. The kit's gate into that branch counts it answered there only
+// (BR-PRODUCT-145); its settlement stays null until a person answers it.
 import { z } from 'zod';
 import { OutboxItemIdSchema, PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 
@@ -26,8 +30,11 @@ const RepoSchema = z.string().max(200).regex(/^[\w.-]+\/[\w.-]+$/);
 /** Which product PRD a call is about, and the repository it comes from. */
 const PrdOnProduct = { product: ProductKeySchema, prd: PrdNumberSchema, repo: RepoSchema.optional() };
 
-/** The items' query, its PRD's number read from its digits. */
-export const ItemsQuerySchema = z.object({ ...PrdOnProduct, prd: z.coerce.number().pipe(PrdNumberSchema) });
+/** A mission branch, as `mission_branches` keeps one. */
+const BranchSchema = z.string().min(1).max(200).regex(/^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/).refine((branch) => !branch.includes('..'));
+
+/** The items' query, its PRD's number read from its digits; `into` a mission branch the fleet's answers are read for (bug #3363). */
+export const ItemsQuerySchema = z.object({ ...PrdOnProduct, prd: z.coerce.number().pipe(PrdNumberSchema), into: BranchSchema.optional() });
 export type ItemsQuery = z.infer<typeof ItemsQuerySchema>;
 
 /** The three verdicts a settlement carries. */
@@ -53,6 +60,8 @@ export const OutboxRowSchema = z.object({
   body: z.string(),
   raisedAt: z.string(),
   settlement: SettlementSchema.nullable(),
+  /** Read `into` a mission branch only: whether that mission's fleet answered it there (bug #3363). */
+  fleet: z.boolean().optional(),
 });
 
 /** Every item of a product PRD, oldest first. */
