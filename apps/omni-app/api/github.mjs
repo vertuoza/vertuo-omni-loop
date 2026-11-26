@@ -28319,7 +28319,7 @@ var FAILED_JOB = `${WATCH_JOB}, log_tail`;
 var WATCH_MISSION = "id, number, title, status, updated_at";
 var SIGNAL = "id, fingerprint, opened_at, finding_id";
 var FINDING = "id, state, raised_by, looked_at";
-var HELD = "finding_id";
+var HELD2 = "finding_id";
 var DISMISSAL = "evidence_key, supervisor_findings!inner(fingerprint)";
 var LaneRowSchema2 = z115.object({ workspace_id: z115.uuid() });
 var SeatRowSchema = z115.object({
@@ -28524,7 +28524,7 @@ function watchStore(connection) {
       done(await db.from("supervisor_signals").update({ closed_at: at4 }).in("id", [...ids]).is("closed_at", null));
     },
     async resolveFindings(ids, at4) {
-      const held2 = new Set(rowsOf(HeldRowSchema, await db.from("supervisor_signals").select(HELD).in("finding_id", [...ids]).is("closed_at", null).limit(1e3)).flatMap((row) => row.finding_id === null ? [] : [row.finding_id]));
+      const held2 = new Set(rowsOf(HeldRowSchema, await db.from("supervisor_signals").select(HELD2).in("finding_id", [...ids]).is("closed_at", null).limit(1e3)).flatMap((row) => row.finding_id === null ? [] : [row.finding_id]));
       const free = ids.filter((id) => !held2.has(id));
       if (free.length === 0) return;
       done(await db.from("supervisor_findings").update({ state: "resolved", closed_at: at4 }).in("id", free).eq("state", "open"));

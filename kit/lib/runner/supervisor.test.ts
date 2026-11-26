@@ -148,6 +148,23 @@ describe('the seat\'s loop', () => {
     expect(model.prompts[0]).toContain(`${asked.id} · thread general · ada: Why is atlas-01 slow?`);
   });
 
+  it('answers an owner\'s message in the thread of its oldest open finding, past 20 open findings (#3337)', async () => {
+    const oldest = uuid(800);
+    const asked: SeatMessage = { id: uuid(301), finding: oldest, kind: 'owner', by: 'ada', body: 'Cancel it past 48 h?', replyTo: null, at: new Date(T0).toISOString() };
+    const { api, calls, findings } = fakeApi({ messages: [asked] });
+    for (let index = 24; index >= 1; index -= 1) {
+      findings.push({
+        id: index === 24 ? oldest : uuid(800 + index), fingerprint: `stuck:queue:${String(index)}`, kind: 'stuck', severity: 'medium', title: `Job ${String(index)} queued`,
+        checkLine: null, explanation: 'looked', lookedAt: new Date(T0).toISOString(), state: 'open',
+      });
+    }
+    findings.reverse();
+    const model = stubModel();
+    await runLooks(api, calls, model.think, 1);
+    expect(model.prompts).toHaveLength(1);
+    expect(model.prompts[0]).toContain(`${asked.id} · thread ${oldest} · ada: Cancel it past 48 h?`);
+  });
+
   it('says why it cannot think here, and still checks in', async () => {
     const { api, calls } = fakeApi({ signals: [{ ...silentSignal }] });
     const { printed } = await runLooks(api, calls, 'the runner has no Claude account', 2);

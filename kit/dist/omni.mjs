@@ -71668,7 +71668,6 @@ var LOOK_EVERY_MS = 2 * 6e4;
 var HEARTBEAT_MS = 6e4;
 var SEAT_POLL_MS = 6e4;
 var TRIES = 2;
-var THREADS = 20;
 var WAITING_MS = 24 * 36e5;
 var BACKOFF = { firstMs: 5e3, maxMs: 6e4 };
 var sleepFor = (ms, signal) => delay2(ms, void 0, signal ? { signal } : {}).catch(() => void 0);
@@ -71692,7 +71691,7 @@ async function rememberBaselines(seat2, snapshot2) {
 }
 async function waitingMessages(seat2, snapshot2) {
   const after2 = new Date(Date.parse(snapshot2.at) - WAITING_MS).toISOString();
-  const threads = [null, ...snapshot2.findings.filter((finding) => finding.state === "open").slice(0, THREADS).map((finding) => finding.id)];
+  const threads = [null, ...snapshot2.findings.filter((finding) => finding.state === "open").map((finding) => finding.id)];
   const waiting2 = [];
   for (const thread of threads) {
     const messages2 = await seat2.api.messages(seat2.runner, thread, after2);
