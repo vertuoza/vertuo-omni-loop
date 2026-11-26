@@ -92,12 +92,6 @@ describe('planLaunch', () => {
     expect(planLaunch(['init'], { cwd: outside, self: SELF })).toEqual({ kind: 'self' });
   });
 
-  it('runs the Supervisor seat\'s tools in the folder of its own the runner thinks in, which is no checkout (#3328)', () => {
-    const seatFolder = mkdtempSync(join(tmpdir(), 'omni-supervisor-'));
-    const argv = ['supervisor', 'mcp', '--runner', 'r1', '--page', 'https://omni.example'];
-    expect(planLaunch(argv, { cwd: seatFolder, self: SELF })).toEqual({ kind: 'self' });
-  });
-
   it('with no git at all, runs as outside a checkout', () => {
     const exec = () => { throw Object.assign(new Error('spawnSync git ENOENT'), { code: 'ENOENT' }); };
     expect(planLaunch(['help'], { cwd: '/', self: SELF, exec })).toEqual({ kind: 'self' });
