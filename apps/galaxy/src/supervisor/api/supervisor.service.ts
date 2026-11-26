@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { maskSecrets } from '../../server-event/app-errors';
 import type { Message as Notice, Recipient } from '../../notify/notify';
 import {
@@ -71,17 +70,21 @@ const isGroup = (signals: readonly SignalRow[], request: RaiseRequest): boolean 
 const fingerprintOf = (signals: readonly SignalRow[], request: RaiseRequest): string | null =>
   isGroup(signals, request) ? request.fingerprint ?? null : signals[0]?.fingerprint ?? request.fingerprint ?? null;
 
-/** A group's evidence key: the digest of its signals' sorted fingerprints, each once (the checks' digest: checks.ts). */
-const groupKey = (signals: readonly SignalRow[]): string =>
-  createHash('sha256').update(JSON.stringify([...new Set(signals.map((s) => s.fingerprint))].sort())).digest('hex').slice(0, 32);
+/** A group's evidence key: the digest of its signals' sorted fingerprints, each once (the checks' digest: checks.ts),
+ * by Web Crypto, so the service stays free of node:crypto. */
+async function groupKey(signals: readonly SignalRow[]): Promise<string> {
+  const parts = JSON.stringify([...new Set(signals.map((s) => s.fingerprint))].sort());
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(parts)));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
 
 /** The evidence key a raise carries now: a group's, else its first signal's. */
-const keyOf = (signals: readonly SignalRow[], request: RaiseRequest): string | null =>
+const keyOf = async (signals: readonly SignalRow[], request: RaiseRequest): Promise<string | null> =>
   isGroup(signals, request) ? groupKey(signals) : signals[0]?.evidence_key ?? null;
 
 /** Whether the newest finding of the fingerprint was dismissed with the evidence the signals carry now. */
-const dismissedAlike = (last: FindingRow | null, signals: readonly SignalRow[], request: RaiseRequest): boolean =>
-  last?.state === 'dismissed' && signals.length > 0 && last.evidence_key === keyOf(signals, request);
+const dismissedAlike = async (last: FindingRow | null, signals: readonly SignalRow[], request: RaiseRequest): Promise<boolean> =>
+  last?.state === 'dismissed' && signals.length > 0 && last.evidence_key === await keyOf(signals, request);
 
 /** The UTC day of `at`. */
 const dayOf = (at: Date) => at.toISOString().slice(0, 10);
@@ -178,7 +181,7 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
     return store.extendFinding(last.id, {
       evidence: [...last.evidence, ...fresh.flatMap((s) => s.evidence).map(maskEvidence)].slice(0, EVIDENCE_MAX),
       figures: { ...last.figures, signals: all.length },
-      evidence_key: groupKey(all),
+      evidence_key: await groupKey(all),
     });
   }
 
@@ -206,7 +209,7 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
     const row = await store.insertFinding({
       workspace_id: workspace, fingerprint, kind: request.kind, severity: request.severity, title: request.title,
       check_line: first?.check_line ?? null, figures: isGroup(signals, request) ? { ...figures, signals: signals.length } : figures, evidence,
-      evidence_key: keyOf(signals, request),
+      evidence_key: await keyOf(signals, request),
       explanation: maskSecrets(request.explanation), raised_by: 'supervisor', looked_at: iso(),
     });
     await store.attachSignals(signals.map((s) => s.id), row.id);
@@ -300,7 +303,7 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
       const fingerprint = fingerprintOf(signals.value, request);
       const last = fingerprint === null ? null : await store.lastOfFingerprint(viewer.workspace, fingerprint);
       if (last?.state === 'open') return ok(await addTo(last, signals.value, request, origin));
-      if (dismissedAlike(last, signals.value, request)) return no('conflict', DISMISSED_SAME);
+      if (await dismissedAlike(last, signals.value, request)) return no('conflict', DISMISSED_SAME);
       return ok(await create(viewer.workspace, fingerprint, signals.value, request, origin));
     },
 

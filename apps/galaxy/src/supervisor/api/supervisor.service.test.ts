@@ -36,6 +36,13 @@ const raise = (signals: string[], change: Partial<RaiseRequest> = {}): RaiseRequ
   explanation: 'No online runner serves acme/widgets.', suggestions: [], ...change,
 });
 
+/** A raise that names no group fingerprint. */
+const alone = (signals: string[]): RaiseRequest => {
+  const request = raise(signals);
+  delete request.fingerprint;
+  return request;
+};
+
 const dismiss = (row: FindingRow) => { Object.assign(row, { state: 'dismissed', closed_at: T0 }); };
 
 describe('the group raise', () => {
@@ -114,9 +121,8 @@ describe('the group raise', () => {
   it('still refuses signals of different fingerprints without a group fingerprint', async () => {
     const a = queued(JOB_A, 300);
     const b = queued(JOB_B, 200);
-    const { fingerprint: _none, ...alone } = raise([a.id, b.id]);
     const { service, viewer } = setup(world({ signals: [a, b] }));
-    expect(await service.raise(viewer, alone, 'https://omni.example.test'))
+    expect(await service.raise(viewer, alone([a.id, b.id]), 'https://omni.example.test'))
       .toEqual({ ok: false, kind: 'malformed', error: 'The signals of one finding share one fingerprint.' });
   });
 
@@ -125,8 +131,7 @@ describe('the group raise', () => {
     const twin = signalRow({ fingerprint: a.fingerprint, evidence: [{ job: JOB_A, again: true }], evidence_key: 'key-twin' });
     const w = world({ signals: [a, twin] });
     const { service, viewer } = setup(w);
-    const { fingerprint: _none, ...alone } = raise([a.id, twin.id]);
-    await service.raise(viewer, alone, 'https://omni.example.test');
+    await service.raise(viewer, alone([a.id, twin.id]), 'https://omni.example.test');
     expect(w.findings[0]).toMatchObject({ fingerprint: a.fingerprint, evidence_key: a.evidence_key, figures: { minutes: 300 }, check_line: a.check_line });
   });
 
