@@ -3,7 +3,7 @@
 // a dismissal that stays quiet. Over a store in memory that keeps the database's rules (one open signal per fingerprint).
 import { describe, expect, it } from 'vitest';
 import type { ClaimedJob } from '../jobs/ledger.ts';
-import type { WatchJob, WatchSnapshot } from './checks.ts';
+import type { Fire, WatchJob, WatchSnapshot } from './checks.ts';
 import { LOOK_MS, type Seat } from './seat.ts';
 import { planWatch, supervisorWatchHandler, watchOnce, type Dismissal, type LinkedFinding, type NewFinding, type OpenSignal, type WatchStore } from './watch.ts';
 
@@ -213,13 +213,69 @@ describe('a dismissal stays quiet', () => {
   });
 });
 
-describe('planWatch — pure', () => {
-  it('keeps a finding the seat raised open when its signal closes: the seat closes its own', () => {
-    const before: OpenSignal[] = [{ id: 's1', fingerprint: 'stuck:silent:x', openedAt: iso(T0), findingId: 'f1' }];
-    const linked: LinkedFinding[] = [{ id: 'f1', state: 'open', raisedBy: 'supervisor', lookedAt: iso(T0) }];
-    expect(planWatch({ now: T0, state: 'watching', fires: [], before, after: [], linked, dismissals: [] })).toEqual({ close: ['s1'], resolve: [], raise: [] });
+describe('a finding closes once every signal it holds closed', () => {
+  const jobAt = (n: number) => `bbbbbbbb-0000-4000-8000-00000000040${String(n)}`;
+
+  it('AC-8: a grouped finding holding three open signals closes as resolved once all three closed', async () => {
+    const silent = new Set([1, 2, 3]);
+    const db = memory(seatAt(T0 - MIN), world((now) => [1, 2, 3].map((n) => ({ ...silentJob(now, silent.has(n) ? 52 : 1), id: jobAt(n) }))));
+    await watchOnce({ store: db.store, notify: null, workspace: WS, now: T0, log: quiet });
+    expect(db.signals).toHaveLength(3);
+    // The seat looked and raised one finding over the three, under a group fingerprint.
+    const group: Finding = {
+      id: 'eeeeeeee-0000-4000-8000-000000000001', state: 'open', raisedBy: 'supervisor', lookedAt: iso(T0), workspace: WS, signalId: '',
+      fingerprint: 'stuck:silent-group:atlas-01', kind: 'stuck', severity: 'medium', title: '3 jobs went silent on atlas-01', checkLine: '',
+      figures: { signals: 3 }, evidence: [], evidenceKey: 'k', notifiedAt: null,
+    };
+    db.findings.push(group);
+    for (const signal of db.signals) signal.findingId = group.id;
+
+    silent.delete(1);
+    await watchOnce({ store: db.store, notify: null, workspace: WS, now: T0 + 2 * MIN, log: quiet });
+    silent.delete(2);
+    await watchOnce({ store: db.store, notify: null, workspace: WS, now: T0 + 4 * MIN, log: quiet });
+    expect(db.signals.filter((s) => s.findingId === group.id && s.closedAt === null)).toHaveLength(1);
+    expect(group.state).toBe('open');
+
+    silent.delete(3);
+    await watchOnce({ store: db.store, notify: null, workspace: WS, now: T0 + 6 * MIN, log: quiet });
+    expect(db.signals.filter((s) => s.findingId === group.id).every((s) => s.closedAt !== null)).toBe(true);
+    expect(group.state).toBe('resolved');
+  });
+
+  it('closes a finding the seat raised, and one the seat looked at, once its one signal closed', () => {
+    const before: OpenSignal[] = [
+      { id: 's1', fingerprint: 'stuck:silent:x', openedAt: iso(T0), findingId: 'f1' },
+      { id: 's2', fingerprint: 'stuck:silent:y', openedAt: iso(T0), findingId: 'f2' },
+    ];
+    const linked: LinkedFinding[] = [
+      { id: 'f1', state: 'open', raisedBy: 'supervisor', lookedAt: iso(T0) },
+      { id: 'f2', state: 'open', raisedBy: 'check', lookedAt: iso(T0) },
+    ];
+    expect(planWatch({ now: T0, state: 'watching', fires: [], before, after: [], linked, dismissals: [] })).toEqual({ close: ['s1', 's2'], resolve: ['f1', 'f2'], raise: [] });
+  });
+
+  it('keeps a finding open while one of its signals is open, and leaves a finding no longer open as it is', () => {
+    const before: OpenSignal[] = [
+      { id: 's1', fingerprint: 'stuck:silent:x', openedAt: iso(T0), findingId: 'f1' },
+      { id: 's2', fingerprint: 'stuck:silent:y', openedAt: iso(T0), findingId: 'f1' },
+      { id: 's3', fingerprint: 'stuck:silent:z', openedAt: iso(T0), findingId: 'f2' },
+    ];
+    const linked: LinkedFinding[] = [
+      { id: 'f1', state: 'open', raisedBy: 'supervisor', lookedAt: iso(T0) },
+      { id: 'f2', state: 'dismissed', raisedBy: 'check', lookedAt: null },
+    ];
+    const fires = silentFires('stuck:silent:y');
+    expect(planWatch({ now: T0, state: 'watching', fires, before, after: [before[1] as OpenSignal], linked, dismissals: [] })).toEqual({ close: ['s1', 's3'], resolve: [], raise: [] });
   });
 });
+
+/** Fires of `fingerprints`, as the checks would answer them. */
+function silentFires(...fingerprints: string[]): Fire[] {
+  return fingerprints.map((fingerprint) => ({
+    fingerprint, check: 'silent-job', kind: 'stuck', severity: 'medium', title: '', checkLine: '', figures: {}, evidence: [], evidenceKey: fingerprint,
+  }));
+}
 
 describe('supervisorWatchHandler — the ledger\'s job', () => {
   const claimed = (payload: Record<string, unknown>): ClaimedJob => ({ id: 'j', kind: 'supervisor-watch', key: 'k', subject: 'supervisor-watch', payload, tries: 1, claim: 'c', claimedUntil: iso(T0) });

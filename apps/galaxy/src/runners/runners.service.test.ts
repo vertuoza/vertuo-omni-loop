@@ -2288,6 +2288,20 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
       expect(w.state.jobs.find((j) => j.id === relaunched.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY });
     });
 
+    it('AC-3: sends again a job that expired after nobody continued it, as the page\'s Send again does: an API key\'s relaunch of it is accepted', async () => {
+      const job = ended({ status: 'done', exit_code: 0, outcome: 'expired', reason: 'Expired: nobody continued it in 48 h', line: '/omni:yolo 3190' });
+      const w = world({ jobs: [job] });
+      const relaunched = value(await w.service.relaunchByKey(KEY, job.id));
+      expect(relaunched).toMatchObject({ line: '/omni:yolo 3190', status: 'queued', continues: job.id });
+      expect(w.state.jobs.find((j) => j.id === relaunched.id)).toMatchObject({ sent_by: OLGA, sent_by_key: API_KEY, to_fleet: 'cia' });
+    });
+
+    it('sends again a queued job no runner took, which ended failed with no runner', async () => {
+      const job = sent({ status: 'failed', reason: 'Expired: no runner took it in 48 h', ended_at: T0.toISOString() });
+      const w = world({ jobs: [job] });
+      expect(value(await w.service.relaunchByKey(KEY, job.id))).toMatchObject({ line: job.line, status: 'queued', continues: job.id });
+    });
+
     it('goes to the runner the first job named, and to any runner when it named none', async () => {
       const [named, any] = [ended({ to_fleet: null, to_runner: CIA_BOX }), ended({ to_fleet: null })];
       const w = world({ jobs: [named, any] });
@@ -2325,7 +2339,7 @@ describe('a key cancelling and relaunching its job (PRD 2425 s7)', () => {
         for (const outcome of [null, ...STORED_OUTCOMES]) {
           const job = sent({ status, outcome });
           const served = await world({ jobs: [job] }).service.relaunchByKey(KEY, job.id);
-          if (served.ok !== (canSendAgain({ status }) || canResume({ status, outcome }))) mismatches.push(`${status}/${String(outcome)}`);
+          if (served.ok !== (canSendAgain({ status, outcome }) || canResume({ status, outcome }))) mismatches.push(`${status}/${String(outcome)}`);
           if (!served.ok) expect(served).toEqual({ ok: false, kind: 'conflict', error: NOT_OFFERED });
         }
       }

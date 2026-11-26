@@ -6,7 +6,8 @@
 //   snapshot   the seat, the open signals and findings, the runners, the jobs of the last 6 h, the missions
 //   lines      a job's lines after a sequence number, masked by the app
 //   memory     reads the notes, or writes one (scope, line, cites)
-//   raise      raises a finding, from signals (their check shown first) or alone, with up to two suggestions
+//   raise      raises a finding, from signals (their check shown first) or alone, with up to two suggestions; a group
+//              fingerprint holds signals of different fingerprints that share one cause (PRD omni-loop-35)
 //   reply      answers in a thread, signed Supervisor · agent on the page
 //   propose    gives a finding a check wrote alone its first look: the explanation and up to two suggestions
 //
@@ -53,10 +54,12 @@ const TOOLS: { name: ToolName; description: string; inputSchema: object }[] = [
   },
   {
     name: 'raise',
-    description: 'Raises a finding. Name its signals (one fingerprint): their check and figures are shown first. With no signal, give it a fingerprint so it is raised once; it reads "Raised by the Supervisor, no check fired". Up to two suggestions.',
+    description: 'Raises a finding. Name its signals: their check and figures are shown first. Signals that share one cause (one repository, one kind of wait, one failing route) go in one finding under a group fingerprint, which may name signals of different fingerprints; without it, the signals share one fingerprint. A second raise of an open group adds its new signals. With no signal, give it a fingerprint so it is raised once; it reads "Raised by the Supervisor, no check fired". Up to two suggestions.',
     inputSchema: object({
       kind: { type: 'string', enum: ['stuck', 'bug', 'health'] }, severity: { type: 'string', enum: ['high', 'medium'] }, title: { type: 'string', maxLength: 200 },
-      signals: { type: 'array', items: { type: 'string' }, maxItems: 10 }, fingerprint: { type: 'string' }, evidence: { type: 'array', maxItems: 50 },
+      signals: { type: 'array', items: { type: 'string' }, maxItems: 10 },
+      fingerprint: { type: 'string', description: 'A group fingerprint, such as stuck:queue-repo:<owner/repo>: with it, the finding may name signals of different fingerprints that share one cause. With no signal, the finding\'s own fingerprint, so it is raised once.' },
+      evidence: { type: 'array', maxItems: 50 },
       explanation: { type: 'string', maxLength: 4000 }, suggestions: SUGGESTIONS,
     }, ['kind', 'severity', 'title', 'explanation']),
   },

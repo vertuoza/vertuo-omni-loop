@@ -3,8 +3,11 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
+import type { SupervisorApi } from './api.ts';
 import { planLaunch } from '../launch/launch.ts';
+import { serveSeatMcp } from './supervisor-mcp.ts';
 import { claudeThinker, lookPrompt } from './supervisor-think.ts';
 import type { SpawnThink } from './supervisor-think.ts';
 
@@ -96,5 +99,29 @@ describe('the seat\'s think', () => {
     expect(prompt).toContain('Seat: 1200 of 5000000 tokens used today.');
     expect(prompt).toContain('## Memory\n- n1 · long · Baseline wave: 2.5 min');
     expect(prompt).not.toContain('## Signals');
+  });
+
+  // PRD omni-loop-35 s5: one cause, one finding.
+  it('carries the grouping rule, and no rule left that asks one finding per signal', () => {
+    const seat = { workspace: 'w', runner: RUNNER, paused: false, thinking: true, dailyTokens: 5_000_000, tokensToday: 0, missedLooks: 0, lastLookAt: null };
+    const prompt = lookPrompt({ seat, signals: [], unlooked: [], messages: [], notes: [] });
+    expect(prompt).toContain('Group signals that share one cause (one repository, one kind of wait, one failing route) into one finding with a group fingerprint; never raise one finding per job when the cause is the same.');
+    expect(prompt).not.toContain('For each signal: raise a finding');
+    expect(prompt).not.toContain('One finding per fingerprint.');
+  });
+
+  it('describes the raise tool\'s group fingerprint: it may name signals of different fingerprints', async () => {
+    const lines: string[] = [];
+    await serveSeatMcp({
+      input: Readable.from([`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })}\n`]),
+      write: (line) => lines.push(line),
+      api: {} as SupervisorApi,
+      runner: RUNNER,
+    });
+    const reply = JSON.parse(lines[0] ?? '{}') as { result: { tools: { name: string; description: string; inputSchema: { properties: Record<string, { description?: string }> } }[] } };
+    const raise = reply.result.tools.find((tool) => tool.name === 'raise');
+    expect(raise?.description).toContain('group fingerprint');
+    expect(raise?.description).toContain('signals of different fingerprints');
+    expect(raise?.inputSchema.properties['fingerprint']?.description).toContain('signals of different fingerprints');
   });
 });

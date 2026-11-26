@@ -10084,6 +10084,7 @@ export type Database = {
         Args: { p_keep: number; p_workspace: string }
         Returns: number
       }
+      runner_jobs_expire: { Args: { p_now: string }; Returns: Json }
       runner_report_health: {
         Args: {
           p_at: string
@@ -10550,6 +10551,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      supervisor_findings_group_per_job: {
+        Args: { p_now: string }
+        Returns: number
       }
       supervisor_forget: { Args: never; Returns: number }
       supervisor_memory_clear: {
