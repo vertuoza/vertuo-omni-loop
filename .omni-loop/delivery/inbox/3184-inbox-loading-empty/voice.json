@@ -1,0 +1,117 @@
+{
+  "rounds": [
+    {
+      "stage": "design",
+      "date": "2026-11-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "Reusing one Skeleton and one EmptyState is right; a shimmer everywhere is only fine if nothing jumps.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "A flag per part in the provider and no new endpoint: small enough not to be fluff.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "An Inbox that never lies about being empty is what I open first every morning.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "One skeleton system instead of two is the cohesion I keep asking for.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Seeing the Inbox's own shape at once tells me it is coming, not broken.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": {
+        "persona": "F-E Developer",
+        "text": "A staggered shimmer on every list is the kind of motion that hides a slow page instead of fixing it; I want proof it never shifts the layout when the data arrives.",
+        "citations": [
+          "persona:F-E Developer"
+        ],
+        "settled": "accepted"
+      },
+      "fit": "Fits every persona once the layout is proven not to shift."
+    },
+    {
+      "stage": "spec",
+      "date": "2026-11-23",
+      "personas": [
+        {
+          "name": "F-E Developer",
+          "stance": "skeptical",
+          "score": 4,
+          "reaction": "AC-6 pins the same boxes before and after, so my objection is a test, not a promise.",
+          "citations": [
+            "persona:F-E Developer"
+          ]
+        },
+        {
+          "name": "B-E DEv",
+          "stance": "skeptical",
+          "score": 3,
+          "reaction": "No migration, no API; the provider change is testable in one file.",
+          "citations": [
+            "persona:B-E DEv"
+          ]
+        },
+        {
+          "name": "Paul - Product Manager",
+          "stance": "enthusiastic",
+          "score": 5,
+          "reaction": "Every tab and every empty pill is covered in one PRD.",
+          "citations": [
+            "persona:Paul - Product Manager"
+          ]
+        },
+        {
+          "name": "Lead Engineer",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Retiring the old pulse in the same PRD keeps the app on one system.",
+          "citations": [
+            "persona:Lead Engineer"
+          ]
+        },
+        {
+          "name": "Irisa",
+          "stance": "neutral",
+          "score": 4,
+          "reaction": "Short empty lines with one action each are easy to act on.",
+          "citations": [
+            "persona:Irisa"
+          ]
+        }
+      ],
+      "objection": null,
+      "fit": "Fits every persona."
+    }
+  ]
+}
