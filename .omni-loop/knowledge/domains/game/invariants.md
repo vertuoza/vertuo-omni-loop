@@ -35,3 +35,14 @@ Locked: @pierrederval, 2026-10-13
 Stated: 2026-10-13
 Decided: @pierrederval via the terminal, 2026-10-13
 Kept id: moved from product, PRD 2346
+
+## N-GAME-1
+
+A reply signed by a virtual fleet's Commander is written only by the app after its model call and link filter; the database refuses a Commander reply from anyone signed in, while a member's question is saved under their own sign-in and name.
+
+Source: .omni-loop/delivery/shipped/3107-fleet-commander/outbox/settled.md, entry s1-02-reply-written-by-the-app-alone, PRD #3107
+Enforced by: supabase/checks/commander_messages.sql, apps/galaxy/src/virtual-fleets/commander/message.service.test.ts
+Stated: 2026-11-21
+Decided: nobody — adopted when raised (medium), 2026-11-20
+Merged: @pierrederval, 2026-11-21, PR #3110
+Proposed: harvest 2026-11-21

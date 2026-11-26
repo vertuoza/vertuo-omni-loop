@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-11-20
 - Slice: s1
 - Wave: 1
+- Became: ADR-0169
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Undoing it is deleting one workflow step and regenerating one file: minutes, no 
 - Raised: 2026-11-20
 - Slice: s1
 - Wave: 1
+- Became: N-GAME-1
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Switching to B is one database function and one line of the app's wiring; no sto
 - Raised: 2026-11-20
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-175, P-PRODUCT-132
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ Narrowing it is one line of the rules; nothing stored changes.
 - Raised: 2026-11-20
 - Slice: s1
 - Wave: 1
+- Stays here: Small local wording and interaction choices on one tab, cheap to change and storing nothing; mostly copy and look, nothing lasting for the knowledge base.
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ Each is a line or two of the tab; nothing stored changes.
 - Raised: 2026-11-20
 - Slice: s1
 - Wave: 1
+- Stays here: A one-line allowlist entry in a test, following existing practice; nothing lasting beyond the guard itself, which is already in code.
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ Removing the line is one edit, and the guard then fails until the model is named
 - Raised: 2026-11-20
 - Slice: s2
 - Wave: 2
+- Stays here: A temporary, slice-scoped choice about where a count is drawn; it is mostly about the look, and there is no lasting guarantee to keep.
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ Small: the fleet page reads the open count with the tab and adds it to the label
 - Raised: 2026-11-20
 - Slice: s2
 - Wave: 2
+- Stays here: A tunable constant and a button styling choice; easily changed, no lasting product guarantee, and the button part is purely about look.
 
 ### The answer, as it was given
 
@@ -563,6 +570,7 @@ Each is a single constant or a single attribute to change.
 - Raised: 2026-11-20
 - Slice: s3
 - Wave: 3
+- Became: ADR-0172
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ Small: one field in the runner's job schema and one file write per job, with a t
 - Raised: 2026-11-20
 - Slice: s3
 - Wave: 3
+- Stays here: A local UI choice following the drawn screens, cheap to change and adopted without approval; it is about what the tab draws, not a lasting product guarantee.
 
 ### The answer, as it was given
 
@@ -719,6 +728,7 @@ Small: show the Message fleet mode alone in those two states, one component and 
 - Raised: 2026-11-20
 - Slice: s4
 - Wave: 4
+- Stays here: A one-off scope choice for this slice. That database checks run in the supabase workflow is already ADR-0028, so nothing new needs keeping.
 
 ### The answer, as it was given
 
@@ -797,6 +807,7 @@ Low: removing the schedule line and the handler line turns the job off; the work
 - Raised: 2026-11-20
 - Slice: s4
 - Wave: 4
+- Became: ADR-0173
 
 ### The answer, as it was given
 
@@ -876,6 +887,7 @@ Low: a restore function and an undo call can be added later without changing the
 - Raised: 2026-11-20
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-176, P-PRODUCT-133
 
 ### The answer, as it was given
 
@@ -955,6 +967,7 @@ Low: each is a constant or a schedule line; counting the notebook's tokens would
 - Raised: 2026-11-20
 - Slice: s5
 - Wave: 5
+- Stays here: A local choice about an eval script's proxy check and tsconfig wiring, cheap to change and with no lasting product guarantee to record.
 
 ### The answer, as it was given
 
