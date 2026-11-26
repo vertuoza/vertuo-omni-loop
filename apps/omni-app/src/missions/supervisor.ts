@@ -1233,7 +1233,8 @@ export function eventsOf({
 // stands with `/omni:ultra-yolo <id> --base-of …` (no QA pair, no Reviewer: its target pull requests carry its gate), joined through
 // ./join.ts › joinProduct once its build ended Ready. A build that ended halfway or held is sent again as its next run, as a repository
 // PRD's step is (bug #3287): at `alone` while it ended halfway at most `mandate.resumes` times (the resume step, ./resume.ts), below it
-// and for a hold once (the table). Past that, or once it failed, it gets a repair as a repository PRD's step does (bug #3302,
+// and for a hold once (the table). A build its runner lost (bug #3330) is no failure: no skill the database resumes, it is sent again
+// as its next run, within the same cap at `alone` and once below it. Past that, or once it failed, it gets a repair as a repository PRD's step does (bug #3302,
 // BR-PRODUCT-139, ./repair.ts): `/omni:repair --prd <key>-<n>`, within the same 3 per cause and 9 per mission, its build sent again once
 // the repair allows it; a person once the repairs are spent, saying why. On any other end (a question for a person) it waits for a person.
 
@@ -1272,12 +1273,30 @@ const times = (count: number): string => (count === 1 ? 'once' : `${String(count
  */
 function productAgain(runs: readonly ProductRun[], last: Attempt, resumes: number | null): true | string | null {
   const ends = runs.flatMap((one) => one.attempts.at(-1) ?? []);
+  if (lostEnd(last)) return lostAgain(ends, resumes);
   if (endOf(last) === 'held') return ends.filter((one) => endOf(one) === 'held').length < LAST_RUN || 'its build was held twice';
   if (!endedHalfway(last)) return null;
   const halfway = ends.filter(endedHalfway);
   const count = halfway.filter((one) => one.limitedUntil == null).length;
   if (resumes === null) return count < LAST_RUN || 'its build stopped mid-way twice';
   return (count <= resumes && halfway.length < PRODUCT_HALFWAY_MAX) || `its build ended without its result line ${times(count)}`;
+}
+
+/** The reasons of a job its runner lost (supabase/migrations/20270121100000_runner_resume.sql): no failure of the work. */
+const LOST_REASONS: ReadonlySet<string> = new Set(['runner lost', 'the worktree could not be made', 'the tmux session could not be started']);
+
+/** Whether a build ended lost by its runner (bug #3330): failed on a lost job's reason, no spend or rate limit. */
+const lostEnd = (attempt: Attempt): boolean => attempt.status === 'failed' && attempt.limitedUntil == null && LOST_REASONS.has(attempt.reason ?? '');
+
+/**
+ * Whether a product PRD's build its runner lost goes again (bug #3330): `/omni:ultra-yolo` is no skill the database resumes on its own
+ * (PRD 2809), so the mission sends it again as its next run, at `alone` while its lost builds, the latest included, number at most
+ * `resumes`, below it once; past that, why it goes to repair.
+ */
+function lostAgain(ends: readonly Attempt[], resumes: number | null): true | string {
+  const count = ends.filter(lostEnd).length;
+  if (resumes === null) return count < LAST_RUN || "its build's runner was lost twice";
+  return count <= resumes || `its build's runner was lost ${times(count)}`;
 }
 
 /** Why a product PRD's build that ended `end` waits for a person: its failure's reason, else how it ended. */

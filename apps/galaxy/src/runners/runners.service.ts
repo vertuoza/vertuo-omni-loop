@@ -1319,7 +1319,7 @@ export function runnersService(
       if (!job || !member) return no('missing', 'No such job.');
       const [read, first] = await Promise.all([store.lines(jobId, after, JOB_LINES_PAGE + 1), store.firstLine(jobId)]);
       const logTail = first === null && job.log_tail !== '' ? job.log_tail : null;
-      return ok({ status: job.status, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
+      return ok({ status: job.status, line: job.line, reason: job.reason, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
     },
 
     /** The terminal's read of the runners (PRD 2251): every runner of the workspace the repository belongs

@@ -25065,12 +25065,20 @@ var PRODUCT_HALFWAY_MAX = 10;
 var times = (count4) => count4 === 1 ? "once" : `${String(count4)} times`;
 function productAgain(runs, last, resumes) {
   const ends = runs.flatMap((one) => one.attempts.at(-1) ?? []);
+  if (lostEnd(last)) return lostAgain(ends, resumes);
   if (endOf(last) === "held") return ends.filter((one) => endOf(one) === "held").length < LAST_RUN || "its build was held twice";
   if (!endedHalfway(last)) return null;
   const halfway = ends.filter(endedHalfway);
   const count4 = halfway.filter((one) => one.limitedUntil == null).length;
   if (resumes === null) return count4 < LAST_RUN || "its build stopped mid-way twice";
   return count4 <= resumes && halfway.length < PRODUCT_HALFWAY_MAX || `its build ended without its result line ${times(count4)}`;
+}
+var LOST_REASONS = /* @__PURE__ */ new Set(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
+var lostEnd = (attempt3) => attempt3.status === "failed" && attempt3.limitedUntil == null && LOST_REASONS.has(attempt3.reason ?? "");
+function lostAgain(ends, resumes) {
+  const count4 = ends.filter(lostEnd).length;
+  if (resumes === null) return count4 < LAST_RUN || "its build's runner was lost twice";
+  return count4 <= resumes || `its build's runner was lost ${times(count4)}`;
 }
 var endedWhy = (end, last) => end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
 var byHand = (prd, why) => ({ state: "waits", why: `PRD ${prd}: ${why}; take it to ready by hand and the mission joins it` });
@@ -29083,7 +29091,7 @@ var MINUTE4 = 6e4;
 var HOUR2 = 60 * MINUTE4;
 var ONLINE_MS = 9e4;
 var DEFAULT_USUAL_MIN = 20;
-var LOST_REASONS = Object.freeze(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
+var LOST_REASONS2 = Object.freeze(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
 var WAITING = Object.freeze({ human: "Need human", answers: "Waiting on answers", held: "Held" });
 function evidenceKey(parts) {
   return createHash10("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 32);
@@ -29152,7 +29160,7 @@ var queueStuck = ({ now, jobs, runners }) => jobs.flatMap((job) => {
   }];
 });
 var resumeLoop = ({ now, jobs }) => jobs.flatMap((job) => {
-  if (job.status !== "failed" || job.attempt < 3 || job.reason === null || !LOST_REASONS.includes(job.reason)) return [];
+  if (job.status !== "failed" || job.attempt < 3 || job.reason === null || !LOST_REASONS2.includes(job.reason)) return [];
   if (age(job.endedAt, now) > 24 * HOUR2) return [];
   return [{
     fingerprint: `stuck:resume-loop:${job.id}`,

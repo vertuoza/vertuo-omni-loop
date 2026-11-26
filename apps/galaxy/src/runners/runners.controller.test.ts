@@ -428,7 +428,7 @@ describe('GET /api/runners/jobs/<id>/lines', () => {
     const response = await jobLines(get(job.id, '?after=1'), job.id, w.deps);
     expect(response.headers.get('cache-control')).toContain('no-store');
     expect(await read(response)).toEqual({
-      status: 200, body: { status: 'running', lines: [{ seq: 2, text: 'line 2' }, { seq: 3, text: 'line 3' }], more: false, first: 1, logTail: null },
+      status: 200, body: { status: 'running', line: '/omni:yolo 1717', reason: null, lines: [{ seq: 2, text: 'line 2' }, { seq: 3, text: 'line 3' }], more: false, first: 1, logTail: null },
     });
   });
 
@@ -442,7 +442,7 @@ describe('GET /api/runners/jobs/<id>/lines', () => {
   it('answers the log tail of a job that holds no line', async () => {
     const job = running();
     expect(await read(await jobLines(get(job.id), job.id, world({ jobs: [job] }).deps)))
-      .toEqual({ status: 200, body: { status: 'running', lines: [], more: false, first: null, logTail: 'tail' } });
+      .toEqual({ status: 200, body: { status: 'running', line: '/omni:yolo 1717', reason: null, lines: [], more: false, first: null, logTail: 'tail' } });
   });
 
   it('answers 404 to a non-member, for an unknown job and for an id that is none', async () => {
@@ -513,7 +513,7 @@ describe('GET /api/runners/jobs/<id>/lines, from the terminal (PRD 2251)', () =>
     const job = running();
     const w = world({ jobs: [job], lines: lineRows(job, 1, 3), viewer: null });
     expect(await read(await jobLines(get(job.id, 'mo-token', '?after=2'), job.id, w.deps)))
-      .toEqual({ status: 200, body: { status: 'running', lines: [{ seq: 3, text: 'line 3' }], more: false, first: 1, logTail: null } });
+      .toEqual({ status: 200, body: { status: 'running', line: '/omni:yolo 1717', reason: null, lines: [{ seq: 3, text: 'line 3' }], more: false, first: 1, logTail: null } });
   });
 
   it('answers 404 to a token outside the job\'s workspace, as to a session there', async () => {

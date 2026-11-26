@@ -1803,6 +1803,27 @@ describe('omni runner log (bug #3330)', () => {
     expect(result.calls).toEqual(['/api/runners/jobs/job-7/lines?after=0', '/api/runners/jobs/job-7/lines?after=2']);
     expect(result.out).toBe(`job job-7: failed, runner lost\nline: ${LINE}\nlog (last 4 lines):\none\ntwo\nthree\ntoken [masked]\n`);
   });
+
+  it('prints the tail the job kept when it holds no line, and says none was kept when it holds neither', async () => {
+    const tail = await log([page([], 1, false, { status: 'done', reason: null, logTail: 'a\nb' })]);
+    expect(tail.out).toBe(`job job-7: done\nline: ${LINE}\nlog (last 2 lines):\na\nb\n`);
+    const none = await log([{ status: 'failed', lines: [], more: false, first: null, logTail: null }]);
+    expect(none.out).toBe('job job-7: failed\nlog: none kept\n');
+  });
+
+  it('keeps the last 200 lines of a long log', async () => {
+    const many = Array.from({ length: 250 }, (_, k) => `l${String(k + 1)}`);
+    const result = await log([page(many, 1, false)]);
+    expect(result.out.split('\n').slice(2, 4)).toEqual(['log (last 200 lines):', 'l51']);
+  });
+
+  it('exits 1 with one line when the app does not know the job, and 2 without a job', async () => {
+    const f = fixture();
+    const stderr = out();
+    const code = await main(['runner', 'log', 'job-9'], { cwd: f.checkout, stdout: out().stream, stderr: stderr.stream, env: { PATH: String(process.env.PATH) }, tokens: memoryTokens(), home: f.home, fetch: () => Promise.resolve(new Response(null, { status: 404 })) });
+    expect([code, stderr.text()]).toEqual([1, 'omni runner: no job job-9 in this workspace.\n']);
+    expect(await log([], ['log'])).toMatchObject({ code: 2, err: 'usage: omni runner log <job>\n', calls: [] });
+  });
 });
 
 describe('the runner pieces', () => {

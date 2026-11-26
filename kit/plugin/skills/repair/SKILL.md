@@ -51,9 +51,11 @@ take the `person` way, naming that.
 
 ## 1. The retro
 
-Read, on this runner, why the step failed: the failed job's log (`omni runner log <job>`), the work it
-saved (its worktree, if kept), the PRD's branch and the step of its plan the job was on. Then write the
-retro to a scratch file outside the repository, as JSON:
+Read why the step failed: the failed job (`omni runner log <job>`, which reads it through the Omni page from
+any runner of the workspace, whichever runner ran it: its status and reason, its line, with the `--base` or
+`--base-of` you need, and its log's last lines, every secret masked), the work it saved (its worktree, when
+this runner kept it), the PRD's branch and the step of its plan the job was on. Then write the retro to a
+scratch file outside the repository, as JSON:
 
 ```json
 {
@@ -73,7 +75,10 @@ path of a customer's, a credential or a person's words. The class is one of four
 - **`code`**: the work's own code is wrong (a broken test, a failing build the PRD's code caused).
 - **`omni-loop`**: the kit, a skill or the runner is wrong (a crash in `omni`, a skill that refuses a
   valid input, a runner that fails a job for no cause of the work).
-- **`flake`**: a timeout, a lost network or a busy service, with no change to make.
+- **`flake`**: a timeout, a lost network or a busy service, with no change to make. **A job its runner lost**
+  (its status `failed`, its reason `runner lost`, `the worktree could not be made` or `the tmux session could
+  not be started`) is a `flake`: the work did not fail, its runner stopped reporting. So is a job whose log
+  cannot be read when its reason says it was lost: say what could not be read in the evidence, never `person`.
 - **`person`**: only a person can decide (the bug fix's boundary is crossed, a product decision, a
   secret missing, a human action).
 
