@@ -28733,6 +28733,7 @@ var waitingTooLong = ({ now: now2, jobs }) => {
     };
   });
 };
+var EXPIRED_REASON = "Expired:";
 function failureGroups(jobs, now2) {
   const groups = /* @__PURE__ */ new Map();
   const add = (by, raw, id) => {
@@ -28745,7 +28746,7 @@ ${text20}`) ?? { by, text: text20, ids: [] };
 ${text20}`, group2);
   };
   for (const job of jobs) {
-    if (job.status !== "failed" || age(job.endedAt, now2) > 6 * HOUR2) continue;
+    if (job.status !== "failed" || age(job.endedAt, now2) > 6 * HOUR2 || job.reason?.startsWith(EXPIRED_REASON) === true) continue;
     add("reason", job.reason, job.id);
     add("line", job.lastLine, job.id);
   }

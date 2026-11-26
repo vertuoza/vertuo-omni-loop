@@ -240,6 +240,11 @@ describe('same-failure — 3 jobs or more failed the same way within 6 h', () =>
     expect(JSON.stringify(fires)).not.toContain(token);
   });
 
+  it('stays quiet on jobs the 48 h sweep expired on purpose, whatever their count (#3366)', () => {
+    const expired = { reason: 'Expired: no runner took it in 48 h', lastLine: null };
+    expect(sameFailure(snap({ jobs: [failed(1, expired), failed(2, expired), failed(3, expired), failed(4, expired)] }))).toEqual([]);
+  });
+
   it('stays quiet on 2 jobs, and on a third failure older than 6 h', () => {
     expect(sameFailure(snap({ jobs: [failed(1), failed(2)] }))).toEqual([]);
     expect(sameFailure(snap({ jobs: [failed(1), failed(2), failed(13)] }))).toEqual([]);
