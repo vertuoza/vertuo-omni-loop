@@ -57,6 +57,14 @@ describe('readyStore — the ready check as the service role, never calling Supa
     expect(await storeOn(recordingFetch([[{ id: 'ws-1' }], [{ scope: { prds: [], roadmaps: [40] } }], [{ id: 'rm-40' }], []]).fetch).inMission(PRD)).toBe(false);
   });
 
+  it('reads a live mission scoped by product PRD ids without throwing, a product PRD playing no part in a repository PRD\'s verdict (#3322)', async () => {
+    const products = recordingFetch([[{ id: 'ws-1' }], [{ scope: { prds: ['widgets-28', 'widgets-29'], roadmaps: ['widgets-R2'] } }]]);
+    expect(await storeOn(products.fetch).inMission(PRD)).toBe(false);
+    expect(products.requests).toHaveLength(2);
+    const mixed = recordingFetch([[{ id: 'ws-1' }], [{ scope: { prds: ['widgets-28'], roadmaps: [] } }, { scope: { prds: [7], roadmaps: [] } }]]);
+    expect(await storeOn(mixed.fetch).inMission(PRD)).toBe(true);
+  });
+
   it('saves one row per pull request and head commit in the installation\'s workspace, a re-run rewriting it', async () => {
     const verdict: SavedVerdict = {
       ...PRD,
