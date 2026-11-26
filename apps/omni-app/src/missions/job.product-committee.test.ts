@@ -150,4 +150,35 @@ describe('at Works alone, the fleet\'s committee answers a product PRD\'s high i
     await run();
     expect(fake.events().filter((one) => one.kind === 'prd-joined').map((one) => one.prd)).toEqual([P28]);
   });
+
+  it('asks a person only when the committee sends the item to one, saying so', async () => {
+    const { fake, run } = await builtRed();
+    fake.endAsk(ITEM, { status: 'done' }, CARRIED.replace('"answer":"yes"', '"answer":"no"').replace('"option":"A"', '"option":"B"'));
+    await run();
+    expect((await fake.store.decisions(ID)).map(({ outcome }) => outcome)).toEqual(['escalated']);
+    expect(fake.mission().waitingOn ?? '').toContain(`PRD omni-loop-28: its gate is red on 1 open item (${ITEM}): the committee sent ${ITEM} to you`);
+    expect(fake.productJobs()).toHaveLength(1);
+    expect(fake.asks()).toHaveLength(1);
+  });
+
+  it('waits for a person when the build sent again after the fleet answered ends red again', async () => {
+    const { fake, run } = await builtRed();
+    fake.endAsk(ITEM, { status: 'done' }, CARRIED);
+    await run();
+    expect(fake.productJobs()).toHaveLength(2);
+    fake.endProduct(P28, { status: 'done', outcome: null }, RED);
+    await run();
+    expect(fake.productJobs()).toHaveLength(2);
+    expect(fake.mission().waitingOn ?? '').toContain('PRD omni-loop-28: its gate stayed red once the fleet answered its items, and its build was sent again once already');
+  });
+
+  it('sends a human-action item to no committee: a person acts on it', async () => {
+    const { fake, run } = await builtRed();
+    fake.setProduct(P28, { items: { ranks: ['high', 'human-action'], open: [{ id: ITEM, rank: 'high' }, { id: 's1-03-add-the-dns-record', rank: 'human-action' }] } });
+    fake.endAsk(ITEM, { status: 'done' }, CARRIED);
+    await run();
+    expect(fake.asks().map(({ item }) => item)).toEqual([ITEM]);
+    expect(fake.productJobs()).toHaveLength(1);
+    expect(fake.mission().waitingOn ?? '').toContain('s1-03-add-the-dns-record is a human-action item: only a person can act on it');
+  });
 });

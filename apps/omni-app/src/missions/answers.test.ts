@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { committeeLine } from 'omni-loop/kit/lib/committee/record.ts';
-import { parseOutboxItemId, parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parseOutboxItemId, parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { answeredOf, answerEvents, answersNext, askLine, itemOfLine, itemsOpen, withDecisions, type ItemCommittee } from './answers.ts';
 
 // The committee's answer to a high item, in a mission's run (PRD 2896 s10, criteria 14 to 16): pure. Three yes to option A
@@ -30,6 +30,14 @@ describe('the line', () => {
     expect(itemOfLine(askLine(prd, ITEM, 0.6))).toEqual({ prd, item: ITEM });
     expect(itemOfLine('/omni:committee 7 --approve')).toBeNull();
     expect(itemOfLine('/omni:yolo 7')).toBeNull();
+  });
+
+  it('names a product PRD by its id, and reads it back (bug #3363)', () => {
+    const product = parseProductPrdId('omni-loop-28');
+    expect(askLine(product, 's1-02-parts-live-in-omni-ui', 0.6)).toBe('/omni:committee omni-loop-28 --item s1-02-parts-live-in-omni-ui --bound 0.6');
+    expect(itemOfLine(askLine(product, 's1-02-parts-live-in-omni-ui', 0.6))).toEqual({ prd: product, item: 's1-02-parts-live-in-omni-ui' });
+    expect(itemOfLine('/omni:committee Omni-28 --item s1-02-x')).toBeNull();
+    expect(itemOfLine('/omni:committee 0 --item s1-02-x')).toBeNull();
   });
 });
 

@@ -11663,7 +11663,9 @@ var RowSchema = z43.object({
   item: OutboxItemIdSchema,
   rank: z43.enum(RANK_VALUES),
   body: z43.string(),
-  settlement: SettlementSchema.nullable()
+  settlement: SettlementSchema.nullable(),
+  /** Bug #3363: read `into` a mission branch, the fleet's committee answered it for that branch; absent otherwise, and from an older page. */
+  fleet: z43.boolean().optional()
 });
 var ItemsReplySchema = z43.object({ prdId: ProductPrdIdSchema, items: z43.array(RowSchema) });
 var ServerAnswerSchema = AnswerSchema.partial({ approvedBy: true, approvedAt: true, channel: true });
@@ -11700,9 +11702,9 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       throw new OutboxServerError(error.reason ?? `the Omni page refused the call (${error.status})`, error.status);
     }
   }
-  async function rows(prd) {
+  async function rows(prd, into = null) {
     const { key, seq } = productPrdParts(prd);
-    const reply2 = ItemsReplySchema.safeParse(await ask3((client) => client.readOutboxItems({ key, seq, repo })));
+    const reply2 = ItemsReplySchema.safeParse(await ask3((client) => client.readOutboxItems({ key, seq, repo, ...into === null ? {} : { into } })));
     if (!reply2.success) throw new OutboxServerError("the Omni page answered the outbox items out of shape", 200);
     return reply2.data.items;
   }
@@ -11800,9 +11802,10 @@ function serverOutboxStore({ ctx, connect, now: now2 }) {
       }
       return { moved, refused: refused10 };
     },
-    async gate(prd, { labels = [] }) {
+    async gate(prd, { labels = [], into = null }) {
       const product = productPrd(prd);
-      const items = (await openRows(product)).map((row) => {
+      const open = (await rows(product, into)).filter((row) => row.settlement === null && !(into !== null && row.fleet === true && row.rank === "high"));
+      const items = open.map((row) => {
         const file = refOf(product, row.item);
         return parsedRow(product, row) === null ? { file, id: null, rank: null } : { file, id: row.item, rank: row.rank };
       });
@@ -23192,7 +23195,8 @@ var RECORD2 = {
 };
 var CommitteeRecordSchema = z92.discriminatedUnion("kind", [
   z92.object({ ...RECORD2, kind: z92.literal("approve") }),
-  z92.object({ ...RECORD2, kind: z92.literal("answer"), item: OutboxItemIdSchema, option: z92.string().regex(/^[A-Z]$/) })
+  // An answer names a repository PRD by its number, or a product PRD by its id (bug #3363): an approval, a number only.
+  z92.object({ ...RECORD2, prd: z92.union([PrdNumberSchema, ProductPrdIdSchema]), kind: z92.literal("answer"), item: OutboxItemIdSchema, option: z92.string().regex(/^[A-Z]$/) })
 ]);
 var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
 function* recordsOf(log2) {
@@ -23298,13 +23302,19 @@ function itemDecisionOf(prd, one, log2) {
 // apps/omni-app/src/missions/answers.ts
 var BUILT3 = "A";
 var DEFAULT_BOUND = 0.6;
-var LINE2 = /^\/omni:committee ([1-9][0-9]*) --item ([a-z0-9-]+)(?: --bound [0-9.]+)?$/;
+var LINE2 = /^\/omni:committee (\S+) --item ([a-z0-9-]+)(?: --bound [0-9.]+)?$/;
 var askLine = (prd, item, bound) => `/omni:committee ${String(prd)} --item ${item} --bound ${String(bound)}`;
 var askPrefix = (prd, item) => `/omni:committee ${String(prd)} --item ${item}`;
+function linePrd(named) {
+  const number = /^[1-9][0-9]*$/.test(named) ? PrdNumberSchema.safeParse(Number(named)) : null;
+  if (number?.success === true) return number.data;
+  const product = ProductPrdIdSchema.safeParse(named);
+  return product.success ? product.data : null;
+}
 function itemOfLine(line3) {
   const match2 = LINE2.exec(line3);
-  const prd = PrdNumberSchema.safeParse(Number(match2?.[1]));
-  return match2 && prd.success ? { prd: prd.data, item: match2[2] ?? "" } : null;
+  const prd = match2 === null ? null : linePrd(match2[1] ?? "");
+  return match2 !== null && prd !== null ? { prd, item: match2[2] ?? "" } : null;
 }
 var DECISION_KINDS = /* @__PURE__ */ new Set(["decided", "deferred", "escalated"]);
 function decisionOfKind(kind) {
@@ -23750,7 +23760,7 @@ function answering(fact, latest, around) {
     if (latest.run >= LAST_RUN) return { state: "waits", on: "answer", why: "its questions are answered, and its run was sent again once already" };
     return gate(fact, latest.run + 1, latest.step, around);
   }
-  const next = answersNext(open, around.view.answers?.committees ?? []);
+  const next = answersNext(open, (around.view.answers?.committees ?? []).filter((one) => one.prd === fact.prd));
   if (next.send.length > 0 || next.deciding) return { state: "answering", send: next.send };
   return { state: "waits", on: "answer", why: next.person.length > 0 ? next.person.join("; ") : null };
 }
@@ -24134,6 +24144,7 @@ function productEnded(fact, runs, last, { resumes, repairs }) {
   if (again3 !== null || end === "failed") return productRepaired(fact.prd, latest, last, again3 ?? endedWhy(end, last), repairs);
   return byHand(fact.prd, endedWhy(end, last));
 }
+var FLEET_RED_MAX = 2;
 function heldBuild(fact, latest, last, { done, scope, early }) {
   const end = endOf(last);
   if (end === "ready") return null;
@@ -24147,16 +24158,31 @@ function heldBuild(fact, latest, last, { done, scope, early }) {
   const names = outside.map((one) => `PRD ${String(one)}`).join(", ");
   return { state: "waits", why: `PRD ${fact.prd}: its build waits on ${names}, outside the mission's scope and not on its branch: merge it, or add it to the scope` };
 }
-function redGate(fact, latest, last) {
+function redGate(fact, own, latest, last, { alone, asks }) {
   if (last.gateRed !== true || endOf(last) === "ready") return null;
   const items = fact.items;
   if (items !== void 0 && "notRead" in items) return { state: "waits", why: `PRD ${fact.prd}: its gate is red, and its items do not read: ${items.notRead}` };
-  const open = (items?.open ?? []).filter(({ rank }) => rank === null || rank === "high" || rank === "human-action");
-  if (open.length === 0) return { state: "startable", run: latest.run + 1 };
-  const ids = open.map(({ id }) => id ?? "an item that does not read").join(", ");
-  return { state: "waits", why: `PRD ${fact.prd}: its gate is red on ${open.length === 1 ? "1 open item" : `${String(open.length)} open items`} (${ids}): answer them on its page, and the mission builds it again` };
+  const mine = asks.filter((one) => one.prd === fact.prd);
+  const answered = fleetAnswered2(mine);
+  const open = stillOpenOf(items?.open ?? [], answered);
+  return open.length === 0 ? redCleared(fact.prd, own, latest, answered.size > 0) : redOpen(fact.prd, open, alone ? mine : null);
 }
-function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = /* @__PURE__ */ new Set() }) {
+function redOpen(prd, open, asks) {
+  const ids = open.map(({ id }) => id ?? "an item that does not read").join(", ");
+  const red = `PRD ${prd}: its gate is red on ${open.length === 1 ? "1 open item" : `${String(open.length)} open items`} (${ids})`;
+  if (asks === null) return { state: "waits", why: `${red}: answer them on its page, and the mission builds it again` };
+  const next = answersNext(open, asks);
+  if (next.send.length > 0 || next.deciding) return { state: "answering", send: next.send, why: `${red}: the fleet's committee answers them for the mission branch` };
+  return { state: "waits", why: `${red}: ${next.person.join("; ")}, and the mission builds it again once they are answered` };
+}
+var fleetAnswered2 = (asks) => new Set(asks.filter((one) => one.decision !== null && one.decision.outcome !== "escalated").map((one) => one.item));
+var stillOpenOf = (open, answered) => open.filter(({ id, rank }) => (rank === null || rank === "high" || rank === "human-action") && !(rank === "high" && id !== null && answered.has(id)));
+function redCleared(prd, own, latest, byFleet) {
+  const reds = own.filter((one) => one.attempts.at(-1)?.gateRed === true).length;
+  if (byFleet && reds >= FLEET_RED_MAX) return { state: "waits", why: `PRD ${prd}: its gate stayed red once the fleet answered its items, and its build was sent again once already` };
+  return { state: "startable", run: latest.run + 1 };
+}
+function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = /* @__PURE__ */ new Set(), answers = { alone: false, asks: [] } }) {
   if (joined2.has(fact.prd)) return { state: "joined" };
   const own = runs.filter((one) => one.prd === fact.prd);
   const latest = latestProduct(own, fact.prd);
@@ -24164,7 +24190,7 @@ function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = n
   if (latest !== null && last !== void 0) {
     if (endOf(last) === null) return { state: "running" };
     const counted3 = own.filter((one) => one === latest || !early.has(one.job) && one.attempts.at(-1)?.gateRed !== true);
-    return heldBuild(fact, latest, last, { done, scope, early }) ?? redGate(fact, latest, last) ?? productEnded(fact, counted3, last, { resumes, repairs });
+    return heldBuild(fact, latest, last, { done, scope, early }) ?? redGate(fact, own, latest, last, answers) ?? productEnded(fact, counted3, last, { resumes, repairs });
   }
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: "blocked", by };
@@ -25833,7 +25859,7 @@ async function supervise(store, sought, now2, github) {
   const kept3 = await keepUp({ store, mission, inPlan, facts, runs, joined: joined2, off, toFleet, installation: ready.installation, keepUps: github.keepUps });
   const held2 = holdOf(kept3, await redBranch({ mission, at: at4, joined: joined2, joins: github.joins }));
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, off, installation: ready.installation, joins: github.joins, hold: held2.hold });
-  const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now: now2, github });
+  const { products: productAsks, ...answered } = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now: now2, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered, resumes: resumeCap(mission) };
   const productRead = await productRepairAt(store, mission, facts);
   const readRepair = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...productRead.at });
@@ -25853,7 +25879,7 @@ async function supervise(store, sought, now2, github) {
   const states = after2.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after2.retro });
   const fresh = sent.length + approved.length + asked.length + repaired2.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs, early: productRead.early });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs, early: productRead.early, asks: productAsks });
   const repairs = { ...sentRepairs, jobs: [...sentRepairs.jobs, ...products.repaired] };
   const landed = await landingStep({ store, mission, at: at4, landing, hold: kept3.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now: now2, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now: now2, branch: branch.branch }), [...dropped.waits, ...held2.waits, ...landed.waits]);
@@ -25861,12 +25887,13 @@ async function supervise(store, sought, now2, github) {
   const finished = budget.finish(unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready });
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
   const productRepairs = unrecorded(repairEvents(repairs, { where: whereOf2(mission, toFleet), mission: mission.number }).filter((one) => !ofRepository(one)), recordedKeys(dropped.recorded));
+  const productAnswers = unrecorded(answerEvents([...productAsks, ...products.asked], whereOf2(mission, toFleet)), recordedKeys(dropped.recorded));
   const retro2 = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro2.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...productRepairs, ...landed.events, ...events, ...retro2.events], new Date(now2));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...productRepairs, ...productAnswers, ...landed.events, ...events, ...retro2.events], new Date(now2));
   const moved = await store.update(mission.id, budget.from, next);
   const running = atWork3(states, retro2.running) || products.moving;
-  return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + productRepairs.length + landed.events.length };
+  return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + productRepairs.length + productAnswers.length + landed.events.length };
 }
 async function productRepairAt(store, mission, facts) {
   if (store.products === void 0 || mission.products === void 0) return { at: {}, early: /* @__PURE__ */ new Set(), held: /* @__PURE__ */ new Set() };
@@ -26058,13 +26085,16 @@ async function sendEvery(at4) {
   return { sent, approved, asked, repaired: repaired2 };
 }
 var ended5 = ({ status: status2 }) => status2 === "done" || status2 === "failed" || status2 === "cancelled";
+var repositoryAsk = (one) => !isProductPrdId(one.prd);
+var productAsk = (one) => isProductPrdId(one.prd);
 async function answerAll(run) {
-  if (run.mission.level !== "alone") return { open: /* @__PURE__ */ new Map(), committees: [] };
+  if (run.mission.level !== "alone") return { open: /* @__PURE__ */ new Map(), committees: [], products: [] };
   const committees = [];
   for (const one of withDecisions(await run.store.asks(run.mission.id), run.recorded)) {
     committees.push(one.decision !== null || !ended5(one.attempt) ? one : { ...one, decision: await decideAsk(run, one) });
   }
-  return { open: await openAtHeads(run, committees), committees };
+  const repository = committees.filter(repositoryAsk);
+  return { open: await openAtHeads(run, repository), committees: repository, products: committees.filter(productAsk) };
 }
 async function openAtHeads({ mission, facts, runs, branch, installation, github }, committees) {
   const open = /* @__PURE__ */ new Map();
@@ -26083,7 +26113,7 @@ var listedOf = (items) => "notRead" in items ? void 0 : items.open;
 async function decideAsk(run, one) {
   const log2 = one.attempt.status === "done" ? await run.store.committeeLog(one.job) : null;
   const { verdicts, decision } = itemDecisionOf(one.prd, one, log2);
-  const settled2 = decision.outcome === "escalated" ? null : await settleAsk(run, one, verdicts);
+  const settled2 = decision.outcome === "escalated" || !repositoryAsk(one) ? null : await settleAsk(run, one, verdicts);
   const taken = settled2 === null || settled2.ok ? decision : { outcome: "escalated", why: [settled2.why], option: null };
   const kept3 = await run.store.decideItem(run.mission, { prd: one.prd, item: one.item, job: one.job, verdicts, decision: taken });
   if (kept3.outcome === "deferred") return { outcome: "deferred", why: kept3.why, verdicts, option: kept3.option ?? "A" };
@@ -26381,7 +26411,7 @@ async function redBranch({ mission, at: at4, joined: joined2, joins }) {
   const why = `${at4.branch} is red (${failed3.map(({ name }) => name).join(", ")}) since PRD ${String(last)} joined: no further PRD joins; run ${dropLine(mission.number, last)} to take it off`;
   return { waits: [why], hold: why };
 }
-var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [], repaired: [] };
+var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [], repaired: [], asked: [] };
 var NO_REVIEWS = { techs: [], decisions: [], events: [] };
 var notDoneWhy = ({ status: status2 }) => status2 === "done" ? [] : [status2 === "cancelled" ? "its job was cancelled" : "its job failed"];
 async function decideReviewed(at4, products, one) {
@@ -26494,9 +26524,10 @@ async function reviewStep(at4, fact, state, step) {
 }
 async function productSteps(at4, facts) {
   const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
-  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission), repairs: at4.repairs, scope: new Set(facts.map((fact) => fact.prd)), early: at4.early ?? /* @__PURE__ */ new Set() };
+  const answers = { alone: at4.mission.level === "alone", asks: at4.asks ?? [] };
+  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission), repairs: at4.repairs, scope: new Set(facts.map((fact) => fact.prd)), early: at4.early ?? /* @__PURE__ */ new Set(), answers };
   const busy = facts.filter((fact) => ["running", "repairing"].includes(productStateOf(fact, at4.runs, where).state)).length;
-  const step = { room: at4.mission.parallel - busy, moving: false, waits: [], events: [], repairs: at4.repairs, repaired: [] };
+  const step = { room: at4.mission.parallel - busy, moving: false, waits: [], events: [], repairs: at4.repairs, repaired: [], asked: [] };
   for (const fact of facts) {
     const held2 = at4.held.get(fact.prd);
     if (held2 !== void 0 && !at4.joined.has(fact.prd)) {
@@ -26511,15 +26542,24 @@ async function productSteps(at4, facts) {
   const sent = step.events.filter((one) => one.kind === "dispatched").length;
   const pending = facts.some((fact) => !at4.joined.has(fact.prd));
   const waits = pending ? step.waits : [`every product PRD is on ${at4.branch}: a person lands it`];
-  return { pending, moving: step.moving, waits, events: step.events, sent: sent + step.repaired.length, rows: facts, on: [...at4.joined], repaired: step.repaired };
+  return { pending, moving: step.moving, waits, events: step.events, sent: sent + step.repaired.length + step.asked.length, rows: facts, on: [...at4.joined], repaired: step.repaired, asked: step.asked };
 }
 async function productStep(at4, fact, state, step) {
   if (await productRepairStep(at4, fact, state, step)) return;
-  if (state.state === "running") step.moving = true;
+  if (state.state === "answering") await askProduct(at4, fact.prd, state, step);
+  else if (state.state === "running") step.moving = true;
   else if (state.state === "blocked") step.waits.push(heldWords(fact.prd, state.by, at4.branch));
   else if (state.state === "waits") step.waits.push(state.why);
   else if (state.state === "startable") await startStep(at4, fact, state.run, step);
   else if (state.state === "ready") await joinStep(at4, fact, step);
+}
+async function askProduct(at4, prd, state, step) {
+  step.moving = true;
+  step.waits.push(state.why);
+  for (const item of state.send) {
+    const job = await at4.store.ask({ mission: at4.mission, prd, item, toFleet: at4.toFleet });
+    if (job !== null) step.asked.push({ prd, item, job, attempt: { id: job, status: "queued", outcome: null, reason: null, prUrl: null }, decision: null });
+  }
 }
 async function joinStep(at4, fact, step) {
   const joined2 = await joinOneProduct(at4, fact);

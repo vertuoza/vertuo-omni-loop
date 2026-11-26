@@ -441,9 +441,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     getRoadmap: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
       call('GET', `/api/dossiers/get?${new URLSearchParams({ product: key, roadmap: String(seq), kind: 'roadmap', ...(repo ? { repo } : {}) })}`),
     /** PRD 1548 s7: product PRD `<key>-<seq>`'s outbox items, each with its settlement or none; a 404 when
-     * there is no such PRD. `../outbox/server-store.ts` reads the reply. */
-    readOutboxItems: ({ key, seq, repo }: { key: string; seq: number; repo: string | null }) =>
-      call('GET', `/api/outbox/items?${new URLSearchParams({ product: key, prd: String(seq), ...(repo ? { repo } : {}) })}`),
+     * there is no such PRD. With `into` a mission branch (bug #3363), each item a fleet answered for it says
+     * `fleet: true`. `../outbox/server-store.ts` reads the reply. */
+    readOutboxItems: ({ key, seq, repo, into = null }: { key: string; seq: number; repo: string | null; into?: string | null }) =>
+      call('GET', `/api/outbox/items?${new URLSearchParams({ product: key, prd: String(seq), ...(repo ? { repo } : {}), ...(into ? { into } : {}) })}`),
     /** PRD 1548 s7: raises the item `body` on product PRD `<key>-<seq>`, or rewrites it while it is open;
      * with `adopt`, a medium item adopted at once. */
     putOutboxItem: ({ key, seq, repo, body, adopt }: { key: string; seq: number; repo: string | null; body: string; adopt: boolean }) =>

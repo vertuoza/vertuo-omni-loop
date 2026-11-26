@@ -196,6 +196,11 @@ step 5 reads it green.
 node .omni-loop/bin/omni.mjs status <key>-<n>     # exit 0 green, 1 red or held
 ```
 
+**Into a mission branch** (`--base-of`, bug #3363), the gate is read into it:
+`node .omni-loop/bin/omni.mjs status <key>-<n> --into <target base>`. There a high item the
+mission's fleet answered for that branch counts as answered (BR-PRODUCT-145); it stays open on the
+page for a person, and the gate read with no `--into` still holds it.
+
 No outbox comment is posted (`omni comment` is not run): the questions are answered on the
 product's **Questions** tab, or here. There is no `omni ship`, no release note and no plan PR body.
 

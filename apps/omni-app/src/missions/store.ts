@@ -258,7 +258,7 @@ export type MissionRetros = {
 };
 
 /** An item's committee to send (PRD 2896 s10): the mission, the PRD, the item, and whether the fleet's runners take it. */
-export type Ask = { mission: MissionRecord; prd: PrdNumber; item: string; toFleet: boolean };
+export type Ask = { mission: MissionRecord; prd: MissionPrd; item: string; toFleet: boolean };
 
 /** The skill a mission builds its PRD with: `ultra-yolo` for a PRD of a plan repository, `yolo` otherwise (PRD 2873). */
 export type MissionSkill = BuildSkill;
@@ -337,7 +337,7 @@ export type MissionStore = {
   pmJobs: (id: string) => Promise<(PmJob & Resumed)[]>;
   /** The mission's PM job queued under its key: its id, or null when the key was already held. */
   pm: (job: PmSend) => Promise<string | null>;
-  /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>`, in order. */
+  /** The item committees the mission sent (PRD 2896 s10): its jobs whose line is `/omni:committee <n> --item <id>` (or `<key>-<n>`, bug #3363), in order. */
   asks: (id: string) => Promise<Omit<ItemCommittee, 'decision'>[]>;
   /** An item's committee queued, with no mission key: its id, or null when one was sent for that item already. */
   ask: (job: Ask) => Promise<string | null>;

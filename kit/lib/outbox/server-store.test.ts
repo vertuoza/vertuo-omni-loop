@@ -255,3 +255,22 @@ describe('serverFailure', () => {
     expect(() => serverFailure('status', new Error('boom'), stderr)).toThrow('boom');
   });
 });
+
+describe('the gate into a mission branch (bug #3363)', () => {
+  const HUMAN = parseOutboxItemId('s7-02-add-the-record');
+  const fleet = (row: Row): Row & { fleet: boolean } => ({ ...row, fleet: true });
+
+  it('counts a high item the fleet answered as answered there only, never a human-action one, and never with no branch named', async () => {
+    const asked: unknown[] = [];
+    const rows = [fleet(open()), fleet({ item: HUMAN, rank: 'human-action', body: itemText({ id: HUMAN, rank: 'human-action' }), settlement: null })];
+    const fake: OutboxServerClient = { ...client().fake, readOutboxItems: (query) => { asked.push(query); return Promise.resolve({ prdId: PRD, items: rows }); } };
+    const { store: server } = store(fake);
+    const into = await server.gate(PRD, { into: 'mission/19-settings' });
+    expect(into.items.map((one) => one.id)).toEqual([HUMAN]);
+    expect(asked.at(-1)).toMatchObject({ into: 'mission/19-settings' });
+    // An older page, or a read with no branch, that says `fleet` still holds both.
+    const plain = await server.gate(PRD, {});
+    expect(plain.items.map((one) => one.id)).toEqual([ID, HUMAN]);
+    expect(asked.at(-1)).not.toHaveProperty('into');
+  });
+});
