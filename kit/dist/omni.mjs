@@ -31596,13 +31596,13 @@ var NO_KIT = "omni: no Omni Loop kit here \u2014 run omni init in your repositor
 var WITHOUT_KIT = /* @__PURE__ */ new Set([void 0, "init", "help", "--help", "-h", "version", "--version", "now"]);
 function runsWithoutKit(argv) {
   const [name3, sub] = argv;
-  return WITHOUT_KIT.has(name3) || name3 === "ask" && sub === "hook";
+  return WITHOUT_KIT.has(name3) || name3 === "ask" && sub === "hook" || name3 === "supervisor";
 }
 function appliesUpdate(argv) {
   return argv[0] === "update" && argv.includes("--apply");
 }
 function runsTheRunner(argv) {
-  return argv[0] === "runner";
+  return argv[0] === "runner" || argv[0] === "supervisor";
 }
 function launchDecision({ argv, self: self2, bin, hasConfig }) {
   if (bin !== null && bin !== self2 && !appliesUpdate(argv) && !runsTheRunner(argv)) return { kind: "handover", bin };
