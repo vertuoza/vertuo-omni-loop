@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { planLaunch } from '../launch/launch.ts';
 import { claudeThinker, lookPrompt } from './supervisor-think.ts';
 import type { SpawnThink } from './supervisor-think.ts';
 
@@ -56,6 +57,18 @@ describe('the seat\'s think', () => {
     expect(args[args.indexOf('--allowedTools') + 1]).toBe('mcp__supervisor__snapshot,mcp__supervisor__lines,mcp__supervisor__memory,mcp__supervisor__raise,mcp__supervisor__reply,mcp__supervisor__propose');
     expect(args[args.indexOf('--disallowedTools') + 1]).toContain('Bash');
     expect(args.slice(-2)).toEqual(['--model', 'sonnet']);
+  });
+
+  it('starts a tools server the omni launcher runs in the think\'s own folder, which is no checkout (#3328)', async () => {
+    const stub = stubProcess([], 0);
+    const think = claudeThinker({ omni: ['/usr/bin/node', '/opt/omni.mjs'], runner: RUNNER, askUrl: 'https://omni.test', home: mkdtempSync(join(tmpdir(), 'omni-think-')), account: { id: 'claude', model: null, secret: null }, spawn: stub.spawn });
+    await think({ prompt: 'look', signal: new AbortController().signal });
+    const [run] = stub.runs;
+    const args = run?.args ?? [];
+    const mcp: unknown = JSON.parse(args[args.indexOf('--mcp-config') + 1] ?? '{}');
+    const server = (mcp as { mcpServers: { supervisor: { args: string[] } } }).mcpServers.supervisor;
+    const [script = '', ...argv] = server.args;
+    expect(planLaunch(argv, { cwd: run?.cwd ?? '', self: script })).toEqual({ kind: 'self' });
   });
 
   it('counts its tokens as a job\'s: each assistant message once, its four counts summed', async () => {
