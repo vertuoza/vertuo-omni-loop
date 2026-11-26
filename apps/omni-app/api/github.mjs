@@ -24363,6 +24363,10 @@ function recovered(mine, at4) {
   const prior = mine[before2];
   return one?.kind === "plan" && one.plan !== null && prior !== void 0 && before2 < at4 - 1 && prior.kind === "plan" && prior.outcome === "approved" && prior.plan === one.plan;
 }
+function confirming(mine, latest) {
+  const last = mine.at(-1);
+  return last?.kind === "tech" && last.outcome === "approved" && latest !== null && last.plan === latest;
+}
 var roundsOf = (mine) => mine.filter((one, at4) => one.kind === "plan" && one.plan !== null && !recovered(mine, at4)).length;
 function failsInRow(mine, kind) {
   const lastDecided = mine.findLastIndex((one) => one.plan !== null);
@@ -24390,7 +24394,7 @@ function reviewStateOf(view) {
   if (working2(view)) return { state: "working" };
   const last = mine.at(-1);
   if (last?.outcome === "escalated") return afterEscalated(view, mine, last);
-  if (!approvedOn(mine, "plan", view.latest)) return roundsOf(mine) < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
+  if (!approvedOn(mine, "plan", view.latest)) return roundsOf(mine) < ROUNDS2 || confirming(mine, view.latest) ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
   return decidedOf(mine, "tech") < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
 }
 function unnamedStateOf(prd, view) {

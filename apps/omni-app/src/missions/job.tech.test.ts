@@ -143,6 +143,8 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
     expect(fake.pms()).toHaveLength(2);
   });
 
+  // Changed by bug #3334: the PM confirms once the version the Architect pushed and approved after its rounds; a person gets the PRD
+  // once the PM, sent to confirm it, pushed yet another version.
   it('sends a person the PRD once two rounds named no one plan version', async () => {
     const { fake, run } = await planned();
     fake.setProduct(P31, { plan: B });
@@ -158,10 +160,51 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
     fake.setProduct(P31, { plan: D });
     fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(D));
     await run();
-    expect(fake.pms()).toHaveLength(3);
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+    const E = 'e'.repeat(64);
+    fake.setProduct(P31, { plan: E });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(E));
+    await run();
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.techJobs()).toHaveLength(2);
     expect(fake.productJobs()).toEqual([]);
     expect(fake.mission()).toMatchObject({ status: 'waiting' });
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the PM and the Architect did not approve one plan version in 2 rounds; approve it on its page');
+  });
+});
+
+describe('the PM confirming a version the Architect pushed and approved after its rounds (bug #3334)', () => {
+  // Omni-loop-28 in mission #3319: plan approved, two reviews with no record, the PM's recovery (not a round, bug #3332), the
+  // Architect's open points, the PM's answer on the same version, then the Architect's own version C, approved.
+  it("sends the PM's plan job to approve the Architect's version, not a person, and its approval sends the build", async () => {
+    const { fake, run, sentences } = await planned();
+    const cut = '12:20:00 Done\nomni tech: {"v":1,"prd":"omni-loop-31","pl';
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, cut);
+    await run();
+    await run();
+    fake.endTech(P31, { status: 'failed', outcome: null });
+    await run();
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(A));
+    await run();
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(A, { open: ['the spec names @omni/design, the plan @omni/ui'], outcome: 'escalated' }));
+    await run();
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(A));
+    await run();
+    expect(fake.techJobs()).toHaveLength(4);
+    const C = 'c'.repeat(64);
+    fake.setProduct(P31, { plan: C });
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(C, { settled: ['the plan builds the parts in @omni/design'] }));
+    await run();
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+    expect(fake.pms()).toHaveLength(5);
+    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: PRD omni-loop-31 has a newer plan version, so the PM approves it.');
+    expect(fake.productJobs()).toEqual([]);
+
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(C));
+    await run();
+    expect(fake.planDecisions().at(-1)).toMatchObject({ kind: 'plan', plan: C, outcome: 'approved', approval: true });
+    expect(fake.productJobs().map(({ line }) => line)).toEqual(['/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=mission/12-faster-quotes']);
   });
 });
 
