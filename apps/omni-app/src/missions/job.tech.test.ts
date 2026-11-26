@@ -13,7 +13,7 @@ import type { MissionRecord, StoredProduct } from './store.ts';
 // The PM's own product PRDs at `alone` (PRD omni-loop-26): on a repository whose phase 0 is on the server, in product `omni-loop`, a
 // PRD the PM wrote is planned by the PM, its plan approved by the PM (`omni plan:`), reviewed by the fleet's Architect (`omni tech:`)
 // and built only once both decisions name its latest plan version, the PM sent again on a version the Architect pushed. No
-// committee job is sent for it, and a product PRD a person wrote waits for a person's approval as before.
+// committee job is sent for it. A product PRD a person wrote is the fleet's too at `alone` (bug #3324, ./job.fleet-owned.test.ts).
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e26';
 const NOW = Date.parse('2027-01-30T09:00:00Z');
@@ -220,9 +220,17 @@ describe('an Architect job with no record (AC-4)', () => {
   });
 });
 
-describe('a product PRD a person wrote', () => {
-  it('is never planned or reviewed by the fleet: it waits for a person\'s approval on its page', async () => {
+describe('a product PRD a person wrote (bug #3324)', () => {
+  it('is planned by the PM at alone, as one it wrote, before any build', async () => {
     const { fake, run } = setup({ mission: record({ products: { prds: [P40], roadmaps: [] }, ownPrds: 0 }), products: [page(P40, { plan: A })] });
+    await run();
+    expect(fake.pms().map(({ line }) => line)).toEqual(['/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-40 --mission 12']);
+    expect(fake.techJobs()).toEqual([]);
+    expect(fake.productJobs()).toEqual([]);
+  });
+
+  it('is never planned or reviewed by the fleet below alone: it waits for a person\'s approval on its page', async () => {
+    const { fake, run } = setup({ mission: record({ level: 'own-branch', products: { prds: [P40], roadmaps: [] }, ownPrds: 0 }), products: [page(P40, { plan: A })] });
     await run();
     expect(fake.pms()).toEqual([]);
     expect(fake.techJobs()).toEqual([]);

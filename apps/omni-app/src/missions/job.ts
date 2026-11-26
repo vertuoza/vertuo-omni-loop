@@ -1284,17 +1284,25 @@ async function decideReviewed(at: ProductAt, products: MissionProducts, one: Rev
 }
 
 /**
- * The PM product PRDs' reviews (PRD omni-loop-26, ./tech.ts): the Architect's jobs and the `plan` and `tech` decisions, each plan job
- * and review of a PRD the PM wrote that ended with no decision yet recorded once, its event beside it. None when the PM wrote none.
+ * Whether the fleet plans and approves product PRD `prd` itself (PRD omni-loop-26, bug #3324): at `alone`, every product PRD of the
+ * scope, its roadmaps' rows among them, whoever wrote it, as the owner decided ("the fleet must be independent and do what is
+ * needed"); below it, those its PM wrote.
+ */
+const fleetOwns = (at: ProductAt, prd: ProductPrdId): boolean => at.mission.level === 'alone' || at.pm.authored.has(prd);
+
+/**
+ * The fleet's product PRDs' reviews (PRD omni-loop-26, ./tech.ts): the Architect's jobs and the `plan` and `tech` decisions, each plan
+ * job and review of a PRD the fleet owns (./job.ts › fleetOwns) that ended with no decision yet recorded once, its event beside it. None
+ * below `alone` when the PM wrote none.
  */
 async function reviewAll(at: ProductAt, products: MissionProducts): Promise<Reviews> {
-  if (at.pm.authored.size === 0) return NO_REVIEWS;
+  if (at.mission.level !== 'alone' && at.pm.authored.size === 0) return NO_REVIEWS;
   const read = await products.reviews(at.mission.id);
   const decided = new Set(read.decisions.map((one) => one.job));
   const ended: Reviewed[] = [
     ...productPlansOf(at.pm.jobs).map((one) => ({ kind: 'plan' as const, prd: one.prd, job: one.job, attempt: one.attempt })),
     ...read.techs.map((one) => ({ kind: 'tech' as const, prd: one.prd, job: one.job, attempt: one.attempt })),
-  ].filter((one) => at.pm.authored.has(one.prd) && !pmWorking(one) && !decided.has(one.job));
+  ].filter((one) => fleetOwns(at, one.prd) && !pmWorking(one) && !decided.has(one.job));
   const decisions = [...read.decisions];
   const events: NewStoredEvent[] = [];
   for (const one of ended) {
@@ -1409,18 +1417,22 @@ type ProductSteps = ProductAt & {
   sentBack: ReadonlyMap<ProductPrdId, string | null>;
 };
 
-/** What the run read of a product PRD the PM wrote (./tech.ts); null for a PRD a person wrote. */
+/** What the run read of a product PRD the fleet owns (./tech.ts); null for one a person approves (below `alone`, a PRD its PM did not write). */
 function reviewViewOf(at: ProductSteps, fact: StoredProduct): ReviewView | null {
-  if (!at.pm.authored.has(fact.prd)) return null;
+  if (!fleetOwns(at, fact.prd)) return null;
   const plans = productPlansOf(at.pm.jobs).filter((one) => one.prd === fact.prd);
   const techs = at.reviews.techs.filter((one) => one.prd === fact.prd);
   return { prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at.reviews.decisions, sentBack: at.sentBack.get(fact.prd) ?? null };
 }
 
-/** Where a product PRD is before its build: a PRD the PM wrote by its reviews (./tech.ts), any other built as before. */
+/**
+ * Where a product PRD is before its build: a PRD the fleet owns by its reviews (./tech.ts), any other built as before. A PRD of the
+ * scope its PM did not write that already holds a standing approval is built as before too (bug #3324): no needless new plan.
+ */
 function reviewOf(at: ProductSteps, fact: StoredProduct): ReviewState {
   const view = reviewViewOf(at, fact);
-  return view === null ? { state: 'build' } : reviewStateOf(view);
+  if (view === null || (!at.pm.authored.has(fact.prd) && fact.approval === 'standing')) return { state: 'build' };
+  return reviewStateOf(view);
 }
 
 /** A PM product PRD's step before its build: its plan job or the Architect's review sent, at work, or what it waits on. */
@@ -1436,7 +1448,7 @@ async function reviewStep(at: ProductSteps, fact: StoredProduct, state: Exclude<
     ? await at.store.pm({ mission: at.mission, round: at.rounds++, line, toFleet: at.toFleet })
     : await at.products.review({ mission: at.mission, prd: fact.prd, k: state.k, line, toFleet: at.toFleet });
   if (job === null) return;
-  const sent = reviewDispatched(fact.prd, job, line, state, isRetry(fact.prd, at.reviews.decisions));
+  const sent = reviewDispatched(fact.prd, job, line, state, { retry: isRetry(fact.prd, at.reviews.decisions), wrote: at.pm.authored.has(fact.prd) });
   step.events.push({ ...sent, sentence: cut(sent.sentence) });
 }
 
