@@ -101,7 +101,8 @@ export interface MissionRow {
   goal: string;
   status: MissionStatus;
   waitingOn: string | null;
-  prds: readonly PrdNumber[];
+  /** The PRDs of its scope: a repository PRD's number or a product PRD's id. */
+  prds: readonly DecisionPrd[];
   /** What it runs at: `with-you` for a mission whose brief names none. */
   level: MissionLevel;
   /** Whether its repository is a product's plan repository (PRD 2896 s14): no mission branch, no `own-branch`. */
@@ -302,7 +303,7 @@ export interface MissionsView {
 const issueHref = (repo: string, number: number) => `https://github.com/${repo}/issues/${String(number)}`;
 
 /** `2 of 4 merged · 1 ready`: the PRDs of the scope and those the mission has met, merged and ready counted once each. */
-export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly TabEvent[], level: MissionLevel = 'with-you', goalOnly = false): string {
+export function progressOf(status: MissionStatus, prds: readonly DecisionPrd[], events: readonly TabEvent[], level: MissionLevel = 'with-you', goalOnly = false): string {
   if (status === 'draft') return WORDS.notStarted;
   const merged = new Set(events.filter((e) => e.kind === 'prd-merged' && e.prd !== null).map((e) => e.prd));
   const ready = new Set(events.filter((e) => e.kind === 'prd-ready' && e.prd !== null && !merged.has(e.prd)).map((e) => e.prd));

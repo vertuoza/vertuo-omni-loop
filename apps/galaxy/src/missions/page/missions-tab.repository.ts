@@ -33,7 +33,8 @@ const MissionRowSchema = z.object({
   // `stuck` while the supervisor holds the mission paused by stuck (PRD 3065).
   paused_by: z.enum(['stuck']).nullable().default(null),
   kind: z.string().default('prds'),
-  scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(z.unknown()).default([]) }).loose(),
+  // A PRD of the scope is a repository PRD's number or a product PRD's id (omni-loop-28), as the brief takes it (#3320).
+  scope: z.object({ prds: z.array(z.union([PrdNumberSchema, ProductPrdIdSchema])), roadmaps: z.array(z.unknown()).default([]) }).loose(),
   products: z.object({ prds: z.array(z.unknown()).default([]), roadmaps: z.array(z.unknown()).default([]) }).nullish(),
   // A mission made before PRD 2896 holds no level: it reads `with-you`.
   mandate: z.object({ level: MissionLevelSchema.optional(), tokens: z.number().int().positive().optional() }).loose(),
@@ -84,7 +85,12 @@ export function missionsTabRepository(db: MissionsTabDb) {
       const { data, error } = await db.from('missions').select(MISSION).eq('workspace_id', workspace).eq('fleet', fleet).order('updated_at', { ascending: false });
       if (error) throw new Error(`Supabase: could not read the missions (${error.message})`);
       const plans = await planRepositories(db, workspace);
-      return orThrow(parseRows(MissionRowSchema, data, `${WHERE}: missions`)).map((row) => ({
+      // A mission row it cannot read is logged and left out (#3320): it never takes every other mission of the fleet down.
+      const rows = (data as unknown[]).flatMap((one) => {
+        const parsed = parseRow(MissionRowSchema, one, `${WHERE}: missions`);
+        return parsed.ok ? [parsed.value] : [];
+      });
+      return rows.map((row) => ({
         id: row.id, repo: row.repo, number: row.number, title: row.title, goal: row.goal, status: row.status, waitingOn: row.waiting_on, prds: row.scope.prds, level: row.mandate.level ?? 'with-you', goalOnly: goalOnlyOf(row),
         inPlan: plans.has(row.repo.toLowerCase()), tokens: row.mandate.tokens ?? null, pausedBy: row.paused_by,
       }));

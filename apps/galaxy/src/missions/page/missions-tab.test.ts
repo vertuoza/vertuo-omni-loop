@@ -249,10 +249,12 @@ describe('the service over the repository', () => {
     expect(missionOf(row({}), events).trust).toBeNull();
   });
 
-  it('throws when a read fails, and when a row is malformed', async () => {
+  it('throws when a read fails, and leaves out a malformed mission row (#3320)', async () => {
     await expect(missionsTabService(withWaits(fakeDb([], [], 'missions'))).view(WORKSPACE, 'f')).rejects.toThrow('could not read the missions');
     await expect(missionsTabService(withWaits(fakeDb([MISSION_ROW], [], 'mission_events'))).view(WORKSPACE, 'f')).rejects.toThrow('events');
-    await expect(missionsTabService(withWaits(fakeDb([{ id: 'x' }], []))).view(WORKSPACE, 'f')).rejects.toThrow();
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect((await missionsTabService(withWaits(fakeDb([{ id: 'x' }], []))).view(WORKSPACE, 'f')).missions).toEqual([]);
+    log.mockRestore();
   });
 });
 
