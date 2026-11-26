@@ -24145,7 +24145,6 @@ function productEnded(fact, runs, last, { resumes, repairs }) {
   if (again3 !== null || end === "failed") return productRepaired(fact.prd, latest, last, again3 ?? endedWhy(end, last), repairs);
   return byHand(fact.prd, endedWhy(end, last));
 }
-var FLEET_RED_MAX = 2;
 function heldBuild(fact, latest, last, { done, scope, early }) {
   const end = endOf(last);
   if (end === "ready") return null;
@@ -24166,7 +24165,7 @@ function redGate(fact, own, latest, last, { alone, asks }) {
   const mine = asks.filter((one) => one.prd === fact.prd);
   const answered = fleetAnswered2(mine);
   const open = stillOpenOf(items?.open ?? [], answered);
-  return open.length === 0 ? redCleared(fact.prd, own, latest, answered.size > 0) : redOpen(fact.prd, open, alone ? mine : null);
+  return open.length === 0 ? redCleared(fact.prd, own, latest, answeredSince(mine)) : redOpen(fact.prd, open, alone ? mine : null);
 }
 function redOpen(prd, open, asks) {
   const ids = open.map(({ id }) => id ?? "an item that does not read").join(", ");
@@ -24178,9 +24177,15 @@ function redOpen(prd, open, asks) {
 }
 var fleetAnswered2 = (asks) => new Set(asks.filter((one) => one.decision !== null && one.decision.outcome !== "escalated").map((one) => one.item));
 var stillOpenOf = (open, answered) => open.filter(({ id, rank }) => (rank === null || rank === "high" || rank === "human-action") && !(rank === "high" && id !== null && answered.has(id)));
-function redCleared(prd, own, latest, byFleet) {
-  const reds = own.filter((one) => one.attempts.at(-1)?.gateRed === true).length;
-  if (byFleet && reds >= FLEET_RED_MAX) return { state: "waits", why: `PRD ${prd}: its gate stayed red once the fleet answered its items, and its build was sent again once already` };
+function answeredSince(asks) {
+  const sent = asks.filter((one) => one.decision !== null && one.decision.outcome !== "escalated").map((one) => one.sentAt === void 0 ? Number.NaN : Date.parse(one.sentAt));
+  if (sent.length === 0) return null;
+  return sent.some(Number.isNaN) ? void 0 : Math.max(...sent);
+}
+var FLEET_RED_MAX = 2;
+function redCleared(prd, own, latest, since) {
+  const reds = own.filter((one) => one.attempts.at(-1)?.gateRed === true && (typeof since !== "number" || one.sentAt === void 0 || Date.parse(one.sentAt) > since)).length;
+  if (since !== null && reds >= (since === void 0 ? FLEET_RED_MAX : 1)) return { state: "waits", why: `PRD ${prd}: its gate stayed red once the fleet answered its items, and its build was sent again once already` };
   return { state: "startable", run: latest.run + 1 };
 }
 function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = /* @__PURE__ */ new Set(), answers = { alone: false, asks: [] } }) {
@@ -27166,8 +27171,8 @@ var JobRowSchema2 = z110.object({
   parts: z110.array(z110.looseObject({ guessed: z110.boolean().optional() })).nullable().default(null)
 });
 var JobLogRowSchema = z110.object({ id: text19, log_tail: z110.string() });
-var ASK2 = `${JOB2}, line`;
-var AskRowSchema = JobRowSchema2.extend({ line: z110.string() });
+var ASK2 = `${JOB2}, line, queued_at`;
+var AskRowSchema = JobRowSchema2.extend({ line: z110.string(), queued_at: z110.string().nullable().default(null) });
 var CareRowSchema = z110.object({ id: text19 });
 var EventRowSchema = z110.object({ kind: text19, prd_id: PrdIdSchema.nullable(), job_id: z110.string().nullable() });
 var DecisionRowSchema = z110.object({ job_id: text19, outcome: z110.enum(["carried", "escalated"]), why: z110.array(z110.string()) });
@@ -27315,6 +27320,7 @@ var attemptOf = (row) => ({
   prUrl: row.pr_url,
   ...row.limited_until === null ? {} : { limitedUntil: row.limited_until, guessed: row.parts?.at(-1)?.guessed === true }
 });
+var sentOf = (row) => row.queued_at === null ? {} : { sentAt: row.queued_at };
 var isVerdict = (step, attempt3) => step.startsWith("review:") && attempt3.status === "done" && (attempt3.outcome === "changes" || attempt3.outcome === "ready");
 var isChecked = (step, attempt3) => isQaStep(step) && attempt3.status === "done";
 function scopeOf2(scope) {
@@ -27556,7 +27562,7 @@ function missionStore(connection) {
     async runs(id) {
       return withHeldOn((await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }) => {
         const key = row.mission_key === null ? null : productRunOfKey(row.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
+        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts, ...sentOf(row) }];
       }));
     },
     send: ({ mission, prd, run, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: missionKey(mission.id, prd, run) }),
@@ -27720,7 +27726,7 @@ function missionStore(connection) {
       const rows = rowsOf(AskRowSchema, await db.from("runner_jobs").select(ASK2).eq("mission_id", id).is("mission_key", null).like("line", "/omni:committee % --item %").order("queued_at"));
       return rows.flatMap((row) => {
         const named = itemOfLine(row.line);
-        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row) }];
+        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row), ...sentOf(row) }];
       });
     },
     async ask({ mission, prd, item, toFleet }) {

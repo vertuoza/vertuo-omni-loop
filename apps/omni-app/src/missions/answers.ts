@@ -38,8 +38,11 @@ export const DEFAULT_BOUND = 0.6;
  */
 export type ItemVerdict = Decision | { outcome: 'deferred'; why: string[]; verdicts?: Decision['verdicts']; option: string };
 
-/** One item committee the mission sent: its PRD (a product PRD's by its id, bug #3363), the item, its job and the job's attempt, and its decision once recorded. */
-export type ItemCommittee<P extends MissionPrd = MissionPrd> = { prd: P; item: string; job: string; attempt: Attempt; decision: ItemVerdict | null };
+/**
+ * One item committee the mission sent: its PRD (a product PRD's by its id, bug #3363), the item, its job and the job's attempt, its
+ * decision once recorded, and when it was sent (bug #3369: the job's `queued_at`), absent when not read.
+ */
+export type ItemCommittee<P extends MissionPrd = MissionPrd> = { prd: P; item: string; job: string; attempt: Attempt; decision: ItemVerdict | null; sentAt?: string };
 
 /** An item open at a feature pull request's head: its id and its rank, both null for one that does not read. */
 export type OpenAt = { id: string | null; rank: string | null };

@@ -532,8 +532,9 @@ export const JobRowSchema = z.object({
 });
 export const JobLogRowSchema = z.object({ id: text, log_tail: z.string() });
 /** An item committee's job (PRD 2896 s10): a job row with its line, which names the PRD and the item. */
-export const ASK = `${JOB}, line`;
-export const AskRowSchema = JobRowSchema.extend({ line: z.string() });
+export const ASK = `${JOB}, line, queued_at`;
+/** Bug #3369: with when it was queued, which a product PRD's build and its item committees are ordered by. */
+export const AskRowSchema = JobRowSchema.extend({ line: z.string(), queued_at: z.string().nullable().default(null) });
 export const CareRowSchema = z.object({ id: text });
 export const EventRowSchema = z.object({ kind: text, prd_id: PrdIdSchema.nullable(), job_id: z.string().nullable() });
 export const DecisionRowSchema = z.object({ job_id: text, outcome: z.enum(['carried', 'escalated']), why: z.array(z.string()) });
@@ -702,6 +703,9 @@ const attemptOf = (row: JobRow): Attempt => ({
   prUrl: row.pr_url,
   ...(row.limited_until === null ? {} : { limitedUntil: row.limited_until, guessed: row.parts?.at(-1)?.guessed === true }),
 });
+
+/** When a job was queued (bug #3369), absent when the row does not say. */
+const sentOf = (row: z.infer<typeof AskRowSchema>): { sentAt?: string } => (row.queued_at === null ? {} : { sentAt: row.queued_at });
 
 /** A Reviewer job that ended on its verdict (PRD 2871): its log says what it posted. */
 const isVerdict = (step: Step, attempt: Attempt): boolean => step.startsWith('review:') && attempt.status === 'done' && (attempt.outcome === 'changes' || attempt.outcome === 'ready');
@@ -1036,7 +1040,7 @@ export function missionStore(connection: Connection): MissionStore {
     async runs(id) {
       return withHeldOn((await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }): ProductRun[] => {
         const key = row.mission_key === null ? null : productRunOfKey(row.mission_key);
-        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
+        return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts, ...sentOf(row) }];
       }));
     },
 
@@ -1214,7 +1218,7 @@ export function missionStore(connection: Connection): MissionStore {
       const rows = rowsOf(AskRowSchema, await db.from('runner_jobs').select(ASK).eq('mission_id', id).is('mission_key', null).like('line', '/omni:committee % --item %').order('queued_at'));
       return rows.flatMap((row) => {
         const named = itemOfLine(row.line);
-        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row) }];
+        return named === null ? [] : [{ prd: named.prd, item: named.item, job: row.id, attempt: attemptOf(row), ...sentOf(row) }];
       });
     },
 
