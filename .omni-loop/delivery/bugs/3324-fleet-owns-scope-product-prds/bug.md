@@ -22,7 +22,7 @@ The reproduction is the guard: `job.fleet-owned.test.ts` drives the mission job 
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (bc96b206): nothing to mutate
 
 ## Still open
 
