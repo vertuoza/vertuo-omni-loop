@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `apps/omni-app/src/missions/tech.recovery.test.ts`, `apps/omni-app/src/missions/job.tech.test.ts`
+- **File:** `apps/omni-app/src/missions/tech.recovery.test.ts`
 - **Level:** unit
 - **Red:** `AssertionError: expected { state: 'waits', …(1) } to deeply equal { state: 'plan', again: true }`
 
