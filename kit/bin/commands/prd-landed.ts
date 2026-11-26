@@ -35,7 +35,8 @@ export type LandedArgs = { id: ProductPrdId; ref: string; repo: string | null; c
 
 /** The last line of what a failed process wrote. */
 const lastLine = (error: unknown): string => {
-  const stderr = (error as { stderr?: unknown }).stderr;
+  const read = z.looseObject({ stderr: z.unknown() }).safeParse(error);
+  const stderr = read.success ? read.data.stderr : undefined;
   const text = typeof stderr === 'string' ? stderr : Buffer.isBuffer(stderr) ? stderr.toString('utf8') : error instanceof Error ? error.message : String(error);
   return text.trim().split('\n').at(-1) ?? '';
 };

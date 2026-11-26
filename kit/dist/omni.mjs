@@ -62936,7 +62936,8 @@ var ListedSchema = external_exports.array(external_exports.looseObject({
 }));
 var mergedOf = (one2) => one2.mergeCommit == null ? [] : [{ number: one2.number, base: one2.baseRefName, head: one2.headRefName, merge: one2.mergeCommit.oid }];
 var lastLine3 = (error62) => {
-  const stderr = error62.stderr;
+  const read3 = external_exports.looseObject({ stderr: external_exports.unknown() }).safeParse(error62);
+  const stderr = read3.success ? read3.data.stderr : void 0;
   const text21 = typeof stderr === "string" ? stderr : Buffer.isBuffer(stderr) ? stderr.toString("utf8") : error62 instanceof Error ? error62.message : String(error62);
   return text21.trim().split("\n").at(-1) ?? "";
 };
