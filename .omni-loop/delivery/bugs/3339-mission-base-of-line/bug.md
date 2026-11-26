@@ -22,7 +22,7 @@ The app's job contract checked a claimed job's line with the rules of a person's
 
 ## Mutation
 
-Mutation: not run — the machine is shared with two other agents' full runs; the changed core is covered by the guard and the unit tests
+mutation: no changed core file against origin/main (f899eef5): nothing to mutate
 
 ## Still open
 
