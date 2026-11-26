@@ -6,7 +6,7 @@ import { SETTINGS_MAP_PAGES } from './settings-map';
 const at = vi.hoisted(() => ({ path: '/app/settings/jev' }));
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
 // next/link renders a plain anchor on the server, so the mock records the prefetch prop each link gets.
-const seen = vi.hoisted(() => ({ props: [] as { href: string; prefetch?: boolean | null }[] }));
+const seen = vi.hoisted(() => ({ props: [] as { href: string; prefetch?: boolean | null | undefined }[] }));
 vi.mock('next/link', async () => {
   const { createElement: h } = await import('react');
   return {
