@@ -294,4 +294,29 @@ describe('a product build that ended ready on its hand-off joins the mission bra
     expect(fake.events().filter((one) => one.kind === 'prd-joined').map((one) => one.prd)).toEqual([P28]);
     expect(builds()).toEqual([key(P28, 1), key(P28, 2)]);
   });
+
+  // Mission #3319 at 20:46 UTC: before the fix, the ready build was read as stopped, sent again as runs 6 to 8, and repaired until the
+  // mission spent its repairs. Once the fix is deployed the same records read again: the PRD joins, and those repairs count none.
+  it('joins a PRD whose earlier build ended ready, and gives back the resumes and repairs spent on the builds sent after it', async () => {
+    const { fake, run, builds } = await sentAtOnce([P28]);
+    // Before the fix: the ready build reads as one that stopped mid-way (no log read), and each build sent after it stops too.
+    fake.endProduct(P28, { status: 'done', outcome: 'stopped' }, READY_28);
+    for (let turn = 0; turn < 40 && !(fake.mission().waitingOn ?? '').includes('by hand'); turn += 1) {
+      await run();
+      if (queuedLast(fake.repairJobs(), P28)) fake.endRepairJob(P28, { status: 'done', outcome: 'ready' }, flake(P28));
+      else if (queuedLast(fake.productJobs(), P28)) fake.endProduct(P28, { status: 'failed', outcome: null, reason: 'exit code 1' });
+    }
+    expect(fake.repairRows().length).toBeGreaterThan(0);
+    expect(fake.mission().waitingOn ?? '').toContain('by hand');
+    const sent = builds().length;
+    expect(sent).toBeGreaterThan(1);
+
+    // The fix deployed: build 1's log is read, and it ended ready.
+    fake.rewriteProduct(P28, 1, { outcome: null });
+    await run();
+    expect(fake.events().filter((one) => one.kind === 'prd-joined').map((one) => one.prd)).toEqual([P28]);
+    expect(builds()).toHaveLength(sent);
+    expect(fake.mission().waitingOn ?? '').not.toContain('by hand');
+    expect(fake.mission().waitingOn ?? '').not.toContain('repairs');
+  });
 });

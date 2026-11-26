@@ -78,6 +78,20 @@ describe('heldBuildsOf: the builds sent before a PRD they wait on joined the mis
   });
 });
 
+describe('heldBuildsOf: the builds sent after a build of their PRD ended ready (bug #3373)', () => {
+  const build = (run: number, outcome: string | null, status: 'done' | 'failed' = 'done') => ({ prd: P28, run, job: `b${String(run)}`, attempts: [{ id: `b${String(run)}`, status, outcome, reason: null, prUrl: null }] });
+  const at = { blockers: new Map<typeof P28, (typeof P28)[]>(), scope: new Set([P28]), done: new Set<typeof P28>() };
+
+  it('names every build of the PRD from its first ready end on, and none before it', () => {
+    const runs = [build(4, 'stopped'), build(5, 'ready'), build(6, 'stopped'), build(7, null, 'failed'), build(8, 'ready')];
+    expect([...heldBuildsOf(runs, [], at).held]).toEqual(['b5', 'b6', 'b7', 'b8']);
+  });
+
+  it('names none when no build ended ready', () => {
+    expect([...heldBuildsOf([build(1, 'stopped'), build(2, null, 'failed')], [], at).held]).toEqual([]);
+  });
+});
+
 describe('heldBuildsOf and withoutHeld: a held build\'s repairs count none', () => {
   it('names a build that ended on a held line as held, even sent after its blocker joined', () => {
     const one = { prd: P31, run: 2, job: 'b31-2', attempts: [{ id: 'b31-2', status: 'done' as const, outcome: null, reason: null, prUrl: null, heldOn: [P27] }] };

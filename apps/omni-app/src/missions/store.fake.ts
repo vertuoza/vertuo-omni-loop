@@ -659,6 +659,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       Object.assign(attempt, change);
       if (log !== undefined) build.log = log;
     },
+    /** Bug #3373: build `run` of the product PRD, an earlier one, now ends as `change` says, as a fix deployed reads it. */
+    rewriteProduct: (prd: ProductPrdId, run: number, change: Partial<Attempt>) => {
+      const attempt = productJobs.find((one) => one.prd === prd && one.run === run)?.attempts.at(-1);
+      if (!attempt) throw new Error(`no build ${String(run)} of PRD ${prd} was sent`);
+      Object.assign(attempt, change);
+    },
     /** PRD omni-loop-26: the Architect's reviews queued, in order. */
     techJobs: () => techs.map((one) => ({ ...one, attempt: { ...one.attempt } })),
     /** PRD omni-loop-26: the product PRD's latest review ends as `change` says, its log `log`. */

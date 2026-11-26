@@ -12,6 +12,7 @@
 //   heldBuildsOf  the builds sent before a PRD of the scope they wait on joined the mission branch (`early`): they built nothing it
 //                 holds, so none of their ends counts as a failure, a stop mid-way or a hold of the build itself; with them, every build
 //                 that ended on a held line (`held`)
+//                 and every build from its PRD's first ready end on (bug #3373)
 //   withoutHeld   the mission's repairs without the rows of those sent for a held build: none of the 3 per cause or the 9 per mission
 import { parseFrontMatterLines } from 'omni-loop/kit/lib/front-matter.ts';
 import { parseProductPrdId, productPrdParts, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
@@ -102,11 +103,27 @@ function sentEarly(runs: readonly ProductRun[], events: readonly Event[], { bloc
   return early;
 }
 
-/** The builds of `runs` that were held (bug #3345): those sent early (`sentEarly`), and with them every build that ended on a held line. */
+/** Whether a build ended ready: done, its result word or its last line (`endedOf`) `ready`. */
+export const endedReady = (one: ProductRun): boolean => {
+  const last = one.attempts.at(-1);
+  return last?.status === 'done' && last.outcome === 'ready';
+};
+
+/** The jobs of `runs` sent from their PRD's first build that ended ready on (bug #3373), that build included: the PRD joins. */
+function fromReady(runs: readonly ProductRun[]): string[] {
+  const first = new Map<MissionPrd, number>();
+  for (const one of runs.filter(endedReady)) first.set(one.prd, Math.min(first.get(one.prd) ?? one.run, one.run));
+  return runs.filter((one) => one.run >= (first.get(one.prd) ?? Number.POSITIVE_INFINITY)).map((one) => one.job);
+}
+
+/**
+ * The builds of `runs` that were held (bug #3345): those sent early (`sentEarly`), and with them every build that ended on a held line.
+ * Bug #3373: with them too, every build from its PRD's first build that ended ready on, so the repairs sent for them count none.
+ */
 export function heldBuildsOf(runs: readonly ProductRun[], events: readonly Event[], at: EarlyAt): { early: Set<string>; held: Set<string> } {
   const early = sentEarly(runs, events, at);
   const named = runs.filter((one) => (one.attempts.at(-1)?.heldOn ?? []).length > 0).map((one) => one.job);
-  return { early, held: new Set([...early, ...named]) };
+  return { early, held: new Set([...early, ...named, ...fromReady(runs)]) };
 }
 
 /**
