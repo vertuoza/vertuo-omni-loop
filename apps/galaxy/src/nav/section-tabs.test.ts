@@ -24,8 +24,8 @@ describe('every settings address still answers', () => {
     for (const { path } of SETTINGS_MAP_PAGES) expect(existsSync(join(at(path), 'page.tsx')), path).toBe(true);
   });
 
-  it('AC-5: keeps the old addresses: /app/settings lands on SETTINGS_LANDING, and the moved Products ones redirect', () => {
-    expect(readFileSync(join(SETTINGS_DIR, 'page.tsx'), 'utf8')).toContain('redirect(SETTINGS_LANDING)');
+  it('AC-5: keeps the old addresses: SETTINGS_LANDING still answers, /app/settings is the home, and the moved Products ones redirect', () => {
+    expect(readFileSync(join(SETTINGS_DIR, 'page.tsx'), 'utf8')).not.toContain('redirect(');
     expect(SETTINGS_MAP_PAGES.map((page) => page.path)).toContain(SETTINGS_LANDING);
     expect(existsSync(join(SETTINGS_DIR, 'products/route.ts'))).toBe(true);
     expect(existsSync(join(SETTINGS_DIR, 'products/[id]/route.ts'))).toBe(true);

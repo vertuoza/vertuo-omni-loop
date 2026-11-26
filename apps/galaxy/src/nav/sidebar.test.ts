@@ -1,12 +1,10 @@
 import { SPRITE_DEFS } from '@omni/design';
-import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, isAlarm, shownItems, isQuiet, pageTrail, type SidebarItem } from './sidebar';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
-
-// /app/settings' page only redirects: next/navigation's redirect, recorded instead of thrown.
-const redirected = vi.hoisted((): string[] => []);
-vi.mock('next/navigation', () => ({ redirect: (to: string) => void redirected.push(to) }));
 
 // The app's sidebar as data (PRD 438, regrouped by PRD 572 and PRD 733): Dashboard and Work, then the foot's Settings, Docs
 // and Release notes, and the two pure reads
@@ -86,16 +84,16 @@ describe('SIDEBAR', () => {
     expect(SETTINGS.leavesApp).toBeFalsy();
   });
 
-  it('lands /app/settings on its Fleets page (PRD 733)', () => {
+  it('opens the settings home from the Settings entry, and keeps the Fleets address for what linked to the old landing (omni-loop-32)', () => {
+    expect(SETTINGS.path).toBe('/app/settings');
     expect(SETTINGS_LANDING).toBe('/app/settings/fleets');
     expect(SETTINGS.pages?.map((p) => p.path)).toContain(SETTINGS_LANDING);
   });
 
-  it('redirects /app/settings\' page to that landing (PRD 733)', async () => {
-    const { default: SettingsPage } = await import('../../app/app/settings/page.tsx');
-    redirected.length = 0;
-    SettingsPage();
-    expect(redirected).toEqual(['/app/settings/fleets']);
+  it('does not redirect /app/settings\' page any more: it draws the home (omni-loop-32)', () => {
+    const page = readFileSync(join(import.meta.dirname, '../../app/app/settings/page.tsx'), 'utf8');
+    expect(page).not.toContain('redirect(');
+    expect(page).toContain('SettingsHomeStreamed');
   });
 
   it('holds Docs and Release notes for the foot, each leaving the app', () => {
