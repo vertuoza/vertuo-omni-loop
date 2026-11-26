@@ -103,6 +103,28 @@ export function ListSkeleton({ what = 'the PRDs', rows = 6 }: { what?: string; r
   );
 }
 
+/** A settings page's head card, as `.ask-card` draws it: the title and `lines` lines of its note. */
+export function HeadCardSkeleton({ lines = 1 }: { lines?: number }) {
+  return (
+    <span className="skel-box">
+      <Bone className="skel-title" />
+      {Array.from({ length: lines }, (_, i) => <Bone key={i} width={i === 0 ? '70%' : '45%'} />)}
+    </span>
+  );
+}
+
+/** A settings section's card: its heading, then `lines` lines. */
+export function SectionCardSkeleton({ what, lines = 2 }: { what: string; lines?: number }) {
+  return (
+    <Skeleton what={what}>
+      <span className="skel-box">
+        <Bone width="30%" />
+        {Array.from({ length: lines }, (_, i) => <Bone key={i} width={i === 0 ? '80%' : '55%'} />)}
+      </span>
+    </Skeleton>
+  );
+}
+
 /** The filters above the PRD list: the Mine / All switch, then the search and its picks. */
 export function FiltersSkeleton() {
   return (
