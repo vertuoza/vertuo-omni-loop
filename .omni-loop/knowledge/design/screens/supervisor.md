@@ -34,7 +34,7 @@ Every member reads it; only workspace owners act on it (PRD omni-loop-34).
   the age (red when high) and `High`. On Done one section, the last closed first, each row ending on how
   it ended (`Acted`, `Not a problem`, `Resolved`). One row per cause, never one per job: a repository
   no online runner can take, or one kind of wait (held, answers, human), is one finding whose kind line
-  counts its jobs (`Stuck work · vertuoza/data-viz-system · 8 jobs`) and whose check line names its
+  counts its jobs (`Stuck work · demo-org/widgets · 8 jobs`) and whose check line names its
   figures (`Queue nobody can take · 8 jobs · Oldest queued 41 h`) (PRD omni-loop-35).
 - **The pane:** the open finding (its kind, its title, `High` or `Medium` and its age; an owner's
   `Suggested` box with up to two suggestions; `The check that fired`, the check's name in bold and each
