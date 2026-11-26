@@ -579,6 +579,68 @@ begin
   end if;
 end $$;
 
+-- ── A mission left without its approval before bug #3336 was fixed: mission 28 ──
+-- The run above put mission_decide_plan() of 20270129140000_mission_plan_tech.sql back, the one that skipped the pair while
+-- another mission's approval was in force. Mission 28 at `alone` records its PM's and its Architect's approvals of plan B through
+-- it and gets no product approval, as mission #3319 did; 20270129190000_mission_own_fleet_approval.sql gives it its own once, and
+-- nothing more when run again.
+insert into public.missions (id, workspace_id, repo, fleet, number, title, goal, scope, mandate, status)
+select '00000000-0000-4000-8000-0000000028b1', w.id, 'initech/nimbus-plan', 'beaver', 28, 'Quotes once more', 'Contractors send quotes by mail.',
+       '{"prds": ["initech-app-31"], "roadmaps": []}', '{"parallel": 1, "level": "alone"}', 'waiting'
+  from public.workspaces w where w.slug = 'initech';
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key)
+select x.id::uuid, w.id, x.line, 'initech/nimbus-plan', 'omni-app', 'beaver', '00000000-0000-4000-8000-0000000028b1', x.key
+  from public.workspaces w
+ cross join (values ('00000000-0000-4000-8000-0000000028d1', '/omni:mega-brainstorm --product initech-app --plan-only initech-app-31', 'mission:00000000-0000-4000-8000-0000000028b1:pm:1'),
+                    ('00000000-0000-4000-8000-0000000028d2', '/omni:tech-review initech-app-31 --mission 28', 'mission:00000000-0000-4000-8000-0000000028b1:prd:initech-app-31:tech:1')) as x (id, line, key)
+ where w.slug = 'initech';
+
+set local role service_role;
+do $$
+declare
+  m uuid := '00000000-0000-4000-8000-0000000028b1';
+  got jsonb;
+begin
+  got := public.mission_decide_plan(m, 'initech-app-31', '00000000-0000-4000-8000-0000000028d1', 'plan',
+    jsonb_build_object('v', 1, 'prd', 'initech-app-31', 'plan', repeat('b', 64), 'outcome', 'approved'));
+  got := public.mission_decide_plan(m, 'initech-app-31', '00000000-0000-4000-8000-0000000028d2', 'tech',
+    jsonb_build_object('v', 1, 'prd', 'initech-app-31', 'plan', repeat('b', 64), 'settled', '[]'::jsonb, 'open', '[]'::jsonb, 'outcome', 'approved'));
+  if got -> 'techApproval' = 'null'::jsonb or got -> 'approval' <> 'null'::jsonb then
+    raise exception 'FAIL: the old mission_decide_plan() did not leave mission 28 as mission #3319 was left: %', got;
+  end if;
+end $$;
+reset role;
+
+set local client_min_messages = warning;
+\ir ../migrations/20270129190000_mission_own_fleet_approval.sql
+reset client_min_messages;
+
+do $$
+declare
+  given public.approvals%rowtype;
+begin
+  given := public.approval_in_force('00000000-0000-4000-8000-0000000026c1', 'product');
+  if given.mission_id is distinct from '00000000-0000-4000-8000-0000000028b1' or given.approver_login <> 'fleet beaver'
+     or not exists (select 1 from jsonb_array_elements(given.files) f where f.value ->> 'kind' = 'plan' and f.value ->> 'sha256' = repeat('b', 64)) then
+    raise exception 'FAIL: the migration did not give mission 28 its own product approval: %', row_to_json(given);
+  end if;
+  if (select count(*) from public.approvals a where a.dossier_id = '00000000-0000-4000-8000-0000000026c1' and a.approval_kind = 'product') <> 3 then
+    raise exception 'FAIL: the migration gave a product approval to a mission that had its own';
+  end if;
+end $$;
+
+-- Run again: nothing changes.
+set local client_min_messages = warning;
+\ir ../migrations/20270129190000_mission_own_fleet_approval.sql
+reset client_min_messages;
+
+do $$
+begin
+  if (select count(*) from public.approvals a where a.dossier_id = '00000000-0000-4000-8000-0000000026c1' and a.approval_kind = 'product') <> 3 then
+    raise exception 'FAIL: running the migration again gave another product approval';
+  end if;
+end $$;
+
 -- ── A person sends a PM product PRD back to the PM (bug #3302): mission 26's initech-app-31 ──
 do $$
 declare
