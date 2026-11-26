@@ -22,4 +22,4 @@ The new cases of `supabase/checks/mission_product_prd.sql`, run by CI's supabase
 
 ## Mutation
 
-Mutation: no delivery-core file changed (SQL and tests only)
+mutation: no changed core file against origin/main (f899eef5): nothing to mutate
