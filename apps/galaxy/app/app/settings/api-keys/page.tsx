@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import '../../../../src/public-api/page/api-keys.css';
-import { memberSession } from '../../../../src/data/member-session';
+import { viewer } from '../../../../src/data/viewer';
 import { demoApiKeysView } from '../../../../src/public-api/page/demo';
 import { apiKeysPageReads } from '../../../../src/public-api/page/live';
 import { loadApiKeysPage } from '../../../../src/public-api/page/load';
@@ -16,10 +16,11 @@ import { ApiKeysPage } from '../../../../src/public-api/page/ApiKeysPage';
 export const metadata: Metadata = { title: 'API keys · OMNI LOOP', robots: { index: false, follow: false } };
 
 async function viewOf(): Promise<ApiKeysPageView> {
-  const session = await memberSession();
-  if (session.kind === 'demo') return demoApiKeysView();
-  if (session.kind !== 'signed-in') return session;
-  return loadApiKeysPage(apiKeysPageReads(session.db, session.user));
+  const seen = await viewer();
+  if (seen.kind === 'demo') return demoApiKeysView();
+  if (seen.kind !== 'signed-in') return { kind: seen.kind };
+  // The workspace is the layout's read, shared through viewer(): the page never reads it a second time.
+  return loadApiKeysPage({ ...apiKeysPageReads(seen.db, seen.user), workspace: () => seen.workspace() });
 }
 
 export default async function ApiKeysRoute() {
