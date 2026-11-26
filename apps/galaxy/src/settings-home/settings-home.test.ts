@@ -11,10 +11,10 @@ describe('the settings home model (omni-loop-32)', () => {
     const cards = home.flatMap((g) => g.pages);
     expect(cards).toHaveLength(SETTINGS_MAP_PAGES.length);
     for (const [i, card] of cards.entries()) {
-      const page = SETTINGS_MAP_PAGES[i]!;
-      expect(card.label).toBe(page.label);
-      expect(card.description).toBe(page.holds);
-      expect(card.changedBy).toBe(page.changedBy);
+      const page = SETTINGS_MAP_PAGES[i];
+      expect(card.label).toBe(page?.label);
+      expect(card.description).toBe(page?.holds);
+      expect(card.changedBy).toBe(page?.changedBy);
     }
   });
 
