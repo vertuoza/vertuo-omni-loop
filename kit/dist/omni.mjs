@@ -66330,7 +66330,11 @@ function checkRunnerLine(line3, allowed = []) {
 }
 var BASE_OF_SKILLS = ["ultra-yolo", "ultra-wave", "ultra-yolo-fix"];
 var BASE_OF = /(^| )--base-of [A-Za-z0-9._-]+\/[A-Za-z0-9._-]+=[A-Za-z0-9._\/-]+(?:,[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+=[A-Za-z0-9._\/-]+)*(?= |$)/;
-var argsToCheck = (skill, args) => BASE_OF_SKILLS.includes(skill) ? args.replace(BASE_OF, "$1--base-of") : args;
+var STUCK_JOBS = /(^| )--jobs [A-Za-z0-9-]+(?:,[A-Za-z0-9-]+)*(?= |$)/;
+function argsToCheck(skill, args) {
+  if (BASE_OF_SKILLS.includes(skill)) return args.replace(BASE_OF, "$1--base-of");
+  return skill === "repair" ? args.replace(STUCK_JOBS, "$1--jobs") : args;
+}
 function checkFixed(skill, args) {
   if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill) && !FLEET_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };
   if (!ARGS.test(argsToCheck(skill, args))) return { ok: false, reason: BAD_ARGS };

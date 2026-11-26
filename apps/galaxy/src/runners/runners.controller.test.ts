@@ -123,6 +123,14 @@ describe('GET /api/runners/next', () => {
     expect(w.state.jobs[0]).toMatchObject({ status: 'failed', reason: 'github app: the Omni App is not configured on this server' });
   });
 
+  it('ends failed a claimed job the contract cannot answer, and hands the runner the next one instead of a 500 (bug #3339)', async () => {
+    const odd = jobRow({ id: '00000000-0000-4000-8000-000033390003', line: '/omni:yolo 1717; rm -rf /' });
+    const next = jobRow({ line: '/omni:yolo 1717' });
+    const w = world({ jobs: [odd, next] });
+    expect(await read(await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps))).toMatchObject({ status: 200, body: { id: next.id } });
+    expect(w.state.jobs.find((job) => job.id === odd.id)).toMatchObject({ status: 'failed', reason: 'the app cannot hand this job to a runner: line: not a line a runner runs' });
+  });
+
   it('answers 204 after the hold, and counts the check-in', async () => {
     const w = world();
     const response = await nextJob(kit(`/next?runner=${SHARED}`, 'olga-token'), w.deps);
