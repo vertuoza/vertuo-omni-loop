@@ -25324,11 +25324,15 @@ function escalatedWords(prd, decision) {
 }
 var spentWords2 = (prd) => `${roundsSpentWords(prd)} in ${String(ROUNDS2)} rounds; approve it on its page`;
 var decidedOf = (mine, kind) => mine.filter((one) => one.kind === kind && one.plan !== null).length;
+function afterTechFails(mine, at4, before2) {
+  return mine.slice(before2 + 1, at4).filter((other) => other.kind === "tech").length >= FAILS;
+}
 function recovered(mine, at4) {
   const one = mine[at4];
   const before2 = mine.slice(0, at4).findLastIndex((other) => other.plan !== null);
   const prior = mine[before2];
-  return one?.kind === "plan" && one.plan !== null && prior !== void 0 && before2 < at4 - 1 && prior.kind === "plan" && prior.outcome === "approved" && prior.plan === one.plan;
+  if (one?.kind !== "plan" || one.plan === null || prior === void 0 || before2 >= at4 - 1) return false;
+  return afterTechFails(mine, at4, before2) || prior.kind === "plan" && prior.outcome === "approved" && prior.plan === one.plan;
 }
 function confirming(mine, latest) {
   const last = mine.at(-1);
