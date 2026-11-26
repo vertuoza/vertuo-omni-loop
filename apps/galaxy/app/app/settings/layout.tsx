@@ -1,3 +1,4 @@
+import { SettingsTrail } from '../../../src/settings-home/SettingsTrail';
 import { SettingsNav } from '../../../src/nav/SettingsNav';
 
 // Every page under /app/settings (omni-loop-27 s2): the grouped settings navigation beside it, drawn
@@ -8,7 +9,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="settings-frame">
       <SettingsNav />
-      <div className="settings-content">{children}</div>
+      <div className="settings-content">
+        <SettingsTrail />
+        {children}
+      </div>
     </div>
   );
 }
