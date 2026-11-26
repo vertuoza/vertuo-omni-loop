@@ -12,9 +12,11 @@
 //                    are spent, the PM's plan job is sent again while its rounds last, then a person (bug #3286)
 //   the version      both decisions name the plan's sha256: the build is sent only once a `plan` and a `tech` decision both approved
 //                    the latest plan version on the PRD's page, which gives its approval in the fleet's name. A version the Architect
-//                    pushed is approved by the PM again; a version pushed after the Architect's review is reviewed again. ROUNDS
+//                    pushed is approved by the PM again, even once its rounds are spent: the closing step, sent once per version the
+//                    Architect approved, not a round (bug #3334); a version pushed after the Architect's review is reviewed again. ROUNDS
 //                    counts the plan approvals and the reviews that decided (a record naming a plan version), never a failure, nor
-//                    the PM's re-approval of the version it had approved before jobs that left no record (bug #3332)
+//                    the PM's plan job sent after the Architect's failures, whether it kept the version (bug #3332) or changed it
+//                    (bug #3343)
 //   open points      an Architect's review that escalated with open points sends the PM's plan job again (bug #3286): the PM reads
 //                    them with `omni mission get`, answers each, rewording its own spec when it must, and approves the new version,
 //                    which the Architect reviews again
@@ -146,17 +148,38 @@ const spentWords = (prd: ProductPrdId): string => `${roundsSpentWords(prd)} in $
 const decidedOf = (mine: readonly PlanDecision[], kind: PlanDecision['kind']): number => mine.filter((one) => one.kind === kind && one.plan !== null).length;
 
 /**
- * Bug #3332: whether decision `at` only re-approved, after jobs that left no record, the plan version the PM's approval before them
- * named: the recovery the Architect's failures send (bug #3326), which answers nothing and is never one of the PM's rounds.
+ * Bug #3343: whether the jobs that left no record between the last decision that named a plan version and decision `at` spent the
+ * Architect's FAILS tries: the PM's plan job that follows them is the recovery the mission sent (bug #3326), whatever version it names.
+ */
+function afterTechFails(mine: readonly PlanDecision[], at: number, before: number): boolean {
+  return mine.slice(before + 1, at).filter((other) => other.kind === 'tech').length >= FAILS;
+}
+
+/**
+ * Whether plan decision `at` is a recovery, never one of the PM's rounds: it follows a run of the Architect's reviews that left no
+ * record, the PM's plan job the mission sent for them (bug #3343), whether the PM kept or changed the version; or it only re-approved,
+ * after jobs that left no record, the version the PM's approval before them named (bug #3332). Every plan decision still caps the
+ * recovery itself (`afterEscalated`).
  */
 function recovered(mine: readonly PlanDecision[], at: number): boolean {
   const one = mine[at];
   const before = mine.slice(0, at).findLastIndex((other) => other.plan !== null);
   const prior = mine[before];
-  return one?.kind === 'plan' && one.plan !== null && prior !== undefined && before < at - 1 && prior.kind === 'plan' && prior.outcome === 'approved' && prior.plan === one.plan;
+  if (one?.kind !== 'plan' || one.plan === null || prior === undefined || before >= at - 1) return false;
+  return afterTechFails(mine, at, before) || (prior.kind === 'plan' && prior.outcome === 'approved' && prior.plan === one.plan);
 }
 
-/** The PM's rounds: its plan decisions that named a version, but a recovery (bug #3332). */
+/**
+ * Bug #3334: whether the last decision is the Architect's approval of plan version `latest`, a version the PM has not approved (one
+ * the Architect pushed): the PM's confirmation of it closes the review, never one of its rounds. Any decision after it ends this, so
+ * the PM is sent to confirm it once.
+ */
+function confirming(mine: readonly PlanDecision[], latest: string | null): boolean {
+  const last = mine.at(-1);
+  return last?.kind === 'tech' && last.outcome === 'approved' && latest !== null && last.plan === latest;
+}
+
+/** The PM's rounds: its plan decisions that named a version, but a recovery (bugs #3332, #3343). */
 const roundsOf = (mine: readonly PlanDecision[]): number => mine.filter((one, at) => one.kind === 'plan' && one.plan !== null && !recovered(mine, at)).length;
 
 /**
@@ -212,7 +235,7 @@ export function reviewStateOf(view: ReviewView): ReviewState {
   if (working(view)) return { state: 'working' };
   const last = mine.at(-1);
   if (last?.outcome === 'escalated') return afterEscalated(view, mine, last);
-  if (!approvedOn(mine, 'plan', view.latest)) return roundsOf(mine) < ROUNDS ? { state: 'plan', again: view.plans.length > 0 } : { state: 'waits', why: spentWords(view.prd) };
+  if (!approvedOn(mine, 'plan', view.latest)) return roundsOf(mine) < ROUNDS || confirming(mine, view.latest) ? { state: 'plan', again: view.plans.length > 0 } : { state: 'waits', why: spentWords(view.prd) };
   return decidedOf(mine, 'tech') < ROUNDS ? { state: 'tech', k: view.techs.length + 1 } : { state: 'waits', why: spentWords(view.prd) };
 }
 

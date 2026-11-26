@@ -32,7 +32,11 @@ describe('reviewStateOf', () => {
     expect(reviewStateOf(at)).toEqual({ state: 'tech', k: 2 });
     // Bug #3286: the rounds count the reviews that decided, so the second one is the one with a decision.
     const C = 'c'.repeat(64);
-    expect(reviewStateOf({ ...at, latest: C, techs: [tech(1), tech(2)], decisions: [...at.decisions, decided('tech', C)] })).toMatchObject({ state: 'waits' });
+    const pushed = { ...at, latest: C, techs: [tech(1), tech(2)], decisions: [...at.decisions, decided('tech', C)] };
+    // Bug #3334: the PM confirms the version the Architect pushed and approved once, its rounds spent; another version, a person.
+    expect(reviewStateOf(pushed)).toEqual({ state: 'plan', again: true });
+    const D = 'd'.repeat(64);
+    expect(reviewStateOf({ ...pushed, latest: D, plans: [plan(1), plan(2), plan(3)], decisions: [...pushed.decisions, decided('plan', D)] })).toMatchObject({ state: 'waits' });
   });
 
   // AC-4, changed by bug #3286 (the owner's decision): the Architect's open points go back to the PM first; a person gets the PRD once

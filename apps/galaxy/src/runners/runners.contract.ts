@@ -33,6 +33,7 @@ import { IssueNumberSchema, PrdNumberSchema, type PrdNumber } from 'omni-loop/ki
 import { BUG_FIX_OUTCOMES, PRS_MAX, type BugFixOutcome } from 'omni-loop/kit/lib/runner/log.ts';
 import { CheckpointManifestSchema } from 'omni-loop/kit/lib/runner/checkpoint.manifest.ts';
 import { ResumeClaimSchema } from 'omni-loop/kit/lib/runner/resume.claim.ts';
+import { checkRunnerLine } from 'omni-loop/kit/lib/runner/line.ts';
 
 /** The skills a runner may run: the ones the app copies that need no person typing and end on their own. The ultra skills (PRD 2873)
  * are sent from a product's plan repository only, which the service checks once it knows the repository. `review` is the Reviewer's
@@ -151,15 +152,10 @@ export function isAppLine(line: string): boolean {
   return line.length <= MAX_LINE && fixed !== null && APP_RUNNER_SKILLS.some((skill) => skill === fixed[1]) && ARGS.test(fixed[2] ?? '');
 }
 
-/** The one shape a fleet's line takes (PRD omni-loop-26): `/omni:tech-review <key>-<n> --mission <m>`, the kit's `TECH_REVIEW_ARGS`. */
-const FLEET_ARGS = /^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-[1-9]\d{0,9} --mission [1-9]\d*$/;
-
-/** Whether `line` is one of a fleet's own lines, as the kit's runner checks it (bug #3277): `/omni:<fleet skill> <key>-<n> --mission <m>`,
- * 200 characters at most. A mission queues it; a person's Send never does, so `checkLine` still refuses it. */
-function isFleetLine(line: string): boolean {
-  const fixed = LINE.exec(line);
-  return line.length <= MAX_LINE && fixed !== null && FLEET_RUNNER_SKILLS.some((skill) => skill === fixed[1]) && FLEET_ARGS.test(fixed[2] ?? '');
-}
+/** Whether `line` is one the kit's runner runs (bugs #3277, #3339): its own check, `checkRunnerLine`, so every line a mission sends in a
+ * shape a person's Send refuses (the fleet's `/omni:tech-review <key>-<n> --mission <m>`, a product PRD's `/omni:ultra-yolo <key>-<n>
+ * --base-of <owner/repo>=<branch>,…`) reaches the runner that claims its job. `checkLine` still decides what a person may send. */
+const runsOnRunner = (line: string, allowed: readonly string[]): boolean => checkRunnerLine(line, allowed).ok;
 
 /** The PRD a line names (PRD 2251): its first argument, when it is a PRD number (`/omni:yolo 2251`,
  * `/omni:do-work 2251 s1`, a repository skill's `/validate-prd 347`, PRD 2313); null for a line no
@@ -212,7 +208,7 @@ const GithubGrantSchema = z.object({
 });
 export type GithubGrant = z.infer<typeof GithubGrantSchema>;
 
-/** A job, as the runner that claimed it receives it, its line a runner's or one of the App's own (`isAppLine`): the sender's GitHub
+/** A job, as the runner that claimed it receives it, its line a runner's, one of the App's own (`isAppLine`) or one a mission sends, as the kit's runner takes them: the sender's GitHub
  * login, when they have one, goes to the run as OMNI_SENT_BY. `allowedSkills` are the repository's own skills its owner allowed, read
  * when the job was claimed (PRD 2313): the runner checks the line against them again before it runs.
  * `sentByKey` is the name of the API key that sent it, or null (PRD 2433); `github` is the App it runs as,
@@ -231,7 +227,7 @@ export const RunnerJobSchema = z.object({
   id: IdSchema, line: z.string().max(MAX_LINE), repo: RepoSchema, sentBy: z.string().nullable(), allowedSkills: z.array(SkillNameSchema),
   sentByKey: z.string().nullable(), github: GithubGrantSchema.nullable(), resume: ResumeClaimSchema.optional(), mission: z.object({ level: z.string() }).nullable().optional(),
   messages: z.array(FleetMessageClaimSchema).max(MAX_FLEET_MESSAGES).optional(),
-}).refine((job) => checkLine(job.line, job.allowedSkills).ok || isAppLine(job.line) || isFleetLine(job.line), { message: 'not a line a runner runs', path: ['line'] });
+}).refine((job) => checkLine(job.line, job.allowedSkills).ok || runsOnRunner(job.line, job.allowedSkills), { message: 'not a line a runner runs', path: ['line'] });
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 
 /** What `POST /api/runners/jobs/<id>/github-token` answers: a fresh token of the job's App, and when it stops working. */
@@ -320,8 +316,9 @@ export type JobPart = z.infer<typeof JobPartSchema>;
 /** What a done job ended on: a yolo hand-off (PRD 2223), the run ended on `/omni:yolo-fix` (answers), `/omni:yolo` (held)
  * or `/omni:pr-care` (ready); `human` (PRD 2255), the run ended with the questions it asked a person still open; `stopped` (PRD 2375), a
  * `/omni:yolo` or `/omni:yolo-fix` run that exited with no hand-off line, so it is not done; or the Reviewer's two (PRD 2871), `review`, the
- * run left its PR a draft for the Reviewer (`/omni:review`), and `changes`, the Reviewer raised findings (`/omni:yolo-fix --for-review`). */
-export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes'] as const;
+ * run left its PR a draft for the Reviewer (`/omni:review`), and `changes`, the Reviewer raised findings (`/omni:yolo-fix --for-review`); or
+ * `expired` (PRD omni-loop-35), which only the server's sweep sets: the job ended answers, held or human and nobody continued it in 48 h. */
+export const JOB_OUTCOMES = ['answers', 'held', 'ready', 'human', 'stopped', 'review', 'changes', 'expired'] as const;
 
 /** What `runner_jobs.outcome` holds (PRD 2425): the words above and a bug fix's own, `need-human` excepted, which is
  * stored as the `human` the server already sets for questions left open. The page and the terminal read only the

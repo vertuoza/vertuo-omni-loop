@@ -21,6 +21,11 @@ import type { Acted, FindingRow, MessageRow, NoteRow, ProposalRow, SeatRow, Sign
 //   check fired"). One open finding per fingerprint: a second raise adds its signals to the open one, and gives a finding
 //   the check wrote alone its first look. A fingerprint an owner dismissed as Not a problem is never raised again with
 //   the same evidence.
+// - A group raise (PRD omni-loop-35 s2): a raise that names a fingerprint other than its signals' own groups signals
+//   that share one cause, of one fingerprint or several. The finding's fingerprint is the group's, its evidence key the
+//   digest of the sorted fingerprints of the signals it holds, so Not a problem on a group refuses the same set and lets
+//   a changed set through. A second raise of the open group adds its new signals' evidence (50 at most) and their count.
+//   Without a group fingerprint, signals of different fingerprints are refused, as before.
 // - A high finding sends one push and one email to each owner, by their alert switches, once (notified_at); a medium
 //   one sends none.
 // - The seat's tokens count by UTC day; past the daily limit the seat is answered `thinking: false`.
@@ -54,12 +59,32 @@ const SIGNALS_UNKNOWN = 'A signal named is not an open signal of this workspace.
 const SIGNALS_TWO_FINGERPRINTS = 'The signals of one finding share one fingerprint.';
 const NO_CHECK = 'Raised by the Supervisor, no check fired';
 
-/** A raise's fingerprint: its first signal's, else the one it names, else none. */
-const fingerprintOf = (signals: readonly SignalRow[], request: RaiseRequest): string | null => signals[0]?.fingerprint ?? request.fingerprint ?? null;
+/** The most evidence a finding keeps. */
+const EVIDENCE_MAX = 50;
+
+/** Whether a raise groups its signals: it names a fingerprint, and one of its signals has another. */
+const isGroup = (signals: readonly SignalRow[], request: RaiseRequest): boolean =>
+  request.fingerprint !== undefined && signals.some((s) => s.fingerprint !== request.fingerprint);
+
+/** A raise's fingerprint: a group's, else its first signal's, else the one it names, else none. */
+const fingerprintOf = (signals: readonly SignalRow[], request: RaiseRequest): string | null =>
+  isGroup(signals, request) ? request.fingerprint ?? null : signals[0]?.fingerprint ?? request.fingerprint ?? null;
+
+/** A group's evidence key: the digest of its signals' sorted fingerprints, each once (the checks' digest: checks.ts),
+ * by Web Crypto, so the service stays free of node:crypto. */
+async function groupKey(signals: readonly SignalRow[]): Promise<string> {
+  const parts = JSON.stringify([...new Set(signals.map((s) => s.fingerprint))].sort());
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(parts)));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+/** The evidence key a raise carries now: a group's, else its first signal's. */
+const keyOf = async (signals: readonly SignalRow[], request: RaiseRequest): Promise<string | null> =>
+  isGroup(signals, request) ? groupKey(signals) : signals[0]?.evidence_key ?? null;
 
 /** Whether the newest finding of the fingerprint was dismissed with the evidence the signals carry now. */
-const dismissedAlike = (last: FindingRow | null, signals: readonly SignalRow[]): boolean =>
-  last?.state === 'dismissed' && signals.length > 0 && last.evidence_key === signals[0]?.evidence_key;
+const dismissedAlike = async (last: FindingRow | null, signals: readonly SignalRow[], request: RaiseRequest): Promise<boolean> =>
+  last?.state === 'dismissed' && signals.length > 0 && last.evidence_key === await keyOf(signals, request);
 
 /** The UTC day of `at`. */
 const dayOf = (at: Date) => at.toISOString().slice(0, 10);
@@ -139,18 +164,33 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
     return true;
   }
 
-  /** The open signals of the workspace a raise names, all of one fingerprint, or why not. */
-  async function signalsOf(workspace: string, ids: readonly string[]): Promise<Served<SignalRow[]>> {
+  /** The open signals of the workspace a raise names, all of one fingerprint unless it names a group's, or why not. */
+  async function signalsOf(workspace: string, request: RaiseRequest): Promise<Served<SignalRow[]>> {
+    const ids = request.signals;
     const signals = ids.length === 0 ? [] : await store.signals(workspace, ids);
     if (signals.length !== new Set(ids).size || signals.some((s) => s.closed_at !== null)) return no('malformed', SIGNALS_UNKNOWN);
-    return new Set(signals.map((s) => s.fingerprint)).size > 1 ? no('malformed', SIGNALS_TWO_FINGERPRINTS) : ok(signals);
+    const several = new Set(signals.map((s) => s.fingerprint)).size > 1;
+    return several && request.fingerprint === undefined ? no('malformed', SIGNALS_TWO_FINGERPRINTS) : ok(signals);
+  }
+
+  /** A group's open finding gains its new signals' evidence (50 at most), their count, and the key of its new set. */
+  async function extendGroup(last: FindingRow, signals: readonly SignalRow[]): Promise<FindingRow> {
+    const held = await store.signalsOfFinding(last.workspace_id, last.id);
+    const fresh = signals.filter((s) => !held.some((h) => h.id === s.id));
+    const all = [...held, ...fresh];
+    return store.extendFinding(last.id, {
+      evidence: [...last.evidence, ...fresh.flatMap((s) => s.evidence).map(maskEvidence)].slice(0, EVIDENCE_MAX),
+      figures: { ...last.figures, signals: all.length },
+      evidence_key: await groupKey(all),
+    });
   }
 
   /** A raise of an open fingerprint: its signals join the open finding, and a finding the check wrote alone gets its
    * first look and the suggestions it has room for. */
   async function addTo(last: FindingRow, signals: readonly SignalRow[], request: RaiseRequest, origin: string): Promise<RaiseReply> {
+    const grown = isGroup(signals, request) ? await extendGroup(last, signals) : last;
     await store.attachSignals(signals.map((s) => s.id), last.id);
-    let looked = last;
+    let looked = grown;
     if (last.looked_at === null) {
       looked = await store.lookAt(last.id, maskSecrets(request.explanation), iso());
       const standing = (await store.proposals([last.id])).filter((p) => p.kind === 'suggestion').length;
@@ -160,13 +200,16 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
     return { finding: findingOf(looked, await store.proposals([looked.id])), raised: false, notified };
   }
 
-  /** A new finding: the first signal's check line, figures and evidence digest first, then the seat's explanation. */
+  /** A new finding: the first signal's check line, figures and evidence digest first (a group's: the digest of its set,
+   * and its count of signals), then the seat's explanation. */
   async function create(workspace: string, fingerprint: string | null, signals: readonly SignalRow[], request: RaiseRequest, origin: string): Promise<RaiseReply> {
     const [first] = signals;
-    const evidence = (request.evidence.length > 0 ? request.evidence : signals.flatMap((s) => s.evidence).slice(0, 50)).map(maskEvidence);
+    const evidence = (request.evidence.length > 0 ? request.evidence : signals.flatMap((s) => s.evidence).slice(0, EVIDENCE_MAX)).map(maskEvidence);
+    const figures = first?.figures ?? {};
     const row = await store.insertFinding({
       workspace_id: workspace, fingerprint, kind: request.kind, severity: request.severity, title: request.title,
-      check_line: first?.check_line ?? null, figures: first?.figures ?? {}, evidence, evidence_key: first?.evidence_key ?? null,
+      check_line: first?.check_line ?? null, figures: isGroup(signals, request) ? { ...figures, signals: signals.length } : figures, evidence,
+      evidence_key: await keyOf(signals, request),
       explanation: maskSecrets(request.explanation), raised_by: 'supervisor', looked_at: iso(),
     });
     await store.attachSignals(signals.map((s) => s.id), row.id);
@@ -255,12 +298,12 @@ export function supervisorService({ store, clock, alert }: SupervisorServiceDeps
 
     /** The seat raises a finding, or adds to the open one of its fingerprint; a high one alerts the owners once. */
     async raise(viewer: Viewer & { kind: 'seat' }, request: RaiseRequest, origin: string): Promise<Served<RaiseReply>> {
-      const signals = await signalsOf(viewer.workspace, request.signals);
+      const signals = await signalsOf(viewer.workspace, request);
       if (!signals.ok) return signals;
       const fingerprint = fingerprintOf(signals.value, request);
       const last = fingerprint === null ? null : await store.lastOfFingerprint(viewer.workspace, fingerprint);
       if (last?.state === 'open') return ok(await addTo(last, signals.value, request, origin));
-      if (dismissedAlike(last, signals.value)) return no('conflict', DISMISSED_SAME);
+      if (await dismissedAlike(last, signals.value, request)) return no('conflict', DISMISSED_SAME);
       return ok(await create(viewer.workspace, fingerprint, signals.value, request, origin));
     },
 

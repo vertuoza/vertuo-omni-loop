@@ -32,17 +32,24 @@ Every member reads it; only workspace owners act on it (PRD omni-loop-34).
   now` (high) and `When you have a minute` (medium), newest first. Each row is the Inbox row's anatomy
   with a severity stripe (red high, the signal medium): the kind, the title, the check and its figures,
   the age (red when high) and `High`. On Done one section, the last closed first, each row ending on how
-  it ended (`Acted`, `Not a problem`, `Resolved`).
+  it ended (`Acted`, `Not a problem`, `Resolved`). One row per cause, never one per job: a repository
+  no online runner can take, or one kind of wait (held, answers, human), is one finding whose kind line
+  counts its jobs (`Stuck work · demo-org/widgets · 8 jobs`) and whose check line names its
+  figures (`Queue nobody can take · 8 jobs · Oldest queued 41 h`) (PRD omni-loop-35).
 - **The pane:** the open finding (its kind, its title, `High` or `Medium` and its age; an owner's
   `Suggested` box with up to two suggestions; `The check that fired`, the check's name in bold and each
-  figure in a cyan pill, or `Raised by the Supervisor, no check fired`; `Evidence`, one line each; its
+  figure in a cyan pill, or `Raised by the Supervisor, no check fired`; `Evidence`, one line each, and on
+  a grouped finding one line per job it holds (`/omni:rewind 67 · queued 41 h · job 4f2a91c0`), 50 at
+  most; its
   thread, the Supervisor's explanation first, each answer signed `Supervisor · agent`, a memory note
   quoted under it as `Remembered: “…”`), or, with none open, the general thread (`General thread · read
   by every member`, `Chat with the Supervisor`).
 
 ## States
 
-- **2.A, an owner on an open finding:** the check and its figures come first, the suggestions above it.
+- **2.A, an owner on an open finding:** one notification per cause; the check and its figures come
+  first, the suggestions above it (`Open Runners`, `Not a problem`), the Evidence listing the jobs the
+  finding groups, and the Supervisor's explanation saying when the oldest expires.
 - **2.B, the general chat:** no finding open; the Chat row marked.
 - **2.C, the Memory drawer** (s6, owners only): Short-term and Long-term tabs, each note with its source
   and a delete button, `Clear all 9 notes? Findings and chat stay.` confirmed in place.
@@ -71,7 +78,8 @@ Runner health · Chat · Ask the Supervisor anything · Last: “…” · No me
 you have a minute · High · Medium · Acted · Not a problem · Resolved · Suggested · The check that fired ·
 Raised by the Supervisor, no check fired · Evidence · No Supervisor look yet. · Supervisor · agent ·
 Remembered: “…” · General thread · read by every member · Chat with the Supervisor · Only workspace
-owners write to the Supervisor. · All quiet. · Nothing needs you. The Supervisor keeps watching. ·
+owners write to the Supervisor. · Queue nobody can take · <k> jobs · Oldest queued <d> · No online
+runner can take <owner/repo> · Waiting too long · <k> jobs · Oldest <d> · queued <d> · job <id> · All quiet. · Nothing needs you. The Supervisor keeps watching. ·
 Actions · <n>.
 
 ## Refusals
@@ -82,6 +90,8 @@ Actions · <n>.
   Move.
 - Findings, suggestions and the chat are never cleared from this page: they record decisions.
 - The check that fired comes before the Supervisor's own words, on every finding.
+- Never one notification per job when the cause is the same: the jobs of one cause are listed in one
+  finding's Evidence (PRD omni-loop-35).
 
 ## Open questions
 
@@ -92,8 +102,12 @@ Actions · <n>.
   joins the design system.
 - The chat box, the Memory drawer (s6) and the suggestions' buttons with `Not a problem` (s7) are not
   built yet: in this draft the threads are read-only and the Suggested box lists its suggestions.
+- 2.A is drawn as PRD omni-loop-35's before/after page draws it, at 1280 px there, here at 1440: its
+  thread shows no chat box, where 2.B and the owner's other states keep one.
 
 ## Source
 
 - /omni:brainstorm, PRD omni-loop-34: its before/after page, on the PRD's page (omni dossier get omni-loop-34 before-after), screens 2.A to 2.G
 - PRD omni-loop-34 s5 (the page, built from those screens)
+- PRD omni-loop-35 s5: 2.A brought up to that PRD's before/after page, Pixel perfect 2.A after (grouped
+  notifications, Evidence listing the jobs; omni dossier get omni-loop-35 before-after)

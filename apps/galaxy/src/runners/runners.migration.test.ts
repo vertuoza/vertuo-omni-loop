@@ -170,11 +170,19 @@ describe('the runner outcome migration (PRD 2223)', () => {
 /** The words a migration's runner_jobs_outcome_check allows, sorted. */
 const outcomeCheck = (code: string) => /check \(outcome in \(([^)]*)\)\)/.exec(code)?.[1]?.split(',').map((word) => word.trim().replaceAll("'", '')).sort();
 
-// PRD 2871: the Reviewer's migration, the newest to set the check, lets the column hold every word the server stores.
+// PRD 2871: the Reviewer's migration let the column hold every word the server stored then, all but `expired`.
 describe('the Reviewer migration\'s outcome check (PRD 2871)', () => {
-  it('lets the outcome column hold each word the server stores, and no other', () => {
+  it('lets the outcome column hold each word the server stored then, `expired` (PRD omni-loop-35) excepted, and no other', () => {
     const reviewer = read('supabase/migrations/20270122122000_reviewer.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
-    expect(outcomeCheck(reviewer)).toEqual([...STORED_OUTCOMES].sort());
+    expect(outcomeCheck(reviewer)).toEqual(STORED_OUTCOMES.filter((word) => word !== 'expired').sort());
+  });
+});
+
+// PRD omni-loop-35: the expire migration, the newest to set the check, lets the column hold every word the server stores.
+describe('the expire migration\'s outcome check (PRD omni-loop-35)', () => {
+  it('lets the outcome column hold each word the server stores, and no other', () => {
+    const expire = read('supabase/migrations/20270129200000_runner_jobs_expire.sql').replace(/--.*$/gm, '').replace(/\s+/g, ' ');
+    expect(outcomeCheck(expire)).toEqual([...STORED_OUTCOMES].sort());
   });
 });
 
@@ -182,8 +190,8 @@ const KEY_CONTROL = read('supabase/migrations/20261229090000_api_key_job_control
 
 // PRD 2425: what the server stores of a bug fix's report is what the migration's columns and check hold.
 describe('the API key job control migration (PRD 2425)', () => {
-  it('lets the outcome column hold each word the server stored then, the Reviewer\'s two (PRD 2871) excepted, and no other', () => {
-    expect(outcomeCheck(KEY_CONTROL)).toEqual(STORED_OUTCOMES.filter((word) => word !== 'review' && word !== 'changes').sort());
+  it('lets the outcome column hold each word the server stored then, the Reviewer\'s two (PRD 2871) and `expired` (PRD omni-loop-35) excepted, and no other', () => {
+    expect(outcomeCheck(KEY_CONTROL)).toEqual(STORED_OUTCOMES.filter((word) => word !== 'review' && word !== 'changes' && word !== 'expired').sort());
   });
 
   it('adds the columns the server stores and a key reads, and keeps what the contract lets a report carry in them: 50 pull requests, a link', () => {

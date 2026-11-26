@@ -101,6 +101,20 @@ describe('at alone, a scope product PRD the mission\'s PM did not write is the f
     expect(fake.productJobs().map(({ line }) => line)).toEqual([`/omni:ultra-yolo ${P29} --base-of demo-org/widgets=${BRANCH}`]);
   });
 
+  it('a PRD another mission approved on the same plan: this mission\'s PM and Architect approving it give the build, not a person (bug #3336)', async () => {
+    // Mission #3319 on omni-loop-31: the stopped #3270's approval of the latest plan reads as none here (BR-PRODUCT-144), and the
+    // pair of this mission's decisions on that plan gives this mission its own (mission_decide_plan(), as the fake decides it).
+    const { fake, run } = setup([page(P29, { targets: ['demo-org/widgets'], plan: B })]);
+    await run();
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(P29, B));
+    await run();
+    fake.endTech(P29, { status: 'done', outcome: 'ready' }, reviewed(P29, B));
+    await run();
+    expect(fake.planDecisions().map(({ kind, plan, approval }) => [kind, plan, approval])).toEqual([['plan', B, false], ['tech', B, true]]);
+    expect(fake.productJobs().map(({ line }) => line)).toEqual([`/omni:ultra-yolo ${P29} --base-of demo-org/widgets=${BRANCH}`]);
+    expect(fake.mission().waitingOn ?? '').not.toContain('approve it on its page');
+  });
+
   it('a PRD that already holds a standing approval and a plan with its table is built as before, with no new plan', async () => {
     const { fake, run } = setup([page(P29, { targets: ['demo-org/widgets'], approval: 'standing' })]);
     await run();
