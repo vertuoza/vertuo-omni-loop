@@ -3,7 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import '../../../../src/business/business.css';
 import '../../../../src/agent-connect/tokens/connect.css';
 import '../../../../src/agent-connect/questions/questions.css';
-import { memberSession } from '../../../../src/data/member-session';
+import { viewer } from '../../../../src/data/viewer';
+import type { Workspace } from '../../../../src/data/workspace';
 import { loadBusinessPage } from '../../../../src/business/load';
 import { loadTokens } from '../../../../src/agent-connect/tokens/load';
 import { loadQuestions } from '../../../../src/agent-connect/questions/load';
@@ -28,30 +29,50 @@ const rpcPortOf = (db: Pick<SupabaseClient, 'rpc'>) => ({
 
 export const metadata: Metadata = { title: 'Business · OMNI LOOP' };
 
-async function viewOf(): Promise<BusinessScreenView> {
-  const session = await memberSession();
-  if (session.kind === 'demo') {
-    return {
-      kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS,
-      agents: { source: { kind: 'demo' }, tokens: DEMO_TOKENS },
-      questions: { source: { kind: 'demo', lastSeq: Math.max(...DEMO_CLAIMS.map((c) => c.seq)) }, questions: DEMO_QUESTIONS, products: DEMO_PRODUCTS },
-    };
-  }
-  if (session.kind !== 'signed-in') return session;
-  const load = await loadBusinessPage(session.db, session.user);
+const demoView = (): BusinessScreenView => ({
+  kind: 'business', source: { kind: 'demo' }, claims: DEMO_CLAIMS, products: DEMO_PRODUCTS,
+  agents: { source: { kind: 'demo' }, tokens: DEMO_TOKENS },
+  questions: { source: { kind: 'demo', lastSeq: Math.max(...DEMO_CLAIMS.map((c) => c.seq)) }, questions: DEMO_QUESTIONS, products: DEMO_PRODUCTS },
+});
+
+type Seen = Extract<Awaited<ReturnType<typeof viewer>>, { kind: 'signed-in' }>;
+
+/** The workspace is the shared viewer's read (omni-loop-29 s2), one per request; a situation when there is none. */
+async function workspaceOf(seen: Seen): Promise<Workspace | BusinessScreenView> {
+  const workspace = await seen.workspace().catch((error: unknown) => {
+    console.error(error);
+    return undefined;
+  });
+  return workspace ?? { kind: workspace === null ? 'no-workspace' : 'unreadable' };
+}
+
+async function signedInView(seen: Seen): Promise<BusinessScreenView> {
+  const workspace = await workspaceOf(seen);
+  if ('kind' in workspace) return workspace;
+  // The agents' tokens and questions start now and are never awaited here: only the claims block the
+  // page, the two sections stream in on their own, each with a skeleton.
+  const db = rpcPortOf(seen.db);
+  const tokens = loadTokens(db, workspace.id);
+  const asked = loadQuestions(db, workspace.id);
+  const load = await loadBusinessPage(seen.db, seen.user);
   if (load.kind !== 'business') return load;
-  const db = rpcPortOf(session.db);
-  const [tokens, questions] = await Promise.all([loadTokens(db, load.workspace.id), loadQuestions(db, load.workspace.id)]);
+  const { products } = load;
   return {
     kind: 'business',
-    source: { kind: 'database', ...session.env, workspace: load.workspace.id, product: load.product.id },
+    source: { kind: 'database', ...seen.env, workspace: workspace.id, product: load.product.id },
     claims: load.claims,
-    products: load.products,
+    products,
     draft: load.draft,
     pages: load.pages,
-    agents: { source: { kind: 'database', workspace: load.workspace.id }, tokens },
-    questions: { source: { kind: 'database', ...session.env, workspace: load.workspace.id }, questions, products: load.products },
+    agents: tokens.then((list) => ({ source: { kind: 'database', workspace: workspace.id }, tokens: list })),
+    questions: asked.then((list) => ({ source: { kind: 'database', ...seen.env, workspace: workspace.id }, questions: list, products })),
   };
+}
+
+async function viewOf(): Promise<BusinessScreenView> {
+  const seen = await viewer();
+  if (seen.kind === 'demo') return demoView();
+  return seen.kind === 'signed-in' ? signedInView(seen) : { kind: seen.kind };
 }
 
 export default async function BusinessRoute() {
