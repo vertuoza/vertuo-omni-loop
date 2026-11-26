@@ -153,6 +153,16 @@ describe("the store reads and sends a mission's product PRDs (PRD omni-loop-21 s
     expect(db.requests[0]).toMatchObject({ method: 'POST', path: '/rest/v1/runner_jobs', body: { line, mission_key: `mission:${ID}:prd:omni-loop-15:run:1`, to_fleet: 'night-shift' } });
   });
 
+  it('reads what a build that ended with no result word was held on from its log tail, and reads no log for any other (bug #3345)', async () => {
+    const row = (id: string, prd: string, status: string, outcome: string | null) => ({ id, mission_key: `mission:${ID}:prd:${prd}:run:1`, resumes: null, status, outcome, reason: null, pr_url: null, limited_until: null, parts: null, line: `/omni:ultra-yolo ${prd}` });
+    const tail = '12:16:48 **Held: PRD omni-loop-30 is blocked by omni-loop-28.** Nothing was built.\n12:16:48 /omni:ultra-yolo omni-loop-30';
+    const db = recordingFetch([[row('j30', 'omni-loop-30', 'done', null), row('j28', 'omni-loop-28', 'done', 'ready'), row('j29', 'omni-loop-29', 'running', null)], [], [{ id: 'j30', log_tail: tail }]]);
+    const runs = (await storeOn(db.fetch).products?.runs(ID)) ?? [];
+    expect(runs.map(({ prd, attempts }) => [prd, attempts.at(-1)?.heldOn ?? null])).toEqual([['omni-loop-30', ['omni-loop-28']], ['omni-loop-28', null], ['omni-loop-29', null]]);
+    expect(db.requests.at(-1)?.query.get('id')).toBe('in.(j30)');
+    expect(db.requests.at(-1)?.query.get('select')).toBe('id,log_tail');
+  });
+
   it('reads no product PRD for a mission whose scope names none', async () => {
     const db = recordingFetch();
     const numbered: MissionRecord = { ...mission };
