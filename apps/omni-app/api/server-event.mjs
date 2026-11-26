@@ -24160,14 +24160,14 @@ var isRetry = (prd, decisions) => {
   const last = decisions.filter((one) => one.prd === prd).at(-1);
   return last?.outcome === "escalated" && last.plan === null;
 };
-function planSentence(prd, line3, state) {
+function planSentence(prd, line3, state, wrote) {
   if (state.unnamed === true) return `Sent the PM ${line3} again: the plan of PRD ${prd} names no repository, so it writes its ## Repositories table before the build.`;
   if (state.sentBack === true) return `Sent the PM ${line3} again: a person sent PRD ${prd} back to it${state.points === void 0 ? "" : ", with the Architect's open points"}.`;
   if (state.points !== void 0) return `Sent the PM ${line3} again: it answers the Architect's open points on PRD ${prd}.`;
-  return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+  return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}${wrote ? ", which it wrote," : " of the mission's scope"} and approves its plan.`;
 }
-function reviewDispatched(prd, job, line3, state, retry = false) {
-  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state);
+function reviewDispatched(prd, job, line3, state, { retry = false, wrote = true } = {}) {
+  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state, wrote);
   return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
 }
 
@@ -25978,14 +25978,15 @@ async function decideReviewed(at4, products, one) {
   const settled2 = record !== null && "settled" in record && kept3.outcome === "approved" ? record.settled : [];
   return { kind: one.kind, prd: one.prd, job: one.job, plan: kept3.plan, outcome: kept3.outcome, why: kept3.why, settled: settled2 };
 }
+var fleetOwns = (at4, prd) => at4.mission.level === "alone" || at4.pm.authored.has(prd);
 async function reviewAll(at4, products) {
-  if (at4.pm.authored.size === 0) return NO_REVIEWS;
+  if (at4.mission.level !== "alone" && at4.pm.authored.size === 0) return NO_REVIEWS;
   const read2 = await products.reviews(at4.mission.id);
   const decided = new Set(read2.decisions.map((one) => one.job));
   const ended7 = [
     ...productPlansOf(at4.pm.jobs).map((one) => ({ kind: "plan", prd: one.prd, job: one.job, attempt: one.attempt })),
     ...read2.techs.map((one) => ({ kind: "tech", prd: one.prd, job: one.job, attempt: one.attempt }))
-  ].filter((one) => at4.pm.authored.has(one.prd) && !pmWorking(one) && !decided.has(one.job));
+  ].filter((one) => fleetOwns(at4, one.prd) && !pmWorking(one) && !decided.has(one.job));
   const decisions = [...read2.decisions];
   const events = [];
   for (const one of ended7) {
@@ -26055,14 +26056,15 @@ async function productAll(at4) {
   return { ...done, events: [...reviews.events, ...done.events] };
 }
 function reviewViewOf(at4, fact) {
-  if (!at4.pm.authored.has(fact.prd)) return null;
+  if (!fleetOwns(at4, fact.prd)) return null;
   const plans = productPlansOf(at4.pm.jobs).filter((one) => one.prd === fact.prd);
   const techs = at4.reviews.techs.filter((one) => one.prd === fact.prd);
   return { prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions, sentBack: at4.sentBack.get(fact.prd) ?? null };
 }
 function reviewOf(at4, fact) {
   const view = reviewViewOf(at4, fact);
-  return view === null ? { state: "build" } : reviewStateOf(view);
+  if (view === null || !at4.pm.authored.has(fact.prd) && fact.approval === "standing") return { state: "build" };
+  return reviewStateOf(view);
 }
 async function reviewStep(at4, fact, state, step) {
   if (state.state === "waits") {
@@ -26074,7 +26076,7 @@ async function reviewStep(at4, fact, state, step) {
   const line3 = state.state === "plan" ? planJobLine(fact.prd, "plan", at4.mission.number) : techJobLine(fact.prd, at4.mission.number);
   const job = state.state === "plan" ? await at4.store.pm({ mission: at4.mission, round: at4.rounds++, line: line3, toFleet: at4.toFleet }) : await at4.products.review({ mission: at4.mission, prd: fact.prd, k: state.k, line: line3, toFleet: at4.toFleet });
   if (job === null) return;
-  const sent = reviewDispatched(fact.prd, job, line3, state, isRetry(fact.prd, at4.reviews.decisions));
+  const sent = reviewDispatched(fact.prd, job, line3, state, { retry: isRetry(fact.prd, at4.reviews.decisions), wrote: at4.pm.authored.has(fact.prd) });
   step.events.push({ ...sent, sentence: cut3(sent.sentence) });
 }
 async function productSteps(at4, facts) {

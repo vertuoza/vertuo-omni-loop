@@ -225,22 +225,28 @@ export const isRetry = (prd: ProductPrdId, decisions: readonly PlanDecision[]): 
   return last?.outcome === 'escalated' && last.plan === null;
 };
 
-/** What the PM's plan job is sent for: a plan that names no repository (bug #3304), the Architect's open points, a newer plan version, or its first plan. */
-function planSentence(prd: ProductPrdId, line: string, state: Extract<ReviewState, { state: 'plan' }>): string {
+/**
+ * What the PM's plan job is sent for: a plan that names no repository (bug #3304), the Architect's open points, a newer plan version, or
+ * its first plan, of a PRD it wrote or of one of the mission's scope it did not (`wrote` false, bug #3324).
+ */
+function planSentence(prd: ProductPrdId, line: string, state: Extract<ReviewState, { state: 'plan' }>, wrote: boolean): string {
   if (state.unnamed === true) return `Sent the PM ${line} again: the plan of PRD ${prd} names no repository, so it writes its ## Repositories table before the build.`;
   if (state.sentBack === true) return `Sent the PM ${line} again: a person sent PRD ${prd} back to it${state.points === undefined ? '' : ', with the Architect\'s open points'}.`;
   if (state.points !== undefined) return `Sent the PM ${line} again: it answers the Architect's open points on PRD ${prd}.`;
   return state.again
     ? `Sent the PM ${line} again: PRD ${prd} has a newer plan version, so the PM approves it.`
-    : `Sent the PM ${line}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+    : `Sent the PM ${line}: it plans PRD ${prd}${wrote ? ', which it wrote,' : " of the mission's scope"} and approves its plan.`;
 }
 
-/** The dispatch of a plan job or a review of PM product PRD `prd`, signed `supervisor`; `retry` when its last job left no record (bug #3281). */
-export function reviewDispatched(prd: ProductPrdId, job: string, line: string, state: Extract<ReviewState, { state: 'plan' | 'tech' }>, retry = false): { kind: 'dispatched'; role: EventRole; prd: ProductPrdId; job: string; link: null; sentence: string } {
+/**
+ * The dispatch of a plan job or a review of the fleet's product PRD `prd`, signed `supervisor`; `retry` when its last job left no record
+ * (bug #3281), `wrote` false for a PRD of the scope its PM did not write (bug #3324).
+ */
+export function reviewDispatched(prd: ProductPrdId, job: string, line: string, state: Extract<ReviewState, { state: 'plan' | 'tech' }>, { retry = false, wrote = true }: { retry?: boolean; wrote?: boolean } = {}): { kind: 'dispatched'; role: EventRole; prd: ProductPrdId; job: string; link: null; sentence: string } {
   const sentence = retry
     ? `Sent the ${state.state === 'tech' ? 'Architect' : 'PM'} ${line} again: its last job on PRD ${prd} failed or left no record.`
     : state.state === 'tech'
       ? `Sent the Architect ${line}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ', its newer version' : ''}.`
-      : planSentence(prd, line, state);
+      : planSentence(prd, line, state, wrote);
   return { kind: 'dispatched', role: 'supervisor', prd, job, link: null, sentence };
 }

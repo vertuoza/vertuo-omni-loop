@@ -100,7 +100,8 @@ Works alone needs the fleet to hold a PM, an Architect and a Reviewer.
   `ownPrds` (0 by default, 10 for a mission started from a goal alone). The PM gets one job per mission. A roadmap writes only the PRDs that fit
   under the cap, in order, and the mission page names the rest as `not written: the cap is <k>`.
   A PRD the PM wrote goes to no committee: the PM approves its plan and the Architect reviews it,
-  as **From a goal alone** says below. These skills ask no question: each one becomes a high outbox
+  as **From a goal alone** says below. At Works alone, so does every product PRD (`<key>-<n>`) of
+  the mission's scope, whoever wrote it: **The fleet's product PRDs**, below. These skills ask no question: each one becomes a high outbox
   item. Where phase 0 is a pull request, the PM writes nothing.
 - **Overturning.** Overturn a decision from the mission pull request's list, or with
   `omni mission overturn <mission> <decision>`. The decision stays on the record and your decision
@@ -400,7 +401,15 @@ The code reaches the repository only in the build's pull requests, and you merge
 mission branch of each repository the plan's `## Repositories` table names. A plan with no such
 table would open them into the default branch, so the mission sends the PM's plan job again to
 write it, within the PM's two rounds; then the PRD comes to you, saying `its plan names no
-repository`. A PRD you wrote whose plan names none comes to you at once.
+repository`. Below Works alone, a product PRD whose plan names none comes to you at once.
+
+**The fleet's product PRDs.** At Works alone, every product PRD of the mission's scope, its product
+roadmaps' rows among them, goes through steps 2 to 5 above, whoever wrote it: you, or the PM of an
+earlier mission. The PM plans it (writing its `## Repositories` table when the plan has none) and
+approves the plan, the Architect reviews it, and the fleet's approval lets it build, with the same
+rounds; it comes to you only once those are spent or a job sends it to you. A product PRD that
+already holds an approval on its page and a plan that names its repositories is built as it is,
+with no new plan. Below Works alone, a person approves each product PRD on its page, as before.
 
 **What you see.** The fleet's **Operation room** shows, for each PRD of the PM's, a plan row (the
 PM, the plan version it approved) and a tech row (the Architect, what it settled, or `Not reviewed
@@ -408,8 +417,8 @@ yet`). The points the Architect left to you are listed under **Waiting on you**:
 on its page once you have settled them, or press **Send back to the PM** beside it (or run
 `omni mission send-back <mission> <key>-<n>`). That gives the PM one more round with the Architect's
 latest open points, and its rounds count again from there. Your send-back is recorded as your own
-event; no decision is edited. A PRD a person wrote and put in the mission keeps the
-committee.
+event; no decision is edited. A repository PRD (a number) a person wrote and put in the mission
+keeps the committee.
 
 ## Starting never waits
 

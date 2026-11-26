@@ -292,7 +292,7 @@ const targetPull = (pr: number, merged: boolean): PullRead => ({
   items: { ranks: [] },
 });
 
-function productSetup(products = rows()) {
+function productSetup(products = rows(), level: MissionRecord['level'] = 'alone') {
   const prepared: string[] = [];
   const merged = new Set<string>();
   const targets: Record<string, TargetPull[]> = {
@@ -313,7 +313,7 @@ function productSetup(products = rows()) {
     },
     targets: ({ prd }) => Promise.resolve(targets[prd] ?? []),
   };
-  const made = setup({ mission: record({ scope: { prds: [], roadmaps: [] }, products: { prds: [], roadmaps: [R3] } }), all: [], products, deps: { branches: cutting, joins } });
+  const made = setup({ mission: record({ level, scope: { prds: [], roadmaps: [] }, products: { prds: [], roadmaps: [R3] } }), all: [], products, deps: { branches: cutting, joins } });
   return { ...made, prepared, merged };
 }
 
@@ -350,8 +350,9 @@ describe('a mission whose scope is a product roadmap, through the job (AC-1, AC-
     expect(merged.size).toBe(3);
   });
 
+  // Bug #3324: at `alone` the fleet plans and approves such a row itself (./job.fleet-owned.test.ts); below it, a person approves it.
   it('AC-1: holds a row whose approval does not stand, and is never delivered while a row is off the branch', async () => {
-    const { fake, run } = productSetup([{ ...first(), approval: 'none' }]);
+    const { fake, run } = productSetup([{ ...first(), approval: 'none' }], 'own-branch');
     await run();
     expect(fake.productJobs()).toEqual([]);
     expect(fake.mission()).toMatchObject({ status: 'waiting', waitingOn: `PRD omni-loop-15: approve it on its page (${BRANCH})` });

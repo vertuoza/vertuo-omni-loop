@@ -12,8 +12,8 @@ import type { MissionRecord, StoredProduct } from './store.ts';
 
 // Bug #3304: above `with-you`, a product PRD whose plan names no repository (no `## Repositories` table, so no targets) was sent
 // `/omni:ultra-yolo <id>` with no `--base-of`, and its target feature pull request opened into the default branch. It is never built
-// without bases: a PRD the PM wrote goes back to the PM's plan job, which writes the table, within the PM's rounds; then, or for a PRD
-// a person wrote, it waits on a person, saying why.
+// without bases: a PRD the fleet owns (at `alone`, every product PRD of the scope, bug #3324) goes back to the PM's plan job, which
+// writes the table, within the PM's rounds; then, or below `alone`, it waits on a person, saying why.
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e26';
 const NOW = Date.parse('2027-01-30T09:00:00Z');
@@ -109,11 +109,11 @@ describe('a product PRD whose plan names no repository, above with-you (bug #330
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: its plan names no repository');
   });
 
-  it('a product PRD a person wrote and approved waits on a person instead of a build into the default branch', async () => {
+  it('a product PRD a person wrote and approved goes to the PM\'s plan job at alone, never to a build into the default branch (bug #3324)', async () => {
     const { fake, run } = setup({ mission: record({ products: { prds: [P40], roadmaps: [] }, ownPrds: 0 }), products: [page(P40, { plan: A, approval: 'standing' })] });
     await run();
     expect(fake.productJobs()).toEqual([]);
-    expect(fake.mission().waitingOn).toContain('PRD omni-loop-40: its plan names no repository');
+    expect(fake.pms().map(({ line }) => line)).toEqual(['/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-40 --mission 12']);
   });
 });
 
