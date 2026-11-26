@@ -22,4 +22,4 @@ The two unit tests in `store.test.ts`: a mission scoped by product ids, alone an
 
 ## Mutation
 
-Pending.
+mutation: no changed core file against origin/main (3d69d57f): nothing to mutate
