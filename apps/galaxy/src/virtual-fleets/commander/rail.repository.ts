@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { IssueNumberSchema, PrdNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { IssueNumberSchema, PrdNumberSchema, ProductPrdIdSchema } from 'omni-loop/kit/lib/ids.ts';
 import { orThrow, parseRows } from '../../data/parse-rows';
 import type { ApprovalRow, JobQuestionsRow, MissionItemRow, OutboxRow, RailMission } from './rail';
 
@@ -18,7 +18,8 @@ const JOB_LIMIT = 200;
 
 const MissionSchema = z.object({
   id: z.uuid(), number: z.number().int().positive(), repo: z.string(), status: z.string(),
-  scope: z.object({ prds: z.array(PrdNumberSchema) }).loose(),
+  // A PRD of the scope is a repository PRD's number or a product PRD's id (omni-loop-28), as the brief takes it (#3320).
+  scope: z.object({ prds: z.array(z.union([PrdNumberSchema, ProductPrdIdSchema])) }).loose(),
 });
 const JobSchema = z.object({ id: z.uuid(), mission_id: z.uuid().nullable() });
 const QuestionSchema = z.object({
