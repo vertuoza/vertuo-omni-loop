@@ -2,11 +2,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SectionTabs } from './SectionTabs.tsx';
-import { QUESTIONS_TABS, SETTINGS_TABS, withCounts } from './section-tabs.ts';
+import { QUESTIONS_TABS, withCounts } from './section-tabs.ts';
 import { item } from '../ask/test/test-item';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 
-// One row of section tabs (PRD 733): the Fleets · Repositories row on the settings pages and the Open
+// One row of section tabs (PRD 733): the Open
 // questions · Shared with me · History row on the Questions pages, as the server renders them. Each
 // tab is a link to its page; the one showing carries aria-current="page"; a count shows only above 0,
 // and is spoken with the tab's name.
@@ -19,38 +19,6 @@ const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g
   name: /aria-label="([^"]*)"/.exec(item(m, 1))?.[1] ?? text(item(m, 2)),
   text: text(item(m, 2)),
 }));
-
-describe('the settings tabs', () => {
-  it('have no Products tab: products live under their own Knowledge home (PRD 2240 s5)', () => {
-    expect(SETTINGS_TABS.map((t) => t.label)).not.toContain('Products');
-    expect(SETTINGS_TABS.map((t) => t.href)).not.toContain('/app/settings/products');
-  });
-
-  const render = (current: string) => renderToStaticMarkup(createElement(SectionTabs, { label: 'Settings', tabs: SETTINGS_TABS, current }));
-
-  it('draw Fleets, Repositories, Business, API keys, Jev then Playbook, links to their pages, in a named row', () => {
-    const html = render('/app/settings/fleets');
-    expect(html).toMatch(/<nav [^>]*class="section-tabs"[^>]*aria-label="Settings"/);
-    expect(links(html).map((l) => [l.text, l.href])).toEqual([
-      ['Fleets', '/app/settings/fleets'],
-      ['Repositories', '/app/settings/repositories'],
-      ['Business', '/app/settings/business'],
-      ['API keys', '/app/settings/api-keys'],
-      ['Jev', '/app/settings/jev'],
-      ['Playbook', '/app/settings/playbook'],
-    ]);
-  });
-
-  it('mark only the page showing', () => {
-    expect(links(render('/app/settings/fleets')).map((l) => l.current)).toEqual([true, false, false, false, false, false]);
-    expect(links(render('/app/settings/repositories')).map((l) => l.current)).toEqual([false, true, false, false, false, false]);
-    expect(links(render('/app/settings/business')).map((l) => l.current)).toEqual([false, false, true, false, false, false]);
-    expect(links(render('/app/settings/api-keys')).map((l) => l.current)).toEqual([false, false, false, true, false, false]);
-    expect(links(render('/app/settings/jev')).map((l) => l.current)).toEqual([false, false, false, false, true, false]);
-    expect(links(render('/app/settings/playbook')).map((l) => l.current)).toEqual([false, false, false, false, false, true]);
-    expect(links(render('/app')).some((l) => l.current)).toBe(false);
-  });
-});
 
 describe('the Questions tabs', () => {
   const render = (current: string, questions = 0, shared = 0) =>

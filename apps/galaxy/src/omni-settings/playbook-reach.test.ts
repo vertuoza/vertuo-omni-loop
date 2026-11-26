@@ -1,14 +1,14 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { SETTINGS_TABS } from '../nav/section-tabs';
+import { SETTINGS_MAP_PAGES } from '../nav/settings-map';
 import { SETTINGS } from '../nav/sidebar';
 import type { SettingsFile } from './omni-settings.contract';
 import type { SettingsWorkspace } from './omni-settings.repository';
 import { omniSettingsPagesService, type SettingsGithub } from './omni-settings.service';
 import { PLAYBOOK_PATH, PlaybookScreen } from './PlaybookScreen';
 
-// Issue 2538: Settings › Playbook (PRD 2417) is reached from the Settings tabs and from the menu's
+// Issue 2538: Settings › Playbook (PRD 2417) is reached from the settings navigation and from the menu's
 // Settings entry, as every other Settings page is; and a settings repository the Omni app cannot read
 // (not installed there, or the repository not readable) is named, never shown as "No settings
 // repository yet", which is for a workspace naming none.
@@ -35,8 +35,8 @@ async function screenOf(installation: number | null): Promise<string> {
 }
 
 describe('reaching Settings › Playbook (issue 2538)', () => {
-  it('is a Settings tab, after Jev, on every Settings page', () => {
-    expect(SETTINGS_TABS.at(-1)).toEqual({ href: PLAYBOOK_PATH, label: 'Playbook' });
+  it('is a page of the settings map, the last one, drawn by the settings layout', () => {
+    expect(SETTINGS_MAP_PAGES.at(-1)).toMatchObject({ path: PLAYBOOK_PATH, label: 'Playbook' });
   });
 
   it('is one of the menu\'s Settings pages, after Jev', () => {
