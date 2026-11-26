@@ -8,7 +8,7 @@
 
 ## Reproduction
 
-- **File:** `kit/test/mission-drifted-plan.test.ts`, `apps/omni-app/src/missions/tech.drifted.test.ts`
+- **File:** `apps/omni-app/src/missions/tech.drifted.test.ts`
 - **Level:** unit
 - **Red:** AssertionError: expected { state: 'waits', …(1) } to match object { state: 'plan', again: true }
 
