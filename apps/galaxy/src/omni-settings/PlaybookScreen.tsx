@@ -1,6 +1,4 @@
 import { Notice } from '../ask/page/Notice';
-import { SectionTabs } from '../nav/SectionTabs';
-import { SETTINGS_TABS } from '../nav/section-tabs';
 import { APP_HOME } from '../switch/switch';
 import type { PlaybookEditing } from './omni-settings.client';
 import type { SettingsPageLoad } from './load';
@@ -28,12 +26,7 @@ export function playbookScreenOf(load: SettingsPageLoad): PlaybookScreenView {
 }
 
 export function PlaybookScreen({ view }: { view: PlaybookScreenView }) {
-  return (
-    <>
-      <SectionTabs label="Settings" tabs={SETTINGS_TABS} current={PLAYBOOK_PATH} />
-      <PlaybookBody view={view} />
-    </>
-  );
+  return <PlaybookBody view={view} />;
 }
 
 function PlaybookBody({ view }: { view: PlaybookScreenView }) {

@@ -6,11 +6,14 @@
 //   `update --apply`: that is a release bundle `omni update` downloaded to install its own version,
 //   and handing it back to the older pinned bin would install the old version again (#643), and
 //   `runner`: a runner works for other checkouts, and its job starts inside a fresh worktree whose own
-//   bin may not run before that worktree's install, which the job itself does (PRD 1830);
+//   bin may not run before that worktree's install, which the job itself does (PRD 1830), and
+//   `supervisor`, the runner's Supervisor seat (PRD omni-loop-34), which runs as the runner's own copy;
 // - otherwise it runs itself. Outside a repository that has the kit (neither its bin nor its config),
 //   only the commands that need no kit run (`init`, `help`, `version` and their flags, `now`, which
-//   answers that the session is on nothing (PRD 1208), and the ask
-//   hooks, which must stay silent wherever Claude Code fires them); any other command is refused with
+//   answers that the session is on nothing (PRD 1208), the ask
+//   hooks, which must stay silent wherever Claude Code fires them, and `supervisor`, whose seat thinks
+//   in a folder of its own that is no checkout and names its Omni page with `--page` (#3328)); any
+//   other command is refused with
 //   one line, exit 2.
 // Only the running bundle (or `node kit/bin/omni.ts`) launches: `main()` itself never does, so a
 // repository's own bin, and every test that calls `main()`, runs exactly as before.
@@ -40,7 +43,7 @@ const WITHOUT_KIT = new Set<string | undefined>([undefined, 'init', 'help', '--h
 /** Whether `argv` may run in a place with no kit. */
 export function runsWithoutKit(argv: readonly string[]): boolean {
   const [name, sub] = argv;
-  return WITHOUT_KIT.has(name) || (name === 'ask' && sub === 'hook');
+  return WITHOUT_KIT.has(name) || (name === 'ask' && sub === 'hook') || name === 'supervisor';
 }
 
 /** Whether `argv` is the hop where `omni update` runs a downloaded bundle to install itself. */
@@ -48,9 +51,9 @@ function appliesUpdate(argv: readonly string[]): boolean {
   return argv[0] === 'update' && argv.includes('--apply');
 }
 
-/** Whether `argv` is `omni runner`, or a job it started, which run as the runner's own copy. */
+/** Whether `argv` is `omni runner`, a job it started, or its Supervisor seat, which run as the runner's own copy. */
 function runsTheRunner(argv: readonly string[]): boolean {
-  return argv[0] === 'runner';
+  return argv[0] === 'runner' || argv[0] === 'supervisor';
 }
 
 /**

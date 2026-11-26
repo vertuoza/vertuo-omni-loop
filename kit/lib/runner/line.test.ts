@@ -187,3 +187,17 @@ describe('a mission\'s build line with --base-of (PRD omni-loop-26, item s6-01)'
     expect(checkRunnerLine('/omni:ultra-yolo omni-loop-31 --base-of widgets=mission/12').ok).toBe(false);
   });
 });
+
+describe('a mission\'s stuck repair line (PRD 3065, bug #3339)', () => {
+  it('takes /omni:repair --stuck --jobs <j1>,…,<j5>, the job ids comma-separated', () => {
+    expect(checkRunnerLine('/omni:repair --mission 12 --stuck --jobs 4801abcd,4802abcd,4803abcd,4804abcd,4805abcd').ok).toBe(true);
+    expect(checkRunnerLine('/omni:repair --mission 12 --stuck --jobs 4801abcd').ok).toBe(true);
+  });
+
+  it('still refuses , anywhere else, and on any other skill', () => {
+    expect(checkRunnerLine('/omni:repair --mission 12 --stuck a,b').ok).toBe(false);
+    expect(checkRunnerLine('/omni:repair --mission 12 --stuck --jobs a,b;rm').ok).toBe(false);
+    expect(checkRunnerLine('/omni:repair --mission 12 --stuck --jobs a,,b').ok).toBe(false);
+    expect(checkRunnerLine('/omni:yolo 12 --jobs a,b').ok).toBe(false);
+  });
+});

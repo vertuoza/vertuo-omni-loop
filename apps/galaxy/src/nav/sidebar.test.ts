@@ -1,6 +1,6 @@
 import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
-import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, isQuiet, pageTrail, type SidebarItem } from './sidebar';
+import { ANTI_SIDEBAR, OMNI, SETTINGS, SETTINGS_LANDING, SIDEBAR, badgeOf, currentItem, isAlarm, shownItems, isQuiet, pageTrail, type SidebarItem } from './sidebar';
 import { assertDefined } from 'omni-loop/kit/test/assert.ts';
 import { present } from '../ask/test/test-item';
 
@@ -28,7 +28,7 @@ describe('SIDEBAR', () => {
     assertDefined(work, 'the Work group');
     const drawn = [...inbox.items, ...dashboard.items, ...work.items, SETTINGS];
     expect(drawn.map((i) => [i.id, i.sprite])).toEqual([
-      ['inbox', 'menu-inbox'], ['ai-fleet', 'menu-ai-fleet'], ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['runners', 'item-box'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
+      ['inbox', 'menu-inbox'], ['ai-fleet', 'menu-ai-fleet'], ['supervisor', 'menu-supervisor'], ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['loop', 'menu-loop'], ['runners', 'item-box'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
       ['products', 'coin'], ['roadmaps', 'menu-roadmaps'], ['ideas', 'tile-block'], ['concepts', 'menu-concepts'], ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['knowledge', 'menu-knowledge'],
       ['settings', 'menu-settings'],
     ]);
@@ -52,12 +52,13 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds the Inbox first, at /app/inbox, its pages Done and Workspace not drawn as menu lines (omni-loop-22), and AI Fleet right under it (PRD 3233 s3)', () => {
+  it('holds the Inbox first, at /app/inbox, its pages Done and Workspace not drawn as menu lines (omni-loop-22), AI Fleet right under it (PRD 3233 s3), then Supervisor (omni-loop-34 s5)', () => {
     const [inbox] = SIDEBAR;
     assertDefined(inbox, 'the Inbox group');
     expect(rows(inbox.items)).toEqual([
       ['inbox', 'Inbox', '/app/inbox', [['Done', '/app/inbox/done'], ['Workspace', '/app/inbox/workspace']]],
       ['ai-fleet', 'AI Fleet', '/app/ai-fleet', []],
+      ['supervisor', 'Supervisor', '/app/supervisor', []],
     ]);
   });
 
@@ -78,16 +79,16 @@ describe('SIDEBAR', () => {
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds one Settings entry at /app/settings, its pages Fleets, Repositories, Business, Jev and Playbook (PRD 733, PRD 748, PRD 859, PRD 812, PRD 2417)', () => {
+  it('holds one Settings entry at /app/settings, its pages, from the settings map: Business, Repositories, Fleets, API keys, Jev and Playbook (PRD 733, omni-loop-27)', () => {
     expect(rows([SETTINGS])).toEqual([
-      ['settings', 'Settings', '/app/settings', [['Fleets', '/app/settings/fleets'], ['Repositories', '/app/settings/repositories'], ['Business', '/app/settings/business'], ['Jev', '/app/settings/jev'], ['Playbook', '/app/settings/playbook']]],
+      ['settings', 'Settings', '/app/settings', [['Business', '/app/settings/business'], ['Repositories', '/app/settings/repositories'], ['Fleets', '/app/settings/fleets'], ['API keys', '/app/settings/api-keys'], ['Jev', '/app/settings/jev'], ['Playbook', '/app/settings/playbook']]],
     ]);
     expect(SETTINGS.leavesApp).toBeFalsy();
   });
 
   it('lands /app/settings on its Fleets page (PRD 733)', () => {
     expect(SETTINGS_LANDING).toBe('/app/settings/fleets');
-    expect(present(SETTINGS.pages?.[0], 'the first Settings page').path).toBe(SETTINGS_LANDING);
+    expect(SETTINGS.pages?.map((p) => p.path)).toContain(SETTINGS_LANDING);
   });
 
   it('redirects /app/settings\' page to that landing (PRD 733)', async () => {
@@ -253,6 +254,17 @@ describe('badgeOf', () => {
     expect(badgeOf('runners', { ...counts, runners: 0 })).toBeNull();
   });
 
+  it('gives Supervisor the open high findings as a red filled count, none at 0 or unread (omni-loop-34 s5)', () => {
+    expect(badgeOf('supervisor', { ...counts, supervisor: 2 })).toBe(2);
+    expect(badgeOf('supervisor', { ...counts, supervisor: 0 })).toBeNull();
+    expect(badgeOf('supervisor', counts)).toBeNull();
+    expect(isQuiet('supervisor')).toBe(false);
+    expect(isAlarm('supervisor')).toBe(true);
+    expect(isAlarm('inbox')).toBe(false);
+    expect(currentItem('/app/supervisor?finding=f1')).toBe('supervisor');
+    expect(pageTrail('/app/supervisor')).toEqual({ crumbs: [{ label: 'Supervisor' }], sprite: 'menu-supervisor' });
+  });
+
   it('gives no badge to any other entry, PRDs included', () => {
     for (const id of ['ai-fleet', 'home', 'fleet', 'loop', 'workspace', 'engineering', 'roadmaps', 'ideas', 'prds', 'bugs', 'visual', 'knowledge', 'settings', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
@@ -277,5 +289,13 @@ describe('ANTI_SIDEBAR (PRD 2490)', () => {
     expect(currentItem('/app')).toBe('home');
     expect(currentItem('/app/settings/fleets')).toBe('settings');
     expect(pageTrail('/app')?.crumbs).toEqual([{ label: 'Dashboard' }, { label: 'Home' }]);
+  });
+});
+
+describe('shownItems (omni-loop-34 s8)', () => {
+  const first = SIDEBAR[0]?.items ?? [];
+  it('leaves the Supervisor row out while the workspace has no seat, and keeps every other', () => {
+    expect(shownItems(first, false).map((i) => i.id)).toEqual(['inbox', 'ai-fleet']);
+    expect(shownItems(first, true).map((i) => i.id)).toEqual(['inbox', 'ai-fleet', 'supervisor']);
   });
 });

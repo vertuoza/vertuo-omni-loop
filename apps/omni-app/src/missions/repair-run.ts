@@ -18,11 +18,13 @@
 //   the kit   PRD 3088 s5: only while a PRD stopped on an Omni Loop bug that was fixed and is not sent again yet, and the mission is
 //             neither paused nor stopped: the kit its repository pins, read once per run on the mission branch (else the default
 //             branch, ./repair.github.ts); unread, or no GitHub, it reads older than any fix
+//   products  bug #3302: a product PRD's repair (`…:prd:<key>-<n>:repair:<k>`) is kept, landed, settled and reported as a repository PRD's
+//             is, within the same 3 and 9; its step is its build (`…:prd:<key>-<n>:run:<k>`), and its code fix, opened in one of its
+//             target repositories (the record's `repo`), lands only on the mission branch of a repository the mission cut it in
 //   outside   PRD omni-loop-21 s11 (./outside-bug.ts): the outside bugs the Reviewer's, QA's and repair jobs that ended done named in
 //             their logs, each one's bug-fix jobs (`…:bug:<issue>:run:<k>`) and its fix's landing on the mission branch, by the same
 //             judge and squash-merge a code repair's fix lands by; then the one bug-fix job the run sends, through the port it is given
-import type { PrdNumber, PrNumber } from 'omni-loop/kit/lib/ids.ts';
-import { PrNumberSchema } from 'omni-loop/kit/lib/ids.ts';
+import { isProductPrdId, PrNumberSchema, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
 import { repairLine as readRepairLine, type RepairRecord } from 'omni-loop/kit/lib/repair/line.ts';
 import { submitBugReport } from '../bug-reports/job.ts';
 import type { BugJob } from './bug-team.ts';
@@ -45,7 +47,8 @@ import {
   type RepairView,
 } from './repair.ts';
 import type { MissionRecord, MissionStore } from './store.ts';
-import { after, endOf, outcome, type Attempt, type NewEvent, type RecordedEvent, type Run, type Step } from './supervisor.ts';
+import type { MissionPrd } from './store.prd.ts';
+import { after, endOf, outcome, type Attempt, type NewEvent, type ProductRun, type RecordedEvent, type Run, type Step } from './supervisor.ts';
 
 /** What a run reads its repairs with. */
 export type RepairRunAt = {
@@ -61,7 +64,20 @@ export type RepairRunAt = {
   budget: number;
   /** The kit the mission's repository pins (PRD 3088); null or absent (no GitHub): it reads older than any fix. */
   kits?: MissionKits | null;
+  /** The builds the mission sent for its product PRDs (bug #3302): a product PRD's repair is settled on them. Absent: none. */
+  products?: readonly ProductRun[];
+  /** The repositories the mission cut its branch in (bug #3302): a product PRD's fix lands in one of them only. Absent: its own. */
+  repos?: readonly string[];
 };
+
+/** A step the mission sent, a repository PRD's or a product PRD's build (bug #3302): what a repair is settled on. */
+type StepRun = Omit<Run, 'prd'> & { prd: MissionPrd };
+
+/** Every step the mission sent: the repository PRDs' runs, then each product PRD's build as the step it is. */
+const stepsOf = (at: Pick<RepairRunAt, 'runs' | 'products'>): StepRun[] => [
+  ...at.runs,
+  ...(at.products ?? []).map(({ prd, run, job, attempts }): StepRun => ({ prd, run, step: 'build', job, attempts })),
+];
 
 /** Whether a repair job ended in a way that spends: done or failed. A cancelled one spends nothing; a lost one is carried by its resume. */
 export const spends = (job: { attempts: readonly Attempt[] }): boolean => {
@@ -97,8 +113,8 @@ function overBudget(rows: readonly RepairRow[], { budget, round, fingerprint }: 
   return counted.filter((row) => row.round === round && row.fingerprint === fingerprint).length >= CAUSE_REPAIRS ? 'cause' : null;
 }
 
-/** The fix a code record names, as its link on the mission's repository; null when it names none. */
-const fixUrlOf = (at: RepairRunAt, record: RepairRecord | null): string | null => (record?.fix == null ? null : `https://github.com/${at.mission.repo}/pull/${String(record.fix)}`);
+/** The fix a code record names, as its link on the repository it names (a product PRD's target, bug #3302), else the mission's; null when it names none. */
+const fixUrlOf = (at: RepairRunAt, record: RepairRecord | null): string | null => (record?.fix == null ? null : `https://github.com/${record.repo ?? at.mission.repo}/pull/${String(record.fix)}`);
 
 /** A kept row, ended at once when its class says so (./repair.ts: a person, an Omni Loop bug, a code repair with no fix, an unread record). */
 async function endedAtOnce(at: RepairRunAt, kept: RepairRow): Promise<RepairRow> {
@@ -112,7 +128,7 @@ async function endedAtOnce(at: RepairRunAt, kept: RepairRow): Promise<RepairRow>
  * What a repair job that ended leaves to keep: its record (null when unread), the PRD it names, the job whose failure (or, for a
  * stuck repair, whose end) it repairs, its own job, the fingerprint an unread record is kept under, and a stuck repair's trigger.
  */
-export type ToKeep = { record: RepairRecord | null; prd: PrdNumber | null; failedJob: string; job: string; unreadable: string; trigger?: 'stuck' };
+export type ToKeep = { record: RepairRecord | null; prd: MissionPrd | null; failedJob: string; job: string; unreadable: string; trigger?: 'stuck' };
 
 /** A repair's row, kept in round `round` as its record says (a stuck repair's too, PRD 3065), or the cap that refused it. */
 export async function keepRow(at: RepairRunAt, one: ToKeep, { round, rows }: { round: number; rows: readonly RepairRow[] }): Promise<RepairRow | Refused> {
@@ -131,15 +147,18 @@ async function keep(at: RepairRunAt, job: RepairJob, held: { round: number; rows
 }
 
 /** The run of the PRD a repair's failed job belongs to; undefined when the mission sent none. */
-const failedRunOf = (runs: readonly Run[], row: RepairRow): Run | undefined => runs.find((one) => one.prd === row.prd && one.attempts.some((attempt) => attempt.id === row.failedJob));
+const failedRunOf = (runs: readonly StepRun[], row: RepairRow): StepRun | undefined => runs.find((one) => one.prd === row.prd && one.attempts.some((attempt) => attempt.id === row.failedJob));
 
 /** The first run of the PRD sent after its failed one: the step sent again once the repair allowed it; null when none was. */
-function stepAfter(runs: readonly Run[], row: RepairRow): Run | null {
+function stepAfter(runs: readonly StepRun[], row: RepairRow): StepRun | null {
   const failed = failedRunOf(runs, row);
   if (failed === undefined) return null;
   const later = runs.filter((one) => one.prd === row.prd && after(one, failed));
-  return later.reduce<Run | null>((first, one) => (first === null || after(first, one) ? one : first), null);
+  return later.reduce<StepRun | null>((first, one) => (first === null || after(first, one) ? one : first), null);
 }
+
+/** The repository a fix's link names, `owner/name`; null when it names none. */
+const repoOf = (url: string): string | null => /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+$/.exec(url)?.[1] ?? null;
 
 /** The pull request a fix's link names. */
 const prOf = (url: string): PrNumber | null => {
@@ -156,7 +175,8 @@ export async function land(at: LandAt, fixPr: string, prd: RepairRow['prd']): Pr
   if (at.branch === null) return { state: 'refused', why: 'the mission has no branch of its own to land it on' };
   if (pr === null) return { state: 'refused', why: 'its link names no pull request' };
   if (at.joins === null || at.installation === null) return { state: 'waits', lacks: ['the app has no GitHub access here'] };
-  const where = { installation: at.installation, repo: at.mission.repo, prd, pr };
+  // A product PRD's fix is read and merged in its own repository, which names no repository PRD's number (bug #3302).
+  const where = { installation: at.installation, repo: at.mission.repo, prd: prd === null || isProductPrdId(prd) ? null : prd, pr };
   const pull = await at.joins.read(where);
   const judged = judgeFix(pull, at.branch);
   if (judged.state !== 'merge') return judged;
@@ -164,18 +184,33 @@ export async function land(at: LandAt, fixPr: string, prd: RepairRow['prd']): Pr
   return merged.ok ? { state: 'landed' } : { state: 'refused', why: merged.why };
 }
 
+/**
+ * The repository a code repair's fix lands in: the mission's own for a repository PRD; for a product PRD (bug #3302), the one its link
+ * names, only when the mission cut its branch there. Else why it cannot land.
+ */
+function fixRepoOf(at: RepairRunAt, row: RepairRow & { fixPr: string }): { repo: string } | { why: string } {
+  const repo = repoOf(row.fixPr);
+  const own = at.mission.repo.toLowerCase();
+  const allowed = row.prd !== null && isProductPrdId(row.prd) ? (at.repos ?? [own]).map((one) => one.toLowerCase()) : [own];
+  if (repo === null || !allowed.includes(repo.toLowerCase())) return { why: `${repo ?? 'its link'} holds no mission branch of this mission` };
+  return { repo };
+}
+
 /** Each code repair's fix whose step was not sent again yet, by repair job. */
 async function landAll(at: RepairRunAt, rows: readonly RepairRow[]): Promise<Map<string, FixLanding>> {
   const landings = new Map<string, FixLanding>();
+  const steps = stepsOf(at);
   for (const row of rows) {
-    if (row.job === null || row.outcome !== null || row.retro?.class !== 'code' || row.fixPr === null || stepAfter(at.runs, row) !== null) continue;
-    landings.set(row.job, await land(at, row.fixPr, row.prd));
+    const fixPr = row.fixPr;
+    if (row.job === null || row.outcome !== null || row.retro?.class !== 'code' || fixPr === null || stepAfter(steps, row) !== null) continue;
+    const where = fixRepoOf(at, { ...row, fixPr });
+    landings.set(row.job, 'why' in where ? { state: 'refused', why: where.why } : await land({ ...at, mission: { repo: where.repo } }, fixPr, row.prd));
   }
   return landings;
 }
 
 /** How a repair ended once its step was sent again: fixed when the step went on, not fixed when it failed again; null while unknown. */
-function settledOf(runs: readonly Run[], row: RepairRow): RepairOutcome | null {
+function settledOf(runs: readonly StepRun[], row: RepairRow): RepairOutcome | null {
   const next = stepAfter(runs, row);
   const last = next?.attempts.at(-1);
   const end = last === undefined ? null : endOf(last);
@@ -185,9 +220,10 @@ function settledOf(runs: readonly Run[], row: RepairRow): RepairOutcome | null {
 
 /** Each code or flake repair whose step was sent again and ended, its outcome set once. */
 async function settleAll(at: RepairRunAt, rows: RepairRow[]): Promise<void> {
+  const steps = stepsOf(at);
   for (const [n, row] of rows.entries()) {
     if (row.outcome !== null || (row.retro?.class !== 'code' && row.retro?.class !== 'flake')) continue;
-    const settled = settledOf(at.runs, row);
+    const settled = settledOf(steps, row);
     if (settled === null) continue;
     await at.store.endRepair(row.id, settled);
     rows[n] = { ...row, outcome: settled };
@@ -254,12 +290,12 @@ export async function readRepairs(at: RepairRunAt): Promise<RepairView> {
  */
 async function wayBackOf(at: RepairRunAt, rows: readonly RepairRow[], reports: ReadonlyMap<string, BugReport>): Promise<Pick<RepairView, 'held' | 'kit'>> {
   const held = at.mission.status === 'paused' || at.mission.status === 'stopped';
-  if (held || !waitsOnFix(at.runs, rows, reports)) return { held };
+  if (held || !waitsOnFix(stepsOf(at), rows, reports)) return { held };
   return { held, kit: await pinnedKit(at) };
 }
 
 /** Whether a PRD stopped on an Omni Loop bug that was fixed, and its step was not sent again yet (PRD 3088): its kit is then read. */
-function waitsOnFix(runs: readonly Run[], rows: readonly RepairRow[], reports: ReadonlyMap<string, BugReport>): boolean {
+function waitsOnFix(runs: readonly StepRun[], rows: readonly RepairRow[], reports: ReadonlyMap<string, BugReport>): boolean {
   return rows.some((row) => {
     const report = reports.get(row.job ?? '');
     return row.retro?.class === 'omni-loop' && report?.state === 'filed' && report.fix?.state === 'fixed' && stepAfter(runs, row) === null;
@@ -305,7 +341,8 @@ async function namingsOf(at: OutsideRunAt): Promise<Naming[]> {
     }),
     ...at.repairs.flatMap((one) => {
       const done = doneOf(one.attempts);
-      return done === null ? [] : [{ by: 'repair' as const, prd: one.prd, job: done.id }];
+      // A product PRD's repair names no repository PRD (bug #3302): an outside bug it names is the mission's.
+      return done === null ? [] : [{ by: 'repair' as const, prd: one.prd === null || isProductPrdId(one.prd) ? null : one.prd, job: done.id }];
     }),
   ];
   const namings: Naming[] = [];

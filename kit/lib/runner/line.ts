@@ -93,8 +93,15 @@ const BASE_OF_SKILLS: readonly string[] = ['ultra-yolo', 'ultra-wave', 'ultra-yo
 /** `--base-of <owner/repo>=<branch>,…` as a mission writes it: each entry a repository and a branch, nothing else (item s6-01). */
 const BASE_OF = /(^| )--base-of [A-Za-z0-9._-]+\/[A-Za-z0-9._-]+=[A-Za-z0-9._\/-]+(?:,[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+=[A-Za-z0-9._\/-]+)*(?= |$)/;
 
-/** The arguments the character rule reads: an ultra skill's `--base-of` value set aside, since it holds `=` by design. */
-const argsToCheck = (skill: string, args: string): string => (BASE_OF_SKILLS.includes(skill) ? args.replace(BASE_OF, '$1--base-of') : args);
+/** `--jobs <j1>,…,<j5>` as a mission's stuck repair writes it (PRD 3065, bug #3339): job ids, each letters, digits and `-`, comma-separated. */
+const STUCK_JOBS = /(^| )--jobs [A-Za-z0-9-]+(?:,[A-Za-z0-9-]+)*(?= |$)/;
+
+/** The arguments the character rule reads: an ultra skill's `--base-of` value, which holds `=` by design, and a stuck repair's `--jobs`
+ * list, which holds `,`, set aside. */
+function argsToCheck(skill: string, args: string): string {
+  if (BASE_OF_SKILLS.includes(skill)) return args.replace(BASE_OF, '$1--base-of');
+  return skill === 'repair' ? args.replace(STUCK_JOBS, '$1--jobs') : args;
+}
 
 function checkFixed(skill: string, args: string): RunnerLineCheck {
   if (!RUNNABLE_SKILLS.includes(skill) && !APP_SKILLS.includes(skill) && !FLEET_SKILLS.includes(skill)) return { ok: false, reason: `/omni:${skill} does not run on a runner` };

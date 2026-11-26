@@ -13,7 +13,7 @@ import type { MissionRecord, StoredProduct } from './store.ts';
 // The PM's own product PRDs at `alone` (PRD omni-loop-26): on a repository whose phase 0 is on the server, in product `omni-loop`, a
 // PRD the PM wrote is planned by the PM, its plan approved by the PM (`omni plan:`), reviewed by the fleet's Architect (`omni tech:`)
 // and built only once both decisions name its latest plan version, the PM sent again on a version the Architect pushed. No
-// committee job is sent for it, and a product PRD a person wrote waits for a person's approval as before.
+// committee job is sent for it. A product PRD a person wrote is the fleet's too at `alone` (bug #3324, ./job.fleet-owned.test.ts).
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e26';
 const NOW = Date.parse('2027-01-30T09:00:00Z');
@@ -143,6 +143,8 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
     expect(fake.pms()).toHaveLength(2);
   });
 
+  // Changed by bug #3334: the PM confirms once the version the Architect pushed and approved after its rounds; a person gets the PRD
+  // once the PM, sent to confirm it, pushed yet another version.
   it('sends a person the PRD once two rounds named no one plan version', async () => {
     const { fake, run } = await planned();
     fake.setProduct(P31, { plan: B });
@@ -158,15 +160,58 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
     fake.setProduct(P31, { plan: D });
     fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(D));
     await run();
-    expect(fake.pms()).toHaveLength(3);
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+    const E = 'e'.repeat(64);
+    fake.setProduct(P31, { plan: E });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(E));
+    await run();
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.techJobs()).toHaveLength(2);
     expect(fake.productJobs()).toEqual([]);
     expect(fake.mission()).toMatchObject({ status: 'waiting' });
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the PM and the Architect did not approve one plan version in 2 rounds; approve it on its page');
   });
 });
 
+describe('the PM confirming a version the Architect pushed and approved after its rounds (bug #3334)', () => {
+  // Omni-loop-28 in mission #3319: plan approved, two reviews with no record, the PM's recovery (not a round, bug #3332), the
+  // Architect's open points, the PM's answer on the same version, then the Architect's own version C, approved.
+  it("sends the PM's plan job to approve the Architect's version, not a person, and its approval sends the build", async () => {
+    const { fake, run, sentences } = await planned();
+    const cut = '12:20:00 Done\nomni tech: {"v":1,"prd":"omni-loop-31","pl';
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, cut);
+    await run();
+    await run();
+    fake.endTech(P31, { status: 'failed', outcome: null });
+    await run();
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(A));
+    await run();
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(A, { open: ['the spec names @omni/design, the plan @omni/ui'], outcome: 'escalated' }));
+    await run();
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(A));
+    await run();
+    expect(fake.techJobs()).toHaveLength(4);
+    const C = 'c'.repeat(64);
+    fake.setProduct(P31, { plan: C });
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(C, { settled: ['the plan builds the parts in @omni/design'] }));
+    await run();
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+    expect(fake.pms()).toHaveLength(5);
+    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: PRD omni-loop-31 has a newer plan version, so the PM approves it.');
+    expect(fake.productJobs()).toEqual([]);
+
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(C));
+    await run();
+    expect(fake.planDecisions().at(-1)).toMatchObject({ kind: 'plan', plan: C, outcome: 'approved', approval: true });
+    expect(fake.productJobs().map(({ line }) => line)).toEqual(['/omni:ultra-yolo omni-loop-31 --base-of acme/widgets=mission/12-faster-quotes']);
+  });
+});
+
 describe('an Architect job with no record (AC-4)', () => {
-  it('AC-4: records the tech decision escalated with "no record of the tech review", sends the Architect again, and a person gets the PRD once its two rounds left no record', async () => {
+  // AC-4, changed by bug #3326: once two reviews in a row left no record, the PM approves the latest version again before one more
+  // pair of reviews, while its rounds last; a person gets the PRD only once those left no record too.
+  it('AC-4: records the tech decision escalated with "no record of the tech review", sends the Architect again, then the PM, and a person gets the PRD once the PM\'s rounds left no record', async () => {
     const { fake, run, sentences } = await planned();
     const cut = '12:20:00 Done\nomni tech: {"v":1,"prd":"omni-loop-31","pl';
     fake.endTech(P31, { status: 'done', outcome: 'ready' }, cut);
@@ -180,10 +225,24 @@ describe('an Architect job with no record (AC-4)', () => {
 
     fake.endTech(P31, { status: 'failed', outcome: null });
     await run();
+    expect(fake.pms()).toHaveLength(3);
+    expect(sentences('dispatched').at(-1)).toBe("Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: the Architect's last 2 reviews of PRD omni-loop-31 left no record, so the PM approves its latest plan version again before the Architect reviews it again.");
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(A));
+    await run();
+    expect(fake.techJobs()).toHaveLength(3);
+    fake.endTech(P31, { status: 'failed', outcome: null });
+    await run();
+    await run();
+    expect(fake.techJobs()).toHaveLength(4);
+    fake.endTech(P31, { status: 'failed', outcome: null });
+    await run();
     await run();
     expect(fake.mission()).toMatchObject({ status: 'waiting' });
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you: no record of the tech review');
-    expect(fake.techJobs()).toHaveLength(2);
+    expect(fake.techJobs()).toHaveLength(4);
+    expect(fake.pms()).toHaveLength(3);
     expect(fake.productJobs()).toEqual([]);
   });
 
@@ -220,13 +279,91 @@ describe('an Architect job with no record (AC-4)', () => {
   });
 });
 
-describe('a product PRD a person wrote', () => {
-  it('is never planned or reviewed by the fleet: it waits for a person\'s approval on its page', async () => {
+describe('a product PRD a person wrote (bug #3324)', () => {
+  it('is planned by the PM at alone, as one it wrote, before any build', async () => {
     const { fake, run } = setup({ mission: record({ products: { prds: [P40], roadmaps: [] }, ownPrds: 0 }), products: [page(P40, { plan: A })] });
+    await run();
+    expect(fake.pms().map(({ line }) => line)).toEqual(['/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-40 --mission 12']);
+    expect(fake.techJobs()).toEqual([]);
+    expect(fake.productJobs()).toEqual([]);
+  });
+
+  it('is never planned or reviewed by the fleet below alone: it waits for a person\'s approval on its page', async () => {
+    const { fake, run } = setup({ mission: record({ level: 'own-branch', products: { prds: [P40], roadmaps: [] }, ownPrds: 0 }), products: [page(P40, { plan: A })] });
     await run();
     expect(fake.pms()).toEqual([]);
     expect(fake.techJobs()).toEqual([]);
     expect(fake.productJobs()).toEqual([]);
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-40: approve it on its page');
+  });
+});
+
+// Bug #3302: a PM product PRD waiting on a person after the Architect's escalation, or once its rounds are spent, can be sent back to
+// the PM by that person: one more PM round with the Architect's latest open points, the rounds counted again from the send-back, the
+// decisions before it never edited (BR-PRODUCT-12).
+describe('a person sends a PM product PRD back to the PM (bug #3302)', () => {
+  const C = 'c'.repeat(64);
+  const open = ['the export needs a person to pick its retention'];
+
+  /** omni-loop-31 escalated by the Architect twice, its PM round spent: it waits on a person. */
+  async function waiting() {
+    const made = await planned();
+    made.fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(A, { open, outcome: 'escalated' }));
+    await made.run();
+    made.fake.setProduct(P31, { plan: B });
+    made.fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(B));
+    await made.run();
+    made.fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(B, { open, outcome: 'escalated' }));
+    await made.run();
+    expect(made.fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you');
+    expect(made.fake.pms()).toHaveLength(3);
+    return made;
+  }
+
+  it('sends the PM its plan job once more, with the Architect\'s open points, and the person\'s event stays theirs', async () => {
+    const { fake, run, sentences } = await waiting();
+    const decided = fake.planDecisions();
+    fake.sendBack(P31);
+    await run();
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.pms().at(-1)?.line).toBe('/omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12');
+    expect(sentences('dispatched').at(-1)).toBe('Sent the PM /omni:mega-brainstorm --product omni-loop --plan-only omni-loop-31 --mission 12 again: a person sent PRD omni-loop-31 back to it, with the Architect\'s open points.');
+    expect(fake.mission().waitingOn ?? '').not.toContain('the Architect left it to you');
+    // The decisions recorded before the send-back are as they were (BR-PRODUCT-12), and the person's event is signed with their login.
+    expect(fake.planDecisions().slice(0, decided.length)).toEqual(decided);
+    expect(fake.events().filter((event) => event.kind === 'sent-back').map(({ actor, prd }) => [actor, prd])).toEqual([['ada', P31]]);
+  });
+
+  it('the rounds start again: the PM approves a new version, the Architect reviews it, and its approval sends the build', async () => {
+    const { fake, run } = await waiting();
+    fake.sendBack(P31);
+    await run();
+    fake.setProduct(P31, { plan: C });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(C));
+    await run();
+    expect(fake.techJobs()).toHaveLength(3);
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(C));
+    await run();
+    expect(fake.productJobs().map(({ key }) => key)).toEqual([`mission:${ID}:prd:omni-loop-31:run:1`]);
+  });
+
+  it('the Architect escalating again after the send-back gives the PM its second round, then the person again', async () => {
+    const { fake, run } = await waiting();
+    fake.sendBack(P31);
+    await run();
+    fake.setProduct(P31, { plan: C });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(C));
+    await run();
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(C, { open, outcome: 'escalated' }));
+    await run();
+    expect(fake.pms()).toHaveLength(5);
+    const D = 'd'.repeat(64);
+    fake.setProduct(P31, { plan: D });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(D));
+    await run();
+    fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(D, { open, outcome: 'escalated' }));
+    await run();
+    expect(fake.pms()).toHaveLength(5);
+    expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the Architect left it to you');
   });
 });

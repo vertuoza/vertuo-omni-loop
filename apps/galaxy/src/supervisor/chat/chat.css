@@ -1,0 +1,12 @@
+/* The owner's box under a thread (PRD omni-loop-34 s6, the before/after page's 2.B): the quick questions, the box and
+   Send on one line, the note that the Supervisor acts only when an owner presses. Every value is a token of @omni/design. */
+
+.sv-compose { display: grid; gap: var(--space-2); padding-block-start: var(--space-3); border-block-start: 1px solid var(--color-border-subtle); }
+.sv-compose-wait {
+  margin: 0; padding: var(--space-2) var(--space-3); border: 1.5px solid var(--color-border-strong); border-radius: var(--radius-2);
+  background: var(--color-sunken); font-size: var(--type-2-size); line-height: var(--type-2-line);
+}
+.sv-compose-asks { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.sv-compose-box { display: flex; align-items: flex-end; gap: var(--space-2); }
+.sv-compose-box > :first-child { flex: 1 1 auto; min-width: 0; }
+.sv-compose-fine { margin: 0; font-size: var(--type-1-size); color: var(--color-text-tertiary); }

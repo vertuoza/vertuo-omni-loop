@@ -59,6 +59,17 @@ describe('loadRunnersPage', () => {
     const view = await loadRunnersPage(reads({ prds: () => Promise.reject(new Error('down')) }), NOW);
     expect(view).toEqual({ kind: 'board', name: 'Acme', board: BOARD, fleets: FLEETS, prds: {}, now: NOW.toISOString(), answered: [] });
   });
+
+  it('reads the Supervisor seat of the workspace, and draws none when it cannot be read (PRD omni-loop-34 s8)', async () => {
+    const SEAT = { workspace: 'w1', runner: 'r1', placedBy: 'ada', paused: false, dailyTokens: 5_000_000, tokensToday: 0, thinking: true, lastLookAt: null, missedLooks: 0 };
+    const seat = vi.fn(() => Promise.resolve(SEAT));
+    expect(await loadRunnersPage(reads({ seat }), NOW)).toMatchObject({ kind: 'board', supervisor: { workspace: 'w1', seat: SEAT } });
+    expect(seat).toHaveBeenCalledWith('w1');
+    expect(await loadRunnersPage(reads({ seat: () => Promise.resolve(null) }), NOW)).toMatchObject({ supervisor: { workspace: 'w1', seat: null } });
+    const failed = await loadRunnersPage(reads({ seat: () => Promise.reject(new Error('down')) }), NOW);
+    expect(failed.kind).toBe('board');
+    expect(failed).not.toHaveProperty('supervisor');
+  });
 });
 
 describe('answeredJobs (PRD 2270 s2)', () => {

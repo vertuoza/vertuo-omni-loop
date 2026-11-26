@@ -22,7 +22,7 @@ export const ADA = { id: '00000000-0000-4000-8000-00000000ada0', login: 'ada' };
 export const BEN = { id: '00000000-0000-4000-8000-0000000000be', login: 'ben' };
 export const DAN = { id: '00000000-0000-4000-8000-0000000000da', login: 'dan' };
 
-type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber; job?: string };
+type Event = { mission: string; kind: string; actor: string; sentence: string; at: string; prd?: PrdNumber; product?: ProductPrdId; job?: string };
 
 /** The database's refusal of an answer to a stop (supabase/checks/token_budget.sql), or null: answered once, tomorrow for a fleet's cap, a raise an owner's and above the cap reached. */
 function answerRefusal(stop: { cap: string; capTokens: number; answer: string | null }, answer: string, tokens: number | null, owner: boolean): { code: string; error: string } | null {
@@ -58,7 +58,7 @@ export function fakeMissionsDb(options: { refusesRefresh?: boolean; owners?: rea
   const pages = new Map<string, { record: string; brief: string }>();
   const retros = new Map<string, RetroRead[]>();
   // Each mission's `plan` and `tech` decisions of product PRDs, oldest first (bug #3286), as mission_decisions holds them.
-  const decisions = new Map<string, Array<{ kind: 'plan' | 'tech'; prd: ProductPrdId; plan: string | null; outcome: string; why: string[] }>>();
+  const decisions = new Map<string, Array<{ kind: 'plan' | 'tech'; prd: ProductPrdId; plan: string | null; outcome: string; why: string[]; job?: string }>>();
   const scopes = new Map<string, number[]>();
   const onBranchOf = (id: string): Promise<PrdNumber[]> => {
     const on = new Set<PrdNumber>();

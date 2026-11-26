@@ -99,7 +99,7 @@ import { missionRefusal } from 'omni-loop/kit/lib/runner/line.ts';
 import {
   CHECKPOINT_BYTES_MAX, type FleetMessageClaim, MAX_FLEET_MESSAGES, type CheckpointLinkReply, type CheckpointManifest, type CheckpointRecordReply, type CheckpointRequest, type ResumeClaim, type ResumeSave, checkLine, checkLineShape, ENDED_JOBS_SHOWN, isAppLine, JOB_LINES_KEPT, JOB_LINES_PAGE, JOB_OUTCOMES, linePrd, LOG_TAIL_BYTES, LOG_TAIL_LINES, LOST_AFTER_MS, NEXT_HOLD_MS, SAMPLES_KEPT_MS, STARTING_LOST_AFTER_MS,
   type StoredOutcome, type AnswerRequest, type AskRequest, type Board, type BoardSave, type GithubGrant, type GithubTokenReply, type HealthReport, type Job, type JobLines, type JobQuestions, type JobUpdate, type LineCheck, type RegisterReply, type RegisterRequest,
-  type Runner, type RunnerJob, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
+  type Runner, type RunnerJob, RunnerJobSchema, type RunnerRefusal, type RunnerSample, type KeyCloser, type KeyJob, type KeySend, type KitRunner, type Notifier, type PingEvent, type PrdJob, type RunnerState, type SendRequest, type Target,
 } from './runners.contract';
 import type { OutboxStand } from '../dossier/page/stage';
 import type { AppCredentials, AppInstallation, MintedToken } from '../public-api/keys/github-app';
@@ -189,6 +189,11 @@ const MAX_WHY = 150;
 const KEY_STOPPED = 'the API key no longer works: it was revoked, or its maker left the workspace';
 const outsideKey = (repo: string) => `the API key may not reach ${repo}`;
 const NOT_CONFIGURED = 'the Omni App is not configured on this server';
+
+/** The reason a claimed job the app cannot hand its runner ends with (bug #3339), the contract's words after it. */
+const UNDELIVERABLE = 'the app cannot hand this job to a runner: ';
+/** The longest reason a job keeps: `JobUpdateSchema.reason`'s limit. */
+const REASON_MAX = 200;
 const APP_REMOVED = 'the key\'s App was removed';
 const NO_MASTER = 'this Omni server has no key to open the App\'s private key';
 const CANNOT_OPEN = 'the App\'s private key could not be opened';
@@ -921,10 +926,21 @@ export function runnersService(
     // Read at claim (PRD 2313): a skill turned off while its job waited is absent, and the runner refuses it.
     const allowedSkills = await store.allowedSkills(job.workspace_id, job.repo);
     const resume = await resumeClaimOf(job);
-    return {
+    return deliverable(job, {
       id: job.id, line: job.line, repo: job.repo, sentBy: senderOf(job.sent_by === null ? null : logins.get(job.sent_by) ?? null, keyName, job.sent_by_app), allowedSkills,
       sentByKey: keyName, github: granted.grant, ...(resume === null ? {} : { resume }), ...await missionClaimOf(job), ...await messagesClaimOf(job),
-    };
+    });
+  }
+
+  /** The claim `reply`, when the contract answers it (bug #3339); otherwise `job` ends failed, its reason saying why, and is never
+   * answered: one job the runner cannot receive never fails the runner's whole `next` (500), which would leave it lost and resent. */
+  async function deliverable(job: JobRow, reply: RunnerJob): Promise<RunnerJob | null> {
+    const read = RunnerJobSchema.safeParse(reply);
+    if (read.success) return reply;
+    const why = read.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+    const failed = await store.updateJob(job.id, ACTIVE, { status: 'failed', reason: `${UNDELIVERABLE}${why}`.slice(0, REASON_MAX), ended_at: iso() });
+    if (failed !== null) tellChange(job, failed);
+    return null;
   }
 
   /** The fleet messages `job` carries (PRD 3107 s3): the newest MAX_FLEET_MESSAGES of those its mission was told that its role had
@@ -1319,7 +1335,7 @@ export function runnersService(
       if (!job || !member) return no('missing', 'No such job.');
       const [read, first] = await Promise.all([store.lines(jobId, after, JOB_LINES_PAGE + 1), store.firstLine(jobId)]);
       const logTail = first === null && job.log_tail !== '' ? job.log_tail : null;
-      return ok({ status: job.status, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
+      return ok({ status: job.status, line: job.line, reason: job.reason, lines: read.slice(0, JOB_LINES_PAGE), more: read.length > JOB_LINES_PAGE, first, logTail });
     },
 
     /** The terminal's read of the runners (PRD 2251): every runner of the workspace the repository belongs

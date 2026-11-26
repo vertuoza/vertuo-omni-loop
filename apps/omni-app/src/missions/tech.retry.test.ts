@@ -29,7 +29,10 @@ describe('a failed plan job or review of a PM product PRD (bug #3281)', () => {
   });
 
   it('goes to a person once the rounds are spent, and never counts a failed job approved', () => {
-    const at = view({ plans: [plan(1)], techs: [tech(1, failed), tech(2, failed)], decisions: [approved('plan'), noRecord('tech', ['no record of the tech review']), noRecord('tech', ['no record of the tech review'])] });
+    // Bug #3326: two reviews with no record send the PM once more while its rounds last; the PM's second approval spends them.
+    const none = noRecord('tech', ['no record of the tech review']);
+    const again: PlanDecision = { ...approved('plan'), job: 'plan-again' };
+    const at = view({ plans: [plan(1), plan(2)], techs: [1, 2, 3, 4].map((k) => tech(k, failed)), decisions: [approved('plan'), none, none, again, none, none] });
     expect(reviewStateOf(at)).toMatchObject({ state: 'waits' });
   });
 });

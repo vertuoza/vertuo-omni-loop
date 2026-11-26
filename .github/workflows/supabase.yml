@@ -596,6 +596,11 @@ jobs:
         # functions that record their login; only the service role promotes, adds Jev's answers and records
         # runs; Jev's answer never overwrites a person's (PRD omni-loop-8 s1).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/search_eval.sql
+      - name: The Supervisor's store, its owner functions and its retention
+        # Members read a workspace's seat, signals, findings, messages, memory and proposals, another workspace's
+        # nothing; only an owner clears memory or approves a proposal; a clear keeps findings, proposals and messages;
+        # proposals are append-only; app_errors are masked and kept 14 days (PRD omni-loop-34 s1).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/supervisor.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

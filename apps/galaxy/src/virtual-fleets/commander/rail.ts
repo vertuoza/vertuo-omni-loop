@@ -1,4 +1,4 @@
-import { parsePrd, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, type IssueNumber, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { jobHref } from '../../runners/send/targets';
 import type { Card, CardSource } from './commander.contract';
 import { ACTIVE, prdHref } from './commander';
@@ -39,7 +39,8 @@ export interface RailMission {
   number: number;
   repo: string;
   status: string;
-  prds: readonly PrdNumber[];
+  /** A repository PRD's number or a product PRD's id. */
+  prds: readonly (PrdNumber | ProductPrdId)[];
 }
 
 /** One question of a job, in the shape `omni ask question --file` reads. */

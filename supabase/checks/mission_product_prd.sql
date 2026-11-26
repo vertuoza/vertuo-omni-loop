@@ -6,7 +6,8 @@
 -- committee's job and a repair's take a product PRD's id in their key, each once, read as their step, and a product PRD's repair
 -- is claimed first in line; a key whose PRD is no product id is refused. The service role records an item's decision on a product
 -- PRD through mission_decide_item() once, as on a number; a PRD named both ways, or neither, is refused, and so is anyone signed
--- in. What was kept is never changed. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- in. What was kept is never changed. A member's send-back of a PM product PRD (bug #3302) is an event of its own kind, naming the
+-- PRD and the decision it follows. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -479,6 +480,49 @@ begin
 end $$;
 reset role;
 
+-- Another mission takes initech-app-31 over (bug #3336): mission 27 at `alone`, on the same fleet, while mission 26's product
+-- approval of plan B is still in force. Its PM and its Architect both approve B, the latest: the pair gives mission 27 its own
+-- product approval, naming the fleet and mission 27 (BR-PRODUCT-144), since mission 26's counts for mission 26 alone.
+insert into public.missions (id, workspace_id, repo, fleet, number, title, goal, scope, mandate, status)
+select '00000000-0000-4000-8000-0000000027b1', w.id, 'initech/nimbus-plan', 'beaver', 27, 'Quotes again', 'Contractors send quotes by mail.',
+       '{"prds": ["initech-app-31"], "roadmaps": []}', '{"parallel": 1, "level": "alone"}', 'running'
+  from public.workspaces w where w.slug = 'initech';
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key)
+select x.id::uuid, w.id, x.line, 'initech/nimbus-plan', 'omni-app', 'beaver', '00000000-0000-4000-8000-0000000027b1', x.key
+  from public.workspaces w
+ cross join (values ('00000000-0000-4000-8000-0000000027d1', '/omni:mega-brainstorm --product initech-app --plan-only initech-app-31', 'mission:00000000-0000-4000-8000-0000000027b1:pm:1'),
+                    ('00000000-0000-4000-8000-0000000027d2', '/omni:tech-review initech-app-31 --mission 27', 'mission:00000000-0000-4000-8000-0000000027b1:prd:initech-app-31:tech:1')) as x (id, line, key)
+ where w.slug = 'initech';
+
+do $$
+begin
+  if (public.approval_in_force('00000000-0000-4000-8000-0000000026c1', 'product')).mission_id is distinct from '00000000-0000-4000-8000-0000000026b1' then
+    raise exception 'FAIL: mission 26''s product approval of the latest plan is not the one in force';
+  end if;
+end $$;
+
+set local role service_role;
+do $$
+declare
+  m uuid := '00000000-0000-4000-8000-0000000027b1';
+  got jsonb;
+  given public.approvals%rowtype;
+begin
+  got := public.mission_decide_plan(m, 'initech-app-31', '00000000-0000-4000-8000-0000000027d1', 'plan',
+    jsonb_build_object('v', 1, 'prd', 'initech-app-31', 'plan', repeat('b', 64), 'outcome', 'approved'));
+  got := public.mission_decide_plan(m, 'initech-app-31', '00000000-0000-4000-8000-0000000027d2', 'tech',
+    jsonb_build_object('v', 1, 'prd', 'initech-app-31', 'plan', repeat('b', 64), 'settled', '[]'::jsonb, 'open', '[]'::jsonb, 'outcome', 'approved'));
+  if got ->> 'outcome' <> 'approved' or got -> 'techApproval' = 'null'::jsonb or got -> 'approval' = 'null'::jsonb then
+    raise exception 'FAIL: the pair on the latest plan gave mission 27 no product approval while mission 26''s was in force: %', got;
+  end if;
+  select a.* into given from public.approvals a where a.id = (got ->> 'approval')::uuid;
+  if given.approval_kind <> 'product' or given.approver_login <> 'fleet beaver' or given.fleet <> 'beaver' or given.mission_id <> m
+     or not exists (select 1 from jsonb_array_elements(given.files) f where f.value ->> 'kind' = 'plan' and f.value ->> 'sha256' = repeat('b', 64)) then
+    raise exception 'FAIL: mission 27''s product approval was given as %', row_to_json(given);
+  end if;
+end $$;
+reset role;
+
 -- Both of the fleet's approvals are in force, read as dossier_push() reads them to void them on a new version (BL-APPROVALS-1).
 do $$
 begin
@@ -530,8 +574,100 @@ reset client_min_messages;
 
 do $$
 begin
-  if (select count(*) from public.mission_decisions where kind in ('plan', 'tech')) <> 7 then
+  if (select count(*) from public.mission_decisions where kind in ('plan', 'tech')) <> 9 then
     raise exception 'FAIL: running the migration again changed what it kept';
+  end if;
+end $$;
+
+-- ── A mission left without its approval before bug #3336 was fixed: mission 28 ──
+-- The run above put mission_decide_plan() of 20270129140000_mission_plan_tech.sql back, the one that skipped the pair while
+-- another mission's approval was in force. Mission 28 at `alone` records its PM's and its Architect's approvals of plan B through
+-- it and gets no product approval, as mission #3319 did; 20270129190000_mission_own_fleet_approval.sql gives it its own once, and
+-- nothing more when run again.
+insert into public.missions (id, workspace_id, repo, fleet, number, title, goal, scope, mandate, status)
+select '00000000-0000-4000-8000-0000000028b1', w.id, 'initech/nimbus-plan', 'beaver', 28, 'Quotes once more', 'Contractors send quotes by mail.',
+       '{"prds": ["initech-app-31"], "roadmaps": []}', '{"parallel": 1, "level": "alone"}', 'waiting'
+  from public.workspaces w where w.slug = 'initech';
+insert into public.runner_jobs (id, workspace_id, line, repo, sent_by_app, to_fleet, mission_id, mission_key)
+select x.id::uuid, w.id, x.line, 'initech/nimbus-plan', 'omni-app', 'beaver', '00000000-0000-4000-8000-0000000028b1', x.key
+  from public.workspaces w
+ cross join (values ('00000000-0000-4000-8000-0000000028d1', '/omni:mega-brainstorm --product initech-app --plan-only initech-app-31', 'mission:00000000-0000-4000-8000-0000000028b1:pm:1'),
+                    ('00000000-0000-4000-8000-0000000028d2', '/omni:tech-review initech-app-31 --mission 28', 'mission:00000000-0000-4000-8000-0000000028b1:prd:initech-app-31:tech:1')) as x (id, line, key)
+ where w.slug = 'initech';
+
+set local role service_role;
+do $$
+declare
+  m uuid := '00000000-0000-4000-8000-0000000028b1';
+  got jsonb;
+begin
+  got := public.mission_decide_plan(m, 'initech-app-31', '00000000-0000-4000-8000-0000000028d1', 'plan',
+    jsonb_build_object('v', 1, 'prd', 'initech-app-31', 'plan', repeat('b', 64), 'outcome', 'approved'));
+  got := public.mission_decide_plan(m, 'initech-app-31', '00000000-0000-4000-8000-0000000028d2', 'tech',
+    jsonb_build_object('v', 1, 'prd', 'initech-app-31', 'plan', repeat('b', 64), 'settled', '[]'::jsonb, 'open', '[]'::jsonb, 'outcome', 'approved'));
+  if got -> 'techApproval' = 'null'::jsonb or got -> 'approval' <> 'null'::jsonb then
+    raise exception 'FAIL: the old mission_decide_plan() did not leave mission 28 as mission #3319 was left: %', got;
+  end if;
+end $$;
+reset role;
+
+set local client_min_messages = warning;
+\ir ../migrations/20270129190000_mission_own_fleet_approval.sql
+reset client_min_messages;
+
+do $$
+declare
+  given public.approvals%rowtype;
+begin
+  given := public.approval_in_force('00000000-0000-4000-8000-0000000026c1', 'product');
+  if given.mission_id is distinct from '00000000-0000-4000-8000-0000000028b1' or given.approver_login <> 'fleet beaver'
+     or not exists (select 1 from jsonb_array_elements(given.files) f where f.value ->> 'kind' = 'plan' and f.value ->> 'sha256' = repeat('b', 64)) then
+    raise exception 'FAIL: the migration did not give mission 28 its own product approval: %', row_to_json(given);
+  end if;
+  if (select count(*) from public.approvals a where a.dossier_id = '00000000-0000-4000-8000-0000000026c1' and a.approval_kind = 'product') <> 3 then
+    raise exception 'FAIL: the migration gave a product approval to a mission that had its own';
+  end if;
+end $$;
+
+-- Run again: nothing changes.
+set local client_min_messages = warning;
+\ir ../migrations/20270129190000_mission_own_fleet_approval.sql
+reset client_min_messages;
+
+do $$
+begin
+  if (select count(*) from public.approvals a where a.dossier_id = '00000000-0000-4000-8000-0000000026c1' and a.approval_kind = 'product') <> 3 then
+    raise exception 'FAIL: running the migration again gave another product approval';
+  end if;
+end $$;
+
+-- ── A person sends a PM product PRD back to the PM (bug #3302): mission 26's initech-app-31 ──
+do $$
+declare
+  m uuid := '00000000-0000-4000-8000-0000000026b1';
+  job uuid := gen_random_uuid();
+begin
+  insert into public.mission_events (mission_id, at, role, actor, kind, product_prd, job_id, sentence)
+  values (m, now(), 'supervisor', 'ada', 'sent-back', 'initech-app-31', job, 'ada sent PRD initech-app-31 back to the PM: one more round with the Architect''s open points.');
+  if not exists (select 1 from public.mission_events e where e.mission_id = m and e.kind = 'sent-back' and e.actor = 'ada' and e.prd_id = 'initech-app-31' and e.job_id = job) then
+    raise exception 'FAIL: a send-back does not read its person, its PRD and the decision it follows';
+  end if;
+  begin
+    insert into public.mission_events (mission_id, at, role, actor, kind, product_prd, sentence)
+    values (m, now(), 'supervisor', 'ada', 'sent-backs', 'initech-app-31', 'Not a kind.');
+    raise exception 'FAIL: an event took a kind that is none';
+  exception when check_violation then null; end;
+end $$;
+
+-- Run again: nothing changes.
+set local client_min_messages = warning;
+\ir ../migrations/20270129170000_mission_sent_back.sql
+reset client_min_messages;
+
+do $$
+begin
+  if (select count(*) from public.mission_events where kind = 'sent-back') <> 1 then
+    raise exception 'FAIL: running the migration again changed the send-backs it kept';
   end if;
 end $$;
 

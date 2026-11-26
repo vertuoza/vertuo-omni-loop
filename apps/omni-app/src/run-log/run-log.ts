@@ -7,6 +7,7 @@
 // go through `noteTo`: one `note` line at `warn`, the sentence as `message`, the module that said it as
 // `fn`. So the App's whole output is JSON lines.
 import { log, type LogEntry, type Logger, type LogOutcome } from 'omni-loop/kit/lib/log/log.ts';
+import { installedAppErrors, recordAppError, type AppErrorSink } from './app-errors.ts';
 
 /** The ids a run line may carry, beside its event, outcome and duration; one left undefined is not written. */
 export type RunFields = { [K in 'repo' | 'prd' | 'deliveryId' | 'runId' | 'fn' | 'status']?: LogEntry[K] | undefined };
@@ -86,19 +87,48 @@ export async function loggedRun<T>(
   return value;
 }
 
-/** A web-standard handler whose every request writes one `event` line, with the status it answered. */
+/** The route a request names: its path, never its query. */
+function routeOf(request: Request, event: string): string {
+  try {
+    return new URL(request.url).pathname;
+  } catch {
+    return event;
+  }
+}
+
+/** What a 5xx answer said, read from a copy of its body; empty when it cannot be read. */
+async function said(response: Response): Promise<string> {
+  try {
+    return (await response.clone().text()).slice(0, 2000);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * A web-standard handler whose every request writes one `event` line, with the status it answered; a 5xx answer or a
+ * throw also writes one row through `errors` (the installed sink unless given).
+ */
 export function loggedHandler(
   logger: Logger,
   event: string,
   handler: (request: Request, note: Note) => Promise<Response> | Response,
+  errors: () => AppErrorSink | null = installedAppErrors,
 ): (request: Request) => Promise<Response> {
   return (request) =>
     loggedRun(
       logger,
       event,
       async (note) => {
-        const response = await handler(request, note);
+        let response: Response;
+        try {
+          response = await handler(request, note);
+        } catch (error) {
+          await recordAppError({ route: routeOf(request, event), status: 500, message: error instanceof Error ? error.message : String(error) }, errors());
+          throw error;
+        }
         note({ status: response.status });
+        if (response.status >= 500) await recordAppError({ route: routeOf(request, event), status: response.status, message: await said(response) }, errors());
         return response;
       },
       (response) => outcomeOfStatus(response.status),

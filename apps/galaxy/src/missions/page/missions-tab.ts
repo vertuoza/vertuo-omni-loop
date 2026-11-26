@@ -1,6 +1,7 @@
-import { isProductPrdId, parseIssue, PrdNumberSchema, type IssueNumber, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { isProductPrdId, parseIssue, PrdNumberSchema, ProductPrdIdSchema, type IssueNumber, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { COMMITTEE_ONLY_WORDS, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { decisionsOf, trustLine, type DecisionPrd } from 'omni-loop/kit/lib/mission/overturn.ts';
+import { waitsOnReview } from 'omni-loop/kit/lib/mission/send-back.ts';
 import { isWaitWords, type WaitLine } from '../limit-wait';
 import type { RepairLine } from '../repair';
 import { NO_PRD_WORDS, waitsOnNoPrd, type MissionAction, type MissionStatus } from '../missions.contract';
@@ -42,6 +43,7 @@ export const WORDS = {
   decideBugs: 'Waits for you · Decide the bugs',
   sendOn: 'Send on to the Reviewer',
   stopPrd: 'Stop this PRD',
+  sendBack: 'Send back to the PM',
   addedByFleet: 'added by the fleet',
   // The token caps (PRD 3040)
   dailyCap: 'Tokens per day',
@@ -99,7 +101,8 @@ export interface MissionRow {
   goal: string;
   status: MissionStatus;
   waitingOn: string | null;
-  prds: readonly PrdNumber[];
+  /** The PRDs of its scope: a repository PRD's number or a product PRD's id. */
+  prds: readonly DecisionPrd[];
   /** What it runs at: `with-you` for a mission whose brief names none. */
   level: MissionLevel;
   /** Whether its repository is a product's plan repository (PRD 2896 s14): no mission branch, no `own-branch`. */
@@ -150,6 +153,12 @@ export interface Waits {
   href: string;
   /** A PRD on `Decide the bugs` (PRD 3001): QA's bugs still there, each linked to its issue; null for any other wait. */
   bugs: { issue: IssueNumber; href: string }[] | null;
+}
+
+/** A PM product PRD that waits on a person after its review (bug #3302): its id and what it waits on, as the supervisor wrote it. */
+export interface SendBackWait {
+  prd: ProductPrdId;
+  on: string;
 }
 
 /** A budget stop still waiting for its answer (PRD 3040): whose cap, its value, what was spent and the missions it paused. */
@@ -217,6 +226,8 @@ export interface MissionView {
   /** `2 of 4 merged · 1 ready`, or why there is none yet. */
   progress: string;
   waits: Waits[];
+  /** The PM product PRDs that wait on a person after their review, each offered Send back to the PM (bug #3302); none below alone. */
+  sendBacks: SendBackWait[];
   /** The PRDs that wait out a provider limit or for room (PRD 2949), as the room says them. */
   limitWaits: WaitLine[];
   /** The PRDs that repair, wait on an Omni Loop bug, or stopped after repairs (PRD 2980), as the room says them. */
@@ -292,7 +303,7 @@ export interface MissionsView {
 const issueHref = (repo: string, number: number) => `https://github.com/${repo}/issues/${String(number)}`;
 
 /** `2 of 4 merged · 1 ready`: the PRDs of the scope and those the mission has met, merged and ready counted once each. */
-export function progressOf(status: MissionStatus, prds: readonly PrdNumber[], events: readonly TabEvent[], level: MissionLevel = 'with-you', goalOnly = false): string {
+export function progressOf(status: MissionStatus, prds: readonly DecisionPrd[], events: readonly TabEvent[], level: MissionLevel = 'with-you', goalOnly = false): string {
   if (status === 'draft') return WORDS.notStarted;
   const merged = new Set(events.filter((e) => e.kind === 'prd-merged' && e.prd !== null).map((e) => e.prd));
   const ready = new Set(events.filter((e) => e.kind === 'prd-ready' && e.prd !== null && !merged.has(e.prd)).map((e) => e.prd));
@@ -351,6 +362,20 @@ export function waitsOf(waitingOn: string | null, repo: string, events: readonly
     if (!prd.success || on === '') return [];
     const linked = events.find((e) => e.prd === prd.data && e.link !== null)?.link ?? null;
     return [{ prd: prd.data, on, href: linked ?? issueHref(repo, prd.data), bugs: bugsOfWait(on, repo) }];
+  });
+}
+
+const PRODUCT_WAIT = /PRD ([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-[1-9][0-9]*): ([^·]+)/g;
+
+/**
+ * The PM product PRDs a mission at `alone` waits a person on after their review (bug #3302), read from what the supervisor wrote, each
+ * with what it waits on: a person may send each back to the PM. None for a mission below `alone`, or one that neither runs nor waits.
+ */
+function sendBacksOf(row: Pick<MissionRow, 'waitingOn' | 'level' | 'status'>): SendBackWait[] {
+  if (row.level !== 'alone' || (row.status !== 'running' && row.status !== 'waiting') || row.waitingOn === null) return [];
+  return [...row.waitingOn.matchAll(PRODUCT_WAIT)].flatMap((match) => {
+    const prd = ProductPrdIdSchema.safeParse(match[1]);
+    return prd.success && waitsOnReview(match[0], prd.data) ? [{ prd: prd.data, on: (match[2] ?? '').trim() }] : [];
   });
 }
 
@@ -449,6 +474,7 @@ export function missionOf(row: MissionRow, events: readonly TabEvent[], limitWai
     progress: noPrdOf(row) === null ? progressOf(row.status, row.prds, events, row.level, row.goalOnly === true) : WORDS.noPrdWritten,
     noPrd: noPrdOf(row),
     waits: waiting ? waitsOf(row.waitingOn, row.repo, events).filter((wait) => !isWaitWords(wait.on)) : [],
+    sendBacks: sendBacksOf(row),
     limitWaits: waiting ? limitWaits.filter((wait) => wait.mission === row.id) : [],
     repairs: own,
     stopped: row.status === 'stopped' && !own.some((line) => line.kind === 'stopped') ? row.waitingOn : null,

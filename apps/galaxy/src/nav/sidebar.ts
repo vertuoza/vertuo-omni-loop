@@ -10,13 +10,16 @@
 // fall under the entry. Two pure reads of a path: the entry it falls under, by the longest matching path
 // (so /app/fleet is Fleet, not Home), and the top bar's trail (issue 704): the group (the Inbox and the
 // foot have none), the entry, then the page, with the entry's sprite. The query and the hash never count.
-// Only two entries carry a badge (badgeOf): Inbox, the waiting total, the only filled one, and Runners
-// (PRD 2255), the workspace's jobs waiting for an answer, as quiet grey digits.
+// Three entries carry a badge (badgeOf): Inbox, the waiting total, filled; Runners (PRD 2255), the workspace's
+// jobs waiting for an answer, as quiet grey digits; and Supervisor (omni-loop-34 s5), the open high findings,
+// filled in red (isAlarm), fed by the waiting provider's Supervisor part; the Supervisor row shows only while the
+// workspace has a seat (shownItems, omni-loop-34 s8).
 import { at, defined } from 'omni-loop/kit/lib/narrow.ts';
 import { boardPath } from '../ideas/model';
 import type { WaitingCounts } from '../waiting/waiting';
+import { SETTINGS_MAP_PAGES } from './settings-map';
 
-export type SidebarId = 'inbox' | 'ai-fleet' | 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
+export type SidebarId = 'inbox' | 'ai-fleet' | 'supervisor' | 'home' | 'fleet' | 'loop' | 'runners' | 'workspace' | 'engineering' | 'products' | 'roadmaps' | 'ideas' | 'concepts' | 'prds' | 'bugs' | 'visual' | 'knowledge' | 'settings' | 'docs' | 'releases' | 'anti-dashboard' | 'anti-work';
 
 /** A page under an entry, shown as a tab on its pages, never as a menu line (PRD 733). */
 export interface SidebarPage {
@@ -75,6 +78,8 @@ export const SIDEBAR: readonly SidebarGroup[] = [
       },
       // PRD 3233 s3: the fleets of agents, right under Inbox; no badge, Inbox and Runners already count what waits.
       { id: 'ai-fleet', label: 'AI Fleet', path: '/app/ai-fleet', sprite: 'menu-ai-fleet' },
+      // omni-loop-34 s5: the workspace's Supervisor, right under AI Fleet (an owl), its red count the open high findings.
+      { id: 'supervisor', label: 'Supervisor', path: '/app/supervisor', sprite: 'menu-supervisor' },
     ],
   },
   {
@@ -121,19 +126,14 @@ export const ANTI_SIDEBAR: readonly SidebarGroup[] = [
 /** Where /app/settings lands (PRD 733): its Fleets page. */
 export const SETTINGS_LANDING = '/app/settings/fleets';
 
-/** The foot's Settings entry (PRD 733), above Docs and Release notes; Playbook last (PRD 2417, issue 2538). */
+/** The foot's Settings entry (PRD 733), above Docs and Release notes; its pages are the settings map's. */
 export const SETTINGS: SidebarItem = {
   id: 'settings',
   label: 'Settings',
   path: '/app/settings',
   sprite: 'menu-settings',
-  pages: [
-    { label: 'Fleets', path: SETTINGS_LANDING },
-    { label: 'Repositories', path: REPOSITORIES_PATH },
-    { label: 'Business', path: '/app/settings/business' },
-    { label: 'Jev', path: '/app/settings/jev' },
-    { label: 'Playbook', path: '/app/settings/playbook' },
-  ],
+  // Built from the settings map (omni-loop-27 s1): the order of its groups.
+  pages: SETTINGS_MAP_PAGES.map(({ label, path }) => ({ label, path })),
 };
 
 /** Where an entry's link goes: its path, but for Ideas (PRD 1246) the board of the workspace's
@@ -237,14 +237,34 @@ export function pageTrail(pathname: string | null | undefined, item: string | nu
   };
 }
 
+/** What the menu counts: the waiting counts, and the workspace's open high findings of the Supervisor
+ * (omni-loop-34 s5), absent until they are read. */
+export type MenuCounts = WaitingCounts & { supervisor?: number };
+
+/** The count each counting entry reads. */
+const COUNTED: Partial<Record<SidebarId, (counts: MenuCounts) => number>> = {
+  inbox: (counts) => counts.total,
+  runners: (counts) => counts.runners,
+  supervisor: (counts) => counts.supervisor ?? 0,
+};
+
 /** The badge an entry carries: Inbox the waiting total (questions, approvals, outbox items, reviews: the
- * number the tab's title shows, omni-loop-22), the only filled one; Runners the workspace's jobs waiting for
- * an answer (PRD 2255), quiet; null at 0, and for an entry that counts nothing. */
-export function badgeOf(id: SidebarId, counts: WaitingCounts): number | null {
-  const count = id === 'inbox' ? counts.total : id === 'runners' ? counts.runners : 0;
+ * number the tab's title shows, omni-loop-22), filled; Runners the workspace's jobs waiting for an answer
+ * (PRD 2255), quiet; Supervisor the open high findings (omni-loop-34 s5), filled in red; null at 0, and for
+ * an entry that counts nothing. */
+export function badgeOf(id: SidebarId, counts: MenuCounts): number | null {
+  const count = COUNTED[id]?.(counts) ?? 0;
   return count > 0 ? count : null;
 }
 
 /** Whether an entry's badge is quiet grey digits with no fill, and no dot in the rail: every count but the
- * Inbox's. */
-export const isQuiet = (id: SidebarId): boolean => id !== 'inbox';
+ * Inbox's and the Supervisor's. */
+export const isQuiet = (id: SidebarId): boolean => id !== 'inbox' && id !== 'supervisor';
+
+/** The entries of a group the menu draws: every one, but the Supervisor's only while the workspace has a seat
+ * (omni-loop-34 s8: no seat, no Supervisor row). */
+export const shownItems = (items: readonly SidebarItem[], seat: boolean): readonly SidebarItem[] =>
+  seat ? items : items.filter((item) => item.id !== 'supervisor');
+
+/** Whether an entry's badge is filled in red, not the signal: the Supervisor's, which counts what is urgent. */
+export const isAlarm = (id: SidebarId): boolean => id === 'supervisor';

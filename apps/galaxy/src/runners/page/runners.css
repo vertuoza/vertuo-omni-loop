@@ -145,3 +145,16 @@
 .repos-name { font: 600 14px/1.4 var(--ask-mono); }
 .repos-counts { font-size: 14px; }
 .repos-counts.has-cannot { color: var(--ask-red); }
+
+/* The Supervisor's seat on its runner's card (PRD omni-loop-34 s8, screen 3.A): the kept slot's pip and pill in cyan,
+   then the seat strip, its state, last look, tokens and account, with Move for an owner. */
+.runners-pip.is-seat { background: var(--ask-cyan); border-color: var(--ask-cyan); }
+.runners-seat-pill { padding: 0 6px; border: 1px solid var(--ask-cyan); border-radius: 999px; color: var(--ask-cyan); font-size: 12px; font-weight: 600; }
+.runners-seat { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--ask-cyan); border-radius: 8px; background: color-mix(in srgb, var(--ask-cyan) 7%, transparent); }
+.runners-seat.is-offline { border-color: var(--ask-red); }
+.runners-seat-face { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; border: 1.5px solid var(--ask-line-strong); background: var(--ask-sunk); }
+.runners-seat-words { min-width: 0; overflow-wrap: anywhere; }
+.runners-seat-words b { display: block; font-size: 14px; }
+.runners-seat-words .runners-muted { font: 500 12px/1.4 var(--ask-mono); }
+.runners-move-to { display: flex; flex-wrap: wrap; gap: 6px; }
+.runners-place { justify-self: start; }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { WaitingReads } from './waiting.service';
-import { DocumentsSchema, QuestionsSchema, RunnersWaitingSchema, WaitingErrorSchema } from './waiting.contract';
+import { DocumentsSchema, QuestionsSchema, RunnersWaitingSchema, SupervisorWaitingSchema, WaitingErrorSchema } from './waiting.contract';
 
 vi.mock('server-only', () => ({}));
 vi.mock('../data/viewer', () => ({ viewer: () => Promise.resolve({ kind: 'sign-in' }) }));
@@ -32,6 +32,7 @@ function fakeReads(fails = false, waiting = 3) {
     questionsReader: (me: string) => (now: number) => give(`questions ${me} ${now}`, [question]),
     documents: (me: string, now: number) => give(`documents ${me} ${now}`, [document]),
     runnersWaiting: (workspace: string) => give(`runners ${workspace}`, waiting),
+    supervisorWaiting: (workspace: string) => give(`supervisor ${workspace}`, { seat: true, high: waiting }),
     reviews: (me: string, workspace: string) => give(`reviews ${me} ${workspace}`, [review]),
   } as unknown as WaitingReads;
   return { calls, reads };
@@ -63,6 +64,24 @@ describe('signed out', () => {
 });
 
 describe('signed in', () => {
+  it('answers the Supervisor part for the workspace the person joined first, and no seat for a person in none (omni-loop-34 s8)', async () => {
+    const { calls, reads } = fakeReads();
+    const answer = await body(await signedIn(reads).supervisor());
+    expect(answer).toEqual({ status: 200, json: { seat: true, high: 3 }, cache: 'no-store' });
+    expect(SupervisorWaitingSchema.parse(answer.json)).toEqual({ seat: true, high: 3 });
+    expect(calls).toEqual([`supervisor ${WORKSPACE.id}`]);
+    const none = fakeReads();
+    expect(await body(await signedIn(none.reads, () => Promise.resolve(null)).supervisor())).toEqual({ status: 200, json: { seat: false, high: 0 }, cache: 'no-store' });
+    expect(none.calls).toEqual([]);
+  });
+
+  it('answers 401 to a signed-out Supervisor read, and 500 when it fails', async () => {
+    expect((await waitingReadHandlers({ signedIn: () => Promise.resolve(null), now: () => NOW }).supervisor()).status).toBe(401);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect(await body(await signedIn(fakeReads(true).reads).supervisor())).toEqual({ status: 500, json: { error: 'database' }, cache: 'no-store' });
+    error.mockRestore();
+  });
+
   it('answers the Questions part read for me, now, in the contract\'s shape', async () => {
     const { calls, reads } = fakeReads();
     const answer = await body(await signedIn(reads).questions());

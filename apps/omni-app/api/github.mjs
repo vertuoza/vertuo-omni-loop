@@ -482,6 +482,51 @@ function processEnv() {
   return process.env;
 }
 
+// apps/omni-app/src/server-event/service-db.ts
+import { createClient } from "@supabase/supabase-js";
+import { z as z4 } from "zod";
+function serviceDb({ url, key, fetch: fetch2 }) {
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    ...fetch2 ? { global: { fetch: fetch2 } } : {}
+  });
+}
+function rowsOf(schema, answer) {
+  if (answer.error) throw new Error(`the database refused: ${answer.error.message}${answer.error.code ? ` (${answer.error.code})` : ""}`);
+  return z4.array(schema).parse(answer.data ?? []);
+}
+
+// apps/omni-app/src/run-log/app-errors.ts
+function appErrorRow(error) {
+  const route = error.route.replace(/[\r\n]+/g, " ").trim().slice(0, 200) || "/";
+  const message = maskSecrets(error.message).replace(/\s+/g, " ").trim().slice(0, 500);
+  return { service: "omni-app", route, status: Math.min(599, Math.max(500, Math.trunc(error.status))), message, workspace_id: error.workspace ?? null };
+}
+function appErrorsTo(connection) {
+  const db = serviceDb(connection);
+  return async (error) => {
+    const answer = await db.from("app_errors").insert(appErrorRow(error));
+    if (answer.error) throw new Error(`the database refused: ${answer.error.message}`);
+  };
+}
+var installed = null;
+function recordAppErrorsTo(sink) {
+  installed = sink;
+}
+function recordAppErrorsOf(env) {
+  recordAppErrorsTo(env.supabase ? appErrorsTo(env.supabase) : null);
+}
+function installedAppErrors() {
+  return installed;
+}
+async function recordAppError(error, sink) {
+  if (!sink) return;
+  try {
+    await sink(error);
+  } catch {
+  }
+}
+
 // packages/github/src/client.ts
 var BACKGROUND_FLOOR = 0.2;
 var DEFAULT_PAUSE_MS = 6e4;
@@ -701,18 +746,18 @@ function rememberingGithubStore(shared, memory = etagMemory()) {
 }
 
 // packages/github/src/supabase-store.ts
-import { z as z4 } from "zod";
+import { z as z5 } from "zod";
 var ETAG_COLUMNS = "etag, body, content_type, read_at";
-var StoredEtagRow = z4.strictObject({ etag: z4.string(), body: z4.string(), content_type: z4.string().nullable(), read_at: z4.string() });
+var StoredEtagRow = z5.strictObject({ etag: z5.string(), body: z5.string(), content_type: z5.string().nullable(), read_at: z5.string() });
 var BUDGET_COLUMNS = "limit, remaining, reset_at, paused_until, updated_at";
-var StoredBudgetRow = z4.strictObject({
-  limit: z4.number(),
-  remaining: z4.number(),
-  reset_at: z4.string(),
-  paused_until: z4.string().nullable(),
-  updated_at: z4.string()
+var StoredBudgetRow = z5.strictObject({
+  limit: z5.number(),
+  remaining: z5.number(),
+  reset_at: z5.string(),
+  paused_until: z5.string().nullable(),
+  updated_at: z5.string()
 });
-var PausedRows = z4.array(z4.strictObject({ resource: z4.string() }));
+var PausedRows = z5.array(z5.strictObject({ resource: z5.string() }));
 var ms = (value) => Date.parse(value);
 var iso = (value) => new Date(value).toISOString();
 function refused(what, error) {
@@ -878,7 +923,7 @@ function createLogger({ sink = stdout, clock = Date.now } = {}) {
 var log = createLogger();
 
 // apps/omni-app/src/main-watch/main-watch.ts
-import { z as z26 } from "zod";
+import { z as z27 } from "zod";
 
 // kit/lib/schema/parse-or-throw.ts
 function parseOrThrow(schema, value, shape) {
@@ -890,30 +935,30 @@ function parseOrThrow(schema, value, shape) {
 }
 
 // kit/lib/ids.ts
-import { z as z5 } from "zod";
-var IssueNumberSchema = z5.number().int().positive().brand();
+import { z as z6 } from "zod";
+var IssueNumberSchema = z6.number().int().positive().brand();
 var PrdNumberSchema = IssueNumberSchema.brand();
 var PRODUCT_SEQ_MAX = 2 ** 31 - 1;
 var PRODUCT_PRD = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-([1-9]\d{0,9})$/;
-var ProductPrdIdSchema = z5.string().regex(PRODUCT_PRD).refine((id) => {
+var ProductPrdIdSchema = z6.string().regex(PRODUCT_PRD).refine((id) => {
   const cut5 = id.lastIndexOf("-");
   return cut5 <= 40 && Number(id.slice(cut5 + 1)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PRODUCT_ROADMAP = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-R([1-9]\d{0,9})$/;
-var ProductRoadmapIdSchema = z5.string().regex(PRODUCT_ROADMAP).refine((id) => {
+var ProductRoadmapIdSchema = z6.string().regex(PRODUCT_ROADMAP).refine((id) => {
   const cut5 = id.lastIndexOf("-R");
   return cut5 <= 40 && Number(id.slice(cut5 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
 var PRODUCT_BUG = /^([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)-B([1-9]\d{0,9})$/;
-var ProductBugIdSchema = z5.string().regex(PRODUCT_BUG).refine((id) => {
+var ProductBugIdSchema = z6.string().regex(PRODUCT_BUG).refine((id) => {
   const cut5 = id.lastIndexOf("-B");
   return cut5 <= 40 && Number(id.slice(cut5 + 2)) <= PRODUCT_SEQ_MAX;
 }).brand();
-var PrNumberSchema = z5.number().int().positive().brand();
-var CommentIdSchema = z5.number().int().positive().brand();
-var WorkSliceIdSchema = z5.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
-var SliceIdSchema = z5.string().regex(/^s\d+$/).brand().brand();
-var OutboxItemIdSchema = z5.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var PrNumberSchema = z6.number().int().positive().brand();
+var CommentIdSchema = z6.number().int().positive().brand();
+var WorkSliceIdSchema = z6.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
+var SliceIdSchema = z6.string().regex(/^s\d+$/).brand().brand();
+var OutboxItemIdSchema = z6.string().regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?s\d+-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*$/).brand();
 var DIGITS = /^\d+$/;
 function numeric(value) {
   return typeof value === "string" && DIGITS.test(value) ? Number(value) : value;
@@ -1031,62 +1076,62 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 // apps/omni-app/src/outbox-check/github-schema.ts
-import { z as z6 } from "zod";
-var Label = z6.union([z6.string(), z6.looseObject({ name: z6.string().nullish() })]);
+import { z as z7 } from "zod";
+var Label = z7.union([z7.string(), z7.looseObject({ name: z7.string().nullish() })]);
 var labelName = (label2) => typeof label2 === "string" ? label2 : label2.name ?? void 0;
-var PullSchema = z6.looseObject({
-  base: z6.looseObject({ ref: z6.string(), sha: z6.string() }),
-  head: z6.looseObject({ ref: z6.string(), sha: z6.string() }),
-  labels: z6.array(Label).nullish(),
-  body: z6.string().nullish()
+var PullSchema = z7.looseObject({
+  base: z7.looseObject({ ref: z7.string(), sha: z7.string() }),
+  head: z7.looseObject({ ref: z7.string(), sha: z7.string() }),
+  labels: z7.array(Label).nullish(),
+  body: z7.string().nullish()
 });
-var PullsPageSchema = z6.array(z6.looseObject({ number: z6.number(), body: z6.string().nullish() }));
-var PullHeadSchema = z6.looseObject({ head: z6.looseObject({ sha: z6.string() }) });
-var IssueSchema = z6.looseObject({
-  state: z6.string(),
-  labels: z6.array(Label).nullish(),
-  pull_request: z6.unknown().optional()
+var PullsPageSchema = z7.array(z7.looseObject({ number: z7.number(), body: z7.string().nullish() }));
+var PullHeadSchema = z7.looseObject({ head: z7.looseObject({ sha: z7.string() }) });
+var IssueSchema = z7.looseObject({
+  state: z7.string(),
+  labels: z7.array(Label).nullish(),
+  pull_request: z7.unknown().optional()
 });
-var CreatedSchema = z6.looseObject({ id: z6.number() });
-var CommentWrittenSchema = z6.looseObject({ id: CommentIdSchema });
-var CommentsPageSchema = z6.array(z6.looseObject({ id: CommentIdSchema, body: z6.string().nullish() }));
-var ComparePageSchema = z6.looseObject({
-  files: z6.array(z6.looseObject({ filename: z6.string(), status: z6.string() })).nullish(),
-  commits: z6.array(z6.looseObject({ sha: z6.string(), commit: z6.looseObject({ message: z6.string().nullish() }).nullish() })).nullish()
+var CreatedSchema = z7.looseObject({ id: z7.number() });
+var CommentWrittenSchema = z7.looseObject({ id: CommentIdSchema });
+var CommentsPageSchema = z7.array(z7.looseObject({ id: CommentIdSchema, body: z7.string().nullish() }));
+var ComparePageSchema = z7.looseObject({
+  files: z7.array(z7.looseObject({ filename: z7.string(), status: z7.string() })).nullish(),
+  commits: z7.array(z7.looseObject({ sha: z7.string(), commit: z7.looseObject({ message: z7.string().nullish() }).nullish() })).nullish()
 });
-var ReviewsPageSchema = z6.array(
-  z6.looseObject({
-    user: z6.looseObject({ login: z6.string() }).nullish(),
-    state: z6.string(),
-    commit_id: z6.string().nullish()
+var ReviewsPageSchema = z7.array(
+  z7.looseObject({
+    user: z7.looseObject({ login: z7.string() }).nullish(),
+    state: z7.string(),
+    commit_id: z7.string().nullish()
   })
 );
-var CheckRunsSchema = z6.looseObject({
-  check_runs: z6.array(z6.looseObject({ id: z6.number(), status: z6.string().nullish() })).nullish()
+var CheckRunsSchema = z7.looseObject({
+  check_runs: z7.array(z7.looseObject({ id: z7.number(), status: z7.string().nullish() })).nullish()
 });
-var TreeEntrySchema = z6.looseObject({
-  path: z6.string(),
-  mode: z6.string(),
-  type: z6.string(),
-  sha: z6.string(),
-  size: z6.number().nullish()
+var TreeEntrySchema = z7.looseObject({
+  path: z7.string(),
+  mode: z7.string(),
+  type: z7.string(),
+  sha: z7.string(),
+  size: z7.number().nullish()
 });
-var TreeSchema = z6.looseObject({ truncated: z6.boolean().nullish(), tree: z6.array(TreeEntrySchema) });
-var BlobSchema = z6.looseObject({ content: z6.string(), encoding: z6.string().nullish() });
-var RefSchema = z6.looseObject({ object: z6.looseObject({ sha: z6.string() }) });
-var GitCommitSchema = z6.looseObject({ tree: z6.looseObject({ sha: z6.string() }) });
-var ShaSchema = z6.looseObject({ sha: z6.string() });
-var PullWrittenSchema = z6.looseObject({ number: PrNumberSchema, html_url: z6.string() });
-var PullsSchema = z6.array(
-  z6.looseObject({
+var TreeSchema = z7.looseObject({ truncated: z7.boolean().nullish(), tree: z7.array(TreeEntrySchema) });
+var BlobSchema = z7.looseObject({ content: z7.string(), encoding: z7.string().nullish() });
+var RefSchema = z7.looseObject({ object: z7.looseObject({ sha: z7.string() }) });
+var GitCommitSchema = z7.looseObject({ tree: z7.looseObject({ sha: z7.string() }) });
+var ShaSchema = z7.looseObject({ sha: z7.string() });
+var PullWrittenSchema = z7.looseObject({ number: PrNumberSchema, html_url: z7.string() });
+var PullsSchema = z7.array(
+  z7.looseObject({
     number: PrNumberSchema,
-    html_url: z6.string(),
-    state: z6.string(),
-    merged_at: z6.string().nullish(),
-    head: z6.looseObject({ sha: z6.string().nullish() }).nullish()
+    html_url: z7.string(),
+    state: z7.string(),
+    merged_at: z7.string().nullish(),
+    head: z7.looseObject({ sha: z7.string().nullish() }).nullish()
   })
 );
-var FailureSchema = z6.looseObject({ status: z6.unknown(), message: z6.unknown() }).partial();
+var FailureSchema = z7.looseObject({ status: z7.unknown(), message: z7.unknown() }).partial();
 function statusOf(error) {
   const read2 = FailureSchema.safeParse(error);
   return read2.success ? read2.data.status : void 0;
@@ -1099,8 +1144,8 @@ function messageOf2(error) {
   return messageField(error) ?? error;
 }
 function firstLine2(reason2) {
-  const said4 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
-  return said4.split("\n")[0] || "unknown error";
+  const said5 = (reason2 === void 0 || reason2 === null ? "unknown error" : printed(reason2)).trim();
+  return said5.split("\n")[0] || "unknown error";
 }
 var printed = (value) => String(value);
 
@@ -1204,50 +1249,50 @@ async function filesUnder(tree, ref, segments) {
 var isRegular = (entry) => entry.mode === "100644" || entry.mode === "100755";
 
 // apps/omni-app/src/retro/github.schema.ts
-import { z as z7 } from "zod";
-var label = z7.union([z7.string(), z7.object({ name: z7.string() })]);
-var PullSchema2 = z7.object({
+import { z as z8 } from "zod";
+var label = z8.union([z8.string(), z8.object({ name: z8.string() })]);
+var PullSchema2 = z8.object({
   number: PrNumberSchema,
-  title: z7.string().nullish(),
-  html_url: z7.string().nullish(),
-  state: z7.string().nullish(),
-  draft: z7.boolean().nullish(),
-  merged: z7.boolean().nullish(),
-  base: z7.object({ ref: z7.string() }),
-  head: z7.object({ ref: z7.string(), sha: z7.string() }),
-  created_at: z7.string().nullish(),
-  closed_at: z7.string().nullish(),
-  merged_at: z7.string().nullish(),
-  merge_commit_sha: z7.string().nullish(),
-  labels: z7.array(label).nullish()
+  title: z8.string().nullish(),
+  html_url: z8.string().nullish(),
+  state: z8.string().nullish(),
+  draft: z8.boolean().nullish(),
+  merged: z8.boolean().nullish(),
+  base: z8.object({ ref: z8.string() }),
+  head: z8.object({ ref: z8.string(), sha: z8.string() }),
+  created_at: z8.string().nullish(),
+  closed_at: z8.string().nullish(),
+  merged_at: z8.string().nullish(),
+  merge_commit_sha: z8.string().nullish(),
+  labels: z8.array(label).nullish()
 });
-var ListSchema = z7.array(z7.unknown());
-var PullsSchema2 = z7.array(PullSchema2.extend({ state: z7.string(), created_at: z7.string() }));
-var RetroPullsSchema = z7.array(z7.object({ number: PrNumberSchema, state: z7.string(), html_url: z7.string() }));
-var InstallationSchema = z7.object({ id: z7.number() });
-var TreeSchema2 = z7.object({
-  tree: z7.array(z7.object({ path: z7.string(), type: z7.string(), sha: z7.string() }))
+var ListSchema = z8.array(z8.unknown());
+var PullsSchema2 = z8.array(PullSchema2.extend({ state: z8.string(), created_at: z8.string() }));
+var RetroPullsSchema = z8.array(z8.object({ number: PrNumberSchema, state: z8.string(), html_url: z8.string() }));
+var InstallationSchema = z8.object({ id: z8.number() });
+var TreeSchema2 = z8.object({
+  tree: z8.array(z8.object({ path: z8.string(), type: z8.string(), sha: z8.string() }))
 });
-var ContentSchema = z7.union([
-  z7.array(z7.unknown()),
-  z7.object({ type: z7.string(), content: z7.string().nullish(), encoding: z7.string().nullish() })
+var ContentSchema = z8.union([
+  z8.array(z8.unknown()),
+  z8.object({ type: z8.string(), content: z8.string().nullish(), encoding: z8.string().nullish() })
 ]);
-var BlobSchema2 = z7.object({ content: z7.string().nullish(), encoding: z7.string().nullish() });
-var RefSchema2 = z7.object({ object: z7.object({ sha: z7.string() }) });
-var IssuesSchema = z7.array(
-  z7.object({
+var BlobSchema2 = z8.object({ content: z8.string().nullish(), encoding: z8.string().nullish() });
+var RefSchema2 = z8.object({ object: z8.object({ sha: z8.string() }) });
+var IssuesSchema = z8.array(
+  z8.object({
     number: IssueNumberSchema,
-    html_url: z7.string(),
-    state: z7.string(),
-    title: z7.string(),
-    body: z7.string().nullish(),
-    pull_request: z7.unknown().optional()
+    html_url: z8.string(),
+    state: z8.string(),
+    title: z8.string(),
+    body: z8.string().nullish(),
+    pull_request: z8.unknown().optional()
   })
 );
-var CreatedIssueSchema = z7.object({ number: IssueNumberSchema, html_url: z7.string() });
-var CreatedCommentSchema = z7.object({ id: CommentIdSchema });
-var RetroDocSchema = z7.object({ runs: z7.array(z7.unknown()).catch([]) }).catch({ runs: [] });
-var RetroLessonsSchema = z7.object({ lessons: z7.array(z7.object({ text: z7.unknown() }).catch({ text: null })).catch([]) }).catch({ lessons: [] });
+var CreatedIssueSchema = z8.object({ number: IssueNumberSchema, html_url: z8.string() });
+var CreatedCommentSchema = z8.object({ id: CommentIdSchema });
+var RetroDocSchema = z8.object({ runs: z8.array(z8.unknown()).catch([]) }).catch({ runs: [] });
+var RetroLessonsSchema = z8.object({ lessons: z8.array(z8.object({ text: z8.unknown() }).catch({ text: null })).catch([]) }).catch({ lessons: [] });
 function parseGitHub(schema, value, route) {
   return parseOrThrow(schema, value, `${route} answered an unexpected shape`);
 }
@@ -1373,7 +1418,7 @@ import { join as join25 } from "node:path";
 import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
 import { join as join4 } from "node:path";
 import { parse } from "yaml";
-import { z as z9 } from "zod";
+import { z as z10 } from "zod";
 
 // kit/lib/narrow.ts
 function isOneOf(values, value) {
@@ -1433,7 +1478,7 @@ function parseSelector(source) {
 // kit/lib/flow/schema.ts
 import { existsSync, statSync } from "node:fs";
 import { join as join3 } from "node:path";
-import { z as z8 } from "zod";
+import { z as z9 } from "zod";
 
 // kit/lib/flow/points.ts
 var HOOK_MODES = Object.freeze(["before", "after", "replace"]);
@@ -1481,8 +1526,8 @@ function flowPoint(name) {
 // kit/lib/flow/schema.ts
 var CLAUDE_ALIAS = "claude";
 var DEFAULT_AREA = "default";
-var text = z8.string().min(1);
-var regexSource = z8.string().refine((source) => {
+var text = z9.string().min(1);
+var regexSource = z9.string().refine((source) => {
   try {
     new RegExp(source);
     return true;
@@ -1490,11 +1535,11 @@ var regexSource = z8.string().refine((source) => {
     return false;
   }
 }, "not a valid regular expression");
-var hookRef = z8.union([text, z8.object({ path: text, alias: z8.literal(CLAUDE_ALIAS) }).strict()]);
-var hookRefs = z8.union([hookRef, z8.array(hookRef).min(1)]);
-var pointHooks = z8.union([
+var hookRef = z9.union([text, z9.object({ path: text, alias: z9.literal(CLAUDE_ALIAS) }).strict()]);
+var hookRefs = z9.union([hookRef, z9.array(hookRef).min(1)]);
+var pointHooks = z9.union([
   hookRef,
-  z8.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict()
+  z9.object({ before: hookRefs.optional(), after: hookRefs.optional(), replace: hookRef.optional() }).strict()
 ]);
 function hookRefProblem(ref) {
   const path = typeof ref === "string" ? ref : ref.path;
@@ -1524,7 +1569,7 @@ function eachHook(point, value) {
   ];
 }
 var KNOWN_POINTS = FLOW_POINTS.map(({ point }) => point).join(", ");
-var hooksSection = z8.record(z8.string(), pointHooks).superRefine((hooks, issues) => {
+var hooksSection = z9.record(z9.string(), pointHooks).superRefine((hooks, issues) => {
   for (const [name, value] of Object.entries(hooks)) {
     const point = flowPoint(name);
     if (!point) {
@@ -1542,35 +1587,35 @@ var hooksSection = z8.record(z8.string(), pointHooks).superRefine((hooks, issues
     }
   }
 });
-var planRule = z8.union([
-  z8.object({ slice: z8.object({ alone: z8.boolean().optional(), maxFiles: z8.number().int().positive().optional() }).strict() }).strict(),
-  z8.object({ wave: z8.literal("first") }).strict(),
-  z8.object({ blocks: z8.literal("all") }).strict(),
-  z8.object({ landing: z8.literal("alone") }).strict()
+var planRule = z9.union([
+  z9.object({ slice: z9.object({ alone: z9.boolean().optional(), maxFiles: z9.number().int().positive().optional() }).strict() }).strict(),
+  z9.object({ wave: z9.literal("first") }).strict(),
+  z9.object({ blocks: z9.literal("all") }).strict(),
+  z9.object({ landing: z9.literal("alone") }).strict()
 ]);
 var MERGE_METHODS = Object.freeze(["squash", "merge", "rebase"]);
-var subPrRules = z8.object({
-  merge: z8.enum(MERGE_METHODS).optional(),
-  requireChecks: z8.array(text).optional(),
-  approval: z8.literal("person").optional(),
-  territory: z8.enum(["report", "block"]).optional(),
-  maxOpen: z8.number().int().positive().optional()
+var subPrRules = z9.object({
+  merge: z9.enum(MERGE_METHODS).optional(),
+  requireChecks: z9.array(text).optional(),
+  approval: z9.literal("person").optional(),
+  territory: z9.enum(["report", "block"]).optional(),
+  maxOpen: z9.number().int().positive().optional()
 }).strict();
-var rulesSection = z8.object({ plan: z8.array(planRule).optional(), subPr: subPrRules.optional() }).strict();
-var area = z8.object({
-  paths: z8.array(regexSource).min(1, "at least one path pattern"),
+var rulesSection = z9.object({ plan: z9.array(planRule).optional(), subPr: subPrRules.optional() }).strict();
+var area = z9.object({
+  paths: z9.array(regexSource).min(1, "at least one path pattern"),
   knowledge: text.optional(),
-  inherit: z8.boolean().optional(),
+  inherit: z9.boolean().optional(),
   rules: rulesSection.optional(),
   hooks: hooksSection.optional()
 }).strict();
 var AREA_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-var FlowSchema = z8.object({
+var FlowSchema = z9.object({
   rules: rulesSection.optional(),
   hooks: hooksSection.optional(),
-  areas: z8.record(z8.string(), area).optional(),
+  areas: z9.record(z9.string(), area).optional(),
   // Reserved for events, which a later PRD defines: refused until then, never read.
-  on: z8.unknown().optional()
+  on: z9.unknown().optional()
 }).strict().superRefine((flow, issues) => {
   if (flow.on !== void 0) {
     issues.addIssue({ code: "custom", path: ["on"], message: "reserved for events, which a later PRD defines \u2014 remove it" });
@@ -1765,13 +1810,13 @@ var ConfigError = class extends Error {
     this.invalid = invalid;
   }
 };
-var text2 = z9.string().min(1);
+var text2 = z10.string().min(1);
 var nullableText = text2.nullable();
-var branchTemplate = z9.string().min(1);
-var labelName2 = z9.string().min(1);
-var section = (shape) => z9.preprocess((value) => value === void 0 ? {} : value, z9.object(shape).strict());
+var branchTemplate = z10.string().min(1);
+var labelName2 = z10.string().min(1);
+var section = (shape) => z10.preprocess((value) => value === void 0 ? {} : value, z10.object(shape).strict());
 var trailerPart = text2.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
-var askUrl = z9.string().refine((value) => {
+var askUrl = z10.string().refine((value) => {
   let url;
   try {
     url = new URL(value);
@@ -1780,7 +1825,7 @@ var askUrl = z9.string().refine((value) => {
   }
   return url.protocol === "https:" || url.protocol === "http:" && url.hostname === "127.0.0.1";
 }, "an https URL, or http on 127.0.0.1");
-var httpsUrl = z9.string().refine((value) => {
+var httpsUrl = z10.string().refine((value) => {
   if (/\s/.test(value)) return false;
   try {
     return new URL(value).protocol === "https:";
@@ -1789,7 +1834,7 @@ var httpsUrl = z9.string().refine((value) => {
   }
 }, "an absolute https URL");
 var PROOF_GITHUB_DEPLOYMENT = "github-deployment";
-var proofUrl = z9.string().refine((value) => {
+var proofUrl = z10.string().refine((value) => {
   if (value === PROOF_GITHUB_DEPLOYMENT) return true;
   if (/\s/.test(value)) return false;
   try {
@@ -1798,28 +1843,28 @@ var proofUrl = z9.string().refine((value) => {
     return false;
   }
 }, `${PROOF_GITHUB_DEPLOYMENT}, or an absolute http(s) URL`);
-var envName = z9.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
+var envName = z10.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "the name of an environment variable, such as VERCEL_AUTOMATION_BYPASS_SECRET");
 var wordSelector = text2.refine((value) => parseSelector(value) !== null, "a selector of tags, #ids, .classes and [attributes], comma-separated, with no combinator");
-var lawOwner = z9.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
-var personLogin = z9.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
-var ownerWithDelegate = z9.preprocess(
+var lawOwner = z10.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/[A-Za-z0-9_.-]+)?$/, "a GitHub login or <org>/<team>, without @");
+var personLogin = z10.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "a GitHub login, without @, never a team");
+var ownerWithDelegate = z10.preprocess(
   (value) => isRecord(value) ? { login: "", delegate: "", ...value } : value,
-  z9.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
+  z10.object({ login: personLogin, delegate: personLogin }).strict().refine((entry) => entry.login.toLowerCase() !== entry.delegate.toLowerCase(), {
     message: "a delegate other than its own owner",
     path: ["delegate"]
   })
 );
-var lawOwnerEntry = z9.union([lawOwner, ownerWithDelegate]);
+var lawOwnerEntry = z10.union([lawOwner, ownerWithDelegate]);
 function lawOwnerParts(entry) {
   return typeof entry === "string" ? { owner: entry, delegate: null } : { owner: entry.login, delegate: entry.delegate };
 }
 var DEFAULT_CONTRACT_KINDS = Object.freeze(["api", "db"]);
-var contractKind = z9.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
-var contractKinds = z9.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
+var contractKind = z10.string().regex(/^[a-z][a-z0-9-]*$/, "one lowercase word, such as api or db").refine((kind) => kind !== "none", "none is what a slice declares when it changes nothing \u2014 it is no kind");
+var contractKinds = z10.array(contractKind).min(1, "at least one kind, such as api").transform((kinds) => kinds.map(layerOf)).superRefine((kinds, issues) => {
   const twice = kinds.find((kind, index) => kinds.indexOf(kind) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `"${twice}" is listed twice` });
 });
-var layersSection = z9.record(z9.string(), z9.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
+var layersSection = z10.record(z10.string(), z10.array(regexSource).min(1, "at least one path pattern")).superRefine((layers, issues) => {
   for (const key of Object.keys(layers)) {
     if (!Object.hasOwn(CANONICAL_LAYERS, key)) {
       issues.addIssue({ code: "custom", path: [key], message: `${key} is not a layer (${layerList()})` });
@@ -1827,24 +1872,24 @@ var layersSection = z9.record(z9.string(), z9.array(regexSource).min(1, "at leas
   }
 });
 var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
-var target = z9.object({
-  repo: z9.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
-  role: z9.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
-  knowledge: z9.enum(TARGET_KNOWLEDGE),
-  readAt: z9.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
+var target = z10.object({
+  repo: z10.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
+  role: z10.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
+  knowledge: z10.enum(TARGET_KNOWLEDGE),
+  readAt: z10.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null),
   // PRD 1162: no slice and no roadmap row may name a read-only target; it is still read, surveyed
   // and imported.
-  readOnly: z9.boolean().optional(),
+  readOnly: z10.boolean().optional(),
   // PRD 1162: the short names of the targets whose default-branch packages this one installs.
-  consumes: z9.array(z9.string()).optional()
+  consumes: z10.array(z10.string()).optional()
 }).strict();
 function targetShortName(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
-var planSection = z9.object({
+var planSection = z10.object({
   guide: nullableText.default(null),
-  targets: z9.array(target).min(1, "at least one target").optional(),
-  product: z9.string().trim().min(1).optional()
+  targets: z10.array(target).min(1, "at least one target").optional(),
+  product: z10.string().trim().min(1).optional()
 }).strict().superRefine(({ targets, product }, issues) => {
   if (targets !== void 0 && product !== void 0) {
     issues.addIssue({
@@ -1879,24 +1924,24 @@ function checkTargets(targets, issues) {
     }
   });
 }
-var generatedEntry = z9.object({
+var generatedEntry = z10.object({
   path: text2,
-  from: z9.array(text2).min(1, "at least one source prefix"),
-  build: z9.string().trim().min(1)
+  from: z10.array(text2).min(1, "at least one source prefix"),
+  build: z10.string().trim().min(1)
 }).strict();
 var AGENTS = Object.freeze(["claude", "codex", "cursor", "gemini"]);
-var agentList = z9.array(z9.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for \u2014 one of ${AGENTS.join(", ")}` })).min(1, "at least one agent").superRefine((agents, issues) => {
+var agentList = z10.array(z10.enum(AGENTS, { error: (issue) => `${String(issue.input)} is no agent the kit installs for \u2014 one of ${AGENTS.join(", ")}` })).min(1, "at least one agent").superRefine((agents, issues) => {
   agents.forEach((agent, index) => {
     if (agents.indexOf(agent) !== index) issues.addIssue({ code: "custom", path: [index], message: `${agent} is listed twice` });
   });
 }).default(["claude"]);
 var TIERS = Object.freeze(["deep", "build", "light"]);
 var EFFORTS = Object.freeze(["low", "medium", "high", "xhigh", "max"]);
-var tierEntry = z9.object({
+var tierEntry = z10.object({
   model: text2,
-  effort: z9.enum(EFFORTS, { error: (issue) => `${String(issue.input)} is no effort \u2014 one of ${EFFORTS.join(", ")}` }).optional()
+  effort: z10.enum(EFFORTS, { error: (issue) => `${String(issue.input)} is no effort \u2014 one of ${EFFORTS.join(", ")}` }).optional()
 }).strict();
-var tierRow = z9.record(z9.string(), tierEntry).superRefine((row, issues) => {
+var tierRow = z10.record(z10.string(), tierEntry).superRefine((row, issues) => {
   for (const tier of Object.keys(row)) {
     if (!isOneOf(TIERS, tier)) {
       issues.addIssue({ code: "custom", path: [tier], message: `${tier} is no tier \u2014 one of ${TIERS.join(", ")}` });
@@ -1906,9 +1951,9 @@ var tierRow = z9.record(z9.string(), tierEntry).superRefine((row, issues) => {
 var SYNC_CHECKS = Object.freeze(["main", "kit", "knowledge", "page"]);
 var SYNC_LEVELS = Object.freeze(["red", "orange", "off"]);
 var SYNC_MAX_HOURS = 720;
-var syncCheck = z9.enum(SYNC_CHECKS, { error: (issue) => `${String(issue.input)} is no check \u2014 one of ${SYNC_CHECKS.join(", ")}` });
-var syncLevel = z9.enum(SYNC_LEVELS, { error: (issue) => `${String(issue.input)} is no level \u2014 one of ${SYNC_LEVELS.join(", ")}` });
-var syncOrder = z9.array(syncCheck).superRefine((order, issues) => {
+var syncCheck = z10.enum(SYNC_CHECKS, { error: (issue) => `${String(issue.input)} is no check \u2014 one of ${SYNC_CHECKS.join(", ")}` });
+var syncLevel = z10.enum(SYNC_LEVELS, { error: (issue) => `${String(issue.input)} is no level \u2014 one of ${SYNC_LEVELS.join(", ")}` });
+var syncOrder = z10.array(syncCheck).superRefine((order, issues) => {
   const twice = order.find((check, index) => order.indexOf(check) !== index);
   if (twice !== void 0) issues.addIssue({ code: "custom", message: `${twice} is listed twice` });
   for (const check of SYNC_CHECKS) {
@@ -1916,17 +1961,17 @@ var syncOrder = z9.array(syncCheck).superRefine((order, issues) => {
   }
 });
 var HOURS_MESSAGE = `a whole number of hours, written <n>h from 1h to ${SYNC_MAX_HOURS}h, such as 24h`;
-var syncHours = z9.string({ error: HOURS_MESSAGE }).refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
+var syncHours = z10.string({ error: HOURS_MESSAGE }).refine((value) => /^[1-9]\d*h$/.test(value) && Number.parseInt(value, 10) <= SYNC_MAX_HOURS, HOURS_MESSAGE);
 var READY_SCOPES = Object.freeze(["off", "mission", "all"]);
 var READY_LOOSENING_GROUND = Object.freeze({
   floors: Object.freeze(["mutation/floor.json"]),
   baselines: Object.freeze(["fallow/", "layering/", "design/"])
 });
 var CONTEXT_BUDGET_FILE = ".omni-loop/budgets/context.json";
-var ConfigSchema = z9.object({
-  kit: z9.literal(CONFIG_VERSION),
+var ConfigSchema = z10.object({
+  kit: z10.literal(CONFIG_VERSION),
   repo: section({
-    slug: z9.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
+    slug: z10.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null),
     remote: text2.default("origin"),
     defaultBranch: text2.default("main")
   }),
@@ -1962,14 +2007,14 @@ var ConfigSchema = z9.object({
   agents: agentList,
   // PRD 1934: the model and effort each tier runs on, one row per agent `agents` lists. Optional:
   // a config without it parses with no `tiers` key, and every slice runs on the terminal's model.
-  tiers: z9.record(z9.string(), tierRow).optional(),
+  tiers: z10.record(z10.string(), tierRow).optional(),
   paths: section({
     delivery: text2.default(".omni-loop/delivery"),
     knowledge: text2.default(".omni-loop/knowledge"),
     adr: text2.default(".omni-loop/knowledge/adr"),
     playbook: text2.default(".omni-loop/knowledge/playbook"),
     glossary: nullableText.default(null),
-    context: z9.array(text2).default(["AGENTS.md", "CLAUDE.md"])
+    context: z10.array(text2).default(["AGENTS.md", "CLAUDE.md"])
   }),
   labels: section({
     prd: labelName2.default("omni:prd"),
@@ -2006,7 +2051,7 @@ var ConfigSchema = z9.object({
     // out, `releasedLabel()` reads `DEFAULT_RELEASED_LABEL`, and a config that does not set it parses
     // exactly as before (so `omni init` does not create it: a person does).
     released: labelName2.optional(),
-    autoCreate: z9.boolean().default(false)
+    autoCreate: z10.boolean().default(false)
   }),
   prLinks: section({
     feature: text2.default("Closes #{prd}"),
@@ -2021,13 +2066,13 @@ var ConfigSchema = z9.object({
   // is an `https://` URL holding `{ref}` or null. `null` changes nothing.
   pr: section({
     openWith: nullableText.default(null),
-    ref: z9.object({
+    ref: z10.object({
       title: text2.refine((value) => value.includes("{ref}") && value.includes("{title}"), "a title with {ref} and {title}"),
       none: text2.refine((value) => value.includes("{title}"), "a title with {title}").nullable().default(null),
       link: text2.refine((value) => value.startsWith("https://") && !/\s/.test(value) && value.includes("{ref}"), "an https:// URL with {ref}").nullable().default(null)
     }).strict().nullable().optional()
   }),
-  board: section({ matchBy: z9.enum(["base", "label"]).default("base") }),
+  board: section({ matchBy: z10.enum(["base", "label"]).default("base") }),
   ci: section({
     outboxContext: text2.default("outbox"),
     // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
@@ -2037,7 +2082,7 @@ var ConfigSchema = z9.object({
     // is what was approved; `null` posts none.
     approvedContext: nullableText.default("omni/approved"),
     aggregateCheck: nullableText.default(null),
-    branchProtection: z9.boolean().default(false),
+    branchProtection: z10.boolean().default(false),
     runner: text2.default("ubuntu-latest")
   }),
   commands: section({
@@ -2046,7 +2091,7 @@ var ConfigSchema = z9.object({
     setup: nullableText.default(null),
     preflight: nullableText.default(null),
     preflightFull: nullableText.default(null),
-    checks: z9.array(text2).default([]),
+    checks: z10.array(text2).default([]),
     test: nullableText.default(null),
     // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
     mutation: nullableText.default(null),
@@ -2056,19 +2101,19 @@ var ConfigSchema = z9.object({
     // built output; only the bug-fix skills run it, when a passing reproduction cannot see the bug.
     smoke: nullableText.default(null)
   }),
-  acceptance: z9.object({
-    enabled: z9.boolean().default(false),
+  acceptance: z10.object({
+    enabled: z10.boolean().default(false),
     dir: nullableText.default(null),
     pendingSuffix: nullableText.default(null),
     run: nullableText.default(null),
     // PRD 2898: the kind a new spec's `### AC-<n> · <kind>` criteria take when its author names none.
-    kind: z9.enum(AC_KINDS, { error: (issue) => `${String(issue.input)} is no kind \u2014 one of ${AC_KINDS.join(", ")}` }).default("test")
+    kind: z10.enum(AC_KINDS, { error: (issue) => `${String(issue.input)} is no kind \u2014 one of ${AC_KINDS.join(", ")}` }).default("test")
   }).strict().refine((a) => !a.enabled || a.dir !== null, {
     message: "acceptance.dir is required when acceptance.enabled is true",
     path: ["dir"]
   }).prefault({}),
   laws: section({
-    source: z9.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
+    source: z10.enum(["knowledge", "claudeMdInvariants", "none"]).default("none"),
     // The heading under which the context files (`paths.context`, in order) list the ADRs that are
     // law when `source` is `claudeMdInvariants`. Both names are kept from when CLAUDE.md alone was
     // read (PRD 1739), so every config that sets them still reads.
@@ -2076,25 +2121,25 @@ var ConfigSchema = z9.object({
     // PRD 1342: whether every rule and invariant must name its proof — a test's path, or
     // `pending #<n>` — so `omni check knowledge` refuses `Enforced by: unenforced`. Off by default:
     // a repository turns it on with the knowledge PR of its sweep (`omni knowledge judge`).
-    requireProof: z9.boolean().default(false),
+    requireProof: z10.boolean().default(false),
     // PRD 1726: at most this many locked laws (`Locked:` entries); `omni check knowledge` refuses more.
-    max: z9.number().int().positive().default(20),
+    max: z10.number().int().positive().default(20),
     // PRD 1726: who may lock a law and approve a change to one, as CODEOWNERS names them — GitHub
     // logins and `<org>/<team>`s, written without `@`. Empty, `omni check knowledge` refuses any lock.
     // PRD 1794: an entry may be `{ login, delegate }` instead; the delegate is a CODEOWNER too.
-    owners: z9.array(lawOwnerEntry).default([]),
+    owners: z10.array(lawOwnerEntry).default([]),
     // PRD 1794: product leadership, GitHub logins asked last about what still waits on a person.
     // Never written into CODEOWNERS, so its approval never clears a law.
-    leadership: z9.array(personLogin).default([])
+    leadership: z10.array(personLogin).default([])
   }),
   risk: section({
-    storedShape: z9.array(regexSource).default([]),
-    sharedContract: z9.array(text2).default([])
+    storedShape: z10.array(regexSource).default([]),
+    sharedContract: z10.array(text2).default([])
   }),
   // Landings: the paths that must reach the default branch in a landing of their own (a
   // repository's migrations directories, say). Regex sources over repository paths, compiled once
   // by `omni plan check`; empty, no plan is refused for what it puts together.
-  landings: section({ alone: z9.array(regexSource).default([]) }),
+  landings: section({ alone: z10.array(regexSource).default([]) }),
   // PRD 2346: the repository's map from canonical layers to the paths that hold them: regular
   // expressions over repository paths, as a flow area's `paths`. A file may be in several layers.
   // Optional: a config without it parses with no `layers` key, and no entry is narrowed by layer.
@@ -2104,56 +2149,56 @@ var ConfigSchema = z9.object({
   // `none`. Off by default. `kinds` are this repository's own words, `DEFAULT_CONTRACT_KINDS` when
   // it names none; `omni plan check` refuses a word outside them.
   contracts: section({
-    declare: z9.boolean().default(false),
+    declare: z10.boolean().default(false),
     kinds: contractKinds.default(() => [...DEFAULT_CONTRACT_KINDS])
   }),
   notify: section({
-    slack: z9.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
+    slack: z10.object({ channelVar: text2.default("OMNI_SLACK_CHANNEL"), tokenSecret: text2.default("SLACK_BOT_TOKEN") }).strict().nullable().default(null)
   }),
   limits: section({
-    stallDays: z9.number().int().positive().default(5),
-    attempts: z9.number().int().positive().default(3),
-    claimStaleMinutes: z9.number().int().positive().default(60),
+    stallDays: z10.number().int().positive().default(5),
+    attempts: z10.number().int().positive().default(3),
+    claimStaleMinutes: z10.number().int().positive().default(60),
     // PRD 2175: how long a draft still on `labels.inProgress` may go with no commit and no update
     // before the board reads its claim as stale: the fallback for a claim no runner saw die. Left
     // out, `DEFAULT_CLAIM_DEAD_MINUTES` applies, and a config that does not set it parses exactly as before.
-    claimDeadMinutes: z9.number().int().positive().optional(),
-    beforeAfterMaxBytes: z9.number().int().positive().default(512e3),
+    claimDeadMinutes: z10.number().int().positive().optional(),
+    beforeAfterMaxBytes: z10.number().int().positive().default(512e3),
     // PRD 1205: how many loop steps run at once, counting those already running. 1 is the loop as it
     // was before, one step at a time.
-    parallelSteps: z9.number().int().min(1).max(6).default(3),
+    parallelSteps: z10.number().int().min(1).max(6).default(3),
     // PRD 1089: the size a flow hook file may reach. Left out, `DEFAULT_HOOK_MAX_BYTES` applies,
     // and a config that does not set it parses exactly as before.
-    hookMaxBytes: z9.number().int().positive().optional(),
+    hookMaxBytes: z10.number().int().positive().optional(),
     // PRD 1794: how many working days (Monday to Friday, UTC) a thing waits on a person before the
     // next people are asked. Its own setting: `stallDays` is unchanged.
-    escalationWorkingDays: z9.number().int().min(1).max(10).default(2)
+    escalationWorkingDays: z10.number().int().min(1).max(10).default(2)
   }),
   // Issue 1722: a PRD whose plan has fewer slices than `inlineBelow` is built on its feature branch
   // itself, one slice after the other, with no sub-PR per slice (`/omni:wave`, `inlineWave` in
   // `kit/lib/board.ts`). 0, the default, never does: every slice is a sub-PR, as it always was.
-  wave: section({ inlineBelow: z9.number().int().min(0).default(0) }),
+  wave: section({ inlineBelow: z10.number().int().min(0).default(0) }),
   ask: section({ url: askUrl.nullable().default(null) }),
   // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
   // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
-  dossier: section({ enabled: z9.boolean().default(false) }),
+  dossier: section({ enabled: z10.boolean().default(false) }),
   // PRD 262: whether a PRD ships with a release note (`<folder>/release.md`, `kit/lib/releases/`).
   // Off by default: a repository opts in. When it is on, `omni ship` refuses a PRD whose folder has
   // no note, or whose note `omni check releases` would fail.
-  releaseNotes: section({ enabled: z9.boolean().default(false) }),
+  releaseNotes: section({ enabled: z10.boolean().default(false) }),
   // PRD 251: whether an outbox may be answered outside the pull request — at the end of
   // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
   // opts out. The pull request takes replies either way.
-  answers: section({ enabled: z9.boolean().default(true) }),
+  answers: section({ enabled: z10.boolean().default(true) }),
   // PRD 2338: whether `/omni:retro-apply` writes the guard test a kept lesson is worth, proved red
   // then green, beside the rule it appends. Off by default: the retro PR stays documents only, and a
   // lesson worth a guard names it for a person to take up. A repository opts in.
-  retro: section({ guards: z9.boolean().default(false) }),
+  retro: section({ guards: z10.boolean().default(false) }),
   // PRD 2410: whether the GitHub App watches main for seven days after a feature PR merges, marking
   // the PRD broke on a red job on the merge commit, a revert or a traced regression, and queueing
   // `/omni:rewind` on the first break. On by default; read at the merge commit, so `false` there
   // opens no watch and queues no rewind.
-  mainWatch: section({ enabled: z9.boolean().default(true) }),
+  mainWatch: section({ enabled: z10.boolean().default(true) }),
   // PRD 798: how `/omni:prove` records a PRD's acceptance criteria. Off while `url` is null.
   // `setup` is a command that writes a Playwright storageState to `PROOF_STORAGE_STATE`;
   // `bypassEnv` names the variable holding the Vercel protection-bypass secret; `maxSeconds` caps a clip.
@@ -2163,13 +2208,13 @@ var ConfigSchema = z9.object({
     deployment: nullableText.default(null),
     setup: nullableText.default(null),
     bypassEnv: envName.nullable().default(null),
-    maxSeconds: z9.number().int().positive().default(60)
+    maxSeconds: z10.number().int().positive().default(60)
   }),
   // PRD 1233 (beta): how `/omni:validate-e2e` keeps a PRD's acceptance criteria as e2e tests. Off by
   // default. `url`, `deployment`, `setup` and `bypassEnv` mean what they mean under `proof`; `dir` is
   // where the tests and their recordings live; `model` is the goal steps' OpenRouter id.
   e2e: section({
-    enabled: z9.boolean().default(false),
+    enabled: z10.boolean().default(false),
     url: proofUrl.nullable().default(null),
     deployment: nullableText.default(null),
     setup: nullableText.default(null),
@@ -2178,17 +2223,17 @@ var ConfigSchema = z9.object({
     model: text2.default("anthropic/claude-sonnet-5.5"),
     // PRD 2898: whether CI runs a PRD's `e2e` criteria against its preview (with the model key in a CI
     // secret); false, a runner of the workspace runs them and the App writes the `acceptance` check.
-    ci: z9.boolean().default(false),
+    ci: z10.boolean().default(false),
     // PRD 2898: the repository that holds the e2e tests, `owner/name`; null, this one, in `dir`.
-    repo: z9.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null)
+    repo: z10.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name").nullable().default(null)
   }),
   // PRD 2898: the ready checks — the five a feature PR must pass before a gated skill marks it ready
   // (`kit/lib/ready/`). `checks` says which PRs are gated: `off` none (the default), `mission` the
   // feature PR of a PRD in a running or paused mission, `all` every feature PR. `full` names the CI
   // jobs that run the whole suite, never only the changed files: check 2 passes when each succeeded.
   ready: section({
-    checks: z9.enum(READY_SCOPES, { error: (issue) => `${String(issue.input)} is no scope \u2014 one of ${READY_SCOPES.join(", ")}` }).default("off"),
-    full: z9.array(text2).superRefine((jobs, issues) => {
+    checks: z10.enum(READY_SCOPES, { error: (issue) => `${String(issue.input)} is no scope \u2014 one of ${READY_SCOPES.join(", ")}` }).default("off"),
+    full: z10.array(text2).superRefine((jobs, issues) => {
       const twice = jobs.find((job, index) => jobs.indexOf(job) !== index);
       if (twice !== void 0) issues.addIssue({ code: "custom", message: `${twice} is listed twice` });
     }).default([])
@@ -2207,26 +2252,26 @@ var ConfigSchema = z9.object({
   // drops nothing. PRD 1584: `words.content` marks the text a screen shows rather than writes, counted
   // apart and never judged; unset, it reads as `[data-content]` (`kit/lib/design/words/content.ts`).
   design: section({
-    enabled: z9.boolean().default(false),
-    paths: z9.array(text2).default([]),
-    ignore: z9.array(text2).optional(),
+    enabled: z10.boolean().default(false),
+    paths: z10.array(text2).default([]),
+    ignore: z10.array(text2).optional(),
     screens: nullableText.default(null),
     // PRD omni-loop-13: the generated design manifest (`kit/lib/design/manifest.ts`), a path or none.
     manifest: nullableText.optional(),
     words: section({
-      sentence: z9.number().int().positive().default(7),
+      sentence: z10.number().int().positive().default(7),
       screen: wordSelector.default("[data-screen]"),
       primary: wordSelector.default("[data-primary]"),
       content: wordSelector.optional(),
-      avoid: z9.array(text2).default([])
+      avoid: z10.array(text2).default([])
     })
   }),
-  markers: section({ prefix: z9.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
+  markers: section({ prefix: z10.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.ts`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
   // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
   // as written. `home` defaults to the Omni Loop home page (ADR-0047, ADR-0055).
-  signature: z9.object({
+  signature: z10.object({
     name: trailerPart.default("Omni-man"),
     email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
     home: httpsUrl.default("https://www.omni-loop.xyz"),
@@ -2238,12 +2283,12 @@ var ConfigSchema = z9.object({
   flow: FlowSchema.optional(),
   // PRD 1138: the repository's generated outputs (`kit/lib/generated/`). Optional: a config without
   // it has none, and parses with no `generated` key.
-  generated: z9.array(generatedEntry).optional(),
+  generated: z10.array(generatedEntry).optional(),
   // PRD 1679: budgets on what the repository's agents read. `context` measures what a session loads
   // (`omni budget measure context`, `kit/lib/budgets/`) against the ceilings in `file`. Off by
   // default: a repository opts in. Optional: a config without it parses with no `budgets` key, and
   // `contextBudget()` reads it as off. Shaped `budgets.<name>` so a later budget is a key beside it.
-  budgets: z9.object({ context: section({ enabled: z9.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
+  budgets: z10.object({ context: section({ enabled: z10.boolean().default(false), file: text2.default(CONTEXT_BUDGET_FILE) }) }).strict().optional(),
   // PRD 1990: how `omni sync` weighs its checks. `order` decides the headline (the heaviest check
   // first), `levels` the highest colour each check may show (`off` gathers nothing), `mainRedAfter`
   // how old a missing commit of the default branch may be before the main check is red.
@@ -2360,7 +2405,7 @@ import { join as join6, posix } from "node:path";
 import { existsSync as existsSync3, readFileSync as readFileSync3 } from "node:fs";
 import { join as join5 } from "node:path";
 import { parse as parse2 } from "yaml";
-import { z as z10 } from "zod";
+import { z as z11 } from "zod";
 var req = (id) => Object.freeze({ id, required: true });
 var opt = (id) => Object.freeze({ id, required: false });
 var form = (id, kind, slots, { pointerOnly = false } = {}) => Object.freeze({ id, kind, pointerOnly, slots: Object.freeze(slots) });
@@ -2388,15 +2433,15 @@ var OLD_DATE_KEY = "terraformed";
 var OLD_BY = "terraform";
 var DATE = /^\d{4}-\d{2}-\d{2}$/;
 var EVIDENCE = /^(.+)@([0-9a-f]{7,40})$/;
-var FrontMatterSchema = z10.object({
-  form: z10.enum(FORM_IDS),
-  "form-version": z10.number().int().positive(),
-  state: z10.enum(FORM_STATES),
-  "points-to": z10.string().min(1).nullable(),
-  evidence: z10.array(z10.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
-  invaded: z10.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  [OLD_DATE_KEY]: z10.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
-  index: z10.string().min(1).optional()
+var FrontMatterSchema = z11.object({
+  form: z11.enum(FORM_IDS),
+  "form-version": z11.number().int().positive(),
+  state: z11.enum(FORM_STATES),
+  "points-to": z11.string().min(1).nullable(),
+  evidence: z11.array(z11.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
+  invaded: z11.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  [OLD_DATE_KEY]: z11.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  index: z11.string().min(1).optional()
 }).strict().superRefine((fm, context) => {
   if (fm.invaded === void 0 && fm[OLD_DATE_KEY] === void 0) {
     context.addIssue({ code: "custom", path: ["invaded"], message: "missing \u2014 a YYYY-MM-DD date, or null" });
@@ -3094,7 +3139,7 @@ function servedBy(entries, id) {
 
 // kit/lib/outbox/comment.ts
 import { existsSync as existsSync13, readFileSync as readFileSync10, writeFileSync as writeFileSync4 } from "node:fs";
-import { z as z13 } from "zod";
+import { z as z14 } from "zod";
 
 // kit/lib/check-report.ts
 import { execFileSync as execFileSync2 } from "node:child_process";
@@ -3239,7 +3284,7 @@ function parseFrontMatterLines(rawFrontMatter) {
 }
 
 // kit/lib/schema/front-matter.ts
-import { z as z11 } from "zod";
+import { z as z12 } from "zod";
 var SPEC_VALUES = ["file", "issue"];
 var PROOF_VALUES = ["video"];
 var E2E_VALUES = ["validate"];
@@ -3249,17 +3294,17 @@ var BLOCKED_BY_MESSAGE = 'blocked-by must be "none" or a bracketed list of PRD n
 var BLOCKED_BY_LIST = /^\[\s*(\d+\s*(?:,\s*\d+\s*)*)?\]$/;
 var BRACKET_LIST = /^\[([\s\S]*)\]$/;
 var DATE2 = /^\d{4}-\d{2}-\d{2}$/;
-var PrdField = z11.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
-var ItemPrdField = z11.string().transform((raw, refinement) => {
+var PrdField = z12.coerce.number({ message: "prd must be a number" }).int().positive().pipe(PrdNumberSchema);
+var ItemPrdField = z12.string().transform((raw, refinement) => {
   const product = ProductPrdIdSchema.safeParse(raw);
   if (product.success) return product.data;
   const prd = PrdField.safeParse(raw);
   if (prd.success) return prd.data;
   refinement.addIssue({ code: "custom", message: "prd must be a number, or a product PRD like mobile-12" });
-  return z11.NEVER;
+  return z12.NEVER;
 });
-var SliceField = z11.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
-var BlockedBySchema = z11.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
+var SliceField = z12.string().trim().min(1, "slice is required").pipe(WorkSliceIdSchema);
+var BlockedBySchema = z12.string().trim().min(1, "blocked-by is required").transform((raw, ctx) => {
   if (raw === "none") return "none";
   const match2 = raw.match(BLOCKED_BY_LIST);
   if (!match2) {
@@ -3267,25 +3312,25 @@ var BlockedBySchema = z11.string().trim().min(1, "blocked-by is required").trans
       code: "custom",
       message: BLOCKED_BY_MESSAGE
     });
-    return z11.NEVER;
+    return z12.NEVER;
   }
   const inner = (match2[1] ?? "").trim();
   const prds = inner.length === 0 ? [] : inner.split(",").map((token2) => PrdNumberSchema.safeParse(Number(token2.trim())));
   const read2 = prds.flatMap((prd) => prd.success ? [prd.data] : []);
   if (read2.length !== prds.length) {
     ctx.addIssue({ code: "custom", message: BLOCKED_BY_MESSAGE });
-    return z11.NEVER;
+    return z12.NEVER;
   }
   return read2;
 });
-var AreasSchema = z11.string().trim().transform((raw, ctx) => {
+var AreasSchema = z12.string().trim().transform((raw, ctx) => {
   const match2 = raw.match(BRACKET_LIST);
   if (!match2) {
     ctx.addIssue({
       code: "custom",
       message: "areas must be a bracketed list of domain folder names, e.g. [credits]"
     });
-    return z11.NEVER;
+    return z12.NEVER;
   }
   const inner = (match2[1] ?? "").trim();
   return inner.length === 0 ? [] : inner.split(",").map((token2) => token2.trim());
@@ -3300,12 +3345,12 @@ function excusePathProblem(path) {
   }
   return null;
 }
-var ExcusesSchema = z11.string().trim().transform((raw, ctx) => {
+var ExcusesSchema = z12.string().trim().transform((raw, ctx) => {
   const match2 = raw.match(BRACKET_LIST);
   const paths = match2 ? (match2[1] ?? "").split(",").map((token2) => token2.trim()).filter(Boolean) : [];
   if (!match2 || paths.length === 0) {
     ctx.addIssue({ code: "custom", message: "excuses must be a bracketed list of exact paths, e.g. [kit/lib/init/labels.ts]" });
-    return z11.NEVER;
+    return z12.NEVER;
   }
   const problems = paths.flatMap((path, index) => {
     const problem = excusePathProblem(path);
@@ -3314,41 +3359,41 @@ var ExcusesSchema = z11.string().trim().transform((raw, ctx) => {
   });
   if (problems.length > 0) {
     ctx.addIssue({ code: "custom", message: `excuses: ${problems.join("; ")}` });
-    return z11.NEVER;
+    return z12.NEVER;
   }
   return paths;
 }).optional();
-var SpecFrontMatterSchema = z11.object({
+var SpecFrontMatterSchema = z12.object({
   prd: PrdField,
-  title: z11.string().trim().min(1, "title is required"),
+  title: z12.string().trim().min(1, "title is required"),
   "blocked-by": BlockedBySchema,
-  spec: z11.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
+  spec: z12.enum(SPEC_VALUES, { message: `spec must be one of: ${SPEC_VALUES.join(", ")}` }),
   areas: AreasSchema,
   // PRD 798: `proof: video` asks `/omni:yolo` to follow `/omni:prove` once the feature PR is ready.
-  proof: z11.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
+  proof: z12.enum(PROOF_VALUES, { message: `proof must be ${PROOF_VALUES.join(" or ")}, or left out` }).optional(),
   // PRD 1275: `e2e: validate` asks `/omni:yolo` to follow `/omni:validate-e2e` once the feature PR is ready.
-  e2e: z11.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(" or ")}, or left out` }).optional(),
+  e2e: z12.enum(E2E_VALUES, { message: `e2e must be ${E2E_VALUES.join(" or ")}, or left out` }).optional(),
   // PRD 1299: `phase0: server` says the PRD is approved on its PRD page, not by a phase-0 PR.
-  phase0: z11.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
+  phase0: z12.enum(PHASE0_VALUES, { message: `phase0 must be ${PHASE0_VALUES.join(" or ")}, or left out` }).optional()
 }).strict();
-var OutboxItemFrontMatterSchema = z11.object({
-  id: z11.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
+var OutboxItemFrontMatterSchema = z12.object({
+  id: z12.string().trim().min(1, "id is required").pipe(OutboxItemIdSchema),
   prd: ItemPrdField,
   slice: SliceField,
-  rank: z11.enum(RANK_VALUES, {
+  rank: z12.enum(RANK_VALUES, {
     message: `rank must be one of: ${RANK_VALUES.join(", ")}`
   }),
-  "bears-on": z11.string().trim().min(1, "bears-on is required"),
-  raised: z11.string().regex(DATE2, "raised must be a YYYY-MM-DD date"),
-  wave: z11.coerce.number({ message: "wave must be a number" }).int().positive(),
+  "bears-on": z12.string().trim().min(1, "bears-on is required"),
+  raised: z12.string().regex(DATE2, "raised must be a YYYY-MM-DD date"),
+  wave: z12.coerce.number({ message: "wave must be a number" }).int().positive(),
   // PRD 2898: the exact paths whose finding of the ready checks 4 and 5 this item excuses, once a
   // person agreed (or, for check 5, once it was adopted). Left out, the item excuses nothing.
   excuses: ExcusesSchema
 }).strict();
-var AccountFrontMatterSchema = z11.object({
+var AccountFrontMatterSchema = z12.object({
   prd: PrdField,
   slice: SliceField,
-  graded: z11.string().regex(DATE2, "graded must be a YYYY-MM-DD date")
+  graded: z12.string().regex(DATE2, "graded must be a YYYY-MM-DD date")
 }).strict();
 
 // kit/lib/outbox/outbox.ts
@@ -3660,7 +3705,7 @@ function outboxItemFiles({ ctx }) {
 // kit/lib/outbox/settle.ts
 import { existsSync as existsSync9, mkdirSync as mkdirSync3, readFileSync as readFileSync8, rmSync as rmSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { dirname as dirname2, isAbsolute as isAbsolute2, join as join14, relative } from "node:path";
-import { z as z12 } from "zod";
+import { z as z13 } from "zod";
 function parseItem(text20, file) {
   return parseOutboxItem(text20, { file });
 }
@@ -3672,22 +3717,22 @@ var CHANNEL_LABEL = {
   "prd-issue": "PRD issue",
   "feature-pull-request": "feature pull request"
 };
-var AnswerChannelSchema = z12.object({
-  kind: z12.enum(CHANNEL_KINDS, {
+var AnswerChannelSchema = z13.object({
+  kind: z13.enum(CHANNEL_KINDS, {
     message: `channel.kind must be one of: ${CHANNEL_KINDS.join(", ")}`
   }),
-  number: z12.coerce.number({ message: "channel.number must be a number" }).int().positive(),
-  url: z12.string().trim().min(1).optional()
+  number: z13.coerce.number({ message: "channel.number must be a number" }).int().positive(),
+  url: z13.string().trim().min(1).optional()
 }).strict();
-var AnswerSchema = z12.object({
-  text: z12.string().trim().min(1, "the answer text is required"),
-  approvedBy: z12.string().trim().min(1, "approvedBy is required \u2014 who approved it"),
-  approvedAt: z12.string().regex(
+var AnswerSchema = z13.object({
+  text: z13.string().trim().min(1, "the answer text is required"),
+  approvedBy: z13.string().trim().min(1, "approvedBy is required \u2014 who approved it"),
+  approvedAt: z13.string().regex(
     /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?)?$/,
     "approvedAt must be an ISO date or date-time"
   ),
   channel: AnswerChannelSchema,
-  statedVerdict: z12.enum(VERDICTS).optional()
+  statedVerdict: z13.enum(VERDICTS).optional()
 }).strict();
 function answerErrors(error) {
   return error.issues.map((issue) => `${issue.path.join(".") || "(answer)"}: ${issue.message}`);
@@ -5242,9 +5287,9 @@ function countsByRank(items) {
   }
   return counts2;
 }
-var PrCommentResultSchema = z13.object({
-  htmlUrl: z13.string().nullish(),
-  newAdoptedCount: z13.number().optional()
+var PrCommentResultSchema = z14.object({
+  htmlUrl: z14.string().nullish(),
+  newAdoptedCount: z14.number().optional()
 }).loose();
 function upsertOutboxComment({
   prd,
@@ -5322,44 +5367,44 @@ import { basename as basename4, dirname as dirname5, join as join21 } from "node
 // kit/lib/design/words/product.ts
 import { readFileSync as readFileSync13 } from "node:fs";
 import { join as join18 } from "node:path";
-import { z as z16 } from "zod";
+import { z as z17 } from "zod";
 
 // kit/lib/product/knowledge.ts
 import { readFileSync as readFileSync12, writeFileSync as writeFileSync6 } from "node:fs";
 import { join as join17 } from "node:path";
-import { z as z15 } from "zod";
+import { z as z16 } from "zod";
 
 // kit/lib/ask/schema.ts
-import { z as z14 } from "zod";
-var text3 = z14.string().min(1);
-var JsonObjectSchema = z14.record(z14.string(), z14.unknown());
-var ModeFileSchema = z14.object({
+import { z as z15 } from "zod";
+var text3 = z15.string().min(1);
+var JsonObjectSchema = z15.record(z15.string(), z15.unknown());
+var ModeFileSchema = z15.object({
   host: text3,
   sessionId: text3.nullable().catch(null)
 });
-var TerminalFileSchema = z14.object({ sessionId: text3, host: text3 });
+var TerminalFileSchema = z15.object({ sessionId: text3, host: text3 });
 var ROUND_STATUSES = ["open", "answered", "abandoned"];
-var RoundFileSchema = z14.object({
+var RoundFileSchema = z15.object({
   roundId: text3,
-  status: z14.enum(ROUND_STATUSES).catch("open")
+  status: z15.enum(ROUND_STATUSES).catch("open")
 });
-var HeartbeatWindowSchema = z14.object({ sentAt: z14.number() });
-var TokensSchema = z14.looseObject({ access_token: text3 });
-var TokenReplySchema = z14.object({ access_token: text3, refresh_token: text3 });
-var QuestionOptionSchema = z14.strictObject({ label: text3, description: z14.string() });
-var QuestionSchema = z14.strictObject({
+var HeartbeatWindowSchema = z15.object({ sentAt: z15.number() });
+var TokensSchema = z15.looseObject({ access_token: text3 });
+var TokenReplySchema = z15.object({ access_token: text3, refresh_token: text3 });
+var QuestionOptionSchema = z15.strictObject({ label: text3, description: z15.string() });
+var QuestionSchema = z15.strictObject({
   question: text3,
-  header: z14.string(),
-  options: z14.array(QuestionOptionSchema),
-  multiSelect: z14.boolean()
+  header: z15.string(),
+  options: z15.array(QuestionOptionSchema),
+  multiSelect: z15.boolean()
 });
-var QuestionContextSchema = z14.strictObject({
-  skill: z14.string().nullable().optional(),
-  model: z14.string().nullable().optional()
+var QuestionContextSchema = z15.strictObject({
+  skill: z15.string().nullable().optional(),
+  model: z15.string().nullable().optional()
 });
-var QuestionFileSchema = z14.strictObject({
-  questions: z14.array(QuestionSchema).min(1),
-  lead: z14.string().optional(),
+var QuestionFileSchema = z15.strictObject({
+  questions: z15.array(QuestionSchema).min(1),
+  lead: z15.string().optional(),
   context: QuestionContextSchema.optional()
 });
 
@@ -5388,37 +5433,37 @@ var SHOTS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 
 // kit/lib/product/knowledge.ts
 var PRODUCT_KNOWLEDGE_FILE = join17(LOCAL_DIR, "product-knowledge.json");
-var LegalSchema = z15.object({ id: z15.string().min(1), statement: z15.string(), source: z15.string(), owner: z15.string() });
-var TermSchema = z15.object({ term: z15.string().min(1), meaning: z15.string(), avoid: z15.array(z15.string()) }).extend({ domains: z15.array(z15.string()).optional() });
-var DomainSchema = z15.object({ key: z15.string().min(1), name: z15.string(), meaning: z15.string() });
-var PersonaSchema = z15.object({ name: z15.string().min(1), stance: z15.string() });
-var ReplySchema = z15.object({
-  state: z15.string().optional(),
-  product: z15.object({ name: z15.string().min(1) }).nullable().optional(),
-  legal: z15.array(LegalSchema).optional(),
-  glossary: z15.array(TermSchema).optional(),
+var LegalSchema = z16.object({ id: z16.string().min(1), statement: z16.string(), source: z16.string(), owner: z16.string() });
+var TermSchema = z16.object({ term: z16.string().min(1), meaning: z16.string(), avoid: z16.array(z16.string()) }).extend({ domains: z16.array(z16.string()).optional() });
+var DomainSchema = z16.object({ key: z16.string().min(1), name: z16.string(), meaning: z16.string() });
+var PersonaSchema = z16.object({ name: z16.string().min(1), stance: z16.string() });
+var ReplySchema = z16.object({
+  state: z16.string().optional(),
+  product: z16.object({ name: z16.string().min(1) }).nullable().optional(),
+  legal: z16.array(LegalSchema).optional(),
+  glossary: z16.array(TermSchema).optional(),
   // Only the name and stance are kept; a persona the page sends out of shape is left out, never a refusal.
-  personas: z15.array(z15.unknown()).optional(),
+  personas: z16.array(z16.unknown()).optional(),
   // Like a persona, a domain out of shape is left out, never a refusal.
-  domains: z15.array(z15.unknown()).optional(),
+  domains: z16.array(z16.unknown()).optional(),
   // The law home (PRD 2632): a reply out of shape here reads as none, never a refusal.
-  lawHome: z15.unknown().optional()
+  lawHome: z16.unknown().optional()
 });
-var CopySchema = z15.object({
-  product: z15.string(),
-  readAt: z15.iso.datetime(),
-  legal: z15.array(LegalSchema),
-  glossary: z15.array(TermSchema),
+var CopySchema = z16.object({
+  product: z16.string(),
+  readAt: z16.iso.datetime(),
+  legal: z16.array(LegalSchema),
+  glossary: z16.array(TermSchema),
   // A copy from before PRD 2299 has none: it still reads, with no persona.
-  personas: z15.array(PersonaSchema).default([]),
+  personas: z16.array(PersonaSchema).default([]),
   // A copy from before PRD 2583 has none: it still reads, with no domains.
-  domains: z15.array(DomainSchema).optional(),
+  domains: z16.array(DomainSchema).optional(),
   // A copy from before PRD 2632 has none: it reads as no law home.
-  lawHome: z15.string().nullable().optional()
+  lawHome: z16.string().nullable().optional()
 });
 
 // kit/lib/design/words/product.ts
-var CopySchema2 = z16.object({ glossary: z16.array(z16.object({ term: z16.string().min(1), avoid: z16.array(z16.string()) })) });
+var CopySchema2 = z17.object({ glossary: z17.array(z17.object({ term: z17.string().min(1), avoid: z17.array(z17.string()) })) });
 
 // kit/lib/design/words/html.ts
 var VOID = /* @__PURE__ */ new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
@@ -5796,7 +5841,7 @@ function parseSpec(text20, { file = null } = {}) {
 }
 
 // kit/lib/roadmap/parse.ts
-import { z as z17 } from "zod";
+import { z as z18 } from "zod";
 
 // kit/lib/markdown-body.ts
 var SEPARATOR_ROW = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
@@ -5852,21 +5897,21 @@ var PRD_CELL = /^#([1-9]\d*)$/;
 var WAVE_CELL = /^[1-9]\d*$/;
 var NONE_CELL = /^(?:|-|–|—|none)$/i;
 var ID_CELL = /^[^\s,|]+$/;
-var optionalText = z17.string().trim().min(1).optional();
-var ProductFrontMatterSchema = z17.object({
-  roadmap: z17.string().optional(),
-  title: z17.string().trim().min(1),
-  milestone: z17.string().trim().min(1),
+var optionalText = z18.string().trim().min(1).optional();
+var ProductFrontMatterSchema = z18.object({
+  roadmap: z18.string().optional(),
+  title: z18.string().trim().min(1),
+  milestone: z18.string().trim().min(1),
   product: optionalText,
-  target: z17.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  target: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
-var FrontMatterSchema2 = z17.object({
-  roadmap: z17.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
-  title: z17.string().trim().min(1),
-  milestone: z17.string().trim().min(1),
+var FrontMatterSchema2 = z18.object({
+  roadmap: z18.string().regex(/^[1-9]\d*$/, "the roadmap issue's number").transform(Number).pipe(IssueNumberSchema),
+  title: z18.string().trim().min(1),
+  milestone: z18.string().trim().min(1),
   product: optionalText,
-  target: z17.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
+  target: z18.string().regex(/^\d{4}-\d{2}-\d{2}$/, "a YYYY-MM-DD date").optional(),
   source: optionalText
 }).strict();
 function frontMatter(raw, schema) {
@@ -6319,7 +6364,7 @@ function gradeRoadmaps(ctx) {
 }
 
 // kit/lib/voice/voice.ts
-import { z as z18 } from "zod";
+import { z as z19 } from "zod";
 var VOICE_FILE = "voice.json";
 var STAGE = /^(?:design|spec|shipped|rework-[1-9]\d*)$/;
 var STAGES_SAID = "design, spec, rework-<k>, shipped";
@@ -6333,22 +6378,22 @@ var CITATION = /^(?:persona:\S.*|(?:region|offering|size|trade|rival)#[1-9]\d*)$
 var MAX_SENTENCES = 2;
 var TOP_FIELDS = ["rounds"];
 var ROUND_FIELDS = ["stage", "date", "personas", "objection", "fit"];
-var VoicePersonaSchema = z18.looseObject({
-  name: z18.string(),
-  stance: z18.enum(READ_STANCES),
-  score: z18.number(),
-  reaction: z18.string(),
-  citations: z18.array(z18.string())
+var VoicePersonaSchema = z19.looseObject({
+  name: z19.string(),
+  stance: z19.enum(READ_STANCES),
+  score: z19.number(),
+  reaction: z19.string(),
+  citations: z19.array(z19.string())
 });
-var VoiceObjectionSchema = z18.looseObject({ persona: z18.string(), text: z18.string(), citations: z18.array(z18.string()), settled: z18.enum(SETTLED) });
-var VoiceRoundSchema = z18.object({
-  stage: z18.string(),
-  date: z18.string(),
-  personas: z18.array(VoicePersonaSchema),
+var VoiceObjectionSchema = z19.looseObject({ persona: z19.string(), text: z19.string(), citations: z19.array(z19.string()), settled: z19.enum(SETTLED) });
+var VoiceRoundSchema = z19.object({
+  stage: z19.string(),
+  date: z19.string(),
+  personas: z19.array(VoicePersonaSchema),
   objection: VoiceObjectionSchema.nullish(),
-  fit: z18.string().nullish()
+  fit: z19.string().nullish()
 });
-var VoiceSchema = z18.object({ rounds: z18.array(VoiceRoundSchema) });
+var VoiceSchema = z19.object({ rounds: z19.array(VoiceRoundSchema) });
 var isRecord2 = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 var isText = (value) => typeof value === "string" && value.trim().length > 0;
 function countSentences2(text20) {
@@ -7157,12 +7202,12 @@ function section2(markdown, name) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-import { z as z21 } from "zod";
+import { z as z22 } from "zod";
 
 // kit/lib/retro/outcome.ts
-import { z as z19 } from "zod";
-var LessonOutcomeSchema = z19.union([z19.object({ became: z19.string() }).strict(), z19.object({ staysHere: z19.string() }).strict()]);
-var LessonOutcomesSchema = z19.record(z19.string(), LessonOutcomeSchema);
+import { z as z20 } from "zod";
+var LessonOutcomeSchema = z20.union([z20.object({ became: z20.string() }).strict(), z20.object({ staysHere: z20.string() }).strict()]);
+var LessonOutcomesSchema = z20.record(z20.string(), LessonOutcomeSchema);
 function outcomeLine(outcome3) {
   if ("became" in outcome3) return `- **Became:** \`${outcome3.became}\``;
   return `- **Stays here:** ${outcome3.staysHere.trim().split(/\s+/).join(" ")}`;
@@ -7172,7 +7217,7 @@ function outcomeLine(outcome3) {
 var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
 
 // apps/omni-app/src/retro/narrate.ts
-import { z as z20 } from "zod";
+import { z as z21 } from "zod";
 
 // apps/omni-app/src/retro/rules.ts
 var RULES_VERSION = 1;
@@ -7389,18 +7434,18 @@ function rulesSheet() {
 }
 
 // apps/omni-app/src/retro/narrate.ts
-var ReplyFindingSchema = z20.object({
-  title: z20.string().exactOptional(),
-  whyItMatters: z20.string().exactOptional(),
-  lesson: z20.string().exactOptional(),
-  keep: z20.boolean().exactOptional(),
-  why: z20.string().exactOptional()
+var ReplyFindingSchema = z21.object({
+  title: z21.string().exactOptional(),
+  whyItMatters: z21.string().exactOptional(),
+  lesson: z21.string().exactOptional(),
+  keep: z21.boolean().exactOptional(),
+  why: z21.string().exactOptional()
 });
-var ModelReplySchema = z20.object({
-  summary: z20.string(),
-  findings: z20.record(z20.string(), ReplyFindingSchema),
-  lessons: z20.array(z20.object({ text: z20.string(), findings: z20.array(z20.string()) })),
-  verdict: z20.object({ worthIt: z20.boolean(), reason: z20.string() }).nullable()
+var ModelReplySchema = z21.object({
+  summary: z21.string(),
+  findings: z21.record(z21.string(), ReplyFindingSchema),
+  lessons: z21.array(z21.object({ text: z21.string(), findings: z21.array(z21.string()) })),
+  verdict: z21.object({ worthIt: z21.boolean(), reason: z21.string() }).nullable()
 });
 var NO_MODEL_KEY = "no model key";
 var REPLY_INVALID = "model reply invalid";
@@ -7601,171 +7646,171 @@ function isObject(value) {
 }
 
 // apps/omni-app/src/retro/retro.schema.ts
-var text4 = z21.string();
-var maybeText = z21.string().nullable();
-var RunSchema = z21.enum(["merge", "day-14"]);
+var text4 = z22.string();
+var maybeText = z22.string().nullable();
+var RunSchema = z22.enum(["merge", "day-14"]);
 var pullFields = {
   number: PrNumberSchema,
   title: text4,
   url: maybeText,
-  merged: z21.boolean(),
+  merged: z22.boolean(),
   baseRef: text4,
   headRef: text4,
   headSha: text4,
   openedAt: maybeText,
   mergedAt: maybeText,
   mergeSha: maybeText,
-  labels: z21.array(text4)
+  labels: z22.array(text4)
 };
-var PullSchema3 = z21.object(pullFields);
-var FeaturePullSchema = z21.object({ ...pullFields, mergeSha: text4 });
-var PullIntoSchema = z21.object({
+var PullSchema3 = z22.object(pullFields);
+var FeaturePullSchema = z22.object({ ...pullFields, mergeSha: text4 });
+var PullIntoSchema = z22.object({
   number: PrNumberSchema,
   title: text4,
   url: maybeText,
   state: text4,
-  draft: z21.boolean(),
+  draft: z22.boolean(),
   headRef: text4,
   headSha: text4,
   openedAt: text4,
   closedAt: maybeText,
   mergedAt: maybeText,
-  labels: z21.array(text4)
+  labels: z22.array(text4)
 });
-var PrdFactsSchema = z21.object({
+var PrdFactsSchema = z22.object({
   number: PrdNumberSchema,
   topic: text4,
   title: text4,
   problem: text4,
-  state: z21.enum(["shipped", "inbox"]),
+  state: z22.enum(["shipped", "inbox"]),
   folder: text4,
   plan: maybeText,
   settled: maybeText
 });
-var QualifiedSchema = z21.union([
-  z21.object({ skip: z21.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
-  z21.object({ skip: text4, pr: PullSchema3.exactOptional() })
+var QualifiedSchema = z22.union([
+  z22.object({ skip: z22.null(), pr: FeaturePullSchema, prd: PrdFactsSchema, config: ConfigSchema }),
+  z22.object({ skip: text4, pr: PullSchema3.exactOptional() })
 ]);
-var PullsIntoSchema = z21.array(PullIntoSchema);
-var EvidenceSchema = z21.object({ label: text4, url: maybeText, excerpt: text4.exactOptional() });
-var FindingSchema = z21.object({ id: text4, kind: text4, title: text4, happened: text4, evidence: z21.array(EvidenceSchema) });
-var SheetFindingSchema = z21.object({ ...FindingSchema.shape, source: text4, ref: text4, repo: text4.exactOptional() });
-var TargetReadSchema = z21.discriminatedUnion("read", [
-  z21.object({
+var PullsIntoSchema = z22.array(PullIntoSchema);
+var EvidenceSchema = z22.object({ label: text4, url: maybeText, excerpt: text4.exactOptional() });
+var FindingSchema = z22.object({ id: text4, kind: text4, title: text4, happened: text4, evidence: z22.array(EvidenceSchema) });
+var SheetFindingSchema = z22.object({ ...FindingSchema.shape, source: text4, ref: text4, repo: text4.exactOptional() });
+var TargetReadSchema = z22.discriminatedUnion("read", [
+  z22.object({
     name: text4,
     repo: text4,
-    read: z21.literal(true),
-    installationId: z21.number(),
-    featurePrs: z21.array(FeaturePullSchema).min(1),
-    pulls: z21.array(PullIntoSchema)
+    read: z22.literal(true),
+    installationId: z22.number(),
+    featurePrs: z22.array(FeaturePullSchema).min(1),
+    pulls: z22.array(PullIntoSchema)
   }),
-  z21.object({ name: text4, repo: text4, read: z21.literal(false), reason: text4 })
+  z22.object({ name: text4, repo: text4, read: z22.literal(false), reason: text4 })
 ]);
-var RepositoryFactsSchema = z21.object({
+var RepositoryFactsSchema = z22.object({
   repo: text4,
   name: text4,
-  plan: z21.boolean(),
-  read: z21.boolean(),
+  plan: z22.boolean(),
+  read: z22.boolean(),
   reason: text4.exactOptional(),
-  featurePrs: z21.array(z21.object({ number: PrNumberSchema, url: maybeText })),
-  kinds: z21.record(z21.string(), z21.unknown()).exactOptional()
+  featurePrs: z22.array(z22.object({ number: PrNumberSchema, url: maybeText })),
+  kinds: z22.record(z22.string(), z22.unknown()).exactOptional()
 });
-var RulesSheetSchema = z21.object({
-  version: z21.number(),
-  findingOrder: z21.array(z21.array(text4)),
-  issuesPerRun: z21.number(),
-  thresholds: z21.object({
-    slowSliceFactor: z21.number(),
-    repeatedRedCommits: z21.number(),
-    repeatedRedSlices: z21.number(),
-    failingTestRuns: z21.number(),
-    churnRangeCommits: z21.number(),
-    churnFilePercent: z21.number(),
-    churnFileLines: z21.number(),
-    afterMergeDays: z21.number()
+var RulesSheetSchema = z22.object({
+  version: z22.number(),
+  findingOrder: z22.array(z22.array(text4)),
+  issuesPerRun: z22.number(),
+  thresholds: z22.object({
+    slowSliceFactor: z22.number(),
+    repeatedRedCommits: z22.number(),
+    repeatedRedSlices: z22.number(),
+    failingTestRuns: z22.number(),
+    churnRangeCommits: z22.number(),
+    churnFilePercent: z22.number(),
+    churnFileLines: z22.number(),
+    afterMergeDays: z22.number()
   }),
-  limits: z21.object({ logTailLines: z21.number(), modelInputTokens: z21.number() }),
-  fieldCaps: z21.object({
-    summary: z21.number(),
-    title: z21.number(),
-    whyItMatters: z21.number(),
-    lesson: z21.number(),
-    reason: z21.number(),
-    why: z21.number()
+  limits: z22.object({ logTailLines: z22.number(), modelInputTokens: z22.number() }),
+  fieldCaps: z22.object({
+    summary: z22.number(),
+    title: z22.number(),
+    whyItMatters: z22.number(),
+    lesson: z22.number(),
+    reason: z22.number(),
+    why: z22.number()
   })
 });
 var factSheetFields = {
   run: RunSchema,
   rules: RulesSheetSchema,
-  prd: z21.object({ number: PrdNumberSchema, title: text4, topic: text4, state: text4, folder: text4 }),
-  featurePr: z21.object({ number: PrNumberSchema, title: text4, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text4 }),
+  prd: z22.object({ number: PrdNumberSchema, title: text4, topic: text4, state: text4, folder: text4 }),
+  featurePr: z22.object({ number: PrNumberSchema, title: text4, url: maybeText, openedAt: maybeText, mergedAt: maybeText, mergeSha: text4 }),
   /** Each kind's facts, by its id; a reader parses the facts it reads with that kind's schema. */
-  kinds: z21.record(z21.string(), z21.unknown()),
-  findings: z21.array(SheetFindingSchema),
+  kinds: z22.record(z22.string(), z22.unknown()),
+  findings: z22.array(SheetFindingSchema),
   /** Every repository of a multi-repository PRD (PRD 1130); absent for a PRD of one repository. */
-  repositories: z21.array(RepositoryFactsSchema).exactOptional()
+  repositories: z22.array(RepositoryFactsSchema).exactOptional()
 };
-var FactSheetSchema = z21.object(factSheetFields);
-var DroppedSchema = z21.object({ dropped: text4 });
-var ProseFieldSchema = z21.union([text4, DroppedSchema]);
-var ProseFindingSchema = z21.object({
+var FactSheetSchema = z22.object(factSheetFields);
+var DroppedSchema = z22.object({ dropped: text4 });
+var ProseFieldSchema = z22.union([text4, DroppedSchema]);
+var ProseFindingSchema = z22.object({
   title: ProseFieldSchema.exactOptional(),
   whyItMatters: ProseFieldSchema.exactOptional(),
   lesson: ProseFieldSchema.exactOptional(),
-  keep: z21.boolean().exactOptional(),
+  keep: z22.boolean().exactOptional(),
   why: text4.exactOptional()
 });
-var LessonSchema = z21.object({ text: text4, findings: z21.array(text4) });
-var VerdictSchema = z21.union([z21.object({ worthIt: z21.boolean(), reason: text4 }), DroppedSchema]);
-var ProseSchema = z21.object({
+var LessonSchema = z22.object({ text: text4, findings: z22.array(text4) });
+var VerdictSchema = z22.union([z22.object({ worthIt: z22.boolean(), reason: text4 }), DroppedSchema]);
+var ProseSchema = z22.object({
   summary: ProseFieldSchema.exactOptional(),
-  findings: z21.record(z21.string(), ProseFindingSchema),
-  lessons: z21.array(LessonSchema),
+  findings: z22.record(z22.string(), ProseFindingSchema),
+  lessons: z22.array(LessonSchema),
   verdict: VerdictSchema.optional()
 });
-var DroppedFieldSchema = z21.object({ field: text4, reason: text4 });
-var GuardedSchema = z21.object({ prose: ProseSchema.nullable(), dropped: z21.array(DroppedFieldSchema) });
-var NarratedSchema = z21.object({ model: maybeText, reply: ModelReplySchema.nullable(), reason: maybeText });
-var NarrationSchema = z21.object({ model: maybeText, reason: maybeText, dropped: z21.array(DroppedFieldSchema) });
-var IssueLinkSchema = z21.object({ number: IssueNumberSchema, url: text4, state: z21.enum(["open", "closed"]) });
-var IssueLinksSchema = z21.record(z21.string(), IssueLinkSchema);
-var RunRecordSchema = z21.object({
+var DroppedFieldSchema = z22.object({ field: text4, reason: text4 });
+var GuardedSchema = z22.object({ prose: ProseSchema.nullable(), dropped: z22.array(DroppedFieldSchema) });
+var NarratedSchema = z22.object({ model: maybeText, reply: ModelReplySchema.nullable(), reason: maybeText });
+var NarrationSchema = z22.object({ model: maybeText, reason: maybeText, dropped: z22.array(DroppedFieldSchema) });
+var IssueLinkSchema = z22.object({ number: IssueNumberSchema, url: text4, state: z22.enum(["open", "closed"]) });
+var IssueLinksSchema = z22.record(z22.string(), IssueLinkSchema);
+var RunRecordSchema = z22.object({
   ...factSheetFields,
   narration: NarrationSchema.exactOptional(),
   verdict: VerdictSchema.nullable().exactOptional(),
-  lessons: z21.array(LessonSchema).exactOptional(),
+  lessons: z22.array(LessonSchema).exactOptional(),
   issues: IssueLinksSchema.exactOptional(),
   outcomes: LessonOutcomesSchema.exactOptional()
 });
-var KnownSchema = z21.object({
-  knowledge: z21.object({
-    principles: z21.array(z21.unknown()),
-    laws: z21.array(z21.unknown()),
-    decisions: z21.array(z21.unknown()),
-    playbook: z21.array(z21.object({ id: text4, line: text4 })).exactOptional()
+var KnownSchema = z22.object({
+  knowledge: z22.object({
+    principles: z22.array(z22.unknown()),
+    laws: z22.array(z22.unknown()),
+    decisions: z22.array(z22.unknown()),
+    playbook: z22.array(z22.object({ id: text4, line: text4 })).exactOptional()
   }),
-  lessons: z21.array(text4)
+  lessons: z22.array(text4)
 });
-var PublishedSchema = z21.object({
+var PublishedSchema = z22.object({
   branch: text4,
-  committed: z21.boolean(),
+  committed: z22.boolean(),
   commit: text4,
-  pr: z21.object({ number: PrNumberSchema, url: text4, created: z21.boolean() }).nullable(),
+  pr: z22.object({ number: PrNumberSchema, url: text4, created: z22.boolean() }).nullable(),
   apply: text4.nullable().exactOptional()
 });
-var QueuedSchema = z21.object({ job: text4.nullable(), created: z21.boolean(), reason: maybeText });
-var CommentedSchema = z21.object({ commentId: CommentIdSchema, created: z21.boolean() });
-var PublishedBeforeSchema = z21.object({
-  pr: z21.object({ branch: text4, commit: text4, number: PrNumberSchema, url: text4 }).nullable(),
-  comment: z21.object({ commentId: CommentIdSchema }).nullable()
+var QueuedSchema = z22.object({ job: text4.nullable(), created: z22.boolean(), reason: maybeText });
+var CommentedSchema = z22.object({ commentId: CommentIdSchema, created: z22.boolean() });
+var PublishedBeforeSchema = z22.object({
+  pr: z22.object({ branch: text4, commit: text4, number: PrNumberSchema, url: text4 }).nullable(),
+  comment: z22.object({ commentId: CommentIdSchema }).nullable()
 });
 
 // apps/omni-app/src/saved-parts.ts
 import { createHash } from "node:crypto";
-import { z as z22 } from "zod";
+import { z as z23 } from "zod";
 var PART_BYTES = 524288;
 var PARTS = "omni:parts";
-var HeadSchema = z22.strictObject({ [PARTS]: z22.strictObject({ hash: z22.string().min(1), count: z22.number().int().positive() }) });
+var HeadSchema = z23.strictObject({ [PARTS]: z23.strictObject({ hash: z23.string().min(1), count: z23.number().int().positive() }) });
 async function savedStepInParts(step, id, schema, fn, budget = PART_BYTES) {
   const saved = await step.run(id, async () => {
     const text20 = JSON.stringify(asSaved(await fn()));
@@ -8200,24 +8245,24 @@ async function gatherTarget({ step, octokitFor, kinds, scope }, target2) {
 }
 
 // apps/omni-app/src/main-watch/main-watch.schema.ts
-import { z as z23 } from "zod";
-var text5 = z23.string().min(1);
-var BreakSchema = z23.object({
-  kind: z23.enum(["ci-red", "revert", "regression"]),
+import { z as z24 } from "zod";
+var text5 = z24.string().min(1);
+var BreakSchema = z24.object({
+  kind: z24.enum(["ci-red", "revert", "regression"]),
   source: text5,
   url: text5,
   title: text5,
-  parent: z23.enum(["green", "red", "unknown"]).nullable(),
+  parent: z24.enum(["green", "red", "unknown"]).nullable(),
   at: text5
 });
-var ReadSchema = z23.object({ breaks: z23.array(BreakSchema), unread: z23.array(z23.enum(["ci", "reverts", "regressions"])) });
-var OpenedSchema = z23.object({ workspace: text5.nullable(), reason: text5.nullable(), opened: z23.number().int().min(0) });
-var RecordedSchema = z23.object({ added: z23.number().int().min(0) });
-var ClosedSchema = z23.object({ closed: z23.boolean() });
-var ProgressSchema = z23.object({ turn: z23.number().int().min(0), done: z23.array(text5), broke: z23.array(text5) });
+var ReadSchema = z24.object({ breaks: z24.array(BreakSchema), unread: z24.array(z24.enum(["ci", "reverts", "regressions"])) });
+var OpenedSchema = z24.object({ workspace: text5.nullable(), reason: text5.nullable(), opened: z24.number().int().min(0) });
+var RecordedSchema = z24.object({ added: z24.number().int().min(0) });
+var ClosedSchema = z24.object({ closed: z24.boolean() });
+var ProgressSchema = z24.object({ turn: z24.number().int().min(0), done: z24.array(text5), broke: z24.array(text5) });
 
 // apps/omni-app/src/main-watch/signals.ts
-import { z as z25 } from "zod";
+import { z as z26 } from "zod";
 
 // apps/omni-app/src/retro/kinds/churn-lines.ts
 var HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
@@ -8309,100 +8354,100 @@ function unique(values) {
 }
 
 // apps/omni-app/src/retro/kinds/schema.ts
-import { z as z24 } from "zod";
-var IssueEventSchema = z24.looseObject({
-  event: z24.string(),
-  created_at: z24.string(),
-  label: z24.looseObject({ name: z24.string().nullish() }).nullish()
+import { z as z25 } from "zod";
+var IssueEventSchema = z25.looseObject({
+  event: z25.string(),
+  created_at: z25.string(),
+  label: z25.looseObject({ name: z25.string().nullish() }).nullish()
 });
-var WorkflowRunSchema = z24.looseObject({
-  id: z24.number(),
-  name: z24.string().nullish(),
-  head_sha: z24.string().nullish()
+var WorkflowRunSchema = z25.looseObject({
+  id: z25.number(),
+  name: z25.string().nullish(),
+  head_sha: z25.string().nullish()
 });
-var WorkflowRunsPageSchema = z24.looseObject({ workflow_runs: z24.array(WorkflowRunSchema).nullish() });
-var JobSchema = z24.looseObject({
-  id: z24.number(),
-  run_id: z24.number().nullish(),
-  workflow_name: z24.string().nullish(),
-  name: z24.string(),
-  head_sha: z24.string().nullish(),
-  run_attempt: z24.number().nullish(),
-  status: z24.string().nullish(),
-  conclusion: z24.string().nullish(),
-  html_url: z24.string().nullish(),
-  completed_at: z24.string().nullish()
+var WorkflowRunsPageSchema = z25.looseObject({ workflow_runs: z25.array(WorkflowRunSchema).nullish() });
+var JobSchema = z25.looseObject({
+  id: z25.number(),
+  run_id: z25.number().nullish(),
+  workflow_name: z25.string().nullish(),
+  name: z25.string(),
+  head_sha: z25.string().nullish(),
+  run_attempt: z25.number().nullish(),
+  status: z25.string().nullish(),
+  conclusion: z25.string().nullish(),
+  html_url: z25.string().nullish(),
+  completed_at: z25.string().nullish()
 });
-var JobsPageSchema = z24.looseObject({ jobs: z24.array(JobSchema).nullish() });
-var IssueSchema2 = z24.looseObject({
+var JobsPageSchema = z25.looseObject({ jobs: z25.array(JobSchema).nullish() });
+var IssueSchema2 = z25.looseObject({
   number: IssueNumberSchema,
-  title: z24.string().nullish(),
-  body: z24.string().nullish(),
-  html_url: z24.string(),
-  created_at: z24.string(),
-  closed_at: z24.string().nullish(),
-  pull_request: z24.unknown().optional()
+  title: z25.string().nullish(),
+  body: z25.string().nullish(),
+  html_url: z25.string(),
+  created_at: z25.string(),
+  closed_at: z25.string().nullish(),
+  pull_request: z25.unknown().optional()
 });
-var ClosedPullSchema = z24.looseObject({
+var ClosedPullSchema = z25.looseObject({
   number: PrNumberSchema,
-  title: z24.string().nullish(),
-  body: z24.string().nullish(),
-  html_url: z24.string(),
-  merged_at: z24.string().nullish(),
-  updated_at: z24.string().nullish(),
-  closed_at: z24.string().nullish()
+  title: z25.string().nullish(),
+  body: z25.string().nullish(),
+  html_url: z25.string(),
+  merged_at: z25.string().nullish(),
+  updated_at: z25.string().nullish(),
+  closed_at: z25.string().nullish()
 });
-var ChangedFileSchema = z24.looseObject({
-  filename: z24.string(),
-  previous_filename: z24.string().nullish(),
-  status: z24.string().nullish(),
-  additions: z24.number().nullish(),
-  deletions: z24.number().nullish(),
-  patch: z24.string().nullish()
+var ChangedFileSchema = z25.looseObject({
+  filename: z25.string(),
+  previous_filename: z25.string().nullish(),
+  status: z25.string().nullish(),
+  additions: z25.number().nullish(),
+  deletions: z25.number().nullish(),
+  patch: z25.string().nullish()
 });
-var PullCommitSchema = z24.looseObject({
-  sha: z24.string(),
-  parents: z24.array(z24.unknown()).nullish()
+var PullCommitSchema = z25.looseObject({
+  sha: z25.string(),
+  parents: z25.array(z25.unknown()).nullish()
 });
-var CommitPageSchema = z24.looseObject({
-  html_url: z24.string().nullish(),
-  files: z24.array(ChangedFileSchema).nullish()
+var CommitPageSchema = z25.looseObject({
+  html_url: z25.string().nullish(),
+  files: z25.array(ChangedFileSchema).nullish()
 });
-var IssueCommentSchema = z24.looseObject({
-  body: z24.string().nullish(),
-  html_url: z24.string().nullish(),
-  created_at: z24.string().nullish()
+var IssueCommentSchema = z25.looseObject({
+  body: z25.string().nullish(),
+  html_url: z25.string().nullish(),
+  created_at: z25.string().nullish()
 });
-var UserSchema = z24.looseObject({ login: z24.string().nullish(), type: z24.string().nullish() });
-var ReviewSchema = z24.looseObject({
-  html_url: z24.string().nullish(),
+var UserSchema = z25.looseObject({ login: z25.string().nullish(), type: z25.string().nullish() });
+var ReviewSchema = z25.looseObject({
+  html_url: z25.string().nullish(),
   user: UserSchema.nullish(),
-  state: z24.string().nullish(),
-  body: z24.string().nullish()
+  state: z25.string().nullish(),
+  body: z25.string().nullish()
 });
-var ThreadCommentSchema = z24.looseObject({
-  url: z24.string().nullish(),
-  body: z24.string().nullish(),
-  author: z24.looseObject({ login: z24.string().nullish(), __typename: z24.string().nullish() }).nullish()
+var ThreadCommentSchema = z25.looseObject({
+  url: z25.string().nullish(),
+  body: z25.string().nullish(),
+  author: z25.looseObject({ login: z25.string().nullish(), __typename: z25.string().nullish() }).nullish()
 });
-var ReviewThreadSchema = z24.looseObject({
-  isResolved: z24.boolean().nullish(),
-  isOutdated: z24.boolean().nullish(),
-  path: z24.string().nullish(),
-  comments: z24.looseObject({ nodes: z24.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
+var ReviewThreadSchema = z25.looseObject({
+  isResolved: z25.boolean().nullish(),
+  isOutdated: z25.boolean().nullish(),
+  path: z25.string().nullish(),
+  comments: z25.looseObject({ nodes: z25.array(ThreadCommentSchema.nullable()).nullish() }).nullish()
 });
-var ReviewThreadsAnswerSchema = z24.looseObject({
-  data: z24.looseObject({
-    repository: z24.looseObject({
-      pullRequest: z24.looseObject({
-        reviewThreads: z24.looseObject({
-          pageInfo: z24.looseObject({ hasNextPage: z24.boolean().nullish(), endCursor: z24.string().nullish() }).nullish(),
-          nodes: z24.array(ReviewThreadSchema).nullish()
+var ReviewThreadsAnswerSchema = z25.looseObject({
+  data: z25.looseObject({
+    repository: z25.looseObject({
+      pullRequest: z25.looseObject({
+        reviewThreads: z25.looseObject({
+          pageInfo: z25.looseObject({ hasNextPage: z25.boolean().nullish(), endCursor: z25.string().nullish() }).nullish(),
+          nodes: z25.array(ReviewThreadSchema).nullish()
         }).nullish()
       }).nullish()
     }).nullish()
   }).nullish(),
-  errors: z24.array(z24.looseObject({ type: z24.string().nullish(), message: z24.string().nullish() })).nullish()
+  errors: z25.array(z25.looseObject({ type: z25.string().nullish(), message: z25.string().nullish() })).nullish()
 }).nullish();
 
 // apps/omni-app/src/retro/kinds/after-merge.reads.ts
@@ -8453,36 +8498,36 @@ var COMMENTS = "GET /repos/{owner}/{repo}/issues/{issue_number}/comments";
 var GREEN = /* @__PURE__ */ new Set(["success"]);
 var RED = /* @__PURE__ */ new Set(["failure", "timed_out", "startup_failure"]);
 var TRIAGE_MARKER = "<!-- omni-bug:triage -->";
-var RunSchema2 = z25.looseObject({
-  id: z25.number(),
-  name: z25.string().nullish(),
-  html_url: z25.string().nullish(),
-  created_at: z25.string().nullish(),
-  updated_at: z25.string().nullish()
+var RunSchema2 = z26.looseObject({
+  id: z26.number(),
+  name: z26.string().nullish(),
+  html_url: z26.string().nullish(),
+  created_at: z26.string().nullish(),
+  updated_at: z26.string().nullish()
 });
-var RunsPageSchema = z25.looseObject({ workflow_runs: z25.array(RunSchema2).nullish() });
-var ParentsSchema = z25.looseObject({ parents: z25.array(z25.looseObject({ sha: z25.string() })).nullish() });
-var CommitSchema = z25.looseObject({
-  sha: z25.string(),
-  html_url: z25.string(),
-  commit: z25.looseObject({
-    message: z25.string(),
-    committer: z25.looseObject({ date: z25.string().nullish() }).nullish(),
-    author: z25.looseObject({ date: z25.string().nullish() }).nullish()
+var RunsPageSchema = z26.looseObject({ workflow_runs: z26.array(RunSchema2).nullish() });
+var ParentsSchema = z26.looseObject({ parents: z26.array(z26.looseObject({ sha: z26.string() })).nullish() });
+var CommitSchema = z26.looseObject({
+  sha: z26.string(),
+  html_url: z26.string(),
+  commit: z26.looseObject({
+    message: z26.string(),
+    committer: z26.looseObject({ date: z26.string().nullish() }).nullish(),
+    author: z26.looseObject({ date: z26.string().nullish() }).nullish()
   })
 });
-var LabelSchema = z25.union([z25.string(), z25.looseObject({ name: z25.string() })]);
-var IssueSchema3 = z25.looseObject({
-  number: z25.number(),
-  title: z25.string().nullish(),
-  body: z25.string().nullish(),
-  html_url: z25.string(),
-  created_at: z25.string(),
-  pull_request: z25.unknown().optional(),
-  user: z25.looseObject({ type: z25.string().nullish() }).nullish(),
-  labels: z25.array(LabelSchema).nullish()
+var LabelSchema = z26.union([z26.string(), z26.looseObject({ name: z26.string() })]);
+var IssueSchema3 = z26.looseObject({
+  number: z26.number(),
+  title: z26.string().nullish(),
+  body: z26.string().nullish(),
+  html_url: z26.string(),
+  created_at: z26.string(),
+  pull_request: z26.unknown().optional(),
+  user: z26.looseObject({ type: z26.string().nullish() }).nullish(),
+  labels: z26.array(LabelSchema).nullish()
 });
-var CommentSchema = z25.looseObject({ body: z25.string().nullish() });
+var CommentSchema = z26.looseObject({ body: z26.string().nullish() });
 async function readSignals(octokit, lane2, scope) {
   const unread2 = [];
   const breaks = [...await ciBreaks(octokit, lane2, unread2), ...await revertBreaks(octokit, lane2, unread2), ...await regressionBreaks(octokit, lane2, scope, unread2)];
@@ -8551,7 +8596,7 @@ async function revertBreaks(octokit, lane2, unread2) {
   const { owner, repo, base, mergedAt, watchUntil } = lane2;
   const commits = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z25.array(CommitSchema), data, COMMITS))
+      (page) => octokit.request(COMMITS, { owner, repo, sha: base, since: mergedAt, until: watchUntil, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z26.array(CommitSchema), data, COMMITS))
     )
   );
   if (commits.status !== null) {
@@ -8591,7 +8636,7 @@ async function regressionBreaks(octokit, lane2, scope, unread2) {
   const { owner, repo, mergedAt, watchUntil } = lane2;
   const issues = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(ISSUES, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z25.array(IssueSchema3), data, ISSUES))
+      (page) => octokit.request(ISSUES, { owner, repo, state: "all", since: mergedAt, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z26.array(IssueSchema3), data, ISSUES))
     )
   );
   if (issues.status !== null) {
@@ -8633,7 +8678,7 @@ function labelled(issue, label2) {
 async function triageOf(octokit, { owner, repo }, issue) {
   const comments = await readOrRefused(
     () => paginate(
-      (page) => octokit.request(COMMENTS, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z25.array(CommentSchema), data, COMMENTS))
+      (page) => octokit.request(COMMENTS, { owner, repo, issue_number: issue.number, per_page: PER_PAGE, page }).then(({ data }) => parseGitHub(z26.array(CommentSchema), data, COMMENTS))
     )
   );
   if (comments.status !== null) return void 0;
@@ -8671,13 +8716,13 @@ var WATCH_DAYS = 7;
 var REWIND_STEP = "queue-rewind";
 var MAX_LOOKS = 18;
 var MAX_TRIES = 4;
-var MainWatchPayloadSchema = z26.looseObject({
-  installationId: z26.number(),
-  owner: z26.string().min(1),
-  repo: z26.string().min(1),
+var MainWatchPayloadSchema = z27.looseObject({
+  installationId: z27.number(),
+  owner: z27.string().min(1),
+  repo: z27.string().min(1),
   prNumber: PrNumberSchema,
-  mergeSha: z26.string().min(1),
-  mergedAt: z26.string().nullish()
+  mergeSha: z27.string().min(1),
+  mergedAt: z27.string().nullish()
 });
 function mainWatchJob({ installationId, owner, repo, prNumber, mergeSha, mergedAt }) {
   const subject = `${owner}/${repo}`.toLowerCase();
@@ -8813,22 +8858,6 @@ import { z as z29 } from "zod";
 
 // apps/omni-app/src/retro/runner-queue.ts
 import { z as z28 } from "zod";
-
-// apps/omni-app/src/server-event/service-db.ts
-import { createClient } from "@supabase/supabase-js";
-import { z as z27 } from "zod";
-function serviceDb({ url, key, fetch: fetch2 }) {
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    ...fetch2 ? { global: { fetch: fetch2 } } : {}
-  });
-}
-function rowsOf(schema, answer) {
-  if (answer.error) throw new Error(`the database refused: ${answer.error.message}${answer.error.code ? ` (${answer.error.code})` : ""}`);
-  return z27.array(schema).parse(answer.data ?? []);
-}
-
-// apps/omni-app/src/retro/runner-queue.ts
 var APP_SENDER = "omni-app";
 var IdRowSchema = z28.object({ id: z28.string().min(1) });
 var RemovedRowSchema = z28.object({ removed_at: z28.string().nullable() });
@@ -8925,6 +8954,8 @@ var SCHEDULES = Object.freeze([
   { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 },
   { kind: "commander-notebook", periodMinutes: 1440, maxTries: 3 }
 ]);
+var SUPERVISOR_WATCH = Object.freeze({ kind: "supervisor-watch", periodMinutes: 2, maxTries: 2 });
+var LANED_SCHEDULES = Object.freeze([SUPERVISOR_WATCH]);
 
 // apps/omni-app/src/jobs/ledger.ts
 var REFRESH_DELAY_SECONDS = 5;
@@ -9201,13 +9232,34 @@ async function loggedRun(logger, event, run, outcomeOf2) {
   write(logger, { event, outcome: outcome3, ms: elapsed(), ...fields });
   return value;
 }
-function loggedHandler(logger, event, handler) {
+function routeOf(request, event) {
+  try {
+    return new URL(request.url).pathname;
+  } catch {
+    return event;
+  }
+}
+async function said(response) {
+  try {
+    return (await response.clone().text()).slice(0, 2e3);
+  } catch {
+    return "";
+  }
+}
+function loggedHandler(logger, event, handler, errors = installedAppErrors) {
   return (request) => loggedRun(
     logger,
     event,
     async (note) => {
-      const response = await handler(request, note);
+      let response;
+      try {
+        response = await handler(request, note);
+      } catch (error) {
+        await recordAppError({ route: routeOf(request, event), status: 500, message: error instanceof Error ? error.message : String(error) }, errors());
+        throw error;
+      }
       note({ status: response.status });
+      if (response.status >= 500) await recordAppError({ route: routeOf(request, event), status: response.status, message: await said(response) }, errors());
       return response;
     },
     (response) => outcomeOfStatus(response.status)
@@ -9430,6 +9482,7 @@ var CanonActionRequestDataSchema = SourceSchema.extend({
   facts: CanonFactsSchema
 });
 var MissionJobDataSchema = z35.object({ mission: z35.uuid() });
+var SupervisorWatchDataSchema = z35.object({ slot: z35.string().min(1), lane: z35.uuid() });
 
 // apps/omni-app/src/approved-check/github.ts
 import { mkdtempSync as mkdtempSync5, rmSync as rmSync6 } from "node:fs";
@@ -12275,12 +12328,12 @@ function createCanon({ readBusiness, readConstituents = () => Promise.resolve(nu
       if (verdict.gate) return verdict.gate;
       if (constituents.length === 0) return judged2({ claims, constituents, legal, ...verdict, judge: null });
       const state = judgeState({ spec, constituents, findings: verdict.findings });
-      const said4 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
-      if (!said4.ok) {
-        return neutral(said4.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said4.reason})` : `judge error: ${said4.reason}`);
+      const said5 = await judge5({ repo, state, old: state.verdict.broken ? "true" : "false", ref });
+      if (!said5.ok) {
+        return neutral(said5.error === JUDGE_NOT_CONFIGURED ? `judge not configured (${said5.reason})` : `judge error: ${said5.reason}`);
       }
-      const findings = counted2(verdict.findings, said4.answer === "true");
-      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said4.decidedBy, confidence: said4.confidence } });
+      const findings = counted2(verdict.findings, said5.answer === "true");
+      return judged2({ claims, constituents, legal, findings, persona: verdict.persona, judge: { decidedBy: said5.decidedBy, confidence: said5.confidence } });
     }
   };
 }
@@ -12317,8 +12370,8 @@ function constituentJudge({ url, secret, fetch: post2 = fetch, timeoutMs = JUDGE
     const reply2 = await response.json().catch(() => null);
     if (!response.ok) {
       const refusal4 = RefusalSchema.safeParse(reply2);
-      const said4 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
-      return failed("judge", `galaxy answered ${response.status}${said4}`);
+      const said5 = refusal4.success && refusal4.data.error ? `: ${stringOf(refusal4.data.error)}` : "";
+      return failed("judge", `galaxy answered ${response.status}${said5}`);
     }
     const verdict = VerdictSchema2.safeParse(reply2);
     if (!verdict.success) return failed("judge", "galaxy answered no verdict");
@@ -12899,9 +12952,9 @@ function fleetBoardHandler({ octokitFor, store, now: now2 = () => /* @__PURE__ *
     }
     const outcomes2 = [];
     for (const workspace of workspaces) outcomes2.push(await addCard({ octokitFor, store, now: now2, data, workspace, fleet: fleets.get(workspace) ?? null }));
-    const said4 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
-    log2(`fleet board: ${said4}`);
-    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said4 };
+    const said5 = `${pull}: ${outcomes2.length > 0 ? outcomes2.map(outcomeLine2).join("; ") : "no workspace tracks it on this installation"}`;
+    log2(`fleet board: ${said5}`);
+    return outcomes2.some((outcome3) => "note" in outcome3) ? { outcome: "done" } : { outcome: "skipped", reason: said5 };
   };
 }
 async function addCard({
@@ -13529,12 +13582,12 @@ function rowViolation(row, slices, { owners, planName }) {
 function targetReachViolations(slices, targets) {
   const readOnly = new Set(targets.filter((target2) => target2.readOnly === true).map((target2) => shortName4(target2.repo)));
   const consumes = new Map(targets.map((target2) => [shortName4(target2.repo), new Set(target2.consumes ?? [])]));
-  const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const repoOf3 = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const violations = slices.filter((slice) => slice.repo !== null && readOnly.has(slice.repo)).map((slice) => `readOnly: ${slice.id} lands in ${slice.repo}, a read-only target \u2014 no slice may name it.`);
   for (const slice of slices) {
     const provided = slice.repo === null ? void 0 : consumes.get(slice.repo);
     for (const blocker of slice.blockedBy) {
-      const provider = repoOf2.get(blocker);
+      const provider = repoOf3.get(blocker);
       if (provider === void 0 || provider === null || provided?.has(provider) !== true) continue;
       violations.push(
         `consumes: ${slice.id} (${slice.repo}) is blocked by ${blocker} (${provider}), and ${slice.repo} consumes ${provider} \u2014 ${slice.repo} installs what ${provider} publishes from its default branch, so the change it waits on is an earlier PRD of its own.`
@@ -13600,7 +13653,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map(), befo
   const landingRows = parsePlanLandings(markdown);
   const planSection2 = config.plan ?? null;
   const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
-  const repoOf2 = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const repoOf3 = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const generated = multi ? [] : config.generated ?? [];
   const collisions2 = sameWaveCollisions(slices, generated);
   const landings = gradedLandings(slices, landingRows);
@@ -13619,7 +13672,7 @@ function gradePlan(markdown, { config, targets = /* @__PURE__ */ new Map(), befo
       return [...contractViolations(slice, asks), ...beforeAfter === void 0 ? [] : contractPageViolations(slice, asks, beforeAfter)];
     }),
     ...collisions2.map(
-      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf2.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
+      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${ofLanding(collision.left)}${multi ? ` of ${repoOf3.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
   ];
   const waves = wavesOf(slices);
@@ -14477,7 +14530,7 @@ function answerText(option, answer) {
     `${option.letter}. ${option.text}`,
     "",
     `Answered by fleet ${answer.fleet} for ${answer.branch}: every member who sat answered yes.`,
-    ...answer.verdicts.map(({ role, answer: said4, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said4} \u2014 ${sentence2}`)
+    ...answer.verdicts.map(({ role, answer: said5, sentence: sentence2 }) => `- ${NAMES[role] ?? role}: ${said5} \u2014 ${sentence2}`)
   ].join("\n");
 }
 function openItem(ctx, prd, item) {
@@ -15287,10 +15340,10 @@ function batchOf(listed5) {
 }
 function describe2(error) {
   const failure2 = FailureSchema2.safeParse(error);
-  const { errors, message: said4, status: status2 } = failure2.success ? failure2.data : {};
+  const { errors, message: said5, status: status2 } = failure2.success ? failure2.data : {};
   const graphqlError = errors?.[0];
   if (graphqlError?.message) return [graphqlError.type, graphqlError.message].filter(Boolean).join(": ");
-  const message = printed3(said4 ?? error ?? "unknown error").split("\n")[0] ?? "";
+  const message = printed3(said5 ?? error ?? "unknown error").split("\n")[0] ?? "";
   return status2 ? `HTTP ${printed3(status2)}: ${message}` : message;
 }
 var printed3 = (value) => String(value);
@@ -17985,18 +18038,18 @@ function triedOf(jobs, issue) {
   });
 }
 var moveOf = (bug, change2) => ({ state: bug.state, attempts: bug.attempts, fixPr: bug.fixPr, askedJob: bug.askedJob, ...change2 });
-var said = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
+var said2 = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
 var pullLink = (repo, pr) => `https://github.com/${repo}/pull/${String(pr)}`;
 function spent(bug, job, word, { repo, jobs }) {
   const attempts = Math.min(BUG_TRIES, bug.attempts + 1);
   const link = issueLink(repo, bug.issue);
   if (attempts < BUG_TRIES) {
     const left = `${String(attempts)} of ${String(BUG_TRIES)} tries spent`;
-    return { move: moveOf(bug, { state: "open", attempts }), event: said("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix ended ${word}, ${left}; it goes back in line.`) };
+    return { move: moveOf(bug, { state: "open", attempts }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix ended ${word}, ${left}; it goes back in line.`) };
   }
   const tried = triedOf(jobs, bug.issue).slice(-BUG_TRIES);
   const words = tried.length > 0 ? tried.join(", ") : word;
-  return { move: moveOf(bug, { state: "asked", attempts, askedJob: job.job }), event: said("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside after ${String(BUG_TRIES)} tries (${words}): it waits for a person.`) };
+  return { move: moveOf(bug, { state: "asked", attempts, askedJob: job.job }), event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside after ${String(BUG_TRIES)} tries (${words}): it waits for a person.`) };
 }
 function bugAfter(bug, { repo, jobs }) {
   const job = latestOf(jobs, bug.issue);
@@ -18009,25 +18062,25 @@ function bugAfter(bug, { repo, jobs }) {
     case "pr-opened":
       return {
         move: moveOf(bug, { state: "pr-opened", fixPr: read2.pr }),
-        event: said("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)}: ${read2.pr === null ? "its fix pull request" : `fix PR #${String(read2.pr)}`} is open; it waits for a person's merge.`)
+        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)}: ${read2.pr === null ? "its fix pull request" : `fix PR #${String(read2.pr)}`} is open; it waits for a person's merge.`)
       };
     case "already-fixed":
       return {
         move: moveOf(bug, { state: "merged", fixPr: read2.pr ?? bug.fixPr }),
-        event: said("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)} is already fixed${read2.pr === null ? "" : ` by PR #${String(read2.pr)}`}: it waits for its release.`)
+        event: said2("job-ended", "engineer", job.job, read2.pr === null ? link : pullLink(repo, read2.pr), `${bugWords(bug)} is already fixed${read2.pr === null ? "" : ` by PR #${String(read2.pr)}`}: it waits for its release.`)
       };
     case "asked":
       return {
         move: moveOf(bug, { state: "asked", askedJob: job.job }),
-        event: said("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read2.word]}.`)
+        event: said2("bug-asked", "supervisor", job.job, link, `${bugWords(bug)} is set aside: ${ASKED_WHY[read2.word]}.`)
       };
     case "lost":
-      return { move: moveOf(bug, { state: "open" }), event: said("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix's runner was lost; it goes back in line, no try spent.`) };
+      return { move: moveOf(bug, { state: "open" }), event: said2("job-ended", "engineer", job.job, link, `${bugWords(bug)}: its bug fix's runner was lost; it goes back in line, no try spent.`) };
     case "spent":
       return spent(bug, job, read2.word, { repo, jobs });
   }
 }
-var takenEvent = (bug, job, repo) => said("bug-taken", "supervisor", job, issueLink(repo, bug.issue), `Took ${bugWords(bug)}: sent ${bugFixLine(bug.issue)}, try ${String(bug.attempts + 1)} of ${String(BUG_TRIES)}.`);
+var takenEvent = (bug, job, repo) => said2("bug-taken", "supervisor", job, issueLink(repo, bug.issue), `Took ${bugWords(bug)}: sent ${bugFixLine(bug.issue)}, try ${String(bug.attempts + 1)} of ${String(BUG_TRIES)}.`);
 function askedWords(bugs) {
   return bugs.filter((bug) => bug.state === "asked").sort(byCount).map((bug) => `Omni Loop bug #${String(bug.issue)}: answer its question`);
 }
@@ -18115,20 +18168,20 @@ function outsidePicks(states) {
 var NAMER = { reviewer: "the Reviewer", qa: "QA", repair: "a repair" };
 var issueLink2 = (bug) => `https://github.com/${bug.repo}/issues/${String(bug.issue)}`;
 var pullLink2 = (bug, pr) => `https://github.com/${bug.repo}/pull/${String(pr)}`;
-var said2 = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
-var takenEvent2 = (bug, job) => said2("bug-taken", "supervisor", job, issueLink2(bug), `${NAMER[bug.by]} named ${bugName(bug)} outside the mission's PRDs: sent ${bug.line}, try ${String(bug.tries + 1)} of ${String(BUG_TRIES)}.`);
+var said3 = (kind, role, job, link, sentence2) => ({ kind, role, prd: null, job, link, sentence: sentence2 });
+var takenEvent2 = (bug, job) => said3("bug-taken", "supervisor", job, issueLink2(bug), `${NAMER[bug.by]} named ${bugName(bug)} outside the mission's PRDs: sent ${bug.line}, try ${String(bug.tries + 1)} of ${String(BUG_TRIES)}.`);
 function eventsOfOne(bug) {
   const name = bugName(bug);
   switch (bug.state) {
     case "joining":
-      return [said2("job-ended", "engineer", bug.job, pullLink2(bug, bug.pr), `${name}: fix PR #${String(bug.pr)} is open into the mission branch; it joins once green.`)];
+      return [said3("job-ended", "engineer", bug.job, pullLink2(bug, bug.pr), `${name}: fix PR #${String(bug.pr)} is open into the mission branch; it joins once green.`)];
     case "fixed": {
-      if (bug.pr === null) return [said2("job-ended", "engineer", bug.job, issueLink2(bug), `${name} is already fixed.`)];
+      if (bug.pr === null) return [said3("job-ended", "engineer", bug.job, issueLink2(bug), `${name} is already fixed.`)];
       const link = pullLink2(bug, bug.pr);
-      return [said2("job-ended", "engineer", bug.job, link, `${name}: fix PR #${String(bug.pr)} joined the mission branch.`), said2("bug-fixed", "supervisor", bug.job, link, `${name} is fixed on the mission branch by #${String(bug.pr)}.`)];
+      return [said3("job-ended", "engineer", bug.job, link, `${name}: fix PR #${String(bug.pr)} joined the mission branch.`), said3("bug-fixed", "supervisor", bug.job, link, `${name} is fixed on the mission branch by #${String(bug.pr)}.`)];
     }
     case "listed":
-      return bug.job === null ? [] : [said2("bug-asked", "supervisor", bug.job, issueLink2(bug), `${name}: its bug fix ended, and the bug is listed for the person: ${bug.why}.`)];
+      return bug.job === null ? [] : [said3("bug-asked", "supervisor", bug.job, issueLink2(bug), `${name}: its bug fix ended, and the bug is listed for the person: ${bug.why}.`)];
     case "send":
     case "fixing":
       return [];
@@ -18259,8 +18312,8 @@ function proofWords(proof) {
 }
 function criterionLine(criterion, proofs) {
   const mine = proofs.filter((proof) => proof.ac === criterion.number);
-  const said4 = mine.length === 0 ? "not proven yet" : mine.map(proofWords).join("; ");
-  return `- AC-${String(criterion.number)} \xB7 ${criterion.kind} \xB7 ${cell(criterion.scenario ?? "no scenario named")}: ${said4}`;
+  const said5 = mine.length === 0 ? "not proven yet" : mine.map(proofWords).join("; ");
+  return `- AC-${String(criterion.number)} \xB7 ${criterion.kind} \xB7 ${cell(criterion.scenario ?? "no scenario named")}: ${said5}`;
 }
 var handLine = (criterion) => `- [ ] AC-${String(criterion.number)}: ${criterion.steps.map(({ keyword, text: text20 }) => cell(`${keyword} ${text20}`)).join("; ")}`;
 function retestPrdLines({ prd, criteria, proofs, reworked }) {
@@ -21370,11 +21423,11 @@ function verdictComment({
   const findings = uniqueFindings(runs);
   const kept3 = runs.map((run) => keptFacts(run, "timeline")).find((facts) => facts) ?? null;
   const timeline2 = parseOrThrow(TimelineFactsSchema, kept3, "The timeline kind's facts are of an unexpected shape");
-  const minutes = timeline2?.featurePr?.minutes ?? minutesBetween2(first.featurePr.openedAt, first.featurePr.mergedAt);
+  const minutes2 = timeline2?.featurePr?.minutes ?? minutesBetween2(first.featurePr.openedAt, first.featurePr.mergedAt);
   const lines2 = [
     `Retro: ${judged4 ? "no new lesson" : "not judged"} \u2014 ${oneLine3(reason2)}`,
     "",
-    `- Feature PR #${first.featurePr.number}: ${minutes === null ? "time not known" : `${minutes} minutes`} from open to merge.`,
+    `- Feature PR #${first.featurePr.number}: ${minutes2 === null ? "time not known" : `${minutes2} minutes`} from open to merge.`,
     timeline2 ? `- ${timeline2.sliceCount} slices in ${timeline2.waves.merged} waves as merged${timeline2.waves.planned === null ? "" : `, ${timeline2.waves.planned} planned`}.` : "- Slices and waves: not counted.",
     "",
     ...findings.length === 0 ? ["No findings: nothing crossed a threshold of the rules."] : findings.map((finding) => `- ${finding.ref} \xB7 ${titleOf3(finding, prose)} \u2014 \`${finding.id}\``)
@@ -22573,6 +22626,26 @@ function compareVersions(a, b) {
   return 0;
 }
 
+// apps/omni-app/src/missions/store.prd.ts
+import { z as z90 } from "zod";
+var PrdIdSchema = z90.union([
+  ProductPrdIdSchema,
+  z90.string().regex(/^[1-9]\d{0,9}$/).transform(Number).pipe(PrdNumberSchema)
+]);
+function prdColumns(prd) {
+  if (prd === null) return { prd: null, product_prd: null };
+  return isProductPrdId(prd) ? { prd: null, product_prd: prd } : { prd, product_prd: null };
+}
+var prdKeyPart = (prd) => `prd:${String(prd)}`;
+function productRunOfKey(key) {
+  const match2 = /^mission:[0-9a-f-]{36}:prd:([^:]+):run:([1-9][0-9]*)$/.exec(key);
+  const prd = ProductPrdIdSchema.safeParse(match2?.[1]);
+  return match2 !== null && prd.success ? { prd: prd.data, run: Number(match2[2]) } : null;
+}
+function numberedOf(prd) {
+  return prd !== null && isProductPrdId(prd) ? { prd: null, product: prd } : { prd };
+}
+
 // apps/omni-app/src/missions/repair.ts
 var CAUSE_REPAIRS = 3;
 var MISSION_REPAIRS = 9;
@@ -22583,11 +22656,11 @@ function bugFixOf(state, fixedIn) {
   return state === "wont-fix" ? { state: "wont-fix" } : { state: "open" };
 }
 var NO_REPAIRS = { budget: 0, round: 1, jobs: [], rows: [], stuck: [], refused: /* @__PURE__ */ new Map(), landings: /* @__PURE__ */ new Map(), reports: /* @__PURE__ */ new Map() };
-var KEY2 = /^mission:([0-9a-f-]{36}):prd:([1-9][0-9]*):repair:([1-9][0-9]*)$/;
+var KEY2 = /^mission:([0-9a-f-]{36}):prd:([^:]+):repair:([1-9][0-9]*)$/;
 var repairKey = (mission, prd, k) => `mission:${mission}:prd:${String(prd)}:repair:${String(k)}`;
 function repairOfKey(key) {
   const match2 = KEY2.exec(key);
-  const prd = PrdNumberSchema.safeParse(Number(match2?.[2]));
+  const prd = PrdIdSchema.safeParse(match2?.[2]);
   return match2 && prd.success ? { prd: prd.data, k: Number(match2[3]) } : null;
 }
 var repairSkillLine = (mission, prd, failedJob) => `/omni:repair --mission ${String(mission)} --prd ${String(prd)} --job ${failedJob}`;
@@ -22615,8 +22688,8 @@ var ended = (job) => {
 var rowOf2 = (view, job) => view.rows.find((row) => row.job === job);
 function spentOf(view) {
   const kept3 = view.rows.filter((row) => row.outcome !== "lost").length;
-  const atWork3 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
-  return kept3 + atWork3;
+  const atWork4 = [...view.jobs, ...view.stuck].filter((job) => !ended(job) && rowOf2(view, job.job) === void 0).length;
+  return kept3 + atWork4;
 }
 var leftOf = (view) => Math.max(0, view.budget - spentOf(view));
 var short2 = (fingerprint2) => fingerprint2.slice(0, 8);
@@ -22739,17 +22812,19 @@ var startedEvent = (job, { where, mission }) => ({
 function rowEvents(row) {
   const n = `PRD ${String(row.prd)}`;
   const cause = `[${short2(row.fingerprint)}]`;
-  const said4 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said4("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said5 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said5("retro", "engineer", `${n}'s retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "not fixed: its record line could not be read." : `${row.outcome}.`;
-  return [...retro2, said4("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
+  return [...retro2, said5("repair-ended", "supervisor", `${n}'s repair${row.retro === null ? "" : ` ${cause}`} ended ${how}`)];
 }
 function reportEvent(row, report, who = `PRD ${String(row.prd)}`) {
   if (report?.state !== "filed") return [];
   const link = linkOf(`https://github.com/${report.repo}/issues/${String(report.issue)}`);
   return [{ kind: "bug-reported", role: "supervisor", prd: row.prd, job: row.job, link, sentence: `${who} met an Omni Loop bug [${short2(row.fingerprint)}]: reported as #${String(report.issue)}.` }];
 }
+var ofRepository = (event) => event.prd === null || !isProductPrdId(event.prd);
+var asMissionEvent = (event) => ({ ...event, prd: ofRepository(event) ? event.prd : null });
 function repairEvents(view, where, sentAfter2 = () => null) {
   const own = view.rows.filter((row) => !isStuckRow(row));
   return [...view.jobs.map((job) => startedEvent(job, where)), ...own.flatMap((row) => [...rowEvents(row), ...reportEvent(row, view.reports.get(row.job ?? ""))]), ...bugFixedEvents(view, sentAfter2)];
@@ -22765,10 +22840,10 @@ function movedOf(view, row) {
   const filed = filedOf(view, row);
   return filed === null || filed.fix.state === "open" ? null : { ...filed, row: { ...row, job }, fix: filed.fix };
 }
-function resumedEvent(view, moved, sentAfter2, said4) {
+function resumedEvent(view, moved, sentAfter2, said5) {
   if (moved.fix.state !== "fixed" || view.held === true || !runsFix(view.kit, moved.fix.version)) return [];
   const job = sentAfter2(moved.row);
-  return job === null ? [] : [said4(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
+  return job === null ? [] : [said5(job, `PRD ${String(moved.row.prd)} resumed: the kit is at v${moved.fix.version}.`)];
 }
 function bugFixedEvents(view, sentAfter2) {
   const told = /* @__PURE__ */ new Set();
@@ -22776,10 +22851,10 @@ function bugFixedEvents(view, sentAfter2) {
     const moved = movedOf(view, row);
     if (moved === null) return [];
     const link = linkOf(`https://github.com/${moved.repo}/issues/${String(moved.issue)}`);
-    const said4 = (job, sentence2) => ({ kind: "bug-fixed", role: "supervisor", prd: row.prd, job, link, sentence: sentence2 });
-    const first = told.has(row.fingerprint) ? [] : [said4(moved.row.job, toldWords(view, moved.issue, moved.fix))];
+    const said5 = (job, sentence2) => ({ kind: "bug-fixed", role: "supervisor", prd: row.prd, job, link, sentence: sentence2 });
+    const first = told.has(row.fingerprint) ? [] : [said5(moved.row.job, toldWords(view, moved.issue, moved.fix))];
     told.add(row.fingerprint);
-    return [...first, ...resumedEvent(view, moved, sentAfter2, said4)];
+    return [...first, ...resumedEvent(view, moved, sentAfter2, said5)];
   });
 }
 function untold(rows, told) {
@@ -22918,9 +22993,9 @@ function fixEvent(prd, step, last, runs, view) {
   const landing = view.landings.get(last.id);
   if (fix !== null && (landing === void 0 || landing.state === "waits")) return null;
   const bug = issue === void 0 ? "its bug" : `#${String(issue)}`;
-  const said4 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
-  if (fix === null) return said4(`not fixed ${bug}: ${noFixWhy(last)}`);
-  return landing?.state === "landed" ? said4(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said4(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
+  const said5 = (sentence2) => ({ kind: "job-ended", role: "engineer", prd, job: last.id, link: linkOf2(fix?.url ?? null), sentence: sentence2 });
+  if (fix === null) return said5(`not fixed ${bug}: ${noFixWhy(last)}`);
+  return landing?.state === "landed" ? said5(`fixed ${bug} \xB7 PR #${String(fix.pr)}`) : said5(`not fixed ${bug}: ${landing?.state === "refused" ? landing.why : "it did not land"}`);
 }
 function sentPairWords(one, where, runs, view) {
   const round = qaRoundOf(one.step);
@@ -23035,15 +23110,15 @@ function droppedOf(events) {
 var dropLine = (mission, prd) => `omni mission drop ${String(mission)} ${String(prd)}`;
 
 // kit/lib/committee/vote.ts
-import { z as z90 } from "zod";
+import { z as z91 } from "zod";
 var COMMITTEE_ROLES = Object.freeze(["pm", "architect", "reviewer"]);
-var CommitteeRoleSchema = z90.enum(COMMITTEE_ROLES);
+var CommitteeRoleSchema = z91.enum(COMMITTEE_ROLES);
 var VERDICT_ANSWERS = Object.freeze(["yes", "no", "unsure", "failed", "timeout"]);
 var SENTENCE_MAX2 = 200;
-var VerdictSchema6 = z90.object({
+var VerdictSchema6 = z91.object({
   role: CommitteeRoleSchema,
-  answer: z90.enum(VERDICT_ANSWERS),
-  sentence: z90.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX2, `sentence: ${String(SENTENCE_MAX2)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
+  answer: z91.enum(VERDICT_ANSWERS),
+  sentence: z91.string().trim().min(1, "sentence: one sentence, not empty").max(SENTENCE_MAX2, `sentence: ${String(SENTENCE_MAX2)} characters at most`).refine((text20) => !/[\r\n]/.test(text20), "sentence: on one line")
 });
 var NAMES2 = { pm: "PM", architect: "Architect", reviewer: "Reviewer" };
 var roleName = (role) => `the ${NAMES2[role]}`;
@@ -23062,7 +23137,7 @@ function tally(verdicts, author) {
   if (why.length === 0) why.push(...recorded.filter((verdict) => verdict.answer !== "yes").map(whyOf));
   return { outcome: why.length === 0 ? "carried" : "escalated", why, verdicts: recorded };
 }
-var VotesSchema = z90.object({ verdicts: z90.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1) });
+var VotesSchema = z91.object({ verdicts: z91.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1) });
 
 // kit/lib/committee/escalation.ts
 var listed2 = (ids) => ids.join(", ");
@@ -23100,24 +23175,24 @@ var TO_A_PERSON = "to a person";
 var routes = (facts) => escalations(facts).map((line3) => ({ case: line3, to: line3 === PHASE0_PR ? TO_A_PERSON : TO_THE_MEMBERS }));
 
 // kit/lib/committee/record.ts
-import { z as z91 } from "zod";
+import { z as z92 } from "zod";
 var COMMITTEE_LINE = "omni committee: ";
 var REASONS_MAX = 10;
 var REASON_MAX = 300;
-var ReadFileSchema = z91.object({ kind: z91.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z91.string().regex(/^[0-9a-f]{64}$/) });
+var ReadFileSchema = z92.object({ kind: z92.string().regex(/^[a-z][a-z-]*$/).max(40), sha256: z92.string().regex(/^[0-9a-f]{64}$/) });
 var RECORD2 = {
-  v: z91.literal(1),
+  v: z92.literal(1),
   prd: PrdNumberSchema,
   author: CommitteeRoleSchema.nullable(),
-  read: z91.array(ReadFileSchema).max(10),
-  escalations: z91.array(z91.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
-  verdicts: z91.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1),
+  read: z92.array(ReadFileSchema).max(10),
+  escalations: z92.array(z92.string().min(1).max(REASON_MAX)).max(REASONS_MAX),
+  verdicts: z92.array(VerdictSchema6).max(COMMITTEE_ROLES.length + 1),
   /** `deferred` (PRD omni-loop-21 s2): an item the vote did not carry, settled meanwhile with option A, open for a person at landing. */
-  outcome: z91.enum(["carried", "deferred", "escalated"])
+  outcome: z92.enum(["carried", "deferred", "escalated"])
 };
-var CommitteeRecordSchema = z91.discriminatedUnion("kind", [
-  z91.object({ ...RECORD2, kind: z91.literal("approve") }),
-  z91.object({ ...RECORD2, kind: z91.literal("answer"), item: OutboxItemIdSchema, option: z91.string().regex(/^[A-Z]$/) })
+var CommitteeRecordSchema = z92.discriminatedUnion("kind", [
+  z92.object({ ...RECORD2, kind: z92.literal("approve") }),
+  z92.object({ ...RECORD2, kind: z92.literal("answer"), item: OutboxItemIdSchema, option: z92.string().regex(/^[A-Z]$/) })
 ]);
 var STAMP2 = /^\d{2}:\d{2}:\d{2} /;
 function* recordsOf(log2) {
@@ -23277,7 +23352,7 @@ function decidedWords(item, n, decision) {
 }
 
 // kit/lib/virtual-fleet/pm.ts
-import { z as z92 } from "zod";
+import { z as z93 } from "zod";
 
 // kit/lib/runner/line.ts
 var RUNNABLE_SKILLS = Object.freeze([
@@ -23320,16 +23395,16 @@ var PRD_SKILLS = Object.freeze(["yolo", "yolo-fix", "pr-care", "do-work", "wave"
 var OWN_PRDS_MAX = 10;
 var TITLE_MAX2 = 120;
 var UNWRITTEN_MAX = 20;
-var PmSkillSchema = z92.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
+var PmSkillSchema = z93.enum(["brainstorm", "roadmap", "mega-brainstorm", "mega-roadmap"]);
 var PM_LINE = "omni pm: ";
-var PmRecordSchema = z92.object({
-  v: z92.literal(1),
-  mission: z92.number().int().positive(),
+var PmRecordSchema = z93.object({
+  v: z93.literal(1),
+  mission: z93.number().int().positive(),
   skill: PmSkillSchema,
-  cap: z92.number().int().min(1).max(OWN_PRDS_MAX),
+  cap: z93.number().int().min(1).max(OWN_PRDS_MAX),
   /** One kind per record: the PRD numbers of a repository, or the ids of a product's PRDs (PRD omni-loop-26). */
-  prds: z92.union([z92.array(PrdNumberSchema).max(OWN_PRDS_MAX), z92.array(ProductPrdIdSchema).max(OWN_PRDS_MAX)]),
-  unwritten: z92.array(z92.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
+  prds: z93.union([z93.array(PrdNumberSchema).max(OWN_PRDS_MAX), z93.array(ProductPrdIdSchema).max(OWN_PRDS_MAX)]),
+  unwritten: z93.array(z93.string().trim().min(1).max(TITLE_MAX2).refine((text20) => !/[\r\n]/.test(text20))).max(UNWRITTEN_MAX)
 });
 function mixedOf(prds) {
   if (!Array.isArray(prds) || prds.length === 0) return void 0;
@@ -23382,11 +23457,11 @@ function lastRecordOf(log2, prefix, schema, match2) {
   }
   return null;
 }
-var ReadPmRecordSchema = z92.unknown().transform((json2, context) => {
+var ReadPmRecordSchema = z93.unknown().transform((json2, context) => {
   const read2 = readPmRecord(json2);
   if (read2.ok) return read2.record;
   context.addIssue({ code: "custom", message: read2.reason });
-  return z92.NEVER;
+  return z93.NEVER;
 });
 function pmRecordOf(log2, mission) {
   return lastRecordOf(log2, PM_LINE, ReadPmRecordSchema, (record) => record.mission === mission);
@@ -23434,26 +23509,6 @@ function idOf(value) {
   }
 }
 
-// apps/omni-app/src/missions/store.prd.ts
-import { z as z93 } from "zod";
-var PrdIdSchema = z93.union([
-  ProductPrdIdSchema,
-  z93.string().regex(/^[1-9]\d{0,9}$/).transform(Number).pipe(PrdNumberSchema)
-]);
-function prdColumns(prd) {
-  if (prd === null) return { prd: null, product_prd: null };
-  return isProductPrdId(prd) ? { prd: null, product_prd: prd } : { prd, product_prd: null };
-}
-var prdKeyPart = (prd) => `prd:${String(prd)}`;
-function productRunOfKey(key) {
-  const match2 = /^mission:[0-9a-f-]{36}:prd:([^:]+):run:([1-9][0-9]*)$/.exec(key);
-  const prd = ProductPrdIdSchema.safeParse(match2?.[1]);
-  return match2 !== null && prd.success ? { prd: prd.data, run: Number(match2[2]) } : null;
-}
-function numberedOf(prd) {
-  return prd !== null && isProductPrdId(prd) ? { prd: null, product: prd } : { prd };
-}
-
 // apps/omni-app/src/missions/supervisor.ts
 var OFFLINE_MS = 9e4;
 var FRESH_MS = 12e4;
@@ -23473,6 +23528,7 @@ function roomOn(runners, repo, now2) {
 var STEPS = ["build", "qa:1", ...FIX_STEPS, "qa:2", "review:1", "fix:1", "review:2"];
 var NO_COMMITTEE = { alone: false, committees: [] };
 var NO_BRANCH = { branch: null, joined: /* @__PURE__ */ new Set(), lacks: /* @__PURE__ */ new Map() };
+var asRecorded = ({ kind, prd, job }) => ({ kind, prd: prd === null || isProductPrdId(prd) ? null : prd, job });
 var WAKE_MS = 6e4;
 var WORDS_MAX = 300;
 var LAST_RUN = 2;
@@ -23487,7 +23543,7 @@ function runOfKey(key) {
   return match2 && prd.success && isStep(step) ? { prd: prd.data, run: Number(match2[3]), step } : null;
 }
 function lineOf5(prd, step, skill = "yolo", base = null, fix = null) {
-  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === "string" || base === null ? [] : base);
+  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === "string" || base === null ? null : base);
   const n = String(prd);
   const onBase = typeof base === "string" ? ` --base ${base}` : "";
   const round = qaRoundOf(step);
@@ -23502,10 +23558,16 @@ function lineOf5(prd, step, skill = "yolo", base = null, fix = null) {
 }
 var basesOf = (repos, branch) => repos.map((repo) => ({ repo, branch }));
 function productLineOf(prd, step, bases) {
-  const flag = bases.length === 0 ? "" : ` ${baseOfFlag(bases)}`;
   if (qaRoundOf(step) !== null || isFixStep(step)) throw new Error(`PRD ${prd} is a product PRD: it skips the QA pair, and ${step} is never sent for it`);
+  const flag = baseOfWords(prd, step, bases);
   if (step === "build") return `/omni:ultra-yolo ${prd}${flag}`;
   return step === "fix:1" ? `/omni:ultra-yolo-fix ${prd} --for-review${flag}` : `/omni:review ${prd}`;
+}
+function baseOfWords(prd, step, bases) {
+  if (bases === null) return "";
+  if (bases.length > 0) return ` ${baseOfFlag(bases)}`;
+  if (step === "build" || step === "fix:1") throw new Error(`PRD ${prd}'s plan names no repository: its ${step} is never sent without --base-of, which would open its pull requests into the default branch`);
+  return "";
 }
 var MISSION_BRANCH = "mission/{number}-{topic}";
 var TOPIC_MAX = 40;
@@ -23954,11 +24016,11 @@ function prdEvents(facts, states) {
   return facts.flatMap((fact) => {
     const n = `PRD ${String(fact.prd)}`;
     const state = states.get(fact.prd);
-    const said4 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
+    const said5 = (kind, sentence2) => ({ kind, role: "supervisor", prd: fact.prd, job: null, link: null, sentence: sentence2 });
     return [
-      ...fact.stage === "merged" ? [said4("prd-merged", `${n} is merged: delivered.`)] : [],
-      ...fact.stage === "ready" ? [said4("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
-      ...state?.state === "stopped" ? [said4("stopped", `${n} stops: ${state.why}.`)] : []
+      ...fact.stage === "merged" ? [said5("prd-merged", `${n} is merged: delivered.`)] : [],
+      ...fact.stage === "ready" ? [said5("prd-ready", `${n} reads ready for review: it waits for a person to merge it.`)] : [],
+      ...state?.state === "stopped" ? [said5("stopped", `${n} stops: ${state.why}.`)] : []
     ];
   });
 }
@@ -23988,11 +24050,11 @@ function committeeEvents(committees, where) {
   });
 }
 function missionEvents(mission, next) {
-  const said4 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
-  if (next.status === "delivered") return [said4("delivered", "Every PRD of the mission is merged: delivered.")];
-  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said4("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
+  const said5 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+  if (next.status === "delivered") return [said5("delivered", "Every PRD of the mission is merged: delivered.")];
+  if (next.status === "stopped") return mission.status === "stopped" ? [] : [said5("stopped", `The mission stopped: ${next.waitingOn ?? "nothing can move"}`)];
   const waits = newWait(mission, next);
-  return waits === null ? [] : [said4("waits", `Waits on a person: ${waits}`)];
+  return waits === null ? [] : [said5("waits", `Waits on a person: ${waits}`)];
 }
 function newWait(mission, next) {
   if (next.status !== "running" && next.status !== "waiting") return null;
@@ -24023,7 +24085,7 @@ function eventsOf({
     ...committeeEvents(committees, where),
     ...answerEvents(asks, where),
     ...runEvents(runs, where, { skill, base, repairs: repairs.budget > 0, qa, resumes }),
-    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)),
+    ...repairEvents(repairs, { where, mission: mission.number }, sentAfterOf(runs)).filter(ofRepository),
     ...joinEvents(joins, base),
     ...landEvents(landings),
     ...prdEvents(facts, states),
@@ -24036,6 +24098,7 @@ var PRODUCT_HALFWAY_MAX = 10;
 var times = (count4) => count4 === 1 ? "once" : `${String(count4)} times`;
 function productAgain(runs, last, resumes) {
   const ends = runs.flatMap((one) => one.attempts.at(-1) ?? []);
+  if (lostEnd(last)) return lostAgain(ends, resumes);
   if (endOf(last) === "held") return ends.filter((one) => endOf(one) === "held").length < LAST_RUN || "its build was held twice";
   if (!endedHalfway(last)) return null;
   const halfway = ends.filter(endedHalfway);
@@ -24043,21 +24106,39 @@ function productAgain(runs, last, resumes) {
   if (resumes === null) return count4 < LAST_RUN || "its build stopped mid-way twice";
   return count4 <= resumes && halfway.length < PRODUCT_HALFWAY_MAX || `its build ended without its result line ${times(count4)}`;
 }
+var LOST_REASONS = /* @__PURE__ */ new Set(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
+var lostEnd = (attempt3) => attempt3.status === "failed" && attempt3.limitedUntil == null && LOST_REASONS.has(attempt3.reason ?? "");
+function lostAgain(ends, resumes) {
+  const count4 = ends.filter(lostEnd).length;
+  if (resumes === null) return count4 < LAST_RUN || "its build's runner was lost twice";
+  return count4 <= resumes || `its build's runner was lost ${times(count4)}`;
+}
 var endedWhy = (end, last) => end === "failed" && last.reason !== null ? `its job failed: ${last.reason}` : `its job ended ${end ?? "without its result line"}`;
-function productEnded(fact, runs, last, resumes) {
+var byHand = (prd, why) => ({ state: "waits", why: `PRD ${prd}: ${why}; take it to ready by hand and the mission joins it` });
+function productRepaired(prd, latest, last, why, repairs) {
+  const next = repairNext(repairs, prd, last.id, why);
+  if (next === null || next.next === "stops") return byHand(prd, next?.why ?? why);
+  if (next.next === "kit") return { state: "waits", why: `PRD ${prd}: ${next.why}` };
+  if (next.next === "repair") return { state: "repairable", k: next.k, failedJob: next.failedJob, why };
+  if (next.next === "repairing") return { state: "repairing", why: `PRD ${prd}: ${repairingWords(next)}` };
+  if (next.next === "paused") return byHand(prd, `${why}, and its repair was cancelled`);
+  return { state: "startable", run: latest.run + 1 };
+}
+function productEnded(fact, runs, last, { resumes, repairs }) {
   const latest = latestProduct(runs, fact.prd);
   const end = endOf(last);
   if (latest === null || end === "lost" || end === "limited") return { state: "running" };
   if (end === "ready") return { state: "ready", run: latest };
   const again3 = productAgain(runs, last, resumes);
   if (again3 === true) return { state: "startable", run: latest.run + 1 };
-  return { state: "waits", why: `PRD ${fact.prd}: ${again3 ?? endedWhy(end, last)}; take it to ready by hand and the mission joins it` };
+  if (again3 !== null || end === "failed") return productRepaired(fact.prd, latest, last, again3 ?? endedWhy(end, last), repairs);
+  return byHand(fact.prd, endedWhy(end, last));
 }
-function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null }) {
+function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null, repairs = NO_REPAIRS }) {
   if (joined2.has(fact.prd)) return { state: "joined" };
   const latest = latestProduct(runs, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, resumes);
+  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, { resumes, repairs });
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: "blocked", by };
   if (fact.approval !== "standing") return { state: "waits", why: `PRD ${fact.prd}: ${fact.approval === "voided" ? "approve it again" : "approve it"} on its page (${branch})` };
@@ -24194,6 +24275,12 @@ function withPm(next, writing, wakeAt2, wait2 = null) {
   return next.status === "running" ? { ...next, waitingOn } : { status: "waiting", waitingOn, nextWakeAt: wakeAt2 };
 }
 
+// kit/lib/mission/send-back.ts
+var SENT_BACK = "sent-back";
+var architectLeftWords = (prd) => `PRD ${prd}: the Architect left it to you`;
+var pmLeftWords = (prd) => `PRD ${prd}: the PM's plan approval went to you`;
+var roundsSpentWords = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version`;
+
 // kit/lib/virtual-fleet/tech-record.ts
 import { z as z95 } from "zod";
 
@@ -24253,18 +24340,37 @@ function addedProductsOf(recorded) {
   }
   return added;
 }
-var working2 = ({ status: status2 }) => status2 === "queued" || status2 === "claimed" || status2 === "running";
+var atWork2 = ({ status: status2 }) => status2 === "queued" || status2 === "claimed" || status2 === "running";
+var working2 = (view) => view.plans.some((one) => atWork2(one.attempt)) || view.techs.some((one) => atWork2(one.attempt));
+function sinceSentBack(all, job) {
+  const at4 = job === null ? -1 : all.findLastIndex((one) => one.job === job);
+  return at4 < 0 ? { mine: all, sentBack: false } : { mine: all.slice(at4 + 1), sentBack: true };
+}
+function afterSentBack(view, all) {
+  if (view.approval === "standing") return { state: "build" };
+  return working2(view) ? { state: "working" } : { ...planWith(unansweredOf(all), true), sentBack: true };
+}
 var approvedOn = (decisions, kind, latest) => latest !== null && decisions.some((one) => one.kind === kind && one.outcome === "approved" && one.plan === latest);
 function escalatedWords(prd, decision) {
   const why = decision.why.length > 0 ? decision.why.join("; ") : "it sent it to you";
-  return decision.kind === "tech" ? `PRD ${prd}: the Architect left it to you: ${why}; approve it on its page` : `PRD ${prd}: the PM's plan approval went to you: ${why}; approve it on its page`;
+  return decision.kind === "tech" ? `${architectLeftWords(prd)}: ${why}; approve it on its page` : `${pmLeftWords(prd)}: ${why}; approve it on its page`;
 }
-var spentWords2 = (prd) => `PRD ${prd}: the PM and the Architect did not approve one plan version in ${String(ROUNDS2)} rounds; approve it on its page`;
+var spentWords2 = (prd) => `${roundsSpentWords(prd)} in ${String(ROUNDS2)} rounds; approve it on its page`;
 var decidedOf = (mine, kind) => mine.filter((one) => one.kind === kind && one.plan !== null).length;
+function recovered(mine, at4) {
+  const one = mine[at4];
+  const before2 = mine.slice(0, at4).findLastIndex((other) => other.plan !== null);
+  const prior = mine[before2];
+  return one?.kind === "plan" && one.plan !== null && prior !== void 0 && before2 < at4 - 1 && prior.kind === "plan" && prior.outcome === "approved" && prior.plan === one.plan;
+}
+function confirming(mine, latest) {
+  const last = mine.at(-1);
+  return last?.kind === "tech" && last.outcome === "approved" && latest !== null && last.plan === latest;
+}
+var roundsOf = (mine) => mine.filter((one, at4) => one.kind === "plan" && one.plan !== null && !recovered(mine, at4)).length;
 function failsInRow(mine, kind) {
-  const ofKind = mine.filter((one) => one.kind === kind);
-  const lastDecided = ofKind.findLastIndex((one) => one.plan !== null);
-  return ofKind.length - 1 - lastDecided;
+  const lastDecided = mine.findLastIndex((one) => one.plan !== null);
+  return mine.slice(lastDecided + 1).filter((one) => one.kind === kind).length;
 }
 function planWith(open, again3) {
   return open === null ? { state: "plan", again: again3 } : { state: "plan", again: true, points: open.why };
@@ -24272,18 +24378,30 @@ function planWith(open, again3) {
 function afterEscalated(view, mine, last) {
   if (view.approval === "standing") return { state: "build" };
   const open = unansweredOf(mine);
-  if (last.plan === null && failsInRow(mine, last.kind) < FAILS) return last.kind === "plan" ? planWith(open, true) : { state: "tech", k: view.techs.length + 1 };
-  if (last.plan !== null && open !== null && decidedOf(mine, "plan") < ROUNDS2) return planWith(open, true);
-  return { state: "waits", why: escalatedWords(view.prd, open ?? last) };
+  const again3 = last.plan === null ? afterNoRecord(view, mine, last.kind, open, decidedOf(mine, "plan") < ROUNDS2) : open !== null && roundsOf(mine) < ROUNDS2 ? planWith(open, true) : null;
+  return again3 ?? { state: "waits", why: escalatedWords(view.prd, open ?? last) };
+}
+function afterNoRecord(view, mine, kind, open, rounds) {
+  const fails = failsInRow(mine, kind);
+  if (fails < FAILS) return kind === "plan" ? planWith(open, true) : { state: "tech", k: view.techs.length + 1 };
+  return kind === "tech" && rounds ? { ...planWith(open, true), techFailed: fails } : null;
 }
 function reviewStateOf(view) {
-  const mine = view.decisions.filter((one) => one.prd === view.prd);
+  const all = view.decisions.filter((one) => one.prd === view.prd);
+  const { mine, sentBack } = sinceSentBack(all, view.sentBack ?? null);
+  if (sentBack && mine.length === 0) return afterSentBack(view, all);
   if (approvedOn(mine, "plan", view.latest) && approvedOn(mine, "tech", view.latest)) return { state: "build" };
-  if (view.plans.some((one) => working2(one.attempt)) || view.techs.some((one) => working2(one.attempt))) return { state: "working" };
+  if (working2(view)) return { state: "working" };
   const last = mine.at(-1);
   if (last?.outcome === "escalated") return afterEscalated(view, mine, last);
-  if (!approvedOn(mine, "plan", view.latest)) return decidedOf(mine, "plan") < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
+  if (!approvedOn(mine, "plan", view.latest)) return roundsOf(mine) < ROUNDS2 || confirming(mine, view.latest) ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
   return decidedOf(mine, "tech") < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
+}
+function unnamedStateOf(prd, view) {
+  if (view?.plans.some((one) => atWork2(one.attempt)) === true) return { state: "working" };
+  const mine = view === null ? [] : sinceSentBack(view.decisions.filter((one) => one.prd === prd), view.sentBack ?? null).mine;
+  if (view !== null && roundsOf(mine) < ROUNDS2) return { state: "plan", again: true, unnamed: true };
+  return { state: "waits", why: `PRD ${prd}: its plan names no repository, so its build would open its pull requests into the default branch; write its ## Repositories table (owner/name) and approve it on its page` };
 }
 var short3 = (plan) => plan === null ? "no version" : `version ${plan.slice(0, 7)}`;
 function decisionEvent(decision) {
@@ -24297,12 +24415,15 @@ var isRetry = (prd, decisions) => {
   const last = decisions.filter((one) => one.prd === prd).at(-1);
   return last?.outcome === "escalated" && last.plan === null;
 };
-function planSentence(prd, line3, state) {
+function planSentence(prd, line3, state, wrote) {
+  if (state.techFailed !== void 0) return `Sent the PM ${line3} again: the Architect's last ${String(state.techFailed)} reviews of PRD ${prd} left no record, so the PM approves its latest plan version again before the Architect reviews it again.`;
+  if (state.unnamed === true) return `Sent the PM ${line3} again: the plan of PRD ${prd} names no repository, so it writes its ## Repositories table before the build.`;
+  if (state.sentBack === true) return `Sent the PM ${line3} again: a person sent PRD ${prd} back to it${state.points === void 0 ? "" : ", with the Architect's open points"}.`;
   if (state.points !== void 0) return `Sent the PM ${line3} again: it answers the Architect's open points on PRD ${prd}.`;
-  return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}, which it wrote, and approves its plan.`;
+  return state.again ? `Sent the PM ${line3} again: PRD ${prd} has a newer plan version, so the PM approves it.` : `Sent the PM ${line3}: it plans PRD ${prd}${wrote ? ", which it wrote," : " of the mission's scope"} and approves its plan.`;
 }
-function reviewDispatched(prd, job, line3, state, retry = false) {
-  const sentence2 = retry ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state);
+function reviewDispatched(prd, job, line3, state, { retry = false, wrote = true } = {}) {
+  const sentence2 = retry && !(state.state === "plan" && state.techFailed !== void 0) ? `Sent the ${state.state === "tech" ? "Architect" : "PM"} ${line3} again: its last job on PRD ${prd} failed or left no record.` : state.state === "tech" ? `Sent the Architect ${line3}: it reviews the plan of PRD ${prd} the PM approved${state.k > 1 ? ", its newer version" : ""}.` : planSentence(prd, line3, state, wrote);
   return { kind: "dispatched", role: "supervisor", prd, job, link: null, sentence: sentence2 };
 }
 
@@ -24407,11 +24528,11 @@ var ended2 = (job) => ["done", "failed", "cancelled"].includes(job.attempts.at(-
 function milestoneNext(view, { done, delivered, held: held2 }) {
   const kept3 = new Set(view.rows.map((row) => row.milestone));
   const sent = new Set(view.jobs.map((job) => job.milestone));
-  const atWork3 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended2(job));
+  const atWork4 = view.jobs.some((job) => !kept3.has(job.milestone) && !ended2(job));
   const pending = reachedOf(view.roadmaps, done, delivered).filter((milestone) => !kept3.has(milestone) && !sent.has(milestone));
-  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork3 };
-  if (held2 !== null || atWork3) return { send: null, skip: [], atWork: atWork3 };
-  return { send: pending[0] ?? null, skip: [], atWork: atWork3 };
+  if (held2 === "budget" && delivered) return { send: null, skip: pending, atWork: atWork4 };
+  if (held2 !== null || atWork4) return { send: null, skip: [], atWork: atWork4 };
+  return { send: pending[0] ?? null, skip: [], atWork: atWork4 };
 }
 var FILE = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)*\.md$/;
 function fileOf(path) {
@@ -24437,11 +24558,11 @@ function fileLink(file, { repo, branch }) {
   return link.length <= 500 ? link : null;
 }
 function retroEvents(one, at4) {
-  const said4 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
+  const said5 = (kind, sentence2, link = null) => ({ kind, role: "supervisor", prd: null, job: one.job, link, sentence: sentence2 });
   const words = milestoneWords(one.milestone);
-  if (one.skipped !== null) return [said4("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
-  const retro2 = said4("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
-  return [retro2, ...one.targets.map((target2) => said4("item-proposed", `Proposes a change to ${target2}.`))];
+  if (one.skipped !== null) return [said5("milestone-retro", `Retro skipped: ${one.skipped} (${words}).`)];
+  const retro2 = said5("milestone-retro", `Retro: ${words}.`, fileLink(one.file, at4));
+  return [retro2, ...one.targets.map((target2) => said5("item-proposed", `Proposes a change to ${target2}.`))];
 }
 var sentEvent = (job, { where, mission }) => ({
   kind: "dispatched",
@@ -24492,18 +24613,20 @@ function scrub(input) {
 
 // kit/lib/repair/line.ts
 var REPAIR_LINE = "omni repair: ";
+var REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 var STAMP4 = /^\d{2}:\d{2}:\d{2} /;
 var RepairRecordSchema = z97.object({
   v: z97.literal(1),
   mission: z97.number().int().positive(),
   trigger: z97.enum(["failure", "stuck"]).optional(),
-  prd: PrdNumberSchema.nullable(),
+  prd: z97.union([PrdNumberSchema, ProductPrdIdSchema]).nullable(),
   fingerprint: FingerprintSchema,
   class: RepairClassSchema,
   retro: RepairRetroSchema,
   fix: PrNumberSchema.nullable(),
+  repo: z97.string().regex(REPO).optional(),
   report: PublicReportSchema.nullable()
-}).refine((record) => record.prd !== null || record.trigger === "stuck", "only a stuck repair may name no PRD").refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
+}).refine((record) => record.prd !== null || record.trigger === "stuck", "only a stuck repair may name no PRD").refine((record) => record.class === record.retro.class, "the record's class is its retro's").refine((record) => record.fingerprint === record.retro.fingerprint, "the record's fingerprint is its retro's").refine((record) => record.fix === null || record.class === "code", "only a code repair has a fix").refine((record) => record.repo === void 0 || record.fix !== null, "only a fix names its repository").refine((record) => record.report === null || record.class === "omni-loop", "only an omni-loop repair has a report").refine((record) => record.report === null || record.report.class === record.class && record.report.fingerprint === record.fingerprint, "the report is the record's");
 function withOwnFingerprint(record) {
   const own = fingerprint(record.retro);
   return {
@@ -24757,6 +24880,10 @@ function bugFollowHandler({
 }
 
 // apps/omni-app/src/missions/repair-run.ts
+var stepsOf = (at4) => [
+  ...at4.runs,
+  ...(at4.products ?? []).map(({ prd, run, job, attempts }) => ({ prd, run, step: "build", job, attempts }))
+];
 var spends = (job) => {
   const status2 = job.attempts.at(-1)?.status;
   return status2 === "done" || status2 === "failed";
@@ -24778,7 +24905,7 @@ function overBudget(rows, { budget, round, fingerprint: fingerprint2 }) {
   if (counted3.length >= budget) return "mission";
   return counted3.filter((row) => row.round === round && row.fingerprint === fingerprint2).length >= CAUSE_REPAIRS ? "cause" : null;
 }
-var fixUrlOf = (at4, record) => record?.fix == null ? null : `https://github.com/${at4.mission.repo}/pull/${String(record.fix)}`;
+var fixUrlOf = (at4, record) => record?.fix == null ? null : `https://github.com/${record.repo ?? at4.mission.repo}/pull/${String(record.fix)}`;
 async function endedAtOnce(at4, kept3) {
   const ends = endsAt(kept3);
   if (ends === null) return kept3;
@@ -24804,6 +24931,7 @@ function stepAfter(runs, row) {
   const later2 = runs.filter((one) => one.prd === row.prd && after(one, failed3));
   return later2.reduce((first, one) => first === null || after(first, one) ? one : first, null);
 }
+var repoOf2 = (url) => /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+$/.exec(url)?.[1] ?? null;
 var prOf2 = (url) => {
   const parsed3 = PrNumberSchema.safeParse(Number(/\/pull\/(\d+)$/.exec(url)?.[1]));
   return parsed3.success ? parsed3.data : null;
@@ -24813,18 +24941,28 @@ async function land(at4, fixPr, prd) {
   if (at4.branch === null) return { state: "refused", why: "the mission has no branch of its own to land it on" };
   if (pr === null) return { state: "refused", why: "its link names no pull request" };
   if (at4.joins === null || at4.installation === null) return { state: "waits", lacks: ["the app has no GitHub access here"] };
-  const where = { installation: at4.installation, repo: at4.mission.repo, prd, pr };
+  const where = { installation: at4.installation, repo: at4.mission.repo, prd: prd === null || isProductPrdId(prd) ? null : prd, pr };
   const pull = await at4.joins.read(where);
   const judged4 = judgeFix(pull, at4.branch);
   if (judged4.state !== "merge") return judged4;
   const merged = await at4.joins.merge({ ...where, head: pull.head, title: pull.title, base: pull.base, defaultBranch: pull.defaultBranch });
   return merged.ok ? { state: "landed" } : { state: "refused", why: merged.why };
 }
+function fixRepoOf(at4, row) {
+  const repo = repoOf2(row.fixPr);
+  const own = at4.mission.repo.toLowerCase();
+  const allowed = row.prd !== null && isProductPrdId(row.prd) ? (at4.repos ?? [own]).map((one) => one.toLowerCase()) : [own];
+  if (repo === null || !allowed.includes(repo.toLowerCase())) return { why: `${repo ?? "its link"} holds no mission branch of this mission` };
+  return { repo };
+}
 async function landAll(at4, rows) {
   const landings = /* @__PURE__ */ new Map();
+  const steps = stepsOf(at4);
   for (const row of rows) {
-    if (row.job === null || row.outcome !== null || row.retro?.class !== "code" || row.fixPr === null || stepAfter(at4.runs, row) !== null) continue;
-    landings.set(row.job, await land(at4, row.fixPr, row.prd));
+    const fixPr = row.fixPr;
+    if (row.job === null || row.outcome !== null || row.retro?.class !== "code" || fixPr === null || stepAfter(steps, row) !== null) continue;
+    const where = fixRepoOf(at4, { ...row, fixPr });
+    landings.set(row.job, "why" in where ? { state: "refused", why: where.why } : await land({ ...at4, mission: { repo: where.repo } }, fixPr, row.prd));
   }
   return landings;
 }
@@ -24836,9 +24974,10 @@ function settledOf(runs, row) {
   return outcome2(end, next.run, last.reason, next.step).next === "stops" ? "not fixed" : "fixed";
 }
 async function settleAll(at4, rows) {
+  const steps = stepsOf(at4);
   for (const [n, row] of rows.entries()) {
     if (row.outcome !== null || row.retro?.class !== "code" && row.retro?.class !== "flake") continue;
-    const settled2 = settledOf(at4.runs, row);
+    const settled2 = settledOf(steps, row);
     if (settled2 === null) continue;
     await at4.store.endRepair(row.id, settled2);
     rows[n] = { ...row, outcome: settled2 };
@@ -24890,7 +25029,7 @@ async function readRepairs(at4) {
 }
 async function wayBackOf(at4, rows, reports) {
   const held2 = at4.mission.status === "paused" || at4.mission.status === "stopped";
-  if (held2 || !waitsOnFix(at4.runs, rows, reports)) return { held: held2 };
+  if (held2 || !waitsOnFix(stepsOf(at4), rows, reports)) return { held: held2 };
   return { held: held2, kit: await pinnedKit(at4) };
 }
 function waitsOnFix(runs, rows, reports) {
@@ -24917,7 +25056,7 @@ async function namingsOf(at4) {
     }),
     ...at4.repairs.flatMap((one) => {
       const done = doneOf(one.attempts);
-      return done === null ? [] : [{ by: "repair", prd: one.prd, job: done.id }];
+      return done === null ? [] : [{ by: "repair", prd: one.prd === null || isProductPrdId(one.prd) ? null : one.prd, job: done.id }];
     })
   ];
   const namings = [];
@@ -25018,7 +25157,7 @@ function pausedWords(cap, limit, spent2) {
   return `Paused: budget reached \xB7 ${spentWords3(spent2)} of ${capWords(limit)} tokens${window} \xB7 ${WHOSE[cap]}`;
 }
 var clockOf2 = (iso2) => new Date(iso2).toISOString().slice(11, 16);
-var said3 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
+var said4 = (kind, sentence2) => ({ kind, role: "supervisor", prd: null, job: null, link: null, sentence: sentence2 });
 var time2 = (iso2) => iso2 === null ? Number.NEGATIVE_INFINITY : Date.parse(iso2);
 function stopOf(read2) {
   const { named, open } = read2;
@@ -25039,28 +25178,28 @@ function resumeWords3(stop, read2) {
 var against = (cap, read2) => cap === "fleet" ? { limit: read2.fleetCap ?? 0, spent: read2.fleetSpent24h } : { limit: read2.missionCap ?? 0, spent: read2.missionSpent };
 function sendAct(stop, read2, byBudget) {
   if (!byBudget) return { act: "none" };
-  return stop !== null && stop.answer === null ? { act: "quiet" } : { act: "resume", event: said3("resumed", resumeWords3(stop, read2)) };
+  return stop !== null && stop.answer === null ? { act: "quiet" } : { act: "resume", event: said4("resumed", resumeWords3(stop, read2)) };
 }
 var pauseAct = ({ cap, limit, spent: spent2 }) => ({
   act: "pause",
   stop: { cap, capTokens: limit, spent: spent2 },
   words: pausedWords(cap, limit, spent2),
-  event: said3("budget-stop", `Paused: ${WHOSE[cap]} reached (${capWords(limit)})`)
+  event: said4("budget-stop", `Paused: ${WHOSE[cap]} reached (${capWords(limit)})`)
 });
 function holdAct(cap, read2, moving2) {
   const { limit, spent: spent2 } = against(cap, read2);
-  const again3 = moving2 ? said3("paused", `Paused again: ${WHOSE[cap]} is still reached (${capWords(limit)}); its question waits for an answer.`) : null;
+  const again3 = moving2 ? said4("paused", `Paused again: ${WHOSE[cap]} is still reached (${capWords(limit)}); its question waits for an answer.`) : null;
   return { act: "hold", words: pausedWords(cap, limit, spent2), event: again3 };
 }
 function wakeAct(at4, moving2) {
   const words = `Paused: budget reached \xB7 ${WHOSE.fleet} \xB7 resumes by itself at ${clockOf2(at4)} UTC`;
-  const again3 = moving2 ? said3("paused", `Paused again: this fleet's daily cap is still reached; it resumes by itself at ${clockOf2(at4)} UTC.`) : null;
+  const again3 = moving2 ? said4("paused", `Paused again: this fleet's daily cap is still reached; it resumes by itself at ${clockOf2(at4)} UTC.`) : null;
   return { act: "wake", at: at4, words, event: again3 };
 }
 function stopAct(cap, stop, status2) {
   if (status2 === "stopped") return { act: "quiet" };
   const why = `${WHOSE[cap]} reached (${capWords(stop?.capTokens ?? 0)}), and a person chose Stop the mission.`;
-  return { act: "stop", words: `Stopped by the budget: ${why}`, event: said3("stopped", `The budget stopped the mission: ${why}`) };
+  return { act: "stop", words: `Stopped by the budget: ${why}`, event: said4("stopped", `The budget stopped the mission: ${why}`) };
 }
 var capReached = (read2, now2) => budgetNext({ ...read2, stop: null, answer: null, now: now2 }).next !== "send";
 function budgetAct(read2, mission, now2) {
@@ -25272,14 +25411,14 @@ var sentEvent2 = (job, { where, mission }) => ({
 });
 function rowEvents2(row) {
   const cause = `[${short2(row.fingerprint)}]`;
-  const said4 = (kind, role, sentence2) => ({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
-  const retro2 = row.retro === null ? [] : [said4("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
+  const said5 = (kind, role, sentence2) => asMissionEvent({ kind, role, prd: row.prd, job: row.job, link: linkOf(row.fixPr), sentence: sentence2 });
+  const retro2 = row.retro === null ? [] : [said5("retro", "engineer", `The stuck repair's retro ${cause} reads ${row.retro.class}: ${row.retro.cause}`)];
   if (row.outcome === null) return retro2;
   const how = row.retro === null ? "ended not fixed: its record line could not be read." : `${cause} ended ${row.outcome}.`;
-  return [...retro2, said4("repair-ended", "supervisor", `The stuck repair ${how}`)];
+  return [...retro2, said5("repair-ended", "supervisor", `The stuck repair ${how}`)];
 }
 function stuckEvents(view, where) {
-  return [...view.jobs.map((job) => sentEvent2(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission")])];
+  return [...view.jobs.map((job) => sentEvent2(job, where)), ...view.rows.flatMap((row) => [...rowEvents2(row), ...reportEvent(row, view.reports.get(row.job ?? ""), "The mission").map(asMissionEvent)])];
 }
 var pausedEvent = (why) => ({ kind: "stuck", role: "supervisor", prd: null, job: null, link: null, sentence: `Paused: stuck: ${why}` });
 var pausedWords2 = (why) => `Paused: stuck \xB7 ${why}`;
@@ -25344,7 +25483,7 @@ var moving = (status2) => status2 === "running" || status2 === "waiting";
 var repairingNext = (next, words) => ({ ...withWaits(next, [words]), status: "running" });
 var pausedNext = (why) => ({ status: "paused", waitingOn: cut3(pausedWords2(why)), nextWakeAt: null, pausedBy: "stuck" });
 async function stuckStep(at4) {
-  const timeline2 = [...at4.recorded, ...at4.events.map(({ kind, prd, job }) => ({ kind, prd, job }))];
+  const timeline2 = [...at4.recorded, ...at4.events.map(asRecorded)];
   const beats = beatsOf(timeline2, at4.runs);
   let view = await settleAll2(at4.store, at4.stuck, beats);
   const decided = at4.sends && moving(at4.mission.status) && moving(at4.next.status) ? stuckNext(view, beats, at4.left) : { next: "none" };
@@ -25606,35 +25745,41 @@ async function supervise(store, sought, now2, github) {
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, off, installation: ready.installation, joins: github.joins, hold: held2.hold });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now: now2, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered, resumes: resumeCap(mission) };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits });
+  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...await productRepairAt(store, mission) });
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
   const planAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
   const before2 = withPlans(prdStates(facts, runs, branch, view, fleet, repairView, qa), planAt);
   const { sent, approved, asked, repaired: repaired2 } = unready === null ? await sendEvery({ store, mission, facts, states: before2.states, toFleet, skill, added: pm.authored, left: leftOf(repairView) }) : NOTHING_SENT;
-  const repairs = { ...repairView, jobs: [...repairView.jobs, ...repaired2] };
+  const sentRepairs = { ...repairView, jobs: [...repairView.jobs, ...repaired2] };
   const planned = await sendPlans({ store, mission, send: before2.send, jobs: pm.jobs, toFleet, sends: unready === null });
   const committees = [...decided, ...approved];
   const asks = [...answered.committees, ...asked];
   const all = [...runs, ...sent];
-  const after2 = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, repairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs });
+  const after2 = withPlans(prdStates(facts, all, branch, { ...view, committees, answers: { open: answered.open, committees: asks } }, fleet, sentRepairs, qa), { ...planAt, runs: all, committees, plans: [...pm.plans, ...planned.jobs], repairs: sentRepairs });
   const states = after2.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after2.retro });
   const fresh = sent.length + approved.length + asked.length + repaired2.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products } });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs });
+  const repairs = { ...sentRepairs, jobs: [...sentRepairs.jobs, ...products.repaired] };
   const landed = await landingStep({ store, mission, at: at4, landing, hold: kept3.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now: now2, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now: now2, branch: branch.branch }), [...dropped.waits, ...held2.waits, ...landed.waits]);
   const concluded = withProducts(withPm(waited, pm.writing || pmSent.length > 0, new Date(now2 + WAKE_MS).toISOString(), pmWait(pmView(mission, pm, inPlan))), products, now2);
   const finished = budget.finish(unready === null || concluded.status === "delivered" || concluded.status === "paused" ? concluded : { ...concluded, status: "waiting", waitingOn: unready });
   const events = eventsOf({ mission: { ...mission, status: budget.said }, facts, states, runs: all, next: finished, toFleet, skill, recorded: recordedKeys(dropped.recorded), joins, landings: landing.landed, committees, asks, repairs, qa, resumes: resumeCap(mission) });
+  const productRepairs = unrecorded(repairEvents(repairs, { where: whereOf2(mission, toFleet), mission: mission.number }).filter((one) => !ofRepository(one)), recordedKeys(dropped.recorded));
   const retro2 = await retrosOf({ store, mission, next: finished, states, runs: all, recorded: dropped.recorded, events, stuck, left: leftOf(repairs), toFleet, inPlan, sends: unready === null, over: budget.over });
   const next = retro2.next;
-  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...landed.events, ...events, ...retro2.events], new Date(now2));
+  await store.record(mission.id, [...pmSent, ...budget.events, ...outside.events, ...products.events, ...productRepairs, ...landed.events, ...events, ...retro2.events], new Date(now2));
   const moved = await store.update(mission.id, budget.from, next);
-  const running = atWork2(states, retro2.running) || products.moving;
-  return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + landed.events.length };
+  const running = atWork3(states, retro2.running) || products.moving;
+  return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + productRepairs.length + landed.events.length };
 }
-var atWork2 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
+async function productRepairAt(store, mission) {
+  if (store.products === void 0 || mission.products === void 0) return {};
+  return { products: await store.products.runs(mission.id), repos: (await store.branches(mission.id)).map((one) => one.repo) };
+}
+var atWork3 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
 async function repairsOf(at4) {
   const read2 = await readRepairs(at4);
   const stuck = at4.store.retros === void 0 ? NO_STUCK : await readStuck({ ...at4, retros: at4.store.retros, rows: read2.rows });
@@ -25686,7 +25831,7 @@ async function readRun(store, sought, now2) {
 async function pmJobEvents(store, mission, events, jobs, plans) {
   const fresh = [];
   for (const one of jobs) {
-    const known = [...events, ...fresh.map(asRecorded)];
+    const known = [...events, ...fresh.map(asRecorded2)];
     const plan = plans.find((each) => each.job === one.job);
     if (plan !== void 0) fresh.push(...planEvents(plan, known));
     if (!isOwnJob(one)) continue;
@@ -25706,7 +25851,7 @@ async function pmRead(store, mission, events, jobs, now2) {
   const plans = planJobsOf(jobs);
   const fresh = mission.level === "alone" ? await pmJobEvents(store, mission, events, jobs, plans) : [];
   if (fresh.length > 0) await store.record(mission.id, fresh, new Date(now2 - 1e3));
-  const recorded = [...events, ...fresh.map(asRecorded)];
+  const recorded = [...events, ...fresh.map(asRecorded2)];
   const added = addedOf(recorded);
   const authored = /* @__PURE__ */ new Set([...added, ...plannedOf(plans)]);
   const products = addedProductsOf(recorded);
@@ -25740,7 +25885,7 @@ async function sendRetro(store, mission, toFleet) {
   const sentence2 = `A new plan was refused: sent ${retroSkillLine(mission.number, "mission")} to ${whereOf2(mission, toFleet)}.`;
   return job === null ? [] : [{ kind: "dispatched", role: "supervisor", prd: null, job, link: null, sentence: sentence2 }];
 }
-var asRecorded = ({ kind, prd, job }) => typeof prd === "string" ? { kind, prd: null, product: prd, job } : { kind, prd, job };
+var asRecorded2 = ({ kind, prd, job }) => typeof prd === "string" ? { kind, prd: null, product: prd, job } : { kind, prd, job };
 var pmView = (mission, pm, inPlan) => ({ mission, ownPrds: mission.ownPrds ?? 0, added: pm.added.size + pm.products.size, jobs: pm.jobs, inPlan, asks: pmAsks(mission, pm.recorded, pm.jobs), home: pm.home });
 async function sendPm(store, mission, pm, inPlan, toFleet) {
   const next = pmNext(pmView(mission, pm, inPlan));
@@ -26119,7 +26264,7 @@ async function dropAll({
       return { kind: "prd-dropped", role: "supervisor", prd: one, job: null, link: reopened?.url ?? null, sentence: `PRD ${String(one)} was dropped from ${at4.branch}${why}: ${how}.` };
     });
     await store.record(mission.id, events, new Date(now2));
-    current = [...current, ...events.map(({ kind, prd: of, job }) => ({ kind, prd: of, job }))];
+    current = [...current, ...events.map(asRecorded2)];
   }
   return { recorded: current, waits };
 }
@@ -26136,7 +26281,7 @@ async function redBranch({ mission, at: at4, joined: joined2, joins }) {
   const why = `${at4.branch} is red (${failed3.map(({ name }) => name).join(", ")}) since PRD ${String(last)} joined: no further PRD joins; run ${dropLine(mission.number, last)} to take it off`;
   return { waits: [why], hold: why };
 }
-var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [] };
+var NO_PRODUCTS = { pending: false, moving: false, waits: [], events: [], sent: 0, rows: [], on: [], repaired: [] };
 var NO_REVIEWS = { techs: [], decisions: [], events: [] };
 var notDoneWhy = ({ status: status2 }) => status2 === "done" ? [] : [status2 === "cancelled" ? "its job was cancelled" : "its job failed"];
 async function decideReviewed(at4, products, one) {
@@ -26146,14 +26291,15 @@ async function decideReviewed(at4, products, one) {
   const settled2 = record !== null && "settled" in record && kept3.outcome === "approved" ? record.settled : [];
   return { kind: one.kind, prd: one.prd, job: one.job, plan: kept3.plan, outcome: kept3.outcome, why: kept3.why, settled: settled2 };
 }
+var fleetOwns = (at4, prd) => at4.mission.level === "alone" || at4.pm.authored.has(prd);
 async function reviewAll(at4, products) {
-  if (at4.pm.authored.size === 0) return NO_REVIEWS;
+  if (at4.mission.level !== "alone" && at4.pm.authored.size === 0) return NO_REVIEWS;
   const read2 = await products.reviews(at4.mission.id);
   const decided = new Set(read2.decisions.map((one) => one.job));
   const ended7 = [
     ...productPlansOf(at4.pm.jobs).map((one) => ({ kind: "plan", prd: one.prd, job: one.job, attempt: one.attempt })),
     ...read2.techs.map((one) => ({ kind: "tech", prd: one.prd, job: one.job, attempt: one.attempt }))
-  ].filter((one) => at4.pm.authored.has(one.prd) && !pmWorking(one) && !decided.has(one.job));
+  ].filter((one) => fleetOwns(at4, one.prd) && !pmWorking(one) && !decided.has(one.job));
   const decisions = [...read2.decisions];
   const events = [];
   for (const one of ended7) {
@@ -26162,6 +26308,11 @@ async function reviewAll(at4, products) {
     events.push(decisionEvent(decision));
   }
   return { techs: read2.techs, decisions, events };
+}
+function sentBackOf(events) {
+  const sent = /* @__PURE__ */ new Map();
+  for (const { kind, product, job } of events) if (kind === SENT_BACK && product !== void 0) sent.set(product, job);
+  return sent;
 }
 function productsJoined(events) {
   const on = /* @__PURE__ */ new Set();
@@ -26205,7 +26356,8 @@ async function productAll(at4) {
   if (products === void 0 || at4.mission.products === void 0 || !sendsCommittees(at4.mission.status)) return NO_PRODUCTS;
   const reviews = await reviewAll(at4, products);
   const facts = await products.facts(at4.mission);
-  const joined2 = productsJoined(await at4.store.events(at4.mission.id));
+  const recorded = await at4.store.events(at4.mission.id);
+  const joined2 = productsJoined(recorded);
   if (facts.length === 0) return NO_PRODUCTS;
   const branch = baseOf(at4.mission, at4.inPlan) ?? "the mission branch";
   if (facts.every((fact) => joined2.has(fact.prd))) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], waits: [`every product PRD is on ${branch}: a person lands it`] };
@@ -26213,14 +26365,19 @@ async function productAll(at4) {
   if (!ready.ok) return { ...NO_PRODUCTS, rows: facts, on: [...joined2], pending: true, waits: [ready.why], events: reviews.events };
   const runs = await products.runs(at4.mission.id);
   const answered = answeredOf(await at4.store.decisions(at4.mission.id));
-  const done = await productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered, reviews, rounds: nextPlanRound(at4.pm.jobs) }, facts);
+  const done = await productSteps({ ...at4, ...ready, products, runs, joined: joined2, answered, reviews, rounds: nextPlanRound(at4.pm.jobs), sentBack: sentBackOf(recorded) }, facts);
   return { ...done, events: [...reviews.events, ...done.events] };
 }
-function reviewOf(at4, fact) {
-  if (!at4.pm.authored.has(fact.prd)) return { state: "build" };
+function reviewViewOf(at4, fact) {
+  if (!fleetOwns(at4, fact.prd)) return null;
   const plans = productPlansOf(at4.pm.jobs).filter((one) => one.prd === fact.prd);
   const techs = at4.reviews.techs.filter((one) => one.prd === fact.prd);
-  return reviewStateOf({ prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions });
+  return { prd: fact.prd, latest: fact.plan ?? null, approval: fact.approval, plans, techs, decisions: at4.reviews.decisions, sentBack: at4.sentBack.get(fact.prd) ?? null };
+}
+function reviewOf(at4, fact) {
+  const view = reviewViewOf(at4, fact);
+  if (view === null || !at4.pm.authored.has(fact.prd) && fact.approval === "standing") return { state: "build" };
+  return reviewStateOf(view);
 }
 async function reviewStep(at4, fact, state, step) {
   if (state.state === "waits") {
@@ -26232,13 +26389,14 @@ async function reviewStep(at4, fact, state, step) {
   const line3 = state.state === "plan" ? planJobLine(fact.prd, "plan", at4.mission.number) : techJobLine(fact.prd, at4.mission.number);
   const job = state.state === "plan" ? await at4.store.pm({ mission: at4.mission, round: at4.rounds++, line: line3, toFleet: at4.toFleet }) : await at4.products.review({ mission: at4.mission, prd: fact.prd, k: state.k, line: line3, toFleet: at4.toFleet });
   if (job === null) return;
-  const sent = reviewDispatched(fact.prd, job, line3, state, isRetry(fact.prd, at4.reviews.decisions));
+  const sent = reviewDispatched(fact.prd, job, line3, state, { retry: isRetry(fact.prd, at4.reviews.decisions), wrote: at4.pm.authored.has(fact.prd) });
   step.events.push({ ...sent, sentence: cut3(sent.sentence) });
 }
 async function productSteps(at4, facts) {
   const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
-  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission) };
-  const step = { room: at4.mission.parallel - facts.filter((fact) => productStateOf(fact, at4.runs, where).state === "running").length, moving: false, waits: [], events: [] };
+  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission), repairs: at4.repairs };
+  const busy = facts.filter((fact) => ["running", "repairing"].includes(productStateOf(fact, at4.runs, where).state)).length;
+  const step = { room: at4.mission.parallel - busy, moving: false, waits: [], events: [], repairs: at4.repairs, repaired: [] };
   for (const fact of facts) {
     const held2 = at4.held.get(fact.prd);
     if (held2 !== void 0 && !at4.joined.has(fact.prd)) {
@@ -26252,26 +26410,56 @@ async function productSteps(at4, facts) {
   }
   const sent = step.events.filter((one) => one.kind === "dispatched").length;
   const pending = facts.some((fact) => !at4.joined.has(fact.prd));
-  return { pending, moving: step.moving, waits: pending ? step.waits : [`every product PRD is on ${at4.branch}: a person lands it`], events: step.events, sent, rows: facts, on: [...at4.joined] };
+  const waits = pending ? step.waits : [`every product PRD is on ${at4.branch}: a person lands it`];
+  return { pending, moving: step.moving, waits, events: step.events, sent: sent + step.repaired.length, rows: facts, on: [...at4.joined], repaired: step.repaired };
 }
 async function productStep(at4, fact, state, step) {
+  if (await productRepairStep(at4, fact, state, step)) return;
   if (state.state === "running") step.moving = true;
   else if (state.state === "blocked") step.waits.push(heldWords(fact.prd, state.by, at4.branch));
   else if (state.state === "waits") step.waits.push(state.why);
-  else if (state.state === "startable" && step.room > 0) {
-    const sent = await sendProduct(at4, fact, state.run);
-    if (sent !== null) step.events.push(sent);
-    step.moving = true;
-    step.room -= 1;
-  } else if (state.state === "ready") {
-    const joined2 = await joinOneProduct(at4, fact);
-    if ("lacks" in joined2) step.waits.push(joined2.lacks);
-    else {
-      step.events.push(joined2.event);
-      at4.joined.add(fact.prd);
-      step.moving = true;
-    }
+  else if (state.state === "startable") await startStep(at4, fact, state.run, step);
+  else if (state.state === "ready") await joinStep(at4, fact, step);
+}
+async function joinStep(at4, fact, step) {
+  const joined2 = await joinOneProduct(at4, fact);
+  if ("lacks" in joined2) {
+    step.waits.push(joined2.lacks);
+    return;
   }
+  step.events.push(joined2.event);
+  at4.joined.add(fact.prd);
+  step.moving = true;
+}
+async function productRepairStep(at4, fact, state, step) {
+  if (state.state === "repairable") await repairProduct(at4, fact, state, step);
+  else if (state.state === "repairing") {
+    step.moving = true;
+    step.waits.push(state.why);
+  } else return false;
+  return true;
+}
+async function repairProduct(at4, fact, state, step) {
+  step.moving = true;
+  if (leftOf(step.repairs) === 0) return;
+  const job = await at4.store.repair({ mission: at4.mission, prd: fact.prd, k: state.k, failedJob: state.failedJob, toFleet: at4.toFleet });
+  if (job === null) return;
+  const sent = { prd: fact.prd, k: state.k, job, failedJob: state.failedJob, attempts: [{ id: job, status: "queued", outcome: null, reason: null, prUrl: null }] };
+  step.repaired.push(sent);
+  step.repairs = { ...step.repairs, jobs: [...step.repairs.jobs, sent] };
+  const next = repairNext(step.repairs, fact.prd, state.failedJob, state.why);
+  if (next?.next === "repairing") step.waits.push(`PRD ${fact.prd}: ${repairingWords(next)}`);
+}
+async function startStep(at4, fact, run, step) {
+  if (fact.targets.length === 0) {
+    await reviewStep(at4, fact, unnamedStateOf(fact.prd, reviewViewOf(at4, fact)), step);
+    return;
+  }
+  if (step.room <= 0) return;
+  const sent = await sendProduct(at4, fact, run);
+  if (sent !== null) step.events.push(sent);
+  step.moving = true;
+  step.room -= 1;
 }
 async function sendProduct(at4, fact, run) {
   const line3 = lineOf5(fact.prd, "build", "ultra-yolo", basesOf(fact.targets, at4.branch));
@@ -26966,7 +27154,8 @@ function madeOf(answer, none) {
 var OVER_BUDGET2 = "23514";
 var repairOf = (row) => ({
   id: row.id,
-  ...numberedOf(row.prd_id),
+  // A repair reads its PRD whichever it is (bug #3302): a product PRD's is repaired as a repository PRD's.
+  prd: row.prd_id,
   ...row.trigger === "stuck" ? { trigger: "stuck" } : {},
   fingerprint: row.fingerprint,
   round: row.round,
@@ -27838,19 +28027,19 @@ function notebookHandler({
     const now2 = slotOf(job.payload, clock);
     const read2 = readBefore(job.progress);
     const summary2 = { batches: 0, lines: 0, empty: 0, dropped: 0, learned: 0 };
-    const said4 = () => `commander notebook: ${String(summary2.batches)} batches, ${String(summary2.lines)} lines, ${String(summary2.empty)} empty, ${String(summary2.dropped)} dropped, ${String(summary2.learned)} learned`;
+    const said5 = () => `commander notebook: ${String(summary2.batches)} batches, ${String(summary2.lines)} lines, ${String(summary2.empty)} empty, ${String(summary2.dropped)} dropped, ${String(summary2.learned)} learned`;
     let asked = 0;
     for (const batch of await batchesDue(store, now2)) {
       const key = `${batch.notebook}:${batch.mission.id}`;
       if (read2.has(key) || model === null && batch.notebook === "mission") continue;
       if (asked >= BATCHES_PER_RUN) {
-        log2(`${said4()}; more to read`);
+        log2(`${said5()}; more to read`);
         return { outcome: "later", at: new Date(clock() + AGAIN_MS), progress: { read: [...read2].slice(-PROGRESS_MAX) } };
       }
       if (await runOne(store, model, batch, new Date(clock()), summary2)) asked += 1;
       read2.add(key);
     }
-    log2(said4());
+    log2(said5());
     return model === null ? { outcome: "skipped", reason: `no model key: only what the fleet learned is written (${String(summary2.learned)} lines)` } : { outcome: "done" };
   };
 }
@@ -27971,9 +28160,728 @@ function checkpointsForgetHandler({
   };
 }
 
-// apps/omni-app/src/jobs/embed.ts
+// apps/omni-app/src/supervisor/store.ts
+import { z as z114 } from "zod";
+
+// apps/omni-app/src/supervisor/baselines.ts
+var BASELINE = /^Baseline ([a-z][a-z0-9-]*): (\d+(?:\.\d+)?) min\b/;
+function baselinesOf(notesNewestFirst) {
+  const pairs = notesNewestFirst.flatMap((note) => {
+    const [, step = "", usual = "0"] = BASELINE.exec(note) ?? [];
+    return step !== "" && Number(usual) > 0 ? [[step, Number(usual)]] : [];
+  });
+  return Object.fromEntries(pairs.reverse());
+}
+
+// apps/omni-app/src/supervisor/store.ts
+var MINUTE2 = 6e4;
+var HOUR = 60 * MINUTE2;
+var SEAT = "workspace_id, runner_id, paused, daily_tokens, tokens_day, tokens_used, last_look_at, placed_at, runners(name)";
+var WATCH_RUNNER = "id, name, fleet, repos, last_seen_at, health";
+var SAMPLE = "runner_id, at, disk_free";
+var WATCH_JOB = "id, repo, line, status, outcome, reason, runner_id, to_runner, to_fleet, queued_at, running_at, ended_at, resume_after, attempt";
+var FAILED_JOB = `${WATCH_JOB}, log_tail`;
+var WATCH_MISSION = "id, number, title, status, updated_at";
+var SIGNAL = "id, fingerprint, opened_at, finding_id";
+var FINDING = "id, state, raised_by, looked_at";
+var DISMISSAL = "evidence_key, supervisor_findings!inner(fingerprint)";
+var LaneRowSchema2 = z114.object({ workspace_id: z114.uuid() });
+var SeatRowSchema = z114.object({
+  workspace_id: z114.uuid(),
+  runner_id: z114.uuid(),
+  paused: z114.boolean(),
+  daily_tokens: z114.coerce.number(),
+  tokens_day: z114.string().nullable(),
+  tokens_used: z114.coerce.number(),
+  last_look_at: z114.string().nullable(),
+  placed_at: z114.string(),
+  runners: z114.object({ name: z114.string() }).nullable()
+});
+var AccountSchema = z114.object({ state: z114.enum(["ready", "active", "out"]) });
+var HealthSchema2 = z114.object({ paused: z114.string().nullable().optional(), accounts: z114.array(AccountSchema).optional() }).nullable().catch(null);
+var WatchRunnerRowSchema = z114.object({
+  id: z114.uuid(),
+  name: z114.string(),
+  fleet: z114.string().nullable(),
+  repos: z114.array(z114.string()),
+  last_seen_at: z114.string(),
+  health: z114.unknown()
+});
+var SampleRowSchema = z114.object({ runner_id: z114.uuid(), at: z114.string(), disk_free: z114.coerce.number().nullable() });
+var WatchJobRowSchema = z114.object({
+  id: z114.uuid(),
+  repo: z114.string(),
+  line: z114.string(),
+  status: z114.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z114.string().nullable(),
+  reason: z114.string().nullable(),
+  runner_id: z114.uuid().nullable(),
+  to_runner: z114.uuid().nullable(),
+  to_fleet: z114.string().nullable(),
+  queued_at: z114.string(),
+  running_at: z114.string().nullable(),
+  ended_at: z114.string().nullable(),
+  resume_after: z114.string().nullable(),
+  attempt: z114.number().int()
+});
+var FailedJobRowSchema = WatchJobRowSchema.extend({ log_tail: z114.string() });
+var LineAtRowSchema = z114.object({ at: z114.string() });
+var ContinuesRowSchema = z114.object({ continues: z114.uuid().nullable() });
+var WatchMissionRowSchema = z114.object({ id: z114.uuid(), number: z114.number().int(), title: z114.string(), status: z114.string(), updated_at: z114.string() });
+var EventAtRowSchema = z114.object({ at: z114.string() });
+var LedgerRowSchema = z114.object({ kind: z114.string(), state: z114.string() });
+var WatchRepairRowSchema = z114.object({ fingerprint: z114.string() });
+var ErrorRowSchema = z114.object({ route: z114.string(), status: z114.number().int(), created_at: z114.string() });
+var NoteRowSchema = z114.object({ line: z114.string() });
+var SignalRowSchema = z114.object({ id: z114.uuid(), fingerprint: z114.string(), opened_at: z114.string(), finding_id: z114.uuid().nullable() });
+var FindingRowSchema = z114.object({
+  id: z114.uuid(),
+  state: z114.enum(["open", "acted", "dismissed", "resolved"]),
+  raised_by: z114.enum(["check", "supervisor"]),
+  looked_at: z114.string().nullable()
+});
+var DismissalRowSchema = z114.object({ evidence_key: z114.string().nullable(), supervisor_findings: z114.object({ fingerprint: z114.string().nullable() }) });
+var IdRowSchema3 = z114.object({ id: z114.uuid() });
+function lastLineOf(tail) {
+  const line3 = tail.split("\n").map((text20) => text20.trim()).filter((text20) => text20 !== "").at(-1);
+  return line3 === void 0 ? null : maskSecrets(line3).slice(0, 600);
+}
+function failingKinds(rows) {
+  const runs = /* @__PURE__ */ new Map();
+  for (const row of rows) runs.set(row.kind, [...runs.get(row.kind) ?? [], row.state]);
+  return [...runs.entries()].filter(([, states]) => states.length >= 3 && states.slice(0, 3).every((state) => state === "failed")).map(([kind]) => kind);
+}
+var jobOf = (row, more = {}) => ({
+  id: row.id,
+  repo: row.repo,
+  line: row.line,
+  status: row.status,
+  outcome: row.outcome,
+  reason: row.reason,
+  runnerId: row.runner_id,
+  toRunner: row.to_runner,
+  toFleet: row.to_fleet,
+  queuedAt: row.queued_at,
+  runningAt: row.running_at,
+  endedAt: row.ended_at,
+  resumeAfter: row.resume_after,
+  attempt: row.attempt,
+  lastLineAt: null,
+  lastLine: null,
+  continued: false,
+  ...more
+});
+var evidenceJson = (evidence) => evidence.map((e) => e.text === void 0 ? { of: e.of, id: e.id } : { of: e.of, id: e.id, text: maskSecrets(e.text) });
+function watchStore(connection) {
+  const db = serviceDb(connection);
+  const ledger = jobLedger(connection);
+  async function runners(workspace, now2) {
+    const rows = rowsOf(WatchRunnerRowSchema, await db.from("runners").select(WATCH_RUNNER).eq("workspace_id", workspace).limit(200));
+    const samples = rowsOf(SampleRowSchema, await db.from("runner_samples").select(SAMPLE).eq("workspace_id", workspace).gte("at", new Date(now2 - HOUR).toISOString()).order("at", { ascending: true }).limit(5e3));
+    return rows.map((row) => {
+      const health = HealthSchema2.parse(row.health);
+      return {
+        id: row.id,
+        name: row.name,
+        fleet: row.fleet,
+        repos: row.repos,
+        lastSeenAt: row.last_seen_at,
+        paused: health?.paused ?? null,
+        accounts: health?.accounts ? health.accounts.map((account) => account.state) : null,
+        disk: samples.flatMap((s) => s.runner_id === row.id && s.disk_free !== null ? [{ at: s.at, free: s.disk_free }] : [])
+      };
+    });
+  }
+  async function jobs(workspace, now2) {
+    const active = rowsOf(WatchJobRowSchema, await db.from("runner_jobs").select(WATCH_JOB).eq("workspace_id", workspace).in("status", ["queued", "claimed", "running"]).limit(500));
+    const failed3 = rowsOf(FailedJobRowSchema, await db.from("runner_jobs").select(FAILED_JOB).eq("workspace_id", workspace).eq("status", "failed").gte("ended_at", new Date(now2 - 24 * HOUR).toISOString()).order("ended_at", { ascending: false }).limit(300));
+    const waiting2 = rowsOf(WatchJobRowSchema, await db.from("runner_jobs").select(WATCH_JOB).eq("workspace_id", workspace).eq("status", "done").in("outcome", ["human", "answers", "held"]).gte("ended_at", new Date(now2 - 14 * 24 * HOUR).toISOString()).lte("ended_at", new Date(now2 - 4 * HOUR).toISOString()).limit(300));
+    const continued = waiting2.length === 0 ? /* @__PURE__ */ new Set() : new Set(rowsOf(ContinuesRowSchema, await db.from("runner_jobs").select("continues").eq("workspace_id", workspace).in("continues", waiting2.map((job) => job.id))).flatMap((row) => row.continues === null ? [] : [row.continues]));
+    const running = await Promise.all(active.filter((job) => job.status === "running").slice(0, 100).map(async (job) => {
+      const [line3] = rowsOf(LineAtRowSchema, await db.from("runner_job_lines").select("at").eq("job_id", job.id).order("seq", { ascending: false }).limit(1));
+      return jobOf(job, { lastLineAt: line3?.at ?? null });
+    }));
+    return [
+      ...running,
+      ...active.filter((job) => job.status !== "running").map((job) => jobOf(job)),
+      ...failed3.map((job) => jobOf(job, { lastLine: lastLineOf(job.log_tail) })),
+      ...waiting2.map((job) => jobOf(job, { continued: continued.has(job.id) }))
+    ];
+  }
+  async function missions(workspace) {
+    const rows = rowsOf(WatchMissionRowSchema, await db.from("missions").select(WATCH_MISSION).eq("workspace_id", workspace).in("status", ["running", "waiting"]).limit(100));
+    return Promise.all(rows.map(async (row) => {
+      const [event] = rowsOf(EventAtRowSchema, await db.from("mission_events").select("at").eq("mission_id", row.id).order("at", { ascending: false }).limit(1));
+      const [run] = rowsOf(LedgerRowSchema, await db.from("background_jobs").select("kind, state").eq("kind", "mission").eq("key", `mission:${row.id}`).limit(1));
+      const repairs = {};
+      for (const repair of rowsOf(WatchRepairRowSchema, await db.from("mission_repairs").select("fingerprint").eq("mission_id", row.id).limit(500))) {
+        repairs[repair.fingerprint] = (repairs[repair.fingerprint] ?? 0) + 1;
+      }
+      return { id: row.id, number: row.number, title: row.title, status: row.status, lastEventAt: event?.at ?? null, updatedAt: row.updated_at, runFailed: run?.state === "failed", repairs };
+    }));
+  }
+  async function openSignals(workspace) {
+    return rowsOf(SignalRowSchema, await db.from("supervisor_signals").select(SIGNAL).eq("workspace_id", workspace).is("closed_at", null).limit(1e3)).map((row) => ({ id: row.id, fingerprint: row.fingerprint, openedAt: row.opened_at, findingId: row.finding_id }));
+  }
+  const done = (answer) => {
+    if (answer.error) throw new Error(`the database refused: ${answer.error.message}${answer.error.code ? ` (${answer.error.code})` : ""}`);
+  };
+  return {
+    async seat(workspace) {
+      const [row] = rowsOf(SeatRowSchema, await db.from("supervisor_seats").select(SEAT).eq("workspace_id", workspace).limit(1));
+      if (!row) return null;
+      const seat = {
+        workspace: row.workspace_id,
+        runnerId: row.runner_id,
+        runnerName: row.runners?.name ?? "its runner",
+        paused: row.paused,
+        dailyTokens: row.daily_tokens,
+        tokensDay: row.tokens_day,
+        tokensUsed: row.tokens_used,
+        lastLookAt: row.last_look_at,
+        placedAt: row.placed_at
+      };
+      return seat;
+    },
+    async snapshot(workspace, now2) {
+      const errors = rowsOf(ErrorRowSchema, await db.from("app_errors").select("route, status, created_at").eq("workspace_id", workspace).gte("created_at", new Date(now2 - HOUR).toISOString()).limit(1e3));
+      const health = await ledger.health();
+      const finished = rowsOf(LedgerRowSchema, await db.from("background_jobs").select("kind, state").in("kind", SCHEDULES.map((s) => s.kind)).in("state", ["done", "failed"]).gte("finished_at", new Date(now2 - 7 * 24 * HOUR).toISOString()).order("finished_at", { ascending: false }).limit(500));
+      const notes = rowsOf(NoteRowSchema, await db.from("supervisor_memory").select("line").eq("workspace_id", workspace).eq("scope", "long").order("created_at", { ascending: false }).limit(200));
+      return {
+        now: now2,
+        jobs: await jobs(workspace, now2),
+        runners: await runners(workspace, now2),
+        missions: await missions(workspace),
+        errors: errors.map((row) => ({ route: row.route, status: row.status, at: row.created_at })),
+        ledger: { late: health.late, scheduledLate: health.scheduled ?? 0, failing: failingKinds(finished) },
+        baselines: baselinesOf(notes.map((note) => note.line))
+      };
+    },
+    openSignals,
+    async findings(ids) {
+      return rowsOf(FindingRowSchema, await db.from("supervisor_findings").select(FINDING).in("id", [...ids])).map((row) => ({ id: row.id, state: row.state, raisedBy: row.raised_by, lookedAt: row.looked_at }));
+    },
+    async dismissals(workspace, fingerprints) {
+      return rowsOf(DismissalRowSchema, await db.from("supervisor_proposals").select(DISMISSAL).eq("workspace_id", workspace).eq("kind", "dismiss").in("supervisor_findings.fingerprint", [...fingerprints]).limit(1e3)).flatMap((row) => row.supervisor_findings.fingerprint === null ? [] : [{ fingerprint: row.supervisor_findings.fingerprint, evidenceKey: row.evidence_key }]);
+    },
+    async setMissed(workspace, missed) {
+      done(await db.from("supervisor_seats").update({ missed_looks: missed }).eq("workspace_id", workspace));
+    },
+    async upsertSignals(workspace, fires, at4) {
+      const open = new Map((await openSignals(workspace)).map((signal) => [signal.fingerprint, signal]));
+      for (const fire of fires) {
+        const row = { check_line: fire.checkLine, figures: fire.figures, evidence: evidenceJson(fire.evidence), evidence_key: fire.evidenceKey, seen_at: at4 };
+        const known = open.get(fire.fingerprint);
+        if (known) {
+          done(await db.from("supervisor_signals").update(row).eq("id", known.id));
+          continue;
+        }
+        const answer = await db.from("supervisor_signals").insert({ ...row, workspace_id: workspace, fingerprint: fire.fingerprint, check_name: fire.check, kind: fire.kind, opened_at: at4 });
+        if (answer.error?.code !== "23505") done(answer);
+      }
+      const fired = new Set(fires.map((fire) => fire.fingerprint));
+      return (await openSignals(workspace)).filter((signal) => fired.has(signal.fingerprint));
+    },
+    async closeSignals(ids, at4) {
+      done(await db.from("supervisor_signals").update({ closed_at: at4 }).in("id", [...ids]).is("closed_at", null));
+    },
+    async resolveFindings(ids, at4) {
+      done(await db.from("supervisor_findings").update({ state: "resolved", closed_at: at4 }).in("id", [...ids]).eq("state", "open"));
+    },
+    async raise(finding, at4) {
+      const [made] = rowsOf(IdRowSchema3, await db.from("supervisor_findings").insert({
+        workspace_id: finding.workspace,
+        fingerprint: finding.fingerprint,
+        kind: finding.kind,
+        severity: finding.severity,
+        title: finding.title,
+        check_line: finding.checkLine,
+        figures: finding.figures,
+        evidence: evidenceJson(finding.evidence),
+        evidence_key: finding.evidenceKey,
+        raised_by: "check",
+        created_at: at4
+      }).select("id"));
+      if (!made) throw new Error("the database wrote no finding");
+      for (const suggestion of (finding.suggestions ?? []).slice(0, 2)) {
+        done(await db.from("supervisor_proposals").insert({
+          workspace_id: finding.workspace,
+          finding_id: made.id,
+          kind: "suggestion",
+          action: suggestion.action,
+          label: suggestion.label,
+          target: suggestion.target
+        }));
+      }
+      done(await db.from("supervisor_signals").update({ finding_id: made.id }).eq("id", finding.signalId));
+      return made.id;
+    },
+    async notified(findingId, at4) {
+      done(await db.from("supervisor_findings").update({ notified_at: at4 }).eq("id", findingId));
+    }
+  };
+}
+
+// apps/omni-app/src/supervisor/checks.ts
 import { createHash as createHash8 } from "node:crypto";
-import { z as z115 } from "zod";
+var MINUTE3 = 6e4;
+var HOUR2 = 60 * MINUTE3;
+var ONLINE_MS = 9e4;
+var DEFAULT_USUAL_MIN = 20;
+var LOST_REASONS2 = Object.freeze(["runner lost", "the worktree could not be made", "the tmux session could not be started"]);
+var WAITING = Object.freeze({ human: "Need human", answers: "Waiting on answers", held: "Held" });
+function evidenceKey(parts) {
+  return createHash8("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 32);
+}
+function minutes(ms2) {
+  return String(Number((ms2 / MINUTE3).toFixed(1)));
+}
+var hours = (ms2) => String(Number((ms2 / HOUR2).toFixed(1)));
+var age = (iso2, now2) => iso2 === null ? Number.POSITIVE_INFINITY : now2 - Date.parse(iso2);
+var online = (runner, now2) => age(runner.lastSeenAt, now2) <= ONLINE_MS;
+var clean = (text20, max = 200) => {
+  const line3 = maskSecrets(text20).replace(/\s+/g, " ").trim();
+  return line3.length <= max ? line3 : `${line3.slice(0, max - 1)}\u2026`;
+};
+function skillOf(line3) {
+  return /^\/(?:omni:)?([a-z][a-z0-9-]*)/.exec(line3)?.[1] ?? "job";
+}
+var silentJob = ({ now: now2, jobs, runners, baselines }) => {
+  const seen = new Set(runners.filter((runner) => online(runner, now2)).map((runner) => runner.id));
+  return jobs.flatMap((job) => {
+    if (job.status !== "running" || job.runnerId === null || !seen.has(job.runnerId)) return [];
+    const quiet3 = age(job.lastLineAt ?? job.runningAt, now2);
+    const step = skillOf(job.line);
+    const usualMin = baselines[step];
+    const usual = (usualMin ?? DEFAULT_USUAL_MIN) * MINUTE3;
+    if (!Number.isFinite(quiet3) || quiet3 < Math.max(3 * usual, DEFAULT_USUAL_MIN * MINUTE3)) return [];
+    const usualText = usualMin === void 0 ? `the ${String(DEFAULT_USUAL_MIN)} min default (no usual time kept yet)` : `the ${minutes(usual)} min usual`;
+    return [{
+      fingerprint: `stuck:silent:${job.id}`,
+      check: "silent-job",
+      kind: "stuck",
+      severity: "medium",
+      title: `A ${step} job has written nothing for ${minutes(quiet3)} min`,
+      checkLine: `Silent job: no line for ${minutes(quiet3)} min, 3\xD7 ${usualText}`,
+      figures: { silentMin: Number(minutes(quiet3)), usualMin: Number(minutes(usual)), step },
+      evidence: [{ of: "job", id: job.id, text: clean(job.line) }, { of: "runner", id: job.runnerId }],
+      evidenceKey: evidenceKey([job.id, job.lastLineAt]),
+      suggestions: [
+        { action: "stop-resume-job", label: "Stop and resume the job", target: { job: job.id } },
+        { action: "open-terminal", label: "Open its Terminal", target: { job: job.id } }
+      ]
+    }];
+  });
+};
+function canTake(runner, job, now2) {
+  if (!online(runner, now2) || runner.paused !== null) return false;
+  if (!runner.repos.includes(job.repo.toLowerCase())) return false;
+  if (job.toRunner !== null) return job.toRunner === runner.id;
+  return job.toFleet === null || job.toFleet === runner.fleet;
+}
+var queueStuck = ({ now: now2, jobs, runners }) => jobs.flatMap((job) => {
+  if (job.status !== "queued") return [];
+  const since = Math.max(Date.parse(job.queuedAt), job.resumeAfter === null ? 0 : Date.parse(job.resumeAfter));
+  const waited = now2 - since;
+  if (waited < 15 * MINUTE3 || runners.some((runner) => canTake(runner, job, now2))) return [];
+  return [{
+    fingerprint: `stuck:queue:${job.id}`,
+    check: "queue-stuck",
+    kind: "stuck",
+    severity: "medium",
+    title: `A job for ${job.repo} waits with no runner to take it`,
+    checkLine: `Queue nobody can take: queued ${minutes(waited)} min, no online runner can take ${job.repo}`,
+    figures: { queuedMin: Number(minutes(waited)), runners: runners.length },
+    evidence: [{ of: "job", id: job.id, text: clean(job.line) }],
+    evidenceKey: evidenceKey([job.id])
+  }];
+});
+var resumeLoop = ({ now: now2, jobs }) => jobs.flatMap((job) => {
+  if (job.status !== "failed" || job.attempt < 3 || job.reason === null || !LOST_REASONS2.includes(job.reason)) return [];
+  if (age(job.endedAt, now2) > 24 * HOUR2) return [];
+  return [{
+    fingerprint: `stuck:resume-loop:${job.id}`,
+    check: "resume-loop",
+    kind: "stuck",
+    severity: "medium",
+    title: `A ${skillOf(job.line)} job was lost 3 times`,
+    checkLine: `Resume loop: lost ${String(job.attempt)} times, nothing resumes it now`,
+    figures: { attempts: job.attempt },
+    evidence: [{ of: "job", id: job.id, text: clean(job.line) }],
+    evidenceKey: evidenceKey([job.id])
+  }];
+});
+var missionNotMoving = ({ now: now2, missions }) => missions.flatMap((mission) => {
+  if (mission.status !== "running" && mission.status !== "waiting") return [];
+  const [cause, sent] = Object.entries(mission.repairs).reduce((top2, entry) => entry[1] > top2[1] ? entry : top2, ["", 0]);
+  const quiet3 = age(mission.lastEventAt ?? mission.updatedAt, now2);
+  let checkLine2;
+  let figures;
+  let key;
+  if (sent >= 3) {
+    checkLine2 = `Mission not moving: the same /omni:repair sent ${String(sent)} times`;
+    figures = { repairs: sent };
+    key = ["repair", cause];
+  } else if (mission.runFailed) {
+    checkLine2 = "Mission not moving: its run on the App failed";
+    figures = {};
+    key = ["run-failed"];
+  } else if (quiet3 >= 2 * HOUR2) {
+    checkLine2 = `Mission not moving: no mission event for ${hours(quiet3)} h`;
+    figures = { quietHours: Number(hours(quiet3)) };
+    key = ["quiet", mission.lastEventAt];
+  } else {
+    return [];
+  }
+  return [{
+    fingerprint: `stuck:mission:${mission.id}`,
+    check: "mission-not-moving",
+    kind: "stuck",
+    severity: "medium",
+    title: `Mission #${String(mission.number)} is not moving`,
+    checkLine: checkLine2,
+    figures,
+    evidence: [{ of: "mission", id: mission.id, text: clean(mission.title) }],
+    evidenceKey: evidenceKey([mission.id, ...key]),
+    suggestions: [
+      { action: "pause-mission", label: "Pause the mission", target: { mission: mission.id } },
+      { action: "open-mission", label: "Open the mission", target: { mission: mission.id } }
+    ]
+  }];
+});
+var waitingTooLong = ({ now: now2, jobs }) => jobs.flatMap((job) => {
+  const label2 = job.outcome === null ? void 0 : WAITING[job.outcome];
+  if (job.status !== "done" || label2 === void 0 || job.continued) return [];
+  const waited = age(job.endedAt, now2);
+  if (!Number.isFinite(waited) || waited <= 4 * HOUR2) return [];
+  return [{
+    fingerprint: `stuck:waiting:${job.id}`,
+    check: "waiting-too-long",
+    kind: "stuck",
+    severity: "medium",
+    title: `A ${skillOf(job.line)} job waits on a person`,
+    checkLine: `Waiting too long: ${label2} for ${hours(waited)} h`,
+    figures: { waitedHours: Number(hours(waited)), state: label2 },
+    evidence: [{ of: "job", id: job.id, text: clean(job.line) }],
+    evidenceKey: evidenceKey([job.id])
+  }];
+});
+function failureGroups(jobs, now2) {
+  const groups = /* @__PURE__ */ new Map();
+  const add = (by, raw, id) => {
+    const text20 = raw === null ? "" : clean(raw, 160);
+    if (text20 === "") return;
+    const group2 = groups.get(`${by}
+${text20}`) ?? { by, text: text20, ids: [] };
+    group2.ids.push(id);
+    groups.set(`${by}
+${text20}`, group2);
+  };
+  for (const job of jobs) {
+    if (job.status !== "failed" || age(job.endedAt, now2) > 6 * HOUR2) continue;
+    add("reason", job.reason, job.id);
+    add("line", job.lastLine, job.id);
+  }
+  return [...groups.values()];
+}
+var sameFailure = ({ now: now2, jobs }) => {
+  const told = /* @__PURE__ */ new Set();
+  return failureGroups(jobs, now2).flatMap((group2) => {
+    const ids = [...group2.ids].sort();
+    if (ids.length < 3 || told.has(ids.join(","))) return [];
+    told.add(ids.join(","));
+    const what = group2.by === "reason" ? "the same reason" : "the same last line";
+    return [{
+      fingerprint: `bug:same-failure:${evidenceKey([group2.by, group2.text]).slice(0, 16)}`,
+      check: "same-failure",
+      kind: "bug",
+      severity: "high",
+      title: `${String(ids.length)} jobs failed with ${what}`,
+      checkLine: `Same failure, many jobs: ${String(ids.length)} jobs failed with ${what} within 6 h: ${group2.text}`.slice(0, 300),
+      figures: { jobs: ids.length },
+      evidence: ids.slice(0, 49).map((id) => ({ of: "job", id })),
+      evidenceKey: evidenceKey(ids)
+    }];
+  });
+};
+var routeFailing = ({ now: now2, errors }) => {
+  const byRoute = /* @__PURE__ */ new Map();
+  for (const error of errors) {
+    if (age(error.at, now2) > HOUR2) continue;
+    byRoute.set(error.route, [...byRoute.get(error.route) ?? [], error]);
+  }
+  return [...byRoute.entries()].flatMap(([route, seen]) => {
+    if (seen.length < 3) return [];
+    const statuses = [...new Set(seen.map((error) => error.status))].sort();
+    return [{
+      fingerprint: `bug:route:${route.replace(/\s+/g, "-").slice(0, 180)}`,
+      check: "route-failing",
+      kind: "bug",
+      severity: "high",
+      title: `The App answers ${statuses.join(", ")} on ${route}`,
+      checkLine: `App route failing: ${String(seen.length)} \xD7 5xx on ${route} within 1 h`,
+      figures: { errors: seen.length, statuses: statuses.join(",") },
+      evidence: [{ of: "route", id: route }],
+      evidenceKey: evidenceKey([route, statuses])
+    }];
+  });
+};
+var lateSchedule = ({ ledger }) => {
+  const fires = [];
+  if (ledger.late + ledger.scheduledLate > 0) {
+    fires.push({
+      fingerprint: "bug:late-schedule",
+      check: "late-schedule",
+      kind: "bug",
+      severity: "medium",
+      title: "The App's job ledger runs late",
+      checkLine: `Late schedule: ${String(ledger.late)} jobs late, ${String(ledger.scheduledLate)} schedules with no run for 3 periods`,
+      figures: { late: ledger.late, scheduledLate: ledger.scheduledLate },
+      evidence: [],
+      evidenceKey: evidenceKey(["late"])
+    });
+  }
+  for (const kind of ledger.failing) {
+    fires.push({
+      fingerprint: `bug:late-schedule:${kind}`,
+      check: "late-schedule",
+      kind: "bug",
+      severity: "medium",
+      title: `The App's ${kind} job keeps failing`,
+      checkLine: `Late schedule: ${kind} failed 3 times in a row`,
+      figures: { failed: 3 },
+      evidence: [{ of: "kind", id: kind }],
+      evidenceKey: evidenceKey([kind])
+    });
+  }
+  return fires;
+};
+function fullIn(runner) {
+  const first = runner.disk[0];
+  const last = runner.disk.at(-1);
+  if (!first || !last || last === first) return null;
+  const spent2 = first.free - last.free;
+  const over = Date.parse(last.at) - Date.parse(first.at);
+  if (spent2 <= 0 || over <= 0) return null;
+  return last.free / spent2 * over;
+}
+var diskFilling = (runner, { now: now2 }) => {
+  const full = fullIn(runner);
+  if (!online(runner, now2) || full === null || full > 6 * HOUR2) return null;
+  return {
+    fingerprint: `health:disk:${runner.id}`,
+    check: "runner-health",
+    kind: "health",
+    severity: "high",
+    title: `${runner.name}'s disk fills up`,
+    checkLine: `Runner health: ${runner.name}'s disk is full in about ${hours(full)} h at the current rate`,
+    figures: { fullInHours: Number(hours(full)), freeBytes: runner.disk.at(-1)?.free ?? 0 },
+    evidence: [{ of: "runner", id: runner.id }],
+    evidenceKey: evidenceKey([runner.id, "disk"])
+  };
+};
+var runnerPaused = (runner, { now: now2 }) => {
+  if (!online(runner, now2) || runner.paused === null) return null;
+  const why = clean(runner.paused, 80);
+  return {
+    fingerprint: `health:paused:${runner.id}`,
+    check: "runner-health",
+    kind: "health",
+    severity: "medium",
+    title: `${runner.name} is paused`,
+    checkLine: `Runner health: ${runner.name} paused for 30 min or more: ${why}`,
+    figures: { paused: why },
+    evidence: [{ of: "runner", id: runner.id }],
+    evidenceKey: evidenceKey([runner.id, "paused", runner.paused]),
+    raiseAfterMs: 30 * MINUTE3
+  };
+};
+var offlineWithWork = (runner, { now: now2, jobs }) => {
+  if (online(runner, now2)) return null;
+  const waiting2 = jobs.filter((job) => job.status === "queued" && (job.toRunner === runner.id || runner.repos.includes(job.repo.toLowerCase())));
+  if (waiting2.length === 0) return null;
+  const offline = minutes(age(runner.lastSeenAt, now2));
+  return {
+    fingerprint: `health:offline:${runner.id}`,
+    check: "runner-health",
+    kind: "health",
+    severity: "high",
+    title: `${runner.name} is offline with work queued for it`,
+    checkLine: `Runner health: ${runner.name} offline for ${offline} min, ${String(waiting2.length)} jobs queued it could take`,
+    figures: { offlineMin: Number(offline), queued: waiting2.length },
+    evidence: [{ of: "runner", id: runner.id }, ...waiting2.slice(0, 20).map((job) => ({ of: "job", id: job.id }))],
+    evidenceKey: evidenceKey([runner.id, "offline"])
+  };
+};
+var accountsOut = (runner, { now: now2 }) => {
+  const accounts = runner.accounts ?? [];
+  if (!online(runner, now2) || accounts.length === 0 || accounts.some((state) => state !== "out")) return null;
+  return {
+    fingerprint: `health:accounts:${runner.id}`,
+    check: "runner-health",
+    kind: "health",
+    severity: "high",
+    title: `Every account of ${runner.name} is out`,
+    checkLine: `Runner health: every account of ${runner.name} is out (${String(accounts.length)})`,
+    figures: { accounts: accounts.length },
+    evidence: [{ of: "runner", id: runner.id }],
+    evidenceKey: evidenceKey([runner.id, "accounts"])
+  };
+};
+var runnerHealth = (snapshot2) => snapshot2.runners.flatMap((runner) => [diskFilling, runnerPaused, offlineWithWork, accountsOut].flatMap((check) => check(runner, snapshot2) ?? []));
+var CHECKS = Object.freeze([
+  silentJob,
+  queueStuck,
+  resumeLoop,
+  missionNotMoving,
+  waitingTooLong,
+  sameFailure,
+  routeFailing,
+  lateSchedule,
+  runnerHealth
+]);
+function runChecks2(snapshot2, checks = CHECKS) {
+  const seen = /* @__PURE__ */ new Set();
+  return checks.flatMap((check) => check(snapshot2)).filter((fire) => {
+    if (seen.has(fire.fingerprint)) return false;
+    seen.add(fire.fingerprint);
+    return true;
+  });
+}
+
+// apps/omni-app/src/supervisor/seat.ts
+var LOOK_MS = 2 * 6e4;
+var OFFLINE_AFTER_LOOKS = 3;
+function missedLooks(seat, now2) {
+  const since = Date.parse(seat.lastLookAt ?? seat.placedAt);
+  return Math.max(0, Math.floor((now2 - since) / LOOK_MS));
+}
+function pastLimit(seat, now2) {
+  if (seat.tokensDay === null || seat.tokensUsed < seat.dailyTokens) return false;
+  const today2 = new Date(now2).toISOString().slice(0, 10);
+  const yesterday = new Date(now2 - 24 * 60 * 6e4).toISOString().slice(0, 10);
+  return seat.tokensDay === today2 || seat.tokensDay === yesterday;
+}
+function seatState(seat, now2) {
+  if (seat.paused) return "paused";
+  if (missedLooks(seat, now2) >= OFFLINE_AFTER_LOOKS) return "offline";
+  return pastLimit(seat, now2) ? "limit" : "watching";
+}
+function timeOf(iso2) {
+  return `${new Date(iso2).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+function seatOffline(seat, now2) {
+  if (seatState(seat, now2) !== "offline") return [];
+  const since = seat.lastLookAt ?? seat.placedAt;
+  const missed = missedLooks(seat, now2);
+  return [{
+    fingerprint: `health:seat-offline:${seat.runnerId}`,
+    check: "seat-offline",
+    kind: "health",
+    severity: "high",
+    title: `The Supervisor is offline since ${timeOf(since)} on ${seat.runnerName}`,
+    checkLine: `Seat offline: ${String(missed)} looks missed in a row on ${seat.runnerName}`,
+    figures: { missedLooks: missed, since },
+    evidence: [{ of: "runner", id: seat.runnerId }],
+    evidenceKey: evidenceKey([seat.runnerId, since])
+  }];
+}
+
+// apps/omni-app/src/supervisor/watch.ts
+var SUPERVISOR_WATCH_KIND = "supervisor-watch";
+function raisable({ now: now2, state, fire, signal, findingOf, dismissals }) {
+  if (state === "watching" && fire.check !== "seat-offline") return false;
+  if (now2 - Date.parse(signal.openedAt) < (fire.raiseAfterMs ?? 0)) return false;
+  const finding = signal.findingId === null ? void 0 : findingOf.get(signal.findingId);
+  if (finding && finding.state !== "dismissed") return false;
+  return !dismissals.some((d) => d.fingerprint === fire.fingerprint && d.evidenceKey === fire.evidenceKey);
+}
+function planWatch({ now: now2, state, fires, before: before2, after: after2, linked, dismissals }) {
+  const fired = new Set(fires.map((fire) => fire.fingerprint));
+  const findingOf = new Map(linked.map((finding) => [finding.id, finding]));
+  const gone = before2.filter((signal) => !fired.has(signal.fingerprint));
+  const resolve3 = gone.flatMap((signal) => {
+    const finding = signal.findingId === null ? void 0 : findingOf.get(signal.findingId);
+    return finding?.state === "open" && finding.raisedBy === "check" && finding.lookedAt === null ? [finding.id] : [];
+  });
+  const signalOf = new Map(after2.map((signal) => [signal.fingerprint, signal]));
+  const raise = fires.flatMap((fire) => {
+    const signal = signalOf.get(fire.fingerprint);
+    return signal && raisable({ now: now2, state, fire, signal, findingOf, dismissals }) ? [{ fire, signal }] : [];
+  });
+  return { close: gone.map((signal) => signal.id), resolve: resolve3, raise };
+}
+function supervisorWatchHandler({
+  store,
+  notify,
+  clock = Date.now,
+  log: log2 = noteTo("supervisor-watch")
+}) {
+  return async (job) => {
+    const { lane: workspace } = checkPayloadOf(SupervisorWatchDataSchema, SUPERVISOR_WATCH_KIND, job.payload);
+    const summary2 = await watchOnce({ store, notify, workspace, now: clock(), log: log2 });
+    if (summary2.seat === "none") return { outcome: "skipped", reason: "the workspace has no Supervisor seat" };
+    log2(`supervisor watch: seat ${summary2.seat}, ${String(summary2.fires)} fires, ${String(summary2.opened)} opened, ${String(summary2.closed)} closed, ${String(summary2.raised)} raised, ${String(summary2.pushed)} pushed`);
+    return { outcome: "done" };
+  };
+}
+async function watchOnce({ store, notify, workspace, now: now2, log: log2 }) {
+  const seat = await store.seat(workspace);
+  if (!seat) return { seat: "none", missed: 0, fires: 0, opened: 0, closed: 0, raised: 0, pushed: 0 };
+  const at4 = new Date(now2).toISOString();
+  const missed = missedLooks(seat, now2);
+  await store.setMissed(workspace, missed);
+  const state = seatState(seat, now2);
+  const fires = [...runChecks2(await store.snapshot(workspace, now2)), ...seatOffline(seat, now2)];
+  const before2 = await store.openSignals(workspace);
+  const after2 = await store.upsertSignals(workspace, fires, at4);
+  const linkedIds = [...new Set([...before2, ...after2].flatMap((signal) => signal.findingId === null ? [] : [signal.findingId]))];
+  const linked = linkedIds.length > 0 ? await store.findings(linkedIds) : [];
+  const dismissals = fires.length > 0 ? await store.dismissals(workspace, fires.map((fire) => fire.fingerprint)) : [];
+  const plan = planWatch({ now: now2, state, fires, before: before2, after: after2, linked, dismissals });
+  if (plan.close.length > 0) await store.closeSignals(plan.close, at4);
+  if (plan.resolve.length > 0) await store.resolveFindings(plan.resolve, at4);
+  let pushed = 0;
+  for (const { fire, signal } of plan.raise) {
+    const id = await store.raise({
+      workspace,
+      signalId: signal.id,
+      fingerprint: fire.fingerprint,
+      kind: fire.kind,
+      severity: fire.severity,
+      title: fire.title,
+      checkLine: fire.checkLine,
+      figures: fire.figures,
+      evidence: fire.evidence,
+      evidenceKey: fire.evidenceKey,
+      ...fire.suggestions ? { suggestions: fire.suggestions } : {}
+    }, at4);
+    if (fire.severity !== "high") continue;
+    if (!notify) {
+      log2("supervisor watch: a high finding was raised; no push is sent from the App, it waits with notified_at unset");
+      continue;
+    }
+    if (await notify({ id, workspace, title: fire.title, checkLine: fire.checkLine })) {
+      await store.notified(id, at4);
+      pushed += 1;
+    }
+  }
+  const known = new Set(before2.map((signal) => signal.fingerprint));
+  return {
+    seat: state,
+    missed,
+    fires: fires.length,
+    opened: fires.filter((fire) => !known.has(fire.fingerprint)).length,
+    closed: plan.close.length,
+    raised: plan.raise.length,
+    pushed
+  };
+}
+
+// apps/omni-app/src/jobs/embed.ts
+import { createHash as createHash9 } from "node:crypto";
+import { z as z116 } from "zod";
 
 // kit/lib/knowledge/entries.ts
 var DEFAULTS = parseConfig("kit: 1\n");
@@ -28113,7 +29021,7 @@ function knowledgeEntries(sources) {
 }
 
 // apps/omni-app/src/jobs/search-eval-run.ts
-import { z as z114 } from "zod";
+import { z as z115 } from "zod";
 
 // kit/lib/knowledge/search-eval.ts
 var MISS_TOP = 5;
@@ -28166,7 +29074,7 @@ var AGAIN_MS2 = 6e4;
 var PARALLEL = 4;
 var NO_CATEGORY = "other";
 var FIRST = 5;
-var PayloadSchema2 = z114.object({ slot: z114.string().min(1).max(80), productId: z114.string().min(1).optional() });
+var PayloadSchema2 = z115.object({ slot: z115.string().min(1).max(80), productId: z115.string().min(1).optional() });
 function searchEvalRunJob({ productId, slot }) {
   return { kind: SEARCH_EVAL_RUN_KIND, key: `${productId}@${slot}`, subject: productId, payload: { productId, slot }, lane: SEARCH_EVAL_RUN_KIND, maxTries: 3 };
 }
@@ -28250,15 +29158,15 @@ function payloadOf2(raw) {
 var EMBED_KIND = "knowledge-embed";
 var EMBED_BUDGET_MS = 15e4;
 var AGAIN_MS3 = 6e4;
-var EmbedPayloadSchema = z115.object({
-  repository: z115.string().regex(/^[^/\s]+\/[^/\s]+$/),
-  sha: z115.string().regex(/^[0-9a-f]{40}$/)
+var EmbedPayloadSchema = z116.object({
+  repository: z116.string().regex(/^[^/\s]+\/[^/\s]+$/),
+  sha: z116.string().regex(/^[0-9a-f]{40}$/)
 });
 function embedJob({ repository, sha }) {
   const subject = repository.toLowerCase();
   return { kind: EMBED_KIND, key: `${subject}@${sha}`, subject, payload: { repository: subject, sha } };
 }
-var textHash = (text20) => createHash8("sha256").update(text20, "utf8").digest("hex");
+var textHash = (text20) => createHash9("sha256").update(text20, "utf8").digest("hex");
 function packEntries(repository, pack2) {
   const own = knowledgeEntries({ repositories: [{ repo: repository, files: pack2.files }], lawHome: null, legal: [], glossary: [], never: [] });
   const products = pack2.products.flatMap(
@@ -28338,13 +29246,13 @@ function payloadOf3(raw) {
 }
 
 // apps/omni-app/src/jobs/pack.ts
-import { z as z117 } from "zod";
+import { z as z118 } from "zod";
 
 // apps/omni-app/src/knowledge-pack/files.ts
-import { createHash as createHash9 } from "node:crypto";
+import { createHash as createHash10 } from "node:crypto";
 var MAX_FILE_BYTES = 1024 * 1024;
 function sha256Of(bytes) {
-  return createHash9("sha256").update(bytes).digest("hex");
+  return createHash10("sha256").update(bytes).digest("hex");
 }
 var utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 function textOf2(bytes) {
@@ -28373,12 +29281,12 @@ function packFiles(read2) {
 import { mkdtempSync as mkdtempSync17, readdirSync as readdirSync23, readFileSync as readFileSync51, rmSync as rmSync22, statSync as statSync16 } from "node:fs";
 import { tmpdir as tmpdir17 } from "node:os";
 import { join as join77 } from "node:path";
-import { z as z116 } from "zod";
-var PullFileSchema = z116.looseObject({ filename: z116.string().min(1), previous_filename: z116.string().nullish() });
+import { z as z117 } from "zod";
+var PullFileSchema = z117.looseObject({ filename: z117.string().min(1), previous_filename: z117.string().nullish() });
 async function changedPaths(octokit, { owner, repo, prNumber }) {
   const files = await paginate(async (page) => {
     const { data } = await octokit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { owner, repo, pull_number: prNumber, per_page: PER_PAGE, page });
-    return z116.array(PullFileSchema).parse(data);
+    return z117.array(PullFileSchema).parse(data);
   });
   return files.map((file) => ({ path: file.filename, previous: file.previous_filename ?? null }));
 }
@@ -28458,12 +29366,12 @@ function touchesPack(changed, { folders, files }) {
 
 // apps/omni-app/src/jobs/pack.ts
 var PACK_KIND = "knowledge-pack";
-var PackPayloadSchema = z117.object({
-  installationId: z117.number(),
-  owner: z117.string().min(1),
-  repo: z117.string().min(1),
-  sha: z117.string().regex(/^[0-9a-f]{40}$/),
-  committedAt: z117.string().min(1),
+var PackPayloadSchema = z118.object({
+  installationId: z118.number(),
+  owner: z118.string().min(1),
+  repo: z118.string().min(1),
+  sha: z118.string().regex(/^[0-9a-f]{40}$/),
+  committedAt: z118.string().min(1),
   prNumber: PrNumberSchema.optional()
 });
 function packJob(input) {
@@ -28610,9 +29518,9 @@ function searchCategorizeHandler({
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z118 } from "zod";
+import { z as z119 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z118.looseObject({ category: z118.string().nullable() });
+var ReplySchema2 = z119.looseObject({ category: z119.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -28635,10 +29543,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z119 } from "zod";
-var UngroupedRowSchema = z119.object({ id: z119.string().min(1), product_id: z119.string().min(1), workspace_id: z119.string().min(1), query: z119.string().min(1) });
-var NearestRowSchema = z119.object({ group_id: z119.string().min(1), cosine: z119.number() });
-var GroupIdSchema = z119.object({ id: z119.string().min(1) });
+import { z as z120 } from "zod";
+var UngroupedRowSchema = z120.object({ id: z120.string().min(1), product_id: z120.string().min(1), workspace_id: z120.string().min(1), query: z120.string().min(1) });
+var NearestRowSchema = z120.object({ group_id: z120.string().min(1), cosine: z120.number() });
+var GroupIdSchema = z120.object({ id: z120.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -28656,7 +29564,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z119.array(NearestRowSchema).parse(data);
+      const [row] = z120.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -28676,13 +29584,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z120 } from "zod";
+import { z as z121 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z120.looseObject({
-  verdicts: z120.array(z120.looseObject({ entryId: z120.string().min(1), relevant: z120.boolean().nullable(), confidence: z120.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z121.looseObject({
+  verdicts: z121.array(z121.looseObject({ entryId: z121.string().min(1), relevant: z121.boolean().nullable(), confidence: z121.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z120.looseObject({ ids: z120.array(z120.string().min(1)) });
+var SearchSchema2 = z121.looseObject({ ids: z121.array(z121.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -28718,19 +29626,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z121 } from "zod";
+import { z as z122 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z121.object({ group_id: z121.string().min(1), product_id: z121.string().min(1), workspace_id: z121.string().min(1), category: z121.string().nullable() });
-var GroupRowSchema = z121.object({ group_id: z121.string().min(1) });
-var QuestionTextSchema = z121.object({ question: z121.string() });
-var OpenedRowSchema = z121.object({ opened_id: z121.string().min(1) });
-var ProductRowSchema4 = z121.object({ product_id: z121.string().min(1) });
-var HolderRowSchema5 = z121.object({ product_id: z121.string().min(1) });
-var LiveProductSchema = z121.object({ id: z121.string().min(1) });
-var QuestionRowSchema = z121.object({ id: z121.string().min(1), product_id: z121.string().min(1), workspace_id: z121.string().min(1), question: z121.string(), category: z121.string().nullable() });
-var AnswerRowSchema = z121.object({ question_id: z121.string().min(1), entry_id: z121.string().min(1) });
-var RunRowSchema = z121.object({ id: z121.string().min(1) });
+var LogRowSchema = z122.object({ group_id: z122.string().min(1), product_id: z122.string().min(1), workspace_id: z122.string().min(1), category: z122.string().nullable() });
+var GroupRowSchema = z122.object({ group_id: z122.string().min(1) });
+var QuestionTextSchema = z122.object({ question: z122.string() });
+var OpenedRowSchema = z122.object({ opened_id: z122.string().min(1) });
+var ProductRowSchema4 = z122.object({ product_id: z122.string().min(1) });
+var HolderRowSchema5 = z122.object({ product_id: z122.string().min(1) });
+var LiveProductSchema = z122.object({ id: z122.string().min(1) });
+var QuestionRowSchema = z122.object({ id: z122.string().min(1), product_id: z122.string().min(1), workspace_id: z122.string().min(1), question: z122.string(), category: z122.string().nullable() });
+var AnswerRowSchema = z122.object({ question_id: z122.string().min(1), entry_id: z122.string().min(1) });
+var RunRowSchema = z122.object({ id: z122.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -28765,7 +29673,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z121.string().min(1).nullable().parse(data);
+      return z122.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -28778,7 +29686,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant: relevant2, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant2, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z121.boolean().parse(data);
+      return z122.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -28811,7 +29719,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z121.string().min(1).nullable().parse(data);
+      return z122.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -28902,19 +29810,19 @@ function searchEvalPromoteHandler({
 }
 
 // kit/lib/ready/report.ts
-import { z as z122 } from "zod";
+import { z as z123 } from "zod";
 var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
 var ACCEPTANCE_CHECK_NAME = "acceptance";
 var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z122.object({
-  ac: z122.number().int().positive(),
-  kind: z122.enum(AC_KINDS),
-  state: z122.enum(RESULT_STATES),
+var ResultSchema = z123.object({
+  ac: z123.number().int().positive(),
+  kind: z123.enum(AC_KINDS),
+  state: z123.enum(RESULT_STATES),
   /** The test's title, `AC-<n>: …`. */
-  title: z122.string().min(1),
+  title: z123.string().min(1),
   /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z122.string().min(1).nullable().default(null),
-  why: z122.string().min(1).optional()
+  proof: z123.string().min(1).nullable().default(null),
+  why: z123.string().min(1).optional()
 }).strict().superRefine((result, issues) => {
   const proves = acNumberOfTitle(result.title);
   if (proves !== result.ac) {
@@ -28922,10 +29830,10 @@ var ResultSchema = z122.object({
     issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
   }
 });
-var ReportSchema = z122.object({
-  format: z122.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z122.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z122.array(ResultSchema)
+var ReportSchema = z123.object({
+  format: z123.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z123.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z123.array(ResultSchema)
 }).strict();
 function parseAcceptanceReport(text20) {
   let raw;
@@ -28955,9 +29863,9 @@ var ACCEPTANCE_MARK = "omni-acceptance:";
 function acceptanceOfLog(log2) {
   const line3 = log2.split("\n").reverse().find((each) => each.includes(ACCEPTANCE_MARK));
   if (line3 === void 0) return null;
-  const said4 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
-  if (!said4.startsWith("{")) return { ok: false, why: said4.replace(/^failed — /, "") || "the run said nothing" };
-  const read2 = parseAcceptanceReport(said4);
+  const said5 = line3.slice(line3.indexOf(ACCEPTANCE_MARK) + ACCEPTANCE_MARK.length).trim();
+  if (!said5.startsWith("{")) return { ok: false, why: said5.replace(/^failed — /, "") || "the run said nothing" };
+  const read2 = parseAcceptanceReport(said5);
   return read2.ok ? { ok: true, report: read2.report } : { ok: false, why: read2.why };
 }
 var READY_JOB_KIND = "pr-ready";
@@ -29200,7 +30108,7 @@ function loosenings(files, { ground, criteria, generated = [] }) {
 
 // kit/lib/ready/checks.ts
 var READY_CHECK_NAME = "omni / ready";
-var CHECKS = [
+var CHECKS2 = [
   { id: "ci", title: "CI green on the latest commit" },
   { id: "full", title: "The full tests and lint ran" },
   { id: "acceptance", title: "Every acceptance criterion has its proof" },
@@ -29339,7 +30247,7 @@ function headline2(state, passed, checks) {
 }
 function readyVerdict(facts) {
   const read2 = outcomes(facts);
-  const checks = CHECKS.map(({ id, title }) => {
+  const checks = CHECKS2.map(({ id, title }) => {
     const { state: state2, why, excused = [] } = read2[id];
     return { id, title, state: state2, why, evidence: facts.evidence?.[id] ?? null, excused };
   });
@@ -29349,25 +30257,25 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z125 } from "zod";
+import { z as z126 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
 import { existsSync as existsSync53, readFileSync as readFileSync52 } from "node:fs";
 import { join as join79 } from "node:path";
-import { z as z123 } from "zod";
+import { z as z124 } from "zod";
 var read = (value) => ({ ok: true, value });
 var unread = (why) => ({ ok: false, why });
-var RunSchema3 = z123.looseObject({
-  name: z123.string(),
-  status: z123.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
-  conclusion: z123.string().nullish(),
-  html_url: z123.string().nullish(),
-  output: z123.looseObject({ title: z123.string().nullish(), summary: z123.string().nullish(), text: z123.string().nullish() }).nullish()
+var RunSchema3 = z124.looseObject({
+  name: z124.string(),
+  status: z124.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
+  conclusion: z124.string().nullish(),
+  html_url: z124.string().nullish(),
+  output: z124.looseObject({ title: z124.string().nullish(), summary: z124.string().nullish(), text: z124.string().nullish() }).nullish()
 });
-var RunsPageSchema2 = z123.looseObject({ check_runs: z123.array(RunSchema3) });
-var ComparePageSchema2 = z123.looseObject({
-  merge_base_commit: z123.looseObject({ sha: z123.string() }).nullish(),
-  files: z123.array(z123.looseObject({ filename: z123.string(), status: z123.string(), previous_filename: z123.string().nullish() })).nullish()
+var RunsPageSchema2 = z124.looseObject({ check_runs: z124.array(RunSchema3) });
+var ComparePageSchema2 = z124.looseObject({
+  merge_base_commit: z124.looseObject({ sha: z124.string() }).nullish(),
+  files: z124.array(z124.looseObject({ filename: z124.string(), status: z124.string(), previous_filename: z124.string().nullish() })).nullish()
 });
 var STATUS2 = Object.freeze({
   added: "added",
@@ -29535,7 +30443,7 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
 }
 
 // apps/omni-app/src/ready-check/runner-fallback.ts
-import { z as z124 } from "zod";
+import { z as z125 } from "zod";
 
 // apps/omni-app/src/ready-check/zip.ts
 import { inflateRawSync } from "node:zlib";
@@ -29593,11 +30501,11 @@ function unzipText(zip, name) {
 var KEPT_ARTIFACT = "acceptance-report";
 var KEPT_FILE = "report.json";
 var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
-var ArtifactsSchema = z124.looseObject({
-  artifacts: z124.array(z124.looseObject({ id: z124.number(), expired: z124.boolean().nullish(), workflow_run: z124.looseObject({ head_sha: z124.string().nullish() }).nullish() }))
+var ArtifactsSchema = z125.looseObject({
+  artifacts: z125.array(z125.looseObject({ id: z125.number(), expired: z125.boolean().nullish(), workflow_run: z125.looseObject({ head_sha: z125.string().nullish() }).nullish() }))
 });
-var RunSchema4 = z124.looseObject({ id: z124.number(), status: z124.string().nullish(), conclusion: z124.string().nullish(), output: z124.looseObject({ title: z124.string().nullish(), summary: z124.string().nullish(), text: z124.string().nullish() }).nullish() });
-var RunsSchema = z124.looseObject({ check_runs: z124.array(RunSchema4).nullish() });
+var RunSchema4 = z125.looseObject({ id: z125.number(), status: z125.string().nullish(), conclusion: z125.string().nullish(), output: z125.looseObject({ title: z125.string().nullish(), summary: z125.string().nullish(), text: z125.string().nullish() }).nullish() });
+var RunsSchema = z125.looseObject({ check_runs: z125.array(RunSchema4).nullish() });
 async function keptReport(octokit, { owner, repo, headSha }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
   const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
@@ -29614,16 +30522,16 @@ async function keptReport(octokit, { owner, repo, headSha }) {
 }
 var ended6 = (job) => job !== null && ["done", "failed", "cancelled"].includes(job.status);
 function noResult(job) {
-  const said4 = acceptanceOfLog(job.logTail);
-  const how = said4 !== null && !said4.ok ? said4.why : job.reason ?? `it ended ${job.status} with no result`;
+  const said5 = acceptanceOfLog(job.logTail);
+  const how = said5 !== null && !said5.ok ? said5.why : job.reason ?? `it ended ${job.status} with no result`;
   return `the runner's e2e run gave no result (${how}); a new commit runs it again`;
 }
 function standingReport(kept3, criteria, job) {
   if (!ended6(job)) return kept3;
   const e2e = new Set(criteria.filter((criterion) => criterion.kind === "e2e").map((criterion) => criterion.number));
   const others = kept3.results.filter((result) => result.kind !== "e2e" || !e2e.has(result.ac));
-  const said4 = acceptanceOfLog(job.logTail);
-  const ran = said4?.ok === true && said4.report.commit === kept3.commit ? said4.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
+  const said5 = acceptanceOfLog(job.logTail);
+  const ran = said5?.ok === true && said5.report.commit === kept3.commit ? said5.report.results.filter((result) => result.kind === "e2e" && e2e.has(result.ac)) : criteria.filter((criterion) => e2e.has(criterion.number)).map((criterion) => ({ ac: criterion.number, kind: "e2e", state: "pending", title: `AC-${String(criterion.number)}: ${criterion.scenario ?? "its scenario"}`, proof: null, why: noResult(job) }));
   return { ...kept3, results: [...others, ...ran].sort((a, b) => a.ac - b.ac) };
 }
 function standing2(criterion, report) {
@@ -29749,9 +30657,9 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema5 = z125.looseObject({ id: z125.number(), status: z125.string().nullish(), conclusion: z125.string().nullish(), html_url: z125.string().nullish(), output: z125.looseObject({ title: z125.string().nullish(), summary: z125.string().nullish() }).nullish() });
-var RunsSchema2 = z125.looseObject({ check_runs: z125.array(RunSchema5).nullish() });
-var WrittenSchema2 = z125.looseObject({ id: z125.number(), html_url: z125.string().nullish() });
+var RunSchema5 = z126.looseObject({ id: z126.number(), status: z126.string().nullish(), conclusion: z126.string().nullish(), html_url: z126.string().nullish(), output: z126.looseObject({ title: z126.string().nullish(), summary: z126.string().nullish() }).nullish() });
+var RunsSchema2 = z126.looseObject({ check_runs: z126.array(RunSchema5).nullish() });
+var WrittenSchema2 = z126.looseObject({ id: z126.number(), html_url: z126.string().nullish() });
 var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
@@ -29845,16 +30753,29 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z126 } from "zod";
+import { z as z127 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var AppJobRowSchema = z126.object({
-  status: z126.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  log_tail: z126.string(),
-  reason: z126.string().nullable()
+var AppJobRowSchema = z127.object({
+  status: z127.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z127.string(),
+  reason: z127.string().nullable()
 });
-var MissionScopeRowSchema = z126.object({ scope: z126.object({ prds: z126.array(PrdNumberSchema), roadmaps: z126.array(z126.number().int().positive()) }) });
-var RoadmapRowOfSchema = z126.object({ roadmap_id: z126.string().min(1) });
-function readyStore(connection) {
+var MissionScopeRowSchema = z127.object({
+  scope: z127.object({
+    prds: z127.array(z127.union([PrdNumberSchema, ProductPrdIdSchema])),
+    roadmaps: z127.array(z127.union([z127.number().int().positive(), ProductRoadmapIdSchema]))
+  })
+});
+var RoadmapRowOfSchema = z127.object({ roadmap_id: z127.string().min(1) });
+function scopesOf(answer, repo, warn) {
+  return rowsOf(z127.unknown(), answer).flatMap((row) => {
+    const parsed3 = MissionScopeRowSchema.safeParse(row);
+    if (parsed3.success) return [parsed3.data.scope];
+    warn({ event: "ready-check", repo, message: `a live mission of ${repo} has a scope out of shape, left out: ${parsed3.error.message}` });
+    return [];
+  });
+}
+function readyStore(connection, warn = log.warn) {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
   const workspaceOf = async (installationId) => rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1))[0]?.id ?? null;
@@ -29863,12 +30784,9 @@ function readyStore(connection) {
       const workspace = await workspaceOf(installationId);
       if (workspace === null) return false;
       const repo = repository.toLowerCase();
-      const missions = rowsOf(
-        MissionScopeRowSchema,
-        await db.from("missions").select("scope").eq("workspace_id", workspace).eq("repo", repo).in("status", [...LIVE_MISSIONS])
-      );
-      if (missions.some(({ scope }) => scope.prds.includes(prd))) return true;
-      const numbers2 = [...new Set(missions.flatMap(({ scope }) => scope.roadmaps))];
+      const scopes = scopesOf(await db.from("missions").select("scope").eq("workspace_id", workspace).eq("repo", repo).in("status", [...LIVE_MISSIONS]), repo, warn);
+      if (scopes.some(({ prds }) => prds.includes(prd))) return true;
+      const numbers2 = [...new Set(scopes.flatMap(({ roadmaps: roadmaps2 }) => roadmaps2.filter((roadmap) => typeof roadmap === "number")))];
       if (numbers2.length === 0) return false;
       const roadmaps = rowsOf(IdRowSchema, await db.from("roadmaps").select("id").eq("workspace_id", workspace).eq("repo", repo).in("number", numbers2));
       if (roadmaps.length === 0) return false;
@@ -30004,6 +30922,8 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
+      // No push is sent from the App: the high finding waits with notified_at unset (PRD omni-loop-34 s2's outbox).
+      [SUPERVISOR_WATCH_KIND]: supervisorWatchHandler({ store: watchStore(supabase), notify: null }),
       [NOTEBOOK_KIND]: notebookHandler({ store: notebookStore(supabase), model: liveNotebookModel(env.openrouter ?? null) }),
       [MISSION_KIND]: missionHandler({ store: missionStore(supabase), branches: missionBranches({ octokitFor }), joins: missionJoins({ octokitFor }), keepUps: missionKeepUps({ octokitFor }), landings: missionLandings({ octokitFor }), drops: missionDrops({ octokitFor }), answers: missionAnswers({ octokitFor }), bugIssues: missionBugIssues({ octokitFor }), kits: missionKits({ octokitFor }), galaxyUrl, refresh: ledger.refresh }),
       [BUG_REPORT_KIND]: bugReportHandler({ issues: bugIssues({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), store: bugReportStore(supabase) }),
@@ -30046,7 +30966,7 @@ var MAX_TRIES7 = 5;
 var RETRY_MINUTES = Object.freeze([1, 5, 30, 120]);
 var WAIT_MINUTES = 15;
 var CUT_SHORT_WAIT_MINUTES = 1;
-var MINUTE2 = 6e4;
+var MINUTE4 = 6e4;
 var MAX_REASON = 500;
 var TOO_MANY_LATERS = "it asked to run later more than 20 times";
 async function runDue({
@@ -30070,7 +30990,7 @@ async function runDue({
   return summary2;
 }
 async function runOne2(job, { ledger, handlers, failures, clock, leaseSeconds, endsAt: endsAt2, log: log2, summary: summary2 }) {
-  const settling = settle2(job, handlers[job.kind], { step: stepsOf(ledger, job, leaseSeconds, log2) }, clock);
+  const settling = settle2(job, handlers[job.kind], { step: stepsOf2(ledger, job, leaseSeconds, log2) }, clock);
   const settled2 = await within4(settling, endsAt2 - FINISH_MARGIN_MS - clock()) ?? cutShort(clock);
   summary2.ran += 1;
   const kept3 = await keep3(ledger, job, settled2, log2);
@@ -30104,7 +31024,7 @@ async function failed2(job, reason2, hook, log2) {
     log2(`job ${job.kind} ${job.key}: its failure hook threw: ${firstLine4(error instanceof Error ? error.message : String(error))}`);
   }
 }
-function stepsOf(ledger, job, leaseSeconds, log2) {
+function stepsOf2(ledger, job, leaseSeconds, log2) {
   const { save, stepsOf: read2, renew } = ledger;
   if (!save || !read2 || !renew) return memorySteps();
   return jobSteps({ ledger: { save, stepsOf: read2, renew }, job: { id: job.id, claim: job.claim }, leaseSeconds, log: log2 });
@@ -30151,26 +31071,26 @@ function firstLine4(message) {
   const line3 = message.split("\n").map((one) => one.trim()).find((one) => one.length > 0);
   return line3 ? line3.slice(0, MAX_REASON) : "it threw with no message";
 }
-var later = (clock, minutes) => new Date(clock() + minutes * MINUTE2).toISOString();
+var later = (clock, minutes2) => new Date(clock() + minutes2 * MINUTE4).toISOString();
 
 // apps/omni-app/src/stage-forward/touch.ts
 import { posix as posix5 } from "node:path";
-import { z as z127 } from "zod";
+import { z as z128 } from "zod";
 var TOUCH_EVENTS = Object.freeze(["issues", "issue_comment", "pull_request", "pull_request_review", "check_suite", "push"]);
 var DEFAULTS2 = (() => {
   const { paths, branches } = parseConfig("kit: 1");
   return Object.freeze({ delivery: posix5.normalize(paths.delivery).replace(/\/+$/, ""), branches });
 })();
-var Repository = z127.looseObject({ repository: z127.looseObject({ full_name: z127.string().min(1) }) });
-var IssueEvent = z127.looseObject({ issue: z127.looseObject({ number: IssueNumberSchema, pull_request: z127.unknown().optional() }) });
-var PullEvent = z127.looseObject({ pull_request: z127.looseObject({ number: PrNumberSchema, head: z127.looseObject({ ref: z127.string().min(1) }) }) });
-var CheckSuiteEvent = z127.looseObject({
-  check_suite: z127.looseObject({ head_branch: z127.string().min(1).nullish(), pull_requests: z127.array(z127.looseObject({ number: PrNumberSchema })).nullish() })
+var Repository = z128.looseObject({ repository: z128.looseObject({ full_name: z128.string().min(1) }) });
+var IssueEvent = z128.looseObject({ issue: z128.looseObject({ number: IssueNumberSchema, pull_request: z128.unknown().optional() }) });
+var PullEvent = z128.looseObject({ pull_request: z128.looseObject({ number: PrNumberSchema, head: z128.looseObject({ ref: z128.string().min(1) }) }) });
+var CheckSuiteEvent = z128.looseObject({
+  check_suite: z128.looseObject({ head_branch: z128.string().min(1).nullish(), pull_requests: z128.array(z128.looseObject({ number: PrNumberSchema })).nullish() })
 });
-var Files = z127.array(z127.string()).nullish();
-var PushEvent = z127.looseObject({
-  ref: z127.string(),
-  commits: z127.array(z127.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
+var Files = z128.array(z128.string()).nullish();
+var PushEvent = z128.looseObject({
+  ref: z128.string(),
+  commits: z128.array(z128.looseObject({ added: Files, modified: Files, removed: Files })).nullish()
 });
 var issueTouches = (repository, payload) => {
   const read2 = IssueEvent.safeParse(payload);
@@ -30238,7 +31158,7 @@ function forwardTouch(touch, post2) {
 // apps/omni-app/src/webhook/webhook.ts
 import { randomUUID } from "node:crypto";
 import { Webhooks } from "@octokit/webhooks";
-import { z as z128 } from "zod";
+import { z as z129 } from "zod";
 var CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(["opened", "synchronize", "reopened", "ready_for_review", "labeled", "unlabeled", "edited"]),
   pull_request_review: Object.freeze(["submitted", "dismissed"]),
@@ -30275,47 +31195,47 @@ var HANDLED = Object.freeze({
   release: Object.freeze(["published"])
 });
 var SUBSCRIBED = Object.freeze([.../* @__PURE__ */ new Set([...Object.keys(HANDLED), ...TOUCH_EVENTS])]);
-var PullRefSchema = z128.looseObject({
+var PullRefSchema = z129.looseObject({
   number: PrNumberSchema.nullish(),
-  head: z128.looseObject({ sha: z128.string().nullish() }).nullish(),
-  base: z128.looseObject({ ref: z128.string().nullish() }).nullish()
+  head: z129.looseObject({ sha: z129.string().nullish() }).nullish(),
+  base: z129.looseObject({ ref: z129.string().nullish() }).nullish()
 });
-var PayloadSchema3 = z128.looseObject({
-  action: z128.unknown(),
+var PayloadSchema3 = z129.looseObject({
+  action: z129.unknown(),
   number: PrNumberSchema.nullish(),
-  installation: z128.looseObject({ id: z128.number().nullish() }).nullish(),
-  repository: z128.looseObject({
-    name: z128.string(),
-    full_name: z128.string().nullish(),
-    owner: z128.looseObject({ login: z128.string().nullish() }).nullish(),
-    default_branch: z128.string().nullish()
+  installation: z129.looseObject({ id: z129.number().nullish() }).nullish(),
+  repository: z129.looseObject({
+    name: z129.string(),
+    full_name: z129.string().nullish(),
+    owner: z129.looseObject({ login: z129.string().nullish() }).nullish(),
+    default_branch: z129.string().nullish()
   }).nullish(),
   pull_request: PullRefSchema.extend({
-    node_id: z128.string().nullish(),
-    html_url: z128.string().nullish(),
-    state: z128.string().nullish(),
-    user: z128.looseObject({ login: z128.string().nullish() }).nullish(),
-    body: z128.string().nullish(),
-    merged: z128.boolean().nullish(),
-    merge_commit_sha: z128.string().nullish(),
-    merged_at: z128.string().nullish(),
-    closed_at: z128.string().nullish(),
-    updated_at: z128.string().nullish()
+    node_id: z129.string().nullish(),
+    html_url: z129.string().nullish(),
+    state: z129.string().nullish(),
+    user: z129.looseObject({ login: z129.string().nullish() }).nullish(),
+    body: z129.string().nullish(),
+    merged: z129.boolean().nullish(),
+    merge_commit_sha: z129.string().nullish(),
+    merged_at: z129.string().nullish(),
+    closed_at: z129.string().nullish(),
+    updated_at: z129.string().nullish()
   }).nullish(),
-  check_run: z128.looseObject({
-    id: z128.number().nullish(),
-    external_id: z128.string().nullish(),
-    head_sha: z128.string().nullish(),
-    pull_requests: z128.array(PullRefSchema).nullish(),
-    output: z128.looseObject({ summary: z128.unknown() }).nullish()
+  check_run: z129.looseObject({
+    id: z129.number().nullish(),
+    external_id: z129.string().nullish(),
+    head_sha: z129.string().nullish(),
+    pull_requests: z129.array(PullRefSchema).nullish(),
+    output: z129.looseObject({ summary: z129.unknown() }).nullish()
   }).nullish(),
-  requested_action: z128.looseObject({ identifier: z128.unknown() }).nullish(),
-  check_suite: z128.looseObject({
-    id: z128.number().nullish(),
-    head_branch: z128.string().nullish(),
-    head_sha: z128.string().nullish(),
-    conclusion: z128.string().nullish(),
-    pull_requests: z128.array(PullRefSchema).nullish()
+  requested_action: z129.looseObject({ identifier: z129.unknown() }).nullish(),
+  check_suite: z129.looseObject({
+    id: z129.number().nullish(),
+    head_branch: z129.string().nullish(),
+    head_sha: z129.string().nullish(),
+    conclusion: z129.string().nullish(),
+    pull_requests: z129.array(PullRefSchema).nullish()
   }).nullish()
 });
 async function receiveWebhook({
@@ -30516,9 +31436,9 @@ function toFleetBoardRequests(event, delivery2) {
     }
   ];
 }
-var LabelEventSchema = z128.looseObject({
-  label: z128.looseObject({ name: z128.string() }),
-  issue: z128.looseObject({ number: PrdNumberSchema, pull_request: z128.unknown().optional() })
+var LabelEventSchema = z129.looseObject({
+  label: z129.looseObject({ name: z129.string() }),
+  issue: z129.looseObject({ number: PrdNumberSchema, pull_request: z129.unknown().optional() })
 });
 function toApprovedLabelRequests(event, delivery2) {
   const payload = readPayload(delivery2);
@@ -30704,7 +31624,9 @@ function githubRoute(env, {
 }
 
 // apps/omni-app/entries/github.ts
-var { POST, GET } = githubRoute(readEnv(processEnv()));
+var appEnv = readEnv(processEnv());
+recordAppErrorsOf(appEnv);
+var { POST, GET } = githubRoute(appEnv);
 export {
   GET,
   POST

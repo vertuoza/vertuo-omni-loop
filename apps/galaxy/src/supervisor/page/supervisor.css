@@ -1,0 +1,136 @@
+/* The Supervisor page (PRD omni-loop-34 s5), as its before/after page draws it (2.A to 2.G): the header card, the
+   offline notice, the tabs, then the 480 px list beside the pane from 900 px, one side at a time below, behind the
+   Actions · Chat switch. Every value is a token of @omni/design. */
+
+.sv { display: grid; gap: var(--space-5); min-width: 0; }
+
+/* The header: the owl's face, the name and state over the meta line, the owner's controls at its end. */
+.sv-head {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-4);
+  padding: var(--space-4); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-2); background: var(--color-surface);
+}
+.sv-face {
+  position: relative; display: grid; place-items: center; inline-size: var(--space-8); block-size: var(--space-8);
+  border: 1.5px solid var(--color-border-strong); border-radius: var(--radius-2); background: var(--color-sunken);
+}
+.sv-live {
+  position: absolute; inset-inline-end: calc(var(--space-1) * -1); inset-block-end: calc(var(--space-1) * -1);
+  inline-size: var(--space-3); block-size: var(--space-3); border-radius: var(--radius-full); background: var(--color-success);
+  outline: 3px solid var(--color-surface);
+}
+.sv-face[data-state='paused'] .sv-live, .sv-face[data-state='limit'] .sv-live, .sv-face[data-state='none'] .sv-live { background: var(--color-text-tertiary); }
+.sv-face[data-state='offline'] .sv-live { background: var(--color-danger); }
+.sv-who { display: grid; gap: var(--space-1); min-width: 0; }
+.sv-name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: 0; font-size: var(--type-6-size); line-height: var(--type-6-line); font-weight: var(--weight-bold); }
+.sv-state { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-2-size); line-height: var(--type-2-line); font-weight: var(--weight-bold); color: var(--color-success); }
+.sv-state i { inline-size: var(--space-2); block-size: var(--space-2); border-radius: var(--radius-full); background: currentcolor; }
+.sv-state[data-state='paused'], .sv-state[data-state='limit'], .sv-state[data-state='none'] { color: var(--color-text-secondary); }
+.sv-state[data-state='offline'] { color: var(--color-danger); }
+.sv-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; font-family: var(--font-mono); font-size: var(--type-2-size); line-height: var(--type-2-line); color: var(--color-text-secondary); }
+.sv-meta b { color: var(--color-text-primary); font-weight: var(--weight-semibold); }
+.sv-short { display: none; margin: 0; font-size: var(--type-2-size); line-height: var(--type-2-line); color: var(--color-text-secondary); }
+.sv-readonly { margin: 0; font-size: var(--type-2-size); color: var(--color-text-secondary); white-space: nowrap; }
+.sv-tools { display: grid; gap: var(--space-2); justify-items: end; }
+.sv-tools-row { display: flex; gap: var(--space-2); align-items: center; }
+.sv-limit { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: end; }
+.sv-error { margin: 0; font-size: var(--type-2-size); color: var(--color-danger); }
+
+/* The seat's notice: no seat yet, or offline (in red), with the owner's way to the Runners page. */
+.sv-notice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--color-border-strong); border-radius: var(--radius-2); background: var(--color-sunken); font-size: var(--type-3-size);
+}
+.sv-notice[data-tone='danger'] { border-color: var(--color-danger); }
+.sv-notice-end { margin-inline-start: auto; }
+
+/* The phone's switch shows below 900 px only. */
+.sv-phone { display: none; }
+
+/* The list beside the pane. */
+.sv-split { display: grid; grid-template-columns: minmax(0, 480px) minmax(0, 1fr); align-items: start; min-width: 0; }
+.sv-list { display: grid; gap: var(--space-1); align-content: start; padding-inline-end: var(--space-4); min-width: 0; }
+.sv-chips { padding-block-end: var(--space-2); max-width: 100%; overflow-x: auto; }
+.sv-section { display: grid; gap: var(--space-1); min-width: 0; }
+.sv-section-title {
+  margin: 0; padding: var(--space-4) var(--space-3) var(--space-2); font-size: var(--type-1-size); line-height: var(--type-1-line);
+  font-weight: var(--weight-bold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary);
+}
+.sv-count { font-family: var(--font-mono); font-weight: var(--weight-regular); color: var(--color-text-tertiary); }
+
+/* A row, the Inbox row's anatomy with a severity stripe on its left. */
+.sv-row {
+  position: relative; display: grid; grid-template-columns: var(--space-4) minmax(0, 1fr) auto; column-gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4); border: 1px solid transparent; border-radius: var(--radius-2);
+  color: var(--color-text-primary); text-decoration: none;
+}
+.sv-row:hover { background: var(--color-raised); }
+.sv-row:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
+.sv-row[aria-current='true'] { background: var(--color-accent-soft); border-color: var(--color-accent); }
+.sv-sev { position: absolute; inset-inline-start: var(--space-1); inset-block: var(--space-3); inline-size: 3px; border-radius: var(--radius-1); }
+.sv-sev[data-severity='high'] { background: var(--color-danger); }
+.sv-sev[data-severity='medium'] { background: var(--color-signal); }
+.sv-sprite { display: inline-flex; align-self: start; margin-block-start: var(--space-1); }
+.sv-row-main { display: grid; min-width: 0; }
+.sv-ctx { display: block; overflow: hidden; font-size: var(--type-2-size); line-height: var(--type-2-line); font-weight: var(--weight-semibold); color: var(--color-text-secondary); white-space: nowrap; text-overflow: ellipsis; }
+.sv-title {
+  display: -webkit-box; overflow: hidden; margin-block-start: var(--space-1); font-size: var(--type-4-size); line-height: var(--type-4-line);
+  font-weight: var(--weight-semibold); -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.sv-line { display: block; margin-block-start: var(--space-1); font-size: var(--type-2-size); line-height: var(--type-2-line); color: var(--color-text-secondary); }
+.sv-end { display: grid; justify-items: end; align-content: start; gap: var(--space-2); }
+.sv-age { font-family: var(--font-mono); font-size: var(--type-1-size); color: var(--color-text-tertiary); white-space: nowrap; }
+.sv-age[data-late] { color: var(--color-danger); font-weight: var(--weight-bold); }
+
+/* The pane: the open finding, or the general thread. */
+.sv-pane { display: grid; gap: var(--space-4); align-content: start; min-width: 0; padding-inline-start: var(--space-5); border-inline-start: 1px solid var(--color-border-subtle); }
+.sv-pane-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
+.sv-pane-head .sv-ctx { white-space: normal; }
+.sv-pane-title { margin: 0; font-size: var(--type-5-size); line-height: var(--type-5-line); font-weight: var(--weight-bold); }
+.sv-pills { display: flex; flex: none; gap: var(--space-2); }
+.sv-suggested { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-signal); border-radius: var(--radius-2); background: var(--color-signal-soft); }
+.sv-suggestions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: 0; padding: 0; list-style: none; }
+.sv-box { display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-2); background: var(--color-surface); }
+.sv-box[data-check] { border-color: var(--color-info); }
+.sv-box-label { margin: 0; font-size: var(--type-1-size); line-height: var(--type-1-line); font-weight: var(--weight-bold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-secondary); }
+.sv-check { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--type-4-size); }
+.sv-figure {
+  padding: var(--space-1) var(--space-2); border: 1px solid var(--color-info); border-radius: var(--radius-full);
+  font-size: var(--type-1-size); line-height: var(--type-1-line); font-weight: var(--weight-semibold); color: var(--color-info); white-space: nowrap;
+}
+.sv-evidence { display: grid; gap: var(--space-2); margin: 0; padding-inline-start: var(--space-5); font-size: var(--type-3-size); line-height: var(--type-3-line); overflow-wrap: anywhere; }
+.sv-evidence li::marker { color: var(--color-info); }
+.sv-quiet-notice { margin: 0; padding: var(--space-3) var(--space-4); border: 1.5px solid var(--color-border-strong); border-radius: var(--radius-2); background: var(--color-sunken); font-size: var(--type-3-size); }
+
+/* A thread: the face, who wrote it and when, the paragraphs, the memory note that shaped it. */
+.sv-thread { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.sv-msg { display: grid; grid-template-columns: var(--space-6) minmax(0, 1fr); gap: var(--space-3); }
+.sv-msg-face {
+  display: grid; place-items: center; inline-size: var(--space-6); block-size: var(--space-6); border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-2); background: var(--color-sunken); font-weight: var(--weight-bold); color: var(--color-text-secondary);
+}
+.sv-msg-body { display: grid; gap: var(--space-2); min-width: 0; }
+.sv-msg-who { margin: 0; font-size: var(--type-2-size); color: var(--color-text-secondary); }
+.sv-msg-who b { color: var(--color-text-primary); }
+.sv-msg-at { margin-inline-start: var(--space-2); font-family: var(--font-mono); color: var(--color-text-tertiary); }
+.sv-msg-text { margin: 0; font-size: var(--type-3-size); line-height: var(--type-3-line); overflow-wrap: anywhere; }
+.sv-memref {
+  justify-self: start; margin: 0; padding: var(--space-1) var(--space-2); border: 1px dashed var(--color-border-strong); border-radius: var(--radius-1);
+  font-size: var(--type-1-size); font-weight: var(--weight-semibold); color: var(--color-text-secondary);
+}
+.sv-fine { margin: 0; padding-block-start: var(--space-3); border-block-start: 1px solid var(--color-border-subtle); font-size: var(--type-2-size); color: var(--color-text-secondary); }
+
+/* Below 900 px: one side at a time, the header on two lines, the switch on top. */
+@media (max-width: 899px) {
+  .sv { gap: var(--space-4); }
+  .sv-head { grid-template-columns: auto minmax(0, 1fr); padding: var(--space-3); }
+  .sv-head .sv-tools, .sv-head .sv-readonly { grid-column: 1 / -1; justify-items: start; }
+  .sv-face { inline-size: var(--space-7); block-size: var(--space-7); }
+  .sv-name { font-size: var(--type-4-size); line-height: var(--type-4-line); }
+  .sv-meta { display: none; }
+  .sv-short { display: block; }
+  .sv-phone { display: grid; }
+  .sv-split { grid-template-columns: minmax(0, 1fr); }
+  .sv-list { padding-inline-end: 0; }
+  .sv-pane { padding-inline-start: 0; border-inline-start: 0; }
+  .sv-split[data-side='list'] .sv-pane, .sv-split[data-side='pane'] .sv-list { display: none; }
+}

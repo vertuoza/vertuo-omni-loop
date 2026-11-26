@@ -40,8 +40,8 @@ type FakeEvent = Omit<NewStoredEvent, 'kind'> & { kind: string; actor: string; a
 /** A kept repair, as its mission_repairs row: its PRD a repository's number or a product's id (PRD omni-loop-21 s3b). */
 type FakeRepair = Omit<RepairRow, 'prd'> & { prd: MissionPrd | null };
 
-/** A kept repair as the store reads it: a product PRD's named as `product`, its `prd` null. */
-const storedRepairOf = ({ prd, ...row }: FakeRepair): StoredRepair => ({ ...row, ...numberedOf(prd) });
+/** A kept repair as the store reads it: its PRD a repository's number or a product's id (bug #3302). */
+const storedRepairOf = (row: FakeRepair): StoredRepair => ({ ...row });
 
 const NOW_OF_ASKS = Date.parse('2027-01-22T08:00:00Z');
 
@@ -518,7 +518,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     /** The repair jobs queued (PRD 2980), in order. */
     repairJobs: () => repairs.map((one) => ({ ...one, attempts: one.attempts.map((each) => ({ ...each })) })),
     /** The PRD's latest repair job ends as `change` says, its log `log`. */
-    endRepairJob: (prd: PrdNumber, change: Partial<Attempt>, log: string | null = null) => {
+    endRepairJob: (prd: MissionPrd, change: Partial<Attempt>, log: string | null = null) => {
       const one = repairs.filter((each) => each.prd === prd).at(-1);
       const attempt = one?.attempts.at(-1);
       if (!one || !attempt) throw new Error(`no repair of PRD ${String(prd)} was sent`);
@@ -526,7 +526,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       one.log = log;
     },
     /** The PRD's latest repair job's runner is lost: it fails `runner lost` and a resume of it is queued (PRD 2809). */
-    loseRepair: (prd: PrdNumber) => {
+    loseRepair: (prd: MissionPrd) => {
       const one = repairs.filter((each) => each.prd === prd).at(-1);
       const attempt = one?.attempts.at(-1);
       if (!one || !attempt) throw new Error(`no repair of PRD ${String(prd)} was sent`);
@@ -658,6 +658,14 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (!one) throw new Error(`no review of PRD ${prd} was sent`);
       Object.assign(one.attempt, change);
       one.log = log;
+    },
+    /**
+     * Bug #3302: a person sends PM product PRD `prd` back to the PM, as the route records it: their own `sent-back` event naming the
+     * PRD's last plan or tech decision's job, signed with their login.
+     */
+    sendBack: (prd: ProductPrdId, actor = 'ada') => {
+      const job = planDecisions.filter((one) => one.prd === prd).at(-1)?.job ?? null;
+      events.push({ kind: 'sent-back', role: 'supervisor', prd, job, link: null, sentence: `${actor} sent PRD ${prd} back to the PM.`, actor, at: new Date(NOW_OF_ASKS + events.length).toISOString() });
     },
     /** PRD omni-loop-26: the plan and tech decisions kept, in order, with whether each gave the Tech Approval or the product approval. */
     planDecisions: () => planDecisions.map((one) => ({ ...one, why: [...one.why], settled: [...one.settled] })),

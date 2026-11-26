@@ -10,6 +10,7 @@
 //   omni runner job --line <file> --log <file> --exit <file> [--account <id>]
 //   omni runner ask --file <file> --issue <n> --lead <file>
 //   omni runner answers <job>
+//   omni runner log <job>
 //   omni runner t3-signin
 //   omni runner t3-run --instance <id> --model <model> [--thread <id>]
 //
@@ -74,6 +75,10 @@
 // as it always did). `answers <job>` prints that job's row as the app holds it, questions and answers, as
 // one line of JSON, and exits 1 with one line when it cannot be read: the resumed run reads it from there.
 //
+// `log <job>` (bug #3330) prints a job of the workspace as the app holds it, from any runner: its status and why it ended, its line
+// and its log's last lines, every secret masked (`../../lib/runner/job-log.ts`). `/omni:repair` reads the job it repairs with it,
+// whichever runner ran it. It exits 1 with one line when the job cannot be read.
+//
 // A test hands it `tokens`, `home`, `fetch`, `terminal`, `stop`, `sleep`, `now`, `tickMs`, `backoff` and
 // `machine`, the reads its health samples are taken from.
 import { readFileSync } from 'node:fs';
@@ -104,6 +109,7 @@ import { DEFAULT_LIMITS } from '../../lib/runner/health.ts';
 import type { MachineReads } from '../../lib/runner/health.ts';
 import { runJobProcess } from '../../lib/runner/job.ts';
 import { parseDuration } from '../../lib/runner/log.ts';
+import { jobLogWords, readJobLog } from '../../lib/runner/job-log.ts';
 import { readJobQuestions, waitingLine } from '../../lib/runner/questions.ts';
 import type { JobQuestionList } from '../../lib/runner/questions.ts';
 import { releaser } from '../../lib/runner/release.ts';
@@ -122,10 +128,11 @@ import type { Exec, FreeCommand, FreeIo, Out } from '../io.ts';
 import { boardCount, followCommand, interrupts, send } from './runner-follow.ts';
 import type { FollowOptions } from './runner-follow.ts';
 
-const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--keep-budget 5] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner t3-signin";
+const USAGE = "usage: omni runner --name <name> --repos <dir> [--slots 4] [--timeout 8h] [--keep-logs 14] [--keep-budget 5] [--max-memory 85] [--min-disk 10] [--max-load 1.5] | omni runner sender | omni runner github-token [--git get] | omni runner send '<line>' [--to <runner|fleet>] | omni runner follow <n> | omni runner ask --file <file> --issue <n> --lead <file> | omni runner answers <job> | omni runner log <job> | omni runner t3-signin";
 const T3_RUN_USAGE = 'usage: omni runner t3-run --instance <id> --model <model> [--thread <id>]';
 const ASK_USAGE = 'usage: omni runner ask --file <file> --issue <n> --lead <file>';
 const ANSWERS_USAGE = 'usage: omni runner answers <job>';
+const LOG_USAGE = 'usage: omni runner log <job>';
 const GITHUB_TOKEN_USAGE = 'usage: omni runner github-token [--git get]';
 const DEFAULT_SLOTS = 4;
 const MAX_SLOTS = 8;
@@ -565,6 +572,20 @@ async function answersOfJob(args: string[], io: FreeIo & RunnerCommandOptions): 
   return 0;
 }
 
+/** `log <job>`: the job's status, reason, line and log tail as the app holds them, for `/omni:repair` on any runner (bug #3330). */
+async function logOfJob(args: string[], io: FreeIo & RunnerCommandOptions): Promise<number> {
+  const { positional } = parseArgs('runner', args);
+  const [jobId, ...extra] = positional;
+  if (jobId === undefined || extra.length) throw usageError(LOG_USAGE);
+  const askUrl = askUrlOf(io.cwd, io.exec);
+  if (askUrl === null) return refused(io.stderr, 'no Omni page is set (ask.url) in this checkout.');
+  const api = runnerApi({ askUrl, tokens: tokensOf(io), fetch: io.fetch ?? globalThis.fetch });
+  const log = await throughApp(() => readJobLog(api, jobId));
+  if ('refusal' in log) return refused(io.stderr, log.refusal === 'refused (404)' ? `no job ${jobId} in this workspace.` : log.refusal);
+  println(io.stdout, jobLogWords(jobId, log.value));
+  return 0;
+}
+
 /** `sender`: the line `/omni:pr` writes in a pull request this job opens: a person's, or the API key's (PRD 2433). */
 function senderOfJob(args: string[], io: FreeIo & RunnerCommandOptions): number {
   if (args.length) throw usageError('usage: omni runner sender');
@@ -582,6 +603,7 @@ const SUBCOMMANDS = new Map<string, (args: string[], io: FreeIo & RunnerCommandO
   ['follow', followCommand],
   ['ask', askOnJob],
   ['answers', answersOfJob],
+  ['log', logOfJob],
   ['t3-signin', t3SignInOfRunner],
   ['t3-run', t3Run],
 ]);

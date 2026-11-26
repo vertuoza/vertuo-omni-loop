@@ -1,7 +1,8 @@
-import { parsePrd, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { parsePrd, type PrdNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { DROP_ASKED, DROP_ASKED_KEEP, dropSet } from 'omni-loop/kit/lib/mission/drop.ts';
 import { decisionsOf, overturnSentence, parseRef, refOf, type DecisionRef } from 'omni-loop/kit/lib/mission/overturn.ts';
-import { MOVES, waitsOnNoPrd, type AnsweredItem, type ItemAnswerBody, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type DropBody, type DroppedMission, type LeveledMission, type MissionBrief, type BriefQuery, type OfPrdQuery, type MissionsOfPrd, type MissionAction, type MissionRefusal, type MissionStatus, type MovedMission } from './missions.contract';
+import { sentBackSentence, waitsOnReview } from 'omni-loop/kit/lib/mission/send-back.ts';
+import { MOVES, waitsOnNoPrd, type AnsweredItem, type ItemAnswerBody, type AnsweredStop, type BudgetedMission, type StopAnswerBody, type BugsBody, type PickedBugs, type OverturnBody, type OverturnedMission, type SendBackBody, type SentBack, type DropBody, type DroppedMission, type LeveledMission, type MissionBrief, type BriefQuery, type OfPrdQuery, type MissionsOfPrd, type MissionAction, type MissionRefusal, type MissionStatus, type MovedMission } from './missions.contract';
 import { levelRefusal as planRefusal, type MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { capWords } from './token-words';
 import { missionExport } from './missions.export';
@@ -85,13 +86,45 @@ function dropBlock(mission: { number: number; level: MissionLevel; status: strin
   return null;
 }
 
-/** Why `caller` cannot overturn a decision of `mission` at all (nothing seen, no login, not at alone, not started), or null. */
-function overturnBlock(mission: { number: number; level: MissionLevel; status: string } | null, caller: Caller): { ok: false; kind: MissionRefusal; error: string } | null {
+type Refused = { ok: false; kind: MissionRefusal; error: string };
+
+/** Why `caller` cannot act on `mission` at `alone` at all (nothing seen, no login, below alone, `below` ending that refusal), or null. */
+function aloneBlock(mission: { number: number; level: MissionLevel } | null, caller: Caller, below: string): Refused | null {
   if (mission === null) return { ok: false, kind: 'forbidden', error: NOT_YOURS };
   if (caller.login === null) return { ok: false, kind: 'forbidden', error: NO_LOGIN };
-  if (mission.level !== 'alone') return { ok: false, kind: 'conflict', error: `Mission ${String(mission.number)} runs at ${mission.level}: the fleet decides nothing there.` };
+  return mission.level === 'alone' ? null : { ok: false, kind: 'conflict', error: `Mission ${String(mission.number)} runs at ${mission.level}: ${below}.` };
+}
+
+/** Why `caller` cannot overturn a decision of `mission` at all (nothing seen, no login, not at alone, not started), or null. */
+function overturnBlock(mission: { number: number; level: MissionLevel; status: string } | null, caller: Caller): Refused | null {
+  const blocked = aloneBlock(mission, caller, 'the fleet decides nothing there');
+  if (blocked !== null || mission === null) return blocked;
   if (!['running', 'waiting', 'paused'].includes(mission.status)) return { ok: false, kind: 'conflict', error: `Only a started mission has decisions to overturn. This one is ${mission.status}.` };
   return null;
+}
+
+/**
+ * Why `caller` cannot send PM product PRD `prd` of `mission` back to its PM (bug #3302): nothing seen, no login, not at alone, not
+ * started, or the PRD does not wait on a person after its review; null when it may.
+ */
+function sendBackBlock(mission: { number: number; level: MissionLevel; status: string; waitingOn: string | null } | null, caller: Caller, prd: ProductPrdId): Refused | null {
+  const blocked = aloneBlock(mission, caller, 'its PM writes no product PRD there');
+  if (blocked !== null || mission === null) return blocked;
+  if (!['running', 'waiting'].includes(mission.status) || !waitsOnReview(mission.waitingOn, prd)) {
+    return { ok: false, kind: 'conflict', error: `PRD ${prd} does not wait on a person after its review in mission ${String(mission.number)}: there is nothing to send back.` };
+  }
+  return null;
+}
+
+/** Records a person's send-back as their own event naming the last plan or tech decision it follows (bug #3302), then wakes the mission. */
+async function recordSendBack(write: MissionsWriter, { mission, login, prd, job, at }: { mission: { id: string; repo: string }; login: string; prd: ProductPrdId; job: string | undefined; at: string }): Promise<Served<SentBack>> {
+  await write.event(mission.id, { kind: 'sent-back', actor: login, product: prd, ...(job === undefined ? {} : { job }), at, sentence: sentBackSentence(login, prd) });
+  try {
+    await write.refresh(missionJob(mission.id, mission.repo));
+  } catch (error) {
+    return { ok: false, kind: 'database', error: 'The send-back is recorded, but the mission could not be woken: it is taken on its next run.', cause: error instanceof Error ? error.message : String(error) };
+  }
+  return { ok: true, value: { sentBack: { mission: mission.id, prd } } };
 }
 
 /** The events an overturn adds: the person's own, and, for a PRD on the branch, the ask that takes it off (a millisecond later, so the order is kept). */
@@ -337,6 +370,21 @@ export function missionsService(write: MissionsWriter, clock: { now: () => Date 
         return { ok: false, kind: 'database', error: 'The overturn is recorded, but the mission could not be woken: it is taken on its next run.', cause: error instanceof Error ? error.message : String(error) };
       }
       return { ok: true, value: { overturn: { mission: mission.id, branch: onBranch ? branchOf(mission) : null, decision: refOf(ref), prd: ref.prd, onBranch } } };
+    },
+
+    /**
+     * A member sends a PM product PRD back to the PM (bug #3302, `omni mission send-back`, Send back to the PM on the Missions tab), the
+     * mission named by its repository and number, or by its id (`id`): their own `sent-back` event, signed with their login, names the PRD
+     * and the last plan or tech decision it follows, which stays as recorded (BR-PRODUCT-12); the mission is woken, and its next run
+     * sends the PM its plan job with the Architect's latest open points, the rounds counted again. Refused for a mission not at `alone`
+     * or not running or waiting, and for a PRD that does not wait on a person after its review.
+     */
+    async sendBack(body: SendBackBody | { id: string; prd: ProductPrdId }, caller: Caller, reader: MissionsReader): Promise<Served<SentBack>> {
+      const mission = 'id' in body ? await reader.mission(body.id) : await reader.byNumber(body.repo, body.mission);
+      const blocked = sendBackBlock(mission, caller, body.prd);
+      if (blocked !== null || mission === null || caller.login === null) return blocked ?? { ok: false, kind: 'forbidden', error: NOT_YOURS };
+      const last = (await reader.planDecisions(mission.id)).filter((one) => one.prd === body.prd).at(-1);
+      return recordSendBack(write, { mission, login: caller.login, prd: body.prd, job: last?.job, at: iso() });
     },
 
     /**

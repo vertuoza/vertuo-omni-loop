@@ -1,6 +1,6 @@
 // The mission store's repairs (PRD 2980 s5), as the service role, never calling Supabase: each request recorded, each answer handed.
 import { describe, expect, it } from 'vitest';
-import { parseIssue, parsePrd } from 'omni-loop/kit/lib/ids.ts';
+import { parseIssue, parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { missionStore, type MissionRecord } from './store.ts';
 
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d0e11';
@@ -56,6 +56,16 @@ describe('missionStore — a mission\'s repairs (PRD 2980)', () => {
     const db = recordingFetch([[{ id: 'job-9' }]]);
     expect(await storeOn(db.fetch).repair({ mission, prd: parsePrd(7), k: 2, failedJob: 'job-1', toFleet: true })).toBe('job-9');
     expect(db.requests[0]?.body).toMatchObject({ line: '/omni:repair --mission 12 --prd 7 --job job-1', mission_key: `mission:${ID}:prd:7:repair:2`, sent_by_app: 'omni-app', to_fleet: 'night-shift', mission_id: ID });
+  });
+
+  it('reads and queues a product PRD\'s repair under its id (bug #3302)', async () => {
+    const product = jobRow({ mission_key: `mission:${ID}:prd:omni-loop-27:repair:1`, line: '/omni:repair --mission 12 --prd omni-loop-27 --job job-1' });
+    const read = await storeOn(recordingFetch([[product], [], [{ ...repairRow, prd_id: 'omni-loop-27' }]]).fetch).repairs(ID);
+    expect(read.jobs.map(({ prd, k, failedJob }) => [prd, k, failedJob])).toEqual([['omni-loop-27', 1, 'job-1']]);
+    expect(read.rows.map(({ prd }) => prd)).toEqual(['omni-loop-27']);
+    const db = recordingFetch([[{ id: 'job-9' }]]);
+    expect(await storeOn(db.fetch).repair({ mission, prd: parseProductPrdId('omni-loop-27'), k: 2, failedJob: 'job-1', toFleet: false })).toBe('job-9');
+    expect(db.requests[0]?.body).toMatchObject({ line: '/omni:repair --mission 12 --prd omni-loop-27 --job job-1', mission_key: `mission:${ID}:prd:omni-loop-27:repair:2` });
   });
 
   it('keeps a repair\'s row, numbered by the database, or answers the cap it was refused on', async () => {
