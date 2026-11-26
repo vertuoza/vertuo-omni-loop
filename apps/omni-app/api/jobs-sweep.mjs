@@ -28987,7 +28987,7 @@ var FAILED_JOB = `${WATCH_JOB}, log_tail`;
 var WATCH_MISSION = "id, number, title, status, updated_at";
 var SIGNAL = "id, fingerprint, opened_at, finding_id";
 var FINDING = "id, state, raised_by, looked_at";
-var HELD = "finding_id";
+var HELD2 = "finding_id";
 var DISMISSAL = "evidence_key, supervisor_findings!inner(fingerprint)";
 var LaneRowSchema2 = z121.object({ workspace_id: z121.uuid() });
 var SeatRowSchema = z121.object({
@@ -29196,7 +29196,7 @@ function watchStore(connection) {
       done(await db.from("supervisor_signals").update({ closed_at: at4 }).in("id", [...ids]).is("closed_at", null));
     },
     async resolveFindings(ids, at4) {
-      const held2 = new Set(rowsOf(HeldRowSchema2, await db.from("supervisor_signals").select(HELD).in("finding_id", [...ids]).is("closed_at", null).limit(1e3)).flatMap((row) => row.finding_id === null ? [] : [row.finding_id]));
+      const held2 = new Set(rowsOf(HeldRowSchema2, await db.from("supervisor_signals").select(HELD2).in("finding_id", [...ids]).is("closed_at", null).limit(1e3)).flatMap((row) => row.finding_id === null ? [] : [row.finding_id]));
       const free = ids.filter((id) => !held2.has(id));
       if (free.length === 0) return;
       done(await db.from("supervisor_findings").update({ state: "resolved", closed_at: at4 }).in("id", free).eq("state", "open"));
@@ -29405,6 +29405,7 @@ var waitingTooLong = ({ now, jobs }) => {
     };
   });
 };
+var EXPIRED_REASON = "Expired:";
 function failureGroups(jobs, now) {
   const groups = /* @__PURE__ */ new Map();
   const add = (by, raw, id) => {
@@ -29417,7 +29418,7 @@ ${text20}`) ?? { by, text: text20, ids: [] };
 ${text20}`, group2);
   };
   for (const job of jobs) {
-    if (job.status !== "failed" || age(job.endedAt, now) > 6 * HOUR2) continue;
+    if (job.status !== "failed" || age(job.endedAt, now) > 6 * HOUR2 || job.reason?.startsWith(EXPIRED_REASON) === true) continue;
     add("reason", job.reason, job.id);
     add("line", job.lastLine, job.id);
   }

@@ -327,6 +327,9 @@ export const waitingTooLong: Check = ({ now, jobs }) => {
 type FailureGroup = { by: 'reason' | 'line'; text: string; ids: string[] };
 
 /** The failed jobs of the last 6 h, grouped by their reason and by their last line, masked. */
+/** The reason the 48 h sweep gives a job it ends on purpose (omni-loop-35): never a failure to report (#3366). */
+const EXPIRED_REASON = 'Expired:';
+
 function failureGroups(jobs: readonly WatchJob[], now: number): FailureGroup[] {
   const groups = new Map<string, FailureGroup>();
   const add = (by: FailureGroup['by'], raw: string | null, id: string) => {
@@ -337,7 +340,7 @@ function failureGroups(jobs: readonly WatchJob[], now: number): FailureGroup[] {
     groups.set(`${by}\n${text}`, group);
   };
   for (const job of jobs) {
-    if (job.status !== 'failed' || age(job.endedAt, now) > 6 * HOUR) continue;
+    if (job.status !== 'failed' || age(job.endedAt, now) > 6 * HOUR || job.reason?.startsWith(EXPIRED_REASON) === true) continue;
     add('reason', job.reason, job.id);
     add('line', job.lastLine, job.id);
   }
