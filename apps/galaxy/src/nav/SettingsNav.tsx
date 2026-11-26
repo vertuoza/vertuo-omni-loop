@@ -21,7 +21,7 @@ export function SettingsNav() {
             <ul>
               {group.pages.map((page) => (
                 <li key={page.path}>
-                  <Link className="settings-nav-link" href={page.path} aria-current={page.current ? 'page' : undefined}>
+                  <Link className="settings-nav-link" href={page.path} prefetch aria-current={page.current ? 'page' : undefined}>
                     {page.label}
                   </Link>
                 </li>
@@ -39,7 +39,7 @@ export function SettingsNav() {
               <ul>
                 {group.pages.map((page) => (
                   <li key={page.path}>
-                    <Link className="settings-nav-link" href={page.path} aria-current={page.current ? 'page' : undefined}>
+                    <Link className="settings-nav-link" href={page.path} prefetch aria-current={page.current ? 'page' : undefined}>
                       {page.label}
                     </Link>
                   </li>

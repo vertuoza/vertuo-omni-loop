@@ -5,6 +5,17 @@ import { SETTINGS_MAP_PAGES } from './settings-map';
 
 const at = vi.hoisted(() => ({ path: '/app/settings/jev' }));
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
+// next/link renders a plain anchor on the server, so the mock records the prefetch prop each link gets.
+const seen = vi.hoisted(() => ({ props: [] as { href: string; prefetch?: boolean | null }[] }));
+vi.mock('next/link', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    default: ({ href, prefetch, children, ...rest }: { href: string; prefetch?: boolean | null; children?: unknown }) => {
+      seen.props.push({ href, prefetch });
+      return h('a', { href, ...rest }, children as string);
+    },
+  };
+});
 
 const { SettingsNav } = await import('./SettingsNav.tsx');
 const render = (path: string) => {
@@ -40,5 +51,12 @@ describe('the settings navigation markup (omni-loop-27 s2)', () => {
   it('names the page showing on the narrow form\'s summary', () => {
     expect(render('/app/settings/fleets')).toContain('<summary>Fleets</summary>');
     expect(render('/app/settings')).toContain('<summary>Settings</summary>');
+  });
+
+  it('AC-5: prefetches every link, in both forms, so a tab opens at once', () => {
+    seen.props.length = 0;
+    render('/app/settings/jev');
+    expect(seen.props).toHaveLength(SETTINGS_MAP_PAGES.length * 2);
+    for (const link of seen.props) expect(link.prefetch).toBe(true);
   });
 });
