@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePrd, parseProductPrdId } from 'omni-loop/kit/lib/ids.ts';
-import { gateRedOf, heldBuildsOf, heldOnOf, specBlockersOf, withoutHeld } from './held.ts';
+import { endedOf, gateRedOf, heldBuildsOf, heldOnOf, specBlockersOf, withoutHeld } from './held.ts';
 import { NO_REPAIRS, type RepairRow } from './repair.ts';
 
 // Bug #3345: what a product PRD's build waits on, read from what its build ended on and from its spec, and which builds were sent
@@ -110,5 +110,24 @@ describe('gateRedOf: a build that ended on its red gate', () => {
     expect(gateRedOf(ended('/omni:ultra-yolo-fix omni-loop-30'), P28)).toBe(false);
     expect(gateRedOf('/omni:ultra-yolo-fix omni-loop-28\nthen I stopped', P28)).toBe(false);
     expect(gateRedOf('', P28)).toBe(false);
+  });
+});
+
+// Bug #3373: /omni:ultra-yolo ends a build that marked its target PRs ready on `/omni:mega-pr-care <id>`, and the runner sets no result
+// word for an ultra-yolo job. The mission read that build as one that stopped mid-way and sent it again.
+describe('endedOf: a build that ended ready on its hand-off', () => {
+  const done = { id: 'job-5', status: 'done', outcome: null, reason: null, prUrl: null } as const;
+  const ended = (last: string) => `20:31:02 Nothing is left held or stuck.\n20:31:02 \n20:31:02 ${last}\nSessionEnd hook [node "x" heartbeat --end || true] failed: Hook cancelled`;
+
+  it('reads ready when the last line is /omni:mega-pr-care <id>, with or without backticks', () => {
+    expect(endedOf(done, ended('/omni:mega-pr-care omni-loop-28'), P28)).toMatchObject({ outcome: 'ready' });
+    expect(endedOf(done, ended('`/omni:mega-pr-care omni-loop-28`'), P28)).toMatchObject({ outcome: 'ready' });
+  });
+
+  it('reads no result word for another PRD, another last line, or an earlier hand-off', () => {
+    expect(endedOf(done, ended('/omni:mega-pr-care omni-loop-30'), P28).outcome).toBeNull();
+    expect(endedOf(done, ended('/omni:ultra-yolo omni-loop-28'), P28).outcome).toBeNull();
+    expect(endedOf(done, '/omni:mega-pr-care omni-loop-28\nthen I stopped', P28).outcome).toBeNull();
+    expect(endedOf(done, ended('/omni:ultra-yolo-fix omni-loop-28'), P28)).toMatchObject({ outcome: null, gateRed: true });
   });
 });

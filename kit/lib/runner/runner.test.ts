@@ -473,6 +473,22 @@ describe('the outcome (PRD 2223)', () => {
     expect(asked).toEqual([]);
   });
 
+  // Bug #3373: /omni:ultra-yolo and /omni:ultra-yolo-fix end a build whose target PRs read ready on `/omni:mega-pr-care <id>`.
+  it.each([
+    ['/omni:ultra-yolo omni-loop-28 --base-of demo-org/widgets=mission/19-settings', 'Nothing is left held or stuck.\n\n/omni:mega-pr-care omni-loop-28\n'],
+    ['/omni:ultra-yolo-fix omni-loop-28', '`/omni:mega-pr-care omni-loop-28`\n'],
+    ['/omni:ultra-yolo 7', '/omni:mega-pr-care 7\n'],
+  ])('sends ready for %s when its log ends on %j (bug #3373)', async (line, log) => {
+    expect((await ending(line, log, '0\n')).at(-1)).toMatchObject({ status: 'done', outcome: 'ready' });
+  });
+
+  it('sends no outcome for an ultra-yolo job that ended on its red gate, held, or on another PRD, which the mission reads from the log (bug #3373)', async () => {
+    const line = '/omni:ultra-yolo omni-loop-28';
+    for (const log of ['/omni:ultra-yolo-fix omni-loop-28\n', 'Held: PRD omni-loop-28 waits on PRD omni-loop-27\n\n/omni:ultra-yolo omni-loop-28\n', '/omni:mega-pr-care omni-loop-30\n', 'Done\n']) {
+      expect((await ending(line, log, '0\n')).at(-1), log).not.toHaveProperty('outcome');
+    }
+  });
+
   it('sends a final report the app refused for its outcome again without it', async () => {
     const home = mkdtempSync(join(tmpdir(), 'omni-runner-outcome-'));
     const base = holdingApp(7, (n) => {

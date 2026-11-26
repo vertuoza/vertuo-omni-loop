@@ -263,3 +263,35 @@ describe('a product build held on another PRD waits for it (bug #3345)', () => {
     expect(fake.productJobs().filter((one) => one.prd === P28).at(-1)?.line).toBe(BUILD(P28));
   });
 });
+
+// Bug #3373, mission #3319 at 20:31 UTC: run 5 of omni-loop-28's build marked its target PR #3303 ready into the mission branch and
+// ended on `/omni:mega-pr-care omni-loop-28`, the line /omni:ultra-yolo ends a build on once its target PRs read ready. The runner sets
+// no result word for an ultra-yolo job, so the mission read the build as one that stopped mid-way and sent run 6.
+describe('a product build that ended ready on its hand-off joins the mission branch (bug #3373)', () => {
+  const READY_28 = [
+    '20:31:02 **Ready:** #3303 into mission/19-settings, green, marked ready.',
+    '20:31:02 Nothing is left held or stuck.',
+    '20:31:02 ',
+    '20:31:02 /omni:mega-pr-care omni-loop-28',
+  ].join('\n');
+
+  it('joins the build at the next run, its target PR merged into the mission branch, and sends no build again', async () => {
+    const { fake, run, builds } = await sentAtOnce([P28]);
+    fake.endProduct(P28, DONE_NO_WORD, READY_28);
+    await run();
+    expect(fake.events().filter((one) => one.kind === 'prd-joined').map((one) => one.prd)).toEqual([P28]);
+    expect(builds()).toEqual([key(P28, 1)]);
+    expect(fake.repairJobs()).toEqual([]);
+  });
+
+  it('joins it once a build sent again in the meantime ends the same way', async () => {
+    const { fake, run, builds } = await sentAtOnce([P28]);
+    fake.endProduct(P28, DONE_NO_WORD, '20:10:00 I stopped here.');
+    await run();
+    expect(builds()).toEqual([key(P28, 1), key(P28, 2)]);
+    fake.endProduct(P28, DONE_NO_WORD, READY_28);
+    await run();
+    expect(fake.events().filter((one) => one.kind === 'prd-joined').map((one) => one.prd)).toEqual([P28]);
+    expect(builds()).toEqual([key(P28, 1), key(P28, 2)]);
+  });
+});
