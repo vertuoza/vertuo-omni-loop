@@ -22,4 +22,4 @@ A product PRD's build that its runner lost (failed with reason `runner lost`, `t
 
 ## Mutation
 
-PENDING
+mutation: no changed core file against origin/main (f36bd747): nothing to mutate
