@@ -145,11 +145,12 @@ describe('a repository\'s own skill (PRD 2313)', () => {
     expect(value(await w.service.next(OLGA, SHARED))).toEqual({ id: queued.id, line: '/validate-prd 347', repo: 'demo-org/app', sentBy: 'mo', allowedSkills: ['audit', 'validate-prd'], sentByKey: null, github: GRANT });
   });
 
-  it('hands none back for a skill turned off while its job waited, so the runner refuses it', async () => {
+  it('ends failed a job whose skill was turned off while it waited, never handing it out (bug #3339: the claim would fail the runner\'s whole next)', async () => {
     const w = world({ skills: [allowed('validate-prd')] });
-    value(await w.service.send(SAM, send('/validate-prd 347')));
+    const queued = value(await w.service.send(SAM, send('/validate-prd 347')));
     w.state.skills.length = 0;
-    expect(value(await w.service.next(OLGA, SHARED))).toMatchObject({ line: '/validate-prd 347', allowedSkills: [] });
+    expect(value(await w.service.next(OLGA, SHARED))).toBeNull();
+    expect(w.state.jobs.find((job) => job.id === queued.id)).toMatchObject({ status: 'failed', reason: 'the app cannot hand this job to a runner: line: not a line a runner runs' });
   });
 
   it('names its PRD to the terminal by its first argument', async () => {
