@@ -15,7 +15,8 @@
 //
 // Throws when the database refuses or answers out of shape: the job retries.
 import { z } from 'zod';
-import { PrdNumberSchema, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, ProductPrdIdSchema, ProductRoadmapIdSchema, type PrdNumber, type PrNumber } from 'omni-loop/kit/lib/ids.ts';
+import { log, type Logger } from 'omni-loop/kit/lib/log/log.ts';
 import type { Json } from '../../../../supabase/database.types.ts';
 import type { Connection } from '../approved-check/record.ts';
 import { IdRowSchema, runnerQueue, type Queued } from '../retro/runner-queue.ts';
@@ -59,14 +60,33 @@ export const AppJobRowSchema = z.object({
   reason: z.string().nullable(),
 });
 
-/** A live mission's scope, as the table holds it. */
-export const MissionScopeRowSchema = z.object({ scope: z.object({ prds: z.array(PrdNumberSchema), roadmaps: z.array(z.number().int().positive()) }) });
+/**
+ * A live mission's scope, as the table holds it: a repository PRD's number or a product PRD's id (`omni-loop-28`), a
+ * repository roadmap's number or a product roadmap's id, as the brief takes them (#3322). A product PRD is no PRD of
+ * the repository, so it plays no part in the repository PRD's verdict.
+ */
+export const MissionScopeRowSchema = z.object({
+  scope: z.object({
+    prds: z.array(z.union([PrdNumberSchema, ProductPrdIdSchema])),
+    roadmaps: z.array(z.union([z.number().int().positive(), ProductRoadmapIdSchema])),
+  }),
+});
 
 /** A roadmap's row holding the PRD. */
 export const RoadmapRowOfSchema = z.object({ roadmap_id: z.string().min(1) });
 
-/** The store, as the service role on `connection`. */
-export function readyStore(connection: Connection): ReadyStore {
+/** The live missions' scopes of `answer`, one row at a time: a row out of shape is logged and left out (#3322). */
+function scopesOf(answer: Parameters<typeof rowsOf>[1], repo: string, warn: Logger['warn']) {
+  return rowsOf(z.unknown(), answer).flatMap((row) => {
+    const parsed = MissionScopeRowSchema.safeParse(row);
+    if (parsed.success) return [parsed.data.scope];
+    warn({ event: 'ready-check', repo, message: `a live mission of ${repo} has a scope out of shape, left out: ${parsed.error.message}` });
+    return [];
+  });
+}
+
+/** The store, as the service role on `connection`; `warn` takes a mission row it cannot read. */
+export function readyStore(connection: Connection, warn: Logger['warn'] = log.warn): ReadyStore {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
   const workspaceOf = async (installationId: number) =>
@@ -77,12 +97,9 @@ export function readyStore(connection: Connection): ReadyStore {
       const workspace = await workspaceOf(installationId);
       if (workspace === null) return false;
       const repo = repository.toLowerCase();
-      const missions = rowsOf(
-        MissionScopeRowSchema,
-        await db.from('missions').select('scope').eq('workspace_id', workspace).eq('repo', repo).in('status', [...LIVE_MISSIONS]),
-      );
-      if (missions.some(({ scope }) => scope.prds.includes(prd))) return true;
-      const numbers = [...new Set(missions.flatMap(({ scope }) => scope.roadmaps))];
+      const scopes = scopesOf(await db.from('missions').select('scope').eq('workspace_id', workspace).eq('repo', repo).in('status', [...LIVE_MISSIONS]), repo, warn);
+      if (scopes.some(({ prds }) => prds.includes(prd))) return true;
+      const numbers = [...new Set(scopes.flatMap(({ roadmaps }) => roadmaps.filter((roadmap) => typeof roadmap === 'number')))];
       if (numbers.length === 0) return false;
       const roadmaps = rowsOf(IdRowSchema, await db.from('roadmaps').select('id').eq('workspace_id', workspace).eq('repo', repo).in('number', numbers));
       if (roadmaps.length === 0) return false;

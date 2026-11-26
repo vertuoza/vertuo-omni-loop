@@ -30834,9 +30834,22 @@ var AppJobRowSchema = z129.object({
   log_tail: z129.string(),
   reason: z129.string().nullable()
 });
-var MissionScopeRowSchema = z129.object({ scope: z129.object({ prds: z129.array(PrdNumberSchema), roadmaps: z129.array(z129.number().int().positive()) }) });
+var MissionScopeRowSchema = z129.object({
+  scope: z129.object({
+    prds: z129.array(z129.union([PrdNumberSchema, ProductPrdIdSchema])),
+    roadmaps: z129.array(z129.union([z129.number().int().positive(), ProductRoadmapIdSchema]))
+  })
+});
 var RoadmapRowOfSchema = z129.object({ roadmap_id: z129.string().min(1) });
-function readyStore(connection) {
+function scopesOf(answer, repo, warn) {
+  return rowsOf(z129.unknown(), answer).flatMap((row) => {
+    const parsed3 = MissionScopeRowSchema.safeParse(row);
+    if (parsed3.success) return [parsed3.data.scope];
+    warn({ event: "ready-check", repo, message: `a live mission of ${repo} has a scope out of shape, left out: ${parsed3.error.message}` });
+    return [];
+  });
+}
+function readyStore(connection, warn = log.warn) {
   const db = serviceDb(connection);
   const queue = runnerQueue(connection);
   const workspaceOf = async (installationId) => rowsOf(IdRowSchema, await db.from("workspaces").select("id").eq("github_installation_id", installationId).limit(1))[0]?.id ?? null;
@@ -30845,12 +30858,9 @@ function readyStore(connection) {
       const workspace = await workspaceOf(installationId);
       if (workspace === null) return false;
       const repo = repository.toLowerCase();
-      const missions = rowsOf(
-        MissionScopeRowSchema,
-        await db.from("missions").select("scope").eq("workspace_id", workspace).eq("repo", repo).in("status", [...LIVE_MISSIONS])
-      );
-      if (missions.some(({ scope }) => scope.prds.includes(prd))) return true;
-      const numbers2 = [...new Set(missions.flatMap(({ scope }) => scope.roadmaps))];
+      const scopes = scopesOf(await db.from("missions").select("scope").eq("workspace_id", workspace).eq("repo", repo).in("status", [...LIVE_MISSIONS]), repo, warn);
+      if (scopes.some(({ prds }) => prds.includes(prd))) return true;
+      const numbers2 = [...new Set(scopes.flatMap(({ roadmaps: roadmaps2 }) => roadmaps2.filter((roadmap) => typeof roadmap === "number")))];
       if (numbers2.length === 0) return false;
       const roadmaps = rowsOf(IdRowSchema, await db.from("roadmaps").select("id").eq("workspace_id", workspace).eq("repo", repo).in("number", numbers2));
       if (roadmaps.length === 0) return false;
