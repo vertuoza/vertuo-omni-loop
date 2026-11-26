@@ -237,6 +237,16 @@ start a fresh session (in Claude: `/clear`), or open a new terminal, then run:
 The red ending names `<product> › Questions` and its last line is `/omni:ultra-yolo-fix <key>-<n>`;
 the held ending's is `/omni:ultra-yolo <key>-<n>`.
 
+**Held on other PRDs** (bug #3345). A run that builds nothing because the spec's `blocked-by` or the
+plan waits on PRDs not yet in the base it builds on ends held, with this line on its own just before
+its last line, each PRD by its id:
+
+```text
+held: PRD <key>-<n> waits on PRD <key>-<m>, PRD <key>-<k> · <page link>
+```
+
+A mission reads it: it sends the build again once each named PRD joined its branch.
+
 **A stop on a person offers the mission** (PRD omni-loop-21). When the run stops on a person, the
 PRD having no plan on its page, still waiting for approval (`held: PRD <key>-<n> still waits for
 approval …`), drifted, refused, or its gate ended red, its stop line, as printed above, ends with the

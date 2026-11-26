@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseIssue, parsePr, parseProductPrdId, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
+import { fingerprint } from 'omni-loop/kit/lib/repair/fingerprint.ts';
+import { repairRecordLine } from 'omni-loop/kit/lib/repair/line.ts';
 import { reviewMarker } from 'omni-loop/kit/lib/review/verdict.ts';
 import type { ClaimedJob } from '../jobs/ledger.ts';
 import type { MissionBranches } from './branch.ts';
@@ -19,12 +21,13 @@ import type { MissionRecord, StoredProduct } from './store.ts';
 const ID = '0b7c1f6e-3a52-4d8e-9f10-2c4b6a8d3345';
 const NOW = Date.parse('2027-01-30T09:00:00Z');
 const P28 = parseProductPrdId('omni-loop-28');
+const P29 = parseProductPrdId('omni-loop-29');
 const P30 = parseProductPrdId('omni-loop-30');
 const P31 = parseProductPrdId('omni-loop-31');
 const BRANCH = 'mission/19-settings';
 const HEAD = 'b'.repeat(40);
 
-const record = (): MissionRecord => ({
+const record = (prds: ProductPrdId[]): MissionRecord => ({
   id: ID,
   workspace: 'ws-1',
   repo: 'demo-org/widgets',
@@ -34,10 +37,10 @@ const record = (): MissionRecord => ({
   level: 'alone',
   status: 'running',
   waitingOn: null,
-  parallel: 3,
+  parallel: prds.length,
   scope: { prds: [], roadmaps: [] },
   ownPrds: 0,
-  products: { prds: [P28, P30, P31], roadmaps: [] },
+  products: { prds, roadmaps: [] },
 });
 
 const claimed: ClaimedJob = {
@@ -96,10 +99,12 @@ const HELD_ON_27 = [
 ].join('\n');
 const DONE_NO_WORD = { status: 'done', outcome: null } as const;
 
-/** Mission #3319's shape: omni-loop-28, 30 and 31 of a plain list, their builds' run 1 sent at once. */
-async function sentAtOnce() {
+type Fake = ReturnType<typeof fakeMissionStore>;
+
+/** Mission #3319's shape: omni-loop-28, 30 and 31 of a plain list (or `prds`), their builds' run 1 sent at once. */
+async function sentAtOnce(prds: ProductPrdId[] = [P28, P30, P31]) {
   const merged = new Set<string>();
-  const targets: Record<string, TargetPull[]> = { [P28]: [{ repo: 'demo-org/widgets', pr: parsePr(28) }], [P30]: [{ repo: 'demo-org/widgets', pr: parsePr(30) }], [P31]: [{ repo: 'demo-org/widgets', pr: parsePr(31) }] };
+  const targets: Record<string, TargetPull[]> = Object.fromEntries(prds.map((prd) => [prd, [{ repo: 'demo-org/widgets', pr: parsePr(Number(prd.slice(-2))) }]]));
   const joins: MissionJoins = {
     read: ({ repo, pr }) => Promise.resolve(targetPull(pr, merged.has(`${repo}#${String(pr)}`))),
     merge: ({ repo, pr }) => {
@@ -108,15 +113,39 @@ async function sentAtOnce() {
     },
     targets: ({ prd }) => Promise.resolve(targets[prd] ?? []),
   };
-  const fake = fakeMissionStore({ mission: record(), facts: [], products: [product(P28), product(P30), product(P31)] });
+  const fake = fakeMissionStore({ mission: record(prds), facts: [], products: prds.map(product) });
   const run = () => missionHandler({ store: fake.store, branches, joins, refresh: () => Promise.resolve('again'), now: () => NOW, log: () => undefined })(claimed);
   await run();
   const builds = () => fake.productJobs().map(({ key }) => key);
-  expect(fake.productJobs().map(({ line }) => line)).toEqual([BUILD(P28), BUILD(P30), BUILD(P31)]);
+  expect(fake.productJobs().map(({ line }) => line)).toEqual(prds.map(BUILD));
   return { fake, run, builds };
 }
 
 const key = (prd: ProductPrdId, run: number) => `mission:${ID}:prd:${prd}:run:${String(run)}`;
+
+/** What `/omni:repair` ended on for a build of `prd` the mission took for a flake: a cause of its own per page. */
+function flake(prd: ProductPrdId): string {
+  const page = prd === P29 ? 'members' : prd === P30 ? 'business' : 'products';
+  const cause = { class: 'flake' as const, place: `apps/galaxy/src/${page}/screen.tsx`, signature: `the ${page} page finds no settings parts` };
+  const retro = { cause: 'The build found no settings parts.', ...cause, evidence: ['No SettingsSection in packages/design.'], proposedFix: 'Build it again.', fingerprint: fingerprint(cause) };
+  return `12:30:00 ${repairRecordLine({ v: 1, mission: 19, prd, fingerprint: fingerprint(cause), class: 'flake', retro, fix: null, report: null })}`;
+}
+
+const queuedLast = (jobs: readonly { prd: unknown; attempts: readonly { status: string }[] }[], prd: ProductPrdId): boolean => jobs.filter((one) => one.prd === prd).at(-1)?.attempts.at(-1)?.status === 'queued';
+
+/**
+ * Mission #3319 before the fix: the builds of `held`, which named nothing they waited on, each ended without its result line, were
+ * sent again past `mandate.resumes` and repaired as flakes, until the mission spent its 9 repairs.
+ */
+async function spendNine(fake: Fake, run: () => Promise<unknown>, held: readonly ProductPrdId[]): Promise<void> {
+  for (let turn = 0; turn < 120 && !(fake.mission().waitingOn ?? '').includes('spent its 9 repairs'); turn += 1) {
+    for (const prd of held) {
+      if (queuedLast(fake.repairJobs(), prd)) fake.endRepairJob(prd, { status: 'done', outcome: 'ready' }, flake(prd));
+      else if (queuedLast(fake.productJobs(), prd)) fake.endProduct(prd, DONE_NO_WORD, `12:19:24 Run it again once #3303 has joined the mission branch.\n12:19:24 /omni:ultra-yolo ${prd}`);
+    }
+    await run();
+  }
+}
 
 describe('a product build held on another PRD waits for it (bug #3345)', () => {
   it('sends nothing again for a build held on a PRD of the scope that has not joined, and spends no repair', async () => {
@@ -179,5 +208,57 @@ describe('a product build held on another PRD waits for it (bug #3345)', () => {
     fake.endProduct(P30, DONE_NO_WORD, '12:00:00 I stopped here.');
     await run();
     expect(builds()).toEqual([key(P28, 1), key(P30, 1), key(P31, 1), key(P30, 2)]);
+  });
+
+  // Mission #3319 at 12:34 UTC: before the mission read omni-loop-30's spec, its held builds were taken for stops mid-way, resent past
+  // `mandate.resumes` and repaired as flakes until the mission's 9 were spent. What is recorded alone gives them back.
+  it('gives back the resumes and the 9 repairs spent on builds sent before their blocker joined, then repairs a real failure', async () => {
+    const held = [P29, P30, P31];
+    const { fake, run, builds } = await sentAtOnce([P28, ...held]);
+    await spendNine(fake, run, held);
+    expect(fake.repairRows()).toHaveLength(9);
+    expect(fake.mission().waitingOn ?? '').toContain('the mission spent its 9 repairs; take it to ready by hand');
+
+    // The fix deployed: the store reads each spec's `blocked-by`, and omni-loop-28 is still at work.
+    for (const prd of held) fake.setProduct(prd, { blockers: [P28] });
+    const sent = builds().length;
+    await run();
+    expect(builds()).toHaveLength(sent);
+    expect(fake.repairJobs()).toHaveLength(9);
+    for (const prd of held) expect(fake.mission().waitingOn ?? '').toContain(`PRD ${prd} waits for PRD omni-loop-28 to join ${BRANCH}`);
+    expect(fake.mission().waitingOn ?? '').not.toContain('take it to ready by hand');
+
+    // omni-loop-28 joins: each held build is sent again as its next run, none of the earlier ones counted.
+    fake.endProduct(P28, { status: 'done', outcome: 'ready' });
+    await run();
+    expect(builds()).toHaveLength(sent + 3);
+    for (const prd of held) expect(fake.productJobs().filter((one) => one.prd === prd).at(-1)?.key).toBe(key(prd, fake.productJobs().filter((one) => one.prd === prd).length));
+
+    // A real failure of a build sent after omni-loop-28 joined gets a repair, the mission's 9 all there again.
+    fake.endProduct(P30, { status: 'failed', outcome: null, reason: 'exit code 1' });
+    await run();
+    expect(fake.repairJobs()).toHaveLength(10);
+    expect(fake.mission().waitingOn ?? '').toContain('PRD omni-loop-30: repairing (1 of 3) · 8 left in this mission');
+  });
+
+  // Mission #3319 at 12:54 UTC: omni-loop-28's build built its 4 slices, and its gate ended red on one open high item. Its last line,
+  // `/omni:ultra-yolo-fix omni-loop-28`, was read as a build that ended without its result, and run 2 of the same build was sent.
+  it('a build that ended on its red gate waits for its open items, sends nothing again and spends no repair, then builds again once they are answered', async () => {
+    const { fake, run, builds } = await sentAtOnce();
+    const item = 's1-02-parts-live-in-omni-ui';
+    fake.setProduct(P28, { items: { ranks: ['high'], open: [{ id: item, rank: 'high' }] } });
+    const red = ['12:54:02 **Red gate:** 1 open item waits on omni-loop › Questions: parts live in @omni/ui as built (A), or @omni/design.', '12:54:02 ', '12:54:02 /omni:ultra-yolo-fix omni-loop-28'].join('\n');
+    fake.endProduct(P28, DONE_NO_WORD, red);
+    await run();
+    await run();
+    expect(builds().filter((one) => one.includes(P28))).toEqual([key(P28, 1)]);
+    expect(fake.repairJobs()).toEqual([]);
+    expect(fake.mission().waitingOn ?? '').toContain(`PRD omni-loop-28: its gate is red on 1 open item (${item}): answer them on its page, and the mission builds it again`);
+
+    // A person answers it on the page: none is open, and the build goes again as its next run, its gate read again there.
+    fake.setProduct(P28, { items: { ranks: [], open: [] } });
+    await run();
+    expect(builds().filter((one) => one.includes(P28))).toEqual([key(P28, 1), key(P28, 2)]);
+    expect(fake.productJobs().filter((one) => one.prd === P28).at(-1)?.line).toBe(BUILD(P28));
   });
 });

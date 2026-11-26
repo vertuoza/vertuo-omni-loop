@@ -140,6 +140,7 @@ import { overCap, runBudget } from './budget-run.ts';
 import { withVerdicts } from './qa.ts';
 import { isStuckRow, leftOf, MISSION_REPAIRS, ofRepository, repairEvents, repairingWords, repairNext, type RepairJob, type RepairView } from './repair.ts';
 import { readStuck, stuckStep } from './stuck-run.ts';
+import { heldBuildsOf, withoutHeld } from './held.ts';
 import { NO_STUCK, type StuckView } from './stuck.ts';
 import { milestoneStep } from './milestone-run.ts';
 import { bugTeamRun } from './bug-team-run.ts';
@@ -269,7 +270,11 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined, off, installation: ready.installation, joins: github.joins, hold: held.hold });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now, github });
   const view: CommitteeView = { alone: mission.level === 'alone', committees: decided, answers: answered, resumes: resumeCap(mission) };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...(await productRepairAt(store, mission)) });
+  const productRead = await productRepairAt(store, mission, facts);
+  const readRepair = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...productRead.at });
+  // Bug #3345: the repairs sent for a product build held on another PRD spend none of the 3 per cause or the 9 per mission.
+  const { stuck } = readRepair;
+  const repairView = withoutHeld(readRepair.repairView, productRead.held);
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
   // The PM plans a PRD with no plan before its approval, and replans one stopped once its repairs are spent (PRD omni-loop-21 s9).
@@ -285,7 +290,7 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   const states = after.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after.retro });
   const fresh = sent.length + approved.length + asked.length + repaired.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs, early: productRead.early });
   // The product PRDs' repairs sent this run (bug #3302) are the mission's too: its events and its 9 count them.
   const repairs: RepairView = { ...sentRepairs, jobs: [...sentRepairs.jobs, ...products.repaired] };
   // The mission pull requests, then the landing once every row joined (PRD omni-loop-21 s15), and the person's Agree and Overturn.
@@ -305,13 +310,25 @@ async function supervise(store: MissionStore, sought: MissionRecord, now: number
   return { next, running, moved, sent: sent.length + repaired.length + products.sent + landed.events.length, events: events.length + retro.events.length + products.events.length + productRepairs.length + landed.events.length };
 }
 
+/** What a run reads for its product PRDs' repairs: where they are settled and land, and the builds held on another PRD (bug #3345). */
+type ProductRepairRead = { at: Pick<RepairRunAt, 'products' | 'repos'>; early: ReadonlySet<string>; held: ReadonlySet<string> };
+
 /**
  * What a run reads for its product PRDs' repairs (bug #3302): their builds, which a repair is settled on, and the repositories the
- * mission cut its branch in, where a product PRD's fix may land. None for a mission with no product PRD, or a store with none.
+ * mission cut its branch in, where a product PRD's fix may land. Bug #3345: with them, the builds sent before a PRD of the scope they
+ * wait on joined (`early`) and every build held on another PRD (`held`, ./held.ts), read once a build was sent. None for a mission
+ * with no product PRD, or a store with none.
  */
-async function productRepairAt(store: MissionStore, mission: MissionRecord): Promise<Pick<RepairRunAt, 'products' | 'repos'>> {
-  if (store.products === undefined || mission.products === undefined) return {};
-  return { products: await store.products.runs(mission.id), repos: (await store.branches(mission.id)).map((one) => one.repo) };
+async function productRepairAt(store: MissionStore, mission: MissionRecord, facts: readonly PrdFacts[]): Promise<ProductRepairRead> {
+  if (store.products === undefined || mission.products === undefined) return { at: {}, early: new Set(), held: new Set() };
+  const runs = await store.products.runs(mission.id);
+  const at = { products: runs, repos: (await store.branches(mission.id)).map((one) => one.repo) };
+  if (runs.length === 0) return { at, early: new Set(), held: new Set() };
+  const products = await store.products.facts(mission);
+  const events = await store.events(mission.id);
+  const done = new Set<MissionPrd>([...productsJoined(events), ...facts.filter((fact) => fact.stage === 'merged').map((fact) => fact.prd)]);
+  const blockers = new Map(products.map((one) => [one.prd, one.blockers]));
+  return { at, ...heldBuildsOf(runs, events, { blockers, scope: new Set(products.map((one) => one.prd)), done }) };
 }
 
 /** Whether a PRD's job or its repair is at work, or a stuck repair or a milestone retro (`retros`, PRD 3065). */
@@ -1261,6 +1278,8 @@ type ProductAt = {
   pm: { jobs: readonly PmJob[]; authored: ReadonlySet<ProductPrdId> };
   /** Bug #3302: the mission's repairs, this run's sent for its repository PRDs among them, which a product PRD's build shares. */
   repairs: RepairView;
+  /** Bug #3345: the product builds sent before a PRD of the scope they wait on joined (./held.ts): none of their ends counts. */
+  early?: ReadonlySet<string>;
 };
 
 /** What a run read of the PM product PRDs' plan jobs, reviews and decisions (PRD omni-loop-26), each ended job's decision recorded. */
@@ -1455,7 +1474,7 @@ async function reviewStep(at: ProductSteps, fact: StoredProduct, state: Exclude<
 /** Each product PRD in scope order: its build sent, at work, joined, or what it waits on. */
 async function productSteps(at: ProductSteps, facts: readonly StoredProduct[]): Promise<ProductsDone> {
   const done = new Set<MissionPrd>([...at.joined, ...[...at.states].flatMap(([prd, state]) => (state.state === 'merged' || state.state === 'joined' ? [prd] : []))]);
-  const where = { joined: at.joined, done, branch: at.branch, resumes: resumeCap(at.mission), repairs: at.repairs };
+  const where = { joined: at.joined, done, branch: at.branch, resumes: resumeCap(at.mission), repairs: at.repairs, scope: new Set(facts.map((fact) => fact.prd)), early: at.early ?? new Set<string>() };
   // A repair runs on its PRD's own slot (PRD 2980), as a build at work does.
   const busy = facts.filter((fact) => ['running', 'repairing'].includes(productStateOf(fact, at.runs, where).state)).length;
   const step: ProductStep = { room: at.mission.parallel - busy, moving: false, waits: [], events: [], repairs: at.repairs, repaired: [] };

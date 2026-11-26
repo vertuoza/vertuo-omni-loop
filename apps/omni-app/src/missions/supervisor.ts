@@ -56,6 +56,7 @@
 import { isProductPrdId, PrdNumberSchema, PrNumberSchema, type PrdNumber, type PrNumber, type ProductPrdId } from 'omni-loop/kit/lib/ids.ts';
 import { baseOfFlag, type BaseOfEntry } from 'omni-loop/kit/lib/ultra/base-of.ts';
 import { prdKeyPart, type MissionPrd } from './store.prd.ts';
+import type { OpenItems } from './gate.ts';
 import type { MissionLevel } from 'omni-loop/kit/lib/mission/brief.ts';
 import { sharedGround } from 'omni-loop/kit/lib/inbox/territory.ts';
 import { territoryOf } from 'omni-loop/kit/lib/mission/drop.ts';
@@ -117,6 +118,10 @@ export type Attempt = {
   guessed?: boolean;
   /** A QA job's verdict, read from its log when it ended done (PRD 3001); null when none reads. Absent for any other job. */
   checked?: QaPosted | null;
+  /** The PRDs a product PRD's build ended held on, read from its log's held line (bug #3345, ./held.ts); absent for any other job. */
+  heldOn?: readonly MissionPrd[];
+  /** Whether a product PRD's build ended on its red gate, its last line `/omni:ultra-yolo-fix <id>` (bug #3345, ./held.ts); absent otherwise. */
+  gateRed?: boolean;
 };
 
 /** Why a running PRD does not run yet (PRD 2949): its job met a provider limit and its resume waits for the reset, or no runner of its target can take it now. */
@@ -1238,8 +1243,8 @@ export function eventsOf({
 // BR-PRODUCT-139, ./repair.ts): `/omni:repair --prd <key>-<n>`, within the same 3 per cause and 9 per mission, its build sent again once
 // the repair allows it; a person once the repairs are spent, saying why. On any other end (a question for a person) it waits for a person.
 
-/** A product PRD of the scope, as a run read it: its approval, the PRDs it waits on, and its plan's repositories. */
-export type ProductFact = { prd: ProductPrdId; approval: Approval; blockers: readonly MissionPrd[]; targets: readonly string[] };
+/** A product PRD of the scope, as a run read it: its approval, the PRDs it waits on, its plan's repositories, and its open items. */
+export type ProductFact = { prd: ProductPrdId; approval: Approval; blockers: readonly MissionPrd[]; targets: readonly string[]; items?: OpenItems };
 
 /** One build the mission sent for a product PRD: its run, its job and its attempts, the job's first. */
 export type ProductRun = { prd: ProductPrdId; run: number; job: string; attempts: Attempt[] };
@@ -1338,19 +1343,70 @@ function productEnded(fact: ProductFact, runs: readonly ProductRun[], last: Atte
 
 /**
  * What a product PRD's state is read against: the PRDs on the branch, those done, the branch, the mission's `mandate.resumes` at
- * `alone` (null below it), and its repairs (bug #3302; none by default: a build that failed waits for a person).
+ * `alone` (null below it), and its repairs (bug #3302; none by default: a build that failed waits for a person). Bug #3345: the
+ * scope's PRDs (every PRD by default) and the builds sent before a PRD of the scope they wait on joined (./held.ts › sentEarly).
  */
-type ProductWhere = { joined: ReadonlySet<MissionPrd>; done: ReadonlySet<MissionPrd>; branch: string; resumes?: number | null; repairs?: RepairView };
+type ProductWhere = {
+  joined: ReadonlySet<MissionPrd>;
+  done: ReadonlySet<MissionPrd>;
+  branch: string;
+  resumes?: number | null;
+  repairs?: RepairView;
+  scope?: ReadonlySet<MissionPrd>;
+  early?: ReadonlySet<string>;
+};
+
+/**
+ * Where a product PRD's ended build waits on other PRDs (bug #3345), or null: blocked while a PRD of the scope its spec, its roadmap
+ * or its held line names is not on the branch, so it is neither sent again nor repaired; sent again as its next run once they all are,
+ * when it was sent before one joined (none of its ends counts); waiting for a person when it was held on a PRD outside the scope that
+ * is not on the branch. A build that ended Ready, or failed after its blockers joined, is read as before.
+ */
+function heldBuild(fact: ProductFact, latest: ProductRun, last: Attempt, { done, scope, early }: { done: ReadonlySet<MissionPrd>; scope: ReadonlySet<MissionPrd> | undefined; early: ReadonlySet<string> }): ProductState | null {
+  const end = endOf(last);
+  if (end === 'ready') return null;
+  const inScope = (prd: MissionPrd): boolean => scope === undefined || scope.has(prd);
+  const named = last.heldOn ?? [];
+  const by = [...new Set([...fact.blockers, ...named])].filter((one) => one !== fact.prd && inScope(one) && !done.has(one));
+  if (by.length > 0) return { state: 'blocked', by };
+  if (early.has(latest.job)) return end === 'failed' ? null : { state: 'startable', run: latest.run + 1 };
+  const outside = named.filter((one) => !inScope(one) && !done.has(one));
+  if (outside.length === 0) return null;
+  const names = outside.map((one) => `PRD ${String(one)}`).join(', ');
+  return { state: 'waits', why: `PRD ${fact.prd}: its build waits on ${names}, outside the mission's scope and not on its branch: merge it, or add it to the scope` };
+}
+
+/**
+ * Where a product PRD's build that ended on its red gate is (bug #3345), or null for any other end: never a failure, so neither sent
+ * again nor repaired while a high or human-action item of its page is open, waiting for its answer, saying which; sent again as its next
+ * run once none is, its gate read again there. The fleet's committee answers a repository PRD's items only, so a person answers these.
+ */
+function redGate(fact: ProductFact, latest: ProductRun, last: Attempt): ProductState | null {
+  if (last.gateRed !== true || endOf(last) === 'ready') return null;
+  const items = fact.items;
+  if (items !== undefined && 'notRead' in items) return { state: 'waits', why: `PRD ${fact.prd}: its gate is red, and its items do not read: ${items.notRead}` };
+  const open = (items?.open ?? []).filter(({ rank }) => rank === null || rank === 'high' || rank === 'human-action');
+  if (open.length === 0) return { state: 'startable', run: latest.run + 1 };
+  const ids = open.map(({ id }) => id ?? 'an item that does not read').join(', ');
+  return { state: 'waits', why: `PRD ${fact.prd}: its gate is red on ${open.length === 1 ? '1 open item' : `${String(open.length)} open items`} (${ids}): answer them on its page, and the mission builds it again` };
+}
 
 /**
  * Where product PRD `fact` is (PRD omni-loop-21 s9b): joined once recorded on the branch (`joined`), else held until each blocker is
- * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join.
+ * on the branch or merged (`done`), then waiting for its approval, its build to send, at work, or ready to join. A build that ended
+ * while what it waits on was off the branch is held too (bug #3345, `heldBuild`), and the ends of builds sent before then count none.
  */
-export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null, repairs = NO_REPAIRS }: ProductWhere): ProductState {
+export function productStateOf(fact: ProductFact, runs: readonly ProductRun[], { joined, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = new Set() }: ProductWhere): ProductState {
   if (joined.has(fact.prd)) return { state: 'joined' };
-  const latest = latestProduct(runs, fact.prd);
+  const own = runs.filter((one) => one.prd === fact.prd);
+  const latest = latestProduct(own, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== undefined) return endOf(last) === null ? { state: 'running' } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, { resumes, repairs });
+  if (latest !== null && last !== undefined) {
+    if (endOf(last) === null) return { state: 'running' };
+    // A build sent early, or one that ended on its red gate, is no failure and no stop mid-way: its end counts none.
+    const counted = own.filter((one) => one === latest || (!early.has(one.job) && one.attempts.at(-1)?.gateRed !== true));
+    return heldBuild(fact, latest, last, { done, scope, early }) ?? redGate(fact, latest, last) ?? productEnded(fact, counted, last, { resumes, repairs });
+  }
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: 'blocked', by };
   if (fact.approval !== 'standing') return { state: 'waits', why: `PRD ${fact.prd}: ${fact.approval === 'voided' ? 'approve it again' : 'approve it'} on its page (${branch})` };

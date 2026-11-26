@@ -27,6 +27,7 @@ import { BUG_TRIES, bugFixLine, bugKey, type Bug, type BugJob } from './bug-team
 import type { BudgetAnswer } from 'omni-loop/kit/lib/mission/budget.ts';
 import type { StopRow } from './budget.ts';
 import { baseOf, lineOf, missionKey, type Attempt, type ProductRun, type MissionStatus, type RoomRunner, type PrdFacts, type Step } from './supervisor.ts';
+import { endedOf } from './held.ts';
 
 /** A job the fake queued, as the runner_jobs row it stands for: the build, or the Reviewer and the fix after it (PRD 2871). */
 type FakeJob = { id: string; line: string; key: string; toFleet: string | null; sentByApp: string; prd: PrdNumber; run: number; step: Step; attempts: Attempt[]; resume: number };
@@ -211,7 +212,11 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const productJobs: (ProductRun & { key: string; line: string; toFleet: string | null; log?: string })[] = [];
   const productStore: MissionProducts = {
     facts: (read) => Promise.resolve(productFacts.filter((one) => !pagedOnly.has(one.prd) || (read.products?.prds ?? []).includes(one.prd)).map((one) => ({ ...one, blockers: [...one.blockers], targets: [...one.targets] }))),
-    runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts }) => ({ prd, run, job, attempts: attempts.map((one) => ({ ...one })) }))),
+    // Bug #3345: a build that ended done with no result word carries what its log's held line names, and its red gate, as the store reads them.
+    runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts, log }) => ({ prd, run, job, attempts: attempts.map((one) => {
+      const read = log !== undefined && one === attempts.at(-1) && one.status === 'done' && one.outcome === null;
+      return read ? endedOf({ ...one }, log, prd) : { ...one };
+    }) }))),
     send: ({ mission: sent, prd, run, line, toFleet }) => {
       const key = missionKey(sent.id, prd, run);
       if (productJobs.some((one) => one.key === key)) return Promise.resolve(null);
