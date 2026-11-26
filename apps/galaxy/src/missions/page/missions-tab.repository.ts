@@ -86,7 +86,7 @@ export function missionsTabRepository(db: MissionsTabDb) {
       if (error) throw new Error(`Supabase: could not read the missions (${error.message})`);
       const plans = await planRepositories(db, workspace);
       // A mission row it cannot read is logged and left out (#3320): it never takes every other mission of the fleet down.
-      const rows = (data as unknown[]).flatMap((one) => {
+      const rows = orThrow(parseRows(z.unknown(), data, `${WHERE}: missions`)).flatMap((one) => {
         const parsed = parseRow(MissionRowSchema, one, `${WHERE}: missions`);
         return parsed.ok ? [parsed.value] : [];
       });
