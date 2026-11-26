@@ -180,6 +180,14 @@ describe('the Runners part, read on the server', () => {
     expect(await waitingReads(db).runnersWaiting(WORKSPACE)).toBe(1);
   });
 
+  it('counts no job that expired after nobody answered it in 48 h, its questions closed or not (PRD omni-loop-35)', async () => {
+    const { db } = tables({
+      runner_jobs: [job('j1', 'done', 'expired'), job('j2', 'done', 'expired'), job('j3', 'failed', null), job('j4', 'done', 'human')],
+      runner_job_questions: [asked('j1', '2027-02-01T12:00:00Z'), asked('j2'), asked('j3'), asked('j4')],
+    });
+    expect(await waitingReads(db).runnersWaiting(WORKSPACE)).toBe(1);
+  });
+
   it('drops a job once its questions are answered or dismissed', async () => {
     const rows = {
       runner_jobs: [job('j1', 'done', 'human'), job('j2', 'done', 'human')],

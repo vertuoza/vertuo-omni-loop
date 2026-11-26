@@ -11,7 +11,7 @@ type Ended = StoredOutcome | null | undefined;
 // and each job status is tested without a page. A runner reads Online, Busy, or Offline with when it
 // was last seen; a job reads Queued, Running with its time, Done, Failed with its reason (Runner lost,
 // Timeout, its exit code, or its runner's words under it), or Cancelled. Cancel shows on a queued or running job, Send again on a
-// failed or cancelled one, sent again to where it first went.
+// failed, cancelled or expired one (PRD omni-loop-35), sent again to where it first went.
 
 /** A fleet a runner may be given to: its key (`teams.name`) and the label the app shows. */
 export type Fleet = { name: string; label: string };
@@ -64,7 +64,7 @@ export function stateWords(runner: Pick<Runner, 'state' | 'lastSeenAt'> & { heal
 
 /** A done job's outcome in words (PRD 2223; `human`, PRD 2255: it ended with questions for a person). A bug fix's own end
  * (`already-fixed`, `pr-opened`…, PRD 2425) has none: it reads Done, as a bug fix's stop does, and showing it is a later change. */
-const OUTCOME_WORDS: Readonly<Partial<Record<StoredOutcome, string>>> = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human', stopped: 'Stopped mid-way' };
+const OUTCOME_WORDS: Readonly<Partial<Record<StoredOutcome, string>>> = { answers: 'Waiting on answers', held: 'Held', ready: 'Ready', human: 'Need human', stopped: 'Stopped mid-way', expired: 'Expired' };
 
 /** What a job that waited on answers reads once they are in (PRD 2270): Answered · fixing while its
  * continuation is queued, starting or running, Answered · fixed once that ended, linking it; Answered with a
@@ -120,9 +120,20 @@ export function failedWhy(job: Pick<Job, 'status' | 'reason'>): string | null {
   return job.reason;
 }
 
-/** The tone a status is drawn in; a queued job that cannot run is drawn as a failed one. */
+/** What an expired job's reason starts with (PRD omni-loop-35): its status already says Expired. */
+const EXPIRED_PREFIX = 'Expired: ';
+
+/** Under Expired (PRD omni-loop-35), why it expired: its reason without the `Expired: ` its status already says (`nobody continued it in 48 h`);
+ * null for any other job, and for one whose row gave no reason. A queued job no runner took ended failed: its reason reads under Failed. */
+export function expiredWhy(job: Pick<Job, 'status' | 'reason'> & { outcome?: Ended }): string | null {
+  if (job.status !== 'done' || job.outcome !== 'expired' || !job.reason) return null;
+  return job.reason.startsWith(EXPIRED_PREFIX) ? job.reason.slice(EXPIRED_PREFIX.length) : job.reason;
+}
+
+/** The tone a status is drawn in; a queued job that cannot run is drawn as a failed one, an expired one in the ended tone of Cancelled. */
 export function statusTone(status: Job['status'], outcome?: Ended, cannotRun = false): 'queue' | 'run' | 'done' | 'fail' | 'off' | 'wait' {
   if (status === 'queued' && cannotRun) return 'fail';
+  if (status === 'done' && outcome === 'expired') return 'off';
   if (status === 'done' && outcome === 'stopped') return 'fail';
   if (status === 'done' && (outcome === 'answers' || outcome === 'held' || outcome === 'human')) return 'wait';
   if (status === 'queued') return 'queue';
@@ -136,8 +147,9 @@ export function statusTone(status: Job['status'], outcome?: Ended, cannotRun = f
 export const canCancel = (job: Pick<Job, 'status' | 'cancelRequested'>): boolean =>
   job.status === 'queued' || job.status === 'claimed' || (job.status === 'running' && !job.cancelRequested);
 
-/** Whether a job may be sent again: it failed or was cancelled. Nothing runs again by itself. */
-export const canSendAgain = (job: Pick<Job, 'status'>): boolean => job.status === 'failed' || job.status === 'cancelled';
+/** Whether a job may be sent again: it failed, was cancelled, or expired with nobody continuing it (PRD omni-loop-35). Nothing runs again by itself. */
+export const canSendAgain = (job: Pick<Job, 'status'> & { outcome?: Ended }): boolean =>
+  job.status === 'failed' || job.status === 'cancelled' || (job.status === 'done' && job.outcome === 'expired');
 
 /** Whether a job may be resumed (PRD 2375): it ended done but stopped mid-way, before its hand-off. Resume sends
  * its line again, as Send again does, and only a person's press does it. */
