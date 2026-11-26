@@ -143,6 +143,8 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
     expect(fake.pms()).toHaveLength(2);
   });
 
+  // Changed by bug #3334: the PM confirms once the version the Architect pushed and approved after its rounds; a person gets the PRD
+  // once the PM, sent to confirm it, pushed yet another version.
   it('sends a person the PRD once two rounds named no one plan version', async () => {
     const { fake, run } = await planned();
     fake.setProduct(P31, { plan: B });
@@ -158,7 +160,14 @@ describe('a PM product PRD, planned, approved and reviewed before its build (AC-
     fake.setProduct(P31, { plan: D });
     fake.endTech(P31, { status: 'done', outcome: 'ready' }, reviewed(D));
     await run();
-    expect(fake.pms()).toHaveLength(3);
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.mission()).not.toMatchObject({ status: 'waiting' });
+    const E = 'e'.repeat(64);
+    fake.setProduct(P31, { plan: E });
+    fake.endPm({ status: 'done', outcome: 'ready' }, approvedPlan(E));
+    await run();
+    expect(fake.pms()).toHaveLength(4);
+    expect(fake.techJobs()).toHaveLength(2);
     expect(fake.productJobs()).toEqual([]);
     expect(fake.mission()).toMatchObject({ status: 'waiting' });
     expect(fake.mission().waitingOn).toContain('PRD omni-loop-31: the PM and the Architect did not approve one plan version in 2 rounds; approve it on its page');
