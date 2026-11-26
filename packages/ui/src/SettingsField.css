@@ -1,0 +1,2 @@
+.omni-settings-field { margin: 0; padding: 0; border: 0; min-width: 0; font-family: var(--font-body); }
+.omni-settings-field--disabled { color: var(--color-text-secondary); }
