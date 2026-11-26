@@ -22,4 +22,4 @@ The reproduction is the guard: a unit test with 24 open findings and a message i
 
 ## Mutation
 
-pending
+mutation: no changed core file against origin/main (f899eef5): nothing to mutate
