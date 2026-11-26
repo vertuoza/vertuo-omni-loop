@@ -95,4 +95,9 @@ describe('/omni:mega-brainstorm --product <key> --plan-only <key>-<n> (PRD omni-
     expect(PLAN_ONLY).toContain('Under `--mission` with open points to answer, this stop does not apply');
     expect(PLAN_ONLY).toContain('A PRD a person wrote never gets this run');
   });
+
+  it('rewrites a plan that names no repository with its Repositories table, a new version even when the spec did not change (bug #3304)', () => {
+    expect(PLAN_ONLY).toContain('**A plan that names no repository is rewritten** (bug #3304), even when the spec did not change');
+    expect(inOrder(PLAN_ONLY, ['has no `## Repositories` table', 'write the table into it and push it, a new plan version', 'never "kept it and pushed nothing new"'])).toBeNull();
+  });
 });

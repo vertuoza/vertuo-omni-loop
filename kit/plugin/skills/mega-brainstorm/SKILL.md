@@ -163,6 +163,12 @@ Architect's open points on a PRD the mission's PM wrote (**The Architect's open 
    `## Repositories` names (this checkout's own repository is `repo.slug`), never the product's key,
    a short name or a sentence. The slice table's `repo` column names the same `owner/name`.
 
+   **A plan that names no repository is rewritten** (bug #3304), even when the spec did not change:
+   when the plan `dossier get <key>-<n> plan` read has no `## Repositories` table, or one with no
+   `owner/name` row, write the table into it and push it, a new plan version, never "kept it and
+   pushed nothing new". Above `with-you`, a mission never builds a PRD whose plan names no
+   repository: it sends this run again, then waits on a person.
+
    ```markdown
    | repo | role | read at | knowledge |
    | --- | --- | --- | --- |

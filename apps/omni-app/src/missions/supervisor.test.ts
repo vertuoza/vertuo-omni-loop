@@ -94,7 +94,13 @@ describe('a product PRD\'s line (PRD omni-loop-21 s7)', () => {
   it('is built with ultra-yolo whatever skill is named, and sends no --base-of at with-you', () => {
     expect(lineOf(id, 'build', 'yolo', basesOf(['acme/api'], BRANCH))).toBe(`/omni:ultra-yolo omni-loop-15 --base-of acme/api=${BRANCH}`);
     expect(lineOf(id, 'build')).toBe('/omni:ultra-yolo omni-loop-15');
-    expect(lineOf(id, 'build', 'ultra-yolo', basesOf([], BRANCH))).toBe('/omni:ultra-yolo omni-loop-15');
+  });
+
+  it('refuses the build and the fix of a plan that names no repository: never into the default branch (bug #3304)', () => {
+    expect(() => lineOf(id, 'build', 'ultra-yolo', basesOf([], BRANCH))).toThrow("PRD omni-loop-15's plan names no repository: its build is never sent without --base-of");
+    expect(() => lineOf(id, 'fix:1', 'ultra-yolo', basesOf([], BRANCH))).toThrow('its fix:1 is never sent without --base-of');
+    expect(lineOf(id, 'review:1', 'ultra-yolo', basesOf([], BRANCH))).toBe('/omni:review omni-loop-15');
+    expect(lineOf(id, 'fix:1')).toBe('/omni:ultra-yolo-fix omni-loop-15 --for-review');
   });
 
   it('takes no single --base: a product PRD\'s base is per repository', () => {

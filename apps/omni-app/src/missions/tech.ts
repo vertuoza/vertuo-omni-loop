@@ -72,7 +72,7 @@ export type ReviewView = {
 export type ReviewState =
   | { state: 'build' }
   | { state: 'working' }
-  | { state: 'plan'; again: boolean; points?: readonly string[]; sentBack?: true }
+  | { state: 'plan'; again: boolean; points?: readonly string[]; unnamed?: true; sentBack?: true }
   | { state: 'tech'; k: number }
   | { state: 'waits'; why: string };
 
@@ -187,6 +187,19 @@ export function reviewStateOf(view: ReviewView): ReviewState {
   return decidedOf(mine, 'tech') < ROUNDS ? { state: 'tech', k: view.techs.length + 1 } : { state: 'waits', why: spentWords(view.prd) };
 }
 
+/**
+ * Where a product PRD whose plan names no repository is once it would be built (bug #3304): never built without `--base-of`, whose
+ * target pull requests would open into the default branch. A PRD the PM wrote (`view`) goes back to the PM's plan job, which writes
+ * the plan's `## Repositories` table, while the PM's rounds last; at work while that job works; then, or for a PRD a person wrote
+ * (`view` null), it waits on a person, saying why.
+ */
+export function unnamedStateOf(prd: ProductPrdId, view: ReviewView | null): Extract<ReviewState, { state: 'plan' | 'working' | 'waits' }> {
+  if (view?.plans.some((one) => atWork(one.attempt)) === true) return { state: 'working' };
+  const mine = view === null ? [] : sinceSentBack(view.decisions.filter((one) => one.prd === prd), view.sentBack ?? null).mine;
+  if (view !== null && decidedOf(mine, 'plan') < ROUNDS) return { state: 'plan', again: true, unnamed: true };
+  return { state: 'waits', why: `PRD ${prd}: its plan names no repository, so its build would open its pull requests into the default branch; write its ## Repositories table (owner/name) and approve it on its page` };
+}
+
 /** The first 7 characters of a plan version, as the events name it. */
 const short = (plan: string | null): string => (plan === null ? 'no version' : `version ${plan.slice(0, 7)}`);
 
@@ -212,8 +225,9 @@ export const isRetry = (prd: ProductPrdId, decisions: readonly PlanDecision[]): 
   return last?.outcome === 'escalated' && last.plan === null;
 };
 
-/** What the PM's plan job is sent for: the Architect's open points, a newer plan version, or its first plan. */
+/** What the PM's plan job is sent for: a plan that names no repository (bug #3304), the Architect's open points, a newer plan version, or its first plan. */
 function planSentence(prd: ProductPrdId, line: string, state: Extract<ReviewState, { state: 'plan' }>): string {
+  if (state.unnamed === true) return `Sent the PM ${line} again: the plan of PRD ${prd} names no repository, so it writes its ## Repositories table before the build.`;
   if (state.sentBack === true) return `Sent the PM ${line} again: a person sent PRD ${prd} back to it${state.points === undefined ? '' : ', with the Architect\'s open points'}.`;
   if (state.points !== undefined) return `Sent the PM ${line} again: it answers the Architect's open points on PRD ${prd}.`;
   return state.again

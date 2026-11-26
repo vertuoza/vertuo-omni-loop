@@ -329,7 +329,7 @@ export type BuildSkill = 'yolo' | 'ultra-yolo';
  * it touches (`--base-of`): see `productLineOf`.
  */
 export function lineOf(prd: MissionPrd, step: Step, skill: BuildSkill = 'yolo', base: Base = null, fix: Fix | null = null): string {
-  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === 'string' || base === null ? [] : base);
+  if (isProductPrdId(prd)) return productLineOf(prd, step, typeof base === 'string' || base === null ? null : base);
   const n = String(prd);
   const onBase = typeof base === 'string' ? ` --base ${base}` : '';
   const round = qaRoundOf(step);
@@ -354,14 +354,24 @@ export const basesOf = (repos: readonly string[], branch: string): BaseOfEntry[]
 
 /**
  * The line a step of a product PRD is sent as (PRD omni-loop-21 s7): built with `/omni:ultra-yolo <key>-<n> --base-of …`, each
- * target pull request into its repository's mission branch, the fix with the same bases, the Reviewer by its id. No bases (at
- * `with-you`) sends no flag. A product PRD skips the QA pair, as a plan repository's PRD does: no QA line is ever sent for one.
+ * target pull request into its repository's mission branch, the fix with the same bases, the Reviewer by its id. No bases (`null`, at
+ * `with-you`) sends no flag; an empty list of bases (a plan that names no repository, above `with-you`) is refused for the build and
+ * the fix, whose pull requests would open into the default branch (bug #3304). A product PRD skips the QA pair, as a plan repository's
+ * PRD does: no QA line is ever sent for one.
  */
-function productLineOf(prd: ProductPrdId, step: Step, bases: readonly BaseOfEntry[]): string {
-  const flag = bases.length === 0 ? '' : ` ${baseOfFlag(bases)}`;
+function productLineOf(prd: ProductPrdId, step: Step, bases: readonly BaseOfEntry[] | null): string {
   if (qaRoundOf(step) !== null || isFixStep(step)) throw new Error(`PRD ${prd} is a product PRD: it skips the QA pair, and ${step} is never sent for it`);
+  const flag = baseOfWords(prd, step, bases);
   if (step === 'build') return `/omni:ultra-yolo ${prd}${flag}`;
   return step === 'fix:1' ? `/omni:ultra-yolo-fix ${prd} --for-review${flag}` : `/omni:review ${prd}`;
+}
+
+/** A product PRD's `--base-of` words: none at `with-you` (`null`); refused for a build or a fix whose plan names no repository (bug #3304). */
+function baseOfWords(prd: ProductPrdId, step: Step, bases: readonly BaseOfEntry[] | null): string {
+  if (bases === null) return '';
+  if (bases.length > 0) return ` ${baseOfFlag(bases)}`;
+  if (step === 'build' || step === 'fix:1') throw new Error(`PRD ${prd}'s plan names no repository: its ${step} is never sent without --base-of, which would open its pull requests into the default branch`);
+  return '';
 }
 
 /** What a mission may run at (PRD 2896): `with-you` changes nothing, the two others build on a branch of the mission's own. */
