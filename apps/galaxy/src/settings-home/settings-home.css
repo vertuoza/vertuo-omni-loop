@@ -1,0 +1,35 @@
+/* The settings home (omni-loop-32 s4) and the trail of every settings page (s3). Colours and spacing are
+   the existing tokens and the neighbouring screens' card and chip (src/ask/ask.css), so every theme follows.
+   The cards wrap to one column on a phone and nothing is wider than the window. */
+
+.settings-home { display: grid; gap: var(--space-4); min-width: 0; }
+.settings-home-title { margin: 0; font: 700 26px/1.2 var(--ask-body); color: var(--ask-ink); }
+.settings-home-group { display: grid; gap: var(--space-2); min-width: 0; }
+.settings-home-heading {
+  margin: 0;
+  font: 700 12px/1.2 var(--ask-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ask-muted);
+}
+.settings-home-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-3);
+}
+.settings-home-card { min-width: 0; align-content: start; }
+.settings-home-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.ask a.settings-home-link { font: 700 18px/1.3 var(--ask-body); color: var(--ask-ink); text-decoration: none; overflow-wrap: anywhere; }
+.ask a.settings-home-link:hover { color: var(--ask-plasma); }
+.ask a.settings-home-link:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.settings-home-holds, .settings-home-by { overflow-wrap: anywhere; }
+.settings-home-by { font-size: var(--type-3-size); }
+.settings-home-chip { color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+
+.settings-trail { display: flex; flex-wrap: wrap; gap: var(--space-1); font: 600 14px/1.2 var(--ask-body); color: var(--ask-muted); margin: 0 0 var(--space-3); }
+.ask .settings-trail a { color: var(--ask-muted); text-decoration: none; }
+.ask .settings-trail a:hover { color: var(--ask-ink); }
+.settings-trail [aria-current='page'] { color: var(--ask-ink); }

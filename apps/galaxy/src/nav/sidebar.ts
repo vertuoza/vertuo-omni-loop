@@ -3,7 +3,7 @@
 // its Done and Workspace pages, and the question rounds under /ask, fall under it), then two groups, then
 // the foot. Dashboard: the boards (Home, Fleet, the workspace's Loop, its Runners, Workspace, Engineering).
 // Work: the workspace's work (Products, Roadmaps, Ideas, Concepts, PRDs, Bug Fixes, Visual Updates,
-// Knowledge). At the foot one Settings entry, at /app/settings, which lands on Fleets (SETTINGS_LANDING),
+// Knowledge). At the foot one Settings entry, at /app/settings, which opens the settings home (omni-loop-32; SETTINGS_LANDING stays the Fleets address),
 // then Omni's own pages, Docs and Release notes, which leave the app for the public ones. Each section
 // names its sprite. A new section is one entry here. An entry's pages (Inbox's Done and Workspace,
 // Settings' Fleets and Repositories) are not menu lines: their pages show them as tabs, and they only
@@ -123,7 +123,7 @@ export const ANTI_SIDEBAR: readonly SidebarGroup[] = [
   },
 ];
 
-/** Where /app/settings lands (PRD 733): its Fleets page. */
+/** The Fleets page (PRD 733): where /app/settings landed before the settings home (omni-loop-32), and still answers. */
 export const SETTINGS_LANDING = '/app/settings/fleets';
 
 /** The foot's Settings entry (PRD 733), above Docs and Release notes; its pages are the settings map's. */
