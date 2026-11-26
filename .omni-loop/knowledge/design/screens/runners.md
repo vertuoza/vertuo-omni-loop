@@ -67,7 +67,7 @@ a runner to a fleet here, and places the Supervisor's seat on a runner, or moves
 - **The jobs filter** (PRD 3232): tabs with counts, Running · Cannot run · Failed · Done · All, kept as
   `?jobs=`, Running by default; the Cannot run and Failed counts in `--ask-red` when above zero.
   Running holds Queued, Waiting, Starting, Running, Lost · resuming and Answered · fixing; Failed holds
-  Failed, Timeout and Runner lost; Done holds Done, Ready, Answered · fixed and Cancelled; All holds
+  Failed, Timeout and Runner lost; Done holds Done, Ready, Answered · fixed, Cancelled and Expired; All holds
   every job. An empty Running tab reads **Nothing running.**, the last job that ended, and a link to
   each tab with jobs; another empty tab reads **No job here.** with `Nothing here in the last 50.`
 - **Jobs:** the open tab's jobs, queued and running first, then the last 50 that ended. Each row shows the line, the
@@ -135,11 +135,17 @@ a runner to a fleet here, and places the Supervisor's seat on a runner, or moves
 - **A job stopped mid-way** (a `/omni:yolo` or `/omni:yolo-fix` that ended before its hand-off): `Stopped mid-way` in `--ask-red`, never Done, with `<k> / <n> slices merged` under it when known and the claims it released; its one action, Resume, sends the same line again as the person who presses it, and is the page's primary (PRD 2375).
 - **A lost job that resumes** (PRD 2809): `Lost · resuming` in `--ask-red`, in place of `Failed · runner lost`, with `<runner> went silent at <time>` under it, linking its resume. The resume reads `after a loss · job <id>`, then `attempt <k> of 3`, and once started one line of what came back: `Resumed from the <time> save · <n> branches`, `Started over: nothing was unsaved`, or `<n> files stayed on <runner>`.
 - **Lost 3 times** (PRD 2809): in `--ask-red`, the losses' times under it; its one action is Resume, as for a job stopped mid-way.
+- **A job that expired** (PRD omni-loop-35, before/after 1.A): a job that ended Held, Waiting on answers or Need
+  human and that nobody continued for 48 h reads **Expired** in the muted tone of Cancelled, with
+  `nobody continued it in 48 h` under it, muted; it leaves Needs you and is listed under Done, keeps its
+  pull request link, and its action is Send again, which an API key may also press on a job a key sent.
+  A queued job that no runner took in 48 h reads `Failed` with `Expired: no runner took it in 48 h` under
+  it, `Any runner` (or where it was sent) as its Where, and Send again; no runner ever held it.
 - **A runner keeping a local save** (PRD 2809): `Keeps <size> until <day time>` under its name.
 
 ## Words
 
-Runners · Runner · State · Online · Busy ·
+Runners · Runner · State · Expired · nobody continued it in 48 h · no runner took it in 48 h · Online · Busy ·
 Offline · Fleet · Shared · Slots · Repositories · Kit · Jobs · Line · Repository · Sent by · Where ·
 Any runner · Status · Queued · Needs you · Nothing running · No job here · Nothing here in the last 50 · All · repositories · with jobs · this runner holds · Search repositories · Also on · Only on this runner · No job in the last 50 · Last job · among the last 50 only · Used by · slot · Show fleet · Send to any runner · blocks · Copy · Cannot run · No runner holds · does not hold · is gone · Omni App · Update the runner's kit · Running · Done · Failed · Runner lost · Timeout · Cancelled ·
 Cancel · Send again · Terminal · No job yet · API key · made by · for · by API key · Omni app · retro of PRD · Paused · CPU · load · Memory ·
@@ -160,6 +166,8 @@ health · no tokens left · until · out of tokens · usage limit · since · us
   ones?
 
 ## Source
+
+/omni:brainstorm, PRD omni-loop-35 (a product PRD): its before/after page on the Omni page, screen 1.A
 
 /omni:brainstorm, PRD omni-loop-34 (a product PRD): its before/after page on the Omni page, screen 3.A
 
