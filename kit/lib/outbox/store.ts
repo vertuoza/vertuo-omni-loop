@@ -27,7 +27,10 @@ export type OutFolder = { abs: string; shown: string };
 
 /** What the outbox gate is graded against besides the items: the PR's labels, the changes of its
  * range, and the knowledge at the range's base. */
-export type GateOptions = Omit<Parameters<typeof gateResult>[1], 'ctx'>;
+export type GateOptions = Omit<Parameters<typeof gateResult>[1], 'ctx'> & {
+  /** Bug #3363: a product PRD's gate read into this mission branch, where a high item its fleet answered counts as answered. */
+  into?: string | null;
+};
 
 /** What `omni replies` asks: the PRD, its feature pull request, and whether to post the next round. */
 export type RepliesRequest = Omit<Parameters<typeof readReplies>[0], 'ctx' | 'prd'> & { prd: OutboxPrd };

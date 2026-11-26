@@ -16,9 +16,14 @@
 //                     Reviewer as any build does
 //   the record        what a decision was is its event: `decided` once settled, `escalated` otherwise, signed `pm` (the chair)
 //                     and `agent`, never in a person's name, keyed by the job so it is recorded once
+//
+// Bug #3363: a product PRD's high item too, `/omni:committee <key>-<n> --item <id> --bound <b>`, once its build ended on its red
+// gate (./supervisor.ts › redGate). Its item lives on the Omni page: the App records the decision for the mission branch only
+// (BR-PRODUCT-145), settling nothing, and the PRD's gate into that branch reads it as answered.
 import { tally, type MemberVerdict } from 'omni-loop/kit/lib/committee/vote.ts';
-import { PrdNumberSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
+import { PrdNumberSchema, ProductPrdIdSchema, type PrdNumber } from 'omni-loop/kit/lib/ids.ts';
 import { itemAnswerOf, unanswered, verdictWords, type Decision } from './committee.ts';
+import type { MissionPrd } from './store.prd.ts';
 import type { Attempt, NewEvent, RecordedEvent } from './supervisor.ts';
 
 /** The option the fleet settles an item with: what was built. */
@@ -33,25 +38,33 @@ export const DEFAULT_BOUND = 0.6;
  */
 export type ItemVerdict = Decision | { outcome: 'deferred'; why: string[]; verdicts?: Decision['verdicts']; option: string };
 
-/** One item committee the mission sent: its PRD, the item, its job and the job's attempt, and its decision once recorded. */
-export type ItemCommittee = { prd: PrdNumber; item: string; job: string; attempt: Attempt; decision: ItemVerdict | null };
+/** One item committee the mission sent: its PRD (a product PRD's by its id, bug #3363), the item, its job and the job's attempt, and its decision once recorded. */
+export type ItemCommittee<P extends MissionPrd = MissionPrd> = { prd: P; item: string; job: string; attempt: Attempt; decision: ItemVerdict | null };
 
 /** An item open at a feature pull request's head: its id and its rank, both null for one that does not read. */
 export type OpenAt = { id: string | null; rank: string | null };
 
-const LINE = /^\/omni:committee ([1-9][0-9]*) --item ([a-z0-9-]+)(?: --bound [0-9.]+)?$/;
+const LINE = /^\/omni:committee (\S+) --item ([a-z0-9-]+)(?: --bound [0-9.]+)?$/;
 
-/** The line an item's committee is sent as, `bound` the mission's `mandate.hardToRevert`. */
-export const askLine = (prd: PrdNumber, item: string, bound: number): string => `/omni:committee ${String(prd)} --item ${item} --bound ${String(bound)}`;
+/** The line an item's committee is sent as, `bound` the mission's `mandate.hardToRevert`; a product PRD named by its id (bug #3363). */
+export const askLine = (prd: MissionPrd, item: string, bound: number): string => `/omni:committee ${String(prd)} --item ${item} --bound ${String(bound)}`;
 
 /** The start every line of an item's committee shares, whatever its bound: how a run finds it sent. */
-export const askPrefix = (prd: PrdNumber, item: string): string => `/omni:committee ${String(prd)} --item ${item}`;
+export const askPrefix = (prd: MissionPrd, item: string): string => `/omni:committee ${String(prd)} --item ${item}`;
+
+/** A line's PRD: a repository PRD's number, or a product PRD's id (bug #3363); null for anything else. */
+function linePrd(named: string): MissionPrd | null {
+  const number = /^[1-9][0-9]*$/.test(named) ? PrdNumberSchema.safeParse(Number(named)) : null;
+  if (number?.success === true) return number.data;
+  const product = ProductPrdIdSchema.safeParse(named);
+  return product.success ? product.data : null;
+}
 
 /** The PRD and item a line names; null for any other line. */
-export function itemOfLine(line: string): { prd: PrdNumber; item: string } | null {
+export function itemOfLine(line: string): { prd: MissionPrd; item: string } | null {
   const match = LINE.exec(line);
-  const prd = PrdNumberSchema.safeParse(Number(match?.[1]));
-  return match && prd.success ? { prd: prd.data, item: match[2] ?? '' } : null;
+  const prd = match === null ? null : linePrd(match[1] ?? '');
+  return match !== null && prd !== null ? { prd, item: match[2] ?? '' } : null;
 }
 
 /** The kinds of event an item committee's decision is recorded as. */
@@ -65,7 +78,7 @@ function decisionOfKind(kind: string | undefined): ItemVerdict | null {
 }
 
 /** Each item committee's decision as its events recorded it: carried, deferred or escalated; none while none is. */
-export function withDecisions(committees: readonly Omit<ItemCommittee, 'decision'>[], recorded: readonly RecordedEvent[]): ItemCommittee[] {
+export function withDecisions<P extends MissionPrd>(committees: readonly Omit<ItemCommittee<P>, 'decision'>[], recorded: readonly RecordedEvent[]): ItemCommittee<P>[] {
   return committees.map((one) => ({ ...one, decision: decisionOfKind(recorded.find((event) => event.job === one.job && DECISION_KINDS.has(event.kind))?.kind) }));
 }
 
@@ -109,6 +122,9 @@ export function answeredOf(prd: PrdNumber, one: ItemCommittee, log: string | nul
   return { verdicts: vote.verdicts, decision: { outcome: vote.outcome, why: vote.why } };
 }
 
+/** An item committee's event: a repository PRD's names its number, a product PRD's its id (bug #3363). */
+type AskEvent<P extends MissionPrd> = Omit<NewEvent, 'prd'> & { prd: P };
+
 /** The longest event sentence the database keeps. */
 const SENTENCE_MAX = 300;
 
@@ -120,10 +136,10 @@ const cut = (text: string): string => (text.length <= SENTENCE_MAX ? text : `${t
  * to a person. A decision read back from the
  * events carries no why: its event is already recorded, and the run records nothing twice.
  */
-export function answerEvents(committees: readonly ItemCommittee[], where: string): NewEvent[] {
-  return committees.flatMap((one) => {
+export function answerEvents<P extends MissionPrd>(committees: readonly ItemCommittee<P>[], where: string): AskEvent<P>[] {
+  return committees.flatMap((one): AskEvent<P>[] => {
     const n = `PRD ${String(one.prd)}`;
-    const sent: NewEvent = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: cut(`Sent ${askPrefix(one.prd, one.item)} to ${where}.`) };
+    const sent: AskEvent<P> = { kind: 'dispatched', role: 'supervisor', prd: one.prd, job: one.job, link: null, sentence: cut(`Sent ${askPrefix(one.prd, one.item)} to ${where}.`) };
     if (one.decision === null) return [sent];
     const words = decidedWords(one.item, n, one.decision);
     return [sent, { role: 'pm', prd: one.prd, job: one.job, link: null, kind: words.kind, sentence: cut(words.sentence) }];

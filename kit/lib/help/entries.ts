@@ -79,7 +79,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     name: 'status',
     kind: 'command',
     who: 'you',
-    usage: ['omni status [--fetch]', 'omni status <prd> [--labels a,b] [--base <ref> | --changes]'],
+    usage: ['omni status [--fetch]', 'omni status <prd> [--labels a,b] [--base <ref> | --changes]', 'omni status <key>-<n> [--into <mission branch>]'],
     label: 'omni status',
     summary: 'your PRDs, the inbox, the outbox, what has shipped',
     also: [['omni status <n>', 'the outbox gate for PRD n (exit 0 green, 1 red)'], ['omni status <key>-<n>', 'a product PRD\'s gate, read from the Omni page']],
@@ -202,6 +202,7 @@ export const ENTRIES: readonly HelpEntry[] = deepFreeze<readonly HelpEntry[]>([
     usage: [
       'omni committee check <prd> --approve [--author <role>] [--json]',
       'omni committee record <prd> --approve --file <votes.json> [--author <role>]',
+      'omni committee check|record <key>-<n> --item <id> [--bound <0-1>] …',
     ],
     summary: "What a fleet's committee reads before it votes on PRD n, and its decision",
     detail:

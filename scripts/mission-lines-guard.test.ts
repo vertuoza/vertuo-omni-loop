@@ -48,6 +48,7 @@ const LINES: readonly (readonly [string, string])[] = [
   ['a product PRD\'s fix for review', lineOf(PRODUCT_PRD, 'fix:1', 'ultra-yolo', TWO)],
   ['a product PRD\'s Reviewer', lineOf(PRODUCT_PRD, 'review:1', 'ultra-yolo', ONE)],
   ['the committee, on an item', askLine(PRD, 's1-01-keep-the-total', 2)],
+  ['the committee, on a product PRD\'s item', askLine(PRODUCT_PRD, 's1-02-parts-live-in-omni-ui', 0.6)],
   ['the committee, approving', approveLine(PRD)],
   ['the committee, approving a PM\'s PRD', approveLine(PRD, 'pm')],
   ['a bug team\'s fix', bugFixLine(ISSUE)],

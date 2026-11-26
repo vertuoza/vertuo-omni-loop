@@ -80,7 +80,7 @@ account stays in `<out>`, named), and no plan repository's check.
 report names each rework as `<slug>#<sub-PR>` beside its item.
 
 **Step 7, finish and gate,** is `/omni:ultra-yolo`'s **From a product**, steps 4 and 5: the gate is
-`omni status <key>-<n>`, and the target feature PRs are marked ready only once it is green, with no
+`omni status <key>-<n>` (`--into <target base>` under `--base-of`, bug #3363), and the target feature PRs are marked ready only once it is green, with no
 `omni ship` and no plan PR. **Step 8** hands off as its step 6 does, the held ending's command being
 `/omni:ultra-yolo-fix <key>-<n>`.
 

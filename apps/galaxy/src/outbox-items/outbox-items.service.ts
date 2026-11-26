@@ -71,7 +71,13 @@ export function outboxItemsService(repo: OutboxItemsRepository) {
       if (!dossier.ok) return refused('database', NOT_READ);
       if (dossier.value === null) return refused('missing', `No PRD ${prd.id} in your workspaces.`);
       const rows = await repo.items(dossier.value);
-      return rows.ok ? { ok: true, value: { prdId: prd.id, items: rows.value.map(rowOf) } } : refused('database', NOT_READ);
+      if (!rows.ok) return refused('database', NOT_READ);
+      if (query.into === undefined) return { ok: true, value: { prdId: prd.id, items: rows.value.map(rowOf) } };
+      // Bug #3363: read into a mission branch, each item its fleet answered says so: the kit's gate counts it answered there only.
+      const fleet = await repo.fleetAnswered({ dossier: dossier.value, prd: prd.id, branch: query.into });
+      if (!fleet.ok) return refused('database', NOT_READ);
+      const answered = new Set(fleet.value);
+      return { ok: true, value: { prdId: prd.id, items: rows.value.map((row) => ({ ...rowOf(row), fleet: answered.has(row.item) })) } };
     },
 
     /** Raises an item, or rewrites it while it is open; with `adopt`, adopts a medium one at once. */
