@@ -43,3 +43,33 @@ describe('the PM round that only re-approved the same version after the Architec
     expect(reviewStateOf(view({ plans: [plan(1), plan(2), plan(3)], decisions: same }))).toMatchObject({ state: 'waits' });
   });
 });
+
+// Bug #3334: the Architect answered the open points itself, pushed version 3c8850f and approved it, after the PM's two real rounds
+// (its first approval, then its answer to the open points). The PM's confirmation of that version is the closing step, not a new
+// round: the PRD waited on a person instead (mission #3319, omni-loop-28).
+const C38 = `3c8850f${'c'.repeat(57)}`;
+
+/** Omni-loop-28's whole history in mission #3319: the PM's answering round, then the Architect's approval of the version it pushed. */
+const CLOSING: readonly PlanDecision[] = [...HISTORY, decision('plan', 'plan-3', F75, 'approved'), decision('tech', 'tech-4', C38, 'approved')];
+const closing = (over: Partial<ReviewView> = {}): ReviewView => view({ latest: C38, plans: [plan(1), plan(2), plan(3)], techs: [tech(1, failed), tech(2, failed), tech(3), tech(4)], decisions: CLOSING, ...over });
+
+describe('the PM confirming a version the Architect pushed and approved, once its rounds are spent (bug #3334)', () => {
+  it("sends the PM's plan job to approve 3c8850f, not a person", () => {
+    expect(reviewStateOf(closing())).toEqual({ state: 'plan', again: true });
+  });
+
+  it('builds once the PM approved 3c8850f: both decisions name the latest version', () => {
+    const confirmed = [...CLOSING, decision('plan', 'plan-4', C38, 'approved')];
+    expect(reviewStateOf(closing({ plans: [plan(1), plan(2), plan(3), plan(4)], decisions: confirmed }))).toEqual({ state: 'build' });
+  });
+
+  it('goes to a person once the PM, sent to confirm it, approved another version instead: the confirmation is sent once', () => {
+    const other = [...CLOSING, decision('plan', 'plan-4', V2, 'approved')];
+    expect(reviewStateOf(closing({ latest: V2, plans: [plan(1), plan(2), plan(3), plan(4)], decisions: other }))).toMatchObject({ state: 'waits' });
+  });
+
+  it('goes to a person once the PM, sent to confirm it, escalated', () => {
+    const escalated = [...CLOSING, decision('plan', 'plan-4', C38, 'escalated', ['the PM does not agree with 3c8850f'])];
+    expect(reviewStateOf(closing({ plans: [plan(1), plan(2), plan(3), plan(4)], decisions: escalated }))).toMatchObject({ state: 'waits' });
+  });
+});
