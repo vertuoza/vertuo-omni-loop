@@ -887,7 +887,7 @@ describe('reading a job\'s live lines (PRD 1904)', () => {
     const job = running();
     const w = world({ jobs: [job], lines: lineRows(job, 3, 5).reverse() });
     expect(value(await w.service.lines(PIA, job.id, 4))).toEqual({
-      status: 'running', lines: [{ seq: 5, text: 'line 5' }, { seq: 6, text: 'line 6' }, { seq: 7, text: 'line 7' }], more: false, first: 3, logTail: null,
+      status: 'running', line: '/omni:yolo 1717', reason: null, lines: [{ seq: 5, text: 'line 5' }, { seq: 6, text: 'line 6' }, { seq: 7, text: 'line 7' }], more: false, first: 3, logTail: null,
     });
     expect(value(await w.service.lines(PIA, job.id, 7))).toMatchObject({ lines: [], more: false, first: 3 });
   });
@@ -904,8 +904,14 @@ describe('reading a job\'s live lines (PRD 1904)', () => {
     const job = running();
     const empty = jobRow({ status: 'done', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
     const w = world({ jobs: [job, empty] });
-    expect(value(await w.service.lines(MO, job.id, 0))).toEqual({ status: 'running', lines: [], more: false, first: null, logTail: 'tail' });
-    expect(value(await w.service.lines(MO, empty.id, 0))).toEqual({ status: 'done', lines: [], more: false, first: null, logTail: null });
+    expect(value(await w.service.lines(MO, job.id, 0))).toEqual({ status: 'running', line: '/omni:yolo 1717', reason: null, lines: [], more: false, first: null, logTail: 'tail' });
+    expect(value(await w.service.lines(MO, empty.id, 0))).toEqual({ status: 'done', line: '/omni:yolo 1717', reason: null, lines: [], more: false, first: null, logTail: null });
+  });
+
+  it('answers the job\'s line and why it ended, for a repair that reads a lost job from any runner (bug #3330)', async () => {
+    const lost = jobRow({ status: 'failed', reason: 'runner lost', line: '/omni:ultra-yolo omni-loop-29', runner_id: SHARED, claimed_at: T0.toISOString(), ended_at: T0.toISOString() });
+    const w = world({ jobs: [lost], lines: lineRows(lost, 1, 2) });
+    expect(value(await w.service.lines(MO, lost.id, 0))).toMatchObject({ status: 'failed', line: '/omni:ultra-yolo omni-loop-29', reason: 'runner lost', lines: [{ seq: 1 }, { seq: 2 }] });
   });
 
   it('is refused, as missing, outside the workspace and for an unknown job', async () => {

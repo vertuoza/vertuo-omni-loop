@@ -579,9 +579,12 @@ const JobLineSchema = z.object({ seq: z.number().int().positive(), text: z.strin
 /** A read of a job's live log (PRD 1904): its status, at most 5,000 lines after `after` in order, `more`
  * when more follow, `first` the smallest sequence number the job still holds (null: none), and
  * `logTail` the job's tail only when it holds no line and has a tail (a runner from before PRD 1904),
- * null otherwise. */
+ * null otherwise. `line` and `reason` are the job's line and why it ended (bug #3330: `omni runner log`, which
+ * `/omni:repair` reads a failed job with from any runner of the workspace), absent from an app older than it. */
 export const JobLinesSchema = z.object({
   status: z.enum(JOB_STATUSES),
+  line: z.string().optional(),
+  reason: z.string().nullable().optional(),
   lines: z.array(JobLineSchema).max(JOB_LINES_PAGE),
   more: z.boolean(),
   first: z.number().int().positive().nullable(),

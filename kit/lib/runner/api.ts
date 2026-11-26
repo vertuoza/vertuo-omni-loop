@@ -223,11 +223,17 @@ const PrdJobSchema = z.object({
 });
 export type PrdJob = z.output<typeof PrdJobSchema>;
 
-/** A read of a job's live lines (`GET /api/runners/jobs/<id>/lines?after=`): the lines are numbered. */
+/**
+ * A read of a job's live lines (`GET /api/runners/jobs/<id>/lines?after=`): the lines are numbered. `line`, `reason` and `logTail`
+ * (the job's line, why it ended, and its tail when it holds no line) read as null from an app that answers none (bug #3330).
+ */
 const JobLinesSchema = z.object({
   status: PrdJobSchema.shape.status,
   lines: z.array(z.object({ seq: z.number(), text: z.string() })),
   more: z.boolean(),
+  line: z.string().nullish().transform((value) => value ?? null),
+  reason: z.string().nullish().transform((value) => value ?? null),
+  logTail: z.string().nullish().transform((value) => value ?? null),
 });
 export type JobLinesRead = z.output<typeof JobLinesSchema>;
 
