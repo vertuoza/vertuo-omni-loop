@@ -13,7 +13,8 @@
 //   the version      both decisions name the plan's sha256: the build is sent only once a `plan` and a `tech` decision both approved
 //                    the latest plan version on the PRD's page, which gives its approval in the fleet's name. A version the Architect
 //                    pushed is approved by the PM again; a version pushed after the Architect's review is reviewed again. ROUNDS
-//                    counts the plan approvals and the reviews that decided (a record naming a plan version), never a failure
+//                    counts the plan approvals and the reviews that decided (a record naming a plan version), never a failure, nor
+//                    the PM's re-approval of the version it had approved before jobs that left no record (bug #3332)
 //   open points      an Architect's review that escalated with open points sends the PM's plan job again (bug #3286): the PM reads
 //                    them with `omni mission get`, answers each, rewording its own spec when it must, and approves the new version,
 //                    which the Architect reviews again
@@ -145,6 +146,20 @@ const spentWords = (prd: ProductPrdId): string => `${roundsSpentWords(prd)} in $
 const decidedOf = (mine: readonly PlanDecision[], kind: PlanDecision['kind']): number => mine.filter((one) => one.kind === kind && one.plan !== null).length;
 
 /**
+ * Bug #3332: whether decision `at` only re-approved, after jobs that left no record, the plan version the PM's approval before them
+ * named: the recovery the Architect's failures send (bug #3326), which answers nothing and is never one of the PM's rounds.
+ */
+function recovered(mine: readonly PlanDecision[], at: number): boolean {
+  const one = mine[at];
+  const before = mine.slice(0, at).findLastIndex((other) => other.plan !== null);
+  const prior = mine[before];
+  return one?.kind === 'plan' && one.plan !== null && prior !== undefined && before < at - 1 && prior.kind === 'plan' && prior.outcome === 'approved' && prior.plan === one.plan;
+}
+
+/** The PM's rounds: its plan decisions that named a version, but a recovery (bug #3332). */
+const roundsOf = (mine: readonly PlanDecision[]): number => mine.filter((one, at) => one.kind === 'plan' && one.plan !== null && !recovered(mine, at)).length;
+
+/**
  * How many jobs of `kind` in a row, the latest first, failed or left no record: since the last decision of either kind that named a
  * plan version, so a PM's new plan approval gives the Architect its tries again (bug #3326).
  */
@@ -167,8 +182,8 @@ function planWith(open: PlanDecision | null, again: boolean): Extract<ReviewStat
 function afterEscalated(view: ReviewView, mine: readonly PlanDecision[], last: PlanDecision): ReviewState {
   if (view.approval === 'standing') return { state: 'build' };
   const open = unansweredOf(mine);
-  const rounds = decidedOf(mine, 'plan') < ROUNDS;
-  const again = last.plan === null ? afterNoRecord(view, mine, last.kind, open, rounds) : open !== null && rounds ? planWith(open, true) : null;
+  // The PM's recovery after the Architect's failures stays capped by every plan decision; its answer to open points by its rounds (bug #3332).
+  const again = last.plan === null ? afterNoRecord(view, mine, last.kind, open, decidedOf(mine, 'plan') < ROUNDS) : open !== null && roundsOf(mine) < ROUNDS ? planWith(open, true) : null;
   return again ?? { state: 'waits', why: escalatedWords(view.prd, open ?? last) };
 }
 
@@ -197,7 +212,7 @@ export function reviewStateOf(view: ReviewView): ReviewState {
   if (working(view)) return { state: 'working' };
   const last = mine.at(-1);
   if (last?.outcome === 'escalated') return afterEscalated(view, mine, last);
-  if (!approvedOn(mine, 'plan', view.latest)) return decidedOf(mine, 'plan') < ROUNDS ? { state: 'plan', again: view.plans.length > 0 } : { state: 'waits', why: spentWords(view.prd) };
+  if (!approvedOn(mine, 'plan', view.latest)) return roundsOf(mine) < ROUNDS ? { state: 'plan', again: view.plans.length > 0 } : { state: 'waits', why: spentWords(view.prd) };
   return decidedOf(mine, 'tech') < ROUNDS ? { state: 'tech', k: view.techs.length + 1 } : { state: 'waits', why: spentWords(view.prd) };
 }
 
@@ -210,7 +225,7 @@ export function reviewStateOf(view: ReviewView): ReviewState {
 export function unnamedStateOf(prd: ProductPrdId, view: ReviewView | null): Extract<ReviewState, { state: 'plan' | 'working' | 'waits' }> {
   if (view?.plans.some((one) => atWork(one.attempt)) === true) return { state: 'working' };
   const mine = view === null ? [] : sinceSentBack(view.decisions.filter((one) => one.prd === prd), view.sentBack ?? null).mine;
-  if (view !== null && decidedOf(mine, 'plan') < ROUNDS) return { state: 'plan', again: true, unnamed: true };
+  if (view !== null && roundsOf(mine) < ROUNDS) return { state: 'plan', again: true, unnamed: true };
   return { state: 'waits', why: `PRD ${prd}: its plan names no repository, so its build would open its pull requests into the default branch; write its ## Repositories table (owner/name) and approve it on its page` };
 }
 

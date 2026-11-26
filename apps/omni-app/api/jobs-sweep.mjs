@@ -25316,6 +25316,13 @@ function escalatedWords(prd, decision) {
 }
 var spentWords2 = (prd) => `${roundsSpentWords(prd)} in ${String(ROUNDS2)} rounds; approve it on its page`;
 var decidedOf = (mine, kind) => mine.filter((one) => one.kind === kind && one.plan !== null).length;
+function recovered(mine, at4) {
+  const one = mine[at4];
+  const before2 = mine.slice(0, at4).findLastIndex((other) => other.plan !== null);
+  const prior = mine[before2];
+  return one?.kind === "plan" && one.plan !== null && prior !== void 0 && before2 < at4 - 1 && prior.kind === "plan" && prior.outcome === "approved" && prior.plan === one.plan;
+}
+var roundsOf = (mine) => mine.filter((one, at4) => one.kind === "plan" && one.plan !== null && !recovered(mine, at4)).length;
 function failsInRow(mine, kind) {
   const lastDecided = mine.findLastIndex((one) => one.plan !== null);
   return mine.slice(lastDecided + 1).filter((one) => one.kind === kind).length;
@@ -25326,8 +25333,7 @@ function planWith(open, again3) {
 function afterEscalated(view, mine, last) {
   if (view.approval === "standing") return { state: "build" };
   const open = unansweredOf(mine);
-  const rounds = decidedOf(mine, "plan") < ROUNDS2;
-  const again3 = last.plan === null ? afterNoRecord(view, mine, last.kind, open, rounds) : open !== null && rounds ? planWith(open, true) : null;
+  const again3 = last.plan === null ? afterNoRecord(view, mine, last.kind, open, decidedOf(mine, "plan") < ROUNDS2) : open !== null && roundsOf(mine) < ROUNDS2 ? planWith(open, true) : null;
   return again3 ?? { state: "waits", why: escalatedWords(view.prd, open ?? last) };
 }
 function afterNoRecord(view, mine, kind, open, rounds) {
@@ -25343,13 +25349,13 @@ function reviewStateOf(view) {
   if (working2(view)) return { state: "working" };
   const last = mine.at(-1);
   if (last?.outcome === "escalated") return afterEscalated(view, mine, last);
-  if (!approvedOn(mine, "plan", view.latest)) return decidedOf(mine, "plan") < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
+  if (!approvedOn(mine, "plan", view.latest)) return roundsOf(mine) < ROUNDS2 ? { state: "plan", again: view.plans.length > 0 } : { state: "waits", why: spentWords2(view.prd) };
   return decidedOf(mine, "tech") < ROUNDS2 ? { state: "tech", k: view.techs.length + 1 } : { state: "waits", why: spentWords2(view.prd) };
 }
 function unnamedStateOf(prd, view) {
   if (view?.plans.some((one) => atWork2(one.attempt)) === true) return { state: "working" };
   const mine = view === null ? [] : sinceSentBack(view.decisions.filter((one) => one.prd === prd), view.sentBack ?? null).mine;
-  if (view !== null && decidedOf(mine, "plan") < ROUNDS2) return { state: "plan", again: true, unnamed: true };
+  if (view !== null && roundsOf(mine) < ROUNDS2) return { state: "plan", again: true, unnamed: true };
   return { state: "waits", why: `PRD ${prd}: its plan names no repository, so its build would open its pull requests into the default branch; write its ## Repositories table (owner/name) and approve it on its page` };
 }
 var short3 = (plan) => plan === null ? "no version" : `version ${plan.slice(0, 7)}`;
