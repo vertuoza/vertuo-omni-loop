@@ -208,7 +208,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const techs: (TechJob & { key: string; line: string; toFleet: string | null; log: string | null })[] = [];
   const planDecisions: (PlanDecision & { techApproval: boolean; approval: boolean })[] = [];
   let home: Home = seededHome ?? { phase0: 'pr', product: null };
-  const productJobs: (ProductRun & { key: string; line: string; toFleet: string | null })[] = [];
+  const productJobs: (ProductRun & { key: string; line: string; toFleet: string | null; log?: string })[] = [];
   const productStore: MissionProducts = {
     facts: (read) => Promise.resolve(productFacts.filter((one) => !pagedOnly.has(one.prd) || (read.products?.prds ?? []).includes(one.prd)).map((one) => ({ ...one, blockers: [...one.blockers], targets: [...one.targets] }))),
     runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts }) => ({ prd, run, job, attempts: attempts.map((one) => ({ ...one })) }))),
@@ -644,11 +644,13 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
     },
     /** PRD omni-loop-21 s9b: the builds queued for the product PRDs, in order. */
     productJobs: () => productJobs.map((one) => ({ ...one, attempts: one.attempts.map((each) => ({ ...each })) })),
-    /** PRD omni-loop-21 s9b: the product PRD's latest build ends (or runs) as `change` says. */
-    endProduct: (prd: ProductPrdId, change: Partial<Attempt>) => {
-      const attempt = productJobs.filter((one) => one.prd === prd).at(-1)?.attempts.at(-1);
-      if (!attempt) throw new Error(`no build of PRD ${prd} was sent`);
+    /** PRD omni-loop-21 s9b: the product PRD's latest build ends (or runs) as `change` says, its log `log` when one is given (bug #3345). */
+    endProduct: (prd: ProductPrdId, change: Partial<Attempt>, log?: string) => {
+      const build = productJobs.filter((one) => one.prd === prd).at(-1);
+      const attempt = build?.attempts.at(-1);
+      if (!build || !attempt) throw new Error(`no build of PRD ${prd} was sent`);
       Object.assign(attempt, change);
+      if (log !== undefined) build.log = log;
     },
     /** PRD omni-loop-26: the Architect's reviews queued, in order. */
     techJobs: () => techs.map((one) => ({ ...one, attempt: { ...one.attempt } })),
