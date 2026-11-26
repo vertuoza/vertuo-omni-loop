@@ -108,6 +108,7 @@ import {
 import { isProductPrdId, productPrdParts, productRoadmapParts } from 'omni-loop/kit/lib/ids.ts';
 import { planTargets } from './branch.ts';
 import { expandMissionScope, rowsOfRoadmap, type ScopeEntry, type ScopeRow } from './expand.ts';
+import { endedOf, specBlockersOf } from './held.ts';
 import { numberedOf, PrdIdSchema, prdColumns, productRunOfKey, type MissionPrd, type ProductNamed } from './store.prd.ts';
 import { DEFAULT_RESUMES, MISSION_LEVELS, type MissionKind } from 'omni-loop/kit/lib/mission/brief.ts';
 import { BUG_STATES, BUG_TRIES, bugFixLine, bugKey, bugOfKey, type Bug, type BugJob, type BugMove } from './bug-team.ts';
@@ -780,23 +781,32 @@ export function missionStore(connection: Connection): MissionStore {
   }
 
   /**
-   * `runs`, each Reviewer verdict carrying what its log says it posted, and each QA job that ended done its verdict, or null when
-   * none reads (PRD 3001): one read of those jobs' log tails, none without one. Only the verdict is kept, never a line of the log.
+   * `runs`, each attempt `read` picks given what `keep` makes of its log tail (undefined when it has none): one read of those jobs'
+   * log tails, none without one.
    */
-  async function withPosted(runs: (Run & Resumed)[]): Promise<(Run & Resumed)[]> {
-    const read = (step: Step, attempt: Attempt): boolean => isVerdict(step, attempt) || isChecked(step, attempt);
-    const ids = runs.flatMap((one) => one.attempts.filter((attempt) => read(one.step, attempt)).map((attempt) => attempt.id));
+  async function withLogs<R extends { attempts: Attempt[] }>(runs: R[], read: (one: R, attempt: Attempt) => boolean, keep: (one: R, attempt: Attempt, log: string | undefined) => Attempt): Promise<R[]> {
+    const ids = runs.flatMap((one) => one.attempts.filter((attempt) => read(one, attempt)).map((attempt) => attempt.id));
     if (ids.length === 0) return runs;
     const logs = new Map(rowsOf(JobLogRowSchema, await db.from('runner_jobs').select(JOB_LOG).in('id', ids)).map((row) => [row.id, row.log_tail]));
-    return runs.map((one) => ({
-      ...one,
-      attempts: one.attempts.map((attempt) => {
-        const log = logs.get(attempt.id);
-        if (isChecked(one.step, attempt)) return { ...attempt, checked: log === undefined ? null : qaLine(log) };
-        return log === undefined || !isVerdict(one.step, attempt) ? attempt : { ...attempt, posted: postedOf(log) };
-      }),
-    }));
+    return runs.map((one) => ({ ...one, attempts: one.attempts.map((attempt) => (read(one, attempt) ? keep(one, attempt, logs.get(attempt.id)) : attempt)) }));
   }
+
+  /**
+   * `runs`, each Reviewer verdict carrying what its log says it posted, and each QA job that ended done its verdict, or null when
+   * none reads (PRD 3001). Only the verdict is kept, never a line of the log.
+   */
+  const withPosted = (runs: (Run & Resumed)[]): Promise<(Run & Resumed)[]> =>
+    withLogs(runs, (one, attempt) => isVerdict(one.step, attempt) || isChecked(one.step, attempt), (one, attempt, log) => {
+      if (isChecked(one.step, attempt)) return { ...attempt, checked: log === undefined ? null : qaLine(log) };
+      return log === undefined ? attempt : { ...attempt, posted: postedOf(log) };
+    });
+
+  /**
+   * `runs`, each product build that ended done with no result word carrying the PRDs its log's held line names, and whether it ended
+   * on its red gate (bug #3345, ./held.ts › endedOf). Only those are kept, never a line of the log.
+   */
+  const withHeldOn = (runs: ProductRun[]): Promise<ProductRun[]> =>
+    withLogs(runs, (_one, attempt) => attempt.status === 'done' && attempt.outcome === null, (one, attempt, log) => (log === undefined ? attempt : endedOf(attempt, log, one.prd)));
 
   /** The latest plan on a PRD's page; null when it has none. */
   async function planOf(dossier: string | undefined): Promise<string | null> {
@@ -969,8 +979,8 @@ export function missionStore(connection: Connection): MissionStore {
     return null;
   }
 
-  /** The latest version of `kind` (`plan`, `roadmap`) a dossier holds; null when it holds none. */
-  async function latestOf(dossier: string | null, kind: 'plan' | 'roadmap'): Promise<string | null> {
+  /** The latest version of `kind` (`plan`, `roadmap`, `spec`) a dossier holds; null when it holds none. */
+  async function latestOf(dossier: string | null, kind: 'plan' | 'roadmap' | 'spec'): Promise<string | null> {
     if (dossier === null) return null;
     const [version] = rowsOf(PlanRowSchema, await db.from('dossier_versions').select(PLAN).eq('dossier_id', dossier).eq('kind', kind).order('created_at', { ascending: false }).limit(1));
     return version?.content ?? null;
@@ -1008,21 +1018,26 @@ export function missionStore(connection: Connection): MissionStore {
       if (mission.products === undefined) return [];
       const owner = mission.repo.split('/')[0] ?? '';
       const out: StoredProduct[] = [];
-      for (const { prd, blockers } of await productScope(mission, mission.products)) {
+      const scope = await productScope(mission, mission.products);
+      const named = new Set(scope.map((entry) => entry.prd));
+      for (const { prd, blockers } of scope) {
         if (!isProductPrdId(prd)) continue;
         const page = await productDossier(mission, { ...productPrdParts(prd), kind: 'prd' });
         const approved = page === null ? new Map<string, { voided: boolean; overturned: boolean }>() : await approvals([page], mission.id, new Map());
         const plan = await latestOf(page, 'plan');
-        out.push({ prd, approval: approvalOf(page === null ? null : (approved.get(page) ?? null)), blockers, targets: plan === null ? [] : planTargets(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
+        // Bug #3345: a list names no order, so the spec's own `blocked-by` adds the PRDs of the scope it waits on.
+        const declared = specBlockersOf(await latestOf(page, 'spec'), prd).filter((one) => named.has(one));
+        const waits = [...new Set([...blockers, ...declared])];
+        out.push({ prd, approval: approvalOf(page === null ? null : (approved.get(page) ?? null)), blockers: waits, targets: plan === null ? [] : planTargets(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
       }
       return out;
     },
 
     async runs(id) {
-      return (await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }): ProductRun[] => {
+      return withHeldOn((await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }): ProductRun[] => {
         const key = row.mission_key === null ? null : productRunOfKey(row.mission_key);
         return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
-      });
+      }));
     },
 
     send: ({ mission, prd, run, line, toFleet }) => queue({ mission, toFleet, line, key: missionKey(mission.id, prd, run) }),

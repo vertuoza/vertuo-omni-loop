@@ -24134,11 +24134,38 @@ function productEnded(fact, runs, last, { resumes, repairs }) {
   if (again3 !== null || end === "failed") return productRepaired(fact.prd, latest, last, again3 ?? endedWhy(end, last), repairs);
   return byHand(fact.prd, endedWhy(end, last));
 }
-function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null, repairs = NO_REPAIRS }) {
+function heldBuild(fact, latest, last, { done, scope, early }) {
+  const end = endOf(last);
+  if (end === "ready") return null;
+  const inScope = (prd) => scope === void 0 || scope.has(prd);
+  const named = last.heldOn ?? [];
+  const by = [.../* @__PURE__ */ new Set([...fact.blockers, ...named])].filter((one) => one !== fact.prd && inScope(one) && !done.has(one));
+  if (by.length > 0) return { state: "blocked", by };
+  if (early.has(latest.job)) return end === "failed" ? null : { state: "startable", run: latest.run + 1 };
+  const outside = named.filter((one) => !inScope(one) && !done.has(one));
+  if (outside.length === 0) return null;
+  const names = outside.map((one) => `PRD ${String(one)}`).join(", ");
+  return { state: "waits", why: `PRD ${fact.prd}: its build waits on ${names}, outside the mission's scope and not on its branch: merge it, or add it to the scope` };
+}
+function redGate(fact, latest, last) {
+  if (last.gateRed !== true || endOf(last) === "ready") return null;
+  const items = fact.items;
+  if (items !== void 0 && "notRead" in items) return { state: "waits", why: `PRD ${fact.prd}: its gate is red, and its items do not read: ${items.notRead}` };
+  const open = (items?.open ?? []).filter(({ rank }) => rank === null || rank === "high" || rank === "human-action");
+  if (open.length === 0) return { state: "startable", run: latest.run + 1 };
+  const ids = open.map(({ id }) => id ?? "an item that does not read").join(", ");
+  return { state: "waits", why: `PRD ${fact.prd}: its gate is red on ${open.length === 1 ? "1 open item" : `${String(open.length)} open items`} (${ids}): answer them on its page, and the mission builds it again` };
+}
+function productStateOf(fact, runs, { joined: joined2, done, branch, resumes = null, repairs = NO_REPAIRS, scope, early = /* @__PURE__ */ new Set() }) {
   if (joined2.has(fact.prd)) return { state: "joined" };
-  const latest = latestProduct(runs, fact.prd);
+  const own = runs.filter((one) => one.prd === fact.prd);
+  const latest = latestProduct(own, fact.prd);
   const last = latest?.attempts.at(-1);
-  if (latest !== null && last !== void 0) return endOf(last) === null ? { state: "running" } : productEnded(fact, runs.filter((one) => one.prd === fact.prd), last, { resumes, repairs });
+  if (latest !== null && last !== void 0) {
+    if (endOf(last) === null) return { state: "running" };
+    const counted3 = own.filter((one) => one === latest || !early.has(one.job) && one.attempts.at(-1)?.gateRed !== true);
+    return heldBuild(fact, latest, last, { done, scope, early }) ?? redGate(fact, latest, last) ?? productEnded(fact, counted3, last, { resumes, repairs });
+  }
   const by = fact.blockers.filter((one) => !done.has(one));
   if (by.length > 0) return { state: "blocked", by };
   if (fact.approval !== "standing") return { state: "waits", why: `PRD ${fact.prd}: ${fact.approval === "voided" ? "approve it again" : "approve it"} on its page (${branch})` };
@@ -25506,6 +25533,65 @@ async function stuckStep(at4) {
   return { next, events, running: view.jobs.some((job) => !["done", "failed", "cancelled"].includes(job.attempts.at(-1)?.status ?? "")) };
 }
 
+// apps/omni-app/src/missions/held.ts
+var STAMP5 = /^\d{2}:\d{2}:\d{2} /;
+var HELD = /^held: PRD (\S+) (?:is blocked by|waits on|waits for) (.+)$/i;
+var sibling = (prd, seq) => parseProductPrdId(`${productPrdParts(prd).key}-${String(seq)}`);
+function siblingsIn(text20, prd) {
+  const { key } = productPrdParts(prd);
+  const named = [...text20.matchAll(/(?<![\w-])([a-z][a-z0-9-]*)-([1-9]\d{0,9})(?![\w-])/g)].flatMap((match2) => match2[1] === key ? [sibling(prd, Number(match2[2]))] : []);
+  return [...new Set(named)].filter((one) => one !== prd);
+}
+function heldOnOf(log2, prd) {
+  const lines2 = log2.split("\n").map((line3) => line3.trim().replace(STAMP5, "").replaceAll("**", "").trim());
+  for (const line3 of lines2.reverse()) {
+    const match2 = HELD.exec(line3);
+    if (match2?.[1]?.replace(/[.:,]$/, "") !== prd) continue;
+    return siblingsIn((match2[2] ?? "").split(" \xB7 ")[0] ?? "", prd);
+  }
+  return [];
+}
+function endedOf(attempt3, log2, prd) {
+  const heldOn = heldOnOf(log2, prd);
+  const red = gateRedOf(log2, prd);
+  return { ...attempt3, ...heldOn.length === 0 ? {} : { heldOn }, ...red ? { gateRed: true } : {} };
+}
+var HOOK_FAILED = /^[A-Za-z]+ hook \[.*\] failed: /;
+function gateRedOf(log2, prd) {
+  const last = log2.split("\n").map((line3) => line3.trim()).filter((line3) => line3 !== "" && !HOOK_FAILED.test(line3)).at(-1) ?? "";
+  const words = last.replace(STAMP5, "").replaceAll("`", "").trim().split(/\s+/);
+  return words[0] === "/omni:ultra-yolo-fix" && words[1] === prd;
+}
+function specBlockersOf(spec, prd) {
+  const block = spec === null ? null : /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(spec);
+  if (block === null) return [];
+  const raw = parseFrontMatterLines(block[1] ?? "").data["blocked-by"];
+  const read2 = raw === void 0 ? null : SpecFrontMatterSchema.shape["blocked-by"].safeParse(raw);
+  if (read2?.success !== true || read2.data === "none") return [];
+  return [...new Set(read2.data.map((seq) => sibling(prd, seq)))].filter((one) => one !== prd);
+}
+function sentEarly(runs, events, { blockers, scope, done }) {
+  const at4 = (kind, match2) => events.findIndex((event) => event.kind === kind && match2(event));
+  const early = /* @__PURE__ */ new Set();
+  for (const one of runs) {
+    const sent = at4("dispatched", (event) => event.job === one.job);
+    if (sent < 0) continue;
+    const waits = [...blockers.get(one.prd) ?? [], ...one.attempts.at(-1)?.heldOn ?? []].filter((prd) => prd !== one.prd && scope.has(prd));
+    const joinedAt = (prd) => at4("prd-joined", (event) => (event.product ?? event.prd) === prd);
+    if (waits.some((prd) => done.has(prd) ? joinedAt(prd) > sent : true)) early.add(one.job);
+  }
+  return early;
+}
+function heldBuildsOf(runs, events, at4) {
+  const early = sentEarly(runs, events, at4);
+  const named = runs.filter((one) => (one.attempts.at(-1)?.heldOn ?? []).length > 0).map((one) => one.job);
+  return { early, held: /* @__PURE__ */ new Set([...early, ...named]) };
+}
+function withoutHeld(view, held2) {
+  if (held2.size === 0) return view;
+  return { ...view, rows: view.rows.filter((row) => !held2.has(row.failedJob)) };
+}
+
 // kit/lib/mission/retro.ts
 import { z as z102 } from "zod";
 
@@ -25548,7 +25634,7 @@ var MissionItemSchema = z101.strictObject({
 
 // kit/lib/mission/retro.ts
 var RETRO_LINE = "omni retro: ";
-var STAMP5 = /^\d{2}:\d{2}:\d{2} /;
+var STAMP6 = /^\d{2}:\d{2}:\d{2} /;
 var MissionRetroSchema = z102.strictObject({
   wentWell: CitedSentencesSchema,
   toChange: CitedSentencesSchema
@@ -25564,7 +25650,7 @@ var RetroRecordSchema = z102.strictObject({
   items: z102.array(MissionItemSchema)
 });
 function retroLine(log2) {
-  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP5, "")).findLast((line3) => line3.startsWith(RETRO_LINE));
+  const last = log2.split("\n").map((raw) => raw.trim().replace(STAMP6, "")).findLast((line3) => line3.startsWith(RETRO_LINE));
   if (last === void 0) return { readable: false, reason: "missing" };
   let json2;
   try {
@@ -25749,7 +25835,10 @@ async function supervise(store, sought, now2, github) {
   const { branch, joins } = await joinAll({ mission, inPlan, facts, runs, joined: joined2, off, installation: ready.installation, joins: github.joins, hold: held2.hold });
   const answered = await answerAll({ store, mission, facts, runs, branch, recorded, installation: ready.installation, now: now2, github });
   const view = { alone: mission.level === "alone", committees: decided, answers: answered, resumes: resumeCap(mission) };
-  const { repairView, stuck } = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...await productRepairAt(store, mission) });
+  const productRead = await productRepairAt(store, mission, facts);
+  const readRepair = await repairsOf({ store, mission, runs, recorded: dropped.recorded, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, budget: MISSION_REPAIRS, kits: github.kits, ...productRead.at });
+  const { stuck } = readRepair;
+  const repairView = withoutHeld(readRepair.repairView, productRead.held);
   const qa = await readQa({ store, mission, runs, recorded: dropped.recorded, installation: ready.installation, joins: github.joins, inPlan });
   const outside = await outsideAll({ store, mission, runs, repairs: repairView, branch: baseOf(mission, inPlan), installation: ready.installation, joins: github.joins, toFleet, sends: unready === null, recorded: dropped.recorded });
   const planAt = { alone: view.alone, facts, runs, committees: decided, plans: pm.plans, recorded: dropped.recorded, repairs: repairView };
@@ -25764,7 +25853,7 @@ async function supervise(store, sought, now2, github) {
   const states = after2.states;
   const pmSent = await sendPmAll({ store, mission, pm, inPlan, toFleet, sends: unready === null, planned: planned.events, retro: after2.retro });
   const fresh = sent.length + approved.length + asked.length + repaired2.length;
-  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs });
+  const products = await productAll({ store, mission, inPlan, states, installation: ready.installation, toFleet, sends: unready === null, github, pm: { jobs: [...pm.jobs, ...planned.jobs], authored: pm.products }, repairs: sentRepairs, early: productRead.early });
   const repairs = { ...sentRepairs, jobs: [...sentRepairs.jobs, ...products.repaired] };
   const landed = await landingStep({ store, mission, at: at4, landing, hold: kept3.hold, on: [...branch.joined], facts, runs, states, off, products, outside: outside.states, toFleet, now: now2, github });
   const waited = withWaits(conclude({ mission, facts, states, sent: fresh, now: now2, branch: branch.branch }), [...dropped.waits, ...held2.waits, ...landed.waits]);
@@ -25779,9 +25868,16 @@ async function supervise(store, sought, now2, github) {
   const running = atWork3(states, retro2.running) || products.moving;
   return { next, running, moved, sent: sent.length + repaired2.length + products.sent + landed.events.length, events: events.length + retro2.events.length + products.events.length + productRepairs.length + landed.events.length };
 }
-async function productRepairAt(store, mission) {
-  if (store.products === void 0 || mission.products === void 0) return {};
-  return { products: await store.products.runs(mission.id), repos: (await store.branches(mission.id)).map((one) => one.repo) };
+async function productRepairAt(store, mission, facts) {
+  if (store.products === void 0 || mission.products === void 0) return { at: {}, early: /* @__PURE__ */ new Set(), held: /* @__PURE__ */ new Set() };
+  const runs = await store.products.runs(mission.id);
+  const at4 = { products: runs, repos: (await store.branches(mission.id)).map((one) => one.repo) };
+  if (runs.length === 0) return { at: at4, early: /* @__PURE__ */ new Set(), held: /* @__PURE__ */ new Set() };
+  const products = await store.products.facts(mission);
+  const events = await store.events(mission.id);
+  const done = /* @__PURE__ */ new Set([...productsJoined(events), ...facts.filter((fact) => fact.stage === "merged").map((fact) => fact.prd)]);
+  const blockers = new Map(products.map((one) => [one.prd, one.blockers]));
+  return { at: at4, ...heldBuildsOf(runs, events, { blockers, scope: new Set(products.map((one) => one.prd)), done }) };
 }
 var atWork3 = (states, retros) => retros || [...states.values()].some((state) => state.state === "running" || state.state === "repairing");
 async function repairsOf(at4) {
@@ -26398,7 +26494,7 @@ async function reviewStep(at4, fact, state, step) {
 }
 async function productSteps(at4, facts) {
   const done = /* @__PURE__ */ new Set([...at4.joined, ...[...at4.states].flatMap(([prd, state]) => state.state === "merged" || state.state === "joined" ? [prd] : [])]);
-  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission), repairs: at4.repairs };
+  const where = { joined: at4.joined, done, branch: at4.branch, resumes: resumeCap(at4.mission), repairs: at4.repairs, scope: new Set(facts.map((fact) => fact.prd)), early: at4.early ?? /* @__PURE__ */ new Set() };
   const busy = facts.filter((fact) => ["running", "repairing"].includes(productStateOf(fact, at4.runs, where).state)).length;
   const step = { room: at4.mission.parallel - busy, moving: false, waits: [], events: [], repairs: at4.repairs, repaired: [] };
   for (const fact of facts) {
@@ -26626,8 +26722,8 @@ function missionBugIssues({ octokitFor }) {
 
 // apps/omni-app/src/missions/repair.github.ts
 import { z as z105 } from "zod";
-var STAMP6 = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
-var stampOf = (text20) => parseVersion(STAMP6.exec(text20)?.[1]);
+var STAMP7 = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
+var stampOf = (text20) => parseVersion(STAMP7.exec(text20)?.[1]);
 var BIN = ".omni-loop/bin/omni.mjs";
 var HEAD_BYTES = 65535;
 var CONTENTS2 = "GET /repos/{owner}/{repo}/contents/{path}";
@@ -27233,20 +27329,17 @@ function missionStore(connection) {
     const overturnedHere = await overturnedAmong(rows.filter((row) => row.mission_id === mission && latest.get(row.dossier_id) === row.id), mission, pageOf);
     return new Map([...latest].map(([dossier, id]) => [dossier, { voided: voided.has(id), overturned: overturnedHere.has(dossier) }]));
   }
-  async function withPosted(runs) {
-    const read2 = (step, attempt3) => isVerdict(step, attempt3) || isChecked(step, attempt3);
-    const ids = runs.flatMap((one) => one.attempts.filter((attempt3) => read2(one.step, attempt3)).map((attempt3) => attempt3.id));
+  async function withLogs(runs, read2, keep4) {
+    const ids = runs.flatMap((one) => one.attempts.filter((attempt3) => read2(one, attempt3)).map((attempt3) => attempt3.id));
     if (ids.length === 0) return runs;
     const logs = new Map(rowsOf(JobLogRowSchema, await db.from("runner_jobs").select(JOB_LOG).in("id", ids)).map((row) => [row.id, row.log_tail]));
-    return runs.map((one) => ({
-      ...one,
-      attempts: one.attempts.map((attempt3) => {
-        const log2 = logs.get(attempt3.id);
-        if (isChecked(one.step, attempt3)) return { ...attempt3, checked: log2 === void 0 ? null : qaLine(log2) };
-        return log2 === void 0 || !isVerdict(one.step, attempt3) ? attempt3 : { ...attempt3, posted: postedOf(log2) };
-      })
-    }));
+    return runs.map((one) => ({ ...one, attempts: one.attempts.map((attempt3) => read2(one, attempt3) ? keep4(one, attempt3, logs.get(attempt3.id)) : attempt3) }));
   }
+  const withPosted = (runs) => withLogs(runs, (one, attempt3) => isVerdict(one.step, attempt3) || isChecked(one.step, attempt3), (one, attempt3, log2) => {
+    if (isChecked(one.step, attempt3)) return { ...attempt3, checked: log2 === void 0 ? null : qaLine(log2) };
+    return log2 === void 0 ? attempt3 : { ...attempt3, posted: postedOf(log2) };
+  });
+  const withHeldOn = (runs) => withLogs(runs, (_one, attempt3) => attempt3.status === "done" && attempt3.outcome === null, (one, attempt3, log2) => log2 === void 0 ? attempt3 : endedOf(attempt3, log2, one.prd));
   async function planOf(dossier) {
     if (dossier === void 0) return null;
     const [plan] = rowsOf(PlanRowSchema, await db.from("dossier_versions").select(PLAN).eq("dossier_id", dossier).eq("kind", "plan").order("created_at", { ascending: false }).limit(1));
@@ -27406,20 +27499,24 @@ function missionStore(connection) {
       if (mission.products === void 0) return [];
       const owner = mission.repo.split("/")[0] ?? "";
       const out = [];
-      for (const { prd, blockers } of await productScope(mission, mission.products)) {
+      const scope = await productScope(mission, mission.products);
+      const named = new Set(scope.map((entry) => entry.prd));
+      for (const { prd, blockers } of scope) {
         if (!isProductPrdId(prd)) continue;
         const page = await productDossier(mission, { ...productPrdParts(prd), kind: "prd" });
         const approved = page === null ? /* @__PURE__ */ new Map() : await approvals([page], mission.id, /* @__PURE__ */ new Map());
         const plan = await latestOf4(page, "plan");
-        out.push({ prd, approval: approvalOf(page === null ? null : approved.get(page) ?? null), blockers, targets: plan === null ? [] : planTargets2(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
+        const declared = specBlockersOf(await latestOf4(page, "spec"), prd).filter((one) => named.has(one));
+        const waits = [.../* @__PURE__ */ new Set([...blockers, ...declared])];
+        out.push({ prd, approval: approvalOf(page === null ? null : approved.get(page) ?? null), blockers: waits, targets: plan === null ? [] : planTargets2(plan, owner), items: await productItems(page), plan: await latestPlanSha(page) });
       }
       return out;
     },
     async runs(id) {
-      return (await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }) => {
+      return withHeldOn((await keyedJobs(id, `mission:${id}:prd:%-%:run:%`)).flatMap(({ row, attempts }) => {
         const key = row.mission_key === null ? null : productRunOfKey(row.mission_key);
         return key === null ? [] : [{ prd: key.prd, run: key.run, job: row.id, attempts }];
-      });
+      }));
     },
     send: ({ mission, prd, run, line: line3, toFleet }) => queue({ mission, toFleet, line: line3, key: missionKey(mission.id, prd, run) }),
     async reviews(id) {
