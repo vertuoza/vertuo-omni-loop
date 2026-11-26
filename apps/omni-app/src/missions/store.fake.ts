@@ -127,6 +127,8 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const retroRows: (RetroRow & { retro: MissionRetro | null })[] = [];
   const items: (ItemRow & { retro: string })[] = [];
   const queued = (id: string): Attempt => ({ id, status: 'queued', outcome: null, reason: null, prUrl: null });
+  /** When the job made `made`th was queued (bug #3369): one second after the one before, whichever kind it is. */
+  const sentAt = (): string => new Date(NOW_OF_ASKS + made * 1000).toISOString();
 
   /** The log of job `job`: a committee's, an item's, a PM's by its job; a repair's, a stuck repair's or a retro's by any attempt. */
   const logOf = (job: string): string | null => {
@@ -213,7 +215,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
   const productStore: MissionProducts = {
     facts: (read) => Promise.resolve(productFacts.filter((one) => !pagedOnly.has(one.prd) || (read.products?.prds ?? []).includes(one.prd)).map((one) => ({ ...one, blockers: [...one.blockers], targets: [...one.targets] }))),
     // Bug #3345: a build that ended done with no result word carries what its log's held line names, and its red gate, as the store reads them.
-    runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts, log }) => ({ prd, run, job, attempts: attempts.map((one) => {
+    runs: () => Promise.resolve(productJobs.map(({ prd, run, job, attempts, log, sentAt: sent }) => ({ prd, run, job, ...(sent === undefined ? {} : { sentAt: sent }), attempts: attempts.map((one) => {
       const read = log !== undefined && one === attempts.at(-1) && one.status === 'done' && one.outcome === null;
       return read ? endedOf({ ...one }, log, prd) : { ...one };
     }) }))),
@@ -222,7 +224,7 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (productJobs.some((one) => one.key === key)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      productJobs.push({ prd, run, job: id, attempts: [queued(id)], key, line, toFleet: toFleet ? sent.fleet : null });
+      productJobs.push({ prd, run, job: id, attempts: [queued(id)], key, line, toFleet: toFleet ? sent.fleet : null, sentAt: sentAt() });
       return Promise.resolve(id);
     },
     reviews: () => Promise.resolve({
@@ -317,12 +319,12 @@ export function fakeMissionStore({ mission, facts, fleetRunners = true, planRepo
       if (decision.outcome === 'carried') current = current.map((fact) => (fact.prd === one.prd ? { ...fact, approval: 'standing' } : fact));
       return Promise.resolve(decision);
     },
-    asks: () => Promise.resolve(asks.map(({ prd, item, job, attempt }) => ({ prd, item, job, attempt: { ...attempt } }))),
+    asks: () => Promise.resolve(asks.map(({ prd, item, job, attempt, sentAt: sent }) => ({ prd, item, job, attempt: { ...attempt }, ...(sent === undefined ? {} : { sentAt: sent }) }))),
     ask: ({ mission: sent, prd, item, toFleet }) => {
       if (asks.some((one) => one.prd === prd && one.item === item)) return Promise.resolve(null);
       made += 1;
       const id = `job-${String(made)}`;
-      asks.push({ prd, item, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, line: askLine(prd, item, sent.hardToRevert ?? DEFAULT_BOUND), toFleet: toFleet ? sent.fleet : null, log: null });
+      asks.push({ prd, item, job: id, attempt: { id, status: 'queued', outcome: null, reason: null, prUrl: null }, line: askLine(prd, item, sent.hardToRevert ?? DEFAULT_BOUND), toFleet: toFleet ? sent.fleet : null, log: null, sentAt: sentAt() });
       return Promise.resolve(id);
     },
     approve: ({ mission: sent, prd, round, toFleet, author = null, resume = 0 }) => {
