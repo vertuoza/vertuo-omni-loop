@@ -5,8 +5,8 @@
 //
 //   1. records the looks the seat missed in a row
 //   2. upserts one open signal per fire, by fingerprint: a check run twice never doubles a signal
-//   3. closes every open signal no check fired again; a finding the check wrote alone and nobody looked at closes with
-//      it, as resolved
+//   3. closes every open signal no check fired again; a finding closes as resolved once every signal it holds (those
+//      pointing at it) closed, whether a check or the seat raised it, looked at or not (PRD omni-loop-35)
 //   4. while the seat is offline, paused or past its limit, turns each due signal with no finding into a finding written
 //      by the check alone: its check and figures first, its evidence, no explanation, `looked_at` null (the page's
 //      "No Supervisor look yet"), and the check's suggestions. The offline finding is always the check's. A watching
@@ -74,7 +74,7 @@ function raisable({ now, state, fire, signal, findingOf, dismissals }: {
 }
 
 /**
- * The plan of one run: the open signals no fire kept are closed (with the finding the check wrote alone, unlooked); a
+ * The plan of one run: the open signals no fire kept are closed (with each open finding none of whose signals is left); a
  * fire whose signal is due and has no finding (or a dismissed one whose evidence changed) is raised, when the check
  * writes alone or when the fire is the seat's own. Pure.
  */
@@ -92,10 +92,13 @@ export function planWatch({ now, state, fires, before, after, linked, dismissals
   const fired = new Set(fires.map((fire) => fire.fingerprint));
   const findingOf = new Map(linked.map((finding) => [finding.id, finding]));
   const gone = before.filter((signal) => !fired.has(signal.fingerprint));
-  const resolve = gone.flatMap((signal) => {
+  // A finding closes once every signal it holds closed, whoever raised it and whether the seat looked at it or not
+  // (PRD omni-loop-35): the signals it holds are those pointing at it, and one still open keeps it open.
+  const held = new Set(before.flatMap((signal) => (fired.has(signal.fingerprint) && signal.findingId !== null ? [signal.findingId] : [])));
+  const resolve = [...new Set(gone.flatMap((signal) => {
     const finding = signal.findingId === null ? undefined : findingOf.get(signal.findingId);
-    return finding?.state === 'open' && finding.raisedBy === 'check' && finding.lookedAt === null ? [finding.id] : [];
-  });
+    return finding?.state === 'open' && !held.has(finding.id) ? [finding.id] : [];
+  }))];
   const signalOf = new Map(after.map((signal) => [signal.fingerprint, signal]));
   const raise = fires.flatMap((fire) => {
     const signal = signalOf.get(fire.fingerprint);

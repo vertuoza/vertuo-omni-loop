@@ -529,7 +529,7 @@ async function recordAppError(error, sink) {
 
 // apps/omni-app/src/jobs/sweep.ts
 import { timingSafeEqual } from "node:crypto";
-import { z as z130 } from "zod";
+import { z as z131 } from "zod";
 
 // kit/lib/log/log.ts
 var LOG_FIELDS = [
@@ -10049,9 +10049,9 @@ async function mergeJobs(octokit, { owner, repo, mergeSha, unread: unread2 }) {
   }
   return { commit: mergeSha, status: null, jobs };
 }
-function daysText(days) {
-  if (days < 1) return "less than a day";
-  return days === 1 ? "1 day" : `${days} days`;
+function daysText(days2) {
+  if (days2 < 1) return "less than a day";
+  return days2 === 1 ? "1 day" : `${days2} days`;
 }
 function plural3(count4, noun) {
   return `${count4} ${noun}${count4 === 1 ? "" : "s"}`;
@@ -18573,12 +18573,12 @@ var SUNDAY = 0;
 var isWeekend = (date) => date.getUTCDay() === SATURDAY || date.getUTCDay() === SUNDAY;
 function workingStart(date) {
   if (!isWeekend(date)) return date;
-  const days = date.getUTCDay() === SATURDAY ? 2 : 1;
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+  const days2 = date.getUTCDay() === SATURDAY ? 2 : 1;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days2));
 }
-function addWorkingDays(start, days) {
+function addWorkingDays(start, days2) {
   let at4 = workingStart(start);
-  for (let left = days; left > 0; ) {
+  for (let left = days2; left > 0; ) {
     at4 = new Date(at4.getTime() + DAY_MS4);
     if (!isWeekend(at4)) left -= 1;
   }
@@ -21438,7 +21438,8 @@ var SCHEDULES = Object.freeze([
   { kind: "search-eval-promote", periodMinutes: 1440, maxTries: 3 },
   { kind: "search-eval-run", periodMinutes: 1440, maxTries: 3 },
   { kind: "checkpoints-forget", periodMinutes: 60, maxTries: 3 },
-  { kind: "commander-notebook", periodMinutes: 1440, maxTries: 3 }
+  { kind: "commander-notebook", periodMinutes: 1440, maxTries: 3 },
+  { kind: "runner-jobs-expire", periodMinutes: 15, maxTries: 3 }
 ]);
 var SUPERVISOR_WATCH = Object.freeze({ kind: "supervisor-watch", periodMinutes: 2, maxTries: 2 });
 var LANED_SCHEDULES = Object.freeze([SUPERVISOR_WATCH]);
@@ -28831,8 +28832,41 @@ function checkpointsForgetHandler({
   };
 }
 
-// apps/omni-app/src/supervisor/store.ts
+// apps/omni-app/src/jobs/runner-jobs-expire/job.ts
+var RUNNER_JOBS_EXPIRE_KIND = "runner-jobs-expire";
+function runnerJobsExpireHandler({
+  store,
+  clock = Date.now,
+  log: log2 = noteTo(RUNNER_JOBS_EXPIRE_KIND)
+}) {
+  return async () => {
+    const { failed: failed3, expired, questions, grouped: grouped2 } = await store.expire(new Date(clock()));
+    log2(`runner jobs expire: ${String(failed3)} queued ended failed, ${String(expired)} waiting expired, ${String(questions)} rounds closed, ${String(grouped2)} per-job findings grouped`);
+    return { outcome: "done" };
+  };
+}
+
+// apps/omni-app/src/jobs/runner-jobs-expire/store.ts
 import { z as z120 } from "zod";
+var ExpireCountsSchema = z120.object({
+  failed: z120.number().int().nonnegative(),
+  expired: z120.number().int().nonnegative(),
+  questions: z120.number().int().nonnegative(),
+  grouped: z120.number().int().nonnegative()
+});
+function expireStore(connection) {
+  const db = serviceDb(connection);
+  return {
+    expire: async (now) => {
+      const { data, error } = await db.rpc("runner_jobs_expire", { p_now: now.toISOString() });
+      if (error) throw new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return ExpireCountsSchema.parse(data);
+    }
+  };
+}
+
+// apps/omni-app/src/supervisor/store.ts
+import { z as z121 } from "zod";
 
 // apps/omni-app/src/supervisor/baselines.ts
 var BASELINE = /^Baseline ([a-z][a-z0-9-]*): (\d+(?:\.\d+)?) min\b/;
@@ -28856,64 +28890,66 @@ var FAILED_JOB = `${WATCH_JOB}, log_tail`;
 var WATCH_MISSION = "id, number, title, status, updated_at";
 var SIGNAL = "id, fingerprint, opened_at, finding_id";
 var FINDING = "id, state, raised_by, looked_at";
+var HELD = "finding_id";
 var DISMISSAL = "evidence_key, supervisor_findings!inner(fingerprint)";
-var LaneRowSchema2 = z120.object({ workspace_id: z120.uuid() });
-var SeatRowSchema = z120.object({
-  workspace_id: z120.uuid(),
-  runner_id: z120.uuid(),
-  paused: z120.boolean(),
-  daily_tokens: z120.coerce.number(),
-  tokens_day: z120.string().nullable(),
-  tokens_used: z120.coerce.number(),
-  last_look_at: z120.string().nullable(),
-  placed_at: z120.string(),
-  runners: z120.object({ name: z120.string() }).nullable()
+var LaneRowSchema2 = z121.object({ workspace_id: z121.uuid() });
+var SeatRowSchema = z121.object({
+  workspace_id: z121.uuid(),
+  runner_id: z121.uuid(),
+  paused: z121.boolean(),
+  daily_tokens: z121.coerce.number(),
+  tokens_day: z121.string().nullable(),
+  tokens_used: z121.coerce.number(),
+  last_look_at: z121.string().nullable(),
+  placed_at: z121.string(),
+  runners: z121.object({ name: z121.string() }).nullable()
 });
-var AccountSchema = z120.object({ state: z120.enum(["ready", "active", "out"]) });
-var HealthSchema2 = z120.object({ paused: z120.string().nullable().optional(), accounts: z120.array(AccountSchema).optional() }).nullable().catch(null);
-var WatchRunnerRowSchema = z120.object({
-  id: z120.uuid(),
-  name: z120.string(),
-  fleet: z120.string().nullable(),
-  repos: z120.array(z120.string()),
-  last_seen_at: z120.string(),
-  health: z120.unknown()
+var AccountSchema = z121.object({ state: z121.enum(["ready", "active", "out"]) });
+var HealthSchema2 = z121.object({ paused: z121.string().nullable().optional(), accounts: z121.array(AccountSchema).optional() }).nullable().catch(null);
+var WatchRunnerRowSchema = z121.object({
+  id: z121.uuid(),
+  name: z121.string(),
+  fleet: z121.string().nullable(),
+  repos: z121.array(z121.string()),
+  last_seen_at: z121.string(),
+  health: z121.unknown()
 });
-var SampleRowSchema = z120.object({ runner_id: z120.uuid(), at: z120.string(), disk_free: z120.coerce.number().nullable() });
-var WatchJobRowSchema = z120.object({
-  id: z120.uuid(),
-  repo: z120.string(),
-  line: z120.string(),
-  status: z120.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  outcome: z120.string().nullable(),
-  reason: z120.string().nullable(),
-  runner_id: z120.uuid().nullable(),
-  to_runner: z120.uuid().nullable(),
-  to_fleet: z120.string().nullable(),
-  queued_at: z120.string(),
-  running_at: z120.string().nullable(),
-  ended_at: z120.string().nullable(),
-  resume_after: z120.string().nullable(),
-  attempt: z120.number().int()
+var SampleRowSchema = z121.object({ runner_id: z121.uuid(), at: z121.string(), disk_free: z121.coerce.number().nullable() });
+var WatchJobRowSchema = z121.object({
+  id: z121.uuid(),
+  repo: z121.string(),
+  line: z121.string(),
+  status: z121.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  outcome: z121.string().nullable(),
+  reason: z121.string().nullable(),
+  runner_id: z121.uuid().nullable(),
+  to_runner: z121.uuid().nullable(),
+  to_fleet: z121.string().nullable(),
+  queued_at: z121.string(),
+  running_at: z121.string().nullable(),
+  ended_at: z121.string().nullable(),
+  resume_after: z121.string().nullable(),
+  attempt: z121.number().int()
 });
-var FailedJobRowSchema = WatchJobRowSchema.extend({ log_tail: z120.string() });
-var LineAtRowSchema = z120.object({ at: z120.string() });
-var ContinuesRowSchema = z120.object({ continues: z120.uuid().nullable() });
-var WatchMissionRowSchema = z120.object({ id: z120.uuid(), number: z120.number().int(), title: z120.string(), status: z120.string(), updated_at: z120.string() });
-var EventAtRowSchema = z120.object({ at: z120.string() });
-var LedgerRowSchema = z120.object({ kind: z120.string(), state: z120.string() });
-var WatchRepairRowSchema = z120.object({ fingerprint: z120.string() });
-var ErrorRowSchema = z120.object({ route: z120.string(), status: z120.number().int(), created_at: z120.string() });
-var NoteRowSchema = z120.object({ line: z120.string() });
-var SignalRowSchema = z120.object({ id: z120.uuid(), fingerprint: z120.string(), opened_at: z120.string(), finding_id: z120.uuid().nullable() });
-var FindingRowSchema = z120.object({
-  id: z120.uuid(),
-  state: z120.enum(["open", "acted", "dismissed", "resolved"]),
-  raised_by: z120.enum(["check", "supervisor"]),
-  looked_at: z120.string().nullable()
+var FailedJobRowSchema = WatchJobRowSchema.extend({ log_tail: z121.string() });
+var LineAtRowSchema = z121.object({ at: z121.string() });
+var ContinuesRowSchema = z121.object({ continues: z121.uuid().nullable() });
+var WatchMissionRowSchema = z121.object({ id: z121.uuid(), number: z121.number().int(), title: z121.string(), status: z121.string(), updated_at: z121.string() });
+var EventAtRowSchema = z121.object({ at: z121.string() });
+var LedgerRowSchema = z121.object({ kind: z121.string(), state: z121.string() });
+var WatchRepairRowSchema = z121.object({ fingerprint: z121.string() });
+var ErrorRowSchema = z121.object({ route: z121.string(), status: z121.number().int(), created_at: z121.string() });
+var NoteRowSchema = z121.object({ line: z121.string() });
+var SignalRowSchema = z121.object({ id: z121.uuid(), fingerprint: z121.string(), opened_at: z121.string(), finding_id: z121.uuid().nullable() });
+var FindingRowSchema = z121.object({
+  id: z121.uuid(),
+  state: z121.enum(["open", "acted", "dismissed", "resolved"]),
+  raised_by: z121.enum(["check", "supervisor"]),
+  looked_at: z121.string().nullable()
 });
-var DismissalRowSchema = z120.object({ evidence_key: z120.string().nullable(), supervisor_findings: z120.object({ fingerprint: z120.string().nullable() }) });
-var IdRowSchema3 = z120.object({ id: z120.uuid() });
+var DismissalRowSchema = z121.object({ evidence_key: z121.string().nullable(), supervisor_findings: z121.object({ fingerprint: z121.string().nullable() }) });
+var HeldRowSchema2 = z121.object({ finding_id: z121.uuid().nullable() });
+var IdRowSchema3 = z121.object({ id: z121.uuid() });
 function lastLineOf(tail) {
   const line3 = tail.split("\n").map((text20) => text20.trim()).filter((text20) => text20 !== "").at(-1);
   return line3 === void 0 ? null : maskSecrets(line3).slice(0, 600);
@@ -29063,7 +29099,10 @@ function watchStore(connection) {
       done(await db.from("supervisor_signals").update({ closed_at: at4 }).in("id", [...ids]).is("closed_at", null));
     },
     async resolveFindings(ids, at4) {
-      done(await db.from("supervisor_findings").update({ state: "resolved", closed_at: at4 }).in("id", [...ids]).eq("state", "open"));
+      const held2 = new Set(rowsOf(HeldRowSchema2, await db.from("supervisor_signals").select(HELD).in("finding_id", [...ids]).is("closed_at", null).limit(1e3)).flatMap((row) => row.finding_id === null ? [] : [row.finding_id]));
+      const free = ids.filter((id) => !held2.has(id));
+      if (free.length === 0) return;
+      done(await db.from("supervisor_findings").update({ state: "resolved", closed_at: at4 }).in("id", free).eq("state", "open"));
     },
     async raise(finding, at4) {
       const [made] = rowsOf(IdRowSchema3, await db.from("supervisor_findings").insert({
@@ -29156,23 +29195,41 @@ function canTake(runner, job, now) {
   if (job.toRunner !== null) return job.toRunner === runner.id;
   return job.toFleet === null || job.toFleet === runner.fleet;
 }
-var queueStuck = ({ now, jobs, runners }) => jobs.flatMap((job) => {
-  if (job.status !== "queued") return [];
-  const since = Math.max(Date.parse(job.queuedAt), job.resumeAfter === null ? 0 : Date.parse(job.resumeAfter));
-  const waited = now - since;
-  if (waited < 15 * MINUTE4 || runners.some((runner) => canTake(runner, job, now))) return [];
-  return [{
-    fingerprint: `stuck:queue:${job.id}`,
-    check: "queue-stuck",
-    kind: "stuck",
-    severity: "medium",
-    title: `A job for ${job.repo} waits with no runner to take it`,
-    checkLine: `Queue nobody can take: queued ${minutes(waited)} min, no online runner can take ${job.repo}`,
-    figures: { queuedMin: Number(minutes(waited)), runners: runners.length },
-    evidence: [{ of: "job", id: job.id, text: clean(job.line) }],
-    evidenceKey: evidenceKey([job.id])
-  }];
-});
+var GROUP_EVIDENCE = 50;
+function grouped(waits) {
+  const longest = [...waits].sort((a, b) => b.waited - a.waited || a.job.id.localeCompare(b.job.id));
+  return {
+    evidence: longest.slice(0, GROUP_EVIDENCE).map(({ job }) => ({ of: "job", id: job.id, text: clean(job.line) })),
+    evidenceKey: evidenceKey(waits.map(({ job }) => job.id).sort()),
+    oldest: longest[0]?.waited ?? 0
+  };
+}
+var days = (ms2) => String(Number((ms2 / (24 * HOUR2)).toFixed(1)));
+var queueStuck = ({ now, jobs, runners }) => {
+  const byRepo = /* @__PURE__ */ new Map();
+  for (const job of jobs) {
+    if (job.status !== "queued") continue;
+    const since = Math.max(Date.parse(job.queuedAt), job.resumeAfter === null ? 0 : Date.parse(job.resumeAfter));
+    const waited = now - since;
+    if (waited < 15 * MINUTE4 || runners.some((runner) => canTake(runner, job, now))) continue;
+    const repo = job.repo.toLowerCase();
+    byRepo.set(repo, [...byRepo.get(repo) ?? [], { job, waited }]);
+  }
+  return [...byRepo.entries()].map(([repo, waits]) => {
+    const { evidence, evidenceKey: key, oldest } = grouped(waits);
+    return {
+      fingerprint: `stuck:queue-repo:${repo}`,
+      check: "queue-stuck",
+      kind: "stuck",
+      severity: "medium",
+      title: `${String(waits.length)} jobs for ${repo} wait with no runner to take them`,
+      checkLine: `Queue nobody can take: ${String(waits.length)} jobs queued up to ${days(oldest)} days, no online runner can take ${repo}`,
+      figures: { jobs: waits.length, oldestDays: Number(days(oldest)), oldestMin: Number(minutes(oldest)), runners: runners.length },
+      evidence,
+      evidenceKey: key
+    };
+  });
+};
 var resumeLoop = ({ now, jobs }) => jobs.flatMap((job) => {
   if (job.status !== "failed" || job.attempt < 3 || job.reason === null || !LOST_REASONS2.includes(job.reason)) return [];
   if (age(job.endedAt, now) > 24 * HOUR2) return [];
@@ -29226,23 +29283,31 @@ var missionNotMoving = ({ now, missions }) => missions.flatMap((mission) => {
     ]
   }];
 });
-var waitingTooLong = ({ now, jobs }) => jobs.flatMap((job) => {
-  const label2 = job.outcome === null ? void 0 : WAITING[job.outcome];
-  if (job.status !== "done" || label2 === void 0 || job.continued) return [];
-  const waited = age(job.endedAt, now);
-  if (!Number.isFinite(waited) || waited <= 4 * HOUR2) return [];
-  return [{
-    fingerprint: `stuck:waiting:${job.id}`,
-    check: "waiting-too-long",
-    kind: "stuck",
-    severity: "medium",
-    title: `A ${skillOf(job.line)} job waits on a person`,
-    checkLine: `Waiting too long: ${label2} for ${hours(waited)} h`,
-    figures: { waitedHours: Number(hours(waited)), state: label2 },
-    evidence: [{ of: "job", id: job.id, text: clean(job.line) }],
-    evidenceKey: evidenceKey([job.id])
-  }];
-});
+var waitingTooLong = ({ now, jobs }) => {
+  const byState = /* @__PURE__ */ new Map();
+  for (const job of jobs) {
+    const label2 = job.outcome === null ? void 0 : WAITING[job.outcome];
+    if (job.status !== "done" || job.outcome === null || label2 === void 0 || job.continued) continue;
+    const waited = age(job.endedAt, now);
+    if (!Number.isFinite(waited) || waited <= 4 * HOUR2) continue;
+    byState.set(job.outcome, [...byState.get(job.outcome) ?? [], { job, waited }]);
+  }
+  return [...byState.entries()].map(([state, waits]) => {
+    const label2 = WAITING[state] ?? state;
+    const { evidence, evidenceKey: key, oldest } = grouped(waits);
+    return {
+      fingerprint: `stuck:waiting:${state}`,
+      check: "waiting-too-long",
+      kind: "stuck",
+      severity: "medium",
+      title: `${String(waits.length)} jobs wait on a person: ${label2}`,
+      checkLine: `Waiting too long: ${String(waits.length)} jobs ${label2} for up to ${hours(oldest)} h`,
+      figures: { jobs: waits.length, waitedHours: Number(hours(oldest)), state: label2 },
+      evidence,
+      evidenceKey: key
+    };
+  });
+};
 function failureGroups(jobs, now) {
   const groups = /* @__PURE__ */ new Map();
   const add = (by, raw, id) => {
@@ -29477,10 +29542,11 @@ function planWatch({ now, state, fires, before: before2, after: after2, linked, 
   const fired = new Set(fires.map((fire) => fire.fingerprint));
   const findingOf = new Map(linked.map((finding) => [finding.id, finding]));
   const gone = before2.filter((signal) => !fired.has(signal.fingerprint));
-  const resolve3 = gone.flatMap((signal) => {
+  const held2 = new Set(before2.flatMap((signal) => fired.has(signal.fingerprint) && signal.findingId !== null ? [signal.findingId] : []));
+  const resolve3 = [...new Set(gone.flatMap((signal) => {
     const finding = signal.findingId === null ? void 0 : findingOf.get(signal.findingId);
-    return finding?.state === "open" && finding.raisedBy === "check" && finding.lookedAt === null ? [finding.id] : [];
-  });
+    return finding?.state === "open" && !held2.has(finding.id) ? [finding.id] : [];
+  }))];
   const signalOf = new Map(after2.map((signal) => [signal.fingerprint, signal]));
   const raise = fires.flatMap((fire) => {
     const signal = signalOf.get(fire.fingerprint);
@@ -29595,19 +29661,19 @@ function searchCategorizeHandler({
     const searches = await store.ungrouped(limit);
     if (searches.length === 0) return { outcome: "done" };
     const start = clock();
-    let grouped = 0;
+    let grouped2 = 0;
     let started = 0;
     let categorized = 0;
     for (let at4 = 0; at4 < searches.length; at4 += EMBED_BATCH) {
       if (clock() - start >= budgetMs) {
-        log2(`search categorize: ${String(grouped)} of ${String(searches.length)} searches grouped, out of time: again in a minute`);
-        return { outcome: "later", at: new Date(clock() + AGAIN_MS4), progress: { grouped } };
+        log2(`search categorize: ${String(grouped2)} of ${String(searches.length)} searches grouped, out of time: again in a minute`);
+        return { outcome: "later", at: new Date(clock() + AGAIN_MS4), progress: { grouped: grouped2 } };
       }
       const batch = searches.slice(at4, at4 + EMBED_BATCH);
       const vectors = await embed(batch.map((search) => search.question));
       for (const [i, search] of batch.entries()) {
         if (await groupSearch(store, search, vectors[i] ?? [], threshold)) started += 1;
-        grouped += 1;
+        grouped2 += 1;
         const category = await categoryOf(categorize, search);
         if (category !== null) {
           await store.setCategory(search.id, category);
@@ -29615,15 +29681,15 @@ function searchCategorizeHandler({
         }
       }
     }
-    log2(`search categorize: ${String(grouped)} searches grouped (${String(started)} new groups), ${String(categorized)} categorized`);
+    log2(`search categorize: ${String(grouped2)} searches grouped (${String(started)} new groups), ${String(categorized)} categorized`);
     return { outcome: "done" };
   };
 }
 
 // apps/omni-app/src/search-categorize/galaxy.ts
-import { z as z121 } from "zod";
+import { z as z122 } from "zod";
 var TIMEOUT_MS2 = 2e4;
-var ReplySchema2 = z121.looseObject({ category: z121.string().nullable() });
+var ReplySchema2 = z122.looseObject({ category: z122.string().nullable() });
 function categorizeUrl(galaxyUrl) {
   return `${new URL(stageEventUrl(galaxyUrl)).origin}/api/search/categorize`;
 }
@@ -29646,10 +29712,10 @@ function galaxyCategorizer({ url, secret, fetch: post2 = fetch, timeoutMs = TIME
 }
 
 // apps/omni-app/src/search-categorize/store.ts
-import { z as z122 } from "zod";
-var UngroupedRowSchema = z122.object({ id: z122.string().min(1), product_id: z122.string().min(1), workspace_id: z122.string().min(1), query: z122.string().min(1) });
-var NearestRowSchema = z122.object({ group_id: z122.string().min(1), cosine: z122.number() });
-var GroupIdSchema = z122.object({ id: z122.string().min(1) });
+import { z as z123 } from "zod";
+var UngroupedRowSchema = z123.object({ id: z123.string().min(1), product_id: z123.string().min(1), workspace_id: z123.string().min(1), query: z123.string().min(1) });
+var NearestRowSchema = z123.object({ group_id: z123.string().min(1), cosine: z123.number() });
+var GroupIdSchema = z123.object({ id: z123.string().min(1) });
 var vectorText = (vector) => `[${vector.join(",")}]`;
 function refused8(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
@@ -29667,7 +29733,7 @@ function searchStore(connection) {
     nearest: async (productId, model, vector) => {
       const { data, error } = await db.rpc("mcp_search_group_nearest", { p_product: productId, p_model: model, p_query: vectorText(vector) });
       if (error) throw refused8(error);
-      const [row] = z122.array(NearestRowSchema).parse(data);
+      const [row] = z123.array(NearestRowSchema).parse(data);
       return row ? { groupId: row.group_id, cosine: row.cosine } : null;
     },
     addGroup: async ({ productId, workspaceId, firstSearchId, question, model, vector }) => {
@@ -29687,13 +29753,13 @@ function searchStore(connection) {
 }
 
 // apps/omni-app/src/search-eval/galaxy.ts
-import { z as z123 } from "zod";
+import { z as z124 } from "zod";
 var TIMEOUT_MS3 = 2e4;
 var RELEVANT_MAX = 20;
-var VerdictsSchema = z123.looseObject({
-  verdicts: z123.array(z123.looseObject({ entryId: z123.string().min(1), relevant: z123.boolean().nullable(), confidence: z123.number().min(0).max(1).nullable().optional() }))
+var VerdictsSchema = z124.looseObject({
+  verdicts: z124.array(z124.looseObject({ entryId: z124.string().min(1), relevant: z124.boolean().nullable(), confidence: z124.number().min(0).max(1).nullable().optional() }))
 });
-var SearchSchema2 = z123.looseObject({ ids: z123.array(z123.string().min(1)) });
+var SearchSchema2 = z124.looseObject({ ids: z124.array(z124.string().min(1)) });
 var host = (galaxyUrl) => new URL(stageEventUrl(galaxyUrl)).origin;
 var relevantUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/relevant`;
 var evalSearchUrl = (galaxyUrl) => `${host(galaxyUrl)}/api/search/eval-search`;
@@ -29729,19 +29795,19 @@ function galaxyEvalSearcher({ url, secret, fetch: post2 = fetch, timeoutMs = TIM
 }
 
 // apps/omni-app/src/search-eval/store.ts
-import { z as z124 } from "zod";
+import { z as z125 } from "zod";
 var PAGE3 = 1e3;
 var CHUNK = 50;
-var LogRowSchema = z124.object({ group_id: z124.string().min(1), product_id: z124.string().min(1), workspace_id: z124.string().min(1), category: z124.string().nullable() });
-var GroupRowSchema = z124.object({ group_id: z124.string().min(1) });
-var QuestionTextSchema = z124.object({ question: z124.string() });
-var OpenedRowSchema = z124.object({ opened_id: z124.string().min(1) });
-var ProductRowSchema4 = z124.object({ product_id: z124.string().min(1) });
-var HolderRowSchema5 = z124.object({ product_id: z124.string().min(1) });
-var LiveProductSchema = z124.object({ id: z124.string().min(1) });
-var QuestionRowSchema = z124.object({ id: z124.string().min(1), product_id: z124.string().min(1), workspace_id: z124.string().min(1), question: z124.string(), category: z124.string().nullable() });
-var AnswerRowSchema = z124.object({ question_id: z124.string().min(1), entry_id: z124.string().min(1) });
-var RunRowSchema = z124.object({ id: z124.string().min(1) });
+var LogRowSchema = z125.object({ group_id: z125.string().min(1), product_id: z125.string().min(1), workspace_id: z125.string().min(1), category: z125.string().nullable() });
+var GroupRowSchema = z125.object({ group_id: z125.string().min(1) });
+var QuestionTextSchema = z125.object({ question: z125.string() });
+var OpenedRowSchema = z125.object({ opened_id: z125.string().min(1) });
+var ProductRowSchema4 = z125.object({ product_id: z125.string().min(1) });
+var HolderRowSchema5 = z125.object({ product_id: z125.string().min(1) });
+var LiveProductSchema = z125.object({ id: z125.string().min(1) });
+var QuestionRowSchema = z125.object({ id: z125.string().min(1), product_id: z125.string().min(1), workspace_id: z125.string().min(1), question: z125.string(), category: z125.string().nullable() });
+var AnswerRowSchema = z125.object({ question_id: z125.string().min(1), entry_id: z125.string().min(1) });
+var RunRowSchema = z125.object({ id: z125.string().min(1) });
 function refused9(error) {
   return new Error(`the database refused: ${error.message}${error.code ? ` (${error.code})` : ""}`);
 }
@@ -29776,7 +29842,7 @@ function searchEvalStore(connection) {
     promote: async ({ productId, groupId, category }) => {
       const { data, error } = await db.rpc("search_eval_question_promote", { p_product: productId, p_group: groupId, p_category: category });
       if (error) throw refused9(error);
-      return z124.string().min(1).nullable().parse(data);
+      return z125.string().min(1).nullable().parse(data);
     },
     questionOf: async (questionId) => {
       const [row] = rowsOf(QuestionTextSchema, await db.from("search_eval_questions").select("question").eq("id", questionId).limit(1));
@@ -29789,7 +29855,7 @@ function searchEvalStore(connection) {
     answerJev: async ({ questionId, entryId, relevant: relevant2, confidence }) => {
       const { data, error } = await db.rpc("search_eval_answer_jev", { p_question: questionId, p_entry: entryId, p_relevant: relevant2, p_confidence: confidence });
       if (error) throw refused9(error);
-      return z124.boolean().parse(data);
+      return z125.boolean().parse(data);
     },
     evalProducts: async (filter) => {
       const withQuestions = await liveQuestionProducts();
@@ -29822,7 +29888,7 @@ function searchEvalStore(connection) {
         p_questions: questions
       });
       if (error) throw refused9(error);
-      return z124.string().min(1).nullable().parse(data);
+      return z125.string().min(1).nullable().parse(data);
     }
   };
 }
@@ -29885,14 +29951,14 @@ function searchEvalPromoteHandler({
   search,
   ask: ask3,
   top: top2 = TOP_GROUPS,
-  days = WINDOW_DAYS,
+  days: days2 = WINDOW_DAYS,
   clock = Date.now,
   budgetMs = BUDGET_MS3,
   log: log2 = noteTo("search-eval-promote")
 }) {
   return async () => {
     const start = clock();
-    const since = new Date(start - days * DAY_MS7).toISOString();
+    const since = new Date(start - days2 * DAY_MS7).toISOString();
     const picks = pickGroups(countGroups(await store.searches(since)), await store.joined(), top2);
     const counters = { promoted: 0, judged: 0, unjudged: 0 };
     for (const group2 of picks) {
@@ -29913,19 +29979,19 @@ function searchEvalPromoteHandler({
 }
 
 // kit/lib/ready/report.ts
-import { z as z125 } from "zod";
+import { z as z126 } from "zod";
 var ACCEPTANCE_REPORT_FORMAT = "omni-acceptance/1";
 var ACCEPTANCE_CHECK_NAME = "acceptance";
 var RESULT_STATES = ["passed", "failed", "skipped", "pending"];
-var ResultSchema = z125.object({
-  ac: z125.number().int().positive(),
-  kind: z125.enum(AC_KINDS),
-  state: z125.enum(RESULT_STATES),
+var ResultSchema = z126.object({
+  ac: z126.number().int().positive(),
+  kind: z126.enum(AC_KINDS),
+  state: z126.enum(RESULT_STATES),
   /** The test's title, `AC-<n>: …`. */
-  title: z125.string().min(1),
+  title: z126.string().min(1),
   /** Where the proof lives: the test file, or the e2e run's report. */
-  proof: z125.string().min(1).nullable().default(null),
-  why: z125.string().min(1).optional()
+  proof: z126.string().min(1).nullable().default(null),
+  why: z126.string().min(1).optional()
 }).strict().superRefine((result, issues) => {
   const proves = acNumberOfTitle(result.title);
   if (proves !== result.ac) {
@@ -29933,10 +29999,10 @@ var ResultSchema = z125.object({
     issues.addIssue({ code: "custom", path: ["title"], message: `${result.title} ${says3}` });
   }
 });
-var ReportSchema = z125.object({
-  format: z125.literal(ACCEPTANCE_REPORT_FORMAT),
-  commit: z125.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
-  results: z125.array(ResultSchema)
+var ReportSchema = z126.object({
+  format: z126.literal(ACCEPTANCE_REPORT_FORMAT),
+  commit: z126.string().regex(/^[0-9a-f]{7,40}$/, "the commit the proofs ran on, as a hexadecimal sha"),
+  results: z126.array(ResultSchema)
 }).strict();
 function parseAcceptanceReport(text20) {
   let raw;
@@ -30360,25 +30426,25 @@ function readyVerdict(facts) {
 }
 
 // apps/omni-app/src/ready-check/ready-check.ts
-import { z as z128 } from "zod";
+import { z as z129 } from "zod";
 
 // apps/omni-app/src/ready-check/facts.ts
 import { existsSync as existsSync53, readFileSync as readFileSync52 } from "node:fs";
 import { join as join79 } from "node:path";
-import { z as z126 } from "zod";
+import { z as z127 } from "zod";
 var read = (value) => ({ ok: true, value });
 var unread = (why) => ({ ok: false, why });
-var RunSchema3 = z126.looseObject({
-  name: z126.string(),
-  status: z126.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
-  conclusion: z126.string().nullish(),
-  html_url: z126.string().nullish(),
-  output: z126.looseObject({ title: z126.string().nullish(), summary: z126.string().nullish(), text: z126.string().nullish() }).nullish()
+var RunSchema3 = z127.looseObject({
+  name: z127.string(),
+  status: z127.enum(["queued", "in_progress", "completed", "waiting", "requested", "pending"]),
+  conclusion: z127.string().nullish(),
+  html_url: z127.string().nullish(),
+  output: z127.looseObject({ title: z127.string().nullish(), summary: z127.string().nullish(), text: z127.string().nullish() }).nullish()
 });
-var RunsPageSchema2 = z126.looseObject({ check_runs: z126.array(RunSchema3) });
-var ComparePageSchema2 = z126.looseObject({
-  merge_base_commit: z126.looseObject({ sha: z126.string() }).nullish(),
-  files: z126.array(z126.looseObject({ filename: z126.string(), status: z126.string(), previous_filename: z126.string().nullish() })).nullish()
+var RunsPageSchema2 = z127.looseObject({ check_runs: z127.array(RunSchema3) });
+var ComparePageSchema2 = z127.looseObject({
+  merge_base_commit: z127.looseObject({ sha: z127.string() }).nullish(),
+  files: z127.array(z127.looseObject({ filename: z127.string(), status: z127.string(), previous_filename: z127.string().nullish() })).nullish()
 });
 var STATUS2 = Object.freeze({
   added: "added",
@@ -30546,7 +30612,7 @@ async function readyFacts(octokit, at4, { owner, repo, prNumber, pr, baseFolder 
 }
 
 // apps/omni-app/src/ready-check/runner-fallback.ts
-import { z as z127 } from "zod";
+import { z as z128 } from "zod";
 
 // apps/omni-app/src/ready-check/zip.ts
 import { inflateRawSync } from "node:zlib";
@@ -30604,11 +30670,11 @@ function unzipText(zip, name) {
 var KEPT_ARTIFACT = "acceptance-report";
 var KEPT_FILE = "report.json";
 var ACCEPTANCE_EXTERNAL_ID = "omni-acceptance";
-var ArtifactsSchema = z127.looseObject({
-  artifacts: z127.array(z127.looseObject({ id: z127.number(), expired: z127.boolean().nullish(), workflow_run: z127.looseObject({ head_sha: z127.string().nullish() }).nullish() }))
+var ArtifactsSchema = z128.looseObject({
+  artifacts: z128.array(z128.looseObject({ id: z128.number(), expired: z128.boolean().nullish(), workflow_run: z128.looseObject({ head_sha: z128.string().nullish() }).nullish() }))
 });
-var RunSchema4 = z127.looseObject({ id: z127.number(), status: z127.string().nullish(), conclusion: z127.string().nullish(), output: z127.looseObject({ title: z127.string().nullish(), summary: z127.string().nullish(), text: z127.string().nullish() }).nullish() });
-var RunsSchema = z127.looseObject({ check_runs: z127.array(RunSchema4).nullish() });
+var RunSchema4 = z128.looseObject({ id: z128.number(), status: z128.string().nullish(), conclusion: z128.string().nullish(), output: z128.looseObject({ title: z128.string().nullish(), summary: z128.string().nullish(), text: z128.string().nullish() }).nullish() });
+var RunsSchema = z128.looseObject({ check_runs: z128.array(RunSchema4).nullish() });
 async function keptReport(octokit, { owner, repo, headSha }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/actions/artifacts", { owner, repo, name: KEPT_ARTIFACT, per_page: 100 });
   const own = ArtifactsSchema.parse(data).artifacts.filter((artifact) => artifact.workflow_run?.head_sha === headSha && artifact.expired !== true);
@@ -30760,9 +30826,9 @@ async function readyTarget(octokit, { store, request, head }) {
   }
   return { pr, config, prd, ctx };
 }
-var RunSchema5 = z128.looseObject({ id: z128.number(), status: z128.string().nullish(), conclusion: z128.string().nullish(), html_url: z128.string().nullish(), output: z128.looseObject({ title: z128.string().nullish(), summary: z128.string().nullish() }).nullish() });
-var RunsSchema2 = z128.looseObject({ check_runs: z128.array(RunSchema5).nullish() });
-var WrittenSchema2 = z128.looseObject({ id: z128.number(), html_url: z128.string().nullish() });
+var RunSchema5 = z129.looseObject({ id: z129.number(), status: z129.string().nullish(), conclusion: z129.string().nullish(), html_url: z129.string().nullish(), output: z129.looseObject({ title: z129.string().nullish(), summary: z129.string().nullish() }).nullish() });
+var RunsSchema2 = z129.looseObject({ check_runs: z129.array(RunSchema5).nullish() });
+var WrittenSchema2 = z129.looseObject({ id: z129.number(), html_url: z129.string().nullish() });
 var says2 = (run, output) => run.status === output.status && (run.conclusion ?? null) === (output.status === "completed" ? output.conclusion : null) && run.output?.title === output.title && run.output.summary === output.summary;
 async function postReady(octokit, { owner, repo, headSha, output }) {
   const { data } = await octokit.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { owner, repo, ref: headSha, check_name: READY_CHECK_NAME, per_page: 100 });
@@ -30856,22 +30922,22 @@ function readyFailureHook({ octokitFor, store = null }) {
 }
 
 // apps/omni-app/src/ready-check/store.ts
-import { z as z129 } from "zod";
+import { z as z130 } from "zod";
 var LIVE_MISSIONS = Object.freeze(["running", "waiting", "paused"]);
-var AppJobRowSchema = z129.object({
-  status: z129.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
-  log_tail: z129.string(),
-  reason: z129.string().nullable()
+var AppJobRowSchema = z130.object({
+  status: z130.enum(["queued", "claimed", "running", "done", "failed", "cancelled"]),
+  log_tail: z130.string(),
+  reason: z130.string().nullable()
 });
-var MissionScopeRowSchema = z129.object({
-  scope: z129.object({
-    prds: z129.array(z129.union([PrdNumberSchema, ProductPrdIdSchema])),
-    roadmaps: z129.array(z129.union([z129.number().int().positive(), ProductRoadmapIdSchema]))
+var MissionScopeRowSchema = z130.object({
+  scope: z130.object({
+    prds: z130.array(z130.union([PrdNumberSchema, ProductPrdIdSchema])),
+    roadmaps: z130.array(z130.union([z130.number().int().positive(), ProductRoadmapIdSchema]))
   })
 });
-var RoadmapRowOfSchema = z129.object({ roadmap_id: z129.string().min(1) });
+var RoadmapRowOfSchema = z130.object({ roadmap_id: z130.string().min(1) });
 function scopesOf(answer, repo, warn) {
-  return rowsOf(z129.unknown(), answer).flatMap((row) => {
+  return rowsOf(z130.unknown(), answer).flatMap((row) => {
     const parsed3 = MissionScopeRowSchema.safeParse(row);
     if (parsed3.success) return [parsed3.data.scope];
     warn({ event: "ready-check", repo, message: `a live mission of ${repo} has a scope out of shape, left out: ${parsed3.error.message}` });
@@ -31010,6 +31076,7 @@ function liveWorkers(env, octokitFor) {
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
+      [RUNNER_JOBS_EXPIRE_KIND]: runnerJobsExpireHandler({ store: expireStore(supabase) }),
       // No push is sent from the App: the high finding waits with notified_at unset (PRD omni-loop-34 s2's outbox).
       [SUPERVISOR_WATCH_KIND]: supervisorWatchHandler({ store: watchStore(supabase), notify: null }),
       [NOTEBOOK_KIND]: notebookHandler({ store: notebookStore(supabase), model: liveNotebookModel(env.openrouter ?? null) }),
@@ -31178,7 +31245,7 @@ function liveJobs(env, logger) {
     bugs: () => sweepBugs({ store: bugTeamStore(supabase), github: bugGithub({ octokitFor, app: appOctokitFor(env.githubApp ?? null) }), log: noteTo("bug-follow", logger) })
   };
 }
-var ReplayBodySchema = z130.object({ replay: z130.string().min(1) });
+var ReplayBodySchema = z131.object({ replay: z131.string().min(1) });
 var json2 = (status2, body) => Response.json(body, { status: status2, headers: { "cache-control": "no-store" } });
 function authorized(header, secret) {
   if (!secret || header === null) return false;

@@ -19,7 +19,8 @@
 //                    adds the `knowledge-embed` job of a kept pack, PRD 2728 s4), the knowledge embed's and the
 //                    scheduled ones' included (`pr-stats` and `escalation`, PRD omni-loop-3 s2, and
 //                    `search-categorize`, PRD omni-loop-7 s3, `search-eval-promote` and `search-eval-run`, PRD
-//                    omni-loop-8 s4, `checkpoints-forget`, PRD 2809 s6, and `commander-notebook`, PRD 3107 s4, ./schedule.ts; the run
+//                    omni-loop-8 s4, `checkpoints-forget`, PRD 2809 s6, `commander-notebook`, PRD 3107 s4, and
+//                    `runner-jobs-expire`, PRD omni-loop-35 s3, ./schedule.ts; the run
 //                    also added by the embed), and
 //                    the three the webhook adds, `fix-row-stamp` and `fleet-board` (PRD omni-loop-3 s3) and
 //                    `canon-action` (s4), and the one `/api/server-event` refreshes, `server-event` (s4), which
@@ -90,6 +91,8 @@ import { NOTEBOOK_KIND } from '../missions/notebook.ts';
 import { liveNotebookModel, notebookHandler } from '../missions/notebook-run.ts';
 import { notebookStore } from '../missions/notebook-store.ts';
 import { CHECKPOINTS_FORGET_KIND, checkpointsForgetHandler } from './checkpoints-forget.ts';
+import { RUNNER_JOBS_EXPIRE_KIND, runnerJobsExpireHandler } from './runner-jobs-expire/job.ts';
+import { expireStore } from './runner-jobs-expire/store.ts';
 import { watchStore } from '../supervisor/store.ts';
 import { SUPERVISOR_WATCH_KIND, supervisorWatchHandler } from '../supervisor/watch.ts';
 import { jobLedger, REFRESH_DELAY_SECONDS, type RefreshJob } from './ledger.ts';
@@ -268,6 +271,7 @@ export function liveWorkers(env: WorkerEnv, octokitFor: OctokitFor<GitHubClient 
       }),
       [SEARCH_EVAL_RUN_KIND]: searchEvalRunHandler({ store: evalStore, search: evalSearch }),
       [CHECKPOINTS_FORGET_KIND]: checkpointsForgetHandler({ store: checkpointStore(supabase) }),
+      [RUNNER_JOBS_EXPIRE_KIND]: runnerJobsExpireHandler({ store: expireStore(supabase) }),
       // No push is sent from the App: the high finding waits with notified_at unset (PRD omni-loop-34 s2's outbox).
       [SUPERVISOR_WATCH_KIND]: supervisorWatchHandler({ store: watchStore(supabase), notify: null }),
       [NOTEBOOK_KIND]: notebookHandler({ store: notebookStore(supabase), model: liveNotebookModel(env.openrouter ?? null) }),
