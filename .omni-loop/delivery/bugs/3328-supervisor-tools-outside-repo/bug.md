@@ -8,8 +8,8 @@
 
 ## Reproduction
 
-- **File:** `kit/lib/launch/launch-seat.test.ts` (moved there unchanged after the red, from `kit/lib/launch/launch.test.ts`, the proof file of N-PRODUCT-12)
-- **Level:** unit
+- **File:** `kit/lib/launch/launch-seat.test.ts`
+- **Level:** unit (red in `kit/lib/launch/launch.test.ts` at 8f3a068, then moved unchanged to its own file, off the proof file of N-PRODUCT-12)
 - **Red:** `AssertionError: expected { kind: 'refuse', …(1) } to deeply equal { kind: 'self' }` — `"message": "omni: no Omni Loop kit here — run omni init in your repository"`
 
 ## Fix
