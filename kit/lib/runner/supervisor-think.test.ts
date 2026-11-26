@@ -3,6 +3,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import type { SupervisorApi } from './api.ts';
 import { planLaunch } from '../launch/launch.ts';
@@ -112,7 +113,7 @@ describe('the seat\'s think', () => {
   it('describes the raise tool\'s group fingerprint: it may name signals of different fingerprints', async () => {
     const lines: string[] = [];
     await serveSeatMcp({
-      input: [`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })}\n`],
+      input: Readable.from([`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })}\n`]),
       write: (line) => lines.push(line),
       api: {} as SupervisorApi,
       runner: RUNNER,
